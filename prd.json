@@ -490,8 +490,8 @@
         "Option to auto-email receipt to tenant",
         "Receipt includes all payment details"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": []
     },
     {
@@ -516,7 +516,7 @@
   ],
   "metadata": {
     "total_stories": 25,
-    "passing_stories": 23,
+    "passing_stories": 24,
     "framework": "Laravel",
     "frontend": "Vue.js/Inertia"
   }

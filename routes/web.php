@@ -491,6 +491,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/settings/payment-methods', [FinancesController::class, 'updatePaymentMethods'])->name('settings.payment-methods');
         Route::post('/settings/invoice', [FinancesController::class, 'updateInvoiceSettings'])->name('settings.invoice');
         Route::post('/settings/reminder', [FinancesController::class, 'updateReminderSettings'])->name('settings.reminder');
+        Route::post('/settings/receipt', [FinancesController::class, 'updateReceiptSettings'])->name('settings.receipt');
+        Route::get('/settings/receipt/preview', [FinancesController::class, 'previewReceipt'])->name('settings.receipt.preview');
 
         // Reports
         Route::get('/reports', [FinancesController::class, 'reports'])->name('reports');

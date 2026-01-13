@@ -9,6 +9,8 @@ import {
     BellIcon,
     DocumentTextIcon,
     ArrowTopRightOnSquareIcon,
+    ReceiptPercentIcon,
+    EyeIcon,
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
@@ -16,6 +18,7 @@ const props = defineProps({
     paymentMethods: Object,
     invoiceSettings: Object,
     reminderSettings: Object,
+    receiptSettings: Object,
 });
 
 const activeSection = ref('payment-methods');
@@ -42,6 +45,17 @@ const reminderForm = useForm({
     reminder_days_before_due: props.reminderSettings?.reminder_days_before_due || 3,
     overdue_reminder_frequency: props.reminderSettings?.overdue_reminder_frequency || 'weekly',
     reminder_channels: props.reminderSettings?.reminder_channels || ['email'],
+});
+
+const receiptForm = useForm({
+    auto_email_receipt: props.receiptSettings?.auto_email_receipt ?? true,
+    receipt_show_logo: props.receiptSettings?.receipt_show_logo ?? true,
+    receipt_show_tenant_details: props.receiptSettings?.receipt_show_tenant_details ?? true,
+    receipt_show_invoice_details: props.receiptSettings?.receipt_show_invoice_details ?? true,
+    receipt_show_payment_method: props.receiptSettings?.receipt_show_payment_method ?? true,
+    receipt_header_text: props.receiptSettings?.receipt_header_text || '',
+    receipt_footer_text: props.receiptSettings?.receipt_footer_text || '',
+    receipt_thank_you_message: props.receiptSettings?.receipt_thank_you_message || '',
 });
 
 const togglePaymentMethod = (method) => {
@@ -75,6 +89,16 @@ const saveReminderSettings = () => {
     });
 };
 
+const saveReceiptSettings = () => {
+    receiptForm.post(route('finances.settings.receipt'), {
+        preserveScroll: true,
+    });
+};
+
+const previewReceipt = () => {
+    window.open(route('finances.settings.receipt.preview'), '_blank');
+};
+
 const toggleReminderChannel = (channel) => {
     const index = reminderForm.reminder_channels.indexOf(channel);
     if (index > -1) {
@@ -98,6 +122,7 @@ const methodIcons = {
 const sections = [
     { id: 'payment-methods', name: 'Payment Methods', icon: CreditCardIcon },
     { id: 'invoice-settings', name: 'Invoice Settings', icon: DocumentTextIcon },
+    { id: 'receipt-settings', name: 'Receipt Settings', icon: ReceiptPercentIcon },
     { id: 'reminders', name: 'Reminders', icon: BellIcon },
 ];
 </script>
@@ -322,6 +347,115 @@ const sections = [
                         class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
                     >
                         {{ invoiceForm.processing ? 'Saving...' : 'Save Invoice Settings' }}
+                    </button>
+                </div>
+            </div>
+
+            <div v-if="activeSection === 'receipt-settings'" class="space-y-6">
+                <div class="bg-white rounded-xl border border-gray-200 p-6">
+                    <h3 class="text-sm font-semibold text-gray-900 mb-4">Auto-Send Settings</h3>
+                    <label class="flex items-center gap-3">
+                        <input
+                            v-model="receiptForm.auto_email_receipt"
+                            type="checkbox"
+                            class="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                        />
+                        <div>
+                            <span class="text-sm text-gray-700">Automatically email receipt to tenant after payment</span>
+                            <p class="text-xs text-gray-500">Receipts will be sent immediately when a payment is recorded</p>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="bg-white rounded-xl border border-gray-200 p-6">
+                    <h3 class="text-sm font-semibold text-gray-900 mb-4">Receipt Content</h3>
+                    <div class="space-y-4">
+                        <label class="flex items-center gap-3">
+                            <input
+                                v-model="receiptForm.receipt_show_logo"
+                                type="checkbox"
+                                class="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                            />
+                            <span class="text-sm text-gray-700">Show business logo on receipt</span>
+                        </label>
+                        <label class="flex items-center gap-3">
+                            <input
+                                v-model="receiptForm.receipt_show_tenant_details"
+                                type="checkbox"
+                                class="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                            />
+                            <span class="text-sm text-gray-700">Show tenant details (name, email, unit)</span>
+                        </label>
+                        <label class="flex items-center gap-3">
+                            <input
+                                v-model="receiptForm.receipt_show_invoice_details"
+                                type="checkbox"
+                                class="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                            />
+                            <span class="text-sm text-gray-700">Show invoice details table</span>
+                        </label>
+                        <label class="flex items-center gap-3">
+                            <input
+                                v-model="receiptForm.receipt_show_payment_method"
+                                type="checkbox"
+                                class="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                            />
+                            <span class="text-sm text-gray-700">Show payment method</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl border border-gray-200 p-6">
+                    <h3 class="text-sm font-semibold text-gray-900 mb-4">Custom Text</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Header Text</label>
+                            <input
+                                v-model="receiptForm.receipt_header_text"
+                                type="text"
+                                maxlength="255"
+                                placeholder="e.g., Official Payment Receipt"
+                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            />
+                            <p class="mt-1 text-xs text-gray-500">Custom text displayed below the receipt title</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Thank You Message</label>
+                            <input
+                                v-model="receiptForm.receipt_thank_you_message"
+                                type="text"
+                                maxlength="500"
+                                placeholder="e.g., Thank you for your payment!"
+                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            />
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Footer Text</label>
+                            <textarea
+                                v-model="receiptForm.receipt_footer_text"
+                                rows="3"
+                                placeholder="e.g., For any inquiries, please contact us at..."
+                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            ></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-between">
+                    <button
+                        @click="previewReceipt"
+                        type="button"
+                        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                        <EyeIcon class="h-4 w-4" />
+                        Preview Receipt
+                    </button>
+                    <button
+                        @click="saveReceiptSettings"
+                        :disabled="receiptForm.processing"
+                        class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                    >
+                        {{ receiptForm.processing ? 'Saving...' : 'Save Receipt Settings' }}
                     </button>
                 </div>
             </div>

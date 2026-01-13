@@ -43,6 +43,14 @@ class InvoiceSetting extends Model
         'key_deposit_amount',
         'first_invoice_due_days',
         'auto_generate_first_invoice',
+        'auto_email_receipt',
+        'receipt_show_logo',
+        'receipt_show_tenant_details',
+        'receipt_show_invoice_details',
+        'receipt_show_payment_method',
+        'receipt_header_text',
+        'receipt_footer_text',
+        'receipt_thank_you_message',
     ];
 
     protected $casts = [
@@ -54,6 +62,11 @@ class InvoiceSetting extends Model
         'admin_fee_amount' => 'decimal:2',
         'key_deposit_amount' => 'decimal:2',
         'auto_generate_first_invoice' => 'boolean',
+        'auto_email_receipt' => 'boolean',
+        'receipt_show_logo' => 'boolean',
+        'receipt_show_tenant_details' => 'boolean',
+        'receipt_show_invoice_details' => 'boolean',
+        'receipt_show_payment_method' => 'boolean',
     ];
 
     public function landlord(): BelongsTo

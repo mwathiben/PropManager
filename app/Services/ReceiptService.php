@@ -58,6 +58,23 @@ class ReceiptService
         return sprintf('%s-%s%s-%04d', $prefix, $year, $month, $count + 1);
     }
 
+    protected function getReceiptSettings(Receipt $receipt): object
+    {
+        $landlord = User::find($receipt->landlord_id);
+        $settings = $landlord?->invoiceSetting;
+
+        return (object) [
+            'receipt_show_logo' => $settings?->receipt_show_logo ?? true,
+            'receipt_show_tenant_details' => $settings?->receipt_show_tenant_details ?? true,
+            'receipt_show_invoice_details' => $settings?->receipt_show_invoice_details ?? true,
+            'receipt_show_payment_method' => $settings?->receipt_show_payment_method ?? true,
+            'receipt_header_text' => $settings?->receipt_header_text,
+            'receipt_footer_text' => $settings?->receipt_footer_text,
+            'receipt_thank_you_message' => $settings?->receipt_thank_you_message,
+            'logo_path' => $settings?->logo_path,
+        ];
+    }
+
     public function generatePdf(Receipt $receipt): string
     {
         $receipt->load([
@@ -70,6 +87,7 @@ class ReceiptService
             'payment' => $receipt->payment,
             'invoice' => $receipt->invoice,
             'receipt' => $receipt,
+            'settings' => $this->getReceiptSettings($receipt),
         ]);
 
         $filename = "receipts/{$receipt->landlord_id}/{$receipt->receipt_number}.pdf";
@@ -92,6 +110,7 @@ class ReceiptService
             'payment' => $receipt->payment,
             'invoice' => $receipt->invoice,
             'receipt' => $receipt,
+            'settings' => $this->getReceiptSettings($receipt),
         ])->stream("Receipt-{$receipt->receipt_number}.pdf");
     }
 
@@ -107,6 +126,7 @@ class ReceiptService
             'payment' => $receipt->payment,
             'invoice' => $receipt->invoice,
             'receipt' => $receipt,
+            'settings' => $this->getReceiptSettings($receipt),
         ])->download("Receipt-{$receipt->receipt_number}.pdf");
     }
 }

@@ -20,6 +20,7 @@ use App\Models\PaymentConfiguration;
 use App\Models\Property;
 use App\Models\Refund;
 use App\Models\Setting;
+use App\Models\User;
 use App\Models\Vendor;
 use App\Services\LateFeeService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -132,6 +133,7 @@ class FinancesController extends Controller
             'paymentMethods' => PaymentConfiguration::PAYMENT_METHODS,
             'invoiceSettings' => $this->getInvoiceSettings($landlordId),
             'reminderSettings' => $this->getReminderSettings($landlordId),
+            'receiptSettings' => $this->getReceiptSettings($landlordId),
         ]);
     }
 
@@ -1129,6 +1131,99 @@ class FinancesController extends Controller
         Setting::set('reminder_channels', json_encode($request->reminder_channels), false, 'notification', null, $landlordId);
 
         return back()->with('success', 'Reminder settings saved successfully.');
+    }
+
+    public function updateReceiptSettings(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'auto_email_receipt' => 'boolean',
+            'receipt_show_logo' => 'boolean',
+            'receipt_show_tenant_details' => 'boolean',
+            'receipt_show_invoice_details' => 'boolean',
+            'receipt_show_payment_method' => 'boolean',
+            'receipt_header_text' => 'nullable|string|max:255',
+            'receipt_footer_text' => 'nullable|string|max:2000',
+            'receipt_thank_you_message' => 'nullable|string|max:500',
+        ]);
+
+        $landlordId = $this->getLandlordId();
+        $user = User::find($landlordId);
+        $settings = $user->getOrCreateInvoiceSetting();
+
+        $settings->update([
+            'auto_email_receipt' => $request->boolean('auto_email_receipt'),
+            'receipt_show_logo' => $request->boolean('receipt_show_logo'),
+            'receipt_show_tenant_details' => $request->boolean('receipt_show_tenant_details'),
+            'receipt_show_invoice_details' => $request->boolean('receipt_show_invoice_details'),
+            'receipt_show_payment_method' => $request->boolean('receipt_show_payment_method'),
+            'receipt_header_text' => $request->receipt_header_text,
+            'receipt_footer_text' => $request->receipt_footer_text,
+            'receipt_thank_you_message' => $request->receipt_thank_you_message,
+        ]);
+
+        return back()->with('success', 'Receipt settings saved successfully.');
+    }
+
+    public function previewReceipt()
+    {
+        $landlordId = $this->getLandlordId();
+        $user = User::find($landlordId);
+        $settings = $user->getOrCreateInvoiceSetting();
+
+        $samplePayment = (object) [
+            'reference' => 'RCT-202601-0001',
+            'payment_date' => now(),
+            'payment_method' => 'mpesa',
+            'amount' => 25000,
+            'notes' => 'Sample payment for preview',
+        ];
+
+        $sampleInvoice = (object) [
+            'invoice_number' => 'INV-202601-0001',
+            'billing_period_start' => now()->startOfMonth(),
+            'total_due' => 25000,
+            'amount_paid' => 25000,
+            'lease' => (object) [
+                'tenant' => (object) [
+                    'name' => 'John Doe',
+                    'email' => 'johndoe@example.com',
+                ],
+                'unit' => (object) [
+                    'unit_number' => 'A101',
+                    'building' => (object) [
+                        'name' => 'Sunrise Apartments',
+                    ],
+                ],
+            ],
+        ];
+
+        $sampleReceipt = (object) [
+            'receipt_number' => 'RCT-202601-0001',
+        ];
+
+        return Pdf::loadView('receipts.payment-receipt', [
+            'payment' => $samplePayment,
+            'invoice' => $sampleInvoice,
+            'receipt' => $sampleReceipt,
+            'settings' => $settings,
+        ])->stream('receipt-preview.pdf');
+    }
+
+    protected function getReceiptSettings(int $landlordId): array
+    {
+        $user = User::find($landlordId);
+        $settings = $user?->invoiceSetting;
+
+        return [
+            'auto_email_receipt' => $settings?->auto_email_receipt ?? true,
+            'receipt_show_logo' => $settings?->receipt_show_logo ?? true,
+            'receipt_show_tenant_details' => $settings?->receipt_show_tenant_details ?? true,
+            'receipt_show_invoice_details' => $settings?->receipt_show_invoice_details ?? true,
+            'receipt_show_payment_method' => $settings?->receipt_show_payment_method ?? true,
+            'receipt_header_text' => $settings?->receipt_header_text,
+            'receipt_footer_text' => $settings?->receipt_footer_text,
+            'receipt_thank_you_message' => $settings?->receipt_thank_you_message,
+        ];
     }
 
     public function matchPayment(Request $request, Payment $payment): RedirectResponse

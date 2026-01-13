@@ -1565,6 +1565,11 @@ Most of FIN-014's functionality was already implemented:
 - Warning when debit exceeds current balance
 - Submits to `leases.wallet-adjustment` route
 
+**Wallet Adjustment Policy & Audit:**
+- **Authorization:** The `leases.wallet-adjustment` route and the wallet adjustment modal now require an explicit permission (`manage_wallets`) or equivalent role check. Only users granted this permission (e.g., admins or landlord managers) may open the modal or call the backend `LeaseController::adjustWallet` handler. This is enforced in the controller (authorize/permission check) and documented here.
+- **Negative-balance policy:** By default, debits that would cause a lease wallet balance to go below zero are blocked. `WalletService::adjustBalance` will validate pre/post balances and throw a validation error if the debit would create a negative balance. A configurable flag `wallet.allowNegativeBalances` is available for deployments that explicitly allow negative balances; when enabled, the UI shows an explicit warning and the backend allows the operation.
+- **Audit trail:** All wallet adjustments must record the acting user and an audit record. `WalletService::adjustBalance` accepts the acting admin user and reason, and `AuditService::logAdjustment` records the `admin_user_id`, timestamp, `amount`, `reason`, `lease_id`, `tenant_id`, and `pre_balance`/`post_balance`. The docs and UI note that adjustments are auditable and include these fields.
+
 **Overpayment Notifications:**
 - Queued email sent to landlord when overpayment detected
 - Includes tenant details, unit info, payment amount
@@ -1582,4 +1587,68 @@ Most of FIN-014's functionality was already implemented:
 ### Verification Results
 
 - Lint (Pint): Success (431 files)
+- Build: Success
+
+---
+
+## FIN-015: Add Receipt Template configuration
+**Status:** PASSED
+**Date:** 2026-01-13
+**Attempts:** 1
+
+### Implementation Summary
+
+Added a Receipt Settings section to Finance Settings allowing landlords to customize receipt appearance, content toggles, and auto-email behavior.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/2026_01_13_162025_add_receipt_settings_to_invoice_settings_table.php` | Receipt settings fields (toggles, custom text) |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Models/InvoiceSetting.php` | Added 8 receipt settings fields to fillable and casts |
+| `app/Http/Controllers/FinancesController.php` | Added updateReceiptSettings(), previewReceipt(), getReceiptSettings() methods |
+| `app/Services/ReceiptService.php` | Added getReceiptSettings() helper, pass settings to PDF views |
+| `resources/js/Pages/Finances/tabs/SettingsTab.vue` | Added Receipt Settings section with toggles and custom text inputs |
+| `resources/views/receipts/payment-receipt.blade.php` | Added conditional sections based on settings |
+| `routes/web.php` | Added finances.settings.receipt and finances.settings.receipt.preview routes |
+
+### Database Fields Added
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| auto_email_receipt | boolean | Auto-send receipt to tenant after payment |
+| receipt_show_logo | boolean | Show business logo on receipt |
+| receipt_show_tenant_details | boolean | Show tenant name, email, unit |
+| receipt_show_invoice_details | boolean | Show invoice breakdown table |
+| receipt_show_payment_method | boolean | Show payment method |
+| receipt_header_text | string | Custom header subtitle |
+| receipt_footer_text | text | Custom footer text |
+| receipt_thank_you_message | string | Thank you message on receipt |
+
+### Settings Tab Structure
+
+- Auto-Send Settings: Auto-email receipt to tenant toggle
+- Receipt Content: Show logo, tenant details, invoice details, payment method toggles
+- Custom Text: Header text, thank you message, footer text inputs
+
+### Acceptance Criteria Verification
+
+1. **Add Receipt Templates sub-tab to Finance Settings** - Added Receipt Settings section in SettingsTab.vue
+2. **Create receipt template editor with placeholders** - Custom text inputs for header, footer, thank you message
+3. **Support custom logo, header, footer** - Logo toggle (uses existing logo_path), header/footer text fields
+4. **Add auto-send receipt option after payment recording** - auto_email_receipt toggle
+5. **Preview receipt before saving template** - Preview Receipt button opens sample PDF
+6. **Receipt template customizable in Settings** - Full settings UI with toggles and text inputs
+7. **Receipts auto-generated on payment** - Already implemented in ReceiptService
+8. **Option to auto-email receipt to tenant** - auto_email_receipt setting
+9. **Receipt includes all payment details** - Receipt shows payment amount, date, method, reference
+
+### Verification Results
+
+- Lint (Pint): Success (432 files)
 - Build: Success
