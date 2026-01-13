@@ -493,6 +493,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/settings/reminder', [FinancesController::class, 'updateReminderSettings'])->name('settings.reminder');
         Route::post('/settings/receipt', [FinancesController::class, 'updateReceiptSettings'])->name('settings.receipt');
         Route::get('/settings/receipt/preview', [FinancesController::class, 'previewReceipt'])->name('settings.receipt.preview');
+        Route::post('/settings/fiscal-year', [FinancesController::class, 'updateFiscalYearSettings'])->name('settings.fiscal-year');
 
         // Reports
         Route::get('/reports', [FinancesController::class, 'reports'])->name('reports');

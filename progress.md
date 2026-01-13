@@ -1652,3 +1652,85 @@ Added a Receipt Settings section to Finance Settings allowing landlords to custo
 
 - Lint (Pint): Success (432 files)
 - Build: Success
+
+---
+
+## FIN-016: Add Fiscal Year configuration for reports
+**Status:** PASSED
+**Date:** 2026-01-13
+**Attempts:** 1
+
+### Implementation Summary
+
+Added fiscal year configuration to Finance Settings, allowing landlords to use calendar year (Jan-Dec) or custom fiscal year (e.g., Apr-Mar). Reports now respect this setting with "This Fiscal Year" and "Last Fiscal Year" filter options, and YTD calculations use the configured fiscal year start.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/2026_01_13_172852_add_fiscal_year_settings_to_invoice_settings_table.php` | Adds fiscal_year_type and fiscal_year_start_month fields |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Models/InvoiceSetting.php` | Added fiscal year fields to fillable/casts; Added helper methods: isCalendarYear(), getFiscalYearStart(), getFiscalYearEnd(), getPreviousFiscalYearStart(), getPreviousFiscalYearEnd() |
+| `resources/js/Pages/Finances/tabs/SettingsTab.vue` | Added Fiscal Year section with type toggle (calendar/custom) and start month selector |
+| `app/Http/Controllers/FinancesController.php` | Added getFiscalYearSettings(), updateFiscalYearSettings(); Updated settings() to include fiscalYearSettings; Updated getReportDateRange() to support fiscal year periods |
+| `routes/web.php` | Added POST /finances/settings/fiscal-year route |
+| `resources/js/Pages/Finances/tabs/ReportsTab.vue` | Added "This Fiscal Year" and "Last Fiscal Year" filter options |
+
+### Database Fields Added
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| fiscal_year_type | string(20) | 'calendar' or 'custom' (default: 'calendar') |
+| fiscal_year_start_month | tinyint | 1-12 for start month (default: 1 for January) |
+
+### Fiscal Year Calculation Logic
+
+```php
+// Example: Fiscal year starts April (month = 4)
+// Reference date: January 15, 2026
+
+// This Fiscal Year: Apr 1, 2025 - Mar 31, 2026
+// Last Fiscal Year: Apr 1, 2024 - Mar 31, 2025
+
+// If reference month < start month, fiscal year started previous calendar year
+// If reference month >= start month, fiscal year started current calendar year
+```
+
+### Settings UI Features
+
+- Calendar Year / Custom Fiscal Year toggle buttons
+- Month selector dropdown (only visible for custom)
+- Info box explaining impact on reports
+- Shows calculated fiscal year range dynamically
+
+### Report Filter Options Added
+
+- "This Fiscal Year" - Full current fiscal year
+- "Last Fiscal Year" - Full previous fiscal year
+- "Year to Date" - Now uses fiscal year start (respects configuration)
+
+### Acceptance Criteria Verification
+
+1. **Add Fiscal Year setting (calendar year vs custom)** - Toggle buttons in Settings > Fiscal Year
+2. **Support start month configuration** - Month dropdown selector (1-12)
+3. **Update all reports to respect fiscal year** - getReportDateRange() updated
+4. **Add fiscal year filter option to reports** - Added this_fy and last_fy options
+5. **Fiscal year can be configured in Settings** - Full UI with save functionality
+6. **Reports can be filtered by fiscal year** - Filter dropdown includes fiscal year options
+7. **YTD calculations use fiscal year start** - YTD period now uses getFiscalYearStart()
+
+### Verification Results
+
+- Lint (Pint): Success (434 files, 1 auto-fix)
+- Build: Success
+- Tests: 324 passed, 39 skipped
+
+---
+
+# PRD Complete
+
+All 25 user stories (INV-001 through INV-009 and FIN-001 through FIN-016) have been implemented and verified. The PropManager Finance Module is now feature-complete.

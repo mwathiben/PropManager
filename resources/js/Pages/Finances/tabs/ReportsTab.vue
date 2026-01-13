@@ -51,6 +51,8 @@ const periodOptions = [
     { value: 'this_quarter', label: 'This Quarter' },
     { value: 'last_quarter', label: 'Last Quarter' },
     { value: 'ytd', label: 'Year to Date' },
+    { value: 'this_fy', label: 'This Fiscal Year' },
+    { value: 'last_fy', label: 'Last Fiscal Year' },
     { value: '12', label: 'Last 12 Months' },
     { value: '6', label: 'Last 6 Months' },
     { value: '3', label: 'Last 3 Months' },

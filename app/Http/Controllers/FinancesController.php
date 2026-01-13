@@ -134,6 +134,7 @@ class FinancesController extends Controller
             'invoiceSettings' => $this->getInvoiceSettings($landlordId),
             'reminderSettings' => $this->getReminderSettings($landlordId),
             'receiptSettings' => $this->getReceiptSettings($landlordId),
+            'fiscalYearSettings' => $this->getFiscalYearSettings($landlordId),
         ]);
     }
 
@@ -1224,6 +1225,36 @@ class FinancesController extends Controller
             'receipt_footer_text' => $settings?->receipt_footer_text,
             'receipt_thank_you_message' => $settings?->receipt_thank_you_message,
         ];
+    }
+
+    protected function getFiscalYearSettings(int $landlordId): array
+    {
+        $user = User::find($landlordId);
+        $settings = $user?->invoiceSetting;
+
+        return [
+            'fiscal_year_type' => $settings?->fiscal_year_type ?? 'calendar',
+            'fiscal_year_start_month' => $settings?->fiscal_year_start_month ?? 1,
+        ];
+    }
+
+    public function updateFiscalYearSettings(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'fiscal_year_type' => 'required|in:calendar,custom',
+            'fiscal_year_start_month' => 'required|integer|min:1|max:12',
+        ]);
+
+        $landlordId = $this->getLandlordId();
+        $user = User::find($landlordId);
+        $settings = $user->getOrCreateInvoiceSetting();
+
+        $settings->update([
+            'fiscal_year_type' => $request->fiscal_year_type,
+            'fiscal_year_start_month' => $request->fiscal_year_start_month,
+        ]);
+
+        return back()->with('success', 'Fiscal year settings saved successfully.');
     }
 
     public function matchPayment(Request $request, Payment $payment): RedirectResponse
@@ -2633,6 +2664,29 @@ class FinancesController extends Controller
 
         $now = now();
 
+        $fiscalYearStart = null;
+        $fiscalYearEnd = null;
+        $previousFiscalYearStart = null;
+        $previousFiscalYearEnd = null;
+
+        if (in_array($period, ['ytd', 'this_fy', 'last_fy'])) {
+            $landlordId = $this->getLandlordId();
+            $user = User::find($landlordId);
+            $settings = $user?->invoiceSetting;
+
+            if ($settings && $settings->fiscal_year_type === 'custom') {
+                $fiscalYearStart = $settings->getFiscalYearStart($now);
+                $fiscalYearEnd = $settings->getFiscalYearEnd($now);
+                $previousFiscalYearStart = $settings->getPreviousFiscalYearStart($now);
+                $previousFiscalYearEnd = $settings->getPreviousFiscalYearEnd($now);
+            } else {
+                $fiscalYearStart = $now->copy()->startOfYear();
+                $fiscalYearEnd = $now->copy()->endOfYear();
+                $previousFiscalYearStart = $now->copy()->subYear()->startOfYear();
+                $previousFiscalYearEnd = $now->copy()->subYear()->endOfYear();
+            }
+        }
+
         return match ($period) {
             'this_month' => [
                 'start' => $now->copy()->startOfMonth(),
@@ -2651,8 +2705,16 @@ class FinancesController extends Controller
                 'end' => $now->copy()->subQuarter()->lastOfQuarter(),
             ],
             'ytd' => [
-                'start' => $now->copy()->startOfYear(),
+                'start' => $fiscalYearStart,
                 'end' => $now->copy()->endOfDay(),
+            ],
+            'this_fy' => [
+                'start' => $fiscalYearStart,
+                'end' => $fiscalYearEnd,
+            ],
+            'last_fy' => [
+                'start' => $previousFiscalYearStart,
+                'end' => $previousFiscalYearEnd,
             ],
             default => [
                 'start' => $now->copy()->subMonths((int) $period)->startOfMonth(),

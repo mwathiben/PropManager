@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Traits\TenantScope;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -51,6 +52,8 @@ class InvoiceSetting extends Model
         'receipt_header_text',
         'receipt_footer_text',
         'receipt_thank_you_message',
+        'fiscal_year_type',
+        'fiscal_year_start_month',
     ];
 
     protected $casts = [
@@ -67,6 +70,7 @@ class InvoiceSetting extends Model
         'receipt_show_tenant_details' => 'boolean',
         'receipt_show_invoice_details' => 'boolean',
         'receipt_show_payment_method' => 'boolean',
+        'fiscal_year_start_month' => 'integer',
     ];
 
     public function landlord(): BelongsTo
@@ -106,5 +110,43 @@ class InvoiceSetting extends Model
     public function hasBusinessDetails(): bool
     {
         return ! empty($this->business_name);
+    }
+
+    public function isCalendarYear(): bool
+    {
+        return $this->fiscal_year_type === 'calendar';
+    }
+
+    public function getFiscalYearStart(?Carbon $referenceDate = null): Carbon
+    {
+        $reference = $referenceDate ?? now();
+        $startMonth = $this->fiscal_year_start_month ?? 1;
+
+        if ($startMonth === 1) {
+            return $reference->copy()->startOfYear();
+        }
+
+        $year = $reference->month >= $startMonth
+            ? $reference->year
+            : $reference->year - 1;
+
+        return Carbon::create($year, $startMonth, 1)->startOfDay();
+    }
+
+    public function getFiscalYearEnd(?Carbon $referenceDate = null): Carbon
+    {
+        $start = $this->getFiscalYearStart($referenceDate);
+
+        return $start->copy()->addYear()->subDay()->endOfDay();
+    }
+
+    public function getPreviousFiscalYearStart(?Carbon $referenceDate = null): Carbon
+    {
+        return $this->getFiscalYearStart($referenceDate)->subYear();
+    }
+
+    public function getPreviousFiscalYearEnd(?Carbon $referenceDate = null): Carbon
+    {
+        return $this->getFiscalYearStart($referenceDate)->subDay()->endOfDay();
     }
 }

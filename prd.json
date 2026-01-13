@@ -509,14 +509,14 @@
         "Reports can be filtered by fiscal year",
         "YTD calculations use fiscal year start"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": []
     }
   ],
   "metadata": {
     "total_stories": 25,
-    "passing_stories": 24,
+    "passing_stories": 25,
     "framework": "Laravel",
     "frontend": "Vue.js/Inertia"
   }

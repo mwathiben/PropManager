@@ -11,6 +11,7 @@ import {
     ArrowTopRightOnSquareIcon,
     ReceiptPercentIcon,
     EyeIcon,
+    CalendarDaysIcon,
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
@@ -19,6 +20,7 @@ const props = defineProps({
     invoiceSettings: Object,
     reminderSettings: Object,
     receiptSettings: Object,
+    fiscalYearSettings: Object,
 });
 
 const activeSection = ref('payment-methods');
@@ -58,6 +60,26 @@ const receiptForm = useForm({
     receipt_thank_you_message: props.receiptSettings?.receipt_thank_you_message || '',
 });
 
+const fiscalYearForm = useForm({
+    fiscal_year_type: props.fiscalYearSettings?.fiscal_year_type || 'calendar',
+    fiscal_year_start_month: props.fiscalYearSettings?.fiscal_year_start_month || 1,
+});
+
+const monthOptions = [
+    { value: 1, label: 'January' },
+    { value: 2, label: 'February' },
+    { value: 3, label: 'March' },
+    { value: 4, label: 'April' },
+    { value: 5, label: 'May' },
+    { value: 6, label: 'June' },
+    { value: 7, label: 'July' },
+    { value: 8, label: 'August' },
+    { value: 9, label: 'September' },
+    { value: 10, label: 'October' },
+    { value: 11, label: 'November' },
+    { value: 12, label: 'December' },
+];
+
 const togglePaymentMethod = (method) => {
     const index = paymentMethodsForm.accepted_payment_methods.indexOf(method);
     if (index > -1) {
@@ -95,6 +117,12 @@ const saveReceiptSettings = () => {
     });
 };
 
+const saveFiscalYearSettings = () => {
+    fiscalYearForm.post(route('finances.settings.fiscal-year'), {
+        preserveScroll: true,
+    });
+};
+
 const previewReceipt = () => {
     window.open(route('finances.settings.receipt.preview'), '_blank');
 };
@@ -123,6 +151,7 @@ const sections = [
     { id: 'payment-methods', name: 'Payment Methods', icon: CreditCardIcon },
     { id: 'invoice-settings', name: 'Invoice Settings', icon: DocumentTextIcon },
     { id: 'receipt-settings', name: 'Receipt Settings', icon: ReceiptPercentIcon },
+    { id: 'fiscal-year', name: 'Fiscal Year', icon: CalendarDaysIcon },
     { id: 'reminders', name: 'Reminders', icon: BellIcon },
 ];
 </script>
@@ -456,6 +485,91 @@ const sections = [
                         class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
                     >
                         {{ receiptForm.processing ? 'Saving...' : 'Save Receipt Settings' }}
+                    </button>
+                </div>
+            </div>
+
+            <div v-if="activeSection === 'fiscal-year'" class="space-y-6">
+                <div class="bg-white rounded-xl border border-gray-200 p-6">
+                    <h3 class="text-sm font-semibold text-gray-900 mb-4">Fiscal Year Configuration</h3>
+                    <p class="text-sm text-gray-600 mb-6">
+                        Configure your fiscal year for financial reporting. This affects how "Year to Date" and fiscal year reports are calculated.
+                    </p>
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-2">Fiscal Year Type</label>
+                            <div class="flex gap-4">
+                                <button
+                                    type="button"
+                                    @click="fiscalYearForm.fiscal_year_type = 'calendar'"
+                                    :class="[
+                                        'flex-1 px-4 py-3 text-sm rounded-lg border-2 transition-colors text-left',
+                                        fiscalYearForm.fiscal_year_type === 'calendar'
+                                            ? 'border-emerald-500 bg-emerald-50'
+                                            : 'border-gray-200 hover:border-gray-300'
+                                    ]"
+                                >
+                                    <p :class="['font-medium', fiscalYearForm.fiscal_year_type === 'calendar' ? 'text-emerald-900' : 'text-gray-900']">
+                                        Calendar Year
+                                    </p>
+                                    <p class="text-xs text-gray-500 mt-1">January 1 - December 31</p>
+                                </button>
+                                <button
+                                    type="button"
+                                    @click="fiscalYearForm.fiscal_year_type = 'custom'"
+                                    :class="[
+                                        'flex-1 px-4 py-3 text-sm rounded-lg border-2 transition-colors text-left',
+                                        fiscalYearForm.fiscal_year_type === 'custom'
+                                            ? 'border-emerald-500 bg-emerald-50'
+                                            : 'border-gray-200 hover:border-gray-300'
+                                    ]"
+                                >
+                                    <p :class="['font-medium', fiscalYearForm.fiscal_year_type === 'custom' ? 'text-emerald-900' : 'text-gray-900']">
+                                        Custom Fiscal Year
+                                    </p>
+                                    <p class="text-xs text-gray-500 mt-1">Choose your start month</p>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div v-if="fiscalYearForm.fiscal_year_type === 'custom'">
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Fiscal Year Start Month</label>
+                            <select
+                                v-model.number="fiscalYearForm.fiscal_year_start_month"
+                                class="w-48 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            >
+                                <option v-for="month in monthOptions" :key="month.value" :value="month.value">
+                                    {{ month.label }}
+                                </option>
+                            </select>
+                            <p class="mt-2 text-xs text-gray-500">
+                                Your fiscal year will run from {{ monthOptions.find(m => m.value === fiscalYearForm.fiscal_year_start_month)?.label }}
+                                to {{ monthOptions.find(m => m.value === (fiscalYearForm.fiscal_year_start_month === 1 ? 12 : fiscalYearForm.fiscal_year_start_month - 1))?.label }}.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 rounded-xl border border-blue-200 p-4">
+                    <div class="flex gap-3">
+                        <CalendarDaysIcon class="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                            <h4 class="text-sm font-medium text-blue-900">How this affects your reports</h4>
+                            <p class="text-sm text-blue-700 mt-1">
+                                The "Year to Date" filter in reports will use your fiscal year start date.
+                                You'll also have access to "This Fiscal Year" and "Last Fiscal Year" filter options.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end">
+                    <button
+                        @click="saveFiscalYearSettings"
+                        :disabled="fiscalYearForm.processing"
+                        class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                    >
+                        {{ fiscalYearForm.processing ? 'Saving...' : 'Save Fiscal Year Settings' }}
                     </button>
                 </div>
             </div>
