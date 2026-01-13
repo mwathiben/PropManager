@@ -7,6 +7,7 @@ use App\Http\Requests\Api\InitiateMpesaPaymentRequest;
 use App\Http\Requests\Api\InitiatePaystackPaymentRequest;
 use App\Http\Resources\PaymentResource;
 use App\Models\Invoice;
+use App\Models\InvoiceSetting;
 use App\Models\Payment;
 use App\Models\PaymentConfiguration;
 use App\Services\MpesaService;
@@ -59,9 +60,13 @@ class TenantPaymentController extends Controller
 
         $payment->load(['invoice.lease.tenant', 'invoice.lease.unit.building']);
 
+        $settings = InvoiceSetting::where('landlord_id', $payment->landlord_id)->first()
+            ?? new InvoiceSetting;
+
         $pdf = Pdf::loadView('receipts.payment-receipt', [
             'payment' => $payment,
             'invoice' => $payment->invoice,
+            'settings' => $settings,
         ]);
 
         return $pdf->download("receipt-{$payment->reference}.pdf");

@@ -47,8 +47,17 @@ class TenantInvoiceController extends Controller
 
         $invoice->load(['lease.tenant', 'lease.unit.building.property', 'payments']);
 
-        $pdf = Pdf::loadView('invoices.pdf', [
+        $tenant = $invoice->lease->tenant;
+        $unit = $invoice->lease->unit;
+        $building = $unit->building;
+        $property = $building->property;
+
+        $pdf = Pdf::loadView('invoices.invoice-pdf', [
             'invoice' => $invoice,
+            'tenant' => $tenant,
+            'unit' => $unit,
+            'building' => $building,
+            'property' => $property,
         ]);
 
         return $pdf->download("invoice-{$invoice->invoice_number}.pdf");

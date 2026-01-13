@@ -24,6 +24,7 @@ trait MocksExternalServices
     protected function mockPaystackService(?array $initResponse = null, ?array $verifyResponse = null): void
     {
         $mock = Mockery::mock(PaystackService::class);
+        $mock->shouldReceive('isConfigured')->andReturn(true);
         $mock->shouldReceive('verifyWebhookSignature')->andReturn(true);
 
         if ($initResponse) {
