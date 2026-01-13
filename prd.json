@@ -372,8 +372,8 @@
         "Breadcrumbs are clickable and navigate correctly",
         "Current page is shown but not clickable"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["FIN-009"]
     },
     {
@@ -509,7 +509,7 @@
   ],
   "metadata": {
     "total_stories": 25,
-    "passing_stories": 18,
+    "passing_stories": 19,
     "framework": "Laravel",
     "frontend": "Vue.js/Inertia"
   }
