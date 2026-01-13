@@ -4,10 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Mail\PaymentReceived;
 use App\Mail\PaymentVerificationApproved;
+use App\Models\Building;
 use App\Models\Invoice;
 use App\Models\LandlordPayoutAccount;
+use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\TenantPaymentVerification;
+use App\Models\Unit;
 use App\Models\User;
 use App\Services\BillingModelService;
 use App\Services\PaystackService;
@@ -15,8 +18,10 @@ use App\Services\ReceiptService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class PaymentController extends Controller
@@ -857,17 +862,48 @@ class PaymentController extends Controller
             abort(403, 'Access denied.');
         }
 
-        return Inertia::render('Finances/Payments/BulkImport');
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+
+        $buildings = Building::where('landlord_id', $landlordId)
+            ->with('property:id,name')
+            ->select('id', 'name', 'property_id')
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($b) => [
+                'id' => $b->id,
+                'name' => $b->name,
+                'property_name' => $b->property?->name ?? 'Unknown Property',
+                'display_name' => ($b->property?->name ?? 'Unknown').' - '.$b->name,
+            ]);
+
+        return Inertia::render('Finances/Payments/BulkImport', [
+            'buildings' => $buildings,
+        ]);
     }
 
     /**
      * Download bulk import CSV template.
      */
-    public function downloadBulkTemplate()
+    public function downloadBulkTemplate(Request $request)
     {
-        $headers = ['Tenant Email', 'Invoice Number', 'Payment Date', 'Amount', 'Payment Method', 'Reference'];
-        $sample = ['tenant@example.com', 'INV-202401-0001', '2024-01-15', '15750', 'mpesa', 'RBK12345678'];
-        $sample2 = ['tenant2@example.com', '', '2024-01-15', '30000', 'bank_transfer', 'TRF-9876'];
+        $user = auth()->user();
+        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+            abort(403, 'Access denied.');
+        }
+
+        $mode = $request->query('mode', 'current');
+
+        if ($mode === 'historical') {
+            $headers = ['Unit Number', 'Tenant Name', 'Tenant Email', 'Payment Date', 'Amount', 'Payment Method', 'Reference'];
+            $sample = ['A101', 'Former Tenant A', '', '2023-06-15', '12000', 'cash', ''];
+            $sample2 = ['A102', 'Former Tenant B', '', '2023-08-01', '15000', 'mpesa', 'ABC123'];
+            $filename = 'payments_historical_import_template.csv';
+        } else {
+            $headers = ['Unit Number', 'Tenant Name', 'Tenant Email', 'Invoice Number', 'Payment Date', 'Amount', 'Payment Method', 'Reference'];
+            $sample = ['A101', 'John Doe', 'john@example.com', 'INV-202401-0001', '2024-01-15', '15750', 'mpesa', 'RBK12345678'];
+            $sample2 = ['A102', 'Jane Smith', 'jane@example.com', '', '2024-01-15', '30000', 'bank_transfer', 'TRF-9876'];
+            $filename = 'payments_bulk_import_template.csv';
+        }
 
         $csv = fopen('php://temp', 'r+');
         fputcsv($csv, $headers);
@@ -880,7 +916,7 @@ class PaymentController extends Controller
 
         return response($content, 200, [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="payments_bulk_import_template.csv"',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
     }
 
@@ -891,6 +927,8 @@ class PaymentController extends Controller
     {
         $request->validate([
             'file' => 'required|file|mimes:csv,txt|max:5120',
+            'building_id' => 'required|integer|exists:buildings,id',
+            'mode' => 'required|in:current,historical',
         ]);
 
         $user = auth()->user();
@@ -899,6 +937,16 @@ class PaymentController extends Controller
         }
 
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+        $buildingId = $request->input('building_id');
+        $mode = $request->input('mode');
+
+        $building = Building::where('id', $buildingId)
+            ->where('landlord_id', $landlordId)
+            ->first();
+
+        if (! $building) {
+            return response()->json(['error' => 'Building not found or access denied.'], 403);
+        }
 
         $file = $request->file('file');
         $rows = $this->parseCsv($file->getPathname());
@@ -914,6 +962,8 @@ class PaymentController extends Controller
             $rowNumber = $index + 2;
             $errors = [];
 
+            $unitNumber = trim($row['unit_number'] ?? $row['Unit Number'] ?? '');
+            $tenantName = trim($row['tenant_name'] ?? $row['Tenant Name'] ?? '');
             $tenantEmail = trim($row['tenant_email'] ?? $row['Tenant Email'] ?? '');
             $invoiceNumber = trim($row['invoice_number'] ?? $row['Invoice Number'] ?? '');
             $paymentDate = trim($row['payment_date'] ?? $row['Payment Date'] ?? '');
@@ -921,9 +971,17 @@ class PaymentController extends Controller
             $paymentMethod = strtolower(trim($row['payment_method'] ?? $row['Payment Method'] ?? ''));
             $reference = trim($row['reference'] ?? $row['Reference'] ?? '');
 
-            if (empty($tenantEmail)) {
-                $errors[] = 'Tenant Email is required';
-            } elseif (! filter_var($tenantEmail, FILTER_VALIDATE_EMAIL)) {
+            if (empty($unitNumber)) {
+                $errors[] = 'Unit Number is required';
+            }
+
+            if ($mode === 'historical' && empty($tenantName)) {
+                $errors[] = 'Tenant Name is required for historical imports';
+            }
+
+            if ($mode === 'current' && empty($tenantEmail)) {
+                $errors[] = 'Tenant Email is required for current imports';
+            } elseif ($mode === 'current' && ! empty($tenantEmail) && ! filter_var($tenantEmail, FILTER_VALIDATE_EMAIL)) {
                 $errors[] = 'Invalid email format';
             }
 
@@ -931,7 +989,7 @@ class PaymentController extends Controller
                 $errors[] = 'Payment Date is required';
             } elseif (! strtotime($paymentDate)) {
                 $errors[] = 'Invalid date format (use YYYY-MM-DD)';
-            } elseif (strtotime($paymentDate) > time()) {
+            } elseif ($mode === 'current' && strtotime($paymentDate) > time()) {
                 $errors[] = 'Payment date cannot be in the future';
             }
 
@@ -941,16 +999,26 @@ class PaymentController extends Controller
                 $errors[] = 'Amount must be a positive number';
             }
 
-            $validMethods = ['cash', 'mpesa', 'bank_transfer', 'cheque'];
+            $validMethods = ['cash', 'mpesa', 'bank_transfer', 'cheque', 'mobile_money'];
             if (empty($paymentMethod)) {
                 $errors[] = 'Payment Method is required';
             } elseif (! in_array($paymentMethod, $validMethods)) {
                 $errors[] = 'Payment Method must be one of: '.implode(', ', $validMethods);
             }
 
+            $unit = Unit::where('building_id', $buildingId)
+                ->where('unit_number', $unitNumber)
+                ->first();
+
+            if (! $unit && ! empty($unitNumber)) {
+                $errors[] = "Unit '{$unitNumber}' not found in selected building";
+            }
+
             if (! empty($errors)) {
                 $invalidRows[] = [
                     'row' => $rowNumber,
+                    'unit_number' => $unitNumber,
+                    'tenant_name' => $tenantName,
                     'tenant_email' => $tenantEmail,
                     'amount' => $amount,
                     'errors' => $errors,
@@ -959,110 +1027,40 @@ class PaymentController extends Controller
                 continue;
             }
 
-            $tenant = User::where('landlord_id', $landlordId)
-                ->where('role', 'tenant')
-                ->where('email', $tenantEmail)
-                ->first();
-
-            if (! $tenant) {
-                $invalidRows[] = [
-                    'row' => $rowNumber,
-                    'tenant_email' => $tenantEmail,
-                    'amount' => $amount,
-                    'errors' => ["Tenant not found with email: {$tenantEmail}"],
-                ];
-
-                continue;
-            }
-
-            $allocations = [];
-            $walletCredit = 0;
-            $remainingAmount = (float) $amount;
-
-            if (! empty($invoiceNumber)) {
-                $invoice = Invoice::where('landlord_id', $landlordId)
-                    ->where('invoice_number', $invoiceNumber)
-                    ->first();
-
-                if (! $invoice) {
-                    $invalidRows[] = [
-                        'row' => $rowNumber,
-                        'tenant_email' => $tenantEmail,
-                        'amount' => $amount,
-                        'errors' => ["Invoice not found: {$invoiceNumber}"],
-                    ];
-
-                    continue;
-                }
-
-                if ($invoice->lease && $invoice->lease->tenant_id !== $tenant->id) {
-                    $invalidRows[] = [
-                        'row' => $rowNumber,
-                        'tenant_email' => $tenantEmail,
-                        'amount' => $amount,
-                        'errors' => ["Invoice {$invoiceNumber} does not belong to this tenant"],
-                    ];
-
-                    continue;
-                }
-
-                $outstanding = $invoice->getOutstandingBalance();
-                $allocationAmount = min($remainingAmount, $outstanding);
-                $allocations[] = [
-                    'invoice_id' => $invoice->id,
-                    'invoice_number' => $invoice->invoice_number,
-                    'amount' => $allocationAmount,
-                    'outstanding_before' => $outstanding,
-                ];
-                $remainingAmount -= $allocationAmount;
-
-                if ($remainingAmount > 0) {
-                    $walletCredit = $remainingAmount;
-                }
+            if ($mode === 'historical') {
+                $validRows[] = $this->validateHistoricalRow(
+                    $rowNumber,
+                    $unit,
+                    $unitNumber,
+                    $tenantName,
+                    $tenantEmail,
+                    $paymentDate,
+                    (float) $amount,
+                    $paymentMethod,
+                    $reference,
+                    $landlordId
+                );
             } else {
-                $invoices = Invoice::where('landlord_id', $landlordId)
-                    ->whereHas('lease', fn ($q) => $q->where('tenant_id', $tenant->id))
-                    ->whereIn('status', ['sent', 'partial', 'overdue'])
-                    ->orderBy('due_date', 'asc')
-                    ->get();
+                $result = $this->validateCurrentRow(
+                    $rowNumber,
+                    $unit,
+                    $unitNumber,
+                    $tenantName,
+                    $tenantEmail,
+                    $invoiceNumber,
+                    $paymentDate,
+                    (float) $amount,
+                    $paymentMethod,
+                    $reference,
+                    $landlordId
+                );
 
-                foreach ($invoices as $invoice) {
-                    if ($remainingAmount <= 0) {
-                        break;
-                    }
-
-                    $outstanding = $invoice->getOutstandingBalance();
-                    if ($outstanding <= 0) {
-                        continue;
-                    }
-
-                    $allocationAmount = min($remainingAmount, $outstanding);
-                    $allocations[] = [
-                        'invoice_id' => $invoice->id,
-                        'invoice_number' => $invoice->invoice_number,
-                        'amount' => $allocationAmount,
-                        'outstanding_before' => $outstanding,
-                    ];
-                    $remainingAmount -= $allocationAmount;
-                }
-
-                if ($remainingAmount > 0) {
-                    $walletCredit = $remainingAmount;
+                if (isset($result['errors'])) {
+                    $invalidRows[] = $result;
+                } else {
+                    $validRows[] = $result;
                 }
             }
-
-            $validRows[] = [
-                'row' => $rowNumber,
-                'tenant_email' => $tenantEmail,
-                'tenant_id' => $tenant->id,
-                'tenant_name' => $tenant->name,
-                'amount' => (float) $amount,
-                'payment_date' => $paymentDate,
-                'payment_method' => $paymentMethod,
-                'reference' => $reference,
-                'allocations' => $allocations,
-                'wallet_credit' => $walletCredit,
-            ];
         }
 
         return response()->json([
@@ -1071,7 +1069,179 @@ class PaymentController extends Controller
             'invalid_rows' => count($invalidRows),
             'valid' => $validRows,
             'invalid' => $invalidRows,
+            'mode' => $mode,
+            'building_id' => $buildingId,
         ]);
+    }
+
+    /**
+     * Validate a row for historical import mode.
+     */
+    private function validateHistoricalRow(
+        int $rowNumber,
+        ?Unit $unit,
+        string $unitNumber,
+        string $tenantName,
+        string $tenantEmail,
+        string $paymentDate,
+        float $amount,
+        string $paymentMethod,
+        string $reference,
+        int $landlordId
+    ): array {
+        return [
+            'row' => $rowNumber,
+            'unit_id' => $unit?->id,
+            'unit_number' => $unitNumber,
+            'tenant_name' => $tenantName,
+            'tenant_email' => $tenantEmail,
+            'payment_date' => $paymentDate,
+            'amount' => $amount,
+            'payment_method' => $paymentMethod,
+            'reference' => $reference,
+            'is_historical' => true,
+            'will_create_tenant' => true,
+            'allocations' => [],
+            'wallet_credit' => 0,
+        ];
+    }
+
+    /**
+     * Validate a row for current tenant import mode.
+     */
+    private function validateCurrentRow(
+        int $rowNumber,
+        ?Unit $unit,
+        string $unitNumber,
+        string $tenantName,
+        string $tenantEmail,
+        string $invoiceNumber,
+        string $paymentDate,
+        float $amount,
+        string $paymentMethod,
+        string $reference,
+        int $landlordId
+    ): array {
+        $tenant = User::where('landlord_id', $landlordId)
+            ->where('role', 'tenant')
+            ->where('email', $tenantEmail)
+            ->where('is_archived', false)
+            ->first();
+
+        if (! $tenant) {
+            return [
+                'row' => $rowNumber,
+                'unit_number' => $unitNumber,
+                'tenant_name' => $tenantName,
+                'tenant_email' => $tenantEmail,
+                'amount' => $amount,
+                'errors' => ["Active tenant not found with email: {$tenantEmail}"],
+            ];
+        }
+
+        $activeLease = $tenant->lease;
+        if (! $activeLease || $activeLease->unit_id !== $unit->id) {
+            return [
+                'row' => $rowNumber,
+                'unit_number' => $unitNumber,
+                'tenant_name' => $tenantName,
+                'tenant_email' => $tenantEmail,
+                'amount' => $amount,
+                'errors' => ["Tenant does not have an active lease for unit {$unitNumber}"],
+            ];
+        }
+
+        $allocations = [];
+        $walletCredit = 0;
+        $remainingAmount = $amount;
+
+        if (! empty($invoiceNumber)) {
+            $invoice = Invoice::where('landlord_id', $landlordId)
+                ->where('invoice_number', $invoiceNumber)
+                ->first();
+
+            if (! $invoice) {
+                return [
+                    'row' => $rowNumber,
+                    'unit_number' => $unitNumber,
+                    'tenant_name' => $tenantName,
+                    'tenant_email' => $tenantEmail,
+                    'amount' => $amount,
+                    'errors' => ["Invoice not found: {$invoiceNumber}"],
+                ];
+            }
+
+            if ($invoice->lease && $invoice->lease->tenant_id !== $tenant->id) {
+                return [
+                    'row' => $rowNumber,
+                    'unit_number' => $unitNumber,
+                    'tenant_name' => $tenantName,
+                    'tenant_email' => $tenantEmail,
+                    'amount' => $amount,
+                    'errors' => ["Invoice {$invoiceNumber} does not belong to this tenant"],
+                ];
+            }
+
+            $outstanding = $invoice->getOutstandingBalance();
+            $allocationAmount = min($remainingAmount, $outstanding);
+            $allocations[] = [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'amount' => $allocationAmount,
+                'outstanding_before' => $outstanding,
+            ];
+            $remainingAmount -= $allocationAmount;
+
+            if ($remainingAmount > 0) {
+                $walletCredit = $remainingAmount;
+            }
+        } else {
+            $invoices = Invoice::where('landlord_id', $landlordId)
+                ->whereHas('lease', fn ($q) => $q->where('tenant_id', $tenant->id))
+                ->whereIn('status', ['sent', 'partial', 'overdue'])
+                ->orderBy('due_date', 'asc')
+                ->get();
+
+            foreach ($invoices as $invoice) {
+                if ($remainingAmount <= 0) {
+                    break;
+                }
+
+                $outstanding = $invoice->getOutstandingBalance();
+                if ($outstanding <= 0) {
+                    continue;
+                }
+
+                $allocationAmount = min($remainingAmount, $outstanding);
+                $allocations[] = [
+                    'invoice_id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'amount' => $allocationAmount,
+                    'outstanding_before' => $outstanding,
+                ];
+                $remainingAmount -= $allocationAmount;
+            }
+
+            if ($remainingAmount > 0) {
+                $walletCredit = $remainingAmount;
+            }
+        }
+
+        return [
+            'row' => $rowNumber,
+            'unit_id' => $unit->id,
+            'unit_number' => $unitNumber,
+            'tenant_id' => $tenant->id,
+            'tenant_name' => $tenant->name,
+            'tenant_email' => $tenantEmail,
+            'payment_date' => $paymentDate,
+            'amount' => $amount,
+            'payment_method' => $paymentMethod,
+            'reference' => $reference,
+            'is_historical' => false,
+            'allocations' => $allocations,
+            'wallet_credit' => $walletCredit,
+        ];
     }
 
     /**
@@ -1079,13 +1249,27 @@ class PaymentController extends Controller
      */
     public function processBulkImport(Request $request)
     {
+        $mode = $request->input('mode', 'current');
+
+        if ($mode === 'historical') {
+            return $this->processHistoricalImport($request);
+        }
+
+        return $this->processCurrentImport($request);
+    }
+
+    /**
+     * Process current tenant bulk import.
+     */
+    private function processCurrentImport(Request $request)
+    {
         $request->validate([
             'payments' => 'required|array|min:1',
             'payments.*.tenant_id' => 'required|integer',
             'payments.*.amount' => 'required|numeric|min:0.01',
             'payments.*.payment_date' => 'required|date',
             'payments.*.payment_method' => 'required|string',
-            'payments.*.allocations' => 'required|array',
+            'payments.*.allocations' => 'present|array',
         ]);
 
         $user = auth()->user();
@@ -1104,52 +1288,46 @@ class PaymentController extends Controller
 
         try {
             foreach ($request->payments as $paymentData) {
-                try {
-                    foreach ($paymentData['allocations'] as $allocation) {
-                        $invoice = Invoice::find($allocation['invoice_id']);
+                foreach ($paymentData['allocations'] as $allocation) {
+                    $invoice = Invoice::where('id', $allocation['invoice_id'])->lockForUpdate()->first();
 
-                        if (! $invoice) {
-                            continue;
-                        }
-
-                        $payment = Payment::create([
-                            'invoice_id' => $invoice->id,
-                            'lease_id' => $invoice->lease_id,
-                            'landlord_id' => $landlordId,
-                            'amount' => $allocation['amount'],
-                            'payment_method' => $paymentData['payment_method'],
-                            'payment_date' => $paymentData['payment_date'],
-                            'reference' => $paymentData['reference'] ?? null,
-                            'notes' => 'Bulk import',
-                        ]);
-
-                        $invoice->increment('amount_paid', $allocation['amount']);
-
-                        if ($invoice->amount_paid >= $invoice->total_due) {
-                            $invoice->update(['status' => 'paid']);
-                        } elseif ($invoice->amount_paid > 0) {
-                            $invoice->update(['status' => 'partial']);
-                        }
-
-                        $this->receiptService->createReceipt($payment, $invoice);
+                    if (! $invoice) {
+                        continue;
                     }
 
-                    if ($paymentData['wallet_credit'] > 0 && ! empty($paymentData['allocations'])) {
-                        $firstInvoice = Invoice::find($paymentData['allocations'][0]['invoice_id']);
-                        if ($firstInvoice && $firstInvoice->lease) {
-                            $firstInvoice->lease->increment('wallet_balance', $paymentData['wallet_credit']);
-                        }
-                    }
+                    $payment = Payment::create([
+                        'invoice_id' => $invoice->id,
+                        'lease_id' => $invoice->lease_id,
+                        'landlord_id' => $landlordId,
+                        'amount' => $allocation['amount'],
+                        'payment_method' => $paymentData['payment_method'],
+                        'payment_date' => $paymentData['payment_date'],
+                        'reference' => $paymentData['reference'] ?? null,
+                        'notes' => 'Bulk import',
+                    ]);
 
-                    $successCount++;
-                    $totalAmount += $paymentData['amount'];
-                } catch (\Exception $e) {
-                    $failedCount++;
-                    $errors[] = [
-                        'tenant_id' => $paymentData['tenant_id'],
-                        'error' => $e->getMessage(),
-                    ];
+                    $invoice->update([
+                        'amount_paid' => DB::raw("amount_paid + {$allocation['amount']}"),
+                        'status' => DB::raw("CASE WHEN amount_paid + {$allocation['amount']} >= total_due THEN 'paid' WHEN amount_paid + {$allocation['amount']} > 0 THEN 'partial' ELSE status END"),
+                    ]);
+
+                    $this->receiptService->createReceipt($payment, $invoice);
                 }
+
+                if (($paymentData['wallet_credit'] ?? 0) > 0) {
+                    if (! empty($paymentData['allocations'])) {
+                        $firstInvoice = Invoice::find($paymentData['allocations'][0]['invoice_id']);
+                        $lease = $firstInvoice ? $firstInvoice->lease : null;
+                    } else {
+                        $lease = Lease::where('tenant_id', $paymentData['tenant_id'])->first();
+                    }
+                    if ($lease) {
+                        $lease->creditToWallet($paymentData['wallet_credit'], 'Bulk import wallet credit');
+                    }
+                }
+
+                $successCount++;
+                $totalAmount += $paymentData['amount'];
             }
 
             DB::commit();
@@ -1166,9 +1344,181 @@ class PaymentController extends Controller
 
             return response()->json([
                 'success' => false,
+                'success_count' => 0,
+                'failed_count' => count($request->payments),
+                'total_amount' => 0,
+                'errors' => [['error' => $e->getMessage()]],
                 'error' => 'Bulk import failed: '.$e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Process historical data bulk import.
+     */
+    private function processHistoricalImport(Request $request)
+    {
+        $request->validate([
+            'payments' => 'required|array|min:1',
+            'payments.*.unit_id' => 'required|integer',
+            'payments.*.tenant_name' => 'required|string',
+            'payments.*.amount' => 'required|numeric|min:0.01',
+            'payments.*.payment_date' => 'required|date',
+            'payments.*.payment_method' => 'required|string',
+            'building_id' => 'required|integer',
+        ]);
+
+        $user = auth()->user();
+        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+            abort(403, 'Access denied.');
+        }
+
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+        $buildingId = $request->input('building_id');
+
+        $successCount = 0;
+        $failedCount = 0;
+        $totalAmount = 0;
+        $archivedTenantsCreated = 0;
+        $errors = [];
+
+        DB::beginTransaction();
+
+        try {
+            foreach ($request->payments as $paymentData) {
+                $unitId = $paymentData['unit_id'];
+                $tenantName = $paymentData['tenant_name'];
+                $tenantEmail = $paymentData['tenant_email'] ?? null;
+                $paymentDate = $paymentData['payment_date'];
+
+                $archivedTenant = $this->findOrCreateArchivedTenant(
+                    $landlordId,
+                    $unitId,
+                    $tenantName,
+                    $tenantEmail,
+                    $archivedTenantsCreated
+                );
+
+                $historicalLease = $this->findOrCreateHistoricalLease(
+                    $landlordId,
+                    $unitId,
+                    $archivedTenant->id,
+                    $paymentDate
+                );
+
+                Payment::create([
+                    'invoice_id' => null,
+                    'lease_id' => $historicalLease->id,
+                    'landlord_id' => $landlordId,
+                    'amount' => $paymentData['amount'],
+                    'payment_method' => $paymentData['payment_method'],
+                    'payment_date' => $paymentDate,
+                    'reference' => $paymentData['reference'] ?? null,
+                    'notes' => 'Historical import',
+                ]);
+
+                $successCount++;
+                $totalAmount += $paymentData['amount'];
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'success_count' => $successCount,
+                'failed_count' => $failedCount,
+                'total_amount' => $totalAmount,
+                'archived_tenants_created' => $archivedTenantsCreated,
+                'errors' => $errors,
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'success_count' => 0,
+                'failed_count' => count($request->payments),
+                'total_amount' => 0,
+                'archived_tenants_created' => 0,
+                'errors' => [['error' => $e->getMessage()]],
+                'error' => 'Historical import failed: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Find or create an archived tenant record for historical imports.
+     */
+    private function findOrCreateArchivedTenant(
+        int $landlordId,
+        int $unitId,
+        string $tenantName,
+        ?string $tenantEmail,
+        int &$createdCount
+    ): User {
+        $existingTenant = User::where('landlord_id', $landlordId)
+            ->where('role', 'tenant')
+            ->where('is_archived', true)
+            ->where('name', $tenantName)
+            ->first();
+
+        if ($existingTenant) {
+            return $existingTenant;
+        }
+
+        $email = $tenantEmail ?: 'archived_'.Str::slug($tenantName).'_'.$unitId.'_'.time().'@placeholder.local';
+
+        $tenant = User::create([
+            'name' => $tenantName,
+            'email' => $email,
+            'password' => Hash::make(Str::random(32)),
+            'role' => 'tenant',
+            'landlord_id' => $landlordId,
+            'is_archived' => true,
+            'archived_at' => now(),
+        ]);
+
+        $createdCount++;
+
+        return $tenant;
+    }
+
+    /**
+     * Find or create a historical lease record.
+     */
+    private function findOrCreateHistoricalLease(
+        int $landlordId,
+        int $unitId,
+        int $tenantId,
+        string $paymentDate
+    ): Lease {
+        $existingLease = Lease::where('landlord_id', $landlordId)
+            ->where('unit_id', $unitId)
+            ->where('tenant_id', $tenantId)
+            ->where('is_active', false)
+            ->first();
+
+        if ($existingLease) {
+            if (strtotime($existingLease->end_date) < strtotime($paymentDate)) {
+                $existingLease->update(['end_date' => $paymentDate]);
+            }
+            if (strtotime($existingLease->start_date) > strtotime($paymentDate)) {
+                $existingLease->update(['start_date' => $paymentDate]);
+            }
+
+            return $existingLease;
+        }
+
+        return Lease::create([
+            'unit_id' => $unitId,
+            'tenant_id' => $tenantId,
+            'landlord_id' => $landlordId,
+            'start_date' => $paymentDate,
+            'end_date' => $paymentDate,
+            'rent_amount' => 0,
+            'deposit_amount' => 0,
+            'is_active' => false,
+        ]);
     }
 
     /**
@@ -1195,6 +1545,8 @@ class PaymentController extends Controller
         while (($data = fgetcsv($handle)) !== false) {
             if (count($data) < count($headers)) {
                 $data = array_pad($data, count($headers), '');
+            } elseif (count($data) > count($headers)) {
+                $data = array_slice($data, 0, count($headers));
             }
             $rows[] = array_combine($headers, $data);
         }

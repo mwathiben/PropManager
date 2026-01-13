@@ -1,8 +1,9 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { router, Head, Link } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import Breadcrumb from '@/Components/Breadcrumb.vue';
 import {
     ArrowUpTrayIcon,
     DocumentArrowDownIcon,
@@ -13,7 +14,17 @@ import {
     ChevronDownIcon,
     ChevronUpIcon,
     BanknotesIcon,
+    ClockIcon,
+    UserPlusIcon,
+    InformationCircleIcon,
 } from '@heroicons/vue/24/outline';
+
+const props = defineProps({
+    buildings: {
+        type: Array,
+        default: () => [],
+    },
+});
 
 const { formatMoney } = useFormatters();
 
@@ -23,6 +34,8 @@ const fileName = ref('');
 const isValidating = ref(false);
 const isProcessing = ref(false);
 const validationError = ref('');
+const importMode = ref('current');
+const selectedBuildingId = ref(null);
 
 const previewData = ref({
     total_rows: 0,
@@ -30,16 +43,57 @@ const previewData = ref({
     invalid_rows: 0,
     valid: [],
     invalid: [],
+    mode: 'current',
 });
 
 const resultData = ref({
     success_count: 0,
     failed_count: 0,
     total_amount: 0,
+    archived_tenants_created: 0,
     errors: [],
 });
 
 const showValidRows = ref(false);
+
+const breadcrumbItems = [
+    { label: 'Finance Hub', href: route('finances.index') },
+    { label: 'Payments', href: route('finances.payments') },
+    { label: 'Bulk Import' },
+];
+
+const canProceed = computed(() => {
+    return file.value && selectedBuildingId.value;
+});
+
+const templateUrl = computed(() => {
+    return route('finances.payments.bulk-import.template', { mode: importMode.value });
+});
+
+const currentModeInstructions = [
+    { field: 'Unit Number', desc: 'Required. The unit identifier (e.g., A101).' },
+    { field: 'Tenant Name', desc: 'Optional. Used for display purposes.' },
+    { field: 'Tenant Email', desc: 'Required. Must match an active tenant.' },
+    { field: 'Invoice Number', desc: 'Optional. Leave empty for auto-allocation (FIFO).' },
+    { field: 'Payment Date', desc: 'Required. Format: YYYY-MM-DD' },
+    { field: 'Amount', desc: 'Required. Payment amount (numbers only).' },
+    { field: 'Payment Method', desc: 'Required. One of: cash, mpesa, bank_transfer, cheque, mobile_money' },
+    { field: 'Reference', desc: 'Optional. Transaction reference number.' },
+];
+
+const historicalModeInstructions = [
+    { field: 'Unit Number', desc: 'Required. The unit identifier (e.g., A101).' },
+    { field: 'Tenant Name', desc: 'Required. Name of the historical tenant.' },
+    { field: 'Tenant Email', desc: 'Optional. Will generate placeholder if empty.' },
+    { field: 'Payment Date', desc: 'Required. Format: YYYY-MM-DD (can be in the past).' },
+    { field: 'Amount', desc: 'Required. Payment amount (numbers only).' },
+    { field: 'Payment Method', desc: 'Required. One of: cash, mpesa, bank_transfer, cheque, mobile_money' },
+    { field: 'Reference', desc: 'Optional. Transaction reference number.' },
+];
+
+const instructions = computed(() => {
+    return importMode.value === 'historical' ? historicalModeInstructions : currentModeInstructions;
+});
 
 const handleFileChange = (event) => {
     const selectedFile = event.target.files[0];
@@ -50,9 +104,37 @@ const handleFileChange = (event) => {
     }
 };
 
+const handleDragOver = (event) => {
+    event.currentTarget.classList.add('border-emerald-400', 'bg-emerald-50');
+};
+
+const handleDragLeave = (event) => {
+    event.currentTarget.classList.remove('border-emerald-400', 'bg-emerald-50');
+};
+
+const handleDrop = (event) => {
+    event.currentTarget.classList.remove('border-emerald-400', 'bg-emerald-50');
+    const droppedFile = event.dataTransfer.files[0];
+    if (droppedFile) {
+        file.value = droppedFile;
+        fileName.value = droppedFile.name;
+        validationError.value = '';
+        const fileInput = document.getElementById('csv-file');
+        if (fileInput) {
+            const dt = new DataTransfer();
+            dt.items.add(droppedFile);
+            fileInput.files = dt.files;
+        }
+    }
+};
+
 const validateFile = async () => {
     if (!file.value) {
         validationError.value = 'Please select a CSV file';
+        return;
+    }
+    if (!selectedBuildingId.value) {
+        validationError.value = 'Please select a building';
         return;
     }
 
@@ -62,12 +144,20 @@ const validateFile = async () => {
     try {
         const formData = new FormData();
         formData.append('file', file.value);
+        formData.append('building_id', selectedBuildingId.value);
+        formData.append('mode', importMode.value);
+
+        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        const csrfToken = csrfMeta?.getAttribute('content');
+
+        const headers = {};
+        if (csrfToken) {
+            headers['X-CSRF-TOKEN'] = csrfToken;
+        }
 
         const response = await fetch(route('finances.payments.bulk-import.validate'), {
             method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-            },
+            headers,
             body: formData,
         });
 
@@ -91,14 +181,23 @@ const processPayments = async () => {
     isProcessing.value = true;
 
     try {
+        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        const csrfToken = csrfMeta?.getAttribute('content');
+
+        const headers = {
+            'Content-Type': 'application/json',
+        };
+        if (csrfToken) {
+            headers['X-CSRF-TOKEN'] = csrfToken;
+        }
+
         const response = await fetch(route('finances.payments.bulk-import.process'), {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-            },
+            headers,
             body: JSON.stringify({
                 payments: previewData.value.valid,
+                mode: previewData.value.mode,
+                building_id: selectedBuildingId.value,
             }),
         });
 
@@ -129,11 +228,13 @@ const resetForm = () => {
         invalid_rows: 0,
         valid: [],
         invalid: [],
+        mode: 'current',
     };
     resultData.value = {
         success_count: 0,
         failed_count: 0,
         total_amount: 0,
+        archived_tenants_created: 0,
         errors: [],
     };
 
@@ -151,19 +252,23 @@ const totalValidAmount = computed(() => {
 
     <AuthenticatedLayout>
         <div class="max-w-4xl mx-auto py-6 px-4 sm:px-6">
-            <div class="flex items-center gap-4 mb-6">
-                <Link
-                    :href="route('finances.payments')"
-                    class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                    <ArrowLeftIcon class="h-5 w-5" />
-                </Link>
+            <!-- Header with Finance Hub styling -->
+            <div class="flex items-center gap-3 mb-4">
+                <div class="p-2 bg-emerald-100 rounded-lg">
+                    <ArrowUpTrayIcon class="h-6 w-6 text-emerald-600" />
+                </div>
                 <div>
-                    <h1 class="text-2xl font-bold text-gray-900">Bulk Import Payments</h1>
-                    <p class="text-sm text-gray-500">Upload a CSV file to record multiple payments at once</p>
+                    <h1 class="text-lg font-semibold text-gray-900">Bulk Import Payments</h1>
+                    <p class="text-sm text-gray-500">Upload CSV to record multiple payments</p>
                 </div>
             </div>
 
+            <!-- Breadcrumb -->
+            <div class="mb-6">
+                <Breadcrumb :items="breadcrumbItems" />
+            </div>
+
+            <!-- Progress Steps -->
             <div class="mb-8">
                 <div class="flex items-center">
                     <div class="flex items-center text-sm">
@@ -192,33 +297,101 @@ const totalValidAmount = computed(() => {
                 </div>
             </div>
 
-            <div v-if="step === 1" class="bg-white rounded-xl border border-gray-200 p-6">
-                <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h3 class="font-medium text-blue-900 mb-2">CSV Format Instructions</h3>
-                    <ul class="text-sm text-blue-800 space-y-1">
-                        <li><strong>Tenant Email</strong> - Required. The tenant's email address.</li>
-                        <li><strong>Invoice Number</strong> - Optional. Leave empty for auto-allocation (FIFO).</li>
-                        <li><strong>Payment Date</strong> - Required. Format: YYYY-MM-DD</li>
-                        <li><strong>Amount</strong> - Required. Payment amount (numbers only).</li>
-                        <li><strong>Payment Method</strong> - Required. One of: cash, mpesa, bank_transfer, cheque</li>
-                        <li><strong>Reference</strong> - Optional. Transaction reference number.</li>
-                    </ul>
-                </div>
+            <!-- Step 1: Upload -->
+            <div v-if="step === 1" class="bg-white rounded-xl shadow-sm border border-gray-200">
+                <div class="p-6 space-y-6">
+                    <!-- Import Mode Toggle -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Import Mode</label>
+                        <div class="flex gap-2 p-1 bg-gray-100 rounded-lg w-fit">
+                            <button
+                                @click="importMode = 'current'"
+                                :class="[
+                                    'px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2',
+                                    importMode === 'current'
+                                        ? 'bg-white text-emerald-700 shadow-sm'
+                                        : 'text-gray-600 hover:text-gray-900'
+                                ]"
+                            >
+                                <BanknotesIcon class="h-4 w-4" />
+                                Current Tenants
+                            </button>
+                            <button
+                                @click="importMode = 'historical'"
+                                :class="[
+                                    'px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2',
+                                    importMode === 'historical'
+                                        ? 'bg-white text-amber-700 shadow-sm'
+                                        : 'text-gray-600 hover:text-gray-900'
+                                ]"
+                            >
+                                <ClockIcon class="h-4 w-4" />
+                                Historical Data
+                            </button>
+                        </div>
+                    </div>
 
-                <div class="mb-6">
-                    <a
-                        :href="route('finances.payments.bulk-import.template')"
-                        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors"
-                    >
-                        <DocumentArrowDownIcon class="h-5 w-5" />
-                        Download CSV Template
-                    </a>
-                </div>
+                    <!-- Historical Mode Warning -->
+                    <div v-if="importMode === 'historical'" class="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                        <div class="flex gap-3">
+                            <InformationCircleIcon class="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                            <div class="text-sm text-amber-800">
+                                <p class="font-medium mb-1">Historical Import Mode</p>
+                                <ul class="space-y-1 text-amber-700">
+                                    <li>• Creates archived tenant records for past tenants</li>
+                                    <li>• Does NOT affect current tenant balances</li>
+                                    <li>• Useful for onboarding landlords with existing buildings</li>
+                                    <li>• Historical payments will appear in unit history reports</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
 
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Select CSV File</label>
-                    <div class="flex items-center gap-4">
-                        <label class="flex-1 flex items-center justify-center px-6 py-8 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-emerald-400 hover:bg-gray-50 transition-colors">
+                    <!-- Building Selector -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Select Building *</label>
+                        <select
+                            v-model="selectedBuildingId"
+                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                        >
+                            <option :value="null">-- Select Building --</option>
+                            <option v-for="building in buildings" :key="building.id" :value="building.id">
+                                {{ building.display_name }}
+                            </option>
+                        </select>
+                        <p class="mt-1 text-xs text-gray-500">Unit numbers in the CSV must match units in this building</p>
+                    </div>
+
+                    <!-- CSV Format Instructions -->
+                    <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h3 class="font-medium text-blue-900 mb-2">CSV Format Instructions</h3>
+                        <ul class="text-sm text-blue-800 space-y-1">
+                            <li v-for="inst in instructions" :key="inst.field">
+                                <strong>{{ inst.field }}</strong> - {{ inst.desc }}
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Download Template -->
+                    <div>
+                        <a
+                            :href="templateUrl"
+                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors"
+                        >
+                            <DocumentArrowDownIcon class="h-5 w-5" />
+                            Download {{ importMode === 'historical' ? 'Historical' : 'Current' }} Template
+                        </a>
+                    </div>
+
+                    <!-- File Upload -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Select CSV File *</label>
+                        <label
+                            class="flex items-center justify-center px-6 py-8 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-emerald-400 hover:bg-gray-50 transition-colors"
+                            @dragover.prevent="handleDragOver"
+                            @dragleave.prevent="handleDragLeave"
+                            @drop.prevent="handleDrop"
+                        >
                             <div class="text-center">
                                 <ArrowUpTrayIcon class="mx-auto h-10 w-10 text-gray-400" />
                                 <p class="mt-2 text-sm text-gray-600">
@@ -236,48 +409,62 @@ const totalValidAmount = computed(() => {
                             />
                         </label>
                     </div>
-                </div>
 
-                <p v-if="validationError" class="mb-4 text-sm text-red-600">{{ validationError }}</p>
+                    <!-- Error Message -->
+                    <p v-if="validationError" class="text-sm text-red-600">{{ validationError }}</p>
 
-                <div class="flex justify-end gap-3">
-                    <Link
-                        :href="route('finances.payments')"
-                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                        Cancel
-                    </Link>
-                    <button
-                        @click="validateFile"
-                        :disabled="!file || isValidating"
-                        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                        <EyeIcon v-if="!isValidating" class="h-4 w-4" />
-                        <svg v-else class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        {{ isValidating ? 'Validating...' : 'Validate & Preview' }}
-                    </button>
+                    <!-- Actions -->
+                    <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                        <Link
+                            :href="route('finances.payments')"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                            Cancel
+                        </Link>
+                        <button
+                            @click="validateFile"
+                            :disabled="!canProceed || isValidating"
+                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            <EyeIcon v-if="!isValidating" class="h-4 w-4" />
+                            <svg v-else class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            {{ isValidating ? 'Validating...' : 'Validate & Preview →' }}
+                        </button>
+                    </div>
                 </div>
             </div>
 
+            <!-- Step 2: Preview -->
             <div v-if="step === 2" class="space-y-6">
+                <!-- Summary Cards -->
                 <div class="grid grid-cols-3 gap-4">
                     <div class="bg-white rounded-xl border border-gray-200 p-4 text-center">
                         <p class="text-3xl font-bold text-gray-900">{{ previewData.total_rows }}</p>
                         <p class="text-sm text-gray-500">Total Rows</p>
                     </div>
-                    <div class="bg-white rounded-xl border border-emerald-200 p-4 text-center">
+                    <div class="bg-emerald-50 rounded-xl border border-emerald-200 p-4 text-center">
                         <p class="text-3xl font-bold text-emerald-600">{{ previewData.valid_rows }}</p>
                         <p class="text-sm text-gray-500">Valid</p>
                     </div>
-                    <div class="bg-white rounded-xl border border-red-200 p-4 text-center">
+                    <div class="bg-red-50 rounded-xl border border-red-200 p-4 text-center">
                         <p class="text-3xl font-bold text-red-600">{{ previewData.invalid_rows }}</p>
                         <p class="text-sm text-gray-500">Invalid</p>
                     </div>
                 </div>
 
+                <!-- Historical Mode Indicator -->
+                <div v-if="previewData.mode === 'historical'" class="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div class="flex items-center gap-2 text-amber-800">
+                        <ClockIcon class="h-5 w-5" />
+                        <span class="font-medium">Historical Import Mode</span>
+                        <span class="text-sm text-amber-700">- Archived tenant records will be created</span>
+                    </div>
+                </div>
+
+                <!-- Invalid Rows -->
                 <div v-if="previewData.invalid.length > 0" class="bg-white rounded-xl border border-red-200">
                     <div class="px-4 py-3 border-b border-red-200 bg-red-50 rounded-t-xl">
                         <h3 class="font-medium text-red-900 flex items-center gap-2">
@@ -290,6 +477,7 @@ const totalValidAmount = computed(() => {
                             <thead class="bg-gray-50">
                                 <tr>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Row</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tenant</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Errors</th>
@@ -298,11 +486,15 @@ const totalValidAmount = computed(() => {
                             <tbody class="bg-white divide-y divide-gray-200">
                                 <tr v-for="row in previewData.invalid" :key="row.row" class="bg-red-50">
                                     <td class="px-4 py-3 text-sm text-gray-900">{{ row.row }}</td>
-                                    <td class="px-4 py-3 text-sm text-gray-900">{{ row.tenant_email }}</td>
-                                    <td class="px-4 py-3 text-sm text-gray-900">{{ row.amount }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-900">{{ row.unit_number || '-' }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-900">
+                                        <div>{{ row.tenant_name || row.tenant_email || '-' }}</div>
+                                        <div v-if="row.tenant_name && row.tenant_email" class="text-xs text-gray-500">{{ row.tenant_email }}</div>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-900">{{ row.amount || '-' }}</td>
                                     <td class="px-4 py-3 text-sm text-red-700">
                                         <ul class="list-disc list-inside">
-                                            <li v-for="error in row.errors" :key="error">{{ error }}</li>
+                                            <li v-for="(error, idx) in row.errors" :key="`${row.row}-${idx}`">{{ error }}</li>
                                         </ul>
                                     </td>
                                 </tr>
@@ -311,6 +503,7 @@ const totalValidAmount = computed(() => {
                     </div>
                 </div>
 
+                <!-- Valid Rows -->
                 <div v-if="previewData.valid.length > 0" class="bg-white rounded-xl border border-emerald-200">
                     <button
                         @click="showValidRows = !showValidRows"
@@ -328,26 +521,46 @@ const totalValidAmount = computed(() => {
                             <thead class="bg-gray-50">
                                 <tr>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Row</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tenant</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Allocation</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                        {{ previewData.mode === 'historical' ? 'Status' : 'Allocation' }}
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
                                 <tr v-for="row in previewData.valid" :key="row.row">
                                     <td class="px-4 py-3 text-sm text-gray-900">{{ row.row }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-900 font-medium">{{ row.unit_number }}</td>
                                     <td class="px-4 py-3 text-sm">
-                                        <p class="font-medium text-gray-900">{{ row.tenant_name }}</p>
-                                        <p class="text-gray-500 text-xs">{{ row.tenant_email }}</p>
+                                        <div class="flex items-center gap-2">
+                                            <div>
+                                                <p class="font-medium text-gray-900">{{ row.tenant_name }}</p>
+                                                <p v-if="row.tenant_email" class="text-gray-500 text-xs">{{ row.tenant_email }}</p>
+                                            </div>
+                                            <span v-if="row.is_historical && row.will_create_tenant" class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 rounded-full">
+                                                <UserPlusIcon class="h-3 w-3" />
+                                                New
+                                            </span>
+                                        </div>
                                     </td>
                                     <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ formatMoney(row.amount) }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-700">
-                                        <div v-for="alloc in row.allocations" :key="alloc.invoice_number" class="text-xs">
-                                            {{ alloc.invoice_number }}: {{ formatMoney(alloc.amount) }}
-                                        </div>
-                                        <div v-if="row.wallet_credit > 0" class="text-xs text-blue-600 mt-1">
-                                            Wallet Credit: {{ formatMoney(row.wallet_credit) }}
-                                        </div>
+                                        <template v-if="row.is_historical">
+                                            <span class="text-amber-600 text-xs">Historical record (no invoice)</span>
+                                        </template>
+                                        <template v-else>
+                                            <div v-for="alloc in row.allocations" :key="alloc.invoice_number" class="text-xs">
+                                                {{ alloc.invoice_number }}: {{ formatMoney(alloc.amount) }}
+                                            </div>
+                                            <div v-if="row.allocations.length === 0" class="text-xs text-gray-500">
+                                                No outstanding invoices
+                                            </div>
+                                            <div v-if="row.wallet_credit > 0" class="text-xs text-blue-600 mt-1">
+                                                Wallet Credit: {{ formatMoney(row.wallet_credit) }}
+                                            </div>
+                                        </template>
                                     </td>
                                 </tr>
                             </tbody>
@@ -355,13 +568,16 @@ const totalValidAmount = computed(() => {
                     </div>
                 </div>
 
+                <!-- Error Message -->
                 <p v-if="validationError" class="text-sm text-red-600">{{ validationError }}</p>
 
+                <!-- Actions -->
                 <div class="flex justify-between">
                     <button
                         @click="step = 1"
-                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                     >
+                        <ArrowLeftIcon class="h-4 w-4" />
                         Back
                     </button>
                     <button
@@ -374,12 +590,13 @@ const totalValidAmount = computed(() => {
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        {{ isProcessing ? 'Processing...' : `Process ${previewData.valid_rows} Payments` }}
+                        {{ isProcessing ? 'Processing...' : `Process ${previewData.valid_rows} Payments →` }}
                     </button>
                 </div>
             </div>
 
-            <div v-if="step === 3" class="bg-white rounded-xl border border-gray-200 p-8 text-center">
+            <!-- Step 3: Results -->
+            <div v-if="step === 3" class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
                 <div class="mb-6">
                     <CheckCircleIcon v-if="resultData.success_count > 0" class="mx-auto h-16 w-16 text-emerald-500" />
                     <ExclamationCircleIcon v-else class="mx-auto h-16 w-16 text-red-500" />
@@ -392,13 +609,27 @@ const totalValidAmount = computed(() => {
                         <p class="text-3xl font-bold text-emerald-600">{{ resultData.success_count }}</p>
                         <p class="text-sm text-gray-600">Payments Recorded</p>
                     </div>
-                    <div v-if="resultData.failed_count > 0" class="bg-red-50 rounded-lg p-4">
-                        <p class="text-3xl font-bold text-red-600">{{ resultData.failed_count }}</p>
-                        <p class="text-sm text-gray-600">Failed</p>
-                    </div>
-                    <div v-else class="bg-blue-50 rounded-lg p-4">
+                    <div class="bg-blue-50 rounded-lg p-4">
                         <p class="text-3xl font-bold text-blue-600">{{ formatMoney(resultData.total_amount) }}</p>
                         <p class="text-sm text-gray-600">Total Amount</p>
+                    </div>
+                </div>
+
+                <!-- Historical Import Stats -->
+                <div v-if="resultData.archived_tenants_created > 0" class="max-w-md mx-auto mb-6">
+                    <div class="bg-amber-50 rounded-lg p-4 flex items-center justify-center gap-3">
+                        <UserPlusIcon class="h-6 w-6 text-amber-600" />
+                        <div class="text-left">
+                            <p class="text-lg font-bold text-amber-700">{{ resultData.archived_tenants_created }}</p>
+                            <p class="text-sm text-amber-600">Archived Tenants Created</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="resultData.failed_count > 0" class="max-w-md mx-auto mb-6">
+                    <div class="bg-red-50 rounded-lg p-4">
+                        <p class="text-3xl font-bold text-red-600">{{ resultData.failed_count }}</p>
+                        <p class="text-sm text-gray-600">Failed</p>
                     </div>
                 </div>
 
@@ -420,7 +651,7 @@ const totalValidAmount = computed(() => {
                         :href="route('finances.payments')"
                         class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
                     >
-                        View Payments
+                        View Payments →
                     </Link>
                 </div>
             </div>

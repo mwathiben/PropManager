@@ -379,13 +379,13 @@
     {
       "id": "FIN-011",
       "epic": "Functional",
-      "title": "Add Bulk Payment Recording feature",
-      "description": "Add Bulk Payment Recording feature",
+      "title": "Add Bulk Payment Recording feature with Historical Import Mode",
+      "description": "Add Bulk Payment Recording feature with support for current tenant payments and historical data import for landlord onboarding",
       "priority": "medium",
       "acceptance_criteria": [
         "Add 'Bulk Import' button to Payments page",
         "Create CSV upload interface with template download",
-        "Template columns: Tenant ID/Unit, Amount, Date, Method, Reference",
+        "Template columns: Unit Number, Tenant Name, Tenant Email, Invoice Number, Payment Date, Amount, Payment Method, Reference",
         "Add validation preview before import confirmation",
         "Process bulk payments with transaction logging",
         "Display import results summary (success/failed count)",
@@ -393,10 +393,17 @@
         "CSV upload validates data before processing",
         "Preview shows validation errors",
         "Successfully imported payments appear in list",
-        "Failed rows are reported with specific errors"
+        "Failed rows are reported with specific errors",
+        "Add import mode toggle (Current Tenants / Historical Data)",
+        "CSV includes Unit Number and Tenant Name columns",
+        "Historical mode creates archived tenant records",
+        "Historical mode creates inactive lease records",
+        "Historical payments link to unit via historical lease",
+        "Historical imports do NOT affect current tenant balances",
+        "Building selector required for unit lookup"
       ],
       "passes": true,
-      "attempt_count": 1,
+      "attempt_count": 2,
       "depends_on": ["FIN-003"]
     },
     {

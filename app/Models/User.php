@@ -18,6 +18,8 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'is_archived',
+        'archived_at',
         'mobile_number',
         'landlord_id',
         'national_id',
@@ -42,6 +44,8 @@ class User extends Authenticatable
         'national_id' => 'encrypted',
         'bank_details' => 'encrypted',
         'kyc_completed_at' => 'datetime',
+        'is_archived' => 'boolean',
+        'archived_at' => 'datetime',
     ];
 
     // --- ROLES ---
@@ -64,6 +68,21 @@ class User extends Authenticatable
     public function isTenant()
     {
         return $this->role === 'tenant';
+    }
+
+    public function isArchived()
+    {
+        return $this->is_archived === true;
+    }
+
+    public function scopeArchived($query)
+    {
+        return $query->where('is_archived', true);
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('is_archived', false);
     }
 
     // --- KYC ---
