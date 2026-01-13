@@ -130,7 +130,7 @@ const monthTrendClass = computed(() => {
                     </Link>
 
                     <Link
-                        :href="route('finances.invoices')"
+                        :href="route('finances.payments.record')"
                         class="flex items-center gap-2 p-3 bg-white rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
                     >
                         <div class="p-2 bg-blue-100 rounded-lg">

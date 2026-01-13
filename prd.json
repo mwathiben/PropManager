@@ -249,8 +249,8 @@
         "Button navigates to /finances/payments/record",
         "Overview Quick Action 'Record Payment' goes to /finances/payments/record"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["FIN-003"]
     },
     {
@@ -509,7 +509,7 @@
   ],
   "metadata": {
     "total_stories": 25,
-    "passing_stories": 13,
+    "passing_stories": 14,
     "framework": "Laravel",
     "frontend": "Vue.js/Inertia"
   }

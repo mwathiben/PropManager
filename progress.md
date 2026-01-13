@@ -838,3 +838,38 @@ Updated sidebar navigation to point Finance Hub link to the new aggregation page
 ### Verification Results
 
 - Build: Success
+
+---
+
+## FIN-004: Add Record Payment button to Payments tab toolbar
+**Status:** PASSED
+**Date:** 2026-01-13
+**Attempts:** 1
+
+### Implementation Summary
+
+Fixed the Overview tab's "Record Payment" quick action to link to the correct Record Payment page. Most of the feature was already implemented in FIN-003.
+
+### Prior Implementation (from FIN-003)
+
+| File | Feature |
+|------|---------|
+| `resources/js/Pages/Finances/tabs/PaymentsTab.vue` | "Record Payment" button in toolbar (line 129-135) |
+| Button styling | Identical emerald classes as "Generate Invoices" |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `resources/js/Pages/Finances/tabs/OverviewTab.vue` | Changed quick action link from `route('finances.invoices')` to `route('finances.payments.record')` (line 133) |
+
+### Acceptance Criteria Verification
+
+1. **'Record Payment' button visible on /finances/payments page** - Already implemented in PaymentsTab.vue
+2. **Button navigates to /finances/payments/record** - Correctly configured
+3. **Styled consistently with 'Generate Invoices' button** - Identical emerald button classes
+4. **Overview Quick Action 'Record Payment' goes to /finances/payments/record** - Fixed routing
+
+### Verification Results
+
+- Build: Success
