@@ -1,0 +1,506 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Lease;
+use App\Models\MoveOut;
+use App\Models\MoveOutDeduction;
+use App\Models\TenantActivity;
+use App\Models\Unit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
+
+class MoveOutController extends Controller
+{
+    /**
+     * Display a list of move-outs (active and recent)
+     */
+    public function index(Request $request)
+    {
+        $user = auth()->user();
+
+        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+            abort(403, 'Access denied.');
+        }
+
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+        $status = $request->get('status', 'active');
+
+        $query = MoveOut::where('landlord_id', $landlordId)
+            ->with(['lease.tenant', 'lease.unit.building.property', 'deductions', 'processor']);
+
+        if ($status === 'active') {
+            $query->active();
+        } elseif ($status === 'completed') {
+            $query->completed();
+        }
+
+        $moveOuts = $query->orderBy('created_at', 'desc')->paginate(20)->withQueryString();
+
+        // Stats
+        $stats = [
+            'active' => MoveOut::where('landlord_id', $landlordId)->active()->count(),
+            'inspection_pending' => MoveOut::where('landlord_id', $landlordId)->status('inspection_pending')->count(),
+            'settlement_pending' => MoveOut::where('landlord_id', $landlordId)->status('settlement_pending')->count(),
+            'completed_this_month' => MoveOut::where('landlord_id', $landlordId)
+                ->completed()
+                ->whereMonth('settled_at', now()->month)
+                ->whereYear('settled_at', now()->year)
+                ->count(),
+        ];
+
+        return Inertia::render('MoveOuts/Index', [
+            'moveOuts' => $moveOuts,
+            'status' => $status,
+            'stats' => $stats,
+        ]);
+    }
+
+    /**
+     * Show the initiate move-out form for a lease
+     */
+    public function create(Lease $lease)
+    {
+        $user = auth()->user();
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+
+        if ($lease->landlord_id !== $landlordId) {
+            abort(403);
+        }
+
+        // Check if there's already an active move-out
+        if ($lease->moveOut()->active()->exists()) {
+            return Redirect::route('move-outs.show', $lease->moveOut()->active()->first())
+                ->with('info', 'A move-out process is already in progress for this lease.');
+        }
+
+        $lease->load(['tenant', 'unit.building.property']);
+
+        return Inertia::render('MoveOuts/Create', [
+            'lease' => $lease,
+        ]);
+    }
+
+    /**
+     * Initiate a new move-out process
+     */
+    public function store(Request $request, Lease $lease)
+    {
+        $user = auth()->user();
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+
+        if ($lease->landlord_id !== $landlordId) {
+            abort(403);
+        }
+
+        // Check for existing active move-out
+        if ($lease->moveOut()->active()->exists()) {
+            return Redirect::back()->withErrors(['lease' => 'Move-out already in progress.']);
+        }
+
+        $validated = $request->validate([
+            'notice_date' => 'required|date',
+            'intended_move_out_date' => 'required|date|after_or_equal:notice_date',
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $moveOut = MoveOut::create([
+                'landlord_id' => $landlordId,
+                'lease_id' => $lease->id,
+                'notice_date' => $validated['notice_date'],
+                'intended_move_out_date' => $validated['intended_move_out_date'],
+                'status' => 'notice_given',
+                'deposit_held' => $lease->deposit_amount,
+                'arrears_balance' => $lease->arrears ?? 0,
+                'total_deductions' => 0,
+                'refund_amount' => $lease->deposit_amount - ($lease->arrears ?? 0),
+            ]);
+
+            // Log activity
+            TenantActivity::create([
+                'landlord_id' => $landlordId,
+                'tenant_id' => $lease->tenant_id,
+                'performed_by' => $user->id,
+                'action' => 'move_out_initiated',
+                'description' => 'Move-out notice given. Expected move-out: '.$validated['intended_move_out_date'],
+                'metadata' => [
+                    'move_out_id' => $moveOut->id,
+                    'reason' => $validated['reason'] ?? null,
+                ],
+            ]);
+
+            DB::commit();
+
+            return Redirect::route('move-outs.show', $moveOut)->with('success', 'Move-out process initiated.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return Redirect::back()->withErrors(['move_out' => 'Failed to initiate move-out.']);
+        }
+    }
+
+    /**
+     * Show a move-out in progress
+     */
+    public function show(MoveOut $moveOut)
+    {
+        $user = auth()->user();
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+
+        if ($moveOut->landlord_id !== $landlordId) {
+            abort(403);
+        }
+
+        $moveOut->load([
+            'lease.tenant',
+            'lease.unit.building.property',
+            'deductions',
+            'processor',
+        ]);
+
+        return Inertia::render('MoveOuts/Show', [
+            'moveOut' => $moveOut,
+        ]);
+    }
+
+    /**
+     * Update move-out details (dates, notes)
+     */
+    public function update(Request $request, MoveOut $moveOut)
+    {
+        $user = auth()->user();
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+
+        if ($moveOut->landlord_id !== $landlordId) {
+            abort(403);
+        }
+
+        if ($moveOut->isCompleted() || $moveOut->isCancelled()) {
+            return Redirect::back()->withErrors(['move_out' => 'Cannot update a completed or cancelled move-out.']);
+        }
+
+        $validated = $request->validate([
+            'intended_move_out_date' => 'nullable|date',
+            'actual_move_out_date' => 'nullable|date',
+            'inspection_notes' => 'nullable|string|max:2000',
+        ]);
+
+        $moveOut->update($validated);
+
+        return Redirect::back()->with('success', 'Move-out updated.');
+    }
+
+    /**
+     * Mark actual move-out date and start inspection
+     */
+    public function startInspection(Request $request, MoveOut $moveOut)
+    {
+        $user = auth()->user();
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+
+        if ($moveOut->landlord_id !== $landlordId) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'actual_move_out_date' => 'required|date',
+        ]);
+
+        $moveOut->update([
+            'actual_move_out_date' => $validated['actual_move_out_date'],
+            'status' => 'inspection_pending',
+        ]);
+
+        // Log activity
+        TenantActivity::create([
+            'landlord_id' => $landlordId,
+            'tenant_id' => $moveOut->lease->tenant_id,
+            'performed_by' => $user->id,
+            'action' => 'move_out_inspection_started',
+            'description' => 'Tenant moved out. Inspection started.',
+            'metadata' => ['move_out_id' => $moveOut->id],
+        ]);
+
+        return Redirect::back()->with('success', 'Inspection started.');
+    }
+
+    /**
+     * Add a deduction to the move-out
+     */
+    public function addDeduction(Request $request, MoveOut $moveOut)
+    {
+        $user = auth()->user();
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+
+        if ($moveOut->landlord_id !== $landlordId) {
+            abort(403);
+        }
+
+        if ($moveOut->isCompleted() || $moveOut->isCancelled()) {
+            return Redirect::back()->withErrors(['move_out' => 'Cannot add deductions to completed move-out.']);
+        }
+
+        $validated = $request->validate([
+            'description' => 'required|string|max:255',
+            'amount' => 'required|numeric|min:0',
+            'notes' => 'nullable|string|max:500',
+            'photo' => 'nullable|image|max:5120', // 5MB max
+        ]);
+
+        $photoPath = null;
+        if ($request->hasFile('photo')) {
+            $photoPath = $request->file('photo')->store("move-outs/{$moveOut->id}", 'private');
+        }
+
+        $deduction = MoveOutDeduction::create([
+            'move_out_id' => $moveOut->id,
+            'description' => $validated['description'],
+            'amount' => $validated['amount'],
+            'notes' => $validated['notes'],
+            'photo_path' => $photoPath,
+        ]);
+
+        // Recalculate refund
+        $moveOut->calculateRefund();
+        $moveOut->save();
+
+        return Redirect::back()->with('success', 'Deduction added.');
+    }
+
+    /**
+     * Update a deduction
+     */
+    public function updateDeduction(Request $request, MoveOutDeduction $deduction)
+    {
+        $user = auth()->user();
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+
+        $moveOut = $deduction->moveOut;
+        if ($moveOut->landlord_id !== $landlordId) {
+            abort(403);
+        }
+
+        if ($moveOut->isCompleted() || $moveOut->isCancelled()) {
+            return Redirect::back()->withErrors(['move_out' => 'Cannot update deductions on completed move-out.']);
+        }
+
+        $validated = $request->validate([
+            'description' => 'required|string|max:255',
+            'amount' => 'required|numeric|min:0',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $deduction->update($validated);
+
+        // Recalculate refund
+        $moveOut->calculateRefund();
+        $moveOut->save();
+
+        return Redirect::back()->with('success', 'Deduction updated.');
+    }
+
+    /**
+     * Delete a deduction
+     */
+    public function deleteDeduction(MoveOutDeduction $deduction)
+    {
+        $user = auth()->user();
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+
+        $moveOut = $deduction->moveOut;
+        if ($moveOut->landlord_id !== $landlordId) {
+            abort(403);
+        }
+
+        if ($moveOut->isCompleted() || $moveOut->isCancelled()) {
+            return Redirect::back()->withErrors(['move_out' => 'Cannot delete deductions from completed move-out.']);
+        }
+
+        // Delete photo if exists
+        if ($deduction->photo_path) {
+            Storage::disk('private')->delete($deduction->photo_path);
+        }
+
+        $deduction->delete();
+
+        // Recalculate refund
+        $moveOut->calculateRefund();
+        $moveOut->save();
+
+        return Redirect::back()->with('success', 'Deduction removed.');
+    }
+
+    /**
+     * Complete inspection and move to settlement
+     */
+    public function completeInspection(Request $request, MoveOut $moveOut)
+    {
+        $user = auth()->user();
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+
+        if ($moveOut->landlord_id !== $landlordId) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'inspection_notes' => 'nullable|string|max:2000',
+        ]);
+
+        $moveOut->update([
+            'status' => 'settlement_pending',
+            'inspection_notes' => $validated['inspection_notes'],
+        ]);
+
+        // Recalculate final amounts
+        $moveOut->calculateRefund();
+        $moveOut->save();
+
+        // Log activity
+        TenantActivity::create([
+            'landlord_id' => $landlordId,
+            'tenant_id' => $moveOut->lease->tenant_id,
+            'performed_by' => $user->id,
+            'action' => 'move_out_inspection_complete',
+            'description' => 'Inspection completed. Settlement pending.',
+            'metadata' => [
+                'move_out_id' => $moveOut->id,
+                'total_deductions' => $moveOut->total_deductions,
+                'refund_amount' => $moveOut->refund_amount,
+            ],
+        ]);
+
+        return Redirect::back()->with('success', 'Inspection completed. Ready for settlement.');
+    }
+
+    /**
+     * Complete the move-out process (settle deposit)
+     */
+    public function complete(Request $request, MoveOut $moveOut)
+    {
+        $user = auth()->user();
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+
+        if ($moveOut->landlord_id !== $landlordId) {
+            abort(403);
+        }
+
+        if ($moveOut->status !== 'settlement_pending') {
+            return Redirect::back()->withErrors(['move_out' => 'Inspection must be completed first.']);
+        }
+
+        $validated = $request->validate([
+            'settlement_method' => 'required|in:cash,bank_transfer,mobile_money,offset',
+            'settlement_reference' => 'nullable|string|max:255',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // Final calculations
+            $moveOut->calculateRefund();
+
+            $moveOut->update([
+                'status' => 'completed',
+                'settlement_method' => $validated['settlement_method'],
+                'settlement_reference' => $validated['settlement_reference'],
+                'settled_at' => now(),
+                'processed_by' => $user->id,
+            ]);
+
+            // Deactivate the lease
+            $lease = $moveOut->lease;
+            $lease->update([
+                'is_active' => false,
+                'end_date' => $moveOut->actual_move_out_date ?? now(),
+            ]);
+
+            // Mark unit as vacant
+            $lease->unit->update(['status' => 'vacant']);
+
+            // Log activity
+            TenantActivity::create([
+                'landlord_id' => $landlordId,
+                'tenant_id' => $lease->tenant_id,
+                'performed_by' => $user->id,
+                'action' => 'move_out_completed',
+                'description' => 'Move-out completed. Deposit settled via '.$validated['settlement_method'].'. Refund: KES '.number_format($moveOut->refund_amount, 2),
+                'metadata' => [
+                    'move_out_id' => $moveOut->id,
+                    'refund_amount' => $moveOut->refund_amount,
+                    'settlement_method' => $validated['settlement_method'],
+                ],
+            ]);
+
+            DB::commit();
+
+            return Redirect::route('move-outs.show', $moveOut)->with('success', 'Move-out completed successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return Redirect::back()->withErrors(['move_out' => 'Failed to complete move-out.']);
+        }
+    }
+
+    /**
+     * Cancel a move-out process
+     */
+    public function cancel(Request $request, MoveOut $moveOut)
+    {
+        $user = auth()->user();
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+
+        if ($moveOut->landlord_id !== $landlordId) {
+            abort(403);
+        }
+
+        if ($moveOut->isCompleted()) {
+            return Redirect::back()->withErrors(['move_out' => 'Cannot cancel a completed move-out.']);
+        }
+
+        $validated = $request->validate([
+            'cancellation_reason' => 'nullable|string|max:500',
+        ]);
+
+        $moveOut->update(['status' => 'cancelled']);
+
+        // Log activity
+        TenantActivity::create([
+            'landlord_id' => $landlordId,
+            'tenant_id' => $moveOut->lease->tenant_id,
+            'performed_by' => $user->id,
+            'action' => 'move_out_cancelled',
+            'description' => 'Move-out process cancelled.',
+            'metadata' => [
+                'move_out_id' => $moveOut->id,
+                'reason' => $validated['cancellation_reason'] ?? null,
+            ],
+        ]);
+
+        return Redirect::route('tenants.show', $moveOut->lease->tenant_id)->with('success', 'Move-out cancelled.');
+    }
+
+    /**
+     * Get deduction photo
+     */
+    public function deductionPhoto(MoveOutDeduction $deduction)
+    {
+        $user = auth()->user();
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+
+        if ($deduction->moveOut->landlord_id !== $landlordId) {
+            abort(403);
+        }
+
+        if (! $deduction->photo_path || ! Storage::disk('private')->exists($deduction->photo_path)) {
+            abort(404);
+        }
+
+        return Storage::disk('private')->response($deduction->photo_path);
+    }
+}

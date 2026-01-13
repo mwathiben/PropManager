@@ -1,0 +1,298 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Document;
+use App\Models\Lease;
+use App\Models\User;
+use App\Traits\HasBuildingFilter;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Inertia\Inertia;
+
+class DocumentController extends Controller
+{
+    use HasBuildingFilter;
+
+    /**
+     * Display a listing of documents for the authenticated landlord
+     */
+    public function index(Request $request)
+    {
+        $query = Document::where('landlord_id', auth()->id())
+            ->with(['documentable', 'uploader']);
+
+        // Filter by document type
+        if ($request->filled('type')) {
+            $query->where('document_type', $request->type);
+        }
+
+        // Filter by documentable type (Lease, User)
+        if ($request->filled('model_type')) {
+            $query->where('documentable_type', 'App\\Models\\'.$request->model_type);
+        }
+
+        // Building/Wing filter for documents
+        $buildingId = $request->filled('building_id') ? (int) $request->building_id : null;
+        $wingId = $request->filled('wing_id') ? (int) $request->wing_id : null;
+
+        if ($buildingId || $wingId) {
+            $buildingIds = $this->getBuildingIds($buildingId, $wingId);
+
+            $query->where(function ($q) use ($buildingIds) {
+                // Lease documents - filter by unit's building
+                $q->where(function ($lq) use ($buildingIds) {
+                    $lq->where('documentable_type', 'App\\Models\\Lease')
+                        ->whereHas('documentable', function ($leaseQ) use ($buildingIds) {
+                            $leaseQ->whereHas('unit', function ($unitQ) use ($buildingIds) {
+                                $unitQ->whereIn('building_id', $buildingIds);
+                            });
+                        });
+                });
+
+                // User (Tenant) documents - filter by tenant's active lease building
+                $q->orWhere(function ($tq) use ($buildingIds) {
+                    $tq->where('documentable_type', 'App\\Models\\User')
+                        ->whereHas('documentable', function ($userQ) use ($buildingIds) {
+                            $userQ->whereHas('leases', function ($leaseQ) use ($buildingIds) {
+                                $leaseQ->where('is_active', true)
+                                    ->whereHas('unit', function ($unitQ) use ($buildingIds) {
+                                        $unitQ->whereIn('building_id', $buildingIds);
+                                    });
+                            });
+                        });
+                });
+            });
+        }
+
+        // Search by title or filename
+        if ($request->filled('search')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('title', 'like', '%'.$request->search.'%')
+                    ->orWhere('file_name', 'like', '%'.$request->search.'%');
+            });
+        }
+
+        $documents = $query->latest()->paginate(20)->through(function ($document) {
+            return [
+                'id' => $document->id,
+                'title' => $document->title,
+                'file_name' => $document->file_name,
+                'file_size_formatted' => $document->file_size_formatted,
+                'file_extension' => $document->file_extension,
+                'mime_type' => $document->mime_type,
+                'document_type' => $document->document_type,
+                'documentable_type' => class_basename($document->documentable_type),
+                'documentable_id' => $document->documentable_id,
+                'uploaded_by' => $document->uploader->name,
+                'uploaded_at' => $document->created_at->format('M d, Y'),
+                'is_image' => $document->isImage(),
+                'is_pdf' => $document->isPdf(),
+            ];
+        });
+
+        return Inertia::render('Documents/Index', [
+            'documents' => $documents,
+            'buildings' => $this->getBuildingsForFilter(),
+            'filters' => $request->only(['type', 'model_type', 'search', 'building_id', 'wing_id']),
+        ]);
+    }
+
+    /**
+     * Upload a new document
+     */
+    public function store(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|max:10240', // Max 10MB
+            'title' => 'required|string|max:255',
+            'document_type' => 'required|in:lease_agreement,tenant_id,tenant_passport,bank_statement,payslip,reference_letter,utility_bill,other',
+            'documentable_type' => 'required|in:Lease,User',
+            'documentable_id' => 'required|integer',
+            'description' => 'nullable|string|max:1000',
+        ]);
+
+        // Verify documentable exists and belongs to landlord
+        $modelClass = 'App\\Models\\'.$request->documentable_type;
+        $documentable = $modelClass::findOrFail($request->documentable_id);
+
+        // Authorization check
+        if ($request->documentable_type === 'Lease') {
+            if ($documentable->landlord_id !== auth()->id()) {
+                abort(403, 'Unauthorized to upload documents for this lease');
+            }
+        } elseif ($request->documentable_type === 'User') {
+            // Can only upload documents for tenants belonging to this landlord
+            if ($documentable->role !== 'tenant' || $documentable->landlord_id !== auth()->id()) {
+                abort(403, 'Unauthorized to upload documents for this user');
+            }
+        }
+
+        // Handle file upload
+        $file = $request->file('file');
+        $originalName = $file->getClientOriginalName();
+        $sanitizedName = Str::slug(pathinfo($originalName, PATHINFO_FILENAME)).'.'.$file->getClientOriginalExtension();
+
+        // Create unique filename
+        $fileName = time().'_'.$sanitizedName;
+
+        // Store in private storage
+        $filePath = $file->storeAs(
+            'documents/'.auth()->id().'/'.$request->documentable_type,
+            $fileName,
+            'local'
+        );
+
+        // Create document record
+        $document = Document::create([
+            'landlord_id' => auth()->id(),
+            'documentable_id' => $request->documentable_id,
+            'documentable_type' => $modelClass,
+            'title' => $request->title,
+            'file_name' => $originalName,
+            'file_path' => $filePath,
+            'mime_type' => $file->getMimeType(),
+            'file_size' => $file->getSize(),
+            'document_type' => $request->document_type,
+            'description' => $request->description,
+            'uploaded_by' => auth()->id(),
+        ]);
+
+        return back()->with('success', 'Document uploaded successfully');
+    }
+
+    /**
+     * Download a document (with authorization)
+     */
+    public function download(Document $document)
+    {
+        // Authorization check
+        $user = auth()->user();
+
+        if ($user->role === 'landlord' && $document->landlord_id !== $user->id) {
+            abort(403, 'Unauthorized to download this document');
+        }
+
+        if ($user->role === 'caretaker' && $document->landlord_id !== $user->landlord_id) {
+            abort(403, 'Unauthorized to download this document');
+        }
+
+        if ($user->role === 'tenant') {
+            // Tenants can only download their own documents
+            if ($document->documentable_type === 'App\\Models\\User' && $document->documentable_id !== $user->id) {
+                abort(403, 'Unauthorized to download this document');
+            }
+            if ($document->documentable_type === 'App\\Models\\Lease') {
+                $lease = $document->documentable;
+                if ($lease->tenant_id !== $user->id) {
+                    abort(403, 'Unauthorized to download this document');
+                }
+            }
+        }
+
+        // Check if file exists
+        if (! $document->fileExists()) {
+            abort(404, 'File not found in storage');
+        }
+
+        // Return file download
+        return Storage::disk('local')->download($document->file_path, $document->file_name);
+    }
+
+    /**
+     * View document inline (for PDFs and images)
+     */
+    public function view(Document $document)
+    {
+        // Same authorization as download
+        $user = auth()->user();
+
+        if ($user->role === 'landlord' && $document->landlord_id !== $user->id) {
+            abort(403, 'Unauthorized to view this document');
+        }
+
+        if ($user->role === 'caretaker' && $document->landlord_id !== $user->landlord_id) {
+            abort(403, 'Unauthorized to view this document');
+        }
+
+        if ($user->role === 'tenant') {
+            if ($document->documentable_type === 'App\\Models\\User' && $document->documentable_id !== $user->id) {
+                abort(403, 'Unauthorized to view this document');
+            }
+            if ($document->documentable_type === 'App\\Models\\Lease') {
+                $lease = $document->documentable;
+                if ($lease->tenant_id !== $user->id) {
+                    abort(403, 'Unauthorized to view this document');
+                }
+            }
+        }
+
+        if (! $document->fileExists()) {
+            abort(404, 'File not found in storage');
+        }
+
+        // Return file for inline viewing
+        return Storage::disk('local')->response($document->file_path, $document->file_name, [
+            'Content-Type' => $document->mime_type,
+            'Content-Disposition' => 'inline',
+        ]);
+    }
+
+    /**
+     * Delete a document
+     */
+    public function destroy(Document $document)
+    {
+        // Only landlord who owns the document can delete it
+        if ($document->landlord_id !== auth()->id()) {
+            abort(403, 'Unauthorized to delete this document');
+        }
+
+        // Delete the physical file
+        $document->deleteFile();
+
+        // Delete the record
+        $document->delete();
+
+        return back()->with('success', 'Document deleted successfully');
+    }
+
+    /**
+     * Get documents for a specific documentable (AJAX endpoint)
+     */
+    public function forModel(Request $request)
+    {
+        $request->validate([
+            'model_type' => 'required|in:Lease,User',
+            'model_id' => 'required|integer',
+        ]);
+
+        $modelClass = 'App\\Models\\'.$request->model_type;
+        $model = $modelClass::findOrFail($request->model_id);
+
+        // Authorization check
+        if ($request->model_type === 'Lease' && $model->landlord_id !== auth()->id()) {
+            abort(403);
+        }
+        if ($request->model_type === 'User' && $model->role === 'tenant' && $model->landlord_id !== auth()->id()) {
+            abort(403);
+        }
+
+        $documents = $model->documents()->latest()->get()->map(function ($document) {
+            return [
+                'id' => $document->id,
+                'title' => $document->title,
+                'file_name' => $document->file_name,
+                'file_size_formatted' => $document->file_size_formatted,
+                'file_extension' => $document->file_extension,
+                'document_type' => $document->document_type,
+                'uploaded_at' => $document->created_at->format('M d, Y'),
+                'is_image' => $document->isImage(),
+                'is_pdf' => $document->isPdf(),
+            ];
+        });
+
+        return response()->json(['documents' => $documents]);
+    }
+}

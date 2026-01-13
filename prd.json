@@ -1,0 +1,516 @@
+{
+  "project": "PropManager Invoice Module",
+  "version": "1.0.0",
+  "user_stories": [
+    {
+      "id": "INV-001",
+      "epic": "Critical Fix",
+      "title": "Fix tenant onboarding payment verification flaw",
+      "description": "Tenant acceptance of invite should NOT grant full system access until payments are verified",
+      "priority": "critical",
+      "acceptance_criteria": [
+        "Implement payment verification states: pending_payment, payment_submitted, payment_verified, active",
+        "Landlord can configure automatic or manual verification",
+        "Tenant sees Payment Required screen until verified with list of required payments",
+        "Tenant can upload proof of payment for manual verification",
+        "Landlord dashboard shows pending verifications with approve/reject actions"
+      ],
+      "passes": true,
+      "attempt_count": 1,
+      "depends_on": []
+    },
+    {
+      "id": "INV-002",
+      "epic": "Database",
+      "title": "Create database migrations for invoice module",
+      "description": "Set up all necessary database tables",
+      "priority": "critical",
+      "acceptance_criteria": [
+        "invoice_settings table for landlord configuration",
+        "invoice_templates table",
+        "invoice_types table (standard, first_payment, utility, arrears, credit_note)",
+        "receipts table",
+        "invoice_items table for line items",
+        "tenant_payment_verifications table",
+        "Modify existing invoices table for new fields"
+      ],
+      "passes": true,
+      "attempt_count": 1,
+      "depends_on": ["INV-001"]
+    },
+    {
+      "id": "INV-003",
+      "epic": "Models",
+      "title": "Create invoice models and relationships",
+      "description": "Eloquent models for the invoice system",
+      "priority": "high",
+      "acceptance_criteria": [
+        "InvoiceSetting model with landlord relationship",
+        "InvoiceTemplate model",
+        "InvoiceType model with type constants",
+        "Receipt model linked to invoices",
+        "InvoiceItem model for line items",
+        "TenantPaymentVerification model"
+      ],
+      "passes": true,
+      "attempt_count": 1,
+      "depends_on": ["INV-002"]
+    },
+    {
+      "id": "INV-004",
+      "epic": "Settings",
+      "title": "Build landlord invoice settings UI",
+      "description": "Comprehensive settings page for landlords",
+      "priority": "high",
+      "acceptance_criteria": [
+        "Business details: name, address, phone, email, logo upload, tax number",
+        "Bank account details section",
+        "Invoice numbering configuration per type (prefix, starting number)",
+        "Default terms: due days, late penalty percentage, grace period",
+        "Custom terms and conditions text area"
+      ],
+      "passes": true,
+      "attempt_count": 1,
+      "depends_on": ["INV-003"]
+    },
+    {
+      "id": "INV-005",
+      "epic": "Templates",
+      "title": "Invoice template system with live preview",
+      "description": "Allow landlords to customize invoice appearance",
+      "priority": "high",
+      "acceptance_criteria": [
+        "Multiple template designs to choose from",
+        "Toggle fields: logo, tax number, tenant ID, unit details, lease ref, due date, late warning, bank details, footer, QR code",
+        "Live preview updates as toggles change",
+        "Preview shows actual landlord data",
+        "PDF generation capability"
+      ],
+      "passes": true,
+      "attempt_count": 1,
+      "depends_on": ["INV-004"]
+    },
+    {
+      "id": "INV-006",
+      "epic": "Automation",
+      "title": "Invoice automation engine",
+      "description": "Automated monthly invoice generation",
+      "priority": "high",
+      "acceptance_criteria": [
+        "Enable/disable automation per property",
+        "Configure generation day of month",
+        "Auto-send via email toggle",
+        "Include base rent from unit configuration",
+        "Include water charges if water module active",
+        "Include previous balance/arrears automatically",
+        "Include late payment fees if applicable"
+      ],
+      "passes": true,
+      "attempt_count": 1,
+      "depends_on": ["INV-005"]
+    },
+    {
+      "id": "INV-007",
+      "epic": "First Invoice",
+      "title": "First invoice logic for new tenants",
+      "description": "Special invoice handling for tenant onboarding",
+      "priority": "high",
+      "acceptance_criteria": [
+        "Include security deposit from unit configuration",
+        "First month rent with pro-rating option based on move-in date",
+        "Optional last month rent based on landlord policy",
+        "Administrative/processing fee option",
+        "Key deposit option",
+        "Configurable additional one-time charges"
+      ],
+      "passes": true,
+      "attempt_count": 1,
+      "depends_on": ["INV-006"]
+    },
+    {
+      "id": "INV-008",
+      "epic": "Receipts",
+      "title": "Receipt system",
+      "description": "Payment confirmation documents",
+      "priority": "medium",
+      "acceptance_criteria": [
+        "Auto-generate receipts when payments recorded",
+        "Receipt references original invoice(s)",
+        "Support partial payment receipts",
+        "Receipt templates separate from invoice templates",
+        "Receipt numbering sequence"
+      ],
+      "passes": true,
+      "attempt_count": 1,
+      "depends_on": ["INV-007"]
+    },
+    {
+      "id": "INV-009",
+      "epic": "Polish",
+      "title": "Invoice management and final testing",
+      "description": "Final features and integration testing",
+      "priority": "low",
+      "acceptance_criteria": [
+        "Preview invoice before sending",
+        "Bulk invoice generation for all units",
+        "Regenerate/void and reissue capability",
+        "Download as PDF",
+        "Email directly to tenant",
+        "Invoice status tracking: draft, sent, viewed, paid, overdue, void",
+        "Integration tests for complete workflow"
+      ],
+      "passes": true,
+      "attempt_count": 1,
+      "depends_on": ["INV-008"]
+    },
+    {
+      "id": "FIN-001",
+      "epic": "Navigation",
+      "title": "Create Finance Hub aggregation page",
+      "description": "Create a new Finance Hub aggregation/landing page that groups all financial features into logical sections with card-based navigation",
+      "priority": "critical",
+      "acceptance_criteria": [
+        "Create new FinanceHubController@index route at /finances",
+        "Create resources/views/finances/hub.blade.php",
+        "Design hero section with overall financial health KPIs",
+        "Create 'Money In' section card linking to: Invoices, Payments, Deposits",
+        "Create 'Money Out' section card linking to: Expenses, Refunds",
+        "Create 'Collections' section card linking to: Arrears, Late Fees, Reconciliation",
+        "Create 'Reports & Settings' section card linking to: Reports, Settings",
+        "Add quick action buttons: Generate Invoices, Record Payment, Add Expense",
+        "Page loads at /finances with all section cards visible",
+        "Each section card displays a count/summary of items",
+        "Quick actions are prominently displayed",
+        "Mobile responsive with stacked cards"
+      ],
+      "passes": true,
+      "attempt_count": 1,
+      "depends_on": []
+    },
+    {
+      "id": "FIN-002",
+      "epic": "Navigation",
+      "title": "Update sidebar navigation for Finance Hub",
+      "description": "Update sidebar navigation to point Finance Hub link to new aggregation page instead of overview tab",
+      "priority": "high",
+      "acceptance_criteria": [
+        "Modify navigation component to change /finances/overview to /finances",
+        "Keep existing /finances/overview route working for backwards compatibility",
+        "Update breadcrumb component to show correct hierarchy",
+        "Sidebar 'Finance Hub' link navigates to /finances",
+        "Old /finances/overview URL still works",
+        "Breadcrumbs display: Dashboard > Finance Hub > [Current Page]"
+      ],
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["FIN-001"]
+    },
+    {
+      "id": "FIN-003",
+      "epic": "Functional",
+      "title": "Create dedicated Record Payment page",
+      "description": "Create a dedicated Record Payment page accessible from Finance Hub and Payments tab",
+      "priority": "critical",
+      "acceptance_criteria": [
+        "Create PaymentController@create route at /finances/payments/record",
+        "Create resources/views/finances/payments/record.blade.php",
+        "Add tenant/unit selector with search functionality",
+        "Add invoice selector showing outstanding invoices for selected tenant",
+        "Add payment form fields: Amount, Method (dropdown from Payment Methods), Reference, Date, Notes",
+        "Add option to record payment without linking to specific invoice (unallocated)",
+        "Add option for partial payment with remaining balance display",
+        "Add receipt upload functionality",
+        "Create PaymentService@recordManualPayment method",
+        "Add validation for amount not exceeding outstanding balance (with warning override)",
+        "Add success/failure toast notifications",
+        "Page accessible at /finances/payments/record",
+        "Can select tenant and see their outstanding invoices",
+        "Can record full or partial payment",
+        "Can record unallocated payment",
+        "Payment method dropdown shows only enabled methods from Settings",
+        "After recording, redirects to Payments list with success message",
+        "Transaction is logged in Activity Logs"
+      ],
+      "passes": true,
+      "attempt_count": 1,
+      "depends_on": ["FIN-001"]
+    },
+    {
+      "id": "FIN-004",
+      "epic": "Functional",
+      "title": "Add Record Payment button to Payments tab toolbar",
+      "description": "Add Record Payment button to Payments tab toolbar",
+      "priority": "high",
+      "acceptance_criteria": [
+        "Add 'Record Payment' primary action button to payments index page toolbar",
+        "Style consistently with 'Generate Invoices' button on Invoices page",
+        "Update Quick Action on Overview to link to new page instead of Invoices",
+        "'Record Payment' button visible on /finances/payments page",
+        "Button navigates to /finances/payments/record",
+        "Overview Quick Action 'Record Payment' goes to /finances/payments/record"
+      ],
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["FIN-003"]
+    },
+    {
+      "id": "FIN-005",
+      "epic": "Bug Fix",
+      "title": "Fix Invoice Detail modal showing 'KshNaN'",
+      "description": "Fix Invoice Detail modal showing 'KshNaN' for Amount Due",
+      "priority": "critical",
+      "acceptance_criteria": [
+        "Locate the Invoice detail modal component",
+        "Identify where Amount Due is calculated/formatted",
+        "Add null check and default value handling",
+        "Ensure proper number formatting with Kenyan Shilling currency",
+        "Test with invoices that have line items and those without",
+        "Invoice Detail modal displays proper currency amount",
+        "No 'NaN' values appear anywhere in the modal",
+        "Line items are properly summed to show Total"
+      ],
+      "passes": true,
+      "attempt_count": 1,
+      "depends_on": []
+    },
+    {
+      "id": "FIN-006",
+      "epic": "Functional",
+      "title": "Add Process Refund functionality",
+      "description": "Add Process Refund functionality to Refunds tab",
+      "priority": "high",
+      "acceptance_criteria": [
+        "Add 'Process Refund' button to Refunds page toolbar",
+        "Create RefundController@create route at /finances/refunds/create",
+        "Create refund form with: Tenant selector, Original Payment reference, Amount, Reason, Method",
+        "Add RefundService@processRefund method",
+        "Create database migrations if needed for refund status tracking",
+        "Add refund approval workflow (optional: can be auto-approved or require manager approval)",
+        "'Process Refund' button visible on Refunds page",
+        "Can create new refund linked to original payment",
+        "Refund appears in list with status (Pending/Approved/Processed)",
+        "Refund amount cannot exceed original payment"
+      ],
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": []
+    },
+    {
+      "id": "FIN-007",
+      "epic": "Functional",
+      "title": "Consolidate duplicate Reports pages",
+      "description": "Consolidate duplicate Reports pages",
+      "priority": "medium",
+      "acceptance_criteria": [
+        "Evaluate content of /finances/reports vs /reports",
+        "Determine which page has more comprehensive features",
+        "Remove Finance Hub Reports tab and redirect to main /reports page",
+        "OR remove /reports sidebar link and use Finance Hub Reports",
+        "Update all internal links to point to single Reports page",
+        "Only one Reports page exists in the application",
+        "All navigation consistently links to single Reports",
+        "No duplicate data or confused user journeys"
+      ],
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": []
+    },
+    {
+      "id": "FIN-008",
+      "epic": "Bug Fix",
+      "title": "Fix or remove broken Payment Verifications page",
+      "description": "Fix or remove broken Payment Verifications page",
+      "priority": "high",
+      "acceptance_criteria": [
+        "Investigate why /payment-verifications page is blank",
+        "If feature is incomplete, either implement or remove from navigation",
+        "If implementing: add proper empty state with guidance",
+        "If removing: hide from sidebar navigation",
+        "Payment Verifications page either works or is removed from navigation",
+        "No blank pages accessible from sidebar"
+      ],
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": []
+    },
+    {
+      "id": "FIN-009",
+      "epic": "Navigation",
+      "title": "Simplify Finance Hub tabs by grouping",
+      "description": "Simplify Finance Hub tabs by grouping related features",
+      "priority": "high",
+      "acceptance_criteria": [
+        "Reduce main tabs from 11 to 6 logical groups",
+        "Group 1: Overview (keep as-is)",
+        "Group 2: Billing (combines Invoices + Payments)",
+        "Group 3: Expenses (keep as-is with sub-tabs)",
+        "Group 4: Collections (combines Arrears + Late Fees + Deposits + Refunds)",
+        "Group 5: Reconciliation (keep as-is)",
+        "Group 6: Settings (keep as-is with sub-tabs)",
+        "Add sub-navigation within each group tab",
+        "Finance Hub shows maximum 6 tabs without scrolling",
+        "All existing pages accessible via sub-navigation",
+        "URLs remain backwards compatible",
+        "Tab grouping is logical and discoverable"
+      ],
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["FIN-001", "FIN-002"]
+    },
+    {
+      "id": "FIN-010",
+      "epic": "Navigation",
+      "title": "Add breadcrumb navigation to Finance Hub",
+      "description": "Add breadcrumb navigation to all Finance Hub sub-pages",
+      "priority": "medium",
+      "acceptance_criteria": [
+        "Create reusable breadcrumb component if not exists",
+        "Add breadcrumbs to all Finance Hub pages",
+        "Format: Finance Hub > [Section] > [Current Page]",
+        "Make breadcrumbs clickable for navigation",
+        "All Finance Hub pages display breadcrumbs",
+        "Breadcrumbs are clickable and navigate correctly",
+        "Current page is shown but not clickable"
+      ],
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["FIN-009"]
+    },
+    {
+      "id": "FIN-011",
+      "epic": "Functional",
+      "title": "Add Bulk Payment Recording feature",
+      "description": "Add Bulk Payment Recording feature",
+      "priority": "medium",
+      "acceptance_criteria": [
+        "Add 'Bulk Import' button to Payments page",
+        "Create CSV upload interface with template download",
+        "Template columns: Tenant ID/Unit, Amount, Date, Method, Reference",
+        "Add validation preview before import confirmation",
+        "Process bulk payments with transaction logging",
+        "Display import results summary (success/failed count)",
+        "CSV template can be downloaded",
+        "CSV upload validates data before processing",
+        "Preview shows validation errors",
+        "Successfully imported payments appear in list",
+        "Failed rows are reported with specific errors"
+      ],
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["FIN-003"]
+    },
+    {
+      "id": "FIN-012",
+      "epic": "Functional",
+      "title": "Add Credit Note/Adjustment functionality",
+      "description": "Add Credit Note/Adjustment functionality",
+      "priority": "medium",
+      "acceptance_criteria": [
+        "Add credit notes table to database",
+        "Create CreditNoteController with CRUD operations",
+        "Add 'Issue Credit Note' action to tenant account",
+        "Credit notes should reduce outstanding balance",
+        "Add credit notes to tenant statement/ledger view",
+        "Track credit note reason and approval",
+        "Credit notes can be issued to tenant accounts",
+        "Credit notes appear in tenant ledger",
+        "Credit notes reduce invoice outstanding amounts",
+        "Credit note requires reason selection"
+      ],
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": []
+    },
+    {
+      "id": "FIN-013",
+      "epic": "Functional",
+      "title": "Add Tenant Ledger/Statement view",
+      "description": "Add Tenant Ledger/Statement view",
+      "priority": "high",
+      "acceptance_criteria": [
+        "Create TenantLedgerController@show route",
+        "Create ledger view showing chronological transactions",
+        "Include: Invoices, Payments, Credits, Refunds, Deposits",
+        "Show running balance after each transaction",
+        "Add date range filter",
+        "Add PDF export/download option",
+        "Add email statement option",
+        "Tenant ledger shows all financial transactions",
+        "Running balance is accurately calculated",
+        "Can filter by date range",
+        "Can export as PDF",
+        "Can email statement to tenant"
+      ],
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": []
+    },
+    {
+      "id": "FIN-014",
+      "epic": "Functional",
+      "title": "Add Payment Allocation for overpayments",
+      "description": "Add Payment Allocation for overpayments",
+      "priority": "medium",
+      "acceptance_criteria": [
+        "Track overpayments as tenant credit balance",
+        "Add credit balance display to tenant profile",
+        "When generating new invoice, option to auto-apply credit",
+        "Add manual credit allocation interface",
+        "Add overpayment notification to landlord",
+        "Overpayments tracked as tenant credit",
+        "Credit balance visible on tenant profile",
+        "Credit can be applied to new invoices",
+        "Landlord notified of overpayments"
+      ],
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["FIN-003"]
+    },
+    {
+      "id": "FIN-015",
+      "epic": "Functional",
+      "title": "Add Receipt Template configuration",
+      "description": "Add Receipt Template configuration to Settings",
+      "priority": "medium",
+      "acceptance_criteria": [
+        "Add Receipt Templates sub-tab to Finance Settings",
+        "Create receipt template editor with placeholders",
+        "Support custom logo, header, footer",
+        "Add auto-send receipt option after payment recording",
+        "Preview receipt before saving template",
+        "Receipt template customizable in Settings",
+        "Receipts auto-generated on payment",
+        "Option to auto-email receipt to tenant",
+        "Receipt includes all payment details"
+      ],
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": []
+    },
+    {
+      "id": "FIN-016",
+      "epic": "Functional",
+      "title": "Add Fiscal Year configuration for reports",
+      "description": "Add Fiscal Year configuration for reports",
+      "priority": "low",
+      "acceptance_criteria": [
+        "Add Fiscal Year setting (calendar year vs custom)",
+        "Support start month configuration",
+        "Update all reports to respect fiscal year",
+        "Add fiscal year filter option to reports",
+        "Fiscal year can be configured in Settings",
+        "Reports can be filtered by fiscal year",
+        "YTD calculations use fiscal year start"
+      ],
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": []
+    }
+  ],
+  "metadata": {
+    "total_stories": 25,
+    "passing_stories": 12,
+    "framework": "Laravel",
+    "frontend": "Vue.js/Inertia"
+  }
+}

@@ -1,0 +1,200 @@
+<script setup>
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { ref, computed, onMounted } from 'vue';
+import {
+    ChartBarIcon,
+    DocumentTextIcon,
+    ClockIcon,
+    ArchiveBoxIcon,
+    Cog6ToothIcon,
+    BellAlertIcon,
+    SparklesIcon
+} from '@heroicons/vue/24/outline';
+
+// Tab Components
+import OverviewTab from './partials/OverviewTab.vue';
+import TemplatesTab from './partials/TemplatesTab.vue';
+import ScheduledTab from './partials/ScheduledTab.vue';
+import HistoryTab from './partials/HistoryTab.vue';
+import SettingsTab from './partials/SettingsTab.vue';
+import SetupWizard from './components/SetupWizard.vue';
+
+const props = defineProps({
+    // Common props
+    activeTab: { type: String, default: 'overview' },
+    notifications: { type: Object, default: () => ({ data: [] }) },
+    tenants: { type: Array, default: () => [] },
+    buildings: { type: Array, default: () => [] },
+    filters: { type: Object, default: () => ({}) },
+    setupComplete: { type: Boolean, default: false },
+
+    // Overview tab props
+    stats: { type: Object, default: () => ({}) },
+    recentNotifications: { type: Array, default: () => [] },
+    channelStats: { type: Object, default: () => ({}) },
+
+    // Templates tab props
+    templates: { type: Array, default: () => [] },
+    notificationTypes: { type: Array, default: () => [] },
+    placeholders: { type: Object, default: () => ({}) },
+
+    // Schedules tab props
+    schedules: { type: Array, default: () => [] },
+    scheduleTypes: { type: Array, default: () => [] },
+
+    // Settings tab props
+    providers: { type: Object, default: () => ({}) },
+    smsProviders: { type: Array, default: () => [] },
+    currentSmsProvider: { type: String, default: 'none' },
+    globalPreferences: { type: Object, default: () => ({}) },
+});
+
+// Tab state - use prop if provided, otherwise default to 'overview'
+const currentTab = ref(props.activeTab || 'overview');
+
+// Show setup wizard if not complete
+const showSetupWizard = ref(false);
+
+onMounted(() => {
+    if (!props.setupComplete && currentTab.value === 'overview') {
+        showSetupWizard.value = true;
+    }
+});
+
+const tabs = [
+    { id: 'overview', name: 'Overview', icon: ChartBarIcon, route: 'notifications.overview' },
+    { id: 'templates', name: 'Templates', icon: DocumentTextIcon, route: 'notifications.templates' },
+    { id: 'scheduled', name: 'Scheduled', icon: ClockIcon, route: 'notifications.schedules' },
+    { id: 'history', name: 'History', icon: ArchiveBoxIcon, route: 'notifications.index' },
+    { id: 'settings', name: 'Settings', icon: Cog6ToothIcon, route: 'notifications.settings' },
+];
+
+const navigateToTab = (tab) => {
+    currentTab.value = tab.id;
+    router.get(route(tab.route), {}, {
+        preserveState: true,
+        preserveScroll: true,
+    });
+};
+
+const openSetupWizard = () => {
+    showSetupWizard.value = true;
+};
+</script>
+
+<template>
+    <Head title="Notifications" />
+
+    <AuthenticatedLayout>
+        <div class="py-6">
+            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
+
+                <!-- Header with Welcome Message -->
+                <div class="bg-gradient-to-r from-indigo-600 to-purple-600 overflow-hidden shadow-xl sm:rounded-2xl">
+                    <div class="p-6 sm:p-8">
+                        <div class="flex justify-between items-start">
+                            <div class="flex items-center gap-4">
+                                <div class="p-3 bg-white/20 rounded-xl">
+                                    <BellAlertIcon class="w-8 h-8 text-white" />
+                                </div>
+                                <div>
+                                    <h1 class="text-2xl sm:text-3xl font-bold text-white">Notification Center</h1>
+                                    <p class="mt-1 text-indigo-100">
+                                        Manage your tenant communications across all channels
+                                    </p>
+                                </div>
+                            </div>
+                            <div v-if="!setupComplete" class="hidden sm:block">
+                                <button
+                                    @click="openSetupWizard"
+                                    class="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl transition-all"
+                                >
+                                    <SparklesIcon class="w-5 h-5" />
+                                    Setup Wizard
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Navigation -->
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-1.5">
+                    <nav class="flex gap-1">
+                        <button
+                            v-for="tab in tabs"
+                            :key="tab.id"
+                            @click="navigateToTab(tab)"
+                            :class="[
+                                'flex-1 group flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium text-sm transition-all duration-200',
+                                currentTab === tab.id
+                                    ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md'
+                                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                            ]"
+                        >
+                            <component :is="tab.icon" class="w-5 h-5" />
+                            <span class="hidden sm:inline">{{ tab.name }}</span>
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- Tab Content -->
+                <div class="transition-all duration-300">
+                    <!-- Overview Tab -->
+                    <OverviewTab
+                        v-if="currentTab === 'overview'"
+                        :stats="stats"
+                        :recent-notifications="recentNotifications"
+                        :channel-stats="channelStats"
+                        :tenants="tenants"
+                        :setup-complete="setupComplete"
+                        @open-wizard="openSetupWizard"
+                    />
+
+                    <!-- Templates Tab -->
+                    <TemplatesTab
+                        v-if="currentTab === 'templates'"
+                        :templates="templates"
+                        :notification-types="notificationTypes"
+                        :placeholders="placeholders"
+                    />
+
+                    <!-- Scheduled Tab -->
+                    <ScheduledTab
+                        v-if="currentTab === 'scheduled'"
+                        :schedules="schedules"
+                        :templates="templates"
+                        :schedule-types="scheduleTypes"
+                    />
+
+                    <!-- History Tab -->
+                    <HistoryTab
+                        v-if="currentTab === 'history'"
+                        :notifications="notifications"
+                        :tenants="tenants"
+                        :buildings="buildings"
+                        :filters="filters"
+                    />
+
+                    <!-- Settings Tab -->
+                    <SettingsTab
+                        v-if="currentTab === 'settings'"
+                        :settings="providers"
+                        :global-preferences="globalPreferences"
+                        :setup-complete="setupComplete"
+                        @open-wizard="openSetupWizard"
+                    />
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Setup Wizard Modal -->
+        <SetupWizard
+            :show="showSetupWizard"
+            :settings="providers"
+            @close="showSetupWizard = false"
+            @complete="showSetupWizard = false"
+        />
+    </AuthenticatedLayout>
+</template>

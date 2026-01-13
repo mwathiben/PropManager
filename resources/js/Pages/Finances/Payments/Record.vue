@@ -1,0 +1,537 @@
+<script setup>
+import { ref, computed, watch } from 'vue';
+import { router, Head, Link } from '@inertiajs/vue3';
+import { useFormatters } from '@/composables';
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import {
+    BanknotesIcon,
+    MagnifyingGlassIcon,
+    UserIcon,
+    DocumentTextIcon,
+    CheckIcon,
+    ExclamationTriangleIcon,
+    ArrowLeftIcon,
+} from '@heroicons/vue/24/outline';
+
+const props = defineProps({
+    paymentMethods: {
+        type: Array,
+        default: () => [],
+    },
+    buildings: {
+        type: Array,
+        default: () => [],
+    },
+});
+
+const { formatMoney } = useFormatters();
+
+const form = ref({
+    tenant_id: null,
+    invoice_id: null,
+    amount: '',
+    payment_method: 'cash',
+    payment_date: new Date().toISOString().split('T')[0],
+    reference: '',
+    notes: '',
+    is_unallocated: false,
+});
+
+const errors = ref({});
+const isSubmitting = ref(false);
+const success = ref(false);
+
+const searchQuery = ref('');
+const searchResults = ref([]);
+const isSearching = ref(false);
+const showSearchResults = ref(false);
+
+const selectedTenant = ref(null);
+const tenantInvoices = ref([]);
+const totalOutstanding = ref(0);
+const isLoadingInvoices = ref(false);
+
+let searchTimeout = null;
+
+watch(searchQuery, (newVal) => {
+    if (searchTimeout) clearTimeout(searchTimeout);
+
+    if (newVal.length < 2) {
+        searchResults.value = [];
+        showSearchResults.value = false;
+        return;
+    }
+
+    searchTimeout = setTimeout(async () => {
+        isSearching.value = true;
+        try {
+            const response = await fetch(route('tenants.search') + `?q=${encodeURIComponent(newVal)}`);
+            const data = await response.json();
+            searchResults.value = data.data || [];
+            showSearchResults.value = true;
+        } catch (err) {
+            console.error('Search failed:', err);
+            searchResults.value = [];
+        } finally {
+            isSearching.value = false;
+        }
+    }, 300);
+});
+
+const selectTenant = async (tenant) => {
+    selectedTenant.value = tenant;
+    form.value.tenant_id = tenant.id;
+    form.value.invoice_id = null;
+    form.value.is_unallocated = false;
+    searchQuery.value = '';
+    showSearchResults.value = false;
+
+    isLoadingInvoices.value = true;
+    try {
+        const response = await fetch(route('tenants.outstanding-invoices', tenant.id));
+        const data = await response.json();
+        tenantInvoices.value = data.data || [];
+        totalOutstanding.value = data.total_outstanding || 0;
+
+        if (tenantInvoices.value.length === 1) {
+            form.value.invoice_id = tenantInvoices.value[0].id;
+            form.value.amount = tenantInvoices.value[0].balance;
+        }
+    } catch (err) {
+        console.error('Failed to load invoices:', err);
+        tenantInvoices.value = [];
+        totalOutstanding.value = 0;
+    } finally {
+        isLoadingInvoices.value = false;
+    }
+};
+
+const clearTenant = () => {
+    selectedTenant.value = null;
+    form.value.tenant_id = null;
+    form.value.invoice_id = null;
+    form.value.amount = '';
+    tenantInvoices.value = [];
+    totalOutstanding.value = 0;
+};
+
+const selectedInvoice = computed(() => {
+    return tenantInvoices.value.find(i => i.id === form.value.invoice_id);
+});
+
+const maxAmount = computed(() => {
+    if (form.value.is_unallocated) return null;
+    return selectedInvoice.value?.balance || 0;
+});
+
+const remainingAfterPayment = computed(() => {
+    if (!selectedInvoice.value || !form.value.amount) return null;
+    return Math.max(0, selectedInvoice.value.balance - Number(form.value.amount));
+});
+
+const isOverpayment = computed(() => {
+    if (form.value.is_unallocated || !selectedInvoice.value) return false;
+    return Number(form.value.amount) > selectedInvoice.value.balance;
+});
+
+watch(() => form.value.invoice_id, (newVal) => {
+    if (newVal && !form.value.is_unallocated) {
+        const invoice = tenantInvoices.value.find(i => i.id === newVal);
+        if (invoice) {
+            form.value.amount = invoice.balance;
+        }
+    }
+});
+
+watch(() => form.value.is_unallocated, (newVal) => {
+    if (newVal) {
+        form.value.invoice_id = null;
+    }
+});
+
+const setFullAmount = () => {
+    if (selectedInvoice.value) {
+        form.value.amount = selectedInvoice.value.balance;
+    }
+};
+
+const validate = () => {
+    errors.value = {};
+
+    if (!selectedTenant.value && !form.value.invoice_id) {
+        errors.value.tenant = 'Please select a tenant';
+    }
+
+    if (!form.value.is_unallocated && !form.value.invoice_id && tenantInvoices.value.length > 0) {
+        errors.value.invoice = 'Please select an invoice or mark as unallocated';
+    }
+
+    if (!form.value.amount || Number(form.value.amount) <= 0) {
+        errors.value.amount = 'Please enter a valid amount';
+    }
+
+    if (!form.value.payment_method) {
+        errors.value.payment_method = 'Please select a payment method';
+    }
+
+    if (!form.value.payment_date) {
+        errors.value.payment_date = 'Please select a payment date';
+    }
+
+    return Object.keys(errors.value).length === 0;
+};
+
+const handleSubmit = () => {
+    if (!validate()) return;
+
+    isSubmitting.value = true;
+
+    router.post(route('finances.payments.store-manual'), {
+        tenant_id: form.value.tenant_id,
+        invoice_id: form.value.is_unallocated ? null : form.value.invoice_id,
+        amount: form.value.amount,
+        payment_method: form.value.payment_method,
+        payment_date: form.value.payment_date,
+        reference: form.value.reference,
+        notes: form.value.notes,
+        is_unallocated: form.value.is_unallocated,
+    }, {
+        onSuccess: () => {
+            success.value = true;
+        },
+        onError: (errs) => {
+            errors.value = errs;
+        },
+        onFinish: () => {
+            isSubmitting.value = false;
+        },
+    });
+};
+</script>
+
+<template>
+    <Head title="Record Payment" />
+
+    <AuthenticatedLayout>
+        <div class="py-6">
+            <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="mb-6">
+                    <Link
+                        :href="route('finances.payments')"
+                        class="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                    >
+                        <ArrowLeftIcon class="w-4 h-4" />
+                        Back to Payments
+                    </Link>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2 bg-emerald-100 rounded-lg">
+                                <BanknotesIcon class="w-5 h-5 text-emerald-600" />
+                            </div>
+                            <div>
+                                <h1 class="text-lg font-semibold text-gray-900">Record Payment</h1>
+                                <p class="text-sm text-gray-500">Manually record a payment from a tenant</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="success" class="p-8 text-center">
+                        <div class="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 rounded-full mb-4">
+                            <CheckIcon class="w-8 h-8 text-emerald-600" />
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900">Payment Recorded!</h3>
+                        <p class="text-sm text-gray-500 mt-2">The payment has been successfully recorded.</p>
+                        <div class="mt-6">
+                            <Link
+                                :href="route('finances.payments')"
+                                class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
+                            >
+                                View Payments
+                            </Link>
+                        </div>
+                    </div>
+
+                    <form v-else @submit.prevent="handleSubmit" class="p-6 space-y-6">
+                        <div v-if="errors.general" class="p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+                            {{ errors.general }}
+                        </div>
+
+                        <div class="space-y-4">
+                            <h3 class="text-sm font-medium text-gray-900 flex items-center gap-2">
+                                <UserIcon class="w-4 h-4 text-gray-400" />
+                                Tenant Selection
+                            </h3>
+
+                            <div v-if="selectedTenant" class="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="font-medium text-gray-900">{{ selectedTenant.name }}</p>
+                                        <p class="text-sm text-gray-600">
+                                            {{ selectedTenant.unit?.unit_number }}
+                                            <span v-if="selectedTenant.unit?.building_name" class="text-gray-400">
+                                                · {{ selectedTenant.unit.building_name }}
+                                            </span>
+                                        </p>
+                                        <p class="text-xs text-gray-500 mt-1">{{ selectedTenant.email }}</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        @click="clearTenant"
+                                        class="text-sm text-gray-500 hover:text-gray-700"
+                                    >
+                                        Change
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div v-else class="relative">
+                                <div class="relative">
+                                    <MagnifyingGlassIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <input
+                                        v-model="searchQuery"
+                                        type="text"
+                                        class="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                                        placeholder="Search tenant by name, phone, or unit number..."
+                                        @focus="showSearchResults = searchResults.length > 0"
+                                    />
+                                    <div v-if="isSearching" class="absolute right-3 top-1/2 -translate-y-1/2">
+                                        <svg class="animate-spin h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+
+                                <div
+                                    v-if="showSearchResults && searchResults.length > 0"
+                                    class="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                                >
+                                    <button
+                                        v-for="tenant in searchResults"
+                                        :key="tenant.id"
+                                        type="button"
+                                        @click="selectTenant(tenant)"
+                                        class="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                                    >
+                                        <p class="font-medium text-gray-900">{{ tenant.name }}</p>
+                                        <p class="text-sm text-gray-500">
+                                            {{ tenant.unit?.unit_number || 'No unit' }}
+                                            <span v-if="tenant.unit?.building_name">· {{ tenant.unit.building_name }}</span>
+                                        </p>
+                                    </button>
+                                </div>
+
+                                <p v-if="errors.tenant" class="mt-1 text-sm text-red-600">{{ errors.tenant }}</p>
+                            </div>
+                        </div>
+
+                        <div v-if="selectedTenant" class="space-y-4">
+                            <h3 class="text-sm font-medium text-gray-900 flex items-center gap-2">
+                                <DocumentTextIcon class="w-4 h-4 text-gray-400" />
+                                Invoice Selection
+                            </h3>
+
+                            <div v-if="isLoadingInvoices" class="text-center py-4">
+                                <svg class="animate-spin h-6 w-6 text-gray-400 mx-auto" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <p class="text-sm text-gray-500 mt-2">Loading invoices...</p>
+                            </div>
+
+                            <template v-else>
+                                <div class="flex items-center gap-2 mb-3">
+                                    <input
+                                        v-model="form.is_unallocated"
+                                        type="checkbox"
+                                        id="is_unallocated"
+                                        class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                    />
+                                    <label for="is_unallocated" class="text-sm text-gray-700">
+                                        Unallocated payment (not linked to specific invoice)
+                                    </label>
+                                </div>
+
+                                <div v-if="!form.is_unallocated">
+                                    <div v-if="tenantInvoices.length === 0" class="p-4 bg-gray-50 rounded-lg text-center">
+                                        <p class="text-sm text-gray-500">No outstanding invoices for this tenant</p>
+                                    </div>
+
+                                    <div v-else class="space-y-2">
+                                        <div
+                                            v-for="invoice in tenantInvoices"
+                                            :key="invoice.id"
+                                            @click="form.invoice_id = invoice.id"
+                                            :class="[
+                                                'p-3 border rounded-lg cursor-pointer transition-colors',
+                                                form.invoice_id === invoice.id
+                                                    ? 'border-emerald-500 bg-emerald-50'
+                                                    : 'border-gray-200 hover:border-gray-300'
+                                            ]"
+                                        >
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <p class="font-medium text-gray-900">{{ invoice.invoice_number }}</p>
+                                                    <p class="text-sm text-gray-500">{{ invoice.description }}</p>
+                                                </div>
+                                                <div class="text-right">
+                                                    <p class="font-semibold text-gray-900">{{ formatMoney(invoice.balance) }}</p>
+                                                    <p class="text-xs text-gray-500">
+                                                        Due: {{ invoice.due_date || 'N/A' }}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <p v-if="totalOutstanding > 0" class="text-sm text-gray-600 pt-2">
+                                            Total outstanding: <span class="font-semibold">{{ formatMoney(totalOutstanding) }}</span>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <p v-if="errors.invoice" class="mt-1 text-sm text-red-600">{{ errors.invoice }}</p>
+                            </template>
+                        </div>
+
+                        <div v-if="selectedTenant" class="space-y-4 pt-4 border-t border-gray-200">
+                            <h3 class="text-sm font-medium text-gray-900 flex items-center gap-2">
+                                <BanknotesIcon class="w-4 h-4 text-gray-400" />
+                                Payment Details
+                            </h3>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Amount *</label>
+                                    <div class="relative">
+                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">KES</span>
+                                        <input
+                                            v-model.number="form.amount"
+                                            type="number"
+                                            min="0.01"
+                                            step="0.01"
+                                            :class="[
+                                                'w-full pl-12 pr-20 py-2.5 text-sm border rounded-lg transition-colors',
+                                                errors.amount
+                                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                                    : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500'
+                                            ]"
+                                            placeholder="0.00"
+                                        />
+                                        <button
+                                            v-if="selectedInvoice && !form.is_unallocated"
+                                            type="button"
+                                            @click="setFullAmount"
+                                            class="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+                                        >
+                                            Full
+                                        </button>
+                                    </div>
+                                    <p v-if="errors.amount" class="mt-1 text-sm text-red-600">{{ errors.amount }}</p>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Payment Method *</label>
+                                    <select
+                                        v-model="form.payment_method"
+                                        :class="[
+                                            'w-full px-3 py-2.5 text-sm border rounded-lg transition-colors',
+                                            errors.payment_method
+                                                ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                                : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500'
+                                        ]"
+                                    >
+                                        <option v-for="method in paymentMethods" :key="method.value" :value="method.value">
+                                            {{ method.label }}
+                                        </option>
+                                    </select>
+                                    <p v-if="errors.payment_method" class="mt-1 text-sm text-red-600">{{ errors.payment_method }}</p>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Payment Date *</label>
+                                    <input
+                                        v-model="form.payment_date"
+                                        type="date"
+                                        :max="new Date().toISOString().split('T')[0]"
+                                        :class="[
+                                            'w-full px-3 py-2.5 text-sm border rounded-lg transition-colors',
+                                            errors.payment_date
+                                                ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                                : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500'
+                                        ]"
+                                    />
+                                    <p v-if="errors.payment_date" class="mt-1 text-sm text-red-600">{{ errors.payment_date }}</p>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Reference (optional)</label>
+                                    <input
+                                        v-model="form.reference"
+                                        type="text"
+                                        class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                                        placeholder="Receipt/transaction ID"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+                                <textarea
+                                    v-model="form.notes"
+                                    rows="2"
+                                    class="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition-colors resize-none"
+                                    placeholder="Any additional notes..."
+                                />
+                            </div>
+
+                            <div v-if="isOverpayment" class="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+                                <ExclamationTriangleIcon class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <p class="text-sm font-medium text-amber-800">Overpayment detected</p>
+                                    <p class="text-sm text-amber-700">
+                                        This amount exceeds the invoice balance by {{ formatMoney(Number(form.amount) - selectedInvoice.balance) }}.
+                                        The excess will be credited to the tenant's wallet.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div v-if="selectedInvoice && remainingAfterPayment !== null && !form.is_unallocated" class="p-3 bg-gray-50 rounded-lg">
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-gray-600">Invoice Balance</span>
+                                    <span class="font-medium">{{ formatMoney(selectedInvoice.balance) }}</span>
+                                </div>
+                                <div class="flex justify-between text-sm mt-1">
+                                    <span class="text-gray-600">Payment Amount</span>
+                                    <span class="font-medium text-emerald-600">- {{ formatMoney(form.amount || 0) }}</span>
+                                </div>
+                                <div class="flex justify-between text-sm mt-2 pt-2 border-t border-gray-200">
+                                    <span class="text-gray-700 font-medium">Remaining</span>
+                                    <span class="font-semibold">{{ formatMoney(remainingAfterPayment) }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-3 pt-4 border-t border-gray-200">
+                            <Link
+                                :href="route('finances.payments')"
+                                class="flex-1 px-4 py-2.5 text-sm font-medium text-center text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                            >
+                                Cancel
+                            </Link>
+                            <button
+                                type="submit"
+                                :disabled="isSubmitting || !selectedTenant"
+                                class="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {{ isSubmitting ? 'Recording...' : 'Record Payment' }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </AuthenticatedLayout>
+</template>

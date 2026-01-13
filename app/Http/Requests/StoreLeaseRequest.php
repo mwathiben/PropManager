@@ -1,0 +1,37 @@
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class StoreLeaseRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return auth()->user()->isLandlord() || auth()->user()->isCaretaker();
+    }
+
+    public function rules(): array
+    {
+        return [
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'phone' => 'required|string|max:20',
+            'id_number' => 'nullable|string',
+            'rent_amount' => 'required|numeric|min:0',
+            'service_charge' => 'nullable|numeric|min:0',
+            'deposit_amount' => 'required|numeric|min:0',
+            'start_date' => 'required|date',
+            'lease_doc' => 'nullable|file|mimes:pdf,jpg,png|max:2048',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'email.unique' => 'A user with this email already exists.',
+            'rent_amount.min' => 'Rent amount cannot be negative.',
+            'deposit_amount.min' => 'Deposit amount cannot be negative.',
+        ];
+    }
+}

@@ -1,0 +1,734 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Notification;
+use App\Models\NotificationPreference;
+use App\Models\Setting;
+use App\Models\User;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
+
+class NotificationService
+{
+    private const RATE_LIMIT_PER_HOUR = 100;
+
+    private const RATE_LIMIT_PER_DAY = 1000;
+
+    /**
+     * Send a notification to a user via their preferred channels
+     */
+    public function send(
+        int $recipientId,
+        string $type,
+        string $subject,
+        string $message,
+        ?array $data = null,
+        ?int $landlordId = null
+    ): array {
+        $recipient = User::findOrFail($recipientId);
+
+        if (! $landlordId) {
+            $landlordId = $recipient->role === 'tenant'
+                ? $recipient->landlord_id
+                : $recipient->id;
+        }
+
+        // Get user preferences
+        $preferences = NotificationPreference::getOrCreate($recipientId, $landlordId);
+
+        $results = [];
+        $channels = ['email', 'sms', 'whatsapp', 'push', 'in_app'];
+
+        foreach ($channels as $channel) {
+            if ($preferences->canReceive($type, $channel)) {
+                if (! $this->checkRateLimits($landlordId, $channel)) {
+                    $results[$channel] = 'rate_limited';
+                    Log::warning('Notification rate limited', [
+                        'landlord_id' => $landlordId,
+                        'channel' => $channel,
+                    ]);
+
+                    continue;
+                }
+
+                $notification = $this->createNotification(
+                    $landlordId,
+                    $recipientId,
+                    $type,
+                    $channel,
+                    $subject,
+                    $message,
+                    $data
+                );
+
+                try {
+                    $sent = $this->sendViaChannel($notification, $recipient);
+                    $results[$channel] = $sent ? 'sent' : 'failed';
+                } catch (\Exception $e) {
+                    $notification->markAsFailed($e->getMessage());
+                    $results[$channel] = 'failed';
+                    Log::error("Notification failed via {$channel}", [
+                        'error' => $e->getMessage(),
+                        'notification_id' => $notification->id,
+                    ]);
+                }
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Send bulk notifications to multiple recipients
+     */
+    public function sendBulk(
+        array $recipientIds,
+        string $type,
+        string $subject,
+        string $message,
+        ?array $data,
+        int $landlordId,
+        array $channels = ['email', 'sms', 'whatsapp']
+    ): array {
+        $results = [
+            'total' => count($recipientIds),
+            'sent' => 0,
+            'failed' => 0,
+            'channels' => [],
+        ];
+
+        foreach ($recipientIds as $recipientId) {
+            try {
+                $channelResults = $this->send(
+                    $recipientId,
+                    $type,
+                    $subject,
+                    $message,
+                    $data,
+                    $landlordId
+                );
+
+                foreach ($channelResults as $channel => $status) {
+                    if (! isset($results['channels'][$channel])) {
+                        $results['channels'][$channel] = ['sent' => 0, 'failed' => 0];
+                    }
+
+                    if ($status === 'sent') {
+                        $results['channels'][$channel]['sent']++;
+                    } else {
+                        $results['channels'][$channel]['failed']++;
+                    }
+                }
+
+                $results['sent']++;
+            } catch (\Exception $e) {
+                $results['failed']++;
+                Log::error('Bulk notification failed', [
+                    'recipient_id' => $recipientId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Create a notification record
+     */
+    private function createNotification(
+        int $landlordId,
+        int $recipientId,
+        string $type,
+        string $channel,
+        string $subject,
+        string $message,
+        ?array $data
+    ): Notification {
+        return Notification::create([
+            'landlord_id' => $landlordId,
+            'recipient_id' => $recipientId,
+            'type' => $type,
+            'channel' => $channel,
+            'subject' => $subject,
+            'message' => $message,
+            'data' => $data,
+            'status' => 'pending',
+        ]);
+    }
+
+    /**
+     * Send notification via specific channel
+     */
+    private function sendViaChannel(Notification $notification, User $recipient): bool
+    {
+        return match ($notification->channel) {
+            'email' => $this->sendEmail($notification, $recipient),
+            'sms' => $this->sendSms($notification, $recipient),
+            'whatsapp' => $this->sendWhatsApp($notification, $recipient),
+            'push' => $this->sendPush($notification, $recipient),
+            'in_app' => $this->sendInApp($notification, $recipient),
+            default => false,
+        };
+    }
+
+    /**
+     * Send in-app notification (just marks as sent - stored in DB for display)
+     */
+    private function sendInApp(Notification $notification, User $recipient): bool
+    {
+        // In-app notifications are immediately available once created in the database
+        // They're visible in the notification bell and notifications page
+        $notification->markAsSent();
+
+        return true;
+    }
+
+    /**
+     * Send email notification
+     */
+    private function sendEmail(Notification $notification, User $recipient): bool
+    {
+        try {
+            Mail::send('emails.notification', [
+                'subject' => $notification->subject,
+                'message' => $notification->message,
+                'data' => $notification->data,
+                'recipient' => $recipient,
+            ], function ($mail) use ($recipient, $notification) {
+                $mail->to($recipient->email)
+                    ->subject($notification->subject);
+            });
+
+            $notification->markAsSent();
+
+            return true;
+        } catch (\Exception $e) {
+            $notification->markAsFailed($e->getMessage());
+
+            return false;
+        }
+    }
+
+    /**
+     * Send SMS notification
+     */
+    private function sendSms(Notification $notification, User $recipient): bool
+    {
+        $provider = Setting::get('sms_provider', 'none', $notification->landlord_id);
+
+        if ($provider === 'none') {
+            $notification->markAsFailed('SMS provider not configured');
+
+            return false;
+        }
+
+        return match ($provider) {
+            'twilio' => $this->sendViaTwilio($notification, $recipient),
+            'africas_talking' => $this->sendViaAfricasTalking($notification, $recipient),
+            default => false,
+        };
+    }
+
+    /**
+     * Send SMS via Twilio
+     */
+    private function sendViaTwilio(Notification $notification, User $recipient): bool
+    {
+        $accountSid = Setting::get('twilio_account_sid', null, $notification->landlord_id);
+        $authToken = Setting::get('twilio_auth_token', null, $notification->landlord_id);
+        $fromNumber = Setting::get('twilio_phone_number', null, $notification->landlord_id);
+
+        if (! $accountSid || ! $authToken || ! $fromNumber) {
+            $notification->markAsFailed('Twilio credentials not configured');
+
+            return false;
+        }
+
+        try {
+            $response = Http::withBasicAuth($accountSid, $authToken)
+                ->asForm()
+                ->post("https://api.twilio.com/2010-04-01/Accounts/{$accountSid}/Messages.json", [
+                    'From' => $fromNumber,
+                    'To' => $recipient->phone,
+                    'Body' => $notification->message,
+                ]);
+
+            if ($response->successful()) {
+                $notification->markAsSent($response->json('sid'));
+
+                return true;
+            }
+
+            $notification->markAsFailed($response->json('message', 'Unknown error'));
+
+            return false;
+        } catch (\Exception $e) {
+            $notification->markAsFailed($e->getMessage());
+
+            return false;
+        }
+    }
+
+    /**
+     * Send SMS via Africa's Talking
+     */
+    private function sendViaAfricasTalking(Notification $notification, User $recipient): bool
+    {
+        $apiKey = Setting::get('africas_talking_api_key', null, $notification->landlord_id);
+        $username = Setting::get('africas_talking_username', null, $notification->landlord_id);
+        $from = Setting::get('africas_talking_from', null, $notification->landlord_id);
+
+        if (! $apiKey || ! $username) {
+            $notification->markAsFailed("Africa's Talking credentials not configured");
+
+            return false;
+        }
+
+        try {
+            $response = Http::withHeaders([
+                'apiKey' => $apiKey,
+                'Content-Type' => 'application/x-www-form-urlencoded',
+            ])->asForm()->post('https://api.africastalking.com/version1/messaging', [
+                'username' => $username,
+                'to' => $recipient->phone,
+                'message' => $notification->message,
+                'from' => $from,
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                if (isset($data['SMSMessageData']['Recipients'][0]['status'])
+                    && $data['SMSMessageData']['Recipients'][0]['status'] === 'Success') {
+                    $notification->markAsSent($data['SMSMessageData']['Recipients'][0]['messageId'] ?? null);
+
+                    return true;
+                }
+            }
+
+            $notification->markAsFailed($response->body());
+
+            return false;
+        } catch (\Exception $e) {
+            $notification->markAsFailed($e->getMessage());
+
+            return false;
+        }
+    }
+
+    /**
+     * Send WhatsApp notification via Twilio
+     */
+    private function sendWhatsApp(Notification $notification, User $recipient): bool
+    {
+        $accountSid = Setting::get('twilio_account_sid', null, $notification->landlord_id);
+        $authToken = Setting::get('twilio_auth_token', null, $notification->landlord_id);
+        $fromNumber = Setting::get('twilio_whatsapp_number', null, $notification->landlord_id);
+
+        if (! $accountSid || ! $authToken || ! $fromNumber) {
+            $notification->markAsFailed('WhatsApp credentials not configured');
+
+            return false;
+        }
+
+        // Get recipient's WhatsApp number from preferences
+        $preferences = NotificationPreference::where('user_id', $recipient->id)
+            ->where('landlord_id', $notification->landlord_id)
+            ->first();
+
+        $toNumber = $preferences?->whatsapp_number ?? $recipient->phone;
+
+        try {
+            $response = Http::withBasicAuth($accountSid, $authToken)
+                ->asForm()
+                ->post("https://api.twilio.com/2010-04-01/Accounts/{$accountSid}/Messages.json", [
+                    'From' => 'whatsapp:'.$fromNumber,
+                    'To' => 'whatsapp:'.$toNumber,
+                    'Body' => $notification->message,
+                ]);
+
+            if ($response->successful()) {
+                $notification->markAsSent($response->json('sid'));
+
+                return true;
+            }
+
+            $notification->markAsFailed($response->json('message', 'Unknown error'));
+
+            return false;
+        } catch (\Exception $e) {
+            $notification->markAsFailed($e->getMessage());
+
+            return false;
+        }
+    }
+
+    /**
+     * Send push notification
+     */
+    private function sendPush(Notification $notification, User $recipient): bool
+    {
+        try {
+            $pushService = app(PushNotificationService::class);
+
+            // Check if push is configured
+            if (! $pushService->isConfigured($notification->landlord_id)) {
+                $notification->markAsFailed('Push notifications not configured');
+
+                return false;
+            }
+
+            // Check if user has push subscriptions
+            $subscriptions = $pushService->getUserSubscriptions($recipient->id);
+            if ($subscriptions->isEmpty()) {
+                $notification->markAsFailed('No push subscriptions for user');
+
+                return false;
+            }
+
+            $success = $pushService->send(
+                $recipient->id,
+                $notification->subject ?? 'New Notification',
+                $notification->message,
+                $notification->data,
+                $notification->landlord_id
+            );
+
+            if ($success) {
+                $notification->markAsSent();
+
+                return true;
+            }
+
+            $notification->markAsFailed('Push notification delivery failed');
+
+            return false;
+        } catch (\Exception $e) {
+            $notification->markAsFailed($e->getMessage());
+
+            return false;
+        }
+    }
+
+    /**
+     * Send rent reminder to tenant
+     */
+    public function sendRentReminder(int $tenantId, array $data, int $landlordId): array
+    {
+        $tenant = User::findOrFail($tenantId);
+
+        $message = sprintf(
+            "Hello %s,\n\nThis is a friendly reminder that your rent of KES %s is due on %s.\n\nThank you.",
+            $tenant->name,
+            number_format($data['amount'], 2),
+            $data['due_date']
+        );
+
+        return $this->send(
+            $tenantId,
+            'rent_reminder',
+            'Rent Reminder - Due '.$data['due_date'],
+            $message,
+            $data,
+            $landlordId
+        );
+    }
+
+    /**
+     * Send arrears notice to tenant
+     */
+    public function sendArrearsNotice(int $tenantId, array $data, int $landlordId): array
+    {
+        $tenant = User::findOrFail($tenantId);
+
+        $message = sprintf(
+            "Hello %s,\n\nYou have an outstanding balance of KES %s. Please clear your arrears as soon as possible to avoid any inconvenience.\n\nThank you.",
+            $tenant->name,
+            number_format($data['arrears_amount'], 2)
+        );
+
+        return $this->send(
+            $tenantId,
+            'arrears_notice',
+            'Payment Overdue - Please Clear Arrears',
+            $message,
+            $data,
+            $landlordId
+        );
+    }
+
+    /**
+     * Send invoice notification
+     */
+    public function sendInvoice(int $tenantId, array $invoiceData, int $landlordId): array
+    {
+        $tenant = User::findOrFail($tenantId);
+
+        $message = sprintf(
+            "Hello %s,\n\nYour invoice #%s for KES %s has been generated. Due date: %s.\n\nPlease login to view and pay.",
+            $tenant->name,
+            $invoiceData['invoice_number'],
+            number_format($invoiceData['total_amount'], 2),
+            $invoiceData['due_date']
+        );
+
+        return $this->send(
+            $tenantId,
+            'invoice',
+            'New Invoice - '.$invoiceData['invoice_number'],
+            $message,
+            $invoiceData,
+            $landlordId
+        );
+    }
+
+    /**
+     * Send payment receipt
+     */
+    public function sendReceipt(int $tenantId, array $receiptData, int $landlordId): array
+    {
+        $tenant = User::findOrFail($tenantId);
+
+        $message = sprintf(
+            "Hello %s,\n\nPayment of KES %s received successfully. Receipt #%s.\n\nThank you for your payment.",
+            $tenant->name,
+            number_format($receiptData['amount'], 2),
+            $receiptData['receipt_number']
+        );
+
+        return $this->send(
+            $tenantId,
+            'receipt',
+            'Payment Receipt - '.$receiptData['receipt_number'],
+            $message,
+            $receiptData,
+            $landlordId
+        );
+    }
+
+    /**
+     * Send rent hike notification
+     */
+    public function sendRentHike(int $tenantId, array $data, int $landlordId): array
+    {
+        $tenant = User::findOrFail($tenantId);
+
+        $message = sprintf(
+            "Hello %s,\n\nThis is to inform you that your rent will be adjusted from KES %s to KES %s effective %s.\n\nThank you for your understanding.",
+            $tenant->name,
+            number_format($data['old_rent'], 2),
+            number_format($data['new_rent'], 2),
+            $data['effective_date']
+        );
+
+        return $this->send(
+            $tenantId,
+            'rent_hike',
+            'Rent Adjustment Notice',
+            $message,
+            $data,
+            $landlordId
+        );
+    }
+
+    /**
+     * Send eviction notice to tenant
+     */
+    public function sendEvictionNotice(int $tenantId, array $data, int $landlordId): array
+    {
+        $tenant = User::findOrFail($tenantId);
+
+        $message = sprintf(
+            "Hello %s,\n\nThis is a formal notice of eviction. Due to non-payment of rent, you are required to vacate the premises within the specified period.\n\nOutstanding Balance: KES %s\n\nPlease contact your landlord immediately to discuss this matter.\n\nRegards",
+            $tenant->name,
+            number_format($data['arrears_amount'] ?? 0, 2)
+        );
+
+        return $this->send(
+            $tenantId,
+            'eviction_notice',
+            'Eviction Notice',
+            $message,
+            $data,
+            $landlordId
+        );
+    }
+
+    /**
+     * Send caretaker invitation notification to an existing user
+     */
+    public function sendCaretakerInvitation(int $targetUserId, array $data, int $landlordId): array
+    {
+        $targetUser = User::findOrFail($targetUserId);
+
+        $message = sprintf(
+            "Hello %s,\n\nYou've been invited by %s to become a caretaker for %s.\n\nPlease log in to your account to accept or decline this invitation.\n\nThis invitation expires on %s.",
+            $targetUser->name,
+            $data['landlord_name'],
+            $data['property_name'],
+            $data['expires_at'] ?? 'in 30 days'
+        );
+
+        return $this->sendInAppOnly(
+            $targetUserId,
+            Notification::TYPE_CARETAKER_INVITATION,
+            'Caretaker Invitation from '.$data['landlord_name'],
+            $message,
+            $data,
+            $landlordId
+        );
+    }
+
+    /**
+     * Send tenant invitation notification to an existing user
+     */
+    public function sendTenantInvitation(int $targetUserId, array $data, int $landlordId): array
+    {
+        $targetUser = User::findOrFail($targetUserId);
+
+        $message = sprintf(
+            "Hello %s,\n\nYou've been invited by %s to lease Unit %s at %s.\n\nMonthly Rent: KES %s\nDeposit: KES %s\n\nPlease log in to your account to accept or decline this invitation.\n\nThis invitation expires on %s.",
+            $targetUser->name,
+            $data['landlord_name'],
+            $data['unit_number'],
+            $data['property_name'],
+            number_format($data['rent_amount'] ?? 0, 2),
+            number_format($data['deposit_amount'] ?? 0, 2),
+            $data['expires_at'] ?? 'in 30 days'
+        );
+
+        return $this->sendInAppOnly(
+            $targetUserId,
+            Notification::TYPE_TENANT_INVITATION,
+            'Lease Invitation from '.$data['landlord_name'],
+            $message,
+            $data,
+            $landlordId
+        );
+    }
+
+    /**
+     * Send notification via in-app channel only (bypasses preferences for in_app)
+     * Used for invitations that should always appear in the app
+     */
+    public function sendInAppOnly(
+        int $recipientId,
+        string $type,
+        string $subject,
+        string $message,
+        ?array $data = null,
+        ?int $landlordId = null
+    ): array {
+        $recipient = User::findOrFail($recipientId);
+
+        if (! $landlordId) {
+            $landlordId = $recipient->role === 'tenant'
+                ? $recipient->landlord_id
+                : $recipient->id;
+        }
+
+        $results = [];
+
+        // Always create in-app notification for invitations
+        $notification = $this->createNotification(
+            $landlordId,
+            $recipientId,
+            $type,
+            'in_app',
+            $subject,
+            $message,
+            $data
+        );
+
+        try {
+            $sent = $this->sendInApp($notification, $recipient);
+            $results['in_app'] = $sent ? 'sent' : 'failed';
+        } catch (\Exception $e) {
+            $notification->markAsFailed($e->getMessage());
+            $results['in_app'] = 'failed';
+            Log::error('In-app notification failed', [
+                'error' => $e->getMessage(),
+                'notification_id' => $notification->id,
+            ]);
+        }
+
+        return $results;
+    }
+
+    /**
+     * Check rate limits for notification channel
+     */
+    private function checkRateLimits(int $landlordId, string $channel): bool
+    {
+        if ($channel === 'in_app') {
+            return true;
+        }
+
+        $hourlyKey = "notifications:{$landlordId}:{$channel}:hourly";
+        $dailyKey = "notifications:{$landlordId}:{$channel}:daily";
+
+        $hourlyLimit = Setting::get('notification_rate_limit_hourly', self::RATE_LIMIT_PER_HOUR, $landlordId);
+        $dailyLimit = Setting::get('notification_rate_limit_daily', self::RATE_LIMIT_PER_DAY, $landlordId);
+
+        $hourlyAttempts = RateLimiter::attempt(
+            $hourlyKey,
+            $hourlyLimit,
+            fn () => true,
+            3600
+        );
+
+        if (! $hourlyAttempts) {
+            return false;
+        }
+
+        $dailyAttempts = RateLimiter::attempt(
+            $dailyKey,
+            $dailyLimit,
+            fn () => true,
+            86400
+        );
+
+        return $dailyAttempts;
+    }
+
+    /**
+     * Get remaining rate limit for a channel
+     */
+    public function getRateLimitRemaining(int $landlordId, string $channel): array
+    {
+        $hourlyKey = "notifications:{$landlordId}:{$channel}:hourly";
+        $dailyKey = "notifications:{$landlordId}:{$channel}:daily";
+
+        $hourlyLimit = Setting::get('notification_rate_limit_hourly', self::RATE_LIMIT_PER_HOUR, $landlordId);
+        $dailyLimit = Setting::get('notification_rate_limit_daily', self::RATE_LIMIT_PER_DAY, $landlordId);
+
+        return [
+            'hourly' => [
+                'remaining' => max(0, $hourlyLimit - RateLimiter::attempts($hourlyKey)),
+                'limit' => $hourlyLimit,
+                'resets_at' => RateLimiter::availableAt($hourlyKey),
+            ],
+            'daily' => [
+                'remaining' => max(0, $dailyLimit - RateLimiter::attempts($dailyKey)),
+                'limit' => $dailyLimit,
+                'resets_at' => RateLimiter::availableAt($dailyKey),
+            ],
+        ];
+    }
+
+    /**
+     * Reset rate limits for a landlord
+     */
+    public function resetRateLimits(int $landlordId, ?string $channel = null): void
+    {
+        $channels = $channel ? [$channel] : ['email', 'sms', 'whatsapp', 'push'];
+
+        foreach ($channels as $ch) {
+            RateLimiter::clear("notifications:{$landlordId}:{$ch}:hourly");
+            RateLimiter::clear("notifications:{$landlordId}:{$ch}:daily");
+        }
+    }
+}

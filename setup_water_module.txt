@@ -1,0 +1,20 @@
+WATER MODULE COMPLETION TASKS
+
+1. WaterReadingObserver - CREATED ✓
+2. AppServiceProvider updated - DONE ✓  
+3. Routes added - DONE ✓
+
+4. WaterReadingController needs these methods added:
+   - history() - Show reading history with filters
+   - update() - Update a reading before invoicing
+   - destroy() - Delete a reading if not invoiced
+
+5. Create resources/js/Pages/Readings/History.vue
+   - Table view of all readings
+   - Filters: building, unit, month
+   - Pagination
+   - Shows invoiced status
+
+6. Test the water module works end-to-end
+
+NEXT: Move to Invoice Generation System

@@ -1,0 +1,193 @@
+# Finance Hub Completion Progress
+
+## Completed Tasks
+
+### FIN-014: RecordPaymentModal wiring (2026-01-12)
+- **Issue**: Route name mismatch `invoices.record-payment` vs `invoices.recordPayment`
+- **Fix**: Updated usePayments.js line 213
+- **Issue**: InvoicesTab recordPayment() redirected instead of opening modal
+- **Fix**: Changed to store.openModal('recordPayment', { invoiceId: invoice.id })
+- **Issue**: Invoice data format mismatch (modal expected tenant_name/balance)
+- **Fix**: Added invoicesForModal computed in Finances/Index.vue
+- **Files changed**:
+  - resources/js/composables/usePayments.js
+  - resources/js/Pages/Finances/tabs/InvoicesTab.vue
+  - resources/js/Pages/Finances/Index.vue
+- **Tests**: 14 passed (InvoiceControllerTest)
+- **Build**: Success
+
+### FIN-015: RefundModal wiring (2026-01-12)
+- **Issue**: Route expected payment ID in URL, composable sent in body
+- **Fix**: Changed `route('refunds.store')` to `route('refunds.store', paymentId)`
+- **Issue**: Payment data format mismatch (modal expected tenant_name)
+- **Fix**: Added paymentsForModal computed in Finances/Index.vue
+- **Files changed**:
+  - resources/js/composables/usePayments.js
+  - resources/js/Pages/Finances/Index.vue
+- **Build**: Success
+
+### FIN-001: Settings persistence (2026-01-12)
+- **Issue**: getInvoiceSettings/getReminderSettings returned hardcoded defaults
+- **Fix**: Updated to read from Setting model via Setting::get()
+- **Added**: updateInvoiceSettings() and updateReminderSettings() controller methods
+- **Added**: Routes: finances.settings.invoice, finances.settings.reminder
+- **Added**: Save buttons and reminder channels UI in SettingsTab.vue
+- **Files changed**:
+  - app/Http/Controllers/FinancesController.php (added Setting import, updated getters, added save methods)
+  - routes/web.php (added POST routes)
+  - resources/js/Pages/Finances/tabs/SettingsTab.vue (added save methods/buttons, channels UI)
+- **Build**: Success
+
+### FIN-002: Match unmatched payments modal (2026-01-12)
+- **Created**: MatchPaymentModal.vue component
+- **Added**: matchPayment modal state to finances store
+- **Added**: matchPayment() controller method in FinancesController
+- **Added**: Route: finances.payments.match
+- **Updated**: ReconciliationTab to open modal via store
+- **Files changed**:
+  - resources/js/stores/finances.js (added matchPayment modal state)
+  - resources/js/Pages/Finances/modals/MatchPaymentModal.vue (new)
+  - resources/js/Pages/Finances/tabs/ReconciliationTab.vue (wired to store)
+  - resources/js/Pages/Finances/Index.vue (added modal + computed)
+  - app/Http/Controllers/FinancesController.php (added matchPayment method)
+  - routes/web.php (added POST route)
+- **Build**: Success
+
+### FIN-003: Send invoice via email (2026-01-12)
+- **Analysis**: updateStatus already sends InvoiceSent email when status='sent'
+- **Gap**: No "Send Invoice" button for draft invoices, no reminder endpoint
+- **Created**: InvoiceReminder mailable for payment reminders
+- **Created**: invoice-reminder.blade.php email template
+- **Added**: sendReminder() controller method in InvoiceController
+- **Added**: sendInvoice() function in usePayments composable (calls updateStatus)
+- **Added**: Route: invoices.send-reminder
+- **Updated**: InvoiceDetailModal with "Send Invoice" (draft) and "Send Reminder" (sent/overdue) buttons
+- **Files changed**:
+  - app/Mail/InvoiceReminder.php (new)
+  - resources/views/emails/invoice-reminder.blade.php (new)
+  - app/Http/Controllers/InvoiceController.php (added sendReminder method, InvoiceReminder import)
+  - routes/web.php (added send-reminder route)
+  - resources/js/composables/usePayments.js (added sendInvoice function)
+  - resources/js/Pages/Finances/modals/InvoiceDetailModal.vue (added buttons)
+- **Tests**: 14 passed (InvoiceControllerTest)
+- **Build**: Success
+
+### FIN-004: Download invoice as PDF (2026-01-12)
+- **Gap**: No invoices.download route or controller method
+- **Created**: invoice-pdf.blade.php template with full invoice layout
+- **Added**: download() controller method using DomPDF
+- **Added**: Route: invoices.download
+- **Note**: DomPDF was already installed (barryvdh/laravel-dompdf: ^3.1)
+- **Files changed**:
+  - resources/views/invoices/invoice-pdf.blade.php (new)
+  - app/Http/Controllers/InvoiceController.php (added download method, Pdf import)
+  - routes/web.php (added download route)
+- **Tests**: 14 passed (InvoiceControllerTest)
+- **Build**: Success
+
+### FIN-011: Send payment receipt via email (2026-01-12)
+- **Gap**: No sendReceipt endpoint (PaymentReceived mailable already exists)
+- **Added**: sendReceipt() controller method in PaymentController
+- **Added**: sendReceipt() function in usePayments composable
+- **Added**: Route: payments.send-receipt
+- **Added**: "Send Receipt" button in PaymentDetailModal
+- **Files changed**:
+  - app/Http/Controllers/PaymentController.php (added sendReceipt method)
+  - routes/web.php (added send-receipt route)
+  - resources/js/composables/usePayments.js (added sendReceipt function)
+  - resources/js/Pages/Finances/modals/PaymentDetailModal.vue (added button, EnvelopeIcon import)
+- **Tests**: 5 passed (PaymentControllerTest)
+- **Build**: Success
+
+### FIN-012: Void invoice functionality (2026-01-12)
+- **Strategy**: Use status field 'voided' (not soft delete) for audit trail
+- **Added**: void() controller method in InvoiceController
+- **Added**: voidInvoice() function in usePayments composable
+- **Added**: Route: invoices.void
+- **Added**: Migration for voided_at and void_reason columns
+- **Added**: "Void" button with confirmation dialog in InvoiceDetailModal
+- **Business Rules**: Only draft/sent invoices with no payments can be voided
+- **Files changed**:
+  - app/Http/Controllers/InvoiceController.php (added void method)
+  - app/Models/Invoice.php (added voided_at, void_reason to fillable + casts)
+  - database/migrations/2026_01_12_050918_add_void_fields_to_invoices_table.php (new)
+  - routes/web.php (added void route)
+  - resources/js/composables/usePayments.js (added voidInvoice function)
+  - resources/js/Pages/Finances/modals/InvoiceDetailModal.vue (added void button + confirmation)
+- **Tests**: 14 passed (InvoiceControllerTest)
+- **Build**: Success
+
+### FIN-013: Void payment functionality (2026-01-12)
+- **Strategy**: Use is_voided boolean field (not soft delete) for audit trail
+- **Added**: Migration for is_voided, voided_at, void_reason columns on payments table
+- **Added**: void() controller method in PaymentController with DB transaction
+- **Added**: voidPayment() function in usePayments composable
+- **Added**: Route: payments.void
+- **Added**: "Void Payment" button with confirmation dialog in PaymentDetailModal
+- **Added**: Voided status indicator in PaymentDetailModal
+- **Business Rules**:
+  - Cannot void already voided payments
+  - Cannot void refunded payments
+  - Voiding a payment reverses amount_paid on linked invoice
+  - Invoice status recalculated after void
+- **Files changed**:
+  - database/migrations/2026_01_12_051347_add_void_fields_to_payments_table.php (new)
+  - app/Models/Payment.php (added is_voided, voided_at, void_reason to fillable + casts)
+  - app/Http/Controllers/PaymentController.php (added void method)
+  - routes/web.php (added payments.void route)
+  - resources/js/composables/usePayments.js (added voidPayment function)
+  - resources/js/Pages/Finances/modals/PaymentDetailModal.vue (added void button, confirmation dialog, voided indicator)
+- **Tests**: 5 passed (PaymentControllerTest)
+- **Build**: Success
+
+### FIN-009: Complete M-Pesa STK flow (2026-01-12)
+- **Analysis**: M-Pesa backend was 90% complete (service, webhooks, controllers)
+- **Gap**: Frontend polling for STK status after initiating payment
+- **Added**: checkMpesaStatus() method in TenantPaymentController
+- **Added**: Route: POST /api/v1/tenant/payments/mpesa/status
+- **Added**: checkMpesaStatus() function in usePayments composable
+- **Updated**: Pay.vue with comprehensive STK flow UI:
+  - States: idle, sending, waiting, processing, success, failed
+  - Polling mechanism (3 second intervals)
+  - Visual feedback for each state
+  - Auto-redirect on success
+  - Retry button on failure
+  - Cleanup on unmount
+- **Files changed**:
+  - app/Http/Controllers/Api/TenantPaymentController.php (added checkMpesaStatus method)
+  - routes/api.php (added status route)
+  - resources/js/composables/usePayments.js (added checkMpesaStatus function)
+  - resources/js/Pages/TenantFinances/Pay.vue (added polling, status UI, state management)
+- **Tests**: 19 passed (MpesaServiceTest + MpesaIntegrationTest)
+- **Build**: Success
+
+### FIN-010: Complete Paystack payment flow (2026-01-12)
+- **Analysis**: Paystack flow was 80% complete (service, webhook, callback)
+- **Gap**: No configuration validation before payment initiation
+- **Added**: isConfigured() method in PaystackService
+- **Added**: Configuration check in TenantPaymentController::initiatePaystack
+- **Note**: Paystack uses redirect flow (user goes to Paystack page, then returns)
+- **Files changed**:
+  - app/Services/PaystackService.php (added isConfigured method)
+  - app/Http/Controllers/Api/TenantPaymentController.php (added config check)
+- **Tests**: 4 passed (PaystackServiceTest)
+- **Build**: Success
+
+### FIN-005: Send arrears notice from arrears tab (2026-01-12)
+- **Analysis**: Bulk send route already existed (notifications.sendArrearsNotices)
+- **Gap**: Individual sendReminder was TODO stub
+- **Fix**: Wired sendReminder to use existing invoices.send-reminder route via usePayments composable
+- **Files changed**:
+  - resources/js/Pages/Finances/tabs/ArrearsTab.vue (wired sendReminder, added loading state)
+- **Build**: Success
+
+## In Progress
+
+None
+
+## Blockers
+None
+
+## Notes
+- No lint script available in package.json
+- Using `npm run build` for verification

@@ -1,0 +1,406 @@
+<script setup>
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { Head, useForm, router } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
+import {
+    EnvelopeIcon,
+    CheckCircleIcon,
+    DevicePhoneMobileIcon,
+    ChatBubbleLeftRightIcon
+} from '@heroicons/vue/24/outline';
+
+const props = defineProps({
+    unit: Object,
+    smsConfigured: {
+        type: Boolean,
+        default: false
+    },
+    whatsappConfigured: {
+        type: Boolean,
+        default: false
+    }
+});
+
+// Form for sending tenant invitation
+const form = useForm({
+    unit_id: props.unit.id,
+    email: '',
+    tenant_name: '',
+    tenant_phone: '',
+    notification_channels: ['email'],
+    rent_amount: props.unit.target_rent || 0,
+    service_charge: 0,
+    deposit_amount: props.unit.target_rent || 0,
+    start_date: new Date().toISOString().substr(0, 10),
+    end_date: ''
+});
+
+const invitationSent = ref(false);
+const sentEmail = ref('');
+const sentChannels = ref([]);
+
+const submit = () => {
+    form.post(route('tenant-invitations.store'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            invitationSent.value = true;
+            sentEmail.value = form.email;
+            sentChannels.value = [...form.notification_channels];
+            form.reset('email', 'tenant_name', 'tenant_phone');
+            form.notification_channels = ['email'];
+        }
+    });
+};
+
+// Check if phone is required (SMS or WhatsApp selected)
+const requiresPhone = computed(() => {
+    return form.notification_channels.includes('sms') ||
+           form.notification_channels.includes('whatsapp');
+});
+
+// Computed Totals
+const totalMoveInCost = computed(() => {
+    return Number(form.rent_amount) + Number(form.service_charge) + Number(form.deposit_amount);
+});
+
+// Channel label helper
+const getChannelLabel = (channel) => {
+    const labels = {
+        email: 'Email',
+        sms: 'SMS',
+        whatsapp: 'WhatsApp'
+    };
+    return labels[channel] || channel;
+};
+</script>
+
+<template>
+    <Head title="Invite Tenant" />
+
+    <AuthenticatedLayout>
+        <div class="py-12">
+            <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
+
+                <!-- HEADER -->
+                <div class="md:flex md:items-center md:justify-between mb-8">
+                    <div class="flex-1 min-w-0">
+                        <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                            Invite Tenant: Unit {{ unit.unit_number }}
+                        </h2>
+                        <p class="text-sm text-gray-500 mt-1">Send a lease invitation for Floor {{ unit.floor_number }}</p>
+                    </div>
+                </div>
+
+                <!-- Success Message -->
+                <div v-if="invitationSent" class="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div class="flex items-start gap-3">
+                        <CheckCircleIcon class="w-6 h-6 text-green-500 flex-shrink-0" />
+                        <div>
+                            <h3 class="text-sm font-medium text-green-800">Invitation Sent!</h3>
+                            <p class="mt-1 text-sm text-green-700">
+                                An invitation has been sent to <strong>{{ sentEmail }}</strong>
+                                via {{ sentChannels.map(c => getChannelLabel(c)).join(', ') }}.
+                                The tenant will receive a notification with a link to review the lease terms and create their account.
+                            </p>
+                            <div class="mt-3 flex gap-3">
+                                <button
+                                    @click="invitationSent = false"
+                                    class="text-sm font-medium text-green-600 hover:text-green-800"
+                                >
+                                    Send Another Invitation
+                                </button>
+                                <button
+                                    @click="router.visit(route('dashboard'))"
+                                    class="text-sm font-medium text-green-600 hover:text-green-800"
+                                >
+                                    Return to Dashboard
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="!invitationSent" class="bg-white shadow-xl rounded-lg overflow-hidden">
+                    <!-- Info Banner -->
+                    <div class="bg-blue-50 border-b border-blue-100 px-6 py-4">
+                        <div class="flex items-start gap-3">
+                            <EnvelopeIcon class="w-5 h-5 text-blue-500 mt-0.5" />
+                            <div class="text-sm text-blue-700">
+                                <p class="font-medium">How it works:</p>
+                                <ol class="mt-1 list-decimal list-inside space-y-1 text-blue-600">
+                                    <li>Enter the tenant's email and lease terms below</li>
+                                    <li>Tenant receives an email with a link to review and accept</li>
+                                    <li>Tenant creates their account and the lease is activated</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form @submit.prevent="submit" class="p-8 space-y-8 divide-y divide-gray-200">
+
+                        <!-- SECTION 1: TENANT INFO -->
+                        <div class="space-y-6">
+                            <div>
+                                <h3 class="text-lg font-medium leading-6 text-gray-900">Tenant Information</h3>
+                                <p class="mt-1 text-sm text-gray-500">Enter the prospective tenant's contact details</p>
+                            </div>
+                            <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                                <div class="sm:col-span-3">
+                                    <label class="block text-sm font-medium text-gray-700">
+                                        Email Address <span class="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        v-model="form.email"
+                                        type="email"
+                                        class="mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                        :class="form.errors.email ? 'border-red-300' : 'border-gray-300'"
+                                        placeholder="tenant@example.com"
+                                        required
+                                    >
+                                    <p v-if="form.errors.email" class="mt-1 text-sm text-red-600">{{ form.errors.email }}</p>
+                                    <p v-else class="mt-1 text-xs text-gray-500">The invitation will be sent to this email</p>
+                                </div>
+                                <div class="sm:col-span-3">
+                                    <label class="block text-sm font-medium text-gray-700">Full Name (Optional)</label>
+                                    <input
+                                        v-model="form.tenant_name"
+                                        type="text"
+                                        class="mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                        :class="form.errors.tenant_name ? 'border-red-300' : 'border-gray-300'"
+                                        placeholder="John Doe"
+                                    >
+                                    <p v-if="form.errors.tenant_name" class="mt-1 text-sm text-red-600">{{ form.errors.tenant_name }}</p>
+                                    <p v-else class="mt-1 text-xs text-gray-500">Tenant can update this when accepting</p>
+                                </div>
+                                <div class="sm:col-span-3">
+                                    <label class="block text-sm font-medium text-gray-700">
+                                        Phone Number
+                                        <span v-if="requiresPhone" class="text-red-500">*</span>
+                                        <span v-else class="text-gray-400 text-xs font-normal">(Optional)</span>
+                                    </label>
+                                    <input
+                                        v-model="form.tenant_phone"
+                                        type="text"
+                                        class="mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                        :class="form.errors.tenant_phone ? 'border-red-300' : 'border-gray-300'"
+                                        placeholder="+254 7XX XXX XXX"
+                                        :required="requiresPhone"
+                                    >
+                                    <p v-if="form.errors.tenant_phone" class="mt-1 text-sm text-red-600">{{ form.errors.tenant_phone }}</p>
+                                    <p v-else-if="requiresPhone" class="mt-1 text-xs text-amber-600">Required for SMS/WhatsApp delivery</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECTION 2: FINANCIALS -->
+                        <div class="pt-8 space-y-6">
+                            <div>
+                                <h3 class="text-lg font-medium leading-6 text-gray-900">Lease Terms</h3>
+                                <p class="mt-1 text-sm text-gray-500">Set the rent and deposit amounts for this lease</p>
+                            </div>
+                            <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-3">
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">
+                                        Monthly Rent (Ksh) <span class="text-red-500">*</span>
+                                    </label>
+                                    <div class="mt-1 relative rounded-md shadow-sm">
+                                        <input
+                                            v-model="form.rent_amount"
+                                            type="number"
+                                            class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-4 pr-12 sm:text-sm rounded-md py-2 border"
+                                            :class="form.errors.rent_amount ? 'border-red-300' : 'border-gray-300'"
+                                            placeholder="0.00"
+                                            required
+                                        >
+                                    </div>
+                                    <p v-if="form.errors.rent_amount" class="mt-1 text-sm text-red-600">{{ form.errors.rent_amount }}</p>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Service Charge (Ksh)</label>
+                                    <div class="mt-1 relative rounded-md shadow-sm">
+                                        <input
+                                            v-model="form.service_charge"
+                                            type="number"
+                                            class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-4 pr-12 sm:text-sm rounded-md py-2 border"
+                                            :class="form.errors.service_charge ? 'border-red-300' : 'border-gray-300'"
+                                            placeholder="0.00"
+                                        >
+                                    </div>
+                                    <p v-if="form.errors.service_charge" class="mt-1 text-sm text-red-600">{{ form.errors.service_charge }}</p>
+                                    <p v-else class="text-xs text-gray-500 mt-1">Garbage, Security, Lights</p>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">
+                                        Security Deposit (Ksh) <span class="text-red-500">*</span>
+                                    </label>
+                                    <div class="mt-1 relative rounded-md shadow-sm">
+                                        <input
+                                            v-model="form.deposit_amount"
+                                            type="number"
+                                            class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-4 pr-12 sm:text-sm rounded-md py-2 border"
+                                            :class="form.errors.deposit_amount ? 'border-red-300' : 'border-gray-300'"
+                                            placeholder="0.00"
+                                            required
+                                        >
+                                    </div>
+                                    <p v-if="form.errors.deposit_amount" class="mt-1 text-sm text-red-600">{{ form.errors.deposit_amount }}</p>
+                                </div>
+
+                            </div>
+
+                            <!-- TOTALS PREVIEW -->
+                            <div class="bg-gray-50 rounded-lg p-4 flex justify-between items-center border border-gray-200">
+                                <span class="text-sm font-medium text-gray-500">Total Due for Move-In:</span>
+                                <span class="text-xl font-bold text-gray-900">Ksh {{ totalMoveInCost.toLocaleString() }}</span>
+                            </div>
+                        </div>
+
+                        <!-- SECTION 3: DATES -->
+                        <div class="pt-8 space-y-6">
+                            <div>
+                                <h3 class="text-lg font-medium leading-6 text-gray-900">Lease Period</h3>
+                            </div>
+                            <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">
+                                        Lease Start Date <span class="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        v-model="form.start_date"
+                                        type="date"
+                                        class="mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                        :class="form.errors.start_date ? 'border-red-300' : 'border-gray-300'"
+                                        required
+                                    >
+                                    <p v-if="form.errors.start_date" class="mt-1 text-sm text-red-600">{{ form.errors.start_date }}</p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Lease End Date (Optional)</label>
+                                    <input
+                                        v-model="form.end_date"
+                                        type="date"
+                                        class="mt-1 block w-full border rounded-md shadow-sm py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                        :class="form.errors.end_date ? 'border-red-300' : 'border-gray-300'"
+                                    >
+                                    <p v-if="form.errors.end_date" class="mt-1 text-sm text-red-600">{{ form.errors.end_date }}</p>
+                                    <p v-else class="mt-1 text-xs text-gray-500">Leave empty for month-to-month lease</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECTION 4: NOTIFICATION CHANNELS -->
+                        <div class="pt-8 space-y-6">
+                            <div>
+                                <h3 class="text-lg font-medium leading-6 text-gray-900">Send Invitation Via</h3>
+                                <p class="mt-1 text-sm text-gray-500">Choose how to notify the tenant about this invitation</p>
+                            </div>
+
+                            <div class="space-y-3">
+                                <!-- Email Channel -->
+                                <label class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-gray-50"
+                                       :class="form.notification_channels.includes('email') ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200'">
+                                    <input
+                                        type="checkbox"
+                                        value="email"
+                                        v-model="form.notification_channels"
+                                        class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                    >
+                                    <EnvelopeIcon class="w-5 h-5 text-gray-400" />
+                                    <div class="flex-1">
+                                        <span class="text-sm font-medium text-gray-900">Email</span>
+                                        <p class="text-xs text-gray-500" v-if="form.email">{{ form.email }}</p>
+                                    </div>
+                                </label>
+
+                                <!-- SMS Channel -->
+                                <label class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer"
+                                       :class="{
+                                           'border-indigo-200 bg-indigo-50': form.notification_channels.includes('sms'),
+                                           'border-gray-200 hover:bg-gray-50': smsConfigured && !form.notification_channels.includes('sms'),
+                                           'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60': !smsConfigured
+                                       }">
+                                    <input
+                                        type="checkbox"
+                                        value="sms"
+                                        v-model="form.notification_channels"
+                                        :disabled="!smsConfigured"
+                                        class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
+                                    >
+                                    <DevicePhoneMobileIcon class="w-5 h-5 text-gray-400" />
+                                    <div class="flex-1">
+                                        <span class="text-sm font-medium text-gray-900">SMS</span>
+                                        <p v-if="!smsConfigured" class="text-xs text-amber-600">Not configured - set up in Settings</p>
+                                        <p v-else-if="form.tenant_phone" class="text-xs text-gray-500">{{ form.tenant_phone }}</p>
+                                        <p v-else class="text-xs text-gray-500">Enter phone number above</p>
+                                    </div>
+                                </label>
+
+                                <!-- WhatsApp Channel -->
+                                <label class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer"
+                                       :class="{
+                                           'border-green-200 bg-green-50': form.notification_channels.includes('whatsapp'),
+                                           'border-gray-200 hover:bg-gray-50': whatsappConfigured && !form.notification_channels.includes('whatsapp'),
+                                           'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60': !whatsappConfigured
+                                       }">
+                                    <input
+                                        type="checkbox"
+                                        value="whatsapp"
+                                        v-model="form.notification_channels"
+                                        :disabled="!whatsappConfigured"
+                                        class="rounded border-gray-300 text-green-600 focus:ring-green-500 disabled:opacity-50"
+                                    >
+                                    <ChatBubbleLeftRightIcon class="w-5 h-5 text-green-500" />
+                                    <div class="flex-1">
+                                        <span class="text-sm font-medium text-gray-900">WhatsApp</span>
+                                        <p v-if="!whatsappConfigured" class="text-xs text-amber-600">Not configured - set up in Settings</p>
+                                        <p v-else-if="form.tenant_phone" class="text-xs text-gray-500">{{ form.tenant_phone }}</p>
+                                        <p v-else class="text-xs text-gray-500">Enter phone number above</p>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <!-- Validation error -->
+                            <p v-if="form.errors.notification_channels" class="text-sm text-red-600">{{ form.errors.notification_channels }}</p>
+
+                            <!-- Cost warning -->
+                            <div v-if="form.notification_channels.includes('sms') || form.notification_channels.includes('whatsapp')"
+                                 class="bg-amber-50 border border-amber-200 rounded-md p-3">
+                                <p class="text-xs text-amber-800">
+                                    SMS and WhatsApp messages may incur charges based on your provider settings.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Error display for unit_id -->
+                        <p v-if="form.errors.unit_id" class="text-sm text-red-600">{{ form.errors.unit_id }}</p>
+
+                        <!-- SUBMIT -->
+                        <div class="pt-5">
+                            <div class="flex justify-end">
+                                <button
+                                    type="button"
+                                    @click="router.visit(route('dashboard'))"
+                                    class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                    :disabled="form.processing"
+                                >
+                                    <EnvelopeIcon v-if="!form.processing" class="w-4 h-4 mr-2" />
+                                    {{ form.processing ? 'Sending...' : 'Send Invitation' }}
+                                </button>
+                            </div>
+                        </div>
+
+                    </form>
+                </div>
+            </div>
+        </div>
+    </AuthenticatedLayout>
+</template>

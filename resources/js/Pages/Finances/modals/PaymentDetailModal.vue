@@ -1,0 +1,370 @@
+<script setup>
+import { ref, computed, watch } from 'vue';
+import { useFormatters, usePayments } from '@/composables';
+import { useFinancesStore } from '@/stores/finances';
+import {
+    PaymentMethodBadge,
+    AmountDisplay,
+} from '@/Components/Finances';
+import {
+    XMarkIcon,
+    BanknotesIcon,
+    ArrowDownTrayIcon,
+    ArrowPathIcon,
+    DocumentTextIcon,
+    CalendarIcon,
+    HomeIcon,
+    UserIcon,
+    HashtagIcon,
+    CheckCircleIcon,
+    EnvelopeIcon,
+    NoSymbolIcon,
+} from '@heroicons/vue/24/outline';
+
+const props = defineProps({
+    show: Boolean,
+});
+
+const emit = defineEmits(['close', 'refund', 'viewInvoice']);
+
+const store = useFinancesStore();
+const { formatMoney, formatDate } = useFormatters();
+const { downloadReceipt, sendReceipt, voidPayment, isProcessing } = usePayments();
+
+const payment = ref(null);
+const loading = ref(false);
+const error = ref(null);
+const showVoidConfirm = ref(false);
+const voidReason = ref('');
+
+const modalData = computed(() => store.modals.paymentDetail);
+
+watch(() => modalData.value.show, async (newVal) => {
+    if (newVal && modalData.value.id) {
+        await fetchPaymentDetail(modalData.value.id);
+    }
+});
+
+const fetchPaymentDetail = async (id) => {
+    loading.value = true;
+    error.value = null;
+    try {
+        const response = await fetch(route('finances.payments.detail', id));
+        if (!response.ok) throw new Error('Failed to fetch payment');
+        payment.value = await response.json();
+    } catch (err) {
+        error.value = err.message;
+    } finally {
+        loading.value = false;
+    }
+};
+
+const close = () => {
+    store.closeModal('paymentDetail');
+    emit('close');
+};
+
+const handleRefund = () => {
+    store.openModal('refund', { paymentId: payment.value?.id });
+    close();
+};
+
+const handleViewInvoice = () => {
+    if (payment.value?.invoice_id) {
+        store.openModal('invoiceDetail', { id: payment.value.invoice_id });
+        close();
+    }
+};
+
+const handleDownloadReceipt = () => {
+    if (payment.value) {
+        downloadReceipt(payment.value.id);
+    }
+};
+
+const handleSendReceipt = async () => {
+    if (payment.value) {
+        await sendReceipt(payment.value.id);
+    }
+};
+
+const canRefund = computed(() => {
+    if (!payment.value) return false;
+    return payment.value.refund_status !== 'refunded' && payment.value.refund_status !== 'pending' && !payment.value.is_voided;
+});
+
+const canVoid = computed(() => {
+    if (!payment.value) return false;
+    return !payment.value.is_voided && payment.value.refund_status !== 'refunded';
+});
+
+const handleVoid = async () => {
+    if (!payment.value || !voidReason.value.trim()) return;
+    await voidPayment(payment.value.id, voidReason.value);
+    showVoidConfirm.value = false;
+    voidReason.value = '';
+    await fetchPaymentDetail(payment.value.id);
+};
+</script>
+
+<template>
+    <Teleport to="body">
+        <Transition
+            enter-active-class="duration-200 ease-out"
+            enter-from-class="opacity-0"
+            enter-to-class="opacity-100"
+            leave-active-class="duration-150 ease-in"
+            leave-from-class="opacity-100"
+            leave-to-class="opacity-0"
+        >
+            <div v-if="modalData.show" class="fixed inset-0 z-50">
+                <div class="absolute inset-0 bg-black/50" @click="close" />
+
+                <Transition
+                    enter-active-class="duration-300 ease-out"
+                    enter-from-class="translate-x-full"
+                    enter-to-class="translate-x-0"
+                    leave-active-class="duration-200 ease-in"
+                    leave-from-class="translate-x-0"
+                    leave-to-class="translate-x-full"
+                >
+                    <div
+                        v-if="modalData.show"
+                        class="absolute right-0 top-0 h-full w-full max-w-lg bg-white shadow-xl overflow-hidden flex flex-col"
+                    >
+                        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+                            <div class="flex items-center gap-3">
+                                <div class="p-2 bg-emerald-100 rounded-lg">
+                                    <BanknotesIcon class="w-5 h-5 text-emerald-600" />
+                                </div>
+                                <div>
+                                    <h2 class="text-lg font-semibold text-gray-900">Payment Details</h2>
+                                    <p v-if="payment" class="text-sm text-gray-500">{{ payment.reference }}</p>
+                                </div>
+                            </div>
+                            <button
+                                @click="close"
+                                class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                                <XMarkIcon class="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div class="flex-1 overflow-y-auto">
+                            <div v-if="loading" class="flex items-center justify-center h-64">
+                                <div class="animate-spin rounded-full h-8 w-8 border-2 border-emerald-500 border-t-transparent" />
+                            </div>
+
+                            <div v-else-if="error" class="p-6">
+                                <div class="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+                                    {{ error }}
+                                </div>
+                            </div>
+
+                            <div v-else-if="payment" class="p-6 space-y-6">
+                                <div class="text-center py-4">
+                                    <div class="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 rounded-full mb-4">
+                                        <CheckCircleIcon class="w-8 h-8 text-emerald-600" />
+                                    </div>
+                                    <p class="text-sm text-gray-500">Amount Received</p>
+                                    <p class="text-4xl font-bold text-emerald-600 mt-1">
+                                        {{ formatMoney(payment.amount) }}
+                                    </p>
+                                    <PaymentMethodBadge :method="payment.payment_method" class="mt-3" />
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                                    <div class="flex items-start gap-2">
+                                        <UserIcon class="w-4 h-4 text-gray-400 mt-0.5" />
+                                        <div>
+                                            <p class="text-xs text-gray-500">Tenant</p>
+                                            <p class="text-sm font-medium text-gray-900">{{ payment.tenant_name }}</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-2">
+                                        <HomeIcon class="w-4 h-4 text-gray-400 mt-0.5" />
+                                        <div>
+                                            <p class="text-xs text-gray-500">Unit</p>
+                                            <p class="text-sm font-medium text-gray-900">{{ payment.unit_number }}</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-2">
+                                        <CalendarIcon class="w-4 h-4 text-gray-400 mt-0.5" />
+                                        <div>
+                                            <p class="text-xs text-gray-500">Payment Date</p>
+                                            <p class="text-sm font-medium text-gray-900">{{ formatDate(payment.payment_date) }}</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-2">
+                                        <HashtagIcon class="w-4 h-4 text-gray-400 mt-0.5" />
+                                        <div>
+                                            <p class="text-xs text-gray-500">Reference</p>
+                                            <p class="text-sm font-medium text-gray-900">{{ payment.reference || '-' }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div v-if="payment.invoice" class="border border-gray-200 rounded-lg overflow-hidden">
+                                    <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                                        <h3 class="text-sm font-semibold text-gray-900">Applied to Invoice</h3>
+                                    </div>
+                                    <button
+                                        @click="handleViewInvoice"
+                                        class="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
+                                    >
+                                        <div class="flex items-center gap-3">
+                                            <div class="p-2 bg-blue-100 rounded-lg">
+                                                <DocumentTextIcon class="w-4 h-4 text-blue-600" />
+                                            </div>
+                                            <div class="text-left">
+                                                <p class="text-sm font-medium text-gray-900">{{ payment.invoice.invoice_number }}</p>
+                                                <p class="text-xs text-gray-500">Due: {{ formatDate(payment.invoice.due_date) }}</p>
+                                            </div>
+                                        </div>
+                                        <AmountDisplay :amount="payment.invoice.total_due" size="sm" />
+                                    </button>
+                                </div>
+
+                                <div v-if="payment.mpesa_transaction_id || payment.mpesa_checkout_request_id" class="border border-gray-200 rounded-lg overflow-hidden">
+                                    <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                                        <h3 class="text-sm font-semibold text-gray-900">M-Pesa Details</h3>
+                                    </div>
+                                    <div class="p-4 space-y-2 text-sm">
+                                        <div v-if="payment.mpesa_transaction_id" class="flex justify-between">
+                                            <span class="text-gray-500">Transaction ID</span>
+                                            <span class="font-mono text-gray-900">{{ payment.mpesa_transaction_id }}</span>
+                                        </div>
+                                        <div v-if="payment.mpesa_checkout_request_id" class="flex justify-between">
+                                            <span class="text-gray-500">Checkout Request</span>
+                                            <span class="font-mono text-gray-900 text-xs">{{ payment.mpesa_checkout_request_id }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div v-if="payment.refund_status === 'refunded'" class="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                                    <div class="flex items-start gap-2">
+                                        <ArrowPathIcon class="w-5 h-5 text-orange-500 flex-shrink-0" />
+                                        <div>
+                                            <p class="text-sm font-medium text-orange-800">This payment has been refunded</p>
+                                            <p v-if="payment.refund_date" class="text-sm text-orange-700 mt-1">
+                                                Refunded on {{ formatDate(payment.refund_date) }}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div v-if="payment.is_voided" class="p-4 bg-red-50 border border-red-200 rounded-lg">
+                                    <div class="flex items-start gap-2">
+                                        <NoSymbolIcon class="w-5 h-5 text-red-500 flex-shrink-0" />
+                                        <div>
+                                            <p class="text-sm font-medium text-red-800">This payment has been voided</p>
+                                            <p v-if="payment.voided_at" class="text-sm text-red-700 mt-1">
+                                                Voided on {{ formatDate(payment.voided_at) }}
+                                            </p>
+                                            <p v-if="payment.void_reason" class="text-sm text-red-600 mt-1">
+                                                Reason: {{ payment.void_reason }}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-if="payment" class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                            <div class="flex flex-wrap gap-2">
+                                <button
+                                    @click="handleDownloadReceipt"
+                                    class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
+                                >
+                                    <ArrowDownTrayIcon class="w-4 h-4" />
+                                    Download Receipt
+                                </button>
+
+                                <button
+                                    @click="handleSendReceipt"
+                                    :disabled="isProcessing"
+                                    class="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                                >
+                                    <EnvelopeIcon class="w-4 h-4" />
+                                    Send Receipt
+                                </button>
+
+                                <button
+                                    v-if="canRefund"
+                                    @click="handleRefund"
+                                    class="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-orange-700 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors"
+                                >
+                                    <ArrowPathIcon class="w-4 h-4" />
+                                    Initiate Refund
+                                </button>
+
+                                <button
+                                    v-if="canVoid"
+                                    @click="showVoidConfirm = true"
+                                    class="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+                                >
+                                    <NoSymbolIcon class="w-4 h-4" />
+                                    Void Payment
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </Transition>
+
+                <!-- Void Confirmation Dialog -->
+                <Transition
+                    enter-active-class="duration-200 ease-out"
+                    enter-from-class="opacity-0 scale-95"
+                    enter-to-class="opacity-100 scale-100"
+                    leave-active-class="duration-150 ease-in"
+                    leave-from-class="opacity-100 scale-100"
+                    leave-to-class="opacity-0 scale-95"
+                >
+                    <div
+                        v-if="showVoidConfirm"
+                        class="fixed inset-0 z-60 flex items-center justify-center p-4"
+                    >
+                        <div class="absolute inset-0 bg-black/50" @click="showVoidConfirm = false" />
+                        <div class="relative bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="p-2 bg-red-100 rounded-full">
+                                    <NoSymbolIcon class="w-6 h-6 text-red-600" />
+                                </div>
+                                <h3 class="text-lg font-semibold text-gray-900">Void Payment</h3>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-4">
+                                This will mark the payment as voided and reverse the amount from the invoice. This action cannot be undone.
+                            </p>
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Reason for voiding <span class="text-red-500">*</span>
+                                </label>
+                                <textarea
+                                    v-model="voidReason"
+                                    rows="3"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
+                                    placeholder="Enter reason for voiding this payment..."
+                                ></textarea>
+                            </div>
+                            <div class="flex gap-3">
+                                <button
+                                    @click="showVoidConfirm = false"
+                                    class="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    @click="handleVoid"
+                                    :disabled="!voidReason.trim() || isProcessing"
+                                    class="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {{ isProcessing ? 'Voiding...' : 'Void Payment' }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </Transition>
+            </div>
+        </Transition>
+    </Teleport>
+</template>

@@ -1,0 +1,186 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Requests\StoreWaterReadingRequest;
+use App\Models\WaterReading;
+use App\Services\WaterReadingService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
+
+class WaterReadingController extends Controller
+{
+    public function __construct(
+        protected WaterReadingService $waterReadingService
+    ) {}
+
+    public function index(Request $request)
+    {
+        $property = $this->waterReadingService->getPropertyForUser(auth()->user());
+
+        if (! $property) {
+            return redirect()->route('dashboard')->with('error', 'No property found.');
+        }
+
+        $buildingsData = $this->waterReadingService->getBuildingsWithUnits($property);
+
+        return Inertia::render('Readings/Index', [
+            'buildings' => $buildingsData,
+        ]);
+    }
+
+    public function store(StoreWaterReadingRequest $request)
+    {
+        $landlordId = $this->waterReadingService->getLandlordId(auth()->user());
+        $result = $this->waterReadingService->storeReadings($request->validated()['readings'], $landlordId);
+
+        if ($result['successCount'] > 0 && count($result['errors']) === 0) {
+            return redirect()->back()->with('success', "{$result['successCount']} water reading(s) submitted for landlord approval.");
+        } elseif ($result['successCount'] > 0) {
+            return redirect()->back()->with('warning', "{$result['successCount']} reading(s) submitted, but some failed: ".json_encode($result['errors']));
+        }
+
+        return redirect()->back()->with('error', 'Failed to submit readings: '.json_encode($result['errors']));
+    }
+
+    public function history(Request $request)
+    {
+        $property = $this->waterReadingService->getPropertyForUser(auth()->user());
+
+        if (! $property) {
+            return redirect()->route('dashboard')->with('error', 'No property found.');
+        }
+
+        $buildings = $property->buildings()->with('units')->get();
+        $unitIds = $buildings->flatMap(fn ($b) => $b->units->pluck('id'));
+
+        $readings = $this->waterReadingService->getFilteredHistory(
+            $unitIds,
+            $request->only(['building_id', 'unit_id', 'date_from', 'date_to', 'invoiced'])
+        );
+
+        return Inertia::render('Readings/History', [
+            'readings' => $readings,
+            'buildings' => $buildings,
+            'filters' => $request->only(['building_id', 'unit_id', 'date_from', 'date_to', 'invoiced']),
+        ]);
+    }
+
+    public function update(Request $request, WaterReading $reading)
+    {
+        $validated = $request->validate([
+            'current_reading' => 'required|numeric|min:0',
+            'reading_date' => 'required|date',
+        ]);
+
+        $error = $this->waterReadingService->validateReadingUpdate($reading, $validated['current_reading']);
+        if ($error) {
+            return redirect()->back()->with('error', $error);
+        }
+
+        $reading->update($validated);
+
+        return redirect()->back()->with('success', 'Water reading updated successfully.');
+    }
+
+    public function destroy(WaterReading $reading)
+    {
+        if (! $this->waterReadingService->canDeleteReading($reading)) {
+            return redirect()->back()->with('error', 'Cannot delete reading that has been invoiced.');
+        }
+
+        $reading->delete();
+
+        return redirect()->back()->with('success', 'Water reading deleted successfully.');
+    }
+
+    public function review(Request $request)
+    {
+        $property = $this->waterReadingService->getPropertyForUser(auth()->user());
+
+        if (! $property) {
+            return redirect()->route('dashboard')->with('error', 'No property found.');
+        }
+
+        $buildings = $property->buildings()->with('units')->get();
+        $unitIds = $buildings->flatMap(fn ($b) => $b->units->pluck('id'));
+
+        $pendingReadings = $this->waterReadingService->getPendingReadings(
+            $unitIds,
+            $request->only(['building_id', 'date_from', 'date_to'])
+        );
+
+        return Inertia::render('Readings/Review', [
+            'pendingReadings' => $pendingReadings,
+            'buildings' => $buildings,
+            'filters' => $request->only(['building_id', 'date_from', 'date_to']),
+        ]);
+    }
+
+    public function approve(Request $request, WaterReading $reading)
+    {
+        if (auth()->user()->role !== 'landlord') {
+            return redirect()->back()->with('error', 'Only landlords can approve water readings.');
+        }
+
+        if ($reading->status === 'approved') {
+            return redirect()->back()->with('error', 'Reading is already approved.');
+        }
+
+        if ($reading->is_invoiced) {
+            return redirect()->back()->with('error', 'Cannot approve reading that has been invoiced.');
+        }
+
+        $validated = $request->validate([
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $reading->approve(auth()->id(), $validated['notes'] ?? null);
+
+        return redirect()->back()->with('success', 'Water reading approved successfully.');
+    }
+
+    public function reject(Request $request, WaterReading $reading)
+    {
+        if (auth()->user()->role !== 'landlord') {
+            return redirect()->back()->with('error', 'Only landlords can reject water readings.');
+        }
+
+        if ($reading->status === 'rejected') {
+            return redirect()->back()->with('error', 'Reading is already rejected.');
+        }
+
+        if ($reading->is_invoiced) {
+            return redirect()->back()->with('error', 'Cannot reject reading that has been invoiced.');
+        }
+
+        $validated = $request->validate([
+            'reason' => 'required|string|max:500',
+        ]);
+
+        $reading->reject(auth()->id(), $validated['reason']);
+
+        return redirect()->back()->with('success', 'Water reading rejected successfully.');
+    }
+
+    public function photo(WaterReading $reading)
+    {
+        $user = auth()->user();
+        $landlordId = $this->waterReadingService->getLandlordId($user);
+
+        if (! in_array($user->role, ['landlord', 'caretaker'])) {
+            abort(403, 'Unauthorized access to water reading photo.');
+        }
+
+        if ($reading->landlord_id !== $landlordId) {
+            abort(403, 'Unauthorized access to water reading photo.');
+        }
+
+        if (! $reading->hasPhoto()) {
+            abort(404, 'Photo not found.');
+        }
+
+        return Storage::disk('local')->response($reading->photo_path);
+    }
+}
