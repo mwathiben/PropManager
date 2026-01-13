@@ -1,6 +1,7 @@
 <script setup>
 import { Head, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import Breadcrumb from '@/Components/Breadcrumb.vue';
 import { useFormatters } from '@/composables';
 import { MetricCard } from '@/Components/Finances';
 import {
@@ -41,6 +42,11 @@ const generateInvoices = () => {
 
         <div class="py-6">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <!-- Breadcrumb -->
+                <div class="mb-4">
+                    <Breadcrumb :items="[{ label: 'Finance Hub' }]" />
+                </div>
+
                 <!-- Page Header -->
                 <div class="mb-6">
                     <p class="text-gray-500">Overview of your financial health</p>

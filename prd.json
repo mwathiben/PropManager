@@ -201,8 +201,8 @@
         "Old /finances/overview URL still works",
         "Breadcrumbs display: Dashboard > Finance Hub > [Current Page]"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["FIN-001"]
     },
     {
@@ -509,7 +509,7 @@
   ],
   "metadata": {
     "total_stories": 25,
-    "passing_stories": 12,
+    "passing_stories": 13,
     "framework": "Laravel",
     "frontend": "Vue.js/Inertia"
   }

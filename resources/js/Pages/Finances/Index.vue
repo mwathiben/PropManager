@@ -3,6 +3,7 @@ import { computed, onMounted, watch } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { useFinancesStore } from '@/stores/finances';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import Breadcrumb from '@/Components/Breadcrumb.vue';
 import OverviewTab from './tabs/OverviewTab.vue';
 import InvoicesTab from './tabs/InvoicesTab.vue';
 import PaymentsTab from './tabs/PaymentsTab.vue';
@@ -121,22 +122,28 @@ const navigateToTab = (tab) => {
     });
 };
 
+const tabNames = {
+    overview: 'Overview',
+    invoices: 'Invoices',
+    payments: 'Payments',
+    expenses: 'Expenses',
+    refunds: 'Refunds',
+    reconciliation: 'Reconciliation',
+    deposits: 'Deposits',
+    arrears: 'Arrears',
+    'late-fees': 'Late Fees',
+    reports: 'Reports',
+    settings: 'Settings',
+};
+
 const pageTitle = computed(() => {
-    const tabNames = {
-        overview: 'Overview',
-        invoices: 'Invoices',
-        payments: 'Payments',
-        expenses: 'Expenses',
-        refunds: 'Refunds',
-        reconciliation: 'Reconciliation',
-        deposits: 'Deposits',
-        arrears: 'Arrears',
-        'late-fees': 'Late Fees',
-        reports: 'Reports',
-        settings: 'Settings',
-    };
     return `Finance Hub - ${tabNames[store.activeTab] || 'Overview'}`;
 });
+
+const breadcrumbItems = computed(() => [
+    { label: 'Finance Hub', href: route('finances.index') },
+    { label: tabNames[store.activeTab] || 'Overview' },
+]);
 
 const invoicesForModal = computed(() => {
     if (!props.invoices?.data) return [];
@@ -192,6 +199,11 @@ const unmatchedPaymentsForModal = computed(() => {
 
         <div class="py-6">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <!-- Breadcrumb -->
+                <div class="mb-4">
+                    <Breadcrumb :items="breadcrumbItems" />
+                </div>
+
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200">
                     <div class="border-b border-gray-200">
                         <nav class="flex -mb-px overflow-x-auto" aria-label="Tabs">

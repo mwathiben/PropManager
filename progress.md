@@ -795,3 +795,46 @@ Created a dedicated Record Payment page at `/finances/payments/record` allowing 
 - Lint (Pint): Success (426 files)
 - Build: Success
 - Tests: PaymentController tests pass (5 tests, 8 assertions)
+
+---
+
+## FIN-002: Update sidebar navigation for Finance Hub
+**Status:** PASSED
+**Date:** 2026-01-13
+**Attempts:** 1
+
+### Implementation Summary
+
+Updated sidebar navigation to point Finance Hub link to the new aggregation page (`/finances`) instead of the overview tab (`/finances/overview`). Added breadcrumb navigation to Finance Hub pages.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `resources/js/Layouts/AuthenticatedLayout.vue` | Changed `route('finances.overview')` to `route('finances.index')` in navigation (line 111) |
+| `resources/js/Pages/Finances/Hub.vue` | Added Breadcrumb import and component showing "Dashboard > Finance Hub" |
+| `resources/js/Pages/Finances/Index.vue` | Added Breadcrumb import, `breadcrumbItems` computed property, and component showing "Dashboard > Finance Hub > [Tab Name]" |
+
+### Implementation Details
+
+**Navigation Change:**
+- Single line change in `navigationItems` computed property
+- Mobile sidebar automatically inherits change (uses same computed property)
+
+**Breadcrumbs:**
+- Hub.vue: `[{ label: 'Finance Hub' }]` (current page, no link)
+- Index.vue: `[{ label: 'Finance Hub', href: '/finances' }, { label: '[Tab Name]' }]`
+- Uses existing `Breadcrumb.vue` component
+
+### Acceptance Criteria Verification
+
+1. **Modify navigation to change /finances/overview to /finances** - Changed route name in AuthenticatedLayout.vue
+2. **Keep existing /finances/overview route working** - Route already exists, no changes needed
+3. **Update breadcrumb component** - Added to Hub.vue and Index.vue
+4. **Sidebar 'Finance Hub' link navigates to /finances** - Now uses `finances.index` route
+5. **Old /finances/overview URL still works** - Backwards compatible
+6. **Breadcrumbs display: Dashboard > Finance Hub > [Current Page]** - Implemented with clickable links
+
+### Verification Results
+
+- Build: Success

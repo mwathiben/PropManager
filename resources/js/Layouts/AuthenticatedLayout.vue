@@ -108,7 +108,7 @@ const navigationItems = computed(() => {
 
             // FINANCES HUB
             { type: 'divider', label: 'Finances' },
-            { name: 'Finance Hub', href: route('finances.overview'), icon: BanknotesIcon, active: route().current('finances.*'), badgeKey: 'invoices', badgeColor: 'bg-red-500' },
+            { name: 'Finance Hub', href: route('finances.index'), icon: BanknotesIcon, active: route().current('finances.*'), badgeKey: 'invoices', badgeColor: 'bg-red-500' },
             { name: 'Reports', href: route('reports.index'), icon: ChartBarIcon, active: route().current('reports.*') },
 
             // MAINTENANCE HUB
