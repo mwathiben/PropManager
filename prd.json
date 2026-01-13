@@ -311,8 +311,8 @@
         "All navigation consistently links to single Reports",
         "No duplicate data or confused user journeys"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": []
     },
     {
@@ -329,8 +329,8 @@
         "Payment Verifications page either works or is removed from navigation",
         "No blank pages accessible from sidebar"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": []
     },
     {
@@ -509,7 +509,7 @@
   ],
   "metadata": {
     "total_stories": 25,
-    "passing_stories": 15,
+    "passing_stories": 17,
     "framework": "Laravel",
     "frontend": "Vue.js/Inertia"
   }

@@ -146,6 +146,8 @@ class FinancesController extends Controller
             'occupancyData' => $this->getOccupancyReport($landlordId),
             'arrearsAging' => $this->getArrearsAgingReport($landlordId),
             'expensesByCategory' => $this->getExpensesByCategoryReport($landlordId, (int) $period),
+            'waterConsumption' => $this->getWaterConsumptionReport($landlordId, (int) $period),
+            'topPerformingUnits' => $this->getTopPerformingUnitsReport($landlordId, (int) $period),
             'filters' => ['period' => $period],
         ]);
     }
@@ -162,6 +164,8 @@ class FinancesController extends Controller
             'occupancy' => $this->getOccupancyReport($landlordId),
             'arrears_aging' => $this->getArrearsAgingReport($landlordId),
             'expenses_by_category' => $this->getExpensesByCategoryReport($landlordId, $period),
+            'water_consumption' => $this->getWaterConsumptionReport($landlordId, $period),
+            'top_performing_units' => $this->getTopPerformingUnitsReport($landlordId, $period),
         ];
 
         $filename = 'financial_report_'.now()->format('Y-m-d');
@@ -177,10 +181,59 @@ class FinancesController extends Controller
             return $pdf->download($filename.'.pdf');
         }
 
+        if ($format === 'csv') {
+            return $this->exportReportsCsv($data, $filename);
+        }
+
         return Excel::download(
             new \App\Exports\FinanceReportExport($data, $period),
             $filename.'.xlsx'
         );
+    }
+
+    private function exportReportsCsv(array $data, string $filename): \Illuminate\Http\Response
+    {
+        $output = fopen('php://temp', 'r+');
+
+        fputcsv($output, ['PropManager Financial Report']);
+        fputcsv($output, ['Generated: '.now()->format('F j, Y g:i A')]);
+        fputcsv($output, []);
+
+        fputcsv($output, ['Revenue Summary']);
+        fputcsv($output, ['Month', 'Invoiced', 'Collected', 'Expenses', 'Net']);
+        foreach ($data['revenue'] as $row) {
+            fputcsv($output, [$row['month'], $row['invoiced'], $row['collected'], $row['expenses'], $row['net']]);
+        }
+        fputcsv($output, []);
+
+        fputcsv($output, ['Occupancy by Building']);
+        fputcsv($output, ['Building', 'Total Units', 'Occupied', 'Vacant', 'Rate %']);
+        foreach ($data['occupancy']['buildings'] as $row) {
+            fputcsv($output, [$row['building'], $row['total_units'], $row['occupied'], $row['vacant'], $row['occupancy_rate']]);
+        }
+        fputcsv($output, []);
+
+        fputcsv($output, ['Water Consumption - Top Consumers']);
+        fputcsv($output, ['Unit', 'Building', 'Consumption', 'Cost']);
+        foreach ($data['water_consumption']['top_consumers'] as $row) {
+            fputcsv($output, [$row['unit'], $row['building'], $row['consumption'], $row['cost']]);
+        }
+        fputcsv($output, []);
+
+        fputcsv($output, ['Top Performing Units']);
+        fputcsv($output, ['Unit', 'Tenant', 'Collection Rate %', 'On-Time', 'Total Invoices']);
+        foreach ($data['top_performing_units'] as $row) {
+            fputcsv($output, [$row['unit'], $row['tenant'], $row['collection_rate'], $row['on_time_payments'], $row['total_invoices']]);
+        }
+
+        rewind($output);
+        $csv = stream_get_contents($output);
+        fclose($output);
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'.csv"',
+        ]);
     }
 
     public function invoiceDetail(Invoice $invoice): JsonResponse
@@ -2325,5 +2378,87 @@ class FinancesController extends Controller
         }
 
         return back()->with('info', "Auto-matching {$unmatchedCount} payment(s) is coming soon. Use manual matching for now.");
+    }
+
+    private function getWaterConsumptionReport(int $landlordId, int $months): array
+    {
+        $startDate = now()->subMonths($months)->startOfMonth();
+
+        $readings = \App\Models\WaterReading::where('landlord_id', $landlordId)
+            ->where('reading_date', '>=', $startDate)
+            ->where('status', 'approved')
+            ->get();
+
+        $totalConsumption = $readings->sum('consumption');
+        $totalCost = $readings->sum('cost');
+        $avgConsumption = $readings->count() > 0 ? round($totalConsumption / $readings->count(), 2) : 0;
+
+        $topConsumers = \App\Models\WaterReading::where('landlord_id', $landlordId)
+            ->where('reading_date', '>=', $startDate)
+            ->where('status', 'approved')
+            ->with('unit:id,unit_number,building_id', 'unit.building:id,name')
+            ->selectRaw('unit_id, SUM(consumption) as total_consumption, SUM(cost) as total_cost')
+            ->groupBy('unit_id')
+            ->orderByDesc('total_consumption')
+            ->limit(10)
+            ->get()
+            ->map(fn ($reading) => [
+                'unit' => $reading->unit?->unit_number ?? 'N/A',
+                'building' => $reading->unit?->building?->name ?? 'N/A',
+                'consumption' => round($reading->total_consumption, 2),
+                'cost' => round($reading->total_cost, 2),
+            ])
+            ->toArray();
+
+        return [
+            'total_consumption' => round($totalConsumption, 2),
+            'total_cost' => round($totalCost, 2),
+            'average_consumption' => $avgConsumption,
+            'readings_count' => $readings->count(),
+            'top_consumers' => $topConsumers,
+        ];
+    }
+
+    private function getTopPerformingUnitsReport(int $landlordId, int $months): array
+    {
+        $startDate = now()->subMonths($months)->startOfMonth();
+
+        $units = \App\Models\Unit::where('landlord_id', $landlordId)
+            ->where('status', 'occupied')
+            ->with(['activeLease.tenant:id,name', 'building:id,name'])
+            ->get();
+
+        $performance = [];
+
+        foreach ($units as $unit) {
+            if (! $unit->activeLease) {
+                continue;
+            }
+
+            $invoices = Invoice::where('lease_id', $unit->activeLease->id)
+                ->where('created_at', '>=', $startDate)
+                ->get();
+
+            if ($invoices->isEmpty()) {
+                continue;
+            }
+
+            $totalBilled = $invoices->sum('total_due');
+            $totalPaid = $invoices->sum('amount_paid');
+            $onTimePayments = $invoices->where('status', 'paid')->count();
+
+            $performance[] = [
+                'unit' => $unit->unit_number,
+                'building' => $unit->building?->name ?? 'N/A',
+                'tenant' => $unit->activeLease->tenant?->name ?? 'N/A',
+                'collection_rate' => $totalBilled > 0 ? round(($totalPaid / $totalBilled) * 100, 1) : 0,
+                'on_time_payments' => $onTimePayments,
+                'total_invoices' => $invoices->count(),
+            ];
+        }
+
+        usort($performance, fn ($a, $b) => $b['collection_rate'] <=> $a['collection_rate']);
+
+        return array_slice($performance, 0, 10);
     }
 }

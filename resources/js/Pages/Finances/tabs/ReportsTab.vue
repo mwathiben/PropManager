@@ -20,6 +20,8 @@ const props = defineProps({
     occupancyData: { type: Object, default: () => ({ buildings: [], totals: {} }) },
     arrearsAging: { type: Object, default: () => ({}) },
     expensesByCategory: { type: Object, default: () => ({ categories: [], total: 0 }) },
+    waterConsumption: { type: Object, default: () => ({ top_consumers: [], total_consumption: 0, total_cost: 0 }) },
+    topPerformingUnits: { type: Array, default: () => [] },
     filters: { type: Object, default: () => ({ period: '12' }) },
 });
 
@@ -144,6 +146,12 @@ const exportReport = (format) => {
                             class="w-full px-3 py-2 text-sm text-left text-gray-700 hover:bg-gray-50"
                         >
                             Export as PDF
+                        </button>
+                        <button
+                            @click="exportReport('csv')"
+                            class="w-full px-3 py-2 text-sm text-left text-gray-700 hover:bg-gray-50"
+                        >
+                            Export as CSV
                         </button>
                     </div>
                 </div>
@@ -391,6 +399,67 @@ const exportReport = (format) => {
                 </div>
             </div>
             <p v-else class="text-sm text-gray-500 text-center py-8">No expense data available</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white rounded-xl border border-gray-200 p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                        <h3 class="text-sm font-semibold text-gray-900">Water Consumption</h3>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-lg font-semibold text-cyan-600">{{ formatNumber(waterConsumption?.total_consumption || 0) }} <span class="text-xs font-normal">units</span></p>
+                        <p class="text-xs text-gray-500">{{ formatMoney(waterConsumption?.total_cost || 0) }} total cost</p>
+                    </div>
+                </div>
+                <div v-if="waterConsumption?.top_consumers?.length" class="space-y-2 max-h-64 overflow-y-auto">
+                    <p class="text-xs font-medium text-gray-500 mb-2">Top Consumers</p>
+                    <div
+                        v-for="(consumer, index) in waterConsumption.top_consumers"
+                        :key="index"
+                        class="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50"
+                    >
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">{{ consumer.unit }}</p>
+                            <p class="text-xs text-gray-500">{{ consumer.building }}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm font-semibold text-cyan-600">{{ formatNumber(consumer.consumption) }} units</p>
+                            <p class="text-xs text-gray-500">{{ formatMoney(consumer.cost) }}</p>
+                        </div>
+                    </div>
+                </div>
+                <p v-else class="text-sm text-gray-500 text-center py-8">No water consumption data</p>
+            </div>
+
+            <div class="bg-white rounded-xl border border-gray-200 p-5">
+                <div class="flex items-center gap-2 mb-4">
+                    <ArrowTrendingUpIcon class="w-5 h-5 text-emerald-500" />
+                    <h3 class="text-sm font-semibold text-gray-900">Top Performing Units</h3>
+                </div>
+                <div v-if="topPerformingUnits?.length" class="space-y-2 max-h-64 overflow-y-auto">
+                    <div
+                        v-for="(unit, index) in topPerformingUnits"
+                        :key="index"
+                        class="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50"
+                    >
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">{{ unit.unit }}</p>
+                            <p class="text-xs text-gray-500">{{ unit.tenant }}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-lg font-semibold" :class="unit.collection_rate >= 90 ? 'text-emerald-600' : unit.collection_rate >= 70 ? 'text-yellow-600' : 'text-red-600'">
+                                {{ unit.collection_rate }}%
+                            </p>
+                            <p class="text-xs text-gray-500">{{ unit.on_time_payments }}/{{ unit.total_invoices }} on-time</p>
+                        </div>
+                    </div>
+                </div>
+                <p v-else class="text-sm text-gray-500 text-center py-8">No performance data available</p>
+            </div>
         </div>
     </div>
 </template>

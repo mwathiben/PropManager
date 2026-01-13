@@ -944,3 +944,93 @@ Added the ability to create refunds from the Finance Hub Refunds tab via a stand
 
 - Lint (Pint): Success (426 files)
 - Build: Success (18.41s)
+
+---
+
+## FIN-008: Fix or remove broken Payment Verifications page
+**Status:** PASSED
+**Date:** 2026-01-13
+**Attempts:** 1
+
+### Root Cause
+
+The Payment Verifications page (`/payment-verifications`) was blank due to an Inertia render path mismatch:
+- Controller rendered `'Verifications/Index'`
+- Vue component was at `PaymentVerifications/Index.vue`
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/TenantPaymentVerificationController.php` | Changed `Inertia::render('Verifications/Index'` to `Inertia::render('PaymentVerifications/Index'` (line 164); Changed `Inertia::render('Verifications/Show'` to `Inertia::render('PaymentVerifications/Show'` (line 180) |
+
+### Acceptance Criteria Verification
+
+1. **Investigate why page is blank** - Path mismatch identified
+2. **Fix the issue** - Changed render paths to match Vue component locations
+3. **Page works or removed from navigation** - Page now works
+4. **No blank pages accessible from sidebar** - Verified
+
+### Verification Results
+
+- Lint (Pint): Success
+- Build: Success
+
+---
+
+## FIN-007: Consolidate duplicate Reports pages
+**Status:** PASSED
+**Date:** 2026-01-13
+**Attempts:** 1
+
+### Decision
+
+User chose: Remove standalone `/reports` page, migrate unique features to Finance Hub Reports tab. A comprehensive reports page will be built later.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/FinancesController.php` | Added `getWaterConsumptionReport()` and `getTopPerformingUnitsReport()` methods; Updated `reports()` to include waterConsumption and topPerformingUnits; Updated `exportReports()` to include water data and CSV export; Added `exportReportsCsv()` helper method |
+| `resources/js/Pages/Finances/tabs/ReportsTab.vue` | Added props: waterConsumption, topPerformingUnits; Added CSV export button; Added Water Consumption section with top consumers; Added Top Performing Units section |
+| `routes/web.php` | Replaced standalone `/reports` routes with redirects to Finance Hub Reports |
+| `resources/js/Layouts/AuthenticatedLayout.vue` | Removed standalone Reports link from sidebar navigation |
+
+### Features Migrated to Finance Hub
+
+1. **Water Consumption Section**
+   - Total consumption and cost summary
+   - Top 10 water consumers table
+   - Unit, building, consumption units, cost display
+
+2. **Top Performing Units Section**
+   - Collection rate per unit
+   - Tenant name
+   - On-time payments / total invoices
+
+3. **CSV Export**
+   - Added CSV option to export dropdown
+   - Exports revenue, occupancy, water, and top performers data
+
+### Routes Changed
+
+| Old Route | New Behavior |
+|-----------|--------------|
+| `/reports` | Redirects to `/finances/reports` |
+| `/reports/export/pdf` | Redirects to `/finances/reports/export?format=pdf` |
+| `/reports/export/excel` | Redirects to `/finances/reports/export?format=xlsx` |
+| `/reports/metrics` | Redirects to `/finances/reports` |
+
+### Acceptance Criteria Verification
+
+1. **Evaluate both pages** - Analyzed unique features of each
+2. **Determine comprehensive page** - Finance Hub selected
+3. **Remove duplicate and redirect** - Standalone routes redirect to Finance Hub
+4. **Update navigation** - Removed Reports link from sidebar
+5. **Only one Reports page** - Finance Hub Reports is now the single source
+6. **All navigation links to single Reports** - Verified
+
+### Verification Results
+
+- Lint (Pint): Success (426 files)
+- Build: Success

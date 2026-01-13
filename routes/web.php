@@ -344,11 +344,11 @@ Route::middleware('auth')->group(function () {
     Route::delete('/imports/{import}', [\App\Http\Controllers\ImportsController::class, 'destroy'])->name('imports.destroy');
     Route::post('/imports/{import}/reprocess', [\App\Http\Controllers\ImportsController::class, 'reprocess'])->name('imports.reprocess');
 
-    // 11. Reports & Analytics
-    Route::get('/reports', [\App\Http\Controllers\ReportsController::class, 'index'])->name('reports.index');
-    Route::get('/reports/export/pdf', [\App\Http\Controllers\ReportsController::class, 'exportPdf'])->name('reports.export.pdf');
-    Route::get('/reports/export/excel', [\App\Http\Controllers\ReportsController::class, 'exportExcel'])->name('reports.export.excel');
-    Route::get('/reports/metrics', [\App\Http\Controllers\ReportsController::class, 'getMetrics'])->name('reports.metrics');
+    // 11. Reports & Analytics (redirects to Finance Hub)
+    Route::get('/reports', fn () => redirect()->route('finances.reports'))->name('reports.index');
+    Route::get('/reports/export/pdf', fn () => redirect()->route('finances.reports.export', ['format' => 'pdf']));
+    Route::get('/reports/export/excel', fn () => redirect()->route('finances.reports.export', ['format' => 'xlsx']));
+    Route::get('/reports/metrics', fn () => redirect()->route('finances.reports'));
 
     // 12. Notifications
     Route::get('/notifications', [\App\Http\Controllers\NotificationsController::class, 'index'])->name('notifications.index');

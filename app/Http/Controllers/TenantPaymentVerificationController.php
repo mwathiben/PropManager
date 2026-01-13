@@ -161,7 +161,7 @@ class TenantPaymentVerificationController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(30);
 
-        return Inertia::render('Verifications/Index', [
+        return Inertia::render('PaymentVerifications/Index', [
             'verifications' => $verifications,
             'buildings' => $this->getBuildingsForFilter(),
             'filters' => $request->only(['status', 'search', 'building_id', 'wing_id']),
@@ -177,7 +177,7 @@ class TenantPaymentVerificationController extends Controller
             'verifiedBy',
         ]);
 
-        return Inertia::render('Verifications/Show', [
+        return Inertia::render('PaymentVerifications/Show', [
             'verification' => $verification,
         ]);
     }
