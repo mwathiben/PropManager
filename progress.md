@@ -873,3 +873,74 @@ Fixed the Overview tab's "Record Payment" quick action to link to the correct Re
 ### Verification Results
 
 - Build: Success
+
+---
+
+## FIN-006: Add Process Refund functionality
+**Status:** PASSED
+**Date:** 2026-01-13
+**Attempts:** 1
+
+### Implementation Summary
+
+Added the ability to create refunds from the Finance Hub Refunds tab via a standalone refund creation page.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `resources/js/Pages/Finances/Refunds/Create.vue` | Standalone refund creation page with tenant search, payment selection, and form fields |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `routes/web.php` | Added `finances.refunds.create`, `finances.refunds.store`, and `tenants.refundable-payments` routes |
+| `app/Http/Controllers/RefundController.php` | Added `createStandalone()` and `storeStandalone()` methods |
+| `app/Http/Controllers/TenantController.php` | Added `refundablePayments()` JSON endpoint |
+| `resources/js/Pages/Finances/tabs/RefundsTab.vue` | Added "Process Refund" button to FilterBar toolbar |
+
+### Features Implemented
+
+**Standalone Refund Creation Page:**
+- Tenant search autocomplete (same pattern as Record Payment)
+- Payment selector showing tenant's refundable payments
+- Amount input with max validation (cannot exceed refundable amount)
+- Reason dropdown with common options (Overpayment, Duplicate Payment, etc.)
+- Refund method selector (Original Method, Cash, Bank Transfer, M-Pesa)
+- Notes field for additional context
+- Success confirmation state
+
+**Refundable Payments Endpoint:**
+- Returns tenant's payments with positive refundable balance
+- Calculates refundable amount (payment amount - existing refunds)
+- Includes payment reference, method, date, and invoice info
+
+**Toolbar Button:**
+- "Process Refund" button in RefundsTab FilterBar
+- Consistent emerald styling with other action buttons
+
+### Existing Infrastructure Utilized
+
+- RefundService::initiateRefund() - Handles refund creation
+- RefundService::getRefundableAmount() - Validates amount limits
+- Refund model with status lifecycle (pending, approved, processing, etc.)
+- TenantController::search() - Tenant search autocomplete
+
+### Acceptance Criteria Verification
+
+1. **Add 'Process Refund' button to Refunds page toolbar** - Added in RefundsTab.vue
+2. **Create RefundController@create route at /finances/refunds/create** - Route + createStandalone() method
+3. **Create refund form with: Tenant selector, Original Payment reference, Amount, Reason, Method** - Full form in Create.vue
+4. **Add RefundService@processRefund method** - Already existed, reused
+5. **Create database migrations if needed** - Already existed, reused
+6. **Add refund approval workflow** - Already existed in Refund model
+7. **'Process Refund' button visible on Refunds page** - Verified
+8. **Can create new refund linked to original payment** - Implemented via storeStandalone()
+9. **Refund appears in list with status** - RefundsTab displays status badges
+10. **Refund amount cannot exceed original payment** - Validation in storeStandalone() and frontend
+
+### Verification Results
+
+- Lint (Pint): Success (426 files)
+- Build: Success (18.41s)

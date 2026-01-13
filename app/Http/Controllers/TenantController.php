@@ -462,6 +462,57 @@ class TenantController extends Controller
         ]);
     }
 
+    public function refundablePayments(User $tenant)
+    {
+        $user = auth()->user();
+
+        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+            return response()->json(['data' => []], 403);
+        }
+
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+
+        if ($tenant->landlord_id !== $landlordId) {
+            return response()->json(['data' => []], 403);
+        }
+
+        $payments = Payment::where('landlord_id', $landlordId)
+            ->whereHas('lease', function ($query) use ($tenant) {
+                $query->where('tenant_id', $tenant->id);
+            })
+            ->whereNotIn('status', ['voided', 'refunded'])
+            ->with(['lease.unit.building', 'invoice', 'refunds'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($payment) {
+                $totalRefunded = $payment->refunds->sum('amount');
+                $refundableAmount = max(0, $payment->amount - $totalRefunded);
+
+                if ($refundableAmount <= 0) {
+                    return null;
+                }
+
+                return [
+                    'id' => $payment->id,
+                    'reference' => $payment->reference ?? "PAY-{$payment->id}",
+                    'amount' => $payment->amount,
+                    'refunded_amount' => $totalRefunded,
+                    'refundable_amount' => $refundableAmount,
+                    'payment_method' => $payment->payment_method,
+                    'payment_date' => $payment->created_at->format('Y-m-d'),
+                    'invoice_number' => $payment->invoice?->invoice_number,
+                    'unit' => $payment->lease?->unit?->unit_number,
+                    'building' => $payment->lease?->unit?->building?->name,
+                ];
+            })
+            ->filter()
+            ->values();
+
+        return response()->json([
+            'data' => $payments,
+        ]);
+    }
+
     // ==================== NOTES ====================
 
     /**

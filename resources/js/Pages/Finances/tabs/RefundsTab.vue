@@ -1,9 +1,9 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { router } from '@inertiajs/vue3';
+import { router, Link } from '@inertiajs/vue3';
 import { useFormatters, useStatusColors } from '@/composables';
 import { FilterBar, DataTable, AmountDisplay, EmptyState } from '@/Components/Finances';
-import { ArrowUturnLeftIcon, EyeIcon } from '@heroicons/vue/24/outline';
+import { ArrowUturnLeftIcon, EyeIcon, PlusIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
     refunds: Object,
@@ -98,7 +98,17 @@ const viewRefund = (refund) => {
             search-placeholder="Search refunds..."
             @filter="applyFilters"
             @clear="clearFilters"
-        />
+        >
+            <template #actions>
+                <Link
+                    :href="route('finances.refunds.create')"
+                    class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
+                >
+                    <PlusIcon class="h-4 w-4" />
+                    Process Refund
+                </Link>
+            </template>
+        </FilterBar>
 
         <DataTable
             :columns="columns"

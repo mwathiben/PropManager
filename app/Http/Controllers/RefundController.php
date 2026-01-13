@@ -157,4 +157,87 @@ class RefundController extends Controller
 
         return back()->with('success', 'Refund cancelled successfully.');
     }
+
+    public function createStandalone()
+    {
+        $user = auth()->user();
+
+        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+            abort(403);
+        }
+
+        $refundMethods = [
+            ['value' => 'original_method', 'label' => 'Original Payment Method'],
+            ['value' => 'cash', 'label' => 'Cash'],
+            ['value' => 'bank_transfer', 'label' => 'Bank Transfer'],
+            ['value' => 'mobile_money', 'label' => 'Mobile Money (M-Pesa)'],
+        ];
+
+        $refundReasons = [
+            ['value' => 'Overpayment', 'label' => 'Overpayment'],
+            ['value' => 'Duplicate Payment', 'label' => 'Duplicate Payment'],
+            ['value' => 'Service Not Rendered', 'label' => 'Service Not Rendered'],
+            ['value' => 'Tenant Request', 'label' => 'Tenant Request'],
+            ['value' => 'Deposit Refund', 'label' => 'Deposit Refund'],
+            ['value' => 'Other', 'label' => 'Other'],
+        ];
+
+        return Inertia::render('Finances/Refunds/Create', [
+            'refundMethods' => $refundMethods,
+            'refundReasons' => $refundReasons,
+        ]);
+    }
+
+    public function storeStandalone(Request $request)
+    {
+        $user = auth()->user();
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+
+        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+            abort(403);
+        }
+
+        $request->validate([
+            'payment_id' => ['required', 'exists:payments,id'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'reason' => ['required', 'string', 'max:500'],
+            'refund_method' => ['required', 'string', 'in:original_method,cash,bank_transfer,mobile_money'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $payment = Payment::findOrFail($request->payment_id);
+
+        if ($payment->landlord_id !== $landlordId) {
+            abort(403);
+        }
+
+        $refundableAmount = $this->refundService->getRefundableAmount($payment);
+
+        if ($request->amount > $refundableAmount) {
+            return back()->withErrors([
+                'amount' => "Amount cannot exceed the refundable amount of {$refundableAmount}.",
+            ]);
+        }
+
+        try {
+            $refund = $this->refundService->initiateRefund(
+                $payment,
+                $request->amount,
+                $request->reason,
+                $user->id
+            );
+
+            $refund->update([
+                'payment_method' => $request->refund_method === 'original_method'
+                    ? $payment->payment_method
+                    : $request->refund_method,
+                'notes' => $request->notes,
+            ]);
+
+            return redirect()->route('finances.refunds')
+                ->with('success', 'Refund request created successfully.');
+        } catch (\InvalidArgumentException $e) {
+            return back()->withErrors(['amount' => $e->getMessage()]);
+        }
+    }
 }

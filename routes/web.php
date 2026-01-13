@@ -22,6 +22,7 @@ use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PaymentsHubController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RefundController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\TenantController;
 use App\Http\Controllers\TenantEmergencyContactController;
@@ -181,6 +182,7 @@ Route::middleware('auth')->group(function () {
     // Tenant API for payment recording
     Route::get('/tenants/search', [TenantController::class, 'search'])->name('tenants.search');
     Route::get('/tenants/{tenant}/outstanding-invoices', [TenantController::class, 'outstandingInvoices'])->name('tenants.outstanding-invoices');
+    Route::get('/tenants/{tenant}/refundable-payments', [TenantController::class, 'refundablePayments'])->name('tenants.refundable-payments');
 
     // 5. Water Readings (The Water Guy)
     Route::get('/readings', [WaterReadingController::class, 'index'])->name('readings.index');
@@ -461,6 +463,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/payments/record', [PaymentController::class, 'create'])->name('payments.record');
         Route::post('/payments/record', [PaymentController::class, 'storeManual'])->name('payments.store-manual');
         Route::get('/refunds', [FinancesController::class, 'refunds'])->name('refunds');
+        Route::get('/refunds/create', [RefundController::class, 'createStandalone'])->name('refunds.create');
+        Route::post('/refunds/store', [RefundController::class, 'storeStandalone'])->name('refunds.store');
         Route::get('/reconciliation', [FinancesController::class, 'reconciliation'])->name('reconciliation');
         Route::get('/deposits', [FinancesController::class, 'deposits'])->name('deposits');
         Route::get('/arrears', [FinancesController::class, 'arrears'])->name('arrears');
