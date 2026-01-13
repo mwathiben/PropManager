@@ -1,0 +1,55 @@
+<?php
+
+namespace App\Mail;
+
+use App\Models\Lease;
+use App\Models\Payment;
+use App\Models\User;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Content;
+use Illuminate\Mail\Mailables\Envelope;
+use Illuminate\Queue\SerializesModels;
+
+class OverpaymentNotification extends Mailable implements ShouldQueue
+{
+    use Queueable, SerializesModels;
+
+    public function __construct(
+        public Payment $payment,
+        public Lease $lease,
+        public User $tenant,
+        public float $overpaymentAmount,
+        public float $newWalletBalance
+    ) {
+        //
+    }
+
+    public function envelope(): Envelope
+    {
+        return new Envelope(
+            subject: 'Tenant Overpayment Notice - '.$this->tenant->name,
+        );
+    }
+
+    public function content(): Content
+    {
+        return new Content(
+            markdown: 'emails.overpayment-notification',
+            with: [
+                'payment' => $this->payment,
+                'lease' => $this->lease,
+                'tenant' => $this->tenant,
+                'unit' => $this->lease->unit,
+                'overpaymentAmount' => $this->overpaymentAmount,
+                'newWalletBalance' => $this->newWalletBalance,
+            ],
+        );
+    }
+
+    public function attachments(): array
+    {
+        return [];
+    }
+}

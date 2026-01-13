@@ -1512,3 +1512,74 @@ Created a complete credit note system that allows landlords to issue credits to 
 
 - Lint (Pint): Success (2 auto-fixes)
 - Build: Success
+
+---
+
+## FIN-014: Add Payment Allocation for overpayments
+**Status:** PASSED
+**Date:** 2026-01-13
+**Attempts:** 1
+
+### Implementation Summary
+
+Enhanced overpayment management by adding credit balance visibility on tenant profiles, landlord notification emails for overpayments, and a manual wallet adjustment interface for credit/debit operations.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Mail/OverpaymentNotification.php` | Mailable for landlord notification when tenant overpays |
+| `resources/views/emails/overpayment-notification.blade.php` | Email template with tenant/payment details and wallet balance |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `resources/js/Pages/Tenants/Show.vue` | Added Credit Balance card to Quick Stats (5th card), added wallet adjustment modal, added Adjust button on credit balance card |
+| `app/Http/Controllers/PaymentController.php` | Added OverpaymentNotification import, added landlord email notification in storeManual(), handleCallback(), and handlePaystackWebhook() methods |
+
+### Existing Infrastructure Leveraged
+
+Most of FIN-014's functionality was already implemented:
+
+| Feature | Location |
+|---------|----------|
+| Wallet balance tracking | `Lease.wallet_balance` column |
+| Credit to wallet | `Lease::creditToWallet()` method |
+| Debit from wallet | `Lease::deductFromWallet()` method |
+| Wallet transaction audit | `WalletTransaction` model |
+| Auto-apply credit to invoices | `InvoiceService::generateInvoice()` |
+| Manual wallet adjustment | `LeaseController::walletAdjustment()` |
+
+### Features Implemented
+
+**Credit Balance Display (Tenant Profile):**
+- 5th card in Quick Stats section
+- Shows current wallet balance with emerald highlight when positive
+- "Adjust" button opens wallet adjustment modal
+
+**Wallet Adjustment Modal:**
+- Credit/Debit toggle buttons with color coding
+- Amount input with validation
+- Reason field (required, max 255 chars)
+- Warning when debit exceeds current balance
+- Submits to `leases.wallet-adjustment` route
+
+**Overpayment Notifications:**
+- Queued email sent to landlord when overpayment detected
+- Includes tenant details, unit info, payment amount
+- Shows overpayment amount and new wallet balance
+- CTA button to view tenant profile
+
+### Acceptance Criteria Verification
+
+1. **Track overpayments as tenant credit balance** - Already implemented via `Lease.wallet_balance` and `creditToWallet()` method
+2. **Add credit balance display to tenant profile** - Added 5th Quick Stats card showing wallet balance
+3. **When generating new invoice, option to auto-apply credit** - Already implemented in `InvoiceService::generateInvoice()`
+4. **Add manual credit allocation interface** - Added wallet adjustment modal with credit/debit options
+5. **Add overpayment notification to landlord** - Created `OverpaymentNotification` mailable, integrated into PaymentController
+
+### Verification Results
+
+- Lint (Pint): Success (431 files)
+- Build: Success

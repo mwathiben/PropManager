@@ -43,6 +43,7 @@ const activeSection = ref('overview');
 const showEditModal = ref(false);
 const showNoteModal = ref(false);
 const showContactModal = ref(false);
+const showWalletModal = ref(false);
 const editingNote = ref(null);
 const editingContact = ref(null);
 
@@ -65,6 +66,12 @@ const contactForm = useForm({
     phone: '',
     email: '',
     is_primary: false,
+});
+
+const walletForm = useForm({
+    type: 'credit',
+    amount: '',
+    reason: '',
 });
 
 // Sections
@@ -217,6 +224,23 @@ const openNewContactModal = () => {
     showContactModal.value = true;
 };
 
+const openWalletModal = () => {
+    walletForm.reset();
+    walletForm.type = 'credit';
+    showWalletModal.value = true;
+};
+
+const submitWalletAdjustment = () => {
+    if (!props.activeLease) return;
+    walletForm.post(route('leases.wallet-adjustment', props.activeLease.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showWalletModal.value = false;
+            walletForm.reset();
+        },
+    });
+};
+
 // Activity icon mapping
 const activityIcons = {
     profile_updated: PencilIcon,
@@ -348,7 +372,7 @@ const getActivityIcon = (action) => {
                             </div>
 
                             <!-- Quick Stats -->
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
                                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
                                     <div class="flex items-center gap-3">
                                         <div class="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
@@ -400,6 +424,28 @@ const getActivityIcon = (action) => {
                                                 {{ formatCurrency(activeLease?.arrears || 0) }}
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-3">
+                                            <div :class="(activeLease?.wallet_balance || 0) > 0 ? 'bg-emerald-100' : 'bg-gray-100'" class="w-10 h-10 rounded-lg flex items-center justify-center">
+                                                <CurrencyDollarIcon :class="(activeLease?.wallet_balance || 0) > 0 ? 'text-emerald-600' : 'text-gray-400'" class="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                                <div class="text-xs text-gray-500">Credit Balance</div>
+                                                <div :class="(activeLease?.wallet_balance || 0) > 0 ? 'text-emerald-600' : 'text-gray-500'" class="text-sm font-bold">
+                                                    {{ formatCurrency(activeLease?.wallet_balance || 0) }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button
+                                            v-if="activeLease"
+                                            @click="openWalletModal"
+                                            class="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                                        >
+                                            Adjust
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -858,6 +904,95 @@ const getActivityIcon = (action) => {
                             <button type="button" @click="showContactModal = false" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
                             <button type="submit" :disabled="contactForm.processing" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
                                 {{ editingContact ? 'Save' : 'Add Contact' }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- WALLET ADJUSTMENT MODAL -->
+        <div v-if="showWalletModal" class="fixed inset-0 z-50 overflow-y-auto">
+            <div class="flex items-center justify-center min-h-screen px-4">
+                <div class="fixed inset-0 bg-black/50" @click="showWalletModal = false"></div>
+                <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900">Adjust Wallet Balance</h3>
+                        <button @click="showWalletModal = false" class="text-gray-400 hover:text-gray-600">
+                            <XMarkIcon class="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    <div class="mb-4 p-3 bg-gray-50 rounded-lg">
+                        <div class="text-xs text-gray-500 mb-1">Current Balance</div>
+                        <div :class="(activeLease?.wallet_balance || 0) > 0 ? 'text-emerald-600' : 'text-gray-500'" class="text-lg font-bold">
+                            {{ formatCurrency(activeLease?.wallet_balance || 0) }}
+                        </div>
+                    </div>
+
+                    <form @submit.prevent="submitWalletAdjustment" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Adjustment Type</label>
+                            <div class="flex gap-2">
+                                <button
+                                    type="button"
+                                    @click="walletForm.type = 'credit'"
+                                    :class="walletForm.type === 'credit' ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'"
+                                    class="flex-1 px-4 py-2 text-sm font-medium border rounded-lg transition-colors"
+                                >
+                                    + Credit (Add)
+                                </button>
+                                <button
+                                    type="button"
+                                    @click="walletForm.type = 'debit'"
+                                    :class="walletForm.type === 'debit' ? 'bg-red-100 text-red-700 border-red-300' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'"
+                                    class="flex-1 px-4 py-2 text-sm font-medium border rounded-lg transition-colors"
+                                >
+                                    − Debit (Remove)
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Amount (KES)</label>
+                            <input
+                                v-model="walletForm.amount"
+                                type="number"
+                                min="0.01"
+                                step="0.01"
+                                required
+                                class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                                placeholder="Enter amount"
+                            />
+                            <p v-if="walletForm.errors.amount" class="mt-1 text-sm text-red-600">{{ walletForm.errors.amount }}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+                            <input
+                                v-model="walletForm.reason"
+                                type="text"
+                                required
+                                maxlength="255"
+                                class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                                placeholder="e.g., Refund for overcharge, Goodwill credit"
+                            />
+                            <p v-if="walletForm.errors.reason" class="mt-1 text-sm text-red-600">{{ walletForm.errors.reason }}</p>
+                        </div>
+
+                        <div v-if="walletForm.type === 'debit' && parseFloat(walletForm.amount) > (activeLease?.wallet_balance || 0)" class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <p class="text-sm text-yellow-700">
+                                <strong>Warning:</strong> Debit amount exceeds current balance. This will result in a negative balance.
+                            </p>
+                        </div>
+
+                        <div class="flex justify-end gap-3 pt-4">
+                            <button type="button" @click="showWalletModal = false" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
+                            <button
+                                type="submit"
+                                :disabled="walletForm.processing"
+                                :class="walletForm.type === 'credit' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'"
+                                class="px-4 py-2 text-white rounded-lg disabled:opacity-50"
+                            >
+                                {{ walletForm.type === 'credit' ? 'Add Credit' : 'Remove Credit' }}
                             </button>
                         </div>
                     </form>

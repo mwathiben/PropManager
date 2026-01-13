@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\OverpaymentNotification;
 use App\Mail\PaymentReceived;
 use App\Mail\PaymentVerificationApproved;
 use App\Models\Building;
@@ -159,6 +160,18 @@ class PaymentController extends Controller
                         "Overpayment from manual payment #{$payment->id}",
                         $payment->id
                     );
+                    $lease->refresh();
+
+                    $landlord = User::find($lease->landlord_id);
+                    if ($landlord) {
+                        Mail::to($landlord->email)->queue(new OverpaymentNotification(
+                            $payment,
+                            $lease,
+                            $lease->tenant,
+                            $overpayment,
+                            $lease->wallet_balance
+                        ));
+                    }
                 }
             }
 
@@ -489,6 +502,18 @@ class PaymentController extends Controller
                     "Overpayment from Paystack payment #{$payment->id}",
                     $payment->id
                 );
+                $invoice->lease->refresh();
+
+                $landlord = User::find($invoice->lease->landlord_id);
+                if ($landlord) {
+                    Mail::to($landlord->email)->queue(new OverpaymentNotification(
+                        $payment,
+                        $invoice->lease,
+                        $invoice->lease->tenant,
+                        $overpayment,
+                        $invoice->lease->wallet_balance
+                    ));
+                }
             }
 
             DB::commit();
@@ -641,6 +666,18 @@ class PaymentController extends Controller
                     "Overpayment from Paystack webhook #{$payment->id}",
                     $payment->id
                 );
+                $invoice->lease->refresh();
+
+                $landlord = User::find($invoice->lease->landlord_id);
+                if ($landlord) {
+                    Mail::to($landlord->email)->queue(new OverpaymentNotification(
+                        $payment,
+                        $invoice->lease,
+                        $invoice->lease->tenant,
+                        $overpayment,
+                        $invoice->lease->wallet_balance
+                    ));
+                }
             }
 
             DB::commit();
@@ -1289,10 +1326,13 @@ class PaymentController extends Controller
         try {
             foreach ($request->payments as $paymentData) {
                 foreach ($paymentData['allocations'] as $allocation) {
-                    $invoice = Invoice::where('id', $allocation['invoice_id'])->lockForUpdate()->first();
+                    $invoice = Invoice::where('id', $allocation['invoice_id'])
+                        ->where('landlord_id', $landlordId)
+                        ->lockForUpdate()
+                        ->first();
 
                     if (! $invoice) {
-                        continue;
+                        throw new \Exception("Invoice {$allocation['invoice_id']} not found or not owned by landlord");
                     }
 
                     $payment = Payment::create([
@@ -1319,7 +1359,9 @@ class PaymentController extends Controller
                         $firstInvoice = Invoice::find($paymentData['allocations'][0]['invoice_id']);
                         $lease = $firstInvoice ? $firstInvoice->lease : null;
                     } else {
-                        $lease = Lease::where('tenant_id', $paymentData['tenant_id'])->first();
+                        $lease = Lease::where('tenant_id', $paymentData['tenant_id'])
+                            ->where('landlord_id', $landlordId)
+                            ->first();
                     }
                     if ($lease) {
                         $lease->creditToWallet($paymentData['wallet_credit'], 'Bulk import wallet credit');

@@ -469,8 +469,8 @@
         "Credit can be applied to new invoices",
         "Landlord notified of overpayments"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["FIN-003"]
     },
     {
@@ -516,7 +516,7 @@
   ],
   "metadata": {
     "total_stories": 25,
-    "passing_stories": 22,
+    "passing_stories": 23,
     "framework": "Laravel",
     "frontend": "Vue.js/Inertia"
   }
