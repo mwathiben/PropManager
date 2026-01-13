@@ -353,8 +353,8 @@
         "URLs remain backwards compatible",
         "Tab grouping is logical and discoverable"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["FIN-001", "FIN-002"]
     },
     {
@@ -509,7 +509,7 @@
   ],
   "metadata": {
     "total_stories": 25,
-    "passing_stories": 17,
+    "passing_stories": 18,
     "framework": "Laravel",
     "frontend": "Vue.js/Inertia"
   }

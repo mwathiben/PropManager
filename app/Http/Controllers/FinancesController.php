@@ -383,6 +383,7 @@ class FinancesController extends Controller
 
         $baseProps = [
             'activeTab' => $tab,
+            'activeGroup' => $this->getActiveGroup($tab),
             'buildings' => $this->getBuildings($landlordId),
             'tabs' => $this->getTabsConfig(),
         ];
@@ -405,17 +406,45 @@ class FinancesController extends Controller
     {
         return [
             ['id' => 'overview', 'name' => 'Overview', 'route' => 'finances.overview'],
-            ['id' => 'invoices', 'name' => 'Invoices', 'route' => 'finances.invoices'],
-            ['id' => 'payments', 'name' => 'Payments', 'route' => 'finances.payments'],
+            [
+                'id' => 'billing',
+                'name' => 'Billing',
+                'route' => 'finances.invoices',
+                'subtabs' => [
+                    ['id' => 'invoices', 'name' => 'Invoices', 'route' => 'finances.invoices'],
+                    ['id' => 'payments', 'name' => 'Payments', 'route' => 'finances.payments'],
+                ],
+            ],
             ['id' => 'expenses', 'name' => 'Expenses', 'route' => 'finances.expenses'],
-            ['id' => 'refunds', 'name' => 'Refunds', 'route' => 'finances.refunds'],
+            [
+                'id' => 'collections',
+                'name' => 'Collections',
+                'route' => 'finances.arrears',
+                'subtabs' => [
+                    ['id' => 'arrears', 'name' => 'Arrears', 'route' => 'finances.arrears'],
+                    ['id' => 'late-fees', 'name' => 'Late Fees', 'route' => 'finances.late-fees'],
+                    ['id' => 'deposits', 'name' => 'Deposits', 'route' => 'finances.deposits'],
+                    ['id' => 'refunds', 'name' => 'Refunds', 'route' => 'finances.refunds'],
+                ],
+            ],
             ['id' => 'reconciliation', 'name' => 'Reconciliation', 'route' => 'finances.reconciliation'],
-            ['id' => 'deposits', 'name' => 'Deposits', 'route' => 'finances.deposits'],
-            ['id' => 'arrears', 'name' => 'Arrears', 'route' => 'finances.arrears'],
-            ['id' => 'late-fees', 'name' => 'Late Fees', 'route' => 'finances.late-fees'],
             ['id' => 'reports', 'name' => 'Reports', 'route' => 'finances.reports'],
             ['id' => 'settings', 'name' => 'Settings', 'route' => 'finances.settings'],
         ];
+    }
+
+    private function getActiveGroup(string $tab): ?string
+    {
+        $groupMap = [
+            'invoices' => 'billing',
+            'payments' => 'billing',
+            'arrears' => 'collections',
+            'late-fees' => 'collections',
+            'deposits' => 'collections',
+            'refunds' => 'collections',
+        ];
+
+        return $groupMap[$tab] ?? null;
     }
 
     private function getBuildings(int $landlordId): array

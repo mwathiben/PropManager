@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, watch } from 'vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import { useFinancesStore } from '@/stores/finances';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Breadcrumb from '@/Components/Breadcrumb.vue';
@@ -39,6 +39,7 @@ import {
 
 const props = defineProps({
     activeTab: { type: String, default: 'overview' },
+    activeGroup: { type: String, default: null },
     buildings: { type: Array, default: () => [] },
     tabs: { type: Array, default: () => [] },
     stats: Object,
@@ -74,26 +75,58 @@ const props = defineProps({
 
 const store = useFinancesStore();
 
-const tabConfig = {
-    overview: { name: 'Overview', icon: ChartBarIcon, component: OverviewTab },
-    invoices: { name: 'Invoices', icon: DocumentTextIcon, component: InvoicesTab },
-    payments: { name: 'Payments', icon: CreditCardIcon, component: PaymentsTab },
-    expenses: { name: 'Expenses', icon: ReceiptPercentIcon, component: ExpensesTab },
-    refunds: { name: 'Refunds', icon: ArrowUturnLeftIcon, component: RefundsTab },
-    reconciliation: { name: 'Reconciliation', icon: ArrowPathIcon, component: ReconciliationTab },
-    deposits: { name: 'Deposits', icon: BanknotesIcon, component: DepositsTab },
-    arrears: { name: 'Arrears', icon: ExclamationTriangleIcon, component: ArrearsTab },
-    'late-fees': { name: 'Late Fees', icon: ClockIcon, component: LateFeeSettingsTab },
-    reports: { name: 'Reports', icon: ChartPieIcon, component: ReportsTab },
-    settings: { name: 'Settings', icon: Cog6ToothIcon, component: SettingsTab },
+const groupConfig = {
+    overview: { name: 'Overview', icon: ChartBarIcon },
+    billing: { name: 'Billing', icon: DocumentTextIcon },
+    expenses: { name: 'Expenses', icon: ReceiptPercentIcon },
+    collections: { name: 'Collections', icon: ExclamationTriangleIcon },
+    reconciliation: { name: 'Reconciliation', icon: ArrowPathIcon },
+    reports: { name: 'Reports', icon: ChartPieIcon },
+    settings: { name: 'Settings', icon: Cog6ToothIcon },
 };
 
-const currentTabComponent = computed(() => tabConfig[store.activeTab]?.component || OverviewTab);
+const tabComponents = {
+    overview: OverviewTab,
+    invoices: InvoicesTab,
+    payments: PaymentsTab,
+    expenses: ExpensesTab,
+    refunds: RefundsTab,
+    reconciliation: ReconciliationTab,
+    deposits: DepositsTab,
+    arrears: ArrearsTab,
+    'late-fees': LateFeeSettingsTab,
+    reports: ReportsTab,
+    settings: SettingsTab,
+};
+
+const tabNames = {
+    overview: 'Overview',
+    invoices: 'Invoices',
+    payments: 'Payments',
+    expenses: 'Expenses',
+    refunds: 'Refunds',
+    reconciliation: 'Reconciliation',
+    deposits: 'Deposits',
+    arrears: 'Arrears',
+    'late-fees': 'Late Fees',
+    reports: 'Reports',
+    settings: 'Settings',
+};
+
+const currentTabComponent = computed(() => tabComponents[store.activeTab] || OverviewTab);
+
+const effectiveGroup = computed(() => props.activeGroup || props.activeTab);
+
+const activeSubtabs = computed(() => {
+    const group = props.tabs.find(t => t.id === effectiveGroup.value);
+    return group?.subtabs || null;
+});
 
 onMounted(() => {
     store.initFromProps({
         buildings: props.buildings,
         activeTab: props.activeTab,
+        activeGroup: props.activeGroup,
     });
 });
 
@@ -101,21 +134,36 @@ watch(() => props.activeTab, (newTab) => {
     store.setTab(newTab);
 });
 
+watch(() => props.activeGroup, (newGroup) => {
+    store.setGroup(newGroup);
+});
+
 const navigateToTab = (tab) => {
-    router.visit(route(`finances.${tab.id}`), {
+    router.visit(route(tab.route), {
         preserveState: true,
         preserveScroll: true,
     });
 };
 
 const pageTitle = computed(() => {
-    return `Finance Hub - ${tabConfig[store.activeTab]?.name || 'Overview'}`;
+    return `Finance Hub - ${tabNames[store.activeTab] || 'Overview'}`;
 });
 
-const breadcrumbItems = computed(() => [
-    { label: 'Finance Hub', href: route('finances.index') },
-    { label: tabConfig[store.activeTab]?.name || 'Overview' },
-]);
+const breadcrumbItems = computed(() => {
+    const items = [{ label: 'Finance Hub', href: route('finances.index') }];
+
+    if (props.activeGroup) {
+        const group = props.tabs.find(t => t.id === props.activeGroup);
+        if (group) {
+            items.push({ label: group.name, href: route(group.route) });
+        }
+        items.push({ label: tabNames[store.activeTab] || 'Overview' });
+    } else {
+        items.push({ label: tabNames[store.activeTab] || 'Overview' });
+    }
+
+    return items;
+});
 
 const invoicesForModal = computed(() => {
     if (!props.invoices?.data) return [];
@@ -177,6 +225,7 @@ const unmatchedPaymentsForModal = computed(() => {
                 </div>
 
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                    <!-- Main Tab Groups -->
                     <div class="border-b border-gray-200">
                         <nav class="flex -mb-px overflow-x-auto" aria-label="Tabs">
                             <button
@@ -185,21 +234,40 @@ const unmatchedPaymentsForModal = computed(() => {
                                 @click="navigateToTab(tab)"
                                 :class="[
                                     'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors',
-                                    store.activeTab === tab.id
+                                    effectiveGroup === tab.id
                                         ? 'border-emerald-500 text-emerald-600'
                                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                 ]"
                             >
                                 <component
-                                    :is="tabConfig[tab.id]?.icon"
+                                    :is="groupConfig[tab.id]?.icon"
                                     :class="[
                                         'w-5 h-5',
-                                        store.activeTab === tab.id ? 'text-emerald-500' : 'text-gray-400'
+                                        effectiveGroup === tab.id ? 'text-emerald-500' : 'text-gray-400'
                                     ]"
                                 />
                                 {{ tab.name }}
                             </button>
                         </nav>
+                    </div>
+
+                    <!-- Sub-tabs (when group has subtabs) -->
+                    <div v-if="activeSubtabs" class="px-4 py-2 bg-gray-50 border-b border-gray-200">
+                        <div class="flex gap-2">
+                            <button
+                                v-for="subtab in activeSubtabs"
+                                :key="subtab.id"
+                                @click="navigateToTab(subtab)"
+                                :class="[
+                                    'px-3 py-1.5 text-sm font-medium rounded-full transition-colors',
+                                    store.activeTab === subtab.id
+                                        ? 'bg-emerald-100 text-emerald-700'
+                                        : 'text-gray-600 hover:bg-gray-100'
+                                ]"
+                            >
+                                {{ subtab.name }}
+                            </button>
+                        </div>
                     </div>
 
                     <div class="p-6">

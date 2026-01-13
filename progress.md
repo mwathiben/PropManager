@@ -1104,3 +1104,71 @@ Enhanced the Finance Hub Reports tab to match international SaaS financial repor
 
 - Lint (Pint): Success (426 files)
 - Build: Success
+
+---
+
+## FIN-009: Simplify Finance Hub tabs by grouping
+**Status:** PASSED
+**Date:** 2026-01-13
+**Attempts:** 1
+
+### Implementation Summary
+
+Reduced Finance Hub from 11 flat tabs to 7 logical groups with sub-navigation pills for grouped tabs. Reports kept as 7th group per user request.
+
+### Target Tab Structure
+
+```
+Overview | Billing | Expenses | Collections | Reconciliation | Reports | Settings
+              ↓                    ↓
+         [Invoices]           [Arrears]
+         [Payments]           [Late Fees]
+                              [Deposits]
+                              [Refunds]
+```
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/FinancesController.php` | Updated `getTabsConfig()` with grouped structure, added `getActiveGroup()` helper, updated `renderFinances()` to pass `activeGroup` prop |
+| `resources/js/Pages/Finances/Index.vue` | Added `activeGroup` prop, refactored `tabConfig` to `groupConfig`/`tabComponents`/`tabNames`, added `effectiveGroup` and `activeSubtabs` computed properties, added sub-tab navigation row with pill buttons, updated breadcrumbs for grouped hierarchy |
+| `resources/js/stores/finances.js` | Added `activeGroup` state, updated `initFromProps()`, added `setGroup()` action |
+
+### Features Implemented
+
+**Backend Changes:**
+- `getTabsConfig()` returns 7 main groups with optional `subtabs` arrays
+- `getActiveGroup()` maps subtab IDs to parent group IDs
+- `renderFinances()` passes `activeGroup` prop for UI highlighting
+
+**Frontend Changes:**
+- Main nav shows 7 groups with icons (uses `groupConfig`)
+- Sub-tab row appears below main nav when group has subtabs
+- Sub-tabs styled as rounded pill buttons with emerald highlight
+- Breadcrumbs show: Finance Hub > [Group] > [Subtab] for nested pages
+- Tab highlighting uses `effectiveGroup` (either `activeGroup` or `activeTab`)
+
+**URL Backwards Compatibility:**
+- All existing routes unchanged (`/finances/invoices`, `/finances/payments`, etc.)
+- Direct URL navigation still works - UI automatically highlights correct group
+
+### Acceptance Criteria Verification
+
+1. **Reduce main tabs from 11 to 7 groups** - 7 main tabs: Overview, Billing, Expenses, Collections, Reconciliation, Reports, Settings
+2. **Group 1: Overview** - Kept as-is, no subtabs
+3. **Group 2: Billing** - Combines Invoices + Payments as subtabs
+4. **Group 3: Expenses** - Kept as-is, no subtabs
+5. **Group 4: Collections** - Combines Arrears, Late Fees, Deposits, Refunds as subtabs
+6. **Group 5: Reconciliation** - Kept as-is, no subtabs
+7. **Group 6/7: Reports & Settings** - Reports as 7th group (per user decision), Settings as-is
+8. **Sub-navigation within groups** - Pill buttons appear when Billing or Collections active
+9. **Finance Hub shows 7 tabs** - Main nav reduced from 11 to 7
+10. **All pages accessible via sub-navigation** - Subtabs route to existing pages
+11. **URLs backwards compatible** - No route changes, only UI grouping
+12. **Tab grouping logical and discoverable** - Money-in (Billing), Collections grouped logically
+
+### Verification Results
+
+- Lint (Pint): Success
+- Build: Success

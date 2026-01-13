@@ -65,7 +65,8 @@
       "Bash(npm run lint:*)",
       "Bash(npm run:*)",
       "Bash(composer install:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(.\\\\vendor\\\\bin\\\\pint:*)"
     ]
   }
 }

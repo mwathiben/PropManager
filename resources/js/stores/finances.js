@@ -3,6 +3,7 @@ import { defineStore } from 'pinia';
 export const useFinancesStore = defineStore('finances', {
     state: () => ({
         activeTab: 'overview',
+        activeGroup: null,
 
         filters: {
             search: '',
@@ -165,6 +166,11 @@ export const useFinancesStore = defineStore('finances', {
             if (props.properties) this.properties = props.properties;
             if (props.paymentMethods) this.paymentMethods = props.paymentMethods;
             if (props.activeTab) this.activeTab = props.activeTab;
+            if (props.activeGroup !== undefined) this.activeGroup = props.activeGroup;
+        },
+
+        setGroup(group) {
+            this.activeGroup = group;
         },
 
         setLoading(loading) {
