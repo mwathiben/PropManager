@@ -10,7 +10,7 @@ import {
     AmountDisplay,
     EmptyState,
 } from '@/Components/Finances';
-import { CreditCardIcon, EyeIcon, ArrowUturnLeftIcon, DocumentArrowDownIcon, ArrowDownTrayIcon, PlusIcon } from '@heroicons/vue/24/outline';
+import { CreditCardIcon, EyeIcon, ArrowUturnLeftIcon, DocumentArrowDownIcon, ArrowDownTrayIcon, PlusIcon, ArrowUpTrayIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
     payments: Object,
@@ -132,6 +132,13 @@ const exportData = (format) => {
                 >
                     <PlusIcon class="h-4 w-4" />
                     Record Payment
+                </Link>
+                <Link
+                    :href="route('finances.payments.bulk-import')"
+                    class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                    <ArrowUpTrayIcon class="h-4 w-4" />
+                    Bulk Import
                 </Link>
                 <div class="relative">
                     <button

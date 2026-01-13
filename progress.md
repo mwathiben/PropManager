@@ -1372,3 +1372,73 @@ Created a complete credit note system that allows landlords to issue credits to 
 
 - Lint (Pint): Success (2 auto-fixes)
 - Build: Success
+
+---
+
+## FIN-011: Add Bulk Payment Recording feature
+**Status:** PASSED
+**Date:** 2026-01-13
+**Attempts:** 1
+
+### Implementation Summary
+
+Created a CSV-based bulk payment import feature with validation preview, FIFO auto-allocation, and receipt generation.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `resources/js/Pages/Finances/Payments/BulkImport.vue` | 3-step bulk import page (Upload → Preview → Results) |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `routes/web.php` | Added 4 routes: bulk-import (GET), bulk-import.validate (POST), bulk-import.process (POST), bulk-import.template (GET) |
+| `app/Http/Controllers/PaymentController.php` | Added `bulkImportForm()`, `downloadBulkTemplate()`, `validateBulkImport()`, `processBulkImport()`, `parseCsv()` methods |
+| `resources/js/Pages/Finances/tabs/PaymentsTab.vue` | Added "Bulk Import" button to toolbar, added ArrowUpTrayIcon import |
+
+### Features Implemented
+
+**CSV Template Format:**
+- Tenant Email (required)
+- Invoice Number (optional - auto-allocates FIFO if empty)
+- Payment Date (YYYY-MM-DD)
+- Amount
+- Payment Method (cash, mpesa, bank_transfer, cheque)
+- Reference (optional)
+
+**Allocation Logic:**
+- If Invoice Number provided: Allocate to specific invoice, excess to wallet
+- If Invoice Number empty: Auto-allocate FIFO across tenant's unpaid invoices (oldest first)
+- Any remaining amount after all invoices → wallet credit
+
+**3-Step Workflow:**
+1. Upload: CSV file upload with template download link
+2. Preview: Validation results with allocation preview per row
+3. Results: Success/failure counts with total amount processed
+
+**Processing:**
+- Creates Payment record per allocation
+- Updates Invoice.amount_paid and status
+- Generates Receipt via ReceiptService
+- Credits wallet for overpayments
+
+### Acceptance Criteria Verification
+
+1. **Add 'Bulk Import' button to Payments page** - Added in PaymentsTab.vue toolbar
+2. **Create CSV upload interface with template download** - BulkImport.vue Step 1
+3. **Template columns** - Tenant Email, Invoice Number, Payment Date, Amount, Payment Method, Reference
+4. **Add validation preview before import confirmation** - BulkImport.vue Step 2
+5. **Process bulk payments with transaction logging** - processBulkImport() with DB::transaction
+6. **Display import results summary** - BulkImport.vue Step 3 with success/fail counts
+7. **CSV template can be downloaded** - downloadBulkTemplate() returns CSV file
+8. **CSV upload validates data before processing** - validateBulkImport() returns preview JSON
+9. **Preview shows validation errors** - Invalid rows table with error messages
+10. **Successfully imported payments appear in list** - Redirect to payments list after processing
+11. **Failed rows are reported with specific errors** - Row number + error message per row
+
+### Verification Results
+
+- Lint (Pint): Success (429 files)
+- Build: Success (18.33s)

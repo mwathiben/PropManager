@@ -395,8 +395,8 @@
         "Successfully imported payments appear in list",
         "Failed rows are reported with specific errors"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["FIN-003"]
     },
     {
@@ -509,7 +509,7 @@
   ],
   "metadata": {
     "total_stories": 25,
-    "passing_stories": 21,
+    "passing_stories": 22,
     "framework": "Laravel",
     "frontend": "Vue.js/Inertia"
   }

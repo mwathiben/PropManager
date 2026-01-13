@@ -477,6 +477,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/payments', [FinancesController::class, 'payments'])->name('payments');
         Route::get('/payments/record', [PaymentController::class, 'create'])->name('payments.record');
         Route::post('/payments/record', [PaymentController::class, 'storeManual'])->name('payments.store-manual');
+        Route::get('/payments/bulk-import', [PaymentController::class, 'bulkImportForm'])->name('payments.bulk-import');
+        Route::post('/payments/bulk-import/validate', [PaymentController::class, 'validateBulkImport'])->name('payments.bulk-import.validate');
+        Route::post('/payments/bulk-import/process', [PaymentController::class, 'processBulkImport'])->name('payments.bulk-import.process');
+        Route::get('/payments/bulk-import/template', [PaymentController::class, 'downloadBulkTemplate'])->name('payments.bulk-import.template');
         Route::get('/refunds', [FinancesController::class, 'refunds'])->name('refunds');
         Route::get('/refunds/create', [RefundController::class, 'createStandalone'])->name('refunds.create');
         Route::post('/refunds/store', [RefundController::class, 'storeStandalone'])->name('refunds.store');
