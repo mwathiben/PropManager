@@ -61,6 +61,11 @@ class Lease extends Model
         return $this->hasMany(Invoice::class);
     }
 
+    public function creditNotes()
+    {
+        return $this->hasMany(CreditNote::class);
+    }
+
     // --- THIS WAS MISSING ---
     public function rentHistory()
     {

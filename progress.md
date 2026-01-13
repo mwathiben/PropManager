@@ -1289,3 +1289,86 @@ Created a comprehensive tenant ledger/statement view showing all financial trans
 
 - Lint (Pint): Success
 - Build: Success
+
+---
+
+## FIN-012: Add Credit Note/Adjustment functionality
+**Status:** PASSED
+**Date:** 2026-01-13
+**Attempts:** 1
+
+### Implementation Summary
+
+Created a complete credit note system that allows landlords to issue credits to tenant accounts, with approval workflow, application to invoices, and integration with the tenant ledger.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/2026_01_13_142201_create_credit_notes_table.php` | Credit notes table with status tracking, approval fields |
+| `app/Models/CreditNote.php` | Model with relationships, status constants, reason options, applyToInvoice() method |
+| `app/Http/Controllers/CreditNoteController.php` | Full CRUD with index, create, store, show, approve, apply, void, forTenant |
+| `resources/js/Pages/CreditNotes/Index.vue` | Credit notes list with stats, filters, search |
+| `resources/js/Pages/CreditNotes/Create.vue` | Issue credit note form with tenant search |
+| `resources/js/Pages/CreditNotes/Show.vue` | Credit note detail with approve/apply/void actions |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Models/User.php` | Added creditNotes() and issuedCreditNotes() relationships |
+| `app/Models/Lease.php` | Added creditNotes() relationship |
+| `app/Http/Controllers/TenantController.php` | Added CreditNote to ledger buildLedgerTransactions() |
+| `resources/js/Pages/Tenants/Ledger.vue` | Added credit_note type handling and Credits Applied summary |
+| `routes/web.php` | Added credit-notes routes and tenants.credit-notes endpoint |
+
+### Database Schema
+
+**credit_notes table:**
+- landlord_id, lease_id, tenant_id - Ownership references
+- invoice_id - Optional original invoice reference
+- applied_to_invoice_id - Invoice the credit was applied to
+- credit_number - Unique identifier (CN-YYYYMM-NNNN format)
+- amount, applied_amount - Credit amounts
+- reason - Enum: overpayment, billing_error, goodwill, duplicate_charge, service_issue, other
+- notes - Optional description
+- status - Enum: pending, approved, applied, voided
+- approved_by, approved_at, applied_at, voided_at - Workflow tracking
+
+### Credit Note Workflow
+
+1. **Create** - Landlord issues credit note (status: pending)
+2. **Approve** - Landlord approves credit note (status: approved)
+3. **Apply** - Credit applied to outstanding invoice (status: applied)
+4. **Void** - Credit note can be voided if not yet applied
+
+### Routes Added
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/credit-notes` | GET | Credit notes list |
+| `/credit-notes/create` | GET | Issue credit note form |
+| `/credit-notes` | POST | Store new credit note |
+| `/credit-notes/{creditNote}` | GET | Credit note detail |
+| `/credit-notes/{creditNote}/approve` | POST | Approve credit note |
+| `/credit-notes/{creditNote}/apply` | POST | Apply credit to invoice |
+| `/credit-notes/{creditNote}/void` | POST | Void credit note |
+| `/tenants/{tenant}/credit-notes` | GET | Get credit notes for tenant (JSON) |
+
+### Acceptance Criteria Verification
+
+1. **Add credit notes table to database** - Migration created and run
+2. **Create CreditNoteController with CRUD operations** - Full controller with index, create, store, show, approve, apply, void
+3. **Add 'Issue Credit Note' action** - Create page accessible from credit notes list
+4. **Credit notes should reduce outstanding balance** - applyToInvoice() method updates invoice amount_paid
+5. **Add credit notes to tenant statement/ledger view** - Integrated into buildLedgerTransactions()
+6. **Track credit note reason and approval** - Reason dropdown, approved_by/approved_at fields
+7. **Credit notes can be issued to tenant accounts** - Create form with tenant search
+8. **Credit notes appear in tenant ledger** - Shows as credit type with purple badge
+9. **Credit notes reduce invoice outstanding amounts** - Invoice.amount_paid updated on apply
+10. **Credit note requires reason selection** - Required field with 6 reason options
+
+### Verification Results
+
+- Lint (Pint): Success (2 auto-fixes)
+- Build: Success

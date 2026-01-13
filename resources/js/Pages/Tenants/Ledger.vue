@@ -88,6 +88,7 @@ const getTypeIcon = (type) => {
         case 'invoice': return DocumentTextIcon;
         case 'payment': return CreditCardIcon;
         case 'refund': return ArrowUturnLeftIcon;
+        case 'credit_note': return DocumentTextIcon;
         default: return BanknotesIcon;
     }
 };
@@ -97,6 +98,7 @@ const getTypeColor = (type) => {
         case 'invoice': return 'text-amber-600 bg-amber-50';
         case 'payment': return 'text-emerald-600 bg-emerald-50';
         case 'refund': return 'text-red-600 bg-red-50';
+        case 'credit_note': return 'text-purple-600 bg-purple-50';
         default: return 'text-gray-600 bg-gray-50';
     }
 };
@@ -106,6 +108,7 @@ const getTypeLabel = (type) => {
         case 'invoice': return 'Invoice';
         case 'payment': return 'Payment';
         case 'refund': return 'Refund';
+        case 'credit_note': return 'Credit';
         default: return type;
     }
 };
@@ -134,7 +137,7 @@ const getTypeLabel = (type) => {
                 </div>
 
                 <!-- Summary Cards -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
                     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
                         <p class="text-sm text-gray-500">Total Invoiced</p>
                         <p class="text-xl font-semibold text-gray-900">{{ formatMoney(summary.total_invoiced) }}</p>
@@ -142,6 +145,10 @@ const getTypeLabel = (type) => {
                     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
                         <p class="text-sm text-gray-500">Total Paid</p>
                         <p class="text-xl font-semibold text-emerald-600">{{ formatMoney(summary.total_paid) }}</p>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                        <p class="text-sm text-gray-500">Credits Applied</p>
+                        <p class="text-xl font-semibold text-purple-600">{{ formatMoney(summary.total_credits || 0) }}</p>
                     </div>
                     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
                         <p class="text-sm text-gray-500">Refunds</p>

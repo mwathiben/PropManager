@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CreditNote;
 use App\Models\EmergencyContact;
 use App\Models\Invoice;
 use App\Models\Lease;
@@ -716,6 +717,7 @@ class TenantController extends Controller
             'total_invoiced' => $transactions->where('type', 'invoice')->sum('amount'),
             'total_paid' => $transactions->where('type', 'payment')->sum('amount'),
             'total_refunds' => $transactions->where('type', 'refund')->sum('amount'),
+            'total_credits' => $transactions->where('type', 'credit_note')->sum('amount'),
             'current_balance' => $transactions->last()['running_balance'] ?? 0,
             'deposit_held' => $activeLease?->deposit_amount ?? 0,
             'wallet_balance' => $activeLease?->wallet_balance ?? 0,
@@ -901,7 +903,22 @@ class TenantController extends Controller
                 'status' => $ref->status,
             ]);
 
-        $transactions = $invoices->concat($payments)->concat($refunds)
+        $creditNotes = CreditNote::whereIn('lease_id', $leaseIds)
+            ->when($dateFrom, fn ($q) => $q->whereDate('created_at', '>=', $dateFrom))
+            ->when($dateTo, fn ($q) => $q->whereDate('created_at', '<=', $dateTo))
+            ->whereIn('status', ['approved', 'applied'])
+            ->get()
+            ->map(fn ($cn) => [
+                'id' => $cn->id,
+                'type' => 'credit_note',
+                'date' => $cn->approved_at ?? $cn->created_at,
+                'description' => "Credit Note - {$cn->reason_label}",
+                'reference' => $cn->credit_number,
+                'amount' => $cn->applied_amount ?: $cn->amount,
+                'status' => $cn->status,
+            ]);
+
+        $transactions = $invoices->concat($payments)->concat($refunds)->concat($creditNotes)
             ->sortBy('date')
             ->values();
 
@@ -919,6 +936,10 @@ class TenantController extends Controller
                 $runningBalance += $txn['amount'];
                 $txn['debit'] = $txn['amount'];
                 $txn['credit'] = 0;
+            } elseif ($txn['type'] === 'credit_note') {
+                $runningBalance -= $txn['amount'];
+                $txn['debit'] = 0;
+                $txn['credit'] = $txn['amount'];
             }
 
             $txn['running_balance'] = $runningBalance;

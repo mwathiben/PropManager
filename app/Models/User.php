@@ -114,6 +114,18 @@ class User extends Authenticatable
         return $this->hasMany(Lease::class, 'tenant_id');
     }
 
+    // For Tenants: Credit notes issued to them
+    public function creditNotes()
+    {
+        return $this->hasMany(CreditNote::class, 'tenant_id');
+    }
+
+    // For Landlords: Credit notes they've issued
+    public function issuedCreditNotes()
+    {
+        return $this->hasMany(CreditNote::class, 'landlord_id');
+    }
+
     // For Landlords: Invitations they've sent
     public function invitations()
     {
