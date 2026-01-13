@@ -74,35 +74,21 @@ const props = defineProps({
 
 const store = useFinancesStore();
 
-const tabIcons = {
-    overview: ChartBarIcon,
-    invoices: DocumentTextIcon,
-    payments: CreditCardIcon,
-    expenses: ReceiptPercentIcon,
-    refunds: ArrowUturnLeftIcon,
-    reconciliation: ArrowPathIcon,
-    deposits: BanknotesIcon,
-    arrears: ExclamationTriangleIcon,
-    'late-fees': ClockIcon,
-    reports: ChartPieIcon,
-    settings: Cog6ToothIcon,
+const tabConfig = {
+    overview: { name: 'Overview', icon: ChartBarIcon, component: OverviewTab },
+    invoices: { name: 'Invoices', icon: DocumentTextIcon, component: InvoicesTab },
+    payments: { name: 'Payments', icon: CreditCardIcon, component: PaymentsTab },
+    expenses: { name: 'Expenses', icon: ReceiptPercentIcon, component: ExpensesTab },
+    refunds: { name: 'Refunds', icon: ArrowUturnLeftIcon, component: RefundsTab },
+    reconciliation: { name: 'Reconciliation', icon: ArrowPathIcon, component: ReconciliationTab },
+    deposits: { name: 'Deposits', icon: BanknotesIcon, component: DepositsTab },
+    arrears: { name: 'Arrears', icon: ExclamationTriangleIcon, component: ArrearsTab },
+    'late-fees': { name: 'Late Fees', icon: ClockIcon, component: LateFeeSettingsTab },
+    reports: { name: 'Reports', icon: ChartPieIcon, component: ReportsTab },
+    settings: { name: 'Settings', icon: Cog6ToothIcon, component: SettingsTab },
 };
 
-const tabComponents = {
-    overview: OverviewTab,
-    invoices: InvoicesTab,
-    payments: PaymentsTab,
-    expenses: ExpensesTab,
-    refunds: RefundsTab,
-    reconciliation: ReconciliationTab,
-    deposits: DepositsTab,
-    arrears: ArrearsTab,
-    'late-fees': LateFeeSettingsTab,
-    reports: ReportsTab,
-    settings: SettingsTab,
-};
-
-const currentTabComponent = computed(() => tabComponents[store.activeTab] || OverviewTab);
+const currentTabComponent = computed(() => tabConfig[store.activeTab]?.component || OverviewTab);
 
 onMounted(() => {
     store.initFromProps({
@@ -122,27 +108,13 @@ const navigateToTab = (tab) => {
     });
 };
 
-const tabNames = {
-    overview: 'Overview',
-    invoices: 'Invoices',
-    payments: 'Payments',
-    expenses: 'Expenses',
-    refunds: 'Refunds',
-    reconciliation: 'Reconciliation',
-    deposits: 'Deposits',
-    arrears: 'Arrears',
-    'late-fees': 'Late Fees',
-    reports: 'Reports',
-    settings: 'Settings',
-};
-
 const pageTitle = computed(() => {
-    return `Finance Hub - ${tabNames[store.activeTab] || 'Overview'}`;
+    return `Finance Hub - ${tabConfig[store.activeTab]?.name || 'Overview'}`;
 });
 
 const breadcrumbItems = computed(() => [
     { label: 'Finance Hub', href: route('finances.index') },
-    { label: tabNames[store.activeTab] || 'Overview' },
+    { label: tabConfig[store.activeTab]?.name || 'Overview' },
 ]);
 
 const invoicesForModal = computed(() => {
@@ -219,7 +191,7 @@ const unmatchedPaymentsForModal = computed(() => {
                                 ]"
                             >
                                 <component
-                                    :is="tabIcons[tab.id]"
+                                    :is="tabConfig[tab.id]?.icon"
                                     :class="[
                                         'w-5 h-5',
                                         store.activeTab === tab.id ? 'text-emerald-500' : 'text-gray-400'
