@@ -183,6 +183,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/tenants/search', [TenantController::class, 'search'])->name('tenants.search');
     Route::get('/tenants/{tenant}/outstanding-invoices', [TenantController::class, 'outstandingInvoices'])->name('tenants.outstanding-invoices');
     Route::get('/tenants/{tenant}/refundable-payments', [TenantController::class, 'refundablePayments'])->name('tenants.refundable-payments');
+    // Tenant Ledger/Statement
+    Route::get('/tenants/{tenant}/ledger', [TenantController::class, 'ledger'])->name('tenants.ledger');
+    Route::get('/tenants/{tenant}/ledger/pdf', [TenantController::class, 'ledgerPdf'])->name('tenants.ledger.pdf');
+    Route::post('/tenants/{tenant}/ledger/email', [TenantController::class, 'ledgerEmail'])->name('tenants.ledger.email');
 
     // 5. Water Readings (The Water Guy)
     Route::get('/readings', [WaterReadingController::class, 'index'])->name('readings.index');

@@ -6,12 +6,15 @@ use App\Models\EmergencyContact;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\Payment;
+use App\Models\Refund;
 use App\Models\TenantActivity;
 use App\Models\TenantInvitation;
 use App\Models\TenantNote;
 use App\Models\User;
 use App\Models\VerificationTemplate;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
 
@@ -681,6 +684,249 @@ class TenantController extends Controller
         $contact->delete();
 
         return Redirect::back()->with('success', 'Emergency contact deleted.');
+    }
+
+    // ==================== TENANT LEDGER ====================
+
+    /**
+     * Display tenant ledger/statement with all financial transactions.
+     */
+    public function ledger(Request $request, User $tenant)
+    {
+        $user = auth()->user();
+
+        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+            abort(403, 'Access denied.');
+        }
+
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+
+        if ($tenant->landlord_id !== $landlordId) {
+            abort(403, 'Access denied.');
+        }
+
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+
+        $transactions = $this->buildLedgerTransactions($tenant, $dateFrom, $dateTo);
+
+        $activeLease = $tenant->leases()->where('is_active', true)->with('unit.building')->first();
+
+        $summary = [
+            'total_invoiced' => $transactions->where('type', 'invoice')->sum('amount'),
+            'total_paid' => $transactions->where('type', 'payment')->sum('amount'),
+            'total_refunds' => $transactions->where('type', 'refund')->sum('amount'),
+            'current_balance' => $transactions->last()['running_balance'] ?? 0,
+            'deposit_held' => $activeLease?->deposit_amount ?? 0,
+            'wallet_balance' => $activeLease?->wallet_balance ?? 0,
+        ];
+
+        return Inertia::render('Tenants/Ledger', [
+            'tenant' => $tenant->only(['id', 'name', 'email', 'mobile_number']),
+            'activeLease' => $activeLease,
+            'transactions' => $transactions->values(),
+            'summary' => $summary,
+            'filters' => [
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+            ],
+        ]);
+    }
+
+    /**
+     * Export tenant ledger as PDF.
+     */
+    public function ledgerPdf(Request $request, User $tenant)
+    {
+        $user = auth()->user();
+
+        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+            abort(403, 'Access denied.');
+        }
+
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+
+        if ($tenant->landlord_id !== $landlordId) {
+            abort(403, 'Access denied.');
+        }
+
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+
+        $transactions = $this->buildLedgerTransactions($tenant, $dateFrom, $dateTo);
+        $activeLease = $tenant->leases()->where('is_active', true)->with('unit.building')->first();
+
+        $summary = [
+            'total_invoiced' => $transactions->where('type', 'invoice')->sum('amount'),
+            'total_paid' => $transactions->where('type', 'payment')->sum('amount'),
+            'total_refunds' => $transactions->where('type', 'refund')->sum('amount'),
+            'current_balance' => $transactions->last()['running_balance'] ?? 0,
+        ];
+
+        $landlord = User::find($landlordId);
+        $invoiceSetting = $landlord->getOrCreateInvoiceSetting();
+
+        $pdf = Pdf::loadView('tenants.ledger-pdf', [
+            'tenant' => $tenant,
+            'activeLease' => $activeLease,
+            'transactions' => $transactions,
+            'summary' => $summary,
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+            'landlord' => $landlord,
+            'invoiceSetting' => $invoiceSetting,
+            'generatedAt' => now(),
+        ]);
+
+        $filename = "statement-{$tenant->name}-".now()->format('Y-m-d').'.pdf';
+
+        return $pdf->download($filename);
+    }
+
+    /**
+     * Email tenant ledger/statement.
+     */
+    public function ledgerEmail(Request $request, User $tenant)
+    {
+        $user = auth()->user();
+
+        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+            abort(403, 'Access denied.');
+        }
+
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+
+        if ($tenant->landlord_id !== $landlordId) {
+            abort(403, 'Access denied.');
+        }
+
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+
+        $transactions = $this->buildLedgerTransactions($tenant, $dateFrom, $dateTo);
+        $activeLease = $tenant->leases()->where('is_active', true)->with('unit.building')->first();
+
+        $summary = [
+            'total_invoiced' => $transactions->where('type', 'invoice')->sum('amount'),
+            'total_paid' => $transactions->where('type', 'payment')->sum('amount'),
+            'total_refunds' => $transactions->where('type', 'refund')->sum('amount'),
+            'current_balance' => $transactions->last()['running_balance'] ?? 0,
+        ];
+
+        $landlord = User::find($landlordId);
+        $invoiceSetting = $landlord->getOrCreateInvoiceSetting();
+
+        $pdf = Pdf::loadView('tenants.ledger-pdf', [
+            'tenant' => $tenant,
+            'activeLease' => $activeLease,
+            'transactions' => $transactions,
+            'summary' => $summary,
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+            'landlord' => $landlord,
+            'invoiceSetting' => $invoiceSetting,
+            'generatedAt' => now(),
+        ]);
+
+        $filename = "statement-{$tenant->name}-".now()->format('Y-m-d').'.pdf';
+        $pdfContent = $pdf->output();
+
+        Mail::send('emails.tenant-statement', [
+            'tenant' => $tenant,
+            'landlord' => $landlord,
+            'summary' => $summary,
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+        ], function ($message) use ($tenant, $pdfContent, $filename, $landlord) {
+            $message->to($tenant->email, $tenant->name)
+                ->subject('Your Account Statement')
+                ->attachData($pdfContent, $filename, ['mime' => 'application/pdf']);
+
+            if ($landlord->email) {
+                $message->from($landlord->email, $landlord->name ?? 'Property Management');
+            }
+        });
+
+        return Redirect::back()->with('success', 'Statement emailed to tenant successfully.');
+    }
+
+    /**
+     * Build ledger transactions for a tenant.
+     */
+    private function buildLedgerTransactions(User $tenant, ?string $dateFrom, ?string $dateTo)
+    {
+        $leaseIds = $tenant->leases()->pluck('id');
+
+        $invoices = Invoice::whereIn('lease_id', $leaseIds)
+            ->when($dateFrom, fn ($q) => $q->whereDate('created_at', '>=', $dateFrom))
+            ->when($dateTo, fn ($q) => $q->whereDate('created_at', '<=', $dateTo))
+            ->get()
+            ->map(fn ($inv) => [
+                'id' => $inv->id,
+                'type' => 'invoice',
+                'date' => $inv->created_at,
+                'description' => "Invoice #{$inv->invoice_number}",
+                'reference' => $inv->invoice_number,
+                'amount' => $inv->total_due ?? $inv->total_amount ?? 0,
+                'status' => $inv->status,
+            ]);
+
+        $payments = Payment::whereIn('lease_id', $leaseIds)
+            ->when($dateFrom, fn ($q) => $q->whereDate('created_at', '>=', $dateFrom))
+            ->when($dateTo, fn ($q) => $q->whereDate('created_at', '<=', $dateTo))
+            ->with('invoice:id,invoice_number')
+            ->get()
+            ->map(fn ($pmt) => [
+                'id' => $pmt->id,
+                'type' => 'payment',
+                'date' => $pmt->created_at,
+                'description' => 'Payment'.($pmt->invoice ? " for Invoice #{$pmt->invoice->invoice_number}" : ''),
+                'reference' => $pmt->reference ?? "PAY-{$pmt->id}",
+                'amount' => $pmt->amount,
+                'status' => $pmt->status ?? 'completed',
+            ]);
+
+        $refunds = Refund::whereHas('payment', fn ($q) => $q->whereIn('lease_id', $leaseIds))
+            ->when($dateFrom, fn ($q) => $q->whereDate('created_at', '>=', $dateFrom))
+            ->when($dateTo, fn ($q) => $q->whereDate('created_at', '<=', $dateTo))
+            ->where('status', 'completed')
+            ->get()
+            ->map(fn ($ref) => [
+                'id' => $ref->id,
+                'type' => 'refund',
+                'date' => $ref->processed_at ?? $ref->created_at,
+                'description' => "Refund - {$ref->reason}",
+                'reference' => "REF-{$ref->id}",
+                'amount' => $ref->amount,
+                'status' => $ref->status,
+            ]);
+
+        $transactions = $invoices->concat($payments)->concat($refunds)
+            ->sortBy('date')
+            ->values();
+
+        $runningBalance = 0;
+        $transactions = $transactions->map(function ($txn) use (&$runningBalance) {
+            if ($txn['type'] === 'invoice') {
+                $runningBalance += $txn['amount'];
+                $txn['debit'] = $txn['amount'];
+                $txn['credit'] = 0;
+            } elseif ($txn['type'] === 'payment') {
+                $runningBalance -= $txn['amount'];
+                $txn['debit'] = 0;
+                $txn['credit'] = $txn['amount'];
+            } elseif ($txn['type'] === 'refund') {
+                $runningBalance += $txn['amount'];
+                $txn['debit'] = $txn['amount'];
+                $txn['credit'] = 0;
+            }
+
+            $txn['running_balance'] = $runningBalance;
+
+            return $txn;
+        });
+
+        return $transactions;
     }
 
     // ==================== TENANT HISTORY ====================

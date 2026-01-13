@@ -1209,3 +1209,83 @@ Already satisfied by FIN-009 implementation. All breadcrumb functionality was im
 5. **All pages display breadcrumbs** - Verified in Hub.vue and Index.vue
 6. **Navigate correctly** - Links use proper routes
 7. **Current page not clickable** - Uses `<span>` when no href provided
+
+---
+
+## FIN-013: Tenant Ledger/Statement View
+**Status:** PASSED
+**Date:** 2026-01-13
+**Attempts:** 1
+
+### Implementation Summary
+
+Created a comprehensive tenant ledger/statement view showing all financial transactions (invoices, payments, credits, refunds, deposits) in chronological order with running balance, date filtering, PDF export, and email statement functionality.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `resources/js/Pages/Tenants/Ledger.vue` | Tenant ledger page with summary cards, filters, transactions table with debit/credit/balance columns |
+| `resources/views/tenants/ledger-pdf.blade.php` | Professional PDF template for downloadable statements |
+| `resources/views/emails/tenant-statement.blade.php` | Email template with account summary for emailed statements |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/TenantController.php` | Added `ledger()`, `ledgerPdf()`, `ledgerEmail()` methods; Added `buildLedgerTransactions()` helper for query and running balance calculation |
+| `routes/web.php` | Added `tenants.ledger`, `tenants.ledger.pdf`, `tenants.ledger.email` routes |
+
+### Features Implemented
+
+**Ledger Page (`/tenants/{tenant}/ledger`):**
+- Summary cards showing Total Invoiced, Total Paid, Refunds, Current Balance
+- Date range filter panel with date pickers
+- Transactions table with columns: Date, Description, Reference, Type, Debit, Credit, Balance
+- Type badges (Invoice, Payment, Refund) with color coding
+- Running balance calculation (invoices add to balance, payments reduce it)
+- Download PDF and Email Statement action buttons
+
+**PDF Statement:**
+- Professional header with tenant and landlord details
+- Account summary section
+- Transaction history table
+- Generated with DomPDF via `Pdf::loadView()`
+
+**Email Statement:**
+- Account summary in email body
+- PDF attached to email
+- Uses Laravel Mail with Mailable class
+
+**Running Balance Logic:**
+```php
+// Invoices = debit (increase balance)
+// Payments = credit (decrease balance)
+// Refunds = debit (increase balance - money returned to tenant)
+```
+
+### Routes Added
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/tenants/{tenant}/ledger` | GET | Ledger page with transactions |
+| `/tenants/{tenant}/ledger/pdf` | GET | Download PDF statement |
+| `/tenants/{tenant}/ledger/email` | POST | Email statement to tenant |
+
+### Acceptance Criteria Verification
+
+1. **Route at /tenants/{id}/ledger** - Implemented with date filter params
+2. **Shows all transactions in chronological order** - Sorted by date ascending
+3. **Running balance calculated** - Computed on each transaction row
+4. **Filter by date range** - From/to date pickers with URL params
+5. **Export to PDF** - Professional PDF via DomPDF
+6. **Send as email** - Email with PDF attachment via Laravel Mail
+7. **Transactions include invoices** - Queried from Invoice model
+8. **Transactions include payments** - Queried from Payment model
+9. **Transactions include refunds** - Queried from Refund model
+10. **Running balance mathematically correct** - Invoices debit, payments credit
+
+### Verification Results
+
+- Lint (Pint): Success
+- Build: Success
