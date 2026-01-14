@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, reactive } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import Breadcrumb from '@/Components/Breadcrumb.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import {
     DocumentDuplicateIcon,
@@ -18,6 +19,13 @@ const props = defineProps({
 });
 
 const isEditing = computed(() => !!props.template);
+
+const breadcrumbItems = computed(() => [
+    { label: 'Finance Hub', href: route('finances.index') },
+    { label: 'Templates', href: route('finances.templates') },
+    { label: 'Invoices', href: route('finances.templates.invoices') },
+    { label: isEditing.value ? props.template.name : 'Create Template' },
+]);
 
 // Use reactive object for preview state to ensure real-time updates
 const previewState = reactive({
@@ -138,6 +146,123 @@ const toggleGroups = [
         ],
     },
 ];
+
+const designStyles = computed(() => {
+    const design = previewState.design;
+    return {
+        container: {
+            classic: 'border-2 border-gray-300 rounded-none shadow-md',
+            modern: 'rounded-2xl shadow-2xl border-0',
+            minimal: 'shadow-sm border border-gray-100 rounded-lg',
+            professional: 'rounded-none shadow-xl border-l-4',
+        }[design] || 'rounded-lg shadow-lg',
+
+        header: {
+            classic: 'border-b-2 border-gray-300 bg-gray-50',
+            modern: 'bg-gradient-to-br from-gray-50 via-white to-gray-50',
+            minimal: 'bg-white',
+            professional: 'bg-stone-50 border-b border-stone-200',
+        }[design] || 'bg-white',
+
+        headerTextColor: {
+            classic: 'text-gray-900',
+            modern: 'text-gray-800',
+            minimal: 'text-gray-600',
+            professional: 'text-stone-900 font-semibold',
+        }[design] || 'text-gray-900',
+
+        headerSubTextColor: {
+            classic: 'text-gray-600',
+            modern: 'text-gray-500',
+            minimal: 'text-gray-400',
+            professional: 'text-stone-600',
+        }[design] || 'text-gray-600',
+
+        billTo: {
+            classic: 'bg-gray-100 border-y-2 border-gray-200',
+            modern: 'bg-gradient-to-r from-gray-50 to-white',
+            minimal: 'bg-white border-b border-gray-100',
+            professional: 'bg-white border-l-4 ml-0',
+        }[design] || 'bg-gray-50',
+
+        billToTextColor: {
+            classic: 'text-gray-900',
+            modern: 'text-gray-800',
+            minimal: 'text-gray-700',
+            professional: 'text-stone-900',
+        }[design] || 'text-gray-900',
+
+        billToSubTextColor: {
+            classic: 'text-gray-600',
+            modern: 'text-gray-500',
+            minimal: 'text-gray-500',
+            professional: 'text-stone-600',
+        }[design] || 'text-gray-600',
+
+        billToLabelColor: {
+            classic: 'text-gray-500',
+            modern: 'text-gray-400',
+            minimal: 'text-gray-400',
+            professional: 'text-stone-500 tracking-wider font-semibold',
+        }[design] || 'text-gray-500',
+
+        table: {
+            classic: 'border-2 border-gray-200',
+            modern: '',
+            minimal: '',
+            professional: '',
+        }[design] || '',
+
+        tableHeader: {
+            classic: 'border-b-2 border-gray-300 bg-gray-100',
+            modern: 'border-b border-gray-200',
+            minimal: 'border-b border-gray-100',
+            professional: 'border-b-2 border-stone-300 bg-stone-100',
+        }[design] || 'border-b border-gray-200',
+
+        lateWarning: {
+            classic: 'bg-yellow-100 border-y-2 border-yellow-200',
+            modern: 'bg-yellow-50 border-t border-yellow-100 rounded-lg mx-4',
+            minimal: 'bg-yellow-50 border-t border-yellow-100',
+            professional: 'bg-amber-50 border-l-4 border-amber-400',
+        }[design] || 'bg-yellow-50',
+
+        lateWarningText: {
+            classic: 'text-yellow-800',
+            modern: 'text-yellow-700',
+            minimal: 'text-yellow-600',
+            professional: 'text-amber-800 font-medium',
+        }[design] || 'text-yellow-800',
+
+        bankDetails: {
+            classic: 'bg-gray-100 border-t-2 border-gray-200',
+            modern: 'bg-gradient-to-r from-gray-50 to-white border-t border-gray-100',
+            minimal: 'bg-white border-t border-gray-100',
+            professional: 'bg-stone-50 border-t border-stone-200 border-l-4',
+        }[design] || 'bg-gray-50 border-t',
+
+        bankDetailsTextColor: {
+            classic: 'text-gray-600',
+            modern: 'text-gray-600',
+            minimal: 'text-gray-500',
+            professional: 'text-stone-700',
+        }[design] || 'text-gray-600',
+
+        footer: {
+            classic: 'border-t-2 border-gray-300 bg-gray-100',
+            modern: 'bg-gradient-to-r from-gray-50 to-white',
+            minimal: 'border-t border-gray-100',
+            professional: 'bg-stone-100 border-t border-stone-200',
+        }[design] || 'border-t',
+
+        footerTextColor: {
+            classic: 'text-gray-600',
+            modern: 'text-gray-500',
+            minimal: 'text-gray-400',
+            professional: 'text-stone-600',
+        }[design] || 'text-gray-500',
+    };
+});
 </script>
 
 <template>
@@ -166,6 +291,9 @@ const toggleGroups = [
 
         <div class="py-8">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="mb-6">
+                    <Breadcrumb :items="breadcrumbItems" />
+                </div>
                 <form @submit.prevent="submit">
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <!-- Settings Panel -->
@@ -354,55 +482,69 @@ const toggleGroups = [
                                 </div>
                                 <div class="p-4 bg-gray-100">
                                     <!-- Invoice Preview -->
-                                    <div class="bg-white shadow-lg rounded-lg overflow-hidden transform scale-[0.85] origin-top">
+                                    <div
+                                        :class="['bg-white overflow-hidden transform scale-[0.85] origin-top transition-all duration-300', designStyles.container]"
+                                        :style="previewState.design === 'professional' ? { borderLeftColor: previewState.primary_color } : {}"
+                                    >
                                         <!-- Header -->
-                                        <div class="p-6" :style="{ borderTop: `4px solid ${previewState.primary_color}` }">
+                                        <div
+                                            :class="['p-6', designStyles.header]"
+                                            :style="previewState.design !== 'professional' ? { borderTop: `4px solid ${previewState.primary_color}` } : {}"
+                                        >
                                             <div class="flex justify-between items-start">
                                                 <div>
                                                     <div v-if="previewState.show_logo && getLogoUrl()" class="mb-3">
                                                         <img :src="getLogoUrl()" alt="Logo" class="h-12 object-contain" />
                                                     </div>
-                                                    <div v-else-if="previewState.show_logo" class="w-24 h-12 bg-gray-200 rounded mb-3 flex items-center justify-center text-xs text-gray-400">
+                                                    <div v-else-if="previewState.show_logo" :class="['w-24 h-12 rounded mb-3 flex items-center justify-center text-xs', previewState.design === 'professional' ? 'bg-stone-200 text-stone-500 border border-stone-300' : 'bg-gray-200 text-gray-400']">
                                                         Logo
                                                     </div>
-                                                    <h3 class="text-lg font-bold text-gray-900">{{ settings?.business_name || 'Your Business Name' }}</h3>
-                                                    <p v-if="settings?.business_address" class="text-sm text-gray-600 mt-1">{{ settings.business_address }}</p>
-                                                    <p v-if="settings?.business_phone" class="text-sm text-gray-600">{{ settings.business_phone }}</p>
-                                                    <p v-if="previewState.show_tax_number && settings?.tax_number" class="text-sm text-gray-600">Tax: {{ settings.tax_number }}</p>
+                                                    <h3 :class="['text-lg', designStyles.headerTextColor]">{{ settings?.business_name || 'Your Business Name' }}</h3>
+                                                    <p v-if="settings?.business_address" :class="['text-sm mt-1', designStyles.headerSubTextColor]">{{ settings.business_address }}</p>
+                                                    <p v-if="settings?.business_phone" :class="['text-sm', designStyles.headerSubTextColor]">{{ settings.business_phone }}</p>
+                                                    <p v-if="previewState.show_tax_number && settings?.tax_number" :class="['text-sm', designStyles.headerSubTextColor]">Tax: {{ settings.tax_number }}</p>
                                                 </div>
                                                 <div class="text-right">
-                                                    <h2 class="text-2xl font-bold" :style="{ color: previewState.primary_color }">INVOICE</h2>
-                                                    <p class="text-sm text-gray-600 mt-1">#{{ sampleInvoice.invoice_number }}</p>
-                                                    <p class="text-sm text-gray-600">Date: {{ sampleInvoice.date }}</p>
-                                                    <p v-if="previewState.show_due_date" class="text-sm font-medium text-red-600">Due: {{ sampleInvoice.due_date }}</p>
+                                                    <h2
+                                                        :class="previewState.design === 'professional' ? 'text-2xl font-bold tracking-wide' : 'text-2xl font-bold'"
+                                                        :style="{ color: previewState.primary_color }"
+                                                    >
+                                                        INVOICE
+                                                    </h2>
+                                                    <p :class="['text-sm mt-1', designStyles.headerSubTextColor]">#{{ sampleInvoice.invoice_number }}</p>
+                                                    <p :class="['text-sm', designStyles.headerSubTextColor]">Date: {{ sampleInvoice.date }}</p>
+                                                    <p v-if="previewState.show_due_date" :class="['text-sm font-medium', previewState.design === 'professional' ? 'text-red-600' : 'text-red-600']">Due: {{ sampleInvoice.due_date }}</p>
                                                 </div>
                                             </div>
-                                            <p v-if="previewState.custom_header" class="mt-4 text-sm text-gray-600 italic">{{ previewState.custom_header }}</p>
+                                            <p v-if="previewState.custom_header" :class="['mt-4 text-sm italic', designStyles.headerSubTextColor]">{{ previewState.custom_header }}</p>
                                         </div>
 
                                         <!-- Bill To -->
-                                        <div class="px-6 py-4 bg-gray-50">
+                                        <div
+                                            :class="['px-6 py-4', designStyles.billTo]"
+                                            :style="previewState.design === 'professional' ? { borderLeftColor: previewState.primary_color } : {}"
+                                        >
                                             <div class="grid grid-cols-2 gap-6">
                                                 <div>
-                                                    <p class="text-xs font-medium text-gray-500 uppercase mb-1">Bill To</p>
-                                                    <p class="font-medium text-gray-900">{{ sampleInvoice.tenant.name }}</p>
-                                                    <p class="text-sm text-gray-600">{{ sampleInvoice.tenant.email }}</p>
-                                                    <p v-if="previewState.show_tenant_id" class="text-sm text-gray-600">ID: {{ sampleInvoice.tenant.national_id }}</p>
+                                                    <p :class="['text-xs font-medium uppercase mb-1', designStyles.billToLabelColor]">Bill To</p>
+                                                    <p :class="['font-medium', designStyles.billToTextColor]">{{ sampleInvoice.tenant.name }}</p>
+                                                    <p :class="['text-sm', designStyles.billToSubTextColor]">{{ sampleInvoice.tenant.email }}</p>
+                                                    <p v-if="previewState.show_tenant_id" :class="['text-sm', designStyles.billToSubTextColor]">ID: {{ sampleInvoice.tenant.national_id }}</p>
                                                 </div>
                                                 <div v-if="previewState.show_unit_details">
-                                                    <p class="text-xs font-medium text-gray-500 uppercase mb-1">Property</p>
-                                                    <p class="font-medium text-gray-900">{{ sampleInvoice.unit.name }}</p>
-                                                    <p class="text-sm text-gray-600">{{ sampleInvoice.unit.building }}</p>
-                                                    <p v-if="previewState.show_lease_reference" class="text-sm text-gray-600">Lease: {{ sampleInvoice.lease.reference }}</p>
+                                                    <p :class="['text-xs font-medium uppercase mb-1', designStyles.billToLabelColor]">Property</p>
+                                                    <p :class="['font-medium', designStyles.billToTextColor]">{{ sampleInvoice.unit.name }}</p>
+                                                    <p :class="['text-sm', designStyles.billToSubTextColor]">{{ sampleInvoice.unit.building }}</p>
+                                                    <p v-if="previewState.show_lease_reference" :class="['text-sm', designStyles.billToSubTextColor]">Lease: {{ sampleInvoice.lease.reference }}</p>
                                                 </div>
                                             </div>
                                         </div>
 
                                         <!-- Items Table -->
-                                        <div class="px-6 py-4">
+                                        <div :class="['px-6 py-4', designStyles.table]">
                                             <table class="w-full text-sm">
                                                 <thead>
-                                                    <tr class="border-b border-gray-200">
+                                                    <tr :class="designStyles.tableHeader">
                                                         <th class="text-left py-2 font-medium text-gray-600">Description</th>
                                                         <th class="text-right py-2 font-medium text-gray-600">Amount</th>
                                                     </tr>
@@ -423,14 +565,22 @@ const toggleGroups = [
                                         </div>
 
                                         <!-- Late Warning -->
-                                        <div v-if="previewState.show_late_warning" class="px-6 py-3 bg-yellow-50 border-t border-yellow-100">
-                                            <p class="text-sm text-yellow-800">{{ sampleInvoice.late_warning }}</p>
+                                        <div
+                                            v-if="previewState.show_late_warning"
+                                            :class="['px-6 py-3', designStyles.lateWarning]"
+                                            :style="previewState.design === 'professional' ? { borderLeftColor: previewState.secondary_color } : {}"
+                                        >
+                                            <p :class="['text-sm', designStyles.lateWarningText]">{{ sampleInvoice.late_warning }}</p>
                                         </div>
 
                                         <!-- Bank Details -->
-                                        <div v-if="previewState.show_bank_details && settings?.bank_name" class="px-6 py-4 bg-gray-50 border-t">
-                                            <p class="text-xs font-medium text-gray-500 uppercase mb-2">Payment Details</p>
-                                            <div class="text-sm text-gray-600">
+                                        <div
+                                            v-if="previewState.show_bank_details && settings?.bank_name"
+                                            :class="['px-6 py-4', designStyles.bankDetails]"
+                                            :style="previewState.design === 'professional' ? { borderLeftColor: previewState.primary_color } : {}"
+                                        >
+                                            <p :class="['text-xs font-medium uppercase mb-2 tracking-wider', previewState.design === 'professional' ? 'text-stone-500 font-semibold' : 'text-gray-500']">Payment Details</p>
+                                            <div :class="['text-sm', designStyles.bankDetailsTextColor]">
                                                 <p>Bank: {{ settings.bank_name }}</p>
                                                 <p>Account: {{ settings.bank_account_name }}</p>
                                                 <p>Number: {{ settings.bank_account_number }}</p>
@@ -439,15 +589,15 @@ const toggleGroups = [
 
                                         <!-- QR Code Placeholder -->
                                         <div v-if="previewState.show_qr_code" class="px-6 py-4 flex justify-center">
-                                            <div class="w-24 h-24 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-400">
+                                            <div :class="['w-24 h-24 flex items-center justify-center text-xs', previewState.design === 'modern' ? 'bg-gray-100 rounded-xl' : previewState.design === 'professional' ? 'bg-stone-100 text-stone-500 border border-stone-200 rounded' : 'bg-gray-200 rounded text-gray-400']">
                                                 QR Code
                                             </div>
                                         </div>
 
                                         <!-- Footer -->
-                                        <div v-if="previewState.show_footer || previewState.custom_footer" class="px-6 py-4 border-t border-gray-200">
-                                            <p v-if="previewState.custom_footer" class="text-sm text-gray-600 mb-2">{{ previewState.custom_footer }}</p>
-                                            <p v-if="previewState.show_footer && settings?.footer_note" class="text-sm text-gray-500">{{ settings.footer_note }}</p>
+                                        <div v-if="previewState.show_footer || previewState.custom_footer" :class="['px-6 py-4', designStyles.footer]">
+                                            <p v-if="previewState.custom_footer" :class="['text-sm mb-2', designStyles.footerTextColor]">{{ previewState.custom_footer }}</p>
+                                            <p v-if="previewState.show_footer && settings?.footer_note" :class="['text-sm', designStyles.footerTextColor]">{{ settings.footer_note }}</p>
                                         </div>
                                     </div>
                                 </div>

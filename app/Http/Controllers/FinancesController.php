@@ -149,6 +149,11 @@ class FinancesController extends Controller
         ]);
     }
 
+    public function templates()
+    {
+        return redirect()->route('finances.templates.invoices');
+    }
+
     public function templateInvoices(): Response
     {
         $landlordId = $this->getLandlordId();
@@ -197,6 +202,12 @@ class FinancesController extends Controller
 
         return $this->renderFinances('template-credit-notes', [
             'templates' => $templates,
+            'designOptions' => [
+                'classic' => 'Classic',
+                'modern' => 'Modern',
+                'minimal' => 'Minimal',
+                'professional' => 'Professional',
+            ],
         ]);
     }
 

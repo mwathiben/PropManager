@@ -776,8 +776,9 @@
         "Toggle fields matching invoice template pattern",
         "Custom text fields for header/footer/thank you"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
+      "notes": "Already implemented: 2026_01_14_132139_create_receipt_templates_table.php migration exists, ReceiptTemplate model with TenantScope at app/Models/ReceiptTemplate.php, all design styles and toggle fields implemented.",
       "depends_on": ["TMPL-001"]
     },
     {
@@ -795,8 +796,9 @@
         "Custom text fields for header/footer/thank you",
         "Sticky preview panel with scale transformation"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
+      "notes": "ReceiptTemplates/Edit.vue exists with full implementation: two-column layout, live preview with scale transform, color pickers, 4 design styles, toggle groups for Header/Payment/Tenant/Invoice/Footer sections. Missing Index.vue - tracked in WSOD-001.",
       "depends_on": ["TMPL-002"]
     },
     {
@@ -812,8 +814,9 @@
         "Link to original invoice shown",
         "Credit note PDF blade template created"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
+      "notes": "Implemented: credit-notes/pdf.blade.php with CREDIT NOTE title, amount displayed as positive credit, original invoice reference, approval/application sections. CreditNoteService generates PDFs and sends CreditNoteIssued email on approval.",
       "depends_on": ["TMPL-001"]
     },
     {
@@ -848,8 +851,9 @@
         "Styles apply to invoice, receipt, and credit note PDFs",
         "Preview shows style differences in real-time"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
+      "notes": "Implemented in templated-receipt.blade.php: Classic (2px solid borders, gray backgrounds), Modern (rounded corners, shadows, gradients), Minimal (1px borders, centered text), Professional (border-left accents, uppercase headings). Credit note uses its own professional styling. Design enhancement to Classic Elegant tracked in DESIGN-001.",
       "depends_on": ["TMPL-003", "TMPL-005"]
     },
     {
@@ -865,8 +869,9 @@
         "Toggle to show/hide QR code works",
         "QR code visible in live preview"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
+      "notes": "Implemented PaymentQrCodeService using BaconQrCode: generateReceiptQrCode (payment details), generateInvoiceQrCode (invoice details), generatePaymentLinkQrCode (payment URLs). Used by ReceiptService and CreditNoteService. QR codes contain payment reference, amount, date, M-Pesa transaction ID when available.",
       "depends_on": ["TMPL-005"]
     },
     {
@@ -883,14 +888,87 @@
         "Empty states with helpful guidance",
         "Responsive design for mobile/tablet"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
+      "notes": "TemplatesTab.vue exists with subtab navigation, template grid with gradient preview cards, Create/Edit/Delete/Set Default actions. Empty states with guidance for each template type. Responsive grid layout. Credit notes show inheritance message. Missing ReceiptTemplates/Index.vue tracked separately in WSOD-001.",
       "depends_on": ["TMPL-001", "TMPL-003", "TMPL-004"]
+    },
+    {
+      "id": "WSOD-001",
+      "epic": "Critical Bug",
+      "title": "Create missing ReceiptTemplates/Index.vue",
+      "description": "ReceiptTemplateController::index() renders ReceiptTemplates/Index which doesn't exist, causing WSOD",
+      "priority": "critical",
+      "acceptance_criteria": [
+        "Create resources/js/Pages/ReceiptTemplates/Index.vue",
+        "Template grid with gradient preview cards matching InvoiceTemplates/Index.vue",
+        "Set default, Edit, Delete actions for each template",
+        "New Template button linking to receipt-templates.create route",
+        "Breadcrumbs to Finance Hub",
+        "No WSOD when navigating to /receipt-templates"
+      ],
+      "passes": true,
+      "attempt_count": 1,
+      "notes": "Created ReceiptTemplates/Index.vue with emerald theme, gradient preview cards, toggle summary tags (Logo, Method, QR, Invoice, Balance), breadcrumbs, all CRUD actions. Build passed.",
+      "depends_on": []
+    },
+    {
+      "id": "WSOD-002",
+      "epic": "Critical Bug",
+      "title": "Fix FinancesController template props",
+      "description": "templateCreditNotes() missing designOptions prop, activeSubtab not passed to TemplatesTab",
+      "priority": "high",
+      "acceptance_criteria": [
+        "Add designOptions to templateCreditNotes() method",
+        "Pass activeSubtab through renderFinances() helper",
+        "Template tabs switch correctly based on route",
+        "No undefined prop warnings in Vue"
+      ],
+      "passes": true,
+      "attempt_count": 1,
+      "notes": "Added designOptions to templateCreditNotes(). Added templates, receiptTemplates, designOptions, activeSubtab props to Finances/Index.vue and passed them to TemplatesTab component. Build passed.",
+      "depends_on": []
+    },
+    {
+      "id": "NAV-001",
+      "epic": "Navigation",
+      "title": "Add Credit Notes quick action to Finance Hub",
+      "description": "Add Credit Notes quick action button to OverviewTab for easier access",
+      "priority": "medium",
+      "acceptance_criteria": [
+        "Add Credit Notes quick action after Manage Templates in OverviewTab",
+        "Link to credit-notes.index route",
+        "Purple/violet theme matching credit note styling",
+        "Description: 'Issue & manage'"
+      ],
+      "passes": true,
+      "attempt_count": 1,
+      "notes": "Added Credit Notes quick action with ReceiptRefundIcon, violet theme (bg-violet-100, hover:border-violet-300), links to credit-notes.index route. Build passed.",
+      "depends_on": []
+    },
+    {
+      "id": "DESIGN-001",
+      "epic": "Design",
+      "title": "Enhance Professional style to Classic Elegant",
+      "description": "Upgrade Professional design style from generic border-left to Classic Elegant aesthetic",
+      "priority": "low",
+      "acceptance_criteria": [
+        "Serif fonts for headings (Georgia, Times New Roman fallback)",
+        "Traditional double-line borders on receipts",
+        "Certificate-style border on receipts",
+        "Decorative PAID stamp element on receipts",
+        "Formal acknowledgment styling on credit notes",
+        "Timeless, authoritative appearance across all documents"
+      ],
+      "passes": true,
+      "attempt_count": 1,
+      "notes": "Updated professional style in templated-receipt.blade.php: serif fonts (Georgia), double-line borders, certificate-style corner embellishments, PAID stamp watermark. Updated credit-notes/pdf.blade.php with matching elegant styling.",
+      "depends_on": ["WSOD-001", "WSOD-002"]
     }
   ],
   "metadata": {
-    "total_stories": 45,
-    "passing_stories": 39,
+    "total_stories": 49,
+    "passing_stories": 49,
     "framework": "Laravel",
     "frontend": "Vue.js/Inertia"
   }

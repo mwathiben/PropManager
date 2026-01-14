@@ -337,6 +337,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/credit-notes/{creditNote}/approve', [CreditNoteController::class, 'approve'])->name('credit-notes.approve');
     Route::post('/credit-notes/{creditNote}/apply', [CreditNoteController::class, 'apply'])->name('credit-notes.apply');
     Route::post('/credit-notes/{creditNote}/void', [CreditNoteController::class, 'void'])->name('credit-notes.void');
+    Route::get('/credit-notes/{creditNote}/download', [CreditNoteController::class, 'downloadPdf'])->name('credit-notes.download');
     Route::get('/tenants/{tenant}/credit-notes', [CreditNoteController::class, 'forTenant'])->name('tenants.credit-notes');
 
     // Bank Reconciliation
@@ -510,6 +511,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/reports/export', [FinancesController::class, 'exportReports'])->name('reports.export');
 
         // Templates
+        Route::get('/templates', [FinancesController::class, 'templates'])->name('templates');
         Route::get('/templates/invoices', [FinancesController::class, 'templateInvoices'])->name('templates.invoices');
         Route::get('/templates/receipts', [FinancesController::class, 'templateReceipts'])->name('templates.receipts');
         Route::get('/templates/credit-notes', [FinancesController::class, 'templateCreditNotes'])->name('templates.credit-notes');

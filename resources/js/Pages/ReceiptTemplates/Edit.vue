@@ -1,6 +1,7 @@
 <script setup>
 import { computed, reactive } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import Breadcrumb from '@/Components/Breadcrumb.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import {
     ReceiptPercentIcon,
@@ -20,6 +21,13 @@ const props = defineProps({
 });
 
 const isEditing = computed(() => !!props.template);
+
+const breadcrumbItems = computed(() => [
+    { label: 'Finance Hub', href: route('finances.index') },
+    { label: 'Templates', href: route('finances.templates') },
+    { label: 'Receipts', href: route('finances.templates.receipts') },
+    { label: isEditing.value ? props.template.name : 'Create Template' },
+]);
 
 const previewState = reactive({
     name: props.template?.name || 'New Receipt Template',
@@ -116,73 +124,87 @@ const designStyles = computed(() => {
 
     return {
         container: {
-            classic: 'border-2 border-gray-300',
-            modern: 'rounded-2xl shadow-xl',
-            minimal: 'shadow-sm',
-            professional: 'border-t-8 shadow-lg',
+            classic: 'border-2 border-gray-400 rounded-none shadow-md',
+            modern: 'rounded-3xl shadow-2xl border-0',
+            minimal: 'shadow-none border border-gray-200 rounded-lg',
+            professional: 'rounded-none shadow-xl border-l-4',
         }[design] || '',
 
         header: {
-            classic: 'border-b-2 border-gray-200 bg-white',
-            modern: `bg-gradient-to-r from-gray-50 to-white`,
-            minimal: 'bg-white border-b border-gray-100',
-            professional: 'bg-gray-900 text-white',
+            classic: 'border-b-2 border-gray-300 bg-gray-100',
+            modern: 'bg-gradient-to-br from-gray-50 via-white to-gray-50',
+            minimal: 'bg-white',
+            professional: 'bg-stone-50 border-b border-stone-200',
         }[design] || '',
 
         headerTextColor: {
             classic: 'text-gray-900',
             modern: 'text-gray-800',
-            minimal: 'text-gray-700',
-            professional: 'text-white',
+            minimal: 'text-gray-600',
+            professional: 'text-stone-900 font-semibold',
         }[design] || 'text-gray-900',
 
         headerSubTextColor: {
             classic: 'text-gray-600',
             modern: 'text-gray-500',
-            minimal: 'text-gray-500',
-            professional: 'text-gray-300',
+            minimal: 'text-gray-400',
+            professional: 'text-stone-600',
         }[design] || 'text-gray-600',
 
         paymentBox: {
-            classic: 'border-2 rounded-none',
-            modern: 'rounded-2xl',
+            classic: 'border-2 rounded-none shadow-inner',
+            modern: 'rounded-2xl shadow-lg',
             minimal: 'rounded-lg border border-gray-100',
-            professional: 'rounded-none border-l-4',
+            professional: 'rounded-none border-l-4 shadow-md',
         }[design] || 'rounded-lg',
 
         sectionBg: {
-            classic: 'bg-gray-100 border-y border-gray-200',
-            modern: 'bg-gradient-to-r from-gray-50 to-white',
-            minimal: 'bg-white',
-            professional: 'bg-gray-50 border-l-4',
+            classic: 'bg-gray-100 border-y-2 border-gray-200',
+            modern: 'bg-gradient-to-r from-gray-50 to-white rounded-xl mx-2 my-1',
+            minimal: 'bg-white border-b border-gray-50',
+            professional: 'bg-white border-l-4',
         }[design] || 'bg-gray-50',
 
+        sectionTextColor: {
+            classic: 'text-gray-900',
+            modern: 'text-gray-800',
+            minimal: 'text-gray-700',
+            professional: 'text-stone-900',
+        }[design] || 'text-gray-900',
+
+        sectionSubTextColor: {
+            classic: 'text-gray-600',
+            modern: 'text-gray-500',
+            minimal: 'text-gray-500',
+            professional: 'text-stone-600',
+        }[design] || 'text-gray-600',
+
         sectionTitle: {
-            classic: 'text-sm font-semibold uppercase tracking-wide border-b border-gray-300 pb-1',
-            modern: 'text-xs font-medium uppercase text-gray-400',
-            minimal: 'text-xs text-gray-400',
-            professional: 'text-sm font-bold uppercase tracking-wider',
+            classic: 'text-sm font-bold uppercase tracking-wide border-b-2 border-gray-300 pb-1 text-gray-700',
+            modern: 'text-xs font-medium uppercase text-gray-400 tracking-wider',
+            minimal: 'text-xs text-gray-400 font-light',
+            professional: 'text-xs font-semibold uppercase tracking-widest text-stone-500',
         }[design] || 'text-xs font-medium text-gray-500 uppercase',
 
         thankYouStyle: {
-            classic: 'border-t-2 border-b-2 border-gray-200 py-4',
-            modern: 'rounded-xl py-5',
+            classic: 'border-t-2 border-b-2 border-gray-300 py-4 bg-gray-50',
+            modern: 'rounded-2xl py-5 mx-4 my-2',
             minimal: 'py-3',
-            professional: 'py-4 border-t-2',
+            professional: 'py-4 border-l-4 ml-0',
         }[design] || '',
 
         footer: {
-            classic: 'border-t-2 border-gray-200 bg-gray-50',
-            modern: 'bg-gradient-to-r from-gray-50 to-white rounded-b-2xl',
+            classic: 'border-t-2 border-gray-300 bg-gray-100',
+            modern: 'bg-gradient-to-r from-gray-50 to-white rounded-b-3xl',
             minimal: 'border-t border-gray-100',
-            professional: 'bg-gray-900 text-white',
+            professional: 'bg-stone-100 border-t border-stone-200',
         }[design] || 'border-t border-gray-200',
 
         footerTextColor: {
             classic: 'text-gray-600',
             modern: 'text-gray-500',
             minimal: 'text-gray-400',
-            professional: 'text-gray-300',
+            professional: 'text-stone-600',
         }[design] || 'text-gray-500',
     };
 });
@@ -264,6 +286,9 @@ const toggleGroups = props.toggleGroups || [
 
         <div class="py-8">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="mb-6">
+                    <Breadcrumb :items="breadcrumbItems" />
+                </div>
                 <form @submit.prevent="submit">
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <!-- Settings Panel -->
@@ -464,7 +489,7 @@ const toggleGroups = props.toggleGroups || [
                                     <!-- Receipt Preview -->
                                     <div
                                         :class="['bg-white overflow-hidden transform scale-[0.85] origin-top transition-all duration-300', designStyles.container]"
-                                        :style="previewState.design === 'professional' ? { borderTopColor: previewState.primary_color } : {}"
+                                        :style="previewState.design === 'professional' ? { borderLeftColor: previewState.primary_color } : {}"
                                     >
                                         <!-- Header -->
                                         <div
@@ -476,17 +501,17 @@ const toggleGroups = props.toggleGroups || [
                                                     <div v-if="previewState.show_logo && getLogoUrl()" :class="previewState.design === 'minimal' ? 'mb-4 flex justify-center' : 'mb-3'">
                                                         <img :src="getLogoUrl()" alt="Logo" class="h-12 object-contain" />
                                                     </div>
-                                                    <div v-else-if="previewState.show_logo" :class="['w-24 h-12 rounded flex items-center justify-center text-xs', previewState.design === 'professional' ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-400', previewState.design === 'minimal' ? 'mx-auto mb-4' : 'mb-3']">
+                                                    <div v-else-if="previewState.show_logo" :class="['w-24 h-12 rounded flex items-center justify-center text-xs', previewState.design === 'professional' ? 'bg-stone-200 text-stone-500 border border-stone-300' : 'bg-gray-200 text-gray-400', previewState.design === 'minimal' ? 'mx-auto mb-4' : 'mb-3']">
                                                         Logo
                                                     </div>
-                                                    <h3 :class="['text-lg font-bold', designStyles.headerTextColor]">{{ sampleReceipt.business.name }}</h3>
+                                                    <h3 :class="['text-lg', designStyles.headerTextColor]">{{ sampleReceipt.business.name }}</h3>
                                                     <p :class="['text-sm mt-1', designStyles.headerSubTextColor]">{{ sampleReceipt.business.address }}</p>
                                                     <p :class="['text-sm', designStyles.headerSubTextColor]">{{ sampleReceipt.business.phone }}</p>
                                                 </div>
                                                 <div :class="previewState.design === 'minimal' ? 'mt-4' : 'text-right'">
                                                     <h2
-                                                        :class="previewState.design === 'professional' ? 'text-3xl font-black tracking-tight' : 'text-2xl font-bold'"
-                                                        :style="previewState.design === 'professional' ? { color: previewState.secondary_color } : { color: previewState.primary_color }"
+                                                        :class="previewState.design === 'professional' ? 'text-2xl font-bold tracking-wide' : 'text-2xl font-bold'"
+                                                        :style="{ color: previewState.primary_color }"
                                                     >
                                                         RECEIPT
                                                     </h2>
@@ -535,19 +560,19 @@ const toggleGroups = props.toggleGroups || [
                                         <!-- Tenant & Property -->
                                         <div
                                             :class="['px-6 py-4', designStyles.sectionBg]"
-                                            :style="previewState.design === 'professional' ? { borderColor: previewState.secondary_color } : {}"
+                                            :style="previewState.design === 'professional' ? { borderLeftColor: previewState.primary_color } : {}"
                                         >
                                             <div :class="previewState.design === 'minimal' ? 'space-y-4 text-center' : 'grid grid-cols-2 gap-6'">
                                                 <div v-if="previewState.show_tenant_name || previewState.show_tenant_email || previewState.show_tenant_phone">
                                                     <p :class="['mb-1', designStyles.sectionTitle]">Received From</p>
-                                                    <p v-if="previewState.show_tenant_name" class="font-medium text-gray-900">{{ sampleReceipt.tenant.name }}</p>
-                                                    <p v-if="previewState.show_tenant_email" class="text-sm text-gray-600">{{ sampleReceipt.tenant.email }}</p>
-                                                    <p v-if="previewState.show_tenant_phone" class="text-sm text-gray-600">{{ sampleReceipt.tenant.phone }}</p>
+                                                    <p v-if="previewState.show_tenant_name" :class="['font-medium', designStyles.sectionTextColor]">{{ sampleReceipt.tenant.name }}</p>
+                                                    <p v-if="previewState.show_tenant_email" :class="['text-sm', designStyles.sectionSubTextColor]">{{ sampleReceipt.tenant.email }}</p>
+                                                    <p v-if="previewState.show_tenant_phone" :class="['text-sm', designStyles.sectionSubTextColor]">{{ sampleReceipt.tenant.phone }}</p>
                                                 </div>
                                                 <div v-if="previewState.show_unit_details || previewState.show_building_name">
                                                     <p :class="['mb-1', designStyles.sectionTitle]">Property</p>
-                                                    <p v-if="previewState.show_unit_details" class="font-medium text-gray-900">{{ sampleReceipt.unit.name }}</p>
-                                                    <p v-if="previewState.show_building_name" class="text-sm text-gray-600">{{ sampleReceipt.unit.building }}</p>
+                                                    <p v-if="previewState.show_unit_details" :class="['font-medium', designStyles.sectionTextColor]">{{ sampleReceipt.unit.name }}</p>
+                                                    <p v-if="previewState.show_building_name" :class="['text-sm', designStyles.sectionSubTextColor]">{{ sampleReceipt.unit.building }}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -591,10 +616,10 @@ const toggleGroups = props.toggleGroups || [
 
                                         <!-- QR Code -->
                                         <div v-if="previewState.show_qr_code" class="px-6 py-4 flex justify-center">
-                                            <div v-if="sampleReceipt.qr_code" :class="['p-2', previewState.design === 'modern' ? 'bg-gray-50 rounded-xl' : previewState.design === 'professional' ? 'bg-white border border-gray-200' : 'bg-white rounded']">
+                                            <div v-if="sampleReceipt.qr_code" :class="['p-2', previewState.design === 'modern' ? 'bg-gray-50 rounded-xl' : previewState.design === 'professional' ? 'bg-stone-50 border border-stone-200' : 'bg-white rounded']">
                                                 <img :src="sampleReceipt.qr_code" alt="QR Code" class="w-24 h-24" />
                                             </div>
-                                            <div v-else :class="['w-24 h-24 flex items-center justify-center text-xs text-gray-400', previewState.design === 'modern' ? 'bg-gray-100 rounded-xl' : previewState.design === 'professional' ? 'bg-gray-800 text-gray-500 border-2 border-gray-700' : 'bg-gray-200 rounded']">
+                                            <div v-else :class="['w-24 h-24 flex items-center justify-center text-xs text-gray-400', previewState.design === 'modern' ? 'bg-gray-100 rounded-xl' : previewState.design === 'professional' ? 'bg-stone-100 text-stone-500 border border-stone-300' : 'bg-gray-200 rounded']">
                                                 QR Code
                                             </div>
                                         </div>
@@ -603,7 +628,7 @@ const toggleGroups = props.toggleGroups || [
                                         <div
                                             v-if="previewState.show_thank_you_message && previewState.thank_you_message"
                                             :class="['px-6 text-center', designStyles.thankYouStyle]"
-                                            :style="{ backgroundColor: `${previewState.secondary_color}10`, borderColor: previewState.design === 'classic' || previewState.design === 'professional' ? previewState.secondary_color : 'transparent' }"
+                                            :style="{ backgroundColor: `${previewState.secondary_color}10`, borderLeftColor: previewState.design === 'professional' ? previewState.primary_color : 'transparent', borderColor: previewState.design === 'classic' ? previewState.secondary_color : 'transparent' }"
                                         >
                                             <p :class="previewState.design === 'professional' ? 'text-base font-semibold' : 'text-sm font-medium'" :style="{ color: previewState.primary_color }">{{ previewState.thank_you_message }}</p>
                                         </div>

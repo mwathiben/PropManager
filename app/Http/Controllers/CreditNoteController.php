@@ -5,11 +5,16 @@ namespace App\Http\Controllers;
 use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Models\User;
+use App\Services\CreditNoteService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class CreditNoteController extends Controller
 {
+    public function __construct(
+        protected CreditNoteService $creditNoteService
+    ) {}
+
     public function index(Request $request)
     {
         $user = auth()->user();
@@ -168,7 +173,21 @@ class CreditNoteController extends Controller
 
         $creditNote->approve($user);
 
-        return back()->with('success', 'Credit note approved successfully.');
+        $this->creditNoteService->sendApprovalNotification($creditNote);
+
+        return back()->with('success', 'Credit note approved successfully. Tenant has been notified.');
+    }
+
+    public function downloadPdf(CreditNote $creditNote)
+    {
+        $user = auth()->user();
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+
+        if ($creditNote->landlord_id !== $landlordId) {
+            abort(403);
+        }
+
+        return $this->creditNoteService->downloadPdf($creditNote);
     }
 
     public function apply(Request $request, CreditNote $creditNote)

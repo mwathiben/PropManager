@@ -156,6 +156,9 @@ interface Props {
     occupancyData?: Record<string, unknown>;
     arrearsAging?: Record<string, unknown>;
     expensesByCategory?: Record<string, unknown>[];
+    templates?: Record<string, unknown>[];
+    receiptTemplates?: Record<string, unknown>[];
+    designOptions?: Record<string, string>;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -177,6 +180,14 @@ const props = withDefaults(defineProps<Props>(), {
     collectionRate: () => [],
     expensesByCategory: () => [],
     filters: () => ({}),
+    templates: () => [],
+    receiptTemplates: () => [],
+    designOptions: () => ({
+        classic: 'Classic',
+        modern: 'Modern',
+        minimal: 'Minimal',
+        professional: 'Professional',
+    }),
 });
 
 const store = useFinancesStore();
@@ -416,6 +427,10 @@ const unmatchedPaymentsForModal = computed(() => {
                             :occupancy-data="occupancyData"
                             :arrears-aging="arrearsAging"
                             :expenses-by-category="expensesByCategory"
+                            :templates="templates"
+                            :receipt-templates="receiptTemplates"
+                            :design-options="designOptions"
+                            :active-subtab="store.activeTab"
                         />
                     </div>
                 </div>

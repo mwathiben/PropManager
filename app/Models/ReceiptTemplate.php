@@ -106,6 +106,14 @@ class ReceiptTemplate extends Model
         $this->update(['is_default' => true]);
     }
 
+    public static function getDefaultForLandlord(int $landlordId): ?self
+    {
+        return static::withoutGlobalScope('landlord')
+            ->where('landlord_id', $landlordId)
+            ->where('is_default', true)
+            ->first();
+    }
+
     public static function getToggleGroups(): array
     {
         return [

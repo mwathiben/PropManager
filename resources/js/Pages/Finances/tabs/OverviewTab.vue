@@ -17,8 +17,10 @@ import {
     ArrowTrendingUpIcon,
     ArrowTrendingDownIcon,
     DocumentTextIcon,
+    DocumentDuplicateIcon,
     PlusIcon,
     BellIcon,
+    ReceiptRefundIcon,
 } from '@heroicons/vue/24/outline';
 import type { FinanceStats, TrendDataPoint, Invoice, Payment } from '@/types/finances';
 
@@ -127,7 +129,7 @@ const monthTrendClass = computed(() => {
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-sm font-semibold text-gray-900">Quick Actions</h3>
                 </div>
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
                     <Link
                         :href="route('invoices.generate')"
                         method="post"
@@ -179,6 +181,32 @@ const monthTrendClass = computed(() => {
                         <div>
                             <p class="text-sm font-medium text-gray-900">View Arrears</p>
                             <p class="text-xs text-gray-500">Overdue payments</p>
+                        </div>
+                    </Link>
+
+                    <Link
+                        :href="route('finances.templates')"
+                        class="flex items-center gap-2 p-3 bg-white rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-colors"
+                    >
+                        <div class="p-2 bg-purple-100 rounded-lg">
+                            <DocumentDuplicateIcon class="h-4 w-4 text-purple-600" />
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">Manage Templates</p>
+                            <p class="text-xs text-gray-500">Invoice & receipt</p>
+                        </div>
+                    </Link>
+
+                    <Link
+                        :href="route('credit-notes.index')"
+                        class="flex items-center gap-2 p-3 bg-white rounded-lg border border-gray-200 hover:border-violet-300 hover:bg-violet-50 transition-colors"
+                    >
+                        <div class="p-2 bg-violet-100 rounded-lg">
+                            <ReceiptRefundIcon class="h-4 w-4 text-violet-600" />
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">Credit Notes</p>
+                            <p class="text-xs text-gray-500">Issue & manage</p>
                         </div>
                     </Link>
                 </div>
