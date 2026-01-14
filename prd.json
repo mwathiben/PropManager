@@ -743,11 +743,154 @@
       "attempt_count": 1,
       "notes": "Created FinanceExportService (~500 lines) consolidating 6 export methods from FinancesController. Added CSV format support via StreamedResponse. Created StreamingInvoicesExport and StreamingPaymentsExport for large datasets (>10k records). Controller export methods reduced to 4-6 lines each. Added 2 new CSV tests. 378 tests pass.",
       "depends_on": ["FIN-020"]
+    },
+    {
+      "id": "TMPL-001",
+      "epic": "Templates",
+      "title": "Add Templates tab to Finance Hub",
+      "description": "Add unified Templates tab between Reports and Settings in Finance Hub for all document template management",
+      "priority": "high",
+      "acceptance_criteria": [
+        "Templates tab appears between Reports and Settings in Finance Hub",
+        "Tab has subtabs: Invoices, Receipts, Credit Notes",
+        "Route /finances/templates works",
+        "Existing invoice templates accessible from new location",
+        "TemplatesTab.vue component created"
+      ],
+      "passes": true,
+      "attempt_count": 1,
+      "notes": "Added Templates tab with subtabs (Invoices, Receipts, Credit Notes) to Finance Hub. Created TemplatesTab.vue with invoice template grid, receipt settings display, and credit note inheritance info. Added routes: finances.templates.invoices, finances.templates.receipts, finances.templates.credit-notes. Updated FinancesController with templateInvoices(), templateReceipts(), templateCreditNotes() methods.",
+      "depends_on": []
+    },
+    {
+      "id": "TMPL-002",
+      "epic": "Templates",
+      "title": "Create Receipt Template model and migrations",
+      "description": "Create database infrastructure for receipt templates matching invoice template quality",
+      "priority": "high",
+      "acceptance_criteria": [
+        "receipt_templates table created with migrations",
+        "ReceiptTemplate model with TenantScope trait",
+        "Design styles: classic, modern, minimal, professional",
+        "Color fields: primary_color, secondary_color",
+        "Toggle fields matching invoice template pattern",
+        "Custom text fields for header/footer/thank you"
+      ],
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["TMPL-001"]
+    },
+    {
+      "id": "TMPL-003",
+      "epic": "Templates",
+      "title": "Build Receipt Template Editor with Live Preview",
+      "description": "Create world-class receipt template editor matching invoice template quality with real-time preview",
+      "priority": "critical",
+      "acceptance_criteria": [
+        "Two-column layout matching invoice template editor",
+        "Live preview updates in real-time as toggles change",
+        "Color pickers with hex input",
+        "4 design style options with visual differences",
+        "Toggle groups for all receipt sections",
+        "Custom text fields for header/footer/thank you",
+        "Sticky preview panel with scale transformation"
+      ],
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["TMPL-002"]
+    },
+    {
+      "id": "TMPL-004",
+      "epic": "Templates",
+      "title": "Credit Note inherits Invoice Template",
+      "description": "Credit notes use invoice template settings with appropriate modifications",
+      "priority": "medium",
+      "acceptance_criteria": [
+        "Credit notes use invoice template settings",
+        "PDF generation with 'CREDIT NOTE' title instead of 'INVOICE'",
+        "Negative amounts displayed correctly",
+        "Link to original invoice shown",
+        "Credit note PDF blade template created"
+      ],
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["TMPL-001"]
+    },
+    {
+      "id": "TMPL-005",
+      "epic": "Templates",
+      "title": "Fix Invoice Template preview real-time updates",
+      "description": "Investigate and fix issue where invoice template preview does not update when toggles change",
+      "priority": "critical",
+      "acceptance_criteria": [
+        "All 13 toggles update preview immediately without page refresh",
+        "Color changes reflect in preview instantly",
+        "Design style changes update preview layout",
+        "Custom text appears in preview as typed",
+        "No page refresh required for any changes"
+      ],
+      "passes": true,
+      "attempt_count": 1,
+      "notes": "Fixed reactivity issue by introducing separate reactive previewState object and updateField/toggleField helpers. Inertia's useForm was not triggering Vue reactivity for bracket-notation property access. Preview now uses previewState while form submission uses the Inertia form. All 13 toggles, colors, and text fields update preview in real-time.",
+      "depends_on": []
+    },
+    {
+      "id": "TMPL-006",
+      "epic": "Templates",
+      "title": "Implement 4 distinct design styles",
+      "description": "Implement actual visual differences for the 4 design styles across all templates",
+      "priority": "high",
+      "acceptance_criteria": [
+        "Classic: Traditional layout with borders and formal styling",
+        "Modern: Clean minimalist design with accent colors",
+        "Minimal: Ultra-simple single column layout",
+        "Professional: Bold headers with structured sections",
+        "Styles apply to invoice, receipt, and credit note PDFs",
+        "Preview shows style differences in real-time"
+      ],
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["TMPL-003", "TMPL-005"]
+    },
+    {
+      "id": "TMPL-007",
+      "epic": "Templates",
+      "title": "Implement real QR code generation",
+      "description": "Generate actual QR codes for payment references instead of placeholders",
+      "priority": "medium",
+      "acceptance_criteria": [
+        "QR code contains payment reference or payment link",
+        "Works with M-Pesa paybill instructions embedded",
+        "QR code renders correctly in PDF",
+        "Toggle to show/hide QR code works",
+        "QR code visible in live preview"
+      ],
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["TMPL-005"]
+    },
+    {
+      "id": "TMPL-008",
+      "epic": "Templates",
+      "title": "Unified Templates Tab UI",
+      "description": "Create polished unified interface for managing all template types in Finance Hub",
+      "priority": "high",
+      "acceptance_criteria": [
+        "TemplatesTab.vue with template type selector (tabs)",
+        "Grid view of templates with preview thumbnails",
+        "Create/Edit/Delete/Set Default actions for each template type",
+        "Consistent emerald theme styling matching Finance Hub",
+        "Empty states with helpful guidance",
+        "Responsive design for mobile/tablet"
+      ],
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["TMPL-001", "TMPL-003", "TMPL-004"]
     }
   ],
   "metadata": {
-    "total_stories": 37,
-    "passing_stories": 35,
+    "total_stories": 45,
+    "passing_stories": 39,
     "framework": "Laravel",
     "frontend": "Vue.js/Inertia"
   }

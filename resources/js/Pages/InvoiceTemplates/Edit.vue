@@ -1,5 +1,5 @@
 <script setup>
-import { computed, watch } from 'vue';
+import { computed, ref, reactive } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import {
@@ -19,7 +19,8 @@ const props = defineProps({
 
 const isEditing = computed(() => !!props.template);
 
-const form = useForm({
+// Use reactive object for preview state to ensure real-time updates
+const previewState = reactive({
     name: props.template?.name || 'New Template',
     design: props.template?.design || 'classic',
     is_default: props.template?.is_default || false,
@@ -41,6 +42,43 @@ const form = useForm({
     primary_color: props.template?.primary_color || '#4F46E5',
     secondary_color: props.template?.secondary_color || '#6366F1',
 });
+
+// Inertia form for submission
+const form = useForm({
+    name: previewState.name,
+    design: previewState.design,
+    is_default: previewState.is_default,
+    show_logo: previewState.show_logo,
+    show_tax_number: previewState.show_tax_number,
+    show_tenant_id: previewState.show_tenant_id,
+    show_unit_details: previewState.show_unit_details,
+    show_lease_reference: previewState.show_lease_reference,
+    show_due_date: previewState.show_due_date,
+    show_late_warning: previewState.show_late_warning,
+    show_bank_details: previewState.show_bank_details,
+    show_footer: previewState.show_footer,
+    show_qr_code: previewState.show_qr_code,
+    show_payment_instructions: previewState.show_payment_instructions,
+    show_arrears_breakdown: previewState.show_arrears_breakdown,
+    show_water_details: previewState.show_water_details,
+    custom_header: previewState.custom_header,
+    custom_footer: previewState.custom_footer,
+    primary_color: previewState.primary_color,
+    secondary_color: previewState.secondary_color,
+});
+
+// Helper to update both preview and form state
+const updateField = (key, value) => {
+    previewState[key] = value;
+    form[key] = value;
+};
+
+// Toggle helper for boolean fields
+const toggleField = (key) => {
+    const newValue = !previewState[key];
+    previewState[key] = newValue;
+    form[key] = newValue;
+};
 
 const submit = () => {
     if (isEditing.value) {
@@ -144,7 +182,8 @@ const toggleGroups = [
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Template Name</label>
                                         <input
-                                            v-model="form.name"
+                                            :value="previewState.name"
+                                            @input="updateField('name', $event.target.value)"
                                             type="text"
                                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                             placeholder="e.g., Standard Invoice"
@@ -153,7 +192,8 @@ const toggleGroups = [
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Design Style</label>
                                         <select
-                                            v-model="form.design"
+                                            :value="previewState.design"
+                                            @change="updateField('design', $event.target.value)"
                                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                         >
                                             <option v-for="(label, value) in designOptions" :key="value" :value="value">
@@ -163,7 +203,8 @@ const toggleGroups = [
                                     </div>
                                     <div class="flex items-center gap-3">
                                         <input
-                                            v-model="form.is_default"
+                                            :checked="previewState.is_default"
+                                            @change="updateField('is_default', $event.target.checked)"
                                             type="checkbox"
                                             id="is_default"
                                             class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
@@ -187,12 +228,14 @@ const toggleGroups = [
                                             <label class="block text-sm font-medium text-gray-700 mb-1">Primary Color</label>
                                             <div class="flex items-center gap-2">
                                                 <input
-                                                    v-model="form.primary_color"
+                                                    :value="previewState.primary_color"
+                                                    @input="updateField('primary_color', $event.target.value)"
                                                     type="color"
                                                     class="w-10 h-10 rounded border border-gray-300 cursor-pointer"
                                                 />
                                                 <input
-                                                    v-model="form.primary_color"
+                                                    :value="previewState.primary_color"
+                                                    @input="updateField('primary_color', $event.target.value)"
                                                     type="text"
                                                     class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
                                                     placeholder="#4F46E5"
@@ -203,12 +246,14 @@ const toggleGroups = [
                                             <label class="block text-sm font-medium text-gray-700 mb-1">Secondary Color</label>
                                             <div class="flex items-center gap-2">
                                                 <input
-                                                    v-model="form.secondary_color"
+                                                    :value="previewState.secondary_color"
+                                                    @input="updateField('secondary_color', $event.target.value)"
                                                     type="color"
                                                     class="w-10 h-10 rounded border border-gray-300 cursor-pointer"
                                                 />
                                                 <input
-                                                    v-model="form.secondary_color"
+                                                    :value="previewState.secondary_color"
+                                                    @input="updateField('secondary_color', $event.target.value)"
                                                     type="text"
                                                     class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
                                                     placeholder="#6366F1"
@@ -233,16 +278,16 @@ const toggleGroups = [
                                         <label :for="toggle.key" class="text-sm text-gray-700">{{ toggle.label }}</label>
                                         <button
                                             type="button"
-                                            @click="form[toggle.key] = !form[toggle.key]"
+                                            @click="toggleField(toggle.key)"
                                             :class="[
                                                 'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2',
-                                                form[toggle.key] ? 'bg-indigo-600' : 'bg-gray-200'
+                                                previewState[toggle.key] ? 'bg-indigo-600' : 'bg-gray-200'
                                             ]"
                                         >
                                             <span
                                                 :class="[
                                                     'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                                                    form[toggle.key] ? 'translate-x-5' : 'translate-x-0'
+                                                    previewState[toggle.key] ? 'translate-x-5' : 'translate-x-0'
                                                 ]"
                                             />
                                         </button>
@@ -259,7 +304,8 @@ const toggleGroups = [
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Custom Header</label>
                                         <textarea
-                                            v-model="form.custom_header"
+                                            :value="previewState.custom_header"
+                                            @input="updateField('custom_header', $event.target.value)"
                                             rows="2"
                                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                                             placeholder="Additional text to display in the header..."
@@ -268,7 +314,8 @@ const toggleGroups = [
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Custom Footer</label>
                                         <textarea
-                                            v-model="form.custom_footer"
+                                            :value="previewState.custom_footer"
+                                            @input="updateField('custom_footer', $event.target.value)"
                                             rows="2"
                                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                                             placeholder="Additional text to display in the footer..."
@@ -309,28 +356,28 @@ const toggleGroups = [
                                     <!-- Invoice Preview -->
                                     <div class="bg-white shadow-lg rounded-lg overflow-hidden transform scale-[0.85] origin-top">
                                         <!-- Header -->
-                                        <div class="p-6" :style="{ borderTop: `4px solid ${form.primary_color}` }">
+                                        <div class="p-6" :style="{ borderTop: `4px solid ${previewState.primary_color}` }">
                                             <div class="flex justify-between items-start">
                                                 <div>
-                                                    <div v-if="form.show_logo && getLogoUrl()" class="mb-3">
+                                                    <div v-if="previewState.show_logo && getLogoUrl()" class="mb-3">
                                                         <img :src="getLogoUrl()" alt="Logo" class="h-12 object-contain" />
                                                     </div>
-                                                    <div v-else-if="form.show_logo" class="w-24 h-12 bg-gray-200 rounded mb-3 flex items-center justify-center text-xs text-gray-400">
+                                                    <div v-else-if="previewState.show_logo" class="w-24 h-12 bg-gray-200 rounded mb-3 flex items-center justify-center text-xs text-gray-400">
                                                         Logo
                                                     </div>
                                                     <h3 class="text-lg font-bold text-gray-900">{{ settings?.business_name || 'Your Business Name' }}</h3>
                                                     <p v-if="settings?.business_address" class="text-sm text-gray-600 mt-1">{{ settings.business_address }}</p>
                                                     <p v-if="settings?.business_phone" class="text-sm text-gray-600">{{ settings.business_phone }}</p>
-                                                    <p v-if="form.show_tax_number && settings?.tax_number" class="text-sm text-gray-600">Tax: {{ settings.tax_number }}</p>
+                                                    <p v-if="previewState.show_tax_number && settings?.tax_number" class="text-sm text-gray-600">Tax: {{ settings.tax_number }}</p>
                                                 </div>
                                                 <div class="text-right">
-                                                    <h2 class="text-2xl font-bold" :style="{ color: form.primary_color }">INVOICE</h2>
+                                                    <h2 class="text-2xl font-bold" :style="{ color: previewState.primary_color }">INVOICE</h2>
                                                     <p class="text-sm text-gray-600 mt-1">#{{ sampleInvoice.invoice_number }}</p>
                                                     <p class="text-sm text-gray-600">Date: {{ sampleInvoice.date }}</p>
-                                                    <p v-if="form.show_due_date" class="text-sm font-medium text-red-600">Due: {{ sampleInvoice.due_date }}</p>
+                                                    <p v-if="previewState.show_due_date" class="text-sm font-medium text-red-600">Due: {{ sampleInvoice.due_date }}</p>
                                                 </div>
                                             </div>
-                                            <p v-if="form.custom_header" class="mt-4 text-sm text-gray-600 italic">{{ form.custom_header }}</p>
+                                            <p v-if="previewState.custom_header" class="mt-4 text-sm text-gray-600 italic">{{ previewState.custom_header }}</p>
                                         </div>
 
                                         <!-- Bill To -->
@@ -340,13 +387,13 @@ const toggleGroups = [
                                                     <p class="text-xs font-medium text-gray-500 uppercase mb-1">Bill To</p>
                                                     <p class="font-medium text-gray-900">{{ sampleInvoice.tenant.name }}</p>
                                                     <p class="text-sm text-gray-600">{{ sampleInvoice.tenant.email }}</p>
-                                                    <p v-if="form.show_tenant_id" class="text-sm text-gray-600">ID: {{ sampleInvoice.tenant.national_id }}</p>
+                                                    <p v-if="previewState.show_tenant_id" class="text-sm text-gray-600">ID: {{ sampleInvoice.tenant.national_id }}</p>
                                                 </div>
-                                                <div v-if="form.show_unit_details">
+                                                <div v-if="previewState.show_unit_details">
                                                     <p class="text-xs font-medium text-gray-500 uppercase mb-1">Property</p>
                                                     <p class="font-medium text-gray-900">{{ sampleInvoice.unit.name }}</p>
                                                     <p class="text-sm text-gray-600">{{ sampleInvoice.unit.building }}</p>
-                                                    <p v-if="form.show_lease_reference" class="text-sm text-gray-600">Lease: {{ sampleInvoice.lease.reference }}</p>
+                                                    <p v-if="previewState.show_lease_reference" class="text-sm text-gray-600">Lease: {{ sampleInvoice.lease.reference }}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -369,19 +416,19 @@ const toggleGroups = [
                                                 <tfoot>
                                                     <tr class="font-bold">
                                                         <td class="py-3 text-gray-900">Total Due</td>
-                                                        <td class="py-3 text-right" :style="{ color: form.primary_color }">{{ formatCurrency(sampleInvoice.total_due) }}</td>
+                                                        <td class="py-3 text-right" :style="{ color: previewState.primary_color }">{{ formatCurrency(sampleInvoice.total_due) }}</td>
                                                     </tr>
                                                 </tfoot>
                                             </table>
                                         </div>
 
                                         <!-- Late Warning -->
-                                        <div v-if="form.show_late_warning" class="px-6 py-3 bg-yellow-50 border-t border-yellow-100">
+                                        <div v-if="previewState.show_late_warning" class="px-6 py-3 bg-yellow-50 border-t border-yellow-100">
                                             <p class="text-sm text-yellow-800">{{ sampleInvoice.late_warning }}</p>
                                         </div>
 
                                         <!-- Bank Details -->
-                                        <div v-if="form.show_bank_details && settings?.bank_name" class="px-6 py-4 bg-gray-50 border-t">
+                                        <div v-if="previewState.show_bank_details && settings?.bank_name" class="px-6 py-4 bg-gray-50 border-t">
                                             <p class="text-xs font-medium text-gray-500 uppercase mb-2">Payment Details</p>
                                             <div class="text-sm text-gray-600">
                                                 <p>Bank: {{ settings.bank_name }}</p>
@@ -391,16 +438,16 @@ const toggleGroups = [
                                         </div>
 
                                         <!-- QR Code Placeholder -->
-                                        <div v-if="form.show_qr_code" class="px-6 py-4 flex justify-center">
+                                        <div v-if="previewState.show_qr_code" class="px-6 py-4 flex justify-center">
                                             <div class="w-24 h-24 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-400">
                                                 QR Code
                                             </div>
                                         </div>
 
                                         <!-- Footer -->
-                                        <div v-if="form.show_footer || form.custom_footer" class="px-6 py-4 border-t border-gray-200">
-                                            <p v-if="form.custom_footer" class="text-sm text-gray-600 mb-2">{{ form.custom_footer }}</p>
-                                            <p v-if="form.show_footer && settings?.footer_note" class="text-sm text-gray-500">{{ settings.footer_note }}</p>
+                                        <div v-if="previewState.show_footer || previewState.custom_footer" class="px-6 py-4 border-t border-gray-200">
+                                            <p v-if="previewState.custom_footer" class="text-sm text-gray-600 mb-2">{{ previewState.custom_footer }}</p>
+                                            <p v-if="previewState.show_footer && settings?.footer_note" class="text-sm text-gray-500">{{ settings.footer_note }}</p>
                                         </div>
                                     </div>
                                 </div>

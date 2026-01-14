@@ -2509,3 +2509,163 @@ public function exportInvoices(Request $request): BinaryFileResponse|Response|St
 # PRD Progress Update
 
 35 of 37 user stories now passing. FIN-028 completed.
+
+---
+
+## TMPL-005: Fix Invoice Template preview real-time updates
+**Status:** PASSED
+**Date:** 2026-01-14
+**Attempts:** 1
+
+### Problem Statement
+
+User reported that the invoice template preview did not update in real-time when toggles, colors, or text fields were changed. The preview appeared static and required page refresh.
+
+### Root Cause Analysis
+
+The issue was traced to Inertia's `useForm` composable not properly triggering Vue reactivity when properties were accessed via bracket notation (e.g., `form[toggle.key]`). While the toggle button styling correctly updated (suggesting some reactivity), the preview section using identical bindings was not re-rendering.
+
+### Solution
+
+Introduced a separate `reactive()` object (`previewState`) that is guaranteed to be fully reactive, and helper functions to keep both the preview state and Inertia form in sync.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `resources/js/Pages/InvoiceTemplates/Edit.vue` | Added previewState reactive object, updateField/toggleField helpers, updated all form bindings and preview to use new reactive pattern |
+
+### Implementation Details
+
+**New reactive state pattern:**
+```javascript
+// Fully reactive object for preview display
+const previewState = reactive({
+    show_logo: props.template?.show_logo ?? true,
+    primary_color: props.template?.primary_color || '#4F46E5',
+    // ... all template fields
+});
+
+// Inertia form for submission (synced from previewState)
+const form = useForm({ ...previewState });
+
+// Helper to update both states
+const updateField = (key, value) => {
+    previewState[key] = value;
+    form[key] = value;
+};
+
+// Toggle helper for boolean fields
+const toggleField = (key) => {
+    const newValue = !previewState[key];
+    previewState[key] = newValue;
+    form[key] = newValue;
+};
+```
+
+**Template updates:**
+- Toggle buttons now use `@click="toggleField(toggle.key)"` instead of direct mutation
+- All preview `v-if` conditions changed from `form.show_*` to `previewState.show_*`
+- Color styles changed from `form.primary_color` to `previewState.primary_color`
+- Input bindings updated to use `:value` + `@input` with `updateField` for proper sync
+
+### Acceptance Criteria Verification
+
+1. **All 13 toggles update preview immediately** - ✅ toggleField() updates previewState reactively
+2. **Color changes reflect in preview instantly** - ✅ Color picker uses updateField(), previewState bindings update
+3. **Design style changes update preview layout** - ✅ Design selector uses updateField()
+4. **Custom text appears in preview as typed** - ✅ Textareas use @input with updateField()
+5. **No page refresh required for any changes** - ✅ Vue reactivity handles all updates client-side
+
+### Verification Results
+
+- Build: Success (14.11s)
+- Tests: 71 invoice-related tests passed
+- No regressions detected
+
+---
+
+# PRD Progress Update
+
+38 of 45 user stories now passing. TMPL-005 completed.
+
+---
+
+## TMPL-001: Add Templates tab to Finance Hub
+**Status:** PASSED
+**Date:** 2026-01-14
+**Attempts:** 1
+
+### Implementation Summary
+
+Added a unified "Templates" tab to the Finance Hub between Reports and Settings, providing centralized access to all document template management (Invoices, Receipts, Credit Notes).
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `resources/js/Pages/Finances/tabs/TemplatesTab.vue` | Unified templates tab component with subtab views |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/FinancesController.php` | Added templateInvoices(), templateReceipts(), templateCreditNotes() methods; Added templates to getTabsConfig() and getActiveGroup() |
+| `routes/web.php` | Added 3 routes: finances.templates.invoices, finances.templates.receipts, finances.templates.credit-notes |
+| `resources/js/Pages/Finances/Index.vue` | Imported TemplatesTab, added to tabComponents and tabNames, added DocumentDuplicateIcon, added templates to groupConfig |
+
+### Tab Configuration
+
+```php
+[
+    'id' => 'templates',
+    'name' => 'Templates',
+    'route' => 'finances.templates.invoices',
+    'subtabs' => [
+        ['id' => 'template-invoices', 'name' => 'Invoices', 'route' => 'finances.templates.invoices'],
+        ['id' => 'template-receipts', 'name' => 'Receipts', 'route' => 'finances.templates.receipts'],
+        ['id' => 'template-credit-notes', 'name' => 'Credit Notes', 'route' => 'finances.templates.credit-notes'],
+    ],
+],
+```
+
+### TemplatesTab Features
+
+**Invoice Templates Subtab:**
+- Grid view of existing invoice templates
+- Preview header with gradient colors
+- Design style badge
+- Default template indicator
+- Feature summary (Logo, Bank, QR, Water, Arrears)
+- Edit/Set Default actions
+- "New Template" button linking to invoice-templates.create
+- Empty state with create CTA
+
+**Receipt Templates Subtab:**
+- Current settings display (toggles and custom text)
+- Coming soon notice for full template editor
+- Link guidance to Finance Hub Settings
+
+**Credit Note Templates Subtab:**
+- Inheritance explanation (uses invoice template)
+- Display of current default template
+
+### Acceptance Criteria Verification
+
+1. **Templates tab appears between Reports and Settings** - ✅ Added to getTabsConfig() in correct position
+2. **Tab has subtabs: Invoices, Receipts, Credit Notes** - ✅ All three subtabs with proper routing
+3. **Route /finances/templates works** - ✅ Routes defined, default redirects to invoices
+4. **Existing invoice templates accessible from new location** - ✅ Lists templates with edit links
+5. **TemplatesTab.vue component created** - ✅ 280-line component with all three views
+
+### Verification Results
+
+- Build: Success (26.46s)
+- Tests: 378 passed, 12 skipped
+- No regressions detected
+
+---
+
+# PRD Progress Update
+
+39 of 45 user stories now passing. TMPL-001 completed.

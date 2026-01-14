@@ -499,6 +499,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/reports', [FinancesController::class, 'reports'])->name('reports');
         Route::get('/reports/export', [FinancesController::class, 'exportReports'])->name('reports.export');
 
+        // Templates
+        Route::get('/templates/invoices', [FinancesController::class, 'templateInvoices'])->name('templates.invoices');
+        Route::get('/templates/receipts', [FinancesController::class, 'templateReceipts'])->name('templates.receipts');
+        Route::get('/templates/credit-notes', [FinancesController::class, 'templateCreditNotes'])->name('templates.credit-notes');
+
         // Late Fees Management
         Route::get('/late-fees', [FinancesController::class, 'lateFees'])->name('late-fees');
         Route::post('/late-fee-policies', [FinancesController::class, 'storeLateFeePolicy'])->name('late-fee-policies.store');

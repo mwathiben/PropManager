@@ -149,6 +149,48 @@ class FinancesController extends Controller
         ]);
     }
 
+    public function templateInvoices(): Response
+    {
+        $landlordId = $this->getLandlordId();
+        $templates = \App\Models\InvoiceTemplate::where('landlord_id', $landlordId)
+            ->orderBy('is_default', 'desc')
+            ->orderBy('name')
+            ->get();
+
+        return $this->renderFinances('template-invoices', [
+            'templates' => $templates,
+            'designOptions' => [
+                'classic' => 'Classic',
+                'modern' => 'Modern',
+                'minimal' => 'Minimal',
+                'professional' => 'Professional',
+            ],
+        ]);
+    }
+
+    public function templateReceipts(): Response
+    {
+        $landlordId = $this->getLandlordId();
+        $settings = $this->settingsService->getReceiptSettings($landlordId);
+
+        return $this->renderFinances('template-receipts', [
+            'receiptSettings' => $settings,
+        ]);
+    }
+
+    public function templateCreditNotes(): Response
+    {
+        $landlordId = $this->getLandlordId();
+        $templates = \App\Models\InvoiceTemplate::where('landlord_id', $landlordId)
+            ->orderBy('is_default', 'desc')
+            ->orderBy('name')
+            ->get();
+
+        return $this->renderFinances('template-credit-notes', [
+            'templates' => $templates,
+        ]);
+    }
+
     public function reports(Request $request): Response
     {
         $landlordId = $this->getLandlordId();
@@ -1132,6 +1174,16 @@ class FinancesController extends Controller
             ],
             ['id' => 'reconciliation', 'name' => 'Reconciliation', 'route' => 'finances.reconciliation'],
             ['id' => 'reports', 'name' => 'Reports', 'route' => 'finances.reports'],
+            [
+                'id' => 'templates',
+                'name' => 'Templates',
+                'route' => 'finances.templates.invoices',
+                'subtabs' => [
+                    ['id' => 'template-invoices', 'name' => 'Invoices', 'route' => 'finances.templates.invoices'],
+                    ['id' => 'template-receipts', 'name' => 'Receipts', 'route' => 'finances.templates.receipts'],
+                    ['id' => 'template-credit-notes', 'name' => 'Credit Notes', 'route' => 'finances.templates.credit-notes'],
+                ],
+            ],
             ['id' => 'settings', 'name' => 'Settings', 'route' => 'finances.settings'],
         ];
     }
@@ -1145,6 +1197,9 @@ class FinancesController extends Controller
             'late-fees' => 'collections',
             'deposits' => 'collections',
             'refunds' => 'collections',
+            'template-invoices' => 'templates',
+            'template-receipts' => 'templates',
+            'template-credit-notes' => 'templates',
         ];
 
         return $groupMap[$tab] ?? null;

@@ -16,6 +16,7 @@ import ArrearsTab from './tabs/ArrearsTab.vue';
 import LateFeeSettingsTab from './tabs/LateFeeSettingsTab.vue';
 import SettingsTab from './tabs/SettingsTab.vue';
 import ReportsTab from './tabs/ReportsTab.vue';
+import TemplatesTab from './tabs/TemplatesTab.vue';
 
 const InvoiceDetailModal = defineAsyncComponent({
     loader: () => import('./modals/InvoiceDetailModal.vue'),
@@ -68,6 +69,7 @@ import {
     ChartBarIcon,
     ChartPieIcon,
     DocumentTextIcon,
+    DocumentDuplicateIcon,
     CreditCardIcon,
     ArrowPathIcon,
     BanknotesIcon,
@@ -186,6 +188,7 @@ const groupConfig: Record<string, GroupConfig> = {
     collections: { name: 'Collections', icon: ExclamationTriangleIcon },
     reconciliation: { name: 'Reconciliation', icon: ArrowPathIcon },
     reports: { name: 'Reports', icon: ChartPieIcon },
+    templates: { name: 'Templates', icon: DocumentDuplicateIcon },
     settings: { name: 'Settings', icon: Cog6ToothIcon },
 };
 
@@ -200,6 +203,9 @@ const tabComponents = {
     arrears: ArrearsTab,
     'late-fees': LateFeeSettingsTab,
     reports: ReportsTab,
+    'template-invoices': TemplatesTab,
+    'template-receipts': TemplatesTab,
+    'template-credit-notes': TemplatesTab,
     settings: SettingsTab,
 };
 
@@ -214,6 +220,9 @@ const tabNames = {
     arrears: 'Arrears',
     'late-fees': 'Late Fees',
     reports: 'Reports',
+    'template-invoices': 'Invoice Templates',
+    'template-receipts': 'Receipt Templates',
+    'template-credit-notes': 'Credit Note Templates',
     settings: 'Settings',
 };
 
