@@ -13,6 +13,15 @@ use Carbon\Carbon;
 
 class FinanceReportService
 {
+    private function buildCacheFilters(array $dateRange, ?int $buildingId = null): array
+    {
+        return [
+            'start' => $dateRange['start']->format('Y-m-d'),
+            'end' => $dateRange['end']->format('Y-m-d'),
+            'building_id' => $buildingId,
+        ];
+    }
+
     public function getRevenueReport(int $landlordId, int $months, ?int $buildingId = null): array
     {
         $data = [];
@@ -163,96 +172,100 @@ class FinanceReportService
 
     public function getOccupancyReport(int $landlordId, ?int $buildingId = null): array
     {
-        $query = Building::where('landlord_id', $landlordId)
-            ->with(['units' => fn ($q) => $q->withCount(['leases' => fn ($l) => $l->where('is_active', true)])]);
+        return FinanceCacheService::rememberReport('occupancy', $landlordId, ['building_id' => $buildingId], function () use ($landlordId, $buildingId) {
+            $query = Building::where('landlord_id', $landlordId)
+                ->with(['units' => fn ($q) => $q->withCount(['leases' => fn ($l) => $l->where('is_active', true)])]);
 
-        if ($buildingId) {
-            $query->where('id', $buildingId);
-        }
+            if ($buildingId) {
+                $query->where('id', $buildingId);
+            }
 
-        $buildings = $query->get();
-        $data = [];
-        $totalUnits = 0;
-        $totalOccupied = 0;
+            $buildings = $query->get();
+            $data = [];
+            $totalUnits = 0;
+            $totalOccupied = 0;
 
-        foreach ($buildings as $building) {
-            $units = $building->units->count();
-            $occupied = $building->units->where('leases_count', '>', 0)->count();
-            $vacant = $units - $occupied;
-            $rate = $units > 0 ? round(($occupied / $units) * 100, 1) : 0;
+            foreach ($buildings as $building) {
+                $units = $building->units->count();
+                $occupied = $building->units->where('leases_count', '>', 0)->count();
+                $vacant = $units - $occupied;
+                $rate = $units > 0 ? round(($occupied / $units) * 100, 1) : 0;
 
-            $totalUnits += $units;
-            $totalOccupied += $occupied;
+                $totalUnits += $units;
+                $totalOccupied += $occupied;
 
-            $data[] = [
-                'building' => $building->name,
-                'total_units' => $units,
-                'occupied' => $occupied,
-                'vacant' => $vacant,
-                'occupancy_rate' => $rate,
+                $data[] = [
+                    'building' => $building->name,
+                    'total_units' => $units,
+                    'occupied' => $occupied,
+                    'vacant' => $vacant,
+                    'occupancy_rate' => $rate,
+                ];
+            }
+
+            return [
+                'buildings' => $data,
+                'totals' => [
+                    'building' => 'Total',
+                    'total_units' => $totalUnits,
+                    'occupied' => $totalOccupied,
+                    'vacant' => $totalUnits - $totalOccupied,
+                    'occupancy_rate' => $totalUnits > 0 ? round(($totalOccupied / $totalUnits) * 100, 1) : 0,
+                ],
             ];
-        }
-
-        return [
-            'buildings' => $data,
-            'totals' => [
-                'building' => 'Total',
-                'total_units' => $totalUnits,
-                'occupied' => $totalOccupied,
-                'vacant' => $totalUnits - $totalOccupied,
-                'occupancy_rate' => $totalUnits > 0 ? round(($totalOccupied / $totalUnits) * 100, 1) : 0,
-            ],
-        ];
+        });
     }
 
     public function getArrearsAgingReport(int $landlordId, ?int $buildingId = null): array
     {
-        $query = Invoice::where('landlord_id', $landlordId)
-            ->whereIn('status', ['sent', 'partial', 'overdue'])
-            ->whereRaw('total_due > amount_paid');
+        return FinanceCacheService::rememberReport('arrears_aging', $landlordId, ['building_id' => $buildingId], function () use ($landlordId, $buildingId) {
+            $query = Invoice::where('landlord_id', $landlordId)
+                ->whereIn('status', ['sent', 'partial', 'overdue'])
+                ->whereRaw('total_due > amount_paid');
 
-        if ($buildingId) {
-            $query->whereHas('lease.unit', fn ($q) => $q->where('building_id', $buildingId));
-        }
+            if ($buildingId) {
+                $query->whereHas('lease.unit', fn ($q) => $q->where('building_id', $buildingId));
+            }
 
-        $invoices = $query->with(['lease.tenant:id,name', 'lease.unit:id,unit_number,building_id', 'lease.unit.building:id,name'])
-            ->get();
+            $invoices = $query->with(['lease.tenant:id,name', 'lease.unit:id,unit_number,building_id', 'lease.unit.building:id,name'])
+                ->get();
 
-        $aging = [
-            'current' => ['count' => 0, 'amount' => 0],
-            '1-30' => ['count' => 0, 'amount' => 0],
-            '31-60' => ['count' => 0, 'amount' => 0],
-            '61-90' => ['count' => 0, 'amount' => 0],
-            '90+' => ['count' => 0, 'amount' => 0],
-        ];
+            $aging = [
+                'current' => ['count' => 0, 'amount' => 0],
+                '1-30' => ['count' => 0, 'amount' => 0],
+                '31-60' => ['count' => 0, 'amount' => 0],
+                '61-90' => ['count' => 0, 'amount' => 0],
+                '90+' => ['count' => 0, 'amount' => 0],
+            ];
 
-        foreach ($invoices as $invoice) {
-            $outstanding = $invoice->total_due - $invoice->amount_paid;
-            $daysOverdue = $invoice->due_date ? now()->diffInDays($invoice->due_date, false) : 0;
+            foreach ($invoices as $invoice) {
+                $outstanding = $invoice->total_due - $invoice->amount_paid;
+                $daysOverdue = $invoice->due_date ? now()->diffInDays($invoice->due_date, false) : 0;
 
-            $bucket = match (true) {
-                $daysOverdue <= 0 => 'current',
-                $daysOverdue <= 30 => '1-30',
-                $daysOverdue <= 60 => '31-60',
-                $daysOverdue <= 90 => '61-90',
-                default => '90+',
-            };
+                $bucket = match (true) {
+                    $daysOverdue <= 0 => 'current',
+                    $daysOverdue <= 30 => '1-30',
+                    $daysOverdue <= 60 => '31-60',
+                    $daysOverdue <= 90 => '61-90',
+                    default => '90+',
+                };
 
-            $aging[$bucket]['count']++;
-            $aging[$bucket]['amount'] += $outstanding;
-        }
+                $aging[$bucket]['count']++;
+                $aging[$bucket]['amount'] += $outstanding;
+            }
 
-        foreach ($aging as &$bucket) {
-            $bucket['amount'] = round($bucket['amount'], 2);
-        }
+            foreach ($aging as &$bucket) {
+                $bucket['amount'] = round($bucket['amount'], 2);
+            }
 
-        $totalOutstanding = collect($aging)->sum('amount');
+            $totalOutstanding = collect($aging)->sum('amount');
 
-        return [
-            'aging' => $aging,
-            'total_outstanding' => round($totalOutstanding, 2),
-            'total_invoices' => $invoices->count(),
-        ];
+            return [
+                'aging' => $aging,
+                'total_outstanding' => round($totalOutstanding, 2),
+                'total_invoices' => $invoices->count(),
+            ];
+        });
     }
 
     public function getExpensesByCategoryReport(int $landlordId, int $months, ?int $buildingId = null): array
@@ -604,32 +617,36 @@ class FinanceReportService
 
     public function getReportTotals(int $landlordId, array $dateRange, ?int $buildingId = null): array
     {
-        $invoiceQuery = Invoice::where('landlord_id', $landlordId)
-            ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']]);
+        $filters = $this->buildCacheFilters($dateRange, $buildingId);
 
-        $paymentQuery = Payment::where('landlord_id', $landlordId)
-            ->where('is_voided', false)
-            ->whereBetween('payment_date', [$dateRange['start'], $dateRange['end']]);
+        return FinanceCacheService::rememberReport('totals', $landlordId, $filters, function () use ($landlordId, $dateRange, $buildingId) {
+            $invoiceQuery = Invoice::where('landlord_id', $landlordId)
+                ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']]);
 
-        $expenseQuery = Expense::where('landlord_id', $landlordId)
-            ->whereBetween('expense_date', [$dateRange['start'], $dateRange['end']]);
+            $paymentQuery = Payment::where('landlord_id', $landlordId)
+                ->where('is_voided', false)
+                ->whereBetween('payment_date', [$dateRange['start'], $dateRange['end']]);
 
-        if ($buildingId) {
-            $invoiceQuery->whereHas('lease.unit', fn ($q) => $q->where('building_id', $buildingId));
-            $paymentQuery->whereHas('lease.unit', fn ($q) => $q->where('building_id', $buildingId));
-            $expenseQuery->where('building_id', $buildingId);
-        }
+            $expenseQuery = Expense::where('landlord_id', $landlordId)
+                ->whereBetween('expense_date', [$dateRange['start'], $dateRange['end']]);
 
-        $invoiced = $invoiceQuery->sum('total_due');
-        $collected = $paymentQuery->sum('amount');
-        $expenses = $expenseQuery->sum('amount');
+            if ($buildingId) {
+                $invoiceQuery->whereHas('lease.unit', fn ($q) => $q->where('building_id', $buildingId));
+                $paymentQuery->whereHas('lease.unit', fn ($q) => $q->where('building_id', $buildingId));
+                $expenseQuery->where('building_id', $buildingId);
+            }
 
-        return [
-            'invoiced' => round($invoiced, 2),
-            'collected' => round($collected, 2),
-            'expenses' => round($expenses, 2),
-            'net' => round($collected - $expenses, 2),
-            'collection_rate' => $invoiced > 0 ? round(($collected / $invoiced) * 100, 1) : 0,
-        ];
+            $invoiced = $invoiceQuery->sum('total_due');
+            $collected = $paymentQuery->sum('amount');
+            $expenses = $expenseQuery->sum('amount');
+
+            return [
+                'invoiced' => round($invoiced, 2),
+                'collected' => round($collected, 2),
+                'expenses' => round($expenses, 2),
+                'net' => round($collected - $expenses, 2),
+                'collection_rate' => $invoiced > 0 ? round(($collected / $invoiced) * 100, 1) : 0,
+            ];
+        });
     }
 }

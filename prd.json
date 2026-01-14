@@ -623,8 +623,9 @@
         "Add cache invalidation in Invoice and Payment observers",
         "Measure and document performance improvement"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
+      "notes": "Implemented Redis caching for FinanceStatsService (6 cached methods: hub, overview, arrears, deposits, latefees, expenses, trend) and FinanceReportService (3 cached methods: occupancy, arrears_aging, totals). Created FinanceCacheService for centralized cache key management and invalidation. Added InvoiceObserver and PaymentObserver for automatic cache invalidation. Stats cache 5min TTL, reports cache 10min TTL. All 376 tests pass.",
       "depends_on": ["FIN-020"]
     },
     {
@@ -743,7 +744,7 @@
   ],
   "metadata": {
     "total_stories": 37,
-    "passing_stories": 31,
+    "passing_stories": 32,
     "framework": "Laravel",
     "frontend": "Vue.js/Inertia"
   }

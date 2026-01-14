@@ -2,9 +2,13 @@
 
 namespace App\Providers;
 
+use App\Models\Invoice;
+use App\Models\Payment;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Models\WaterReading;
+use App\Observers\InvoiceObserver;
+use App\Observers\PaymentObserver;
 use App\Observers\TicketObserver;
 use App\Observers\UserObserver;
 use App\Observers\WaterReadingObserver;
@@ -40,6 +44,8 @@ class AppServiceProvider extends ServiceProvider
         WaterReading::observe(WaterReadingObserver::class);
         Ticket::observe(TicketObserver::class);
         User::observe(UserObserver::class);
+        Invoice::observe(InvoiceObserver::class);
+        Payment::observe(PaymentObserver::class);
 
         // Configure rate limiters
         $this->configureRateLimiting();

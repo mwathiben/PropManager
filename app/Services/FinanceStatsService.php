@@ -15,216 +15,235 @@ class FinanceStatsService
 {
     public function getOverviewStats(int $landlordId): array
     {
-        $now = now();
+        $suffix = now()->format('Y-m');
 
-        $thisMonth = Payment::where('landlord_id', $landlordId)
-            ->whereMonth('payment_date', $now->month)
-            ->whereYear('payment_date', $now->year)
-            ->sum('amount');
+        return FinanceCacheService::rememberStats('overview', $landlordId, function () use ($landlordId) {
+            $now = now();
 
-        $lastMonth = Payment::where('landlord_id', $landlordId)
-            ->whereMonth('payment_date', $now->copy()->subMonth()->month)
-            ->whereYear('payment_date', $now->copy()->subMonth()->year)
-            ->sum('amount');
+            $thisMonth = Payment::where('landlord_id', $landlordId)
+                ->whereMonth('payment_date', $now->month)
+                ->whereYear('payment_date', $now->year)
+                ->sum('amount');
 
-        $pendingAmount = Invoice::where('landlord_id', $landlordId)
-            ->whereIn('status', ['sent', 'partial', 'overdue'])
-            ->selectRaw('COALESCE(SUM(total_due - amount_paid), 0) as pending')
-            ->value('pending') ?? 0;
+            $lastMonth = Payment::where('landlord_id', $landlordId)
+                ->whereMonth('payment_date', $now->copy()->subMonth()->month)
+                ->whereYear('payment_date', $now->copy()->subMonth()->year)
+                ->sum('amount');
 
-        $overdueCount = Invoice::where('landlord_id', $landlordId)
-            ->where('status', 'overdue')
-            ->count();
+            $pendingAmount = Invoice::where('landlord_id', $landlordId)
+                ->whereIn('status', ['sent', 'partial', 'overdue'])
+                ->selectRaw('COALESCE(SUM(total_due - amount_paid), 0) as pending')
+                ->value('pending') ?? 0;
 
-        $collectionRate = $this->calculateCollectionRate($landlordId);
+            $overdueCount = Invoice::where('landlord_id', $landlordId)
+                ->where('status', 'overdue')
+                ->count();
 
-        $monthTrend = $lastMonth > 0
-            ? round((($thisMonth - $lastMonth) / $lastMonth) * 100, 1)
-            : 0;
+            $collectionRate = $this->calculateCollectionRateUncached($landlordId);
 
-        return [
-            'this_month' => round($thisMonth, 2),
-            'last_month' => round($lastMonth, 2),
-            'month_trend' => $monthTrend,
-            'pending_amount' => round($pendingAmount, 2),
-            'overdue_count' => $overdueCount,
-            'collection_rate' => $collectionRate,
-        ];
+            $monthTrend = $lastMonth > 0
+                ? round((($thisMonth - $lastMonth) / $lastMonth) * 100, 1)
+                : 0;
+
+            return [
+                'this_month' => round($thisMonth, 2),
+                'last_month' => round($lastMonth, 2),
+                'month_trend' => $monthTrend,
+                'pending_amount' => round($pendingAmount, 2),
+                'overdue_count' => $overdueCount,
+                'collection_rate' => $collectionRate,
+            ];
+        }, $suffix);
     }
 
     public function getHubStats(int $landlordId): array
     {
-        $overviewStats = $this->getOverviewStats($landlordId);
-        $arrearsStats = $this->getArrearsStats($landlordId);
-        $now = now();
+        return FinanceCacheService::rememberStats('hub', $landlordId, function () use ($landlordId) {
+            $overviewStats = $this->getOverviewStats($landlordId);
+            $arrearsStats = $this->getArrearsStats($landlordId);
+            $now = now();
 
-        return [
-            'revenue_mtd' => $overviewStats['this_month'],
-            'outstanding_balance' => $overviewStats['pending_amount'],
-            'collection_rate' => $overviewStats['collection_rate'],
-            'active_leases' => Lease::where('landlord_id', $landlordId)->where('is_active', true)->count(),
-            'month_trend' => $overviewStats['month_trend'],
+            return [
+                'revenue_mtd' => $overviewStats['this_month'],
+                'outstanding_balance' => $overviewStats['pending_amount'],
+                'collection_rate' => $overviewStats['collection_rate'],
+                'active_leases' => Lease::where('landlord_id', $landlordId)->where('is_active', true)->count(),
+                'month_trend' => $overviewStats['month_trend'],
 
-            'invoices_count' => Invoice::where('landlord_id', $landlordId)->count(),
-            'invoices_pending' => Invoice::where('landlord_id', $landlordId)
-                ->whereIn('status', ['sent', 'partial', 'overdue'])->count(),
-            'payments_this_month' => Payment::where('landlord_id', $landlordId)
-                ->whereMonth('payment_date', $now->month)
-                ->whereYear('payment_date', $now->year)->count(),
-            'deposits_held' => Lease::where('landlord_id', $landlordId)
-                ->where('is_active', true)->sum('deposit_amount'),
+                'invoices_count' => Invoice::where('landlord_id', $landlordId)->count(),
+                'invoices_pending' => Invoice::where('landlord_id', $landlordId)
+                    ->whereIn('status', ['sent', 'partial', 'overdue'])->count(),
+                'payments_this_month' => Payment::where('landlord_id', $landlordId)
+                    ->whereMonth('payment_date', $now->month)
+                    ->whereYear('payment_date', $now->year)->count(),
+                'deposits_held' => Lease::where('landlord_id', $landlordId)
+                    ->where('is_active', true)->sum('deposit_amount'),
 
-            'expenses_this_month' => Expense::where('landlord_id', $landlordId)
-                ->whereMonth('expense_date', $now->month)
-                ->whereYear('expense_date', $now->year)->sum('amount'),
-            'expenses_count' => Expense::where('landlord_id', $landlordId)
-                ->whereMonth('expense_date', $now->month)
-                ->whereYear('expense_date', $now->year)->count(),
-            'refunds_pending' => Refund::where('landlord_id', $landlordId)
-                ->where('status', 'pending')->count(),
+                'expenses_this_month' => Expense::where('landlord_id', $landlordId)
+                    ->whereMonth('expense_date', $now->month)
+                    ->whereYear('expense_date', $now->year)->sum('amount'),
+                'expenses_count' => Expense::where('landlord_id', $landlordId)
+                    ->whereMonth('expense_date', $now->month)
+                    ->whereYear('expense_date', $now->year)->count(),
+                'refunds_pending' => Refund::where('landlord_id', $landlordId)
+                    ->where('status', 'pending')->count(),
 
-            'total_arrears' => $arrearsStats['total_arrears'],
-            'tenants_in_arrears' => $arrearsStats['tenants_in_arrears'],
-            'unreconciled_count' => $this->getPendingReconciliationCount($landlordId),
-        ];
+                'total_arrears' => $arrearsStats['total_arrears'],
+                'tenants_in_arrears' => $arrearsStats['tenants_in_arrears'],
+                'unreconciled_count' => $this->getPendingReconciliationCount($landlordId),
+            ];
+        });
     }
 
     public function getArrearsStats(int $landlordId): array
     {
-        $overdueInvoices = Invoice::where('landlord_id', $landlordId)
-            ->where('status', 'overdue')
-            ->get();
+        return FinanceCacheService::rememberStats('arrears', $landlordId, function () use ($landlordId) {
+            $overdueInvoices = Invoice::where('landlord_id', $landlordId)
+                ->where('status', 'overdue')
+                ->get();
 
-        $totalArrears = $overdueInvoices->sum(fn ($i) => $i->total_due - $i->amount_paid);
-        $tenantsInArrears = $overdueInvoices->pluck('lease_id')->unique()->count();
+            $totalArrears = $overdueInvoices->sum(fn ($i) => $i->total_due - $i->amount_paid);
+            $tenantsInArrears = $overdueInvoices->pluck('lease_id')->unique()->count();
 
-        $ageGroups = [
-            '0_30' => 0,
-            '31_60' => 0,
-            '61_90' => 0,
-            '90_plus' => 0,
-        ];
+            $ageGroups = [
+                '0_30' => 0,
+                '31_60' => 0,
+                '61_90' => 0,
+                '90_plus' => 0,
+            ];
 
-        foreach ($overdueInvoices as $invoice) {
-            if (! $invoice->due_date) {
-                continue;
+            foreach ($overdueInvoices as $invoice) {
+                if (! $invoice->due_date) {
+                    continue;
+                }
+                $daysOverdue = now()->diffInDays($invoice->due_date, false) * -1;
+                $balance = $invoice->total_due - $invoice->amount_paid;
+
+                if ($daysOverdue <= 30) {
+                    $ageGroups['0_30'] += $balance;
+                } elseif ($daysOverdue <= 60) {
+                    $ageGroups['31_60'] += $balance;
+                } elseif ($daysOverdue <= 90) {
+                    $ageGroups['61_90'] += $balance;
+                } else {
+                    $ageGroups['90_plus'] += $balance;
+                }
             }
-            $daysOverdue = now()->diffInDays($invoice->due_date, false) * -1;
-            $balance = $invoice->total_due - $invoice->amount_paid;
 
-            if ($daysOverdue <= 30) {
-                $ageGroups['0_30'] += $balance;
-            } elseif ($daysOverdue <= 60) {
-                $ageGroups['31_60'] += $balance;
-            } elseif ($daysOverdue <= 90) {
-                $ageGroups['61_90'] += $balance;
-            } else {
-                $ageGroups['90_plus'] += $balance;
-            }
-        }
-
-        return [
-            'total_arrears' => round($totalArrears, 2),
-            'tenants_in_arrears' => $tenantsInArrears,
-            'overdue_count' => $overdueInvoices->count(),
-            'age_groups' => array_map(fn ($v) => round($v, 2), $ageGroups),
-        ];
+            return [
+                'total_arrears' => round($totalArrears, 2),
+                'tenants_in_arrears' => $tenantsInArrears,
+                'overdue_count' => $overdueInvoices->count(),
+                'age_groups' => array_map(fn ($v) => round($v, 2), $ageGroups),
+            ];
+        });
     }
 
     public function getDepositStats(int $landlordId): array
     {
-        $deposits = Lease::where('landlord_id', $landlordId)
-            ->where('deposit_amount', '>', 0)
-            ->selectRaw("
-                SUM(deposit_amount) as total,
-                SUM(CASE WHEN deposit_status = 'held' THEN deposit_amount ELSE 0 END) as held,
-                SUM(CASE WHEN deposit_status IN ('refunded', 'partial_refund') THEN COALESCE(deposit_refund_amount, 0) ELSE 0 END) as refunded,
-                SUM(CASE WHEN deposit_status = 'forfeited' THEN deposit_amount ELSE 0 END) as forfeited
-            ")
-            ->first();
+        return FinanceCacheService::rememberStats('deposits', $landlordId, function () use ($landlordId) {
+            $deposits = Lease::where('landlord_id', $landlordId)
+                ->where('deposit_amount', '>', 0)
+                ->selectRaw("
+                    SUM(deposit_amount) as total,
+                    SUM(CASE WHEN deposit_status = 'held' THEN deposit_amount ELSE 0 END) as held,
+                    SUM(CASE WHEN deposit_status IN ('refunded', 'partial_refund') THEN COALESCE(deposit_refund_amount, 0) ELSE 0 END) as refunded,
+                    SUM(CASE WHEN deposit_status = 'forfeited' THEN deposit_amount ELSE 0 END) as forfeited
+                ")
+                ->first();
 
-        return [
-            'total' => round($deposits->total ?? 0, 2),
-            'held' => round($deposits->held ?? 0, 2),
-            'refunded' => round($deposits->refunded ?? 0, 2),
-            'forfeited' => round($deposits->forfeited ?? 0, 2),
-        ];
+            return [
+                'total' => round($deposits->total ?? 0, 2),
+                'held' => round($deposits->held ?? 0, 2),
+                'refunded' => round($deposits->refunded ?? 0, 2),
+                'forfeited' => round($deposits->forfeited ?? 0, 2),
+            ];
+        });
     }
 
     public function getLateFeeStats(int $landlordId): array
     {
-        $activePolicies = LateFeePolicy::where('landlord_id', $landlordId)
-            ->where('is_active', true)
-            ->count();
+        return FinanceCacheService::rememberStats('latefees', $landlordId, function () use ($landlordId) {
+            $activePolicies = LateFeePolicy::where('landlord_id', $landlordId)
+                ->where('is_active', true)
+                ->count();
 
-        $totalFeesApplied = LateFee::where('landlord_id', $landlordId)
-            ->where('is_waived', false)
-            ->sum('fee_amount');
+            $totalFeesApplied = LateFee::where('landlord_id', $landlordId)
+                ->where('is_waived', false)
+                ->sum('fee_amount');
 
-        $totalFeesWaived = LateFee::where('landlord_id', $landlordId)
-            ->where('is_waived', true)
-            ->sum('fee_amount');
+            $totalFeesWaived = LateFee::where('landlord_id', $landlordId)
+                ->where('is_waived', true)
+                ->sum('fee_amount');
 
-        $feesThisMonth = LateFee::where('landlord_id', $landlordId)
-            ->where('is_waived', false)
-            ->whereMonth('applied_date', now()->month)
-            ->whereYear('applied_date', now()->year)
-            ->sum('fee_amount');
+            $feesThisMonth = LateFee::where('landlord_id', $landlordId)
+                ->where('is_waived', false)
+                ->whereMonth('applied_date', now()->month)
+                ->whereYear('applied_date', now()->year)
+                ->sum('fee_amount');
 
-        return [
-            'active_policies' => $activePolicies,
-            'total_fees_applied' => round($totalFeesApplied, 2),
-            'total_fees_waived' => round($totalFeesWaived, 2),
-            'fees_this_month' => round($feesThisMonth, 2),
-        ];
+            return [
+                'active_policies' => $activePolicies,
+                'total_fees_applied' => round($totalFeesApplied, 2),
+                'total_fees_waived' => round($totalFeesWaived, 2),
+                'fees_this_month' => round($feesThisMonth, 2),
+            ];
+        });
     }
 
     public function getExpenseStats(int $landlordId): array
     {
-        $now = now();
+        return FinanceCacheService::rememberStats('expenses', $landlordId, function () use ($landlordId) {
+            $now = now();
 
-        $thisMonth = Expense::where('landlord_id', $landlordId)
-            ->whereMonth('expense_date', $now->month)
-            ->whereYear('expense_date', $now->year)
-            ->sum('amount');
+            $thisMonth = Expense::where('landlord_id', $landlordId)
+                ->whereMonth('expense_date', $now->month)
+                ->whereYear('expense_date', $now->year)
+                ->sum('amount');
 
-        $lastMonth = Expense::where('landlord_id', $landlordId)
-            ->whereMonth('expense_date', $now->copy()->subMonth()->month)
-            ->whereYear('expense_date', $now->copy()->subMonth()->year)
-            ->sum('amount');
+            $lastMonth = Expense::where('landlord_id', $landlordId)
+                ->whereMonth('expense_date', $now->copy()->subMonth()->month)
+                ->whereYear('expense_date', $now->copy()->subMonth()->year)
+                ->sum('amount');
 
-        $thisYear = Expense::where('landlord_id', $landlordId)
-            ->whereYear('expense_date', $now->year)
-            ->sum('amount');
+            $thisYear = Expense::where('landlord_id', $landlordId)
+                ->whereYear('expense_date', $now->year)
+                ->sum('amount');
 
-        $categoryBreakdown = Expense::where('landlord_id', $landlordId)
-            ->whereMonth('expense_date', $now->month)
-            ->whereYear('expense_date', $now->year)
-            ->with('category')
-            ->get()
-            ->groupBy('category_id')
-            ->map(fn ($group) => [
-                'name' => $group->first()->category?->name ?? 'Uncategorized',
-                'color' => $group->first()->category?->color ?? '#6B7280',
-                'amount' => $group->sum('amount'),
-            ])
-            ->values()
-            ->toArray();
+            $categoryBreakdown = Expense::where('landlord_id', $landlordId)
+                ->whereMonth('expense_date', $now->month)
+                ->whereYear('expense_date', $now->year)
+                ->with('category')
+                ->get()
+                ->groupBy('category_id')
+                ->map(fn ($group) => [
+                    'name' => $group->first()->category?->name ?? 'Uncategorized',
+                    'color' => $group->first()->category?->color ?? '#6B7280',
+                    'amount' => $group->sum('amount'),
+                ])
+                ->values()
+                ->toArray();
 
-        $monthTrend = $lastMonth > 0
-            ? round((($thisMonth - $lastMonth) / $lastMonth) * 100, 1)
-            : 0;
+            $monthTrend = $lastMonth > 0
+                ? round((($thisMonth - $lastMonth) / $lastMonth) * 100, 1)
+                : 0;
 
-        return [
-            'this_month' => round($thisMonth, 2),
-            'last_month' => round($lastMonth, 2),
-            'month_trend' => $monthTrend,
-            'this_year' => round($thisYear, 2),
-            'category_breakdown' => $categoryBreakdown,
-        ];
+            return [
+                'this_month' => round($thisMonth, 2),
+                'last_month' => round($lastMonth, 2),
+                'month_trend' => $monthTrend,
+                'this_year' => round($thisYear, 2),
+                'category_breakdown' => $categoryBreakdown,
+            ];
+        });
     }
 
     public function calculateCollectionRate(int $landlordId): float
+    {
+        return $this->calculateCollectionRateUncached($landlordId);
+    }
+
+    private function calculateCollectionRateUncached(int $landlordId): float
     {
         $now = now();
 
@@ -296,30 +315,32 @@ class FinanceStatsService
 
     public function getMonthlyTrend(int $landlordId, int $months = 6): array
     {
-        $trend = [];
+        return FinanceCacheService::rememberStats('trend', $landlordId, function () use ($landlordId, $months) {
+            $trend = [];
 
-        for ($i = $months - 1; $i >= 0; $i--) {
-            $date = now()->subMonths($i);
+            for ($i = $months - 1; $i >= 0; $i--) {
+                $date = now()->subMonths($i);
 
-            $collected = Payment::where('landlord_id', $landlordId)
-                ->whereMonth('payment_date', $date->month)
-                ->whereYear('payment_date', $date->year)
-                ->sum('amount');
+                $collected = Payment::where('landlord_id', $landlordId)
+                    ->whereMonth('payment_date', $date->month)
+                    ->whereYear('payment_date', $date->year)
+                    ->sum('amount');
 
-            $invoiced = Invoice::where('landlord_id', $landlordId)
-                ->whereMonth('created_at', $date->month)
-                ->whereYear('created_at', $date->year)
-                ->sum('total_due');
+                $invoiced = Invoice::where('landlord_id', $landlordId)
+                    ->whereMonth('created_at', $date->month)
+                    ->whereYear('created_at', $date->year)
+                    ->sum('total_due');
 
-            $trend[] = [
-                'month' => $date->format('M'),
-                'year' => $date->format('Y'),
-                'collected' => round($collected, 2),
-                'invoiced' => round($invoiced, 2),
-            ];
-        }
+                $trend[] = [
+                    'month' => $date->format('M'),
+                    'year' => $date->format('Y'),
+                    'collected' => round($collected, 2),
+                    'invoiced' => round($invoiced, 2),
+                ];
+            }
 
-        return $trend;
+            return $trend;
+        });
     }
 
     public function getCollectionStatus(int $landlordId): string
