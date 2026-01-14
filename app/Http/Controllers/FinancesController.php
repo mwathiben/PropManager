@@ -18,10 +18,12 @@ use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\PaymentConfiguration;
 use App\Models\Property;
-use App\Models\Refund;
-use App\Models\Setting;
 use App\Models\User;
 use App\Models\Vendor;
+use App\Services\FinanceFilterService;
+use App\Services\FinanceReportService;
+use App\Services\FinanceSettingsService;
+use App\Services\FinanceStatsService;
 use App\Services\LateFeeService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -35,12 +37,19 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class FinancesController extends Controller
 {
+    public function __construct(
+        protected FinanceStatsService $statsService,
+        protected FinanceReportService $reportService,
+        protected FinanceFilterService $filterService,
+        protected FinanceSettingsService $settingsService,
+    ) {}
+
     public function index(): Response
     {
         $landlordId = $this->getLandlordId();
 
         return Inertia::render('Finances/Hub', [
-            'stats' => $this->getHubStats($landlordId),
+            'stats' => $this->statsService->getHubStats($landlordId),
             'buildings' => $this->getBuildings($landlordId),
             'properties' => $this->getProperties($landlordId),
         ]);
@@ -51,11 +60,11 @@ class FinancesController extends Controller
         $landlordId = $this->getLandlordId();
 
         return $this->renderFinances('overview', [
-            'stats' => $this->getOverviewStats($landlordId),
-            'recentPayments' => $this->getRecentPayments($landlordId, 5),
-            'recentInvoices' => $this->getRecentInvoices($landlordId, 5),
-            'collectionStatus' => $this->getCollectionStatus($landlordId),
-            'monthlyTrend' => $this->getMonthlyTrend($landlordId, 6),
+            'stats' => $this->statsService->getOverviewStats($landlordId),
+            'recentPayments' => $this->statsService->getRecentPayments($landlordId, 5),
+            'recentInvoices' => $this->statsService->getRecentInvoices($landlordId, 5),
+            'collectionStatus' => $this->statsService->getCollectionStatus($landlordId),
+            'monthlyTrend' => $this->statsService->getMonthlyTrend($landlordId, 6),
         ]);
     }
 
@@ -64,9 +73,9 @@ class FinancesController extends Controller
         $landlordId = $this->getLandlordId();
 
         return $this->renderFinances('invoices', [
-            'invoices' => $this->getPaginatedInvoices($request, $landlordId),
+            'invoices' => $this->filterService->getPaginatedInvoices($request, $landlordId),
             'filters' => $request->only(['search', 'status', 'building_id', 'date_from', 'date_to']),
-            'statusOptions' => $this->getInvoiceStatusOptions(),
+            'statusOptions' => $this->filterService->getInvoiceStatusOptions(),
         ]);
     }
 
@@ -75,9 +84,9 @@ class FinancesController extends Controller
         $landlordId = $this->getLandlordId();
 
         return $this->renderFinances('payments', [
-            'payments' => $this->getPaginatedPayments($request, $landlordId),
+            'payments' => $this->filterService->getPaginatedPayments($request, $landlordId),
             'filters' => $request->only(['search', 'method', 'building_id', 'date_from', 'date_to']),
-            'paymentMethodOptions' => $this->getPaymentMethodOptions(),
+            'paymentMethodOptions' => $this->filterService->getPaymentMethodOptions(),
         ]);
     }
 
@@ -86,9 +95,9 @@ class FinancesController extends Controller
         $landlordId = $this->getLandlordId();
 
         return $this->renderFinances('refunds', [
-            'refunds' => $this->getPaginatedRefunds($request, $landlordId),
+            'refunds' => $this->filterService->getPaginatedRefunds($request, $landlordId),
             'filters' => $request->only(['search', 'status', 'date_from', 'date_to']),
-            'statusOptions' => $this->getRefundStatusOptions(),
+            'statusOptions' => $this->filterService->getRefundStatusOptions(),
         ]);
     }
 
@@ -97,8 +106,8 @@ class FinancesController extends Controller
         $landlordId = $this->getLandlordId();
 
         return $this->renderFinances('reconciliation', [
-            'unmatchedPayments' => $this->getUnmatchedPayments($landlordId),
-            'pendingReconciliation' => $this->getPendingReconciliationCount($landlordId),
+            'unmatchedPayments' => $this->filterService->getUnmatchedPayments($landlordId),
+            'pendingReconciliation' => $this->statsService->getPendingReconciliationCount($landlordId),
         ]);
     }
 
@@ -107,9 +116,9 @@ class FinancesController extends Controller
         $landlordId = $this->getLandlordId();
 
         return $this->renderFinances('deposits', [
-            'deposits' => $this->getPaginatedDeposits($request, $landlordId),
+            'deposits' => $this->filterService->getPaginatedDeposits($request, $landlordId),
             'filters' => $request->only(['search', 'status', 'building_id']),
-            'stats' => $this->getDepositStats($landlordId),
+            'stats' => $this->statsService->getDepositStats($landlordId),
         ]);
     }
 
@@ -118,9 +127,9 @@ class FinancesController extends Controller
         $landlordId = $this->getLandlordId();
 
         return $this->renderFinances('arrears', [
-            'arrears' => $this->getArrearsData($request, $landlordId),
+            'arrears' => $this->filterService->getArrearsData($request, $landlordId),
             'filters' => $request->only(['search', 'building_id', 'min_days', 'max_amount']),
-            'stats' => $this->getArrearsStats($landlordId),
+            'stats' => $this->statsService->getArrearsStats($landlordId),
         ]);
     }
 
@@ -129,12 +138,12 @@ class FinancesController extends Controller
         $landlordId = $this->getLandlordId();
 
         return $this->renderFinances('settings', [
-            'paymentConfig' => $this->getPaymentConfig($landlordId),
+            'paymentConfig' => $this->settingsService->getPaymentConfig($landlordId),
             'paymentMethods' => PaymentConfiguration::PAYMENT_METHODS,
-            'invoiceSettings' => $this->getInvoiceSettings($landlordId),
-            'reminderSettings' => $this->getReminderSettings($landlordId),
-            'receiptSettings' => $this->getReceiptSettings($landlordId),
-            'fiscalYearSettings' => $this->getFiscalYearSettings($landlordId),
+            'invoiceSettings' => $this->settingsService->getInvoiceSettings($landlordId),
+            'reminderSettings' => $this->settingsService->getReminderSettings($landlordId),
+            'receiptSettings' => $this->settingsService->getReceiptSettings($landlordId),
+            'fiscalYearSettings' => $this->settingsService->getFiscalYearSettings($landlordId),
         ]);
     }
 
@@ -149,33 +158,33 @@ class FinancesController extends Controller
         $dateTo = $request->query('date_to');
         $compare = $request->boolean('compare', false);
 
-        $dateRange = $this->getReportDateRange($period, $dateFrom, $dateTo);
+        $dateRange = $this->reportService->getReportDateRange($period, $dateFrom, $dateTo, $landlordId);
 
         $hasWaterAccess = $user->isLandlord()
             ? $user->canAccessFeature('water_billing')
             : $user->landlord?->canAccessFeature('water_billing') ?? false;
 
         $currentData = [
-            'revenueData' => $this->getRevenueReportFiltered($landlordId, $dateRange, $buildingId),
-            'collectionRate' => $this->getCollectionRateReportFiltered($landlordId, $dateRange, $buildingId),
-            'occupancyData' => $this->getOccupancyReportFiltered($landlordId, $buildingId),
-            'arrearsAging' => $this->getArrearsAgingReportFiltered($landlordId, $buildingId),
-            'expensesByCategory' => $this->getExpensesByCategoryReportFiltered($landlordId, $dateRange, $buildingId),
+            'revenueData' => $this->reportService->getRevenueReportFiltered($landlordId, $dateRange, $buildingId),
+            'collectionRate' => $this->reportService->getCollectionRateReportFiltered($landlordId, $dateRange, $buildingId),
+            'occupancyData' => $this->reportService->getOccupancyReport($landlordId, $buildingId),
+            'arrearsAging' => $this->reportService->getArrearsAgingReport($landlordId, $buildingId),
+            'expensesByCategory' => $this->reportService->getExpensesByCategoryReportFiltered($landlordId, $dateRange, $buildingId),
             'waterConsumption' => $hasWaterAccess
-                ? $this->getWaterConsumptionReportFiltered($landlordId, $dateRange, $buildingId)
+                ? $this->reportService->getWaterConsumptionReportFiltered($landlordId, $dateRange, $buildingId)
                 : null,
-            'topPerformingUnits' => $this->getTopPerformingUnitsReportFiltered($landlordId, $dateRange, $buildingId),
+            'topPerformingUnits' => $this->reportService->getTopPerformingUnitsReportFiltered($landlordId, $dateRange, $buildingId),
         ];
 
         $previousPeriodData = null;
         if ($compare) {
-            $previousDateRange = $this->getPreviousPeriodDateRange($dateRange);
+            $previousDateRange = $this->reportService->getPreviousPeriodDateRange($dateRange);
             $previousPeriodData = [
-                'totals' => $this->getReportTotals($landlordId, $previousDateRange, $buildingId),
+                'totals' => $this->reportService->getReportTotals($landlordId, $previousDateRange, $buildingId),
             ];
         }
 
-        $currentTotals = $this->getReportTotals($landlordId, $dateRange, $buildingId);
+        $currentTotals = $this->reportService->getReportTotals($landlordId, $dateRange, $buildingId);
 
         return $this->renderFinances('reports', array_merge($currentData, [
             'totals' => $currentTotals,
@@ -198,13 +207,13 @@ class FinancesController extends Controller
         $format = $request->query('format', 'xlsx');
 
         $data = [
-            'revenue' => $this->getRevenueReport($landlordId, $period),
-            'collection_rate' => $this->getCollectionRateReport($landlordId, $period),
-            'occupancy' => $this->getOccupancyReport($landlordId),
-            'arrears_aging' => $this->getArrearsAgingReport($landlordId),
-            'expenses_by_category' => $this->getExpensesByCategoryReport($landlordId, $period),
-            'water_consumption' => $this->getWaterConsumptionReport($landlordId, $period),
-            'top_performing_units' => $this->getTopPerformingUnitsReport($landlordId, $period),
+            'revenue' => $this->reportService->getRevenueReport($landlordId, $period),
+            'collection_rate' => $this->reportService->getCollectionRateReport($landlordId, $period),
+            'occupancy' => $this->reportService->getOccupancyReport($landlordId),
+            'arrears_aging' => $this->reportService->getArrearsAgingReport($landlordId),
+            'expenses_by_category' => $this->reportService->getExpensesByCategoryReport($landlordId, $period),
+            'water_consumption' => $this->reportService->getWaterConsumptionReport($landlordId, $period),
+            'top_performing_units' => $this->reportService->getTopPerformingUnitsReport($landlordId, $period),
         ];
 
         $filename = 'financial_report_'.now()->format('Y-m-d');
@@ -228,51 +237,6 @@ class FinancesController extends Controller
             new \App\Exports\FinanceReportExport($data, $period),
             $filename.'.xlsx'
         );
-    }
-
-    private function exportReportsCsv(array $data, string $filename): \Illuminate\Http\Response
-    {
-        $output = fopen('php://temp', 'r+');
-
-        fputcsv($output, ['PropManager Financial Report']);
-        fputcsv($output, ['Generated: '.now()->format('F j, Y g:i A')]);
-        fputcsv($output, []);
-
-        fputcsv($output, ['Revenue Summary']);
-        fputcsv($output, ['Month', 'Invoiced', 'Collected', 'Expenses', 'Net']);
-        foreach ($data['revenue'] as $row) {
-            fputcsv($output, [$row['month'], $row['invoiced'], $row['collected'], $row['expenses'], $row['net']]);
-        }
-        fputcsv($output, []);
-
-        fputcsv($output, ['Occupancy by Building']);
-        fputcsv($output, ['Building', 'Total Units', 'Occupied', 'Vacant', 'Rate %']);
-        foreach ($data['occupancy']['buildings'] as $row) {
-            fputcsv($output, [$row['building'], $row['total_units'], $row['occupied'], $row['vacant'], $row['occupancy_rate']]);
-        }
-        fputcsv($output, []);
-
-        fputcsv($output, ['Water Consumption - Top Consumers']);
-        fputcsv($output, ['Unit', 'Building', 'Consumption', 'Cost']);
-        foreach ($data['water_consumption']['top_consumers'] as $row) {
-            fputcsv($output, [$row['unit'], $row['building'], $row['consumption'], $row['cost']]);
-        }
-        fputcsv($output, []);
-
-        fputcsv($output, ['Top Performing Units']);
-        fputcsv($output, ['Unit', 'Tenant', 'Collection Rate %', 'On-Time', 'Total Invoices']);
-        foreach ($data['top_performing_units'] as $row) {
-            fputcsv($output, [$row['unit'], $row['tenant'], $row['collection_rate'], $row['on_time_payments'], $row['total_invoices']]);
-        }
-
-        rewind($output);
-        $csv = stream_get_contents($output);
-        fclose($output);
-
-        return response($csv, 200, [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'.csv"',
-        ]);
     }
 
     public function invoiceDetail(Invoice $invoice): JsonResponse
@@ -380,685 +344,6 @@ class FinancesController extends Controller
         ]);
     }
 
-    private function renderFinances(string $tab, array $additionalProps = []): Response
-    {
-        $landlordId = $this->getLandlordId();
-
-        $baseProps = [
-            'activeTab' => $tab,
-            'activeGroup' => $this->getActiveGroup($tab),
-            'buildings' => $this->getBuildings($landlordId),
-            'tabs' => $this->getTabsConfig(),
-        ];
-
-        return Inertia::render('Finances/Index', array_merge($baseProps, $additionalProps));
-    }
-
-    private function getLandlordId(): int
-    {
-        $user = auth()->user();
-
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
-            abort(403, 'Access denied.');
-        }
-
-        return $user->isCaretaker() ? $user->landlord_id : $user->id;
-    }
-
-    private function getTabsConfig(): array
-    {
-        return [
-            ['id' => 'overview', 'name' => 'Overview', 'route' => 'finances.overview'],
-            [
-                'id' => 'billing',
-                'name' => 'Billing',
-                'route' => 'finances.invoices',
-                'subtabs' => [
-                    ['id' => 'invoices', 'name' => 'Invoices', 'route' => 'finances.invoices'],
-                    ['id' => 'payments', 'name' => 'Payments', 'route' => 'finances.payments'],
-                ],
-            ],
-            ['id' => 'expenses', 'name' => 'Expenses', 'route' => 'finances.expenses'],
-            [
-                'id' => 'collections',
-                'name' => 'Collections',
-                'route' => 'finances.arrears',
-                'subtabs' => [
-                    ['id' => 'arrears', 'name' => 'Arrears', 'route' => 'finances.arrears'],
-                    ['id' => 'late-fees', 'name' => 'Late Fees', 'route' => 'finances.late-fees'],
-                    ['id' => 'deposits', 'name' => 'Deposits', 'route' => 'finances.deposits'],
-                    ['id' => 'refunds', 'name' => 'Refunds', 'route' => 'finances.refunds'],
-                ],
-            ],
-            ['id' => 'reconciliation', 'name' => 'Reconciliation', 'route' => 'finances.reconciliation'],
-            ['id' => 'reports', 'name' => 'Reports', 'route' => 'finances.reports'],
-            ['id' => 'settings', 'name' => 'Settings', 'route' => 'finances.settings'],
-        ];
-    }
-
-    private function getActiveGroup(string $tab): ?string
-    {
-        $groupMap = [
-            'invoices' => 'billing',
-            'payments' => 'billing',
-            'arrears' => 'collections',
-            'late-fees' => 'collections',
-            'deposits' => 'collections',
-            'refunds' => 'collections',
-        ];
-
-        return $groupMap[$tab] ?? null;
-    }
-
-    private function getBuildings(int $landlordId): array
-    {
-        return Building::where('landlord_id', $landlordId)
-            ->select('id', 'name')
-            ->orderBy('name')
-            ->get()
-            ->toArray();
-    }
-
-    private function getOverviewStats(int $landlordId): array
-    {
-        $now = now();
-
-        $thisMonth = Payment::where('landlord_id', $landlordId)
-            ->whereMonth('payment_date', $now->month)
-            ->whereYear('payment_date', $now->year)
-            ->sum('amount');
-
-        $lastMonth = Payment::where('landlord_id', $landlordId)
-            ->whereMonth('payment_date', $now->copy()->subMonth()->month)
-            ->whereYear('payment_date', $now->copy()->subMonth()->year)
-            ->sum('amount');
-
-        $pendingAmount = Invoice::where('landlord_id', $landlordId)
-            ->whereIn('status', ['sent', 'partial', 'overdue'])
-            ->selectRaw('COALESCE(SUM(total_due - amount_paid), 0) as pending')
-            ->value('pending') ?? 0;
-
-        $overdueCount = Invoice::where('landlord_id', $landlordId)
-            ->where('status', 'overdue')
-            ->count();
-
-        $collectionRate = $this->calculateCollectionRate($landlordId);
-
-        $monthTrend = $lastMonth > 0
-            ? round((($thisMonth - $lastMonth) / $lastMonth) * 100, 1)
-            : 0;
-
-        return [
-            'this_month' => round($thisMonth, 2),
-            'last_month' => round($lastMonth, 2),
-            'month_trend' => $monthTrend,
-            'pending_amount' => round($pendingAmount, 2),
-            'overdue_count' => $overdueCount,
-            'collection_rate' => $collectionRate,
-        ];
-    }
-
-    private function getHubStats(int $landlordId): array
-    {
-        $overviewStats = $this->getOverviewStats($landlordId);
-        $arrearsStats = $this->getArrearsStats($landlordId);
-        $now = now();
-
-        return [
-            // Hero KPIs
-            'revenue_mtd' => $overviewStats['this_month'],
-            'outstanding_balance' => $overviewStats['pending_amount'],
-            'collection_rate' => $overviewStats['collection_rate'],
-            'active_leases' => Lease::where('landlord_id', $landlordId)->where('is_active', true)->count(),
-            'month_trend' => $overviewStats['month_trend'],
-
-            // Money In section
-            'invoices_count' => Invoice::where('landlord_id', $landlordId)->count(),
-            'invoices_pending' => Invoice::where('landlord_id', $landlordId)
-                ->whereIn('status', ['sent', 'partial', 'overdue'])->count(),
-            'payments_this_month' => Payment::where('landlord_id', $landlordId)
-                ->whereMonth('payment_date', $now->month)
-                ->whereYear('payment_date', $now->year)->count(),
-            'deposits_held' => Lease::where('landlord_id', $landlordId)
-                ->where('is_active', true)->sum('deposit_amount'),
-
-            // Money Out section
-            'expenses_this_month' => Expense::where('landlord_id', $landlordId)
-                ->whereMonth('expense_date', $now->month)
-                ->whereYear('expense_date', $now->year)->sum('amount'),
-            'expenses_count' => Expense::where('landlord_id', $landlordId)
-                ->whereMonth('expense_date', $now->month)
-                ->whereYear('expense_date', $now->year)->count(),
-            'refunds_pending' => Refund::where('landlord_id', $landlordId)
-                ->where('status', 'pending')->count(),
-
-            // Collections section
-            'total_arrears' => $arrearsStats['total_arrears'],
-            'tenants_in_arrears' => $arrearsStats['tenants_in_arrears'],
-            'unreconciled_count' => $this->getPendingReconciliationCount($landlordId),
-        ];
-    }
-
-    private function calculateCollectionRate(int $landlordId): float
-    {
-        $now = now();
-
-        $invoiced = Invoice::where('landlord_id', $landlordId)
-            ->whereMonth('created_at', $now->month)
-            ->whereYear('created_at', $now->year)
-            ->sum('total_due');
-
-        if ($invoiced <= 0) {
-            return 0;
-        }
-
-        $collected = Invoice::where('landlord_id', $landlordId)
-            ->whereMonth('created_at', $now->month)
-            ->whereYear('created_at', $now->year)
-            ->sum('amount_paid');
-
-        return round(($collected / $invoiced) * 100, 1);
-    }
-
-    private function getRecentPayments(int $landlordId, int $limit = 5): array
-    {
-        return Payment::where('landlord_id', $landlordId)
-            ->with([
-                'lease.tenant:id,name',
-                'lease.unit:id,unit_number,building_id',
-                'lease.unit.building:id,name',
-            ])
-            ->orderBy('payment_date', 'desc')
-            ->limit($limit)
-            ->get()
-            ->map(fn ($p) => [
-                'id' => $p->id,
-                'amount' => $p->amount,
-                'payment_method' => $p->payment_method,
-                'payment_date' => $p->payment_date->format('Y-m-d'),
-                'tenant_name' => $p->lease?->tenant?->name ?? 'Unknown',
-                'unit' => $p->lease?->unit?->unit_number ?? 'N/A',
-                'building' => $p->lease?->unit?->building?->name ?? 'N/A',
-                'reference' => $p->reference,
-            ])
-            ->toArray();
-    }
-
-    private function getRecentInvoices(int $landlordId, int $limit = 5): array
-    {
-        return Invoice::where('landlord_id', $landlordId)
-            ->with([
-                'lease.tenant:id,name',
-                'lease.unit:id,unit_number,building_id',
-                'lease.unit.building:id,name',
-            ])
-            ->orderBy('created_at', 'desc')
-            ->limit($limit)
-            ->get()
-            ->map(fn ($i) => [
-                'id' => $i->id,
-                'invoice_number' => $i->invoice_number,
-                'status' => $i->status,
-                'total_due' => $i->total_due,
-                'amount_paid' => $i->amount_paid,
-                'due_date' => $i->due_date?->format('Y-m-d'),
-                'tenant_name' => $i->lease?->tenant?->name ?? 'Unknown',
-                'unit' => $i->lease?->unit?->unit_number ?? 'N/A',
-                'building' => $i->lease?->unit?->building?->name ?? 'N/A',
-            ])
-            ->toArray();
-    }
-
-    private function getCollectionStatus(int $landlordId): string
-    {
-        $rate = $this->calculateCollectionRate($landlordId);
-
-        if ($rate >= 90) {
-            return 'excellent';
-        }
-        if ($rate >= 75) {
-            return 'good';
-        }
-        if ($rate >= 50) {
-            return 'needs_attention';
-        }
-
-        return 'critical';
-    }
-
-    private function getMonthlyTrend(int $landlordId, int $months = 6): array
-    {
-        $trend = [];
-
-        for ($i = $months - 1; $i >= 0; $i--) {
-            $date = now()->subMonths($i);
-
-            $collected = Payment::where('landlord_id', $landlordId)
-                ->whereMonth('payment_date', $date->month)
-                ->whereYear('payment_date', $date->year)
-                ->sum('amount');
-
-            $invoiced = Invoice::where('landlord_id', $landlordId)
-                ->whereMonth('created_at', $date->month)
-                ->whereYear('created_at', $date->year)
-                ->sum('total_due');
-
-            $trend[] = [
-                'month' => $date->format('M'),
-                'year' => $date->format('Y'),
-                'collected' => round($collected, 2),
-                'invoiced' => round($invoiced, 2),
-            ];
-        }
-
-        return $trend;
-    }
-
-    private function getPaginatedInvoices(Request $request, int $landlordId)
-    {
-        $query = Invoice::where('landlord_id', $landlordId)
-            ->with([
-                'lease.tenant:id,name,email',
-                'lease.unit:id,unit_number,building_id',
-                'lease.unit.building:id,name',
-            ]);
-
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('invoice_number', 'like', "%{$search}%")
-                    ->orWhereHas('lease.tenant', fn ($q) => $q->where('name', 'like', "%{$search}%"));
-            });
-        }
-
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-
-        if ($request->filled('building_id')) {
-            $query->whereHas('lease.unit', fn ($q) => $q->where('building_id', $request->building_id));
-        }
-
-        if ($request->filled('date_from')) {
-            $query->whereDate('created_at', '>=', $request->date_from);
-        }
-
-        if ($request->filled('date_to')) {
-            $query->whereDate('created_at', '<=', $request->date_to);
-        }
-
-        return $query->orderBy('created_at', 'desc')
-            ->paginate(20)
-            ->withQueryString();
-    }
-
-    private function getPaginatedPayments(Request $request, int $landlordId)
-    {
-        $query = Payment::where('landlord_id', $landlordId)
-            ->with([
-                'invoice:id,invoice_number,total_due',
-                'lease.tenant:id,name,email',
-                'lease.unit:id,unit_number,building_id',
-                'lease.unit.building:id,name',
-            ]);
-
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('reference', 'like', "%{$search}%")
-                    ->orWhereHas('invoice', fn ($q) => $q->where('invoice_number', 'like', "%{$search}%"))
-                    ->orWhereHas('lease.tenant', fn ($q) => $q->where('name', 'like', "%{$search}%"));
-            });
-        }
-
-        if ($request->filled('method')) {
-            $query->where('payment_method', $request->method);
-        }
-
-        if ($request->filled('building_id')) {
-            $query->whereHas('lease.unit', fn ($q) => $q->where('building_id', $request->building_id));
-        }
-
-        if ($request->filled('date_from')) {
-            $query->whereDate('payment_date', '>=', $request->date_from);
-        }
-
-        if ($request->filled('date_to')) {
-            $query->whereDate('payment_date', '<=', $request->date_to);
-        }
-
-        return $query->orderBy('payment_date', 'desc')
-            ->paginate(20)
-            ->withQueryString();
-    }
-
-    private function getPaginatedRefunds(Request $request, int $landlordId)
-    {
-        $query = Refund::where('landlord_id', $landlordId)
-            ->with([
-                'payment:id,amount,payment_method,reference',
-                'payment.lease.tenant:id,name',
-                'payment.lease.unit:id,unit_number,building_id',
-                'payment.lease.unit.building:id,name',
-            ]);
-
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('reason', 'like', "%{$search}%")
-                    ->orWhereHas('payment', fn ($q) => $q->where('reference', 'like', "%{$search}%"));
-            });
-        }
-
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-
-        if ($request->filled('date_from')) {
-            $query->whereDate('created_at', '>=', $request->date_from);
-        }
-
-        if ($request->filled('date_to')) {
-            $query->whereDate('created_at', '<=', $request->date_to);
-        }
-
-        return $query->orderBy('created_at', 'desc')
-            ->paginate(20)
-            ->withQueryString();
-    }
-
-    private function getUnmatchedPayments(int $landlordId): array
-    {
-        return Payment::where('landlord_id', $landlordId)
-            ->whereNull('invoice_id')
-            ->with(['lease.tenant:id,name', 'lease.unit:id,unit_number'])
-            ->orderBy('payment_date', 'desc')
-            ->limit(20)
-            ->get()
-            ->map(fn ($p) => [
-                'id' => $p->id,
-                'amount' => $p->amount,
-                'payment_method' => $p->payment_method,
-                'payment_date' => $p->payment_date->format('Y-m-d'),
-                'reference' => $p->reference,
-                'tenant_name' => $p->lease?->tenant?->name ?? 'Unknown',
-                'unit' => $p->lease?->unit?->unit_number ?? 'N/A',
-            ])
-            ->toArray();
-    }
-
-    private function getPendingReconciliationCount(int $landlordId): int
-    {
-        return Payment::where('landlord_id', $landlordId)
-            ->whereNull('invoice_id')
-            ->count();
-    }
-
-    private function getPaginatedDeposits(Request $request, int $landlordId)
-    {
-        $query = Lease::where('landlord_id', $landlordId)
-            ->where('deposit_amount', '>', 0)
-            ->with([
-                'tenant:id,name,email',
-                'unit:id,unit_number,building_id',
-                'unit.building:id,name',
-                'depositTransactions' => fn ($q) => $q->orderBy('created_at', 'desc')->limit(10),
-                'depositTransactions.processedBy:id,name',
-            ]);
-
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->whereHas('tenant', fn ($q) => $q->where('name', 'like', "%{$search}%"))
-                    ->orWhereHas('unit', fn ($q) => $q->where('unit_number', 'like', "%{$search}%"));
-            });
-        }
-
-        if ($request->filled('status')) {
-            $query->where('deposit_status', $request->status);
-        }
-
-        if ($request->filled('building_id')) {
-            $query->whereHas('unit', fn ($q) => $q->where('building_id', $request->building_id));
-        }
-
-        return $query->orderBy('created_at', 'desc')
-            ->paginate(20)
-            ->through(fn ($lease) => [
-                'id' => $lease->id,
-                'amount' => $lease->deposit_amount,
-                'status' => $lease->deposit_status,
-                'refund_amount' => $lease->deposit_refund_amount,
-                'deductions' => $lease->deposit_deductions,
-                'deduction_reason' => $lease->deposit_deduction_reason,
-                'processed_at' => $lease->deposit_processed_at?->format('Y-m-d'),
-                'tenant_name' => $lease->tenant?->name,
-                'tenant_email' => $lease->tenant?->email,
-                'unit_number' => $lease->unit?->unit_number,
-                'building_name' => $lease->unit?->building?->name,
-                'start_date' => $lease->start_date?->format('Y-m-d'),
-                'end_date' => $lease->end_date?->format('Y-m-d'),
-                'is_active' => $lease->is_active,
-                'lease' => [
-                    'id' => $lease->id,
-                    'tenant' => $lease->tenant ? [
-                        'id' => $lease->tenant->id,
-                        'name' => $lease->tenant->name,
-                    ] : null,
-                    'unit' => $lease->unit ? [
-                        'id' => $lease->unit->id,
-                        'unit_number' => $lease->unit->unit_number,
-                        'building' => $lease->unit->building?->name,
-                    ] : null,
-                ],
-                'transactions' => $lease->depositTransactions->map(fn ($t) => [
-                    'id' => $t->id,
-                    'type' => $t->type,
-                    'type_label' => $t->getTypeLabel(),
-                    'amount' => $t->amount,
-                    'balance_after' => $t->balance_after,
-                    'reason' => $t->reason,
-                    'payment_method' => $t->payment_method,
-                    'reference' => $t->reference,
-                    'processed_by' => $t->processedBy?->name,
-                    'created_at' => $t->created_at->format('Y-m-d H:i'),
-                ]),
-            ])
-            ->withQueryString();
-    }
-
-    private function getDepositStats(int $landlordId): array
-    {
-        $deposits = Lease::where('landlord_id', $landlordId)
-            ->where('deposit_amount', '>', 0)
-            ->selectRaw("
-                SUM(deposit_amount) as total,
-                SUM(CASE WHEN deposit_status = 'held' THEN deposit_amount ELSE 0 END) as held,
-                SUM(CASE WHEN deposit_status IN ('refunded', 'partial_refund') THEN COALESCE(deposit_refund_amount, 0) ELSE 0 END) as refunded,
-                SUM(CASE WHEN deposit_status = 'forfeited' THEN deposit_amount ELSE 0 END) as forfeited
-            ")
-            ->first();
-
-        return [
-            'total' => round($deposits->total ?? 0, 2),
-            'held' => round($deposits->held ?? 0, 2),
-            'refunded' => round($deposits->refunded ?? 0, 2),
-            'forfeited' => round($deposits->forfeited ?? 0, 2),
-        ];
-    }
-
-    private function getArrearsData(Request $request, int $landlordId): array
-    {
-        $query = Invoice::where('landlord_id', $landlordId)
-            ->where('status', 'overdue')
-            ->with([
-                'lease.tenant:id,name,email,mobile_number',
-                'lease.unit:id,unit_number,building_id',
-                'lease.unit.building:id,name',
-            ]);
-
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('invoice_number', 'like', "%{$search}%")
-                    ->orWhereHas('lease.tenant', fn ($q) => $q->where('name', 'like', "%{$search}%"));
-            });
-        }
-
-        if ($request->filled('building_id')) {
-            $query->whereHas('lease.unit', fn ($q) => $q->where('building_id', $request->building_id));
-        }
-
-        return $query->orderBy('due_date', 'asc')
-            ->get()
-            ->map(fn ($i) => [
-                'id' => $i->id,
-                'invoice_number' => $i->invoice_number,
-                'total_due' => $i->total_due,
-                'amount_paid' => $i->amount_paid,
-                'balance' => $i->total_due - $i->amount_paid,
-                'due_date' => $i->due_date?->format('Y-m-d'),
-                'days_overdue' => $i->due_date ? now()->diffInDays($i->due_date, false) * -1 : 0,
-                'tenant' => $i->lease?->tenant ? [
-                    'id' => $i->lease->tenant->id,
-                    'name' => $i->lease->tenant->name,
-                    'email' => $i->lease->tenant->email,
-                    'phone' => $i->lease->tenant->mobile_number,
-                ] : null,
-                'unit' => $i->lease?->unit?->unit_number ?? 'N/A',
-                'building' => $i->lease?->unit?->building?->name ?? 'N/A',
-            ])
-            ->toArray();
-    }
-
-    private function getArrearsStats(int $landlordId): array
-    {
-        $overdueInvoices = Invoice::where('landlord_id', $landlordId)
-            ->where('status', 'overdue')
-            ->get();
-
-        $totalArrears = $overdueInvoices->sum(fn ($i) => $i->total_due - $i->amount_paid);
-        $tenantsInArrears = $overdueInvoices->pluck('lease_id')->unique()->count();
-
-        $ageGroups = [
-            '0_30' => 0,
-            '31_60' => 0,
-            '61_90' => 0,
-            '90_plus' => 0,
-        ];
-
-        foreach ($overdueInvoices as $invoice) {
-            if (! $invoice->due_date) {
-                continue;
-            }
-            $daysOverdue = now()->diffInDays($invoice->due_date, false) * -1;
-            $balance = $invoice->total_due - $invoice->amount_paid;
-
-            if ($daysOverdue <= 30) {
-                $ageGroups['0_30'] += $balance;
-            } elseif ($daysOverdue <= 60) {
-                $ageGroups['31_60'] += $balance;
-            } elseif ($daysOverdue <= 90) {
-                $ageGroups['61_90'] += $balance;
-            } else {
-                $ageGroups['90_plus'] += $balance;
-            }
-        }
-
-        return [
-            'total_arrears' => round($totalArrears, 2),
-            'tenants_in_arrears' => $tenantsInArrears,
-            'overdue_count' => $overdueInvoices->count(),
-            'age_groups' => array_map(fn ($v) => round($v, 2), $ageGroups),
-        ];
-    }
-
-    private function getInvoiceStatusOptions(): array
-    {
-        return [
-            ['value' => 'draft', 'label' => 'Draft'],
-            ['value' => 'sent', 'label' => 'Sent'],
-            ['value' => 'partial', 'label' => 'Partial'],
-            ['value' => 'paid', 'label' => 'Paid'],
-            ['value' => 'overdue', 'label' => 'Overdue'],
-        ];
-    }
-
-    private function getPaymentMethodOptions(): array
-    {
-        return [
-            ['value' => 'cash', 'label' => 'Cash'],
-            ['value' => 'bank_transfer', 'label' => 'Bank Transfer'],
-            ['value' => 'mobile_money', 'label' => 'Mobile Money'],
-            ['value' => 'mpesa', 'label' => 'M-Pesa'],
-            ['value' => 'paystack', 'label' => 'Paystack'],
-            ['value' => 'stripe', 'label' => 'Card'],
-        ];
-    }
-
-    private function getRefundStatusOptions(): array
-    {
-        return [
-            ['value' => 'pending', 'label' => 'Pending'],
-            ['value' => 'approved', 'label' => 'Approved'],
-            ['value' => 'processing', 'label' => 'Processing'],
-            ['value' => 'completed', 'label' => 'Completed'],
-            ['value' => 'failed', 'label' => 'Failed'],
-            ['value' => 'cancelled', 'label' => 'Cancelled'],
-        ];
-    }
-
-    private function getPaymentConfig(int $landlordId): ?array
-    {
-        $config = PaymentConfiguration::where('landlord_id', $landlordId)->first();
-
-        if (! $config) {
-            return null;
-        }
-
-        return [
-            'accepted_payment_methods' => $config->accepted_payment_methods ?? [],
-            'bank_name' => $config->bank_name,
-            'bank_account_name' => $config->bank_account_name,
-            'bank_account_number' => $config->bank_account_number,
-            'bank_branch' => $config->bank_branch,
-            'mpesa_shortcode_type' => $config->mpesa_shortcode_type ?? 'paybill',
-            'mpesa_shortcode' => $config->mpesa_shortcode,
-            'mpesa_account_name' => $config->mpesa_account_name,
-            'has_mpesa_passkey' => ! empty($config->mpesa_passkey),
-            'paystack_enabled' => $config->paystack_enabled,
-        ];
-    }
-
-    private function getInvoiceSettings(int $landlordId): array
-    {
-        return [
-            'include_water_charges' => filter_var(
-                Setting::get('invoice_include_water_charges', 'true', $landlordId),
-                FILTER_VALIDATE_BOOLEAN
-            ),
-            'include_arrears' => filter_var(
-                Setting::get('invoice_include_arrears', 'true', $landlordId),
-                FILTER_VALIDATE_BOOLEAN
-            ),
-            'auto_generate_monthly' => filter_var(
-                Setting::get('invoice_auto_generate_monthly', 'false', $landlordId),
-                FILTER_VALIDATE_BOOLEAN
-            ),
-        ];
-    }
-
-    private function getReminderSettings(int $landlordId): array
-    {
-        $channels = Setting::get('reminder_channels', null, $landlordId);
-
-        return [
-            'reminder_days_before_due' => (int) Setting::get('reminder_days_before_due', '3', $landlordId),
-            'overdue_reminder_frequency' => Setting::get('overdue_reminder_frequency', 'weekly', $landlordId),
-            'reminder_channels' => $channels ? json_decode($channels, true) : ['email'],
-        ];
-    }
-
     public function updatePaymentMethods(Request $request): RedirectResponse
     {
         $request->validate([
@@ -1074,27 +359,7 @@ class FinancesController extends Controller
             'mpesa_passkey' => 'nullable|string|max:255',
         ]);
 
-        $landlordId = $this->getLandlordId();
-
-        $data = [
-            'accepted_payment_methods' => $request->accepted_payment_methods,
-            'bank_name' => $request->bank_name,
-            'bank_account_name' => $request->bank_account_name,
-            'bank_account_number' => $request->bank_account_number,
-            'bank_branch' => $request->bank_branch,
-            'mpesa_shortcode_type' => $request->mpesa_shortcode_type ?? 'paybill',
-            'mpesa_shortcode' => $request->mpesa_shortcode,
-            'mpesa_account_name' => $request->mpesa_account_name,
-        ];
-
-        if ($request->filled('mpesa_passkey')) {
-            $data['mpesa_passkey'] = $request->mpesa_passkey;
-        }
-
-        PaymentConfiguration::updateOrCreate(
-            ['landlord_id' => $landlordId],
-            $data
-        );
+        $this->settingsService->updatePaymentMethods($this->getLandlordId(), $request);
 
         return back()->with('success', 'Payment methods saved successfully.');
     }
@@ -1107,11 +372,7 @@ class FinancesController extends Controller
             'auto_generate_monthly' => 'required|boolean',
         ]);
 
-        $landlordId = $this->getLandlordId();
-
-        Setting::set('invoice_include_water_charges', $request->include_water_charges ? 'true' : 'false', false, 'invoice', null, $landlordId);
-        Setting::set('invoice_include_arrears', $request->include_arrears ? 'true' : 'false', false, 'invoice', null, $landlordId);
-        Setting::set('invoice_auto_generate_monthly', $request->auto_generate_monthly ? 'true' : 'false', false, 'invoice', null, $landlordId);
+        $this->settingsService->updateInvoiceSettings($this->getLandlordId(), $request);
 
         return back()->with('success', 'Invoice settings saved successfully.');
     }
@@ -1125,11 +386,7 @@ class FinancesController extends Controller
             'reminder_channels.*' => 'string|in:email,sms,push',
         ]);
 
-        $landlordId = $this->getLandlordId();
-
-        Setting::set('reminder_days_before_due', (string) $request->reminder_days_before_due, false, 'notification', null, $landlordId);
-        Setting::set('overdue_reminder_frequency', $request->overdue_reminder_frequency, false, 'notification', null, $landlordId);
-        Setting::set('reminder_channels', json_encode($request->reminder_channels), false, 'notification', null, $landlordId);
+        $this->settingsService->updateReminderSettings($this->getLandlordId(), $request);
 
         return back()->with('success', 'Reminder settings saved successfully.');
     }
@@ -1147,22 +404,21 @@ class FinancesController extends Controller
             'receipt_thank_you_message' => 'nullable|string|max:500',
         ]);
 
-        $landlordId = $this->getLandlordId();
-        $user = User::find($landlordId);
-        $settings = $user->getOrCreateInvoiceSetting();
-
-        $settings->update([
-            'auto_email_receipt' => $request->boolean('auto_email_receipt'),
-            'receipt_show_logo' => $request->boolean('receipt_show_logo'),
-            'receipt_show_tenant_details' => $request->boolean('receipt_show_tenant_details'),
-            'receipt_show_invoice_details' => $request->boolean('receipt_show_invoice_details'),
-            'receipt_show_payment_method' => $request->boolean('receipt_show_payment_method'),
-            'receipt_header_text' => $request->receipt_header_text,
-            'receipt_footer_text' => $request->receipt_footer_text,
-            'receipt_thank_you_message' => $request->receipt_thank_you_message,
-        ]);
+        $this->settingsService->updateReceiptSettings($this->getLandlordId(), $request);
 
         return back()->with('success', 'Receipt settings saved successfully.');
+    }
+
+    public function updateFiscalYearSettings(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'fiscal_year_type' => 'required|in:calendar,custom',
+            'fiscal_year_start_month' => 'required|integer|min:1|max:12',
+        ]);
+
+        $this->settingsService->updateFiscalYearSettings($this->getLandlordId(), $request);
+
+        return back()->with('success', 'Fiscal year settings saved successfully.');
     }
 
     public function previewReceipt()
@@ -1208,53 +464,6 @@ class FinancesController extends Controller
             'receipt' => $sampleReceipt,
             'settings' => $settings,
         ])->stream('receipt-preview.pdf');
-    }
-
-    protected function getReceiptSettings(int $landlordId): array
-    {
-        $user = User::find($landlordId);
-        $settings = $user?->invoiceSetting;
-
-        return [
-            'auto_email_receipt' => $settings?->auto_email_receipt ?? true,
-            'receipt_show_logo' => $settings?->receipt_show_logo ?? true,
-            'receipt_show_tenant_details' => $settings?->receipt_show_tenant_details ?? true,
-            'receipt_show_invoice_details' => $settings?->receipt_show_invoice_details ?? true,
-            'receipt_show_payment_method' => $settings?->receipt_show_payment_method ?? true,
-            'receipt_header_text' => $settings?->receipt_header_text,
-            'receipt_footer_text' => $settings?->receipt_footer_text,
-            'receipt_thank_you_message' => $settings?->receipt_thank_you_message,
-        ];
-    }
-
-    protected function getFiscalYearSettings(int $landlordId): array
-    {
-        $user = User::find($landlordId);
-        $settings = $user?->invoiceSetting;
-
-        return [
-            'fiscal_year_type' => $settings?->fiscal_year_type ?? 'calendar',
-            'fiscal_year_start_month' => $settings?->fiscal_year_start_month ?? 1,
-        ];
-    }
-
-    public function updateFiscalYearSettings(Request $request): RedirectResponse
-    {
-        $request->validate([
-            'fiscal_year_type' => 'required|in:calendar,custom',
-            'fiscal_year_start_month' => 'required|integer|min:1|max:12',
-        ]);
-
-        $landlordId = $this->getLandlordId();
-        $user = User::find($landlordId);
-        $settings = $user->getOrCreateInvoiceSetting();
-
-        $settings->update([
-            'fiscal_year_type' => $request->fiscal_year_type,
-            'fiscal_year_start_month' => $request->fiscal_year_start_month,
-        ]);
-
-        return back()->with('success', 'Fiscal year settings saved successfully.');
     }
 
     public function matchPayment(Request $request, Payment $payment): RedirectResponse
@@ -1512,11 +721,10 @@ class FinancesController extends Controller
         }
 
         $invoices = $query->orderBy('created_at', 'desc')->get();
-
         $filename = 'invoices_'.now()->format('Y_m_d_His');
 
         if ($format === 'pdf') {
-            $summary = $this->calculateInvoiceSummary($invoices);
+            $summary = $this->statsService->calculateInvoiceSummary($invoices);
 
             $pdf = Pdf::loadView('exports.invoices', [
                 'invoices' => $invoices,
@@ -1566,12 +774,11 @@ class FinancesController extends Controller
         }
 
         $payments = $query->orderBy('payment_date', 'desc')->get();
-
         $filename = 'payments_'.now()->format('Y_m_d_His');
 
         if ($format === 'pdf') {
-            $summary = $this->calculatePaymentSummary($payments);
-            $methodBreakdown = $this->calculateMethodBreakdown($payments);
+            $summary = $this->statsService->calculatePaymentSummary($payments);
+            $methodBreakdown = $this->statsService->calculateMethodBreakdown($payments);
 
             $pdf = Pdf::loadView('exports.payments', [
                 'payments' => $payments,
@@ -1596,41 +803,6 @@ class FinancesController extends Controller
         );
     }
 
-    private function calculateInvoiceSummary($invoices): array
-    {
-        $totalDue = $invoices->sum('total_due');
-        $totalPaid = $invoices->sum('amount_paid');
-
-        return [
-            'total_count' => $invoices->count(),
-            'total_due' => $totalDue,
-            'total_paid' => $totalPaid,
-            'total_balance' => $totalDue - $totalPaid,
-            'collection_rate' => $totalDue > 0 ? round(($totalPaid / $totalDue) * 100, 1) : 0,
-        ];
-    }
-
-    private function calculatePaymentSummary($payments): array
-    {
-        $totalAmount = $payments->sum('amount');
-
-        return [
-            'total_count' => $payments->count(),
-            'total_amount' => $totalAmount,
-            'average_payment' => $payments->count() > 0 ? $totalAmount / $payments->count() : 0,
-        ];
-    }
-
-    private function calculateMethodBreakdown($payments): array
-    {
-        return $payments->groupBy('payment_method')
-            ->map(fn ($group) => [
-                'count' => $group->count(),
-                'amount' => $group->sum('amount'),
-            ])
-            ->toArray();
-    }
-
     public function lateFees(): Response
     {
         $landlordId = $this->getLandlordId();
@@ -1639,7 +811,7 @@ class FinancesController extends Controller
             'policies' => $this->getLateFeePolices($landlordId),
             'properties' => $this->getProperties($landlordId),
             'buildings' => $this->getBuildings($landlordId),
-            'stats' => $this->getLateFeeStats($landlordId),
+            'stats' => $this->statsService->getLateFeeStats($landlordId),
         ]);
     }
 
@@ -1797,81 +969,16 @@ class FinancesController extends Controller
         ]);
     }
 
-    private function getLateFeePolices(int $landlordId): array
-    {
-        return LateFeePolicy::where('landlord_id', $landlordId)
-            ->with(['property:id,name', 'building:id,name'])
-            ->orderBy('priority', 'desc')
-            ->orderBy('name')
-            ->get()
-            ->map(fn ($p) => [
-                'id' => $p->id,
-                'name' => $p->name,
-                'grace_period_days' => $p->grace_period_days,
-                'fee_type' => $p->fee_type,
-                'fee_percentage' => $p->fee_percentage,
-                'fee_amount' => $p->fee_amount,
-                'fee_description' => $p->getFeeDescription(),
-                'is_compounding' => $p->is_compounding,
-                'compounding_frequency' => $p->compounding_frequency,
-                'max_fee_cap' => $p->max_fee_cap,
-                'is_active' => $p->is_active,
-                'scope_label' => $p->getScopeLabel(),
-                'property_id' => $p->property_id,
-                'building_id' => $p->building_id,
-                'property_name' => $p->property?->name,
-                'building_name' => $p->building?->name,
-            ])
-            ->toArray();
-    }
-
-    private function getProperties(int $landlordId): array
-    {
-        return Property::where('landlord_id', $landlordId)
-            ->select('id', 'name')
-            ->orderBy('name')
-            ->get()
-            ->toArray();
-    }
-
-    private function getLateFeeStats(int $landlordId): array
-    {
-        $activePolicies = LateFeePolicy::where('landlord_id', $landlordId)
-            ->where('is_active', true)
-            ->count();
-
-        $totalFeesApplied = LateFee::where('landlord_id', $landlordId)
-            ->where('is_waived', false)
-            ->sum('fee_amount');
-
-        $totalFeesWaived = LateFee::where('landlord_id', $landlordId)
-            ->where('is_waived', true)
-            ->sum('fee_amount');
-
-        $feesThisMonth = LateFee::where('landlord_id', $landlordId)
-            ->where('is_waived', false)
-            ->whereMonth('applied_date', now()->month)
-            ->whereYear('applied_date', now()->year)
-            ->sum('fee_amount');
-
-        return [
-            'active_policies' => $activePolicies,
-            'total_fees_applied' => round($totalFeesApplied, 2),
-            'total_fees_waived' => round($totalFeesWaived, 2),
-            'fees_this_month' => round($feesThisMonth, 2),
-        ];
-    }
-
     public function expenses(Request $request): Response
     {
         $landlordId = $this->getLandlordId();
 
         return $this->renderFinances('expenses', [
-            'expenses' => $this->getPaginatedExpenses($request, $landlordId),
+            'expenses' => $this->filterService->getPaginatedExpenses($request, $landlordId),
             'filters' => $request->only(['search', 'category_id', 'vendor_id', 'building_id', 'date_from', 'date_to']),
-            'categories' => $this->getExpenseCategories($landlordId),
-            'vendors' => $this->getVendors($landlordId),
-            'stats' => $this->getExpenseStats($landlordId),
+            'categories' => $this->filterService->getExpenseCategories($landlordId),
+            'vendors' => $this->filterService->getVendors($landlordId),
+            'stats' => $this->statsService->getExpenseStats($landlordId),
         ]);
     }
 
@@ -2086,136 +1193,6 @@ class FinancesController extends Controller
         return back()->with('success', 'Vendor deleted successfully.');
     }
 
-    private function getPaginatedExpenses(Request $request, int $landlordId)
-    {
-        $query = Expense::where('landlord_id', $landlordId)
-            ->with(['category', 'vendor', 'property', 'building', 'unit']);
-
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('description', 'like', "%{$search}%")
-                    ->orWhere('reference', 'like', "%{$search}%")
-                    ->orWhereHas('vendor', fn ($q) => $q->where('name', 'like', "%{$search}%"));
-            });
-        }
-
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->category_id);
-        }
-
-        if ($request->filled('vendor_id')) {
-            $query->where('vendor_id', $request->vendor_id);
-        }
-
-        if ($request->filled('building_id')) {
-            $query->where('building_id', $request->building_id);
-        }
-
-        if ($request->filled('date_from')) {
-            $query->whereDate('expense_date', '>=', $request->date_from);
-        }
-
-        if ($request->filled('date_to')) {
-            $query->whereDate('expense_date', '<=', $request->date_to);
-        }
-
-        return $query->orderBy('expense_date', 'desc')
-            ->paginate(20)
-            ->through(fn ($e) => [
-                'id' => $e->id,
-                'description' => $e->description,
-                'amount' => $e->amount,
-                'expense_date' => $e->expense_date->format('Y-m-d'),
-                'payment_method' => $e->payment_method,
-                'reference' => $e->reference,
-                'category' => $e->category?->name,
-                'category_color' => $e->category?->color,
-                'vendor' => $e->vendor?->name,
-                'location' => $e->getLocationLabel(),
-                'is_recurring' => $e->is_recurring,
-            ])
-            ->withQueryString();
-    }
-
-    private function getExpenseCategories(int $landlordId): array
-    {
-        return ExpenseCategory::where('landlord_id', $landlordId)
-            ->orderBy('name')
-            ->get()
-            ->map(fn ($c) => [
-                'id' => $c->id,
-                'name' => $c->name,
-                'description' => $c->description,
-                'color' => $c->color,
-                'is_active' => $c->is_active,
-                'expense_count' => $c->expenses()->count(),
-            ])
-            ->toArray();
-    }
-
-    private function getVendors(int $landlordId): array
-    {
-        return Vendor::where('landlord_id', $landlordId)
-            ->orderBy('name')
-            ->get()
-            ->map(fn ($v) => [
-                'id' => $v->id,
-                'name' => $v->name,
-                'contact_person' => $v->contact_person,
-                'email' => $v->email,
-                'phone' => $v->phone,
-                'is_active' => $v->is_active,
-                'total_expenses' => $v->getTotalExpenses(),
-            ])
-            ->toArray();
-    }
-
-    private function getExpenseStats(int $landlordId): array
-    {
-        $now = now();
-
-        $thisMonth = Expense::where('landlord_id', $landlordId)
-            ->whereMonth('expense_date', $now->month)
-            ->whereYear('expense_date', $now->year)
-            ->sum('amount');
-
-        $lastMonth = Expense::where('landlord_id', $landlordId)
-            ->whereMonth('expense_date', $now->copy()->subMonth()->month)
-            ->whereYear('expense_date', $now->copy()->subMonth()->year)
-            ->sum('amount');
-
-        $thisYear = Expense::where('landlord_id', $landlordId)
-            ->whereYear('expense_date', $now->year)
-            ->sum('amount');
-
-        $categoryBreakdown = Expense::where('landlord_id', $landlordId)
-            ->whereMonth('expense_date', $now->month)
-            ->whereYear('expense_date', $now->year)
-            ->with('category')
-            ->get()
-            ->groupBy('category_id')
-            ->map(fn ($group) => [
-                'name' => $group->first()->category?->name ?? 'Uncategorized',
-                'color' => $group->first()->category?->color ?? '#6B7280',
-                'amount' => $group->sum('amount'),
-            ])
-            ->values()
-            ->toArray();
-
-        $monthTrend = $lastMonth > 0
-            ? round((($thisMonth - $lastMonth) / $lastMonth) * 100, 1)
-            : 0;
-
-        return [
-            'this_month' => round($thisMonth, 2),
-            'last_month' => round($lastMonth, 2),
-            'month_trend' => $monthTrend,
-            'this_year' => round($thisYear, 2),
-            'category_breakdown' => $categoryBreakdown,
-        ];
-    }
-
     public function exportExpenses(Request $request): BinaryFileResponse|\Illuminate\Http\Response
     {
         $landlordId = $this->getLandlordId();
@@ -2245,12 +1222,11 @@ class FinancesController extends Controller
         }
 
         $expenses = $query->orderBy('expense_date', 'desc')->get();
-
         $filename = 'expenses_'.now()->format('Y_m_d_His');
 
         if ($format === 'pdf') {
-            $summary = $this->calculateExpenseSummary($expenses);
-            $categoryBreakdown = $this->calculateExpenseCategoryBreakdown($expenses);
+            $summary = $this->statsService->calculateExpenseSummary($expenses);
+            $categoryBreakdown = $this->statsService->calculateExpenseCategoryBreakdown($expenses);
 
             $pdf = Pdf::loadView('exports.expenses', [
                 'expenses' => $expenses,
@@ -2296,207 +1272,6 @@ class FinancesController extends Controller
             new VendorExpenseExport($vendors, $dateRange),
             $filename.'.xlsx'
         );
-    }
-
-    private function calculateExpenseSummary($expenses): array
-    {
-        return [
-            'total_count' => $expenses->count(),
-            'total_amount' => $expenses->sum('amount'),
-            'average_expense' => $expenses->count() > 0 ? $expenses->sum('amount') / $expenses->count() : 0,
-            'recurring_count' => $expenses->where('is_recurring', true)->count(),
-        ];
-    }
-
-    private function calculateExpenseCategoryBreakdown($expenses): array
-    {
-        return $expenses->groupBy('category_id')
-            ->map(fn ($group) => [
-                'name' => $group->first()->category?->name ?? 'Uncategorized',
-                'color' => $group->first()->category?->color ?? '#6B7280',
-                'count' => $group->count(),
-                'amount' => $group->sum('amount'),
-            ])
-            ->values()
-            ->toArray();
-    }
-
-    private function getRevenueReport(int $landlordId, int $months): array
-    {
-        $data = [];
-        $startDate = now()->subMonths($months - 1)->startOfMonth();
-
-        for ($i = 0; $i < $months; $i++) {
-            $monthStart = $startDate->copy()->addMonths($i);
-            $monthEnd = $monthStart->copy()->endOfMonth();
-
-            $invoiced = Invoice::where('landlord_id', $landlordId)
-                ->whereBetween('created_at', [$monthStart, $monthEnd])
-                ->sum('total_due');
-
-            $collected = Payment::where('landlord_id', $landlordId)
-                ->where('is_voided', false)
-                ->whereBetween('payment_date', [$monthStart, $monthEnd])
-                ->sum('amount');
-
-            $expenses = Expense::where('landlord_id', $landlordId)
-                ->whereBetween('expense_date', [$monthStart, $monthEnd])
-                ->sum('amount');
-
-            $data[] = [
-                'month' => $monthStart->format('M Y'),
-                'invoiced' => round($invoiced, 2),
-                'collected' => round($collected, 2),
-                'expenses' => round($expenses, 2),
-                'net' => round($collected - $expenses, 2),
-            ];
-        }
-
-        return $data;
-    }
-
-    private function getCollectionRateReport(int $landlordId, int $months): array
-    {
-        $data = [];
-        $startDate = now()->subMonths($months - 1)->startOfMonth();
-
-        for ($i = 0; $i < $months; $i++) {
-            $monthStart = $startDate->copy()->addMonths($i);
-            $monthEnd = $monthStart->copy()->endOfMonth();
-
-            $invoiced = Invoice::where('landlord_id', $landlordId)
-                ->whereBetween('due_date', [$monthStart, $monthEnd])
-                ->sum('total_due');
-
-            $collected = Invoice::where('landlord_id', $landlordId)
-                ->whereBetween('due_date', [$monthStart, $monthEnd])
-                ->sum('amount_paid');
-
-            $rate = $invoiced > 0 ? round(($collected / $invoiced) * 100, 1) : 0;
-
-            $data[] = [
-                'month' => $monthStart->format('M Y'),
-                'invoiced' => round($invoiced, 2),
-                'collected' => round($collected, 2),
-                'rate' => $rate,
-            ];
-        }
-
-        return $data;
-    }
-
-    private function getOccupancyReport(int $landlordId): array
-    {
-        $buildings = Building::where('landlord_id', $landlordId)
-            ->with(['units' => fn ($q) => $q->withCount(['leases' => fn ($l) => $l->where('is_active', true)])])
-            ->get();
-
-        $data = [];
-        foreach ($buildings as $building) {
-            $totalUnits = $building->units->count();
-            $occupiedUnits = $building->units->where('leases_count', '>', 0)->count();
-            $vacantUnits = $totalUnits - $occupiedUnits;
-            $occupancyRate = $totalUnits > 0 ? round(($occupiedUnits / $totalUnits) * 100, 1) : 0;
-
-            $data[] = [
-                'building' => $building->name,
-                'total_units' => $totalUnits,
-                'occupied' => $occupiedUnits,
-                'vacant' => $vacantUnits,
-                'occupancy_rate' => $occupancyRate,
-            ];
-        }
-
-        $totals = [
-            'building' => 'Total',
-            'total_units' => collect($data)->sum('total_units'),
-            'occupied' => collect($data)->sum('occupied'),
-            'vacant' => collect($data)->sum('vacant'),
-            'occupancy_rate' => collect($data)->sum('total_units') > 0
-                ? round((collect($data)->sum('occupied') / collect($data)->sum('total_units')) * 100, 1)
-                : 0,
-        ];
-
-        return ['buildings' => $data, 'totals' => $totals];
-    }
-
-    private function getArrearsAgingReport(int $landlordId): array
-    {
-        $invoices = Invoice::where('landlord_id', $landlordId)
-            ->whereIn('status', ['sent', 'partial', 'overdue'])
-            ->whereRaw('total_due > amount_paid')
-            ->with(['lease.tenant:id,name', 'lease.unit:id,unit_number,building_id', 'lease.unit.building:id,name'])
-            ->get();
-
-        $aging = [
-            'current' => ['count' => 0, 'amount' => 0],
-            '1-30' => ['count' => 0, 'amount' => 0],
-            '31-60' => ['count' => 0, 'amount' => 0],
-            '61-90' => ['count' => 0, 'amount' => 0],
-            '90+' => ['count' => 0, 'amount' => 0],
-        ];
-
-        foreach ($invoices as $invoice) {
-            $outstanding = $invoice->total_due - $invoice->amount_paid;
-            $daysOverdue = $invoice->due_date ? now()->diffInDays($invoice->due_date, false) : 0;
-
-            if ($daysOverdue <= 0) {
-                $aging['current']['count']++;
-                $aging['current']['amount'] += $outstanding;
-            } elseif ($daysOverdue <= 30) {
-                $aging['1-30']['count']++;
-                $aging['1-30']['amount'] += $outstanding;
-            } elseif ($daysOverdue <= 60) {
-                $aging['31-60']['count']++;
-                $aging['31-60']['amount'] += $outstanding;
-            } elseif ($daysOverdue <= 90) {
-                $aging['61-90']['count']++;
-                $aging['61-90']['amount'] += $outstanding;
-            } else {
-                $aging['90+']['count']++;
-                $aging['90+']['amount'] += $outstanding;
-            }
-        }
-
-        $totalOutstanding = collect($aging)->sum('amount');
-
-        return [
-            'aging' => $aging,
-            'total_outstanding' => round($totalOutstanding, 2),
-            'total_invoices' => $invoices->count(),
-        ];
-    }
-
-    private function getExpensesByCategoryReport(int $landlordId, int $months): array
-    {
-        $startDate = now()->subMonths($months)->startOfMonth();
-
-        $expenses = Expense::where('landlord_id', $landlordId)
-            ->where('expense_date', '>=', $startDate)
-            ->with('category:id,name,color')
-            ->get();
-
-        $byCategory = $expenses->groupBy('category_id')
-            ->map(fn ($group) => [
-                'category' => $group->first()->category?->name ?? 'Uncategorized',
-                'color' => $group->first()->category?->color ?? '#6B7280',
-                'amount' => round($group->sum('amount'), 2),
-                'count' => $group->count(),
-                'percentage' => 0,
-            ])
-            ->values();
-
-        $total = $byCategory->sum('amount');
-        $byCategory = $byCategory->map(function ($item) use ($total) {
-            $item['percentage'] = $total > 0 ? round(($item['amount'] / $total) * 100, 1) : 0;
-
-            return $item;
-        });
-
-        return [
-            'categories' => $byCategory->toArray(),
-            'total' => round($total, 2),
-        ];
     }
 
     public function sendArrearsNotices(Request $request): RedirectResponse
@@ -2571,487 +1346,164 @@ class FinancesController extends Controller
         return back()->with('info', "Auto-matching {$unmatchedCount} payment(s) is coming soon. Use manual matching for now.");
     }
 
-    private function getWaterConsumptionReport(int $landlordId, int $months): array
+    private function renderFinances(string $tab, array $additionalProps = []): Response
     {
-        $startDate = now()->subMonths($months)->startOfMonth();
+        $landlordId = $this->getLandlordId();
 
-        $readings = \App\Models\WaterReading::where('landlord_id', $landlordId)
-            ->where('reading_date', '>=', $startDate)
-            ->where('status', 'approved')
-            ->get();
+        $baseProps = [
+            'activeTab' => $tab,
+            'activeGroup' => $this->getActiveGroup($tab),
+            'buildings' => $this->getBuildings($landlordId),
+            'tabs' => $this->getTabsConfig(),
+        ];
 
-        $totalConsumption = $readings->sum('consumption');
-        $totalCost = $readings->sum('cost');
-        $avgConsumption = $readings->count() > 0 ? round($totalConsumption / $readings->count(), 2) : 0;
+        return Inertia::render('Finances/Index', array_merge($baseProps, $additionalProps));
+    }
 
-        $topConsumers = \App\Models\WaterReading::where('landlord_id', $landlordId)
-            ->where('reading_date', '>=', $startDate)
-            ->where('status', 'approved')
-            ->with('unit:id,unit_number,building_id', 'unit.building:id,name')
-            ->selectRaw('unit_id, SUM(consumption) as total_consumption, SUM(cost) as total_cost')
-            ->groupBy('unit_id')
-            ->orderByDesc('total_consumption')
-            ->limit(10)
+    private function getLandlordId(): int
+    {
+        $user = auth()->user();
+
+        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+            abort(403, 'Access denied.');
+        }
+
+        return $user->isCaretaker() ? $user->landlord_id : $user->id;
+    }
+
+    private function getTabsConfig(): array
+    {
+        return [
+            ['id' => 'overview', 'name' => 'Overview', 'route' => 'finances.overview'],
+            [
+                'id' => 'billing',
+                'name' => 'Billing',
+                'route' => 'finances.invoices',
+                'subtabs' => [
+                    ['id' => 'invoices', 'name' => 'Invoices', 'route' => 'finances.invoices'],
+                    ['id' => 'payments', 'name' => 'Payments', 'route' => 'finances.payments'],
+                ],
+            ],
+            ['id' => 'expenses', 'name' => 'Expenses', 'route' => 'finances.expenses'],
+            [
+                'id' => 'collections',
+                'name' => 'Collections',
+                'route' => 'finances.arrears',
+                'subtabs' => [
+                    ['id' => 'arrears', 'name' => 'Arrears', 'route' => 'finances.arrears'],
+                    ['id' => 'late-fees', 'name' => 'Late Fees', 'route' => 'finances.late-fees'],
+                    ['id' => 'deposits', 'name' => 'Deposits', 'route' => 'finances.deposits'],
+                    ['id' => 'refunds', 'name' => 'Refunds', 'route' => 'finances.refunds'],
+                ],
+            ],
+            ['id' => 'reconciliation', 'name' => 'Reconciliation', 'route' => 'finances.reconciliation'],
+            ['id' => 'reports', 'name' => 'Reports', 'route' => 'finances.reports'],
+            ['id' => 'settings', 'name' => 'Settings', 'route' => 'finances.settings'],
+        ];
+    }
+
+    private function getActiveGroup(string $tab): ?string
+    {
+        $groupMap = [
+            'invoices' => 'billing',
+            'payments' => 'billing',
+            'arrears' => 'collections',
+            'late-fees' => 'collections',
+            'deposits' => 'collections',
+            'refunds' => 'collections',
+        ];
+
+        return $groupMap[$tab] ?? null;
+    }
+
+    private function getBuildings(int $landlordId): array
+    {
+        return Building::where('landlord_id', $landlordId)
+            ->select('id', 'name')
+            ->orderBy('name')
             ->get()
-            ->map(fn ($reading) => [
-                'unit' => $reading->unit?->unit_number ?? 'N/A',
-                'building' => $reading->unit?->building?->name ?? 'N/A',
-                'consumption' => round($reading->total_consumption, 2),
-                'cost' => round($reading->total_cost, 2),
+            ->toArray();
+    }
+
+    private function getProperties(int $landlordId): array
+    {
+        return Property::where('landlord_id', $landlordId)
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get()
+            ->toArray();
+    }
+
+    private function getLateFeePolices(int $landlordId): array
+    {
+        return LateFeePolicy::where('landlord_id', $landlordId)
+            ->with(['property:id,name', 'building:id,name'])
+            ->orderBy('priority', 'desc')
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($p) => [
+                'id' => $p->id,
+                'name' => $p->name,
+                'grace_period_days' => $p->grace_period_days,
+                'fee_type' => $p->fee_type,
+                'fee_percentage' => $p->fee_percentage,
+                'fee_amount' => $p->fee_amount,
+                'fee_description' => $p->getFeeDescription(),
+                'is_compounding' => $p->is_compounding,
+                'compounding_frequency' => $p->compounding_frequency,
+                'max_fee_cap' => $p->max_fee_cap,
+                'is_active' => $p->is_active,
+                'scope_label' => $p->getScopeLabel(),
+                'property_id' => $p->property_id,
+                'building_id' => $p->building_id,
+                'property_name' => $p->property?->name,
+                'building_name' => $p->building?->name,
             ])
             ->toArray();
-
-        return [
-            'total_consumption' => round($totalConsumption, 2),
-            'total_cost' => round($totalCost, 2),
-            'average_consumption' => $avgConsumption,
-            'readings_count' => $readings->count(),
-            'top_consumers' => $topConsumers,
-        ];
     }
 
-    private function getTopPerformingUnitsReport(int $landlordId, int $months): array
+    private function exportReportsCsv(array $data, string $filename): \Illuminate\Http\Response
     {
-        $startDate = now()->subMonths($months)->startOfMonth();
+        $output = fopen('php://temp', 'r+');
 
-        $units = \App\Models\Unit::where('landlord_id', $landlordId)
-            ->where('status', 'occupied')
-            ->with(['activeLease.tenant:id,name', 'building:id,name'])
-            ->get();
+        fputcsv($output, ['PropManager Financial Report']);
+        fputcsv($output, ['Generated: '.now()->format('F j, Y g:i A')]);
+        fputcsv($output, []);
 
-        $performance = [];
+        fputcsv($output, ['Revenue Summary']);
+        fputcsv($output, ['Month', 'Invoiced', 'Collected', 'Expenses', 'Net']);
+        foreach ($data['revenue'] as $row) {
+            fputcsv($output, [$row['month'], $row['invoiced'], $row['collected'], $row['expenses'], $row['net']]);
+        }
+        fputcsv($output, []);
 
-        foreach ($units as $unit) {
-            if (! $unit->activeLease) {
-                continue;
-            }
+        fputcsv($output, ['Occupancy by Building']);
+        fputcsv($output, ['Building', 'Total Units', 'Occupied', 'Vacant', 'Rate %']);
+        foreach ($data['occupancy']['buildings'] as $row) {
+            fputcsv($output, [$row['building'], $row['total_units'], $row['occupied'], $row['vacant'], $row['occupancy_rate']]);
+        }
+        fputcsv($output, []);
 
-            $invoices = Invoice::where('lease_id', $unit->activeLease->id)
-                ->where('created_at', '>=', $startDate)
-                ->get();
+        fputcsv($output, ['Water Consumption - Top Consumers']);
+        fputcsv($output, ['Unit', 'Building', 'Consumption', 'Cost']);
+        foreach ($data['water_consumption']['top_consumers'] as $row) {
+            fputcsv($output, [$row['unit'], $row['building'], $row['consumption'], $row['cost']]);
+        }
+        fputcsv($output, []);
 
-            if ($invoices->isEmpty()) {
-                continue;
-            }
-
-            $totalBilled = $invoices->sum('total_due');
-            $totalPaid = $invoices->sum('amount_paid');
-            $onTimePayments = $invoices->where('status', 'paid')->count();
-
-            $performance[] = [
-                'unit' => $unit->unit_number,
-                'building' => $unit->building?->name ?? 'N/A',
-                'tenant' => $unit->activeLease->tenant?->name ?? 'N/A',
-                'collection_rate' => $totalBilled > 0 ? round(($totalPaid / $totalBilled) * 100, 1) : 0,
-                'on_time_payments' => $onTimePayments,
-                'total_invoices' => $invoices->count(),
-            ];
+        fputcsv($output, ['Top Performing Units']);
+        fputcsv($output, ['Unit', 'Tenant', 'Collection Rate %', 'On-Time', 'Total Invoices']);
+        foreach ($data['top_performing_units'] as $row) {
+            fputcsv($output, [$row['unit'], $row['tenant'], $row['collection_rate'], $row['on_time_payments'], $row['total_invoices']]);
         }
 
-        usort($performance, fn ($a, $b) => $b['collection_rate'] <=> $a['collection_rate']);
-
-        return array_slice($performance, 0, 10);
-    }
-
-    private function getReportDateRange(string $period, ?string $dateFrom, ?string $dateTo): array
-    {
-        if ($period === 'custom' && $dateFrom && $dateTo) {
-            return [
-                'start' => \Carbon\Carbon::parse($dateFrom)->startOfDay(),
-                'end' => \Carbon\Carbon::parse($dateTo)->endOfDay(),
-            ];
-        }
-
-        $now = now();
-
-        $fiscalYearStart = null;
-        $fiscalYearEnd = null;
-        $previousFiscalYearStart = null;
-        $previousFiscalYearEnd = null;
-
-        if (in_array($period, ['ytd', 'this_fy', 'last_fy'])) {
-            $landlordId = $this->getLandlordId();
-            $user = User::find($landlordId);
-            $settings = $user?->invoiceSetting;
-
-            if ($settings && $settings->fiscal_year_type === 'custom') {
-                $fiscalYearStart = $settings->getFiscalYearStart($now);
-                $fiscalYearEnd = $settings->getFiscalYearEnd($now);
-                $previousFiscalYearStart = $settings->getPreviousFiscalYearStart($now);
-                $previousFiscalYearEnd = $settings->getPreviousFiscalYearEnd($now);
-            } else {
-                $fiscalYearStart = $now->copy()->startOfYear();
-                $fiscalYearEnd = $now->copy()->endOfYear();
-                $previousFiscalYearStart = $now->copy()->subYear()->startOfYear();
-                $previousFiscalYearEnd = $now->copy()->subYear()->endOfYear();
-            }
-        }
-
-        return match ($period) {
-            'this_month' => [
-                'start' => $now->copy()->startOfMonth(),
-                'end' => $now->copy()->endOfMonth(),
-            ],
-            'last_month' => [
-                'start' => $now->copy()->subMonth()->startOfMonth(),
-                'end' => $now->copy()->subMonth()->endOfMonth(),
-            ],
-            'this_quarter' => [
-                'start' => $now->copy()->firstOfQuarter(),
-                'end' => $now->copy()->lastOfQuarter(),
-            ],
-            'last_quarter' => [
-                'start' => $now->copy()->subQuarter()->firstOfQuarter(),
-                'end' => $now->copy()->subQuarter()->lastOfQuarter(),
-            ],
-            'ytd' => [
-                'start' => $fiscalYearStart,
-                'end' => $now->copy()->endOfDay(),
-            ],
-            'this_fy' => [
-                'start' => $fiscalYearStart,
-                'end' => $fiscalYearEnd,
-            ],
-            'last_fy' => [
-                'start' => $previousFiscalYearStart,
-                'end' => $previousFiscalYearEnd,
-            ],
-            default => [
-                'start' => $now->copy()->subMonths((int) $period)->startOfMonth(),
-                'end' => $now->copy()->endOfDay(),
-            ],
-        };
-    }
-
-    private function getPreviousPeriodDateRange(array $currentRange): array
-    {
-        $duration = $currentRange['start']->diffInDays($currentRange['end']);
-
-        return [
-            'start' => $currentRange['start']->copy()->subDays($duration + 1),
-            'end' => $currentRange['start']->copy()->subDay(),
-        ];
-    }
-
-    private function getReportTotals(int $landlordId, array $dateRange, ?int $buildingId): array
-    {
-        $invoiceQuery = Invoice::where('landlord_id', $landlordId)
-            ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']]);
-
-        $paymentQuery = Payment::where('landlord_id', $landlordId)
-            ->where('is_voided', false)
-            ->whereBetween('payment_date', [$dateRange['start'], $dateRange['end']]);
-
-        $expenseQuery = Expense::where('landlord_id', $landlordId)
-            ->whereBetween('expense_date', [$dateRange['start'], $dateRange['end']]);
-
-        if ($buildingId) {
-            $invoiceQuery->whereHas('lease.unit', fn ($q) => $q->where('building_id', $buildingId));
-            $paymentQuery->whereHas('lease.unit', fn ($q) => $q->where('building_id', $buildingId));
-            $expenseQuery->where('building_id', $buildingId);
-        }
-
-        $invoiced = $invoiceQuery->sum('total_due');
-        $collected = $paymentQuery->sum('amount');
-        $expenses = $expenseQuery->sum('amount');
-
-        return [
-            'invoiced' => round($invoiced, 2),
-            'collected' => round($collected, 2),
-            'expenses' => round($expenses, 2),
-            'net' => round($collected - $expenses, 2),
-            'collection_rate' => $invoiced > 0 ? round(($collected / $invoiced) * 100, 1) : 0,
-        ];
-    }
-
-    private function getRevenueReportFiltered(int $landlordId, array $dateRange, ?int $buildingId): array
-    {
-        $data = [];
-        $months = max(1, $dateRange['start']->diffInMonths($dateRange['end']) + 1);
-        $startDate = $dateRange['start']->copy()->startOfMonth();
-
-        for ($i = 0; $i < $months && $i < 12; $i++) {
-            $monthStart = $startDate->copy()->addMonths($i);
-            $monthEnd = $monthStart->copy()->endOfMonth();
-
-            if ($monthEnd->gt($dateRange['end'])) {
-                $monthEnd = $dateRange['end']->copy();
-            }
-
-            $invoiceQuery = Invoice::where('landlord_id', $landlordId)
-                ->whereBetween('created_at', [$monthStart, $monthEnd]);
-            $paymentQuery = Payment::where('landlord_id', $landlordId)
-                ->where('is_voided', false)
-                ->whereBetween('payment_date', [$monthStart, $monthEnd]);
-            $expenseQuery = Expense::where('landlord_id', $landlordId)
-                ->whereBetween('expense_date', [$monthStart, $monthEnd]);
-
-            if ($buildingId) {
-                $invoiceQuery->whereHas('lease.unit', fn ($q) => $q->where('building_id', $buildingId));
-                $paymentQuery->whereHas('lease.unit', fn ($q) => $q->where('building_id', $buildingId));
-                $expenseQuery->where('building_id', $buildingId);
-            }
-
-            $invoiced = $invoiceQuery->sum('total_due');
-            $collected = $paymentQuery->sum('amount');
-            $expenses = $expenseQuery->sum('amount');
-
-            $data[] = [
-                'month' => $monthStart->format('M Y'),
-                'invoiced' => round($invoiced, 2),
-                'collected' => round($collected, 2),
-                'expenses' => round($expenses, 2),
-                'net' => round($collected - $expenses, 2),
-            ];
-        }
-
-        return $data;
-    }
-
-    private function getCollectionRateReportFiltered(int $landlordId, array $dateRange, ?int $buildingId): array
-    {
-        $data = [];
-        $months = max(1, $dateRange['start']->diffInMonths($dateRange['end']) + 1);
-        $startDate = $dateRange['start']->copy()->startOfMonth();
-
-        for ($i = 0; $i < $months && $i < 12; $i++) {
-            $monthStart = $startDate->copy()->addMonths($i);
-            $monthEnd = $monthStart->copy()->endOfMonth();
-
-            if ($monthEnd->gt($dateRange['end'])) {
-                $monthEnd = $dateRange['end']->copy();
-            }
-
-            $invoiceQuery = Invoice::where('landlord_id', $landlordId)
-                ->whereBetween('due_date', [$monthStart, $monthEnd]);
-
-            if ($buildingId) {
-                $invoiceQuery->whereHas('lease.unit', fn ($q) => $q->where('building_id', $buildingId));
-            }
-
-            $invoiced = $invoiceQuery->sum('total_due');
-            $collected = $invoiceQuery->sum('amount_paid');
-            $rate = $invoiced > 0 ? round(($collected / $invoiced) * 100, 1) : 0;
-
-            $data[] = [
-                'month' => $monthStart->format('M Y'),
-                'rate' => $rate,
-            ];
-        }
-
-        return $data;
-    }
-
-    private function getOccupancyReportFiltered(int $landlordId, ?int $buildingId): array
-    {
-        $query = Building::where('landlord_id', $landlordId)
-            ->with(['units' => fn ($q) => $q->withCount(['leases' => fn ($l) => $l->where('is_active', true)])]);
-
-        if ($buildingId) {
-            $query->where('id', $buildingId);
-        }
-
-        $buildings = $query->get();
-        $data = [];
-        $totalUnits = 0;
-        $totalOccupied = 0;
-
-        foreach ($buildings as $building) {
-            $units = $building->units->count();
-            $occupied = $building->units->where('leases_count', '>', 0)->count();
-            $vacant = $units - $occupied;
-            $rate = $units > 0 ? round(($occupied / $units) * 100, 1) : 0;
-
-            $totalUnits += $units;
-            $totalOccupied += $occupied;
-
-            $data[] = [
-                'building' => $building->name,
-                'total_units' => $units,
-                'occupied' => $occupied,
-                'vacant' => $vacant,
-                'occupancy_rate' => $rate,
-            ];
-        }
-
-        return [
-            'buildings' => $data,
-            'totals' => [
-                'total_units' => $totalUnits,
-                'occupied' => $totalOccupied,
-                'vacant' => $totalUnits - $totalOccupied,
-                'occupancy_rate' => $totalUnits > 0 ? round(($totalOccupied / $totalUnits) * 100, 1) : 0,
-            ],
-        ];
-    }
-
-    private function getArrearsAgingReportFiltered(int $landlordId, ?int $buildingId): array
-    {
-        $query = Invoice::where('landlord_id', $landlordId)
-            ->whereIn('status', ['sent', 'partial', 'overdue'])
-            ->whereRaw('total_due > amount_paid');
-
-        if ($buildingId) {
-            $query->whereHas('lease.unit', fn ($q) => $q->where('building_id', $buildingId));
-        }
-
-        $invoices = $query->get();
-
-        $aging = [
-            'current' => ['count' => 0, 'amount' => 0],
-            '1-30' => ['count' => 0, 'amount' => 0],
-            '31-60' => ['count' => 0, 'amount' => 0],
-            '61-90' => ['count' => 0, 'amount' => 0],
-            '90+' => ['count' => 0, 'amount' => 0],
-        ];
-
-        foreach ($invoices as $invoice) {
-            $outstanding = $invoice->total_due - $invoice->amount_paid;
-            $daysOverdue = $invoice->due_date ? now()->diffInDays($invoice->due_date, false) : 0;
-
-            $bucket = match (true) {
-                $daysOverdue <= 0 => 'current',
-                $daysOverdue <= 30 => '1-30',
-                $daysOverdue <= 60 => '31-60',
-                $daysOverdue <= 90 => '61-90',
-                default => '90+',
-            };
-
-            $aging[$bucket]['count']++;
-            $aging[$bucket]['amount'] += $outstanding;
-        }
-
-        foreach ($aging as &$bucket) {
-            $bucket['amount'] = round($bucket['amount'], 2);
-        }
-
-        return $aging;
-    }
-
-    private function getExpensesByCategoryReportFiltered(int $landlordId, array $dateRange, ?int $buildingId): array
-    {
-        $query = Expense::where('landlord_id', $landlordId)
-            ->whereBetween('expense_date', [$dateRange['start'], $dateRange['end']])
-            ->with('category:id,name,color');
-
-        if ($buildingId) {
-            $query->where('building_id', $buildingId);
-        }
-
-        $expenses = $query->get();
-
-        $byCategory = $expenses->groupBy('category_id')
-            ->map(fn ($group) => [
-                'category' => $group->first()->category?->name ?? 'Uncategorized',
-                'color' => $group->first()->category?->color ?? '#6B7280',
-                'amount' => round($group->sum('amount'), 2),
-                'count' => $group->count(),
-                'percentage' => 0,
-            ])
-            ->values();
-
-        $total = $byCategory->sum('amount');
-        $byCategory = $byCategory->map(function ($item) use ($total) {
-            $item['percentage'] = $total > 0 ? round(($item['amount'] / $total) * 100, 1) : 0;
-
-            return $item;
-        });
-
-        return [
-            'categories' => $byCategory->toArray(),
-            'total' => round($total, 2),
-        ];
-    }
-
-    private function getWaterConsumptionReportFiltered(int $landlordId, array $dateRange, ?int $buildingId): array
-    {
-        $query = \App\Models\WaterReading::where('landlord_id', $landlordId)
-            ->whereBetween('reading_date', [$dateRange['start'], $dateRange['end']])
-            ->where('status', 'approved');
-
-        if ($buildingId) {
-            $query->whereHas('unit', fn ($q) => $q->where('building_id', $buildingId));
-        }
-
-        $readings = $query->get();
-
-        $totalConsumption = $readings->sum('consumption');
-        $totalCost = $readings->sum('cost');
-        $avgConsumption = $readings->count() > 0 ? round($totalConsumption / $readings->count(), 2) : 0;
-
-        $topQuery = \App\Models\WaterReading::where('landlord_id', $landlordId)
-            ->whereBetween('reading_date', [$dateRange['start'], $dateRange['end']])
-            ->where('status', 'approved')
-            ->with('unit:id,unit_number,building_id', 'unit.building:id,name')
-            ->selectRaw('unit_id, SUM(consumption) as total_consumption, SUM(cost) as total_cost')
-            ->groupBy('unit_id')
-            ->orderByDesc('total_consumption')
-            ->limit(10);
-
-        if ($buildingId) {
-            $topQuery->whereHas('unit', fn ($q) => $q->where('building_id', $buildingId));
-        }
-
-        $topConsumers = $topQuery->get()
-            ->map(fn ($reading) => [
-                'unit' => $reading->unit?->unit_number ?? 'N/A',
-                'building' => $reading->unit?->building?->name ?? 'N/A',
-                'consumption' => round($reading->total_consumption, 2),
-                'cost' => round($reading->total_cost, 2),
-            ])
-            ->toArray();
-
-        return [
-            'total_consumption' => round($totalConsumption, 2),
-            'total_cost' => round($totalCost, 2),
-            'average_consumption' => $avgConsumption,
-            'readings_count' => $readings->count(),
-            'top_consumers' => $topConsumers,
-        ];
-    }
-
-    private function getTopPerformingUnitsReportFiltered(int $landlordId, array $dateRange, ?int $buildingId): array
-    {
-        $query = \App\Models\Unit::where('landlord_id', $landlordId)
-            ->where('status', 'occupied')
-            ->with(['activeLease.tenant:id,name', 'building:id,name']);
-
-        if ($buildingId) {
-            $query->where('building_id', $buildingId);
-        }
-
-        $units = $query->get();
-        $performance = [];
-
-        foreach ($units as $unit) {
-            if (! $unit->activeLease) {
-                continue;
-            }
-
-            $invoices = Invoice::where('lease_id', $unit->activeLease->id)
-                ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
-                ->get();
-
-            if ($invoices->isEmpty()) {
-                continue;
-            }
-
-            $totalBilled = $invoices->sum('total_due');
-            $totalPaid = $invoices->sum('amount_paid');
-            $onTimePayments = $invoices->where('status', 'paid')->count();
-
-            $performance[] = [
-                'unit' => $unit->unit_number,
-                'building' => $unit->building?->name ?? 'N/A',
-                'tenant' => $unit->activeLease->tenant?->name ?? 'N/A',
-                'collection_rate' => $totalBilled > 0 ? round(($totalPaid / $totalBilled) * 100, 1) : 0,
-                'on_time_payments' => $onTimePayments,
-                'total_invoices' => $invoices->count(),
-            ];
-        }
-
-        usort($performance, fn ($a, $b) => $b['collection_rate'] <=> $a['collection_rate']);
-
-        return array_slice($performance, 0, 10);
+        rewind($output);
+        $csv = stream_get_contents($output);
+        fclose($output);
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'.csv"',
+        ]);
     }
 }
