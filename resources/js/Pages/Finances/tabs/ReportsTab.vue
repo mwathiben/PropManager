@@ -2,13 +2,12 @@
 import { ref, computed, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
-import { MetricCard, AmountDisplay } from '@/Components/Finances';
+import { MetricCard, AmountDisplay, ExportDropdown } from '@/Components/Finances';
 import {
     ChartBarIcon,
     CurrencyDollarIcon,
     BuildingOfficeIcon,
     ClockIcon,
-    ArrowDownTrayIcon,
     ChartPieIcon,
     ArrowTrendingUpIcon,
     ArrowTrendingDownIcon,
@@ -42,8 +41,13 @@ const localFilters = ref({
     compare: props.filters?.compare || false,
 });
 
-const showExportMenu = ref(false);
 const showFilters = ref(false);
+
+const exportFormats = [
+    { value: 'xlsx', label: 'Excel (.xlsx)' },
+    { value: 'pdf', label: 'PDF' },
+    { value: 'csv', label: 'CSV' },
+];
 
 const periodOptions = [
     { value: 'this_month', label: 'This Month' },
@@ -182,7 +186,6 @@ const clearFilters = () => {
 };
 
 const exportReport = (format) => {
-    showExportMenu.value = false;
     const params = new URLSearchParams({ format, period: localFilters.value.period });
 
     if (localFilters.value.buildingId) {
@@ -235,29 +238,7 @@ watch(() => localFilters.value.period, (newVal) => {
                     <span v-if="hasActiveFilters" class="w-2 h-2 bg-emerald-500 rounded-full" />
                 </button>
 
-                <div class="relative">
-                    <button
-                        @click="showExportMenu = !showExportMenu"
-                        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-                    >
-                        <ArrowDownTrayIcon class="w-4 h-4" />
-                        Export
-                    </button>
-                    <div
-                        v-if="showExportMenu"
-                        class="absolute right-0 z-10 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
-                    >
-                        <button @click="exportReport('xlsx')" class="w-full px-3 py-2 text-sm text-left text-gray-700 hover:bg-gray-50">
-                            Export as Excel
-                        </button>
-                        <button @click="exportReport('pdf')" class="w-full px-3 py-2 text-sm text-left text-gray-700 hover:bg-gray-50">
-                            Export as PDF
-                        </button>
-                        <button @click="exportReport('csv')" class="w-full px-3 py-2 text-sm text-left text-gray-700 hover:bg-gray-50">
-                            Export as CSV
-                        </button>
-                    </div>
-                </div>
+                <ExportDropdown :formats="exportFormats" @export="exportReport" />
             </div>
         </div>
 

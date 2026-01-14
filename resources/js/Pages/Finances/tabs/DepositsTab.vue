@@ -3,8 +3,8 @@ import { ref, computed } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
 import { useFinancesStore } from '@/stores/finances';
-import { FilterBar, DataTable, AmountDisplay, MetricCard, Pagination } from '@/Components/Finances';
-import { BanknotesIcon, ShieldCheckIcon, ArrowUturnLeftIcon, XCircleIcon, EllipsisVerticalIcon, ChevronDownIcon, ChevronRightIcon, ArrowDownTrayIcon } from '@heroicons/vue/24/outline';
+import { FilterBar, DataTable, AmountDisplay, MetricCard, Pagination, ExportDropdown } from '@/Components/Finances';
+import { BanknotesIcon, ShieldCheckIcon, ArrowUturnLeftIcon, XCircleIcon, EllipsisVerticalIcon, ChevronDownIcon, ChevronRightIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
     deposits: Object,
@@ -84,7 +84,6 @@ const openForfeitModal = (deposit) => {
 
 const activeDropdown = ref(null);
 const expandedRows = ref(new Set());
-const showExportMenu = ref(false);
 
 const toggleDropdown = (id) => {
     activeDropdown.value = activeDropdown.value === id ? null : id;
@@ -103,7 +102,6 @@ const toggleRow = (id) => {
 };
 
 const exportData = (format) => {
-    showExportMenu.value = false;
     const params = new URLSearchParams();
     params.append('format', format);
     if (localFilters.value.status) params.append('status', localFilters.value.status);
@@ -194,32 +192,7 @@ const clearFilters = () => {
                 @clear="clearFilters"
                 class="flex-1"
             />
-            <div class="relative">
-                <button
-                    @click="showExportMenu = !showExportMenu"
-                    class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                    <ArrowDownTrayIcon class="w-4 h-4" />
-                    Export
-                </button>
-                <div
-                    v-if="showExportMenu"
-                    class="absolute right-0 z-10 mt-1 w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
-                >
-                    <button
-                        @click="exportData('xlsx')"
-                        class="w-full px-3 py-2 text-sm text-left text-gray-700 hover:bg-gray-50"
-                    >
-                        Export as Excel
-                    </button>
-                    <button
-                        @click="exportData('pdf')"
-                        class="w-full px-3 py-2 text-sm text-left text-gray-700 hover:bg-gray-50"
-                    >
-                        Export as PDF
-                    </button>
-                </div>
-            </div>
+            <ExportDropdown @export="exportData" />
         </div>
 
         <DataTable

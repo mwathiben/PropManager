@@ -545,8 +545,9 @@
         "Replace in InvoicesTab, PaymentsTab, RefundsTab, ExpensesTab, ReportsTab",
         "Build passes with no regressions"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
+      "notes": "Created @/Components/Finances/ExportDropdown.vue with Transition animation. Replaced in InvoicesTab, PaymentsTab, ExpensesTab, DepositsTab, ReportsTab. RefundsTab doesn't have export dropdown. Component accepts formats prop with defaults (xlsx, pdf) and emits export event.",
       "depends_on": []
     },
     {
@@ -738,7 +739,7 @@
   ],
   "metadata": {
     "total_stories": 37,
-    "passing_stories": 27,
+    "passing_stories": 28,
     "framework": "Laravel",
     "frontend": "Vue.js/Inertia"
   }

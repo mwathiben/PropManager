@@ -10,8 +10,9 @@ import {
     AmountDisplay,
     EmptyState,
     Pagination,
+    ExportDropdown,
 } from '@/Components/Finances';
-import { CreditCardIcon, EyeIcon, ArrowUturnLeftIcon, DocumentArrowDownIcon, ArrowDownTrayIcon, PlusIcon, ArrowUpTrayIcon } from '@heroicons/vue/24/outline';
+import { CreditCardIcon, EyeIcon, ArrowUturnLeftIcon, DocumentArrowDownIcon, PlusIcon, ArrowUpTrayIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
     payments: Object,
@@ -99,8 +100,6 @@ const initiateRefund = (payment) => {
     store.openModal('refund', { paymentId: payment.id });
 };
 
-const showExportMenu = ref(false);
-
 const exportData = (format) => {
     const params = new URLSearchParams();
     params.append('format', format);
@@ -110,7 +109,6 @@ const exportData = (format) => {
     if (localFilters.value.dateRange?.to) params.append('date_to', localFilters.value.dateRange.to);
 
     window.location.href = route('finances.payments.export') + '?' + params.toString();
-    showExportMenu.value = false;
 };
 </script>
 
@@ -141,41 +139,7 @@ const exportData = (format) => {
                     <ArrowUpTrayIcon class="h-4 w-4" />
                     Bulk Import
                 </Link>
-                <div class="relative">
-                    <button
-                        @click="showExportMenu = !showExportMenu"
-                        class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                        <ArrowDownTrayIcon class="h-4 w-4" />
-                        Export
-                    </button>
-                    <Transition
-                        enter-active-class="transition ease-out duration-100"
-                        enter-from-class="transform opacity-0 scale-95"
-                        enter-to-class="transform opacity-100 scale-100"
-                        leave-active-class="transition ease-in duration-75"
-                        leave-from-class="transform opacity-100 scale-100"
-                        leave-to-class="transform opacity-0 scale-95"
-                    >
-                        <div
-                            v-if="showExportMenu"
-                            class="absolute right-0 z-10 mt-1 w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
-                        >
-                            <button
-                                @click="exportData('xlsx')"
-                                class="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                            >
-                                Excel (.xlsx)
-                            </button>
-                            <button
-                                @click="exportData('pdf')"
-                                class="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                            >
-                                PDF
-                            </button>
-                        </div>
-                    </Transition>
-                </div>
+                <ExportDropdown @export="exportData" />
             </template>
         </FilterBar>
 

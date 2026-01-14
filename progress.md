@@ -1856,6 +1856,59 @@ PRD mentioned ArrearsTab, but it doesn't have pagination (data is not paginated)
 
 ---
 
+## FIN-018: Extract Reusable Export Dropdown Component
+**Status:** PASSED
+**Date:** 2026-01-14
+**Attempts:** 1
+
+### Implementation Summary
+
+Extracted duplicated export dropdown code (~35 lines per tab) into a reusable `ExportDropdown.vue` component.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `resources/js/Components/Finances/ExportDropdown.vue` | Reusable export dropdown with Transition animation |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `resources/js/Components/Finances/index.js` | Added ExportDropdown export |
+| `resources/js/Pages/Finances/tabs/InvoicesTab.vue` | Replaced inline dropdown with component |
+| `resources/js/Pages/Finances/tabs/PaymentsTab.vue` | Replaced inline dropdown with component |
+| `resources/js/Pages/Finances/tabs/ExpensesTab.vue` | Replaced inline dropdown with component |
+| `resources/js/Pages/Finances/tabs/DepositsTab.vue` | Replaced inline dropdown with component |
+| `resources/js/Pages/Finances/tabs/ReportsTab.vue` | Replaced inline dropdown with component (custom formats: xlsx, pdf, csv) |
+
+### Component Features
+
+- Accepts `formats` prop (defaults to xlsx, pdf)
+- Accepts `buttonText` prop (defaults to "Export")
+- Emits `export` event with selected format
+- Includes Vue Transition animation (scale + fade)
+- ArrowDownTrayIcon from Heroicons
+
+### Note on RefundsTab
+
+PRD mentioned RefundsTab, but it doesn't have an export dropdown. DepositsTab was included instead as it has export functionality.
+
+### Acceptance Criteria Verification
+
+1. **Create @/Components/Finances/ExportDropdown.vue** - Created
+2. **Accept formats prop** - Accepts array of { value, label } objects
+3. **Emit export event** - Emits 'export' with format value
+4. **Include Transition animation** - Included scale + fade animation
+5. **Replace in tabs** - Replaced in 5 tabs
+6. **Build passes** - Build succeeded (24.84s)
+
+### Verification Results
+
+- Build: Success (24.84s)
+
+---
+
 # PRD Progress Update
 
-27 of 37 user stories now passing. FIN-017 completed, unlocking FIN-019 (requires FIN-017 + FIN-018).
+28 of 37 user stories now passing. FIN-017 and FIN-018 completed, unlocking FIN-019 (requires both FIN-017 + FIN-018).

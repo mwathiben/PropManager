@@ -11,3 +11,4 @@ export { default as EmptyState } from './EmptyState.vue';
 export { default as FilterBar } from './FilterBar.vue';
 export { default as DataTable } from './DataTable.vue';
 export { default as Pagination } from './Pagination.vue';
+export { default as ExportDropdown } from './ExportDropdown.vue';
