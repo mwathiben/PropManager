@@ -1804,6 +1804,58 @@ Existing `app/Services/ReportService.php` (409 lines) was evaluated but **kept s
 
 ---
 
+## FIN-017: Extract Reusable Pagination Component
+**Status:** PASSED
+**Date:** 2026-01-14
+**Attempts:** 1
+
+### Implementation Summary
+
+Extracted duplicated pagination code (~25 lines per tab) into a reusable `Pagination.vue` component in the Finances component library.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `resources/js/Components/Finances/Pagination.vue` | Reusable emerald-themed pagination component |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `resources/js/Components/Finances/index.js` | Added Pagination export |
+| `resources/js/Pages/Finances/tabs/InvoicesTab.vue` | Replaced inline pagination with component |
+| `resources/js/Pages/Finances/tabs/PaymentsTab.vue` | Replaced inline pagination with component |
+| `resources/js/Pages/Finances/tabs/RefundsTab.vue` | Replaced inline pagination with component |
+| `resources/js/Pages/Finances/tabs/DepositsTab.vue` | Replaced inline pagination with component |
+| `resources/js/Pages/Finances/tabs/ExpensesTab.vue` | Replaced inline pagination with component |
+
+### Component Features
+
+- Accepts `links` prop from Laravel pagination
+- Emerald theme styling (`bg-emerald-600` active state)
+- Optional `wrapperClass` prop for additional styling
+- Conditionally renders when `links.length > 3`
+- Uses `router.visit()` for Inertia navigation
+
+### Note on ArrearsTab
+
+PRD mentioned ArrearsTab, but it doesn't have pagination (data is not paginated). ExpensesTab was included instead as it has pagination.
+
+### Acceptance Criteria Verification
+
+1. **Create @/Components/Pagination.vue** - Created at `@/Components/Finances/Pagination.vue`
+2. **Support emerald theme styling** - Uses `bg-emerald-600` for active state
+3. **Replace pagination in tabs** - Replaced in 5 tabs (InvoicesTab, PaymentsTab, RefundsTab, DepositsTab, ExpensesTab)
+4. **Component accepts links prop** - Accepts `links` Array prop
+5. **Build passes with no regressions** - Build succeeded (17.29s)
+
+### Verification Results
+
+- Build: Success (17.29s)
+
+---
+
 # PRD Progress Update
 
-26 of 37 user stories now passing. FIN-020 completed, unlocking FIN-021, FIN-022, FIN-027, FIN-028.
+27 of 37 user stories now passing. FIN-017 completed, unlocking FIN-019 (requires FIN-017 + FIN-018).

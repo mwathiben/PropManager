@@ -9,6 +9,7 @@ import {
     PaymentMethodBadge,
     AmountDisplay,
     EmptyState,
+    Pagination,
 } from '@/Components/Finances';
 import { CreditCardIcon, EyeIcon, ArrowUturnLeftIcon, DocumentArrowDownIcon, ArrowDownTrayIcon, PlusIcon, ArrowUpTrayIcon } from '@heroicons/vue/24/outline';
 
@@ -227,27 +228,6 @@ const exportData = (format) => {
             </template>
         </DataTable>
 
-        <div v-if="payments?.links?.length > 3" class="flex justify-center">
-            <nav class="flex items-center gap-1">
-                <template v-for="link in payments.links" :key="link.label">
-                    <button
-                        v-if="link.url"
-                        @click="router.visit(link.url)"
-                        :class="[
-                            'px-3 py-1.5 text-sm rounded-lg transition-colors',
-                            link.active
-                                ? 'bg-emerald-600 text-white'
-                                : 'text-gray-600 hover:bg-gray-100'
-                        ]"
-                        v-html="link.label"
-                    />
-                    <span
-                        v-else
-                        class="px-3 py-1.5 text-sm text-gray-400"
-                        v-html="link.label"
-                    />
-                </template>
-            </nav>
-        </div>
+        <Pagination :links="payments?.links" />
     </div>
 </template>

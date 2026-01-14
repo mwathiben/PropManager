@@ -3,7 +3,7 @@ import { ref, computed } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
 import { useFinancesStore } from '@/stores/finances';
-import { FilterBar, DataTable, AmountDisplay, MetricCard } from '@/Components/Finances';
+import { FilterBar, DataTable, AmountDisplay, MetricCard, Pagination } from '@/Components/Finances';
 import { BanknotesIcon, ShieldCheckIcon, ArrowUturnLeftIcon, XCircleIcon, EllipsisVerticalIcon, ChevronDownIcon, ChevronRightIcon, ArrowDownTrayIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
@@ -415,27 +415,6 @@ const clearFilters = () => {
             </template>
         </div>
 
-        <div v-if="deposits?.links?.length > 3" class="flex justify-center">
-            <nav class="flex items-center gap-1">
-                <template v-for="link in deposits.links" :key="link.label">
-                    <button
-                        v-if="link.url"
-                        @click="router.visit(link.url)"
-                        :class="[
-                            'px-3 py-1.5 text-sm rounded-lg transition-colors',
-                            link.active
-                                ? 'bg-emerald-600 text-white'
-                                : 'text-gray-600 hover:bg-gray-100'
-                        ]"
-                        v-html="link.label"
-                    />
-                    <span
-                        v-else
-                        class="px-3 py-1.5 text-sm text-gray-400"
-                        v-html="link.label"
-                    />
-                </template>
-            </nav>
-        </div>
+        <Pagination :links="deposits?.links" />
     </div>
 </template>
