@@ -2829,3 +2829,59 @@ const OverviewTab = defineAsyncComponent({
 - Bundle reduction: ~155.6 kB deferred to on-demand loading
 
 ---
+
+## OPT-001: Eliminate N+1 Queries in Finance Hub Controllers
+**Status:** PASSED
+**Date:** 2026-01-14
+**Attempts:** 1
+
+### Implementation Summary
+
+Fixed N+1 query patterns across PaymentController and PaymentsHubController. Most Finance Hub controllers were already well-optimized with proper eager loading.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/PaymentController.php` | 3 method optimizations: index() stats aggregation, validateBulkImport() pre-loading, sendPendingOverpaymentNotifications() batch loading |
+| `app/Http/Controllers/PaymentsHubController.php` | 2 method optimizations: getMonthlyTrend() grouped query, getCollectionRates() combined sum query |
+| `app/Models/Lease.php` | Added landlord() relationship for eager loading |
+
+### Query Reduction Summary
+
+| Method | Before | After |
+|--------|--------|-------|
+| `PaymentController::index()` stats | 3 queries | 1 query |
+| `PaymentController::validateBulkImport()` (100 rows) | ~400 queries | ~10 queries |
+| `PaymentController::sendPendingOverpaymentNotifications()` (10 items) | ~30 queries | ~3 queries |
+| `PaymentsHubController::getMonthlyTrend()` | 12 queries | 1 query |
+| `PaymentsHubController::getCollectionRates()` | 2 queries | 1 query |
+
+### Key Changes
+
+**1. PaymentController::index() - Stats Aggregation**
+Replaced 3 separate Payment queries (total, this_month, count) with single selectRaw() aggregation.
+
+**2. PaymentController::validateBulkImport() - Pre-loading Strategy**
+- Pre-load all units for building before loop
+- Pre-load all tenants by email before loop  
+- Pre-load all invoices by number before loop
+- Pre-load outstanding invoices grouped by tenant
+- Created validateCurrentRowOptimized() using collection lookups instead of DB queries
+
+**3. PaymentController::sendPendingOverpaymentNotifications() - Batch Loading**
+Pre-load all Lease and Payment records with relationships before iterating.
+
+**4. PaymentsHubController::getMonthlyTrend() - Grouped Query**
+Replaced 12 loop queries with single grouped query using strftime and SUM.
+
+**5. PaymentsHubController::getCollectionRates() - Combined Sums**
+Combined 2 separate sum queries (total_due, amount_paid) into single selectRaw.
+
+### Verification Results
+
+- Lint (Pint): Success
+- Build: Success (16.27s)
+- Tests: 378 passed, 12 skipped
+
+---

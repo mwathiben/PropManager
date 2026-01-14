@@ -800,17 +800,16 @@ class PaymentsHubController extends Controller
     {
         $currentMonth = $this->calculateCollectionRate($landlordId);
 
-        // Calculate previous month's rate
+        // Calculate previous month's rate in a single query
         $previousMonth = now()->subMonth();
-        $previousInvoiced = Invoice::where('landlord_id', $landlordId)
+        $previousStats = Invoice::where('landlord_id', $landlordId)
             ->whereMonth('created_at', $previousMonth->month)
             ->whereYear('created_at', $previousMonth->year)
-            ->sum('total_due');
+            ->selectRaw('COALESCE(SUM(total_due), 0) as invoiced, COALESCE(SUM(amount_paid), 0) as collected')
+            ->first();
 
-        $previousCollected = Invoice::where('landlord_id', $landlordId)
-            ->whereMonth('created_at', $previousMonth->month)
-            ->whereYear('created_at', $previousMonth->year)
-            ->sum('amount_paid');
+        $previousInvoiced = (float) $previousStats->invoiced;
+        $previousCollected = (float) $previousStats->collected;
 
         $previousRate = $previousInvoiced > 0
             ? round(($previousCollected / $previousInvoiced) * 100, 1)
@@ -852,20 +851,27 @@ class PaymentsHubController extends Controller
      */
     private function getMonthlyTrend(int $landlordId, int $months = 12): array
     {
-        $trend = [];
+        $startDate = now()->subMonths($months - 1)->startOfMonth();
 
+        // Single query with grouping instead of N queries in a loop
+        $payments = Payment::where('landlord_id', $landlordId)
+            ->where('payment_date', '>=', $startDate)
+            ->selectRaw("strftime('%Y-%m', payment_date) as month_key, SUM(amount) as total")
+            ->groupBy('month_key')
+            ->get()
+            ->keyBy('month_key');
+
+        $trend = [];
         for ($i = $months - 1; $i >= 0; $i--) {
             $date = now()->subMonths($i);
+            $monthKey = $date->format('Y-m');
 
-            $amount = Payment::where('landlord_id', $landlordId)
-                ->whereMonth('payment_date', $date->month)
-                ->whereYear('payment_date', $date->year)
-                ->sum('amount');
+            $amount = $payments->get($monthKey)?->total ?? 0;
 
             $trend[] = [
                 'month' => $date->format('M Y'),
                 'short_month' => $date->format('M'),
-                'amount' => round($amount, 2),
+                'amount' => round((float) $amount, 2),
             ];
         }
 

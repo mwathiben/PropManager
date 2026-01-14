@@ -258,14 +258,19 @@ class PaymentController extends Controller
 
         $payments = $query->paginate(20)->withQueryString();
 
-        // Calculate stats
+        // Calculate stats in a single query
+        $statsRaw = Payment::where('landlord_id', $landlordId)
+            ->selectRaw('
+                COALESCE(SUM(amount), 0) as total_received,
+                COALESCE(SUM(CASE WHEN strftime("%m", payment_date) = ? AND strftime("%Y", payment_date) = ? THEN amount ELSE 0 END), 0) as this_month,
+                COUNT(*) as payment_count
+            ', [sprintf('%02d', now()->month), (string) now()->year])
+            ->first();
+
         $stats = [
-            'total_received' => Payment::where('landlord_id', $landlordId)->sum('amount'),
-            'this_month' => Payment::where('landlord_id', $landlordId)
-                ->whereMonth('payment_date', now()->month)
-                ->whereYear('payment_date', now()->year)
-                ->sum('amount'),
-            'payment_count' => Payment::where('landlord_id', $landlordId)->count(),
+            'total_received' => (float) $statsRaw->total_received,
+            'this_month' => (float) $statsRaw->this_month,
+            'payment_count' => (int) $statsRaw->payment_count,
         ];
 
         // Get payment methods for filter
@@ -1026,6 +1031,56 @@ class PaymentController extends Controller
             return response()->json(['error' => 'CSV file is empty or invalid format.'], 422);
         }
 
+        // Pre-load all units for this building (eliminates N+1 in loop)
+        $unitsMap = Unit::where('building_id', $buildingId)
+            ->get()
+            ->keyBy(fn ($u) => strtolower(trim($u->unit_number)));
+
+        // For current mode, pre-load tenants and invoices
+        $tenantsMap = collect();
+        $invoicesMap = collect();
+        $tenantInvoicesMap = collect();
+
+        if ($mode === 'current') {
+            $tenantEmails = collect($rows)
+                ->map(fn ($r) => strtolower(trim($r['tenant_email'] ?? $r['Tenant Email'] ?? '')))
+                ->filter()
+                ->unique();
+
+            $invoiceNumbers = collect($rows)
+                ->map(fn ($r) => trim($r['invoice_number'] ?? $r['Invoice Number'] ?? ''))
+                ->filter()
+                ->unique();
+
+            $tenantsMap = User::where('landlord_id', $landlordId)
+                ->where('role', 'tenant')
+                ->where('is_archived', false)
+                ->whereIn(DB::raw('LOWER(email)'), $tenantEmails)
+                ->with('lease')
+                ->get()
+                ->keyBy(fn ($t) => strtolower($t->email));
+
+            if ($invoiceNumbers->isNotEmpty()) {
+                $invoicesMap = Invoice::where('landlord_id', $landlordId)
+                    ->whereIn('invoice_number', $invoiceNumbers)
+                    ->with('lease')
+                    ->get()
+                    ->keyBy('invoice_number');
+            }
+
+            // Pre-load outstanding invoices for all tenants in the CSV
+            $tenantIds = $tenantsMap->pluck('id')->unique()->filter();
+            if ($tenantIds->isNotEmpty()) {
+                $tenantInvoicesMap = Invoice::where('landlord_id', $landlordId)
+                    ->whereHas('lease', fn ($q) => $q->whereIn('tenant_id', $tenantIds))
+                    ->whereIn('status', ['sent', 'partial', 'overdue'])
+                    ->with('lease:id,tenant_id')
+                    ->orderBy('due_date', 'asc')
+                    ->get()
+                    ->groupBy(fn ($inv) => $inv->lease?->tenant_id);
+            }
+        }
+
         $validRows = [];
         $invalidRows = [];
 
@@ -1077,9 +1132,8 @@ class PaymentController extends Controller
                 $errors[] = 'Payment Method must be one of: '.implode(', ', $validMethods);
             }
 
-            $unit = Unit::where('building_id', $buildingId)
-                ->where('unit_number', $unitNumber)
-                ->first();
+            // Use pre-loaded units map instead of querying
+            $unit = $unitsMap->get(strtolower($unitNumber));
 
             if (! $unit && ! empty($unitNumber)) {
                 $errors[] = "Unit '{$unitNumber}' not found in selected building";
@@ -1112,7 +1166,7 @@ class PaymentController extends Controller
                     $landlordId
                 );
             } else {
-                $result = $this->validateCurrentRow(
+                $result = $this->validateCurrentRowOptimized(
                     $rowNumber,
                     $unit,
                     $unitNumber,
@@ -1123,7 +1177,10 @@ class PaymentController extends Controller
                     (float) $amount,
                     $paymentMethod,
                     $reference,
-                    $landlordId
+                    $landlordId,
+                    $tenantsMap,
+                    $invoicesMap,
+                    $tenantInvoicesMap
                 );
 
                 if (isset($result['errors'])) {
@@ -1272,6 +1329,141 @@ class PaymentController extends Controller
                 ->whereIn('status', ['sent', 'partial', 'overdue'])
                 ->orderBy('due_date', 'asc')
                 ->get();
+
+            foreach ($invoices as $invoice) {
+                if ($remainingAmount <= 0) {
+                    break;
+                }
+
+                $outstanding = $invoice->getOutstandingBalance();
+                if ($outstanding <= 0) {
+                    continue;
+                }
+
+                $allocationAmount = min($remainingAmount, $outstanding);
+                $allocations[] = [
+                    'invoice_id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'amount' => $allocationAmount,
+                    'outstanding_before' => $outstanding,
+                ];
+                $remainingAmount -= $allocationAmount;
+            }
+
+            if ($remainingAmount > 0) {
+                $walletCredit = $remainingAmount;
+            }
+        }
+
+        return [
+            'row' => $rowNumber,
+            'unit_id' => $unit->id,
+            'unit_number' => $unitNumber,
+            'tenant_id' => $tenant->id,
+            'tenant_name' => $tenant->name,
+            'tenant_email' => $tenantEmail,
+            'payment_date' => $paymentDate,
+            'amount' => $amount,
+            'payment_method' => $paymentMethod,
+            'reference' => $reference,
+            'is_historical' => false,
+            'allocations' => $allocations,
+            'wallet_credit' => $walletCredit,
+        ];
+    }
+
+    /**
+     * Validate a row for current tenant import using pre-loaded collections (optimized).
+     *
+     * @param  \Illuminate\Support\Collection  $tenantsMap
+     * @param  \Illuminate\Support\Collection  $invoicesMap
+     * @param  \Illuminate\Support\Collection  $tenantInvoicesMap
+     */
+    private function validateCurrentRowOptimized(
+        int $rowNumber,
+        ?Unit $unit,
+        string $unitNumber,
+        string $tenantName,
+        string $tenantEmail,
+        string $invoiceNumber,
+        string $paymentDate,
+        float $amount,
+        string $paymentMethod,
+        string $reference,
+        int $landlordId,
+        $tenantsMap,
+        $invoicesMap,
+        $tenantInvoicesMap
+    ): array {
+        $tenant = $tenantsMap->get(strtolower($tenantEmail));
+
+        if (! $tenant) {
+            return [
+                'row' => $rowNumber,
+                'unit_number' => $unitNumber,
+                'tenant_name' => $tenantName,
+                'tenant_email' => $tenantEmail,
+                'amount' => $amount,
+                'errors' => ["Active tenant not found with email: {$tenantEmail}"],
+            ];
+        }
+
+        $activeLease = $tenant->lease;
+        if (! $activeLease || ! $unit || $activeLease->unit_id !== $unit->id) {
+            return [
+                'row' => $rowNumber,
+                'unit_number' => $unitNumber,
+                'tenant_name' => $tenantName,
+                'tenant_email' => $tenantEmail,
+                'amount' => $amount,
+                'errors' => ["Tenant does not have an active lease for unit {$unitNumber}"],
+            ];
+        }
+
+        $allocations = [];
+        $walletCredit = 0;
+        $remainingAmount = $amount;
+
+        if (! empty($invoiceNumber)) {
+            $invoice = $invoicesMap->get($invoiceNumber);
+
+            if (! $invoice) {
+                return [
+                    'row' => $rowNumber,
+                    'unit_number' => $unitNumber,
+                    'tenant_name' => $tenantName,
+                    'tenant_email' => $tenantEmail,
+                    'amount' => $amount,
+                    'errors' => ["Invoice not found: {$invoiceNumber}"],
+                ];
+            }
+
+            if ($invoice->lease && $invoice->lease->tenant_id !== $tenant->id) {
+                return [
+                    'row' => $rowNumber,
+                    'unit_number' => $unitNumber,
+                    'tenant_name' => $tenantName,
+                    'tenant_email' => $tenantEmail,
+                    'amount' => $amount,
+                    'errors' => ["Invoice {$invoiceNumber} does not belong to this tenant"],
+                ];
+            }
+
+            $outstanding = $invoice->getOutstandingBalance();
+            $allocationAmount = min($remainingAmount, $outstanding);
+            $allocations[] = [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'amount' => $allocationAmount,
+                'outstanding_before' => $outstanding,
+            ];
+            $remainingAmount -= $allocationAmount;
+
+            if ($remainingAmount > 0) {
+                $walletCredit = $remainingAmount;
+            }
+        } else {
+            $invoices = $tenantInvoicesMap->get($tenant->id, collect());
 
             foreach ($invoices as $invoice) {
                 if ($remainingAmount <= 0) {
@@ -1604,17 +1796,32 @@ class PaymentController extends Controller
      */
     private function sendPendingOverpaymentNotifications(array $pendingOverpayments): void
     {
+        if (empty($pendingOverpayments)) {
+            return;
+        }
+
+        $leaseIds = collect($pendingOverpayments)->pluck('lease_id')->unique()->filter();
+        $paymentIds = collect($pendingOverpayments)->pluck('payment_id')->unique()->filter();
+
+        $leases = Lease::whereIn('id', $leaseIds)
+            ->with(['tenant', 'landlord'])
+            ->get()
+            ->keyBy('id');
+
+        $payments = Payment::whereIn('id', $paymentIds)
+            ->get()
+            ->keyBy('id');
+
         foreach ($pendingOverpayments as $p) {
-            $lease = Lease::find($p['lease_id']);
-            $payment = Payment::find($p['payment_id']);
+            $lease = $leases->get($p['lease_id']);
+            $payment = $payments->get($p['payment_id']);
 
             if (! $lease || ! $payment) {
                 continue;
             }
 
-            $lease->refresh();
             $tenant = $lease->tenant;
-            $landlord = User::find($lease->landlord_id);
+            $landlord = $lease->landlord;
 
             if ($landlord && $tenant) {
                 Mail::to($landlord->email)->queue(new OverpaymentNotification(

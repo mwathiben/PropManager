@@ -56,6 +56,11 @@ class Lease extends Model
         return $this->belongsTo(User::class, 'tenant_id');
     }
 
+    public function landlord()
+    {
+        return $this->belongsTo(User::class, 'landlord_id');
+    }
+
     public function invoices()
     {
         return $this->hasMany(Invoice::class);

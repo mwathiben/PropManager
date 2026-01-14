@@ -84,7 +84,7 @@
         "app/Models/Tenant.php"
       ],
       "verification": "Query count per page load should be < 15 queries",
-      "passes": false
+      "passes": true
     },
     {
       "id": "OPT-002",
@@ -438,7 +438,7 @@
     "description": "Track progress in progress.txt file, committed to repo after each task",
     "format": {
       "taskCompleted": "Task ID and title",
-      "decisionsAde": "Key decisions and reasoning",
+      "decisionsMade": "Key decisions and reasoning",
       "filesChanged": "List of modified files",
       "blockers": "Any blockers or notes for next iteration"
     }
