@@ -3,7 +3,13 @@ import { ref, computed } from 'vue';
 import { useFormatters, useTabFilters } from '@/composables';
 import { useFinancesStore } from '@/stores/finances';
 import { FilterBar, DataTable, AmountDisplay, MetricCard, Pagination, ExportDropdown } from '@/Components/Finances';
-import { BanknotesIcon, ShieldCheckIcon, ArrowUturnLeftIcon, XCircleIcon, EllipsisVerticalIcon, ChevronDownIcon, ChevronRightIcon } from '@heroicons/vue/24/outline';
+import BanknotesIcon from '@heroicons/vue/24/outline/BanknotesIcon';
+import ShieldCheckIcon from '@heroicons/vue/24/outline/ShieldCheckIcon';
+import ArrowUturnLeftIcon from '@heroicons/vue/24/outline/ArrowUturnLeftIcon';
+import XCircleIcon from '@heroicons/vue/24/outline/XCircleIcon';
+import EllipsisVerticalIcon from '@heroicons/vue/24/outline/EllipsisVerticalIcon';
+import ChevronDownIcon from '@heroicons/vue/24/outline/ChevronDownIcon';
+import ChevronRightIcon from '@heroicons/vue/24/outline/ChevronRightIcon';
 import type { PaginatedResponse, Deposit, Building } from '@/types/finances';
 
 interface DepositData {

@@ -12,7 +12,9 @@ import {
     Pagination,
     ExportDropdown,
 } from '@/Components/Finances';
-import { DocumentTextIcon, EyeIcon, BanknotesIcon } from '@heroicons/vue/24/outline';
+import DocumentTextIcon from '@heroicons/vue/24/outline/DocumentTextIcon';
+import EyeIcon from '@heroicons/vue/24/outline/EyeIcon';
+import BanknotesIcon from '@heroicons/vue/24/outline/BanknotesIcon';
 import type { PaginatedResponse, Invoice, Building } from '@/types/finances';
 
 interface StatusOption {

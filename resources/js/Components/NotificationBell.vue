@@ -1,19 +1,17 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { usePage, Link, router } from '@inertiajs/vue3';
-import {
-    BellIcon,
-    ClockIcon,
-    ExclamationTriangleIcon,
-    DocumentTextIcon,
-    CheckCircleIcon,
-    ArrowTrendingUpIcon,
-    CalendarIcon,
-    WrenchScrewdriverIcon,
-    ExclamationCircleIcon,
-    UserPlusIcon,
-} from '@heroicons/vue/24/outline';
-import { BellIcon as BellIconSolid } from '@heroicons/vue/24/solid';
+import BellIcon from '@heroicons/vue/24/outline/BellIcon';
+import ClockIcon from '@heroicons/vue/24/outline/ClockIcon';
+import ExclamationTriangleIcon from '@heroicons/vue/24/outline/ExclamationTriangleIcon';
+import DocumentTextIcon from '@heroicons/vue/24/outline/DocumentTextIcon';
+import CheckCircleIcon from '@heroicons/vue/24/outline/CheckCircleIcon';
+import ArrowTrendingUpIcon from '@heroicons/vue/24/outline/ArrowTrendingUpIcon';
+import CalendarIcon from '@heroicons/vue/24/outline/CalendarIcon';
+import WrenchScrewdriverIcon from '@heroicons/vue/24/outline/WrenchScrewdriverIcon';
+import ExclamationCircleIcon from '@heroicons/vue/24/outline/ExclamationCircleIcon';
+import UserPlusIcon from '@heroicons/vue/24/outline/UserPlusIcon';
+import BellIconSolid from '@heroicons/vue/24/solid/BellIcon';
 
 const page = usePage();
 

@@ -1,37 +1,35 @@
 <script setup>
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
-import {
-    CheckCircleIcon,
-    BuildingOffice2Icon,
-    HomeModernIcon,
-    BuildingStorefrontIcon,
-    HomeIcon,
-    PlusIcon,
-    TrashIcon,
-    UserIcon,
-    CurrencyDollarIcon,
-    UserGroupIcon,
-    UserPlusIcon,
-    RocketLaunchIcon,
-    SparklesIcon,
-    ArrowRightIcon,
-    ArrowLeftIcon,
-    ChevronRightIcon,
-    PhotoIcon,
-    PhoneIcon,
-    EnvelopeIcon,
-    MapPinIcon,
-    BuildingOfficeIcon,
-    BanknotesIcon,
-    CreditCardIcon,
-    DevicePhoneMobileIcon,
-    CheckIcon,
-    XMarkIcon,
-    CalendarIcon,
-    ClockIcon,
-} from '@heroicons/vue/24/outline';
-import { CheckCircleIcon as CheckCircleSolidIcon } from '@heroicons/vue/24/solid';
+import CheckCircleIcon from '@heroicons/vue/24/outline/CheckCircleIcon';
+import BuildingOffice2Icon from '@heroicons/vue/24/outline/BuildingOffice2Icon';
+import HomeModernIcon from '@heroicons/vue/24/outline/HomeModernIcon';
+import BuildingStorefrontIcon from '@heroicons/vue/24/outline/BuildingStorefrontIcon';
+import HomeIcon from '@heroicons/vue/24/outline/HomeIcon';
+import PlusIcon from '@heroicons/vue/24/outline/PlusIcon';
+import TrashIcon from '@heroicons/vue/24/outline/TrashIcon';
+import UserIcon from '@heroicons/vue/24/outline/UserIcon';
+import CurrencyDollarIcon from '@heroicons/vue/24/outline/CurrencyDollarIcon';
+import UserGroupIcon from '@heroicons/vue/24/outline/UserGroupIcon';
+import UserPlusIcon from '@heroicons/vue/24/outline/UserPlusIcon';
+import RocketLaunchIcon from '@heroicons/vue/24/outline/RocketLaunchIcon';
+import SparklesIcon from '@heroicons/vue/24/outline/SparklesIcon';
+import ArrowRightIcon from '@heroicons/vue/24/outline/ArrowRightIcon';
+import ArrowLeftIcon from '@heroicons/vue/24/outline/ArrowLeftIcon';
+import ChevronRightIcon from '@heroicons/vue/24/outline/ChevronRightIcon';
+import PhotoIcon from '@heroicons/vue/24/outline/PhotoIcon';
+import PhoneIcon from '@heroicons/vue/24/outline/PhoneIcon';
+import EnvelopeIcon from '@heroicons/vue/24/outline/EnvelopeIcon';
+import MapPinIcon from '@heroicons/vue/24/outline/MapPinIcon';
+import BuildingOfficeIcon from '@heroicons/vue/24/outline/BuildingOfficeIcon';
+import BanknotesIcon from '@heroicons/vue/24/outline/BanknotesIcon';
+import CreditCardIcon from '@heroicons/vue/24/outline/CreditCardIcon';
+import DevicePhoneMobileIcon from '@heroicons/vue/24/outline/DevicePhoneMobileIcon';
+import CheckIcon from '@heroicons/vue/24/outline/CheckIcon';
+import XMarkIcon from '@heroicons/vue/24/outline/XMarkIcon';
+import CalendarIcon from '@heroicons/vue/24/outline/CalendarIcon';
+import ClockIcon from '@heroicons/vue/24/outline/ClockIcon';
+import CheckCircleSolidIcon from '@heroicons/vue/24/solid/CheckCircleIcon';
 
 const props = defineProps({
     currentStep: { type: Number, required: true },

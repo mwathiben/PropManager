@@ -145,7 +145,7 @@
         "correct": "import HomeIcon from '@heroicons/vue/24/outline/HomeIcon'"
       },
       "impact": "15-70% faster dev boot, 28% faster builds, 40% faster cold starts",
-      "passes": false
+      "passes": true
     },
     {
       "id": "OPT-005",

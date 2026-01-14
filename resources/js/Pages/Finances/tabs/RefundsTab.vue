@@ -3,7 +3,9 @@ import { computed } from 'vue';
 import { router, Link } from '@inertiajs/vue3';
 import { useFormatters, useStatusColors, useTabFilters } from '@/composables';
 import { FilterBar, DataTable, AmountDisplay, EmptyState, Pagination } from '@/Components/Finances';
-import { ArrowUturnLeftIcon, EyeIcon, PlusIcon } from '@heroicons/vue/24/outline';
+import ArrowUturnLeftIcon from '@heroicons/vue/24/outline/ArrowUturnLeftIcon';
+import EyeIcon from '@heroicons/vue/24/outline/EyeIcon';
+import PlusIcon from '@heroicons/vue/24/outline/PlusIcon';
 import type { PaginatedResponse, Refund, RefundStatus } from '@/types/finances';
 
 interface StatusOption {

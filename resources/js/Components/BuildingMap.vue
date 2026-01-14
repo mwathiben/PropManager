@@ -2,7 +2,8 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPinIcon, ArrowTopRightOnSquareIcon } from '@heroicons/vue/24/outline';
+import MapPinIcon from '@heroicons/vue/24/outline/MapPinIcon';
+import ArrowTopRightOnSquareIcon from '@heroicons/vue/24/outline/ArrowTopRightOnSquareIcon';
 
 // Fix Leaflet default marker icon issue
 delete L.Icon.Default.prototype._getIconUrl;

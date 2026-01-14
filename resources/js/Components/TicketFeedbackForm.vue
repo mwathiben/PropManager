@@ -1,8 +1,8 @@
 <script setup>
 import { ref } from 'vue';
 import { useForm } from '@inertiajs/vue3';
-import { StarIcon } from '@heroicons/vue/24/solid';
-import { StarIcon as StarOutlineIcon } from '@heroicons/vue/24/outline';
+import StarIcon from '@heroicons/vue/24/solid/StarIcon';
+import StarOutlineIcon from '@heroicons/vue/24/outline/StarIcon';
 
 const props = defineProps({
     ticketId: {

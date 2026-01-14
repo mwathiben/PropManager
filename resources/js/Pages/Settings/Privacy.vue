@@ -2,7 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
-import { ArrowLeftIcon } from '@heroicons/vue/24/outline';
+import ArrowLeftIcon from '@heroicons/vue/24/outline/ArrowLeftIcon';
 
 const props = defineProps({
     deletionStatus: Object,

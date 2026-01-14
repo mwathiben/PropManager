@@ -1,6 +1,6 @@
 <script setup>
 import { watch, onMounted, onUnmounted } from 'vue';
-import { XMarkIcon } from '@heroicons/vue/24/outline';
+import XMarkIcon from '@heroicons/vue/24/outline/XMarkIcon';
 
 const props = defineProps({
     show: {

@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
-import { FunnelIcon, XMarkIcon } from '@heroicons/vue/24/outline';
+import FunnelIcon from '@heroicons/vue/24/outline/FunnelIcon';
+import XMarkIcon from '@heroicons/vue/24/outline/XMarkIcon';
 
 const props = defineProps({
     floor: {

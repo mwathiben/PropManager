@@ -2,32 +2,30 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
-import {
-    ArrowLeftIcon,
-    UserCircleIcon,
-    PhoneIcon,
-    EnvelopeIcon,
-    IdentificationIcon,
-    HomeIcon,
-    CalendarIcon,
-    BanknotesIcon,
-    ExclamationTriangleIcon,
-    CheckCircleIcon,
-    PencilIcon,
-    TrashIcon,
-    PlusIcon,
-    ChatBubbleLeftIcon,
-    ClockIcon,
-    DocumentTextIcon,
-    XMarkIcon,
-    StarIcon,
-    UserGroupIcon,
-    CurrencyDollarIcon,
-    ArrowTrendingUpIcon,
-    DocumentIcon,
-    EyeIcon,
-} from '@heroicons/vue/24/outline';
-import { StarIcon as StarIconSolid } from '@heroicons/vue/24/solid';
+import ArrowLeftIcon from '@heroicons/vue/24/outline/ArrowLeftIcon';
+import UserCircleIcon from '@heroicons/vue/24/outline/UserCircleIcon';
+import PhoneIcon from '@heroicons/vue/24/outline/PhoneIcon';
+import EnvelopeIcon from '@heroicons/vue/24/outline/EnvelopeIcon';
+import IdentificationIcon from '@heroicons/vue/24/outline/IdentificationIcon';
+import HomeIcon from '@heroicons/vue/24/outline/HomeIcon';
+import CalendarIcon from '@heroicons/vue/24/outline/CalendarIcon';
+import BanknotesIcon from '@heroicons/vue/24/outline/BanknotesIcon';
+import ExclamationTriangleIcon from '@heroicons/vue/24/outline/ExclamationTriangleIcon';
+import CheckCircleIcon from '@heroicons/vue/24/outline/CheckCircleIcon';
+import PencilIcon from '@heroicons/vue/24/outline/PencilIcon';
+import TrashIcon from '@heroicons/vue/24/outline/TrashIcon';
+import PlusIcon from '@heroicons/vue/24/outline/PlusIcon';
+import ChatBubbleLeftIcon from '@heroicons/vue/24/outline/ChatBubbleLeftIcon';
+import ClockIcon from '@heroicons/vue/24/outline/ClockIcon';
+import DocumentTextIcon from '@heroicons/vue/24/outline/DocumentTextIcon';
+import XMarkIcon from '@heroicons/vue/24/outline/XMarkIcon';
+import StarIcon from '@heroicons/vue/24/outline/StarIcon';
+import UserGroupIcon from '@heroicons/vue/24/outline/UserGroupIcon';
+import CurrencyDollarIcon from '@heroicons/vue/24/outline/CurrencyDollarIcon';
+import ArrowTrendingUpIcon from '@heroicons/vue/24/outline/ArrowTrendingUpIcon';
+import DocumentIcon from '@heroicons/vue/24/outline/DocumentIcon';
+import EyeIcon from '@heroicons/vue/24/outline/EyeIcon';
+import StarIconSolid from '@heroicons/vue/24/solid/StarIcon';
 
 const props = defineProps({
     tenant: Object,

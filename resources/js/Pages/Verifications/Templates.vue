@@ -2,20 +2,18 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, router, Link } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
-import {
-    ClipboardDocumentCheckIcon,
-    PlusIcon,
-    PencilIcon,
-    TrashIcon,
-    XMarkIcon,
-    CheckIcon,
-    StarIcon,
-    DocumentTextIcon,
-    ArrowLeftIcon,
-    Bars3Icon,
-    ExclamationCircleIcon,
-} from '@heroicons/vue/24/outline';
-import { StarIcon as StarIconSolid } from '@heroicons/vue/24/solid';
+import ClipboardDocumentCheckIcon from '@heroicons/vue/24/outline/ClipboardDocumentCheckIcon';
+import PlusIcon from '@heroicons/vue/24/outline/PlusIcon';
+import PencilIcon from '@heroicons/vue/24/outline/PencilIcon';
+import TrashIcon from '@heroicons/vue/24/outline/TrashIcon';
+import XMarkIcon from '@heroicons/vue/24/outline/XMarkIcon';
+import CheckIcon from '@heroicons/vue/24/outline/CheckIcon';
+import StarIcon from '@heroicons/vue/24/outline/StarIcon';
+import DocumentTextIcon from '@heroicons/vue/24/outline/DocumentTextIcon';
+import ArrowLeftIcon from '@heroicons/vue/24/outline/ArrowLeftIcon';
+import Bars3Icon from '@heroicons/vue/24/outline/Bars3Icon';
+import ExclamationCircleIcon from '@heroicons/vue/24/outline/ExclamationCircleIcon';
+import StarIconSolid from '@heroicons/vue/24/solid/StarIcon';
 
 const props = defineProps({
     templates: Array,

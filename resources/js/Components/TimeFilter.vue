@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
-import { CalendarIcon, ChevronDownIcon } from '@heroicons/vue/24/outline';
+import CalendarIcon from '@heroicons/vue/24/outline/CalendarIcon';
+import ChevronDownIcon from '@heroicons/vue/24/outline/ChevronDownIcon';
 
 const props = defineProps({
     modelValue: {

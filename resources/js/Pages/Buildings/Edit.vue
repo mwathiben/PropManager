@@ -3,51 +3,50 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import BuildingMap from '@/Components/BuildingMap.vue';
 import { Head, useForm, Link, router, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
-import {
-    HomeIcon,
-    BuildingOfficeIcon,
-    Cog6ToothIcon,
-    TrashIcon,
-    CurrencyDollarIcon,
-    CheckIcon,
-    PlusIcon,
-    MapPinIcon,
-    WifiIcon,
-    ShieldCheckIcon,
-    TruckIcon,
-    SparklesIcon,
-    HomeModernIcon,
-    MapIcon,
-    XMarkIcon,
-    ChevronDownIcon,
-    ChevronUpIcon,
-    BoltIcon,
-    FireIcon,
-    SignalIcon,
-    VideoCameraIcon,
-    LockClosedIcon,
-    FingerPrintIcon,
-    BellAlertIcon,
-    BuildingStorefrontIcon,
-    UserGroupIcon,
-    AcademicCapIcon,
-    HeartIcon,
-    ShoppingBagIcon,
-    TruckIcon as DeliveryIcon,
-    SpeakerWaveIcon,
-    SunIcon,
-    ArrowPathIcon,
-    EyeIcon,
-    TagIcon,
-    ArrowsPointingOutIcon,
-    Square2StackIcon,
-    BriefcaseIcon,
-    DocumentTextIcon,
-    ClockIcon,
-    EnvelopeIcon,
-    CalendarDaysIcon
-} from '@heroicons/vue/24/outline';
-import { CheckCircleIcon, StarIcon } from '@heroicons/vue/24/solid';
+import HomeIcon from '@heroicons/vue/24/outline/HomeIcon';
+import BuildingOfficeIcon from '@heroicons/vue/24/outline/BuildingOfficeIcon';
+import Cog6ToothIcon from '@heroicons/vue/24/outline/Cog6ToothIcon';
+import TrashIcon from '@heroicons/vue/24/outline/TrashIcon';
+import CurrencyDollarIcon from '@heroicons/vue/24/outline/CurrencyDollarIcon';
+import CheckIcon from '@heroicons/vue/24/outline/CheckIcon';
+import PlusIcon from '@heroicons/vue/24/outline/PlusIcon';
+import MapPinIcon from '@heroicons/vue/24/outline/MapPinIcon';
+import WifiIcon from '@heroicons/vue/24/outline/WifiIcon';
+import ShieldCheckIcon from '@heroicons/vue/24/outline/ShieldCheckIcon';
+import TruckIcon from '@heroicons/vue/24/outline/TruckIcon';
+import SparklesIcon from '@heroicons/vue/24/outline/SparklesIcon';
+import HomeModernIcon from '@heroicons/vue/24/outline/HomeModernIcon';
+import MapIcon from '@heroicons/vue/24/outline/MapIcon';
+import XMarkIcon from '@heroicons/vue/24/outline/XMarkIcon';
+import ChevronDownIcon from '@heroicons/vue/24/outline/ChevronDownIcon';
+import ChevronUpIcon from '@heroicons/vue/24/outline/ChevronUpIcon';
+import BoltIcon from '@heroicons/vue/24/outline/BoltIcon';
+import FireIcon from '@heroicons/vue/24/outline/FireIcon';
+import SignalIcon from '@heroicons/vue/24/outline/SignalIcon';
+import VideoCameraIcon from '@heroicons/vue/24/outline/VideoCameraIcon';
+import LockClosedIcon from '@heroicons/vue/24/outline/LockClosedIcon';
+import FingerPrintIcon from '@heroicons/vue/24/outline/FingerPrintIcon';
+import BellAlertIcon from '@heroicons/vue/24/outline/BellAlertIcon';
+import BuildingStorefrontIcon from '@heroicons/vue/24/outline/BuildingStorefrontIcon';
+import UserGroupIcon from '@heroicons/vue/24/outline/UserGroupIcon';
+import AcademicCapIcon from '@heroicons/vue/24/outline/AcademicCapIcon';
+import HeartIcon from '@heroicons/vue/24/outline/HeartIcon';
+import ShoppingBagIcon from '@heroicons/vue/24/outline/ShoppingBagIcon';
+import DeliveryIcon from '@heroicons/vue/24/outline/TruckIcon';
+import SpeakerWaveIcon from '@heroicons/vue/24/outline/SpeakerWaveIcon';
+import SunIcon from '@heroicons/vue/24/outline/SunIcon';
+import ArrowPathIcon from '@heroicons/vue/24/outline/ArrowPathIcon';
+import EyeIcon from '@heroicons/vue/24/outline/EyeIcon';
+import TagIcon from '@heroicons/vue/24/outline/TagIcon';
+import ArrowsPointingOutIcon from '@heroicons/vue/24/outline/ArrowsPointingOutIcon';
+import Square2StackIcon from '@heroicons/vue/24/outline/Square2StackIcon';
+import BriefcaseIcon from '@heroicons/vue/24/outline/BriefcaseIcon';
+import DocumentTextIcon from '@heroicons/vue/24/outline/DocumentTextIcon';
+import ClockIcon from '@heroicons/vue/24/outline/ClockIcon';
+import EnvelopeIcon from '@heroicons/vue/24/outline/EnvelopeIcon';
+import CalendarDaysIcon from '@heroicons/vue/24/outline/CalendarDaysIcon';
+import CheckCircleIcon from '@heroicons/vue/24/solid/CheckCircleIcon';
+import StarIcon from '@heroicons/vue/24/solid/StarIcon';
 
 const props = defineProps({
     building: Object,

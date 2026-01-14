@@ -12,7 +12,12 @@ import {
     Pagination,
     ExportDropdown,
 } from '@/Components/Finances';
-import { CreditCardIcon, EyeIcon, ArrowUturnLeftIcon, DocumentArrowDownIcon, PlusIcon, ArrowUpTrayIcon } from '@heroicons/vue/24/outline';
+import CreditCardIcon from '@heroicons/vue/24/outline/CreditCardIcon';
+import EyeIcon from '@heroicons/vue/24/outline/EyeIcon';
+import ArrowUturnLeftIcon from '@heroicons/vue/24/outline/ArrowUturnLeftIcon';
+import DocumentArrowDownIcon from '@heroicons/vue/24/outline/DocumentArrowDownIcon';
+import PlusIcon from '@heroicons/vue/24/outline/PlusIcon';
+import ArrowUpTrayIcon from '@heroicons/vue/24/outline/ArrowUpTrayIcon';
 import type { PaginatedResponse, Payment, Building } from '@/types/finances';
 
 interface PaymentMethodOption {

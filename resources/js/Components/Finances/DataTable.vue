@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, type Component } from 'vue';
-import { ChevronUpIcon, ChevronDownIcon } from '@heroicons/vue/24/solid';
+import ChevronUpIcon from '@heroicons/vue/24/solid/ChevronUpIcon';
+import ChevronDownIcon from '@heroicons/vue/24/solid/ChevronDownIcon';
 import EmptyState from './EmptyState.vue';
 import type { ColumnDefinition, SortState } from '@/types/finances';
 

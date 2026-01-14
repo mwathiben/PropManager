@@ -2928,3 +2928,66 @@ Optimized Finance Hub Overview by reducing ~22 sequential database queries to 6 
 - Build: PASS
 - Tests: 378 passed, 12 skipped
 
+
+---
+
+## OPT-004: Avoid Barrel File Imports - Direct Icon Imports
+**Status:** PASSED
+**Date:** 2026-01-14
+**Attempts:** 1
+
+### Implementation Summary
+
+Converted all 26 barrel file imports from `@heroicons/vue` across 25 files to direct imports for better tree-shaking and faster builds.
+
+### Files Modified (25 files)
+
+**Finance Hub:**
+- `resources/js/Pages/Finances/tabs/DepositsTab.vue`
+- `resources/js/Pages/Finances/tabs/PaymentsTab.vue`
+- `resources/js/Pages/Finances/tabs/InvoicesTab.vue`
+- `resources/js/Pages/Finances/tabs/RefundsTab.vue`
+- `resources/js/Pages/Finances/tabs/TemplatesTab.vue`
+- `resources/js/Components/Finances/ExportDropdown.vue`
+- `resources/js/Components/Finances/DataTable.vue`
+
+**Core Components:**
+- `resources/js/Components/MetricCard.vue`
+- `resources/js/Components/Breadcrumb.vue`
+- `resources/js/Components/BuildingMap.vue`
+- `resources/js/Components/BuildingWingFilter.vue`
+- `resources/js/Components/NotificationBell.vue`
+- `resources/js/Components/SlideOutPanel.vue`
+- `resources/js/Components/UnitFilters.vue`
+- `resources/js/Components/TimeFilter.vue`
+- `resources/js/Components/TicketFeedbackForm.vue`
+
+**Pages:**
+- `resources/js/Pages/Buildings/Edit.vue`
+- `resources/js/Pages/Onboarding/Index.vue`
+- `resources/js/Pages/Tenants/Show.vue`
+- `resources/js/Pages/Verifications/Templates.vue`
+- `resources/js/Pages/Verifications/Conduct.vue`
+- `resources/js/Pages/Settings/TwoFactorSetup.vue`
+- `resources/js/Pages/Settings/TwoFactorRecoveryCodes.vue`
+- `resources/js/Pages/Settings/TwoFactor.vue`
+- `resources/js/Pages/Settings/Privacy.vue`
+
+### Import Pattern Change
+
+Before:
+```javascript
+import { HomeIcon, ChevronRightIcon } from '@heroicons/vue/24/outline';
+```
+
+After:
+```javascript
+import HomeIcon from '@heroicons/vue/24/outline/HomeIcon';
+import ChevronRightIcon from '@heroicons/vue/24/outline/ChevronRightIcon';
+```
+
+### Verification Results
+
+- Build: PASS (16.75s vs 18.72s before - 10% faster)
+- Tests: 378 passed, 12 skipped
+

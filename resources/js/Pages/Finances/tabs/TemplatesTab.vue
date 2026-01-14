@@ -1,16 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
-import {
-    DocumentDuplicateIcon,
-    DocumentTextIcon,
-    ReceiptPercentIcon,
-    CreditCardIcon,
-    PlusIcon,
-    PencilIcon,
-    StarIcon,
-} from '@heroicons/vue/24/outline';
-import { StarIcon as StarIconSolid } from '@heroicons/vue/24/solid';
+import DocumentDuplicateIcon from '@heroicons/vue/24/outline/DocumentDuplicateIcon';
+import DocumentTextIcon from '@heroicons/vue/24/outline/DocumentTextIcon';
+import ReceiptPercentIcon from '@heroicons/vue/24/outline/ReceiptPercentIcon';
+import CreditCardIcon from '@heroicons/vue/24/outline/CreditCardIcon';
+import PlusIcon from '@heroicons/vue/24/outline/PlusIcon';
+import PencilIcon from '@heroicons/vue/24/outline/PencilIcon';
+import StarIcon from '@heroicons/vue/24/outline/StarIcon';
+import StarIconSolid from '@heroicons/vue/24/solid/StarIcon';
 
 interface Template {
     id: number;

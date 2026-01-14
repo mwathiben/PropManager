@@ -1,6 +1,7 @@
 <script setup>
 import { Link } from '@inertiajs/vue3';
-import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/vue/24/solid';
+import ArrowUpIcon from '@heroicons/vue/24/solid/ArrowUpIcon';
+import ArrowDownIcon from '@heroicons/vue/24/solid/ArrowDownIcon';
 
 defineProps({
     title: {

@@ -40,7 +40,7 @@
 
 <script setup>
 import { computed } from 'vue';
-import { XMarkIcon } from '@heroicons/vue/20/solid';
+import XMarkIcon from '@heroicons/vue/20/solid/XMarkIcon';
 
 const props = defineProps({
     buildings: { type: Array, default: () => [] },

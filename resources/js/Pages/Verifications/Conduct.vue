@@ -2,23 +2,22 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, router, Link } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
-import {
-    ClipboardDocumentCheckIcon,
-    CheckCircleIcon,
-    XCircleIcon,
-    ClockIcon,
-    ArrowLeftIcon,
-    ExclamationCircleIcon,
-    DocumentTextIcon,
-    UserCircleIcon,
-    HomeIcon,
-    ArrowPathIcon,
-    CheckIcon,
-    XMarkIcon,
-    MinusCircleIcon,
-    ChatBubbleLeftIcon,
-} from '@heroicons/vue/24/outline';
-import { CheckCircleIcon as CheckCircleSolid, XCircleIcon as XCircleSolid } from '@heroicons/vue/24/solid';
+import ClipboardDocumentCheckIcon from '@heroicons/vue/24/outline/ClipboardDocumentCheckIcon';
+import CheckCircleIcon from '@heroicons/vue/24/outline/CheckCircleIcon';
+import XCircleIcon from '@heroicons/vue/24/outline/XCircleIcon';
+import ClockIcon from '@heroicons/vue/24/outline/ClockIcon';
+import ArrowLeftIcon from '@heroicons/vue/24/outline/ArrowLeftIcon';
+import ExclamationCircleIcon from '@heroicons/vue/24/outline/ExclamationCircleIcon';
+import DocumentTextIcon from '@heroicons/vue/24/outline/DocumentTextIcon';
+import UserCircleIcon from '@heroicons/vue/24/outline/UserCircleIcon';
+import HomeIcon from '@heroicons/vue/24/outline/HomeIcon';
+import ArrowPathIcon from '@heroicons/vue/24/outline/ArrowPathIcon';
+import CheckIcon from '@heroicons/vue/24/outline/CheckIcon';
+import XMarkIcon from '@heroicons/vue/24/outline/XMarkIcon';
+import MinusCircleIcon from '@heroicons/vue/24/outline/MinusCircleIcon';
+import ChatBubbleLeftIcon from '@heroicons/vue/24/outline/ChatBubbleLeftIcon';
+import CheckCircleSolid from '@heroicons/vue/24/solid/CheckCircleIcon';
+import XCircleSolid from '@heroicons/vue/24/solid/XCircleIcon';
 
 const props = defineProps({
     lease: Object,

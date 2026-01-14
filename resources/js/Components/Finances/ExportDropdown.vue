@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { ArrowDownTrayIcon } from '@heroicons/vue/24/outline';
+import ArrowDownTrayIcon from '@heroicons/vue/24/outline/ArrowDownTrayIcon';
 import type { ExportFormat } from '@/types/finances';
 
 interface FormatOption {
