@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, watch, type Component } from 'vue';
+import { computed, onMounted, watch, defineAsyncComponent, type Component } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import { useFinancesStore } from '@/stores/finances';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Breadcrumb from '@/Components/Breadcrumb.vue';
+import { ModalLoadingPlaceholder } from '@/Components/Finances';
 import OverviewTab from './tabs/OverviewTab.vue';
 import InvoicesTab from './tabs/InvoicesTab.vue';
 import PaymentsTab from './tabs/PaymentsTab.vue';
@@ -15,14 +16,54 @@ import ArrearsTab from './tabs/ArrearsTab.vue';
 import LateFeeSettingsTab from './tabs/LateFeeSettingsTab.vue';
 import SettingsTab from './tabs/SettingsTab.vue';
 import ReportsTab from './tabs/ReportsTab.vue';
-import InvoiceDetailModal from './modals/InvoiceDetailModal.vue';
-import PaymentDetailModal from './modals/PaymentDetailModal.vue';
-import RecordPaymentModal from './modals/RecordPaymentModal.vue';
-import RefundModal from './modals/RefundModal.vue';
-import MatchPaymentModal from './modals/MatchPaymentModal.vue';
-import RefundDepositModal from './modals/RefundDepositModal.vue';
-import ForfeitDepositModal from './modals/ForfeitDepositModal.vue';
-import SendRemindersModal from './modals/SendRemindersModal.vue';
+
+const InvoiceDetailModal = defineAsyncComponent({
+    loader: () => import('./modals/InvoiceDetailModal.vue'),
+    loadingComponent: ModalLoadingPlaceholder,
+    delay: 100,
+});
+
+const PaymentDetailModal = defineAsyncComponent({
+    loader: () => import('./modals/PaymentDetailModal.vue'),
+    loadingComponent: ModalLoadingPlaceholder,
+    delay: 100,
+});
+
+const RecordPaymentModal = defineAsyncComponent({
+    loader: () => import('./modals/RecordPaymentModal.vue'),
+    loadingComponent: ModalLoadingPlaceholder,
+    delay: 100,
+});
+
+const RefundModal = defineAsyncComponent({
+    loader: () => import('./modals/RefundModal.vue'),
+    loadingComponent: ModalLoadingPlaceholder,
+    delay: 100,
+});
+
+const MatchPaymentModal = defineAsyncComponent({
+    loader: () => import('./modals/MatchPaymentModal.vue'),
+    loadingComponent: ModalLoadingPlaceholder,
+    delay: 100,
+});
+
+const RefundDepositModal = defineAsyncComponent({
+    loader: () => import('./modals/RefundDepositModal.vue'),
+    loadingComponent: ModalLoadingPlaceholder,
+    delay: 100,
+});
+
+const ForfeitDepositModal = defineAsyncComponent({
+    loader: () => import('./modals/ForfeitDepositModal.vue'),
+    loadingComponent: ModalLoadingPlaceholder,
+    delay: 100,
+});
+
+const SendRemindersModal = defineAsyncComponent({
+    loader: () => import('./modals/SendRemindersModal.vue'),
+    loadingComponent: ModalLoadingPlaceholder,
+    delay: 100,
+});
 import {
     ChartBarIcon,
     ChartPieIcon,

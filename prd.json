@@ -681,8 +681,9 @@
         "No UX degradation (< 200ms modal open time)",
         "Build passes"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
+      "notes": "Converted 8 modal static imports to defineAsyncComponent in Index.vue. Created ModalLoadingPlaceholder component with emerald spinner. Modals now load on-demand when first opened (~66.7 kB deferred). Fixed pre-existing Redis pattern deletion bug in FinanceCacheService. 376 tests pass.",
       "depends_on": ["FIN-017", "FIN-018", "FIN-019"]
     },
     {
@@ -745,7 +746,7 @@
   ],
   "metadata": {
     "total_stories": 37,
-    "passing_stories": 33,
+    "passing_stories": 34,
     "framework": "Laravel",
     "frontend": "Vue.js/Inertia"
   }

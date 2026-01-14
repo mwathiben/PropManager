@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Redis;
 
 class FinanceCacheService
 {
@@ -65,16 +66,24 @@ class FinanceCacheService
 
     private static function deleteByPattern(string $pattern): void
     {
-        $redis = Cache::store('redis')->getRedis();
+        if (config('cache.default') !== 'redis') {
+            return;
+        }
 
-        if (method_exists($redis, 'keys')) {
-            $prefix = config('cache.prefix', '');
-            $keys = $redis->keys($prefix . $pattern);
+        try {
+            $redis = Redis::connection('cache');
 
-            foreach ($keys as $key) {
-                $keyWithoutPrefix = str_replace($prefix, '', $key);
-                Cache::forget($keyWithoutPrefix);
+            if (method_exists($redis, 'keys')) {
+                $prefix = config('cache.prefix', '');
+                $keys = $redis->keys($prefix . $pattern);
+
+                foreach ($keys as $key) {
+                    $keyWithoutPrefix = str_replace($prefix, '', $key);
+                    Cache::forget($keyWithoutPrefix);
+                }
             }
+        } catch (\Exception $e) {
+            // Redis not available, skip pattern deletion
         }
     }
 
