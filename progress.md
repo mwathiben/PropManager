@@ -2761,3 +2761,71 @@ Added a unified "Templates" tab to the Finance Hub between Reports and Settings,
 - PRD state was out of sync with actual codebase - several tasks marked as unpassed were already implemented
 - The WSOD was caused by missing Index.vue for ReceiptTemplates
 - Finance Hub Index.vue was not passing template-related props to TemplatesTab
+
+---
+
+## OPT-003: Vue 3 Lazy Loading for Finance Hub Tabs
+**Status:** PASSED
+**Date:** 2026-01-14
+**Attempts:** 1
+
+### Implementation Summary
+
+Converted all 12 Finance Hub tab components from static imports to lazy-loaded async components using Vue's `defineAsyncComponent`, reducing initial bundle size by ~155.6 kB.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `resources/js/Components/Finances/TabLoadingPlaceholder.vue` | Loading spinner shown while tab chunks load |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `resources/js/Components/Finances/index.ts` | Added TabLoadingPlaceholder export |
+| `resources/js/Pages/Finances/Index.vue` | Converted 12 static tab imports to defineAsyncComponent declarations |
+
+### Tab Components Converted (12 total)
+
+| Tab Component | Chunk Size | gzip Size |
+|---------------|------------|-----------|
+| RefundsTab | 3.94 kB | 1.79 kB |
+| PaymentsTab | 5.17 kB | 2.13 kB |
+| ArrearsTab | 5.61 kB | 2.31 kB |
+| InvoicesTab | 7.37 kB | 2.91 kB |
+| TemplatesTab | 9.89 kB | 2.59 kB |
+| DepositsTab | 10.41 kB | 3.47 kB |
+| ReconciliationTab | 10.93 kB | 3.54 kB |
+| OverviewTab | 10.94 kB | 3.26 kB |
+| LateFeeSettingsTab | 14.58 kB | 3.94 kB |
+| SettingsTab | 23.09 kB | 5.16 kB |
+| ReportsTab | 23.82 kB | 6.26 kB |
+| ExpensesTab | 29.87 kB | 6.56 kB |
+| **Total Deferred** | **~155.6 kB** | **~43.9 kB** |
+
+### defineAsyncComponent Pattern Used
+
+```typescript
+const OverviewTab = defineAsyncComponent({
+    loader: () => import('./tabs/OverviewTab.vue'),
+    loadingComponent: TabLoadingPlaceholder,
+    delay: 100, // Show loading after 100ms
+});
+```
+
+### Acceptance Criteria Verification
+
+1. **Convert static imports to defineAsyncComponent()** - All 12 tabs converted
+2. **Add loading skeletons for lazy-loaded components** - TabLoadingPlaceholder created
+3. **Ensure Vite code-splits these components into separate chunks** - Verified in build output
+4. **Verify with bundle analyzer that initial bundle is reduced** - ~155.6 kB now loaded on-demand
+5. **All tests pass** - 378 passed, 12 skipped
+
+### Verification Results
+
+- Build: Success (22.19s, 1980 modules)
+- Tests: 378 passed, 12 skipped
+- Bundle reduction: ~155.6 kB deferred to on-demand loading
+
+---

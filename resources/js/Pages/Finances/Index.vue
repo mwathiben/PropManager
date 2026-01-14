@@ -4,19 +4,79 @@ import { Head, router } from '@inertiajs/vue3';
 import { useFinancesStore } from '@/stores/finances';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Breadcrumb from '@/Components/Breadcrumb.vue';
-import { ModalLoadingPlaceholder } from '@/Components/Finances';
-import OverviewTab from './tabs/OverviewTab.vue';
-import InvoicesTab from './tabs/InvoicesTab.vue';
-import PaymentsTab from './tabs/PaymentsTab.vue';
-import ExpensesTab from './tabs/ExpensesTab.vue';
-import RefundsTab from './tabs/RefundsTab.vue';
-import ReconciliationTab from './tabs/ReconciliationTab.vue';
-import DepositsTab from './tabs/DepositsTab.vue';
-import ArrearsTab from './tabs/ArrearsTab.vue';
-import LateFeeSettingsTab from './tabs/LateFeeSettingsTab.vue';
-import SettingsTab from './tabs/SettingsTab.vue';
-import ReportsTab from './tabs/ReportsTab.vue';
-import TemplatesTab from './tabs/TemplatesTab.vue';
+import { ModalLoadingPlaceholder, TabLoadingPlaceholder } from '@/Components/Finances';
+
+const OverviewTab = defineAsyncComponent({
+    loader: () => import('./tabs/OverviewTab.vue'),
+    loadingComponent: TabLoadingPlaceholder,
+    delay: 100,
+});
+
+const InvoicesTab = defineAsyncComponent({
+    loader: () => import('./tabs/InvoicesTab.vue'),
+    loadingComponent: TabLoadingPlaceholder,
+    delay: 100,
+});
+
+const PaymentsTab = defineAsyncComponent({
+    loader: () => import('./tabs/PaymentsTab.vue'),
+    loadingComponent: TabLoadingPlaceholder,
+    delay: 100,
+});
+
+const ExpensesTab = defineAsyncComponent({
+    loader: () => import('./tabs/ExpensesTab.vue'),
+    loadingComponent: TabLoadingPlaceholder,
+    delay: 100,
+});
+
+const RefundsTab = defineAsyncComponent({
+    loader: () => import('./tabs/RefundsTab.vue'),
+    loadingComponent: TabLoadingPlaceholder,
+    delay: 100,
+});
+
+const ReconciliationTab = defineAsyncComponent({
+    loader: () => import('./tabs/ReconciliationTab.vue'),
+    loadingComponent: TabLoadingPlaceholder,
+    delay: 100,
+});
+
+const DepositsTab = defineAsyncComponent({
+    loader: () => import('./tabs/DepositsTab.vue'),
+    loadingComponent: TabLoadingPlaceholder,
+    delay: 100,
+});
+
+const ArrearsTab = defineAsyncComponent({
+    loader: () => import('./tabs/ArrearsTab.vue'),
+    loadingComponent: TabLoadingPlaceholder,
+    delay: 100,
+});
+
+const LateFeeSettingsTab = defineAsyncComponent({
+    loader: () => import('./tabs/LateFeeSettingsTab.vue'),
+    loadingComponent: TabLoadingPlaceholder,
+    delay: 100,
+});
+
+const SettingsTab = defineAsyncComponent({
+    loader: () => import('./tabs/SettingsTab.vue'),
+    loadingComponent: TabLoadingPlaceholder,
+    delay: 100,
+});
+
+const ReportsTab = defineAsyncComponent({
+    loader: () => import('./tabs/ReportsTab.vue'),
+    loadingComponent: TabLoadingPlaceholder,
+    delay: 100,
+});
+
+const TemplatesTab = defineAsyncComponent({
+    loader: () => import('./tabs/TemplatesTab.vue'),
+    loadingComponent: TabLoadingPlaceholder,
+    delay: 100,
+});
 
 const InvoiceDetailModal = defineAsyncComponent({
     loader: () => import('./modals/InvoiceDetailModal.vue'),

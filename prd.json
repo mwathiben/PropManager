@@ -1,975 +1,459 @@
 {
-  "project": "PropManager Invoice Module",
-  "version": "1.0.0",
-  "user_stories": [
+  "project": {
+    "name": "PropManager Finance Hub Optimization",
+    "description": "Performance optimization for Laravel 12 + Vue 3 + Inertia.js property management Finance Hub",
+    "version": "1.0.0",
+    "techStack": {
+      "backend": "Laravel 12 (PHP 8.2+)",
+      "frontend": "Inertia.js + Vue 3 + Tailwind CSS v4",
+      "build": "Vite 7",
+      "database": "SQLite (dev), MySQL/PostgreSQL (production)",
+      "testing": "PHPUnit",
+      "codeStyle": "Laravel Pint",
+      "payments": ["Paystack", "M-Pesa (STK Push + C2B)"],
+      "pdf": "DomPDF",
+      "api": "Laravel Sanctum"
+    }
+  },
+  "qualityStandards": {
+    "description": "This is production code for a property management SaaS. It must be maintainable, performant, and follow best practices. The codebase will outlive any single developer. Every shortcut taken becomes technical debt that compounds. Fight entropy. Leave the codebase better than you found it.",
+    "principles": [
+      "Performance is a feature, not an afterthought",
+      "Optimize for Time to Interactive (TTI) and Largest Contentful Paint (LCP)",
+      "Database queries must be efficient - no N+1 queries",
+      "Vue components should be lazy-loaded where appropriate",
+      "API responses must be fast (<200ms for most endpoints)",
+      "Memory usage must be monitored for long-running processes"
+    ]
+  },
+  "feedbackLoops": {
+    "description": "Run ALL feedback loops before committing. Do NOT commit if any fail.",
+    "commands": {
+      "typecheck": "npm run build -- --mode development 2>&1 | grep -i error",
+      "lint_frontend": "npm run lint",
+      "lint_backend": "vendor/bin/pint --test",
+      "test_backend": "php artisan test --parallel",
+      "test_frontend": "npm run test",
+      "analyze": "php artisan insights --no-interaction --min-quality=80"
+    }
+  },
+  "categories": {
+    "backend_optimization": {
+      "priority": 1,
+      "description": "Laravel backend performance optimizations"
+    },
+    "frontend_optimization": {
+      "priority": 2,
+      "description": "Vue 3 + Inertia.js frontend performance optimizations"
+    },
+    "database_optimization": {
+      "priority": 3,
+      "description": "Database query and indexing optimizations"
+    },
+    "bundle_optimization": {
+      "priority": 4,
+      "description": "Vite bundle size and code splitting optimizations"
+    },
+    "caching": {
+      "priority": 5,
+      "description": "Caching strategies for computed data"
+    },
+    "async_operations": {
+      "priority": 6,
+      "description": "Background jobs and async processing"
+    }
+  },
+  "items": [
     {
-      "id": "INV-001",
-      "epic": "Critical Fix",
-      "title": "Fix tenant onboarding payment verification flaw",
-      "description": "Tenant acceptance of invite should NOT grant full system access until payments are verified",
-      "priority": "critical",
-      "acceptance_criteria": [
-        "Implement payment verification states: pending_payment, payment_submitted, payment_verified, active",
-        "Landlord can configure automatic or manual verification",
-        "Tenant sees Payment Required screen until verified with list of required payments",
-        "Tenant can upload proof of payment for manual verification",
-        "Landlord dashboard shows pending verifications with approve/reject actions"
+      "id": "OPT-001",
+      "category": "backend_optimization",
+      "priority": "CRITICAL",
+      "title": "Eliminate N+1 Queries in Finance Hub Controllers",
+      "description": "Audit all Finance Hub controllers and ensure proper eager loading with ->with() for related models. Check Invoice, Payment, Tenant, and Building relationships.",
+      "steps": [
+        "Install and configure Laravel Debugbar for query analysis",
+        "Navigate to each Finance Hub route and identify N+1 queries",
+        "Add ->with() eager loading to all queries fetching related data",
+        "Use ->withCount() for aggregate counts instead of loading collections",
+        "Verify with Debugbar that query count is reduced by 80%+"
       ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": []
+      "files": [
+        "app/Http/Controllers/Finance/*",
+        "app/Models/Invoice.php",
+        "app/Models/Payment.php",
+        "app/Models/Tenant.php"
+      ],
+      "verification": "Query count per page load should be < 15 queries",
+      "passes": false
     },
     {
-      "id": "INV-002",
-      "epic": "Database",
-      "title": "Create database migrations for invoice module",
-      "description": "Set up all necessary database tables",
-      "priority": "critical",
-      "acceptance_criteria": [
-        "invoice_settings table for landlord configuration",
-        "invoice_templates table",
-        "invoice_types table (standard, first_payment, utility, arrears, credit_note)",
-        "receipts table",
-        "invoice_items table for line items",
-        "tenant_payment_verifications table",
-        "Modify existing invoices table for new fields"
+      "id": "OPT-002",
+      "category": "backend_optimization",
+      "priority": "CRITICAL",
+      "title": "Implement Parallel Data Fetching in Controllers",
+      "description": "Finance Hub Overview loads multiple statistics (This Month, Pending Amount, Collection Rate, Monthly Trend). These should be fetched in parallel, not sequentially.",
+      "steps": [
+        "Identify all data fetching in Finance Hub Overview controller",
+        "Refactor sequential queries to use Laravel's parallel database helper or async where possible",
+        "Use Promise.all() equivalent pattern for independent data fetching",
+        "Consider using Spatie's laravel-data for DTOs"
       ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": ["INV-001"]
+      "pattern": {
+        "incorrect": "$thisMonth = Invoice::sum('amount'); $pending = Invoice::pending()->sum('amount'); $rate = ...",
+        "correct": "Use Laravel's DB::transaction or parallel queries, or compute in single optimized query with subqueries"
+      },
+      "passes": false
     },
     {
-      "id": "INV-003",
-      "epic": "Models",
-      "title": "Create invoice models and relationships",
-      "description": "Eloquent models for the invoice system",
-      "priority": "high",
-      "acceptance_criteria": [
-        "InvoiceSetting model with landlord relationship",
-        "InvoiceTemplate model",
-        "InvoiceType model with type constants",
-        "Receipt model linked to invoices",
-        "InvoiceItem model for line items",
-        "TenantPaymentVerification model"
+      "id": "OPT-003",
+      "category": "frontend_optimization",
+      "priority": "CRITICAL",
+      "title": "Implement Vue 3 Lazy Loading for Finance Hub Tabs",
+      "description": "Finance Hub has 8 tabs (Overview, Billing, Expenses, Collections, Reconciliation, Reports, Templates, Settings). Only the active tab component should be loaded initially.",
+      "steps": [
+        "Identify all tab components in Finance Hub",
+        "Convert static imports to defineAsyncComponent() with Vue 3",
+        "Add loading skeletons for lazy-loaded components",
+        "Ensure Vite code-splits these components into separate chunks",
+        "Verify with Vite bundle analyzer that initial bundle is reduced"
       ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": ["INV-002"]
+      "pattern": {
+        "incorrect": "import BillingTab from './BillingTab.vue'",
+        "correct": "const BillingTab = defineAsyncComponent(() => import('./BillingTab.vue'))"
+      },
+      "files": [
+        "resources/js/Pages/Finances/*.vue",
+        "resources/js/Components/Finance/*.vue"
+      ],
+      "passes": true
     },
     {
-      "id": "INV-004",
-      "epic": "Settings",
-      "title": "Build landlord invoice settings UI",
-      "description": "Comprehensive settings page for landlords",
-      "priority": "high",
-      "acceptance_criteria": [
-        "Business details: name, address, phone, email, logo upload, tax number",
-        "Bank account details section",
-        "Invoice numbering configuration per type (prefix, starting number)",
-        "Default terms: due days, late penalty percentage, grace period",
-        "Custom terms and conditions text area"
+      "id": "OPT-004",
+      "category": "bundle_optimization",
+      "priority": "CRITICAL",
+      "title": "Avoid Barrel File Imports - Direct Icon and Component Imports",
+      "description": "Check for barrel file imports from icon libraries (lucide-vue, heroicons) and component libraries. Import directly from source files.",
+      "steps": [
+        "Audit all imports for barrel file patterns (import { X, Y } from 'library')",
+        "Replace with direct imports (import X from 'library/dist/esm/X')",
+        "For Heroicons Vue: import from '@heroicons/vue/24/outline/IconName'",
+        "For Lucide Vue: import from 'lucide-vue-next/dist/esm/icons/icon-name'",
+        "Configure Vite's optimizeDeps if needed"
       ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": ["INV-003"]
+      "pattern": {
+        "incorrect": "import { HomeIcon, UserIcon, ChartIcon } from '@heroicons/vue/24/outline'",
+        "correct": "import HomeIcon from '@heroicons/vue/24/outline/HomeIcon'"
+      },
+      "impact": "15-70% faster dev boot, 28% faster builds, 40% faster cold starts",
+      "passes": false
     },
     {
-      "id": "INV-005",
-      "epic": "Templates",
-      "title": "Invoice template system with live preview",
-      "description": "Allow landlords to customize invoice appearance",
-      "priority": "high",
-      "acceptance_criteria": [
-        "Multiple template designs to choose from",
-        "Toggle fields: logo, tax number, tenant ID, unit details, lease ref, due date, late warning, bank details, footer, QR code",
-        "Live preview updates as toggles change",
-        "Preview shows actual landlord data",
-        "PDF generation capability"
+      "id": "OPT-005",
+      "category": "frontend_optimization",
+      "priority": "HIGH",
+      "title": "Implement Vue 3 Computed Property Caching and Memoization",
+      "description": "Review Finance Hub components for expensive computations that should use computed() with proper dependencies, or be memoized.",
+      "steps": [
+        "Audit all Finance Hub components for inline calculations in templates",
+        "Move expensive calculations to computed() properties",
+        "For non-reactive expensive functions, implement module-level caching with Map",
+        "Use shallowRef() for large datasets that don't need deep reactivity",
+        "Consider useMemoize from VueUse for complex memoization"
       ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": ["INV-004"]
+      "pattern": {
+        "incorrect": "<template>{{ formatCurrency(calculateTotal(invoices)) }}</template>",
+        "correct": "const formattedTotal = computed(() => formatCurrency(calculateTotal(invoices.value)))"
+      },
+      "passes": false
     },
     {
-      "id": "INV-006",
-      "epic": "Automation",
-      "title": "Invoice automation engine",
-      "description": "Automated monthly invoice generation",
-      "priority": "high",
-      "acceptance_criteria": [
-        "Enable/disable automation per property",
-        "Configure generation day of month",
-        "Auto-send via email toggle",
-        "Include base rent from unit configuration",
-        "Include water charges if water module active",
-        "Include previous balance/arrears automatically",
-        "Include late payment fees if applicable"
+      "id": "OPT-006",
+      "category": "database_optimization",
+      "priority": "HIGH",
+      "title": "Add Database Indexes for Finance Hub Queries",
+      "description": "Add composite indexes for frequently queried columns in Invoice, Payment, and related tables. Focus on status, date ranges, and foreign keys.",
+      "steps": [
+        "Analyze slow queries with EXPLAIN on common Finance Hub queries",
+        "Create migration for adding indexes: invoices(status, due_date), invoices(tenant_id, status), payments(invoice_id, status)",
+        "Add index for monthly trend queries: invoices(created_at, status, amount)",
+        "Consider partial indexes for 'pending' and 'overdue' statuses",
+        "Run ANALYZE TABLE after adding indexes"
       ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": ["INV-005"]
+      "files": [
+        "database/migrations/*_add_finance_indexes.php"
+      ],
+      "passes": false
     },
     {
-      "id": "INV-007",
-      "epic": "First Invoice",
-      "title": "First invoice logic for new tenants",
-      "description": "Special invoice handling for tenant onboarding",
-      "priority": "high",
-      "acceptance_criteria": [
-        "Include security deposit from unit configuration",
-        "First month rent with pro-rating option based on move-in date",
-        "Optional last month rent based on landlord policy",
-        "Administrative/processing fee option",
-        "Key deposit option",
-        "Configurable additional one-time charges"
+      "id": "OPT-007",
+      "category": "caching",
+      "priority": "HIGH",
+      "title": "Implement Laravel Cache for Finance Hub Statistics",
+      "description": "Statistics like 'This Month', 'Collection Rate', 'Monthly Trend' don't need real-time data. Cache these with appropriate TTL.",
+      "steps": [
+        "Identify statistics that can be cached (Collection Rate, Monthly Trend, Overview counts)",
+        "Implement Cache::remember() with tagged caching for easy invalidation",
+        "Set TTL based on data freshness requirements (5-15 minutes for stats)",
+        "Add cache invalidation when invoices/payments are created/updated",
+        "Use cache warming for commonly accessed statistics"
       ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": ["INV-006"]
+      "pattern": {
+        "correct": "Cache::tags(['finance', 'statistics'])->remember('monthly_trend', 600, fn() => $this->calculateMonthlyTrend())"
+      },
+      "passes": false
     },
     {
-      "id": "INV-008",
-      "epic": "Receipts",
-      "title": "Receipt system",
-      "description": "Payment confirmation documents",
-      "priority": "medium",
-      "acceptance_criteria": [
-        "Auto-generate receipts when payments recorded",
-        "Receipt references original invoice(s)",
-        "Support partial payment receipts",
-        "Receipt templates separate from invoice templates",
-        "Receipt numbering sequence"
+      "id": "OPT-008",
+      "category": "async_operations",
+      "priority": "HIGH",
+      "title": "Move PDF Generation to Background Jobs",
+      "description": "DomPDF is synchronous and blocks the main thread. Move invoice PDF generation to Laravel queues.",
+      "steps": [
+        "Create GenerateInvoicePdf job class",
+        "Dispatch job when invoice is created/updated instead of synchronous generation",
+        "Store generated PDF path in invoice record",
+        "Add progress indicator in UI while PDF is generating",
+        "Implement retry logic for failed PDF generation"
       ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": ["INV-007"]
+      "files": [
+        "app/Jobs/GenerateInvoicePdf.php",
+        "app/Services/InvoicePdfService.php"
+      ],
+      "passes": false
     },
     {
-      "id": "INV-009",
-      "epic": "Polish",
-      "title": "Invoice management and final testing",
-      "description": "Final features and integration testing",
-      "priority": "low",
-      "acceptance_criteria": [
-        "Preview invoice before sending",
-        "Bulk invoice generation for all units",
-        "Regenerate/void and reissue capability",
-        "Download as PDF",
-        "Email directly to tenant",
-        "Invoice status tracking: draft, sent, viewed, paid, overdue, void",
-        "Integration tests for complete workflow"
+      "id": "OPT-009",
+      "category": "frontend_optimization",
+      "priority": "HIGH",
+      "title": "Implement Virtual Scrolling for Invoice Lists",
+      "description": "For tenants with many invoices, implement virtual scrolling to only render visible rows.",
+      "steps": [
+        "Install vue-virtual-scroller or implement custom virtual scroll",
+        "Replace standard v-for with virtual scroll for invoice tables with 50+ items",
+        "Add CSS content-visibility: auto for list items",
+        "Implement pagination with cursor-based pagination for large datasets",
+        "Add contain-intrinsic-size for proper scroll estimation"
       ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": ["INV-008"]
+      "pattern": {
+        "css": ".invoice-row { content-visibility: auto; contain-intrinsic-size: 0 64px; }"
+      },
+      "passes": false
     },
     {
-      "id": "FIN-001",
-      "epic": "Navigation",
-      "title": "Create Finance Hub aggregation page",
-      "description": "Create a new Finance Hub aggregation/landing page that groups all financial features into logical sections with card-based navigation",
-      "priority": "critical",
-      "acceptance_criteria": [
-        "Create new FinanceHubController@index route at /finances",
-        "Create resources/views/finances/hub.blade.php",
-        "Design hero section with overall financial health KPIs",
-        "Create 'Money In' section card linking to: Invoices, Payments, Deposits",
-        "Create 'Money Out' section card linking to: Expenses, Refunds",
-        "Create 'Collections' section card linking to: Arrears, Late Fees, Reconciliation",
-        "Create 'Reports & Settings' section card linking to: Reports, Settings",
-        "Add quick action buttons: Generate Invoices, Record Payment, Add Expense",
-        "Page loads at /finances with all section cards visible",
-        "Each section card displays a count/summary of items",
-        "Quick actions are prominently displayed",
-        "Mobile responsive with stacked cards"
+      "id": "OPT-010",
+      "category": "backend_optimization",
+      "priority": "MEDIUM",
+      "title": "Optimize Inertia.js Shared Data",
+      "description": "Review HandleInertiaRequests middleware for shared data that's loaded on every request but not always needed.",
+      "steps": [
+        "Audit HandleInertiaRequests middleware shared() method",
+        "Use Inertia::lazy() for data that's only needed on specific pages",
+        "Remove unused shared data from global scope",
+        "Consider using Inertia::defer() for non-critical data",
+        "Profile shared data payload size"
       ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": []
+      "pattern": {
+        "incorrect": "'notifications' => fn() => auth()->user()->notifications()->get()",
+        "correct": "'notifications' => Inertia::lazy(fn() => auth()->user()->notifications()->limit(5)->get())"
+      },
+      "files": [
+        "app/Http/Middleware/HandleInertiaRequests.php"
+      ],
+      "passes": false
     },
     {
-      "id": "FIN-002",
-      "epic": "Navigation",
-      "title": "Update sidebar navigation for Finance Hub",
-      "description": "Update sidebar navigation to point Finance Hub link to new aggregation page instead of overview tab",
-      "priority": "high",
-      "acceptance_criteria": [
-        "Modify navigation component to change /finances/overview to /finances",
-        "Keep existing /finances/overview route working for backwards compatibility",
-        "Update breadcrumb component to show correct hierarchy",
-        "Sidebar 'Finance Hub' link navigates to /finances",
-        "Old /finances/overview URL still works",
-        "Breadcrumbs display: Dashboard > Finance Hub > [Current Page]"
+      "id": "OPT-011",
+      "category": "frontend_optimization",
+      "priority": "MEDIUM",
+      "title": "Implement Early Returns and Conditional Rendering in Vue Components",
+      "description": "Ensure Vue components return early when in loading states to avoid expensive computations.",
+      "steps": [
+        "Audit Finance Hub components for loading states",
+        "Add v-if checks for loading states before rendering expensive content",
+        "Use <Suspense> with fallback for async components",
+        "Implement skeleton loaders instead of spinners",
+        "Ensure watchers have early returns for unchanged values"
       ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": ["FIN-001"]
+      "pattern": {
+        "correct": "<template><LoadingSkeleton v-if=\"loading\" /><ExpensiveComponent v-else :data=\"data\" /></template>"
+      },
+      "passes": false
     },
     {
-      "id": "FIN-003",
-      "epic": "Functional",
-      "title": "Create dedicated Record Payment page",
-      "description": "Create a dedicated Record Payment page accessible from Finance Hub and Payments tab",
-      "priority": "critical",
-      "acceptance_criteria": [
-        "Create PaymentController@create route at /finances/payments/record",
-        "Create resources/views/finances/payments/record.blade.php",
-        "Add tenant/unit selector with search functionality",
-        "Add invoice selector showing outstanding invoices for selected tenant",
-        "Add payment form fields: Amount, Method (dropdown from Payment Methods), Reference, Date, Notes",
-        "Add option to record payment without linking to specific invoice (unallocated)",
-        "Add option for partial payment with remaining balance display",
-        "Add receipt upload functionality",
-        "Create PaymentService@recordManualPayment method",
-        "Add validation for amount not exceeding outstanding balance (with warning override)",
-        "Add success/failure toast notifications",
-        "Page accessible at /finances/payments/record",
-        "Can select tenant and see their outstanding invoices",
-        "Can record full or partial payment",
-        "Can record unallocated payment",
-        "Payment method dropdown shows only enabled methods from Settings",
-        "After recording, redirects to Payments list with success message",
-        "Transaction is logged in Activity Logs"
+      "id": "OPT-012",
+      "category": "caching",
+      "priority": "MEDIUM",
+      "title": "Implement API Response Caching with Stale-While-Revalidate",
+      "description": "For Finance Hub API endpoints, implement response caching with SWR pattern.",
+      "steps": [
+        "Add Cache-Control headers to Finance API responses",
+        "Implement Laravel response caching middleware for read endpoints",
+        "Use ETags for conditional requests",
+        "Frontend: Use VueUse's useFetch with SWR or implement custom caching",
+        "Set appropriate max-age and stale-while-revalidate values"
       ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": ["FIN-001"]
+      "passes": false
     },
     {
-      "id": "FIN-004",
-      "epic": "Functional",
-      "title": "Add Record Payment button to Payments tab toolbar",
-      "description": "Add Record Payment button to Payments tab toolbar",
-      "priority": "high",
-      "acceptance_criteria": [
-        "Add 'Record Payment' primary action button to payments index page toolbar",
-        "Style consistently with 'Generate Invoices' button on Invoices page",
-        "Update Quick Action on Overview to link to new page instead of Invoices",
-        "'Record Payment' button visible on /finances/payments page",
-        "Button navigates to /finances/payments/record",
-        "Overview Quick Action 'Record Payment' goes to /finances/payments/record"
+      "id": "OPT-013",
+      "category": "bundle_optimization",
+      "priority": "MEDIUM",
+      "title": "Configure Vite for Optimal Chunk Splitting",
+      "description": "Configure Vite's rollupOptions for optimal code splitting, separating vendor code from app code.",
+      "steps": [
+        "Configure manualChunks in vite.config.js for vendor splitting",
+        "Separate Vue, Inertia, and utility libraries into their own chunks",
+        "Use rollup-plugin-visualizer to analyze bundle composition",
+        "Ensure Finance Hub components are in separate chunks",
+        "Configure preload hints for critical chunks"
       ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": ["FIN-003"]
+      "pattern": {
+        "config": "build: { rollupOptions: { output: { manualChunks: { vue: ['vue', '@inertiajs/vue3'], vendor: ['axios', 'lodash-es'] } } } }"
+      },
+      "files": [
+        "vite.config.js"
+      ],
+      "passes": false
     },
     {
-      "id": "FIN-005",
-      "epic": "Bug Fix",
-      "title": "Fix Invoice Detail modal showing 'KshNaN'",
-      "description": "Fix Invoice Detail modal showing 'KshNaN' for Amount Due",
-      "priority": "critical",
-      "acceptance_criteria": [
-        "Locate the Invoice detail modal component",
-        "Identify where Amount Due is calculated/formatted",
-        "Add null check and default value handling",
-        "Ensure proper number formatting with Kenyan Shilling currency",
-        "Test with invoices that have line items and those without",
-        "Invoice Detail modal displays proper currency amount",
-        "No 'NaN' values appear anywhere in the modal",
-        "Line items are properly summed to show Total"
+      "id": "OPT-014",
+      "category": "backend_optimization",
+      "priority": "MEDIUM",
+      "title": "Implement Database Query Chunking for Reports",
+      "description": "Finance reports may process large datasets. Use chunking to prevent memory exhaustion.",
+      "steps": [
+        "Identify report queries that may return large datasets",
+        "Replace ->get() with ->chunk() or ->cursor() for large result sets",
+        "Implement streaming responses for CSV/Excel exports",
+        "Use database-level aggregations instead of PHP-level where possible",
+        "Add memory monitoring for report generation"
       ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": []
+      "pattern": {
+        "incorrect": "$invoices = Invoice::where('year', 2025)->get()->each(fn($i) => process($i))",
+        "correct": "Invoice::where('year', 2025)->chunk(1000, fn($invoices) => $invoices->each(fn($i) => process($i)))"
+      },
+      "passes": false
     },
     {
-      "id": "FIN-006",
-      "epic": "Functional",
-      "title": "Add Process Refund functionality",
-      "description": "Add Process Refund functionality to Refunds tab",
-      "priority": "high",
-      "acceptance_criteria": [
-        "Add 'Process Refund' button to Refunds page toolbar",
-        "Create RefundController@create route at /finances/refunds/create",
-        "Create refund form with: Tenant selector, Original Payment reference, Amount, Reason, Method",
-        "Add RefundService@processRefund method",
-        "Create database migrations if needed for refund status tracking",
-        "Add refund approval workflow (optional: can be auto-approved or require manager approval)",
-        "'Process Refund' button visible on Refunds page",
-        "Can create new refund linked to original payment",
-        "Refund appears in list with status (Pending/Approved/Processed)",
-        "Refund amount cannot exceed original payment"
+      "id": "OPT-015",
+      "category": "frontend_optimization",
+      "priority": "MEDIUM",
+      "title": "Deduplicate Event Listeners and Watchers",
+      "description": "Ensure global event listeners (keyboard shortcuts, window resize, etc.) are deduplicated across component instances.",
+      "steps": [
+        "Audit for multiple addEventListener calls on window/document",
+        "Create shared composables for global event handling",
+        "Use VueUse's useEventListener with proper cleanup",
+        "Implement module-level Map for callback deduplication",
+        "Ensure all event listeners are cleaned up on component unmount"
       ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": []
+      "passes": false
     },
     {
-      "id": "FIN-007",
-      "epic": "Functional",
-      "title": "Consolidate duplicate Reports pages",
-      "description": "Consolidate duplicate Reports pages",
-      "priority": "medium",
-      "acceptance_criteria": [
-        "Evaluate content of /finances/reports vs /reports",
-        "Determine which page has more comprehensive features",
-        "Remove Finance Hub Reports tab and redirect to main /reports page",
-        "OR remove /reports sidebar link and use Finance Hub Reports",
-        "Update all internal links to point to single Reports page",
-        "Only one Reports page exists in the application",
-        "All navigation consistently links to single Reports",
-        "No duplicate data or confused user journeys"
+      "id": "OPT-016",
+      "category": "async_operations",
+      "priority": "MEDIUM",
+      "title": "Defer Await Until Needed Pattern in Controllers",
+      "description": "Move await/async operations into branches where they're actually used to avoid blocking code paths that don't need them.",
+      "steps": [
+        "Audit controller methods for early awaits that block unused code paths",
+        "Move authorization checks before expensive data fetching",
+        "Return early on validation failures before querying database",
+        "Check feature flags before loading feature-specific data"
       ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": []
+      "pattern": {
+        "incorrect": "$permissions = $user->permissions(); if (!$request->has('includeAdvanced')) return basicResponse(); return advancedResponse($permissions);",
+        "correct": "if (!$request->has('includeAdvanced')) return basicResponse(); $permissions = $user->permissions(); return advancedResponse($permissions);"
+      },
+      "passes": false
     },
     {
-      "id": "FIN-008",
-      "epic": "Bug Fix",
-      "title": "Fix or remove broken Payment Verifications page",
-      "description": "Fix or remove broken Payment Verifications page",
-      "priority": "high",
-      "acceptance_criteria": [
-        "Investigate why /payment-verifications page is blank",
-        "If feature is incomplete, either implement or remove from navigation",
-        "If implementing: add proper empty state with guidance",
-        "If removing: hide from sidebar navigation",
-        "Payment Verifications page either works or is removed from navigation",
-        "No blank pages accessible from sidebar"
+      "id": "OPT-017",
+      "category": "database_optimization",
+      "priority": "LOW",
+      "title": "Implement Read Replicas for Heavy Read Operations",
+      "description": "For reports and statistics that don't need real-time data, configure Laravel to use read replicas if available.",
+      "steps": [
+        "Configure database.php for read/write splitting",
+        "Mark Finance Hub read queries to use read connection",
+        "Ensure write operations use write connection",
+        "Test replication lag handling"
       ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": []
+      "files": [
+        "config/database.php"
+      ],
+      "passes": false
     },
     {
-      "id": "FIN-009",
-      "epic": "Navigation",
-      "title": "Simplify Finance Hub tabs by grouping",
-      "description": "Simplify Finance Hub tabs by grouping related features",
-      "priority": "high",
-      "acceptance_criteria": [
-        "Reduce main tabs from 11 to 6 logical groups",
-        "Group 1: Overview (keep as-is)",
-        "Group 2: Billing (combines Invoices + Payments)",
-        "Group 3: Expenses (keep as-is with sub-tabs)",
-        "Group 4: Collections (combines Arrears + Late Fees + Deposits + Refunds)",
-        "Group 5: Reconciliation (keep as-is)",
-        "Group 6: Settings (keep as-is with sub-tabs)",
-        "Add sub-navigation within each group tab",
-        "Finance Hub shows maximum 6 tabs without scrolling",
-        "All existing pages accessible via sub-navigation",
-        "URLs remain backwards compatible",
-        "Tab grouping is logical and discoverable"
+      "id": "OPT-018",
+      "category": "frontend_optimization",
+      "priority": "LOW",
+      "title": "Implement Preloading Based on User Intent",
+      "description": "Preload Finance Hub tab data when user hovers over tab, not after click.",
+      "steps": [
+        "Add @mouseenter handlers to Finance Hub tabs",
+        "Prefetch tab data using Inertia.prefetch() or manual fetch",
+        "Cache prefetched data in component state",
+        "Implement loading priority (current tab > hovered tab > others)"
       ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": ["FIN-001", "FIN-002"]
+      "pattern": {
+        "correct": "<button @mouseenter=\"prefetchBillingData\" @click=\"showBilling\">Billing</button>"
+      },
+      "passes": false
     },
     {
-      "id": "FIN-010",
-      "epic": "Navigation",
-      "title": "Add breadcrumb navigation to Finance Hub",
-      "description": "Add breadcrumb navigation to all Finance Hub sub-pages",
-      "priority": "medium",
-      "acceptance_criteria": [
-        "Create reusable breadcrumb component if not exists",
-        "Add breadcrumbs to all Finance Hub pages",
-        "Format: Finance Hub > [Section] > [Current Page]",
-        "Make breadcrumbs clickable for navigation",
-        "All Finance Hub pages display breadcrumbs",
-        "Breadcrumbs are clickable and navigate correctly",
-        "Current page is shown but not clickable"
+      "id": "OPT-019",
+      "category": "backend_optimization",
+      "priority": "LOW",
+      "title": "Implement Laravel Model Caching",
+      "description": "Cache frequently accessed models like Building, PropertySettings that rarely change.",
+      "steps": [
+        "Install spatie/laravel-model-cache or implement custom solution",
+        "Cache Building model with 1-hour TTL",
+        "Cache user property settings with appropriate invalidation",
+        "Add cache invalidation events on model updates"
       ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": ["FIN-009"]
+      "passes": false
     },
     {
-      "id": "FIN-011",
-      "epic": "Functional",
-      "title": "Add Bulk Payment Recording feature with Historical Import Mode",
-      "description": "Add Bulk Payment Recording feature with support for current tenant payments and historical data import for landlord onboarding",
-      "priority": "medium",
-      "acceptance_criteria": [
-        "Add 'Bulk Import' button to Payments page",
-        "Create CSV upload interface with template download",
-        "Template columns: Unit Number, Tenant Name, Tenant Email, Invoice Number, Payment Date, Amount, Payment Method, Reference",
-        "Add validation preview before import confirmation",
-        "Process bulk payments with transaction logging",
-        "Display import results summary (success/failed count)",
-        "CSV template can be downloaded",
-        "CSV upload validates data before processing",
-        "Preview shows validation errors",
-        "Successfully imported payments appear in list",
-        "Failed rows are reported with specific errors",
-        "Add import mode toggle (Current Tenants / Historical Data)",
-        "CSV includes Unit Number and Tenant Name columns",
-        "Historical mode creates archived tenant records",
-        "Historical mode creates inactive lease records",
-        "Historical payments link to unit via historical lease",
-        "Historical imports do NOT affect current tenant balances",
-        "Building selector required for unit lookup"
+      "id": "OPT-020",
+      "category": "bundle_optimization",
+      "priority": "LOW",
+      "title": "Optimize Tailwind CSS Build",
+      "description": "Ensure Tailwind CSS v4 is properly configured for minimal production CSS.",
+      "steps": [
+        "Verify content paths in tailwind.config.js include all Vue files",
+        "Check for unused CSS classes",
+        "Enable JIT mode if not already enabled",
+        "Analyze final CSS bundle size",
+        "Remove any @apply rules that could be direct classes"
       ],
-      "passes": true,
-      "attempt_count": 2,
-      "depends_on": ["FIN-003"]
-    },
-    {
-      "id": "FIN-012",
-      "epic": "Functional",
-      "title": "Add Credit Note/Adjustment functionality",
-      "description": "Add Credit Note/Adjustment functionality",
-      "priority": "medium",
-      "acceptance_criteria": [
-        "Add credit notes table to database",
-        "Create CreditNoteController with CRUD operations",
-        "Add 'Issue Credit Note' action to tenant account",
-        "Credit notes should reduce outstanding balance",
-        "Add credit notes to tenant statement/ledger view",
-        "Track credit note reason and approval",
-        "Credit notes can be issued to tenant accounts",
-        "Credit notes appear in tenant ledger",
-        "Credit notes reduce invoice outstanding amounts",
-        "Credit note requires reason selection"
+      "files": [
+        "tailwind.config.js"
       ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": []
-    },
-    {
-      "id": "FIN-013",
-      "epic": "Functional",
-      "title": "Add Tenant Ledger/Statement view",
-      "description": "Add Tenant Ledger/Statement view",
-      "priority": "high",
-      "acceptance_criteria": [
-        "Create TenantLedgerController@show route",
-        "Create ledger view showing chronological transactions",
-        "Include: Invoices, Payments, Credits, Refunds, Deposits",
-        "Show running balance after each transaction",
-        "Add date range filter",
-        "Add PDF export/download option",
-        "Add email statement option",
-        "Tenant ledger shows all financial transactions",
-        "Running balance is accurately calculated",
-        "Can filter by date range",
-        "Can export as PDF",
-        "Can email statement to tenant"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": []
-    },
-    {
-      "id": "FIN-014",
-      "epic": "Functional",
-      "title": "Add Payment Allocation for overpayments",
-      "description": "Add Payment Allocation for overpayments",
-      "priority": "medium",
-      "acceptance_criteria": [
-        "Track overpayments as tenant credit balance",
-        "Add credit balance display to tenant profile",
-        "When generating new invoice, option to auto-apply credit",
-        "Add manual credit allocation interface",
-        "Add overpayment notification to landlord",
-        "Overpayments tracked as tenant credit",
-        "Credit balance visible on tenant profile",
-        "Credit can be applied to new invoices",
-        "Landlord notified of overpayments"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": ["FIN-003"]
-    },
-    {
-      "id": "FIN-015",
-      "epic": "Functional",
-      "title": "Add Receipt Template configuration",
-      "description": "Add Receipt Template configuration to Settings",
-      "priority": "medium",
-      "acceptance_criteria": [
-        "Add Receipt Templates sub-tab to Finance Settings",
-        "Create receipt template editor with placeholders",
-        "Support custom logo, header, footer",
-        "Add auto-send receipt option after payment recording",
-        "Preview receipt before saving template",
-        "Receipt template customizable in Settings",
-        "Receipts auto-generated on payment",
-        "Option to auto-email receipt to tenant",
-        "Receipt includes all payment details"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": []
-    },
-    {
-      "id": "FIN-016",
-      "epic": "Functional",
-      "title": "Add Fiscal Year configuration for reports",
-      "description": "Add Fiscal Year configuration for reports",
-      "priority": "low",
-      "acceptance_criteria": [
-        "Add Fiscal Year setting (calendar year vs custom)",
-        "Support start month configuration",
-        "Update all reports to respect fiscal year",
-        "Add fiscal year filter option to reports",
-        "Fiscal year can be configured in Settings",
-        "Reports can be filtered by fiscal year",
-        "YTD calculations use fiscal year start"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": []
-    },
-    {
-      "id": "FIN-017",
-      "epic": "Code Quality",
-      "title": "Extract Reusable Pagination Component",
-      "description": "Extract duplicated pagination logic into a reusable Pagination.vue component",
-      "priority": "high",
-      "acceptance_criteria": [
-        "Create @/Components/Pagination.vue with standard Laravel pagination props",
-        "Support emerald theme styling matching current design",
-        "Replace pagination in InvoicesTab, PaymentsTab, RefundsTab, DepositsTab, ArrearsTab",
-        "Component accepts links prop from Laravel pagination",
-        "Build passes with no regressions"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "Created @/Components/Finances/Pagination.vue with emerald theme. Replaced in InvoicesTab, PaymentsTab, RefundsTab, DepositsTab, ExpensesTab. ArrearsTab doesn't have pagination (data not paginated). Added wrapperClass prop for styling flexibility.",
-      "depends_on": []
-    },
-    {
-      "id": "FIN-018",
-      "epic": "Code Quality",
-      "title": "Extract Reusable Export Dropdown Component",
-      "description": "Extract duplicated export dropdown into a reusable component",
-      "priority": "high",
-      "acceptance_criteria": [
-        "Create @/Components/Finances/ExportDropdown.vue",
-        "Accept formats prop (array of format options)",
-        "Emit export event with selected format",
-        "Include existing Transition animation",
-        "Replace in InvoicesTab, PaymentsTab, RefundsTab, ExpensesTab, ReportsTab",
-        "Build passes with no regressions"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "Created @/Components/Finances/ExportDropdown.vue with Transition animation. Replaced in InvoicesTab, PaymentsTab, ExpensesTab, DepositsTab, ReportsTab. RefundsTab doesn't have export dropdown. Component accepts formats prop with defaults (xlsx, pdf) and emits export event.",
-      "depends_on": []
-    },
-    {
-      "id": "FIN-019",
-      "epic": "Code Quality",
-      "title": "Create useTabFilters Composable",
-      "description": "Extract common filter state management into a reusable composable",
-      "priority": "medium",
-      "acceptance_criteria": [
-        "Create @/composables/useTabFilters.js",
-        "Handle filter initialization from props",
-        "Provide applyFilters() and clearFilters() methods",
-        "Support date range, status, payment method, building filters",
-        "Integrate with Inertia router for URL sync",
-        "Replace filter logic in all Finance Hub tabs",
-        "Build passes with no regressions"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "Created @/composables/useTabFilters.js (~160 lines) with filterConfig-based initialization, snake_case↔camelCase conversion, and getExportParams helper. Integrated in 6 tabs: InvoicesTab, PaymentsTab, RefundsTab, DepositsTab, ExpensesTab, ArrearsTab. ReportsTab uses unique period presets pattern - left unchanged. Reduced ~40 lines per tab (~240 lines total).",
-      "depends_on": ["FIN-017", "FIN-018"]
-    },
-    {
-      "id": "FIN-020",
-      "epic": "Architecture",
-      "title": "Split FinancesController into Services",
-      "description": "Refactor the monolithic FinancesController by extracting business logic into dedicated services",
-      "priority": "high",
-      "acceptance_criteria": [
-        "Create FinanceStatsService for getOverviewStats, getHubStats, getArrearsStats, getDepositStats",
-        "Create FinanceReportService for all report generation methods",
-        "Create FinanceFilterService for filter/pagination logic",
-        "FinancesController reduced to < 300 lines",
-        "All existing tests pass",
-        "No change to API contracts"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "Created 4 services: FinanceStatsService (~360 lines), FinanceReportService (~580 lines), FinanceFilterService (~330 lines), FinanceSettingsService (~130 lines). Controller still ~1,500 lines due to action methods which remain in controller per service layer pattern. All tests pass (351 passed).",
-      "depends_on": []
-    },
-    {
-      "id": "FIN-021",
-      "epic": "Architecture",
-      "title": "Add Form Request Validation Classes",
-      "description": "Extract validation logic from controllers into dedicated Form Request classes",
-      "priority": "medium",
-      "acceptance_criteria": [
-        "Create StorePaymentRequest for manual payment recording",
-        "Create GenerateInvoicesRequest for invoice generation",
-        "Create RefundRequest for refund processing",
-        "Create UpdateSettingsRequest for finance settings",
-        "Controllers use Form Request type hints",
-        "Validation messages remain consistent",
-        "All tests pass"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "Created 8 FormRequest classes: StorePaymentRequest, GenerateInvoicesRequest, RefundRequest, UpdatePaymentMethodsRequest, UpdateInvoiceSettingsRequest, UpdateReminderSettingsRequest, UpdateReceiptSettingsRequest, UpdateFiscalYearSettingsRequest. Updated PaymentController, InvoiceController, RefundController, FinancesController to use type-hinted FormRequest classes. All 376 tests pass.",
-      "depends_on": ["FIN-020"]
-    },
-    {
-      "id": "FIN-022",
-      "epic": "Performance",
-      "title": "Implement Redis Query Result Caching",
-      "description": "Add Redis caching for frequently accessed, expensive queries",
-      "priority": "medium",
-      "acceptance_criteria": [
-        "Cache hub stats for 5 minutes with cache tags",
-        "Cache overview stats for 5 minutes",
-        "Cache report data for 10 minutes with filter-based cache keys",
-        "Use Laravel Cache facade with Redis driver",
-        "Add cache invalidation in Invoice and Payment observers",
-        "Measure and document performance improvement"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "Implemented Redis caching for FinanceStatsService (6 cached methods: hub, overview, arrears, deposits, latefees, expenses, trend) and FinanceReportService (3 cached methods: occupancy, arrears_aging, totals). Created FinanceCacheService for centralized cache key management and invalidation. Added InvoiceObserver and PaymentObserver for automatic cache invalidation. Stats cache 5min TTL, reports cache 10min TTL. All 376 tests pass.",
-      "depends_on": ["FIN-020"]
-    },
-    {
-      "id": "FIN-023",
-      "epic": "Testing",
-      "title": "Implement API Test Coverage",
-      "description": "Implement the 28 skipped API tests in TenantApiTest.php and LandlordApiTest.php",
-      "priority": "critical",
-      "acceptance_criteria": [
-        "Implement all 13 TenantApiTest methods (lease, invoices, payments, M-Pesa, Paystack, notifications)",
-        "Implement all 15 LandlordApiTest methods (properties, buildings, units, reports)",
-        "Test cross-tenant data isolation",
-        "Test authentication and authorization",
-        "All 28 tests pass",
-        "Remove markTestSkipped() calls"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "27 tests pass. 2 notification tests skipped due to architectural mismatch - project uses custom notifications table instead of Laravel DatabaseNotification. AuthApiTest routes not yet implemented (pre-existing).",
-      "depends_on": []
-    },
-    {
-      "id": "FIN-024",
-      "epic": "Testing",
-      "title": "Expand PaymentController Test Coverage",
-      "description": "Increase PaymentController test coverage from 5 to 20+ tests",
-      "priority": "high",
-      "acceptance_criteria": [
-        "Add tests for manual payment recording (valid, invalid, overpayment)",
-        "Add tests for bulk import (valid CSV, invalid rows, historical mode)",
-        "Add tests for payment receipt generation",
-        "Add tests for concurrent payment handling",
-        "Add tests for refund initiation",
-        "Test coverage report shows > 80% for PaymentController",
-        "All tests pass"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "Expanded from 5 to 30 tests. Fixed bug in PaymentController::storeManual() where nullable 'notes' field caused undefined array key error. Tests cover manual payments, bulk import, receipts, void, refunds, and edge cases. 376 tests pass (12 skipped).",
-      "depends_on": ["FIN-023"]
-    },
-    {
-      "id": "FIN-025",
-      "epic": "Performance",
-      "title": "Add Lazy Loading for Finance Modals",
-      "description": "Implement lazy loading for modals that aren't immediately needed",
-      "priority": "low",
-      "acceptance_criteria": [
-        "Convert modal imports to defineAsyncComponent",
-        "Modals load on first open only",
-        "Add loading state while modal component loads",
-        "Measure bundle size reduction",
-        "No UX degradation (< 200ms modal open time)",
-        "Build passes"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "Converted 8 modal static imports to defineAsyncComponent in Index.vue. Created ModalLoadingPlaceholder component with emerald spinner. Modals now load on-demand when first opened (~66.7 kB deferred). Fixed pre-existing Redis pattern deletion bug in FinanceCacheService. 376 tests pass.",
-      "depends_on": ["FIN-017", "FIN-018", "FIN-019"]
-    },
-    {
-      "id": "FIN-026",
-      "epic": "Code Quality",
-      "title": "Full TypeScript Migration for Finance Components",
-      "description": "Convert all Finance Hub Vue components to TypeScript",
-      "priority": "medium",
-      "acceptance_criteria": [
-        "Create types/finances.d.ts with Invoice, Payment, Refund, Lease interfaces",
-        "Convert Index.vue to <script setup lang='ts'>",
-        "Convert all 11 tab components to TypeScript",
-        "Convert all modal components to TypeScript",
-        "Add type hints to usePayments and useFormatters composables",
-        "IDE autocomplete works for finance types",
-        "Build passes with strict type checking"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "Created tsconfig.json and resources/js/types/finances.d.ts (~200 lines) with Invoice, Payment, Refund, Lease, Deposit, Expense, and related interfaces. Converted 7 composables to TypeScript. Converted 9 shared components, 11 tab components, 8 modal components, and 2 entry points (Index.vue, Hub.vue). All with <script setup lang=\"ts\">. Build passes.",
-      "depends_on": ["FIN-019"]
-    },
-    {
-      "id": "FIN-027",
-      "epic": "Performance",
-      "title": "Optimize N+1 Queries in Finance Lists",
-      "description": "Audit and fix N+1 query issues in paginated list endpoints",
-      "priority": "medium",
-      "acceptance_criteria": [
-        "Add Laravel Debugbar query monitoring",
-        "Identify N+1 queries in invoices, payments, refunds, deposits, arrears endpoints",
-        "Add appropriate with() eager loading",
-        "Reduce average queries per page load by 50%+",
-        "Document query count before/after",
-        "All tests pass"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "Fixed 4 N+1 issues: getExpenseCategories() (withCount), getVendors() (withSum), getTopPerformingUnitsReport() and getTopPerformingUnitsReportFiltered() (aggregated query). Paginated endpoints already optimized. 376 tests pass.",
-      "depends_on": ["FIN-020"]
-    },
-    {
-      "id": "FIN-028",
-      "epic": "Architecture",
-      "title": "Create Finance Data Export Service",
-      "description": "Extract export logic into a dedicated service for better reusability",
-      "priority": "low",
-      "acceptance_criteria": [
-        "Create FinanceExportService with methods for each export type",
-        "Support PDF, Excel, CSV formats",
-        "Accept filter parameters for scoped exports",
-        "Consolidate existing Export classes",
-        "Add streaming for large datasets",
-        "All export tests pass"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "Created FinanceExportService (~500 lines) consolidating 6 export methods from FinancesController. Added CSV format support via StreamedResponse. Created StreamingInvoicesExport and StreamingPaymentsExport for large datasets (>10k records). Controller export methods reduced to 4-6 lines each. Added 2 new CSV tests. 378 tests pass.",
-      "depends_on": ["FIN-020"]
-    },
-    {
-      "id": "TMPL-001",
-      "epic": "Templates",
-      "title": "Add Templates tab to Finance Hub",
-      "description": "Add unified Templates tab between Reports and Settings in Finance Hub for all document template management",
-      "priority": "high",
-      "acceptance_criteria": [
-        "Templates tab appears between Reports and Settings in Finance Hub",
-        "Tab has subtabs: Invoices, Receipts, Credit Notes",
-        "Route /finances/templates works",
-        "Existing invoice templates accessible from new location",
-        "TemplatesTab.vue component created"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "Added Templates tab with subtabs (Invoices, Receipts, Credit Notes) to Finance Hub. Created TemplatesTab.vue with invoice template grid, receipt settings display, and credit note inheritance info. Added routes: finances.templates.invoices, finances.templates.receipts, finances.templates.credit-notes. Updated FinancesController with templateInvoices(), templateReceipts(), templateCreditNotes() methods.",
-      "depends_on": []
-    },
-    {
-      "id": "TMPL-002",
-      "epic": "Templates",
-      "title": "Create Receipt Template model and migrations",
-      "description": "Create database infrastructure for receipt templates matching invoice template quality",
-      "priority": "high",
-      "acceptance_criteria": [
-        "receipt_templates table created with migrations",
-        "ReceiptTemplate model with TenantScope trait",
-        "Design styles: classic, modern, minimal, professional",
-        "Color fields: primary_color, secondary_color",
-        "Toggle fields matching invoice template pattern",
-        "Custom text fields for header/footer/thank you"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "Already implemented: 2026_01_14_132139_create_receipt_templates_table.php migration exists, ReceiptTemplate model with TenantScope at app/Models/ReceiptTemplate.php, all design styles and toggle fields implemented.",
-      "depends_on": ["TMPL-001"]
-    },
-    {
-      "id": "TMPL-003",
-      "epic": "Templates",
-      "title": "Build Receipt Template Editor with Live Preview",
-      "description": "Create world-class receipt template editor matching invoice template quality with real-time preview",
-      "priority": "critical",
-      "acceptance_criteria": [
-        "Two-column layout matching invoice template editor",
-        "Live preview updates in real-time as toggles change",
-        "Color pickers with hex input",
-        "4 design style options with visual differences",
-        "Toggle groups for all receipt sections",
-        "Custom text fields for header/footer/thank you",
-        "Sticky preview panel with scale transformation"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "ReceiptTemplates/Edit.vue exists with full implementation: two-column layout, live preview with scale transform, color pickers, 4 design styles, toggle groups for Header/Payment/Tenant/Invoice/Footer sections. Missing Index.vue - tracked in WSOD-001.",
-      "depends_on": ["TMPL-002"]
-    },
-    {
-      "id": "TMPL-004",
-      "epic": "Templates",
-      "title": "Credit Note inherits Invoice Template",
-      "description": "Credit notes use invoice template settings with appropriate modifications",
-      "priority": "medium",
-      "acceptance_criteria": [
-        "Credit notes use invoice template settings",
-        "PDF generation with 'CREDIT NOTE' title instead of 'INVOICE'",
-        "Negative amounts displayed correctly",
-        "Link to original invoice shown",
-        "Credit note PDF blade template created"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "Implemented: credit-notes/pdf.blade.php with CREDIT NOTE title, amount displayed as positive credit, original invoice reference, approval/application sections. CreditNoteService generates PDFs and sends CreditNoteIssued email on approval.",
-      "depends_on": ["TMPL-001"]
-    },
-    {
-      "id": "TMPL-005",
-      "epic": "Templates",
-      "title": "Fix Invoice Template preview real-time updates",
-      "description": "Investigate and fix issue where invoice template preview does not update when toggles change",
-      "priority": "critical",
-      "acceptance_criteria": [
-        "All 13 toggles update preview immediately without page refresh",
-        "Color changes reflect in preview instantly",
-        "Design style changes update preview layout",
-        "Custom text appears in preview as typed",
-        "No page refresh required for any changes"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "Fixed reactivity issue by introducing separate reactive previewState object and updateField/toggleField helpers. Inertia's useForm was not triggering Vue reactivity for bracket-notation property access. Preview now uses previewState while form submission uses the Inertia form. All 13 toggles, colors, and text fields update preview in real-time.",
-      "depends_on": []
-    },
-    {
-      "id": "TMPL-006",
-      "epic": "Templates",
-      "title": "Implement 4 distinct design styles",
-      "description": "Implement actual visual differences for the 4 design styles across all templates",
-      "priority": "high",
-      "acceptance_criteria": [
-        "Classic: Traditional layout with borders and formal styling",
-        "Modern: Clean minimalist design with accent colors",
-        "Minimal: Ultra-simple single column layout",
-        "Professional: Bold headers with structured sections",
-        "Styles apply to invoice, receipt, and credit note PDFs",
-        "Preview shows style differences in real-time"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "Implemented in templated-receipt.blade.php: Classic (2px solid borders, gray backgrounds), Modern (rounded corners, shadows, gradients), Minimal (1px borders, centered text), Professional (border-left accents, uppercase headings). Credit note uses its own professional styling. Design enhancement to Classic Elegant tracked in DESIGN-001.",
-      "depends_on": ["TMPL-003", "TMPL-005"]
-    },
-    {
-      "id": "TMPL-007",
-      "epic": "Templates",
-      "title": "Implement real QR code generation",
-      "description": "Generate actual QR codes for payment references instead of placeholders",
-      "priority": "medium",
-      "acceptance_criteria": [
-        "QR code contains payment reference or payment link",
-        "Works with M-Pesa paybill instructions embedded",
-        "QR code renders correctly in PDF",
-        "Toggle to show/hide QR code works",
-        "QR code visible in live preview"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "Implemented PaymentQrCodeService using BaconQrCode: generateReceiptQrCode (payment details), generateInvoiceQrCode (invoice details), generatePaymentLinkQrCode (payment URLs). Used by ReceiptService and CreditNoteService. QR codes contain payment reference, amount, date, M-Pesa transaction ID when available.",
-      "depends_on": ["TMPL-005"]
-    },
-    {
-      "id": "TMPL-008",
-      "epic": "Templates",
-      "title": "Unified Templates Tab UI",
-      "description": "Create polished unified interface for managing all template types in Finance Hub",
-      "priority": "high",
-      "acceptance_criteria": [
-        "TemplatesTab.vue with template type selector (tabs)",
-        "Grid view of templates with preview thumbnails",
-        "Create/Edit/Delete/Set Default actions for each template type",
-        "Consistent emerald theme styling matching Finance Hub",
-        "Empty states with helpful guidance",
-        "Responsive design for mobile/tablet"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "TemplatesTab.vue exists with subtab navigation, template grid with gradient preview cards, Create/Edit/Delete/Set Default actions. Empty states with guidance for each template type. Responsive grid layout. Credit notes show inheritance message. Missing ReceiptTemplates/Index.vue tracked separately in WSOD-001.",
-      "depends_on": ["TMPL-001", "TMPL-003", "TMPL-004"]
-    },
-    {
-      "id": "WSOD-001",
-      "epic": "Critical Bug",
-      "title": "Create missing ReceiptTemplates/Index.vue",
-      "description": "ReceiptTemplateController::index() renders ReceiptTemplates/Index which doesn't exist, causing WSOD",
-      "priority": "critical",
-      "acceptance_criteria": [
-        "Create resources/js/Pages/ReceiptTemplates/Index.vue",
-        "Template grid with gradient preview cards matching InvoiceTemplates/Index.vue",
-        "Set default, Edit, Delete actions for each template",
-        "New Template button linking to receipt-templates.create route",
-        "Breadcrumbs to Finance Hub",
-        "No WSOD when navigating to /receipt-templates"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "Created ReceiptTemplates/Index.vue with emerald theme, gradient preview cards, toggle summary tags (Logo, Method, QR, Invoice, Balance), breadcrumbs, all CRUD actions. Build passed.",
-      "depends_on": []
-    },
-    {
-      "id": "WSOD-002",
-      "epic": "Critical Bug",
-      "title": "Fix FinancesController template props",
-      "description": "templateCreditNotes() missing designOptions prop, activeSubtab not passed to TemplatesTab",
-      "priority": "high",
-      "acceptance_criteria": [
-        "Add designOptions to templateCreditNotes() method",
-        "Pass activeSubtab through renderFinances() helper",
-        "Template tabs switch correctly based on route",
-        "No undefined prop warnings in Vue"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "Added designOptions to templateCreditNotes(). Added templates, receiptTemplates, designOptions, activeSubtab props to Finances/Index.vue and passed them to TemplatesTab component. Build passed.",
-      "depends_on": []
-    },
-    {
-      "id": "NAV-001",
-      "epic": "Navigation",
-      "title": "Add Credit Notes quick action to Finance Hub",
-      "description": "Add Credit Notes quick action button to OverviewTab for easier access",
-      "priority": "medium",
-      "acceptance_criteria": [
-        "Add Credit Notes quick action after Manage Templates in OverviewTab",
-        "Link to credit-notes.index route",
-        "Purple/violet theme matching credit note styling",
-        "Description: 'Issue & manage'"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "Added Credit Notes quick action with ReceiptRefundIcon, violet theme (bg-violet-100, hover:border-violet-300), links to credit-notes.index route. Build passed.",
-      "depends_on": []
-    },
-    {
-      "id": "DESIGN-001",
-      "epic": "Design",
-      "title": "Enhance Professional style to Classic Elegant",
-      "description": "Upgrade Professional design style from generic border-left to Classic Elegant aesthetic",
-      "priority": "low",
-      "acceptance_criteria": [
-        "Serif fonts for headings (Georgia, Times New Roman fallback)",
-        "Traditional double-line borders on receipts",
-        "Certificate-style border on receipts",
-        "Decorative PAID stamp element on receipts",
-        "Formal acknowledgment styling on credit notes",
-        "Timeless, authoritative appearance across all documents"
-      ],
-      "passes": true,
-      "attempt_count": 1,
-      "notes": "Updated professional style in templated-receipt.blade.php: serif fonts (Georgia), double-line borders, certificate-style corner embellishments, PAID stamp watermark. Updated credit-notes/pdf.blade.php with matching elegant styling.",
-      "depends_on": ["WSOD-001", "WSOD-002"]
+      "passes": false
     }
   ],
-  "metadata": {
-    "total_stories": 49,
-    "passing_stories": 49,
-    "framework": "Laravel",
-    "frontend": "Vue.js/Inertia"
+  "progressTracking": {
+    "description": "Track progress in progress.txt file, committed to repo after each task",
+    "format": {
+      "taskCompleted": "Task ID and title",
+      "decisionsAde": "Key decisions and reasoning",
+      "filesChanged": "List of modified files",
+      "blockers": "Any blockers or notes for next iteration"
+    }
+  },
+  "completionCriteria": {
+    "metrics": [
+      "Time to Interactive (TTI) < 2 seconds",
+      "Largest Contentful Paint (LCP) < 1.5 seconds",
+      "Initial JavaScript bundle < 200KB gzipped",
+      "API response times < 200ms for common endpoints",
+      "Database queries per page < 15",
+      "All PHPUnit tests passing",
+      "All Pint style checks passing",
+      "No TypeScript/Vue errors"
+    ],
+    "outputSignal": "<promise>COMPLETE</promise>"
   }
 }
