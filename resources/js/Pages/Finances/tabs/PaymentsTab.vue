@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { router, Link } from '@inertiajs/vue3';
-import { useFormatters } from '@/composables';
+import { useFormatters, useTabFilters } from '@/composables';
 import { useFinancesStore } from '@/stores/finances';
 import {
     FilterBar,
@@ -24,13 +24,14 @@ const props = defineProps({
 const { formatDate } = useFormatters();
 const store = useFinancesStore();
 
-const localFilters = ref({
-    search: props.filters?.search || '',
-    paymentMethod: props.filters?.method || '',
-    buildingId: props.filters?.building_id || null,
-    dateRange: {
-        from: props.filters?.date_from || null,
-        to: props.filters?.date_to || null,
+const { localFilters, applyFilters, clearFilters, getExportParams } = useTabFilters({
+    routeName: 'finances.payments',
+    propsFilters: props.filters,
+    filterConfig: {
+        search: { default: '' },
+        paymentMethod: { urlKey: 'method', default: '' },
+        buildingId: { urlKey: 'building_id', default: null },
+        dateRange: { type: 'dateRange' },
     },
 });
 
@@ -60,31 +61,6 @@ const tableData = computed(() => {
     }));
 });
 
-const applyFilters = () => {
-    router.get(route('finances.payments'), {
-        search: localFilters.value.search || undefined,
-        method: localFilters.value.paymentMethod || undefined,
-        building_id: localFilters.value.buildingId || undefined,
-        date_from: localFilters.value.dateRange?.from || undefined,
-        date_to: localFilters.value.dateRange?.to || undefined,
-    }, {
-        preserveState: true,
-        preserveScroll: true,
-    });
-};
-
-const clearFilters = () => {
-    localFilters.value = {
-        search: '',
-        paymentMethod: '',
-        buildingId: null,
-        dateRange: { from: null, to: null },
-    };
-    router.get(route('finances.payments'), {}, {
-        preserveState: true,
-        preserveScroll: true,
-    });
-};
 
 const viewPayment = (payment) => {
     if (payment.invoice_id) {
@@ -101,13 +77,7 @@ const initiateRefund = (payment) => {
 };
 
 const exportData = (format) => {
-    const params = new URLSearchParams();
-    params.append('format', format);
-    if (localFilters.value.paymentMethod) params.append('method', localFilters.value.paymentMethod);
-    if (localFilters.value.buildingId) params.append('building_id', localFilters.value.buildingId);
-    if (localFilters.value.dateRange?.from) params.append('date_from', localFilters.value.dateRange.from);
-    if (localFilters.value.dateRange?.to) params.append('date_to', localFilters.value.dateRange.to);
-
+    const params = getExportParams(format);
     window.location.href = route('finances.payments.export') + '?' + params.toString();
 };
 </script>

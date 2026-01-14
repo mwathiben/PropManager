@@ -1,7 +1,7 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { computed } from 'vue';
 import { router, Link } from '@inertiajs/vue3';
-import { useFormatters, usePayments } from '@/composables';
+import { useFormatters, usePayments, useTabFilters } from '@/composables';
 import { FilterBar, DataTable, AmountDisplay, MetricCard, InvoiceStatusBadge } from '@/Components/Finances';
 import {
     ExclamationTriangleIcon,
@@ -21,9 +21,13 @@ const props = defineProps({
 const { formatDate, formatMoney } = useFormatters();
 const { sendReminder: sendInvoiceReminder, isProcessing } = usePayments();
 
-const localFilters = ref({
-    search: props.filters?.search || '',
-    buildingId: props.filters?.building_id || null,
+const { localFilters, applyFilters, clearFilters } = useTabFilters({
+    routeName: 'finances.arrears',
+    propsFilters: props.filters,
+    filterConfig: {
+        search: { default: '' },
+        buildingId: { urlKey: 'building_id', default: null },
+    },
 });
 
 const columns = [
@@ -59,26 +63,6 @@ const getDaysOverdueClass = (days) => {
     return 'text-red-600 bg-red-100';
 };
 
-const applyFilters = () => {
-    router.get(route('finances.arrears'), {
-        search: localFilters.value.search || undefined,
-        building_id: localFilters.value.buildingId || undefined,
-    }, {
-        preserveState: true,
-        preserveScroll: true,
-    });
-};
-
-const clearFilters = () => {
-    localFilters.value = {
-        search: '',
-        buildingId: null,
-    };
-    router.get(route('finances.arrears'), {}, {
-        preserveState: true,
-        preserveScroll: true,
-    });
-};
 
 const viewInvoice = (item) => {
     router.visit(route('invoices.show', item.id));

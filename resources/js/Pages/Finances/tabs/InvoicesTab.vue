@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { router, useForm } from '@inertiajs/vue3';
-import { useFormatters } from '@/composables';
+import { useForm } from '@inertiajs/vue3';
+import { useFormatters, useTabFilters } from '@/composables';
 import { useFinancesStore } from '@/stores/finances';
 import {
     FilterBar,
@@ -24,13 +24,14 @@ const props = defineProps({
 const store = useFinancesStore();
 const { formatDate } = useFormatters();
 
-const localFilters = ref({
-    search: props.filters?.search || '',
-    status: props.filters?.status || '',
-    buildingId: props.filters?.building_id || null,
-    dateRange: {
-        from: props.filters?.date_from || null,
-        to: props.filters?.date_to || null,
+const { localFilters, applyFilters, clearFilters, getExportParams } = useTabFilters({
+    routeName: 'finances.invoices',
+    propsFilters: props.filters,
+    filterConfig: {
+        search: { default: '' },
+        status: { default: '' },
+        buildingId: { urlKey: 'building_id', default: null },
+        dateRange: { type: 'dateRange' },
     },
 });
 
@@ -61,31 +62,6 @@ const tableData = computed(() => {
     }));
 });
 
-const applyFilters = () => {
-    router.get(route('finances.invoices'), {
-        search: localFilters.value.search || undefined,
-        status: localFilters.value.status || undefined,
-        building_id: localFilters.value.buildingId || undefined,
-        date_from: localFilters.value.dateRange?.from || undefined,
-        date_to: localFilters.value.dateRange?.to || undefined,
-    }, {
-        preserveState: true,
-        preserveScroll: true,
-    });
-};
-
-const clearFilters = () => {
-    localFilters.value = {
-        search: '',
-        status: '',
-        buildingId: null,
-        dateRange: { from: null, to: null },
-    };
-    router.get(route('finances.invoices'), {}, {
-        preserveState: true,
-        preserveScroll: true,
-    });
-};
 
 const viewInvoice = (invoice) => {
     store.openModal('invoiceDetail', { id: invoice.id });
@@ -132,13 +108,7 @@ const submitGenerate = () => {
 };
 
 const exportData = (format) => {
-    const params = new URLSearchParams();
-    params.append('format', format);
-    if (localFilters.value.status) params.append('status', localFilters.value.status);
-    if (localFilters.value.buildingId) params.append('building_id', localFilters.value.buildingId);
-    if (localFilters.value.dateRange?.from) params.append('date_from', localFilters.value.dateRange.from);
-    if (localFilters.value.dateRange?.to) params.append('date_to', localFilters.value.dateRange.to);
-
+    const params = getExportParams(format);
     window.location.href = route('finances.invoices.export') + '?' + params.toString();
 };
 </script>

@@ -1,7 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { router } from '@inertiajs/vue3';
-import { useFormatters } from '@/composables';
+import { useFormatters, useTabFilters } from '@/composables';
 import { useFinancesStore } from '@/stores/finances';
 import { FilterBar, DataTable, AmountDisplay, MetricCard, Pagination, ExportDropdown } from '@/Components/Finances';
 import { BanknotesIcon, ShieldCheckIcon, ArrowUturnLeftIcon, XCircleIcon, EllipsisVerticalIcon, ChevronDownIcon, ChevronRightIcon } from '@heroicons/vue/24/outline';
@@ -16,10 +15,14 @@ const props = defineProps({
 const store = useFinancesStore();
 const { formatDate, formatMoney } = useFormatters();
 
-const localFilters = ref({
-    search: props.filters?.search || '',
-    status: props.filters?.status || '',
-    buildingId: props.filters?.building_id || null,
+const { localFilters, applyFilters, clearFilters, getExportParams } = useTabFilters({
+    routeName: 'finances.deposits',
+    propsFilters: props.filters,
+    filterConfig: {
+        search: { default: '' },
+        status: { default: '' },
+        buildingId: { urlKey: 'building_id', default: null },
+    },
 });
 
 const statusOptions = [
@@ -102,10 +105,7 @@ const toggleRow = (id) => {
 };
 
 const exportData = (format) => {
-    const params = new URLSearchParams();
-    params.append('format', format);
-    if (localFilters.value.status) params.append('status', localFilters.value.status);
-    if (localFilters.value.buildingId) params.append('building_id', localFilters.value.buildingId);
+    const params = getExportParams(format);
     window.location.href = route('finances.deposits.export') + '?' + params.toString();
 };
 
@@ -123,28 +123,6 @@ const statusLabels = {
     partial_refund: 'Partial',
 };
 
-const applyFilters = () => {
-    router.get(route('finances.deposits'), {
-        search: localFilters.value.search || undefined,
-        status: localFilters.value.status || undefined,
-        building_id: localFilters.value.buildingId || undefined,
-    }, {
-        preserveState: true,
-        preserveScroll: true,
-    });
-};
-
-const clearFilters = () => {
-    localFilters.value = {
-        search: '',
-        status: '',
-        buildingId: null,
-    };
-    router.get(route('finances.deposits'), {}, {
-        preserveState: true,
-        preserveScroll: true,
-    });
-};
 </script>
 
 <template>

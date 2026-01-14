@@ -1,7 +1,7 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { computed } from 'vue';
 import { router, Link } from '@inertiajs/vue3';
-import { useFormatters, useStatusColors } from '@/composables';
+import { useFormatters, useStatusColors, useTabFilters } from '@/composables';
 import { FilterBar, DataTable, AmountDisplay, EmptyState, Pagination } from '@/Components/Finances';
 import { ArrowUturnLeftIcon, EyeIcon, PlusIcon } from '@heroicons/vue/24/outline';
 
@@ -14,12 +14,13 @@ const props = defineProps({
 const { formatDate } = useFormatters();
 const { refundStatusColor } = useStatusColors();
 
-const localFilters = ref({
-    search: props.filters?.search || '',
-    status: props.filters?.status || '',
-    dateRange: {
-        from: props.filters?.date_from || null,
-        to: props.filters?.date_to || null,
+const { localFilters, applyFilters, clearFilters } = useTabFilters({
+    routeName: 'finances.refunds',
+    propsFilters: props.filters,
+    filterConfig: {
+        search: { default: '' },
+        status: { default: '' },
+        dateRange: { type: 'dateRange' },
     },
 });
 
@@ -57,29 +58,6 @@ const statusLabels = {
     cancelled: 'Cancelled',
 };
 
-const applyFilters = () => {
-    router.get(route('finances.refunds'), {
-        search: localFilters.value.search || undefined,
-        status: localFilters.value.status || undefined,
-        date_from: localFilters.value.dateRange?.from || undefined,
-        date_to: localFilters.value.dateRange?.to || undefined,
-    }, {
-        preserveState: true,
-        preserveScroll: true,
-    });
-};
-
-const clearFilters = () => {
-    localFilters.value = {
-        search: '',
-        status: '',
-        dateRange: { from: null, to: null },
-    };
-    router.get(route('finances.refunds'), {}, {
-        preserveState: true,
-        preserveScroll: true,
-    });
-};
 
 const viewRefund = (refund) => {
     if (refund.payment_id) {

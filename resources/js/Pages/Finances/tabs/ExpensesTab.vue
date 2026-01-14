@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { useForm, router } from '@inertiajs/vue3';
+import { useTabFilters } from '@/composables';
 import { Pagination, ExportDropdown } from '@/Components/Finances';
 import {
     PlusIcon,
@@ -38,24 +39,21 @@ const editingCategory = ref(null);
 const showVendorForm = ref(false);
 const editingVendor = ref(null);
 
-const localFilters = ref({
-    search: props.filters?.search || '',
-    categoryId: props.filters?.category_id || null,
-    vendorId: props.filters?.vendor_id || null,
-    buildingId: props.filters?.building_id || null,
-    dateFrom: props.filters?.date_from || null,
-    dateTo: props.filters?.date_to || null,
+const { localFilters, applyFilters, clearFilters, hasActiveFilters, getExportParams } = useTabFilters({
+    routeName: 'finances.expenses',
+    propsFilters: props.filters,
+    filterConfig: {
+        search: { default: '' },
+        categoryId: { urlKey: 'category_id', default: null },
+        vendorId: { urlKey: 'vendor_id', default: null },
+        buildingId: { urlKey: 'building_id', default: null },
+        dateFrom: { urlKey: 'date_from', default: null },
+        dateTo: { urlKey: 'date_to', default: null },
+    },
 });
 
 const exportData = (format) => {
-    const params = new URLSearchParams();
-    params.append('format', format);
-    if (localFilters.value.categoryId) params.append('category_id', localFilters.value.categoryId);
-    if (localFilters.value.vendorId) params.append('vendor_id', localFilters.value.vendorId);
-    if (localFilters.value.buildingId) params.append('building_id', localFilters.value.buildingId);
-    if (localFilters.value.dateFrom) params.append('date_from', localFilters.value.dateFrom);
-    if (localFilters.value.dateTo) params.append('date_to', localFilters.value.dateTo);
-
+    const params = getExportParams(format);
     window.location.href = route('finances.expenses.export') + '?' + params.toString();
 };
 
@@ -129,34 +127,6 @@ const formatDate = (date) => {
     });
 };
 
-const applyFilters = () => {
-    router.get(route('finances.expenses'), {
-        search: localFilters.value.search || undefined,
-        category_id: localFilters.value.categoryId || undefined,
-        vendor_id: localFilters.value.vendorId || undefined,
-        building_id: localFilters.value.buildingId || undefined,
-        date_from: localFilters.value.dateFrom || undefined,
-        date_to: localFilters.value.dateTo || undefined,
-    }, {
-        preserveState: true,
-        preserveScroll: true,
-    });
-};
-
-const clearFilters = () => {
-    localFilters.value = {
-        search: '',
-        categoryId: null,
-        vendorId: null,
-        buildingId: null,
-        dateFrom: null,
-        dateTo: null,
-    };
-    router.get(route('finances.expenses'), {}, {
-        preserveState: true,
-        preserveScroll: true,
-    });
-};
 
 const openExpenseForm = (expense = null) => {
     editingExpense.value = expense;
@@ -298,14 +268,6 @@ const executeDelete = () => {
     });
 };
 
-const hasActiveFilters = computed(() => {
-    return localFilters.value.search ||
-        localFilters.value.categoryId ||
-        localFilters.value.vendorId ||
-        localFilters.value.buildingId ||
-        localFilters.value.dateFrom ||
-        localFilters.value.dateTo;
-});
 </script>
 
 <template>

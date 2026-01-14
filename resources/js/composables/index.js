@@ -9,3 +9,4 @@ export { useDebouncedSearch, useFilters } from './useDebouncedSearch';
 export { useAuth } from './useAuth';
 export { usePushNotifications } from './usePushNotifications';
 export { usePayments } from './usePayments';
+export { useTabFilters } from './useTabFilters';

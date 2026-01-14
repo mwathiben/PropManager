@@ -1983,6 +1983,85 @@ Expanded PaymentControllerTest from 5 to 30 tests, achieving comprehensive cover
 
 ---
 
+## FIN-019: Create useTabFilters Composable
+**Status:** PASSED
+**Date:** 2026-01-14
+**Attempts:** 1
+
+### Implementation Summary
+
+Extracted common filter state management from Finance Hub tabs into a reusable `useTabFilters` composable, eliminating ~40-50 lines of duplicated code per tab.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `resources/js/composables/useTabFilters.js` (~160 lines) | Composable handling filter initialization, URL sync, and export params |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `resources/js/composables/index.js` | Added useTabFilters export |
+| `resources/js/Pages/Finances/tabs/InvoicesTab.vue` | Replaced manual filter logic with composable |
+| `resources/js/Pages/Finances/tabs/PaymentsTab.vue` | Replaced manual filter logic with composable |
+| `resources/js/Pages/Finances/tabs/RefundsTab.vue` | Replaced manual filter logic with composable |
+| `resources/js/Pages/Finances/tabs/DepositsTab.vue` | Replaced manual filter logic with composable |
+| `resources/js/Pages/Finances/tabs/ExpensesTab.vue` | Replaced manual filter logic with composable |
+| `resources/js/Pages/Finances/tabs/ArrearsTab.vue` | Replaced manual filter logic with composable |
+
+### Composable API
+
+```javascript
+const { localFilters, applyFilters, clearFilters, hasActiveFilters, getExportParams } = useTabFilters({
+    routeName: 'finances.invoices',
+    propsFilters: props.filters,
+    filterConfig: {
+        search: { default: '' },
+        status: { default: '' },
+        buildingId: { urlKey: 'building_id', default: null },
+        dateRange: { type: 'dateRange' },
+    },
+});
+```
+
+### Features Implemented
+
+**Filter Configuration Schema:**
+- `default` - Default value for filter
+- `urlKey` - Custom URL parameter name (e.g., buildingId → building_id)
+- `type: 'dateRange'` - Special handling for date range filters (from/to)
+
+**Automatic Conversions:**
+- Props (snake_case) → localFilters (camelCase) on initialization
+- localFilters (camelCase) → URL params (snake_case) on apply
+
+**Methods Provided:**
+- `applyFilters()` - Navigates with current filter values
+- `clearFilters()` - Resets all filters and navigates
+- `hasActiveFilters` - Computed boolean for showing clear button
+- `getExportParams(format)` - Returns URLSearchParams for export URLs
+
+### Note on ReportsTab
+
+ReportsTab was intentionally not refactored - it has a unique filter pattern with period presets (This Month, Last Quarter, YTD, etc.) and comparison toggle that doesn't fit the standard composable pattern.
+
+### Acceptance Criteria Verification
+
+1. **Create @/composables/useTabFilters.js** - Created with full implementation
+2. **Handle filter initialization from props** - Converts snake_case props to camelCase
+3. **Provide applyFilters() and clearFilters() methods** - Both methods implemented
+4. **Support date range, status, payment method, building filters** - All supported via filterConfig
+5. **Integrate with Inertia router for URL sync** - Uses router.get() with preserveState/preserveScroll
+6. **Replace filter logic in all Finance Hub tabs** - Replaced in 6 tabs
+7. **Build passes with no regressions** - Build succeeded
+
+### Verification Results
+
+- Build: Success (~20s)
+
+---
+
 # PRD Progress Update
 
-29 of 37 user stories now passing. FIN-024 completed, unlocking no new tasks.
+30 of 37 user stories now passing. FIN-019 completed, unlocking no new tasks.

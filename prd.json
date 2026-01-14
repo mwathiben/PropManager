@@ -565,8 +565,9 @@
         "Replace filter logic in all Finance Hub tabs",
         "Build passes with no regressions"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
+      "notes": "Created @/composables/useTabFilters.js (~160 lines) with filterConfig-based initialization, snake_case↔camelCase conversion, and getExportParams helper. Integrated in 6 tabs: InvoicesTab, PaymentsTab, RefundsTab, DepositsTab, ExpensesTab, ArrearsTab. ReportsTab uses unique period presets pattern - left unchanged. Reduced ~40 lines per tab (~240 lines total).",
       "depends_on": ["FIN-017", "FIN-018"]
     },
     {
