@@ -12,6 +12,7 @@ use App\Models\PlatformFee;
 use App\Services\BillingModelService;
 use App\Services\PaystackSubaccountService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -854,9 +855,16 @@ class PaymentsHubController extends Controller
         $startDate = now()->subMonths($months - 1)->startOfMonth();
 
         // Single query with grouping instead of N queries in a loop
+        $dateFormat = match (DB::getDriverName()) {
+            'sqlite' => "strftime('%Y-%m', payment_date)",
+            'mysql' => "DATE_FORMAT(payment_date, '%Y-%m')",
+            'pgsql' => "TO_CHAR(payment_date, 'YYYY-MM')",
+            default => "DATE_FORMAT(payment_date, '%Y-%m')",
+        };
+
         $payments = Payment::where('landlord_id', $landlordId)
             ->where('payment_date', '>=', $startDate)
-            ->selectRaw("strftime('%Y-%m', payment_date) as month_key, SUM(amount) as total")
+            ->selectRaw("{$dateFormat} as month_key, SUM(amount) as total")
             ->groupBy('month_key')
             ->get()
             ->keyBy('month_key');

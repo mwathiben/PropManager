@@ -111,7 +111,7 @@ export function useFormatters(options: FormattersOptions = {}): UseFormattersRet
      * Format a number as percentage
      */
     const formatPercent = (value: number | null | undefined, decimals: number = 0): string => {
-        if (value === null || value === undefined) return '-';
+        if (value === null || value === undefined || Number.isNaN(value)) return '-';
         return `${value.toFixed(decimals)}%`;
     };
 
@@ -119,7 +119,7 @@ export function useFormatters(options: FormattersOptions = {}): UseFormattersRet
      * Format a number with thousands separator
      */
     const formatNumber = (value: number | null | undefined): string => {
-        if (value === null || value === undefined) return '-';
+        if (value === null || value === undefined || Number.isNaN(value)) return '-';
         return new Intl.NumberFormat(config.locale).format(value);
     };
 
@@ -127,10 +127,10 @@ export function useFormatters(options: FormattersOptions = {}): UseFormattersRet
      * Format file size in human-readable format
      */
     const formatFileSize = (bytes: number | null | undefined): string => {
-        if (!bytes) return '0 B';
+        if (bytes === null || bytes === undefined || bytes <= 0) return '0 B';
         const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+        const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
         return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
     };
 

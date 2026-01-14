@@ -28,8 +28,8 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
     // Check if push notifications are supported
     const checkSupport = (): boolean => {
-        isSupported.value = 'serviceWorker' in navigator && 'PushManager' in window;
-        permission.value = Notification.permission;
+        isSupported.value = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+        permission.value = 'Notification' in window ? Notification.permission : 'default';
         return isSupported.value;
     };
 
@@ -47,7 +47,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         } catch (err) {
             console.error('Service Worker registration failed:', err);
             error.value = 'Failed to register service worker';
-            throw err;
+            return null;
         }
     };
 
@@ -146,12 +146,6 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         try {
             const registration = await navigator.serviceWorker.ready;
 
-            // Send VAPID key to service worker
-            registration.active?.postMessage({
-                type: 'SET_VAPID_KEY',
-                key: vapidPublicKey
-            });
-
             // Convert base64 to Uint8Array
             const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
 
@@ -185,19 +179,22 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         error.value = null;
 
         try {
+            const endpoint = subscription.value.endpoint;
             await subscription.value.unsubscribe();
 
             // Notify server
-            await fetch(route('notifications.push.unsubscribe'), {
+            const response = await fetch(route('notifications.push.unsubscribe'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
                 },
-                body: JSON.stringify({
-                    endpoint: subscription.value.endpoint
-                })
+                body: JSON.stringify({ endpoint })
             });
+
+            if (!response.ok) {
+                console.warn('Server unsubscribe notification failed:', response.status);
+            }
 
             subscription.value = null;
             isSubscribed.value = false;
