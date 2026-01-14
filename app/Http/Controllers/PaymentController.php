@@ -18,6 +18,7 @@ use App\Services\PaystackService;
 use App\Services\ReceiptService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -48,7 +49,8 @@ class PaymentController extends Controller
      */
     public function create(Request $request)
     {
-        $user = auth()->user();
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
 
         if (! $user->isLandlord() && ! $user->isCaretaker()) {
             abort(403, 'Access denied.');
@@ -88,7 +90,8 @@ class PaymentController extends Controller
      */
     public function storeManual(Request $request)
     {
-        $user = auth()->user();
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
 
         if (! $user->isLandlord() && ! $user->isCaretaker()) {
             abort(403, 'Access denied.');
@@ -107,8 +110,11 @@ class PaymentController extends Controller
             'is_unallocated' => 'boolean',
         ]);
 
+        $overpaymentNotification = null;
+
         try {
             DB::beginTransaction();
+            $pendingOverpayments = [];
 
             $invoice = null;
             $lease = null;
@@ -142,7 +148,7 @@ class PaymentController extends Controller
                 'payment_method' => $validated['payment_method'],
                 'payment_date' => $validated['payment_date'],
                 'reference' => $validated['reference'] ?? 'MANUAL-'.strtoupper(uniqid()),
-                'notes' => $validated['notes'],
+                'notes' => $validated['notes'] ?? null,
             ]);
 
             if ($invoice) {
@@ -161,17 +167,13 @@ class PaymentController extends Controller
                         $payment->id
                     );
                     $lease->refresh();
-
-                    $landlord = User::find($lease->landlord_id);
-                    if ($landlord) {
-                        Mail::to($landlord->email)->queue(new OverpaymentNotification(
-                            $payment,
-                            $lease,
-                            $lease->tenant,
-                            $overpayment,
-                            $lease->wallet_balance
-                        ));
-                    }
+                    // Defer notification until after transaction commits
+                    $overpaymentNotification = [
+                        'payment_id' => $payment->id,
+                        'lease_id' => $lease->id,
+                        'tenant_id' => $lease->tenant?->id,
+                        'overpayment' => $overpayment,
+                    ];
                 }
             }
 
@@ -183,6 +185,11 @@ class PaymentController extends Controller
             }
 
             DB::commit();
+
+            // Send overpayment notification outside the DB transaction
+            if ($overpaymentNotification) {
+                $this->sendPendingOverpaymentNotifications([$overpaymentNotification]);
+            }
 
             $message = 'Payment of KES '.number_format($validated['amount'], 2).' recorded successfully!';
             if ($overpayment > 0) {
@@ -206,7 +213,8 @@ class PaymentController extends Controller
      */
     public function index(Request $request)
     {
-        $user = auth()->user();
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
 
         if (! $user->isLandlord() && ! $user->isCaretaker()) {
             abort(403, 'Access denied.');
@@ -306,8 +314,24 @@ class PaymentController extends Controller
             'amount' => 'required|numeric|min:1|max:'.($invoice->total_due - $invoice->amount_paid),
         ]);
 
-        $tenant = $invoice->lease->tenant;
+        $lease = $invoice->lease;
+        if (! $lease || ! $lease->tenant) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Invoice has no associated lease or tenant',
+            ], 400);
+        }
+
+        $tenant = $lease->tenant;
         $landlord = User::find($invoice->landlord_id);
+
+        if (! $landlord) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Landlord not found',
+            ], 400);
+        }
+
         $reference = PaystackService::generateReference('INV');
 
         // Check if landlord needs a payout account
@@ -424,6 +448,7 @@ class PaymentController extends Controller
 
         try {
             DB::beginTransaction();
+            $pendingOverpayments = [];
 
             // Use pessimistic locking to prevent duplicate payments from race conditions
             $existingPayment = Payment::where('paystack_reference', $reference)
@@ -438,6 +463,12 @@ class PaymentController extends Controller
 
             // Lock the invoice for update to prevent concurrent modifications
             $invoice = Invoice::where('id', $invoiceId)->lockForUpdate()->first();
+
+            if (! $invoice) {
+                DB::rollBack();
+
+                return redirect()->route('invoices.index')->with('error', 'Invoice not found');
+            }
 
             // Convert amount from kobo to KES
             $amount = $data['amount'] / 100;
@@ -463,23 +494,26 @@ class PaymentController extends Controller
 
             // Record platform fee
             $landlord = User::find($invoice->landlord_id);
-            $feeResult = $this->billingService->calculatePlatformFee($amount, $landlord);
 
-            $payoutAccount = $payoutAccountId
-                ? LandlordPayoutAccount::find($payoutAccountId)
-                : null;
+            if ($landlord) {
+                $feeResult = $this->billingService->calculatePlatformFee($amount, $landlord);
 
-            $this->billingService->recordPlatformFee(
-                payment: $payment,
-                feeResult: $feeResult,
-                payoutAccount: $payoutAccount,
-                splitReference: $isSplitPayment ? $reference : null,
-                splitDetails: $isSplitPayment ? [
-                    'subaccount' => $data['subaccount'] ?? null,
-                    'fees_split' => $data['fees_split'] ?? null,
-                    'authorization' => $data['authorization'] ?? null,
-                ] : null
-            );
+                $payoutAccount = $payoutAccountId
+                    ? LandlordPayoutAccount::find($payoutAccountId)
+                    : null;
+
+                $this->billingService->recordPlatformFee(
+                    payment: $payment,
+                    feeResult: $feeResult,
+                    payoutAccount: $payoutAccount,
+                    splitReference: $isSplitPayment ? $reference : null,
+                    splitDetails: $isSplitPayment ? [
+                        'subaccount' => $data['subaccount'] ?? null,
+                        'fees_split' => $data['fees_split'] ?? null,
+                        'authorization' => $data['authorization'] ?? null,
+                    ] : null
+                );
+            }
 
             // Auto-generate receipt
             $this->receiptService->createReceipt($payment, $invoice);
@@ -496,30 +530,33 @@ class PaymentController extends Controller
                 'status' => $newStatus,
             ]);
 
-            if ($overpayment > 0) {
-                $invoice->lease->creditToWallet(
+            $lease = $invoice->lease;
+            if ($overpayment > 0 && $lease) {
+                $lease->creditToWallet(
                     $overpayment,
                     "Overpayment from Paystack payment #{$payment->id}",
                     $payment->id
                 );
-                $invoice->lease->refresh();
+                $lease->refresh();
 
-                $landlord = User::find($invoice->lease->landlord_id);
-                if ($landlord) {
-                    Mail::to($landlord->email)->queue(new OverpaymentNotification(
-                        $payment,
-                        $invoice->lease,
-                        $invoice->lease->tenant,
-                        $overpayment,
-                        $invoice->lease->wallet_balance
-                    ));
-                }
+                // Defer notifications until after commit
+                $pendingOverpayments[] = [
+                    'payment_id' => $payment->id,
+                    'lease_id' => $lease->id,
+                    'overpayment' => $overpayment,
+                ];
             }
 
             DB::commit();
 
+            // Send overpayment notifications after successful commit
+            $this->sendPendingOverpaymentNotifications($pendingOverpayments);
+
             $invoice->load(['lease.tenant', 'lease.unit.building']);
-            Mail::to($invoice->lease->tenant->email)->send(new PaymentReceived($payment, $invoice));
+            $tenant = $invoice->lease?->tenant;
+            if ($tenant) {
+                Mail::to($tenant->email)->send(new PaymentReceived($payment, $invoice));
+            }
 
             $message = 'Payment of KES '.number_format($amount, 2).' successful!';
             if ($overpayment > 0) {
@@ -590,6 +627,7 @@ class PaymentController extends Controller
 
         try {
             DB::beginTransaction();
+            $pendingOverpayments = [];
 
             $existingPayment = Payment::where('paystack_reference', $reference)
                 ->lockForUpdate()
@@ -628,22 +666,25 @@ class PaymentController extends Controller
             ]);
 
             $landlord = User::find($invoice->landlord_id);
-            $feeResult = $this->billingService->calculatePlatformFee($amount, $landlord);
 
-            $payoutAccount = $payoutAccountId
-                ? LandlordPayoutAccount::find($payoutAccountId)
-                : null;
+            if ($landlord) {
+                $feeResult = $this->billingService->calculatePlatformFee($amount, $landlord);
 
-            $this->billingService->recordPlatformFee(
-                payment: $payment,
-                feeResult: $feeResult,
-                payoutAccount: $payoutAccount,
-                splitReference: $isSplitPayment ? $reference : null,
-                splitDetails: $isSplitPayment ? [
-                    'subaccount' => $data['subaccount'] ?? null,
-                    'fees_split' => $data['fees_split'] ?? null,
-                ] : null
-            );
+                $payoutAccount = $payoutAccountId
+                    ? LandlordPayoutAccount::find($payoutAccountId)
+                    : null;
+
+                $this->billingService->recordPlatformFee(
+                    payment: $payment,
+                    feeResult: $feeResult,
+                    payoutAccount: $payoutAccount,
+                    splitReference: $isSplitPayment ? $reference : null,
+                    splitDetails: $isSplitPayment ? [
+                        'subaccount' => $data['subaccount'] ?? null,
+                        'fees_split' => $data['fees_split'] ?? null,
+                    ] : null
+                );
+            }
 
             // Auto-generate receipt
             $this->receiptService->createReceipt($payment, $invoice);
@@ -660,30 +701,33 @@ class PaymentController extends Controller
                 'status' => $newStatus,
             ]);
 
-            if ($overpayment > 0) {
-                $invoice->lease->creditToWallet(
+            $lease = $invoice->lease;
+            if ($overpayment > 0 && $lease) {
+                $lease->creditToWallet(
                     $overpayment,
                     "Overpayment from Paystack webhook #{$payment->id}",
                     $payment->id
                 );
-                $invoice->lease->refresh();
+                $lease->refresh();
 
-                $landlord = User::find($invoice->lease->landlord_id);
-                if ($landlord) {
-                    Mail::to($landlord->email)->queue(new OverpaymentNotification(
-                        $payment,
-                        $invoice->lease,
-                        $invoice->lease->tenant,
-                        $overpayment,
-                        $invoice->lease->wallet_balance
-                    ));
-                }
+                // Defer notification until after successful commit
+                $pendingOverpayments[] = [
+                    'payment_id' => $payment->id,
+                    'lease_id' => $lease->id,
+                    'overpayment' => $overpayment,
+                ];
             }
 
             DB::commit();
 
+            // Send overpayment notifications after successful commit
+            $this->sendPendingOverpaymentNotifications($pendingOverpayments);
+
             $invoice->load(['lease.tenant', 'lease.unit.building']);
-            Mail::to($invoice->lease->tenant->email)->send(new PaymentReceived($payment, $invoice));
+            $tenant = $invoice->lease?->tenant;
+            if ($tenant) {
+                Mail::to($tenant->email)->send(new PaymentReceived($payment, $invoice));
+            }
 
             return response()->json(['status' => 'success']);
         } catch (\Exception $e) {
@@ -893,7 +937,8 @@ class PaymentController extends Controller
      */
     public function bulkImportForm()
     {
-        $user = auth()->user();
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
 
         if (! $user->isLandlord() && ! $user->isCaretaker()) {
             abort(403, 'Access denied.');
@@ -923,7 +968,8 @@ class PaymentController extends Controller
      */
     public function downloadBulkTemplate(Request $request)
     {
-        $user = auth()->user();
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
         if (! $user->isLandlord() && ! $user->isCaretaker()) {
             abort(403, 'Access denied.');
         }
@@ -968,7 +1014,8 @@ class PaymentController extends Controller
             'mode' => 'required|in:current,historical',
         ]);
 
-        $user = auth()->user();
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
         if (! $user->isLandlord() && ! $user->isCaretaker()) {
             abort(403, 'Access denied.');
         }
@@ -1177,7 +1224,7 @@ class PaymentController extends Controller
         }
 
         $activeLease = $tenant->lease;
-        if (! $activeLease || $activeLease->unit_id !== $unit->id) {
+        if (! $activeLease || ! $unit || $activeLease->unit_id !== $unit->id) {
             return [
                 'row' => $rowNumber,
                 'unit_number' => $unitNumber,
@@ -1309,7 +1356,8 @@ class PaymentController extends Controller
             'payments.*.allocations' => 'present|array',
         ]);
 
-        $user = auth()->user();
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
         if (! $user->isLandlord() && ! $user->isCaretaker()) {
             abort(403, 'Access denied.');
         }
@@ -1410,7 +1458,8 @@ class PaymentController extends Controller
             'building_id' => 'required|integer',
         ]);
 
-        $user = auth()->user();
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
         if (! $user->isLandlord() && ! $user->isCaretaker()) {
             abort(403, 'Access denied.');
         }
@@ -1561,6 +1610,35 @@ class PaymentController extends Controller
             'deposit_amount' => 0,
             'is_active' => false,
         ]);
+    }
+
+    /**
+     * Send queued overpayment notifications after DB commit.
+     */
+    private function sendPendingOverpaymentNotifications(array $pendingOverpayments): void
+    {
+        foreach ($pendingOverpayments as $p) {
+            $lease = Lease::find($p['lease_id']);
+            $payment = Payment::find($p['payment_id']);
+
+            if (! $lease || ! $payment) {
+                continue;
+            }
+
+            $lease->refresh();
+            $tenant = $lease->tenant;
+            $landlord = User::find($lease->landlord_id);
+
+            if ($landlord && $tenant) {
+                Mail::to($landlord->email)->queue(new OverpaymentNotification(
+                    $payment,
+                    $lease,
+                    $tenant,
+                    $p['overpayment'],
+                    $lease->wallet_balance
+                ));
+            }
+        }
     }
 
     /**

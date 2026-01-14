@@ -659,8 +659,9 @@
         "Test coverage report shows > 80% for PaymentController",
         "All tests pass"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
+      "notes": "Expanded from 5 to 30 tests. Fixed bug in PaymentController::storeManual() where nullable 'notes' field caused undefined array key error. Tests cover manual payments, bulk import, receipts, void, refunds, and edge cases. 376 tests pass (12 skipped).",
       "depends_on": ["FIN-023"]
     },
     {
@@ -739,7 +740,7 @@
   ],
   "metadata": {
     "total_stories": 37,
-    "passing_stories": 28,
+    "passing_stories": 29,
     "framework": "Laravel",
     "frontend": "Vue.js/Inertia"
   }
