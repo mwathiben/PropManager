@@ -2401,6 +2401,111 @@ const InvoiceDetailModal = defineAsyncComponent({
 
 ---
 
+## FIN-028: Create Finance Data Export Service
+**Status:** PASSED
+**Date:** 2026-01-14
+**Attempts:** 1
+
+### Implementation Summary
+
+Created a dedicated FinanceExportService to consolidate all export logic from FinancesController, adding CSV format support and streaming for large datasets.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Services/FinanceExportService.php` | Main export service (~500 lines) with methods for invoices, payments, deposits, expenses, vendors, reports |
+| `app/Exports/Streaming/StreamingInvoicesExport.php` | Memory-efficient invoice export for >10k records using FromQuery |
+| `app/Exports/Streaming/StreamingPaymentsExport.php` | Memory-efficient payment export for >10k records using FromQuery |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/FinancesController.php` | Injected FinanceExportService, replaced 6 export methods (reduced from ~250 lines to ~30 lines total), removed unused imports and exportReportsCsv helper |
+| `tests/Feature/ExpenseExportTest.php` | Added 2 CSV export tests for expenses and vendors |
+
+### Service Methods
+
+| Method | Formats | Description |
+|--------|---------|-------------|
+| `exportInvoices()` | PDF, XLSX, CSV | Invoice list export with streaming for large datasets |
+| `exportPayments()` | PDF, XLSX, CSV | Payment list export with streaming |
+| `exportDeposits()` | PDF, XLSX, CSV | Deposit report export |
+| `exportExpenses()` | PDF, XLSX, CSV | Expense list export |
+| `exportVendors()` | XLSX, CSV | Vendor summary export |
+| `exportReports()` | PDF, XLSX, CSV | Multi-sheet financial report export |
+
+### CSV Implementation
+
+```php
+protected function toCsv(Collection $data, array $headings, string $filename): StreamedResponse
+{
+    return response()->streamDownload(function () use ($data, $headings) {
+        $handle = fopen('php://output', 'w');
+        fputcsv($handle, $headings);
+        foreach ($data as $row) {
+            fputcsv($handle, array_values((array) $row));
+        }
+        fclose($handle);
+    }, $filename, ['Content-Type' => 'text/csv; charset=utf-8']);
+}
+```
+
+### Streaming for Large Datasets
+
+- Threshold: 10,000 records
+- Uses Maatwebsite's `FromQuery` interface for memory-efficient exports
+- Implements `ShouldQueue` for background processing
+
+```php
+if ($format === 'xlsx' && $this->shouldStream($query)) {
+    return Excel::download(new StreamingInvoicesExport(clone $query), $filename.'.xlsx');
+}
+```
+
+### Controller Simplification
+
+Before (exportInvoices ~50 lines):
+```php
+public function exportInvoices(Request $request): BinaryFileResponse
+{
+    $landlordId = $this->getLandlordId();
+    $format = $request->query('format', 'xlsx');
+    $query = Invoice::where('landlord_id', $landlordId)->with([...]);
+    // ... 40+ more lines of query building, PDF/Excel handling
+}
+```
+
+After (6 lines):
+```php
+public function exportInvoices(Request $request): BinaryFileResponse|Response|StreamedResponse
+{
+    $filters = array_merge(
+        ['landlord_id' => $this->getLandlordId()],
+        $request->only(['status', 'building_id', 'date_from', 'date_to'])
+    );
+    return $this->exportService->exportInvoices($filters, $request->query('format', 'xlsx'));
+}
+```
+
+### Acceptance Criteria Verification
+
+1. **FinanceExportService with methods for each export type** - ✅ 6 export methods
+2. **Support PDF, Excel, CSV formats** - ✅ All formats via match expression
+3. **Accept filter parameters for scoped exports** - ✅ Standardized filter array structure
+4. **Consolidate existing Export classes** - ✅ Service uses existing Export classes
+5. **Add streaming for large datasets** - ✅ StreamingInvoicesExport/StreamingPaymentsExport
+6. **All export tests pass** - ✅ 15 export tests pass including 2 new CSV tests
+
+### Verification Results
+
+- Lint (Pint): Success (1 auto-fix in unrelated file)
+- Tests: 378 passed, 12 skipped
+- Build: Success
+
+---
+
 # PRD Progress Update
 
-34 of 37 user stories now passing. FIN-025 completed.
+35 of 37 user stories now passing. FIN-028 completed.

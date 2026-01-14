@@ -2,10 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Exports\ExpensesExport;
-use App\Exports\InvoicesExport;
-use App\Exports\PaymentsExport;
-use App\Exports\VendorExpenseExport;
 use App\Http\Requests\UpdateFiscalYearSettingsRequest;
 use App\Http\Requests\UpdateInvoiceSettingsRequest;
 use App\Http\Requests\UpdatePaymentMethodsRequest;
@@ -25,6 +21,7 @@ use App\Models\PaymentConfiguration;
 use App\Models\Property;
 use App\Models\User;
 use App\Models\Vendor;
+use App\Services\FinanceExportService;
 use App\Services\FinanceFilterService;
 use App\Services\FinanceReportService;
 use App\Services\FinanceSettingsService;
@@ -37,7 +34,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 use Inertia\Response;
-use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class FinancesController extends Controller
@@ -47,6 +43,7 @@ class FinancesController extends Controller
         protected FinanceReportService $reportService,
         protected FinanceFilterService $filterService,
         protected FinanceSettingsService $settingsService,
+        protected FinanceExportService $exportService,
     ) {}
 
     public function index(): Response
@@ -205,43 +202,14 @@ class FinancesController extends Controller
         ]));
     }
 
-    public function exportReports(Request $request): BinaryFileResponse|\Illuminate\Http\Response
+    public function exportReports(Request $request): BinaryFileResponse|\Illuminate\Http\Response|\Symfony\Component\HttpFoundation\StreamedResponse
     {
-        $landlordId = $this->getLandlordId();
-        $period = (int) $request->query('period', '12');
-        $format = $request->query('format', 'xlsx');
-
-        $data = [
-            'revenue' => $this->reportService->getRevenueReport($landlordId, $period),
-            'collection_rate' => $this->reportService->getCollectionRateReport($landlordId, $period),
-            'occupancy' => $this->reportService->getOccupancyReport($landlordId),
-            'arrears_aging' => $this->reportService->getArrearsAgingReport($landlordId),
-            'expenses_by_category' => $this->reportService->getExpensesByCategoryReport($landlordId, $period),
-            'water_consumption' => $this->reportService->getWaterConsumptionReport($landlordId, $period),
-            'top_performing_units' => $this->reportService->getTopPerformingUnitsReport($landlordId, $period),
+        $filters = [
+            'landlord_id' => $this->getLandlordId(),
+            'period' => (int) $request->query('period', '12'),
         ];
 
-        $filename = 'financial_report_'.now()->format('Y-m-d');
-
-        if ($format === 'pdf') {
-            $pdf = Pdf::loadView('exports.financial-report', [
-                'data' => $data,
-                'period' => $period,
-                'landlord' => auth()->user(),
-                'generated_at' => now()->format('M j, Y g:i A'),
-            ]);
-
-            return $pdf->download($filename.'.pdf');
-        }
-
-        if ($format === 'csv') {
-            return $this->exportReportsCsv($data, $filename);
-        }
-
-        return Excel::download(
-            new \App\Exports\FinanceReportExport($data, $period),
-            $filename.'.xlsx'
-        );
+        return $this->exportService->exportReports($filters, $request->query('format', 'xlsx'));
     }
 
     public function invoiceDetail(Invoice $invoice): JsonResponse
@@ -603,167 +571,34 @@ class FinancesController extends Controller
         ]);
     }
 
-    public function exportDeposits(Request $request): BinaryFileResponse|\Illuminate\Http\Response
+    public function exportDeposits(Request $request): BinaryFileResponse|\Illuminate\Http\Response|\Symfony\Component\HttpFoundation\StreamedResponse
     {
-        $landlordId = $this->getLandlordId();
-        $format = $request->query('format', 'xlsx');
-
-        $query = Lease::where('landlord_id', $landlordId)
-            ->where('deposit_amount', '>', 0)
-            ->with([
-                'tenant:id,name,email',
-                'unit:id,unit_number,building_id',
-                'unit.building:id,name',
-            ]);
-
-        if ($request->filled('status')) {
-            $query->where('deposit_status', $request->status);
-        }
-
-        if ($request->filled('building_id')) {
-            $query->whereHas('unit', fn ($q) => $q->where('building_id', $request->building_id));
-        }
-
-        $deposits = $query->orderBy('created_at', 'desc')->get();
-
-        $stats = [
-            'total_held' => $deposits->where('deposit_status', 'held')->sum('deposit_amount'),
-            'total_refunded' => $deposits->whereIn('deposit_status', ['refunded', 'partial_refund'])->sum('deposit_refund_amount'),
-            'total_forfeited' => $deposits->where('deposit_status', 'forfeited')->sum('deposit_amount'),
-            'count_held' => $deposits->where('deposit_status', 'held')->count(),
-            'count_refunded' => $deposits->whereIn('deposit_status', ['refunded', 'partial_refund'])->count(),
-            'count_forfeited' => $deposits->where('deposit_status', 'forfeited')->count(),
-        ];
-
-        $filename = 'deposits_report_'.now()->format('Y-m-d');
-
-        if ($format === 'pdf') {
-            $pdf = Pdf::loadView('exports.deposits', [
-                'deposits' => $deposits,
-                'stats' => $stats,
-                'landlord' => auth()->user(),
-                'generated_at' => now()->format('M j, Y g:i A'),
-                'filters' => $request->only(['status', 'building_id']),
-            ]);
-
-            return $pdf->download($filename.'.pdf');
-        }
-
-        return Excel::download(
-            new \App\Exports\DepositsExport($deposits),
-            $filename.'.xlsx'
+        $filters = array_merge(
+            ['landlord_id' => $this->getLandlordId()],
+            $request->only(['status', 'building_id'])
         );
+
+        return $this->exportService->exportDeposits($filters, $request->query('format', 'xlsx'));
     }
 
-    public function exportInvoices(Request $request): BinaryFileResponse
+    public function exportInvoices(Request $request): BinaryFileResponse|\Illuminate\Http\Response|\Symfony\Component\HttpFoundation\StreamedResponse
     {
-        $landlordId = $this->getLandlordId();
-        $format = $request->query('format', 'xlsx');
-
-        $query = Invoice::where('landlord_id', $landlordId)
-            ->with([
-                'lease.tenant:id,name',
-                'lease.unit:id,unit_number,building_id',
-                'lease.unit.building:id,name',
-            ]);
-
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-
-        if ($request->filled('building_id')) {
-            $query->whereHas('lease.unit', fn ($q) => $q->where('building_id', $request->building_id));
-        }
-
-        if ($request->filled('date_from')) {
-            $query->whereDate('created_at', '>=', $request->date_from);
-        }
-
-        if ($request->filled('date_to')) {
-            $query->whereDate('created_at', '<=', $request->date_to);
-        }
-
-        $invoices = $query->orderBy('created_at', 'desc')->get();
-        $filename = 'invoices_'.now()->format('Y_m_d_His');
-
-        if ($format === 'pdf') {
-            $summary = $this->statsService->calculateInvoiceSummary($invoices);
-
-            $pdf = Pdf::loadView('exports.invoices', [
-                'invoices' => $invoices,
-                'summary' => $summary,
-                'filters' => $request->only(['status', 'date_from', 'date_to']),
-                'landlord' => auth()->user(),
-                'generated_at' => now()->format('F j, Y g:i A'),
-            ]);
-
-            return $pdf->download($filename.'.pdf');
-        }
-
-        return Excel::download(
-            new InvoicesExport($invoices),
-            $filename.'.xlsx'
+        $filters = array_merge(
+            ['landlord_id' => $this->getLandlordId()],
+            $request->only(['status', 'building_id', 'date_from', 'date_to'])
         );
+
+        return $this->exportService->exportInvoices($filters, $request->query('format', 'xlsx'));
     }
 
-    public function exportPayments(Request $request): BinaryFileResponse
+    public function exportPayments(Request $request): BinaryFileResponse|\Illuminate\Http\Response|\Symfony\Component\HttpFoundation\StreamedResponse
     {
-        $landlordId = $this->getLandlordId();
-        $format = $request->query('format', 'xlsx');
-
-        $query = Payment::where('landlord_id', $landlordId)
-            ->where('is_voided', false)
-            ->with([
-                'invoice:id,invoice_number',
-                'lease.tenant:id,name',
-                'lease.unit:id,unit_number,building_id',
-                'lease.unit.building:id,name',
-            ]);
-
-        if ($request->filled('method')) {
-            $query->where('payment_method', $request->method);
-        }
-
-        if ($request->filled('building_id')) {
-            $query->whereHas('lease.unit', fn ($q) => $q->where('building_id', $request->building_id));
-        }
-
-        if ($request->filled('date_from')) {
-            $query->whereDate('payment_date', '>=', $request->date_from);
-        }
-
-        if ($request->filled('date_to')) {
-            $query->whereDate('payment_date', '<=', $request->date_to);
-        }
-
-        $payments = $query->orderBy('payment_date', 'desc')->get();
-        $filename = 'payments_'.now()->format('Y_m_d_His');
-
-        if ($format === 'pdf') {
-            $summary = $this->statsService->calculatePaymentSummary($payments);
-            $methodBreakdown = $this->statsService->calculateMethodBreakdown($payments);
-
-            $pdf = Pdf::loadView('exports.payments', [
-                'payments' => $payments,
-                'summary' => $summary,
-                'method_breakdown' => $methodBreakdown,
-                'filters' => $request->only(['method', 'date_from', 'date_to']),
-                'landlord' => auth()->user(),
-                'generated_at' => now()->format('F j, Y g:i A'),
-            ]);
-
-            return $pdf->download($filename.'.pdf');
-        }
-
-        $dateRange = [
-            'start' => $request->date_from ? \Carbon\Carbon::parse($request->date_from) : now()->subMonth(),
-            'end' => $request->date_to ? \Carbon\Carbon::parse($request->date_to) : now(),
-        ];
-
-        return Excel::download(
-            new PaymentsExport($payments, $dateRange),
-            $filename.'.xlsx'
+        $filters = array_merge(
+            ['landlord_id' => $this->getLandlordId()],
+            $request->only(['method', 'building_id', 'date_from', 'date_to'])
         );
+
+        return $this->exportService->exportPayments($filters, $request->query('format', 'xlsx'));
     }
 
     public function lateFees(): Response
@@ -1156,85 +991,21 @@ class FinancesController extends Controller
         return back()->with('success', 'Vendor deleted successfully.');
     }
 
-    public function exportExpenses(Request $request): BinaryFileResponse|\Illuminate\Http\Response
+    public function exportExpenses(Request $request): BinaryFileResponse|\Illuminate\Http\Response|\Symfony\Component\HttpFoundation\StreamedResponse
     {
-        $landlordId = $this->getLandlordId();
-        $format = $request->query('format', 'xlsx');
-
-        $query = Expense::where('landlord_id', $landlordId)
-            ->with(['category', 'vendor', 'property', 'building', 'unit']);
-
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->category_id);
-        }
-
-        if ($request->filled('vendor_id')) {
-            $query->where('vendor_id', $request->vendor_id);
-        }
-
-        if ($request->filled('building_id')) {
-            $query->where('building_id', $request->building_id);
-        }
-
-        if ($request->filled('date_from')) {
-            $query->whereDate('expense_date', '>=', $request->date_from);
-        }
-
-        if ($request->filled('date_to')) {
-            $query->whereDate('expense_date', '<=', $request->date_to);
-        }
-
-        $expenses = $query->orderBy('expense_date', 'desc')->get();
-        $filename = 'expenses_'.now()->format('Y_m_d_His');
-
-        if ($format === 'pdf') {
-            $summary = $this->statsService->calculateExpenseSummary($expenses);
-            $categoryBreakdown = $this->statsService->calculateExpenseCategoryBreakdown($expenses);
-
-            $pdf = Pdf::loadView('exports.expenses', [
-                'expenses' => $expenses,
-                'summary' => $summary,
-                'category_breakdown' => $categoryBreakdown,
-                'filters' => $request->only(['category_id', 'vendor_id', 'date_from', 'date_to']),
-                'landlord' => auth()->user(),
-                'generated_at' => now()->format('F j, Y g:i A'),
-            ]);
-
-            return $pdf->download($filename.'.pdf');
-        }
-
-        $dateRange = [
-            'start' => $request->date_from ? \Carbon\Carbon::parse($request->date_from) : now()->subMonth(),
-            'end' => $request->date_to ? \Carbon\Carbon::parse($request->date_to) : now(),
-        ];
-
-        return Excel::download(
-            new ExpensesExport($expenses, $dateRange),
-            $filename.'.xlsx'
+        $filters = array_merge(
+            ['landlord_id' => $this->getLandlordId()],
+            $request->only(['category_id', 'vendor_id', 'building_id', 'date_from', 'date_to'])
         );
+
+        return $this->exportService->exportExpenses($filters, $request->query('format', 'xlsx'));
     }
 
-    public function exportVendors(Request $request): BinaryFileResponse
+    public function exportVendors(Request $request): BinaryFileResponse|\Symfony\Component\HttpFoundation\StreamedResponse
     {
-        $landlordId = $this->getLandlordId();
+        $filters = ['landlord_id' => $this->getLandlordId()];
 
-        $vendors = Vendor::where('landlord_id', $landlordId)
-            ->withSum('expenses', 'amount')
-            ->withCount('expenses')
-            ->orderBy('name')
-            ->get();
-
-        $filename = 'vendors_'.now()->format('Y_m_d_His');
-
-        $dateRange = [
-            'start' => now()->subYear(),
-            'end' => now(),
-        ];
-
-        return Excel::download(
-            new VendorExpenseExport($vendors, $dateRange),
-            $filename.'.xlsx'
-        );
+        return $this->exportService->exportVendors($filters, $request->query('format', 'xlsx'));
     }
 
     public function sendArrearsNotices(Request $request): RedirectResponse
@@ -1423,50 +1194,5 @@ class FinancesController extends Controller
                 'building_name' => $p->building?->name,
             ])
             ->toArray();
-    }
-
-    private function exportReportsCsv(array $data, string $filename): \Illuminate\Http\Response
-    {
-        $output = fopen('php://temp', 'r+');
-
-        fputcsv($output, ['PropManager Financial Report']);
-        fputcsv($output, ['Generated: '.now()->format('F j, Y g:i A')]);
-        fputcsv($output, []);
-
-        fputcsv($output, ['Revenue Summary']);
-        fputcsv($output, ['Month', 'Invoiced', 'Collected', 'Expenses', 'Net']);
-        foreach ($data['revenue'] as $row) {
-            fputcsv($output, [$row['month'], $row['invoiced'], $row['collected'], $row['expenses'], $row['net']]);
-        }
-        fputcsv($output, []);
-
-        fputcsv($output, ['Occupancy by Building']);
-        fputcsv($output, ['Building', 'Total Units', 'Occupied', 'Vacant', 'Rate %']);
-        foreach ($data['occupancy']['buildings'] as $row) {
-            fputcsv($output, [$row['building'], $row['total_units'], $row['occupied'], $row['vacant'], $row['occupancy_rate']]);
-        }
-        fputcsv($output, []);
-
-        fputcsv($output, ['Water Consumption - Top Consumers']);
-        fputcsv($output, ['Unit', 'Building', 'Consumption', 'Cost']);
-        foreach ($data['water_consumption']['top_consumers'] as $row) {
-            fputcsv($output, [$row['unit'], $row['building'], $row['consumption'], $row['cost']]);
-        }
-        fputcsv($output, []);
-
-        fputcsv($output, ['Top Performing Units']);
-        fputcsv($output, ['Unit', 'Tenant', 'Collection Rate %', 'On-Time', 'Total Invoices']);
-        foreach ($data['top_performing_units'] as $row) {
-            fputcsv($output, [$row['unit'], $row['tenant'], $row['collection_rate'], $row['on_time_payments'], $row['total_invoices']]);
-        }
-
-        rewind($output);
-        $csv = stream_get_contents($output);
-        fclose($output);
-
-        return response($csv, 200, [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'.csv"',
-        ]);
     }
 }

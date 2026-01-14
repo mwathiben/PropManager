@@ -184,4 +184,37 @@ class ExpenseExportTest extends TestCase
 
         $response->assertOk();
     }
+
+    public function test_can_export_expenses_as_csv(): void
+    {
+        $this->actingAs($this->landlord);
+
+        Expense::create([
+            'landlord_id' => $this->landlord->id,
+            'description' => 'Test expense',
+            'amount' => 5000,
+            'expense_date' => now(),
+        ]);
+
+        $response = $this->get(route('finances.expenses.export', ['format' => 'csv']));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'text/csv; charset=utf-8');
+    }
+
+    public function test_can_export_vendors_as_csv(): void
+    {
+        $this->actingAs($this->landlord);
+
+        Vendor::create([
+            'landlord_id' => $this->landlord->id,
+            'name' => 'Test Vendor',
+            'contact_person' => 'John Doe',
+        ]);
+
+        $response = $this->get(route('finances.vendors.export', ['format' => 'csv']));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'text/csv; charset=utf-8');
+    }
 }

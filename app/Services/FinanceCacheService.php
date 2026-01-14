@@ -8,12 +8,14 @@ use Illuminate\Support\Facades\Redis;
 class FinanceCacheService
 {
     private const CACHE_PREFIX = 'finance';
+
     private const STATS_TTL = 300; // 5 minutes
+
     private const REPORTS_TTL = 600; // 10 minutes
 
     public static function statsKey(string $type, int $landlordId, ?string $suffix = null): string
     {
-        $key = self::CACHE_PREFIX . ":{$type}:{$landlordId}";
+        $key = self::CACHE_PREFIX.":{$type}:{$landlordId}";
 
         return $suffix ? "{$key}:{$suffix}" : $key;
     }
@@ -22,7 +24,7 @@ class FinanceCacheService
     {
         $filtersHash = md5(json_encode($filters));
 
-        return self::CACHE_PREFIX . ":report:{$type}:{$landlordId}:{$filtersHash}";
+        return self::CACHE_PREFIX.":report:{$type}:{$landlordId}:{$filtersHash}";
     }
 
     public static function getStatsTtl(): int
@@ -60,7 +62,7 @@ class FinanceCacheService
 
     public static function invalidateReports(int $landlordId): void
     {
-        $pattern = self::CACHE_PREFIX . ":report:*:{$landlordId}:*";
+        $pattern = self::CACHE_PREFIX.":report:*:{$landlordId}:*";
         self::deleteByPattern($pattern);
     }
 
@@ -75,7 +77,7 @@ class FinanceCacheService
 
             if (method_exists($redis, 'keys')) {
                 $prefix = config('cache.prefix', '');
-                $keys = $redis->keys($prefix . $pattern);
+                $keys = $redis->keys($prefix.$pattern);
 
                 foreach ($keys as $key) {
                     $keyWithoutPrefix = str_replace($prefix, '', $key);
