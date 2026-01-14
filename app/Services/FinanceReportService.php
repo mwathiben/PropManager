@@ -435,33 +435,37 @@ class FinanceReportService
             $query->where('building_id', $buildingId);
         }
 
-        $units = $query->get();
+        $units = $query->get()->filter(fn ($u) => $u->activeLease !== null);
+
+        if ($units->isEmpty()) {
+            return [];
+        }
+
+        $leaseIds = $units->pluck('activeLease.id')->filter()->values();
+
+        $invoiceStats = Invoice::whereIn('lease_id', $leaseIds)
+            ->where('created_at', '>=', $startDate)
+            ->selectRaw('lease_id, SUM(total_due) as total_billed, SUM(amount_paid) as total_paid, COUNT(*) as invoice_count, SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as on_time_count', ['paid'])
+            ->groupBy('lease_id')
+            ->get()
+            ->keyBy('lease_id');
+
         $performance = [];
 
         foreach ($units as $unit) {
-            if (! $unit->activeLease) {
+            $stats = $invoiceStats->get($unit->activeLease->id);
+
+            if (! $stats || $stats->invoice_count == 0) {
                 continue;
             }
-
-            $invoices = Invoice::where('lease_id', $unit->activeLease->id)
-                ->where('created_at', '>=', $startDate)
-                ->get();
-
-            if ($invoices->isEmpty()) {
-                continue;
-            }
-
-            $totalBilled = $invoices->sum('total_due');
-            $totalPaid = $invoices->sum('amount_paid');
-            $onTimePayments = $invoices->where('status', 'paid')->count();
 
             $performance[] = [
                 'unit' => $unit->unit_number,
                 'building' => $unit->building?->name ?? 'N/A',
                 'tenant' => $unit->activeLease->tenant?->name ?? 'N/A',
-                'collection_rate' => $totalBilled > 0 ? round(($totalPaid / $totalBilled) * 100, 1) : 0,
-                'on_time_payments' => $onTimePayments,
-                'total_invoices' => $invoices->count(),
+                'collection_rate' => $stats->total_billed > 0 ? round(($stats->total_paid / $stats->total_billed) * 100, 1) : 0,
+                'on_time_payments' => (int) $stats->on_time_count,
+                'total_invoices' => (int) $stats->invoice_count,
             ];
         }
 
@@ -480,33 +484,37 @@ class FinanceReportService
             $query->where('building_id', $buildingId);
         }
 
-        $units = $query->get();
+        $units = $query->get()->filter(fn ($u) => $u->activeLease !== null);
+
+        if ($units->isEmpty()) {
+            return [];
+        }
+
+        $leaseIds = $units->pluck('activeLease.id')->filter()->values();
+
+        $invoiceStats = Invoice::whereIn('lease_id', $leaseIds)
+            ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
+            ->selectRaw('lease_id, SUM(total_due) as total_billed, SUM(amount_paid) as total_paid, COUNT(*) as invoice_count, SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as on_time_count', ['paid'])
+            ->groupBy('lease_id')
+            ->get()
+            ->keyBy('lease_id');
+
         $performance = [];
 
         foreach ($units as $unit) {
-            if (! $unit->activeLease) {
+            $stats = $invoiceStats->get($unit->activeLease->id);
+
+            if (! $stats || $stats->invoice_count == 0) {
                 continue;
             }
-
-            $invoices = Invoice::where('lease_id', $unit->activeLease->id)
-                ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
-                ->get();
-
-            if ($invoices->isEmpty()) {
-                continue;
-            }
-
-            $totalBilled = $invoices->sum('total_due');
-            $totalPaid = $invoices->sum('amount_paid');
-            $onTimePayments = $invoices->where('status', 'paid')->count();
 
             $performance[] = [
                 'unit' => $unit->unit_number,
                 'building' => $unit->building?->name ?? 'N/A',
                 'tenant' => $unit->activeLease->tenant?->name ?? 'N/A',
-                'collection_rate' => $totalBilled > 0 ? round(($totalPaid / $totalBilled) * 100, 1) : 0,
-                'on_time_payments' => $onTimePayments,
-                'total_invoices' => $invoices->count(),
+                'collection_rate' => $stats->total_billed > 0 ? round(($stats->total_paid / $stats->total_billed) * 100, 1) : 0,
+                'on_time_payments' => (int) $stats->on_time_count,
+                'total_invoices' => (int) $stats->invoice_count,
             ];
         }
 

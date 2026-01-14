@@ -319,6 +319,7 @@ class FinanceFilterService
     public function getExpenseCategories(int $landlordId): array
     {
         return ExpenseCategory::where('landlord_id', $landlordId)
+            ->withCount('expenses')
             ->orderBy('name')
             ->get()
             ->map(fn ($c) => [
@@ -327,7 +328,7 @@ class FinanceFilterService
                 'description' => $c->description,
                 'color' => $c->color,
                 'is_active' => $c->is_active,
-                'expense_count' => $c->expenses()->count(),
+                'expense_count' => $c->expenses_count,
             ])
             ->toArray();
     }
@@ -335,6 +336,7 @@ class FinanceFilterService
     public function getVendors(int $landlordId): array
     {
         return Vendor::where('landlord_id', $landlordId)
+            ->withSum('expenses', 'amount')
             ->orderBy('name')
             ->get()
             ->map(fn ($v) => [
@@ -344,7 +346,7 @@ class FinanceFilterService
                 'email' => $v->email,
                 'phone' => $v->phone,
                 'is_active' => $v->is_active,
-                'total_expenses' => $v->getTotalExpenses(),
+                'total_expenses' => (float) ($v->expenses_sum_amount ?? 0),
             ])
             ->toArray();
     }

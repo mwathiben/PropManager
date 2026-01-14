@@ -717,8 +717,9 @@
         "Document query count before/after",
         "All tests pass"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
+      "notes": "Fixed 4 N+1 issues: getExpenseCategories() (withCount), getVendors() (withSum), getTopPerformingUnitsReport() and getTopPerformingUnitsReportFiltered() (aggregated query). Paginated endpoints already optimized. 376 tests pass.",
       "depends_on": ["FIN-020"]
     },
     {
@@ -742,7 +743,7 @@
   ],
   "metadata": {
     "total_stories": 37,
-    "passing_stories": 30,
+    "passing_stories": 31,
     "framework": "Laravel",
     "frontend": "Vue.js/Inertia"
   }
