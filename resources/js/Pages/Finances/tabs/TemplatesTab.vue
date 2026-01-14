@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { Link } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { Link, router } from '@inertiajs/vue3';
 import {
     DocumentDuplicateIcon,
     DocumentTextIcon,
@@ -8,44 +8,37 @@ import {
     CreditCardIcon,
     PlusIcon,
     PencilIcon,
-    TrashIcon,
     StarIcon,
-    SwatchIcon,
-    EyeIcon,
 } from '@heroicons/vue/24/outline';
 import { StarIcon as StarIconSolid } from '@heroicons/vue/24/solid';
 
-interface InvoiceTemplate {
+interface Template {
     id: number;
     name: string;
     design: string;
     is_default: boolean;
     primary_color: string;
     secondary_color: string;
-    show_logo: boolean;
-    show_bank_details: boolean;
-    show_qr_code: boolean;
-    show_water_details: boolean;
-    show_arrears_breakdown: boolean;
+    show_logo?: boolean;
+    show_bank_details?: boolean;
+    show_qr_code?: boolean;
+    show_water_details?: boolean;
+    show_arrears_breakdown?: boolean;
+    show_receipt_number?: boolean;
+    show_payment_method?: boolean;
+    show_tenant_name?: boolean;
 }
 
 interface Props {
-    templates?: InvoiceTemplate[];
-    receiptSettings?: {
-        receipt_show_logo?: boolean;
-        receipt_show_tenant_details?: boolean;
-        receipt_show_invoice_details?: boolean;
-        receipt_show_payment_method?: boolean;
-        receipt_header_text?: string;
-        receipt_footer_text?: string;
-    };
+    templates?: Template[];
+    receiptTemplates?: Template[];
     designOptions?: Record<string, string>;
     activeSubtab?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     templates: () => [],
-    receiptSettings: () => ({}),
+    receiptTemplates: () => [],
     designOptions: () => ({
         classic: 'Classic',
         modern: 'Modern',
@@ -55,19 +48,13 @@ const props = withDefaults(defineProps<Props>(), {
     activeSubtab: 'template-invoices',
 });
 
-const templateTypeLabels = {
-    'template-invoices': 'Invoice',
-    'template-receipts': 'Receipt',
-    'template-credit-notes': 'Credit Note',
-};
-
 const currentType = computed(() => props.activeSubtab || 'template-invoices');
 
 const getDesignLabel = (design: string) => {
     return props.designOptions[design] || design;
 };
 
-const getToggleSummary = (template: InvoiceTemplate) => {
+const getInvoiceToggleSummary = (template: Template) => {
     const features = [];
     if (template.show_logo) features.push('Logo');
     if (template.show_bank_details) features.push('Bank');
@@ -75,6 +62,28 @@ const getToggleSummary = (template: InvoiceTemplate) => {
     if (template.show_water_details) features.push('Water');
     if (template.show_arrears_breakdown) features.push('Arrears');
     return features.join(' • ') || 'No extras';
+};
+
+const getReceiptToggleSummary = (template: Template) => {
+    const features = [];
+    if (template.show_logo) features.push('Logo');
+    if (template.show_receipt_number) features.push('Receipt #');
+    if (template.show_payment_method) features.push('Method');
+    if (template.show_qr_code) features.push('QR');
+    if (template.show_tenant_name) features.push('Tenant');
+    return features.join(' • ') || 'No extras';
+};
+
+const setDefaultInvoiceTemplate = (templateId: number) => {
+    router.post(route('invoice-templates.set-default', templateId), {}, {
+        preserveScroll: true,
+    });
+};
+
+const setDefaultReceiptTemplate = (templateId: number) => {
+    router.post(route('receipt-templates.set-default', templateId), {}, {
+        preserveScroll: true,
+    });
 };
 </script>
 
@@ -127,7 +136,7 @@ const getToggleSummary = (template: InvoiceTemplate) => {
                     <!-- Template Info -->
                     <div class="p-4">
                         <h3 class="font-medium text-gray-900">{{ template.name }}</h3>
-                        <p class="text-xs text-gray-500 mt-1">{{ getToggleSummary(template) }}</p>
+                        <p class="text-xs text-gray-500 mt-1">{{ getInvoiceToggleSummary(template) }}</p>
 
                         <!-- Actions -->
                         <div class="flex items-center gap-2 mt-4">
@@ -141,6 +150,7 @@ const getToggleSummary = (template: InvoiceTemplate) => {
                             <button
                                 v-if="!template.is_default"
                                 type="button"
+                                @click="setDefaultInvoiceTemplate(template.id)"
                                 class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-emerald-700 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors"
                             >
                                 <StarIcon class="w-4 h-4" />
@@ -173,74 +183,83 @@ const getToggleSummary = (template: InvoiceTemplate) => {
                     <h2 class="text-lg font-semibold text-gray-900">Receipt Templates</h2>
                     <p class="text-sm text-gray-600 mt-1">Customize how payment receipts appear to tenants</p>
                 </div>
+                <Link
+                    :href="route('receipt-templates.create')"
+                    class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+                >
+                    <PlusIcon class="w-5 h-5" />
+                    New Template
+                </Link>
             </div>
 
-            <!-- Current Receipt Configuration -->
-            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                    <h3 class="text-base font-medium text-gray-900">Current Receipt Settings</h3>
-                </div>
-                <div class="p-6">
-                    <div class="grid grid-cols-2 gap-6">
-                        <div class="space-y-4">
-                            <h4 class="text-sm font-medium text-gray-700">Display Options</h4>
-                            <ul class="space-y-2">
-                                <li class="flex items-center gap-2 text-sm">
-                                    <span :class="receiptSettings.receipt_show_logo ? 'text-emerald-600' : 'text-gray-400'">
-                                        {{ receiptSettings.receipt_show_logo ? '✓' : '✗' }}
-                                    </span>
-                                    <span :class="receiptSettings.receipt_show_logo ? 'text-gray-900' : 'text-gray-500'">Show Logo</span>
-                                </li>
-                                <li class="flex items-center gap-2 text-sm">
-                                    <span :class="receiptSettings.receipt_show_tenant_details ? 'text-emerald-600' : 'text-gray-400'">
-                                        {{ receiptSettings.receipt_show_tenant_details ? '✓' : '✗' }}
-                                    </span>
-                                    <span :class="receiptSettings.receipt_show_tenant_details ? 'text-gray-900' : 'text-gray-500'">Show Tenant Details</span>
-                                </li>
-                                <li class="flex items-center gap-2 text-sm">
-                                    <span :class="receiptSettings.receipt_show_invoice_details ? 'text-emerald-600' : 'text-gray-400'">
-                                        {{ receiptSettings.receipt_show_invoice_details ? '✓' : '✗' }}
-                                    </span>
-                                    <span :class="receiptSettings.receipt_show_invoice_details ? 'text-gray-900' : 'text-gray-500'">Show Invoice Details</span>
-                                </li>
-                                <li class="flex items-center gap-2 text-sm">
-                                    <span :class="receiptSettings.receipt_show_payment_method ? 'text-emerald-600' : 'text-gray-400'">
-                                        {{ receiptSettings.receipt_show_payment_method ? '✓' : '✗' }}
-                                    </span>
-                                    <span :class="receiptSettings.receipt_show_payment_method ? 'text-gray-900' : 'text-gray-500'">Show Payment Method</span>
-                                </li>
-                            </ul>
+            <!-- Templates Grid -->
+            <div v-if="receiptTemplates.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div
+                    v-for="template in receiptTemplates"
+                    :key="template.id"
+                    class="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow"
+                >
+                    <!-- Template Preview Header -->
+                    <div
+                        class="h-24 relative"
+                        :style="{ background: `linear-gradient(135deg, ${template.primary_color} 0%, ${template.secondary_color} 100%)` }"
+                    >
+                        <div class="absolute top-3 left-3">
+                            <span class="px-2 py-1 text-xs font-medium rounded bg-white/90 text-gray-700">
+                                {{ getDesignLabel(template.design) }}
+                            </span>
                         </div>
-                        <div class="space-y-4">
-                            <h4 class="text-sm font-medium text-gray-700">Custom Text</h4>
-                            <div class="space-y-3 text-sm">
-                                <div>
-                                    <span class="text-gray-500">Header:</span>
-                                    <p class="text-gray-900 mt-0.5">{{ receiptSettings.receipt_header_text || 'Not set' }}</p>
-                                </div>
-                                <div>
-                                    <span class="text-gray-500">Footer:</span>
-                                    <p class="text-gray-900 mt-0.5">{{ receiptSettings.receipt_footer_text || 'Not set' }}</p>
-                                </div>
-                            </div>
+                        <div v-if="template.is_default" class="absolute top-3 right-3">
+                            <span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded bg-amber-100 text-amber-700">
+                                <StarIconSolid class="w-3 h-3" />
+                                Default
+                            </span>
+                        </div>
+                        <div class="absolute bottom-3 right-3">
+                            <ReceiptPercentIcon class="w-12 h-12 text-white/30" />
                         </div>
                     </div>
 
-                    <div class="mt-6 pt-6 border-t border-gray-200">
-                        <div class="bg-amber-50 rounded-lg p-4">
-                            <div class="flex items-start gap-3">
-                                <SwatchIcon class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                                <div>
-                                    <h4 class="text-sm font-medium text-amber-800">Coming Soon: Full Receipt Template Editor</h4>
-                                    <p class="text-sm text-amber-700 mt-1">
-                                        A complete receipt template editor with live preview, color customization, and design styles is coming soon.
-                                        For now, you can customize basic settings in Finance Hub → Settings → Receipt Settings.
-                                    </p>
-                                </div>
-                            </div>
+                    <!-- Template Info -->
+                    <div class="p-4">
+                        <h3 class="font-medium text-gray-900">{{ template.name }}</h3>
+                        <p class="text-xs text-gray-500 mt-1">{{ getReceiptToggleSummary(template) }}</p>
+
+                        <!-- Actions -->
+                        <div class="flex items-center gap-2 mt-4">
+                            <Link
+                                :href="route('receipt-templates.edit', template.id)"
+                                class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                            >
+                                <PencilIcon class="w-4 h-4" />
+                                Edit
+                            </Link>
+                            <button
+                                v-if="!template.is_default"
+                                type="button"
+                                @click="setDefaultReceiptTemplate(template.id)"
+                                class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-emerald-700 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors"
+                            >
+                                <StarIcon class="w-4 h-4" />
+                                Set Default
+                            </button>
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Empty State -->
+            <div v-else class="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                <ReceiptPercentIcon class="w-12 h-12 text-gray-400 mx-auto" />
+                <h3 class="mt-4 text-lg font-medium text-gray-900">No receipt templates yet</h3>
+                <p class="mt-2 text-sm text-gray-600">Create your first template to customize how your payment receipts look.</p>
+                <Link
+                    :href="route('receipt-templates.create')"
+                    class="inline-flex items-center gap-2 px-4 py-2 mt-6 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+                >
+                    <PlusIcon class="w-5 h-5" />
+                    Create Template
+                </Link>
             </div>
         </div>
 
@@ -274,6 +293,26 @@ const getToggleSummary = (template: InvoiceTemplate) => {
                                     <strong>Current Default Template:</strong>
                                     {{ templates.find(t => t.is_default)?.name || 'None selected' }}
                                 </p>
+                                <Link
+                                    v-if="templates.find(t => t.is_default)"
+                                    :href="route('invoice-templates.edit', templates.find(t => t.is_default)?.id)"
+                                    class="inline-flex items-center gap-1 mt-3 text-sm text-emerald-600 hover:text-emerald-700"
+                                >
+                                    <PencilIcon class="w-4 h-4" />
+                                    Edit Invoice Template
+                                </Link>
+                            </div>
+                            <div v-else class="mt-4 p-4 bg-amber-50 rounded-lg">
+                                <p class="text-sm text-amber-700">
+                                    No invoice template found. Create an invoice template first to use with credit notes.
+                                </p>
+                                <Link
+                                    :href="route('invoice-templates.create')"
+                                    class="inline-flex items-center gap-1 mt-3 text-sm text-amber-700 hover:text-amber-800"
+                                >
+                                    <PlusIcon class="w-4 h-4" />
+                                    Create Invoice Template
+                                </Link>
                             </div>
                         </div>
                     </div>

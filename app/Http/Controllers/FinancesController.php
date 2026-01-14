@@ -171,10 +171,19 @@ class FinancesController extends Controller
     public function templateReceipts(): Response
     {
         $landlordId = $this->getLandlordId();
-        $settings = $this->settingsService->getReceiptSettings($landlordId);
+        $receiptTemplates = \App\Models\ReceiptTemplate::where('landlord_id', $landlordId)
+            ->orderBy('is_default', 'desc')
+            ->orderBy('name')
+            ->get();
 
         return $this->renderFinances('template-receipts', [
-            'receiptSettings' => $settings,
+            'receiptTemplates' => $receiptTemplates,
+            'designOptions' => [
+                'classic' => 'Classic',
+                'modern' => 'Modern',
+                'minimal' => 'Minimal',
+                'professional' => 'Professional',
+            ],
         ]);
     }
 

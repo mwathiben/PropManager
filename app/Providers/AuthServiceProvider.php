@@ -10,6 +10,7 @@ use App\Models\InvoiceTemplate;
 use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\Property;
+use App\Models\ReceiptTemplate;
 use App\Models\Ticket;
 use App\Models\Unit;
 use App\Models\WaterReading;
@@ -21,6 +22,7 @@ use App\Policies\InvoiceTemplatePolicy;
 use App\Policies\LeasePolicy;
 use App\Policies\PaymentPolicy;
 use App\Policies\PropertyPolicy;
+use App\Policies\ReceiptTemplatePolicy;
 use App\Policies\TicketPolicy;
 use App\Policies\UnitPolicy;
 use App\Policies\WaterReadingPolicy;
@@ -41,6 +43,7 @@ class AuthServiceProvider extends ServiceProvider
         Lease::class => LeasePolicy::class,
         Invoice::class => InvoicePolicy::class,
         InvoiceTemplate::class => InvoiceTemplatePolicy::class,
+        ReceiptTemplate::class => ReceiptTemplatePolicy::class,
         Payment::class => PaymentPolicy::class,
         Document::class => DocumentPolicy::class,
         Ticket::class => TicketPolicy::class,

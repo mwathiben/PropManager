@@ -23,6 +23,7 @@ use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PaymentsHubController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReceiptTemplateController;
 use App\Http\Controllers\RefundController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\TenantController;
@@ -300,6 +301,15 @@ Route::middleware('auth')->group(function () {
     Route::put('/invoice-templates/{invoiceTemplate}', [InvoiceTemplateController::class, 'update'])->name('invoice-templates.update');
     Route::delete('/invoice-templates/{invoiceTemplate}', [InvoiceTemplateController::class, 'destroy'])->name('invoice-templates.destroy');
     Route::post('/invoice-templates/{invoiceTemplate}/set-default', [InvoiceTemplateController::class, 'setDefault'])->name('invoice-templates.set-default');
+
+    // Receipt Templates
+    Route::get('/receipt-templates', [ReceiptTemplateController::class, 'index'])->name('receipt-templates.index');
+    Route::get('/receipt-templates/create', [ReceiptTemplateController::class, 'create'])->name('receipt-templates.create');
+    Route::post('/receipt-templates', [ReceiptTemplateController::class, 'store'])->name('receipt-templates.store');
+    Route::get('/receipt-templates/{receiptTemplate}/edit', [ReceiptTemplateController::class, 'edit'])->name('receipt-templates.edit');
+    Route::put('/receipt-templates/{receiptTemplate}', [ReceiptTemplateController::class, 'update'])->name('receipt-templates.update');
+    Route::delete('/receipt-templates/{receiptTemplate}', [ReceiptTemplateController::class, 'destroy'])->name('receipt-templates.destroy');
+    Route::post('/receipt-templates/{receiptTemplate}/set-default', [ReceiptTemplateController::class, 'setDefault'])->name('receipt-templates.set-default');
 
     // Payments (Paystack)
     Route::post('/invoices/{invoice}/paystack/initialize', [PaymentController::class, 'initializePaystack'])
