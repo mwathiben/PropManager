@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\GenerateInvoicesRequest;
 use App\Mail\InvoiceReminder;
 use App\Mail\InvoiceSent;
+use App\Mail\OverpaymentNotification;
 use App\Mail\PaymentReceived;
 use App\Models\Invoice;
 use App\Models\Lease;
+use App\Models\User;
 use App\Services\InvoicePdfService;
 use App\Services\InvoiceService;
 use App\Services\ReceiptService;
@@ -77,13 +80,8 @@ class InvoiceController extends Controller
         ]);
     }
 
-    public function generate(Request $request, InvoiceService $invoiceService)
+    public function generate(GenerateInvoicesRequest $request, InvoiceService $invoiceService)
     {
-        $request->validate([
-            'month' => 'required|integer|min:1|max:12',
-            'year' => 'required|integer|min:2020|max:2100',
-        ]);
-
         $billingPeriod = Carbon::create($request->year, $request->month, 1);
 
         $leases = Lease::where('is_active', true)
@@ -170,6 +168,21 @@ class InvoiceController extends Controller
 
         $invoice->load(['lease.tenant', 'lease.unit.building']);
         Mail::to($invoice->lease->tenant->email)->send(new PaymentReceived($payment, $invoice));
+
+        // Send overpayment notification to landlord
+        if ($overpayment > 0) {
+            $invoice->lease->refresh();
+            $landlord = User::find($invoice->landlord_id);
+            if ($landlord) {
+                Mail::to($landlord->email)->queue(new OverpaymentNotification(
+                    $payment,
+                    $invoice->lease,
+                    $invoice->lease->tenant,
+                    $overpayment,
+                    $invoice->lease->wallet_balance
+                ));
+            }
+        }
 
         $message = 'Payment of KES '.number_format($paymentAmount, 2).' recorded successfully.';
         if ($overpayment > 0) {

@@ -4,12 +4,9 @@ namespace Tests\Feature\Controllers;
 
 use App\Mail\OverpaymentNotification;
 use App\Mail\PaymentReceived;
-use App\Models\Invoice;
-use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\Receipt;
 use App\Models\Refund;
-use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -309,7 +306,7 @@ class PaymentControllerTest extends TestCase
     public function test_bulk_import_validates_csv_structure(): void
     {
         $csvContent = "Unit Number,Tenant Name,Tenant Email,Invoice Number,Payment Date,Amount,Payment Method,Reference\n";
-        $csvContent .= "A101,Test Tenant,test@example.com,,".now()->format('Y-m-d').",15000,cash,REF001\n";
+        $csvContent .= 'A101,Test Tenant,test@example.com,,'.now()->format('Y-m-d').",15000,cash,REF001\n";
 
         $file = UploadedFile::fake()->createWithContent('payments.csv', $csvContent);
 

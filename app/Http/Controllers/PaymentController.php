@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StorePaymentRequest;
 use App\Mail\OverpaymentNotification;
 use App\Mail\PaymentReceived;
 use App\Mail\PaymentVerificationApproved;
@@ -88,27 +89,13 @@ class PaymentController extends Controller
     /**
      * Store a manually recorded payment.
      */
-    public function storeManual(Request $request)
+    public function storeManual(StorePaymentRequest $request)
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
-
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
-            abort(403, 'Access denied.');
-        }
-
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
-        $validated = $request->validate([
-            'tenant_id' => 'required_without:invoice_id|nullable|exists:users,id',
-            'invoice_id' => 'nullable|exists:invoices,id',
-            'amount' => 'required|numeric|min:0.01',
-            'payment_method' => 'required|in:cash,bank_transfer,mobile_money,mpesa,cheque',
-            'payment_date' => 'required|date|before_or_equal:today',
-            'reference' => 'nullable|string|max:255',
-            'notes' => 'nullable|string|max:500',
-            'is_unallocated' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $overpaymentNotification = null;
 

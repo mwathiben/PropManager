@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\RefundRequest;
 use App\Models\Payment;
 use App\Models\Refund;
 use App\Services\RefundService;
@@ -188,36 +189,10 @@ class RefundController extends Controller
         ]);
     }
 
-    public function storeStandalone(Request $request)
+    public function storeStandalone(RefundRequest $request)
     {
         $user = auth()->user();
-        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
-
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
-            abort(403);
-        }
-
-        $request->validate([
-            'payment_id' => ['required', 'exists:payments,id'],
-            'amount' => ['required', 'numeric', 'min:0.01'],
-            'reason' => ['required', 'string', 'max:500'],
-            'refund_method' => ['required', 'string', 'in:original_method,cash,bank_transfer,mobile_money'],
-            'notes' => ['nullable', 'string', 'max:1000'],
-        ]);
-
         $payment = Payment::findOrFail($request->payment_id);
-
-        if ($payment->landlord_id !== $landlordId) {
-            abort(403);
-        }
-
-        $refundableAmount = $this->refundService->getRefundableAmount($payment);
-
-        if ($request->amount > $refundableAmount) {
-            return back()->withErrors([
-                'amount' => "Amount cannot exceed the refundable amount of {$refundableAmount}.",
-            ]);
-        }
 
         try {
             $refund = $this->refundService->initiateRefund(

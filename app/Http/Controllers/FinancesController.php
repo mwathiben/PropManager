@@ -6,6 +6,11 @@ use App\Exports\ExpensesExport;
 use App\Exports\InvoicesExport;
 use App\Exports\PaymentsExport;
 use App\Exports\VendorExpenseExport;
+use App\Http\Requests\UpdateFiscalYearSettingsRequest;
+use App\Http\Requests\UpdateInvoiceSettingsRequest;
+use App\Http\Requests\UpdatePaymentMethodsRequest;
+use App\Http\Requests\UpdateReceiptSettingsRequest;
+use App\Http\Requests\UpdateReminderSettingsRequest;
 use App\Mail\DepositRefundNotification;
 use App\Models\Building;
 use App\Models\DepositTransaction;
@@ -344,78 +349,36 @@ class FinancesController extends Controller
         ]);
     }
 
-    public function updatePaymentMethods(Request $request): RedirectResponse
+    public function updatePaymentMethods(UpdatePaymentMethodsRequest $request): RedirectResponse
     {
-        $request->validate([
-            'accepted_payment_methods' => 'required|array',
-            'accepted_payment_methods.*' => 'string|in:cash,bank_transfer,mobile_money,paystack',
-            'bank_name' => 'nullable|string|max:100',
-            'bank_account_name' => 'nullable|string|max:100',
-            'bank_account_number' => 'nullable|string|max:50',
-            'bank_branch' => 'nullable|string|max:100',
-            'mpesa_shortcode_type' => 'nullable|string|in:paybill,till',
-            'mpesa_shortcode' => 'nullable|string|max:20',
-            'mpesa_account_name' => 'nullable|string|max:100',
-            'mpesa_passkey' => 'nullable|string|max:255',
-        ]);
-
         $this->settingsService->updatePaymentMethods($this->getLandlordId(), $request);
 
         return back()->with('success', 'Payment methods saved successfully.');
     }
 
-    public function updateInvoiceSettings(Request $request): RedirectResponse
+    public function updateInvoiceSettings(UpdateInvoiceSettingsRequest $request): RedirectResponse
     {
-        $request->validate([
-            'include_water_charges' => 'required|boolean',
-            'include_arrears' => 'required|boolean',
-            'auto_generate_monthly' => 'required|boolean',
-        ]);
-
         $this->settingsService->updateInvoiceSettings($this->getLandlordId(), $request);
 
         return back()->with('success', 'Invoice settings saved successfully.');
     }
 
-    public function updateReminderSettings(Request $request): RedirectResponse
+    public function updateReminderSettings(UpdateReminderSettingsRequest $request): RedirectResponse
     {
-        $request->validate([
-            'reminder_days_before_due' => 'required|integer|min:1|max:30',
-            'overdue_reminder_frequency' => 'required|string|in:daily,weekly,none',
-            'reminder_channels' => 'required|array',
-            'reminder_channels.*' => 'string|in:email,sms,push',
-        ]);
-
         $this->settingsService->updateReminderSettings($this->getLandlordId(), $request);
 
         return back()->with('success', 'Reminder settings saved successfully.');
     }
 
-    public function updateReceiptSettings(Request $request): RedirectResponse
+    public function updateReceiptSettings(UpdateReceiptSettingsRequest $request): RedirectResponse
     {
-        $request->validate([
-            'auto_email_receipt' => 'boolean',
-            'receipt_show_logo' => 'boolean',
-            'receipt_show_tenant_details' => 'boolean',
-            'receipt_show_invoice_details' => 'boolean',
-            'receipt_show_payment_method' => 'boolean',
-            'receipt_header_text' => 'nullable|string|max:255',
-            'receipt_footer_text' => 'nullable|string|max:2000',
-            'receipt_thank_you_message' => 'nullable|string|max:500',
-        ]);
-
         $this->settingsService->updateReceiptSettings($this->getLandlordId(), $request);
 
         return back()->with('success', 'Receipt settings saved successfully.');
     }
 
-    public function updateFiscalYearSettings(Request $request): RedirectResponse
+    public function updateFiscalYearSettings(UpdateFiscalYearSettingsRequest $request): RedirectResponse
     {
-        $request->validate([
-            'fiscal_year_type' => 'required|in:calendar,custom',
-            'fiscal_year_start_month' => 'required|integer|min:1|max:12',
-        ]);
-
         $this->settingsService->updateFiscalYearSettings($this->getLandlordId(), $request);
 
         return back()->with('success', 'Fiscal year settings saved successfully.');

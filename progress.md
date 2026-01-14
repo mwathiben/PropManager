@@ -2062,6 +2062,62 @@ ReportsTab was intentionally not refactored - it has a unique filter pattern wit
 
 ---
 
+## FIN-021: Add Form Request Validation Classes
+**Status:** PASSED
+**Date:** 2026-01-14
+**Attempts:** 1
+
+### Implementation Summary
+
+Extracted validation logic from Finance controllers into dedicated Form Request classes for cleaner separation of concerns, reusability, and consistency with existing patterns in the codebase.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Http/Requests/StorePaymentRequest.php` | Validates manual payment recording (9 rules) |
+| `app/Http/Requests/GenerateInvoicesRequest.php` | Validates invoice generation (2 rules) |
+| `app/Http/Requests/RefundRequest.php` | Validates refund processing with custom amount check (5 rules) |
+| `app/Http/Requests/UpdatePaymentMethodsRequest.php` | Validates payment methods settings (10 rules) |
+| `app/Http/Requests/UpdateInvoiceSettingsRequest.php` | Validates invoice settings (3 rules) |
+| `app/Http/Requests/UpdateReminderSettingsRequest.php` | Validates reminder settings (4 rules) |
+| `app/Http/Requests/UpdateReceiptSettingsRequest.php` | Validates receipt settings (8 rules) |
+| `app/Http/Requests/UpdateFiscalYearSettingsRequest.php` | Validates fiscal year settings (2 rules) |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/PaymentController.php` | Added import, updated storeManual() to use StorePaymentRequest |
+| `app/Http/Controllers/InvoiceController.php` | Added import, updated generate() to use GenerateInvoicesRequest |
+| `app/Http/Controllers/RefundController.php` | Added import, updated storeStandalone() to use RefundRequest |
+| `app/Http/Controllers/FinancesController.php` | Added 5 imports, updated all settings update methods |
+
+### FormRequest Features
+
+**Authorization:** Each request includes `authorize()` method checking landlord/caretaker role.
+
+**Custom Validation:** RefundRequest uses `withValidator()` to check refundable amount against payment.
+
+**Custom Messages:** All requests include `messages()` with user-friendly error messages.
+
+### Acceptance Criteria Verification
+
+1. **Create StorePaymentRequest for manual payment recording** - Created with 9 validation rules
+2. **Create GenerateInvoicesRequest for invoice generation** - Created with 2 validation rules
+3. **Create RefundRequest for refund processing** - Created with 5 rules + custom refundable amount check
+4. **Create UpdateSettingsRequest for finance settings** - Created 5 separate requests for each settings type
+5. **Controllers use Form Request type hints** - All 4 controllers updated with type-hinted parameters
+6. **Validation messages remain consistent** - Custom messages preserve existing behavior
+7. **All tests pass** - 376 tests passed (12 skipped)
+
+### Verification Results
+
+- Lint (Pint): Success (446 files)
+- Tests: 376 passed, 12 skipped
+
+---
+
 # PRD Progress Update
 
-30 of 37 user stories now passing. FIN-019 completed, unlocking no new tasks.
+30 of 37 user stories now passing. FIN-021 completed, unlocking no new tasks.
