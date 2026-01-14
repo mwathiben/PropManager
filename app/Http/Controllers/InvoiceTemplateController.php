@@ -74,7 +74,7 @@ class InvoiceTemplateController extends Controller
             $template->makeDefault();
         }
 
-        return redirect()->route('invoice-templates.index')
+        return redirect()->route('finances.templates.invoices')
             ->with('success', 'Invoice template created successfully.');
     }
 
@@ -126,7 +126,7 @@ class InvoiceTemplateController extends Controller
             $invoiceTemplate->makeDefault();
         }
 
-        return redirect()->route('invoice-templates.index')
+        return redirect()->route('finances.templates.invoices')
             ->with('success', 'Invoice template updated successfully.');
     }
 
@@ -144,7 +144,7 @@ class InvoiceTemplateController extends Controller
 
         $invoiceTemplate->delete();
 
-        return redirect()->route('invoice-templates.index')
+        return redirect()->route('finances.templates.invoices')
             ->with('success', 'Invoice template deleted successfully.');
     }
 

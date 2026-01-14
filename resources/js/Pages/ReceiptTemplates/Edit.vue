@@ -127,84 +127,84 @@ const designStyles = computed(() => {
             classic: 'border-2 border-gray-400 rounded-none shadow-md',
             modern: 'rounded-3xl shadow-2xl border-0',
             minimal: 'shadow-none border border-gray-200 rounded-lg',
-            professional: 'rounded-none shadow-xl border-l-4',
+            professional: 'rounded-none shadow-xl border-t-4 border-t-slate-800 border border-slate-300',
         }[design] || '',
 
         header: {
             classic: 'border-b-2 border-gray-300 bg-gray-100',
             modern: 'bg-gradient-to-br from-gray-50 via-white to-gray-50',
             minimal: 'bg-white',
-            professional: 'bg-stone-50 border-b border-stone-200',
+            professional: 'bg-slate-800 text-white',
         }[design] || '',
 
         headerTextColor: {
             classic: 'text-gray-900',
             modern: 'text-gray-800',
             minimal: 'text-gray-600',
-            professional: 'text-stone-900 font-semibold',
+            professional: 'text-white font-serif',
         }[design] || 'text-gray-900',
 
         headerSubTextColor: {
             classic: 'text-gray-600',
             modern: 'text-gray-500',
             minimal: 'text-gray-400',
-            professional: 'text-stone-600',
+            professional: 'text-slate-300',
         }[design] || 'text-gray-600',
 
         paymentBox: {
             classic: 'border-2 rounded-none shadow-inner',
             modern: 'rounded-2xl shadow-lg',
             minimal: 'rounded-lg border border-gray-100',
-            professional: 'rounded-none border-l-4 shadow-md',
+            professional: 'rounded-none border-l-4 border-l-slate-800 shadow-md bg-slate-50',
         }[design] || 'rounded-lg',
 
         sectionBg: {
             classic: 'bg-gray-100 border-y-2 border-gray-200',
             modern: 'bg-gradient-to-r from-gray-50 to-white rounded-xl mx-2 my-1',
             minimal: 'bg-white border-b border-gray-50',
-            professional: 'bg-white border-l-4',
+            professional: 'bg-slate-50 border-l-2 border-l-amber-600',
         }[design] || 'bg-gray-50',
 
         sectionTextColor: {
             classic: 'text-gray-900',
             modern: 'text-gray-800',
             minimal: 'text-gray-700',
-            professional: 'text-stone-900',
+            professional: 'text-slate-800',
         }[design] || 'text-gray-900',
 
         sectionSubTextColor: {
             classic: 'text-gray-600',
             modern: 'text-gray-500',
             minimal: 'text-gray-500',
-            professional: 'text-stone-600',
+            professional: 'text-slate-600',
         }[design] || 'text-gray-600',
 
         sectionTitle: {
             classic: 'text-sm font-bold uppercase tracking-wide border-b-2 border-gray-300 pb-1 text-gray-700',
             modern: 'text-xs font-medium uppercase text-gray-400 tracking-wider',
             minimal: 'text-xs text-gray-400 font-light',
-            professional: 'text-xs font-semibold uppercase tracking-widest text-stone-500',
+            professional: 'text-xs font-serif font-semibold uppercase tracking-wide text-slate-800',
         }[design] || 'text-xs font-medium text-gray-500 uppercase',
 
         thankYouStyle: {
             classic: 'border-t-2 border-b-2 border-gray-300 py-4 bg-gray-50',
             modern: 'rounded-2xl py-5 mx-4 my-2',
             minimal: 'py-3',
-            professional: 'py-4 border-l-4 ml-0',
+            professional: 'py-4 bg-slate-50 border-y border-slate-200',
         }[design] || '',
 
         footer: {
             classic: 'border-t-2 border-gray-300 bg-gray-100',
             modern: 'bg-gradient-to-r from-gray-50 to-white rounded-b-3xl',
             minimal: 'border-t border-gray-100',
-            professional: 'bg-stone-100 border-t border-stone-200',
+            professional: 'bg-slate-800 text-white',
         }[design] || 'border-t border-gray-200',
 
         footerTextColor: {
             classic: 'text-gray-600',
             modern: 'text-gray-500',
             minimal: 'text-gray-400',
-            professional: 'text-stone-600',
+            professional: 'text-slate-300',
         }[design] || 'text-gray-500',
     };
 });

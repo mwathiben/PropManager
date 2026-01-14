@@ -30,24 +30,12 @@ class InvoiceTemplateControllerTest extends TestCase
         ]);
     }
 
-    public function test_landlord_can_view_template_index(): void
+    public function test_template_index_redirects_to_finance_hub(): void
     {
-        InvoiceTemplate::create([
-            'landlord_id' => $this->landlord->id,
-            'name' => 'Test Template',
-            'design' => 'classic',
-            'is_default' => true,
-        ]);
-
         $response = $this->actingAs($this->landlord)
             ->get(route('invoice-templates.index'));
 
-        $response->assertOk();
-        $response->assertInertia(fn ($page) => $page
-            ->component('InvoiceTemplates/Index')
-            ->has('templates', 1)
-            ->has('designOptions')
-        );
+        $response->assertRedirect(route('finances.templates.invoices'));
     }
 
     public function test_landlord_can_view_create_form(): void
@@ -88,7 +76,7 @@ class InvoiceTemplateControllerTest extends TestCase
                 'secondary_color' => '#6366F1',
             ]);
 
-        $response->assertRedirect(route('invoice-templates.index'));
+        $response->assertRedirect(route('finances.templates.invoices'));
 
         $this->assertDatabaseHas('invoice_templates', [
             'landlord_id' => $this->landlord->id,
@@ -148,7 +136,7 @@ class InvoiceTemplateControllerTest extends TestCase
                 'show_water_details' => true,
             ]);
 
-        $response->assertRedirect(route('invoice-templates.index'));
+        $response->assertRedirect(route('finances.templates.invoices'));
 
         $this->assertDatabaseHas('invoice_templates', [
             'id' => $template->id,
@@ -178,7 +166,7 @@ class InvoiceTemplateControllerTest extends TestCase
         $response = $this->actingAs($this->landlord)
             ->delete(route('invoice-templates.destroy', $otherTemplate));
 
-        $response->assertRedirect(route('invoice-templates.index'));
+        $response->assertRedirect(route('finances.templates.invoices'));
 
         $this->assertDatabaseMissing('invoice_templates', [
             'id' => $otherTemplate->id,
@@ -308,7 +296,7 @@ class InvoiceTemplateControllerTest extends TestCase
         ]);
     }
 
-    public function test_tenant_cannot_access_template_index(): void
+    public function test_tenant_accessing_index_gets_redirected_to_finance_hub(): void
     {
         $tenant = User::factory()->create([
             'role' => 'tenant',
@@ -318,7 +306,7 @@ class InvoiceTemplateControllerTest extends TestCase
         $response = $this->actingAs($tenant)
             ->get(route('invoice-templates.index'));
 
-        $response->assertForbidden();
+        $response->assertRedirect(route('finances.templates.invoices'));
     }
 
     public function test_template_validates_design_option(): void

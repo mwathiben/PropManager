@@ -8,6 +8,11 @@
             $primary = $template->primary_color ?? '#059669';
             $secondary = $template->secondary_color ?? '#10B981';
             $design = $template->design ?? 'classic';
+
+            // Law Firm/Financial colors for professional design
+            $navy = '#1e3a5f';
+            $charcoal = '#374151';
+            $gold = '#b8860b';
         @endphp
 
         * {
@@ -17,11 +22,7 @@
         }
 
         body {
-            @if($design === 'professional')
-                font-family: Georgia, 'Times New Roman', Times, serif;
-            @else
-                font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            @endif
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             font-size: 12px;
             line-height: 1.5;
             color: #374151;
@@ -41,50 +42,10 @@
                 border: 1px solid #E5E7EB;
                 border-radius: 8px;
             @elseif($design === 'professional')
-                border: 3px double {{ $primary }};
-                position: relative;
+                border: 1px solid {{ $navy }};
+                border-top: 4px solid {{ $navy }};
             @endif
         }
-
-        @if($design === 'professional')
-        .receipt-container::before,
-        .receipt-container::after {
-            content: '';
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            border: 2px solid {{ $primary }};
-        }
-        .receipt-container::before {
-            top: 8px;
-            left: 8px;
-            border-right: none;
-            border-bottom: none;
-        }
-        .receipt-container::after {
-            bottom: 8px;
-            right: 8px;
-            border-left: none;
-            border-top: none;
-        }
-
-        .paid-stamp {
-            position: absolute;
-            top: 50%;
-            right: 40px;
-            transform: rotate(-15deg) translateY(-50%);
-            padding: 8px 20px;
-            border: 3px solid {{ $primary }};
-            border-radius: 8px;
-            font-family: Georgia, 'Times New Roman', Times, serif;
-            font-size: 28px;
-            font-weight: bold;
-            color: {{ $primary }};
-            text-transform: uppercase;
-            letter-spacing: 0.2em;
-            opacity: 0.4;
-        }
-        @endif
 
         .header {
             padding-bottom: 24px;
@@ -102,8 +63,7 @@
             @elseif($design === 'minimal')
                 text-align: center;
             @elseif($design === 'professional')
-                background: linear-gradient(180deg, #FEFDFB 0%, #FAF9F7 100%);
-                border-bottom: 2px solid {{ $primary }};
+                background: {{ $navy }};
                 margin: -40px -40px 24px;
                 padding: 30px 40px;
             @endif
@@ -127,9 +87,9 @@
             font-size: 18px;
             font-weight: 600;
             @if($design === 'professional')
-                color: #1C1917;
-                letter-spacing: 0.05em;
-                font-variant: small-caps;
+                font-family: Georgia, 'Times New Roman', Times, serif;
+                color: #FFFFFF;
+                letter-spacing: 0.02em;
             @else
                 color: #1F2937;
             @endif
@@ -138,7 +98,7 @@
         .business-info p {
             font-size: 11px;
             @if($design === 'professional')
-                color: #57534E;
+                color: rgba(255, 255, 255, 0.8);
             @else
                 color: #6B7280;
             @endif
@@ -155,19 +115,19 @@
         .receipt-title h1 {
             font-size: 24px;
             font-weight: bold;
-            color: {{ $primary }};
             @if($design === 'professional')
-                letter-spacing: 0.15em;
-                font-variant: small-caps;
-                border-bottom: 2px solid {{ $primary }};
-                padding-bottom: 4px;
+                font-family: Georgia, 'Times New Roman', Times, serif;
+                color: {{ $gold }};
+                letter-spacing: 0.1em;
+            @else
+                color: {{ $primary }};
             @endif
         }
 
         .receipt-title p {
             font-size: 11px;
             @if($design === 'professional')
-                color: #57534E;
+                color: rgba(255, 255, 255, 0.8);
             @else
                 color: #6B7280;
             @endif
@@ -178,7 +138,7 @@
             font-size: 11px;
             font-style: italic;
             @if($design === 'professional')
-                color: #57534E;
+                color: rgba(255, 255, 255, 0.7);
             @else
                 color: #6B7280;
             @endif
@@ -187,18 +147,20 @@
         .payment-box {
             padding: 20px;
             margin: 24px 0;
-            background: {{ $secondary }}15;
             @if($design === 'classic')
+                background: {{ $secondary }}15;
                 border: 2px solid {{ $secondary }};
             @elseif($design === 'modern')
+                background: {{ $secondary }}15;
                 border-radius: 16px;
                 box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
             @elseif($design === 'minimal')
+                background: {{ $secondary }}15;
                 border-radius: 8px;
                 text-align: center;
             @elseif($design === 'professional')
-                border: 2px solid {{ $primary }};
-                background: linear-gradient(180deg, {{ $secondary }}08 0%, {{ $secondary }}15 100%);
+                background: #F8FAFC;
+                border-left: 4px solid {{ $navy }};
             @endif
         }
 
@@ -213,7 +175,11 @@
         .checkmark {
             width: 40px;
             height: 40px;
-            color: {{ $primary }};
+            @if($design === 'professional')
+                color: {{ $navy }};
+            @else
+                color: {{ $primary }};
+            @endif
         }
 
         .payment-label {
@@ -225,10 +191,15 @@
         .payment-amount {
             font-size: 28px;
             font-weight: bold;
-            color: {{ $primary }};
-            @if($design === 'minimal')
+            @if($design === 'professional')
+                font-family: Georgia, 'Times New Roman', Times, serif;
+                color: {{ $navy }};
+            @elseif($design === 'minimal')
+                color: {{ $primary }};
                 font-weight: 300;
                 font-size: 32px;
+            @else
+                color: {{ $primary }};
             @endif
         }
 
@@ -258,11 +229,12 @@
                 color: #9CA3AF;
                 font-weight: 300;
             @elseif($design === 'professional')
-                font-size: 10px;
+                font-family: Georgia, 'Times New Roman', Times, serif;
+                font-size: 11px;
                 font-weight: 600;
-                text-transform: uppercase;
-                letter-spacing: 0.15em;
-                color: #78716C;
+                color: {{ $navy }};
+                border-bottom: 1px solid {{ $navy }}40;
+                padding-bottom: 4px;
             @endif
         }
 
@@ -287,7 +259,7 @@
         .info-item span {
             font-weight: 500;
             @if($design === 'professional')
-                color: #1C1917;
+                color: {{ $charcoal }};
             @else
                 color: #1F2937;
             @endif
@@ -307,9 +279,8 @@
                 border-bottom: 1px solid #F3F4F6;
                 text-align: center;
             @elseif($design === 'professional')
-                background: #FEFDFB;
-                border: 1px solid {{ $secondary }};
-                border-top: 2px solid {{ $secondary }};
+                background: #F8FAFC;
+                border-left: 2px solid {{ $gold }};
             @endif
         }
 
@@ -340,11 +311,11 @@
                 color: #9CA3AF;
                 border-bottom: 1px solid #F3F4F6;
             @elseif($design === 'professional')
-                background: #F5F5F4;
-                font-weight: 600;
-                text-transform: uppercase;
+                background: {{ $navy }};
+                color: #FFFFFF;
+                font-weight: 500;
                 font-size: 10px;
-                letter-spacing: 0.05em;
+                letter-spacing: 0.03em;
             @endif
         }
 
@@ -354,7 +325,8 @@
             @elseif($design === 'minimal')
                 border-bottom: 1px solid #F9FAFB;
             @elseif($design === 'professional')
-                border-bottom: 1px solid #E7E5E4;
+                border-bottom: 1px solid #E5E7EB;
+                color: {{ $charcoal }};
             @endif
         }
 
@@ -375,7 +347,7 @@
         .balance-table .value {
             text-align: right;
             @if($design === 'professional')
-                color: #1C1917;
+                color: {{ $charcoal }};
             @else
                 color: #1F2937;
             @endif
@@ -387,11 +359,17 @@
             font-size: 14px;
             @if($design === 'professional')
                 font-size: 16px;
+                font-family: Georgia, 'Times New Roman', Times, serif;
+                color: {{ $navy }};
             @endif
         }
 
         .balance-table .paid {
-            color: {{ $primary }};
+            @if($design === 'professional')
+                color: {{ $navy }};
+            @else
+                color: {{ $primary }};
+            @endif
             font-weight: 500;
         }
 
@@ -407,8 +385,8 @@
                 background: #F9FAFB;
                 border-radius: 12px;
             @elseif($design === 'professional')
-                background: #FAFAF9;
-                border: 1px solid #E7E5E4;
+                background: #F8FAFC;
+                border: 1px solid {{ $navy }}20;
             @else
                 background: #FFFFFF;
                 border-radius: 4px;
@@ -423,25 +401,31 @@
         .thank-you-section {
             text-align: center;
             padding: 20px;
-            background: {{ $secondary }}10;
             @if($design === 'classic')
+                background: {{ $secondary }}10;
                 border-top: 2px solid {{ $secondary }};
                 border-bottom: 2px solid {{ $secondary }};
             @elseif($design === 'modern')
+                background: {{ $secondary }}10;
                 border-radius: 16px;
                 margin: 16px;
             @elseif($design === 'professional')
-                border: 2px solid {{ $primary }};
-                background: linear-gradient(180deg, {{ $secondary }}05 0%, {{ $secondary }}10 100%);
+                background: #F8FAFC;
+                border-top: 1px solid {{ $navy }}20;
+                border-bottom: 1px solid {{ $navy }}20;
+            @else
+                background: {{ $secondary }}10;
             @endif
         }
 
         .thank-you-message {
             font-size: 14px;
             font-weight: 500;
-            color: {{ $primary }};
             @if($design === 'professional')
-                font-weight: 600;
+                font-family: Georgia, 'Times New Roman', Times, serif;
+                color: {{ $navy }};
+            @else
+                color: {{ $primary }};
             @endif
         }
 
@@ -462,8 +446,7 @@
             @elseif($design === 'minimal')
                 border-top: 1px solid #F3F4F6;
             @elseif($design === 'professional')
-                background: linear-gradient(180deg, #FAF9F7 0%, #FEFDFB 100%);
-                border-top: 2px solid {{ $primary }};
+                background: {{ $navy }};
                 margin: 24px -40px -40px;
                 padding: 20px 40px;
             @endif
@@ -472,7 +455,7 @@
         .footer p {
             font-size: 10px;
             @if($design === 'professional')
-                color: #57534E;
+                color: rgba(255, 255, 255, 0.8);
             @else
                 color: #9CA3AF;
             @endif
@@ -485,6 +468,15 @@
             font-style: italic;
             color: #D1D5DB;
         }
+
+        @if($design === 'professional')
+        .gold-accent {
+            display: block;
+            height: 2px;
+            background: linear-gradient(90deg, transparent 0%, {{ $gold }} 50%, transparent 100%);
+            margin: 16px 0;
+        }
+        @endif
     </style>
 </head>
 <body>
@@ -522,9 +514,9 @@
             @endif
         </div>
 
-        {{-- PAID Stamp for Professional Design --}}
+        {{-- Gold Accent Line for Professional Design --}}
         @if($template->design === 'professional')
-            <div class="paid-stamp">PAID</div>
+            <span class="gold-accent"></span>
         @endif
 
         {{-- Payment Confirmation Box --}}
@@ -571,13 +563,13 @@
                         <div>
                             <p class="section-title">Received From</p>
                             @if($template->show_tenant_name)
-                                <p style="font-weight: 500; color: {{ $template->design === 'professional' ? '#1C1917' : '#1F2937' }}">{{ $tenant->name }}</p>
+                                <p style="font-weight: 500; color: {{ $template->design === 'professional' ? '#1e3a5f' : '#1F2937' }}">{{ $tenant->name }}</p>
                             @endif
                             @if($template->show_tenant_email)
-                                <p style="font-size: 11px; color: {{ $template->design === 'professional' ? '#57534E' : '#6B7280' }}">{{ $tenant->email }}</p>
+                                <p style="font-size: 11px; color: {{ $template->design === 'professional' ? '#374151' : '#6B7280' }}">{{ $tenant->email }}</p>
                             @endif
                             @if($template->show_tenant_phone && $tenant->phone)
-                                <p style="font-size: 11px; color: {{ $template->design === 'professional' ? '#57534E' : '#6B7280' }}">{{ $tenant->phone }}</p>
+                                <p style="font-size: 11px; color: {{ $template->design === 'professional' ? '#374151' : '#6B7280' }}">{{ $tenant->phone }}</p>
                             @endif
                         </div>
                     @endif
@@ -586,10 +578,10 @@
                         <div>
                             <p class="section-title">Property</p>
                             @if($template->show_unit_details)
-                                <p style="font-weight: 500; color: {{ $template->design === 'professional' ? '#1C1917' : '#1F2937' }}">{{ $unit->unit_number }}</p>
+                                <p style="font-weight: 500; color: {{ $template->design === 'professional' ? '#1e3a5f' : '#1F2937' }}">{{ $unit->unit_number }}</p>
                             @endif
                             @if($template->show_building_name && $building)
-                                <p style="font-size: 11px; color: {{ $template->design === 'professional' ? '#57534E' : '#6B7280' }}">{{ $building->name }}</p>
+                                <p style="font-size: 11px; color: {{ $template->design === 'professional' ? '#374151' : '#6B7280' }}">{{ $building->name }}</p>
                             @endif
                         </div>
                     @endif
@@ -603,7 +595,7 @@
                 <p class="section-title">For Invoice</p>
                 <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
                     <span style="color: #6B7280;">Invoice #{{ $invoice->invoice_number }}</span>
-                    <span style="font-weight: 500; color: {{ $template->design === 'professional' ? '#1C1917' : '#1F2937' }}">KES {{ number_format($invoice->total_due, 2) }}</span>
+                    <span style="font-weight: 500; color: {{ $template->design === 'professional' ? '#1e3a5f' : '#1F2937' }}">KES {{ number_format($invoice->total_due, 2) }}</span>
                 </div>
 
                 @if($template->show_invoice_breakdown && $invoice->items && $invoice->items->count() > 0)
@@ -629,7 +621,7 @@
 
         {{-- Amount Breakdown / Balance --}}
         @if($template->show_amount_breakdown || $template->show_balance_after_payment)
-            <div class="section" style="border-top: 1px solid {{ $template->design === 'professional' ? '#E7E5E4' : '#E5E7EB' }}; padding-top: 16px;">
+            <div class="section" style="border-top: 1px solid {{ $template->design === 'professional' ? '#1e3a5f20' : '#E5E7EB' }}; padding-top: 16px;">
                 <table class="balance-table">
                     <tbody>
                         @if($template->show_amount_breakdown && $invoice)

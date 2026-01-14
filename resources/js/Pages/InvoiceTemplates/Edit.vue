@@ -154,56 +154,56 @@ const designStyles = computed(() => {
             classic: 'border-2 border-gray-300 rounded-none shadow-md',
             modern: 'rounded-2xl shadow-2xl border-0',
             minimal: 'shadow-sm border border-gray-100 rounded-lg',
-            professional: 'rounded-none shadow-xl border-l-4',
+            professional: 'rounded-none shadow-xl border-t-4 border-t-slate-800 border border-slate-300',
         }[design] || 'rounded-lg shadow-lg',
 
         header: {
             classic: 'border-b-2 border-gray-300 bg-gray-50',
             modern: 'bg-gradient-to-br from-gray-50 via-white to-gray-50',
             minimal: 'bg-white',
-            professional: 'bg-stone-50 border-b border-stone-200',
+            professional: 'bg-slate-800 text-white',
         }[design] || 'bg-white',
 
         headerTextColor: {
             classic: 'text-gray-900',
             modern: 'text-gray-800',
             minimal: 'text-gray-600',
-            professional: 'text-stone-900 font-semibold',
+            professional: 'text-white font-serif',
         }[design] || 'text-gray-900',
 
         headerSubTextColor: {
             classic: 'text-gray-600',
             modern: 'text-gray-500',
             minimal: 'text-gray-400',
-            professional: 'text-stone-600',
+            professional: 'text-slate-300',
         }[design] || 'text-gray-600',
 
         billTo: {
             classic: 'bg-gray-100 border-y-2 border-gray-200',
             modern: 'bg-gradient-to-r from-gray-50 to-white',
             minimal: 'bg-white border-b border-gray-100',
-            professional: 'bg-white border-l-4 ml-0',
+            professional: 'bg-slate-50 border-l-4 border-l-slate-800',
         }[design] || 'bg-gray-50',
 
         billToTextColor: {
             classic: 'text-gray-900',
             modern: 'text-gray-800',
             minimal: 'text-gray-700',
-            professional: 'text-stone-900',
+            professional: 'text-slate-800',
         }[design] || 'text-gray-900',
 
         billToSubTextColor: {
             classic: 'text-gray-600',
             modern: 'text-gray-500',
             minimal: 'text-gray-500',
-            professional: 'text-stone-600',
+            professional: 'text-slate-600',
         }[design] || 'text-gray-600',
 
         billToLabelColor: {
             classic: 'text-gray-500',
             modern: 'text-gray-400',
             minimal: 'text-gray-400',
-            professional: 'text-stone-500 tracking-wider font-semibold',
+            professional: 'text-slate-800 font-serif tracking-wide',
         }[design] || 'text-gray-500',
 
         table: {
@@ -217,49 +217,49 @@ const designStyles = computed(() => {
             classic: 'border-b-2 border-gray-300 bg-gray-100',
             modern: 'border-b border-gray-200',
             minimal: 'border-b border-gray-100',
-            professional: 'border-b-2 border-stone-300 bg-stone-100',
+            professional: 'bg-slate-800 text-white',
         }[design] || 'border-b border-gray-200',
 
         lateWarning: {
             classic: 'bg-yellow-100 border-y-2 border-yellow-200',
             modern: 'bg-yellow-50 border-t border-yellow-100 rounded-lg mx-4',
             minimal: 'bg-yellow-50 border-t border-yellow-100',
-            professional: 'bg-amber-50 border-l-4 border-amber-400',
+            professional: 'bg-slate-50 border-l-4 border-l-amber-600',
         }[design] || 'bg-yellow-50',
 
         lateWarningText: {
             classic: 'text-yellow-800',
             modern: 'text-yellow-700',
             minimal: 'text-yellow-600',
-            professional: 'text-amber-800 font-medium',
+            professional: 'text-slate-700',
         }[design] || 'text-yellow-800',
 
         bankDetails: {
             classic: 'bg-gray-100 border-t-2 border-gray-200',
             modern: 'bg-gradient-to-r from-gray-50 to-white border-t border-gray-100',
             minimal: 'bg-white border-t border-gray-100',
-            professional: 'bg-stone-50 border-t border-stone-200 border-l-4',
+            professional: 'bg-slate-50 border-l-2 border-l-amber-600',
         }[design] || 'bg-gray-50 border-t',
 
         bankDetailsTextColor: {
             classic: 'text-gray-600',
             modern: 'text-gray-600',
             minimal: 'text-gray-500',
-            professional: 'text-stone-700',
+            professional: 'text-slate-700',
         }[design] || 'text-gray-600',
 
         footer: {
             classic: 'border-t-2 border-gray-300 bg-gray-100',
             modern: 'bg-gradient-to-r from-gray-50 to-white',
             minimal: 'border-t border-gray-100',
-            professional: 'bg-stone-100 border-t border-stone-200',
+            professional: 'bg-slate-800 text-white',
         }[design] || 'border-t',
 
         footerTextColor: {
             classic: 'text-gray-600',
             modern: 'text-gray-500',
             minimal: 'text-gray-400',
-            professional: 'text-stone-600',
+            professional: 'text-slate-300',
         }[design] || 'text-gray-500',
     };
 });

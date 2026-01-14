@@ -4,6 +4,16 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <title>Invoice {{ $invoice->invoice_number }}</title>
+    @php
+        $design = $template?->design ?? 'classic';
+        $primary = $template?->primary_color ?? '#4F46E5';
+        $secondary = $template?->secondary_color ?? '#6366F1';
+
+        // Law Firm/Financial colors for professional design
+        $navy = '#1e3a5f';
+        $charcoal = '#374151';
+        $gold = '#b8860b';
+    @endphp
     <style>
         * {
             margin: 0;
@@ -19,10 +29,18 @@
         .container {
             padding: 40px;
         }
+
+        /* Header Styles */
         .header {
-            border-top: 4px solid {{ $template?->primary_color ?? '#4F46E5' }};
             padding-top: 20px;
             margin-bottom: 30px;
+            @if($design === 'professional')
+                background-color: {{ $navy }};
+                margin: -40px -40px 30px -40px;
+                padding: 30px 40px;
+            @else
+                border-top: 4px solid {{ $primary }};
+            @endif
         }
         .header-content {
             display: table;
@@ -46,31 +64,71 @@
         .company-name {
             font-size: 18px;
             font-weight: bold;
-            color: #111;
             margin-bottom: 5px;
+            @if($design === 'professional')
+                font-family: Georgia, 'Times New Roman', serif;
+                color: #ffffff;
+                letter-spacing: 0.02em;
+            @else
+                color: #111;
+            @endif
         }
         .company-details {
-            color: #666;
             font-size: 11px;
+            @if($design === 'professional')
+                color: rgba(255, 255, 255, 0.8);
+            @else
+                color: #666;
+            @endif
         }
         .invoice-title {
             font-size: 28px;
             font-weight: bold;
-            color: {{ $template?->primary_color ?? '#4F46E5' }};
             margin-bottom: 10px;
+            @if($design === 'professional')
+                font-family: Georgia, 'Times New Roman', serif;
+                color: {{ $gold }};
+                letter-spacing: 0.1em;
+            @else
+                color: {{ $primary }};
+            @endif
         }
         .invoice-number {
             font-size: 11px;
-            color: #666;
+            @if($design === 'professional')
+                color: rgba(255, 255, 255, 0.8);
+            @else
+                color: #666;
+            @endif
         }
         .due-date {
-            color: #dc2626;
+            @if($design === 'professional')
+                color: {{ $gold }};
+            @else
+                color: #dc2626;
+            @endif
             font-weight: bold;
         }
+
+        /* Gold Accent Line */
+        @if($design === 'professional')
+        .gold-accent {
+            height: 2px;
+            background: linear-gradient(90deg, transparent 0%, {{ $gold }} 50%, transparent 100%);
+            margin: 0 0 24px 0;
+        }
+        @endif
+
+        /* Bill To Section */
         .bill-to-section {
-            background-color: #f9fafb;
             padding: 20px;
             margin-bottom: 30px;
+            @if($design === 'professional')
+                background-color: #f8fafc;
+                border-left: 4px solid {{ $navy }};
+            @else
+                background-color: #f9fafb;
+            @endif
         }
         .bill-to-content {
             display: table;
@@ -84,32 +142,55 @@
         .section-label {
             font-size: 10px;
             font-weight: bold;
-            color: #9ca3af;
             text-transform: uppercase;
             margin-bottom: 5px;
+            @if($design === 'professional')
+                font-family: Georgia, 'Times New Roman', serif;
+                color: {{ $navy }};
+                letter-spacing: 0.05em;
+            @else
+                color: #9ca3af;
+            @endif
         }
         .tenant-name {
             font-weight: bold;
-            color: #111;
             margin-bottom: 3px;
+            @if($design === 'professional')
+                color: {{ $navy }};
+            @else
+                color: #111;
+            @endif
         }
         .tenant-details {
-            color: #666;
             font-size: 11px;
+            @if($design === 'professional')
+                color: {{ $charcoal }};
+            @else
+                color: #666;
+            @endif
         }
+
+        /* Items Table */
         .items-table {
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 30px;
         }
         .items-table th {
-            background-color: #f9fafb;
-            border-bottom: 2px solid #e5e7eb;
             padding: 12px 10px;
             text-align: left;
             font-size: 11px;
             font-weight: bold;
-            color: #6b7280;
+            @if($design === 'professional')
+                background-color: {{ $navy }};
+                color: #ffffff;
+                border-bottom: none;
+                letter-spacing: 0.03em;
+            @else
+                background-color: #f9fafb;
+                border-bottom: 2px solid #e5e7eb;
+                color: #6b7280;
+            @endif
         }
         .items-table th.text-right {
             text-align: right;
@@ -117,6 +198,9 @@
         .items-table td {
             padding: 12px 10px;
             border-bottom: 1px solid #e5e7eb;
+            @if($design === 'professional')
+                color: {{ $charcoal }};
+            @endif
         }
         .items-table td.text-right {
             text-align: right;
@@ -126,49 +210,108 @@
             font-size: 14px;
             border-top: 2px solid #e5e7eb;
             border-bottom: none;
+            @if($design === 'professional')
+                font-family: Georgia, 'Times New Roman', serif;
+                font-size: 16px;
+            @endif
         }
         .items-table .total-amount {
-            color: {{ $template?->primary_color ?? '#4F46E5' }};
+            @if($design === 'professional')
+                color: {{ $navy }};
+            @else
+                color: {{ $primary }};
+            @endif
         }
+
+        /* Late Warning */
         .late-warning {
-            background-color: #fef3c7;
-            border-left: 4px solid #f59e0b;
             padding: 12px 15px;
             margin-bottom: 20px;
             font-size: 11px;
-            color: #92400e;
+            @if($design === 'professional')
+                background-color: #f8fafc;
+                border-left: 4px solid {{ $gold }};
+                color: {{ $charcoal }};
+            @else
+                background-color: #fef3c7;
+                border-left: 4px solid #f59e0b;
+                color: #92400e;
+            @endif
         }
+
+        /* Bank Details */
         .bank-details {
-            background-color: #f9fafb;
             padding: 20px;
             margin-bottom: 20px;
+            @if($design === 'professional')
+                background-color: #f8fafc;
+                border-left: 2px solid {{ $gold }};
+            @else
+                background-color: #f9fafb;
+            @endif
         }
         .bank-details-title {
             font-size: 10px;
             font-weight: bold;
-            color: #9ca3af;
             text-transform: uppercase;
             margin-bottom: 10px;
+            @if($design === 'professional')
+                font-family: Georgia, 'Times New Roman', serif;
+                color: {{ $navy }};
+            @else
+                color: #9ca3af;
+            @endif
         }
         .bank-details-content {
             font-size: 11px;
-            color: #666;
+            @if($design === 'professional')
+                color: {{ $charcoal }};
+            @else
+                color: #666;
+            @endif
         }
+
+        /* Footer */
         .footer {
-            border-top: 1px solid #e5e7eb;
-            padding-top: 20px;
             margin-top: 30px;
+            @if($design === 'professional')
+                background-color: {{ $navy }};
+                margin: 30px -40px -40px -40px;
+                padding: 20px 40px;
+            @else
+                border-top: 1px solid #e5e7eb;
+                padding-top: 20px;
+            @endif
         }
         .footer-text {
             font-size: 11px;
-            color: #9ca3af;
             text-align: center;
+            @if($design === 'professional')
+                color: rgba(255, 255, 255, 0.8);
+            @else
+                color: #9ca3af;
+            @endif
         }
         .custom-text {
             font-size: 11px;
-            color: #666;
             font-style: italic;
             margin: 10px 0;
+            @if($design === 'professional')
+                color: {{ $charcoal }};
+            @else
+                color: #666;
+            @endif
+        }
+        .custom-text-footer {
+            font-size: 11px;
+            font-style: italic;
+            margin: 10px 0;
+            text-align: center;
+            @if($design === 'professional')
+                color: rgba(255, 255, 255, 0.7);
+            @else
+                color: #666;
+            @endif
         }
     </style>
 </head>
@@ -208,9 +351,13 @@
                 </div>
             </div>
             @if($template?->custom_header)
-                <div class="custom-text">{{ $template->custom_header }}</div>
+                <div class="custom-text" @if($design === 'professional') style="color: rgba(255,255,255,0.7);" @endif>{{ $template->custom_header }}</div>
             @endif
         </div>
+
+        @if($design === 'professional')
+            <div class="gold-accent"></div>
+        @endif
 
         <div class="bill-to-section">
             <div class="bill-to-content">
@@ -311,7 +458,7 @@
 
         <div class="footer">
             @if($template?->custom_footer)
-                <div class="custom-text" style="text-align: center;">{{ $template->custom_footer }}</div>
+                <div class="custom-text-footer">{{ $template->custom_footer }}</div>
             @endif
             @if($template?->show_footer && $settings?->footer_note)
                 <div class="footer-text">{{ $settings->footer_note }}</div>

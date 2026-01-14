@@ -14,6 +14,7 @@ import {
     ExclamationTriangleIcon,
     Cog6ToothIcon,
     DocumentPlusIcon,
+    DocumentDuplicateIcon,
     PlusCircleIcon,
 } from '@heroicons/vue/24/outline';
 import type { Building, Property } from '@/types/finances';
@@ -132,6 +133,13 @@ const generateInvoices = () => {
                         >
                             <PlusCircleIcon class="h-5 w-5" />
                             Add Expense
+                        </Link>
+                        <Link
+                            :href="route('finances.templates')"
+                            class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                            <DocumentDuplicateIcon class="h-5 w-5" />
+                            Manage Templates
                         </Link>
                     </div>
                 </div>

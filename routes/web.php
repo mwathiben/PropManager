@@ -293,8 +293,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/invoice-settings/logo', [InvoiceSettingController::class, 'uploadLogo'])->name('invoice-settings.upload-logo');
     Route::delete('/invoice-settings/logo', [InvoiceSettingController::class, 'removeLogo'])->name('invoice-settings.remove-logo');
 
-    // Invoice Templates
-    Route::get('/invoice-templates', [InvoiceTemplateController::class, 'index'])->name('invoice-templates.index');
+    // Invoice Templates (index redirects to Finance Hub)
+    Route::get('/invoice-templates', fn () => redirect()->route('finances.templates.invoices'))->name('invoice-templates.index');
     Route::get('/invoice-templates/create', [InvoiceTemplateController::class, 'create'])->name('invoice-templates.create');
     Route::post('/invoice-templates', [InvoiceTemplateController::class, 'store'])->name('invoice-templates.store');
     Route::get('/invoice-templates/{invoiceTemplate}/edit', [InvoiceTemplateController::class, 'edit'])->name('invoice-templates.edit');
@@ -302,8 +302,8 @@ Route::middleware('auth')->group(function () {
     Route::delete('/invoice-templates/{invoiceTemplate}', [InvoiceTemplateController::class, 'destroy'])->name('invoice-templates.destroy');
     Route::post('/invoice-templates/{invoiceTemplate}/set-default', [InvoiceTemplateController::class, 'setDefault'])->name('invoice-templates.set-default');
 
-    // Receipt Templates
-    Route::get('/receipt-templates', [ReceiptTemplateController::class, 'index'])->name('receipt-templates.index');
+    // Receipt Templates (index redirects to Finance Hub)
+    Route::get('/receipt-templates', fn () => redirect()->route('finances.templates.receipts'))->name('receipt-templates.index');
     Route::get('/receipt-templates/create', [ReceiptTemplateController::class, 'create'])->name('receipt-templates.create');
     Route::post('/receipt-templates', [ReceiptTemplateController::class, 'store'])->name('receipt-templates.store');
     Route::get('/receipt-templates/{receiptTemplate}/edit', [ReceiptTemplateController::class, 'edit'])->name('receipt-templates.edit');
