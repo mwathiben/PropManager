@@ -60,12 +60,13 @@ class FinancesController extends Controller
     public function overview(): Response
     {
         $landlordId = $this->getLandlordId();
+        $stats = $this->statsService->getOverviewStats($landlordId);
 
         return $this->renderFinances('overview', [
-            'stats' => $this->statsService->getOverviewStats($landlordId),
+            'stats' => $stats,
             'recentPayments' => $this->statsService->getRecentPayments($landlordId, 5),
             'recentInvoices' => $this->statsService->getRecentInvoices($landlordId, 5),
-            'collectionStatus' => $this->statsService->getCollectionStatus($landlordId),
+            'collectionStatus' => $this->statsService->getCollectionStatus($landlordId, $stats['collection_rate']),
             'monthlyTrend' => $this->statsService->getMonthlyTrend($landlordId, 6),
         ]);
     }

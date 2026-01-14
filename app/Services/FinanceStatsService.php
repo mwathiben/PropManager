@@ -19,27 +19,35 @@ class FinanceStatsService
 
         return FinanceCacheService::rememberStats('overview', $landlordId, function () use ($landlordId) {
             $now = now();
+            $currentMonth = sprintf('%02d', $now->month);
+            $currentYear = (string) $now->year;
+            $prevMonth = sprintf('%02d', $now->copy()->subMonth()->month);
+            $prevYear = (string) $now->copy()->subMonth()->year;
 
-            $thisMonth = Payment::where('landlord_id', $landlordId)
-                ->whereMonth('payment_date', $now->month)
-                ->whereYear('payment_date', $now->year)
-                ->sum('amount');
+            $paymentStats = Payment::where('landlord_id', $landlordId)
+                ->selectRaw('
+                    COALESCE(SUM(CASE WHEN strftime("%m", payment_date) = ? AND strftime("%Y", payment_date) = ? THEN amount ELSE 0 END), 0) as this_month,
+                    COALESCE(SUM(CASE WHEN strftime("%m", payment_date) = ? AND strftime("%Y", payment_date) = ? THEN amount ELSE 0 END), 0) as last_month
+                ', [$currentMonth, $currentYear, $prevMonth, $prevYear])
+                ->first();
 
-            $lastMonth = Payment::where('landlord_id', $landlordId)
-                ->whereMonth('payment_date', $now->copy()->subMonth()->month)
-                ->whereYear('payment_date', $now->copy()->subMonth()->year)
-                ->sum('amount');
+            $invoiceStats = Invoice::where('landlord_id', $landlordId)
+                ->selectRaw('
+                    COALESCE(SUM(CASE WHEN status IN ("sent", "partial", "overdue") THEN total_due - amount_paid ELSE 0 END), 0) as pending_amount,
+                    COUNT(CASE WHEN status = "overdue" THEN 1 END) as overdue_count,
+                    COALESCE(SUM(CASE WHEN strftime("%m", created_at) = ? AND strftime("%Y", created_at) = ? THEN total_due ELSE 0 END), 0) as invoiced_this_month,
+                    COALESCE(SUM(CASE WHEN strftime("%m", created_at) = ? AND strftime("%Y", created_at) = ? THEN amount_paid ELSE 0 END), 0) as collected_this_month
+                ', [$currentMonth, $currentYear, $currentMonth, $currentYear])
+                ->first();
 
-            $pendingAmount = Invoice::where('landlord_id', $landlordId)
-                ->whereIn('status', ['sent', 'partial', 'overdue'])
-                ->selectRaw('COALESCE(SUM(total_due - amount_paid), 0) as pending')
-                ->value('pending') ?? 0;
+            $thisMonth = (float) $paymentStats->this_month;
+            $lastMonth = (float) $paymentStats->last_month;
+            $invoicedThisMonth = (float) $invoiceStats->invoiced_this_month;
+            $collectedThisMonth = (float) $invoiceStats->collected_this_month;
 
-            $overdueCount = Invoice::where('landlord_id', $landlordId)
-                ->where('status', 'overdue')
-                ->count();
-
-            $collectionRate = $this->calculateCollectionRateUncached($landlordId);
+            $collectionRate = $invoicedThisMonth > 0
+                ? round(($collectedThisMonth / $invoicedThisMonth) * 100, 1)
+                : 0;
 
             $monthTrend = $lastMonth > 0
                 ? round((($thisMonth - $lastMonth) / $lastMonth) * 100, 1)
@@ -49,8 +57,8 @@ class FinanceStatsService
                 'this_month' => round($thisMonth, 2),
                 'last_month' => round($lastMonth, 2),
                 'month_trend' => $monthTrend,
-                'pending_amount' => round($pendingAmount, 2),
-                'overdue_count' => $overdueCount,
+                'pending_amount' => round((float) $invoiceStats->pending_amount, 2),
+                'overdue_count' => (int) $invoiceStats->overdue_count,
                 'collection_rate' => $collectionRate,
             ];
         }, $suffix);
@@ -316,26 +324,30 @@ class FinanceStatsService
     public function getMonthlyTrend(int $landlordId, int $months = 6): array
     {
         return FinanceCacheService::rememberStats('trend', $landlordId, function () use ($landlordId, $months) {
-            $trend = [];
+            $startDate = now()->subMonths($months - 1)->startOfMonth();
 
+            $paymentsGrouped = Payment::where('landlord_id', $landlordId)
+                ->where('payment_date', '>=', $startDate)
+                ->selectRaw("strftime('%Y-%m', payment_date) as month_key, SUM(amount) as collected")
+                ->groupBy('month_key')
+                ->pluck('collected', 'month_key');
+
+            $invoicesGrouped = Invoice::where('landlord_id', $landlordId)
+                ->where('created_at', '>=', $startDate)
+                ->selectRaw("strftime('%Y-%m', created_at) as month_key, SUM(total_due) as invoiced")
+                ->groupBy('month_key')
+                ->pluck('invoiced', 'month_key');
+
+            $trend = [];
             for ($i = $months - 1; $i >= 0; $i--) {
                 $date = now()->subMonths($i);
-
-                $collected = Payment::where('landlord_id', $landlordId)
-                    ->whereMonth('payment_date', $date->month)
-                    ->whereYear('payment_date', $date->year)
-                    ->sum('amount');
-
-                $invoiced = Invoice::where('landlord_id', $landlordId)
-                    ->whereMonth('created_at', $date->month)
-                    ->whereYear('created_at', $date->year)
-                    ->sum('total_due');
+                $key = $date->format('Y-m');
 
                 $trend[] = [
                     'month' => $date->format('M'),
                     'year' => $date->format('Y'),
-                    'collected' => round($collected, 2),
-                    'invoiced' => round($invoiced, 2),
+                    'collected' => round((float) ($paymentsGrouped[$key] ?? 0), 2),
+                    'invoiced' => round((float) ($invoicesGrouped[$key] ?? 0), 2),
                 ];
             }
 
@@ -343,9 +355,9 @@ class FinanceStatsService
         });
     }
 
-    public function getCollectionStatus(int $landlordId): string
+    public function getCollectionStatus(int $landlordId, ?float $rate = null): string
     {
-        $rate = $this->calculateCollectionRate($landlordId);
+        $rate = $rate ?? $this->calculateCollectionRate($landlordId);
 
         if ($rate >= 90) {
             return 'excellent';

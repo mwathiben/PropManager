@@ -102,7 +102,7 @@
         "incorrect": "$thisMonth = Invoice::sum('amount'); $pending = Invoice::pending()->sum('amount'); $rate = ...",
         "correct": "Use Laravel's DB::transaction or parallel queries, or compute in single optimized query with subqueries"
       },
-      "passes": false
+      "passes": true
     },
     {
       "id": "OPT-003",

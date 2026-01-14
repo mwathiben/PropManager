@@ -2885,3 +2885,46 @@ Combined 2 separate sum queries (total_due, amount_paid) into single selectRaw.
 - Tests: 378 passed, 12 skipped
 
 ---
+
+---
+
+## OPT-002: Implement Parallel Data Fetching in Controllers
+**Status:** PASSED
+**Date:** 2026-01-14
+**Attempts:** 1
+
+### Implementation Summary
+
+Optimized Finance Hub Overview by reducing ~22 sequential database queries to 6 efficient queries using CASE/WHEN aggregation and GROUP BY patterns.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Services/FinanceStatsService.php` | Rewrote `getOverviewStats()` with merged queries, optimized `getMonthlyTrend()` with GROUP BY, updated `getCollectionStatus()` signature |
+| `app/Http/Controllers/FinancesController.php` | Updated `overview()` to pass pre-calculated collection rate |
+
+### Query Count Reduction
+
+| Method | Before | After |
+|--------|--------|-------|
+| `getOverviewStats()` | 6 | 2 |
+| `getMonthlyTrend()` | 12 | 2 |
+| `getCollectionStatus()` | 2 | 0 (reuses data) |
+| `getRecentPayments()` | 1 | 1 |
+| `getRecentInvoices()` | 1 | 1 |
+| **Total** | **22** | **6** |
+
+### Optimizations Applied
+
+1. **Merged Payment Queries**: Combined this month + last month sums into single query with CASE/WHEN
+2. **Merged Invoice Queries**: Combined pending amount, overdue count, and collection rate data into single query
+3. **Replaced Monthly Trend Loop**: Converted 12-query loop to 2 GROUP BY queries
+4. **Eliminated Duplicate Collection Rate**: `getCollectionStatus()` now accepts pre-calculated rate parameter
+
+### Verification Results
+
+- Lint (Pint): PASS
+- Build: PASS
+- Tests: 378 passed, 12 skipped
+
