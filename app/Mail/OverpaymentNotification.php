@@ -28,8 +28,10 @@ class OverpaymentNotification extends Mailable implements ShouldQueue
 
     public function envelope(): Envelope
     {
+        $paymentRef = $this->payment->reference ?? $this->payment->id ?? 'unknown';
+
         return new Envelope(
-            subject: 'Tenant Overpayment Notice - '.$this->tenant->name,
+            subject: 'Tenant Overpayment Notice - Ref '.$paymentRef,
         );
     }
 

@@ -7,9 +7,12 @@
     <testsuites>
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
+            <exclude>tests/Unit/Services</exclude>
         </testsuite>
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
+            <exclude>tests/Feature/Controllers</exclude>
+            <exclude>tests/Feature/Api</exclude>
         </testsuite>
         <testsuite name="Controllers">
             <directory>tests/Feature/Controllers</directory>

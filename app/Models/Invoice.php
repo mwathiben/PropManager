@@ -64,6 +64,11 @@ class Invoice extends Model
         return $this->billing_period_start;
     }
 
+    public function getBillingPeriodEndAttribute(): ?\Carbon\Carbon
+    {
+        return $this->billing_period_start?->copy()->endOfMonth();
+    }
+
     public function lease(): BelongsTo
     {
         return $this->belongsTo(Lease::class);

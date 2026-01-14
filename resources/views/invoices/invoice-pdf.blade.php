@@ -234,7 +234,7 @@
             <div class="info-column">
                 <div class="info-row">
                     <span class="info-label">Billing Period:</span>
-                    <span class="info-value">{{ $invoice->billing_period_start->format('M d') }} - {{ $invoice->billing_period_end->format('M d, Y') }}</span>
+                    <span class="info-value">{{ $invoice->billing_period_start?->format('M d') }} - {{ $invoice->billing_period_end?->format('M d, Y') }}</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Status:</span>
