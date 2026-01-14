@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { useFormatters, useTabFilters } from '@/composables';
@@ -13,12 +13,42 @@ import {
     ExportDropdown,
 } from '@/Components/Finances';
 import { DocumentTextIcon, EyeIcon, BanknotesIcon } from '@heroicons/vue/24/outline';
+import type { PaginatedResponse, Invoice, Building } from '@/types/finances';
 
-const props = defineProps({
-    invoices: Object,
-    filters: Object,
-    statusOptions: Array,
-    buildings: Array,
+interface StatusOption {
+    value: string;
+    label: string;
+}
+
+interface MonthOption {
+    value: number;
+    label: string;
+}
+
+interface InvoiceRow {
+    id: number;
+    invoice_number: string;
+    tenant: string;
+    unit: string;
+    building: string;
+    total_due: number;
+    amount_paid: number;
+    balance: number;
+    status: string;
+    due_date: string;
+}
+
+interface Props {
+    invoices?: PaginatedResponse<Invoice>;
+    filters?: Record<string, unknown>;
+    statusOptions?: StatusOption[];
+    buildings?: Building[];
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    filters: () => ({}),
+    statusOptions: () => [],
+    buildings: () => [],
 });
 
 const store = useFinancesStore();
@@ -46,7 +76,7 @@ const columns = [
     { key: 'actions', label: '', align: 'right' },
 ];
 
-const tableData = computed(() => {
+const tableData = computed((): InvoiceRow[] => {
     if (!props.invoices?.data) return [];
     return props.invoices.data.map(invoice => ({
         id: invoice.id,
@@ -63,11 +93,11 @@ const tableData = computed(() => {
 });
 
 
-const viewInvoice = (invoice) => {
+const viewInvoice = (invoice: InvoiceRow): void => {
     store.openModal('invoiceDetail', { id: invoice.id });
 };
 
-const recordPayment = (invoice) => {
+const recordPayment = (invoice: InvoiceRow): void => {
     store.openModal('recordPayment', { invoiceId: invoice.id });
 };
 
@@ -79,7 +109,7 @@ const generateForm = useForm({
     year: currentDate.getFullYear(),
 });
 
-const months = [
+const months: MonthOption[] = [
     { value: 1, label: 'January' },
     { value: 2, label: 'February' },
     { value: 3, label: 'March' },
@@ -107,7 +137,7 @@ const submitGenerate = () => {
     });
 };
 
-const exportData = (format) => {
+const exportData = (format: string): void => {
     const params = getExportParams(format);
     window.location.href = route('finances.invoices.export') + '?' + params.toString();
 };

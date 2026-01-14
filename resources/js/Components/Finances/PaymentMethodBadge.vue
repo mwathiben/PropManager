@@ -1,5 +1,5 @@
-<script setup>
-import { computed } from 'vue';
+<script setup lang="ts">
+import { computed, type Component } from 'vue';
 import { useStatusColors, usePayments } from '@/composables';
 import {
     BanknotesIcon,
@@ -7,21 +7,19 @@ import {
     DevicePhoneMobileIcon,
     CreditCardIcon,
 } from '@heroicons/vue/24/outline';
+import type { PaymentMethod } from '@/types/finances';
 
-const props = defineProps({
-    method: {
-        type: String,
-        required: true,
-    },
-    size: {
-        type: String,
-        default: 'md',
-        validator: (v) => ['sm', 'md', 'lg'].includes(v),
-    },
-    showIcon: {
-        type: Boolean,
-        default: true,
-    },
+type Size = 'sm' | 'md' | 'lg';
+
+interface Props {
+    method: PaymentMethod | string;
+    size?: Size;
+    showIcon?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    size: 'md',
+    showIcon: true,
 });
 
 const { paymentMethodColor } = useStatusColors();

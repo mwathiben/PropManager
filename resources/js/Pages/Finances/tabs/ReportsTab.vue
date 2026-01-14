@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
@@ -15,20 +15,99 @@ import {
     CalendarIcon,
     XMarkIcon,
 } from '@heroicons/vue/24/outline';
+import type { Building } from '@/types/finances';
 
-const props = defineProps({
-    revenueData: { type: Array, default: () => [] },
-    collectionRate: { type: Array, default: () => [] },
-    occupancyData: { type: Object, default: () => ({ buildings: [], totals: {} }) },
-    arrearsAging: { type: Object, default: () => ({}) },
-    expensesByCategory: { type: Object, default: () => ({ categories: [], total: 0 }) },
-    waterConsumption: { type: Object, default: null },
-    topPerformingUnits: { type: Array, default: () => [] },
-    totals: { type: Object, default: () => ({}) },
-    previousPeriodData: { type: Object, default: null },
-    buildings: { type: Array, default: () => [] },
-    filters: { type: Object, default: () => ({ period: '12' }) },
-    featureAccess: { type: Object, default: () => ({}) },
+interface RevenueDataPoint {
+    month: string;
+    invoiced: number;
+    collected: number;
+}
+
+interface CollectionRatePoint {
+    month: string;
+    rate: number;
+}
+
+interface OccupancyData {
+    buildings: Array<{ name: string; occupied: number; total: number; rate: number }>;
+    totals: { occupied: number; total: number; rate: number };
+}
+
+interface ArrearsAging {
+    current: number;
+    '1-30': number;
+    '31-60': number;
+    '61-90': number;
+    '90+': number;
+    total: number;
+}
+
+interface ExpensesByCategory {
+    categories: Array<{ name: string; amount: number; percentage: number }>;
+    total: number;
+}
+
+interface WaterConsumption {
+    total_usage: number;
+    total_cost: number;
+    by_building: Array<{ name: string; usage: number; cost: number }>;
+}
+
+interface TopPerformingUnit {
+    unit_number: string;
+    building: string;
+    revenue: number;
+    collection_rate: number;
+}
+
+interface ReportTotals {
+    total_invoiced: number;
+    total_collected: number;
+    total_outstanding: number;
+    average_collection_rate: number;
+}
+
+interface ReportFilters {
+    period?: string;
+    building_id?: string | number;
+    date_from?: string;
+    date_to?: string;
+    compare?: boolean;
+}
+
+interface FeatureAccess {
+    water_module?: boolean;
+    expenses_module?: boolean;
+}
+
+interface Props {
+    revenueData?: RevenueDataPoint[];
+    collectionRate?: CollectionRatePoint[];
+    occupancyData?: OccupancyData;
+    arrearsAging?: ArrearsAging;
+    expensesByCategory?: ExpensesByCategory;
+    waterConsumption?: WaterConsumption | null;
+    topPerformingUnits?: TopPerformingUnit[];
+    totals?: ReportTotals;
+    previousPeriodData?: ReportTotals | null;
+    buildings?: Building[];
+    filters?: ReportFilters;
+    featureAccess?: FeatureAccess;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    revenueData: () => [],
+    collectionRate: () => [],
+    occupancyData: () => ({ buildings: [], totals: {} }),
+    arrearsAging: () => ({}),
+    expensesByCategory: () => ({ categories: [], total: 0 }),
+    waterConsumption: null,
+    topPerformingUnits: () => [],
+    totals: () => ({}),
+    previousPeriodData: null,
+    buildings: () => [],
+    filters: () => ({ period: '12' }),
+    featureAccess: () => ({}),
 });
 
 const { formatMoney, formatNumber, formatPercent } = useFormatters();

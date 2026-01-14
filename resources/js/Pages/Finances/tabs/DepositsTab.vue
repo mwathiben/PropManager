@@ -1,15 +1,45 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useFormatters, useTabFilters } from '@/composables';
 import { useFinancesStore } from '@/stores/finances';
 import { FilterBar, DataTable, AmountDisplay, MetricCard, Pagination, ExportDropdown } from '@/Components/Finances';
 import { BanknotesIcon, ShieldCheckIcon, ArrowUturnLeftIcon, XCircleIcon, EllipsisVerticalIcon, ChevronDownIcon, ChevronRightIcon } from '@heroicons/vue/24/outline';
+import type { PaginatedResponse, Deposit, Building } from '@/types/finances';
 
-const props = defineProps({
-    deposits: Object,
-    filters: Object,
-    stats: Object,
-    buildings: Array,
+interface DepositData {
+    id: number;
+    tenant_name: string;
+    unit_number: string;
+    building_name: string;
+    amount: number;
+    status: string;
+    refund_amount?: number;
+    deductions?: number;
+    deduction_reason?: string;
+    processed_at?: string;
+    start_date: string;
+    end_date?: string;
+    is_active: boolean;
+    transactions?: unknown[];
+}
+
+interface DepositStats {
+    total_held: number;
+    total_refunded: number;
+    total_forfeited: number;
+    pending_refunds: number;
+}
+
+interface Props {
+    deposits?: PaginatedResponse<DepositData>;
+    filters?: Record<string, unknown>;
+    stats?: DepositStats;
+    buildings?: Building[];
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    filters: () => ({}),
+    buildings: () => [],
 });
 
 const store = useFinancesStore();

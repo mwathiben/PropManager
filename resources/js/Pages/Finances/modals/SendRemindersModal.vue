@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { useFinancesStore } from '@/stores/finances';
@@ -10,7 +10,10 @@ import {
     EnvelopeIcon,
 } from '@heroicons/vue/24/outline';
 
-const emit = defineEmits(['close', 'success']);
+const emit = defineEmits<{
+    close: [];
+    success: [];
+}>();
 
 const store = useFinancesStore();
 

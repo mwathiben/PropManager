@@ -1,23 +1,40 @@
-import { ref, onMounted } from 'vue';
-import { router } from '@inertiajs/vue3';
+import { ref, onMounted, type Ref } from 'vue';
 
-export function usePushNotifications() {
+declare function route(name: string): string;
+
+export interface UsePushNotificationsReturn {
+    isSupported: Ref<boolean>;
+    isSubscribed: Ref<boolean>;
+    subscription: Ref<PushSubscription | null>;
+    permission: Ref<NotificationPermission | 'default'>;
+    isLoading: Ref<boolean>;
+    error: Ref<string | null>;
+    checkSupport: () => boolean;
+    registerServiceWorker: () => Promise<ServiceWorkerRegistration | null>;
+    getSubscription: () => Promise<PushSubscription | null>;
+    requestPermission: () => Promise<boolean>;
+    subscribe: (vapidPublicKey: string) => Promise<boolean>;
+    unsubscribe: () => Promise<boolean>;
+    showTestNotification: () => Promise<boolean>;
+}
+
+export function usePushNotifications(): UsePushNotificationsReturn {
     const isSupported = ref(false);
     const isSubscribed = ref(false);
-    const subscription = ref(null);
-    const permission = ref('default');
+    const subscription = ref<PushSubscription | null>(null);
+    const permission = ref<NotificationPermission | 'default'>('default');
     const isLoading = ref(false);
-    const error = ref(null);
+    const error = ref<string | null>(null);
 
     // Check if push notifications are supported
-    const checkSupport = () => {
+    const checkSupport = (): boolean => {
         isSupported.value = 'serviceWorker' in navigator && 'PushManager' in window;
         permission.value = Notification.permission;
         return isSupported.value;
     };
 
     // Register service worker
-    const registerServiceWorker = async () => {
+    const registerServiceWorker = async (): Promise<ServiceWorkerRegistration | null> => {
         if (!isSupported.value) return null;
 
         try {
@@ -35,7 +52,7 @@ export function usePushNotifications() {
     };
 
     // Get current subscription
-    const getSubscription = async () => {
+    const getSubscription = async (): Promise<PushSubscription | null> => {
         if (!isSupported.value) return null;
 
         try {
@@ -52,7 +69,7 @@ export function usePushNotifications() {
     };
 
     // Request notification permission
-    const requestPermission = async () => {
+    const requestPermission = async (): Promise<boolean> => {
         if (!isSupported.value) {
             error.value = 'Push notifications are not supported';
             return false;
@@ -69,8 +86,47 @@ export function usePushNotifications() {
         }
     };
 
+    // Convert VAPID key from base64 to Uint8Array
+    const urlBase64ToUint8Array = (base64String: string): Uint8Array => {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding)
+            .replace(/-/g, '+')
+            .replace(/_/g, '/');
+
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    };
+
+    // Send subscription to server
+    const sendSubscriptionToServer = async (sub: PushSubscription): Promise<unknown> => {
+        const subJson = sub.toJSON();
+
+        const response = await fetch(route('notifications.push.subscribe'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
+            },
+            body: JSON.stringify({
+                endpoint: subJson.endpoint,
+                keys: subJson.keys
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to send subscription to server');
+        }
+
+        return response.json();
+    };
+
     // Subscribe to push notifications
-    const subscribe = async (vapidPublicKey) => {
+    const subscribe = async (vapidPublicKey: string): Promise<boolean> => {
         if (!isSupported.value) {
             error.value = 'Push notifications are not supported';
             return false;
@@ -122,7 +178,7 @@ export function usePushNotifications() {
     };
 
     // Unsubscribe from push notifications
-    const unsubscribe = async () => {
+    const unsubscribe = async (): Promise<boolean> => {
         if (!subscription.value) return true;
 
         isLoading.value = true;
@@ -136,7 +192,7 @@ export function usePushNotifications() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
+                    'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
                 },
                 body: JSON.stringify({
                     endpoint: subscription.value.endpoint
@@ -155,47 +211,8 @@ export function usePushNotifications() {
         }
     };
 
-    // Send subscription to server
-    const sendSubscriptionToServer = async (sub) => {
-        const subJson = sub.toJSON();
-
-        const response = await fetch(route('notifications.push.subscribe'), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
-            },
-            body: JSON.stringify({
-                endpoint: subJson.endpoint,
-                keys: subJson.keys
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to send subscription to server');
-        }
-
-        return response.json();
-    };
-
-    // Convert VAPID key from base64 to Uint8Array
-    const urlBase64ToUint8Array = (base64String) => {
-        const padding = '='.repeat((4 - base64String.length % 4) % 4);
-        const base64 = (base64String + padding)
-            .replace(/-/g, '+')
-            .replace(/_/g, '/');
-
-        const rawData = window.atob(base64);
-        const outputArray = new Uint8Array(rawData.length);
-
-        for (let i = 0; i < rawData.length; ++i) {
-            outputArray[i] = rawData.charCodeAt(i);
-        }
-        return outputArray;
-    };
-
     // Show a test notification
-    const showTestNotification = async () => {
+    const showTestNotification = async (): Promise<boolean> => {
         if (!isSupported.value || permission.value !== 'granted') {
             error.value = 'Cannot show notification - permission not granted';
             return false;

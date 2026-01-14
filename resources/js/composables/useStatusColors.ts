@@ -2,14 +2,28 @@
  * Composable for status-to-color mappings
  * Centralizes color logic from 6+ duplicate implementations
  */
-export function useStatusColors() {
+
+type ColorClasses = string;
+
+export interface UseStatusColorsReturn {
+    invoiceStatusColor: (status: string) => ColorClasses;
+    unitStatusColor: (status: string) => ColorClasses;
+    unitStatusBadgeColor: (status: string) => ColorClasses;
+    notificationStatusColor: (status: string) => ColorClasses;
+    ticketPriorityColor: (priority: string) => ColorClasses;
+    documentTypeColor: (type: string) => ColorClasses;
+    paymentMethodColor: (method: string) => ColorClasses;
+    refundStatusColor: (status: string) => ColorClasses;
+    reconciliationStatusColor: (status: string) => ColorClasses;
+    getStatusColor: (status: string, colorMap: Record<string, ColorClasses>, fallback?: ColorClasses) => ColorClasses;
+}
+
+export function useStatusColors(): UseStatusColorsReturn {
     /**
      * Invoice status colors
-     * @param {string} status - draft, sent, partial, paid, overdue
-     * @returns {string} Tailwind CSS classes
      */
-    const invoiceStatusColor = (status) => {
-        const colors = {
+    const invoiceStatusColor = (status: string): ColorClasses => {
+        const colors: Record<string, ColorClasses> = {
             'draft': 'bg-gray-100 text-gray-800',
             'sent': 'bg-blue-100 text-blue-800',
             'partial': 'bg-yellow-100 text-yellow-800',
@@ -21,11 +35,9 @@ export function useStatusColors() {
 
     /**
      * Unit status colors
-     * @param {string} status - vacant, occupied, maintenance, arrears
-     * @returns {string} Tailwind CSS classes
      */
-    const unitStatusColor = (status) => {
-        const colors = {
+    const unitStatusColor = (status: string): ColorClasses => {
+        const colors: Record<string, ColorClasses> = {
             'vacant': 'bg-gray-50 border-gray-200 text-gray-600',
             'occupied': 'bg-green-50 border-green-200 text-green-700',
             'maintenance': 'bg-orange-50 border-orange-200 text-orange-700',
@@ -36,11 +48,9 @@ export function useStatusColors() {
 
     /**
      * Unit status badge colors (smaller badges)
-     * @param {string} status - vacant, occupied, maintenance, arrears
-     * @returns {string} Tailwind CSS classes
      */
-    const unitStatusBadgeColor = (status) => {
-        const colors = {
+    const unitStatusBadgeColor = (status: string): ColorClasses => {
+        const colors: Record<string, ColorClasses> = {
             'vacant': 'bg-gray-100 text-gray-800',
             'occupied': 'bg-green-100 text-green-800',
             'maintenance': 'bg-orange-100 text-orange-800',
@@ -51,11 +61,9 @@ export function useStatusColors() {
 
     /**
      * Notification/ticket status colors
-     * @param {string} status - pending, sent, delivered, failed, open, in_progress, resolved, closed
-     * @returns {string} Tailwind CSS classes
      */
-    const notificationStatusColor = (status) => {
-        const colors = {
+    const notificationStatusColor = (status: string): ColorClasses => {
+        const colors: Record<string, ColorClasses> = {
             'pending': 'bg-yellow-100 text-yellow-800',
             'sent': 'bg-blue-100 text-blue-800',
             'delivered': 'bg-green-100 text-green-800',
@@ -70,11 +78,9 @@ export function useStatusColors() {
 
     /**
      * Ticket priority colors
-     * @param {string} priority - low, medium, high, urgent
-     * @returns {string} Tailwind CSS classes
      */
-    const ticketPriorityColor = (priority) => {
-        const colors = {
+    const ticketPriorityColor = (priority: string): ColorClasses => {
+        const colors: Record<string, ColorClasses> = {
             'low': 'bg-gray-100 text-gray-800',
             'medium': 'bg-blue-100 text-blue-800',
             'high': 'bg-orange-100 text-orange-800',
@@ -85,11 +91,9 @@ export function useStatusColors() {
 
     /**
      * Document type colors
-     * @param {string} type - lease_agreement, tenant_id, etc.
-     * @returns {string} Tailwind CSS classes
      */
-    const documentTypeColor = (type) => {
-        const colors = {
+    const documentTypeColor = (type: string): ColorClasses => {
+        const colors: Record<string, ColorClasses> = {
             'lease_agreement': 'bg-blue-100 text-blue-800',
             'tenant_id': 'bg-green-100 text-green-800',
             'tenant_passport': 'bg-purple-100 text-purple-800',
@@ -104,11 +108,9 @@ export function useStatusColors() {
 
     /**
      * Payment method colors
-     * @param {string} method - cash, bank_transfer, mobile_money, paystack, stripe
-     * @returns {string} Tailwind CSS classes
      */
-    const paymentMethodColor = (method) => {
-        const colors = {
+    const paymentMethodColor = (method: string): ColorClasses => {
+        const colors: Record<string, ColorClasses> = {
             'cash': 'bg-green-100 text-green-800',
             'bank_transfer': 'bg-blue-100 text-blue-800',
             'mobile_money': 'bg-orange-100 text-orange-800',
@@ -120,11 +122,9 @@ export function useStatusColors() {
 
     /**
      * Refund status colors
-     * @param {string} status - pending, approved, processing, completed, failed, cancelled
-     * @returns {string} Tailwind CSS classes
      */
-    const refundStatusColor = (status) => {
-        const colors = {
+    const refundStatusColor = (status: string): ColorClasses => {
+        const colors: Record<string, ColorClasses> = {
             'pending': 'bg-yellow-100 text-yellow-800',
             'approved': 'bg-blue-100 text-blue-800',
             'processing': 'bg-indigo-100 text-indigo-800',
@@ -137,11 +137,9 @@ export function useStatusColors() {
 
     /**
      * Reconciliation queue status colors
-     * @param {string} status - pending, processing, matched, unmatched, error
-     * @returns {string} Tailwind CSS classes
      */
-    const reconciliationStatusColor = (status) => {
-        const colors = {
+    const reconciliationStatusColor = (status: string): ColorClasses => {
+        const colors: Record<string, ColorClasses> = {
             'pending': 'bg-yellow-100 text-yellow-800',
             'processing': 'bg-blue-100 text-blue-800',
             'matched': 'bg-green-100 text-green-800',
@@ -153,12 +151,12 @@ export function useStatusColors() {
 
     /**
      * Generic status color getter
-     * @param {string} status - The status value
-     * @param {object} colorMap - Custom color mapping object
-     * @param {string} fallback - Fallback color classes
-     * @returns {string} Tailwind CSS classes
      */
-    const getStatusColor = (status, colorMap, fallback = 'bg-gray-100 text-gray-800') => {
+    const getStatusColor = (
+        status: string,
+        colorMap: Record<string, ColorClasses>,
+        fallback: ColorClasses = 'bg-gray-100 text-gray-800'
+    ): ColorClasses => {
         return colorMap[status] || fallback;
     };
 

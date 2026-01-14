@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
@@ -11,8 +11,18 @@ import {
     UserIcon,
     HomeIcon,
 } from '@heroicons/vue/24/outline';
+import type { Deposit } from '@/types/finances';
 
-const emit = defineEmits(['close', 'success']);
+interface RefundDepositForm {
+    refund_amount: number;
+    deductions: number;
+    deduction_reason: string;
+}
+
+const emit = defineEmits<{
+    close: [];
+    success: [];
+}>();
 
 const store = useFinancesStore();
 const { formatMoney, formatDate } = useFormatters();

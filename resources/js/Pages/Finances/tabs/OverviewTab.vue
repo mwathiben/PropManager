@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
@@ -20,13 +20,27 @@ import {
     PlusIcon,
     BellIcon,
 } from '@heroicons/vue/24/outline';
+import type { FinanceStats, TrendDataPoint, Invoice, Payment } from '@/types/finances';
 
-const props = defineProps({
-    stats: Object,
-    recentPayments: Array,
-    recentInvoices: Array,
-    collectionStatus: String,
-    monthlyTrend: Array,
+interface OverviewStats extends FinanceStats {
+    this_month: number;
+    last_month: number;
+}
+
+type CollectionStatus = 'excellent' | 'good' | 'needs_attention' | 'critical';
+
+interface Props {
+    stats?: OverviewStats;
+    recentPayments?: Payment[];
+    recentInvoices?: Invoice[];
+    collectionStatus?: CollectionStatus;
+    monthlyTrend?: TrendDataPoint[];
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    recentPayments: () => [],
+    recentInvoices: () => [],
+    monthlyTrend: () => [],
 });
 
 const { formatMoney, formatDate, formatRelativeTime } = useFormatters();

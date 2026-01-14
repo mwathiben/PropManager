@@ -1,15 +1,15 @@
-<script setup>
+<script setup lang="ts">
 import { router } from '@inertiajs/vue3';
+import type { PaginationLink } from '@/types/finances';
 
-const props = defineProps({
-    links: {
-        type: Array,
-        default: () => [],
-    },
-    wrapperClass: {
-        type: String,
-        default: '',
-    },
+interface Props {
+    links?: PaginationLink[];
+    wrapperClass?: string;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    links: () => [],
+    wrapperClass: '',
 });
 </script>
 

@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
@@ -13,11 +13,27 @@ import {
     PlayIcon,
     ChevronDownIcon,
 } from '@heroicons/vue/24/outline';
+import type { Payment } from '@/types/finances';
 
-const props = defineProps({
-    unmatchedPayments: Array,
-    pendingReconciliation: Number,
-    stats: Object,
+interface UnmatchedPayment extends Payment {
+    tenant?: { name: string };
+}
+
+interface ReconciliationStats {
+    total_unmatched: number;
+    total_matched: number;
+    pending_amount: number;
+}
+
+interface Props {
+    unmatchedPayments?: UnmatchedPayment[];
+    pendingReconciliation?: number;
+    stats?: ReconciliationStats;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    unmatchedPayments: () => [],
+    pendingReconciliation: 0,
 });
 
 const store = useFinancesStore();

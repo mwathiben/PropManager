@@ -1,5 +1,5 @@
-<script setup>
-import { computed } from 'vue';
+<script setup lang="ts">
+import { computed, type Component } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
 import {
@@ -7,33 +7,32 @@ import {
     ArrowTrendingDownIcon,
 } from '@heroicons/vue/24/solid';
 
-const props = defineProps({
-    title: {
-        type: String,
-        required: true,
-    },
-    value: {
-        type: [Number, String],
-        default: 0,
-    },
-    format: {
-        type: String,
-        default: 'currency',
-        validator: (v) => ['currency', 'number', 'percent', 'text'].includes(v),
-    },
-    subtitle: String,
-    trend: {
-        type: Object,
-        default: null,
-    },
-    icon: Object,
-    color: {
-        type: String,
-        default: 'emerald',
-        validator: (v) => ['emerald', 'blue', 'red', 'yellow', 'indigo', 'gray', 'purple', 'orange'].includes(v),
-    },
-    href: String,
-    loading: Boolean,
+type Format = 'currency' | 'number' | 'percent' | 'text';
+type Color = 'emerald' | 'blue' | 'red' | 'yellow' | 'indigo' | 'gray' | 'purple' | 'orange';
+
+interface Trend {
+    direction: 'up' | 'down';
+    value: string;
+}
+
+interface Props {
+    title: string;
+    value?: number | string;
+    format?: Format;
+    subtitle?: string;
+    trend?: Trend | null;
+    icon?: Component;
+    color?: Color;
+    href?: string;
+    loading?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    value: 0,
+    format: 'currency',
+    trend: null,
+    color: 'emerald',
+    loading: false,
 });
 
 const { formatMoney, formatNumber, formatPercent } = useFormatters();

@@ -1,5 +1,5 @@
-<script setup>
-import { computed, onMounted, watch } from 'vue';
+<script setup lang="ts">
+import { computed, onMounted, watch, type Component } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import { useFinancesStore } from '@/stores/finances';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
@@ -36,46 +36,109 @@ import {
     ClockIcon,
     ReceiptPercentIcon,
 } from '@heroicons/vue/24/outline';
+import type {
+    PaginatedResponse,
+    Invoice,
+    Payment,
+    Refund,
+    Deposit,
+    Expense,
+    Building,
+    Property,
+    FinanceStats,
+    TrendDataPoint,
+} from '@/types/finances';
 
-const props = defineProps({
-    activeTab: { type: String, default: 'overview' },
-    activeGroup: { type: String, default: null },
-    buildings: { type: Array, default: () => [] },
-    tabs: { type: Array, default: () => [] },
-    stats: Object,
-    recentPayments: Array,
-    recentInvoices: Array,
-    collectionStatus: String,
-    monthlyTrend: Array,
-    invoices: Object,
-    payments: Object,
-    refunds: Object,
-    unmatchedPayments: Array,
-    pendingReconciliation: Number,
-    deposits: Object,
-    arrears: Array,
-    paymentConfig: Object,
-    paymentMethods: Object,
-    invoiceSettings: Object,
-    reminderSettings: Object,
-    filters: Object,
-    statusOptions: Array,
-    paymentMethodOptions: Array,
-    policies: Array,
-    properties: Array,
-    expenses: Object,
-    categories: Array,
-    vendors: Array,
-    revenueData: Array,
-    collectionRate: Array,
-    occupancyData: Object,
-    arrearsAging: Object,
-    expensesByCategory: Array,
+interface TabConfig {
+    id: string;
+    name: string;
+    route: string;
+    subtabs?: TabConfig[];
+}
+
+interface GroupConfig {
+    name: string;
+    icon: Component;
+}
+
+interface ArrearsEntry {
+    id: number;
+    tenant_name: string;
+    unit_number: string;
+    amount: number;
+    days_overdue: number;
+}
+
+interface StatusOption {
+    value: string;
+    label: string;
+}
+
+interface PaymentMethodOption {
+    value: string;
+    label: string;
+}
+
+interface Props {
+    activeTab?: string;
+    activeGroup?: string | null;
+    buildings?: Building[];
+    tabs?: TabConfig[];
+    stats?: FinanceStats;
+    recentPayments?: Payment[];
+    recentInvoices?: Invoice[];
+    collectionStatus?: string;
+    monthlyTrend?: TrendDataPoint[];
+    invoices?: PaginatedResponse<Invoice>;
+    payments?: PaginatedResponse<Payment>;
+    refunds?: PaginatedResponse<Refund>;
+    unmatchedPayments?: Payment[];
+    pendingReconciliation?: number;
+    deposits?: PaginatedResponse<Deposit>;
+    arrears?: ArrearsEntry[];
+    paymentConfig?: Record<string, unknown>;
+    paymentMethods?: Record<string, unknown>;
+    invoiceSettings?: Record<string, unknown>;
+    reminderSettings?: Record<string, unknown>;
+    filters?: Record<string, unknown>;
+    statusOptions?: StatusOption[];
+    paymentMethodOptions?: PaymentMethodOption[];
+    policies?: Record<string, unknown>[];
+    properties?: Property[];
+    expenses?: PaginatedResponse<Expense>;
+    categories?: Record<string, unknown>[];
+    vendors?: Record<string, unknown>[];
+    revenueData?: Record<string, unknown>[];
+    collectionRate?: Record<string, unknown>[];
+    occupancyData?: Record<string, unknown>;
+    arrearsAging?: Record<string, unknown>;
+    expensesByCategory?: Record<string, unknown>[];
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    activeTab: 'overview',
+    activeGroup: null,
+    buildings: () => [],
+    tabs: () => [],
+    recentPayments: () => [],
+    recentInvoices: () => [],
+    monthlyTrend: () => [],
+    arrears: () => [],
+    statusOptions: () => [],
+    paymentMethodOptions: () => [],
+    policies: () => [],
+    properties: () => [],
+    categories: () => [],
+    vendors: () => [],
+    revenueData: () => [],
+    collectionRate: () => [],
+    expensesByCategory: () => [],
+    filters: () => ({}),
 });
 
 const store = useFinancesStore();
 
-const groupConfig = {
+const groupConfig: Record<string, GroupConfig> = {
     overview: { name: 'Overview', icon: ChartBarIcon },
     billing: { name: 'Billing', icon: DocumentTextIcon },
     expenses: { name: 'Expenses', icon: ReceiptPercentIcon },

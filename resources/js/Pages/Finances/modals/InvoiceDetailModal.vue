@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useFormatters, usePayments } from '@/composables';
 import { useFinancesStore } from '@/stores/finances';
@@ -21,12 +21,29 @@ import {
     EyeIcon,
     ArrowPathIcon,
 } from '@heroicons/vue/24/outline';
+import type { Invoice, Payment } from '@/types/finances';
 
-const props = defineProps({
-    show: Boolean,
+interface InvoiceDetail extends Invoice {
+    tenant_name?: string;
+    unit_number?: string;
+    billing_period_start?: string;
+    billing_period_end?: string;
+    payments?: Payment[];
+}
+
+interface Props {
+    show?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    show: false,
 });
 
-const emit = defineEmits(['close', 'recordPayment', 'sendReminder']);
+const emit = defineEmits<{
+    close: [];
+    recordPayment: [];
+    sendReminder: [id: number];
+}>();
 
 const store = useFinancesStore();
 const { formatMoney, formatDate } = useFormatters();

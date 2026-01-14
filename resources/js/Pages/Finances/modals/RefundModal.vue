@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { useFormatters, usePayments } from '@/composables';
@@ -9,15 +9,38 @@ import {
     CheckIcon,
     ExclamationTriangleIcon,
 } from '@heroicons/vue/24/outline';
+import type { Payment } from '@/types/finances';
 
-const props = defineProps({
-    payments: {
-        type: Array,
-        default: () => [],
-    },
+interface PaymentWithMeta extends Payment {
+    tenant_name?: string;
+    payment_date?: string;
+    refund_status?: string;
+}
+
+interface RefundMethod {
+    id: string;
+    label: string;
+}
+
+interface RefundForm {
+    payment_id: number | null;
+    amount: string | number;
+    reason: string;
+    refund_method: string;
+}
+
+interface Props {
+    payments?: PaymentWithMeta[];
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    payments: () => [],
 });
 
-const emit = defineEmits(['close', 'success']);
+const emit = defineEmits<{
+    close: [];
+    success: [];
+}>();
 
 const store = useFinancesStore();
 const { formatMoney, formatDate } = useFormatters();

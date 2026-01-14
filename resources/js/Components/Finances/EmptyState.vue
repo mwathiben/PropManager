@@ -1,5 +1,5 @@
-<script setup>
-import { computed } from 'vue';
+<script setup lang="ts">
+import { computed, type Component } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import {
     DocumentTextIcon,
@@ -8,35 +8,29 @@ import {
     FolderOpenIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    icon: {
-        type: Object,
-        default: () => FolderOpenIcon,
-    },
-    title: {
-        type: String,
-        default: 'No data found',
-    },
-    description: {
-        type: String,
-        default: null,
-    },
-    actionLabel: {
-        type: String,
-        default: null,
-    },
-    actionHref: {
-        type: String,
-        default: null,
-    },
-    size: {
-        type: String,
-        default: 'md',
-        validator: (v) => ['sm', 'md', 'lg'].includes(v),
-    },
+type Size = 'sm' | 'md' | 'lg';
+
+interface Props {
+    icon?: Component;
+    title?: string;
+    description?: string | null;
+    actionLabel?: string | null;
+    actionHref?: string | null;
+    size?: Size;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    icon: () => FolderOpenIcon,
+    title: 'No data found',
+    description: null,
+    actionLabel: null,
+    actionHref: null,
+    size: 'md',
 });
 
-const emit = defineEmits(['action']);
+const emit = defineEmits<{
+    action: [];
+}>();
 
 const sizeClasses = computed(() => {
     const sizes = {

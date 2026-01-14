@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
@@ -12,8 +12,16 @@ import {
     HomeIcon,
     ExclamationTriangleIcon,
 } from '@heroicons/vue/24/outline';
+import type { Deposit } from '@/types/finances';
 
-const emit = defineEmits(['close', 'success']);
+interface ForfeitForm {
+    reason: string;
+}
+
+const emit = defineEmits<{
+    close: [];
+    success: [];
+}>();
 
 const store = useFinancesStore();
 const { formatMoney } = useFormatters();

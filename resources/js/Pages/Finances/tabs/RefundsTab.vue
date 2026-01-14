@@ -1,14 +1,25 @@
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue';
 import { router, Link } from '@inertiajs/vue3';
 import { useFormatters, useStatusColors, useTabFilters } from '@/composables';
 import { FilterBar, DataTable, AmountDisplay, EmptyState, Pagination } from '@/Components/Finances';
 import { ArrowUturnLeftIcon, EyeIcon, PlusIcon } from '@heroicons/vue/24/outline';
+import type { PaginatedResponse, Refund, RefundStatus } from '@/types/finances';
 
-const props = defineProps({
-    refunds: Object,
-    filters: Object,
-    statusOptions: Array,
+interface StatusOption {
+    value: string;
+    label: string;
+}
+
+interface Props {
+    refunds?: PaginatedResponse<Refund>;
+    filters?: Record<string, unknown>;
+    statusOptions?: StatusOption[];
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    filters: () => ({}),
+    statusOptions: () => [],
 });
 
 const { formatDate } = useFormatters();

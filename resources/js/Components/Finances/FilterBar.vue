@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, watch } from 'vue';
 import { useDebouncedSearch } from '@/composables';
 import {
@@ -7,58 +7,66 @@ import {
     XMarkIcon,
     ChevronDownIcon,
 } from '@heroicons/vue/24/outline';
+import type { Building } from '@/types/finances';
 
-const props = defineProps({
-    modelValue: {
-        type: Object,
-        default: () => ({
-            search: '',
-            status: '',
-            paymentMethod: '',
-            buildingId: null,
-            dateRange: { from: null, to: null },
-        }),
-    },
-    showSearch: {
-        type: Boolean,
-        default: true,
-    },
-    showStatus: {
-        type: Boolean,
-        default: true,
-    },
-    showPaymentMethod: {
-        type: Boolean,
-        default: false,
-    },
-    showBuilding: {
-        type: Boolean,
-        default: true,
-    },
-    showDateRange: {
-        type: Boolean,
-        default: true,
-    },
-    statusOptions: {
-        type: Array,
-        default: () => [],
-    },
-    paymentMethodOptions: {
-        type: Array,
-        default: () => [],
-    },
-    buildings: {
-        type: Array,
-        default: () => [],
-    },
-    searchPlaceholder: {
-        type: String,
-        default: 'Search...',
-    },
-    loading: Boolean,
+interface DateRange {
+    from: string | null;
+    to: string | null;
+}
+
+interface FilterModelValue {
+    search: string;
+    status: string;
+    paymentMethod: string;
+    buildingId: number | string | null;
+    dateRange: DateRange;
+    [key: string]: unknown;
+}
+
+interface SelectOption {
+    value: string;
+    label: string;
+}
+
+interface Props {
+    modelValue?: FilterModelValue;
+    showSearch?: boolean;
+    showStatus?: boolean;
+    showPaymentMethod?: boolean;
+    showBuilding?: boolean;
+    showDateRange?: boolean;
+    statusOptions?: SelectOption[];
+    paymentMethodOptions?: SelectOption[];
+    buildings?: Building[] | { id: number; name: string }[];
+    searchPlaceholder?: string;
+    loading?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    modelValue: () => ({
+        search: '',
+        status: '',
+        paymentMethod: '',
+        buildingId: null,
+        dateRange: { from: null, to: null },
+    }),
+    showSearch: true,
+    showStatus: true,
+    showPaymentMethod: false,
+    showBuilding: true,
+    showDateRange: true,
+    statusOptions: () => [],
+    paymentMethodOptions: () => [],
+    buildings: () => [],
+    searchPlaceholder: 'Search...',
+    loading: false,
 });
 
-const emit = defineEmits(['update:modelValue', 'filter', 'clear']);
+const emit = defineEmits<{
+    'update:modelValue': [value: FilterModelValue];
+    filter: [payload: { key: string; value: unknown }];
+    clear: [];
+}>();
 
 const { searchQuery, debouncedSearch } = useDebouncedSearch({
     initialValue: props.modelValue.search,

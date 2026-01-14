@@ -1,21 +1,19 @@
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue';
 import { useStatusColors, usePayments } from '@/composables';
+import type { InvoiceStatus } from '@/types/finances';
 
-const props = defineProps({
-    status: {
-        type: String,
-        required: true,
-    },
-    size: {
-        type: String,
-        default: 'md',
-        validator: (v) => ['sm', 'md', 'lg'].includes(v),
-    },
-    showDot: {
-        type: Boolean,
-        default: false,
-    },
+type Size = 'sm' | 'md' | 'lg';
+
+interface Props {
+    status: InvoiceStatus | string;
+    size?: Size;
+    showDot?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    size: 'md',
+    showDot: false,
 });
 
 const { invoiceStatusColor } = useStatusColors();

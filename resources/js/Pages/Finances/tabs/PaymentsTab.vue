@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import { router, Link } from '@inertiajs/vue3';
 import { useFormatters, useTabFilters } from '@/composables';
@@ -13,12 +13,24 @@ import {
     ExportDropdown,
 } from '@/Components/Finances';
 import { CreditCardIcon, EyeIcon, ArrowUturnLeftIcon, DocumentArrowDownIcon, PlusIcon, ArrowUpTrayIcon } from '@heroicons/vue/24/outline';
+import type { PaginatedResponse, Payment, Building } from '@/types/finances';
 
-const props = defineProps({
-    payments: Object,
-    filters: Object,
-    paymentMethodOptions: Array,
-    buildings: Array,
+interface PaymentMethodOption {
+    value: string;
+    label: string;
+}
+
+interface Props {
+    payments?: PaginatedResponse<Payment>;
+    filters?: Record<string, unknown>;
+    paymentMethodOptions?: PaymentMethodOption[];
+    buildings?: Building[];
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    filters: () => ({}),
+    paymentMethodOptions: () => [],
+    buildings: () => [],
 });
 
 const { formatDate } = useFormatters();

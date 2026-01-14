@@ -700,8 +700,9 @@
         "IDE autocomplete works for finance types",
         "Build passes with strict type checking"
       ],
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
+      "notes": "Created tsconfig.json and resources/js/types/finances.d.ts (~200 lines) with Invoice, Payment, Refund, Lease, Deposit, Expense, and related interfaces. Converted 7 composables to TypeScript. Converted 9 shared components, 11 tab components, 8 modal components, and 2 entry points (Index.vue, Hub.vue). All with <script setup lang=\"ts\">. Build passes.",
       "depends_on": ["FIN-019"]
     },
     {
@@ -744,7 +745,7 @@
   ],
   "metadata": {
     "total_stories": 37,
-    "passing_stories": 32,
+    "passing_stories": 33,
     "framework": "Laravel",
     "frontend": "Vue.js/Inertia"
   }

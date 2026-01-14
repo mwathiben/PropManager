@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue';
 import { router, Link } from '@inertiajs/vue3';
 import { useFormatters, usePayments, useTabFilters } from '@/composables';
@@ -10,12 +10,38 @@ import {
     BellIcon,
     EnvelopeIcon,
 } from '@heroicons/vue/24/outline';
+import type { Building } from '@/types/finances';
 
-const props = defineProps({
-    arrears: Array,
-    filters: Object,
-    stats: Object,
-    buildings: Array,
+interface ArrearsItem {
+    id: number;
+    invoice_number: string;
+    tenant?: { name: string; email?: string; phone?: string };
+    unit: string;
+    building: string;
+    total_due: number;
+    amount_paid: number;
+    balance: number;
+    days_overdue: number;
+    due_date: string;
+}
+
+interface ArrearsStats {
+    total_arrears: number;
+    tenants_in_arrears: number;
+    average_days_overdue: number;
+}
+
+interface Props {
+    arrears?: ArrearsItem[];
+    filters?: Record<string, unknown>;
+    stats?: ArrearsStats;
+    buildings?: Building[];
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    arrears: () => [],
+    filters: () => ({}),
+    buildings: () => [],
 });
 
 const { formatDate, formatMoney } = useFormatters();

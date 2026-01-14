@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useFormatters, usePayments } from '@/composables';
 import { useFinancesStore } from '@/stores/finances';
@@ -20,12 +20,36 @@ import {
     EnvelopeIcon,
     NoSymbolIcon,
 } from '@heroicons/vue/24/outline';
+import type { Payment, Invoice } from '@/types/finances';
 
-const props = defineProps({
-    show: Boolean,
+interface PaymentDetail extends Payment {
+    tenant_name?: string;
+    unit_number?: string;
+    payment_date?: string;
+    refund_status?: string;
+    refund_date?: string;
+    is_voided?: boolean;
+    voided_at?: string;
+    void_reason?: string;
+    invoice?: Invoice;
+    invoice_id?: number;
+    mpesa_transaction_id?: string;
+    mpesa_checkout_request_id?: string;
+}
+
+interface Props {
+    show?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    show: false,
 });
 
-const emit = defineEmits(['close', 'refund', 'viewInvoice']);
+const emit = defineEmits<{
+    close: [];
+    refund: [];
+    viewInvoice: [];
+}>();
 
 const store = useFinancesStore();
 const { formatMoney, formatDate } = useFormatters();

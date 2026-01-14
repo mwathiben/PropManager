@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useForm, router } from '@inertiajs/vue3';
 import { useTabFilters } from '@/composables';
@@ -16,15 +16,53 @@ import {
     XMarkIcon,
     UserGroupIcon,
 } from '@heroicons/vue/24/outline';
+import type { PaginatedResponse, Expense, Building, Property } from '@/types/finances';
 
-const props = defineProps({
-    expenses: Object,
-    filters: Object,
-    categories: { type: Array, default: () => [] },
-    vendors: { type: Array, default: () => [] },
-    buildings: { type: Array, default: () => [] },
-    properties: { type: Array, default: () => [] },
-    stats: { type: Object, default: () => ({}) },
+interface ExpenseCategory {
+    id: number;
+    name: string;
+    description?: string;
+    color: string;
+    expense_count?: number;
+    total_amount?: number;
+}
+
+interface Vendor {
+    id: number;
+    name: string;
+    contact_person?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    tax_id?: string;
+    notes?: string;
+    total_amount?: number;
+}
+
+interface ExpenseStats {
+    total_expenses: number;
+    monthly_trend: number;
+    top_category?: string;
+    pending_payments?: number;
+}
+
+interface Props {
+    expenses?: PaginatedResponse<Expense>;
+    filters?: Record<string, unknown>;
+    categories?: ExpenseCategory[];
+    vendors?: Vendor[];
+    buildings?: Building[];
+    properties?: Property[];
+    stats?: ExpenseStats;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    filters: () => ({}),
+    categories: () => [],
+    vendors: () => [],
+    buildings: () => [],
+    properties: () => [],
+    stats: () => ({}),
 });
 
 const activeTab = ref('expenses');

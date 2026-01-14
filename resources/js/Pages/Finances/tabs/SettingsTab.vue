@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue';
 import { Link, useForm } from '@inertiajs/vue3';
 import {
@@ -14,13 +14,61 @@ import {
     CalendarDaysIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    paymentConfig: Object,
-    paymentMethods: Object,
-    invoiceSettings: Object,
-    reminderSettings: Object,
-    receiptSettings: Object,
-    fiscalYearSettings: Object,
+interface PaymentConfig {
+    accepted_payment_methods?: string[];
+    bank_name?: string;
+    bank_account_name?: string;
+    bank_account_number?: string;
+    bank_branch?: string;
+    mpesa_shortcode_type?: 'paybill' | 'till';
+    mpesa_shortcode?: string;
+    mpesa_account_name?: string;
+}
+
+interface InvoiceSettings {
+    include_water_charges?: boolean;
+    include_arrears?: boolean;
+    auto_generate_monthly?: boolean;
+}
+
+interface ReminderSettings {
+    reminder_days_before_due?: number;
+    overdue_reminder_frequency?: string;
+    reminder_channels?: string[];
+}
+
+interface ReceiptSettings {
+    auto_email_receipt?: boolean;
+    receipt_show_logo?: boolean;
+    receipt_show_tenant_details?: boolean;
+    receipt_show_invoice_details?: boolean;
+    receipt_show_payment_method?: boolean;
+    receipt_header_text?: string;
+    receipt_footer_text?: string;
+    receipt_thank_you_message?: string;
+}
+
+interface FiscalYearSettings {
+    fiscal_year_type?: 'calendar' | 'custom';
+    fiscal_year_start_month?: number;
+}
+
+interface Props {
+    paymentConfig?: PaymentConfig;
+    paymentMethods?: Record<string, boolean>;
+    invoiceSettings?: InvoiceSettings;
+    reminderSettings?: ReminderSettings;
+    receiptSettings?: ReceiptSettings;
+    fiscalYearSettings?: FiscalYearSettings;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    paymentConfig: () => ({}),
+    paymentMethods: () => ({}),
+    invoiceSettings: () => ({}),
+    reminderSettings: () => ({}),
+    receiptSettings: () => ({}),
+    fiscalYearSettings: () => ({}),
 });
 
 const activeSection = ref('payment-methods');

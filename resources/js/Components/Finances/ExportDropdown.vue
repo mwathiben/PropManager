@@ -1,22 +1,29 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue';
 import { ArrowDownTrayIcon } from '@heroicons/vue/24/outline';
+import type { ExportFormat } from '@/types/finances';
 
-const props = defineProps({
-    formats: {
-        type: Array,
-        default: () => [
-            { value: 'xlsx', label: 'Excel (.xlsx)' },
-            { value: 'pdf', label: 'PDF' },
-        ],
-    },
-    buttonText: {
-        type: String,
-        default: 'Export',
-    },
+interface FormatOption {
+    value: ExportFormat | string;
+    label: string;
+}
+
+interface Props {
+    formats?: FormatOption[];
+    buttonText?: string;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    formats: () => [
+        { value: 'xlsx', label: 'Excel (.xlsx)' },
+        { value: 'pdf', label: 'PDF' },
+    ],
+    buttonText: 'Export',
 });
 
-const emit = defineEmits(['export']);
+const emit = defineEmits<{
+    export: [format: string];
+}>();
 
 const showMenu = ref(false);
 

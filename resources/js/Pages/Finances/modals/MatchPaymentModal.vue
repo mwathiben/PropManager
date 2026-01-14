@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
@@ -9,16 +9,25 @@ import {
     CheckIcon,
     DocumentTextIcon,
 } from '@heroicons/vue/24/outline';
+import type { Invoice, Payment } from '@/types/finances';
 
-const props = defineProps({
-    invoices: {
-        type: Array,
-        default: () => [],
-    },
-    payments: {
-        type: Array,
-        default: () => [],
-    },
+interface InvoiceWithBalance extends Invoice {
+    balance: number;
+}
+
+interface PaymentWithMeta extends Payment {
+    tenant_name?: string;
+    payment_date?: string;
+}
+
+interface Props {
+    invoices?: InvoiceWithBalance[];
+    payments?: PaymentWithMeta[];
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    invoices: () => [],
+    payments: () => [],
 });
 
 const emit = defineEmits(['close', 'success']);

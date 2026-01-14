@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useForm, router } from '@inertiajs/vue3';
 import {
@@ -10,12 +10,43 @@ import {
     ExclamationTriangleIcon,
     ClockIcon,
 } from '@heroicons/vue/24/outline';
+import type { Property, Building } from '@/types/finances';
 
-const props = defineProps({
-    policies: { type: Array, default: () => [] },
-    properties: { type: Array, default: () => [] },
-    buildings: { type: Array, default: () => [] },
-    stats: { type: Object, default: () => ({}) },
+interface LateFeePolicy {
+    id: number;
+    name: string;
+    property_id?: number;
+    building_id?: number;
+    property?: Property;
+    building?: Building;
+    grace_period_days: number;
+    fee_type: 'percentage' | 'fixed';
+    fee_percentage?: number;
+    fee_amount?: number;
+    is_compounding: boolean;
+    compounding_frequency?: string;
+    max_fee_cap?: number;
+    is_active: boolean;
+}
+
+interface LateFeeStats {
+    total_policies: number;
+    active_policies: number;
+    total_fees_collected: number;
+}
+
+interface Props {
+    policies?: LateFeePolicy[];
+    properties?: Property[];
+    buildings?: Building[];
+    stats?: LateFeeStats;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    policies: () => [],
+    properties: () => [],
+    buildings: () => [],
+    stats: () => ({}),
 });
 
 const showForm = ref(false);

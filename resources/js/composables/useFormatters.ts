@@ -2,7 +2,33 @@
  * Composable for formatting currencies, dates, and numbers
  * Replaces 137+ duplicate formatting functions across the codebase
  */
-export function useFormatters(options = {}) {
+
+export interface FormattersOptions {
+    locale?: string;
+    currency?: string;
+    dateLocale?: string;
+}
+
+export interface FormatMoneyOptions {
+    maximumFractionDigits?: number;
+    currency?: string;
+}
+
+export type DateFormat = 'short' | 'long' | 'numeric';
+
+export interface UseFormattersReturn {
+    formatMoney: (value: number | null | undefined, opts?: FormatMoneyOptions) => string;
+    formatCurrency: (value: number | null | undefined, opts?: FormatMoneyOptions) => string;
+    formatDate: (date: string | Date | null | undefined, format?: DateFormat) => string;
+    formatDateTime: (date: string | Date | null | undefined) => string;
+    formatRelativeDate: (date: string | Date | null | undefined) => string;
+    formatRelativeTime: (date: string | Date | null | undefined) => string;
+    formatPercent: (value: number | null | undefined, decimals?: number) => string;
+    formatNumber: (value: number | null | undefined) => string;
+    formatFileSize: (bytes: number | null | undefined) => string;
+}
+
+export function useFormatters(options: FormattersOptions = {}): UseFormattersReturn {
     const config = {
         locale: options.locale || 'en-KE',
         currency: options.currency || 'KES',
@@ -12,11 +38,8 @@ export function useFormatters(options = {}) {
 
     /**
      * Format a value as currency (KES by default)
-     * @param {number} value - The amount to format
-     * @param {object} opts - Override options { maximumFractionDigits, currency }
-     * @returns {string} Formatted currency string
      */
-    const formatMoney = (value, opts = {}) => {
+    const formatMoney = (value: number | null | undefined, opts: FormatMoneyOptions = {}): string => {
         if (value === null || value === undefined || Number.isNaN(value)) return '-';
         return new Intl.NumberFormat(config.locale, {
             style: 'currency',
@@ -30,17 +53,14 @@ export function useFormatters(options = {}) {
 
     /**
      * Format a date string
-     * @param {string|Date} date - The date to format
-     * @param {string} format - 'short' | 'long' | 'numeric'
-     * @returns {string} Formatted date string
      */
-    const formatDate = (date, format = 'short') => {
+    const formatDate = (date: string | Date | null | undefined, format: DateFormat = 'short'): string => {
         if (!date) return '-';
 
         const d = new Date(date);
         if (isNaN(d.getTime())) return '-';
 
-        const formats = {
+        const formats: Record<DateFormat, Intl.DateTimeFormatOptions> = {
             short: { day: 'numeric', month: 'short', year: 'numeric' },
             long: { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' },
             numeric: { day: '2-digit', month: '2-digit', year: 'numeric' }
@@ -51,10 +71,8 @@ export function useFormatters(options = {}) {
 
     /**
      * Format a date with time
-     * @param {string|Date} date - The date to format
-     * @returns {string} Formatted datetime string
      */
-    const formatDateTime = (date) => {
+    const formatDateTime = (date: string | Date | null | undefined): string => {
         if (!date) return '-';
 
         const d = new Date(date);
@@ -71,10 +89,8 @@ export function useFormatters(options = {}) {
 
     /**
      * Format a date relative to today (e.g., "2 days ago", "Tomorrow")
-     * @param {string|Date} date - The date to format
-     * @returns {string} Relative date string
      */
-    const formatRelativeDate = (date) => {
+    const formatRelativeDate = (date: string | Date | null | undefined): string => {
         if (!date) return '-';
 
         const d = new Date(date);
@@ -93,31 +109,24 @@ export function useFormatters(options = {}) {
 
     /**
      * Format a number as percentage
-     * @param {number} value - The value to format (0-100)
-     * @param {number} decimals - Number of decimal places
-     * @returns {string} Formatted percentage string
      */
-    const formatPercent = (value, decimals = 0) => {
+    const formatPercent = (value: number | null | undefined, decimals: number = 0): string => {
         if (value === null || value === undefined) return '-';
         return `${value.toFixed(decimals)}%`;
     };
 
     /**
      * Format a number with thousands separator
-     * @param {number} value - The value to format
-     * @returns {string} Formatted number string
      */
-    const formatNumber = (value) => {
+    const formatNumber = (value: number | null | undefined): string => {
         if (value === null || value === undefined) return '-';
         return new Intl.NumberFormat(config.locale).format(value);
     };
 
     /**
      * Format file size in human-readable format
-     * @param {number} bytes - Size in bytes
-     * @returns {string} Formatted size string
      */
-    const formatFileSize = (bytes) => {
+    const formatFileSize = (bytes: number | null | undefined): string => {
         if (!bytes) return '0 B';
         const k = 1024;
         const sizes = ['B', 'KB', 'MB', 'GB'];
@@ -127,10 +136,8 @@ export function useFormatters(options = {}) {
 
     /**
      * Format a timestamp relative to now (e.g., "5 minutes ago", "2 hours ago")
-     * @param {string|Date} date - The date to format
-     * @returns {string} Relative time string
      */
-    const formatRelativeTime = (date) => {
+    const formatRelativeTime = (date: string | Date | null | undefined): string => {
         if (!date) return '-';
 
         const d = new Date(date);

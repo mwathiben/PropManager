@@ -1,44 +1,49 @@
-<script setup>
-import { computed } from 'vue';
+<script setup lang="ts">
+import { computed, type Component } from 'vue';
 import { ChevronUpIcon, ChevronDownIcon } from '@heroicons/vue/24/solid';
 import EmptyState from './EmptyState.vue';
+import type { ColumnDefinition, SortState } from '@/types/finances';
 
-const props = defineProps({
-    columns: {
-        type: Array,
-        required: true,
-    },
-    data: {
-        type: Array,
-        default: () => [],
-    },
-    loading: Boolean,
-    selectable: Boolean,
-    selectedIds: {
-        type: Array,
-        default: () => [],
-    },
-    sortBy: String,
-    sortDirection: {
-        type: String,
-        default: 'asc',
-        validator: (v) => ['asc', 'desc'].includes(v),
-    },
-    rowKey: {
-        type: String,
-        default: 'id',
-    },
-    emptyIcon: Object,
-    emptyTitle: {
-        type: String,
-        default: 'No data found',
-    },
-    emptyDescription: String,
-    stickyHeader: Boolean,
-    compact: Boolean,
+type SortDirection = 'asc' | 'desc';
+
+interface RowData {
+    [key: string]: unknown;
+}
+
+interface Props {
+    columns: ColumnDefinition[];
+    data?: RowData[];
+    loading?: boolean;
+    selectable?: boolean;
+    selectedIds?: (string | number)[];
+    sortBy?: string;
+    sortDirection?: SortDirection;
+    rowKey?: string;
+    emptyIcon?: Component;
+    emptyTitle?: string;
+    emptyDescription?: string;
+    stickyHeader?: boolean;
+    compact?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    data: () => [],
+    loading: false,
+    selectable: false,
+    selectedIds: () => [],
+    sortDirection: 'asc',
+    rowKey: 'id',
+    emptyTitle: 'No data found',
+    stickyHeader: false,
+    compact: false,
 });
 
-const emit = defineEmits(['sort', 'select', 'selectAll', 'rowClick']);
+const emit = defineEmits<{
+    sort: [payload: SortState];
+    select: [ids: (string | number)[], row: RowData];
+    selectAll: [ids: (string | number)[]];
+    rowClick: [row: RowData];
+}>();
 
 const allSelected = computed(() => {
     if (!props.selectable || props.data.length === 0) return false;

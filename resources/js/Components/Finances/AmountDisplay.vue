@@ -1,29 +1,22 @@
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue';
 import { useFormatters } from '@/composables';
 
-const props = defineProps({
-    amount: {
-        type: [Number, String],
-        required: true,
-    },
-    size: {
-        type: String,
-        default: 'md',
-        validator: (v) => ['sm', 'md', 'lg', 'xl'].includes(v),
-    },
-    showSign: {
-        type: Boolean,
-        default: false,
-    },
-    colorize: {
-        type: Boolean,
-        default: false,
-    },
-    currency: {
-        type: String,
-        default: 'KES',
-    },
+type Size = 'sm' | 'md' | 'lg' | 'xl';
+
+interface Props {
+    amount: number | string;
+    size?: Size;
+    showSign?: boolean;
+    colorize?: boolean;
+    currency?: string;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    size: 'md',
+    showSign: false,
+    colorize: false,
+    currency: 'KES',
 });
 
 const { formatMoney } = useFormatters();

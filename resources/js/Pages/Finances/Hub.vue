@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Breadcrumb from '@/Components/Breadcrumb.vue';
@@ -16,11 +16,34 @@ import {
     DocumentPlusIcon,
     PlusCircleIcon,
 } from '@heroicons/vue/24/outline';
+import type { Building, Property } from '@/types/finances';
 
-const props = defineProps({
-    stats: Object,
-    buildings: Array,
-    properties: Array,
+interface HubStats {
+    revenue_mtd?: number;
+    month_trend?: number;
+    outstanding_balance?: number;
+    collection_rate?: number;
+    active_leases?: number;
+    invoices_pending?: number;
+    payments_this_month?: number;
+    deposits_held?: number;
+    expenses_this_month?: number;
+    expenses_count?: number;
+    refunds_pending?: number;
+    total_arrears?: number;
+    tenants_in_arrears?: number;
+    unreconciled_count?: number;
+}
+
+interface Props {
+    stats?: HubStats;
+    buildings?: Building[];
+    properties?: Property[];
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    buildings: () => [],
+    properties: () => [],
 });
 
 const { formatMoney } = useFormatters();
