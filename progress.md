@@ -2991,3 +2991,124 @@ import ChevronRightIcon from '@heroicons/vue/24/outline/ChevronRightIcon';
 - Build: PASS (16.75s vs 18.72s before - 10% faster)
 - Tests: 378 passed, 12 skipped
 
+
+---
+
+## OPT-005: Implement Vue 3 Computed Property Caching and Memoization
+**Status:** PASSED
+**Date:** 2026-01-15
+**Attempts:** 1
+
+### Implementation Summary
+
+Optimized ReportsTab.vue by converting expensive inline calculations to cached computed properties and implementing memoization patterns.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `resources/js/Pages/Finances/tabs/ReportsTab.vue` | Added module-level constants, optimized computed properties, added utility functions |
+
+### Key Optimizations
+
+**1. Extracted Static Constants to Module Level (lines 20-36)**
+- Moved `AGING_BUCKET_KEYS`, `AGING_LABELS`, and `AGING_COLORS` outside components
+- These were previously recreated on every computed property evaluation
+- Now they're module-level constants, created once at import time
+
+**2. Added Utility Functions for Class Calculations (lines 38-66)**
+- `getTrendColorClass(direction)` - returns text color class based on trend direction
+- `getExpenseTrendColorClass(direction)` - inverted logic for expense trends (down = good)
+- `getRateColorClass(rate)` - returns text color based on collection rate threshold
+- `getRateBgClass(rate)` - returns background color for progress bars
+- `getOccupancyBadgeClass(rate)` - returns badge styling for occupancy rates
+
+**3. Refactored summaryStats to Single-Pass Iteration (lines 183-209)**
+
+Before (4 separate iterations):
+```typescript
+const totalInvoiced = props.revenueData?.reduce((sum, m) => sum + (m.invoiced || 0), 0) || 0;
+const totalCollected = props.revenueData?.reduce((sum, m) => sum + (m.collected || 0), 0) || 0;
+const totalExpenses = props.revenueData?.reduce((sum, m) => sum + (m.expenses || 0), 0) || 0;
+const avgCollectionRate = props.collectionRate?.reduce(...);
+```
+
+After (single iteration):
+```typescript
+let totalInvoiced = 0, totalCollected = 0, totalExpenses = 0;
+props.revenueData?.forEach(m => {
+    totalInvoiced += m.invoiced || 0;
+    totalCollected += m.collected || 0;
+    totalExpenses += m.expenses || 0;
+});
+```
+
+**4. Optimized maxRevenue to Avoid Intermediate Array (lines 234-240)**
+
+Before (creates 36-element temporary array):
+```typescript
+const values = props.revenueData?.flatMap(m => [m.invoiced, m.collected, m.expenses]) || [];
+return Math.max(...values, 1);
+```
+
+After (single iteration, no temporary array):
+```typescript
+let max = 1;
+props.revenueData?.forEach(m => {
+    max = Math.max(max, m.invoiced || 0, m.collected || 0, m.expenses || 0);
+});
+return max;
+```
+
+**5. Updated agingBuckets to Use Module Constants (lines 247-258)**
+
+Before (objects created inside computed):
+```typescript
+const buckets = ['current', '1-30', ...];
+const labels = { 'current': 'Current', ... };  // Recreated every time
+const colors = { 'current': 'bg-emerald-500', ... };  // Recreated every time
+```
+
+After (references module-level constants):
+```typescript
+return AGING_BUCKET_KEYS.map(key => ({
+    key,
+    label: AGING_LABELS[key],
+    color: AGING_COLORS[key],
+    ...
+}));
+```
+
+**6. Updated Template to Use Utility Functions**
+
+Replaced inline ternary expressions with function calls:
+- Line 432: `:class="getTrendColorClass(trendData.invoiced.direction)"`
+- Line 447: `:class="getTrendColorClass(trendData.collected.direction)"`
+- Line 462: `:class="getExpenseTrendColorClass(trendData.expenses.direction)"`
+- Line 477: `:class="getTrendColorClass(trendData.collectionRate.direction)"`
+- Line 541: `:class="getRateColorClass(month.rate)"`
+- Line 557: `:class="['...', getRateBgClass(month.rate)]"`
+- Line 595: `:class="['...', getOccupancyBadgeClass(building.occupancy_rate)]"`
+
+### Performance Impact
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Array iterations in summaryStats | 4 | 1 |
+| Temporary array creation in maxRevenue | 36 elements | 0 |
+| Object recreations per computed eval | 3 (labels, colors, buckets) | 0 |
+| Inline ternary evaluations | 7 | 0 (moved to functions) |
+
+### Acceptance Criteria Verification
+
+1. **Move expensive calculations from templates to computed properties** - Inline class calculations moved to utility functions
+2. **Implement single-pass iteration for summaryStats** - 4 reduces → 1 forEach
+3. **Eliminate intermediate array in maxRevenue** - flatMap+spread → forEach+Math.max
+4. **Extract static objects outside computed functions** - AGING_LABELS, AGING_COLORS now module-level
+5. **All tests pass** - 378 passed, 12 skipped
+6. **Build succeeds** - 30.61s build time
+
+### Verification Results
+
+- Build: Success (30.61s)
+- Tests: 378 passed, 12 skipped

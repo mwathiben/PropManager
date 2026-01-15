@@ -164,7 +164,7 @@
         "incorrect": "<template>{{ formatCurrency(calculateTotal(invoices)) }}</template>",
         "correct": "const formattedTotal = computed(() => formatCurrency(calculateTotal(invoices.value)))"
       },
-      "passes": false
+      "passes": true
     },
     {
       "id": "OPT-006",

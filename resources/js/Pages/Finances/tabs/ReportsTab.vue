@@ -17,6 +17,54 @@ import {
 } from '@heroicons/vue/24/outline';
 import type { Building } from '@/types/finances';
 
+const AGING_BUCKET_KEYS = ['current', '1-30', '31-60', '61-90', '90+'] as const;
+
+const AGING_LABELS: Record<string, string> = {
+    'current': 'Current',
+    '1-30': '1-30 Days',
+    '31-60': '31-60 Days',
+    '61-90': '61-90 Days',
+    '90+': '90+ Days',
+};
+
+const AGING_COLORS: Record<string, string> = {
+    'current': 'bg-emerald-500',
+    '1-30': 'bg-blue-500',
+    '31-60': 'bg-yellow-500',
+    '61-90': 'bg-orange-500',
+    '90+': 'bg-red-500',
+};
+
+const getTrendColorClass = (direction: string): string => {
+    if (direction === 'up') return 'text-emerald-600';
+    if (direction === 'down') return 'text-red-600';
+    return 'text-gray-500';
+};
+
+const getExpenseTrendColorClass = (direction: string): string => {
+    if (direction === 'down') return 'text-emerald-600';
+    if (direction === 'up') return 'text-red-600';
+    return 'text-gray-500';
+};
+
+const getRateColorClass = (rate: number): string => {
+    if (rate >= 85) return 'text-emerald-600';
+    if (rate >= 70) return 'text-yellow-600';
+    return 'text-red-600';
+};
+
+const getRateBgClass = (rate: number): string => {
+    if (rate >= 85) return 'bg-emerald-500';
+    if (rate >= 70) return 'bg-yellow-500';
+    return 'bg-red-500';
+};
+
+const getOccupancyBadgeClass = (rate: number): string => {
+    if (rate >= 85) return 'bg-emerald-100 text-emerald-700';
+    if (rate >= 70) return 'bg-yellow-100 text-yellow-700';
+    return 'bg-red-100 text-red-700';
+};
+
 interface RevenueDataPoint {
     month: string;
     invoiced: number;
@@ -145,12 +193,22 @@ const periodOptions = [
 const isCustomPeriod = computed(() => localFilters.value.period === 'custom');
 
 const summaryStats = computed(() => {
-    const totalInvoiced = props.revenueData?.reduce((sum, m) => sum + (m.invoiced || 0), 0) || 0;
-    const totalCollected = props.revenueData?.reduce((sum, m) => sum + (m.collected || 0), 0) || 0;
-    const totalExpenses = props.revenueData?.reduce((sum, m) => sum + (m.expenses || 0), 0) || 0;
-    const avgCollectionRate = props.collectionRate?.length > 0
-        ? props.collectionRate.reduce((sum, m) => sum + (m.rate || 0), 0) / props.collectionRate.length
-        : 0;
+    let totalInvoiced = 0;
+    let totalCollected = 0;
+    let totalExpenses = 0;
+
+    props.revenueData?.forEach(m => {
+        totalInvoiced += m.invoiced || 0;
+        totalCollected += m.collected || 0;
+        totalExpenses += m.expenses || 0;
+    });
+
+    let rateSum = 0;
+    const rateCount = props.collectionRate?.length || 0;
+    if (rateCount > 0) {
+        props.collectionRate?.forEach(m => { rateSum += m.rate || 0; });
+    }
+    const avgCollectionRate = rateCount > 0 ? rateSum / rateCount : 0;
 
     return {
         totalInvoiced,
@@ -186,8 +244,11 @@ const trendData = computed(() => {
 });
 
 const maxRevenue = computed(() => {
-    const values = props.revenueData?.flatMap(m => [m.invoiced, m.collected, m.expenses]) || [];
-    return Math.max(...values, 1);
+    let max = 1;
+    props.revenueData?.forEach(m => {
+        max = Math.max(max, m.invoiced || 0, m.collected || 0, m.expenses || 0);
+    });
+    return max;
 });
 
 const arrearsTotal = computed(() => {
@@ -196,26 +257,10 @@ const arrearsTotal = computed(() => {
 });
 
 const agingBuckets = computed(() => {
-    const buckets = ['current', '1-30', '31-60', '61-90', '90+'];
-    const labels = {
-        'current': 'Current',
-        '1-30': '1-30 Days',
-        '31-60': '31-60 Days',
-        '61-90': '61-90 Days',
-        '90+': '90+ Days',
-    };
-    const colors = {
-        'current': 'bg-emerald-500',
-        '1-30': 'bg-blue-500',
-        '31-60': 'bg-yellow-500',
-        '61-90': 'bg-orange-500',
-        '90+': 'bg-red-500',
-    };
-
-    return buckets.map(key => ({
+    return AGING_BUCKET_KEYS.map(key => ({
         key,
-        label: labels[key],
-        color: colors[key],
+        label: AGING_LABELS[key],
+        color: AGING_COLORS[key],
         count: props.arrearsAging?.[key]?.count || 0,
         amount: props.arrearsAging?.[key]?.amount || 0,
         percentage: arrearsTotal.value > 0
@@ -390,7 +435,7 @@ watch(() => localFilters.value.period, (newVal) => {
                         <CurrencyDollarIcon class="w-5 h-5 text-blue-600" />
                     </div>
                     <div v-if="trendData?.invoiced" class="flex items-center gap-1 text-xs font-medium"
-                         :class="trendData.invoiced.direction === 'up' ? 'text-emerald-600' : trendData.invoiced.direction === 'down' ? 'text-red-600' : 'text-gray-500'">
+                         :class="getTrendColorClass(trendData.invoiced.direction)">
                         <component :is="trendData.invoiced.direction === 'up' ? ArrowTrendingUpIcon : ArrowTrendingDownIcon" class="w-4 h-4" />
                         {{ trendData.invoiced.percent }}%
                     </div>
@@ -405,7 +450,7 @@ watch(() => localFilters.value.period, (newVal) => {
                         <ChartBarIcon class="w-5 h-5 text-emerald-600" />
                     </div>
                     <div v-if="trendData?.collected" class="flex items-center gap-1 text-xs font-medium"
-                         :class="trendData.collected.direction === 'up' ? 'text-emerald-600' : trendData.collected.direction === 'down' ? 'text-red-600' : 'text-gray-500'">
+                         :class="getTrendColorClass(trendData.collected.direction)">
                         <component :is="trendData.collected.direction === 'up' ? ArrowTrendingUpIcon : ArrowTrendingDownIcon" class="w-4 h-4" />
                         {{ trendData.collected.percent }}%
                     </div>
@@ -420,7 +465,7 @@ watch(() => localFilters.value.period, (newVal) => {
                         <ChartPieIcon class="w-5 h-5 text-red-600" />
                     </div>
                     <div v-if="trendData?.expenses" class="flex items-center gap-1 text-xs font-medium"
-                         :class="trendData.expenses.direction === 'down' ? 'text-emerald-600' : trendData.expenses.direction === 'up' ? 'text-red-600' : 'text-gray-500'">
+                         :class="getExpenseTrendColorClass(trendData.expenses.direction)">
                         <component :is="trendData.expenses.direction === 'up' ? ArrowTrendingUpIcon : ArrowTrendingDownIcon" class="w-4 h-4" />
                         {{ trendData.expenses.percent }}%
                     </div>
@@ -435,7 +480,7 @@ watch(() => localFilters.value.period, (newVal) => {
                         <ArrowTrendingUpIcon class="w-5 h-5 text-indigo-600" />
                     </div>
                     <div v-if="trendData?.collectionRate" class="flex items-center gap-1 text-xs font-medium"
-                         :class="trendData.collectionRate.direction === 'up' ? 'text-emerald-600' : trendData.collectionRate.direction === 'down' ? 'text-red-600' : 'text-gray-500'">
+                         :class="getTrendColorClass(trendData.collectionRate.direction)">
                         <component :is="trendData.collectionRate.direction === 'up' ? ArrowTrendingUpIcon : ArrowTrendingDownIcon" class="w-4 h-4" />
                         {{ trendData.collectionRate.percent }}%
                     </div>
@@ -499,7 +544,7 @@ watch(() => localFilters.value.period, (newVal) => {
                     <div v-for="month in collectionRate" :key="month.month" class="space-y-1">
                         <div class="flex items-center justify-between text-xs text-gray-500">
                             <span>{{ month.month }}</span>
-                            <span class="font-medium" :class="month.rate >= 85 ? 'text-emerald-600' : month.rate >= 70 ? 'text-yellow-600' : 'text-red-600'">
+                            <span class="font-medium" :class="getRateColorClass(month.rate)">
                                 {{ month.rate }}%
                             </span>
                         </div>
@@ -509,10 +554,7 @@ watch(() => localFilters.value.period, (newVal) => {
                                 title="85% Target"
                             />
                             <div
-                                :class="[
-                                    'h-full rounded-full transition-all duration-300',
-                                    month.rate >= 85 ? 'bg-emerald-500' : month.rate >= 70 ? 'bg-yellow-500' : 'bg-red-500'
-                                ]"
+                                :class="['h-full rounded-full transition-all duration-300', getRateBgClass(month.rate)]"
                                 :style="{ width: `${month.rate}%` }"
                             />
                         </div>
@@ -550,9 +592,7 @@ watch(() => localFilters.value.period, (newVal) => {
                                 <td class="py-2 text-center text-emerald-600">{{ building.occupied }}</td>
                                 <td class="py-2 text-center text-gray-400">{{ building.vacant }}</td>
                                 <td class="py-2 text-right">
-                                    <span :class="['inline-flex px-2 py-0.5 text-xs font-medium rounded-full',
-                                        building.occupancy_rate >= 85 ? 'bg-emerald-100 text-emerald-700' :
-                                        building.occupancy_rate >= 70 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700']">
+                                    <span :class="['inline-flex px-2 py-0.5 text-xs font-medium rounded-full', getOccupancyBadgeClass(building.occupancy_rate)]">
                                         {{ building.occupancy_rate }}%
                                     </span>
                                 </td>
