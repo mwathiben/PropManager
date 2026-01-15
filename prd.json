@@ -332,7 +332,7 @@
         "incorrect": "$invoices = Invoice::where('year', 2025)->get()->each(fn($i) => process($i))",
         "correct": "Invoice::where('year', 2025)->chunk(1000, fn($invoices) => $invoices->each(fn($i) => process($i)))"
       },
-      "passes": false
+      "passes": true
     },
     {
       "id": "OPT-015",

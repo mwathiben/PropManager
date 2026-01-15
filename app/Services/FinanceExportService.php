@@ -7,6 +7,8 @@ use App\Exports\ExpensesExport;
 use App\Exports\FinanceReportExport;
 use App\Exports\InvoicesExport;
 use App\Exports\PaymentsExport;
+use App\Exports\Streaming\StreamingDepositsExport;
+use App\Exports\Streaming\StreamingExpensesExport;
 use App\Exports\Streaming\StreamingInvoicesExport;
 use App\Exports\Streaming\StreamingPaymentsExport;
 use App\Exports\VendorExpenseExport;
@@ -77,9 +79,13 @@ class FinanceExportService
     public function exportDeposits(array $filters, string $format = 'xlsx'): BinaryFileResponse|StreamedResponse|Response
     {
         $query = $this->buildDepositQuery($filters);
-        $deposits = $query->orderBy('created_at', 'desc')->get();
         $filename = 'deposits_report_'.now()->format('Y-m-d');
 
+        if ($format === 'xlsx' && $this->shouldStream($query)) {
+            return Excel::download(new StreamingDepositsExport(clone $query), $filename.'.xlsx');
+        }
+
+        $deposits = $query->orderBy('created_at', 'desc')->get();
         $stats = $this->calculateDepositStats($deposits);
 
         return match ($format) {
@@ -92,8 +98,13 @@ class FinanceExportService
     public function exportExpenses(array $filters, string $format = 'xlsx'): BinaryFileResponse|StreamedResponse|Response
     {
         $query = $this->buildExpenseQuery($filters);
-        $expenses = $query->orderBy('expense_date', 'desc')->get();
         $filename = 'expenses_'.now()->format('Y_m_d_His');
+
+        if ($format === 'xlsx' && $this->shouldStream($query)) {
+            return Excel::download(new StreamingExpensesExport(clone $query), $filename.'.xlsx');
+        }
+
+        $expenses = $query->orderBy('expense_date', 'desc')->get();
 
         $dateRange = [
             'start' => isset($filters['date_from']) ? Carbon::parse($filters['date_from']) : now()->subMonth(),

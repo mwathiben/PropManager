@@ -12,6 +12,32 @@ use Illuminate\Support\Facades\DB;
 
 class ReportService
 {
+    private function getDateDiffSql(string $column): string
+    {
+        $driver = DB::getDriverName();
+        $today = now()->format('Y-m-d');
+
+        return match ($driver) {
+            'sqlite' => "CAST(JULIANDAY('{$today}') - JULIANDAY({$column}) AS INTEGER)",
+            default => "DATEDIFF('{$today}', {$column})",
+        };
+    }
+
+    private function getDateFormatSql(string $column, string $format): string
+    {
+        $driver = DB::getDriverName();
+
+        return match ($driver) {
+            'sqlite' => match ($format) {
+                '%Y-%m-%d' => "strftime('%Y-%m-%d', {$column})",
+                '%Y-%u' => "strftime('%Y-%W', {$column})",
+                '%Y-%m' => "strftime('%Y-%m', {$column})",
+                default => "strftime('%Y-%m-%d', {$column})",
+            },
+            default => "DATE_FORMAT({$column}, '{$format}')",
+        };
+    }
+
     /**
      * Get comprehensive dashboard analytics for a landlord
      */
@@ -123,44 +149,37 @@ class ReportService
             default => 'day',
         };
 
-        $payments = Payment::where('landlord_id', $landlordId)
+        $dateFormat = match ($groupBy) {
+            'day' => '%Y-%m-%d',
+            'week' => '%Y-%u',
+            'month' => '%Y-%m',
+            default => '%Y-%m-%d',
+        };
+
+        $dateFormatSql = $this->getDateFormatSql('payment_date', $dateFormat);
+
+        $trendData = Payment::where('landlord_id', $landlordId)
             ->whereBetween('payment_date', [$dateRange['start'], $dateRange['end']])
             ->where('status', 'completed')
-            ->orderBy('payment_date')
+            ->selectRaw("{$dateFormatSql} as date_group, MIN(payment_date) as first_date, SUM(amount) as total_amount, COUNT(*) as payment_count")
+            ->groupBy('date_group')
+            ->orderBy('date_group')
             ->get();
 
-        $trend = [];
+        return $trendData->map(function ($row) use ($groupBy) {
+            $displayDate = match ($groupBy) {
+                'day' => $row->first_date,
+                'week' => 'Week '.Carbon::parse($row->first_date)->week,
+                'month' => Carbon::parse($row->first_date)->format('M Y'),
+                default => $row->first_date,
+            };
 
-        if ($groupBy === 'day') {
-            $trend = $payments->groupBy(fn ($payment) => Carbon::parse($payment->payment_date)->format('Y-m-d'))
-                ->map(fn ($group) => [
-                    'date' => $group->first()->payment_date,
-                    'amount' => $group->sum('amount'),
-                    'count' => $group->count(),
-                ])
-                ->values()
-                ->toArray();
-        } elseif ($groupBy === 'week') {
-            $trend = $payments->groupBy(fn ($payment) => Carbon::parse($payment->payment_date)->format('Y-W'))
-                ->map(fn ($group) => [
-                    'date' => 'Week '.Carbon::parse($group->first()->payment_date)->week,
-                    'amount' => $group->sum('amount'),
-                    'count' => $group->count(),
-                ])
-                ->values()
-                ->toArray();
-        } elseif ($groupBy === 'month') {
-            $trend = $payments->groupBy(fn ($payment) => Carbon::parse($payment->payment_date)->format('Y-m'))
-                ->map(fn ($group) => [
-                    'date' => Carbon::parse($group->first()->payment_date)->format('M Y'),
-                    'amount' => $group->sum('amount'),
-                    'count' => $group->count(),
-                ])
-                ->values()
-                ->toArray();
-        }
-
-        return $trend;
+            return [
+                'date' => $displayDate,
+                'amount' => round($row->total_amount, 2),
+                'count' => (int) $row->payment_count,
+            ];
+        })->toArray();
     }
 
     /**
@@ -168,53 +187,48 @@ class ReportService
      */
     private function getArrearsAnalysis(int $landlordId): array
     {
-        $overdueInvoices = Invoice::where('landlord_id', $landlordId)
-            ->whereIn('status', ['overdue', 'partial'])
-            ->with(['lease.unit', 'lease.tenant'])
-            ->get();
+        $baseQuery = Invoice::where('landlord_id', $landlordId)
+            ->whereIn('status', ['overdue', 'partial']);
 
-        $now = Carbon::now();
+        $dateDiff = $this->getDateDiffSql('due_date');
+
+        $agingData = (clone $baseQuery)->selectRaw("
+            COUNT(*) as total_count,
+            SUM(total_due - amount_paid) as total_outstanding,
+            SUM(CASE WHEN {$dateDiff} BETWEEN 0 AND 30 THEN total_due - amount_paid ELSE 0 END) as days_0_30,
+            SUM(CASE WHEN {$dateDiff} BETWEEN 31 AND 60 THEN total_due - amount_paid ELSE 0 END) as days_31_60,
+            SUM(CASE WHEN {$dateDiff} BETWEEN 61 AND 90 THEN total_due - amount_paid ELSE 0 END) as days_61_90,
+            SUM(CASE WHEN {$dateDiff} > 90 THEN total_due - amount_paid ELSE 0 END) as days_90_plus
+        ")->first();
 
         $aging = [
-            '0-30' => 0,
-            '31-60' => 0,
-            '61-90' => 0,
-            '90+' => 0,
+            '0-30' => round($agingData->days_0_30 ?? 0, 2),
+            '31-60' => round($agingData->days_31_60 ?? 0, 2),
+            '61-90' => round($agingData->days_61_90 ?? 0, 2),
+            '90+' => round($agingData->days_90_plus ?? 0, 2),
         ];
 
-        $details = [];
-
-        foreach ($overdueInvoices as $invoice) {
-            $daysOverdue = $now->diffInDays(Carbon::parse($invoice->due_date));
-            $outstanding = $invoice->total_due - $invoice->amount_paid;
-
-            if ($daysOverdue <= 30) {
-                $aging['0-30'] += $outstanding;
-            } elseif ($daysOverdue <= 60) {
-                $aging['31-60'] += $outstanding;
-            } elseif ($daysOverdue <= 90) {
-                $aging['61-90'] += $outstanding;
-            } else {
-                $aging['90+'] += $outstanding;
-            }
-
-            $details[] = [
+        $details = (clone $baseQuery)
+            ->with(['lease.unit:id,unit_number', 'lease.tenant:id,name'])
+            ->select('id', 'lease_id', 'invoice_number', 'total_due', 'amount_paid', 'due_date')
+            ->selectRaw("{$dateDiff} as days_overdue")
+            ->orderByDesc('days_overdue')
+            ->limit(10)
+            ->get()
+            ->map(fn ($invoice) => [
                 'unit' => $invoice->lease?->unit?->unit_number ?? 'N/A',
                 'tenant' => $invoice->lease?->tenant?->name ?? 'N/A',
-                'amount' => round($outstanding, 2),
-                'days_overdue' => $daysOverdue,
+                'amount' => round($invoice->total_due - $invoice->amount_paid, 2),
+                'days_overdue' => max(0, (int) $invoice->days_overdue),
                 'invoice_number' => $invoice->invoice_number,
-            ];
-        }
-
-        // Sort by days overdue descending
-        usort($details, fn ($a, $b) => $b['days_overdue'] - $a['days_overdue']);
+            ])
+            ->toArray();
 
         return [
-            'total_arrears' => round($overdueInvoices->sum(fn ($inv) => $inv->total_due - $inv->amount_paid), 2),
-            'aging' => array_map(fn ($amount) => round($amount, 2), $aging),
-            'count' => $overdueInvoices->count(),
-            'details' => array_slice($details, 0, 10), // Top 10 worst offenders
+            'total_arrears' => round($agingData->total_outstanding ?? 0, 2),
+            'aging' => $aging,
+            'count' => (int) ($agingData->total_count ?? 0),
+            'details' => $details,
         ];
     }
 
@@ -292,38 +306,42 @@ class ReportService
     {
         $units = Unit::where('landlord_id', $landlordId)
             ->where('status', 'occupied')
-            ->with(['activeLease'])
-            ->get();
+            ->select('id', 'unit_number')
+            ->with(['activeLease:id,unit_id,tenant_id', 'activeLease.tenant:id,name'])
+            ->get()
+            ->filter(fn ($u) => $u->activeLease !== null);
+
+        if ($units->isEmpty()) {
+            return [];
+        }
+
+        $leaseIds = $units->pluck('activeLease.id')->filter()->values();
+
+        $invoiceStats = Invoice::whereIn('lease_id', $leaseIds)
+            ->whereBetween('billing_period_start', [$dateRange['start'], $dateRange['end']])
+            ->selectRaw('lease_id, SUM(total_due) as total_billed, SUM(amount_paid) as total_paid, COUNT(*) as invoice_count, SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as on_time_count', ['paid'])
+            ->groupBy('lease_id')
+            ->get()
+            ->keyBy('lease_id');
 
         $performance = [];
 
         foreach ($units as $unit) {
-            if (! $unit->activeLease) {
+            $stats = $invoiceStats->get($unit->activeLease->id);
+
+            if (! $stats || $stats->invoice_count == 0) {
                 continue;
             }
-
-            $invoices = Invoice::where('lease_id', $unit->activeLease->id)
-                ->whereBetween('billing_period_start', [$dateRange['start'], $dateRange['end']])
-                ->get();
-
-            if ($invoices->isEmpty()) {
-                continue;
-            }
-
-            $totalBilled = $invoices->sum('total_due');
-            $totalPaid = $invoices->sum('amount_paid');
-            $onTimePayments = $invoices->where('status', 'paid')->count();
 
             $performance[] = [
                 'unit' => $unit->unit_number,
                 'tenant' => $unit->activeLease->tenant?->name ?? 'N/A',
-                'collection_rate' => $totalBilled > 0 ? round(($totalPaid / $totalBilled) * 100, 1) : 0,
-                'on_time_payments' => $onTimePayments,
-                'total_invoices' => $invoices->count(),
+                'collection_rate' => $stats->total_billed > 0 ? round(($stats->total_paid / $stats->total_billed) * 100, 1) : 0,
+                'on_time_payments' => (int) $stats->on_time_count,
+                'total_invoices' => (int) $stats->invoice_count,
             ];
         }
 
-        // Sort by collection rate descending
         usort($performance, fn ($a, $b) => $b['collection_rate'] <=> $a['collection_rate']);
 
         return array_slice($performance, 0, 5);

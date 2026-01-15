@@ -10,9 +10,21 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\WaterReading;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class FinanceReportService
 {
+    private function getDateDiffSql(string $column): string
+    {
+        $driver = DB::getDriverName();
+        $today = now()->format('Y-m-d');
+
+        return match ($driver) {
+            'sqlite' => "CAST(JULIANDAY('{$today}') - JULIANDAY({$column}) AS INTEGER)",
+            default => "DATEDIFF('{$today}', {$column})",
+        };
+    }
+
     private function buildCacheFilters(array $dateRange, ?int $buildingId = null): array
     {
         return [
@@ -227,43 +239,35 @@ class FinanceReportService
                 $query->whereHas('lease.unit', fn ($q) => $q->where('building_id', $buildingId));
             }
 
-            $invoices = $query->with(['lease.tenant:id,name', 'lease.unit:id,unit_number,building_id', 'lease.unit.building:id,name'])
-                ->get();
+            $dateDiff = $this->getDateDiffSql('due_date');
+
+            $agingData = (clone $query)->selectRaw("
+                COUNT(*) as total_count,
+                SUM(total_due - amount_paid) as total_outstanding,
+                SUM(CASE WHEN due_date IS NULL OR {$dateDiff} <= 0 THEN 1 ELSE 0 END) as current_count,
+                SUM(CASE WHEN due_date IS NULL OR {$dateDiff} <= 0 THEN total_due - amount_paid ELSE 0 END) as current_amount,
+                SUM(CASE WHEN {$dateDiff} BETWEEN 1 AND 30 THEN 1 ELSE 0 END) as days_1_30_count,
+                SUM(CASE WHEN {$dateDiff} BETWEEN 1 AND 30 THEN total_due - amount_paid ELSE 0 END) as days_1_30_amount,
+                SUM(CASE WHEN {$dateDiff} BETWEEN 31 AND 60 THEN 1 ELSE 0 END) as days_31_60_count,
+                SUM(CASE WHEN {$dateDiff} BETWEEN 31 AND 60 THEN total_due - amount_paid ELSE 0 END) as days_31_60_amount,
+                SUM(CASE WHEN {$dateDiff} BETWEEN 61 AND 90 THEN 1 ELSE 0 END) as days_61_90_count,
+                SUM(CASE WHEN {$dateDiff} BETWEEN 61 AND 90 THEN total_due - amount_paid ELSE 0 END) as days_61_90_amount,
+                SUM(CASE WHEN {$dateDiff} > 90 THEN 1 ELSE 0 END) as days_90_plus_count,
+                SUM(CASE WHEN {$dateDiff} > 90 THEN total_due - amount_paid ELSE 0 END) as days_90_plus_amount
+            ")->first();
 
             $aging = [
-                'current' => ['count' => 0, 'amount' => 0],
-                '1-30' => ['count' => 0, 'amount' => 0],
-                '31-60' => ['count' => 0, 'amount' => 0],
-                '61-90' => ['count' => 0, 'amount' => 0],
-                '90+' => ['count' => 0, 'amount' => 0],
+                'current' => ['count' => (int) ($agingData->current_count ?? 0), 'amount' => round($agingData->current_amount ?? 0, 2)],
+                '1-30' => ['count' => (int) ($agingData->days_1_30_count ?? 0), 'amount' => round($agingData->days_1_30_amount ?? 0, 2)],
+                '31-60' => ['count' => (int) ($agingData->days_31_60_count ?? 0), 'amount' => round($agingData->days_31_60_amount ?? 0, 2)],
+                '61-90' => ['count' => (int) ($agingData->days_61_90_count ?? 0), 'amount' => round($agingData->days_61_90_amount ?? 0, 2)],
+                '90+' => ['count' => (int) ($agingData->days_90_plus_count ?? 0), 'amount' => round($agingData->days_90_plus_amount ?? 0, 2)],
             ];
-
-            foreach ($invoices as $invoice) {
-                $outstanding = $invoice->total_due - $invoice->amount_paid;
-                $daysOverdue = $invoice->due_date ? now()->diffInDays($invoice->due_date, false) : 0;
-
-                $bucket = match (true) {
-                    $daysOverdue <= 0 => 'current',
-                    $daysOverdue <= 30 => '1-30',
-                    $daysOverdue <= 60 => '31-60',
-                    $daysOverdue <= 90 => '61-90',
-                    default => '90+',
-                };
-
-                $aging[$bucket]['count']++;
-                $aging[$bucket]['amount'] += $outstanding;
-            }
-
-            foreach ($aging as &$bucket) {
-                $bucket['amount'] = round($bucket['amount'], 2);
-            }
-
-            $totalOutstanding = collect($aging)->sum('amount');
 
             return [
                 'aging' => $aging,
-                'total_outstanding' => round($totalOutstanding, 2),
-                'total_invoices' => $invoices->count(),
+                'total_outstanding' => round($agingData->total_outstanding ?? 0, 2),
+                'total_invoices' => (int) ($agingData->total_count ?? 0),
             ];
         });
     }
@@ -272,71 +276,61 @@ class FinanceReportService
     {
         $startDate = now()->subMonths($months)->startOfMonth();
 
-        $query = Expense::where('landlord_id', $landlordId)
-            ->where('expense_date', '>=', $startDate)
-            ->with('category:id,name,color');
+        $query = Expense::withoutGlobalScope('landlord')
+            ->where('expenses.landlord_id', $landlordId)
+            ->where('expenses.expense_date', '>=', $startDate)
+            ->leftJoin('expense_categories', 'expenses.category_id', '=', 'expense_categories.id')
+            ->selectRaw('expenses.category_id, expense_categories.name as category_name, expense_categories.color as category_color, SUM(expenses.amount) as total_amount, COUNT(*) as expense_count')
+            ->groupBy('expenses.category_id', 'expense_categories.name', 'expense_categories.color');
 
         if ($buildingId) {
-            $query->where('building_id', $buildingId);
+            $query->where('expenses.building_id', $buildingId);
         }
 
-        $expenses = $query->get();
+        $categoryData = $query->get();
+        $grandTotal = $categoryData->sum('total_amount');
 
-        $byCategory = $expenses->groupBy('category_id')
-            ->map(fn ($group) => [
-                'category' => $group->first()->category?->name ?? 'Uncategorized',
-                'color' => $group->first()->category?->color ?? '#6B7280',
-                'amount' => round($group->sum('amount'), 2),
-                'count' => $group->count(),
-                'percentage' => 0,
-            ])
-            ->values();
-
-        $total = $byCategory->sum('amount');
-        $byCategory = $byCategory->map(function ($item) use ($total) {
-            $item['percentage'] = $total > 0 ? round(($item['amount'] / $total) * 100, 1) : 0;
-
-            return $item;
-        });
+        $byCategory = $categoryData->map(fn ($row) => [
+            'category' => $row->category_name ?? 'Uncategorized',
+            'color' => $row->category_color ?? '#6B7280',
+            'amount' => round($row->total_amount, 2),
+            'count' => (int) $row->expense_count,
+            'percentage' => $grandTotal > 0 ? round(($row->total_amount / $grandTotal) * 100, 1) : 0,
+        ])->values();
 
         return [
             'categories' => $byCategory->toArray(),
-            'total' => round($total, 2),
+            'total' => round($grandTotal, 2),
         ];
     }
 
     public function getExpensesByCategoryReportFiltered(int $landlordId, array $dateRange, ?int $buildingId = null): array
     {
-        $query = Expense::where('landlord_id', $landlordId)
-            ->whereBetween('expense_date', [$dateRange['start'], $dateRange['end']])
-            ->with('category:id,name,color');
+        $query = Expense::withoutGlobalScope('landlord')
+            ->where('expenses.landlord_id', $landlordId)
+            ->whereBetween('expenses.expense_date', [$dateRange['start'], $dateRange['end']])
+            ->leftJoin('expense_categories', 'expenses.category_id', '=', 'expense_categories.id')
+            ->selectRaw('expenses.category_id, expense_categories.name as category_name, expense_categories.color as category_color, SUM(expenses.amount) as total_amount, COUNT(*) as expense_count')
+            ->groupBy('expenses.category_id', 'expense_categories.name', 'expense_categories.color');
 
         if ($buildingId) {
-            $query->where('building_id', $buildingId);
+            $query->where('expenses.building_id', $buildingId);
         }
 
-        $expenses = $query->get();
+        $categoryData = $query->get();
+        $grandTotal = $categoryData->sum('total_amount');
 
-        $byCategory = $expenses->groupBy('category_id')
-            ->map(fn ($group) => [
-                'category' => $group->first()->category?->name ?? 'Uncategorized',
-                'color' => $group->first()->category?->color ?? '#6B7280',
-                'amount' => round($group->sum('amount'), 2),
-                'count' => $group->count(),
-                'percentage' => 0,
-            ])
-            ->values();
-
-        $total = $byCategory->sum('amount');
-        $byCategory = $byCategory->map(function ($item) use ($total) {
-            $item['percentage'] = $total > 0 ? round(($item['amount'] / $total) * 100, 1) : 0;
-
-            return $item;
-        });
+        $byCategory = $categoryData->map(fn ($row) => [
+            'category' => $row->category_name ?? 'Uncategorized',
+            'color' => $row->category_color ?? '#6B7280',
+            'amount' => round($row->total_amount, 2),
+            'count' => (int) $row->expense_count,
+            'percentage' => $grandTotal > 0 ? round(($row->total_amount / $grandTotal) * 100, 1) : 0,
+        ])->values();
 
         return [
             'categories' => $byCategory->toArray(),
-            'total' => round($total, 2),
+            'total' => round($grandTotal, 2),
         ];
     }
 
@@ -344,19 +338,20 @@ class FinanceReportService
     {
         $startDate = now()->subMonths($months)->startOfMonth();
 
-        $query = WaterReading::where('landlord_id', $landlordId)
+        $baseQuery = WaterReading::where('landlord_id', $landlordId)
             ->where('reading_date', '>=', $startDate)
             ->where('status', 'approved');
 
         if ($buildingId) {
-            $query->whereHas('unit', fn ($q) => $q->where('building_id', $buildingId));
+            $baseQuery->whereHas('unit', fn ($q) => $q->where('building_id', $buildingId));
         }
 
-        $readings = $query->get();
+        $aggregates = (clone $baseQuery)->selectRaw('SUM(consumption) as total_consumption, SUM(cost) as total_cost, COUNT(*) as readings_count')->first();
 
-        $totalConsumption = $readings->sum('consumption');
-        $totalCost = $readings->sum('cost');
-        $avgConsumption = $readings->count() > 0 ? round($totalConsumption / $readings->count(), 2) : 0;
+        $totalConsumption = $aggregates->total_consumption ?? 0;
+        $totalCost = $aggregates->total_cost ?? 0;
+        $readingsCount = (int) ($aggregates->readings_count ?? 0);
+        $avgConsumption = $readingsCount > 0 ? round($totalConsumption / $readingsCount, 2) : 0;
 
         $topQuery = WaterReading::where('landlord_id', $landlordId)
             ->where('reading_date', '>=', $startDate)
@@ -384,26 +379,27 @@ class FinanceReportService
             'total_consumption' => round($totalConsumption, 2),
             'total_cost' => round($totalCost, 2),
             'average_consumption' => $avgConsumption,
-            'readings_count' => $readings->count(),
+            'readings_count' => $readingsCount,
             'top_consumers' => $topConsumers,
         ];
     }
 
     public function getWaterConsumptionReportFiltered(int $landlordId, array $dateRange, ?int $buildingId = null): array
     {
-        $query = WaterReading::where('landlord_id', $landlordId)
+        $baseQuery = WaterReading::where('landlord_id', $landlordId)
             ->whereBetween('reading_date', [$dateRange['start'], $dateRange['end']])
             ->where('status', 'approved');
 
         if ($buildingId) {
-            $query->whereHas('unit', fn ($q) => $q->where('building_id', $buildingId));
+            $baseQuery->whereHas('unit', fn ($q) => $q->where('building_id', $buildingId));
         }
 
-        $readings = $query->get();
+        $aggregates = (clone $baseQuery)->selectRaw('SUM(consumption) as total_consumption, SUM(cost) as total_cost, COUNT(*) as readings_count')->first();
 
-        $totalConsumption = $readings->sum('consumption');
-        $totalCost = $readings->sum('cost');
-        $avgConsumption = $readings->count() > 0 ? round($totalConsumption / $readings->count(), 2) : 0;
+        $totalConsumption = $aggregates->total_consumption ?? 0;
+        $totalCost = $aggregates->total_cost ?? 0;
+        $readingsCount = (int) ($aggregates->readings_count ?? 0);
+        $avgConsumption = $readingsCount > 0 ? round($totalConsumption / $readingsCount, 2) : 0;
 
         $topQuery = WaterReading::where('landlord_id', $landlordId)
             ->whereBetween('reading_date', [$dateRange['start'], $dateRange['end']])
@@ -431,7 +427,7 @@ class FinanceReportService
             'total_consumption' => round($totalConsumption, 2),
             'total_cost' => round($totalCost, 2),
             'average_consumption' => $avgConsumption,
-            'readings_count' => $readings->count(),
+            'readings_count' => $readingsCount,
             'top_consumers' => $topConsumers,
         ];
     }
