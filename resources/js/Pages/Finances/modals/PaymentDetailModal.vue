@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { useFormatters, usePayments } from '@/composables';
+import { useFormatters, usePayments, useSWR } from '@/composables';
 import { useFinancesStore } from '@/stores/finances';
 import {
     PaymentMethodBadge,
@@ -55,33 +55,35 @@ const store = useFinancesStore();
 const { formatMoney, formatDate } = useFormatters();
 const { downloadReceipt, sendReceipt, voidPayment, isProcessing } = usePayments();
 
-const payment = ref(null);
-const loading = ref(false);
-const error = ref(null);
 const showVoidConfirm = ref(false);
 const voidReason = ref('');
 
 const modalData = computed(() => store.modals.paymentDetail);
 
-watch(() => modalData.value.show, async (newVal) => {
-    if (newVal && modalData.value.id) {
-        await fetchPaymentDetail(modalData.value.id);
-    }
+const swrKey = computed(() => {
+    if (!modalData.value.show || !modalData.value.id) return '';
+    return `payment-detail-${modalData.value.id}`;
 });
 
-const fetchPaymentDetail = async (id) => {
-    loading.value = true;
-    error.value = null;
-    try {
+const { data: paymentData, error: swrError, isLoading: loading, refresh: refreshPayment } = useSWR(
+    () => swrKey.value,
+    async (key) => {
+        const id = key.replace('payment-detail-', '');
         const response = await fetch(route('finances.payments.detail', id));
         if (!response.ok) throw new Error('Failed to fetch payment');
-        payment.value = await response.json();
-    } catch (err) {
-        error.value = err.message;
-    } finally {
-        loading.value = false;
+        return response.json();
+    },
+    { immediate: false, staleTime: 60000, cacheTime: 300000 }
+);
+
+const payment = computed(() => paymentData.value?.payment ?? null);
+const error = computed(() => swrError.value?.message ?? null);
+
+watch(() => modalData.value.show, async (newVal) => {
+    if (newVal && modalData.value.id) {
+        await refreshPayment();
     }
-};
+});
 
 const close = () => {
     store.closeModal('paymentDetail');
@@ -127,7 +129,7 @@ const handleVoid = async () => {
     await voidPayment(payment.value.id, voidReason.value);
     showVoidConfirm.value = false;
     voidReason.value = '';
-    await fetchPaymentDetail(payment.value.id);
+    await refreshPayment();
 };
 </script>
 

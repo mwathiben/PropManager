@@ -41,3 +41,9 @@ export type {
     UseInfiniteScrollReturn,
     CursorPaginatedResponse
 } from './useInfiniteScroll';
+
+export { useSWR, clearSWRCache } from './useSWR';
+export type {
+    UseSWROptions,
+    UseSWRReturn
+} from './useSWR';

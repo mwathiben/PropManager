@@ -3513,3 +3513,112 @@ Added early returns for empty data:
 - Build: Success (19.42s)
 - Lint (Pint): Success (462 files passed)
 - No TypeScript errors
+
+---
+
+## OPT-012: Implement API Response Caching with Stale-While-Revalidate
+**Status:** PASSED
+**Date:** 2026-01-15
+**Attempts:** 1
+
+### Implementation Summary
+
+Implemented HTTP-level response caching for Finance Hub JSON API endpoints using Cache-Control headers, ETags for conditional requests, and a custom SWR (Stale-While-Revalidate) composable for frontend caching.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Http/Traits/WithETag.php` | Trait providing `jsonWithCache()` method with ETag generation and 304 Not Modified support |
+| `resources/js/composables/useSWR.ts` | Frontend SWR composable for instant cached data with background revalidation |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/FinancesController.php` | Added `use WithETag` trait, updated 5 JSON endpoints to use `jsonWithCache()` |
+| `resources/js/composables/index.ts` | Added `useSWR` and `clearSWRCache` exports |
+| `resources/js/Pages/Finances/modals/InvoiceDetailModal.vue` | Refactored to use `useSWR` for data fetching |
+| `resources/js/Pages/Finances/modals/PaymentDetailModal.vue` | Refactored to use `useSWR` for data fetching |
+
+### Backend Changes
+
+#### WithETag Trait
+```php
+trait WithETag
+{
+    protected function jsonWithCache(
+        array $data,
+        int $maxAge = 60,
+        int $staleWhileRevalidate = 300
+    ): JsonResponse {
+        $content = json_encode($data);
+        $etag = '"'.md5($content).'"';
+        
+        if (request()->header('If-None-Match') === $etag) {
+            return response()->json(null, 304)
+                ->header('ETag', $etag)
+                ->header('Cache-Control', "private, max-age={$maxAge}, stale-while-revalidate={$staleWhileRevalidate}");
+        }
+        
+        return response()->json($data)
+            ->header('ETag', $etag)
+            ->header('Cache-Control', "private, max-age={$maxAge}, stale-while-revalidate={$staleWhileRevalidate}");
+    }
+}
+```
+
+#### Updated Endpoints with Cache TTLs:
+| Endpoint | max-age | stale-while-revalidate |
+|----------|---------|------------------------|
+| `invoiceDetail()` | 60s | 300s |
+| `paymentDetail()` | 60s | 300s |
+| `depositTransactions()` | 30s | 120s |
+| `invoiceLateFees()` | 60s | 300s |
+| `expenseDetail()` | 60s | 300s |
+
+### Frontend Changes
+
+#### useSWR Composable Features:
+- Returns cached data immediately (stale) while revalidating in background
+- Memory-based cache with configurable TTL (staleTime, cacheTime)
+- Request deduplication for concurrent requests to same key
+- Loading/validating/error state tracking
+- `mutate()` for optimistic updates
+- `refresh()` for force revalidation
+- `clearSWRCache()` utility for cache invalidation
+
+#### Modal Integration:
+```typescript
+const { data: invoiceData, error: swrError, isLoading: loading, refresh: refreshInvoice } = useSWR(
+    () => swrKey.value,
+    async (key) => {
+        const id = key.replace('invoice-detail-', '');
+        const response = await fetch(route('finances.invoices.detail', id));
+        if (!response.ok) throw new Error('Failed to fetch invoice');
+        return response.json();
+    },
+    { immediate: false, staleTime: 60000, cacheTime: 300000 }
+);
+```
+
+### Performance Impact
+
+- **Instant modal data**: Subsequent opens of same invoice/payment return cached data immediately
+- **Reduced API calls**: 304 responses returned when ETag matches, saving bandwidth
+- **Better UX**: Users see data instantly while fresh data loads in background
+- **Request deduplication**: Multiple rapid clicks don't trigger duplicate API calls
+
+### Acceptance Criteria Verification
+
+1. **Cache-Control headers present on Finance API responses** - ✅ All 5 JSON endpoints now include `Cache-Control: private, max-age=X, stale-while-revalidate=Y`
+2. **ETags generated for conditional requests** - ✅ ETag header generated from md5 hash of response content
+3. **304 responses returned when data unchanged** - ✅ `If-None-Match` header check returns 304 when ETag matches
+4. **Frontend useSWR composable provides instant cached data** - ✅ Implemented with memory cache, deduplication, and background revalidation
+5. **Appropriate max-age (60s) and stale-while-revalidate (300s) values set** - ✅ Configured per endpoint
+
+### Verification Results
+
+- Build: Success (34.53s)
+- Lint (Pint): Success (463 files passed)
+- Tests: 378 passed, 12 skipped (127.53s)

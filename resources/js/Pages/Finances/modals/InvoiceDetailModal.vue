@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { useFormatters, usePayments } from '@/composables';
+import { useFormatters, usePayments, useSWR } from '@/composables';
 import { useFinancesStore } from '@/stores/finances';
 import {
     InvoiceStatusBadge,
@@ -49,33 +49,35 @@ const store = useFinancesStore();
 const { formatMoney, formatDate } = useFormatters();
 const { downloadInvoice, sendInvoice, sendReminder, voidInvoice, previewInvoice, reissueInvoice, isProcessing } = usePayments();
 
-const invoice = ref(null);
-const loading = ref(false);
-const error = ref(null);
 const showVoidConfirm = ref(false);
 const voidReason = ref('');
 
 const modalData = computed(() => store.modals.invoiceDetail);
 
-watch(() => modalData.value.show, async (newVal) => {
-    if (newVal && modalData.value.id) {
-        await fetchInvoiceDetail(modalData.value.id);
-    }
+const swrKey = computed(() => {
+    if (!modalData.value.show || !modalData.value.id) return '';
+    return `invoice-detail-${modalData.value.id}`;
 });
 
-const fetchInvoiceDetail = async (id) => {
-    loading.value = true;
-    error.value = null;
-    try {
+const { data: invoiceData, error: swrError, isLoading: loading, refresh: refreshInvoice } = useSWR(
+    () => swrKey.value,
+    async (key) => {
+        const id = key.replace('invoice-detail-', '');
         const response = await fetch(route('finances.invoices.detail', id));
         if (!response.ok) throw new Error('Failed to fetch invoice');
-        invoice.value = await response.json();
-    } catch (err) {
-        error.value = err.message;
-    } finally {
-        loading.value = false;
+        return response.json();
+    },
+    { immediate: false, staleTime: 60000, cacheTime: 300000 }
+);
+
+const invoice = computed(() => invoiceData.value?.invoice ?? null);
+const error = computed(() => swrError.value?.message ?? null);
+
+watch(() => modalData.value.show, async (newVal) => {
+    if (newVal && modalData.value.id) {
+        await refreshInvoice();
     }
-};
+});
 
 const close = () => {
     store.closeModal('invoiceDetail');
@@ -90,7 +92,7 @@ const handleRecordPayment = () => {
 const handleSendInvoice = async () => {
     if (!invoice.value) return;
     await sendInvoice(invoice.value.id);
-    await fetchInvoiceDetail(invoice.value.id);
+    await refreshInvoice();
 };
 
 const handleSendReminder = async () => {
@@ -144,7 +146,7 @@ const handleVoid = async () => {
     await voidInvoice(invoice.value.id, voidReason.value);
     showVoidConfirm.value = false;
     voidReason.value = '';
-    await fetchInvoiceDetail(invoice.value.id);
+    await refreshInvoice();
 };
 </script>
 

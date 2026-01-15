@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateInvoiceSettingsRequest;
 use App\Http\Requests\UpdatePaymentMethodsRequest;
 use App\Http\Requests\UpdateReceiptSettingsRequest;
 use App\Http\Requests\UpdateReminderSettingsRequest;
+use App\Http\Traits\WithETag;
 use App\Mail\DepositRefundNotification;
 use App\Models\Building;
 use App\Models\DepositTransaction;
@@ -38,6 +39,8 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class FinancesController extends Controller
 {
+    use WithETag;
+
     public function __construct(
         protected FinanceStatsService $statsService,
         protected FinanceReportService $reportService,
@@ -290,7 +293,7 @@ class FinancesController extends Controller
             'payments:id,invoice_id,amount,payment_method,payment_date,reference',
         ]);
 
-        return response()->json([
+        return $this->jsonWithCache([
             'invoice' => [
                 'id' => $invoice->id,
                 'invoice_number' => $invoice->invoice_number,
@@ -324,7 +327,7 @@ class FinancesController extends Controller
                     'reference' => $p->reference,
                 ])->toArray(),
             ],
-        ]);
+        ], 60, 300);
     }
 
     public function paymentDetail(Payment $payment): JsonResponse
@@ -343,7 +346,7 @@ class FinancesController extends Controller
             'refund:id,payment_id,amount,status,reason',
         ]);
 
-        return response()->json([
+        return $this->jsonWithCache([
             'payment' => [
                 'id' => $payment->id,
                 'amount' => $payment->amount,
@@ -377,7 +380,7 @@ class FinancesController extends Controller
                 ] : null,
                 'can_refund' => ! $payment->refund && $payment->amount > 0,
             ],
-        ]);
+        ], 60, 300);
     }
 
     public function updatePaymentMethods(UpdatePaymentMethodsRequest $request): RedirectResponse
@@ -627,11 +630,11 @@ class FinancesController extends Controller
                 'created_at' => $t->created_at->format('Y-m-d H:i'),
             ]);
 
-        return response()->json([
+        return $this->jsonWithCache([
             'transactions' => $transactions,
             'deposit_amount' => $lease->deposit_amount,
             'deposit_status' => $lease->deposit_status,
-        ]);
+        ], 30, 120);
     }
 
     public function exportDeposits(Request $request): BinaryFileResponse|\Illuminate\Http\Response|\Symfony\Component\HttpFoundation\StreamedResponse
@@ -812,7 +815,7 @@ class FinancesController extends Controller
 
         $invoice->load(['lateFees.policy', 'lateFees.waivedByUser']);
 
-        return response()->json([
+        return $this->jsonWithCache([
             'late_fees' => $invoice->lateFees->map(fn ($fee) => [
                 'id' => $fee->id,
                 'fee_amount' => $fee->fee_amount,
@@ -827,7 +830,7 @@ class FinancesController extends Controller
             ])->toArray(),
             'total_active' => $invoice->late_fees_total,
             'total_waived' => $invoice->late_fees_waived,
-        ]);
+        ], 60, 300);
     }
 
     public function expenses(Request $request): Response
@@ -918,7 +921,7 @@ class FinancesController extends Controller
 
         $expense->load(['category', 'vendor', 'property', 'building', 'unit']);
 
-        return response()->json([
+        return $this->jsonWithCache([
             'expense' => [
                 'id' => $expense->id,
                 'description' => $expense->description,
@@ -939,7 +942,7 @@ class FinancesController extends Controller
                 'location' => $expense->getLocationLabel(),
                 'created_at' => $expense->created_at->format('Y-m-d H:i'),
             ],
-        ]);
+        ], 60, 300);
     }
 
     public function storeExpenseCategory(Request $request): RedirectResponse

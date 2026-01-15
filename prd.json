@@ -292,7 +292,7 @@
         "Frontend: Use VueUse's useFetch with SWR or implement custom caching",
         "Set appropriate max-age and stale-while-revalidate values"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "OPT-013",
