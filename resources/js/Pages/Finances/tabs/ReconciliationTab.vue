@@ -29,11 +29,13 @@ interface Props {
     unmatchedPayments?: UnmatchedPayment[];
     pendingReconciliation?: number;
     stats?: ReconciliationStats;
+    loading?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     unmatchedPayments: () => [],
     pendingReconciliation: 0,
+    loading: false,
 });
 
 const store = useFinancesStore();
@@ -307,7 +309,7 @@ const processQueue = () => {
         <DataTable
             :columns="columns"
             :data="tableData"
-            :loading="false"
+            :loading="loading"
             row-key="id"
             :empty-icon="DocumentTextIcon"
             empty-title="No unmatched payments"

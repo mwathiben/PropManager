@@ -45,12 +45,14 @@ interface Props {
     filters?: Record<string, unknown>;
     statusOptions?: StatusOption[];
     buildings?: Building[];
+    loading?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     filters: () => ({}),
     statusOptions: () => [],
     buildings: () => [],
+    loading: false,
 });
 
 const store = useFinancesStore();
@@ -173,7 +175,7 @@ const exportData = (format: string): void => {
         <DataTable
             :columns="columns"
             :data="tableData"
-            :loading="false"
+            :loading="loading"
             row-key="id"
             :empty-icon="DocumentTextIcon"
             empty-title="No invoices found"

@@ -193,11 +193,15 @@ const periodOptions = [
 const isCustomPeriod = computed(() => localFilters.value.period === 'custom');
 
 const summaryStats = computed(() => {
+    if (!props.revenueData?.length) {
+        return { totalInvoiced: 0, totalCollected: 0, totalExpenses: 0, netIncome: 0, avgCollectionRate: 0, grossMargin: 0 };
+    }
+
     let totalInvoiced = 0;
     let totalCollected = 0;
     let totalExpenses = 0;
 
-    props.revenueData?.forEach(m => {
+    props.revenueData.forEach(m => {
         totalInvoiced += m.invoiced || 0;
         totalCollected += m.collected || 0;
         totalExpenses += m.expenses || 0;
@@ -244,8 +248,10 @@ const trendData = computed(() => {
 });
 
 const maxRevenue = computed(() => {
+    if (!props.revenueData?.length) return 1;
+
     let max = 1;
-    props.revenueData?.forEach(m => {
+    props.revenueData.forEach(m => {
         max = Math.max(max, m.invoiced || 0, m.collected || 0, m.expenses || 0);
     });
     return max;
@@ -257,14 +263,16 @@ const arrearsTotal = computed(() => {
 });
 
 const agingBuckets = computed(() => {
+    if (!props.arrearsAging) return [];
+
     return AGING_BUCKET_KEYS.map(key => ({
         key,
         label: AGING_LABELS[key],
         color: AGING_COLORS[key],
-        count: props.arrearsAging?.[key]?.count || 0,
-        amount: props.arrearsAging?.[key]?.amount || 0,
+        count: props.arrearsAging[key]?.count || 0,
+        amount: props.arrearsAging[key]?.amount || 0,
         percentage: arrearsTotal.value > 0
-            ? Math.round(((props.arrearsAging?.[key]?.amount || 0) / arrearsTotal.value) * 100)
+            ? Math.round(((props.arrearsAging[key]?.amount || 0) / arrearsTotal.value) * 100)
             : 0,
     }));
 });

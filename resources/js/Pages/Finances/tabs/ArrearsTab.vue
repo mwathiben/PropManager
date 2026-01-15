@@ -36,12 +36,14 @@ interface Props {
     filters?: Record<string, unknown>;
     stats?: ArrearsStats;
     buildings?: Building[];
+    loading?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     arrears: () => [],
     filters: () => ({}),
     buildings: () => [],
+    loading: false,
 });
 
 const { formatDate, formatMoney } = useFormatters();
@@ -172,7 +174,7 @@ const sendReminder = async (item) => {
         <DataTable
             :columns="columns"
             :data="tableData"
-            :loading="false"
+            :loading="loading"
             row-key="id"
             :empty-icon="ExclamationTriangleIcon"
             empty-title="No arrears"

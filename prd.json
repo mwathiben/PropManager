@@ -277,7 +277,7 @@
       "pattern": {
         "correct": "<template><LoadingSkeleton v-if=\"loading\" /><ExpensiveComponent v-else :data=\"data\" /></template>"
       },
-      "passes": false
+      "passes": true
     },
     {
       "id": "OPT-012",

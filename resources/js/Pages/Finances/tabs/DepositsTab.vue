@@ -41,11 +41,13 @@ interface Props {
     filters?: Record<string, unknown>;
     stats?: DepositStats;
     buildings?: Building[];
+    loading?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     filters: () => ({}),
     buildings: () => [],
+    loading: false,
 });
 
 const store = useFinancesStore();
@@ -212,7 +214,7 @@ const statusLabels = {
         <DataTable
             :columns="columns"
             :data="tableData"
-            :loading="false"
+            :loading="loading"
             row-key="id"
             :empty-icon="BanknotesIcon"
             empty-title="No deposits found"

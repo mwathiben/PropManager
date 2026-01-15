@@ -30,12 +30,14 @@ interface Props {
     filters?: Record<string, unknown>;
     paymentMethodOptions?: PaymentMethodOption[];
     buildings?: Building[];
+    loading?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     filters: () => ({}),
     paymentMethodOptions: () => [],
     buildings: () => [],
+    loading: false,
 });
 
 const { formatDate } = useFormatters();
@@ -133,7 +135,7 @@ const exportData = (format) => {
         <DataTable
             :columns="columns"
             :data="tableData"
-            :loading="false"
+            :loading="loading"
             row-key="id"
             :empty-icon="CreditCardIcon"
             empty-title="No payments found"

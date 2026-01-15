@@ -17,11 +17,13 @@ interface Props {
     refunds?: PaginatedResponse<Refund>;
     filters?: Record<string, unknown>;
     statusOptions?: StatusOption[];
+    loading?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     filters: () => ({}),
     statusOptions: () => [],
+    loading: false,
 });
 
 const { formatDate } = useFormatters();
@@ -104,7 +106,7 @@ const viewRefund = (refund) => {
         <DataTable
             :columns="columns"
             :data="tableData"
-            :loading="false"
+            :loading="loading"
             row-key="id"
             :empty-icon="ArrowUturnLeftIcon"
             empty-title="No refunds found"

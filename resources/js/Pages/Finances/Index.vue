@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, watch, defineAsyncComponent, type Component } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch, defineAsyncComponent, type Component } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import { useFinancesStore } from '@/stores/finances';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
@@ -306,19 +306,37 @@ const activeSubtabs = computed(() => {
     return group?.subtabs || null;
 });
 
+const tabLoading = ref(false);
+let removeStartListener: (() => void) | null = null;
+let removeFinishListener: (() => void) | null = null;
+
 onMounted(() => {
     store.initFromProps({
         buildings: props.buildings,
         activeTab: props.activeTab,
         activeGroup: props.activeGroup,
     });
+
+    removeStartListener = router.on('start', () => {
+        tabLoading.value = true;
+    });
+    removeFinishListener = router.on('finish', () => {
+        tabLoading.value = false;
+    });
 });
 
-watch(() => props.activeTab, (newTab) => {
+onUnmounted(() => {
+    removeStartListener?.();
+    removeFinishListener?.();
+});
+
+watch(() => props.activeTab, (newTab, oldTab) => {
+    if (newTab === oldTab) return;
     store.setTab(newTab);
 });
 
-watch(() => props.activeGroup, (newGroup) => {
+watch(() => props.activeGroup, (newGroup, oldGroup) => {
+    if (newGroup === oldGroup) return;
     store.setGroup(newGroup);
 });
 
@@ -491,6 +509,7 @@ const unmatchedPaymentsForModal = computed(() => {
                             :receipt-templates="receiptTemplates"
                             :design-options="designOptions"
                             :active-subtab="store.activeTab"
+                            :loading="tabLoading"
                         />
                     </div>
                 </div>
