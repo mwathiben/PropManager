@@ -3169,3 +3169,127 @@ Added composite indexes to optimize Finance Hub database queries. Some indexes a
 - Migration: Success
 - Build: Success (20.85s)
 - Tests: 378 passed, 12 skipped
+
+
+---
+
+## OPT-007: Implement Laravel Cache for Finance Hub Statistics
+**Status:** PASSED
+**Date:** 2026-01-15
+**Attempts:** 0 (Already implemented)
+
+### Implementation Summary
+
+Cache infrastructure for Finance Hub statistics was found to be already fully implemented during codebase analysis.
+
+### Existing Implementation
+
+| File | Purpose |
+|------|---------|
+| `app/Services/FinanceCacheService.php` | Cache infrastructure with rememberStats(), invalidateForLandlord() |
+| `app/Services/FinanceStatsService.php` | All stat methods use FinanceCacheService::rememberStats() |
+| `app/Observers/InvoiceObserver.php` | Cache invalidation on invoice create/update/delete |
+| `app/Observers/PaymentObserver.php` | Cache invalidation on payment create/update/delete |
+
+### Cache Configuration
+
+- **Stats TTL:** 5 minutes (300 seconds)
+- **Reports TTL:** 10 minutes (600 seconds)
+- **Key format:** `finance:{type}:{landlordId}:{suffix}`
+
+### Cached Statistics
+
+| Statistic | Cache Key | Method |
+|-----------|-----------|--------|
+| Overview Stats | `finance:overview:{id}:{Y-m}` | `getOverviewStats()` |
+| Hub Stats | `finance:hub:{id}` | `getHubStats()` |
+| Arrears Stats | `finance:arrears:{id}` | `getArrearsStats()` |
+| Deposit Stats | `finance:deposits:{id}` | `getDepositStats()` |
+| Late Fee Stats | `finance:latefees:{id}` | `getLateFeeStats()` |
+| Expense Stats | `finance:expenses:{id}` | `getExpenseStats()` |
+| Monthly Trend | `finance:trend:{id}` | `getMonthlyTrend()` |
+
+### Cache Invalidation
+
+Observers automatically invalidate all finance caches when:
+- Invoice is created, updated, or deleted
+- Payment is created, updated, or deleted
+
+### Acceptance Criteria Verification
+
+1. **Identify statistics to cache** - All stats cached via FinanceCacheService
+2. **Implement Cache::remember()** - Used in all stat methods via rememberStats()
+3. **Set TTL (5-15 minutes)** - 5 minutes for stats, 10 for reports
+4. **Cache invalidation on data changes** - Observers handle this
+5. **Cache warming** - Not implemented (optional)
+
+### Verification Results
+
+- No changes required - already implemented
+- Tests: 378 passed, 12 skipped (from previous run)
+
+
+---
+
+## OPT-008: Move PDF Generation to Background Jobs
+**Status:** PASSED
+**Date:** 2026-01-15
+**Attempts:** 1
+
+### Implementation Summary
+
+Moved DomPDF invoice generation from synchronous to Laravel queued jobs to unblock the main thread during invoice creation.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/2026_01_15_100001_add_pdf_fields_to_invoices_table.php` | Add pdf_path and pdf_generated_at fields |
+| `app/Jobs/GenerateInvoicePdf.php` | Queue job for async PDF generation |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Models/Invoice.php` | Added pdf_path, pdf_generated_at to fillable/casts |
+| `app/Services/InvoicePdfService.php` | Added savePdfAndRecord() method, fixed disk to 'local' |
+| `app/Services/InvoiceService.php` | Dispatch job in generateInvoiceForLease() and generateFirstInvoiceForLease() |
+| `app/Http/Controllers/InvoiceController.php` | Dispatch job in reissue() method |
+| `resources/js/Pages/Invoices/Show.vue` | Added PDF generation status indicator |
+
+### Job Configuration
+
+```php
+class GenerateInvoicePdf implements ShouldQueue
+{
+    public int $tries = 3;
+    public array $backoff = [30, 60, 120]; // Exponential backoff
+}
+```
+
+### Frontend UI Changes
+
+- Added "Generating PDF..." spinner when `pdf_path` is null
+- Download button disabled during generation
+- Status indicator uses Tailwind animate-spin
+
+### Job Dispatch Points
+
+1. `InvoiceService::generateInvoiceForLease()` - Monthly invoice generation
+2. `InvoiceService::generateFirstInvoiceForLease()` - First invoice for new tenants
+3. `InvoiceController::reissue()` - Reissuing voided invoices
+
+### Acceptance Criteria Verification
+
+1. **Create GenerateInvoicePdf job class** - Created with ShouldQueue interface
+2. **Dispatch job when invoice created** - Added to InvoiceService and InvoiceController
+3. **Store generated PDF path in invoice record** - savePdfAndRecord() updates invoice
+4. **Add progress indicator in UI** - Spinner and disabled button during generation
+5. **Implement retry logic** - 3 tries with [30, 60, 120] second backoff
+
+### Verification Results
+
+- Migration: Success
+- Lint (Pint): Success
+- Build: Success
+- Tests: 378 passed, 12 skipped

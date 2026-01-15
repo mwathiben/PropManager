@@ -200,7 +200,7 @@
       "pattern": {
         "correct": "Cache::tags(['finance', 'statistics'])->remember('monthly_trend', 600, fn() => $this->calculateMonthlyTrend())"
       },
-      "passes": false
+      "passes": true
     },
     {
       "id": "OPT-008",
@@ -219,7 +219,7 @@
         "app/Jobs/GenerateInvoicePdf.php",
         "app/Services/InvoicePdfService.php"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "OPT-009",

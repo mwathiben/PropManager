@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\GenerateInvoicePdf;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\InvoiceType;
@@ -58,6 +59,8 @@ class InvoiceService
             if ($waterDue > 0 && $building->usesConsumptionBilling()) {
                 $this->markWaterReadingsAsInvoiced($lease, $billingPeriod);
             }
+
+            GenerateInvoicePdf::dispatch($invoice->id);
 
             return $invoice;
         });
@@ -184,6 +187,8 @@ class InvoiceService
                 'total_due' => $totalDue,
                 'status' => $totalDue > 0 ? Invoice::STATUS_DRAFT : Invoice::STATUS_PAID,
             ]);
+
+            GenerateInvoicePdf::dispatch($invoice->id);
 
             return $invoice->fresh(['items']);
         });

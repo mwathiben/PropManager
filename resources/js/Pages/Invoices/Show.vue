@@ -66,6 +66,9 @@ const canVoid = computed(() => {
 
 const isVoided = computed(() => props.invoice?.status === 'voided');
 
+const pdfReady = computed(() => !!props.invoice?.pdf_path);
+const pdfGenerating = computed(() => !props.invoice?.pdf_path && !props.invoice?.pdf_generated_at);
+
 const submitPayment = () => {
     paymentForm.post(route('invoices.recordPayment', props.invoice.id), {
         onSuccess: () => {
@@ -225,6 +228,13 @@ const reissueInvoice = () => {
                     </div>
 
                     <div class="p-6 border-t border-gray-200">
+                        <div v-if="pdfGenerating" class="mb-4 flex items-center gap-2 text-sm text-amber-600">
+                            <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span>Generating PDF...</span>
+                        </div>
                         <div class="flex flex-wrap gap-3">
                             <button
                                 @click="previewInvoice"
@@ -236,10 +246,16 @@ const reissueInvoice = () => {
 
                             <button
                                 @click="downloadInvoice"
-                                class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                                :disabled="pdfGenerating"
+                                :class="[
+                                    'inline-flex items-center px-4 py-2 border rounded-md',
+                                    pdfGenerating
+                                        ? 'border-gray-200 text-gray-400 cursor-not-allowed'
+                                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                                ]"
                             >
                                 <ArrowDownTrayIcon class="w-5 h-5 mr-2" />
-                                Download PDF
+                                {{ pdfGenerating ? 'Generating...' : 'Download PDF' }}
                             </button>
 
                             <button

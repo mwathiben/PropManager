@@ -45,6 +45,8 @@ class Invoice extends Model
         'amount_paid',
         'status',
         'notes',
+        'pdf_path',
+        'pdf_generated_at',
         'sent_at',
         'viewed_at',
         'voided_at',
@@ -54,6 +56,7 @@ class Invoice extends Model
     protected $casts = [
         'due_date' => 'date',
         'billing_period_start' => 'date',
+        'pdf_generated_at' => 'datetime',
         'sent_at' => 'datetime',
         'viewed_at' => 'datetime',
         'voided_at' => 'datetime',

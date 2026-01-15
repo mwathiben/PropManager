@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\GenerateInvoicesRequest;
+use App\Jobs\GenerateInvoicePdf;
 use App\Mail\InvoiceReminder;
 use App\Mail\InvoiceSent;
 use App\Mail\OverpaymentNotification;
@@ -307,6 +308,8 @@ class InvoiceController extends Controller
             $newItem->invoice_id = $newInvoice->id;
             $newItem->save();
         }
+
+        GenerateInvoicePdf::dispatch($newInvoice->id);
 
         return redirect()->route('invoices.show', $newInvoice)->with('success', 'Invoice reissued as draft.');
     }

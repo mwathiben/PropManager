@@ -25,7 +25,19 @@ class InvoicePdfService
         $pdf = $this->generatePdf($invoice, $template);
         $path = "invoices/{$invoice->landlord_id}/{$invoice->invoice_number}.pdf";
 
-        Storage::disk('private')->put($path, $pdf->output());
+        Storage::disk('local')->put($path, $pdf->output());
+
+        return $path;
+    }
+
+    public function savePdfAndRecord(Invoice $invoice, ?InvoiceTemplate $template = null): string
+    {
+        $path = $this->savePdf($invoice, $template);
+
+        $invoice->update([
+            'pdf_path' => $path,
+            'pdf_generated_at' => now(),
+        ]);
 
         return $path;
     }
