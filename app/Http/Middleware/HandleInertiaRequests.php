@@ -9,6 +9,7 @@ use App\Models\TenantInvitation;
 use App\Models\Ticket;
 use App\Models\WaterReading;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -41,15 +42,12 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'auth' => [
                 'user' => $user,
-                'kyc_complete' => $user?->hasCompletedKyc() ?? true,
-                'profile_photo_url' => $user?->profile_photo_url,
             ],
             'impersonating' => session('impersonating') !== null,
             'impersonating_name' => session('impersonating_name'),
-            'navBadges' => $this->getNavBadges($request),
+            'navBadges' => fn () => $this->getNavBadges($request),
             'featureAccess' => $this->getFeatureAccess($request),
-            'pendingInvitationsCount' => $this->getPendingInvitationsCount($request),
-            'pendingInvitations' => $this->getPendingInvitations($request),
+            'pendingInvitations' => Inertia::defer(fn () => $this->getPendingInvitations($request)),
         ];
     }
 
@@ -132,33 +130,6 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * Get the count of pending invitations for the current user.
-     */
-    protected function getPendingInvitationsCount(Request $request): int
-    {
-        $user = $request->user();
-
-        if (! $user) {
-            return 0;
-        }
-
-        $count = 0;
-
-        // Caretaker invitations (any user can be invited as caretaker)
-        $count += Invitation::where('target_user_id', $user->id)
-            ->pending()
-            ->count();
-
-        // Tenant invitations (for existing users) - bypass TenantScope to see invitations from any landlord
-        $count += TenantInvitation::withoutGlobalScope('landlord')
-            ->where('existing_user_id', $user->id)
-            ->valid()
-            ->count();
-
-        return $count;
-    }
-
-    /**
      * Get pending invitations details for the dashboard banner.
      */
     protected function getPendingInvitations(Request $request): array
@@ -168,8 +139,6 @@ class HandleInertiaRequests extends Middleware
         if (! $user) {
             return [];
         }
-
-        $invitations = [];
 
         // Caretaker invitations
         $caretakerInvitations = Invitation::where('target_user_id', $user->id)

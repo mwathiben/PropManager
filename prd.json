@@ -259,7 +259,7 @@
       "files": [
         "app/Http/Middleware/HandleInertiaRequests.php"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "OPT-011",
