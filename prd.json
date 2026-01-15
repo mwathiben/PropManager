@@ -182,7 +182,7 @@
       "files": [
         "database/migrations/*_add_finance_indexes.php"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "OPT-007",

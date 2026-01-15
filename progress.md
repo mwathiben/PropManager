@@ -3112,3 +3112,60 @@ Replaced inline ternary expressions with function calls:
 
 - Build: Success (30.61s)
 - Tests: 378 passed, 12 skipped
+
+
+---
+
+## OPT-006: Add Database Indexes for Finance Hub Queries
+**Status:** PASSED
+**Date:** 2026-01-15
+**Attempts:** 1
+
+### Implementation Summary
+
+Added composite indexes to optimize Finance Hub database queries. Some indexes already existed from a previous migration (2026_01_10_083715), so only the missing indexes were added.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/2026_01_15_000001_add_finance_hub_indexes.php` | New composite indexes for performance |
+
+### Indexes Added
+
+**Payments Table:**
+- `payments_landlord_method_idx` (landlord_id, payment_method) - Payment method filtering
+- `payments_landlord_invoice_idx` (landlord_id, invoice_id) - Unreconciled payment queries
+
+**Invoices Table:**
+- `invoices_landlord_status_due_idx` (landlord_id, status, due_date) - Arrears aging calculations
+- `invoices_landlord_created_idx` (landlord_id, created_at) - Monthly invoice reports
+
+**Leases Table:**
+- `leases_landlord_active_idx` (landlord_id, is_active) - Active lease lookups
+- `leases_unit_idx` (unit_id) - Join from units to leases
+
+**Units Table:**
+- `units_building_landlord_idx` (building_id, landlord_id) - Building filter navigation
+
+### Pre-existing Indexes (from migration 2026_01_10_083715)
+
+- `payments_landlord_date_idx` (landlord_id, payment_date)
+- `invoices_landlord_status_idx` (landlord_id, status)
+- `invoices_landlord_due_date_idx` (landlord_id, due_date)
+- `invoices_status_created_idx` (status, created_at)
+
+### Expected Performance Impact
+
+| Query Pattern | Before | After |
+|---------------|--------|-------|
+| `landlord_id + status` filtering | Table scan | Index seek |
+| Monthly payment aggregations | Full scan | Range scan |
+| Building filter chain | 4 table scans | Index traversal |
+| Arrears aging | Sequential scan | Sorted index |
+
+### Verification Results
+
+- Migration: Success
+- Build: Success (20.85s)
+- Tests: 378 passed, 12 skipped
