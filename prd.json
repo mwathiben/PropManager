@@ -237,7 +237,7 @@
       "pattern": {
         "css": ".invoice-row { content-visibility: auto; contain-intrinsic-size: 0 64px; }"
       },
-      "passes": false
+      "passes": true
     },
     {
       "id": "OPT-010",

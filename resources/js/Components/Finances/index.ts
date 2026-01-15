@@ -10,6 +10,7 @@ export { default as AmountDisplay } from './AmountDisplay.vue';
 export { default as EmptyState } from './EmptyState.vue';
 export { default as FilterBar } from './FilterBar.vue';
 export { default as DataTable } from './DataTable.vue';
+export { default as VirtualDataTable } from './VirtualDataTable.vue';
 export { default as Pagination } from './Pagination.vue';
 export { default as ExportDropdown } from './ExportDropdown.vue';
 export { default as ModalLoadingPlaceholder } from './ModalLoadingPlaceholder.vue';

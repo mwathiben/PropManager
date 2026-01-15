@@ -34,3 +34,10 @@ export type {
     FilterValue,
     LocalFilters
 } from './useTabFilters';
+
+export { useInfiniteScroll } from './useInfiniteScroll';
+export type {
+    UseInfiniteScrollOptions,
+    UseInfiniteScrollReturn,
+    CursorPaginatedResponse
+} from './useInfiniteScroll';
