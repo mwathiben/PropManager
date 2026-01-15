@@ -17,4 +17,16 @@ export default defineConfig({
             },
         }),
     ],
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    'vue-core': ['vue', '@inertiajs/vue3', 'pinia'],
+                    'vendor': ['axios', '@vueuse/core', 'ziggy-js'],
+                    'leaflet': ['leaflet'],
+                    'marked': ['marked'],
+                },
+            },
+        },
+    },
 });

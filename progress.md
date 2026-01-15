@@ -3622,3 +3622,66 @@ const { data: invoiceData, error: swrError, isLoading: loading, refresh: refresh
 - Build: Success (34.53s)
 - Lint (Pint): Success (463 files passed)
 - Tests: 378 passed, 12 skipped (127.53s)
+
+---
+
+## OPT-013: Configure Vite for Optimal Chunk Splitting
+**Status:** PASSED
+**Date:** 2026-01-15
+**Attempts:** 1
+
+### Implementation Summary
+
+Configured Vite's rollupOptions.manualChunks for optimal code splitting, separating vendor libraries from application code to improve cache efficiency and reduce initial bundle size.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `vite.config.js` | Added `build.rollupOptions.output.manualChunks` configuration |
+
+### Chunk Configuration
+
+```js
+manualChunks: {
+    'vue-core': ['vue', '@inertiajs/vue3', 'pinia'],
+    'vendor': ['axios', '@vueuse/core', 'ziggy-js'],
+    'leaflet': ['leaflet'],
+    'marked': ['marked'],
+}
+```
+
+### Bundle Size Comparison
+
+**Before (single bundle):**
+| Chunk | Size (raw) | Size (gzip) |
+|-------|------------|-------------|
+| `app.js` | 290.00 KB | 100.83 KB |
+
+**After (split chunks):**
+| Chunk | Size (raw) | Size (gzip) | Contents |
+|-------|------------|-------------|----------|
+| `app.js` | 35.33 KB | 8.40 KB | Application code only |
+| `vue-core.js` | 203.09 KB | 71.39 KB | Vue, Inertia, Pinia |
+| `vendor.js` | 53.23 KB | 20.72 KB | axios, VueUse, Ziggy |
+| `leaflet.js` | 149.43 KB | 43.24 KB | Leaflet (map pages only) |
+| `marked.js` | 39.84 KB | 12.20 KB | Markdown parser |
+
+### Performance Benefits
+
+1. **App bundle reduced by 87%** (290KB → 35KB)
+2. **Better cache efficiency**: vue-core rarely changes, can have long TTL
+3. **Lazy loading**: leaflet/marked only loaded when needed
+4. **Faster repeat visits**: unchanged vendor chunks served from cache
+
+### Notes
+
+- rollup-plugin-visualizer skipped due to peer dependency conflicts with Vite 7
+- Finance Hub components already code-split via dynamic imports (OPT-003)
+- Total initial load unchanged, but cache utilization improved
+
+### Verification Results
+
+- Build: Success (33.96s)
+- Lint (Pint): Success (463 files passed)
+- Tests: 378 passed, 12 skipped (79.29s)

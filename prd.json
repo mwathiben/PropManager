@@ -313,7 +313,7 @@
       "files": [
         "vite.config.js"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "OPT-014",
