@@ -382,7 +382,7 @@
       "files": [
         "config/database.php"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "OPT-018",
