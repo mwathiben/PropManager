@@ -16,6 +16,7 @@ use App\Services\NotificationService;
 use App\Services\PushNotificationService;
 use App\Services\SchedulerService;
 use App\Services\TemplateService;
+use App\Services\WhatsAppTemplateService;
 use App\Traits\HasBuildingFilter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -34,16 +35,20 @@ class NotificationsController extends Controller
 
     protected PushNotificationService $pushService;
 
+    protected WhatsAppTemplateService $whatsAppTemplateService;
+
     public function __construct(
         NotificationService $notificationService,
         TemplateService $templateService,
         SchedulerService $schedulerService,
-        PushNotificationService $pushService
+        PushNotificationService $pushService,
+        WhatsAppTemplateService $whatsAppTemplateService
     ) {
         $this->notificationService = $notificationService;
         $this->templateService = $templateService;
         $this->schedulerService = $schedulerService;
         $this->pushService = $pushService;
+        $this->whatsAppTemplateService = $whatsAppTemplateService;
     }
 
     /**
@@ -722,6 +727,7 @@ class NotificationsController extends Controller
             'tenants' => [],
             'notifications' => ['data' => []],
             'filters' => [],
+            'whatsappTemplates' => $this->whatsAppTemplateService->getTemplatesWithStatus($landlordId),
         ]);
     }
 
@@ -749,6 +755,35 @@ class NotificationsController extends Controller
         }
 
         return redirect()->back()->with('success', 'Provider settings updated successfully.');
+    }
+
+    /**
+     * Update WhatsApp template SIDs
+     */
+    public function updateWhatsAppTemplates(Request $request)
+    {
+        $validated = $request->validate([
+            'templates' => 'required|array',
+            'templates.*.type' => 'required|string|max:50',
+            'templates.*.sid' => 'nullable|string|max:100',
+        ]);
+
+        $user = auth()->user();
+        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+
+        foreach ($validated['templates'] as $template) {
+            $key = "whatsapp_template_{$template['type']}_sid";
+
+            if (! empty($template['sid'])) {
+                Setting::set($key, $template['sid'], false, 'whatsapp', null, $landlordId);
+            } else {
+                Setting::where('landlord_id', $landlordId)
+                    ->where('key', $key)
+                    ->delete();
+            }
+        }
+
+        return redirect()->back()->with('success', 'WhatsApp templates updated successfully.');
     }
 
     /**

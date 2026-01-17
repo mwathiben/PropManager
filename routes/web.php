@@ -3,6 +3,7 @@
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\Admin\AdminBillingController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\ArchiveHubController;
 use App\Http\Controllers\ArrearsController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\BuildingController;
@@ -19,7 +20,9 @@ use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\InvoiceSettingController;
 use App\Http\Controllers\InvoiceTemplateController;
 use App\Http\Controllers\LeaseController;
+use App\Http\Controllers\MaintenanceHubController;
 use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\OperationsHubController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PaymentsHubController;
 use App\Http\Controllers\ProfileController;
@@ -33,8 +36,10 @@ use App\Http\Controllers\TenantInvitationController;
 use App\Http\Controllers\TenantNoteController;
 use App\Http\Controllers\TenantPaymentVerificationController;
 use App\Http\Controllers\TenantPortalController;
+use App\Http\Controllers\TenantsHubController;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\TwoFactorController;
+use App\Http\Controllers\WaterHubController;
 use App\Http\Controllers\WaterReadingController;
 use App\Http\Controllers\WaterSettingsController;
 use Illuminate\Foundation\Application;
@@ -167,6 +172,29 @@ Route::middleware('auth')->group(function () {
 
     // Invoice Automation Settings (Per-Building Configuration)
     Route::put('/buildings/{building}/automation-settings', [BuildingController::class, 'updateAutomationSettings'])->name('buildings.automation-settings.update');
+
+    // ========================================
+    // CONSOLIDATED HUB ROUTES (Navigation Optimization)
+    // ========================================
+
+    // Tenants Hub - Consolidates: Tenants, Invitations, Verifications, Payment Verifications, Move-Outs, History
+    Route::get('/tenants-hub', [TenantsHubController::class, 'index'])->name('tenants.hub');
+
+    // Maintenance Hub - Consolidates: Tickets (Issues), Complaints
+    Route::get('/maintenance', [MaintenanceHubController::class, 'index'])->name('maintenance.hub');
+
+    // Water Hub - Consolidates: Readings, History, Settings
+    Route::get('/water', [WaterHubController::class, 'index'])->name('water.hub');
+
+    // Archive Hub - Consolidates: Documents, Leases, Activity Logs
+    Route::get('/archive', [ArchiveHubController::class, 'index'])->name('archive.hub');
+
+    // Operations Hub - Consolidates: Notifications, Bulk Operations, Team, Imports
+    Route::get('/operations', [OperationsHubController::class, 'index'])->name('operations.hub');
+
+    // ========================================
+    // END CONSOLIDATED HUB ROUTES
+    // ========================================
 
     // 4. Tenant Management (Viewing/Editing Profiles)
     Route::get('/tenants', [TenantController::class, 'index'])->name('tenants.index');
@@ -414,6 +442,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/notifications/settings/vapid', [\App\Http\Controllers\NotificationsController::class, 'generateVapidKeys'])->name('notifications.settings.vapid');
     Route::get('/notifications/settings/global', [\App\Http\Controllers\NotificationsController::class, 'getGlobalPreferences'])->name('notifications.settings.global.get');
     Route::post('/notifications/settings/global', [\App\Http\Controllers\NotificationsController::class, 'updateGlobalPreferences'])->name('notifications.settings.global');
+    Route::post('/notifications/settings/whatsapp-templates', [\App\Http\Controllers\NotificationsController::class, 'updateWhatsAppTemplates'])->name('notifications.settings.whatsapp-templates');
 
     // Push Notifications
     Route::post('/notifications/push/subscribe', [\App\Http\Controllers\NotificationsController::class, 'subscribePush'])->name('notifications.push.subscribe');

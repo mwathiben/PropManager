@@ -20,13 +20,16 @@ import {
     ArchiveBoxIcon,
     UserGroupIcon,
     SignalIcon,
-    WrenchScrewdriverIcon
+    WrenchScrewdriverIcon,
+    DocumentTextIcon,
+    ArrowTopRightOnSquareIcon
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
     settings: { type: Object, default: () => ({}) },
     globalPreferences: { type: Object, default: () => ({}) },
     setupComplete: { type: Boolean, default: false },
+    whatsappTemplates: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(['open-wizard']);
@@ -36,6 +39,7 @@ const settingsTab = ref('channels');
 
 const settingsTabs = [
     { id: 'channels', name: 'Channels', icon: SignalIcon },
+    { id: 'templates', name: 'Templates', icon: DocumentTextIcon },
     { id: 'delivery', name: 'Delivery & Retry', icon: ClockIcon },
     { id: 'defaults', name: 'Defaults & Archive', icon: WrenchScrewdriverIcon },
 ];
@@ -147,6 +151,24 @@ const saveGlobalPreferences = () => {
     globalForm.post(route('notifications.settings.global'), {
         preserveScroll: true,
     });
+};
+
+// WhatsApp Templates form
+const templatesForm = useForm({
+    templates: props.whatsappTemplates.map(t => ({
+        type: t.type,
+        sid: t.sid || '',
+    })),
+});
+
+const saveTemplates = () => {
+    templatesForm.post(route('notifications.settings.whatsapp-templates'), {
+        preserveScroll: true,
+    });
+};
+
+const getTemplateByType = (type) => {
+    return props.whatsappTemplates.find(t => t.type === type);
 };
 
 const toggleChannel = (channel) => {
@@ -461,6 +483,115 @@ const getColorClasses = (color) => {
         </div>
         </div>
         <!-- End Channels Tab -->
+
+        <!-- ==================== TEMPLATES TAB ==================== -->
+        <div v-if="settingsTab === 'templates'" class="space-y-6">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <!-- Header -->
+                <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="p-3 rounded-xl bg-emerald-100">
+                            <DocumentTextIcon class="w-6 h-6 text-emerald-600" />
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-900">WhatsApp Message Templates</h3>
+                            <p class="text-sm text-gray-500">Configure Meta-approved template SIDs for WhatsApp Business API</p>
+                        </div>
+                    </div>
+                    <button
+                        @click="saveTemplates"
+                        :disabled="templatesForm.processing"
+                        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                    >
+                        <CheckCircleIcon class="w-4 h-4" />
+                        {{ templatesForm.processing ? 'Saving...' : 'Save Templates' }}
+                    </button>
+                </div>
+
+                <div class="p-6">
+                    <!-- Info Banner -->
+                    <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+                        <div class="flex items-start gap-3">
+                            <ChatBubbleLeftRightIcon class="w-5 h-5 text-blue-600 mt-0.5" />
+                            <div>
+                                <p class="text-sm text-blue-800">
+                                    WhatsApp Business API requires pre-approved message templates for business-initiated conversations.
+                                    Submit templates via the <a href="https://console.twilio.com/us1/develop/sms/try-it-out/whatsapp-templates" target="_blank" class="font-medium underline inline-flex items-center gap-1">Twilio Console <ArrowTopRightOnSquareIcon class="w-3 h-3" /></a>,
+                                    then enter the approved Content SID below.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Template Cards -->
+                    <div class="space-y-4">
+                        <div
+                            v-for="(template, index) in templatesForm.templates"
+                            :key="template.type"
+                            class="bg-gray-50 rounded-xl p-5"
+                        >
+                            <div class="flex items-start justify-between mb-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="p-2 bg-emerald-100 rounded-lg">
+                                        <DocumentTextIcon class="w-5 h-5 text-emerald-600" />
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium text-gray-900">{{ getTemplateByType(template.type)?.label }}</h4>
+                                        <p class="text-xs text-gray-500">{{ getTemplateByType(template.type)?.name }}</p>
+                                    </div>
+                                </div>
+                                <span
+                                    :class="[
+                                        'inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full',
+                                        template.sid ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'
+                                    ]"
+                                >
+                                    <span :class="['w-1.5 h-1.5 rounded-full', template.sid ? 'bg-green-500' : 'bg-gray-400']"></span>
+                                    {{ template.sid ? 'Configured' : 'Not Configured' }}
+                                </span>
+                            </div>
+
+                            <!-- Template Preview -->
+                            <div class="bg-white border border-gray-200 rounded-lg p-3 mb-4">
+                                <p class="text-sm text-gray-600 font-mono">{{ getTemplateByType(template.type)?.content }}</p>
+                                <div class="flex flex-wrap gap-1 mt-2">
+                                    <span
+                                        v-for="variable in getTemplateByType(template.type)?.variables"
+                                        :key="variable"
+                                        class="px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded"
+                                    >
+                                        {{ variable }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- SID Input -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Content SID</label>
+                                <input
+                                    type="text"
+                                    v-model="templatesForm.templates[index].sid"
+                                    placeholder="HJXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+                                    class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 font-mono text-sm"
+                                />
+                                <p class="text-xs text-gray-500 mt-1">
+                                    Enter the Content SID from Twilio after Meta approval (starts with HJ)
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Success Message -->
+                    <div v-if="templatesForm.recentlySuccessful" class="mt-4 bg-green-50 border border-green-200 rounded-xl p-4">
+                        <div class="flex items-center gap-2">
+                            <CheckCircleIcon class="w-5 h-5 text-green-600" />
+                            <p class="text-sm font-medium text-green-800">Templates saved successfully!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- End Templates Tab -->
 
         <!-- ==================== DELIVERY & RETRY TAB ==================== -->
         <div v-if="settingsTab === 'delivery'" class="space-y-6">

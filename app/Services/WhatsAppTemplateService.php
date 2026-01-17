@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\Setting;
+
 class WhatsAppTemplateService
 {
     /**
@@ -13,23 +15,19 @@ class WhatsAppTemplateService
     }
 
     /**
-     * Check if a template has an approved SID.
+     * Check if a template has an approved SID configured for the landlord.
      */
-    public function isApproved(string $type): bool
+    public function isApproved(string $type, int $landlordId): bool
     {
-        $template = $this->getTemplate($type);
-
-        return $template && ! empty($template['sid']);
+        return ! empty($this->getContentSid($type, $landlordId));
     }
 
     /**
-     * Get the approved template SID.
+     * Get the approved template SID from landlord's settings.
      */
-    public function getContentSid(string $type): ?string
+    public function getContentSid(string $type, int $landlordId): ?string
     {
-        $template = $this->getTemplate($type);
-
-        return $template['sid'] ?? null;
+        return Setting::get("whatsapp_template_{$type}_sid", null, $landlordId);
     }
 
     /**
@@ -63,6 +61,29 @@ class WhatsAppTemplateService
     public function getAvailableTemplates(): array
     {
         return array_keys(config('whatsapp.templates', []));
+    }
+
+    /**
+     * Get all templates with their current SID status for a landlord.
+     */
+    public function getTemplatesWithStatus(int $landlordId): array
+    {
+        $templates = config('whatsapp.templates', []);
+        $result = [];
+
+        foreach ($templates as $type => $template) {
+            $result[] = [
+                'type' => $type,
+                'name' => $template['name'],
+                'label' => $template['label'] ?? ucwords(str_replace('_', ' ', $type)),
+                'content' => $template['content'],
+                'variables' => $template['variables'],
+                'sid' => $this->getContentSid($type, $landlordId),
+                'configured' => $this->isApproved($type, $landlordId),
+            ];
+        }
+
+        return $result;
     }
 
     /**

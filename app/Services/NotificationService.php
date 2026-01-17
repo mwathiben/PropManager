@@ -374,9 +374,9 @@ class NotificationService
 
             $templateType = $this->mapNotificationTypeToTemplate($notification->type);
 
-            if ($templateType && $this->whatsAppTemplateService->isApproved($templateType)) {
+            if ($templateType && $this->whatsAppTemplateService->isApproved($templateType, $notification->landlord_id)) {
                 $templateData = $notification->data ?? [];
-                $payload['ContentSid'] = $this->whatsAppTemplateService->getContentSid($templateType);
+                $payload['ContentSid'] = $this->whatsAppTemplateService->getContentSid($templateType, $notification->landlord_id);
                 $payload['ContentVariables'] = json_encode(
                     $this->whatsAppTemplateService->renderVariables($templateType, $templateData)
                 );
