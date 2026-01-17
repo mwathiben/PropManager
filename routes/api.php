@@ -152,4 +152,5 @@ Route::prefix('webhooks')->group(function () {
 
     // WhatsApp webhooks (Twilio signature validated)
     Route::post('/whatsapp/status', [\App\Http\Controllers\Api\WhatsAppWebhookController::class, 'statusCallback']);
+    Route::post('/whatsapp/inbound', [\App\Http\Controllers\Api\WhatsAppWebhookController::class, 'inboundMessage']);
 });

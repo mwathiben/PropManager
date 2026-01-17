@@ -515,7 +515,8 @@
         "app/Services/TenantMessageService.php"
       ],
       "verification": "Reply to WhatsApp notification; verify message captured in TenantMessage table",
-      "passes": false
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "COM-014",

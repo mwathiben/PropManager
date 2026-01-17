@@ -4,12 +4,17 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Notification;
+use App\Services\TenantMessageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class WhatsAppWebhookController extends Controller
 {
+    public function __construct(
+        protected TenantMessageService $tenantMessageService
+    ) {}
+
     protected const STATUS_MAP = [
         'queued' => 'pending',
         'sent' => 'sent',
@@ -113,5 +118,46 @@ class WhatsAppWebhookController extends Controller
         $expectedSignature = base64_encode(hash_hmac('sha1', $data, $authToken, true));
 
         return hash_equals($expectedSignature, $signature);
+    }
+
+    public function inboundMessage(Request $request)
+    {
+        Log::channel('whatsapp')->info('WhatsApp inbound message received', [
+            'message_sid' => $request->input('MessageSid'),
+            'from' => $request->input('From'),
+            'body_length' => strlen($request->input('Body', '')),
+            'num_media' => $request->input('NumMedia', 0),
+        ]);
+
+        $messageSid = $request->input('MessageSid');
+        $from = $request->input('From');
+
+        if (! $messageSid || ! $from) {
+            Log::channel('whatsapp')->warning('Inbound webhook missing required fields', [
+                'has_sid' => (bool) $messageSid,
+                'has_from' => (bool) $from,
+            ]);
+
+            return response('Missing required fields', 400);
+        }
+
+        try {
+            $message = $this->tenantMessageService->processInbound($request->all());
+
+            Log::channel('whatsapp')->info('Inbound message stored successfully', [
+                'tenant_message_id' => $message->id,
+                'action_type' => $message->action_type,
+            ]);
+
+            return response('OK', 200);
+        } catch (\Exception $e) {
+            Log::channel('whatsapp')->error('Inbound message processing failed', [
+                'message_sid' => $messageSid,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response('OK', 200);
+        }
     }
 }

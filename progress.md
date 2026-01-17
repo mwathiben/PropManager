@@ -5659,3 +5659,62 @@ Implemented real-time dashboard metrics updates. When a payment is received, the
 ### Next Steps
 - COM-018: Real-time Invitation Status Updates
 - COM-019: Implement Connection Status Indicator
+
+---
+
+## Session: 2026-01-17T18:40:00
+**Task**: COM-013 - Implement WhatsApp Inbound Message Webhook
+**Status**: COMPLETED
+
+### Work Done
+- Created `database/migrations/2026_01_17_183438_create_tenant_messages_table.php`:
+  - Fields: landlord_id, user_id, notification_id, ticket_id, twilio_message_sid, from_number, body, media_urls, source, status, action_type, metadata
+  - Indexes on landlord_id+created_at, user_id+created_at, from_number
+- Created `app/Models/TenantMessage.php`:
+  - TenantScope trait for multi-tenant isolation
+  - Action type constants: ACTION_YES, ACTION_NO, ACTION_HELP, ACTION_ISSUE, ACTION_PAYMENT
+  - Status constants: STATUS_RECEIVED, STATUS_PROCESSED, STATUS_ACTION_TAKEN, STATUS_IGNORED
+  - Helper methods: isReply(), hasTicket(), markAsProcessed(), linkToTicket()
+  - Scopes: unprocessed(), fromPhone(), recent()
+- Created `app/Services/TenantMessageService.php`:
+  - processInbound() - Main entry point for webhook processing
+  - findTenantByPhone() - Match phone via NotificationPreference.whatsapp_number
+  - findOriginalNotification() - Find recent (24h) notification to link as reply
+  - detectActionKeyword() - Regex patterns for YES/NO/HELP/ISSUE/PAYMENT
+  - executeAction() - Handle keyword actions (create tickets, log confirmations)
+  - createTicket() - Auto-create Ticket from HELP/ISSUE messages
+  - detectSubcategory() - Parse message for plumbing/electrical/water/etc
+  - notifyLandlord() - Send in-app notification via SendNotificationJob
+- Updated `app/Http/Controllers/Api/WhatsAppWebhookController.php`:
+  - Added TenantMessageService injection via constructor
+  - Added inboundMessage() method for POST /webhooks/whatsapp/inbound
+  - Comprehensive logging to whatsapp channel
+  - Returns 200 OK always for idempotency
+- Updated `routes/api.php`:
+  - Added Route::post('/whatsapp/inbound', ...) in webhooks group
+
+### Files Changed
+- database/migrations/2026_01_17_183438_create_tenant_messages_table.php (NEW)
+- app/Models/TenantMessage.php (NEW)
+- app/Services/TenantMessageService.php (NEW)
+- app/Http/Controllers/Api/WhatsAppWebhookController.php (MODIFIED)
+- routes/api.php (MODIFIED)
+
+### Keyword Action Patterns
+```php
+'yes' => '/^(yes|yeah|ok|okay|confirm|accept|approved?)\s*$/i'
+'no' => '/^(no|nope|decline|reject|cancel)\s*$/i'
+'help' => '/\b(help|support|assist|question)\b/i'
+'issue' => '/\b(broken|problem|issue|repair|fix|leak|water|electricity|plumbing|not working)\b/i'
+'payment' => '/\b(pay|payment|mpesa|paybill|invoice)\b/i'
+```
+
+### Verification Results
+- Migration: Success
+- Lint (Pint): Success (no fixes needed)
+- Build: Success
+
+### Next Steps
+- COM-014: Create Landlord Inbox for Tenant Messages
+- COM-015: Auto-Create Support Tickets from Tenant Messages
+- COM-018: Real-time Invitation Status Updates
