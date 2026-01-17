@@ -1,0 +1,662 @@
+{
+  "project": {
+    "name": "PropManager Navigation Consolidation",
+    "description": "Consolidate 20+ sidebar menu items into 8-9 hub entries following the Finance Hub pattern, reducing navigation scroll by ~55% and improving user experience across the landlord portal",
+    "version": "1.0.0",
+    "techStack": {
+      "backend": "Laravel 12 (PHP 8.2+)",
+      "frontend": "Inertia.js + Vue 3 + Tailwind CSS v4",
+      "build": "Vite 7",
+      "database": "SQLite (dev), MySQL/PostgreSQL (production)",
+      "testing": "PHPUnit",
+      "codeStyle": "Laravel Pint"
+    }
+  },
+  "qualityStandards": {
+    "description": "Consolidate navigation while preserving all existing functionality, deep linking, and badge counts. Follow the established Finance Hub architecture pattern.",
+    "principles": [
+      "All existing routes must continue to work via redirects or aliases",
+      "Badge counts must aggregate correctly for hub entries",
+      "Tab state must persist in URL query params for deep linking",
+      "Async component loading with skeleton placeholders",
+      "No regression in page load performance",
+      "Mobile navigation must mirror desktop consolidation"
+    ]
+  },
+  "feedbackLoops": {
+    "description": "Run ALL feedback loops before committing. Do NOT commit if any fail.",
+    "commands": {
+      "typecheck": "npm run build -- --mode development 2>&1 | grep -i error",
+      "lint_frontend": "npm run lint",
+      "lint_backend": "vendor/bin/pint --test",
+      "test_backend": "php artisan test",
+      "test_frontend": "npm run test"
+    }
+  },
+  "categories": {
+    "hub_creation": {
+      "priority": 1,
+      "description": "Create new hub index components with tab routing"
+    },
+    "controller_consolidation": {
+      "priority": 2,
+      "description": "Create hub controllers that aggregate data for all tabs"
+    },
+    "route_migration": {
+      "priority": 3,
+      "description": "Add hub routes and redirects for backwards compatibility"
+    },
+    "navigation_update": {
+      "priority": 4,
+      "description": "Update AuthenticatedLayout navigation items"
+    },
+    "tab_refactoring": {
+      "priority": 5,
+      "description": "Refactor existing pages into tab components"
+    },
+    "badge_aggregation": {
+      "priority": 6,
+      "description": "Aggregate badge counts per hub in middleware"
+    }
+  },
+  "items": [
+    {
+      "id": "NAV-001",
+      "category": "hub_creation",
+      "priority": "CRITICAL",
+      "title": "Create Tenants Hub Index Component",
+      "description": "Create the main Tenants Hub component with tab-based navigation for Directory, Onboarding, Verifications, Payment Verifications, Move-Outs, and History tabs. This consolidates 6 menu items into 1.",
+      "steps": [
+        "Create Pages/Tenants/Hub.vue with tab navigation header",
+        "Define tabs array: directory, onboarding, verifications, payment-verifications, move-outs, history",
+        "Implement URL query param sync for tab state (?tab=directory)",
+        "Add async component loading with defineAsyncComponent for each tab",
+        "Create loading skeleton placeholders for async tab content",
+        "Ensure tab badges display individual counts (pending invitations, pending verifications, etc.)"
+      ],
+      "files": [
+        "resources/js/Pages/Tenants/Hub.vue"
+      ],
+      "newFile": true,
+      "referencePattern": "resources/js/Pages/Finances/Index.vue",
+      "verification": "Navigate to /tenants, verify all 6 tabs load correctly with proper content",
+      "passes": false
+    },
+    {
+      "id": "NAV-002",
+      "category": "hub_creation",
+      "priority": "CRITICAL",
+      "title": "Create Maintenance Hub Index Component",
+      "description": "Create Maintenance Hub component with tabs for Tickets and Complaints. Consolidates 2 menu items into 1.",
+      "steps": [
+        "Create Pages/Maintenance/Hub.vue with tab navigation",
+        "Define tabs: tickets, complaints",
+        "Sync tab state to URL query params",
+        "Add async loading for each tab component",
+        "Display ticket count badge on Tickets tab"
+      ],
+      "files": [
+        "resources/js/Pages/Maintenance/Hub.vue"
+      ],
+      "newFile": true,
+      "referencePattern": "resources/js/Pages/Finances/Index.vue",
+      "verification": "Navigate to /maintenance, verify both tabs load correctly",
+      "passes": false
+    },
+    {
+      "id": "NAV-003",
+      "category": "hub_creation",
+      "priority": "CRITICAL",
+      "title": "Create Water Hub Index Component",
+      "description": "Create Water Hub component with tabs for Readings, History, and Settings. Consolidates 3 conditional menu items into 1.",
+      "steps": [
+        "Create Pages/Water/Hub.vue with tab navigation",
+        "Define tabs: readings, history, settings",
+        "Sync tab state to URL query params",
+        "Add async loading for each tab",
+        "Display readings badge on Readings tab",
+        "Ensure hub only appears when water_billing feature is enabled"
+      ],
+      "files": [
+        "resources/js/Pages/Water/Hub.vue"
+      ],
+      "newFile": true,
+      "referencePattern": "resources/js/Pages/Finances/Index.vue",
+      "verification": "Navigate to /water with feature enabled, verify all 3 tabs work",
+      "passes": false
+    },
+    {
+      "id": "NAV-004",
+      "category": "hub_creation",
+      "priority": "CRITICAL",
+      "title": "Create Archive Hub Index Component",
+      "description": "Create Archive Hub component with tabs for Documents, Leases, and Activity Logs. Consolidates 3 menu items into 1.",
+      "steps": [
+        "Create Pages/Archive/Hub.vue with tab navigation",
+        "Define tabs: documents, leases, activity",
+        "Sync tab state to URL query params",
+        "Add async loading for each tab",
+        "No badges required for archive tabs"
+      ],
+      "files": [
+        "resources/js/Pages/Archive/Hub.vue"
+      ],
+      "newFile": true,
+      "referencePattern": "resources/js/Pages/Finances/Index.vue",
+      "verification": "Navigate to /archive, verify all 3 tabs load correctly",
+      "passes": false
+    },
+    {
+      "id": "NAV-005",
+      "category": "hub_creation",
+      "priority": "CRITICAL",
+      "title": "Create Operations Hub Index Component",
+      "description": "Create Operations Hub component with tabs for Notifications, Bulk Operations, Team (Caretakers), and Imports. Consolidates 4 menu items into 1.",
+      "steps": [
+        "Create Pages/Operations/Hub.vue with tab navigation",
+        "Define tabs: notifications, bulk, team, imports",
+        "Sync tab state to URL query params",
+        "Add async loading for each tab",
+        "Note: Notifications tab already has internal tabs - load as single component"
+      ],
+      "files": [
+        "resources/js/Pages/Operations/Hub.vue"
+      ],
+      "newFile": true,
+      "referencePattern": "resources/js/Pages/Finances/Index.vue",
+      "verification": "Navigate to /operations, verify all 4 tabs load correctly",
+      "passes": false
+    },
+    {
+      "id": "NAV-006",
+      "category": "controller_consolidation",
+      "priority": "HIGH",
+      "title": "Create TenantsHubController",
+      "description": "Create controller that aggregates data for all Tenants Hub tabs, using lazy loading to only fetch data for the active tab.",
+      "steps": [
+        "Create app/Http/Controllers/TenantsHubController.php",
+        "Add index() method that accepts tab query param",
+        "Use Inertia lazy() for conditional data loading per tab",
+        "Include tab-specific badge counts in response",
+        "Reuse existing query logic from TenantController, TenantInvitationController, VerificationController, PaymentVerificationController, MoveOutController"
+      ],
+      "files": [
+        "app/Http/Controllers/TenantsHubController.php"
+      ],
+      "newFile": true,
+      "codePattern": {
+        "example": "return Inertia::render('Tenants/Hub', ['tab' => $tab, 'tenants' => Inertia::lazy(fn() => $this->getTenants()), 'invitations' => Inertia::lazy(fn() => $this->getInvitations()), ...]);"
+      },
+      "verification": "Each tab only loads its own data, not all tabs' data",
+      "passes": false
+    },
+    {
+      "id": "NAV-007",
+      "category": "controller_consolidation",
+      "priority": "HIGH",
+      "title": "Create MaintenanceHubController",
+      "description": "Create controller for Maintenance Hub with Tickets and Complaints tabs.",
+      "steps": [
+        "Create app/Http/Controllers/MaintenanceHubController.php",
+        "Add index() method with tab-based lazy loading",
+        "Aggregate ticket count badge for hub",
+        "Reuse query logic from TicketController and ComplaintController"
+      ],
+      "files": [
+        "app/Http/Controllers/MaintenanceHubController.php"
+      ],
+      "newFile": true,
+      "verification": "Tab switching loads correct data without full page reload",
+      "passes": false
+    },
+    {
+      "id": "NAV-008",
+      "category": "controller_consolidation",
+      "priority": "HIGH",
+      "title": "Create WaterHubController",
+      "description": "Create controller for Water Hub with Readings, History, and Settings tabs.",
+      "steps": [
+        "Create app/Http/Controllers/WaterHubController.php",
+        "Add index() method with tab-based lazy loading",
+        "Include readings badge count",
+        "Add feature gate check for water_billing",
+        "Reuse query logic from WaterReadingController"
+      ],
+      "files": [
+        "app/Http/Controllers/WaterHubController.php"
+      ],
+      "newFile": true,
+      "verification": "Hub only accessible when water_billing feature enabled",
+      "passes": false
+    },
+    {
+      "id": "NAV-009",
+      "category": "controller_consolidation",
+      "priority": "HIGH",
+      "title": "Create ArchiveHubController",
+      "description": "Create controller for Archive Hub with Documents, Leases, and Activity Logs tabs.",
+      "steps": [
+        "Create app/Http/Controllers/ArchiveHubController.php",
+        "Add index() method with tab-based lazy loading",
+        "Reuse query logic from DocumentController, LeaseController, ActivityLogController"
+      ],
+      "files": [
+        "app/Http/Controllers/ArchiveHubController.php"
+      ],
+      "newFile": true,
+      "verification": "All archive data accessible via tabs",
+      "passes": false
+    },
+    {
+      "id": "NAV-010",
+      "category": "controller_consolidation",
+      "priority": "HIGH",
+      "title": "Create OperationsHubController",
+      "description": "Create controller for Operations Hub with Notifications, Bulk Ops, Team, and Imports tabs.",
+      "steps": [
+        "Create app/Http/Controllers/OperationsHubController.php",
+        "Add index() method with tab-based lazy loading",
+        "Reuse query logic from NotificationController, BulkController, InvitationController, ImportController"
+      ],
+      "files": [
+        "app/Http/Controllers/OperationsHubController.php"
+      ],
+      "newFile": true,
+      "verification": "All operations accessible via tabs",
+      "passes": false
+    },
+    {
+      "id": "NAV-011",
+      "category": "route_migration",
+      "priority": "HIGH",
+      "title": "Add Hub Routes with Backwards-Compatible Redirects",
+      "description": "Add new hub routes and redirect old routes to maintain backwards compatibility and bookmarks.",
+      "steps": [
+        "Add GET /tenants route pointing to TenantsHubController@index with name tenants.hub",
+        "Add redirect from /tenant-invitations to /tenants?tab=onboarding",
+        "Add redirect from /verifications to /tenants?tab=verifications",
+        "Add redirect from /payment-verifications to /tenants?tab=payment-verifications",
+        "Add redirect from /move-outs to /tenants?tab=move-outs",
+        "Add GET /maintenance route pointing to MaintenanceHubController@index",
+        "Add redirect from /tickets to /maintenance?tab=tickets",
+        "Add redirect from /complaints to /maintenance?tab=complaints",
+        "Add GET /water route pointing to WaterHubController@index",
+        "Add redirects from /readings, /readings/history, /water/settings",
+        "Add GET /archive route pointing to ArchiveHubController@index",
+        "Add redirects from /documents, /leases, /activity-logs",
+        "Add GET /operations route pointing to OperationsHubController@index",
+        "Add redirects from /notifications, /bulk, /invitations, /imports"
+      ],
+      "files": [
+        "routes/web.php"
+      ],
+      "codePattern": {
+        "example": "Route::get('/tenants', [TenantsHubController::class, 'index'])->name('tenants.hub');\nRoute::redirect('/tenant-invitations', '/tenants?tab=onboarding');"
+      },
+      "verification": "All old URLs redirect correctly to new hub with proper tab selected",
+      "passes": false
+    },
+    {
+      "id": "NAV-012",
+      "category": "navigation_update",
+      "priority": "HIGH",
+      "title": "Update AuthenticatedLayout Landlord Navigation",
+      "description": "Replace multiple menu items with single hub entries in the landlord navigation.",
+      "steps": [
+        "Remove individual items: All Tenants, Invitations, Verifications, Payment Verifications, Move-Outs",
+        "Add single 'Tenants' hub entry with combined active state detection",
+        "Remove Issues and Complaints items",
+        "Add single 'Maintenance' hub entry",
+        "Remove Readings, History, Settings water items",
+        "Add single 'Water' hub entry (conditional)",
+        "Remove Documents, Lease Agreements, Tenant History, Activity Logs items",
+        "Add single 'Archive' hub entry",
+        "Remove Notifications, Bulk Operations, Caretakers items",
+        "Add single 'Operations' hub entry",
+        "Update badge logic to show aggregated counts per hub",
+        "Replicate changes in mobile sidebar section"
+      ],
+      "files": [
+        "resources/js/Layouts/AuthenticatedLayout.vue"
+      ],
+      "lines": "92-143",
+      "verification": "Sidebar shows 9 items instead of 20+, no scrolling required on standard viewport",
+      "passes": false
+    },
+    {
+      "id": "NAV-013",
+      "category": "tab_refactoring",
+      "priority": "MEDIUM",
+      "title": "Refactor TenantInvitations/Index.vue to OnboardingTab",
+      "description": "Convert existing page to tab component for Tenants Hub.",
+      "steps": [
+        "Create resources/js/Pages/Tenants/tabs/OnboardingTab.vue",
+        "Move core content from TenantInvitations/Index.vue",
+        "Remove page-level layout wrapper (hub provides layout)",
+        "Accept props from hub controller instead of direct Inertia props",
+        "Export component for async loading in hub"
+      ],
+      "files": [
+        "resources/js/Pages/Tenants/tabs/OnboardingTab.vue",
+        "resources/js/Pages/TenantInvitations/Index.vue"
+      ],
+      "verification": "Tab displays same content as original page",
+      "passes": false
+    },
+    {
+      "id": "NAV-014",
+      "category": "tab_refactoring",
+      "priority": "MEDIUM",
+      "title": "Refactor Verifications/Index.vue to VerificationsTab",
+      "description": "Convert existing page to tab component for Tenants Hub.",
+      "steps": [
+        "Create resources/js/Pages/Tenants/tabs/VerificationsTab.vue",
+        "Move core content from Verifications/Index.vue",
+        "Remove page-level layout, accept props from hub",
+        "Export for async loading"
+      ],
+      "files": [
+        "resources/js/Pages/Tenants/tabs/VerificationsTab.vue",
+        "resources/js/Pages/Verifications/Index.vue"
+      ],
+      "verification": "Tab displays same content as original page",
+      "passes": false
+    },
+    {
+      "id": "NAV-015",
+      "category": "tab_refactoring",
+      "priority": "MEDIUM",
+      "title": "Refactor PaymentVerifications/Index.vue to PaymentVerificationsTab",
+      "description": "Convert existing page to tab component for Tenants Hub.",
+      "steps": [
+        "Create resources/js/Pages/Tenants/tabs/PaymentVerificationsTab.vue",
+        "Move core content from PaymentVerifications/Index.vue",
+        "Remove page-level layout, accept props from hub",
+        "Export for async loading"
+      ],
+      "files": [
+        "resources/js/Pages/Tenants/tabs/PaymentVerificationsTab.vue",
+        "resources/js/Pages/PaymentVerifications/Index.vue"
+      ],
+      "verification": "Tab displays same content as original page",
+      "passes": false
+    },
+    {
+      "id": "NAV-016",
+      "category": "tab_refactoring",
+      "priority": "MEDIUM",
+      "title": "Refactor MoveOuts/Index.vue to MoveOutsTab",
+      "description": "Convert existing page to tab component for Tenants Hub.",
+      "steps": [
+        "Create resources/js/Pages/Tenants/tabs/MoveOutsTab.vue",
+        "Move core content from MoveOuts/Index.vue",
+        "Remove page-level layout, accept props from hub",
+        "Export for async loading"
+      ],
+      "files": [
+        "resources/js/Pages/Tenants/tabs/MoveOutsTab.vue",
+        "resources/js/Pages/MoveOuts/Index.vue"
+      ],
+      "verification": "Tab displays same content as original page",
+      "passes": false
+    },
+    {
+      "id": "NAV-017",
+      "category": "tab_refactoring",
+      "priority": "MEDIUM",
+      "title": "Refactor Tenants/History.vue to HistoryTab",
+      "description": "Convert existing page to tab component for Tenants Hub.",
+      "steps": [
+        "Create resources/js/Pages/Tenants/tabs/HistoryTab.vue",
+        "Move core content from Tenants/History.vue",
+        "Remove page-level layout, accept props from hub",
+        "Export for async loading"
+      ],
+      "files": [
+        "resources/js/Pages/Tenants/tabs/HistoryTab.vue",
+        "resources/js/Pages/Tenants/History.vue"
+      ],
+      "verification": "Tab displays same content as original page",
+      "passes": false
+    },
+    {
+      "id": "NAV-018",
+      "category": "tab_refactoring",
+      "priority": "MEDIUM",
+      "title": "Create DirectoryTab for Tenants Hub",
+      "description": "Create or adapt the main tenant list as a tab component.",
+      "steps": [
+        "Create resources/js/Pages/Tenants/tabs/DirectoryTab.vue",
+        "Move core content from Tenants/Index.vue",
+        "Remove page-level layout, accept props from hub",
+        "Export for async loading"
+      ],
+      "files": [
+        "resources/js/Pages/Tenants/tabs/DirectoryTab.vue",
+        "resources/js/Pages/Tenants/Index.vue"
+      ],
+      "verification": "Tab displays same content as original page",
+      "passes": false
+    },
+    {
+      "id": "NAV-019",
+      "category": "tab_refactoring",
+      "priority": "MEDIUM",
+      "title": "Refactor Tickets and Complaints to Maintenance Tabs",
+      "description": "Convert Tickets/Index.vue and Complaints/Index.vue to tab components.",
+      "steps": [
+        "Create resources/js/Pages/Maintenance/tabs/TicketsTab.vue from Tickets/Index.vue",
+        "Create resources/js/Pages/Maintenance/tabs/ComplaintsTab.vue from Complaints/Index.vue",
+        "Remove page-level layouts, accept props from hub",
+        "Export for async loading"
+      ],
+      "files": [
+        "resources/js/Pages/Maintenance/tabs/TicketsTab.vue",
+        "resources/js/Pages/Maintenance/tabs/ComplaintsTab.vue"
+      ],
+      "verification": "Both tabs display same content as original pages",
+      "passes": false
+    },
+    {
+      "id": "NAV-020",
+      "category": "tab_refactoring",
+      "priority": "MEDIUM",
+      "title": "Refactor Water Pages to Water Hub Tabs",
+      "description": "Convert Readings/Index.vue, Readings/History.vue, and Water/Settings.vue to tab components.",
+      "steps": [
+        "Create resources/js/Pages/Water/tabs/ReadingsTab.vue from Readings/Index.vue",
+        "Create resources/js/Pages/Water/tabs/HistoryTab.vue from Readings/History.vue",
+        "Create resources/js/Pages/Water/tabs/SettingsTab.vue from Water/Settings.vue",
+        "Remove page-level layouts, accept props from hub",
+        "Export for async loading"
+      ],
+      "files": [
+        "resources/js/Pages/Water/tabs/ReadingsTab.vue",
+        "resources/js/Pages/Water/tabs/HistoryTab.vue",
+        "resources/js/Pages/Water/tabs/SettingsTab.vue"
+      ],
+      "verification": "All 3 tabs display same content as original pages",
+      "passes": false
+    },
+    {
+      "id": "NAV-021",
+      "category": "tab_refactoring",
+      "priority": "MEDIUM",
+      "title": "Refactor Archive Pages to Archive Hub Tabs",
+      "description": "Convert Documents/Index.vue, Leases/Index.vue, and ActivityLogs/Index.vue to tab components.",
+      "steps": [
+        "Create resources/js/Pages/Archive/tabs/DocumentsTab.vue from Documents/Index.vue",
+        "Create resources/js/Pages/Archive/tabs/LeasesTab.vue from Leases/Index.vue",
+        "Create resources/js/Pages/Archive/tabs/ActivityTab.vue from ActivityLogs/Index.vue",
+        "Remove page-level layouts, accept props from hub",
+        "Export for async loading"
+      ],
+      "files": [
+        "resources/js/Pages/Archive/tabs/DocumentsTab.vue",
+        "resources/js/Pages/Archive/tabs/LeasesTab.vue",
+        "resources/js/Pages/Archive/tabs/ActivityTab.vue"
+      ],
+      "verification": "All 3 tabs display same content as original pages",
+      "passes": false
+    },
+    {
+      "id": "NAV-022",
+      "category": "tab_refactoring",
+      "priority": "MEDIUM",
+      "title": "Refactor Operations Pages to Operations Hub Tabs",
+      "description": "Convert Notifications/Index.vue, BulkOperations/Index.vue, Invitations/Index.vue, and Imports/Index.vue to tab components.",
+      "steps": [
+        "Create resources/js/Pages/Operations/tabs/NotificationsTab.vue from Notifications/Index.vue",
+        "Create resources/js/Pages/Operations/tabs/BulkTab.vue from BulkOperations/Index.vue",
+        "Create resources/js/Pages/Operations/tabs/TeamTab.vue from Invitations/Index.vue",
+        "Create resources/js/Pages/Operations/tabs/ImportsTab.vue from Imports/Index.vue",
+        "Note: Notifications already has internal tabs - preserve that structure",
+        "Remove page-level layouts, accept props from hub",
+        "Export for async loading"
+      ],
+      "files": [
+        "resources/js/Pages/Operations/tabs/NotificationsTab.vue",
+        "resources/js/Pages/Operations/tabs/BulkTab.vue",
+        "resources/js/Pages/Operations/tabs/TeamTab.vue",
+        "resources/js/Pages/Operations/tabs/ImportsTab.vue"
+      ],
+      "verification": "All 4 tabs display same content as original pages",
+      "passes": false
+    },
+    {
+      "id": "NAV-023",
+      "category": "badge_aggregation",
+      "priority": "LOW",
+      "title": "Update HandleInertiaRequests Badge Aggregation",
+      "description": "Aggregate badge counts for each hub in the Inertia middleware.",
+      "steps": [
+        "Add 'tenants' badge that sums paymentVerifications + moveOuts counts",
+        "Add 'maintenance' badge that equals tickets count",
+        "Add 'water' badge that equals readings count",
+        "Optionally add 'operations' badge if notification counts are tracked",
+        "Update navBadges prop to include hub-level badges"
+      ],
+      "files": [
+        "app/Http/Middleware/HandleInertiaRequests.php"
+      ],
+      "verification": "Hub entries show aggregated badge counts",
+      "passes": false
+    },
+    {
+      "id": "NAV-024",
+      "category": "hub_creation",
+      "priority": "LOW",
+      "title": "Add Loading Skeletons for Tab Content",
+      "description": "Create skeleton loaders for async tab content to improve perceived performance.",
+      "steps": [
+        "Create resources/js/Components/TabSkeleton.vue with shimmer animation",
+        "Add table skeleton variant for list tabs",
+        "Add card skeleton variant for dashboard tabs",
+        "Use Suspense fallback in hub components for async tabs"
+      ],
+      "files": [
+        "resources/js/Components/TabSkeleton.vue"
+      ],
+      "newFile": true,
+      "verification": "Skeleton displays during tab loading, smooth transition to content",
+      "passes": false
+    },
+    {
+      "id": "NAV-025",
+      "category": "navigation_update",
+      "priority": "LOW",
+      "title": "Update Mobile Sidebar to Match Desktop",
+      "description": "Ensure mobile sidebar matches the consolidated desktop navigation.",
+      "steps": [
+        "Update mobile sidebar section in AuthenticatedLayout.vue (lines 326-443)",
+        "Apply same hub consolidation as desktop",
+        "Ensure touch-friendly tab navigation within hubs on mobile",
+        "Test on mobile viewport sizes"
+      ],
+      "files": [
+        "resources/js/Layouts/AuthenticatedLayout.vue"
+      ],
+      "lines": "326-443",
+      "verification": "Mobile sidebar shows same 9 items as desktop",
+      "passes": false
+    },
+    {
+      "id": "NAV-026",
+      "category": "route_migration",
+      "priority": "LOW",
+      "title": "Update Ziggy Route Generation",
+      "description": "Ensure JavaScript route() helper works with new hub routes.",
+      "steps": [
+        "Run php artisan ziggy:generate to update routes",
+        "Verify route('tenants.hub'), route('maintenance.hub'), etc. work in Vue",
+        "Update any hardcoded route references in components",
+        "Test deep linking with tab params"
+      ],
+      "files": [
+        "resources/js/ziggy.js"
+      ],
+      "verification": "All route() calls work correctly with new hub routes",
+      "passes": false
+    }
+  ],
+  "progressTracking": {
+    "description": "Track progress in progress.md file, committed to repo after each task",
+    "format": {
+      "taskCompleted": "Task ID and title",
+      "decisionsMade": "Key decisions and reasoning",
+      "filesChanged": "List of modified files",
+      "blockers": "Any blockers or notes for next iteration"
+    }
+  },
+  "completionCriteria": {
+    "metrics": [
+      "Sidebar menu items reduced from 20+ to 9",
+      "All old routes redirect correctly to hub with proper tab",
+      "Badge counts aggregate correctly per hub",
+      "Tab state persists in URL for deep linking",
+      "No regression in page load performance",
+      "Mobile navigation matches desktop consolidation",
+      "All PHPUnit tests passing",
+      "All Pint style checks passing",
+      "npm run build succeeds without errors"
+    ],
+    "outputSignal": "<promise>COMPLETE</promise>"
+  },
+  "dependencyGraph": {
+    "description": "Task dependencies - complete prerequisites before starting dependent tasks",
+    "dependencies": {
+      "NAV-006": ["NAV-001"],
+      "NAV-007": ["NAV-002"],
+      "NAV-008": ["NAV-003"],
+      "NAV-009": ["NAV-004"],
+      "NAV-010": ["NAV-005"],
+      "NAV-011": ["NAV-006", "NAV-007", "NAV-008", "NAV-009", "NAV-010"],
+      "NAV-012": ["NAV-011"],
+      "NAV-013": ["NAV-001", "NAV-006"],
+      "NAV-014": ["NAV-001", "NAV-006"],
+      "NAV-015": ["NAV-001", "NAV-006"],
+      "NAV-016": ["NAV-001", "NAV-006"],
+      "NAV-017": ["NAV-001", "NAV-006"],
+      "NAV-018": ["NAV-001", "NAV-006"],
+      "NAV-019": ["NAV-002", "NAV-007"],
+      "NAV-020": ["NAV-003", "NAV-008"],
+      "NAV-021": ["NAV-004", "NAV-009"],
+      "NAV-022": ["NAV-005", "NAV-010"],
+      "NAV-023": ["NAV-012"],
+      "NAV-025": ["NAV-012"]
+    }
+  },
+  "estimatedReduction": {
+    "before": {
+      "menuItems": 20,
+      "dividers": 7,
+      "scrollRequired": true
+    },
+    "after": {
+      "menuItems": 9,
+      "dividers": 0,
+      "scrollRequired": false
+    },
+    "reduction": "55%"
+  }
+}
