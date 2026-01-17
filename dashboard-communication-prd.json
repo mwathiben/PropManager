@@ -482,7 +482,8 @@
         "app/Jobs/SendNotificationJob.php"
       ],
       "verification": "Set quiet hours 22:00-08:00; send informational notification at 23:00; verify queued for 08:00",
-      "passes": false
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "COM-013",

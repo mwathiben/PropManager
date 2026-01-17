@@ -5501,3 +5501,70 @@ Implemented urgency-based notification channel selection. Critical notifications
 - COM-012: Quiet Hours Respect
 - COM-013: WhatsApp Inbound Message Webhook
 - COM-014: Landlord Inbox for Tenant Messages
+
+---
+
+## Session: 2026-01-17T17:35:00Z
+**Task**: COM-012 - Implement Quiet Hours Respect
+**Status**: COMPLETED
+
+### Work Done
+- Created 3 migrations:
+  - `add_quiet_hours_to_notification_preferences_table.php` (quiet_hours_enabled, quiet_hours_start, quiet_hours_end)
+  - `add_timezone_to_users_table.php` (timezone field defaulting to Africa/Nairobi)
+  - `add_scheduling_to_notifications_table.php` (scheduled_for, quiet_hours_suppressed columns)
+- Updated NotificationPreference model with:
+  - New quiet hours fields in $fillable
+  - `isInQuietHours(Carbon $now)` method for time-based checking
+  - `getQuietHoursEnd(string $timezone)` method to calculate next send time
+- Updated User model with:
+  - `timezone` field in $fillable
+  - `getTimezone()` helper method
+- Updated Notification model with:
+  - `scheduled_for` and `quiet_hours_suppressed` fields
+  - `readyToSend()` scope for scheduled notifications
+  - `wasQuietHoursSuppressed()` and `isScheduled()` helper methods
+- Updated NotificationService with:
+  - `isInQuietHours()` method to check recipient's quiet hours
+  - `canBypassQuietHours()` - critical/urgent bypass, important/informational defer
+  - `deferNotificationForQuietHours()` - creates deferred notification and dispatches delayed job
+  - Modified `send()` to check quiet hours before sending
+- Updated SendNotificationJob with:
+  - Support for deferred notifications via `notificationId` parameter
+  - `forDeferred()` and `forNew()` static factory methods
+  - `handleDeferredNotification()` method to process scheduled notifications
+- Created ProcessScheduledNotifications command:
+  - Safety net to process any stuck scheduled notifications
+  - Runs every minute via scheduler
+  - Supports --dry-run flag
+- Updated SettingsTab.vue with:
+  - Info note about critical notifications bypassing quiet hours
+
+### Files Changed
+- database/migrations/2026_01_17_172240_add_quiet_hours_to_notification_preferences_table.php (NEW)
+- database/migrations/2026_01_17_172243_add_timezone_to_users_table.php (NEW)
+- database/migrations/2026_01_17_172249_add_scheduling_to_notifications_table.php (NEW)
+- app/Models/NotificationPreference.php (MODIFIED)
+- app/Models/User.php (MODIFIED)
+- app/Models/Notification.php (MODIFIED)
+- app/Services/NotificationService.php (MODIFIED)
+- app/Jobs/SendNotificationJob.php (MODIFIED)
+- app/Console/Commands/ProcessScheduledNotifications.php (NEW)
+- routes/console.php (MODIFIED)
+- resources/js/Pages/Notifications/partials/SettingsTab.vue (MODIFIED)
+
+### Verification
+- Migrations: PASSED (all 3 applied successfully)
+- Pint: PASSED (after auto-fix)
+- Build: PASSED (npm run build successful)
+
+### Learnings
+- Quiet hours logic must check BEFORE dispatching, not after queue
+- Critical and urgent notifications bypass quiet hours for safety
+- Important and informational notifications are deferred to quiet_hours_end
+- User timezone stored for accurate local time calculations
+- Safety net command (notifications:process-scheduled) runs every minute to catch any stuck jobs
+
+### Next Steps
+- COM-013: Implement WhatsApp Inbound Message Webhook
+

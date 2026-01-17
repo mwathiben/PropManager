@@ -123,6 +123,8 @@ class Notification extends Model
         'fallback_sent_at',
         'timeout_at',
         'primary_attempt_at',
+        'scheduled_for',
+        'quiet_hours_suppressed',
     ];
 
     protected $casts = [
@@ -134,6 +136,8 @@ class Notification extends Model
         'fallback_sent_at' => 'datetime',
         'timeout_at' => 'datetime',
         'primary_attempt_at' => 'datetime',
+        'scheduled_for' => 'datetime',
+        'quiet_hours_suppressed' => 'boolean',
     ];
 
     /**
@@ -529,5 +533,32 @@ class Notification extends Model
             'timeout_at' => self::calculateTimeoutAt($channel),
             'retry_count' => 0,
         ]);
+    }
+
+    /**
+     * Scope: Scheduled notifications ready to send
+     */
+    public function scopeReadyToSend($query)
+    {
+        return $query
+            ->where('status', 'pending')
+            ->whereNotNull('scheduled_for')
+            ->where('scheduled_for', '<=', now());
+    }
+
+    /**
+     * Check if notification was suppressed due to quiet hours
+     */
+    public function wasQuietHoursSuppressed(): bool
+    {
+        return $this->quiet_hours_suppressed === true;
+    }
+
+    /**
+     * Check if notification is scheduled for later
+     */
+    public function isScheduled(): bool
+    {
+        return $this->scheduled_for !== null && $this->scheduled_for->isFuture();
     }
 }

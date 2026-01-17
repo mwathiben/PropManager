@@ -28,6 +28,7 @@ class User extends Authenticatable
         'emergency_contact_phone',
         'profile_photo_path',
         'kyc_completed_at',
+        'timezone',
     ];
 
     protected $hidden = [
@@ -112,6 +113,16 @@ class User extends Authenticatable
         return $this->profile_photo_path
             ? Storage::url($this->profile_photo_path)
             : null;
+    }
+
+    // --- TIMEZONE ---
+
+    /**
+     * Get the user's timezone, defaulting to Africa/Nairobi for Kenya.
+     */
+    public function getTimezone(): string
+    {
+        return $this->timezone ?? 'Africa/Nairobi';
     }
 
     // --- RELATIONSHIPS ---

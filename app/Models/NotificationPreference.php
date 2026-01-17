@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Traits\TenantScope;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 
@@ -36,6 +37,10 @@ class NotificationPreference extends Model
         'rent_reminder_days_before',
         'preferred_time',
         'whatsapp_number',
+        // Quiet hours settings
+        'quiet_hours_enabled',
+        'quiet_hours_start',
+        'quiet_hours_end',
     ];
 
     protected $casts = [
@@ -60,6 +65,8 @@ class NotificationPreference extends Model
         'in_app_enabled' => 'boolean',
         // Other casts
         'rent_reminder_days_before' => 'integer',
+        // Quiet hours casts
+        'quiet_hours_enabled' => 'boolean',
     ];
 
     /**
@@ -165,5 +172,43 @@ class NotificationPreference extends Model
                 // Default values already set in migration
             ]
         );
+    }
+
+    /**
+     * Check if the current time falls within quiet hours.
+     */
+    public function isInQuietHours(Carbon $now): bool
+    {
+        if (! $this->quiet_hours_enabled) {
+            return false;
+        }
+
+        $start = Carbon::parse($this->quiet_hours_start ?? '22:00', $now->timezone);
+        $end = Carbon::parse($this->quiet_hours_end ?? '08:00', $now->timezone);
+
+        $start->setDate($now->year, $now->month, $now->day);
+        $end->setDate($now->year, $now->month, $now->day);
+
+        if ($end->lessThan($start)) {
+            return $now->greaterThanOrEqualTo($start) || $now->lessThan($end);
+        }
+
+        return $now->between($start, $end);
+    }
+
+    /**
+     * Get the next quiet hours end time from now.
+     */
+    public function getQuietHoursEnd(string $timezone): Carbon
+    {
+        $now = Carbon::now($timezone);
+        $end = Carbon::parse($this->quiet_hours_end ?? '08:00', $timezone);
+        $end->setDate($now->year, $now->month, $now->day);
+
+        if ($end->lessThanOrEqualTo($now)) {
+            $end->addDay();
+        }
+
+        return $end;
     }
 }

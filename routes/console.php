@@ -37,3 +37,9 @@ Schedule::command('notifications:process-failed')
     ->everyFifteenMinutes()
     ->withoutOverlapping()
     ->runInBackground();
+
+// Process scheduled notifications (quiet hours safety net) every minute
+Schedule::command('notifications:process-scheduled')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->runInBackground();
