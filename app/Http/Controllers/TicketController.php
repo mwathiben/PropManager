@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\TicketStatusChanged;
 use App\Jobs\SendNotificationJob;
 use App\Models\Building;
 use App\Models\Ticket;
@@ -266,7 +267,23 @@ class TicketController extends Controller
             ]);
         }
 
+        $oldStatus = $ticket->status;
         $ticket->update($validated);
+
+        if (isset($validated['status']) && $validated['status'] !== $oldStatus) {
+            event(new TicketStatusChanged($ticket->fresh(), $oldStatus, $validated['status']));
+
+            if ($ticket->reporter_id) {
+                SendNotificationJob::dispatch(
+                    $ticket->reporter_id,
+                    'maintenance_notice',
+                    'Ticket Status Update',
+                    "Your ticket \"{$ticket->title}\" has been updated to: {$validated['status']}.",
+                    ['ticket_id' => $ticket->id],
+                    $ticket->landlord_id
+                );
+            }
+        }
 
         return redirect()->back()->with('success', 'Ticket updated successfully.');
     }
@@ -382,7 +399,22 @@ class TicketController extends Controller
             'resolution_notes' => 'nullable|string|max:2000',
         ]);
 
+        $oldStatus = $ticket->status;
         $ticket->resolve($validated['resolution_notes'] ?? null);
+
+        event(new TicketStatusChanged($ticket->fresh(), $oldStatus, 'resolved'));
+
+        if ($ticket->reporter_id) {
+            SendNotificationJob::dispatch(
+                $ticket->reporter_id,
+                'maintenance_notice',
+                'Ticket Resolved',
+                "Your ticket \"{$ticket->title}\" has been resolved.".
+                    ($validated['resolution_notes'] ? "\n\nResolution: {$validated['resolution_notes']}" : ''),
+                ['ticket_id' => $ticket->id],
+                $ticket->landlord_id
+            );
+        }
 
         return redirect()->back()->with('success', 'Ticket marked as resolved.');
     }
@@ -398,7 +430,21 @@ class TicketController extends Controller
             abort(403, 'Tenants cannot close tickets.');
         }
 
+        $oldStatus = $ticket->status;
         $ticket->close();
+
+        event(new TicketStatusChanged($ticket->fresh(), $oldStatus, 'closed'));
+
+        if ($ticket->reporter_id) {
+            SendNotificationJob::dispatch(
+                $ticket->reporter_id,
+                'maintenance_notice',
+                'Ticket Closed',
+                "Your ticket \"{$ticket->title}\" has been closed. You can now leave feedback.",
+                ['ticket_id' => $ticket->id],
+                $ticket->landlord_id
+            );
+        }
 
         return redirect()->back()->with('success', 'Ticket closed successfully.');
     }
@@ -474,7 +520,10 @@ class TicketController extends Controller
             return redirect()->back()->with('error', 'This ticket cannot be cancelled anymore.');
         }
 
+        $oldStatus = $ticket->status;
         $ticket->cancel();
+
+        event(new TicketStatusChanged($ticket->fresh(), $oldStatus, 'cancelled'));
 
         return redirect()->route('tickets.index')->with('success', 'Ticket cancelled successfully.');
     }

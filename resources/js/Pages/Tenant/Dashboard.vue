@@ -1,11 +1,11 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import ActionItemCard from '@/Components/ActionItemCard.vue';
 import MetricCard from '@/Components/MetricCard.vue';
 import PushNotificationPrompt from '@/Components/PushNotificationPrompt.vue';
-import { useFormatters, useStatusColors } from '@/composables';
+import { useFormatters, useStatusColors, useEcho } from '@/composables';
 import {
     HomeIcon,
     CreditCardIcon,
@@ -79,6 +79,47 @@ const declineInvitation = (invitation) => {
         });
     }
 };
+
+// Local state for real-time updates
+const localRecentTickets = ref([...(props.recentTickets || [])]);
+const localActionItems = ref({ ...props.actionItems });
+
+// Watch for navigation changes
+watch(() => props.recentTickets, (newVal) => {
+    if (newVal) localRecentTickets.value = [...newVal];
+}, { deep: true });
+
+watch(() => props.actionItems, (newVal) => {
+    if (newVal) Object.assign(localActionItems.value, newVal);
+}, { deep: true });
+
+// Real-time updates
+const { subscribePrivate, unsubscribe } = useEcho();
+const tenantId = window.__auth?.user?.id;
+
+onMounted(() => {
+    if (tenantId) {
+        subscribePrivate(`tenant.${tenantId}`, 'TicketStatusChanged', (data) => {
+            // Update ticket in list
+            const ticketIndex = localRecentTickets.value.findIndex(t => t.id === data.ticket_id);
+            if (ticketIndex !== -1) {
+                localRecentTickets.value[ticketIndex].status = data.new_status;
+            }
+
+            // Recalculate open tickets count
+            const openCount = localRecentTickets.value.filter(t =>
+                ['open', 'acknowledged', 'in_progress'].includes(t.status)
+            ).length;
+            localActionItems.value.open_tickets = openCount;
+        });
+    }
+});
+
+onUnmounted(() => {
+    if (tenantId) {
+        unsubscribe(`tenant.${tenantId}`);
+    }
+});
 </script>
 
 <template>
@@ -243,20 +284,20 @@ const declineInvitation = (invitation) => {
                 <!-- === ACTION ITEMS === -->
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                     <ActionItemCard
-                        v-if="actionItems?.overdue_invoices > 0"
+                        v-if="localActionItems?.overdue_invoices > 0"
                         urgency="critical"
                         :icon="ExclamationTriangleIcon"
-                        :count="actionItems.overdue_invoices"
+                        :count="localActionItems.overdue_invoices"
                         title="Overdue Invoices"
-                        :description="actionItems.overdue_days + ' days late'"
+                        :description="localActionItems.overdue_days + ' days late'"
                         actionLabel="Pay Now"
                         :actionHref="route('tenant.payments')"
                     />
                     <ActionItemCard
-                        v-else-if="actionItems?.pending_invoices > 0"
+                        v-else-if="localActionItems?.pending_invoices > 0"
                         urgency="medium"
                         :icon="DocumentTextIcon"
-                        :count="actionItems.pending_invoices"
+                        :count="localActionItems.pending_invoices"
                         title="Pending Invoices"
                         description="Awaiting payment"
                         actionLabel="View"
@@ -272,10 +313,10 @@ const declineInvitation = (invitation) => {
                     />
 
                     <ActionItemCard
-                        v-if="actionItems?.open_tickets > 0"
+                        v-if="localActionItems?.open_tickets > 0"
                         urgency="medium"
                         :icon="TicketIcon"
-                        :count="actionItems.open_tickets"
+                        :count="localActionItems.open_tickets"
                         title="Open Tickets"
                         description="Issues being resolved"
                         actionLabel="View"
@@ -333,13 +374,13 @@ const declineInvitation = (invitation) => {
                                 View All <ChevronRightIcon class="w-4 h-4 ml-1" />
                             </Link>
                         </div>
-                        <div v-if="recentTickets?.length === 0" class="p-8 text-center">
+                        <div v-if="localRecentTickets?.length === 0" class="p-8 text-center">
                             <CheckCircleIcon class="h-12 w-12 text-green-400 mx-auto mb-3" />
                             <p class="text-gray-500">No active tickets</p>
                             <p class="text-sm text-gray-400">Everything looks good!</p>
                         </div>
                         <div v-else class="divide-y divide-gray-100">
-                            <Link v-for="ticket in recentTickets" :key="ticket.id"
+                            <Link v-for="ticket in localRecentTickets" :key="ticket.id"
                                   :href="route('tickets.show', ticket.id)"
                                   class="block px-6 py-4 hover:bg-gray-50 transition">
                                 <div class="flex justify-between items-start">

@@ -5623,3 +5623,39 @@ Implemented real-time dashboard metrics updates. When a payment is received, the
 
 - COM-017: Real-time Ticket Status Synchronization
 - COM-013: WhatsApp Inbound Message Webhook
+
+
+---
+
+## Session: 2026-01-17T14:30:00
+**Task**: COM-017 - Real-time Ticket Status Synchronization
+**Status**: COMPLETED
+
+### Work Done
+- Created `app/Events/TicketStatusChanged.php` broadcast event
+- Updated `TicketController.php` to dispatch event on status transitions:
+  - `update()` method - when status field changes
+  - `resolve()` method - when marking as resolved
+  - `close()` method - when closing ticket
+  - `destroy()` method - when cancelling ticket
+- Added Echo listener in `Dashboard.vue` (landlord) for real-time ticket updates
+- Added Echo listener in `Tenant/Dashboard.vue` for tenant ticket updates
+- Added Echo listener in `Caretaker/Dashboard.vue` with assignment filtering
+- Extended to 3-party synchronization (landlord, tenant, caretaker)
+- Added WhatsApp/notification on status changes via SendNotificationJob
+
+### Files Changed
+- app/Events/TicketStatusChanged.php (NEW)
+- app/Http/Controllers/TicketController.php (MODIFIED)
+- resources/js/Pages/Dashboard.vue (MODIFIED)
+- resources/js/Pages/Tenant/Dashboard.vue (MODIFIED)
+- resources/js/Pages/Caretaker/Dashboard.vue (MODIFIED)
+
+### Learnings
+- Caretakers subscribe to `landlord.{landlordId}` channel (same as landlord)
+- Must include `assigned_to` in event payload for caretaker-side filtering
+- Local reactive state pattern works well for real-time UI updates
+
+### Next Steps
+- COM-018: Real-time Invitation Status Updates
+- COM-019: Implement Connection Status Indicator

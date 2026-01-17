@@ -1,9 +1,10 @@
 <script setup>
+import { ref, watch, onMounted, onUnmounted } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import ActionItemCard from '@/Components/ActionItemCard.vue';
 import MetricCard from '@/Components/MetricCard.vue';
-import { useFormatters, useStatusColors } from '@/composables';
+import { useFormatters, useStatusColors, useEcho } from '@/composables';
 import {
     WrenchScrewdriverIcon,
     ExclamationTriangleIcon,
@@ -40,7 +41,7 @@ const props = defineProps({
             resolved: 0
         })
     },
-    todaysTasks: {
+    localTodaysTasks: {
         type: Array,
         default: () => []
     },
@@ -73,6 +74,60 @@ const getPriorityIcon = (priority) => {
     if (priority === 'normal') return '🔵';
     return '⚪';
 };
+
+// Local state for real-time updates
+const localActionItems = ref({ ...props.actionItems });
+const localTicketStats = ref({ ...props.ticketStats });
+const localTodaysTasks = ref([...(props.localTodaysTasks || [])]);
+
+// Watch for navigation changes
+watch(() => props.actionItems, (newVal) => {
+    if (newVal) Object.assign(localActionItems.value, newVal);
+}, { deep: true });
+
+watch(() => props.ticketStats, (newVal) => {
+    if (newVal) Object.assign(localTicketStats.value, newVal);
+}, { deep: true });
+
+watch(() => props.localTodaysTasks, (newVal) => {
+    if (newVal) localTodaysTasks.value = [...newVal];
+}, { deep: true });
+
+// Real-time updates
+const { subscribePrivate, unsubscribe } = useEcho();
+const landlordId = window.__auth?.user?.landlord_id;
+const caretakerId = window.__auth?.user?.id;
+
+onMounted(() => {
+    if (landlordId) {
+        subscribePrivate(`landlord.${landlordId}`, 'TicketStatusChanged', (data) => {
+            // Only update if this ticket is assigned to this caretaker
+            if (data.assigned_to !== caretakerId) return;
+
+            // Update ticket in localTodaysTasks list
+            const taskIndex = localTodaysTasks.value.findIndex(t => t.id === data.ticket_id);
+            if (taskIndex !== -1) {
+                localTodaysTasks.value[taskIndex].status = data.new_status;
+                // Remove from list if resolved/closed/cancelled
+                if (['resolved', 'closed', 'cancelled'].includes(data.new_status)) {
+                    localTodaysTasks.value.splice(taskIndex, 1);
+                }
+            }
+
+            // Update caretaker-specific stats
+            if (data.caretaker_open_count !== null) {
+                localActionItems.value.open_tickets = data.caretaker_open_count;
+                localTicketStats.value.open = data.caretaker_open_count;
+            }
+        });
+    }
+});
+
+onUnmounted(() => {
+    if (landlordId) {
+        unsubscribe(`landlord.${landlordId}`);
+    }
+});
 </script>
 
 <template>
@@ -99,10 +154,10 @@ const getPriorityIcon = (priority) => {
             <!-- === ACTION ITEMS (Task-Focused) === -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <ActionItemCard
-                    v-if="actionItems.urgent_tickets > 0"
+                    v-if="localActionItems.urgent_tickets > 0"
                     urgency="critical"
                     :icon="ExclamationTriangleIcon"
-                    :count="actionItems.urgent_tickets"
+                    :count="localActionItems.urgent_tickets"
                     title="Urgent Tickets"
                     description="Require immediate attention"
                     actionLabel="View"
@@ -118,10 +173,10 @@ const getPriorityIcon = (priority) => {
                 />
 
                 <ActionItemCard
-                    v-if="actionItems.open_tickets > 0"
+                    v-if="localActionItems.open_tickets > 0"
                     urgency="medium"
                     :icon="TicketIcon"
-                    :count="actionItems.open_tickets"
+                    :count="localActionItems.open_tickets"
                     title="Open Tickets"
                     description="Awaiting resolution"
                     actionLabel="View All"
@@ -137,10 +192,10 @@ const getPriorityIcon = (priority) => {
                 />
 
                 <ActionItemCard
-                    v-if="hasWaterEnabled && actionItems.pending_readings > 0"
+                    v-if="hasWaterEnabled && localActionItems.pending_readings > 0"
                     urgency="medium"
                     :icon="ClipboardDocumentListIcon"
-                    :count="actionItems.pending_readings"
+                    :count="localActionItems.pending_readings"
                     title="Pending Readings"
                     description="Awaiting input"
                     actionLabel="Input"
@@ -169,19 +224,19 @@ const getPriorityIcon = (priority) => {
                     </Link>
                 </div>
 
-                <div v-if="todaysTasks.length === 0" class="p-8 text-center">
+                <div v-if="localTodaysTasks.length === 0" class="p-8 text-center">
                     <CheckCircleIcon class="h-12 w-12 text-green-400 mx-auto mb-3" />
                     <p class="text-gray-600 font-medium">All caught up!</p>
                     <p class="text-sm text-gray-400">No tasks assigned to you</p>
                 </div>
 
                 <div v-else class="divide-y divide-gray-100">
-                    <Link v-for="task in todaysTasks" :key="task.id"
+                    <Link v-for="task in localTodaysTasks" :key="task.id"
                           :href="route('tickets.show', task.id)"
                           class="block px-6 py-4 hover:bg-gray-50 transition">
                         <div class="flex items-start gap-4">
                             <!-- Priority Indicator -->
-                            <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-lg"
+                            <div class="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-lg"
                                  :class="task.priority === 'urgent' ? 'bg-red-100' :
                                          task.priority === 'high' ? 'bg-orange-100' :
                                          task.priority === 'normal' ? 'bg-blue-100' : 'bg-gray-100'">
@@ -209,7 +264,7 @@ const getPriorityIcon = (priority) => {
                             </div>
 
                             <!-- Arrow -->
-                            <ArrowRightIcon class="w-5 h-5 text-gray-400 flex-shrink-0" />
+                            <ArrowRightIcon class="w-5 h-5 text-gray-400 shrink-0" />
                         </div>
                     </Link>
                 </div>
@@ -244,7 +299,7 @@ const getPriorityIcon = (priority) => {
                                 <div>
                                     <p class="font-medium text-gray-900">View My Tickets</p>
                                     <p class="text-sm text-gray-500">
-                                        {{ ticketStats.open }} open tickets
+                                        {{ localTicketStats.open }} open tickets
                                     </p>
                                 </div>
                             </div>
@@ -325,15 +380,15 @@ const getPriorityIcon = (priority) => {
                         <h4 class="text-sm font-semibold text-gray-700 mb-3">My Ticket Summary</h4>
                         <div class="flex items-center justify-between text-sm">
                             <span class="text-gray-500">Resolved</span>
-                            <span class="font-semibold text-green-600">{{ ticketStats.resolved }}</span>
+                            <span class="font-semibold text-green-600">{{ localTicketStats.resolved }}</span>
                         </div>
                         <div class="flex items-center justify-between text-sm mt-2">
                             <span class="text-gray-500">Open</span>
-                            <span class="font-semibold text-yellow-600">{{ ticketStats.open }}</span>
+                            <span class="font-semibold text-yellow-600">{{ localTicketStats.open }}</span>
                         </div>
                         <div class="flex items-center justify-between text-sm mt-2">
                             <span class="text-gray-500">Total Assigned</span>
-                            <span class="font-semibold text-gray-900">{{ ticketStats.total }}</span>
+                            <span class="font-semibold text-gray-900">{{ localTicketStats.total }}</span>
                         </div>
                     </div>
                 </div>

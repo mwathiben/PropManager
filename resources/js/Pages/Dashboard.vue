@@ -79,6 +79,8 @@ const activeFloorFilter = ref(props.activeFloor || null);
 const localRecentPayments = ref([...(props.recentPayments || [])]);
 const localFinancialMetrics = ref({ ...props.financialMetrics });
 const localArrearsAging = ref({ ...props.arrearsAging });
+const localRecentTickets = ref([...(props.recentTickets || [])]);
+const localActionItems = ref({ ...props.actionItems });
 const metricsUpdating = ref(false);
 
 // Fetch unit detail when a unit is selected
@@ -270,6 +272,12 @@ watch(() => props.arrearsAging, (newVal) => {
 watch(() => props.recentPayments, (newVal) => {
     if (newVal) localRecentPayments.value = [...newVal];
 }, { deep: true });
+watch(() => props.recentTickets, (newVal) => {
+    if (newVal) localRecentTickets.value = [...newVal];
+}, { deep: true });
+watch(() => props.actionItems, (newVal) => {
+    if (newVal) Object.assign(localActionItems.value, newVal);
+}, { deep: true });
 
 // Get user ID for landlord channel subscription
 const userId = computed(() => {
@@ -306,6 +314,20 @@ onMounted(() => {
                 Object.assign(localFinancialMetrics.value, data.updated_metrics.financial);
                 Object.assign(localArrearsAging.value, data.updated_metrics.arrears_aging);
                 setTimeout(() => metricsUpdating.value = false, 2000);
+            }
+        });
+
+        // Listen for ticket status changes
+        subscribePrivate(`landlord.${userId.value}`, 'TicketStatusChanged', (data) => {
+            // Update action items count
+            if (data.landlord_open_count !== undefined) {
+                localActionItems.value.open_tickets = data.landlord_open_count;
+            }
+
+            // Update recentTickets if the changed ticket is in the list
+            const ticketIndex = localRecentTickets.value.findIndex(t => t.id === data.ticket_id);
+            if (ticketIndex !== -1) {
+                localRecentTickets.value[ticketIndex].status = data.new_status;
             }
         });
     }
@@ -457,12 +479,12 @@ onUnmounted(() => {
             <!-- === ACTION ITEMS (Top - Color-coded urgency) === -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <ActionItemCard
-                    v-if="actionItems.overdue_invoices > 0"
+                    v-if="localActionItems.overdue_invoices > 0"
                     urgency="critical"
                     :icon="DocumentTextIcon"
-                    :count="actionItems.overdue_invoices"
+                    :count="localActionItems.overdue_invoices"
                     title="Overdue Invoices"
-                    :description="formatMoney(actionItems.overdue_amount) + ' outstanding'"
+                    :description="formatMoney(localActionItems.overdue_amount) + ' outstanding'"
                     actionLabel="View All"
                     :actionHref="route('invoices.index', { status: 'overdue' })"
                 />
@@ -478,10 +500,10 @@ onUnmounted(() => {
                 />
 
                 <ActionItemCard
-                    v-if="actionItems.expiring_leases > 0"
+                    v-if="localActionItems.expiring_leases > 0"
                     urgency="high"
                     :icon="CalendarDaysIcon"
-                    :count="actionItems.expiring_leases"
+                    :count="localActionItems.expiring_leases"
                     title="Expiring Leases"
                     description="Within the next 30 days"
                     actionLabel="View"
@@ -499,10 +521,10 @@ onUnmounted(() => {
                 />
 
                 <ActionItemCard
-                    v-if="actionItems.urgent_tickets > 0"
+                    v-if="localActionItems.urgent_tickets > 0"
                     urgency="critical"
                     :icon="TicketIcon"
-                    :count="actionItems.urgent_tickets"
+                    :count="localActionItems.urgent_tickets"
                     title="Urgent Tickets"
                     description="Require immediate attention"
                     actionLabel="View"
@@ -512,7 +534,7 @@ onUnmounted(() => {
                     v-else-if="actionItems.vacant_units > 0"
                     urgency="medium"
                     :icon="HomeModernIcon"
-                    :count="actionItems.vacant_units"
+                    :count="localActionItems.vacant_units"
                     title="Vacant Units"
                     description="Available for lease"
                     actionLabel="View"
@@ -530,10 +552,10 @@ onUnmounted(() => {
                 />
 
                 <ActionItemCard
-                    v-if="actionItems.pending_readings > 0"
+                    v-if="localActionItems.pending_readings > 0"
                     urgency="medium"
                     :icon="ClipboardDocumentListIcon"
-                    :count="actionItems.pending_readings"
+                    :count="localActionItems.pending_readings"
                     title="Pending Readings"
                     description="Awaiting approval"
                     actionLabel="Review"
@@ -967,8 +989,8 @@ onUnmounted(() => {
                         </Link>
                     </div>
 
-                    <div v-if="recentTickets && recentTickets.length > 0" class="space-y-3">
-                        <Link v-for="ticket in recentTickets" :key="ticket.id"
+                    <div v-if="localRecentTickets && localRecentTickets.length > 0" class="space-y-3">
+                        <Link v-for="ticket in localRecentTickets" :key="ticket.id"
                              :href="route('tickets.show', ticket.id)"
                              class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors">
                             <div class="flex items-center gap-3">

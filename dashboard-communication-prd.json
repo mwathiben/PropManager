@@ -625,7 +625,8 @@
         "resources/js/Pages/Tenant/Dashboard.vue"
       ],
       "verification": "Change ticket status; verify both dashboards update without refresh",
-      "passes": false
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "COM-018",
