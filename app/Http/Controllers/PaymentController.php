@@ -74,15 +74,9 @@ class PaymentController extends Controller
             ['value' => 'cheque', 'label' => 'Cheque'],
         ])->filter(fn ($m) => in_array($m['value'], $enabledMethods) || empty($enabledMethods))->values();
 
-        // Get buildings for filtering
-        $buildings = \App\Models\Building::where('landlord_id', $landlordId)
-            ->select('id', 'name')
-            ->orderBy('name')
-            ->get();
-
         return Inertia::render('Finances/Payments/Record', [
             'paymentMethods' => $paymentMethods,
-            'buildings' => $buildings,
+            'buildings' => $this->getBuildingsForDropdown(),
         ]);
     }
 
@@ -287,17 +281,11 @@ class PaymentController extends Controller
             ['value' => 'stripe', 'label' => 'Stripe'],
         ];
 
-        // Get buildings for filter dropdown
-        $buildings = \App\Models\Building::where('landlord_id', $landlordId)
-            ->select('id', 'name')
-            ->orderBy('name')
-            ->get();
-
         return Inertia::render('Payments/Index', [
             'payments' => $payments,
             'stats' => $stats,
             'paymentMethods' => $paymentMethods,
-            'buildings' => $buildings,
+            'buildings' => $this->getBuildingsForDropdown(),
             'filters' => $request->only(['search', 'method', 'date_from', 'date_to', 'building_id', 'sort', 'direction']),
         ]);
     }
@@ -941,22 +929,8 @@ class PaymentController extends Controller
             abort(403, 'Access denied.');
         }
 
-        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
-
-        $buildings = Building::where('landlord_id', $landlordId)
-            ->with('property:id,name')
-            ->select('id', 'name', 'property_id')
-            ->orderBy('name')
-            ->get()
-            ->map(fn ($b) => [
-                'id' => $b->id,
-                'name' => $b->name,
-                'property_name' => $b->property?->name ?? 'Unknown Property',
-                'display_name' => ($b->property?->name ?? 'Unknown').' - '.$b->name,
-            ]);
-
         return Inertia::render('Finances/Payments/BulkImport', [
-            'buildings' => $buildings,
+            'buildings' => $this->getBuildingsWithProperty(),
         ]);
     }
 
@@ -1873,5 +1847,45 @@ class PaymentController extends Controller
         fclose($handle);
 
         return $rows;
+    }
+
+    /**
+     * Get the landlord ID for the current user.
+     */
+    private function getLandlordId(): int
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        return $user->isCaretaker() ? $user->landlord_id : $user->id;
+    }
+
+    /**
+     * Get buildings for dropdown selection.
+     */
+    private function getBuildingsForDropdown(): \Illuminate\Support\Collection
+    {
+        return Building::where('landlord_id', $this->getLandlordId())
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
+     * Get buildings with property info for enhanced dropdowns.
+     */
+    private function getBuildingsWithProperty(): \Illuminate\Support\Collection
+    {
+        return Building::where('landlord_id', $this->getLandlordId())
+            ->with('property:id,name')
+            ->select('id', 'name', 'property_id')
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($b) => [
+                'id' => $b->id,
+                'name' => $b->name,
+                'property_name' => $b->property?->name ?? 'Unknown Property',
+                'display_name' => ($b->property?->name ?? 'Unknown').' - '.$b->name,
+            ]);
     }
 }

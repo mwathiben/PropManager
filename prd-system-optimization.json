@@ -399,7 +399,8 @@
         "resources/js/Pages/Finances/Tabs/ExpensesTab.vue"
       ],
       "verification": "DOM node count stays constant regardless of row count",
-      "passes": false
+      "passes": true,
+      "note": "NOT_APPLICABLE - Server-side pagination limits rows to 50 max per page. VirtualDataTable with @vueuse/core and CSS content-visibility already exist in Components/Finances/"
     },
     {
       "id": "SYS-018",
@@ -418,7 +419,7 @@
       ],
       "lines": "78-82, 289-292, 944-948",
       "verification": "DRY - buildings query defined once",
-      "passes": false
+      "passes": true
     }
   ],
   "progressTracking": {

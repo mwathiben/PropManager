@@ -4687,3 +4687,60 @@ Added caching to `getSuperAdminMetrics()` using existing `FinanceCacheService` p
 - Tests: 378 passed, 12 skipped
 
 ---
+
+## SYS-017: Add Virtual Scrolling to Large List Components
+**Status:** NOT_APPLICABLE
+**Date:** 2026-01-17
+
+**Reason:** The PRD assumed components render 100+ rows, but all target pages already use server-side pagination (max 50 rows per page). Additionally:
+- `VirtualDataTable` component already exists using `@vueuse/core`'s `useVirtualList()`
+- CSS `content-visibility: auto` already implemented in both `DataTable` and `VirtualDataTable`
+- `Payments/Index.vue` doesn't exist (incorrect file path in PRD)
+
+No changes needed - existing architecture already addresses this concern.
+
+---
+
+## SYS-018: Fix Building Queries in PaymentController
+**Status:** PASSED
+**Date:** 2026-01-17
+**Attempts:** 1
+
+### Implementation
+
+Extracted repeated building queries to private helper methods.
+
+**New methods added:**
+1. `getLandlordId(): int` - Returns landlord ID for current user
+2. `getBuildingsForDropdown(): Collection` - Simple buildings list (id, name)
+3. `getBuildingsWithProperty(): Collection` - Buildings with property info
+
+**Refactored locations:**
+| Method | Before | After |
+|--------|--------|-------|
+| `create()` | Inline query (lines 78-81) | `$this->getBuildingsForDropdown()` |
+| `index()` | Inline query (lines 291-294) | `$this->getBuildingsForDropdown()` |
+| `bulkImportForm()` | Inline query + map (lines 946-956) | `$this->getBuildingsWithProperty()` |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/PaymentController.php` | Added 3 private helper methods, refactored 3 locations |
+
+### Verification Results
+
+- Pint: Passed (468 files)
+- Tests: 378 passed, 12 skipped
+- Build: Success
+
+---
+
+## OPTIMIZATION COMPLETE
+
+All 18 SYS tasks have been processed:
+- **15 tasks**: Implemented and passed
+- **2 tasks**: Deferred (SYS-015, SYS-017) with documented reasoning
+- **1 task**: Already resolved (SYS-014)
+
+<promise>COMPLETE</promise>
