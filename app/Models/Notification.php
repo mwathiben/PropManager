@@ -51,11 +51,38 @@ class Notification extends Model
         self::TYPE_TENANT_INVITATION,
     ];
 
+    // Fallback chain order (WhatsApp → SMS → Email → In-app)
+    public const FALLBACK_CHAIN = [
+        self::CHANNEL_WHATSAPP,
+        self::CHANNEL_SMS,
+        self::CHANNEL_EMAIL,
+        self::CHANNEL_IN_APP,
+    ];
+
+    // Channel timeout configuration (in minutes)
+    public const CHANNEL_TIMEOUTS = [
+        self::CHANNEL_WHATSAPP => 60,    // 1 hour
+        self::CHANNEL_SMS => 30,         // 30 minutes
+        self::CHANNEL_EMAIL => null,     // No timeout
+        self::CHANNEL_PUSH => null,      // No timeout
+        self::CHANNEL_IN_APP => null,    // No timeout
+    ];
+
+    // Maximum retries per channel
+    public const CHANNEL_MAX_RETRIES = [
+        self::CHANNEL_WHATSAPP => 2,
+        self::CHANNEL_SMS => 1,
+        self::CHANNEL_EMAIL => 3,
+        self::CHANNEL_PUSH => 1,
+        self::CHANNEL_IN_APP => 0,
+    ];
+
     protected $fillable = [
         'landlord_id',
         'recipient_id',
         'type',
         'channel',
+        'fallback_channel',
         'subject',
         'message',
         'data',
@@ -63,16 +90,24 @@ class Notification extends Model
         'external_id',
         'error_message',
         'delivery_reason_code',
+        'retry_count',
         'sent_at',
         'delivered_at',
         'read_at',
+        'fallback_sent_at',
+        'timeout_at',
+        'primary_attempt_at',
     ];
 
     protected $casts = [
         'data' => 'array',
+        'retry_count' => 'integer',
         'sent_at' => 'datetime',
         'delivered_at' => 'datetime',
         'read_at' => 'datetime',
+        'fallback_sent_at' => 'datetime',
+        'timeout_at' => 'datetime',
+        'primary_attempt_at' => 'datetime',
     ];
 
     /**
@@ -316,5 +351,149 @@ class Notification extends Model
         }
 
         return $this->type === self::TYPE_CARETAKER_INVITATION ? 'caretaker' : 'tenant';
+    }
+
+    /**
+     * Check if this notification is stuck (timed out and needs fallback)
+     */
+    public function isStuck(): bool
+    {
+        if ($this->status !== 'pending' && $this->status !== 'sent') {
+            return false;
+        }
+
+        if (! $this->timeout_at) {
+            return false;
+        }
+
+        return $this->timeout_at->isPast();
+    }
+
+    /**
+     * Check if this notification should fallback to another channel
+     */
+    public function shouldFallback(): bool
+    {
+        if (! $this->isStuck() && $this->status !== 'failed') {
+            return false;
+        }
+
+        $currentChannel = $this->fallback_channel ?? $this->channel;
+        $maxRetries = self::CHANNEL_MAX_RETRIES[$currentChannel] ?? 0;
+
+        if ($this->retry_count < $maxRetries) {
+            return false;
+        }
+
+        return $this->getNextFallbackChannel() !== null;
+    }
+
+    /**
+     * Get the next channel in the fallback chain
+     */
+    public function getNextFallbackChannel(): ?string
+    {
+        $currentChannel = $this->fallback_channel ?? $this->channel;
+        $currentIndex = array_search($currentChannel, self::FALLBACK_CHAIN);
+
+        if ($currentIndex === false) {
+            return null;
+        }
+
+        $nextIndex = $currentIndex + 1;
+
+        if ($nextIndex >= count(self::FALLBACK_CHAIN)) {
+            return null;
+        }
+
+        return self::FALLBACK_CHAIN[$nextIndex];
+    }
+
+    /**
+     * Check if all channels have been exhausted
+     */
+    public function hasExhaustedAllChannels(): bool
+    {
+        $currentChannel = $this->fallback_channel ?? $this->channel;
+        $lastChannel = end(self::FALLBACK_CHAIN);
+
+        return $currentChannel === $lastChannel && $this->status === 'failed';
+    }
+
+    /**
+     * Get timeout duration for a channel in minutes
+     */
+    public static function getChannelTimeout(string $channel): ?int
+    {
+        return self::CHANNEL_TIMEOUTS[$channel] ?? null;
+    }
+
+    /**
+     * Calculate timeout timestamp for a channel
+     */
+    public static function calculateTimeoutAt(string $channel): ?\Carbon\Carbon
+    {
+        $minutes = self::getChannelTimeout($channel);
+
+        if ($minutes === null) {
+            return null;
+        }
+
+        return now()->addMinutes($minutes);
+    }
+
+    /**
+     * Scope: Stuck notifications that need fallback processing
+     */
+    public function scopeStuck($query)
+    {
+        return $query
+            ->whereIn('status', ['pending', 'sent'])
+            ->whereNotNull('timeout_at')
+            ->where('timeout_at', '<=', now());
+    }
+
+    /**
+     * Scope: Failed notifications that need fallback
+     */
+    public function scopeNeedsFallback($query)
+    {
+        return $query
+            ->where(function ($q) {
+                $q->where('status', 'failed')
+                    ->orWhere(function ($q2) {
+                        $q2->whereIn('status', ['pending', 'sent'])
+                            ->whereNotNull('timeout_at')
+                            ->where('timeout_at', '<=', now());
+                    });
+            })
+            ->whereNull('fallback_channel')
+            ->orWhere(function ($q) {
+                $q->whereNotNull('fallback_channel')
+                    ->where('fallback_channel', '!=', self::CHANNEL_IN_APP);
+            });
+    }
+
+    /**
+     * Increment retry count
+     */
+    public function incrementRetryCount(): void
+    {
+        $this->increment('retry_count');
+    }
+
+    /**
+     * Mark as sent via fallback channel
+     */
+    public function markAsSentViaFallback(string $channel, ?string $externalId = null): void
+    {
+        $this->update([
+            'fallback_channel' => $channel,
+            'fallback_sent_at' => now(),
+            'status' => 'sent',
+            'external_id' => $externalId,
+            'timeout_at' => self::calculateTimeoutAt($channel),
+            'retry_count' => 0,
+        ]);
     }
 }

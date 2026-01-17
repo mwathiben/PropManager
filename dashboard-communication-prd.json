@@ -227,7 +227,8 @@
         "database/migrations/*_add_fallback_channel_to_notifications.php"
       ],
       "verification": "Block WhatsApp (invalid number); verify SMS sent after 1 hour timeout",
-      "passes": false
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "COM-005",

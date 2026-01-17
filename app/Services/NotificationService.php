@@ -22,7 +22,8 @@ class NotificationService
     ) {}
 
     /**
-     * Send a notification to a user via their preferred channels
+     * Send a notification to a user via their primary preferred channel.
+     * Fallback to other channels is handled by the FallbackNotificationJob.
      */
     public function send(
         int $recipientId,
@@ -40,20 +41,82 @@ class NotificationService
                 : $recipient->id;
         }
 
-        // Get user preferences
         $preferences = NotificationPreference::getOrCreate($recipientId, $landlordId);
-
-        $results = [];
         $channels = $this->prioritizeChannels($preferences);
+        $results = [];
+
+        $primaryChannel = $this->findPrimaryChannel($channels, $preferences, $type);
+
+        if (! $primaryChannel) {
+            Log::warning('No available channel for notification', [
+                'recipient_id' => $recipientId,
+                'type' => $type,
+            ]);
+
+            return ['error' => 'no_available_channel'];
+        }
+
+        if (! $this->checkRateLimits($landlordId, $primaryChannel)) {
+            Log::warning('Notification rate limited', [
+                'landlord_id' => $landlordId,
+                'channel' => $primaryChannel,
+            ]);
+
+            return [$primaryChannel => 'rate_limited'];
+        }
+
+        $notification = $this->createNotification(
+            $landlordId,
+            $recipientId,
+            $type,
+            $primaryChannel,
+            $subject,
+            $message,
+            $data
+        );
+
+        try {
+            $sent = $this->sendViaChannel($notification, $recipient);
+            $results[$primaryChannel] = $sent ? 'sent' : 'failed';
+        } catch (\Exception $e) {
+            $notification->markAsFailed($e->getMessage());
+            $results[$primaryChannel] = 'failed';
+            Log::error("Notification failed via {$primaryChannel}", [
+                'error' => $e->getMessage(),
+                'notification_id' => $notification->id,
+            ]);
+        }
+
+        return $results;
+    }
+
+    /**
+     * Send a notification to ALL enabled channels (for critical notifications).
+     */
+    public function sendToAllChannels(
+        int $recipientId,
+        string $type,
+        string $subject,
+        string $message,
+        ?array $data = null,
+        ?int $landlordId = null
+    ): array {
+        $recipient = User::findOrFail($recipientId);
+
+        if (! $landlordId) {
+            $landlordId = $recipient->role === 'tenant'
+                ? $recipient->landlord_id
+                : $recipient->id;
+        }
+
+        $preferences = NotificationPreference::getOrCreate($recipientId, $landlordId);
+        $channels = $this->prioritizeChannels($preferences);
+        $results = [];
 
         foreach ($channels as $channel) {
             if ($preferences->canReceive($type, $channel)) {
                 if (! $this->checkRateLimits($landlordId, $channel)) {
                     $results[$channel] = 'rate_limited';
-                    Log::warning('Notification rate limited', [
-                        'landlord_id' => $landlordId,
-                        'channel' => $channel,
-                    ]);
 
                     continue;
                 }
@@ -74,15 +137,25 @@ class NotificationService
                 } catch (\Exception $e) {
                     $notification->markAsFailed($e->getMessage());
                     $results[$channel] = 'failed';
-                    Log::error("Notification failed via {$channel}", [
-                        'error' => $e->getMessage(),
-                        'notification_id' => $notification->id,
-                    ]);
                 }
             }
         }
 
         return $results;
+    }
+
+    /**
+     * Find the first channel that user can receive notifications on.
+     */
+    private function findPrimaryChannel(array $channels, NotificationPreference $preferences, string $type): ?string
+    {
+        foreach ($channels as $channel) {
+            if ($preferences->canReceive($type, $channel)) {
+                return $channel;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -160,7 +233,7 @@ class NotificationService
     }
 
     /**
-     * Create a notification record
+     * Create a notification record with timeout tracking for fallback
      */
     private function createNotification(
         int $landlordId,
@@ -180,15 +253,20 @@ class NotificationService
             'message' => $message,
             'data' => $data,
             'status' => 'pending',
+            'timeout_at' => Notification::calculateTimeoutAt($channel),
+            'primary_attempt_at' => now(),
         ]);
     }
 
     /**
-     * Send notification via specific channel
+     * Send notification via specific channel.
+     * Can override channel for fallback scenarios.
      */
-    private function sendViaChannel(Notification $notification, User $recipient): bool
+    public function sendViaChannel(Notification $notification, User $recipient, ?string $overrideChannel = null): bool
     {
-        return match ($notification->channel) {
+        $channel = $overrideChannel ?? $notification->channel;
+
+        return match ($channel) {
             'email' => $this->sendEmail($notification, $recipient),
             'sms' => $this->sendSms($notification, $recipient),
             'whatsapp' => $this->sendWhatsApp($notification, $recipient),
@@ -811,5 +889,63 @@ class NotificationService
             RateLimiter::clear("notifications:{$landlordId}:{$ch}:hourly");
             RateLimiter::clear("notifications:{$landlordId}:{$ch}:daily");
         }
+    }
+
+    /**
+     * Notify landlord when a tenant is unreachable on all channels.
+     */
+    public function notifyLandlordUnreachable(Notification $failedNotification): void
+    {
+        $tenant = $failedNotification->recipient;
+        $landlord = $failedNotification->landlord;
+
+        if (! $tenant || ! $landlord) {
+            Log::warning('notifyLandlordUnreachable: Missing tenant or landlord', [
+                'notification_id' => $failedNotification->id,
+            ]);
+
+            return;
+        }
+
+        $attemptedChannels = $failedNotification->fallback_channel
+            ? array_slice(
+                Notification::FALLBACK_CHAIN,
+                0,
+                array_search($failedNotification->fallback_channel, Notification::FALLBACK_CHAIN) + 1
+            )
+            : [$failedNotification->channel];
+
+        $message = sprintf(
+            "Unable to reach tenant %s.\n\nOriginal notification: %s\nType: %s\nAttempted channels: %s\n\nThe tenant may have invalid contact details. Please verify their phone number, WhatsApp, and email address.",
+            $tenant->name,
+            $failedNotification->subject,
+            $failedNotification->type,
+            implode(', ', $attemptedChannels)
+        );
+
+        $notification = Notification::create([
+            'landlord_id' => $landlord->id,
+            'recipient_id' => $landlord->id,
+            'type' => Notification::TYPE_GENERAL,
+            'channel' => Notification::CHANNEL_IN_APP,
+            'subject' => 'Tenant Unreachable: '.$tenant->name,
+            'message' => $message,
+            'data' => [
+                'failed_notification_id' => $failedNotification->id,
+                'tenant_id' => $tenant->id,
+                'tenant_name' => $tenant->name,
+                'original_type' => $failedNotification->type,
+                'attempted_channels' => $attemptedChannels,
+            ],
+            'status' => 'pending',
+        ]);
+
+        $notification->markAsSent();
+
+        Log::info('Landlord notified about unreachable tenant', [
+            'landlord_id' => $landlord->id,
+            'tenant_id' => $tenant->id,
+            'failed_notification_id' => $failedNotification->id,
+        ]);
     }
 }

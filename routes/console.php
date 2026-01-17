@@ -31,3 +31,9 @@ Schedule::command('invoices:automate')
     ->dailyAt('06:00')
     ->withoutOverlapping()
     ->runInBackground();
+
+// Process failed/stuck notifications and trigger fallback channels every 15 minutes
+Schedule::command('notifications:process-failed')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping()
+    ->runInBackground();

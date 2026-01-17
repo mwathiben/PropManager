@@ -5234,3 +5234,76 @@ Created the PaymentReceived broadcast event that broadcasts payment confirmation
 - COM-009: Replace M-Pesa polling with real-time updates
 - COM-010: Real-time notification badge updates
 - COM-004: Multi-Channel Fallback Chain
+
+---
+
+## Session: 2026-01-17
+
+**Task**: COM-004 - Implement Multi-Channel Fallback Chain
+**Status**: COMPLETED
+
+### Summary
+
+Implemented automatic channel fallback when primary notification channel fails or times out. The system progressively tries WhatsApp → SMS → Email → In-app, tracking which channel ultimately succeeded.
+
+### Architectural Change
+
+Changed `NotificationService::send()` from sending to ALL enabled channels simultaneously to sending only to the PRIMARY channel (first in priority order). Fallback is handled by:
+1. Scheduled command that detects stuck/failed notifications
+2. FallbackNotificationJob that sends via next channel in chain
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/2026_01_17_154841_add_fallback_fields_to_notifications_table.php` | Adds fallback tracking fields |
+| `app/Jobs/FallbackNotificationJob.php` | Handles fallback channel sending with exponential backoff |
+| `app/Console/Commands/ProcessFailedNotifications.php` | Scheduled command to detect and process stuck notifications |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Models/Notification.php` | Added FALLBACK_CHAIN, CHANNEL_TIMEOUTS, CHANNEL_MAX_RETRIES constants; new fields in $fillable and $casts; helper methods: isStuck(), shouldFallback(), getNextFallbackChannel(), hasExhaustedAllChannels(), calculateTimeoutAt(), markAsSentViaFallback() |
+| `app/Services/NotificationService.php` | Changed send() to use PRIMARY channel only; added sendToAllChannels() for critical notifications; made sendViaChannel() public with optional channel override; added notifyLandlordUnreachable() method |
+| `routes/console.php` | Scheduled notifications:process-failed to run every 15 minutes |
+
+### Fallback Chain Configuration
+
+| Channel | Timeout | Max Retries | Fallback To |
+|---------|---------|-------------|-------------|
+| WhatsApp | 60 min | 2 | SMS |
+| SMS | 30 min | 1 | Email |
+| Email | None | 3 | In-app |
+| In-app | None | 0 | Notify landlord |
+
+### Database Fields Added
+
+- `fallback_channel` - Which channel was used as fallback
+- `fallback_sent_at` - When fallback was sent
+- `retry_count` - Retries within current channel
+- `timeout_at` - When fallback should trigger
+- `primary_attempt_at` - When primary channel was attempted
+- Index: `notifications_stuck_index` on [status, timeout_at]
+
+### Acceptance Criteria Verification
+
+1. **FallbackNotificationJob handles retries across channels** - Created with exponential backoff [30, 60, 180]
+2. **Delivery timeout detection** - timeout_at calculated per channel (WhatsApp: 60min, SMS: 30min)
+3. **fallback_channel field tracks which channel succeeded** - Added to notifications table
+4. **Scheduled command processes stuck notifications** - notifications:process-failed runs every 15 minutes
+5. **Exponential backoff for retries** - CHANNEL_MAX_RETRIES constant per channel
+6. **Landlord notified when tenant unreachable** - notifyLandlordUnreachable() creates in-app notification
+7. **Fallback statistics logged** - ProcessFailedNotifications logs stats with channel breakdown
+
+### Verification Results
+
+- Pint: PASS (487 files)
+- npm run build: Success (1693 modules transformed)
+- Migrations: Success
+
+### Next Steps
+
+- COM-009: Replace M-Pesa polling with real-time updates
+- COM-010: Real-time notification badge updates
+- COM-011: Urgency-Based Channel Selection
