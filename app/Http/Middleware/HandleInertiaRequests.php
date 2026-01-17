@@ -4,8 +4,11 @@ namespace App\Http\Middleware;
 
 use App\Models\Invitation;
 use App\Models\Invoice;
+use App\Models\MoveOut;
 use App\Models\Notification;
 use App\Models\TenantInvitation;
+use App\Models\TenantPaymentVerification;
+use App\Models\TenantVerification;
 use App\Models\Ticket;
 use App\Models\WaterReading;
 use Illuminate\Http\Request;
@@ -99,17 +102,28 @@ class HandleInertiaRequests extends Middleware
 
         return match ($user->role) {
             'landlord' => array_filter([
+                // Aggregated hub badges
+                'tenants' => TenantPaymentVerification::where('status', 'pending')->count()
+                    + MoveOut::active()->count()
+                    + TenantVerification::pending()->count(),
                 'invoices' => Invoice::where('status', 'overdue')->count(),
-                'tickets' => Ticket::open()->where('priority', 'urgent')->count(),
+                'tickets' => Ticket::open()->count(),
                 'readings' => $user->canAccessFeature('water_billing')
                     ? WaterReading::where('status', 'pending')->count()
                     : null,
-            ], fn ($v) => $v !== null),
+                'notifications' => Notification::where('recipient_id', $user->id)
+                    ->whereNull('read_at')
+                    ->count(),
+            ], fn ($v) => $v !== null && $v > 0),
             'caretaker' => array_filter([
                 'tickets' => Ticket::where('assigned_to', $user->id)->open()->count(),
                 'readings' => ($user->landlord?->canAccessFeature('water_billing') ?? false)
                     ? WaterReading::where('status', 'pending')->count()
                     : null,
+                'notifications' => Notification::withoutGlobalScope('landlord')
+                    ->where('recipient_id', $user->id)
+                    ->whereNull('read_at')
+                    ->count(),
             ], fn ($v) => $v !== null),
             'tenant' => [
                 'invoices' => $user->lease

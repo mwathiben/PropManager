@@ -5371,3 +5371,67 @@ Replaced the 3-second polling mechanism in TenantFinances/Pay.vue with WebSocket
 - COM-010: Real-time notification badge updates
 - COM-011: Urgency-Based Channel Selection
 - COM-012: Quiet Hours Respect
+
+---
+
+## Session: 2026-01-17
+**Task**: COM-010 - Real-time Notification Badge Updates
+**Status**: COMPLETED
+
+### Implementation Summary
+
+Implemented real-time notification badge updates using WebSocket broadcasting. The notification bell badge now updates instantly when new notifications arrive, without requiring page refresh. Also added toast notifications for high-priority notification types.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Events/NewNotification.php` | Broadcast event for real-time notification updates, broadcasts to `notifications.{userId}` private channel |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Services/NotificationService.php` | Added event dispatch in `sendInApp()` after `markAsSent()` |
+| `app/Http/Middleware/HandleInertiaRequests.php` | Extended navBadges to include notifications count for landlord and caretaker roles (was tenant-only) |
+| `resources/js/Components/NotificationBell.vue` | Added Echo subscription via `useEcho`, local reactive state for badge count, toast UI for high-priority notifications |
+
+### Technical Details
+
+**NewNotification Event:**
+- Broadcasts to `private-notifications.{recipient_id}` channel
+- Payload includes: id, type, subject, message, priority, created_at, time_ago
+- Priority determined by notification type (high for arrears/eviction/invitations)
+
+**NotificationBell.vue Changes:**
+- Added `useEcho` composable for WebSocket subscription
+- Replaced computed `unreadCount` with local `localUnreadCount` ref
+- Added `watch` to sync with server props on page navigation
+- Added `handleNewNotification` to increment count and show toast
+- Added toast UI with Teleport, slide-in animation, 5-second auto-dismiss
+
+**navBadges Extension:**
+- Landlords now see unread notification count in navigation
+- Caretakers now see unread notification count in navigation
+- Uses same query pattern as tenant (withoutGlobalScope for caretaker)
+
+### Acceptance Criteria Verification
+
+1. **Create NewNotification event for badge updates** - Created with ShouldBroadcast
+2. **Dispatch event from NotificationService::send() after in_app delivery** - Added in sendInApp()
+3. **Add Echo listener in NotificationBell.vue** - Using subscribePrivate()
+4. **Increment badge count on new notification** - localUnreadCount.value++
+5. **Show toast/snackbar for high-priority notifications** - Toast with icon, subject, message
+6. **Play notification sound** - Deferred (requires audio file and user preference storage)
+7. **Update navBadges in Inertia shared data** - Extended to all roles
+
+### Verification Results
+
+- Pint: PASS (489 files)
+- npm run build: Success (1693 modules transformed)
+
+### Next Steps
+
+- COM-011: Urgency-Based Channel Selection
+- COM-012: Quiet Hours Respect
+- COM-013: WhatsApp Inbound Message Webhook

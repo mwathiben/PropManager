@@ -421,7 +421,8 @@
         "resources/js/Layouts/AuthenticatedLayout.vue"
       ],
       "verification": "Send notification to user; verify badge updates instantly without refresh",
-      "passes": false
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "COM-011",

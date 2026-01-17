@@ -285,6 +285,9 @@ class NotificationService
         // They're visible in the notification bell and notifications page
         $notification->markAsSent();
 
+        // Broadcast real-time update to recipient's notification bell
+        event(new \App\Events\NewNotification($notification));
+
         return true;
     }
 

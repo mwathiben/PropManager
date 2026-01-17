@@ -1,7 +1,8 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { usePage, Link, router } from '@inertiajs/vue3';
 import { onClickOutside } from '@vueuse/core';
+import { useEcho } from '@/composables/useEcho';
 import BellIcon from '@heroicons/vue/24/outline/BellIcon';
 import ClockIcon from '@heroicons/vue/24/outline/ClockIcon';
 import ExclamationTriangleIcon from '@heroicons/vue/24/outline/ExclamationTriangleIcon';
@@ -12,20 +13,25 @@ import CalendarIcon from '@heroicons/vue/24/outline/CalendarIcon';
 import WrenchScrewdriverIcon from '@heroicons/vue/24/outline/WrenchScrewdriverIcon';
 import ExclamationCircleIcon from '@heroicons/vue/24/outline/ExclamationCircleIcon';
 import UserPlusIcon from '@heroicons/vue/24/outline/UserPlusIcon';
+import XMarkIcon from '@heroicons/vue/24/outline/XMarkIcon';
 import BellIconSolid from '@heroicons/vue/24/solid/BellIcon';
 
 const page = usePage();
+const { subscribePrivate, unsubscribe } = useEcho();
 
 const isOpen = ref(false);
 const notifications = ref([]);
 const loading = ref(false);
 const dropdownRef = ref(null);
+const localUnreadCount = ref(0);
+const toast = ref({ show: false, subject: '', message: '', type: '' });
 
-const unreadCount = computed(() => {
-    // For tenant role, notifications count is directly on navBadges
-    // For other roles, check nested structure
-    return page.props.navBadges?.notifications || 0;
-});
+// Sync local count with server-side props on page navigation
+watch(() => page.props.navBadges?.notifications, (val) => {
+    if (val !== undefined) localUnreadCount.value = val;
+}, { immediate: true });
+
+const unreadCount = computed(() => localUnreadCount.value);
 
 const typeConfig = {
     rent_reminder: { icon: ClockIcon, color: 'text-orange-500', bg: 'bg-orange-100' },
@@ -148,6 +154,37 @@ const markAllAsRead = async () => {
 };
 
 onClickOutside(dropdownRef, () => { isOpen.value = false; });
+
+// Handle new notification from WebSocket
+const handleNewNotification = (event) => {
+    localUnreadCount.value++;
+
+    // Refresh list if dropdown is open
+    if (isOpen.value) {
+        fetchNotifications();
+    }
+
+    // Show toast for high-priority notifications
+    if (event.priority === 'high') {
+        toast.value = { show: true, ...event };
+        setTimeout(() => { toast.value.show = false; }, 5000);
+    }
+};
+
+// Subscribe to user's notification channel
+onMounted(() => {
+    const userId = page.props.auth?.user?.id;
+    if (userId) {
+        subscribePrivate(`notifications.${userId}`, 'NewNotification', handleNewNotification);
+    }
+});
+
+onUnmounted(() => {
+    const userId = page.props.auth?.user?.id;
+    if (userId) {
+        unsubscribe(`notifications.${userId}`);
+    }
+});
 </script>
 
 <template>
@@ -222,7 +259,7 @@ onClickOutside(dropdownRef, () => { isOpen.value = false; });
                             <div class="flex gap-3">
                                 <!-- Type Icon -->
                                 <div :class="[
-                                    'flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center',
+                                    'shrink-0 w-10 h-10 rounded-full flex items-center justify-center',
                                     getTypeConfig(notification.type).bg
                                 ]">
                                     <component
@@ -243,7 +280,7 @@ onClickOutside(dropdownRef, () => { isOpen.value = false; });
                                         <!-- Unread Indicator -->
                                         <span
                                             v-if="!notification.read_at"
-                                            class="flex-shrink-0 w-2 h-2 bg-indigo-500 rounded-full mt-1.5"
+                                            class="shrink-0 w-2 h-2 bg-indigo-500 rounded-full mt-1.5"
                                         ></span>
                                     </div>
                                     <p class="text-sm text-gray-500 truncate mt-0.5">
@@ -291,5 +328,41 @@ onClickOutside(dropdownRef, () => { isOpen.value = false; });
                 </div>
             </div>
         </Transition>
+
+        <!-- Toast Notification for High-Priority Notifications -->
+        <Teleport to="body">
+            <Transition
+                enter-active-class="transition ease-out duration-300"
+                enter-from-class="transform translate-y-2 opacity-0"
+                enter-to-class="transform translate-y-0 opacity-100"
+                leave-active-class="transition ease-in duration-200"
+                leave-from-class="transform translate-y-0 opacity-100"
+                leave-to-class="transform translate-y-2 opacity-0"
+            >
+                <div
+                    v-if="toast.show"
+                    class="fixed bottom-4 right-4 z-50 max-w-sm bg-white rounded-lg shadow-lg border border-gray-200 p-4"
+                >
+                    <div class="flex items-start gap-3">
+                        <div :class="[
+                            'shrink-0 w-10 h-10 rounded-full flex items-center justify-center',
+                            getTypeConfig(toast.type).bg
+                        ]">
+                            <component
+                                :is="getTypeConfig(toast.type).icon"
+                                :class="['w-5 h-5', getTypeConfig(toast.type).color]"
+                            />
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-semibold text-gray-900">{{ toast.subject }}</p>
+                            <p class="text-sm text-gray-500 truncate mt-0.5">{{ toast.message }}</p>
+                        </div>
+                        <button @click="toast.show = false" class="shrink-0 text-gray-400 hover:text-gray-600">
+                            <XMarkIcon class="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+            </Transition>
+        </Teleport>
     </div>
 </template>
