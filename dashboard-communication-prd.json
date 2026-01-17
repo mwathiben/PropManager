@@ -396,7 +396,8 @@
         "correct": "Echo.private(`tenant.${tenantId}`).listen('MpesaPaymentStatusChanged', (e) => { updatePaymentStatus(e); });"
       },
       "verification": "Initiate M-Pesa payment; verify instant UI update on callback (no 3-second delay)",
-      "passes": false
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "COM-010",

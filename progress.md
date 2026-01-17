@@ -5307,3 +5307,67 @@ Changed `NotificationService::send()` from sending to ALL enabled channels simul
 - COM-009: Replace M-Pesa polling with real-time updates
 - COM-010: Real-time notification badge updates
 - COM-011: Urgency-Based Channel Selection
+
+---
+
+## Session: 2026-01-17
+**Task**: COM-009 - Replace M-Pesa Polling with Real-time Updates
+**Status**: COMPLETED
+
+### Implementation Summary
+
+Replaced the 3-second polling mechanism in TenantFinances/Pay.vue with WebSocket-based real-time updates using Laravel Echo and Reverb. The frontend now listens for M-Pesa payment status changes via a dedicated broadcast event, with fallback polling at 30-second intervals if WebSocket is unavailable.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Events/MpesaPaymentStatusChanged.php` | Broadcast event for M-Pesa STK Push status updates |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/Api/MpesaWebhookController.php` | Dispatch MpesaPaymentStatusChanged on success/failure in stkCallback and processPayment |
+| `routes/channels.php` | Added mpesa.{checkoutRequestId} private channel authorization |
+| `resources/js/Pages/TenantFinances/Pay.vue` | Added Echo subscription, reduced polling to 30s fallback, cleanup on unmount |
+
+### Technical Details
+
+**MpesaPaymentStatusChanged Event:**
+- Broadcasts to `private-mpesa.{checkoutRequestId}` channel
+- Payload: checkoutRequestId, status, paymentId, amount, mpesaReceipt, message
+- Status values: 'success', 'failed', 'cancelled'
+
+**WebSocket Flow:**
+1. User initiates STK Push → gets checkoutRequestId
+2. Frontend subscribes to `mpesa.{checkoutRequestId}` channel
+3. M-Pesa callback triggers → event broadcast
+4. Frontend receives instant update → UI updates immediately
+5. Fallback polling at 30s if WebSocket disconnected
+
+**Channel Authorization:**
+- Any authenticated user can listen to mpesa.{checkoutRequestId}
+- Security via unique checkoutRequestId (only initiator knows it)
+
+### Acceptance Criteria Verification
+
+1. **Create MpesaPaymentStatusChanged event** - Created with ShouldBroadcast
+2. **Dispatch event from stkCallback()** - Dispatched on success in processPayment() and on failure/cancellation in stkCallback()
+3. **Add Echo listener in Pay.vue** - useEcho composable with subscribePrivate()
+4. **Show real-time status updates** - handleMpesaStatusUpdate() updates UI immediately
+5. **Remove polling after WebSocket connected** - Uses 30s fallback polling (vs 3s when disconnected)
+6. **Add fallback polling for connection failures** - Polling continues at longer interval as backup
+7. **Optimistic UI update** - N/A (server-authoritative updates only, for accuracy)
+
+### Verification Results
+
+- Pint: PASS (488 files)
+- npm run build: Success (1693 modules transformed)
+- Tests: 23 M-Pesa-related tests passed
+
+### Next Steps
+
+- COM-010: Real-time notification badge updates
+- COM-011: Urgency-Based Channel Selection
+- COM-012: Quiet Hours Respect

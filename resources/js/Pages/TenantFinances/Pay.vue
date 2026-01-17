@@ -1,7 +1,7 @@
 <script setup>
-import { ref, computed, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { useFormatters, usePayments } from '@/composables';
+import { useFormatters, usePayments, useEcho } from '@/composables';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { AmountDisplay, InvoiceStatusBadge } from '@/Components/Finances';
 import {
@@ -24,6 +24,7 @@ const props = defineProps({
 
 const { formatMoney, formatDate } = useFormatters();
 const { initiatePaystackPayment, initiateMpesaPayment, checkMpesaStatus, isProcessing, error } = usePayments();
+const { subscribePrivate, unsubscribe, isConnected } = useEcho();
 
 const selectedMethod = ref(null);
 const phoneNumber = ref('');
@@ -31,7 +32,9 @@ const copied = ref(false);
 const mpesaState = ref('idle');
 const mpesaMessage = ref('');
 const checkoutRequestId = ref(null);
+const echoSubscribed = ref(false);
 let pollingInterval = null;
+const FALLBACK_POLLING_INTERVAL = 30000;
 
 const methodIcons = {
     cash: BanknotesIcon,
@@ -71,6 +74,42 @@ const stopPolling = () => {
     }
 };
 
+const unsubscribeEcho = () => {
+    if (checkoutRequestId.value && echoSubscribed.value) {
+        unsubscribe(`mpesa.${checkoutRequestId.value}`);
+        echoSubscribed.value = false;
+    }
+};
+
+const handleMpesaStatusUpdate = (data) => {
+    stopPolling();
+    unsubscribeEcho();
+
+    if (data.status === 'success') {
+        mpesaState.value = 'success';
+        mpesaMessage.value = data.message || 'Payment received successfully!';
+        setTimeout(() => {
+            router.visit(route('tenant.finances.index'), {
+                preserveState: false,
+            });
+        }, 2000);
+    } else if (data.status === 'cancelled' || data.status === 'failed') {
+        mpesaState.value = 'failed';
+        mpesaMessage.value = data.message || (data.status === 'cancelled' ? 'Payment was cancelled' : 'Payment failed');
+    }
+};
+
+const subscribeToMpesaUpdates = () => {
+    if (!checkoutRequestId.value || echoSubscribed.value) return;
+
+    subscribePrivate(
+        `mpesa.${checkoutRequestId.value}`,
+        'MpesaPaymentStatusChanged',
+        handleMpesaStatusUpdate
+    );
+    echoSubscribed.value = true;
+};
+
 const pollMpesaStatus = async () => {
     if (!checkoutRequestId.value) return;
 
@@ -97,7 +136,8 @@ const pollMpesaStatus = async () => {
 
 const startPolling = () => {
     stopPolling();
-    pollingInterval = setInterval(pollMpesaStatus, 3000);
+    subscribeToMpesaUpdates();
+    pollingInterval = setInterval(pollMpesaStatus, isConnected.value ? FALLBACK_POLLING_INTERVAL : 3000);
 };
 
 const proceedWithPayment = async () => {
@@ -128,6 +168,7 @@ const proceedWithPayment = async () => {
 
 const resetMpesaState = () => {
     stopPolling();
+    unsubscribeEcho();
     mpesaState.value = 'idle';
     mpesaMessage.value = '';
     checkoutRequestId.value = null;
@@ -135,6 +176,7 @@ const resetMpesaState = () => {
 
 onUnmounted(() => {
     stopPolling();
+    unsubscribeEcho();
 });
 </script>
 
@@ -242,7 +284,7 @@ onUnmounted(() => {
                                 </p>
                                 <p class="text-sm text-gray-500 mt-0.5">{{ method.description }}</p>
                             </div>
-                            <div v-if="selectedMethod === method.id" class="flex-shrink-0">
+                            <div v-if="selectedMethod === method.id" class="shrink-0">
                                 <CheckCircleIcon class="h-6 w-6 text-emerald-500" />
                             </div>
                         </button>
@@ -250,7 +292,7 @@ onUnmounted(() => {
 
                     <div v-if="selectedMethodData?.details" class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                         <div class="flex items-start gap-2">
-                            <InformationCircleIcon class="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                            <InformationCircleIcon class="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
                             <div class="flex-1">
                                 <p class="text-sm font-medium text-blue-800 mb-2">Payment Details</p>
 
@@ -341,7 +383,7 @@ onUnmounted(() => {
 
                         <div v-else-if="mpesaState === 'failed'" class="p-4 bg-red-50 border border-red-200 rounded-lg">
                             <div class="flex items-start gap-3">
-                                <InformationCircleIcon class="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                                <InformationCircleIcon class="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
                                 <div class="flex-1">
                                     <p class="text-sm font-medium text-red-800">{{ mpesaMessage }}</p>
                                     <button

@@ -18,3 +18,7 @@ Broadcast::channel('lease.{leaseId}', LeaseChannel::class);
 Broadcast::channel('notifications.{userId}', function ($user, $userId) {
     return (int) $user->id === (int) $userId;
 });
+
+Broadcast::channel('mpesa.{checkoutRequestId}', function ($user, $checkoutRequestId) {
+    return $user !== null;
+});

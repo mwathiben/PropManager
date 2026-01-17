@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\MpesaPaymentStatusChanged;
 use App\Events\PaymentReceived as PaymentReceivedEvent;
 use App\Http\Controllers\Controller;
 use App\Mail\PaymentReceived;
@@ -44,10 +45,25 @@ class MpesaWebhookController extends Controller
         ]);
 
         if (($callback['ResultCode'] ?? -1) !== 0) {
+            $checkoutRequestId = $callback['CheckoutRequestID'] ?? null;
+            $resultDesc = $callback['ResultDesc'] ?? 'Unknown error';
+            $isCancelled = str_contains(strtolower($resultDesc), 'cancel');
+
             Log::info('M-Pesa STK payment failed or cancelled', [
-                'checkout_request_id' => $callback['CheckoutRequestID'] ?? null,
-                'result_desc' => $callback['ResultDesc'] ?? 'Unknown error',
+                'checkout_request_id' => $checkoutRequestId,
+                'result_desc' => $resultDesc,
             ]);
+
+            if ($checkoutRequestId) {
+                MpesaPaymentStatusChanged::dispatch(
+                    $checkoutRequestId,
+                    $isCancelled ? 'cancelled' : 'failed',
+                    null,
+                    null,
+                    null,
+                    $resultDesc
+                );
+            }
 
             return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
         }
@@ -224,6 +240,17 @@ class MpesaWebhookController extends Controller
             $invoice->load(['lease.tenant', 'lease.unit.building']);
             Mail::to($invoice->lease->tenant->email)->send(new PaymentReceived($payment, $invoice));
             PaymentReceivedEvent::dispatch($payment, $invoice);
+
+            if (! empty($data['checkout_request_id'])) {
+                MpesaPaymentStatusChanged::dispatch(
+                    $data['checkout_request_id'],
+                    'success',
+                    $payment->id,
+                    (float) $amount,
+                    $receiptNumber,
+                    'Payment received successfully'
+                );
+            }
 
             Log::info('M-Pesa payment recorded successfully', [
                 'payment_id' => $payment->id,
