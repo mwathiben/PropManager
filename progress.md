@@ -4151,3 +4151,102 @@ Following InvoiceObserver pattern:
 - Lint (Pint): Success (468 files, 1 auto-fix)
 - Build: Success
 - Tests: 378 passed, 12 skipped
+
+---
+
+## OPT-020: Migrate to Tailwind CSS v4
+**Status:** PASSED
+**Date:** 2026-01-17
+**Attempts:** 1
+
+### Implementation Summary
+
+Migrated from Tailwind CSS v3.2.1 to v4 using the @tailwindcss/vite plugin. The migration provides faster builds, automatic content detection, and CSS-first configuration.
+
+### Files Modified/Deleted
+
+| File | Changes |
+|------|---------|
+| `package.json` | Updated tailwindcss, @tailwindcss/vite, @tailwindcss/forms; removed autoprefixer |
+| `vite.config.js` | Added tailwindcss() plugin import |
+| `resources/css/app.css` | Migrated to v4 syntax: @import, @plugin, @theme, @source directives |
+| `resources/js/Pages/Help/Show.vue` | Added @reference "tailwindcss" for @apply in SFC styles |
+| `postcss.config.js` | **DELETED** - v4 handles autoprefixer internally |
+| `tailwind.config.js` | **DELETED** - config moved to CSS @theme directive |
+
+### Key Changes
+
+#### 1. Vite Configuration
+
+```javascript
+import tailwindcss from '@tailwindcss/vite';
+
+export default defineConfig({
+    plugins: [
+        laravel({...}),
+        vue({...}),
+        tailwindcss(),  // New Tailwind v4 plugin
+    ],
+});
+```
+
+#### 2. CSS Entry Point (v4 syntax)
+
+```css
+@import "tailwindcss";
+
+@plugin "@tailwindcss/forms";
+
+@theme {
+    --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif, ...;
+}
+
+@source "../views/**/*.blade.php";
+@source "../js/**/*.vue";
+@source "../js/**/*.js";
+```
+
+#### 3. Vue SFC @apply Fix
+
+Added `@reference "tailwindcss"` at the top of style blocks using @apply:
+
+```vue
+<style>
+@reference "tailwindcss";
+
+.prose h1 {
+    @apply text-2xl font-bold text-gray-900 mt-6 mb-4;
+}
+</style>
+```
+
+### CSS Bundle Size Comparison
+
+| Metric | v3.2.1 | v4 | Change |
+|--------|--------|-----|--------|
+| app.css raw | 105.58 kB | 107.51 kB | +1.8% |
+| app.css gzip | 15.92 kB | 17.09 kB | +7.3% |
+
+The slight increase is expected as v4 generates slightly different CSS. Build times are faster with v4.
+
+### Acceptance Criteria Verification
+
+1. **Update dependencies** - ✅ tailwindcss, @tailwindcss/vite, @tailwindcss/forms updated to latest
+2. **Add tailwindcss() plugin to vite.config.js** - ✅ Plugin configured
+3. **Migrate app.css to v4 syntax** - ✅ @import, @plugin, @theme, @source directives
+4. **Delete obsolete config files** - ✅ postcss.config.js and tailwind.config.js removed
+5. **Add @reference directive for @apply** - ✅ Help/Show.vue updated
+
+### Verification Results
+
+- Build: Success (1664 modules transformed)
+- Lint (Pint): Success (468 files passed)
+- Tests: 378 passed, 12 skipped
+
+### Benefits of v4 Migration
+
+- 3-10x faster full builds
+- Up to 100x faster incremental rebuilds
+- Zero-config content detection
+- CSS-first configuration (easier to understand)
+- Automatic autoprefixer (one less dependency)

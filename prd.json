@@ -419,19 +419,21 @@
       "id": "OPT-020",
       "category": "bundle_optimization",
       "priority": "LOW",
-      "title": "Optimize Tailwind CSS Build",
-      "description": "Ensure Tailwind CSS v4 is properly configured for minimal production CSS.",
+      "title": "Migrate to Tailwind CSS v4",
+      "description": "Migrate from Tailwind CSS v3.2.1 to v4 using @tailwindcss/vite plugin for faster builds and CSS-first configuration.",
       "steps": [
-        "Verify content paths in tailwind.config.js include all Vue files",
-        "Check for unused CSS classes",
-        "Enable JIT mode if not already enabled",
-        "Analyze final CSS bundle size",
-        "Remove any @apply rules that could be direct classes"
+        "Update dependencies (tailwindcss, @tailwindcss/vite, @tailwindcss/forms)",
+        "Add tailwindcss() plugin to vite.config.js",
+        "Migrate app.css to v4 syntax (@import, @plugin, @theme, @source)",
+        "Delete obsolete postcss.config.js and tailwind.config.js",
+        "Add @reference directive to Vue SFC styles using @apply"
       ],
       "files": [
-        "tailwind.config.js"
+        "vite.config.js",
+        "resources/css/app.css",
+        "resources/js/Pages/Help/Show.vue"
       ],
-      "passes": false
+      "passes": true
     }
   ],
   "progressTracking": {

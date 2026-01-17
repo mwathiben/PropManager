@@ -89,6 +89,8 @@ const categoryLabels = {
 </template>
 
 <style>
+@reference "tailwindcss";
+
 .prose h1 {
     @apply text-2xl font-bold text-gray-900 mt-6 mb-4;
 }
