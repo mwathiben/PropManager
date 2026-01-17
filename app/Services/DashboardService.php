@@ -19,72 +19,74 @@ class DashboardService
 {
     public function getSuperAdminMetrics(): array
     {
-        $systemHealth = [
-            'active_landlords' => User::where('role', 'landlord')->count(),
-            'total_properties' => Property::withoutGlobalScope('landlord')->count(),
-            'total_units' => Unit::withoutGlobalScope('landlord')->count(),
-            'total_tenants' => User::where('role', 'tenant')->count(),
-            'monthly_revenue' => Payment::withoutGlobalScope('landlord')
-                ->whereMonth('payment_date', now()->month)
-                ->whereYear('payment_date', now()->year)
-                ->sum('amount'),
-            'total_revenue' => Payment::withoutGlobalScope('landlord')->sum('amount'),
-        ];
+        return FinanceCacheService::rememberSuperAdminStats('metrics', function () {
+            $systemHealth = [
+                'active_landlords' => User::where('role', 'landlord')->count(),
+                'total_properties' => Property::withoutGlobalScope('landlord')->count(),
+                'total_units' => Unit::withoutGlobalScope('landlord')->count(),
+                'total_tenants' => User::where('role', 'tenant')->count(),
+                'monthly_revenue' => Payment::withoutGlobalScope('landlord')
+                    ->whereMonth('payment_date', now()->month)
+                    ->whereYear('payment_date', now()->year)
+                    ->sum('amount'),
+                'total_revenue' => Payment::withoutGlobalScope('landlord')->sum('amount'),
+            ];
 
-        $actionItems = [
-            'inactive_landlords' => User::where('role', 'landlord')
-                ->whereDoesntHave('properties')
-                ->count(),
-            'new_signups' => User::where('role', 'landlord')
-                ->where('created_at', '>=', now()->subDays(7))
-                ->count(),
-        ];
+            $actionItems = [
+                'inactive_landlords' => User::where('role', 'landlord')
+                    ->whereDoesntHave('properties')
+                    ->count(),
+                'new_signups' => User::where('role', 'landlord')
+                    ->where('created_at', '>=', now()->subDays(7))
+                    ->count(),
+            ];
 
-        $landlords = User::where('role', 'landlord')
-            ->withCount(['properties'])
-            ->selectRaw('users.*')
-            ->selectSub(
-                Unit::withoutGlobalScope('landlord')
-                    ->selectRaw('COUNT(*)')
-                    ->whereColumn('landlord_id', 'users.id'),
-                'units_count'
-            )
-            ->selectSub(
-                Unit::withoutGlobalScope('landlord')
-                    ->selectRaw('COUNT(*)')
-                    ->whereColumn('landlord_id', 'users.id')
-                    ->where('status', 'occupied'),
-                'occupied_units'
-            )
-            ->orderBy('created_at', 'desc')
-            ->limit(10)
-            ->get();
+            $landlords = User::where('role', 'landlord')
+                ->withCount(['properties'])
+                ->selectRaw('users.*')
+                ->selectSub(
+                    Unit::withoutGlobalScope('landlord')
+                        ->selectRaw('COUNT(*)')
+                        ->whereColumn('landlord_id', 'users.id'),
+                    'units_count'
+                )
+                ->selectSub(
+                    Unit::withoutGlobalScope('landlord')
+                        ->selectRaw('COUNT(*)')
+                        ->whereColumn('landlord_id', 'users.id')
+                        ->where('status', 'occupied'),
+                    'occupied_units'
+                )
+                ->orderBy('created_at', 'desc')
+                ->limit(10)
+                ->get();
 
-        $landlordIds = $landlords->pluck('id');
-        $monthlyRevenues = $this->getLandlordsMonthlyRevenue($landlordIds);
-        $landlords->each(fn ($l) => $l->monthly_revenue = $monthlyRevenues[$l->id] ?? 0);
+            $landlordIds = $landlords->pluck('id');
+            $monthlyRevenues = $this->getLandlordsMonthlyRevenue($landlordIds);
+            $landlords->each(fn ($l) => $l->monthly_revenue = $monthlyRevenues[$l->id] ?? 0);
 
-        $topLandlords = User::where('role', 'landlord')
-            ->select('users.*')
-            ->selectRaw('COALESCE((
-                SELECT SUM(p.amount)
-                FROM payments p
-                INNER JOIN leases l ON p.lease_id = l.id
-                INNER JOIN units u ON l.unit_id = u.id
-                WHERE u.landlord_id = users.id
-                AND strftime("%m", p.payment_date) = strftime("%m", "now")
-                AND strftime("%Y", p.payment_date) = strftime("%Y", "now")
-            ), 0) as monthly_revenue')
-            ->orderByDesc('monthly_revenue')
-            ->limit(5)
-            ->get();
+            $topLandlords = User::where('role', 'landlord')
+                ->select('users.*')
+                ->selectRaw('COALESCE((
+                    SELECT SUM(p.amount)
+                    FROM payments p
+                    INNER JOIN leases l ON p.lease_id = l.id
+                    INNER JOIN units u ON l.unit_id = u.id
+                    WHERE u.landlord_id = users.id
+                    AND strftime("%m", p.payment_date) = strftime("%m", "now")
+                    AND strftime("%Y", p.payment_date) = strftime("%Y", "now")
+                ), 0) as monthly_revenue')
+                ->orderByDesc('monthly_revenue')
+                ->limit(5)
+                ->get();
 
-        return [
-            'systemHealth' => $systemHealth,
-            'actionItems' => $actionItems,
-            'landlords' => $landlords,
-            'topLandlords' => $topLandlords,
-        ];
+            return [
+                'systemHealth' => $systemHealth,
+                'actionItems' => $actionItems,
+                'landlords' => $landlords,
+                'topLandlords' => $topLandlords,
+            ];
+        });
     }
 
     public function getLandlordDashboardData(User $landlord, Request $request): array

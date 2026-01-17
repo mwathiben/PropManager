@@ -102,4 +102,21 @@ class FinanceCacheService
 
         return Cache::remember($key, self::REPORTS_TTL, $callback);
     }
+
+    public static function superAdminKey(string $type): string
+    {
+        return self::CACHE_PREFIX.":superadmin:{$type}";
+    }
+
+    public static function rememberSuperAdminStats(string $type, callable $callback): mixed
+    {
+        $key = self::superAdminKey($type);
+
+        return Cache::remember($key, self::STATS_TTL, $callback);
+    }
+
+    public static function invalidateSuperAdminStats(): void
+    {
+        Cache::forget(self::superAdminKey('metrics'));
+    }
 }

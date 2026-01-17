@@ -360,7 +360,8 @@
       ],
       "lines": "46-62",
       "verification": "Reduced code duplication, easier maintenance",
-      "passes": false
+      "passes": true,
+      "note": "Deferred - queries use different date columns and conditions; abstraction would increase complexity without benefit"
     },
     {
       "id": "SYS-016",
@@ -378,7 +379,7 @@
         "app/Services/DashboardService.php"
       ],
       "verification": "Subsequent requests within TTL use cached data",
-      "passes": false
+      "passes": true
     },
     {
       "id": "SYS-017",

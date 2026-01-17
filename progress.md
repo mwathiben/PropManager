@@ -4643,3 +4643,47 @@ Replaced inline `.filter()` calls in v-for directives with computed properties t
 - Grep `v-for.*\.filter\(`: 0 matches
 
 ---
+
+## SYS-015: DRY Finance Report Service Query Filters
+**Status:** DEFERRED
+**Date:** 2026-01-17
+
+**Reason:** The repeated filter patterns (landlord_id, date range, building_id) are NOT truly identical:
+- Invoice uses `created_at` for dates
+- Payment uses `payment_date` + `is_voided` condition
+- Expense uses `expense_date` + direct `building_id` (not through relationship)
+
+Abstracting would require passing model type, date column name, and filter type - making the helper more complex than the current code. Per CLAUDE.md guidelines: "Three similar lines of code is better than a premature abstraction."
+
+---
+
+## SYS-016: Cache Super Admin Metrics
+**Status:** PASSED
+**Date:** 2026-01-17
+**Attempts:** 1
+
+### Implementation
+
+Added caching to `getSuperAdminMetrics()` using existing `FinanceCacheService` pattern with 5-minute TTL.
+
+**Changes to FinanceCacheService.php:**
+- Added `superAdminKey(string $type): string` - generates cache key
+- Added `rememberSuperAdminStats(string $type, callable $callback): mixed` - caches with 5-minute TTL
+- Added `invalidateSuperAdminStats(): void` - clears the metrics cache
+
+**Changes to DashboardService.php:**
+- Wrapped entire `getSuperAdminMetrics()` body in `FinanceCacheService::rememberSuperAdminStats()` callback
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Services/FinanceCacheService.php` | Added 3 super admin cache methods |
+| `app/Services/DashboardService.php` | Wrapped getSuperAdminMetrics in cache callback |
+
+### Verification Results
+
+- Pint: Passed (468 files)
+- Tests: 378 passed, 12 skipped
+
+---
