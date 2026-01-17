@@ -4797,3 +4797,73 @@ Modified the notification system to prioritize WhatsApp as the primary channel w
 - Pint: Passed (473 files)
 - Tests: 29 passed, 2 skipped (notification tests)
 - Build: Success
+
+---
+
+## COM-002: Create Meta-Approved WhatsApp Message Templates
+**Status:** PASSED
+**Date:** 2026-01-17
+**Attempts:** 1
+
+### Implementation Summary
+
+Implemented Meta-approved WhatsApp Business API template infrastructure. Created config-based template definitions with environment-controlled SIDs, a dedicated WhatsAppTemplateService for template rendering, and updated NotificationService to use ContentSid + ContentVariables instead of plain text Body when templates are approved.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `config/whatsapp.php` | 6 Meta-approved template definitions with SIDs and variable mappings |
+| `app/Services/WhatsAppTemplateService.php` | Template rendering, validation, and approval checking |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Services/NotificationService.php` | Added WhatsAppTemplateService injection, updated sendWhatsApp() for template-based sending, added mapNotificationTypeToTemplate() |
+| `.env.example` | Added 6 WHATSAPP_TEMPLATE_*_SID environment variables |
+
+### Template Definitions
+
+| Template | Variables | Use Case |
+|----------|-----------|----------|
+| `rent_reminder` | tenant_name, amount, due_date | Rent due reminders |
+| `payment_received` | tenant_name, amount, reference, balance | Payment confirmations |
+| `invoice_ready` | tenant_name, invoice_no, amount, due_date, link | Invoice notifications |
+| `arrears_notice` | tenant_name, amount, days_overdue | Arrears warnings |
+| `maintenance_update` | tenant_name, ticket_id, status, notes | Maintenance ticket updates |
+| `lease_renewal` | tenant_name, expiry_date, new_rent | Lease renewal offers |
+
+### Template-Based Sending
+
+When template SID is configured:
+```php
+$payload = [
+    'From' => 'whatsapp:+254...',
+    'To' => 'whatsapp:+254...',
+    'ContentSid' => 'HJXXXXXXXX...',
+    'ContentVariables' => '{"1": "John", "2": "15000", "3": "31 Jan 2026"}',
+];
+```
+
+When template is not approved (fallback):
+```php
+$payload = [
+    'From' => 'whatsapp:+254...',
+    'To' => 'whatsapp:+254...',
+    'Body' => 'Hi John, your rent...',
+];
+```
+
+### Acceptance Criteria Verification
+
+1. **Template definitions in config** - Created config/whatsapp.php with 6 templates
+2. **WhatsAppTemplateService** - Created with getTemplate(), isApproved(), renderVariables()
+3. **Template-based sending** - sendWhatsApp() uses ContentSid when approved
+4. **Fallback to plain text** - Falls back to Body when SID not set
+5. **Environment variables** - Added to .env.example
+
+### Verification Results
+
+- Pint: Passed (475 files)
+- Build: Success

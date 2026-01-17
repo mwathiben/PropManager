@@ -146,7 +146,8 @@
         "app/Services/NotificationService.php"
       ],
       "verification": "Verify templates are approved in Twilio Console; send test message with each template",
-      "passes": false
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "COM-003",

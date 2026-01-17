@@ -17,6 +17,10 @@ class NotificationService
 
     private const RATE_LIMIT_PER_DAY = 1000;
 
+    public function __construct(
+        private readonly WhatsAppTemplateService $whatsAppTemplateService
+    ) {}
+
     /**
      * Send a notification to a user via their preferred channels
      */
@@ -340,6 +344,9 @@ class NotificationService
 
     /**
      * Send WhatsApp notification via Twilio
+     *
+     * Uses Meta-approved templates when available (ContentSid + ContentVariables).
+     * Falls back to plain text (Body) when template is not approved.
      */
     private function sendWhatsApp(Notification $notification, User $recipient): bool
     {
@@ -353,7 +360,6 @@ class NotificationService
             return false;
         }
 
-        // Get recipient's WhatsApp number from preferences
         $preferences = NotificationPreference::where('user_id', $recipient->id)
             ->where('landlord_id', $notification->landlord_id)
             ->first();
@@ -361,13 +367,26 @@ class NotificationService
         $toNumber = $preferences?->whatsapp_number ?? $recipient->phone;
 
         try {
+            $payload = [
+                'From' => 'whatsapp:'.$fromNumber,
+                'To' => 'whatsapp:'.$toNumber,
+            ];
+
+            $templateType = $this->mapNotificationTypeToTemplate($notification->type);
+
+            if ($templateType && $this->whatsAppTemplateService->isApproved($templateType)) {
+                $templateData = $notification->data ?? [];
+                $payload['ContentSid'] = $this->whatsAppTemplateService->getContentSid($templateType);
+                $payload['ContentVariables'] = json_encode(
+                    $this->whatsAppTemplateService->renderVariables($templateType, $templateData)
+                );
+            } else {
+                $payload['Body'] = $notification->message;
+            }
+
             $response = Http::withBasicAuth($accountSid, $authToken)
                 ->asForm()
-                ->post("https://api.twilio.com/2010-04-01/Accounts/{$accountSid}/Messages.json", [
-                    'From' => 'whatsapp:'.$fromNumber,
-                    'To' => 'whatsapp:'.$toNumber,
-                    'Body' => $notification->message,
-                ]);
+                ->post("https://api.twilio.com/2010-04-01/Accounts/{$accountSid}/Messages.json", $payload);
 
             if ($response->successful()) {
                 $notification->markAsSent($response->json('sid'));
@@ -383,6 +402,22 @@ class NotificationService
 
             return false;
         }
+    }
+
+    /**
+     * Map notification type to WhatsApp template type.
+     */
+    private function mapNotificationTypeToTemplate(string $notificationType): ?string
+    {
+        return match ($notificationType) {
+            'rent_reminder' => 'rent_reminder',
+            'arrears_notice' => 'arrears_notice',
+            'invoice' => 'invoice_ready',
+            'receipt' => 'payment_received',
+            'maintenance_update' => 'maintenance_update',
+            'lease_renewal' => 'lease_renewal',
+            default => null,
+        };
     }
 
     /**
@@ -446,12 +481,18 @@ class NotificationService
             $data['due_date']
         );
 
+        $templateData = [
+            'tenant_name' => $tenant->name,
+            'amount' => number_format($data['amount'], 0),
+            'due_date' => $data['due_date'],
+        ];
+
         return $this->send(
             $tenantId,
             'rent_reminder',
             'Rent Reminder - Due '.$data['due_date'],
             $message,
-            $data,
+            array_merge($data, $templateData),
             $landlordId
         );
     }
@@ -469,12 +510,18 @@ class NotificationService
             number_format($data['arrears_amount'], 2)
         );
 
+        $templateData = [
+            'tenant_name' => $tenant->name,
+            'amount' => number_format($data['arrears_amount'], 0),
+            'days_overdue' => (string) ($data['days_overdue'] ?? 0),
+        ];
+
         return $this->send(
             $tenantId,
             'arrears_notice',
             'Payment Overdue - Please Clear Arrears',
             $message,
-            $data,
+            array_merge($data, $templateData),
             $landlordId
         );
     }
@@ -494,12 +541,20 @@ class NotificationService
             $invoiceData['due_date']
         );
 
+        $templateData = [
+            'tenant_name' => $tenant->name,
+            'invoice_no' => $invoiceData['invoice_number'],
+            'amount' => number_format($invoiceData['total_amount'], 0),
+            'due_date' => $invoiceData['due_date'],
+            'link' => $invoiceData['link'] ?? url('/tenant/invoices'),
+        ];
+
         return $this->send(
             $tenantId,
             'invoice',
             'New Invoice - '.$invoiceData['invoice_number'],
             $message,
-            $invoiceData,
+            array_merge($invoiceData, $templateData),
             $landlordId
         );
     }
@@ -518,12 +573,19 @@ class NotificationService
             $receiptData['receipt_number']
         );
 
+        $templateData = [
+            'tenant_name' => $tenant->name,
+            'amount' => number_format($receiptData['amount'], 0),
+            'reference' => $receiptData['receipt_number'],
+            'balance' => number_format($receiptData['balance'] ?? 0, 0),
+        ];
+
         return $this->send(
             $tenantId,
             'receipt',
             'Payment Receipt - '.$receiptData['receipt_number'],
             $message,
-            $receiptData,
+            array_merge($receiptData, $templateData),
             $landlordId
         );
     }
