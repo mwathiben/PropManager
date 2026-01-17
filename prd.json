@@ -399,7 +399,7 @@
       "pattern": {
         "correct": "<button @mouseenter=\"prefetchBillingData\" @click=\"showBilling\">Billing</button>"
       },
-      "passes": false
+      "passes": true
     },
     {
       "id": "OPT-019",

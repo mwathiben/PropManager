@@ -347,6 +347,11 @@ const navigateToTab = (tab) => {
     });
 };
 
+const prefetchTab = (tab) => {
+    if (tab.route === route().current()) return;
+    router.prefetch(route(tab.route), { method: 'get' }, { cacheFor: '1m' });
+};
+
 const pageTitle = computed(() => {
     return `Finance Hub - ${tabNames[store.activeTab] || 'Overview'}`;
 });
@@ -434,6 +439,7 @@ const unmatchedPaymentsForModal = computed(() => {
                                 v-for="tab in tabs"
                                 :key="tab.id"
                                 @click="navigateToTab(tab)"
+                                @mouseenter="prefetchTab(tab)"
                                 :class="[
                                     'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors',
                                     effectiveGroup === tab.id
@@ -460,6 +466,7 @@ const unmatchedPaymentsForModal = computed(() => {
                                 v-for="subtab in activeSubtabs"
                                 :key="subtab.id"
                                 @click="navigateToTab(subtab)"
+                                @mouseenter="prefetchTab(subtab)"
                                 :class="[
                                     'px-3 py-1.5 text-sm font-medium rounded-full transition-colors',
                                     store.activeTab === subtab.id
