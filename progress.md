@@ -5718,3 +5718,83 @@ Implemented real-time dashboard metrics updates. When a payment is received, the
 - COM-014: Create Landlord Inbox for Tenant Messages
 - COM-015: Auto-Create Support Tickets from Tenant Messages
 - COM-018: Real-time Invitation Status Updates
+
+
+---
+
+## Session: 2026-01-17T19:00:00
+**Task**: COM-014 - Create Landlord Inbox for Tenant Messages
+**Status**: COMPLETED
+
+### Work Done
+- Created `app/Http/Controllers/InboxController.php` with:
+  - `index()` - List messages with pagination, search, and status filtering
+  - `show()` - Single message view with original notification context
+  - `reply()` - Send reply via same channel (WhatsApp/SMS) tenant used
+  - `markAsRead()` - Mark individual message as read
+  - `markAllAsRead()` - Bulk mark all messages as read
+- Created `resources/js/Pages/Inbox/Index.vue`:
+  - Table listing with tenant name, message preview, source badge, status, timestamp
+  - Search filter by tenant name/phone/message
+  - Status filter (all/unread/processed)
+  - Click row to view details, mark as read action
+  - Pagination support
+- Created `resources/js/Pages/Inbox/Show.vue`:
+  - Full message detail with tenant info (name, phone, unit, building)
+  - Original notification context when message is a reply
+  - Auto-created ticket link if present
+  - Media attachments display
+  - Reply form at bottom (sends via WhatsApp or SMS based on message source)
+- Updated `resources/js/Layouts/AuthenticatedLayout.vue`:
+  - Added inbox.* to Operations Hub active check
+  - Added inbox badge to Operations nav item
+- Updated `app/Http/Middleware/HandleInertiaRequests.php`:
+  - Added TenantMessage import
+  - Added inbox badge count for landlords (unread messages)
+- Updated `resources/js/Pages/Operations/Hub.vue`:
+  - Added Inbox tab with badge count
+  - Created InboxTab.vue async component
+- Created `resources/js/Pages/Operations/tabs/InboxTab.vue`:
+  - Compact inbox view within Operations Hub
+  - Quick access to full inbox view
+- Updated `app/Http/Controllers/OperationsHubController.php`:
+  - Added getInboxData() method for inbox tab
+  - Supports search and status filtering
+- Added routes to `routes/web.php`:
+  - GET /inbox - Index
+  - GET /inbox/{message} - Show
+  - POST /inbox/{message}/reply - Reply
+  - PUT /inbox/{message}/read - Mark as read
+  - PUT /inbox/mark-all-read - Mark all as read
+
+### Files Created
+- app/Http/Controllers/InboxController.php
+- resources/js/Pages/Inbox/Index.vue
+- resources/js/Pages/Inbox/Show.vue
+- resources/js/Pages/Operations/tabs/InboxTab.vue
+
+### Files Modified
+- routes/web.php
+- resources/js/Layouts/AuthenticatedLayout.vue
+- app/Http/Middleware/HandleInertiaRequests.php
+- resources/js/Pages/Operations/Hub.vue
+- app/Http/Controllers/OperationsHubController.php
+
+### Verification Results
+- Pint: PASS (499 files)
+- npm run build: PASS (built in 24.95s)
+
+### Acceptance Criteria Verification
+1. **Create Inbox page component** - Created Inbox/Index.vue and Inbox/Show.vue
+2. **Add route: GET /inbox** - Added with full route group
+3. **Create InboxController** - Created with all required methods
+4. **Show messages grouped by tenant** - Messages listed with tenant info
+5. **Display message thread with original notification context** - Show.vue displays notification subject/message
+6. **Allow landlord to reply via same channel** - reply() method uses source channel
+7. **Mark messages as read/unread** - markAsRead() and markAllAsRead() implemented
+8. **Add inbox badge to navigation** - Badge added to Operations Hub
+
+### Next Steps
+- COM-015: Auto-Create Support Tickets from Tenant Messages
+- COM-018: Real-time Invitation Status Updates
+- COM-019: Implement Connection Status Indicator

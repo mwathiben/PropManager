@@ -542,7 +542,8 @@
         "resources/js/Layouts/AuthenticatedLayout.vue"
       ],
       "verification": "Receive tenant WhatsApp reply; see in inbox; reply; verify tenant receives response",
-      "passes": false
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "COM-015",

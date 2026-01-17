@@ -93,48 +93,61 @@ const navigationItems = computed(() => {
         return [
             { name: 'Dashboard', href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard') },
 
-            // PROPERTIES HUB
+            // PROPERTIES
             { type: 'divider', label: 'Properties' },
             { name: 'Buildings', href: route('buildings.index'), icon: HomeModernIcon, active: route().current('buildings.*') },
             { name: 'Add Property', href: route('onboarding.create'), icon: PlusCircleIcon, active: route().current('onboarding.*') },
 
-            // TENANTS HUB
-            { type: 'divider', label: 'Tenants' },
-            { name: 'All Tenants', href: route('tenants.index'), icon: UsersIcon, active: route().current('tenants.index') || route().current('tenants.show') },
-            { name: 'Invitations', href: route('tenant-invitations.index'), icon: UserPlusIcon, active: route().current('tenant-invitations.*') },
-            { name: 'Verifications', href: route('verifications.index'), icon: ShieldCheckIcon, active: route().current('verifications.*') },
-            { name: 'Payment Verifications', href: route('payment-verifications.index'), icon: ShieldCheckIcon, active: route().current('payment-verifications.*'), badgeKey: 'paymentVerifications', badgeColor: 'bg-blue-500' },
-            { name: 'Move-Outs', href: route('move-outs.index'), icon: ArrowRightOnRectangleIcon, active: route().current('move-outs.*'), badgeKey: 'moveOuts', badgeColor: 'bg-purple-500' },
+            // TENANTS HUB (Consolidated)
+            {
+                name: 'Tenants',
+                href: route('tenants.hub'),
+                icon: UsersIcon,
+                active: route().current('tenants.*') || route().current('tenant-invitations.*') || route().current('verifications.*') || route().current('payment-verifications.*') || route().current('move-outs.*'),
+                badgeKey: 'tenants',
+                badgeColor: 'bg-blue-500'
+            },
 
-            // FINANCES HUB
-            { type: 'divider', label: 'Finances' },
-            { name: 'Finance Hub', href: route('finances.index'), icon: BanknotesIcon, active: route().current('finances.*'), badgeKey: 'invoices', badgeColor: 'bg-red-500' },
+            // FINANCES HUB (Already consolidated)
+            { name: 'Finances', href: route('finances.index'), icon: BanknotesIcon, active: route().current('finances.*'), badgeKey: 'invoices', badgeColor: 'bg-red-500' },
 
-            // MAINTENANCE HUB
-            { type: 'divider', label: 'Maintenance' },
-            { name: 'Issues', href: route('tickets.index'), icon: WrenchScrewdriverIcon, active: route().current('tickets.*') && !route().current('complaints.*'), badgeKey: 'tickets', badgeColor: 'bg-orange-500' },
-            { name: 'Complaints', href: route('complaints.index'), icon: ChatBubbleLeftRightIcon, active: route().current('complaints.*') },
+            // MAINTENANCE HUB (Consolidated)
+            {
+                name: 'Maintenance',
+                href: route('maintenance.hub'),
+                icon: WrenchScrewdriverIcon,
+                active: route().current('maintenance.*') || route().current('tickets.*') || route().current('complaints.*'),
+                badgeKey: 'tickets',
+                badgeColor: 'bg-orange-500'
+            },
 
-            // WATER HUB (Conditional)
-            ...(featureAccess.value.water_billing ? [
-                { type: 'divider', label: 'Water' },
-                { name: 'Readings', href: route('readings.index'), icon: BeakerIcon, active: route().current('readings.index') || route().current('readings.review'), badgeKey: 'readings', badgeColor: 'bg-yellow-500' },
-                { name: 'History', href: route('readings.history'), icon: ClockIcon, active: route().current('readings.history') },
-                { name: 'Settings', href: route('water.settings'), icon: Cog6ToothIcon, active: route().current('water.settings') },
-            ] : []),
+            // WATER HUB (Conditional, Consolidated)
+            ...(featureAccess.value.water_billing ? [{
+                name: 'Water',
+                href: route('water.hub'),
+                icon: BeakerIcon,
+                active: route().current('water.*') || route().current('readings.*'),
+                badgeKey: 'readings',
+                badgeColor: 'bg-cyan-500'
+            }] : []),
 
-            // RECORDS HUB
-            { type: 'divider', label: 'Records' },
-            { name: 'Documents', href: route('documents.index'), icon: FolderIcon, active: route().current('documents.*') },
-            { name: 'Lease Agreements', href: route('leases.index'), icon: DocumentDuplicateIcon, active: route().current('leases.index') },
-            { name: 'Tenant History', href: route('tenants.history'), icon: ArchiveBoxIcon, active: route().current('tenants.history') },
-            { name: 'Activity Logs', href: route('activity-logs.index'), icon: ClipboardDocumentListIcon, active: route().current('activity-logs.*') },
+            // ARCHIVE HUB (Consolidated)
+            {
+                name: 'Archive',
+                href: route('archive.hub'),
+                icon: ArchiveBoxIcon,
+                active: route().current('archive.*') || route().current('documents.*') || route().current('leases.index') || route().current('activity-logs.*')
+            },
 
-            // TEAM & OPS HUB
-            { type: 'divider', label: 'Team & Ops' },
-            { name: 'Notifications', href: route('notifications.index'), icon: BellIcon, active: route().current('notifications.*') },
-            { name: 'Bulk Operations', href: route('bulk.index'), icon: ArrowUpTrayIcon, active: route().current('bulk.*') },
-            { name: 'Caretakers', href: route('invitations.index'), icon: UserGroupIcon, active: route().current('invitations.*') },
+            // OPERATIONS HUB (Consolidated)
+            {
+                name: 'Operations',
+                href: route('operations.hub'),
+                icon: Cog6ToothIcon,
+                active: route().current('operations.*') || route().current('notifications.*') || route().current('bulk.*') || route().current('invitations.*') || route().current('imports.*') || route().current('inbox.*'),
+                badgeKey: 'inbox',
+                badgeColor: 'bg-blue-500'
+            },
 
             // SETTINGS
             { type: 'divider', label: '' },
@@ -237,7 +250,7 @@ const navigationItems = computed(() => {
                               class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors mb-1">
                             <component :is="item.icon"
                                        :class="item.active ? 'text-indigo-600' : 'text-gray-400'"
-                                       class="h-5 w-5 flex-shrink-0" />
+                                       class="h-5 w-5 shrink-0" />
                             <span class="flex-1">{{ item.name }}</span>
                             <!-- Badge -->
                             <span v-if="item.badgeKey && navBadges[item.badgeKey] > 0"
@@ -379,7 +392,7 @@ const navigationItems = computed(() => {
                                   class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors mb-1">
                                 <component :is="item.icon"
                                            :class="item.active ? 'text-indigo-600' : 'text-gray-400'"
-                                           class="h-5 w-5 flex-shrink-0" />
+                                           class="h-5 w-5 shrink-0" />
                                 <span class="flex-1">{{ item.name }}</span>
                                 <!-- Badge (Mobile) -->
                                 <span v-if="item.badgeKey && navBadges[item.badgeKey] > 0"

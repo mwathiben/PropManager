@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\MoveOut;
 use App\Models\Notification;
 use App\Models\TenantInvitation;
+use App\Models\TenantMessage;
 use App\Models\TenantPaymentVerification;
 use App\Models\TenantVerification;
 use App\Models\Ticket;
@@ -114,6 +115,7 @@ class HandleInertiaRequests extends Middleware
                 'notifications' => Notification::where('recipient_id', $user->id)
                     ->whereNull('read_at')
                     ->count(),
+                'inbox' => TenantMessage::where('status', TenantMessage::STATUS_RECEIVED)->count(),
             ], fn ($v) => $v !== null && $v > 0),
             'caretaker' => array_filter([
                 'tickets' => Ticket::where('assigned_to', $user->id)->open()->count(),

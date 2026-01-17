@@ -15,6 +15,7 @@ use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\FinancesController;
 use App\Http\Controllers\GdprController;
 use App\Http\Controllers\HelpController;
+use App\Http\Controllers\InboxController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\InvoiceSettingController;
@@ -251,6 +252,15 @@ Route::middleware('auth')->group(function () {
     // 6c. Tenant Invitation Accept/Decline (In-App for existing users)
     Route::post('/tenant-invitations/{invitation}/accept-authenticated', [TenantInvitationController::class, 'acceptAuthenticated'])->name('tenant-invitations.accept-authenticated');
     Route::post('/tenant-invitations/{invitation}/decline-authenticated', [TenantInvitationController::class, 'declineAuthenticated'])->name('tenant-invitations.decline-authenticated');
+
+    // 6c2. Inbox (Tenant Messages from WhatsApp/SMS)
+    Route::prefix('inbox')->name('inbox.')->group(function () {
+        Route::get('/', [InboxController::class, 'index'])->name('index');
+        Route::put('/mark-all-read', [InboxController::class, 'markAllAsRead'])->name('mark-all-read');
+        Route::get('/{message}', [InboxController::class, 'show'])->name('show');
+        Route::post('/{message}/reply', [InboxController::class, 'reply'])->name('reply');
+        Route::put('/{message}/read', [InboxController::class, 'markAsRead'])->name('mark-read');
+    });
 
     // 6d. Payment Verification System (Initial Payment Verification for New Tenants)
     Route::prefix('payment-verifications')->name('payment-verifications.')->group(function () {
