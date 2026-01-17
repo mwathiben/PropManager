@@ -2,14 +2,18 @@
 
 namespace App\Providers;
 
+use App\Models\Building;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Ticket;
+use App\Models\Unit;
 use App\Models\User;
 use App\Models\WaterReading;
+use App\Observers\BuildingObserver;
 use App\Observers\InvoiceObserver;
 use App\Observers\PaymentObserver;
 use App\Observers\TicketObserver;
+use App\Observers\UnitObserver;
 use App\Observers\UserObserver;
 use App\Observers\WaterReadingObserver;
 use App\Services\SecurityLogger;
@@ -41,6 +45,8 @@ class AppServiceProvider extends ServiceProvider
         Vite::prefetch(concurrency: 3);
 
         // Register model observers
+        Building::observe(BuildingObserver::class);
+        Unit::observe(UnitObserver::class);
         WaterReading::observe(WaterReadingObserver::class);
         Ticket::observe(TicketObserver::class);
         User::observe(UserObserver::class);

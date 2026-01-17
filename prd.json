@@ -413,7 +413,7 @@
         "Cache user property settings with appropriate invalidation",
         "Add cache invalidation events on model updates"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "OPT-020",

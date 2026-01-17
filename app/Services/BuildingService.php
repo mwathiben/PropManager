@@ -13,11 +13,33 @@ use App\Models\WaterReading;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class BuildingService
 {
     public function getFilteredBuildings(int $landlordId, Request $request): Collection
+    {
+        $hasFilters = $request->filled('search') || $request->filled('type');
+        $sort = $request->get('sort', 'name_asc');
+
+        if (! $hasFilters && $sort === 'name_asc') {
+            return $this->getCachedBuildings($landlordId);
+        }
+
+        return $this->queryBuildings($landlordId, $request, $sort);
+    }
+
+    private function getCachedBuildings(int $landlordId): Collection
+    {
+        $cacheKey = BuildingCacheService::listKey($landlordId);
+
+        return Cache::remember($cacheKey, BuildingCacheService::getTtl(), function () use ($landlordId) {
+            return $this->fetchBuildingsWithCounts($landlordId);
+        });
+    }
+
+    private function queryBuildings(int $landlordId, Request $request, string $sort): Collection
     {
         $query = Building::where('landlord_id', $landlordId)
             ->with(['property:id,name,address'])
@@ -38,10 +60,28 @@ class BuildingService
             $query->where('building_type', $request->type);
         }
 
-        $sort = $request->get('sort', 'name_asc');
         $this->applySorting($query, $sort);
 
-        return $query->get()->map(function ($building) {
+        return $this->mapBuildingDetails($query->get());
+    }
+
+    private function fetchBuildingsWithCounts(int $landlordId): Collection
+    {
+        $buildings = Building::where('landlord_id', $landlordId)
+            ->with(['property:id,name,address'])
+            ->withCount('units')
+            ->withCount(['units as occupied_units_count' => function ($q) {
+                $q->where('status', 'occupied');
+            }])
+            ->orderBy('name', 'asc')
+            ->get();
+
+        return $this->mapBuildingDetails($buildings);
+    }
+
+    private function mapBuildingDetails(Collection $buildings): Collection
+    {
+        return $buildings->map(function ($building) {
             $building->occupancy_rate = $building->units_count > 0
                 ? round(($building->occupied_units_count / $building->units_count) * 100)
                 : 0;

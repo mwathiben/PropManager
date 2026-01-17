@@ -4072,3 +4072,82 @@ Subtab buttons (line 469):
 
 - Build: Success (1664 modules transformed)
 - Lint (Pint): Success (465 files passed)
+
+---
+
+## OPT-019: Implement Laravel Model Caching
+**Status:** PASSED
+**Date:** 2026-01-17
+**Attempts:** 1
+
+### Implementation Summary
+
+Implemented custom caching solution for the Building model following the existing `FinanceCacheService` pattern. Created `BuildingCacheService` with 1-hour TTL caching, `BuildingObserver` and `UnitObserver` for automatic cache invalidation.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Services/BuildingCacheService.php` | Cache operations for Building model with static methods |
+| `app/Observers/BuildingObserver.php` | Auto-invalidate cache on Building mutations |
+| `app/Observers/UnitObserver.php` | Auto-invalidate parent building cache on Unit mutations |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Providers/AppServiceProvider.php` | Registered BuildingObserver and UnitObserver |
+| `app/Services/BuildingService.php` | Integrated caching in getFilteredBuildings() |
+
+### BuildingCacheService Design
+
+```php
+// Cache key patterns
+building:config:{landlord_id}:{building_id}   // Water/invoice settings
+building:list:{landlord_id}                   // All buildings for landlord
+building:detail:{landlord_id}:{building_id}   // Full building with relationships
+building:hierarchy:{landlord_id}:{building_id} // Wings + unit counts
+
+// TTL: 3600 seconds (1 hour)
+```
+
+Key methods:
+- `rememberConfig()`, `rememberList()`, `rememberDetail()`, `rememberHierarchy()` - Cache retrieval with TTL
+- `invalidateBuilding()` - Invalidates specific building + parent if wing + landlord list
+- `invalidateLandlordBuildings()` - Clears all building caches for a landlord
+
+### BuildingService Integration
+
+`getFilteredBuildings()` now caches results when:
+- No search filter applied
+- No type filter applied
+- Default sort (name_asc)
+
+This covers the common case of viewing the buildings list without filters.
+
+### Observer Pattern
+
+Following InvoiceObserver pattern:
+- BuildingObserver invalidates on created/updated/deleted
+- UnitObserver invalidates parent building on created/updated/deleted
+- Both check for landlord_id before invalidating
+
+### Design Decisions
+
+1. **Custom solution over spatie/laravel-model-cache** - No new dependencies, follows existing FinanceCacheService pattern
+2. **Selective caching in BuildingService** - Only cache unfiltered results to avoid cache explosion with filter combinations
+3. **Multi-tenant cache keys** - All keys include landlord_id to prevent cross-tenant data leakage
+4. **Wing-aware invalidation** - When a wing is modified, parent building cache is also invalidated
+
+### Acceptance Criteria Verification
+
+1. **Install spatie/laravel-model-cache or implement custom solution** - ✅ Custom solution implemented
+2. **Cache Building model with 1-hour TTL** - ✅ BuildingCacheService with 3600s TTL
+3. **Cache user property settings with appropriate invalidation** - ✅ Building config caching available
+4. **Add cache invalidation events on model updates** - ✅ BuildingObserver and UnitObserver registered
+
+### Verification Results
+
+- Lint (Pint): Success (468 files, 1 auto-fix)
+- Build: Success
+- Tests: 378 passed, 12 skipped
