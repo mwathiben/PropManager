@@ -104,6 +104,19 @@ Route::prefix('v1')->group(function () {
         ->middleware(['auth:sanctum', 'throttle:payment']);
 });
 
+// API v2 routes - Optimized endpoints with pagination
+Route::prefix('v2')->group(function () {
+
+    Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
+
+        // Landlord/Caretaker routes
+        Route::prefix('landlord')->middleware('ability:landlord:manage')->group(function () {
+            // Reports - v2 with pagination and DB-level aggregation
+            Route::get('/reports/arrears', [\App\Http\Controllers\Api\ReportController::class, 'arrearsV2']);
+        });
+    });
+});
+
 /*
 |--------------------------------------------------------------------------
 | Webhook Routes (No Authentication - IP Validated)

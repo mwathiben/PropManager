@@ -4537,3 +4537,66 @@ Reviewed code - no actual redundancy exists. Route model binding doesn't eager l
 
 ---
 
+
+
+## SYS-008 & SYS-009: API Arrears Pagination and DB-Level Aging
+**Status:** PASSED
+**Date:** 2026-01-17
+**Attempts:** 1
+
+### Implementation
+
+Created new v2 API endpoint with pagination and DB-level aging calculation:
+
+**New endpoint:** `GET /api/v2/landlord/reports/arrears`
+
+**Key changes:**
+1. **DB-Level Aging Summary (SYS-009)**: Single query using `CASE WHEN julianday('now') - julianday(due_date)` to calculate aging buckets at database level
+2. **Cursor Pagination (SYS-008)**: Added cursor pagination with configurable per_page (default 25, max 100)
+3. **Versioning**: Kept v1 endpoint unchanged for backward compatibility
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/Api/ReportController.php` | Added `arrearsV2()` method |
+| `routes/api.php` | Added v2 route group with arrears endpoint |
+
+### Query Optimization
+
+| Before (v1) | After (v2) |
+|-------------|------------|
+| Fetch ALL overdue invoices | Cursor pagination (25 per page) |
+| PHP loop for aging categorization | DB-level CASE statement for summary |
+| PHP-level sum for totals | Database SUM() for totals |
+| No pagination metadata | Full pagination support (next_cursor, prev_cursor, has_more) |
+
+### Response Structure (v2)
+
+```json
+{
+  "total_overdue": 50000.00,
+  "invoice_count": 15,
+  "summary": {
+    "0_30_days": 20000.00,
+    "31_60_days": 15000.00,
+    "61_90_days": 10000.00,
+    "90_plus_days": 5000.00
+  },
+  "invoices": [...],
+  "pagination": {
+    "next_cursor": "...",
+    "prev_cursor": null,
+    "per_page": 25,
+    "has_more": true
+  }
+}
+```
+
+### Verification Results
+
+- Pint: Passed (468 files)
+- Tests: 378 passed, 12 skipped
+- Build: Success
+
+---

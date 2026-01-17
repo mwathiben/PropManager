@@ -221,7 +221,7 @@
       ],
       "lines": "69-72",
       "verification": "Response includes pagination metadata and limits results per page",
-      "passes": false
+      "passes": true
     },
     {
       "id": "SYS-009",
@@ -243,7 +243,7 @@
         "correct": "selectRaw('CASE WHEN DATEDIFF(NOW(), due_date) <= 30 THEN \"0-30\" ... END as age_bucket, SUM(amount) as total')->groupBy('age_bucket')"
       },
       "verification": "No PHP loop for aging categorization",
-      "passes": false
+      "passes": true
     },
     {
       "id": "SYS-010",
