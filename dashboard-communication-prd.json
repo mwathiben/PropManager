@@ -327,7 +327,8 @@
         "correct": "Broadcast::channel('landlord.{landlordId}', function ($user, $landlordId) {\n    return $user->id === (int) $landlordId || $user->landlord_id === (int) $landlordId;\n});"
       },
       "verification": "Subscribe to channel as authorized user (success); subscribe as wrong user (failure)",
-      "passes": false
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "COM-008",
