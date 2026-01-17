@@ -211,8 +211,10 @@ class PaymentController extends Controller
 
         $query = Payment::where('landlord_id', $landlordId)
             ->with([
-                'invoice:id,invoice_number,total_due',
+                'invoice:id,invoice_number,total_due,lease_id',
+                'invoice.lease.tenant:id,name,email',
                 'lease.tenant:id,name,email,mobile_number',
+                'lease.unit:id,unit_number,building_id',
                 'lease.unit.building:id,name',
             ]);
 
@@ -259,15 +261,15 @@ class PaymentController extends Controller
         $payments = $query->paginate(20)->withQueryString();
 
         // Calculate stats in a single query (database-agnostic)
-        $thisMonthStart = now()->startOfMonth()->toDateString();
-        $thisMonthEnd = now()->endOfMonth()->toDateString();
+        $thisMonthStart = now()->startOfMonth()->toDateTimeString();
+        $nextMonthStart = now()->addMonth()->startOfMonth()->toDateTimeString();
 
         $statsRaw = Payment::where('landlord_id', $landlordId)
             ->selectRaw('
                 COALESCE(SUM(amount), 0) as total_received,
-                COALESCE(SUM(CASE WHEN payment_date >= ? AND payment_date <= ? THEN amount ELSE 0 END), 0) as this_month,
+                COALESCE(SUM(CASE WHEN payment_date >= ? AND payment_date < ? THEN amount ELSE 0 END), 0) as this_month,
                 COUNT(*) as payment_count
-            ', [$thisMonthStart, $thisMonthEnd])
+            ', [$thisMonthStart, $nextMonthStart])
             ->first();
 
         $stats = [

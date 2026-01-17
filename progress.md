@@ -4250,3 +4250,242 @@ The slight increase is expected as v4 generates slightly different CSS. Build ti
 - Zero-config content detection
 - CSS-first configuration (easier to understand)
 - Automatic autoprefixer (one less dependency)
+
+---
+
+## Final Verification - Finance Hub PRD Complete
+**Status:** VERIFIED
+**Date:** 2026-01-17
+
+### Verification Results
+
+All 20 optimization tasks (OPT-001 through OPT-020) verified passing:
+
+| Check | Result |
+|-------|--------|
+| Pint (Code Style) | 468 files passed |
+| PHPUnit Tests | 378 passed, 12 skipped |
+| Vite Build | 1664 modules transformed, 46.06s |
+
+### PRD Completion Summary
+
+The Finance Hub Optimization PRD is complete. All items have `passes: true`:
+
+- **CRITICAL**: OPT-001 through OPT-004 (N+1 queries, parallel data fetching, lazy loading, barrel imports)
+- **HIGH**: OPT-005 through OPT-009 (computed caching, indexes, statistics caching, PDF jobs, virtual scrolling)
+- **MEDIUM**: OPT-010 through OPT-016 (Inertia shared data, conditional rendering, SWR, Vite chunks, query chunking, event listeners, defer await)
+- **LOW**: OPT-017 through OPT-020 (read replicas, prefetching, model caching, Tailwind v4)
+
+### New PRD Created
+
+Created `prd-system-optimization.json` with 18 system-wide optimization tasks identified through codebase exploration:
+
+| Priority | Count | Focus Area |
+|----------|-------|------------|
+| CRITICAL | 2 | N+1 in DashboardService, Hub stats query consolidation |
+| HIGH | 5 | Arrears aggregation, category breakdown, PaymentController N+1 |
+| MEDIUM | 7 | API pagination, model scopes, Vue computed caching |
+| LOW | 4 | DRY refactors, caching, virtual scrolling |
+
+---
+
+## SYS-001: Fix N+1 in DashboardService Super Admin Metrics
+**Status:** IN_PROGRESS
+**Date:** 2026-01-17
+**Attempts:** 1
+
+### Problem Analysis
+
+`DashboardService.getSuperAdminMetrics()` runs 3 queries per landlord:
+- units_count query
+- occupied_units query  
+- getLandlordMonthlyRevenue() query
+
+With 10 landlords, this causes 30+ extra queries instead of 2-3.
+
+
+### Implementation
+
+Refactored `getSuperAdminMetrics()` to eliminate N+1 queries:
+
+1. **Landlords list (lines 43-61)**: 
+   - Replaced per-landlord Unit::count() with `selectSub()` scalar subqueries
+   - Created `getLandlordsMonthlyRevenue()` batch method using JOIN
+   - Single query gets all unit counts for all landlords
+
+2. **Top Landlords (lines 67-80)**:
+   - Replaced PHP-based sort with SQL ORDER BY on correlated subquery
+   - Monthly revenue calculated via subquery in SELECT clause
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Services/DashboardService.php` | Refactored getSuperAdminMetrics(), added getLandlordsMonthlyRevenue() |
+
+### Query Reduction
+
+| Before | After |
+|--------|-------|
+| 3 queries × N landlords | 3 fixed queries |
+| 30+ queries for 10 landlords | 3 queries total |
+
+### Verification Results
+
+- Pint: Passed
+- Tests: 378 passed, 12 skipped
+
+---
+
+## SYS-002: Consolidate FinanceStatsService Hub Stats Queries
+**Status:** IN_PROGRESS
+**Date:** 2026-01-17
+**Attempts:** 1
+
+
+### Implementation
+
+Consolidated 10+ separate count/sum queries into 5 consolidated queries using CASE statements:
+
+1. **Lease stats** - Combined active_count + deposits_held in single query
+2. **Invoice stats** - Combined total_count + pending_count in single query
+3. **Payment stats** - Combined this_month_count + unreconciled_count in single query  
+4. **Expense stats** - Combined this_month_count + this_month_amount in single query
+5. **Refund stats** - Single count (already minimal)
+
+### Query Reduction
+
+| Before | After |
+|--------|-------|
+| 10+ queries (1 per metric) | 5 consolidated queries |
+
+### Verification Results
+
+- Pint: Passed
+- Tests: 378 passed, 12 skipped
+
+---
+
+## SYS-003: Move Arrears Stats Calculation to Database
+**Status:** IN_PROGRESS
+**Date:** 2026-01-17
+**Attempts:** 1
+
+
+### Implementation
+
+Replaced PHP-level arrears calculation with single database query:
+
+**Before**: Fetched ALL overdue invoices, processed in PHP loop for:
+- Total arrears sum
+- Unique tenant count  
+- Age bucket categorization
+
+**After**: Single query using:
+- `SUM(total_due - amount_paid)` for total arrears
+- `COUNT(DISTINCT lease_id)` for unique tenants
+- `CASE WHEN julianday() - julianday(due_date)` for age buckets
+
+### Query Reduction
+
+| Before | After |
+|--------|-------|
+| 1 query returning ALL rows | 1 query returning scalar values |
+| PHP loop processing N rows | Database-level aggregation |
+
+### Verification Results
+
+- Pint: Passed (1 auto-fix)
+- Tests: 378 passed, 12 skipped
+
+---
+
+## SYS-004: Optimize Category Breakdown Query
+**Status:** IN_PROGRESS
+**Date:** 2026-01-17
+**Attempts:** 1
+
+
+### Implementation
+
+Consolidated getExpenseStats() to use database-level aggregation:
+
+1. **Totals query**: Combined thisMonth, lastMonth, thisYear into single query using CASE
+2. **Category breakdown**: Replaced `->with('category')->get()->groupBy()` with JOIN + GROUP BY
+
+### Query Reduction
+
+| Before | After |
+|--------|-------|
+| 4 queries (thisMonth, lastMonth, thisYear, categoryBreakdown) | 2 queries (totals, categoryBreakdown) |
+| Loaded all expense rows for grouping | Returns only aggregated rows |
+
+### Note
+
+Used `withoutGlobalScopes()` for join query to avoid TenantScope adding unqualified column name causing ambiguity error.
+
+### Verification Results
+
+- Pint: Passed
+- Tests: 378 passed, 12 skipped
+
+---
+
+## SYS-005: Fix PaymentController Index N+1
+**Status:** PASSED
+**Date:** 2026-01-17
+**Attempts:** 1
+
+### Implementation
+
+Added defensive eager loading for invoice relationship path:
+- Added `invoice.lease.tenant:id,name,email` to prevent N+1 through invoice path
+- Added `lease_id` to invoice select for proper eager loading
+- Explicitly selected unit columns `unit:id,unit_number,building_id`
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/PaymentController.php` | Added invoice.lease.tenant to with() clause |
+
+---
+
+## SYS-006: Consolidate PaymentController Stats Queries
+**Status:** ALREADY_IMPLEMENTED
+**Date:** 2026-01-17
+
+This task was already implemented - the code at lines 267-273 already uses a single query with CASE statement for all stats. No changes needed.
+
+---
+
+## SYS-007: Optimize DashboardService Metrics Calculations
+**Status:** IN_PROGRESS
+**Date:** 2026-01-17
+**Attempts:** 1
+
+
+### Implementation
+
+Consolidated overdue invoices count and sum queries into single query:
+
+**Before**: 2 separate queries with same filter
+```php
+'overdue_invoices' => Invoice::whereIn(...)->where('status', 'overdue')->count(),
+'overdue_amount' => Invoice::whereIn(...)->where('status', 'overdue')->selectRaw('SUM(...)')->value(...),
+```
+
+**After**: Single query with both aggregations
+```php
+$overdueStats = Invoice::whereIn(...)->where('status', 'overdue')
+    ->selectRaw('COUNT(*) as overdue_count, COALESCE(SUM(total_due - amount_paid), 0) as overdue_amount')
+    ->first();
+```
+
+### Verification Results
+
+- Pint: Passed
+- Tests: 378 passed, 12 skipped
+
+---
+

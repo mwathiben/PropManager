@@ -42,32 +42,42 @@ class DashboardService
 
         $landlords = User::where('role', 'landlord')
             ->withCount(['properties'])
+            ->selectRaw('users.*')
+            ->selectSub(
+                Unit::withoutGlobalScope('landlord')
+                    ->selectRaw('COUNT(*)')
+                    ->whereColumn('landlord_id', 'users.id'),
+                'units_count'
+            )
+            ->selectSub(
+                Unit::withoutGlobalScope('landlord')
+                    ->selectRaw('COUNT(*)')
+                    ->whereColumn('landlord_id', 'users.id')
+                    ->where('status', 'occupied'),
+                'occupied_units'
+            )
             ->orderBy('created_at', 'desc')
             ->limit(10)
-            ->get()
-            ->map(function ($landlord) {
-                $landlord->units_count = Unit::withoutGlobalScope('landlord')
-                    ->where('landlord_id', $landlord->id)
-                    ->count();
-                $landlord->occupied_units = Unit::withoutGlobalScope('landlord')
-                    ->where('landlord_id', $landlord->id)
-                    ->where('status', 'occupied')
-                    ->count();
-                $landlord->monthly_revenue = $this->getLandlordMonthlyRevenue($landlord->id);
+            ->get();
 
-                return $landlord;
-            });
+        $landlordIds = $landlords->pluck('id');
+        $monthlyRevenues = $this->getLandlordsMonthlyRevenue($landlordIds);
+        $landlords->each(fn ($l) => $l->monthly_revenue = $monthlyRevenues[$l->id] ?? 0);
 
         $topLandlords = User::where('role', 'landlord')
-            ->get()
-            ->map(function ($landlord) {
-                $landlord->monthly_revenue = $this->getLandlordMonthlyRevenue($landlord->id);
-
-                return $landlord;
-            })
-            ->sortByDesc('monthly_revenue')
-            ->take(5)
-            ->values();
+            ->select('users.*')
+            ->selectRaw('COALESCE((
+                SELECT SUM(p.amount)
+                FROM payments p
+                INNER JOIN leases l ON p.lease_id = l.id
+                INNER JOIN units u ON l.unit_id = u.id
+                WHERE u.landlord_id = users.id
+                AND strftime("%m", p.payment_date) = strftime("%m", "now")
+                AND strftime("%Y", p.payment_date) = strftime("%Y", "now")
+            ), 0) as monthly_revenue')
+            ->orderByDesc('monthly_revenue')
+            ->limit(5)
+            ->get();
 
         return [
             'systemHealth' => $systemHealth,
@@ -326,6 +336,24 @@ class DashboardService
             ->sum('amount');
     }
 
+    protected function getLandlordsMonthlyRevenue(Collection $landlordIds): Collection
+    {
+        if ($landlordIds->isEmpty()) {
+            return collect();
+        }
+
+        return Payment::withoutGlobalScope('landlord')
+            ->select('units.landlord_id')
+            ->selectRaw('SUM(payments.amount) as monthly_revenue')
+            ->join('leases', 'payments.lease_id', '=', 'leases.id')
+            ->join('units', 'leases.unit_id', '=', 'units.id')
+            ->whereIn('units.landlord_id', $landlordIds)
+            ->whereMonth('payments.payment_date', now()->month)
+            ->whereYear('payments.payment_date', now()->year)
+            ->groupBy('units.landlord_id')
+            ->pluck('monthly_revenue', 'landlord_id');
+    }
+
     protected function getAllUnitsWithColorClass(Building $building): Collection
     {
         return $building->allUnits()
@@ -387,11 +415,14 @@ class DashboardService
         $metricsUnitIds = $metricsUnits->pluck('id');
         $metricsLeaseIds = Lease::whereIn('unit_id', $metricsUnitIds)->pluck('id');
 
+        $overdueStats = Invoice::whereIn('lease_id', $metricsLeaseIds)
+            ->where('status', 'overdue')
+            ->selectRaw('COUNT(*) as overdue_count, COALESCE(SUM(total_due - amount_paid), 0) as overdue_amount')
+            ->first();
+
         $actionItems = [
-            'overdue_invoices' => Invoice::whereIn('lease_id', $metricsLeaseIds)->where('status', 'overdue')->count(),
-            'overdue_amount' => Invoice::whereIn('lease_id', $metricsLeaseIds)->where('status', 'overdue')
-                ->selectRaw('COALESCE(SUM(total_due - amount_paid), 0) as total')
-                ->value('total') ?? 0,
+            'overdue_invoices' => (int) ($overdueStats->overdue_count ?? 0),
+            'overdue_amount' => (float) ($overdueStats->overdue_amount ?? 0),
             'expiring_leases' => Lease::whereIn('unit_id', $metricsUnitIds)
                 ->where('is_active', true)
                 ->where('end_date', '<=', now()->addDays(30))

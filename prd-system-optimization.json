@@ -1,0 +1,444 @@
+{
+  "project": {
+    "name": "PropManager System-Wide Optimization",
+    "description": "Performance optimization for the entire PropManager system - controllers, services, models, API, and Vue components",
+    "version": "2.0.0",
+    "techStack": {
+      "backend": "Laravel 12 (PHP 8.2+)",
+      "frontend": "Inertia.js + Vue 3 + Tailwind CSS v4",
+      "build": "Vite 7",
+      "database": "SQLite (dev), MySQL/PostgreSQL (production)",
+      "testing": "PHPUnit",
+      "codeStyle": "Laravel Pint"
+    }
+  },
+  "qualityStandards": {
+    "description": "Production code for property management SaaS. Optimize for scalability, maintainability, and user experience.",
+    "principles": [
+      "Database queries must be efficient - no N+1 queries",
+      "Use database-level aggregations over PHP-level processing",
+      "Cache expensive computations with appropriate TTL",
+      "API responses must be fast (<200ms for most endpoints)",
+      "Vue components should use computed properties for derived data"
+    ]
+  },
+  "feedbackLoops": {
+    "description": "Run ALL feedback loops before committing. Do NOT commit if any fail.",
+    "commands": {
+      "typecheck": "npm run build -- --mode development 2>&1 | grep -i error",
+      "lint_frontend": "npm run lint",
+      "lint_backend": "vendor/bin/pint --test",
+      "test_backend": "php artisan test",
+      "test_frontend": "npm run test"
+    }
+  },
+  "categories": {
+    "critical_n+1": {
+      "priority": 1,
+      "description": "Critical N+1 query patterns causing multiple queries per record"
+    },
+    "query_consolidation": {
+      "priority": 2,
+      "description": "Multiple separate queries that should be combined"
+    },
+    "database_aggregation": {
+      "priority": 3,
+      "description": "PHP-level processing that should be done in database"
+    },
+    "api_optimization": {
+      "priority": 4,
+      "description": "API endpoint optimizations - pagination, response size"
+    },
+    "model_improvements": {
+      "priority": 5,
+      "description": "Model scopes and relationship optimizations"
+    },
+    "vue_performance": {
+      "priority": 6,
+      "description": "Vue component performance optimizations"
+    }
+  },
+  "items": [
+    {
+      "id": "SYS-001",
+      "category": "critical_n+1",
+      "priority": "CRITICAL",
+      "title": "Fix N+1 in DashboardService Super Admin Metrics",
+      "description": "DashboardService.getSuperAdminMetrics() has severe N+1 issue: for each landlord, it runs 3 separate queries (units_count, occupied_units, monthly_revenue). With 10 landlords, this causes 30 extra queries.",
+      "steps": [
+        "Refactor lines 48-59 to use withCount() for unit counts",
+        "Replace per-landlord getLandlordMonthlyRevenue() calls with single JOIN query",
+        "Refactor topLandlords (lines 61-70) to use ORDER BY with joined revenue calculation",
+        "Ensure the query returns all required data in single database round-trip"
+      ],
+      "files": [
+        "app/Services/DashboardService.php"
+      ],
+      "lines": "48-70",
+      "verification": "Profile query count: should reduce from 30+ to 2-3 queries for 10 landlords",
+      "passes": true
+    },
+    {
+      "id": "SYS-002",
+      "category": "query_consolidation",
+      "priority": "CRITICAL",
+      "title": "Consolidate FinanceStatsService Hub Stats Queries",
+      "description": "getHubStats() runs 10+ separate count() queries that can be combined into a single query with CASE statements and multiple aggregations.",
+      "steps": [
+        "Analyze lines 78-103 to identify all count/sum queries",
+        "Create single query using selectRaw() with CASE WHEN for conditional counts",
+        "Use GROUP BY and aggregate functions for counts by status",
+        "Test that results match original implementation"
+      ],
+      "files": [
+        "app/Services/FinanceStatsService.php"
+      ],
+      "lines": "78-103",
+      "pattern": {
+        "incorrect": "$count1 = Model::where(...)->count(); $count2 = Model::where(...)->count();",
+        "correct": "selectRaw('SUM(CASE WHEN condition1 THEN 1 ELSE 0 END) as count1, SUM(CASE WHEN condition2 THEN 1 ELSE 0 END) as count2')"
+      },
+      "verification": "Query count reduced from 10+ to 2-3 queries",
+      "passes": true
+    },
+    {
+      "id": "SYS-003",
+      "category": "database_aggregation",
+      "priority": "HIGH",
+      "title": "Move Arrears Stats Calculation to Database",
+      "description": "getArrearsStats() fetches ALL overdue invoices then calculates sum in PHP. This should use database-level SUM() to avoid loading potentially thousands of rows.",
+      "steps": [
+        "Refactor lines 109-114 to use selectRaw() with SUM(total_due - amount_paid)",
+        "Add proper WHERE clauses for overdue status in the aggregation",
+        "Return scalar values instead of collection",
+        "Verify accuracy matches original implementation"
+      ],
+      "files": [
+        "app/Services/FinanceStatsService.php"
+      ],
+      "lines": "109-114",
+      "pattern": {
+        "incorrect": "$invoices->get()->sum(fn($i) => $i->total_due - $i->amount_paid)",
+        "correct": "->selectRaw('SUM(total_due - amount_paid) as total_arrears')->value('total_arrears')"
+      },
+      "verification": "No longer loads full invoice collection for arrears calculation",
+      "passes": true
+    },
+    {
+      "id": "SYS-004",
+      "category": "database_aggregation",
+      "priority": "HIGH",
+      "title": "Optimize Category Breakdown Query",
+      "description": "Expense category breakdown loads full expenses with category relation, then groups in PHP. Should use GROUP BY with JOIN in database.",
+      "steps": [
+        "Refactor lines 221-233 to use GROUP BY category_id with SUM()",
+        "JOIN categories table to get category names in same query",
+        "Return aggregated results directly instead of full collection",
+        "Handle null categories appropriately"
+      ],
+      "files": [
+        "app/Services/FinanceStatsService.php"
+      ],
+      "lines": "221-233",
+      "pattern": {
+        "incorrect": "->with('category')->get()->groupBy('category_id')",
+        "correct": "->selectRaw('category_id, SUM(amount) as total')->groupBy('category_id')->join('categories', ...)"
+      },
+      "verification": "Query returns aggregated data, not full rows",
+      "passes": true
+    },
+    {
+      "id": "SYS-005",
+      "category": "critical_n+1",
+      "priority": "HIGH",
+      "title": "Fix PaymentController Index N+1",
+      "description": "Payment index query loads relationships but accessing payment.invoice.lease.tenant.email triggers N+1 at tenant level. Need to eager load full chain.",
+      "steps": [
+        "Review lines 212-217 for relationship loading",
+        "Add 'invoice.lease.tenant' to with() clause",
+        "Verify all accessed relationships are eager loaded",
+        "Test with Laravel Debugbar to confirm query reduction"
+      ],
+      "files": [
+        "app/Http/Controllers/PaymentController.php"
+      ],
+      "lines": "212-217",
+      "verification": "Query count for 20 payments should not increase with more records",
+      "passes": true
+    },
+    {
+      "id": "SYS-006",
+      "category": "query_consolidation",
+      "priority": "HIGH",
+      "title": "Consolidate PaymentController Stats Queries",
+      "description": "Lines 265-277 run 3 separate raw queries for stats calculation that can be combined into single query with multiple aggregates.",
+      "steps": [
+        "Combine the 3 selectRaw queries into single query",
+        "Use CASE statements for conditional aggregations",
+        "Return single result with all stats",
+        "Test accuracy of consolidated results"
+      ],
+      "files": [
+        "app/Http/Controllers/PaymentController.php"
+      ],
+      "lines": "265-277",
+      "verification": "3 queries reduced to 1 query",
+      "passes": true
+    },
+    {
+      "id": "SYS-007",
+      "category": "database_aggregation",
+      "priority": "HIGH",
+      "title": "Optimize DashboardService Metrics Calculations",
+      "description": "Lines 388-401 query same invoice subset twice for overdue_invoices count and overdue_amount sum. Should be single query.",
+      "steps": [
+        "Combine count and sum into single selectRaw query",
+        "Use COUNT(*) and SUM() in same query",
+        "Apply same WHERE conditions once",
+        "Verify results match original implementation"
+      ],
+      "files": [
+        "app/Services/DashboardService.php"
+      ],
+      "lines": "388-401",
+      "verification": "2 queries reduced to 1",
+      "passes": true
+    },
+    {
+      "id": "SYS-008",
+      "category": "api_optimization",
+      "priority": "MEDIUM",
+      "title": "Add Pagination to ReportController Arrears Endpoint",
+      "description": "ReportController.arrears() returns all overdue invoices without pagination. For large datasets this causes slow responses and memory issues.",
+      "steps": [
+        "Add pagination to lines 69-72 arrears query",
+        "Use cursor pagination for better performance on large datasets",
+        "Update API resource to include pagination metadata",
+        "Test with large dataset (1000+ invoices)"
+      ],
+      "files": [
+        "app/Http/Controllers/Api/ReportController.php"
+      ],
+      "lines": "69-72",
+      "verification": "Response includes pagination metadata and limits results per page",
+      "passes": false
+    },
+    {
+      "id": "SYS-009",
+      "category": "database_aggregation",
+      "priority": "MEDIUM",
+      "title": "Move Arrears Aging Calculation to Database",
+      "description": "Lines 83-95 categorize overdue invoices by age in PHP loop. This should use CASE statements in database for efficiency.",
+      "steps": [
+        "Create database-level DATEDIFF and CASE categorization",
+        "Use GROUP BY on age categories with SUM()",
+        "Return pre-categorized results from database",
+        "Verify aging buckets match original logic (0-30, 31-60, 61-90, 90+)"
+      ],
+      "files": [
+        "app/Http/Controllers/Api/ReportController.php"
+      ],
+      "lines": "83-95",
+      "pattern": {
+        "correct": "selectRaw('CASE WHEN DATEDIFF(NOW(), due_date) <= 30 THEN \"0-30\" ... END as age_bucket, SUM(amount) as total')->groupBy('age_bucket')"
+      },
+      "verification": "No PHP loop for aging categorization",
+      "passes": false
+    },
+    {
+      "id": "SYS-010",
+      "category": "model_improvements",
+      "priority": "MEDIUM",
+      "title": "Add Common Query Scopes to Invoice Model",
+      "description": "Same invoice filters repeated throughout codebase. Add scopes for overdue, pending, outstanding, and paid statuses.",
+      "steps": [
+        "Add scopeOverdue() - where status = 'overdue'",
+        "Add scopePending() - whereIn status ['sent', 'partial', 'overdue']",
+        "Add scopeOutstanding() - where amount_paid < total_due",
+        "Add scopePaid() - where status = 'paid'",
+        "Update existing code to use new scopes"
+      ],
+      "files": [
+        "app/Models/Invoice.php"
+      ],
+      "verification": "At least 5 occurrences updated to use new scopes",
+      "passes": false
+    },
+    {
+      "id": "SYS-011",
+      "category": "model_improvements",
+      "priority": "MEDIUM",
+      "title": "Add Active Scope to Lease Model",
+      "description": "Active lease filter (where is_active = true) used in 20+ places throughout codebase. Add as model scope.",
+      "steps": [
+        "Add scopeActive() to Lease model",
+        "Search codebase for ->where('is_active', true)",
+        "Update all occurrences to use ->active() scope",
+        "Verify no behavior changes"
+      ],
+      "files": [
+        "app/Models/Lease.php"
+      ],
+      "verification": "Grep for 'is_active.*true' shows reduced occurrences",
+      "passes": false
+    },
+    {
+      "id": "SYS-012",
+      "category": "query_consolidation",
+      "priority": "MEDIUM",
+      "title": "Consolidate Collection Rate Query",
+      "description": "Lines 264-272 calculate collection rate from two separate queries (total invoiced, total collected). Should be single query.",
+      "steps": [
+        "Combine queries using SUM with CASE statements",
+        "Calculate rate as (collected / invoiced) in database or single PHP operation",
+        "Handle division by zero case",
+        "Verify percentage calculation matches original"
+      ],
+      "files": [
+        "app/Services/FinanceStatsService.php"
+      ],
+      "lines": "264-272",
+      "verification": "2 queries reduced to 1",
+      "passes": false
+    },
+    {
+      "id": "SYS-013",
+      "category": "vue_performance",
+      "priority": "MEDIUM",
+      "title": "Replace Inline Filters with Computed Properties in Vue Components",
+      "description": "Multiple components use inline collection filtering in v-for which re-runs on every render. Should use computed properties.",
+      "steps": [
+        "Search for v-for with inline .filter() calls",
+        "Replace with computed properties that cache filtered results",
+        "Ensure computed dependencies are correctly defined",
+        "Test that filtered data updates when source changes"
+      ],
+      "files": [
+        "resources/js/Pages/**/*.vue",
+        "resources/js/Components/**/*.vue"
+      ],
+      "pattern": {
+        "incorrect": "v-for=\"unit in units.filter(u => u.status === 'occupied')\"",
+        "correct": "const occupiedUnits = computed(() => units.value.filter(u => u.status === 'occupied'))"
+      },
+      "verification": "No inline .filter() calls in v-for templates",
+      "passes": false
+    },
+    {
+      "id": "SYS-014",
+      "category": "critical_n+1",
+      "priority": "MEDIUM",
+      "title": "Fix Redundant Relationship Loading in InvoiceController",
+      "description": "InvoiceController loads relationships in query, then calls ->load() again with same relationships. Remove redundant loading.",
+      "steps": [
+        "Review line 77 and line 116 for redundant load() calls",
+        "Remove load() if relationships already eager loaded in query",
+        "Verify relationships still available in views",
+        "Test invoice show and edit pages"
+      ],
+      "files": [
+        "app/Http/Controllers/InvoiceController.php"
+      ],
+      "lines": "77, 116",
+      "verification": "No duplicate relationship loading",
+      "passes": false
+    },
+    {
+      "id": "SYS-015",
+      "category": "query_consolidation",
+      "priority": "LOW",
+      "title": "DRY Finance Report Service Query Filters",
+      "description": "Same filtering logic (landlord_id, date range, building_id) repeated 3 times for Invoice, Payment, and Expense queries. Extract into reusable method.",
+      "steps": [
+        "Create private method for common query setup",
+        "Apply landlord_id, date range, and building_id filters in single place",
+        "Refactor Invoice, Payment, and Expense queries to use helper",
+        "Ensure all conditional filters work correctly"
+      ],
+      "files": [
+        "app/Services/FinanceReportService.php"
+      ],
+      "lines": "46-62",
+      "verification": "Reduced code duplication, easier maintenance",
+      "passes": false
+    },
+    {
+      "id": "SYS-016",
+      "category": "database_aggregation",
+      "priority": "LOW",
+      "title": "Cache Super Admin Metrics",
+      "description": "DashboardService.getSuperAdminMetrics() runs expensive queries every request. Should cache results with short TTL.",
+      "steps": [
+        "Add caching to getSuperAdminMetrics() with 5-minute TTL",
+        "Use cache tags for easy invalidation",
+        "Invalidate on significant events (new landlord, major payment)",
+        "Consider different TTL for different metrics"
+      ],
+      "files": [
+        "app/Services/DashboardService.php"
+      ],
+      "verification": "Subsequent requests within TTL use cached data",
+      "passes": false
+    },
+    {
+      "id": "SYS-017",
+      "category": "vue_performance",
+      "priority": "LOW",
+      "title": "Add Virtual Scrolling to Large List Components",
+      "description": "Invoice, Payment, and Expense list components render full tables for 100+ rows. Implement virtual scrolling for better performance.",
+      "steps": [
+        "Install vue-virtual-scroller or similar library",
+        "Apply to tables with potentially 100+ rows",
+        "Add CSS content-visibility for fallback",
+        "Test scroll performance with 500+ rows"
+      ],
+      "files": [
+        "resources/js/Pages/Invoices/Index.vue",
+        "resources/js/Pages/Payments/Index.vue",
+        "resources/js/Pages/Finances/Tabs/ExpensesTab.vue"
+      ],
+      "verification": "DOM node count stays constant regardless of row count",
+      "passes": false
+    },
+    {
+      "id": "SYS-018",
+      "category": "query_consolidation",
+      "priority": "LOW",
+      "title": "Fix Building Queries in PaymentController",
+      "description": "Same buildings query repeated in multiple methods (lines 78-82, 289-292, 944-948). Extract to private method or cache.",
+      "steps": [
+        "Create getBuildingsForDropdown() private method",
+        "Use in all places that need building list for forms",
+        "Consider caching building list if called multiple times per request",
+        "Ensure multi-tenant scoping is maintained"
+      ],
+      "files": [
+        "app/Http/Controllers/PaymentController.php"
+      ],
+      "lines": "78-82, 289-292, 944-948",
+      "verification": "DRY - buildings query defined once",
+      "passes": false
+    }
+  ],
+  "progressTracking": {
+    "description": "Track progress in progress.md file, committed to repo after each task",
+    "format": {
+      "taskCompleted": "Task ID and title",
+      "decisionsMade": "Key decisions and reasoning",
+      "filesChanged": "List of modified files",
+      "blockers": "Any blockers or notes for next iteration"
+    }
+  },
+  "completionCriteria": {
+    "metrics": [
+      "Query count per page < 15 for all pages",
+      "API response times < 200ms for common endpoints",
+      "No PHP-level aggregation of large datasets",
+      "All N+1 queries eliminated",
+      "Database indexes for all filtered/sorted columns",
+      "All PHPUnit tests passing",
+      "All Pint style checks passing"
+    ],
+    "outputSignal": "<promise>COMPLETE</promise>"
+  }
+}
