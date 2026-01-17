@@ -26,6 +26,26 @@ class Invoice extends Model
 
     public const STATUS_VOID = 'void';
 
+    public function scopeOverdue($query)
+    {
+        return $query->where('status', self::STATUS_OVERDUE);
+    }
+
+    public function scopePending($query)
+    {
+        return $query->whereIn('status', [self::STATUS_SENT, self::STATUS_PARTIAL, self::STATUS_OVERDUE]);
+    }
+
+    public function scopeOutstanding($query)
+    {
+        return $query->whereRaw('amount_paid < total_due');
+    }
+
+    public function scopePaid($query)
+    {
+        return $query->where('status', self::STATUS_PAID);
+    }
+
     protected $fillable = [
         'lease_id',
         'landlord_id',

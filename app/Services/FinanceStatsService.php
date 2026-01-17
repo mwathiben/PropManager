@@ -283,22 +283,21 @@ class FinanceStatsService
     private function calculateCollectionRateUncached(int $landlordId): float
     {
         $now = now();
+        $currentMonth = sprintf('%02d', $now->month);
+        $currentYear = (string) $now->year;
 
-        $invoiced = Invoice::where('landlord_id', $landlordId)
-            ->whereMonth('created_at', $now->month)
-            ->whereYear('created_at', $now->year)
-            ->sum('total_due');
+        $totals = Invoice::where('landlord_id', $landlordId)
+            ->whereRaw('strftime(\'%m\', created_at) = ? AND strftime(\'%Y\', created_at) = ?', [$currentMonth, $currentYear])
+            ->selectRaw('COALESCE(SUM(total_due), 0) as invoiced, COALESCE(SUM(amount_paid), 0) as collected')
+            ->first();
+
+        $invoiced = (float) $totals->invoiced;
 
         if ($invoiced <= 0) {
             return 0;
         }
 
-        $collected = Invoice::where('landlord_id', $landlordId)
-            ->whereMonth('created_at', $now->month)
-            ->whereYear('created_at', $now->year)
-            ->sum('amount_paid');
-
-        return round(($collected / $invoiced) * 100, 1);
+        return round(((float) $totals->collected / $invoiced) * 100, 1);
     }
 
     public function getRecentPayments(int $landlordId, int $limit = 5): array

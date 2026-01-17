@@ -262,7 +262,7 @@
         "app/Models/Invoice.php"
       ],
       "verification": "At least 5 occurrences updated to use new scopes",
-      "passes": false
+      "passes": true
     },
     {
       "id": "SYS-011",
@@ -280,7 +280,7 @@
         "app/Models/Lease.php"
       ],
       "verification": "Grep for 'is_active.*true' shows reduced occurrences",
-      "passes": false
+      "passes": true
     },
     {
       "id": "SYS-012",
@@ -299,7 +299,7 @@
       ],
       "lines": "264-272",
       "verification": "2 queries reduced to 1",
-      "passes": false
+      "passes": true
     },
     {
       "id": "SYS-013",
@@ -341,7 +341,7 @@
       ],
       "lines": "77, 116",
       "verification": "No duplicate relationship loading",
-      "passes": false
+      "passes": true
     },
     {
       "id": "SYS-015",

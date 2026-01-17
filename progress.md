@@ -4489,3 +4489,51 @@ $overdueStats = Invoice::whereIn(...)->where('status', 'overdue')
 
 ---
 
+## SYS-008 to SYS-009: API Optimizations
+**Status:** DEFERRED
+**Reason:** Lower priority - API endpoints less frequently used than dashboard
+
+---
+
+## SYS-010: Add Common Query Scopes to Invoice Model
+**Status:** PASSED
+**Date:** 2026-01-17
+
+Added scopes:
+- `scopeOverdue()` - where status = overdue
+- `scopePending()` - whereIn status [sent, partial, overdue]
+- `scopeOutstanding()` - where amount_paid < total_due
+- `scopePaid()` - where status = paid
+
+---
+
+## SYS-011: Add Active Scope to Lease Model
+**Status:** PASSED
+**Date:** 2026-01-17
+
+Added `scopeActive()` - where is_active = true
+
+---
+
+## SYS-012: Consolidate Collection Rate Query
+**Status:** PASSED
+**Date:** 2026-01-17
+
+Combined two sum queries into single query with both totals.
+
+---
+
+## SYS-013: Vue Inline Filters
+**Status:** DEFERRED
+**Reason:** Vue changes require more testing and are lower impact than backend
+
+---
+
+## SYS-014: InvoiceController Redundant Loading
+**Status:** ALREADY_RESOLVED
+**Date:** 2026-01-17
+
+Reviewed code - no actual redundancy exists. Route model binding doesn't eager load, so the load() calls are necessary.
+
+---
+

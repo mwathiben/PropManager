@@ -12,6 +12,11 @@ class Lease extends Model
 {
     use Auditable, TenantScope;
 
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
     protected $fillable = [
         'unit_id',
         'tenant_id',
