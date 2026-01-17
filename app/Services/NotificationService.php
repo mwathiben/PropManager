@@ -17,13 +17,37 @@ class NotificationService
 
     private const RATE_LIMIT_PER_DAY = 1000;
 
+    public const URGENCY_CHANNELS = [
+        Notification::URGENCY_CRITICAL => [
+            Notification::CHANNEL_WHATSAPP,
+            Notification::CHANNEL_SMS,
+            Notification::CHANNEL_PUSH,
+            Notification::CHANNEL_IN_APP,
+        ],
+        Notification::URGENCY_URGENT => [
+            Notification::CHANNEL_WHATSAPP,
+            Notification::CHANNEL_PUSH,
+            Notification::CHANNEL_IN_APP,
+        ],
+        Notification::URGENCY_IMPORTANT => [
+            Notification::CHANNEL_WHATSAPP,
+            Notification::CHANNEL_EMAIL,
+            Notification::CHANNEL_IN_APP,
+        ],
+        Notification::URGENCY_INFORMATIONAL => [
+            Notification::CHANNEL_EMAIL,
+            Notification::CHANNEL_IN_APP,
+        ],
+    ];
+
     public function __construct(
         private readonly WhatsAppTemplateService $whatsAppTemplateService
     ) {}
 
     /**
-     * Send a notification to a user via their primary preferred channel.
-     * Fallback to other channels is handled by the FallbackNotificationJob.
+     * Send a notification to a user via urgency-based channel selection.
+     * Critical notifications are sent to ALL allowed channels.
+     * Other urgency levels use prioritized single channel with fallback.
      */
     public function send(
         int $recipientId,
@@ -41,16 +65,35 @@ class NotificationService
                 : $recipient->id;
         }
 
+        $urgency = Notification::getUrgencyForType($type);
+        $allowedChannels = $this->getChannelsForUrgency($urgency);
+
+        // Critical notifications: send to ALL allowed channels simultaneously
+        if ($urgency === Notification::URGENCY_CRITICAL) {
+            return $this->sendToAllowedChannels(
+                $recipientId,
+                $type,
+                $subject,
+                $message,
+                $data,
+                $landlordId,
+                $allowedChannels,
+                $urgency
+            );
+        }
+
+        // Other urgency levels: use prioritized single channel with fallback
         $preferences = NotificationPreference::getOrCreate($recipientId, $landlordId);
-        $channels = $this->prioritizeChannels($preferences);
+        $prioritizedChannels = $this->prioritizeChannelsWithUrgency($preferences, $allowedChannels);
         $results = [];
 
-        $primaryChannel = $this->findPrimaryChannel($channels, $preferences, $type);
+        $primaryChannel = $this->findPrimaryChannel($prioritizedChannels, $preferences, $type);
 
         if (! $primaryChannel) {
             Log::warning('No available channel for notification', [
                 'recipient_id' => $recipientId,
                 'type' => $type,
+                'urgency' => $urgency,
             ]);
 
             return ['error' => 'no_available_channel'];
@@ -72,7 +115,8 @@ class NotificationService
             $primaryChannel,
             $subject,
             $message,
-            $data
+            $data,
+            $urgency
         );
 
         try {
@@ -111,6 +155,7 @@ class NotificationService
 
         $preferences = NotificationPreference::getOrCreate($recipientId, $landlordId);
         $channels = $this->prioritizeChannels($preferences);
+        $urgency = Notification::getUrgencyForType($type);
         $results = [];
 
         foreach ($channels as $channel) {
@@ -128,7 +173,58 @@ class NotificationService
                     $channel,
                     $subject,
                     $message,
-                    $data
+                    $data,
+                    $urgency
+                );
+
+                try {
+                    $sent = $this->sendViaChannel($notification, $recipient);
+                    $results[$channel] = $sent ? 'sent' : 'failed';
+                } catch (\Exception $e) {
+                    $notification->markAsFailed($e->getMessage());
+                    $results[$channel] = 'failed';
+                }
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Send a notification to specific allowed channels based on urgency.
+     * Used for critical notifications that require multiple channels.
+     */
+    private function sendToAllowedChannels(
+        int $recipientId,
+        string $type,
+        string $subject,
+        string $message,
+        ?array $data,
+        int $landlordId,
+        array $allowedChannels,
+        string $urgency
+    ): array {
+        $recipient = User::findOrFail($recipientId);
+        $preferences = NotificationPreference::getOrCreate($recipientId, $landlordId);
+        $results = [];
+
+        foreach ($allowedChannels as $channel) {
+            if ($preferences->canReceive($type, $channel)) {
+                if (! $this->checkRateLimits($landlordId, $channel)) {
+                    $results[$channel] = 'rate_limited';
+
+                    continue;
+                }
+
+                $notification = $this->createNotification(
+                    $landlordId,
+                    $recipientId,
+                    $type,
+                    $channel,
+                    $subject,
+                    $message,
+                    $data,
+                    $urgency
                 );
 
                 try {
@@ -175,6 +271,24 @@ class NotificationService
         }
 
         return $defaultOrder;
+    }
+
+    /**
+     * Get allowed channels for a given urgency level.
+     */
+    public function getChannelsForUrgency(string $urgency): array
+    {
+        return self::URGENCY_CHANNELS[$urgency] ?? self::URGENCY_CHANNELS[Notification::URGENCY_INFORMATIONAL];
+    }
+
+    /**
+     * Filter and prioritize channels based on urgency and user preferences.
+     */
+    private function prioritizeChannelsWithUrgency(NotificationPreference $preferences, array $allowedChannels): array
+    {
+        $prioritized = $this->prioritizeChannels($preferences);
+
+        return array_values(array_intersect($prioritized, $allowedChannels));
     }
 
     /**
@@ -242,12 +356,14 @@ class NotificationService
         string $channel,
         string $subject,
         string $message,
-        ?array $data
+        ?array $data,
+        ?string $urgency = null
     ): Notification {
         return Notification::create([
             'landlord_id' => $landlordId,
             'recipient_id' => $recipientId,
             'type' => $type,
+            'urgency' => $urgency ?? Notification::getUrgencyForType($type),
             'channel' => $channel,
             'subject' => $subject,
             'message' => $message,

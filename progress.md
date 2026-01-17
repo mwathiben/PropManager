@@ -5435,3 +5435,69 @@ Implemented real-time notification badge updates using WebSocket broadcasting. T
 - COM-011: Urgency-Based Channel Selection
 - COM-012: Quiet Hours Respect
 - COM-013: WhatsApp Inbound Message Webhook
+
+---
+
+## Session: 2026-01-17
+**Task**: COM-011 - Implement Urgency-Based Channel Selection
+**Status**: COMPLETED
+
+### Implementation Summary
+
+Implemented urgency-based notification channel selection. Critical notifications (e.g., eviction notices) are now sent to ALL allowed channels simultaneously, while informational notifications (e.g., receipts) only use Email + In-app channels.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/2026_01_17_165440_add_urgency_to_notifications_table.php` | Adds urgency enum column (critical, urgent, important, informational) |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Models/Notification.php` | Added URGENCY_* constants, TYPE_URGENCY_MAP array, getUrgencyForType() static method, added 'urgency' to fillable |
+| `app/Services/NotificationService.php` | Added URGENCY_CHANNELS constant, getChannelsForUrgency() method, prioritizeChannelsWithUrgency() method, sendToAllowedChannels() method, modified send() to use urgency-based routing, updated createNotification() to accept urgency parameter |
+
+### Technical Details
+
+**Urgency Levels:**
+- `critical`: WhatsApp + SMS + Push + In-app (all channels, sends simultaneously)
+- `urgent`: WhatsApp + Push + In-app
+- `important`: WhatsApp + Email + In-app
+- `informational`: Email + In-app only
+
+**Type → Urgency Mapping:**
+- Critical: eviction_notice
+- Urgent: arrears_notice, lease_expiry
+- Important: invoice, rent_reminder, rent_hike, lease_renewal, caretaker_invitation, tenant_invitation
+- Informational: receipt, maintenance_notice, general
+
+**send() Method Flow:**
+1. Determine urgency from notification type via `Notification::getUrgencyForType()`
+2. Get allowed channels for that urgency via `getChannelsForUrgency()`
+3. For critical: call `sendToAllowedChannels()` to send to ALL allowed channels
+4. For others: filter channels using `prioritizeChannelsWithUrgency()` and use single primary channel with fallback
+
+### Acceptance Criteria Verification
+
+1. **Define urgency levels: critical, urgent, important, informational** - Added as constants in Notification model
+2. **Map notification types to urgency levels** - TYPE_URGENCY_MAP constant with all 12 types mapped
+3. **Implement getChannelsForUrgency() method** - Returns channel array for given urgency
+4. **Critical: WhatsApp + SMS + Push + In-app** - Configured in URGENCY_CHANNELS
+5. **Urgent: WhatsApp + Push + In-app** - Configured in URGENCY_CHANNELS
+6. **Important: WhatsApp + Email + In-app** - Configured in URGENCY_CHANNELS
+7. **Informational: Email + In-app only** - Configured in URGENCY_CHANNELS
+8. **Add urgency field to notifications table** - Migration adds enum column
+
+### Verification Results
+
+- Migrations: PASS
+- Pint: PASS (490 files)
+- npm run build: PASS (1693 modules transformed)
+
+### Next Steps
+
+- COM-012: Quiet Hours Respect
+- COM-013: WhatsApp Inbound Message Webhook
+- COM-014: Landlord Inbox for Tenant Messages

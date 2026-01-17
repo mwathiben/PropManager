@@ -452,7 +452,8 @@
         "database/migrations/*_add_urgency_to_notifications.php"
       ],
       "verification": "Send critical notification; verify all channels attempted",
-      "passes": false
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "COM-012",

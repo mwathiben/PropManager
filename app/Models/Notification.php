@@ -77,10 +77,36 @@ class Notification extends Model
         self::CHANNEL_IN_APP => 0,
     ];
 
+    // Urgency level constants
+    public const URGENCY_CRITICAL = 'critical';
+
+    public const URGENCY_URGENT = 'urgent';
+
+    public const URGENCY_IMPORTANT = 'important';
+
+    public const URGENCY_INFORMATIONAL = 'informational';
+
+    // Map notification types to their urgency level
+    public const TYPE_URGENCY_MAP = [
+        self::TYPE_EVICTION_NOTICE => self::URGENCY_CRITICAL,
+        self::TYPE_ARREARS_NOTICE => self::URGENCY_URGENT,
+        self::TYPE_LEASE_EXPIRY => self::URGENCY_URGENT,
+        self::TYPE_INVOICE => self::URGENCY_IMPORTANT,
+        self::TYPE_RENT_REMINDER => self::URGENCY_IMPORTANT,
+        self::TYPE_RENT_HIKE => self::URGENCY_IMPORTANT,
+        self::TYPE_LEASE_RENEWAL => self::URGENCY_IMPORTANT,
+        self::TYPE_CARETAKER_INVITATION => self::URGENCY_IMPORTANT,
+        self::TYPE_TENANT_INVITATION => self::URGENCY_IMPORTANT,
+        self::TYPE_RECEIPT => self::URGENCY_INFORMATIONAL,
+        self::TYPE_MAINTENANCE_NOTICE => self::URGENCY_INFORMATIONAL,
+        self::TYPE_GENERAL => self::URGENCY_INFORMATIONAL,
+    ];
+
     protected $fillable = [
         'landlord_id',
         'recipient_id',
         'type',
+        'urgency',
         'channel',
         'fallback_channel',
         'subject',
@@ -288,6 +314,14 @@ class Notification extends Model
     public function isInvitation(): bool
     {
         return in_array($this->type, self::INVITATION_TYPES);
+    }
+
+    /**
+     * Get urgency level for a notification type
+     */
+    public static function getUrgencyForType(string $type): string
+    {
+        return self::TYPE_URGENCY_MAP[$type] ?? self::URGENCY_INFORMATIONAL;
     }
 
     /**
