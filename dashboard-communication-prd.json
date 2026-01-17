@@ -1,0 +1,719 @@
+{
+  "project": {
+    "name": "PropManager Dashboard Communication System",
+    "description": "World-class tenant-landlord communication infrastructure implementing WhatsApp-first messaging, real-time WebSocket updates via Laravel Reverb, and intelligent multi-channel notification routing for a Kenya-focused property management SaaS",
+    "version": "1.0.0",
+    "techStack": {
+      "backend": "Laravel 12 (PHP 8.2+)",
+      "frontend": "Inertia.js + Vue 3 + Tailwind CSS v4",
+      "realtime": "Laravel Reverb (WebSocket)",
+      "messaging": {
+        "primary": "WhatsApp Business API (Twilio)",
+        "secondary": "SMS (Twilio / Africa's Talking)",
+        "tertiary": "Email (Laravel Mail)",
+        "browser": "Web Push API (VAPID)"
+      },
+      "queue": "Laravel Horizon / database",
+      "cache": "Redis / file"
+    }
+  },
+  "qualityStandards": {
+    "description": "This is the communication backbone of PropManager. Every notification must be delivered reliably, every real-time update must be instant, and every message must reach the tenant through their preferred channel. In Kenya, WhatsApp is not a nice-to-have—it's the primary communication channel. Build for 99.9% delivery reliability.",
+    "principles": [
+      "WhatsApp is the PRIMARY channel in Kenya/Africa markets (90%+ penetration)",
+      "Real-time updates for payment confirmations are non-negotiable—tenants expect instant feedback",
+      "Multi-channel fallback ensures no message is ever lost",
+      "Two-way communication captures tenant context and reduces support load",
+      "Rate limiting protects against spam and API cost overruns",
+      "All templates must be Meta-approved for WhatsApp Business compliance",
+      "Delivery status tracking for accountability and debugging",
+      "Quiet hours respect tenant preferences and local regulations"
+    ]
+  },
+  "feedbackLoops": {
+    "description": "Run ALL feedback loops before committing. Do NOT commit if any fail.",
+    "commands": {
+      "typecheck": "npm run build -- --mode development 2>&1 | grep -i error",
+      "lint_frontend": "npm run lint",
+      "lint_backend": "vendor/bin/pint --test",
+      "test_backend": "php artisan test --parallel --filter=Notification",
+      "test_websocket": "php artisan reverb:start --debug & sleep 5 && curl -I http://localhost:8080",
+      "test_whatsapp": "php artisan tinker --execute=\"app(NotificationService::class)->testWhatsApp('254712345678')\""
+    }
+  },
+  "categories": {
+    "whatsapp_integration": {
+      "priority": 1,
+      "description": "WhatsApp Business API as primary communication channel with Meta-approved templates"
+    },
+    "realtime_broadcasting": {
+      "priority": 2,
+      "description": "Laravel Reverb WebSocket infrastructure for instant dashboard updates"
+    },
+    "notification_routing": {
+      "priority": 3,
+      "description": "Intelligent multi-channel routing with fallback chains and preference handling"
+    },
+    "two_way_communication": {
+      "priority": 4,
+      "description": "Inbound message handling from WhatsApp, capturing tenant responses as notes/tickets"
+    },
+    "dashboard_sync": {
+      "priority": 5,
+      "description": "Real-time synchronization between tenant and landlord dashboards"
+    }
+  },
+  "items": [
+    {
+      "id": "COM-001",
+      "category": "whatsapp_integration",
+      "priority": "CRITICAL",
+      "title": "Set WhatsApp as Primary Notification Channel",
+      "description": "Modify NotificationService to prioritize WhatsApp over email/SMS. WhatsApp should be the first attempted channel for all tenant communications when whatsapp_number is available.",
+      "steps": [
+        "Audit NotificationService::send() method for current channel ordering",
+        "Implement channel priority logic: WhatsApp → SMS → Email → In-app",
+        "Add whatsapp_number validation (must be valid E.164 format: +254...)",
+        "Update NotificationPreference model to track whatsapp_opted_in boolean",
+        "Add migration for whatsapp_opted_in if not exists",
+        "Update frontend preference UI to show WhatsApp as primary option",
+        "Test with Twilio sandbox before production"
+      ],
+      "files": [
+        "app/Services/NotificationService.php",
+        "app/Models/NotificationPreference.php",
+        "database/migrations/*_add_whatsapp_opted_in.php",
+        "resources/js/Pages/Notifications/partials/PreferencesTab.vue"
+      ],
+      "pattern": {
+        "incorrect": "$channels = ['email', 'sms', 'whatsapp', 'push', 'in_app'];",
+        "correct": "$channels = $this->prioritizeChannels($user); // Returns ['whatsapp', 'sms', 'email', 'push', 'in_app'] based on availability"
+      },
+      "verification": "Send test notification to user with whatsapp_number set; verify WhatsApp is attempted first",
+      "passes": true,
+      "attempt_count": 1
+    },
+    {
+      "id": "COM-002",
+      "category": "whatsapp_integration",
+      "priority": "CRITICAL",
+      "title": "Create Meta-Approved WhatsApp Message Templates",
+      "description": "WhatsApp Business API requires pre-approved templates for business-initiated messages. Create and submit templates for all notification types to Meta for approval.",
+      "steps": [
+        "Document all notification types that need WhatsApp templates",
+        "Create template content for each type with proper placeholders",
+        "Submit templates to Meta via Twilio Console for approval",
+        "Store approved template SIDs in config/whatsapp.php",
+        "Create TemplateService method to render WhatsApp templates",
+        "Add template validation before sending (ensure all placeholders filled)",
+        "Implement template fallback for unapproved messages (convert to session message)"
+      ],
+      "templates": [
+        {
+          "name": "rent_reminder",
+          "content": "Hi {{1}}, your rent of KES {{2}} is due on {{3}}. Pay via M-Pesa to avoid late fees. Questions? Reply to this message.",
+          "variables": ["tenant_name", "amount", "due_date"]
+        },
+        {
+          "name": "payment_received",
+          "content": "Thank you {{1}}! We received your payment of KES {{2}} (Ref: {{3}}). Your new balance is KES {{4}}.",
+          "variables": ["tenant_name", "amount", "reference", "balance"]
+        },
+        {
+          "name": "invoice_ready",
+          "content": "Hi {{1}}, your invoice {{2}} for KES {{3}} is ready. Due date: {{4}}. View: {{5}}",
+          "variables": ["tenant_name", "invoice_no", "amount", "due_date", "link"]
+        },
+        {
+          "name": "arrears_notice",
+          "content": "Hi {{1}}, you have an outstanding balance of KES {{2}} that is {{3}} days overdue. Please settle to avoid penalties.",
+          "variables": ["tenant_name", "amount", "days_overdue"]
+        },
+        {
+          "name": "maintenance_update",
+          "content": "Hi {{1}}, your maintenance request #{{2}} has been updated to: {{3}}. {{4}}",
+          "variables": ["tenant_name", "ticket_id", "status", "notes"]
+        },
+        {
+          "name": "lease_renewal",
+          "content": "Hi {{1}}, your lease expires on {{2}}. We'd like to offer renewal at KES {{3}}/month. Reply YES to proceed or contact us.",
+          "variables": ["tenant_name", "expiry_date", "new_rent"]
+        }
+      ],
+      "files": [
+        "config/whatsapp.php",
+        "app/Services/TemplateService.php",
+        "app/Services/NotificationService.php"
+      ],
+      "verification": "Verify templates are approved in Twilio Console; send test message with each template",
+      "passes": false
+    },
+    {
+      "id": "COM-003",
+      "category": "whatsapp_integration",
+      "priority": "CRITICAL",
+      "title": "Implement WhatsApp Delivery Status Webhooks",
+      "description": "Track WhatsApp message delivery status (sent, delivered, read, failed) via Twilio webhooks. Update notification records with status changes.",
+      "steps": [
+        "Create WhatsApp webhook controller: WhatsAppWebhookController",
+        "Implement status callback endpoint: POST /webhooks/whatsapp/status",
+        "Map Twilio status events to notification statuses",
+        "Update Notification model with whatsapp_message_sid field",
+        "Implement status update logic with pessimistic locking",
+        "Add read receipt tracking (blue ticks)",
+        "Log all webhook events for debugging",
+        "Configure Twilio to send status callbacks to webhook URL"
+      ],
+      "statusMapping": {
+        "queued": "pending",
+        "sent": "sent",
+        "delivered": "delivered",
+        "read": "read",
+        "failed": "failed",
+        "undelivered": "failed"
+      },
+      "files": [
+        "app/Http/Controllers/Api/WhatsAppWebhookController.php",
+        "routes/api.php",
+        "app/Models/Notification.php",
+        "database/migrations/*_add_whatsapp_message_sid_to_notifications.php"
+      ],
+      "verification": "Send WhatsApp message; verify status updates flow through webhook to database",
+      "passes": false
+    },
+    {
+      "id": "COM-004",
+      "category": "whatsapp_integration",
+      "priority": "HIGH",
+      "title": "Implement Multi-Channel Fallback Chain",
+      "description": "When WhatsApp delivery fails or times out, automatically fallback to SMS, then email. Track which channel ultimately succeeded.",
+      "steps": [
+        "Create FallbackNotificationJob that handles retries across channels",
+        "Implement delivery timeout detection (1 hour for WhatsApp → fallback)",
+        "Add fallback_channel field to notifications table",
+        "Create scheduled command to process stuck 'pending' WhatsApp messages",
+        "Implement exponential backoff for retries within same channel",
+        "Add notification to landlord when tenant unreachable on all channels",
+        "Track fallback statistics for analytics dashboard"
+      ],
+      "fallbackChain": [
+        {
+          "channel": "whatsapp",
+          "timeout": "1 hour",
+          "retries": 2
+        },
+        {
+          "channel": "sms",
+          "timeout": "30 minutes",
+          "retries": 1
+        },
+        {
+          "channel": "email",
+          "timeout": "none",
+          "retries": 3
+        },
+        {
+          "channel": "in_app",
+          "timeout": "none",
+          "retries": 0
+        }
+      ],
+      "files": [
+        "app/Jobs/FallbackNotificationJob.php",
+        "app/Console/Commands/ProcessFailedNotifications.php",
+        "app/Services/NotificationService.php",
+        "database/migrations/*_add_fallback_channel_to_notifications.php"
+      ],
+      "verification": "Block WhatsApp (invalid number); verify SMS sent after 1 hour timeout",
+      "passes": false
+    },
+    {
+      "id": "COM-005",
+      "category": "realtime_broadcasting",
+      "priority": "CRITICAL",
+      "title": "Install and Configure Laravel Reverb",
+      "description": "Set up Laravel Reverb as the WebSocket server for real-time broadcasting. This replaces the need for Pusher and runs self-hosted.",
+      "steps": [
+        "Run: composer require laravel/reverb",
+        "Run: php artisan reverb:install",
+        "Configure .env with Reverb settings",
+        "Update config/broadcasting.php to use reverb driver",
+        "Create reverb.php config file if not auto-generated",
+        "Set up Supervisor to run reverb:start in production",
+        "Configure CORS for WebSocket connections",
+        "Test WebSocket connection from browser console"
+      ],
+      "envConfig": {
+        "BROADCAST_CONNECTION": "reverb",
+        "REVERB_APP_ID": "propmanager",
+        "REVERB_APP_KEY": "propmanager-key",
+        "REVERB_APP_SECRET": "generate-secure-secret",
+        "REVERB_HOST": "localhost",
+        "REVERB_PORT": 8080,
+        "REVERB_SCHEME": "http"
+      },
+      "files": [
+        "composer.json",
+        ".env",
+        ".env.example",
+        "config/broadcasting.php",
+        "config/reverb.php"
+      ],
+      "verification": "Run php artisan reverb:start; connect from browser; see connection in Reverb logs",
+      "passes": false
+    },
+    {
+      "id": "COM-006",
+      "category": "realtime_broadcasting",
+      "priority": "CRITICAL",
+      "title": "Install and Configure Laravel Echo Frontend",
+      "description": "Set up Laravel Echo on the Vue 3 frontend to receive real-time broadcasts from Reverb.",
+      "steps": [
+        "Run: npm install laravel-echo pusher-js",
+        "Create Echo configuration in resources/js/echo.js",
+        "Import and initialize Echo in resources/js/app.js",
+        "Add Vite env variables for Reverb connection",
+        "Create useEcho() composable for component usage",
+        "Test private channel subscription",
+        "Implement reconnection logic for dropped connections",
+        "Add connection status indicator to UI (optional)"
+      ],
+      "frontendConfig": {
+        "file": "resources/js/echo.js",
+        "content": "import Echo from 'laravel-echo';\nimport Pusher from 'pusher-js';\n\nwindow.Pusher = Pusher;\n\nwindow.Echo = new Echo({\n  broadcaster: 'reverb',\n  key: import.meta.env.VITE_REVERB_APP_KEY,\n  wsHost: import.meta.env.VITE_REVERB_HOST,\n  wsPort: import.meta.env.VITE_REVERB_PORT ?? 80,\n  wssPort: import.meta.env.VITE_REVERB_PORT ?? 443,\n  forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',\n  enabledTransports: ['ws', 'wss'],\n});"
+      },
+      "files": [
+        "package.json",
+        "resources/js/echo.js",
+        "resources/js/app.js",
+        "resources/js/composables/useEcho.ts",
+        ".env"
+      ],
+      "verification": "Open browser console; verify Echo connects; subscribe to test channel",
+      "passes": false
+    },
+    {
+      "id": "COM-007",
+      "category": "realtime_broadcasting",
+      "priority": "CRITICAL",
+      "title": "Create Private Channel Authorization",
+      "description": "Set up private channels for landlord and tenant dashboards. Each user should only receive broadcasts for their own data.",
+      "steps": [
+        "Create channel authorization in routes/channels.php",
+        "Define landlord.{landlordId} private channel",
+        "Define tenant.{tenantId} private channel",
+        "Define lease.{leaseId} private channel for shared events",
+        "Implement authorization callbacks with proper guards",
+        "Test unauthorized access is rejected",
+        "Add logging for channel subscription attempts"
+      ],
+      "channels": {
+        "landlord.{landlordId}": "User is the landlord or caretaker of landlord",
+        "tenant.{tenantId}": "User is the tenant",
+        "lease.{leaseId}": "User is landlord/caretaker OR tenant of this lease",
+        "notifications.{userId}": "User owns this notification feed"
+      },
+      "files": [
+        "routes/channels.php",
+        "app/Broadcasting/LandlordChannel.php",
+        "app/Broadcasting/TenantChannel.php",
+        "app/Broadcasting/LeaseChannel.php"
+      ],
+      "pattern": {
+        "correct": "Broadcast::channel('landlord.{landlordId}', function ($user, $landlordId) {\n    return $user->id === (int) $landlordId || $user->landlord_id === (int) $landlordId;\n});"
+      },
+      "verification": "Subscribe to channel as authorized user (success); subscribe as wrong user (failure)",
+      "passes": false
+    },
+    {
+      "id": "COM-008",
+      "category": "realtime_broadcasting",
+      "priority": "CRITICAL",
+      "title": "Create PaymentReceived Broadcast Event",
+      "description": "Broadcast payment confirmations to both landlord and tenant dashboards in real-time. This is the highest-value real-time event.",
+      "steps": [
+        "Create PaymentReceived event class implementing ShouldBroadcast",
+        "Define broadcastOn() to send to both landlord and tenant channels",
+        "Include payment details, updated balance, and invoice status",
+        "Dispatch event from PaymentController::recordPayment()",
+        "Dispatch event from M-Pesa webhook on successful payment",
+        "Dispatch event from Paystack webhook on successful payment",
+        "Add WhatsApp notification trigger from same event",
+        "Create frontend handler in Dashboard.vue and TenantFinances.vue"
+      ],
+      "eventPayload": {
+        "payment_id": "int",
+        "amount": "float",
+        "reference": "string",
+        "payment_method": "string",
+        "invoice_id": "int",
+        "invoice_status": "string",
+        "remaining_balance": "float",
+        "tenant_name": "string",
+        "unit_name": "string"
+      },
+      "files": [
+        "app/Events/PaymentReceived.php",
+        "app/Http/Controllers/PaymentController.php",
+        "app/Http/Controllers/Api/MpesaWebhookController.php",
+        "app/Http/Controllers/Api/PaystackWebhookController.php",
+        "resources/js/Pages/Dashboard.vue",
+        "resources/js/Pages/TenantFinances/Index.vue"
+      ],
+      "verification": "Record payment; verify real-time update on both dashboards without page refresh",
+      "passes": false
+    },
+    {
+      "id": "COM-009",
+      "category": "realtime_broadcasting",
+      "priority": "HIGH",
+      "title": "Replace M-Pesa Polling with Real-time Updates",
+      "description": "The TenantFinances/Pay.vue currently polls for M-Pesa STK Push status. Replace with WebSocket listener for instant feedback.",
+      "steps": [
+        "Identify current polling logic in Pay.vue (setInterval for status check)",
+        "Create MpesaPaymentStatusChanged event",
+        "Dispatch event from MpesaWebhookController::stkCallback()",
+        "Add Echo listener in Pay.vue for payment status",
+        "Show real-time status updates: processing → success/failed",
+        "Remove polling interval after WebSocket connection established",
+        "Add fallback polling for WebSocket connection failures",
+        "Implement optimistic UI update before server confirmation"
+      ],
+      "files": [
+        "app/Events/MpesaPaymentStatusChanged.php",
+        "app/Http/Controllers/Api/MpesaWebhookController.php",
+        "resources/js/Pages/TenantFinances/Pay.vue"
+      ],
+      "pattern": {
+        "incorrect": "const checkStatus = setInterval(async () => { await fetch('/mpesa/status'); }, 3000);",
+        "correct": "Echo.private(`tenant.${tenantId}`).listen('MpesaPaymentStatusChanged', (e) => { updatePaymentStatus(e); });"
+      },
+      "verification": "Initiate M-Pesa payment; verify instant UI update on callback (no 3-second delay)",
+      "passes": false
+    },
+    {
+      "id": "COM-010",
+      "category": "realtime_broadcasting",
+      "priority": "HIGH",
+      "title": "Real-time Notification Badge Updates",
+      "description": "Update the notification bell badge count in real-time when new notifications arrive, without requiring page refresh.",
+      "steps": [
+        "Create NewNotification event for badge updates",
+        "Dispatch event from NotificationService::send() after in_app delivery",
+        "Add Echo listener in NotificationBell.vue",
+        "Increment badge count on new notification",
+        "Play notification sound (optional, respect user preference)",
+        "Show toast/snackbar for high-priority notifications",
+        "Update navBadges in Inertia shared data"
+      ],
+      "files": [
+        "app/Events/NewNotification.php",
+        "app/Services/NotificationService.php",
+        "resources/js/Components/NotificationBell.vue",
+        "resources/js/Layouts/AuthenticatedLayout.vue"
+      ],
+      "verification": "Send notification to user; verify badge updates instantly without refresh",
+      "passes": false
+    },
+    {
+      "id": "COM-011",
+      "category": "notification_routing",
+      "priority": "HIGH",
+      "title": "Implement Urgency-Based Channel Selection",
+      "description": "Different notification types have different urgency levels. Critical notifications should use more aggressive channels.",
+      "steps": [
+        "Define urgency levels: critical, urgent, important, informational",
+        "Map notification types to urgency levels",
+        "Implement getChannelsForUrgency() method in NotificationService",
+        "Critical: WhatsApp + SMS + Push + In-app (all channels)",
+        "Urgent: WhatsApp + Push + In-app",
+        "Important: WhatsApp + Email + In-app",
+        "Informational: Email + In-app only",
+        "Add urgency field to notifications table for tracking"
+      ],
+      "urgencyMapping": {
+        "critical": ["payment_failed", "eviction_notice"],
+        "urgent": ["arrears_notice", "lease_expiry"],
+        "important": ["invoice", "rent_reminder", "rent_hike"],
+        "informational": ["receipt", "maintenance_update", "general"]
+      },
+      "files": [
+        "app/Services/NotificationService.php",
+        "app/Enums/NotificationUrgency.php",
+        "database/migrations/*_add_urgency_to_notifications.php"
+      ],
+      "verification": "Send critical notification; verify all channels attempted",
+      "passes": false
+    },
+    {
+      "id": "COM-012",
+      "category": "notification_routing",
+      "priority": "HIGH",
+      "title": "Implement Quiet Hours Respect",
+      "description": "Respect tenant quiet hours preferences. Non-urgent notifications should be queued for delivery after quiet hours end.",
+      "steps": [
+        "Audit current quiet hours implementation in NotificationService",
+        "Ensure quiet hours check happens before send, not after queue",
+        "Queue non-urgent notifications for quiet_hours_end time",
+        "Allow critical/urgent notifications to bypass quiet hours",
+        "Store tenant timezone for accurate quiet hours calculation",
+        "Add 'sent during quiet hours' flag for compliance tracking",
+        "Update preference UI to clearly show quiet hours impact"
+      ],
+      "quietHoursLogic": {
+        "default_start": "22:00",
+        "default_end": "08:00",
+        "bypass_for": ["critical", "urgent"],
+        "queue_for": ["important", "informational"]
+      },
+      "files": [
+        "app/Services/NotificationService.php",
+        "app/Models/NotificationPreference.php",
+        "app/Jobs/SendNotificationJob.php"
+      ],
+      "verification": "Set quiet hours 22:00-08:00; send informational notification at 23:00; verify queued for 08:00",
+      "passes": false
+    },
+    {
+      "id": "COM-013",
+      "category": "two_way_communication",
+      "priority": "MEDIUM",
+      "title": "Implement WhatsApp Inbound Message Webhook",
+      "description": "Handle incoming WhatsApp messages from tenants. Capture responses and create actionable records.",
+      "steps": [
+        "Create inbound webhook endpoint: POST /webhooks/whatsapp/inbound",
+        "Parse Twilio inbound message payload",
+        "Match sender phone to tenant user record",
+        "Determine context (reply to notification vs new message)",
+        "Create TenantMessage model to store inbound messages",
+        "Link message to original notification if reply",
+        "Notify landlord/caretaker of new tenant message",
+        "Auto-create support ticket for certain keywords"
+      ],
+      "autoActions": {
+        "YES": "Lease renewal acceptance",
+        "NO": "Lease renewal rejection",
+        "HELP": "Create support ticket",
+        "ISSUE": "Create maintenance ticket",
+        "PAYMENT": "Send payment link"
+      },
+      "files": [
+        "app/Http/Controllers/Api/WhatsAppWebhookController.php",
+        "app/Models/TenantMessage.php",
+        "database/migrations/*_create_tenant_messages_table.php",
+        "app/Services/TenantMessageService.php"
+      ],
+      "verification": "Reply to WhatsApp notification; verify message captured in TenantMessage table",
+      "passes": false
+    },
+    {
+      "id": "COM-014",
+      "category": "two_way_communication",
+      "priority": "MEDIUM",
+      "title": "Create Landlord Inbox for Tenant Messages",
+      "description": "Landlords need a unified inbox to see all tenant messages across WhatsApp, SMS, and email responses.",
+      "steps": [
+        "Create Inbox page component: resources/js/Pages/Inbox/Index.vue",
+        "Add route: GET /inbox",
+        "Create InboxController with message listing and reply functionality",
+        "Show messages grouped by tenant",
+        "Display message thread with original notification context",
+        "Allow landlord to reply (sends via same channel tenant used)",
+        "Mark messages as read/unread",
+        "Add inbox badge to navigation"
+      ],
+      "files": [
+        "app/Http/Controllers/InboxController.php",
+        "resources/js/Pages/Inbox/Index.vue",
+        "resources/js/Pages/Inbox/Show.vue",
+        "routes/web.php",
+        "resources/js/Layouts/AuthenticatedLayout.vue"
+      ],
+      "verification": "Receive tenant WhatsApp reply; see in inbox; reply; verify tenant receives response",
+      "passes": false
+    },
+    {
+      "id": "COM-015",
+      "category": "two_way_communication",
+      "priority": "MEDIUM",
+      "title": "Auto-Create Support Tickets from Tenant Messages",
+      "description": "When tenants send messages containing issue keywords, automatically create support tickets with context.",
+      "steps": [
+        "Define keyword patterns for ticket creation: 'problem', 'broken', 'issue', 'repair', etc.",
+        "Create TenantMessageAnalyzer service for keyword detection",
+        "Auto-create Ticket when keywords detected",
+        "Attach original message and notification context to ticket",
+        "Notify caretaker of new ticket via push/WhatsApp",
+        "Send confirmation to tenant that ticket was created",
+        "Add ticket link to landlord inbox message view"
+      ],
+      "keywordPatterns": [
+        "(?i)(broken|problem|issue|repair|fix|leak|water|electricity|plumbing)",
+        "(?i)(urgent|emergency|help|stuck)",
+        "(?i)(not working|doesn't work|stopped working)"
+      ],
+      "files": [
+        "app/Services/TenantMessageAnalyzer.php",
+        "app/Services/TenantMessageService.php",
+        "app/Models/Ticket.php"
+      ],
+      "verification": "Send WhatsApp message with 'broken pipe'; verify Ticket created automatically",
+      "passes": false
+    },
+    {
+      "id": "COM-016",
+      "category": "dashboard_sync",
+      "priority": "HIGH",
+      "title": "Real-time Landlord Dashboard Metrics Update",
+      "description": "When payments are received, update landlord dashboard financial metrics in real-time without page refresh.",
+      "steps": [
+        "Identify metrics affected by payments: Monthly Revenue, Collection Rate, Arrears",
+        "Add metrics calculation to PaymentReceived event payload",
+        "Create Echo listener in Dashboard.vue for payment events",
+        "Implement incremental metric updates (add to current, don't refetch)",
+        "Show visual indicator when metrics update (subtle animation)",
+        "Update recentPayments list with new payment",
+        "Update unit status if payment clears arrears"
+      ],
+      "metricsToUpdate": [
+        "financialMetrics.monthly_revenue",
+        "financialMetrics.collection_rate",
+        "financialMetrics.total_arrears",
+        "recentPayments",
+        "units[].status (if arrears cleared)"
+      ],
+      "files": [
+        "resources/js/Pages/Dashboard.vue",
+        "app/Events/PaymentReceived.php",
+        "app/Services/DashboardService.php"
+      ],
+      "verification": "Record payment; verify dashboard metrics update instantly",
+      "passes": false
+    },
+    {
+      "id": "COM-017",
+      "category": "dashboard_sync",
+      "priority": "HIGH",
+      "title": "Real-time Ticket Status Synchronization",
+      "description": "When ticket status changes, update both landlord dashboard (action items) and tenant dashboard (my tickets) in real-time.",
+      "steps": [
+        "Create TicketStatusChanged event implementing ShouldBroadcast",
+        "Dispatch from TicketController::update() on status change",
+        "Broadcast to landlord.{landlordId} and tenant.{tenantId} channels",
+        "Add Echo listener in landlord Dashboard.vue for ticket updates",
+        "Add Echo listener in tenant Dashboard.vue for ticket updates",
+        "Update action items count on landlord dashboard",
+        "Update ticket status in tenant 'My Tickets' widget",
+        "Send WhatsApp notification to tenant on status change"
+      ],
+      "files": [
+        "app/Events/TicketStatusChanged.php",
+        "app/Http/Controllers/TicketController.php",
+        "resources/js/Pages/Dashboard.vue",
+        "resources/js/Pages/Tenant/Dashboard.vue"
+      ],
+      "verification": "Change ticket status; verify both dashboards update without refresh",
+      "passes": false
+    },
+    {
+      "id": "COM-018",
+      "category": "dashboard_sync",
+      "priority": "MEDIUM",
+      "title": "Real-time Invitation Status Updates",
+      "description": "When a caretaker or tenant accepts an invitation, notify the landlord dashboard in real-time.",
+      "steps": [
+        "Create InvitationAccepted event implementing ShouldBroadcast",
+        "Dispatch from InvitationController::accept()",
+        "Broadcast to landlord.{landlordId} channel",
+        "Add Echo listener in relevant landlord pages",
+        "Update invitation list status without refresh",
+        "Show toast notification with acceptance details",
+        "Update caretaker/tenant count in navigation badges"
+      ],
+      "files": [
+        "app/Events/InvitationAccepted.php",
+        "app/Http/Controllers/InvitationController.php",
+        "resources/js/Pages/Invitations/Index.vue",
+        "resources/js/Layouts/AuthenticatedLayout.vue"
+      ],
+      "verification": "Accept invitation; verify landlord sees status change instantly",
+      "passes": false
+    },
+    {
+      "id": "COM-019",
+      "category": "dashboard_sync",
+      "priority": "MEDIUM",
+      "title": "Implement Connection Status Indicator",
+      "description": "Show users when their WebSocket connection is active, reconnecting, or disconnected. Provide fallback behavior.",
+      "steps": [
+        "Create ConnectionStatus.vue component",
+        "Listen to Echo connection state changes",
+        "Show subtle indicator in header/footer",
+        "Implement automatic reconnection with exponential backoff",
+        "Switch to polling fallback when WebSocket unavailable for 30+ seconds",
+        "Log connection issues for debugging",
+        "Track connection quality metrics"
+      ],
+      "connectionStates": {
+        "connected": "Green dot, no text",
+        "connecting": "Yellow dot, 'Connecting...'",
+        "disconnected": "Red dot, 'Offline - updates may be delayed'"
+      },
+      "files": [
+        "resources/js/Components/ConnectionStatus.vue",
+        "resources/js/composables/useEcho.ts",
+        "resources/js/Layouts/AuthenticatedLayout.vue"
+      ],
+      "verification": "Disconnect network; verify indicator shows offline; reconnect; verify indicator shows online",
+      "passes": false
+    },
+    {
+      "id": "COM-020",
+      "category": "whatsapp_integration",
+      "priority": "LOW",
+      "title": "Implement WhatsApp Payment Link Generation",
+      "description": "When sending rent reminders or arrears notices via WhatsApp, include a clickable payment link that deep-links to the payment page.",
+      "steps": [
+        "Generate signed URLs for tenant payment pages",
+        "Add payment_link variable to WhatsApp templates",
+        "Include M-Pesa paybill details in template",
+        "Track payment link clicks (via redirect route)",
+        "Expire payment links after invoice is paid",
+        "Add UTM parameters for analytics tracking"
+      ],
+      "linkFormat": "https://propmanager.co.ke/pay/{signedToken}",
+      "files": [
+        "app/Services/PaymentLinkService.php",
+        "app/Http/Controllers/PaymentLinkController.php",
+        "routes/web.php",
+        "app/Services/NotificationService.php"
+      ],
+      "verification": "Click payment link in WhatsApp; verify redirects to payment page with correct invoice",
+      "passes": false
+    }
+  ],
+  "progressTracking": {
+    "description": "Track progress in progress.txt file, committed to repo after each task",
+    "format": {
+      "taskCompleted": "Task ID and title",
+      "decisionsMade": "Key decisions and reasoning",
+      "filesChanged": "List of modified files",
+      "blockers": "Any blockers or notes for next iteration"
+    }
+  },
+  "completionCriteria": {
+    "metrics": [
+      "WhatsApp delivery rate > 95% for opted-in tenants",
+      "Real-time update latency < 500ms (WebSocket)",
+      "Fallback to SMS triggers within 1 hour of WhatsApp failure",
+      "100% of Meta WhatsApp templates approved",
+      "Zero missed notifications (multi-channel ensures delivery)",
+      "Quiet hours compliance: 0 non-urgent notifications during quiet hours",
+      "Two-way message capture rate: 100% of inbound WhatsApp messages logged",
+      "All PHPUnit tests passing",
+      "All Pint style checks passing",
+      "Reverb WebSocket server stable under 1000 concurrent connections"
+    ],
+    "outputSignal": "<promise>COMPLETE</promise>"
+  }
+}

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Traits\TenantScope;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 
 class NotificationPreference extends Model
@@ -103,6 +104,54 @@ class NotificationPreference extends Model
     public function canReceive(string $type, string $channel): bool
     {
         return $this->isTypeEnabled($type) && $this->isChannelEnabled($channel);
+    }
+
+    /**
+     * Validate that whatsapp_number is in E.164 format.
+     * E.164 format: +[country code][number] e.g., +254712345678
+     */
+    public function isValidE164WhatsAppNumber(): bool
+    {
+        if (empty($this->whatsapp_number)) {
+            return false;
+        }
+
+        return (bool) preg_match('/^\+[1-9]\d{1,14}$/', $this->whatsapp_number);
+    }
+
+    /**
+     * Format a phone number to E.164 format for Kenya.
+     * Converts 0712345678 or 254712345678 to +254712345678
+     */
+    public static function formatToE164(string $phone, string $countryCode = '254'): ?string
+    {
+        $cleaned = preg_replace('/[^\d+]/', '', $phone);
+
+        if (preg_match('/^\+[1-9]\d{1,14}$/', $cleaned)) {
+            return $cleaned;
+        }
+
+        $cleaned = ltrim($cleaned, '+');
+
+        if (str_starts_with($cleaned, '0')) {
+            $cleaned = $countryCode.substr($cleaned, 1);
+        }
+
+        if (str_starts_with($cleaned, $countryCode)) {
+            return '+'.$cleaned;
+        }
+
+        return null;
+    }
+
+    /**
+     * Mutator to automatically format whatsapp_number to E.164.
+     */
+    protected function whatsappNumber(): Attribute
+    {
+        return Attribute::make(
+            set: fn (?string $value) => $value ? self::formatToE164($value) : null,
+        );
     }
 
     /**

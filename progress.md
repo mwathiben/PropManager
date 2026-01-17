@@ -4744,3 +4744,56 @@ All 18 SYS tasks have been processed:
 - **1 task**: Already resolved (SYS-014)
 
 <promise>COMPLETE</promise>
+
+---
+
+# Dashboard Communication PRD
+# Started: 2026-01-17
+
+---
+
+## COM-001: Set WhatsApp as Primary Notification Channel
+**Status:** PASSED
+**Date:** 2026-01-17
+**Attempts:** 1
+
+### Implementation Summary
+
+Modified the notification system to prioritize WhatsApp as the primary channel when a user has a valid WhatsApp number configured. Added E.164 phone number validation and auto-formatting.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Services/NotificationService.php` | Added `prioritizeChannels()` method, updated channel ordering in `send()` |
+| `app/Models/NotificationPreference.php` | Added `isValidE164WhatsAppNumber()`, `formatToE164()`, whatsappNumber mutator |
+| `app/Http/Controllers/NotificationsController.php` | Updated whatsapp_number validation with E.164 regex |
+| `resources/js/Pages/Settings/partials/NotificationsTab.vue` | Reordered channels (WhatsApp first), added "Primary" badge |
+
+### Key Changes
+
+**Channel Prioritization Logic:**
+- Users with valid WhatsApp (`whatsapp_enabled=true` + valid E.164 number) get: `['whatsapp', 'sms', 'email', 'push', 'in_app']`
+- Users without WhatsApp get default: `['email', 'sms', 'whatsapp', 'push', 'in_app']`
+
+**E.164 Validation:**
+- Format: `+[country code][number]` (e.g., `+254712345678`)
+- Auto-formatting: `0712345678` → `+254712345678`
+- Regex validation on controller input
+
+**Frontend:**
+- WhatsApp now first in channel selection
+- "Primary" badge displayed next to WhatsApp
+
+### Acceptance Criteria Verification
+
+1. **WhatsApp prioritized when available** - `prioritizeChannels()` returns WhatsApp-first order
+2. **E.164 validation** - `isValidE164WhatsAppNumber()` validates format
+3. **Auto-formatting** - Mutator converts local formats to E.164
+4. **UI shows WhatsApp as primary** - Reordered channels with badge
+
+### Verification Results
+
+- Pint: Passed (473 files)
+- Tests: 29 passed, 2 skipped (notification tests)
+- Build: Success

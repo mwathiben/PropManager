@@ -323,7 +323,7 @@ class NotificationsController extends Controller
             'whatsapp_enabled' => 'boolean',
             'rent_reminder_days_before' => 'nullable|integer|min:1|max:30',
             'preferred_time' => 'nullable|date_format:H:i',
-            'whatsapp_number' => 'nullable|string|max:20',
+            'whatsapp_number' => ['nullable', 'string', 'max:20', 'regex:/^(\+?[1-9]\d{1,14}|0[71]\d{8})$/'],
         ]);
 
         $user = auth()->user();

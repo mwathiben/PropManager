@@ -46,9 +46,9 @@ const notificationTypes = [
 ];
 
 const channels = [
-    { key: 'email_enabled', label: 'Email', icon: EnvelopeIcon, color: 'text-blue-600', bg: 'bg-blue-100' },
+    { key: 'whatsapp_enabled', label: 'WhatsApp', icon: ChatBubbleLeftRightIcon, color: 'text-emerald-600', bg: 'bg-emerald-100', isPrimary: true },
     { key: 'sms_enabled', label: 'SMS', icon: DevicePhoneMobileIcon, color: 'text-green-600', bg: 'bg-green-100' },
-    { key: 'whatsapp_enabled', label: 'WhatsApp', icon: ChatBubbleLeftRightIcon, color: 'text-emerald-600', bg: 'bg-emerald-100' },
+    { key: 'email_enabled', label: 'Email', icon: EnvelopeIcon, color: 'text-blue-600', bg: 'bg-blue-100' },
 ];
 
 const submit = () => {
@@ -104,6 +104,12 @@ const submit = () => {
                                 form[channel.key] ? 'text-indigo-900' : 'text-gray-700'
                             ]">
                                 {{ channel.label }}
+                            </span>
+                            <span
+                                v-if="channel.isPrimary"
+                                class="ml-1.5 px-1.5 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700 rounded"
+                            >
+                                Primary
                             </span>
                             <div class="ml-auto">
                                 <div :class="[
@@ -174,7 +180,7 @@ const submit = () => {
             <!-- Info Banner -->
             <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
                 <div class="flex gap-3">
-                    <BellIcon class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <BellIcon class="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
                     <div class="text-sm text-blue-800">
                         <p class="font-medium">These are default settings</p>
                         <p class="mt-1">
