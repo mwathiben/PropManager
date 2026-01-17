@@ -659,4 +659,46 @@ class DashboardService
             'payments' => $leasePayments,
         ];
     }
+
+    /**
+     * Calculate quick metrics for real-time broadcast updates.
+     * Used by PaymentReceived event to include updated metrics in payload.
+     */
+    public function calculateQuickMetrics(int $landlordId): array
+    {
+        $leaseIds = Lease::where('landlord_id', $landlordId)
+            ->where('is_active', true)
+            ->pluck('id');
+
+        $expectedRevenue = Lease::whereIn('id', $leaseIds)->sum('rent_amount');
+
+        $monthlyRevenue = Payment::whereHas('invoice.lease', fn ($q) => $q->whereIn('id', $leaseIds))
+            ->whereMonth('payment_date', now()->month)
+            ->whereYear('payment_date', now()->year)
+            ->sum('amount');
+
+        $collectionRate = $expectedRevenue > 0
+            ? round(($monthlyRevenue / $expectedRevenue) * 100, 1)
+            : 0;
+
+        $totalArrears = Invoice::whereHas('lease', fn ($q) => $q->whereIn('id', $leaseIds))
+            ->whereIn('status', ['overdue', 'partial'])
+            ->selectRaw('COALESCE(SUM(total_due - amount_paid), 0) as total')
+            ->value('total') ?? 0;
+
+        return [
+            'financial' => [
+                'monthly_revenue' => (float) $monthlyRevenue,
+                'expected_revenue' => (float) $expectedRevenue,
+                'collection_rate' => $collectionRate,
+                'total_arrears' => (float) $totalArrears,
+            ],
+            'arrears_aging' => [
+                '0_30' => $this->getArrearsInRangeForLeases($leaseIds, 0, 30),
+                '31_60' => $this->getArrearsInRangeForLeases($leaseIds, 31, 60),
+                '61_90' => $this->getArrearsInRangeForLeases($leaseIds, 61, 90),
+                '90_plus' => $this->getArrearsInRangeForLeases($leaseIds, 91, 9999),
+            ],
+        ];
+    }
 }

@@ -599,7 +599,8 @@
         "app/Services/DashboardService.php"
       ],
       "verification": "Record payment; verify dashboard metrics update instantly",
-      "passes": false
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "COM-017",

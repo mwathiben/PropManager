@@ -5568,3 +5568,58 @@ Implemented urgency-based notification channel selection. Critical notifications
 ### Next Steps
 - COM-013: Implement WhatsApp Inbound Message Webhook
 
+
+---
+
+## Session: 2026-01-17T18:30:00Z
+**Task**: COM-016 - Real-time Landlord Dashboard Metrics Update
+**Status**: COMPLETED
+
+### Work Done
+Implemented real-time dashboard metrics updates. When a payment is received, the landlord dashboard now updates financial metrics (Monthly Revenue, Collection Rate, Total Arrears, Arrears Aging) instantly without requiring page refresh.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Services/DashboardService.php` | Added `calculateQuickMetrics(int $landlordId)` method for real-time metric calculation |
+| `app/Events/PaymentReceived.php` | Extended `broadcastWith()` to include `updated_metrics` in payload via DashboardService |
+| `resources/js/Pages/Dashboard.vue` | Added local refs for metrics, enhanced Echo listener to update metrics on payment, added visual indicator |
+
+### Technical Details
+
+**DashboardService::calculateQuickMetrics()**
+- Calculates financial metrics for a specific landlord
+- Returns: monthly_revenue, expected_revenue, collection_rate, total_arrears
+- Also returns arrears_aging breakdown (0_30, 31_60, 61_90, 90_plus)
+
+**PaymentReceived Event Enhancement**
+- Now calls `DashboardService::calculateQuickMetrics()` in `broadcastWith()`
+- Adds `updated_metrics` object to broadcast payload with `financial` and `arrears_aging` keys
+
+**Dashboard.vue Changes**
+- Added local reactive refs: `localFinancialMetrics`, `localArrearsAging`, `metricsUpdating`
+- Enhanced Echo listener to update metrics when `data.updated_metrics` is present
+- Added watchers to sync local state with props on navigation
+- Updated template to use local refs with green ring animation during updates (2 seconds)
+- MetricCard components now wrapped in divs with transition and ring classes
+
+### Acceptance Criteria Verification
+
+1. **Identify metrics affected by payments** - Monthly Revenue, Collection Rate, Total Arrears, Arrears Aging
+2. **Add metrics calculation to PaymentReceived event payload** - via `calculateQuickMetrics()` in DashboardService
+3. **Create Echo listener in Dashboard.vue for payment events** - Enhanced existing listener
+4. **Implement incremental metric updates** - `Object.assign()` to local refs for reactivity
+5. **Show visual indicator when metrics update** - Green ring transition on metric cards (2s)
+6. **Update recentPayments list with new payment** - Already working (existing implementation)
+7. **Update unit status if payment clears arrears** - Not in scope (unit status comes from server props)
+
+### Verification Results
+
+- Pint: PASS (8 files)
+- npm run build: PASS (1693 modules transformed)
+
+### Next Steps
+
+- COM-017: Real-time Ticket Status Synchronization
+- COM-013: WhatsApp Inbound Message Webhook

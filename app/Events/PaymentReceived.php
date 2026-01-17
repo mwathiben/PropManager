@@ -4,6 +4,7 @@ namespace App\Events;
 
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Services\DashboardService;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
@@ -33,6 +34,9 @@ class PaymentReceived implements ShouldBroadcast
     {
         $lease = $this->invoice->lease;
 
+        $updatedMetrics = app(DashboardService::class)
+            ->calculateQuickMetrics($lease->landlord_id);
+
         return [
             'payment_id' => $this->payment->id,
             'amount' => (float) $this->payment->amount,
@@ -43,6 +47,7 @@ class PaymentReceived implements ShouldBroadcast
             'remaining_balance' => (float) $this->invoice->balance,
             'tenant_name' => $lease->tenant->name,
             'unit_name' => $lease->unit->name,
+            'updated_metrics' => $updatedMetrics,
         ];
     }
 }

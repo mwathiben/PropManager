@@ -75,6 +75,12 @@ const loadingUnitDetail = ref(false);
 const activeWingFilter = ref(props.activeWingId || null);
 const activeFloorFilter = ref(props.activeFloor || null);
 
+// Local state for real-time updates (initialized from props)
+const localRecentPayments = ref([...(props.recentPayments || [])]);
+const localFinancialMetrics = ref({ ...props.financialMetrics });
+const localArrearsAging = ref({ ...props.arrearsAging });
+const metricsUpdating = ref(false);
+
 // Fetch unit detail when a unit is selected
 watch(() => selectedUnit.value, async (unit) => {
     if (unit && unit.status === 'occupied') {
@@ -166,10 +172,10 @@ const viewPayment = (payment) => {
 const { formatMoney, formatDate, formatRelativeDate } = useFormatters();
 
 const totalArrears = computed(() => {
-    return (props.arrearsAging?.['0_30'] || 0) +
-           (props.arrearsAging?.['31_60'] || 0) +
-           (props.arrearsAging?.['61_90'] || 0) +
-           (props.arrearsAging?.['90_plus'] || 0);
+    return (localArrearsAging.value?.['0_30'] || 0) +
+           (localArrearsAging.value?.['31_60'] || 0) +
+           (localArrearsAging.value?.['61_90'] || 0) +
+           (localArrearsAging.value?.['90_plus'] || 0);
 });
 
 const getArrearsPercentage = (amount) => {
@@ -253,7 +259,17 @@ const selectUnitById = (unitId) => {
 
 // --- REAL-TIME UPDATES ---
 const { subscribePrivate, unsubscribe } = useEcho();
-const localRecentPayments = ref([...(props.recentPayments || [])]);
+
+// Sync local state with props on navigation
+watch(() => props.financialMetrics, (newVal) => {
+    if (newVal) Object.assign(localFinancialMetrics.value, newVal);
+}, { deep: true });
+watch(() => props.arrearsAging, (newVal) => {
+    if (newVal) Object.assign(localArrearsAging.value, newVal);
+}, { deep: true });
+watch(() => props.recentPayments, (newVal) => {
+    if (newVal) localRecentPayments.value = [...newVal];
+}, { deep: true });
 
 // Get user ID for landlord channel subscription
 const userId = computed(() => {
@@ -282,6 +298,14 @@ onMounted(() => {
             // Keep only the 10 most recent
             if (localRecentPayments.value.length > 10) {
                 localRecentPayments.value.pop();
+            }
+
+            // Update financial metrics in real-time
+            if (data.updated_metrics) {
+                metricsUpdating.value = true;
+                Object.assign(localFinancialMetrics.value, data.updated_metrics.financial);
+                Object.assign(localArrearsAging.value, data.updated_metrics.arrears_aging);
+                setTimeout(() => metricsUpdating.value = false, 2000);
             }
         });
     }
@@ -550,38 +574,44 @@ onUnmounted(() => {
 
             <!-- === KEY METRICS === -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <MetricCard
-                    title="Monthly Revenue"
-                    :value="formatMoney(financialMetrics.monthly_revenue)"
-                    :subtitle="'Expected: ' + formatMoney(financialMetrics.expected_revenue)"
-                    :icon="BanknotesIcon"
-                    iconBgColor="bg-green-100"
-                    iconColor="text-green-600"
-                    :href="route('invoices.index')"
-                    :trend="financialMetrics.collection_rate >= 80
-                        ? { direction: 'up', value: financialMetrics.collection_rate + '%' }
-                        : { direction: 'down', value: financialMetrics.collection_rate + '%' }"
-                />
+                <div :class="['transition-all duration-500 rounded-2xl', metricsUpdating ? 'ring-2 ring-green-400 ring-opacity-60' : '']">
+                    <MetricCard
+                        title="Monthly Revenue"
+                        :value="formatMoney(localFinancialMetrics.monthly_revenue)"
+                        :subtitle="'Expected: ' + formatMoney(localFinancialMetrics.expected_revenue)"
+                        :icon="BanknotesIcon"
+                        iconBgColor="bg-green-100"
+                        iconColor="text-green-600"
+                        :href="route('invoices.index')"
+                        :trend="localFinancialMetrics.collection_rate >= 80
+                            ? { direction: 'up', value: localFinancialMetrics.collection_rate + '%' }
+                            : { direction: 'down', value: localFinancialMetrics.collection_rate + '%' }"
+                    />
+                </div>
 
-                <MetricCard
-                    title="Collection Rate"
-                    :value="financialMetrics.collection_rate + '%'"
-                    subtitle="This month"
-                    :icon="ChartBarIcon"
-                    iconBgColor="bg-blue-100"
-                    iconColor="text-blue-600"
-                    :href="route('reports.index')"
-                />
+                <div :class="['transition-all duration-500 rounded-2xl', metricsUpdating ? 'ring-2 ring-green-400 ring-opacity-60' : '']">
+                    <MetricCard
+                        title="Collection Rate"
+                        :value="localFinancialMetrics.collection_rate + '%'"
+                        subtitle="This month"
+                        :icon="ChartBarIcon"
+                        iconBgColor="bg-blue-100"
+                        iconColor="text-blue-600"
+                        :href="route('reports.index')"
+                    />
+                </div>
 
-                <MetricCard
-                    title="Total Arrears"
-                    :value="formatMoney(financialMetrics.total_arrears)"
-                    subtitle="Outstanding balance"
-                    :icon="ExclamationTriangleIcon"
-                    iconBgColor="bg-red-100"
-                    iconColor="text-red-600"
-                    :href="route('invoices.index', { has_arrears: true })"
-                />
+                <div :class="['transition-all duration-500 rounded-2xl', metricsUpdating ? 'ring-2 ring-green-400 ring-opacity-60' : '']">
+                    <MetricCard
+                        title="Total Arrears"
+                        :value="formatMoney(localFinancialMetrics.total_arrears)"
+                        subtitle="Outstanding balance"
+                        :icon="ExclamationTriangleIcon"
+                        iconBgColor="bg-red-100"
+                        iconColor="text-red-600"
+                        :href="route('invoices.index', { has_arrears: true })"
+                    />
+                </div>
 
                 <MetricCard
                     title="Occupancy Rate"
@@ -820,10 +850,10 @@ onUnmounted(() => {
                                     <div class="w-3 h-3 rounded-full bg-yellow-400"></div>
                                     <span class="text-sm text-gray-600">0-30 days</span>
                                 </div>
-                                <span class="font-semibold text-gray-900">{{ formatMoney(arrearsAging['0_30']) }}</span>
+                                <span class="font-semibold text-gray-900">{{ formatMoney(localArrearsAging['0_30']) }}</span>
                             </div>
                             <div class="w-full bg-gray-100 rounded-full h-2 mt-2">
-                                <div class="bg-yellow-400 h-2 rounded-full" :style="{ width: getArrearsPercentage(arrearsAging['0_30']) + '%' }"></div>
+                                <div class="bg-yellow-400 h-2 rounded-full" :style="{ width: getArrearsPercentage(localArrearsAging['0_30']) + '%' }"></div>
                             </div>
                         </Link>
 
@@ -834,10 +864,10 @@ onUnmounted(() => {
                                     <div class="w-3 h-3 rounded-full bg-orange-400"></div>
                                     <span class="text-sm text-gray-600">31-60 days</span>
                                 </div>
-                                <span class="font-semibold text-gray-900">{{ formatMoney(arrearsAging['31_60']) }}</span>
+                                <span class="font-semibold text-gray-900">{{ formatMoney(localArrearsAging['31_60']) }}</span>
                             </div>
                             <div class="w-full bg-gray-100 rounded-full h-2 mt-2">
-                                <div class="bg-orange-400 h-2 rounded-full" :style="{ width: getArrearsPercentage(arrearsAging['31_60']) + '%' }"></div>
+                                <div class="bg-orange-400 h-2 rounded-full" :style="{ width: getArrearsPercentage(localArrearsAging['31_60']) + '%' }"></div>
                             </div>
                         </Link>
 
@@ -848,10 +878,10 @@ onUnmounted(() => {
                                     <div class="w-3 h-3 rounded-full bg-red-400"></div>
                                     <span class="text-sm text-gray-600">61-90 days</span>
                                 </div>
-                                <span class="font-semibold text-gray-900">{{ formatMoney(arrearsAging['61_90']) }}</span>
+                                <span class="font-semibold text-gray-900">{{ formatMoney(localArrearsAging['61_90']) }}</span>
                             </div>
                             <div class="w-full bg-gray-100 rounded-full h-2 mt-2">
-                                <div class="bg-red-400 h-2 rounded-full" :style="{ width: getArrearsPercentage(arrearsAging['61_90']) + '%' }"></div>
+                                <div class="bg-red-400 h-2 rounded-full" :style="{ width: getArrearsPercentage(localArrearsAging['61_90']) + '%' }"></div>
                             </div>
                         </Link>
 
@@ -862,10 +892,10 @@ onUnmounted(() => {
                                     <div class="w-3 h-3 rounded-full bg-red-700"></div>
                                     <span class="text-sm text-gray-600">90+ days</span>
                                 </div>
-                                <span class="font-semibold text-gray-900">{{ formatMoney(arrearsAging['90_plus']) }}</span>
+                                <span class="font-semibold text-gray-900">{{ formatMoney(localArrearsAging['90_plus']) }}</span>
                             </div>
                             <div class="w-full bg-gray-100 rounded-full h-2 mt-2">
-                                <div class="bg-red-700 h-2 rounded-full" :style="{ width: getArrearsPercentage(arrearsAging['90_plus']) + '%' }"></div>
+                                <div class="bg-red-700 h-2 rounded-full" :style="{ width: getArrearsPercentage(localArrearsAging['90_plus']) + '%' }"></div>
                             </div>
                         </Link>
 
