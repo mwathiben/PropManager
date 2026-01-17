@@ -262,7 +262,8 @@
         "config/reverb.php"
       ],
       "verification": "Run php artisan reverb:start; connect from browser; see connection in Reverb logs",
-      "passes": false
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "COM-006",

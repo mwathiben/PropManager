@@ -4935,3 +4935,75 @@ Implemented Twilio WhatsApp status callback webhook to track message delivery st
 - Build: Success
 - Tests: 29 passed, 2 skipped (notification tests)
 
+
+
+---
+
+## COM-005: Install and Configure Laravel Reverb
+**Status:** PASSED
+**Date:** 2026-01-17
+**Attempts:** 1
+
+### Implementation Summary
+
+Installed Laravel Reverb as the self-hosted WebSocket server for real-time broadcasting. Configured environment variables and published config files.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `config/broadcasting.php` | Broadcasting configuration with Reverb driver |
+| `config/reverb.php` | Reverb server configuration |
+| `routes/channels.php` | Broadcast channel authorization routes |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `composer.json` | Added laravel/reverb v1.7.0 |
+| `.env` | Set BROADCAST_CONNECTION=reverb, added Reverb env vars |
+| `.env.example` | Added Reverb configuration section with env vars |
+| `bootstrap/app.php` | Fixed line ending (Pint auto-fix) |
+
+### Key Configuration
+
+**Environment Variables:**
+```env
+BROADCAST_CONNECTION=reverb
+REVERB_APP_ID=390948
+REVERB_APP_KEY=dvrmad1gkkyllantgpe7
+REVERB_APP_SECRET=kn5qsxzin91syagsx2b4
+REVERB_HOST="localhost"
+REVERB_PORT=8080
+REVERB_SCHEME=http
+VITE_REVERB_APP_KEY="${REVERB_APP_KEY}"
+VITE_REVERB_HOST="${REVERB_HOST}"
+VITE_REVERB_PORT="${REVERB_PORT}"
+VITE_REVERB_SCHEME="${REVERB_SCHEME}"
+```
+
+**Reverb Server Test:**
+```bash
+php artisan reverb:start
+# Output: INFO Starting server on 0.0.0.0:8080 (localhost)
+```
+
+### Acceptance Criteria Verification
+
+1. **Laravel Reverb installed** - composer require laravel/reverb ✓
+2. **Broadcasting config published** - config/broadcasting.php with reverb driver ✓
+3. **Reverb config published** - config/reverb.php with server settings ✓
+4. **Environment configured** - BROADCAST_CONNECTION=reverb set ✓
+5. **Server starts successfully** - php artisan reverb:start runs on port 8080 ✓
+
+### Verification Results
+
+- Pint: Passed (480 files)
+- Build: Success
+- Reverb Start: Success (0.0.0.0:8080)
+
+### Next Steps
+
+- COM-006: Install Laravel Echo frontend (pusher-js)
+- COM-007: Configure private channel authorization
+- COM-008: Create PaymentReceived broadcast event
