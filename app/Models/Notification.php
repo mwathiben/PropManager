@@ -62,6 +62,7 @@ class Notification extends Model
         'status',
         'external_id',
         'error_message',
+        'delivery_reason_code',
         'sent_at',
         'delivered_at',
         'read_at',
@@ -133,6 +134,29 @@ class Notification extends Model
             'status' => 'failed',
             'error_message' => $errorMessage,
         ]);
+    }
+
+    /**
+     * Update notification status from webhook callback
+     */
+    public function updateFromWebhook(string $status, ?string $errorCode = null, ?string $errorMessage = null): void
+    {
+        $data = ['status' => $status];
+
+        if ($status === 'delivered') {
+            $data['delivered_at'] = now();
+        } elseif ($status === 'read') {
+            $data['read_at'] = now();
+        } elseif ($status === 'failed') {
+            if ($errorCode) {
+                $data['delivery_reason_code'] = $errorCode;
+            }
+            if ($errorMessage) {
+                $data['error_message'] = $errorMessage;
+            }
+        }
+
+        $this->update($data);
     }
 
     /**

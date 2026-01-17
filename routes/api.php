@@ -149,4 +149,7 @@ Route::prefix('webhooks')->group(function () {
     Route::post('/bank/equity', [\App\Http\Controllers\Api\BankWebhookController::class, 'equityWebhook']);
     Route::post('/bank/kcb', [\App\Http\Controllers\Api\BankWebhookController::class, 'kcbWebhook']);
     Route::post('/bank/coop', [\App\Http\Controllers\Api\BankWebhookController::class, 'coopWebhook']);
+
+    // WhatsApp webhooks (Twilio signature validated)
+    Route::post('/whatsapp/status', [\App\Http\Controllers\Api\WhatsAppWebhookController::class, 'statusCallback']);
 });

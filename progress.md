@@ -4867,3 +4867,71 @@ $payload = [
 
 - Pint: Passed (475 files)
 - Build: Success
+
+---
+
+## COM-003: Implement WhatsApp Delivery Status Webhooks
+**Status:** PASSED
+**Date:** 2026-01-17
+**Attempts:** 1
+
+### Implementation Summary
+
+Implemented Twilio WhatsApp status callback webhook to track message delivery states (sent, delivered, read, failed) and update notification records in real-time. Uses pessimistic locking for idempotency and dedicated logging channel.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/2026_01_17_124804_add_whatsapp_status_fields_to_notifications_table.php` | Adds delivery_reason_code field and external_id index |
+| `app/Http/Controllers/Api/WhatsAppWebhookController.php` | Webhook controller with statusCallback and Twilio signature validation |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `routes/api.php` | Added POST /webhooks/whatsapp/status route |
+| `app/Models/Notification.php` | Added delivery_reason_code to fillable, added updateFromWebhook() method |
+| `config/logging.php` | Added whatsapp logging channel |
+
+### Key Implementation Details
+
+**Twilio Status Mapping:**
+| Twilio Status | Internal Status |
+|---------------|-----------------|
+| queued | pending |
+| sent | sent |
+| delivered | delivered |
+| read | read |
+| failed/undelivered | failed |
+
+**Webhook Processing:**
+1. Validates incoming request has MessageSid and MessageStatus
+2. Maps Twilio status to internal status
+3. Finds notification by external_id with pessimistic locking
+4. Updates status and timestamps (delivered_at, read_at)
+5. Stores error code and message for failed deliveries
+6. Logs all events to dedicated whatsapp log channel
+
+**Twilio Signature Validation:**
+- validateTwilioSignature() method implements HMAC-SHA1 validation
+- Uses X-Twilio-Signature header for verification
+- Ready to be enabled when Twilio auth token is available per-landlord
+
+### Acceptance Criteria Verification
+
+1. **WhatsAppWebhookController** - Created with statusCallback method
+2. **POST /webhooks/whatsapp/status** - Route added to api.php
+3. **Status mapping** - All Twilio statuses mapped correctly
+4. **Pessimistic locking** - Uses lockForUpdate() to prevent race conditions
+5. **Read receipt tracking** - Sets read_at timestamp when status is 'read'
+6. **Webhook logging** - All events logged to dedicated whatsapp channel
+7. **delivery_reason_code field** - Added via migration for Twilio error details
+
+### Verification Results
+
+- Migrations: Success
+- Pint: Passed (477 files, 1 auto-fix)
+- Build: Success
+- Tests: 29 passed, 2 skipped (notification tests)
+

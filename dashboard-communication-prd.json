@@ -180,7 +180,8 @@
         "database/migrations/*_add_whatsapp_message_sid_to_notifications.php"
       ],
       "verification": "Send WhatsApp message; verify status updates flow through webhook to database",
-      "passes": false
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "COM-004",

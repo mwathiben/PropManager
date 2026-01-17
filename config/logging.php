@@ -145,6 +145,24 @@ return [
             'replace_placeholders' => true,
         ],
 
+        /*
+        |--------------------------------------------------------------------------
+        | WhatsApp Log Channel
+        |--------------------------------------------------------------------------
+        |
+        | Dedicated channel for WhatsApp/Twilio webhook events and message
+        | delivery status tracking.
+        |
+        */
+
+        'whatsapp' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/whatsapp.log'),
+            'level' => 'debug',
+            'days' => env('WHATSAPP_LOG_RETENTION_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
     ],
 
 ];
