@@ -347,7 +347,7 @@
         "Implement module-level Map for callback deduplication",
         "Ensure all event listeners are cleaned up on component unmount"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "OPT-016",

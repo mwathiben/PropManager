@@ -3767,3 +3767,78 @@ Added helper methods for database-agnostic date operations:
 - Build: Success
 - Lint (Pint): Success (465 files passed)
 - Tests: 378 passed, 12 skipped
+
+---
+
+## OPT-015: Deduplicate Event Listeners and Watchers
+**Status:** PASSED
+**Date:** 2026-01-17
+**Attempts:** 1
+
+### Implementation Summary
+
+Created shared composables to deduplicate repeated event listener patterns across Vue components, reducing code maintenance burden and ensuring consistent behavior.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `resources/js/composables/useEscapeKey.ts` | Shared composable for Escape key handling with proper cleanup |
+| `resources/js/composables/useBodyScrollLock.ts` | Shared composable for body scroll locking on modal/panel open |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `resources/js/Components/Dropdown.vue` | Replaced manual Escape handler with `useEscapeKey` composable |
+| `resources/js/Components/Modal.vue` | Replaced manual Escape handler and body overflow logic with `useEscapeKey` and `useBodyScrollLock` composables |
+| `resources/js/Components/SlideOutPanel.vue` | Replaced manual Escape handler and body overflow logic with `useEscapeKey` and `useBodyScrollLock` composables |
+| `resources/js/Components/NotificationBell.vue` | Replaced manual click-outside detection with VueUse's `onClickOutside` |
+
+### Composable Implementations
+
+#### useEscapeKey.ts
+```typescript
+export function useEscapeKey(callback: () => void, enabled: MaybeRef<boolean> = true) {
+    const handleEscape = (e: KeyboardEvent) => {
+        if (e.key === 'Escape' && unref(enabled)) {
+            e.preventDefault();
+            callback();
+        }
+    };
+    onMounted(() => document.addEventListener('keydown', handleEscape));
+    onUnmounted(() => document.removeEventListener('keydown', handleEscape));
+}
+```
+
+#### useBodyScrollLock.ts
+```typescript
+export function useBodyScrollLock(isLocked: Ref<boolean>) {
+    watch(isLocked, (locked) => {
+        document.body.style.overflow = locked ? 'hidden' : '';
+    }, { immediate: true });
+    onUnmounted(() => { document.body.style.overflow = ''; });
+}
+```
+
+### Deduplication Results
+
+| Pattern | Before | After |
+|---------|--------|-------|
+| Escape key handlers | 3 independent implementations | 1 shared composable |
+| Body scroll locking | 2 independent implementations | 1 shared composable |
+| Click-outside detection | 1 manual implementation | VueUse's `onClickOutside` |
+
+### Acceptance Criteria Verification
+
+1. **Audit for multiple addEventListener calls on window/document** - ✅ Found 5 calls, all properly cleaned up
+2. **Create shared composables for global event handling** - ✅ Created `useEscapeKey` and `useBodyScrollLock`
+3. **Use VueUse's useEventListener with proper cleanup** - ✅ Used `onClickOutside` from VueUse for click-outside detection
+4. **Implement module-level deduplication pattern** - ✅ Composables now provide single source of truth
+5. **Ensure all event listeners are cleaned up on component unmount** - ✅ All composables use `onUnmounted` for cleanup
+
+### Verification Results
+
+- Build: Success (20.06s)
+- Lint (Pint): Success (465 files passed)
+- Tests: 378 passed, 12 skipped (47.69s)

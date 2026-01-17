@@ -1,6 +1,7 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed } from 'vue';
 import { usePage, Link, router } from '@inertiajs/vue3';
+import { onClickOutside } from '@vueuse/core';
 import BellIcon from '@heroicons/vue/24/outline/BellIcon';
 import ClockIcon from '@heroicons/vue/24/outline/ClockIcon';
 import ExclamationTriangleIcon from '@heroicons/vue/24/outline/ExclamationTriangleIcon';
@@ -146,19 +147,7 @@ const markAllAsRead = async () => {
     }
 };
 
-const handleClickOutside = (event) => {
-    if (dropdownRef.value && !dropdownRef.value.contains(event.target)) {
-        isOpen.value = false;
-    }
-};
-
-onMounted(() => {
-    document.addEventListener('click', handleClickOutside);
-});
-
-onUnmounted(() => {
-    document.removeEventListener('click', handleClickOutside);
-});
+onClickOutside(dropdownRef, () => { isOpen.value = false; });
 </script>
 
 <template>

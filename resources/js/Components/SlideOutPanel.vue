@@ -1,6 +1,8 @@
 <script setup>
-import { watch, onMounted, onUnmounted } from 'vue';
+import { computed } from 'vue';
 import XMarkIcon from '@heroicons/vue/24/outline/XMarkIcon';
+import { useEscapeKey } from '@/composables/useEscapeKey';
+import { useBodyScrollLock } from '@/composables/useBodyScrollLock';
 
 const props = defineProps({
     show: {
@@ -35,28 +37,9 @@ const close = () => {
     emit('close');
 };
 
-const handleEscape = (e) => {
-    if (e.key === 'Escape' && props.show) {
-        close();
-    }
-};
-
-onMounted(() => {
-    document.addEventListener('keydown', handleEscape);
-});
-
-onUnmounted(() => {
-    document.removeEventListener('keydown', handleEscape);
-});
-
-// Prevent body scroll when panel is open
-watch(() => props.show, (isOpen) => {
-    if (isOpen) {
-        document.body.style.overflow = 'hidden';
-    } else {
-        document.body.style.overflow = '';
-    }
-});
+const showRef = computed(() => props.show);
+useEscapeKey(close, showRef);
+useBodyScrollLock(showRef);
 </script>
 
 <template>
