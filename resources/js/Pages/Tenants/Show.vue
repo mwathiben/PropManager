@@ -83,6 +83,9 @@ const sections = [
     { id: 'activity', name: 'Activity', icon: ClockIcon },
 ];
 
+// Computed
+const pastLeases = computed(() => props.tenant.leases?.filter(l => !l.is_active) ?? []);
+
 // Helpers
 const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-KE', {
@@ -528,10 +531,10 @@ const getActivityIcon = (action) => {
                             </div>
 
                             <!-- Past Leases -->
-                            <div v-if="tenant.leases?.filter(l => !l.is_active).length" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div v-if="pastLeases.length" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                                 <h3 class="text-lg font-semibold text-gray-900 mb-4">Past Leases</h3>
                                 <div class="space-y-4">
-                                    <div v-for="lease in tenant.leases.filter(l => !l.is_active)" :key="lease.id" class="border border-gray-200 rounded-lg p-4">
+                                    <div v-for="lease in pastLeases" :key="lease.id" class="border border-gray-200 rounded-lg p-4">
                                         <div class="flex justify-between items-start">
                                             <div>
                                                 <div class="font-medium text-gray-900">Unit {{ lease.unit?.unit_number }}</div>

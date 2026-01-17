@@ -322,7 +322,7 @@
         "correct": "const occupiedUnits = computed(() => units.value.filter(u => u.status === 'occupied'))"
       },
       "verification": "No inline .filter() calls in v-for templates",
-      "passes": false
+      "passes": true
     },
     {
       "id": "SYS-014",

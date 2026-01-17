@@ -78,6 +78,8 @@ const isAmenitySelected = (key) => {
     return form.amenities.selected.includes(key);
 };
 
+const otherBuildings = computed(() => props.siblingBuildings?.filter(b => b.id !== props.building.id) ?? []);
+
 const saveChanges = () => {
     form.put(route('buildings.update-settings', props.building.id), {
         preserveScroll: true,
@@ -433,13 +435,13 @@ const occupancyColor = computed(() => {
                         </div>
 
                         <!-- Other Buildings in Property -->
-                        <div v-if="siblingBuildings.length > 1" class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div v-if="otherBuildings.length" class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                             <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
                                 <h3 class="font-semibold text-gray-900">Other Buildings</h3>
                             </div>
                             <div class="p-4 space-y-2">
                                 <Link
-                                    v-for="sibling in siblingBuildings.filter(b => b.id !== building.id)"
+                                    v-for="sibling in otherBuildings"
                                     :key="sibling.id"
                                     :href="route('buildings.show', sibling.id)"
                                     class="block p-3 rounded-lg border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/50 transition"
