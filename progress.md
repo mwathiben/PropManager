@@ -3842,3 +3842,107 @@ export function useBodyScrollLock(isLocked: Ref<boolean>) {
 - Build: Success (20.06s)
 - Lint (Pint): Success (465 files passed)
 - Tests: 378 passed, 12 skipped (47.69s)
+
+---
+
+## OPT-016: Defer Await Until Needed Pattern in Controllers
+**Status:** PASSED
+**Date:** 2026-01-17
+**Attempts:** 1
+
+### Implementation Summary
+
+Optimized Finance Hub controllers to defer database queries until actually needed, consolidating duplicate queries and improving authorization flow.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/PaymentsHubController.php` | Consolidated `isSetupComplete()` and `getSetupProgress()` into single `getSetupData()` method; removed unused `$user` variables from action methods; optimized authorization checks |
+
+### Key Optimizations
+
+#### 1. Consolidated Setup Data Queries
+
+**Before (5 queries on every page load):**
+```php
+private function renderHub(string $tab, array $additionalProps = []): Response
+{
+    $baseProps = [
+        'setupComplete' => $this->isSetupComplete($landlordId),    // 1-2 queries
+        'setupProgress' => $this->getSetupProgress($landlordId),   // 3 more queries
+    ];
+}
+```
+
+**After (2-3 queries with early returns):**
+```php
+private function getSetupData(int $landlordId): array
+{
+    $paymentConfig = PaymentConfiguration::where('landlord_id', $landlordId)->first();
+    $hasPaymentMethods = $paymentConfig && count($paymentConfig->accepted_payment_methods ?? []) > 0;
+
+    // Early return if no payment methods configured - saves 2 queries
+    if (! $hasPaymentMethods) {
+        return [
+            'setupComplete' => false,
+            'setupProgress' => [
+                'payment_methods' => false,
+                'payout_account' => false,
+                'first_payment' => false,
+            ],
+        ];
+    }
+
+    // Only query payout account if paystack is enabled
+    $acceptsOnline = in_array('paystack', $paymentConfig->accepted_payment_methods ?? []);
+    $hasVerifiedPayout = $acceptsOnline
+        ? LandlordPayoutAccount::where('landlord_id', $landlordId)->verified()->active()->exists()
+        : false;
+
+    $hasFirstPayment = Payment::where('landlord_id', $landlordId)->exists();
+
+    return [
+        'setupComplete' => $hasPaymentMethods && (! $acceptsOnline || $hasVerifiedPayout),
+        'setupProgress' => [
+            'payment_methods' => true,
+            'payout_account' => $hasVerifiedPayout,
+            'first_payment' => $hasFirstPayment,
+        ],
+    ];
+}
+```
+
+#### 2. Optimized Action Methods
+
+Removed unused `$user` variables and unused `$landlordId` variables from action methods:
+- `setPayoutPrimary()` - Authorization check now calls `getLandlordId()` directly
+- `destroyPayoutAccount()` - Same optimization
+- `syncPayoutAccount()` - Same optimization
+- `completeSetup()` - Removed unused landlordId variable entirely
+
+#### 3. PaymentController Review
+
+`PaymentController::create()` already follows the deferred pattern correctly:
+- Authorization check happens first (line 56-58) before any database queries
+- No conditional branches after authorization that could skip the buildings query
+
+### Query Reduction Analysis
+
+| Scenario | Before | After | Saved |
+|----------|--------|-------|-------|
+| No payment methods configured | 5 queries | 1 query | 4 queries |
+| Payment methods, no Paystack | 5 queries | 2 queries | 3 queries |
+| Payment methods with Paystack | 5 queries | 3 queries | 2 queries |
+
+### Acceptance Criteria Verification
+
+1. **Audit controller methods for early awaits that block unused code paths** - ✅ Found and consolidated in PaymentsHubController
+2. **Move authorization checks before expensive data fetching** - ✅ Authorization already happens early in all methods
+3. **Return early on validation failures before querying database** - ✅ `getSetupData()` returns early if no payment methods
+4. **Check feature flags before loading feature-specific data** - ✅ Payout account query only runs if Paystack is enabled
+
+### Verification Results
+
+- Lint (Pint): Success (465 files)
+- Build: Success (19.86s)

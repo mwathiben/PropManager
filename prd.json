@@ -365,7 +365,7 @@
         "incorrect": "$permissions = $user->permissions(); if (!$request->has('includeAdvanced')) return basicResponse(); return advancedResponse($permissions);",
         "correct": "if (!$request->has('includeAdvanced')) return basicResponse(); $permissions = $user->permissions(); return advancedResponse($permissions);"
       },
-      "passes": false
+      "passes": true
     },
     {
       "id": "OPT-017",

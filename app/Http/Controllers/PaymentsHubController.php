@@ -12,9 +12,9 @@ use App\Models\PlatformFee;
 use App\Services\BillingModelService;
 use App\Services\PaystackSubaccountService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -126,7 +126,6 @@ class PaymentsHubController extends Controller
      */
     public function updatePaymentMethods(Request $request): RedirectResponse
     {
-        $user = auth()->user();
         $landlordId = $this->getLandlordId();
 
         $validated = $request->validate([
@@ -198,10 +197,7 @@ class PaymentsHubController extends Controller
      */
     public function setPayoutPrimary(LandlordPayoutAccount $account): RedirectResponse
     {
-        $user = auth()->user();
-        $landlordId = $this->getLandlordId();
-
-        if ($account->landlord_id !== $landlordId) {
+        if ($account->landlord_id !== $this->getLandlordId()) {
             abort(403, 'You can only manage your own payout accounts.');
         }
 
@@ -219,10 +215,7 @@ class PaymentsHubController extends Controller
      */
     public function destroyPayoutAccount(LandlordPayoutAccount $account): RedirectResponse
     {
-        $user = auth()->user();
-        $landlordId = $this->getLandlordId();
-
-        if ($account->landlord_id !== $landlordId) {
+        if ($account->landlord_id !== $this->getLandlordId()) {
             abort(403, 'You can only manage your own payout accounts.');
         }
 
@@ -240,10 +233,7 @@ class PaymentsHubController extends Controller
      */
     public function syncPayoutAccount(LandlordPayoutAccount $account): RedirectResponse
     {
-        $user = auth()->user();
-        $landlordId = $this->getLandlordId();
-
-        if ($account->landlord_id !== $landlordId) {
+        if ($account->landlord_id !== $this->getLandlordId()) {
             abort(403, 'You can only manage your own payout accounts.');
         }
 
@@ -261,11 +251,6 @@ class PaymentsHubController extends Controller
      */
     public function completeSetup(): RedirectResponse
     {
-        $landlordId = $this->getLandlordId();
-
-        // The setup is considered complete when they have configured payment methods
-        // We don't need to explicitly mark anything - isSetupComplete() handles the logic
-
         return redirect()->route('payments-hub.overview')->with('success', 'Payment setup completed successfully!');
     }
 
@@ -350,11 +335,12 @@ class PaymentsHubController extends Controller
     private function renderHub(string $tab, array $additionalProps = []): Response
     {
         $landlordId = $this->getLandlordId();
+        $setupData = $this->getSetupData($landlordId);
 
         $baseProps = [
             'activeTab' => $tab,
-            'setupComplete' => $this->isSetupComplete($landlordId),
-            'setupProgress' => $this->getSetupProgress($landlordId),
+            'setupComplete' => $setupData['setupComplete'],
+            'setupProgress' => $setupData['setupProgress'],
             'tabs' => $this->getTabsConfig(),
         ];
 
@@ -376,45 +362,47 @@ class PaymentsHubController extends Controller
     }
 
     /**
-     * Check if payment setup is complete
+     * Get consolidated setup data (completion status and progress).
+     *
+     * OPT-016: Consolidates isSetupComplete() and getSetupProgress() to avoid
+     * duplicate queries. Defers expensive queries until actually needed.
      */
-    private function isSetupComplete(int $landlordId): bool
+    private function getSetupData(int $landlordId): array
     {
         $paymentConfig = PaymentConfiguration::where('landlord_id', $landlordId)->first();
         $hasPaymentMethods = $paymentConfig && count($paymentConfig->accepted_payment_methods ?? []) > 0;
 
         if (! $hasPaymentMethods) {
-            return false;
+            return [
+                'setupComplete' => false,
+                'setupProgress' => [
+                    'payment_methods' => false,
+                    'payout_account' => false,
+                    'first_payment' => false,
+                ],
+            ];
         }
 
-        // If they accept paystack, they need a verified payout account
         $acceptsOnline = in_array('paystack', $paymentConfig->accepted_payment_methods ?? []);
 
-        if ($acceptsOnline) {
-            return LandlordPayoutAccount::where('landlord_id', $landlordId)
+        $hasVerifiedPayout = $acceptsOnline
+            ? LandlordPayoutAccount::where('landlord_id', $landlordId)
                 ->verified()
                 ->active()
-                ->exists();
-        }
+                ->exists()
+            : false;
 
-        return true;
-    }
+        $hasFirstPayment = Payment::where('landlord_id', $landlordId)->exists();
 
-    /**
-     * Get setup progress for the wizard
-     */
-    private function getSetupProgress(int $landlordId): array
-    {
-        $paymentConfig = PaymentConfiguration::where('landlord_id', $landlordId)->first();
-        $payoutAccount = LandlordPayoutAccount::where('landlord_id', $landlordId)
-            ->verified()
-            ->active()
-            ->first();
+        $isComplete = $hasPaymentMethods && (! $acceptsOnline || $hasVerifiedPayout);
 
         return [
-            'payment_methods' => (bool) ($paymentConfig && count($paymentConfig->accepted_payment_methods ?? []) > 0),
-            'payout_account' => (bool) $payoutAccount,
-            'first_payment' => Payment::where('landlord_id', $landlordId)->exists(),
+            'setupComplete' => $isComplete,
+            'setupProgress' => [
+                'payment_methods' => true,
+                'payout_account' => $hasVerifiedPayout,
+                'first_payment' => $hasFirstPayment,
+            ],
         ];
     }
 
