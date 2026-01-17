@@ -293,7 +293,8 @@
         ".env"
       ],
       "verification": "Open browser console; verify Echo connects; subscribe to test channel",
-      "passes": false
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "COM-007",

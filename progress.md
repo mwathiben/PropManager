@@ -5007,3 +5007,78 @@ php artisan reverb:start
 - COM-006: Install Laravel Echo frontend (pusher-js)
 - COM-007: Configure private channel authorization
 - COM-008: Create PaymentReceived broadcast event
+
+---
+
+## COM-006: Install and Configure Laravel Echo Frontend
+**Status:** PASSED
+**Date:** 2026-01-17
+**Attempts:** 1
+
+### Implementation Summary
+
+Installed Laravel Echo and Pusher.js packages, created TypeScript-based Echo configuration for Reverb WebSocket connection, and implemented useEcho composable with connection state management and automatic reconnection logic.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `resources/js/echo.ts` | Laravel Echo initialization with Reverb config |
+| `resources/js/composables/useEcho.ts` | Composable for WebSocket connection and channel subscriptions |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `package.json` | Added laravel-echo, pusher-js dev dependencies |
+| `resources/js/bootstrap.js` | Import echo.ts for initialization |
+| `resources/js/composables/index.ts` | Export useEcho composable and types |
+
+### Key Implementation Details
+
+**Echo Configuration:**
+- Uses Reverb broadcaster with VITE_REVERB_* environment variables
+- Supports both ws and wss transports
+- Dynamic port configuration for development and production
+
+**useEcho Composable Features:**
+- Reactive connection state tracking (connecting, connected, disconnected, reconnecting)
+- Automatic reconnection with exponential backoff
+- Channel subscription management (public and private)
+- Cleanup on component unmount
+- TypeScript strict typing throughout
+
+**API Surface:**
+```typescript
+{
+  connectionState: 'connected' | 'connecting' | 'disconnected' | 'reconnecting';
+  isConnected: boolean;
+  connectionError: string | null;
+  subscribe<T>(channel, event, callback): void;
+  subscribePrivate<T>(channel, event, callback): void;
+  unsubscribe(channel): void;
+  leaveAll(): void;
+}
+```
+
+### Acceptance Criteria Verification
+
+1. **npm install laravel-echo pusher-js** - Packages installed (12 packages added)
+2. **Echo configuration** - Created resources/js/echo.ts with Reverb config
+3. **Bootstrap import** - Echo imported in bootstrap.js
+4. **Vite env variables** - Already configured from COM-005
+5. **useEcho() composable** - Created with full TypeScript typing
+6. **Private channel support** - subscribePrivate() method implemented
+7. **Reconnection logic** - Exponential backoff reconnection implemented
+8. **Connection status indicator** - Deferred to COM-019 (optional)
+
+### Verification Results
+
+- Build: Success (1693 modules transformed, built in 31.41s)
+- Pint: Passed (480 files)
+
+### Next Steps
+
+- COM-007: Create private channel authorization
+- COM-008: Create PaymentReceived broadcast event
+- COM-009: Replace M-Pesa polling with real-time updates

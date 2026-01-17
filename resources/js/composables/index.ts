@@ -47,3 +47,9 @@ export type {
     UseSWROptions,
     UseSWRReturn
 } from './useSWR';
+
+export { useEcho } from './useEcho';
+export type {
+    UseEchoOptions,
+    UseEchoReturn
+} from './useEcho';
