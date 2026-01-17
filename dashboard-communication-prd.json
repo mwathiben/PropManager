@@ -366,7 +366,8 @@
         "resources/js/Pages/TenantFinances/Index.vue"
       ],
       "verification": "Record payment; verify real-time update on both dashboards without page refresh",
-      "passes": false
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "COM-009",

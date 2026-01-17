@@ -1,7 +1,7 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
-import { useFormatters } from '@/composables';
+import { useFormatters, useEcho } from '@/composables';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import {
     MetricCard,
@@ -29,17 +29,66 @@ const props = defineProps({
 
 const { formatMoney, formatDate } = useFormatters();
 
-const hasArrears = computed(() => props.balance > 0);
+// --- REAL-TIME UPDATES ---
+const { subscribePrivate, unsubscribe } = useEcho();
+const localBalance = ref(props.balance);
+const localPendingInvoices = ref([...(props.pendingInvoices || [])]);
+const localRecentPayments = ref([...(props.recentPayments || [])]);
+
+const hasArrears = computed(() => localBalance.value > 0);
 
 const balanceColor = computed(() => {
-    if (props.balance > 0) return 'red';
-    if (props.balance < 0) return 'emerald';
+    if (localBalance.value > 0) return 'red';
+    if (localBalance.value < 0) return 'emerald';
     return 'gray';
 });
 
 const nextDueInvoice = computed(() => {
-    if (!props.pendingInvoices?.length) return null;
-    return props.pendingInvoices[0];
+    if (!localPendingInvoices.value?.length) return null;
+    return localPendingInvoices.value[0];
+});
+
+const userId = computed(() => window.__auth?.user?.id);
+
+onMounted(() => {
+    if (userId.value) {
+        subscribePrivate(`tenant.${userId.value}`, 'PaymentReceived', (data) => {
+            // Update balance
+            localBalance.value = data.remaining_balance;
+
+            // Update invoice status if it matches
+            const invoiceIdx = localPendingInvoices.value.findIndex(inv => inv.id === data.invoice_id);
+            if (invoiceIdx !== -1) {
+                localPendingInvoices.value[invoiceIdx].status = data.invoice_status;
+                localPendingInvoices.value[invoiceIdx].balance = data.remaining_balance;
+
+                // Remove if fully paid
+                if (data.invoice_status === 'paid') {
+                    localPendingInvoices.value.splice(invoiceIdx, 1);
+                }
+            }
+
+            // Add to recent payments
+            localRecentPayments.value.unshift({
+                id: data.payment_id,
+                amount: data.amount,
+                reference: data.reference,
+                payment_method: data.payment_method,
+                payment_date: new Date().toISOString().split('T')[0],
+            });
+
+            // Keep only last 5 payments
+            if (localRecentPayments.value.length > 5) {
+                localRecentPayments.value.pop();
+            }
+        });
+    }
+});
+
+onUnmounted(() => {
+    if (userId.value) {
+        unsubscribe(`tenant.${userId.value}`);
+    }
 });
 </script>
 
@@ -76,11 +125,11 @@ const nextDueInvoice = computed(() => {
                                 <p class="text-sm text-gray-500">Current Balance</p>
                                 <p :class="[
                                     'text-3xl font-bold mt-1',
-                                    balance > 0 ? 'text-red-600' : balance < 0 ? 'text-emerald-600' : 'text-gray-900'
+                                    localBalance > 0 ? 'text-red-600' : localBalance < 0 ? 'text-emerald-600' : 'text-gray-900'
                                 ]">
-                                    {{ formatMoney(Math.abs(balance)) }}
-                                    <span v-if="balance !== 0" class="text-lg font-normal">
-                                        {{ balance > 0 ? 'Due' : 'Credit' }}
+                                    {{ formatMoney(Math.abs(localBalance)) }}
+                                    <span v-if="localBalance !== 0" class="text-lg font-normal">
+                                        {{ localBalance > 0 ? 'Due' : 'Credit' }}
                                     </span>
                                 </p>
                                 <p class="text-sm text-gray-500 mt-1">
@@ -88,7 +137,7 @@ const nextDueInvoice = computed(() => {
                                 </p>
                             </div>
 
-                            <div v-if="nextDueInvoice" class="flex-shrink-0">
+                            <div v-if="nextDueInvoice" class="shrink-0">
                                 <Link
                                     :href="route('tenant.finances.pay', nextDueInvoice.id)"
                                     class="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-200"
@@ -101,7 +150,7 @@ const nextDueInvoice = computed(() => {
 
                         <div v-if="hasArrears" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                             <div class="flex items-start gap-2">
-                                <ExclamationTriangleIcon class="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                                <ExclamationTriangleIcon class="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
                                 <div>
                                     <p class="text-sm font-medium text-red-800">You have an outstanding balance</p>
                                     <p class="text-sm text-red-700">Please pay as soon as possible to avoid late fees.</p>
@@ -110,14 +159,14 @@ const nextDueInvoice = computed(() => {
                         </div>
                     </div>
 
-                    <div v-if="pendingInvoices?.length" class="bg-white rounded-xl shadow-sm border border-gray-200">
+                    <div v-if="localPendingInvoices?.length" class="bg-white rounded-xl shadow-sm border border-gray-200">
                         <div class="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
                             <h2 class="text-sm font-semibold text-gray-900">Pending Invoices</h2>
-                            <span class="text-xs text-gray-500">{{ pendingInvoices.length }} pending</span>
+                            <span class="text-xs text-gray-500">{{ localPendingInvoices.length }} pending</span>
                         </div>
                         <div class="divide-y divide-gray-200">
                             <Link
-                                v-for="invoice in pendingInvoices"
+                                v-for="invoice in localPendingInvoices"
                                 :key="invoice.id"
                                 :href="route('tenant.finances.pay', invoice.id)"
                                 class="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors"
@@ -155,9 +204,9 @@ const nextDueInvoice = computed(() => {
                                 View all
                             </Link>
                         </div>
-                        <div v-if="recentPayments?.length" class="divide-y divide-gray-200">
+                        <div v-if="localRecentPayments?.length" class="divide-y divide-gray-200">
                             <div
-                                v-for="payment in recentPayments"
+                                v-for="payment in localRecentPayments"
                                 :key="payment.id"
                                 class="flex items-center justify-between px-5 py-3"
                             >

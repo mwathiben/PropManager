@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\PaymentReceived as PaymentReceivedEvent;
 use App\Http\Requests\StorePaymentRequest;
 use App\Mail\OverpaymentNotification;
 use App\Mail\PaymentReceived;
@@ -163,6 +164,7 @@ class PaymentController extends Controller
             if ($invoice && $invoice->lease?->tenant) {
                 $invoice->load(['lease.tenant', 'lease.unit.building']);
                 Mail::to($invoice->lease->tenant->email)->queue(new PaymentReceived($payment, $invoice));
+                PaymentReceivedEvent::dispatch($payment, $invoice);
             }
 
             DB::commit();
@@ -541,6 +543,7 @@ class PaymentController extends Controller
             $tenant = $invoice->lease?->tenant;
             if ($tenant) {
                 Mail::to($tenant->email)->send(new PaymentReceived($payment, $invoice));
+                PaymentReceivedEvent::dispatch($payment, $invoice);
             }
 
             $message = 'Payment of KES '.number_format($amount, 2).' successful!';
@@ -712,6 +715,7 @@ class PaymentController extends Controller
             $tenant = $invoice->lease?->tenant;
             if ($tenant) {
                 Mail::to($tenant->email)->send(new PaymentReceived($payment, $invoice));
+                PaymentReceivedEvent::dispatch($payment, $invoice);
             }
 
             return response()->json(['status' => 'success']);

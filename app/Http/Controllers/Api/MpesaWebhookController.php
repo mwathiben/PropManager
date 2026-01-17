@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\PaymentReceived as PaymentReceivedEvent;
 use App\Http\Controllers\Controller;
 use App\Mail\PaymentReceived;
 use App\Models\Invoice;
@@ -222,6 +223,7 @@ class MpesaWebhookController extends Controller
 
             $invoice->load(['lease.tenant', 'lease.unit.building']);
             Mail::to($invoice->lease->tenant->email)->send(new PaymentReceived($payment, $invoice));
+            PaymentReceivedEvent::dispatch($payment, $invoice);
 
             Log::info('M-Pesa payment recorded successfully', [
                 'payment_id' => $payment->id,
@@ -464,6 +466,7 @@ class MpesaWebhookController extends Controller
 
         $invoice->load(['lease.tenant', 'lease.unit.building']);
         Mail::to($invoice->lease->tenant->email)->send(new PaymentReceived($payment, $invoice));
+        PaymentReceivedEvent::dispatch($payment, $invoice);
 
         Log::info('M-Pesa Till payment recorded', [
             'payment_id' => $payment->id,

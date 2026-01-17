@@ -5153,3 +5153,84 @@ Created private broadcast channel authorization for multi-tenant data isolation.
 - COM-008: Create PaymentReceived broadcast event
 - COM-009: Replace M-Pesa polling with real-time updates
 - COM-010: Real-time notification badge updates
+
+---
+
+## Session: 2026-01-17
+
+**Task**: COM-008 - Create PaymentReceived Broadcast Event
+**Status**: COMPLETED
+
+### Summary
+
+Created the PaymentReceived broadcast event that broadcasts payment confirmations to both landlord and tenant dashboards in real-time via WebSocket.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Events/PaymentReceived.php` | Broadcast event implementing ShouldBroadcast, sends to landlord and tenant private channels |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/PaymentController.php` | Added event dispatch in storeManual(), handleCallback(), processSuccessfulCharge() |
+| `app/Http/Controllers/Api/MpesaWebhookController.php` | Added event dispatch in processPayment() and processTillPayment() |
+| `resources/js/Pages/Dashboard.vue` | Added Echo listener for landlord channel, updates recentPayments in real-time |
+| `resources/js/Pages/TenantFinances/Index.vue` | Added Echo listener for tenant channel, updates balance and invoices in real-time |
+
+### Event Payload
+
+```json
+{
+    "payment_id": "int",
+    "amount": "float",
+    "reference": "string",
+    "payment_method": "string",
+    "invoice_id": "int",
+    "invoice_status": "string",
+    "remaining_balance": "float",
+    "tenant_name": "string",
+    "unit_name": "string"
+}
+```
+
+### Broadcast Channels
+
+- `private-landlord.{landlordId}` - Updates landlord dashboard with new payments
+- `private-tenant.{tenantId}` - Updates tenant finances page with balance and payment status
+
+### Frontend Integration
+
+**Dashboard.vue:**
+- Uses `useEcho()` composable to subscribe to landlord channel
+- Updates `localRecentPayments` reactive array when payment received
+- Keeps max 10 recent payments in the list
+
+**TenantFinances/Index.vue:**
+- Uses `useEcho()` composable to subscribe to tenant channel
+- Updates `localBalance` with new remaining balance
+- Updates invoice status or removes if fully paid
+- Adds new payment to `localRecentPayments` list
+
+### Acceptance Criteria Verification
+
+1. **Create PaymentReceived event class implementing ShouldBroadcast** - Created at app/Events/PaymentReceived.php
+2. **Define broadcastOn() to send to both landlord and tenant channels** - Broadcasts to private-landlord.{id} and private-tenant.{id}
+3. **Include payment details, updated balance, and invoice status** - Full payload with all required fields
+4. **Dispatch event from PaymentController::recordPayment()** - Added to storeManual(), handleCallback(), processSuccessfulCharge()
+5. **Dispatch event from M-Pesa webhook on successful payment** - Added to processPayment() and processTillPayment()
+6. **Dispatch event from Paystack webhook on successful payment** - Added in handleCallback() and processSuccessfulCharge()
+7. **Create frontend handler in Dashboard.vue and TenantFinances.vue** - Echo listeners added with reactive updates
+
+### Verification Results
+
+- Pint: PASS (484 files)
+- npm run build: Success (1693 modules transformed)
+
+### Next Steps
+
+- COM-009: Replace M-Pesa polling with real-time updates
+- COM-010: Real-time notification badge updates
+- COM-004: Multi-Channel Fallback Chain

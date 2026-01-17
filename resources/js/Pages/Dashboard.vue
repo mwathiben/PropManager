@@ -1,7 +1,8 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { useEcho } from '@/composables/useEcho';
 import TenantProfileModal from '@/Components/Modals/TenantProfileModal.vue';
 import SlideOutPanel from '@/Components/SlideOutPanel.vue';
 import AddWingModal from '@/Components/Modals/AddWingModal.vue';
@@ -249,6 +250,48 @@ const selectUnitById = (unitId) => {
         scrollToOccupancyMap();
     }
 };
+
+// --- REAL-TIME UPDATES ---
+const { subscribePrivate, unsubscribe } = useEcho();
+const localRecentPayments = ref([...(props.recentPayments || [])]);
+
+// Get user ID for landlord channel subscription
+const userId = computed(() => {
+    // For landlords: use their own ID
+    // For caretakers: use their landlord_id (if available on page props)
+    return window.__auth?.user?.id;
+});
+
+onMounted(() => {
+    if (userId.value) {
+        subscribePrivate(`landlord.${userId.value}`, 'PaymentReceived', (data) => {
+            // Add new payment to the top of the list
+            localRecentPayments.value.unshift({
+                id: data.payment_id,
+                amount: data.amount,
+                payment_method: data.payment_method,
+                payment_date: new Date().toISOString().split('T')[0],
+                invoice: {
+                    id: data.invoice_id,
+                    lease: {
+                        tenant: { name: data.tenant_name },
+                        unit: { unit_number: data.unit_name }
+                    }
+                }
+            });
+            // Keep only the 10 most recent
+            if (localRecentPayments.value.length > 10) {
+                localRecentPayments.value.pop();
+            }
+        });
+    }
+});
+
+onUnmounted(() => {
+    if (userId.value) {
+        unsubscribe(`landlord.${userId.value}`);
+    }
+});
 </script>
 
 <template>
@@ -309,7 +352,7 @@ const selectUnitById = (unitId) => {
                 </div>
 
                 <!-- Quick Actions - Wrap on mobile -->
-                <div class="flex items-center gap-2 flex-wrap flex-shrink-0">
+                <div class="flex items-center gap-2 flex-wrap shrink-0">
                     <button @click="showMassHikeModal = true"
                             class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
                         <MegaphoneIcon class="w-4 h-4 mr-1.5" /> Rent Hike
@@ -857,8 +900,8 @@ const selectUnitById = (unitId) => {
                         </Link>
                     </div>
 
-                    <div v-if="recentPayments && recentPayments.length > 0" class="space-y-3">
-                        <Link v-for="payment in recentPayments" :key="payment.id"
+                    <div v-if="localRecentPayments && localRecentPayments.length > 0" class="space-y-3">
+                        <Link v-for="payment in localRecentPayments" :key="payment.id"
                              :href="route('invoices.show', payment.invoice?.id)"
                              class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors">
                             <div class="flex items-center gap-3">
