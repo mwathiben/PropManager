@@ -1,7 +1,8 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, useForm, router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { Head, useForm, router, usePage } from '@inertiajs/vue3';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { useEcho } from '@/composables/useEcho';
 import {
     EnvelopeIcon,
     PlusIcon,
@@ -17,7 +18,51 @@ const props = defineProps({
     properties: Array
 });
 
+const page = usePage();
+const { subscribePrivate, unsubscribe } = useEcho();
+
 const showInviteModal = ref(false);
+const localInvitations = ref([...props.invitations]);
+const toast = ref({ show: false, message: '', acceptedBy: '' });
+
+watch(() => props.invitations, (newVal) => {
+    localInvitations.value = [...newVal];
+}, { deep: true });
+
+const landlordId = page.props.auth?.user?.id;
+
+onMounted(() => {
+    if (landlordId) {
+        subscribePrivate(`landlord.${landlordId}`, 'InvitationAccepted', handleInvitationAccepted);
+    }
+});
+
+onUnmounted(() => {
+    if (landlordId) {
+        unsubscribe(`landlord.${landlordId}`);
+    }
+});
+
+const handleInvitationAccepted = (data) => {
+    const index = localInvitations.value.findIndex(inv => inv.id === data.invitation_id);
+    if (index !== -1) {
+        localInvitations.value[index] = {
+            ...localInvitations.value[index],
+            status: 'accepted',
+            accepted_at: data.accepted_at
+        };
+    }
+
+    toast.value = {
+        show: true,
+        message: `${data.accepted_by} accepted the invitation for ${data.property_name}`,
+        acceptedBy: data.accepted_by
+    };
+
+    setTimeout(() => {
+        toast.value.show = false;
+    }, 5000);
+};
 
 const inviteForm = useForm({
     email: '',
@@ -124,7 +169,7 @@ const copyInviteLink = (token) => {
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
-                            <tr v-for="invitation in invitations" :key="invitation.id" class="hover:bg-gray-50">
+                            <tr v-for="invitation in localInvitations" :key="invitation.id" class="hover:bg-gray-50">
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center">
                                         <EnvelopeIcon class="w-5 h-5 text-gray-400 mr-2" />
@@ -193,7 +238,7 @@ const copyInviteLink = (token) => {
                     </table>
 
                     <!-- Empty State -->
-                    <div v-if="invitations.length === 0" class="text-center py-12">
+                    <div v-if="localInvitations.length === 0" class="text-center py-12">
                         <EnvelopeIcon class="mx-auto h-12 w-12 text-gray-400" />
                         <h3 class="mt-2 text-sm font-medium text-gray-900">No invitations sent</h3>
                         <p class="mt-1 text-sm text-gray-500">Get started by sending an invitation to a caretaker.</p>
@@ -284,5 +329,26 @@ const copyInviteLink = (token) => {
                 </form>
             </div>
         </div>
+
+        <!-- Toast Notification -->
+        <Transition
+            enter-active-class="transition ease-out duration-300"
+            enter-from-class="translate-y-2 opacity-0"
+            enter-to-class="translate-y-0 opacity-100"
+            leave-active-class="transition ease-in duration-200"
+            leave-from-class="translate-y-0 opacity-100"
+            leave-to-class="translate-y-2 opacity-0"
+        >
+            <div
+                v-if="toast.show"
+                class="fixed bottom-4 right-4 bg-green-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 z-50"
+            >
+                <CheckCircleIcon class="w-6 h-6" />
+                <div>
+                    <p class="font-medium">Invitation Accepted!</p>
+                    <p class="text-sm text-green-100">{{ toast.message }}</p>
+                </div>
+            </div>
+        </Transition>
     </AuthenticatedLayout>
 </template>

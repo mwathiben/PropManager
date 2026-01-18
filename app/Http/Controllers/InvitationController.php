@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\InvitationAccepted;
 use App\Mail\CaretakerInvitation;
 use App\Models\Invitation;
 use App\Models\Notification;
@@ -240,6 +241,9 @@ class InvitationController extends Controller
 
             DB::commit();
 
+            // Broadcast to landlord dashboard
+            event(new InvitationAccepted($invitation, $user));
+
             // Log the user in
             auth()->login($user);
 
@@ -338,6 +342,9 @@ class InvitationController extends Controller
                 ->update(['read_at' => now(), 'status' => 'read']);
 
             DB::commit();
+
+            // Broadcast to landlord dashboard
+            event(new InvitationAccepted($invitation, $user));
 
             return redirect()->route('dashboard')
                 ->with('success', 'Welcome! You are now a caretaker for '.$invitation->property->name.'.');

@@ -653,7 +653,8 @@
         "resources/js/Layouts/AuthenticatedLayout.vue"
       ],
       "verification": "Accept invitation; verify landlord sees status change instantly",
-      "passes": false
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "COM-019",

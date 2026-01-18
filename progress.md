@@ -5798,3 +5798,53 @@ Implemented real-time dashboard metrics updates. When a payment is received, the
 - COM-015: Auto-Create Support Tickets from Tenant Messages
 - COM-018: Real-time Invitation Status Updates
 - COM-019: Implement Connection Status Indicator
+
+---
+
+## Session: 2026-01-18T10:00:00
+**Task**: COM-018 - Real-time Invitation Status Updates
+**Status**: COMPLETED
+
+### Work Done
+- Created `app/Events/InvitationAccepted.php` broadcast event:
+  - Implements `ShouldBroadcast` interface
+  - Accepts `Invitation` and `User` models in constructor
+  - Broadcasts to `PrivateChannel('landlord.{landlordId}')`
+  - Returns payload with: invitation_id, email, property_name, accepted_by, role, accepted_at
+- Updated `app/Http/Controllers/InvitationController.php`:
+  - Added `InvitationAccepted` import
+  - Dispatched event from `accept()` method (new user flow)
+  - Dispatched event from `acceptAuthenticated()` method (existing user flow)
+- Updated `resources/js/Pages/Invitations/Index.vue`:
+  - Added `useEcho` composable import and usage
+  - Added `localInvitations` reactive state for real-time updates
+  - Added `watch` to sync local state with props on navigation
+  - Added Echo listener for `InvitationAccepted` event on mount
+  - Added `handleInvitationAccepted` callback to update invitation status
+  - Added toast notification component with Transition animation
+  - Unsubscribe on unmount to prevent memory leaks
+
+### Files Created
+- app/Events/InvitationAccepted.php
+
+### Files Modified
+- app/Http/Controllers/InvitationController.php
+- resources/js/Pages/Invitations/Index.vue
+- dashboard-communication-prd.json
+
+### Acceptance Criteria Verification
+1. **Create InvitationAccepted event** - Created with ShouldBroadcast
+2. **Dispatch from InvitationController::accept()** - Added in both accept flows
+3. **Broadcast to landlord.{landlordId} channel** - Implemented in broadcastOn()
+4. **Add Echo listener in relevant landlord pages** - Added to Invitations/Index.vue
+5. **Update invitation list status without refresh** - Local state updated via Echo
+6. **Show toast notification** - Green toast with Transition animation
+7. **Update caretaker/tenant count in navigation badges** - Handled by existing navBadges middleware
+
+### Verification Results
+- Pint: PASS (501 files)
+- npm run build: PASS (1696 modules transformed)
+
+### Next Steps
+- COM-019: Implement Connection Status Indicator
+- COM-020: Implement WhatsApp Payment Link Generation
