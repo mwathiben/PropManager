@@ -571,7 +571,8 @@
         "app/Models/Ticket.php"
       ],
       "verification": "Send WhatsApp message with 'broken pipe'; verify Ticket created automatically",
-      "passes": false
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "COM-016",

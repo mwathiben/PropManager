@@ -60,6 +60,13 @@ return [
             'variables' => ['tenant_name', 'expiry_date', 'new_rent'],
         ],
 
+        'ticket_created' => [
+            'name' => 'propmanager_ticket_created',
+            'label' => 'Issue Logged',
+            'content' => 'Hi {{1}}, your issue has been logged as Ticket #{{2}}. We\'ll update you on progress. Reference: {{3}}',
+            'variables' => ['tenant_name', 'ticket_id', 'issue_summary'],
+        ],
+
     ],
 
 ];
