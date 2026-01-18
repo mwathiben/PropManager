@@ -25,6 +25,7 @@ use App\Http\Controllers\MaintenanceHubController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\OperationsHubController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\PaymentLinkController;
 use App\Http\Controllers\PaymentsHubController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReceiptTemplateController;
@@ -74,6 +75,11 @@ Route::get('/tenant-invite/{token}', [TenantInvitationController::class, 'show']
 Route::post('/tenant-invite/{token}/accept', [TenantInvitationController::class, 'accept'])
     ->middleware('throttle:invitation')
     ->name('tenant-invitations.accept');
+
+// Payment Links (WhatsApp/SMS clickable links)
+Route::get('/pay/{token}', [PaymentLinkController::class, 'show'])
+    ->middleware('throttle:60,1')
+    ->name('payment.link');
 
 // --- TWO-FACTOR AUTHENTICATION CHALLENGE (Post-Login) ---
 Route::get('/two-factor-challenge', [TwoFactorController::class, 'challenge'])

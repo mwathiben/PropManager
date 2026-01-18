@@ -43,3 +43,9 @@ Schedule::command('notifications:process-scheduled')
     ->everyMinute()
     ->withoutOverlapping()
     ->runInBackground();
+
+// Clean up expired payment links daily at 02:00
+Schedule::command('payment-links:cleanup')
+    ->dailyAt('02:00')
+    ->withoutOverlapping()
+    ->runInBackground();

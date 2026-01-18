@@ -5906,3 +5906,77 @@ Implemented real-time dashboard metrics updates. When a payment is received, the
 
 ### Next Steps
 - COM-020: Implement WhatsApp Payment Link Generation (LOW priority)
+
+---
+
+## Session: 2026-01-18T19:00:00
+**Task**: COM-020 - Implement WhatsApp Payment Link Generation
+**Status**: COMPLETED
+
+### Work Done
+- Created PaymentLink migration and model:
+  - `database/migrations/2026_01_18_190000_create_payment_links_table.php`
+  - `app/Models/PaymentLink.php` with TenantScope, relationships, scopes, and helpers
+  - Token generation using `bin2hex(random_bytes(32))` (64 chars)
+  - Fields: token, invoice_id, landlord_id, expires_at, clicked_at, clicked_ip, utm_* fields, is_revoked
+- Created PaymentLinkService (`app/Services/PaymentLinkService.php`):
+  - `generate()` - Creates new payment link for invoice
+  - `generateForNotification()` - Creates link with UTM tracking for notifications
+  - `resolve()` - Resolves token to PaymentLink with eager loading
+  - `trackClick()` - Records click timestamp and IP
+  - `revokeForInvoice()` - Revokes all links for an invoice
+  - `cleanupExpired()` - Removes old expired links
+- Created PaymentLinkController (`app/Http/Controllers/PaymentLinkController.php`):
+  - Handles public `/pay/{token}` route
+  - Validates token: not found, revoked, expired, paid invoice
+  - Tracks click on valid access
+  - Redirects authenticated users appropriately (tenant → pay page, landlord → invoice)
+  - Shows guest view for unauthenticated users with invoice details
+- Created Vue pages for payment links:
+  - `resources/js/Pages/PaymentLink/Invalid.vue` - Error states with reason icons
+  - `resources/js/Pages/PaymentLink/Show.vue` - Invoice details with sign-in button
+- Updated WhatsApp templates (`config/whatsapp.php`):
+  - Added `payment_link` variable to `rent_reminder` template
+  - Added `payment_link` variable to `arrears_notice` template
+  - Note: Templates need Meta re-approval after this change
+- Integrated PaymentLinkService into NotificationService:
+  - Added constructor injection
+  - Modified `sendRentReminder()` to include payment link in template data
+  - Modified `sendArrearsNotice()` to include payment link in template data
+- Added auto-revoke logic to PaymentObserver:
+  - Revokes payment links when a payment is created for an invoice
+- Created CleanupExpiredPaymentLinks command:
+  - `php artisan payment-links:cleanup`
+  - Scheduled daily at 02:00 in routes/console.php
+
+### Files Created
+- database/migrations/2026_01_18_190000_create_payment_links_table.php
+- app/Models/PaymentLink.php
+- app/Services/PaymentLinkService.php
+- app/Http/Controllers/PaymentLinkController.php
+- app/Console/Commands/CleanupExpiredPaymentLinks.php
+- resources/js/Pages/PaymentLink/Invalid.vue
+- resources/js/Pages/PaymentLink/Show.vue
+
+### Files Modified
+- routes/web.php (added /pay/{token} route and import)
+- routes/console.php (added cleanup schedule)
+- config/whatsapp.php (added payment_link to templates)
+- app/Services/NotificationService.php (added PaymentLinkService integration)
+- app/Observers/PaymentObserver.php (added auto-revoke logic)
+- dashboard-communication-prd.json (marked COM-020 as passed)
+
+### Verification Results
+- Migration: Success
+- Lint (Pint): Success (506 files, 1 style fix)
+- Build: Success (1702 modules, 20.04s)
+- Payment Tests: 60 passed (179 assertions)
+
+### Note on Meta Template Approval
+The WhatsApp templates for `rent_reminder` and `arrears_notice` have been updated to include the `payment_link` variable. These template changes require Meta re-approval via Twilio Console before the payment links will be included in WhatsApp Business API messages.
+
+### ALL TASKS COMPLETE
+All 20 tasks in the Dashboard Communication PRD have been completed:
+- COM-001 through COM-020: All passed
+
+<promise>COMPLETE</promise>

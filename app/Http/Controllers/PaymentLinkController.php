@@ -1,0 +1,95 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Services\PaymentLinkService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class PaymentLinkController extends Controller
+{
+    public function __construct(
+        protected PaymentLinkService $paymentLinkService
+    ) {}
+
+    public function show(Request $request, string $token): RedirectResponse|Response
+    {
+        $link = $this->paymentLinkService->resolve($token);
+
+        if (! $link) {
+            return Inertia::render('PaymentLink/Invalid', [
+                'reason' => 'not_found',
+                'message' => 'This payment link is invalid or does not exist.',
+            ]);
+        }
+
+        if ($link->isRevoked()) {
+            return Inertia::render('PaymentLink/Invalid', [
+                'reason' => 'revoked',
+                'message' => 'This payment link has been revoked.',
+            ]);
+        }
+
+        if ($link->isExpired()) {
+            return Inertia::render('PaymentLink/Invalid', [
+                'reason' => 'expired',
+                'message' => 'This payment link has expired.',
+            ]);
+        }
+
+        $invoice = $link->invoice;
+
+        if (! $invoice || in_array($invoice->status, ['paid', 'cancelled', 'voided'])) {
+            $reason = $invoice?->status === 'paid' ? 'paid' : 'unavailable';
+            $message = $invoice?->status === 'paid'
+                ? 'This invoice has already been paid. Thank you!'
+                : 'This invoice is no longer available.';
+
+            return Inertia::render('PaymentLink/Invalid', [
+                'reason' => $reason,
+                'message' => $message,
+            ]);
+        }
+
+        $this->paymentLinkService->trackClick($link, $request);
+
+        if (auth()->check()) {
+            $user = auth()->user();
+
+            if ($user->id === $invoice->lease?->tenant_id) {
+                return redirect()->route('tenant.finances.pay', $invoice->id);
+            }
+
+            if ($user->id === $invoice->landlord_id || $user->landlord_id === $invoice->landlord_id) {
+                return redirect()->route('invoices.show', $invoice->id);
+            }
+        }
+
+        session(['intended_payment_invoice' => $invoice->id]);
+
+        return Inertia::render('PaymentLink/Show', [
+            'invoice' => [
+                'id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'total_due' => $invoice->total_due,
+                'amount_paid' => $invoice->amount_paid,
+                'balance' => $invoice->total_due - $invoice->amount_paid,
+                'status' => $invoice->status,
+                'due_date' => $invoice->due_date?->format('Y-m-d'),
+            ],
+            'tenant' => [
+                'name' => $invoice->lease?->tenant?->name,
+                'unit' => $invoice->lease?->unit?->unit_number,
+                'building' => $invoice->lease?->unit?->building?->name,
+            ],
+            'landlord' => [
+                'name' => $invoice->landlord?->name,
+                'business_name' => $invoice->landlord?->business_name,
+            ],
+            'token' => $token,
+            'loginUrl' => route('login', ['redirect' => route('payment.link', $token)]),
+        ]);
+    }
+}

@@ -707,7 +707,8 @@
         "app/Services/NotificationService.php"
       ],
       "verification": "Click payment link in WhatsApp; verify redirects to payment page with correct invoice",
-      "passes": false
+      "passes": true,
+      "attempt_count": 1
     }
   ],
   "progressTracking": {

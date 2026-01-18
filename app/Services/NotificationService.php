@@ -43,7 +43,8 @@ class NotificationService
     ];
 
     public function __construct(
-        private readonly WhatsAppTemplateService $whatsAppTemplateService
+        private readonly WhatsAppTemplateService $whatsAppTemplateService,
+        private readonly PaymentLinkService $paymentLinkService
     ) {}
 
     /**
@@ -687,17 +688,23 @@ class NotificationService
     {
         $tenant = User::findOrFail($tenantId);
 
+        $paymentLink = isset($data['invoice_id'])
+            ? $this->paymentLinkService->generateUrl($data['invoice_id'], 'rent_reminder')
+            : route('tenant.finances');
+
         $message = sprintf(
-            "Hello %s,\n\nThis is a friendly reminder that your rent of KES %s is due on %s.\n\nThank you.",
+            "Hello %s,\n\nThis is a friendly reminder that your rent of KES %s is due on %s.\n\nPay now: %s\n\nThank you.",
             $tenant->name,
             number_format($data['amount'], 2),
-            $data['due_date']
+            $data['due_date'],
+            $paymentLink
         );
 
         $templateData = [
             'tenant_name' => $tenant->name,
             'amount' => number_format($data['amount'], 0),
             'due_date' => $data['due_date'],
+            'payment_link' => $paymentLink,
         ];
 
         return $this->send(
@@ -717,16 +724,22 @@ class NotificationService
     {
         $tenant = User::findOrFail($tenantId);
 
+        $paymentLink = isset($data['invoice_id'])
+            ? $this->paymentLinkService->generateUrl($data['invoice_id'], 'arrears_notice')
+            : route('tenant.finances');
+
         $message = sprintf(
-            "Hello %s,\n\nYou have an outstanding balance of KES %s. Please clear your arrears as soon as possible to avoid any inconvenience.\n\nThank you.",
+            "Hello %s,\n\nYou have an outstanding balance of KES %s. Please clear your arrears as soon as possible.\n\nPay now: %s\n\nThank you.",
             $tenant->name,
-            number_format($data['arrears_amount'], 2)
+            number_format($data['arrears_amount'], 2),
+            $paymentLink
         );
 
         $templateData = [
             'tenant_name' => $tenant->name,
             'amount' => number_format($data['arrears_amount'], 0),
             'days_overdue' => (string) ($data['days_overdue'] ?? 0),
+            'payment_link' => $paymentLink,
         ];
 
         return $this->send(

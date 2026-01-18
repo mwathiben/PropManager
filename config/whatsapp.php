@@ -21,8 +21,8 @@ return [
         'rent_reminder' => [
             'name' => 'propmanager_rent_reminder',
             'label' => 'Rent Reminder',
-            'content' => 'Hi {{1}}, your rent of KES {{2}} is due on {{3}}. Pay via M-Pesa to avoid late fees. Questions? Reply to this message.',
-            'variables' => ['tenant_name', 'amount', 'due_date'],
+            'content' => 'Hi {{1}}, your rent of KES {{2}} is due on {{3}}. Pay now: {{4}} Questions? Reply to this message.',
+            'variables' => ['tenant_name', 'amount', 'due_date', 'payment_link'],
         ],
 
         'payment_received' => [
@@ -42,8 +42,8 @@ return [
         'arrears_notice' => [
             'name' => 'propmanager_arrears_notice',
             'label' => 'Arrears Notice',
-            'content' => 'Hi {{1}}, you have an outstanding balance of KES {{2}} that is {{3}} days overdue. Please settle to avoid penalties.',
-            'variables' => ['tenant_name', 'amount', 'days_overdue'],
+            'content' => 'Hi {{1}}, you have an outstanding balance of KES {{2}} that is {{3}} days overdue. Pay now: {{4}}',
+            'variables' => ['tenant_name', 'amount', 'days_overdue', 'payment_link'],
         ],
 
         'maintenance_update' => [
