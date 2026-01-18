@@ -5,6 +5,7 @@ import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import NotificationBell from '@/Components/NotificationBell.vue';
+import ConnectionStatus from '@/Components/ConnectionStatus.vue';
 import InvitationBanner from '@/Components/InvitationBanner.vue';
 import {
     HomeIcon,
@@ -471,8 +472,11 @@ const navigationItems = computed(() => {
                         <slot name="header" />
                     </div>
 
-                    <!-- Notification Bell -->
-                    <NotificationBell />
+                    <!-- Connection Status & Notification Bell -->
+                    <div class="flex items-center gap-3">
+                        <ConnectionStatus />
+                        <NotificationBell />
+                    </div>
                 </header>
 
                 <!-- Invitation Banner (for pending invitations) -->

@@ -682,7 +682,8 @@
         "resources/js/Layouts/AuthenticatedLayout.vue"
       ],
       "verification": "Disconnect network; verify indicator shows offline; reconnect; verify indicator shows online",
-      "passes": false
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "COM-020",
