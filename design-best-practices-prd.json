@@ -1028,6 +1028,52 @@
       "estimated_effort": "medium",
       "passes": false,
       "attempt_count": 0
+    },
+    {
+      "id": "DBP-024",
+      "category": "notification_consolidation",
+      "priority": "MEDIUM",
+      "title": "Cleanup Legacy Notification Config Code",
+      "description": "DBP-001 implemented dual-write repositories with feature flag. Now that v2 is stable and enabled by default, remove legacy Setting-based code paths, feature flag conditionals, and consolidate to single-write implementations.",
+      "steps": [
+        "Audit DualWriteNotificationConfigRepository for legacy read paths",
+        "Audit DualWriteNotificationDefaultsRepository for legacy read paths",
+        "Remove feature flag conditional logic from repositories",
+        "Remove legacy Setting::get() calls in favor of direct model access",
+        "Rename DualWrite* repositories to standard names (NotificationConfigRepository)",
+        "Remove unused Setting categories ('notifications', 'email', 'sms')",
+        "Update config/features.php to remove notification_v2 flag",
+        "Clean up any remaining references to old patterns"
+      ],
+      "files": [
+        "app/Repositories/DualWriteNotificationConfigRepository.php",
+        "app/Repositories/DualWriteNotificationDefaultsRepository.php",
+        "app/Models/Setting.php",
+        "config/features.php",
+        "app/Providers/AppServiceProvider.php"
+      ],
+      "definition_of_ready": [
+        "DBP-001 fully completed and stable",
+        "Feature flag notification_v2 enabled in production for 1+ week",
+        "No rollback incidents reported"
+      ],
+      "acceptance_criteria": [
+        "No dual-write logic remains in repositories",
+        "No feature flag conditionals in notification code",
+        "Setting model no longer used for notification config",
+        "Repositories renamed to clean names without 'DualWrite' prefix"
+      ],
+      "definition_of_done": [
+        "All legacy code paths removed",
+        "Tests pass without feature flag",
+        "No Setting entries in notifications/email/sms categories",
+        "Clean repository implementations"
+      ],
+      "verification": "Run php artisan test; verify notification settings load from new tables only",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["DBP-001"]
     }
   ],
   "progressTracking": {
