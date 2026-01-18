@@ -6212,3 +6212,107 @@ Started the unified notification configuration architecture migration. Phase 1 f
 
 ### Next Steps
 - Continue with Phase 2: Create repository interfaces and dual-write implementation
+
+---
+
+## DBP-001 Phase 2: Repository Pattern with Dual-Write
+**Status:** COMPLETED
+**Date:** 2026-01-18
+**Session:** Phase 2 of 5
+
+### Overview
+Implemented the dual-write repository pattern for notification configuration. The repository abstracts Setting table access and writes to both legacy (Setting) and new (NotificationProviderConfig) tables. Feature flag controls read source.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Repositories/Contracts/NotificationConfigRepositoryInterface.php` | Interface defining contract for notification config access |
+| `app/Repositories/DualWriteNotificationConfigRepository.php` | Dual-write implementation |
+| `tests/Unit/Repositories/DualWriteNotificationConfigRepositoryTest.php` | 15 test cases for repository |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Providers/AppServiceProvider.php` | Registered interface binding to DualWriteNotificationConfigRepository |
+| `app/Services/NotificationService.php` | Replaced 14 Setting::get calls with repository methods |
+| `app/Services/WhatsAppTemplateService.php` | Constructor injection, repository for template SID lookup |
+| `design-best-practices-prd.json` | Updated phase_progress to "Phase 2 of 5 complete" |
+
+### Repository Interface Methods
+
+```php
+interface NotificationConfigRepositoryInterface
+{
+    // Read operations
+    public function getSmsProvider(int $landlordId): string;
+    public function getTwilioCredentials(int $landlordId): array;
+    public function getAfricasTalkingCredentials(int $landlordId): array;
+    public function getWhatsAppNumber(int $landlordId): ?string;
+    public function getWhatsAppTemplateSid(int $landlordId, string $type): ?string;
+    public function getRateLimits(int $landlordId): array;
+
+    // Write operations (dual-write)
+    public function setSmsProvider(int $landlordId, string $provider): void;
+    public function setTwilioCredentials(int $landlordId, array $credentials): void;
+    public function setAfricasTalkingCredentials(int $landlordId, array $credentials): void;
+    public function setWhatsAppNumber(int $landlordId, string $number): void;
+    public function setWhatsAppTemplateSid(int $landlordId, string $type, string $sid): void;
+}
+```
+
+### Dual-Write Behavior
+
+**Read Operations (feature flag controlled)**
+- `notification_v2 = false`: Read from Setting table (legacy)
+- `notification_v2 = true`: Read from NotificationProviderConfig table (new)
+
+**Write Operations (always dual-write)**
+- Write to Setting table (legacy compatibility)
+- Write to NotificationProviderConfig table (migration prep)
+
+### NotificationService Updates
+
+| Line | From | To |
+|------|------|-----|
+| 459 | `Setting::get('sms_provider', ...)` | `$this->configRepository->getSmsProvider()` |
+| 479-482 | 3x `Setting::get('twilio_*', ...)` | `$this->configRepository->getTwilioCredentials()` |
+| 521-524 | 3x `Setting::get('africas_talking_*', ...)` | `$this->configRepository->getAfricasTalkingCredentials()` |
+| 572-575 | `Setting::get('twilio_whatsapp_number', ...)` | `$this->configRepository->getWhatsAppNumber()` |
+| 987-989, 1020-1022 | 4x `Setting::get('notification_rate_limit_*', ...)` | `$this->configRepository->getRateLimits()` |
+
+### Test Coverage
+
+15 test cases covering:
+- `getSmsProvider()` with flag OFF → reads from Setting
+- `getSmsProvider()` with flag ON → reads from NotificationProviderConfig
+- `getTwilioCredentials()` returns properly structured array
+- `getAfricasTalkingCredentials()` reads from correct source
+- `getWhatsAppNumber()` with flag switching
+- `getWhatsAppTemplateSid()` lookup
+- `getRateLimits()` returns defaults when not configured
+- `setTwilioCredentials()` writes to BOTH tables
+- `setAfricasTalkingCredentials()` dual-write verification
+- `setWhatsAppTemplateSid()` dual-write verification
+
+### Verification Results
+- **Pint**: PASS (534 files)
+- **npm run build**: PASS (19.69s)
+- **Tests**: 500 passed, 12 skipped (0 failures)
+
+### Phase 2 Acceptance Criteria Met
+- [x] Repository interface created with methods for all credential types
+- [x] Dual-write implementation created and registered
+- [x] NotificationService constructor-injects repository
+- [x] 14 Setting::get calls in NotificationService replaced with repository calls
+- [x] WhatsAppTemplateService uses repository for template SID
+- [x] Feature flag controls read source (OFF=Setting, ON=NotificationProviderConfig)
+- [x] All existing notification tests pass
+- [x] Repository unit tests pass
+- [x] No breaking changes - existing functionality preserved
+
+### Remaining Phases
+- **Phase 3**: Data Backfill (artisan command to migrate Setting → NotificationProviderConfig)
+- **Phase 4**: Feature Flag Flip + Controller Migration (22 calls in NotificationsController, 19 in TenantInvitationController)
+- **Phase 5**: Cleanup (remove legacy code paths)

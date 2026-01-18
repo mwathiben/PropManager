@@ -2,10 +2,14 @@
 
 namespace App\Services;
 
-use App\Models\Setting;
+use App\Repositories\Contracts\NotificationConfigRepositoryInterface;
 
 class WhatsAppTemplateService
 {
+    public function __construct(
+        private readonly NotificationConfigRepositoryInterface $configRepository
+    ) {}
+
     /**
      * Get template configuration by type.
      */
@@ -27,7 +31,7 @@ class WhatsAppTemplateService
      */
     public function getContentSid(string $type, int $landlordId): ?string
     {
-        return Setting::get("whatsapp_template_{$type}_sid", null, $landlordId);
+        return $this->configRepository->getWhatsAppTemplateSid($landlordId, $type);
     }
 
     /**

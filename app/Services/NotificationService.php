@@ -5,8 +5,8 @@ namespace App\Services;
 use App\Jobs\SendNotificationJob;
 use App\Models\Notification;
 use App\Models\NotificationPreference;
-use App\Models\Setting;
 use App\Models\User;
+use App\Repositories\Contracts\NotificationConfigRepositoryInterface;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -44,7 +44,8 @@ class NotificationService
 
     public function __construct(
         private readonly WhatsAppTemplateService $whatsAppTemplateService,
-        private readonly PaymentLinkService $paymentLinkService
+        private readonly PaymentLinkService $paymentLinkService,
+        private readonly NotificationConfigRepositoryInterface $configRepository
     ) {}
 
     /**
@@ -455,7 +456,7 @@ class NotificationService
      */
     private function sendSms(Notification $notification, User $recipient): bool
     {
-        $provider = Setting::get('sms_provider', 'none', $notification->landlord_id);
+        $provider = $this->configRepository->getSmsProvider($notification->landlord_id);
 
         if ($provider === 'none') {
             $notification->markAsFailed('SMS provider not configured');
@@ -475,9 +476,10 @@ class NotificationService
      */
     private function sendViaTwilio(Notification $notification, User $recipient): bool
     {
-        $accountSid = Setting::get('twilio_account_sid', null, $notification->landlord_id);
-        $authToken = Setting::get('twilio_auth_token', null, $notification->landlord_id);
-        $fromNumber = Setting::get('twilio_phone_number', null, $notification->landlord_id);
+        $credentials = $this->configRepository->getTwilioCredentials($notification->landlord_id);
+        $accountSid = $credentials['account_sid'];
+        $authToken = $credentials['auth_token'];
+        $fromNumber = $credentials['phone_number'];
 
         if (! $accountSid || ! $authToken || ! $fromNumber) {
             $notification->markAsFailed('Twilio credentials not configured');
@@ -486,11 +488,12 @@ class NotificationService
         }
 
         try {
+            /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::withBasicAuth($accountSid, $authToken)
                 ->asForm()
                 ->post("https://api.twilio.com/2010-04-01/Accounts/{$accountSid}/Messages.json", [
                     'From' => $fromNumber,
-                    'To' => $recipient->phone,
+                    'To' => $recipient->mobile_number,
                     'Body' => $notification->message,
                 ]);
 
@@ -515,9 +518,10 @@ class NotificationService
      */
     private function sendViaAfricasTalking(Notification $notification, User $recipient): bool
     {
-        $apiKey = Setting::get('africas_talking_api_key', null, $notification->landlord_id);
-        $username = Setting::get('africas_talking_username', null, $notification->landlord_id);
-        $from = Setting::get('africas_talking_from', null, $notification->landlord_id);
+        $credentials = $this->configRepository->getAfricasTalkingCredentials($notification->landlord_id);
+        $apiKey = $credentials['api_key'];
+        $username = $credentials['username'];
+        $from = $credentials['from'];
 
         if (! $apiKey || ! $username) {
             $notification->markAsFailed("Africa's Talking credentials not configured");
@@ -526,12 +530,13 @@ class NotificationService
         }
 
         try {
+            /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::withHeaders([
                 'apiKey' => $apiKey,
                 'Content-Type' => 'application/x-www-form-urlencoded',
             ])->asForm()->post('https://api.africastalking.com/version1/messaging', [
                 'username' => $username,
-                'to' => $recipient->phone,
+                'to' => $recipient->mobile_number,
                 'message' => $notification->message,
                 'from' => $from,
             ]);
@@ -564,9 +569,10 @@ class NotificationService
      */
     private function sendWhatsApp(Notification $notification, User $recipient): bool
     {
-        $accountSid = Setting::get('twilio_account_sid', null, $notification->landlord_id);
-        $authToken = Setting::get('twilio_auth_token', null, $notification->landlord_id);
-        $fromNumber = Setting::get('twilio_whatsapp_number', null, $notification->landlord_id);
+        $twilioCredentials = $this->configRepository->getTwilioCredentials($notification->landlord_id);
+        $accountSid = $twilioCredentials['account_sid'];
+        $authToken = $twilioCredentials['auth_token'];
+        $fromNumber = $this->configRepository->getWhatsAppNumber($notification->landlord_id);
 
         if (! $accountSid || ! $authToken || ! $fromNumber) {
             $notification->markAsFailed('WhatsApp credentials not configured');
@@ -578,7 +584,7 @@ class NotificationService
             ->where('landlord_id', $notification->landlord_id)
             ->first();
 
-        $toNumber = $preferences?->whatsapp_number ?? $recipient->phone;
+        $toNumber = $preferences?->whatsapp_number ?? $recipient->mobile_number;
 
         try {
             $payload = [
@@ -598,6 +604,7 @@ class NotificationService
                 $payload['Body'] = $notification->message;
             }
 
+            /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::withBasicAuth($accountSid, $authToken)
                 ->asForm()
                 ->post("https://api.twilio.com/2010-04-01/Accounts/{$accountSid}/Messages.json", $payload);
@@ -690,7 +697,7 @@ class NotificationService
 
         $paymentLink = isset($data['invoice_id'])
             ? $this->paymentLinkService->generateUrl($data['invoice_id'], 'rent_reminder')
-            : route('tenant.finances');
+            : route('tenant.finances.index');
 
         $message = sprintf(
             "Hello %s,\n\nThis is a friendly reminder that your rent of KES %s is due on %s.\n\nPay now: %s\n\nThank you.",
@@ -726,7 +733,7 @@ class NotificationService
 
         $paymentLink = isset($data['invoice_id'])
             ? $this->paymentLinkService->generateUrl($data['invoice_id'], 'arrears_notice')
-            : route('tenant.finances');
+            : route('tenant.finances.index');
 
         $message = sprintf(
             "Hello %s,\n\nYou have an outstanding balance of KES %s. Please clear your arrears as soon as possible.\n\nPay now: %s\n\nThank you.",
@@ -977,8 +984,9 @@ class NotificationService
         $hourlyKey = "notifications:{$landlordId}:{$channel}:hourly";
         $dailyKey = "notifications:{$landlordId}:{$channel}:daily";
 
-        $hourlyLimit = Setting::get('notification_rate_limit_hourly', self::RATE_LIMIT_PER_HOUR, $landlordId);
-        $dailyLimit = Setting::get('notification_rate_limit_daily', self::RATE_LIMIT_PER_DAY, $landlordId);
+        $rateLimits = $this->configRepository->getRateLimits($landlordId);
+        $hourlyLimit = $rateLimits['hourly'];
+        $dailyLimit = $rateLimits['daily'];
 
         $hourlyAttempts = RateLimiter::attempt(
             $hourlyKey,
@@ -1009,8 +1017,9 @@ class NotificationService
         $hourlyKey = "notifications:{$landlordId}:{$channel}:hourly";
         $dailyKey = "notifications:{$landlordId}:{$channel}:daily";
 
-        $hourlyLimit = Setting::get('notification_rate_limit_hourly', self::RATE_LIMIT_PER_HOUR, $landlordId);
-        $dailyLimit = Setting::get('notification_rate_limit_daily', self::RATE_LIMIT_PER_DAY, $landlordId);
+        $rateLimits = $this->configRepository->getRateLimits($landlordId);
+        $hourlyLimit = $rateLimits['hourly'];
+        $dailyLimit = $rateLimits['daily'];
 
         return [
             'hourly' => [
