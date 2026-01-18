@@ -3,29 +3,41 @@
 namespace App\Providers;
 
 use App\Models\Building;
+use App\Models\DepositTransaction;
 use App\Models\Document;
+use App\Models\Expense;
+use App\Models\ExpenseCategory;
 use App\Models\Invitation;
 use App\Models\Invoice;
 use App\Models\InvoiceTemplate;
+use App\Models\LateFeePolicy;
 use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\Property;
 use App\Models\ReceiptTemplate;
 use App\Models\Ticket;
 use App\Models\Unit;
+use App\Models\Vendor;
 use App\Models\WaterReading;
+use App\Models\WaterSetting;
 use App\Policies\BuildingPolicy;
+use App\Policies\DepositTransactionPolicy;
 use App\Policies\DocumentPolicy;
+use App\Policies\ExpenseCategoryPolicy;
+use App\Policies\ExpensePolicy;
 use App\Policies\InvitationPolicy;
 use App\Policies\InvoicePolicy;
 use App\Policies\InvoiceTemplatePolicy;
+use App\Policies\LateFeeRulePolicy;
 use App\Policies\LeasePolicy;
 use App\Policies\PaymentPolicy;
 use App\Policies\PropertyPolicy;
 use App\Policies\ReceiptTemplatePolicy;
 use App\Policies\TicketPolicy;
 use App\Policies\UnitPolicy;
+use App\Policies\VendorPolicy;
 use App\Policies\WaterReadingPolicy;
+use App\Policies\WaterSettingPolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 
@@ -49,6 +61,12 @@ class AuthServiceProvider extends ServiceProvider
         Ticket::class => TicketPolicy::class,
         WaterReading::class => WaterReadingPolicy::class,
         Invitation::class => InvitationPolicy::class,
+        Expense::class => ExpensePolicy::class,
+        ExpenseCategory::class => ExpenseCategoryPolicy::class,
+        Vendor::class => VendorPolicy::class,
+        LateFeePolicy::class => LateFeeRulePolicy::class,
+        DepositTransaction::class => DepositTransactionPolicy::class,
+        WaterSetting::class => WaterSettingPolicy::class,
     ];
 
     /**

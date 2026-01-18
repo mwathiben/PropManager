@@ -6064,4 +6064,77 @@ Created `WithLandlordScope` trait to eliminate code duplication across 8 control
 
 ### Next Steps
 - DBP-001: Create Unified Notification Configuration Architecture (CRITICAL)
-- DBP-010: Create Missing Authorization Policies (CRITICAL)
+
+---
+
+## DBP-010: Create Missing Authorization Policies
+**Status:** PASSED
+**Date:** 2026-01-18
+**Attempts:** 1
+
+### Implementation Summary
+
+Created authorization policies for 6 models that were missing policies (Expense, LateFeePolicy, DepositTransaction, ExpenseCategory, Vendor, WaterSetting). Also migrated 15+ manual auth checks in FinancesController to use `$this->authorize()` policy calls.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Policies/ExpensePolicy.php` | Authorization for expense management |
+| `app/Policies/LateFeeRulePolicy.php` | Authorization for late fee policy rules |
+| `app/Policies/DepositTransactionPolicy.php` | Authorization for deposit transactions |
+| `app/Policies/ExpenseCategoryPolicy.php` | Authorization for expense categories |
+| `app/Policies/VendorPolicy.php` | Authorization for vendors |
+| `app/Policies/WaterSettingPolicy.php` | Authorization for water settings |
+| `tests/Unit/Policies/AuthorizationPoliciesTest.php` | Unit tests for all new policies |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Providers/AuthServiceProvider.php` | Registered all 6 new policies |
+| `app/Http/Controllers/FinancesController.php` | Replaced 15+ manual auth checks with `$this->authorize()` |
+
+### Authorization Pattern
+
+All policies follow consistent pattern:
+- `before()`: Super admin bypass
+- `viewAny()`: Role-based access (landlord/caretaker)
+- `view()`: Ownership check via `landlord_id`
+- `create()`: Role-based (landlord only for most)
+- `update()`: Ownership check + role (landlord/caretaker can update)
+- `delete()`: Landlord only with ownership check
+
+### Controller Migrations
+
+| Method | Before | After |
+|--------|--------|-------|
+| `storeLateFeePolicy()` | No check | `$this->authorize('create', LateFeePolicy::class)` |
+| `updateLateFeePolicy()` | Manual `landlord_id` check | `$this->authorize('update', $policy)` |
+| `destroyLateFeePolicy()` | Manual check | `$this->authorize('delete', $policy)` |
+| `toggleLateFeePolicy()` | Manual check | `$this->authorize('update', $policy)` |
+| `storeExpense()` | No check | `$this->authorize('create', Expense::class)` |
+| `updateExpense()` | Manual check | `$this->authorize('update', $expense)` |
+| `destroyExpense()` | Manual check | `$this->authorize('delete', $expense)` |
+| `expenseDetail()` | Manual check | `$this->authorize('view', $expense)` |
+| `storeExpenseCategory()` | No check | `$this->authorize('create', ExpenseCategory::class)` |
+| `updateExpenseCategory()` | Manual check | `$this->authorize('update', $category)` |
+| `destroyExpenseCategory()` | Manual check | `$this->authorize('delete', $category)` |
+| `storeVendor()` | No check | `$this->authorize('create', Vendor::class)` |
+| `updateVendor()` | Manual check | `$this->authorize('update', $vendor)` |
+| `destroyVendor()` | Manual check | `$this->authorize('delete', $vendor)` |
+
+### Verification Results
+- **Pint**: PASS
+- **npm run build**: PASS
+- **Tests**: 485 passed, 12 skipped (0 failures)
+
+### Acceptance Criteria Met
+- [x] Every model with CRUD operations has corresponding policy
+- [x] Policies handle landlord/caretaker/tenant roles correctly
+- [x] Controllers use `$this->authorize()` instead of manual checks
+- [x] Consistent authorization error messages (403 via policy)
+
+### Next Steps
+- DBP-001: Create Unified Notification Configuration Architecture (CRITICAL)
+- DBP-011: Add Authorization to PaymentLinkController (HIGH)

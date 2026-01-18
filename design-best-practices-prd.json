@@ -490,8 +490,8 @@
       ],
       "verification": "Try accessing expense as wrong landlord; verify 403 response",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "DBP-011",

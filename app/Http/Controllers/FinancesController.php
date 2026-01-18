@@ -701,6 +701,8 @@ class FinancesController extends Controller
             default => 10,
         };
 
+        $this->authorize('create', LateFeePolicy::class);
+
         LateFeePolicy::create($validated);
 
         return back()->with('success', 'Late fee policy created successfully.');
@@ -708,11 +710,7 @@ class FinancesController extends Controller
 
     public function updateLateFeePolicy(Request $request, LateFeePolicy $policy): RedirectResponse
     {
-        $landlordId = $this->getLandlordId();
-
-        if ($policy->landlord_id !== $landlordId) {
-            abort(403);
-        }
+        $this->authorize('update', $policy);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -741,11 +739,7 @@ class FinancesController extends Controller
 
     public function destroyLateFeePolicy(LateFeePolicy $policy): RedirectResponse
     {
-        $landlordId = $this->getLandlordId();
-
-        if ($policy->landlord_id !== $landlordId) {
-            abort(403);
-        }
+        $this->authorize('delete', $policy);
 
         if ($policy->lateFees()->exists()) {
             return back()->withErrors(['error' => 'Cannot delete policy with existing late fees. Deactivate it instead.']);
@@ -758,11 +752,7 @@ class FinancesController extends Controller
 
     public function toggleLateFeePolicy(LateFeePolicy $policy): RedirectResponse
     {
-        $landlordId = $this->getLandlordId();
-
-        if ($policy->landlord_id !== $landlordId) {
-            abort(403);
-        }
+        $this->authorize('update', $policy);
 
         $policy->update(['is_active' => ! $policy->is_active]);
 
@@ -864,6 +854,8 @@ class FinancesController extends Controller
             'recurring_frequency' => 'nullable|in:weekly,monthly,quarterly,yearly',
         ]);
 
+        $this->authorize('create', Expense::class);
+
         Expense::create($validated);
 
         return back()->with('success', 'Expense recorded successfully.');
@@ -871,11 +863,7 @@ class FinancesController extends Controller
 
     public function updateExpense(Request $request, Expense $expense): RedirectResponse
     {
-        $landlordId = $this->getLandlordId();
-
-        if ($expense->landlord_id !== $landlordId) {
-            abort(403);
-        }
+        $this->authorize('update', $expense);
 
         $validated = $request->validate([
             'category_id' => 'nullable|exists:expense_categories,id',
@@ -900,11 +888,7 @@ class FinancesController extends Controller
 
     public function destroyExpense(Expense $expense): RedirectResponse
     {
-        $landlordId = $this->getLandlordId();
-
-        if ($expense->landlord_id !== $landlordId) {
-            abort(403);
-        }
+        $this->authorize('delete', $expense);
 
         $expense->delete();
 
@@ -913,11 +897,7 @@ class FinancesController extends Controller
 
     public function expenseDetail(Expense $expense): JsonResponse
     {
-        $landlordId = $this->getLandlordId();
-
-        if ($expense->landlord_id !== $landlordId) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+        $this->authorize('view', $expense);
 
         $expense->load(['category', 'vendor', 'property', 'building', 'unit']);
 
@@ -955,6 +935,8 @@ class FinancesController extends Controller
 
         $validated['is_active'] = true;
 
+        $this->authorize('create', ExpenseCategory::class);
+
         ExpenseCategory::create($validated);
 
         return back()->with('success', 'Category created successfully.');
@@ -962,11 +944,7 @@ class FinancesController extends Controller
 
     public function updateExpenseCategory(Request $request, ExpenseCategory $category): RedirectResponse
     {
-        $landlordId = $this->getLandlordId();
-
-        if ($category->landlord_id !== $landlordId) {
-            abort(403);
-        }
+        $this->authorize('update', $category);
 
         $validated = $request->validate([
             'name' => 'required|string|max:100',
@@ -982,11 +960,7 @@ class FinancesController extends Controller
 
     public function destroyExpenseCategory(ExpenseCategory $category): RedirectResponse
     {
-        $landlordId = $this->getLandlordId();
-
-        if ($category->landlord_id !== $landlordId) {
-            abort(403);
-        }
+        $this->authorize('delete', $category);
 
         if ($category->expenses()->exists()) {
             return back()->withErrors(['error' => 'Cannot delete category with existing expenses.']);
@@ -1011,6 +985,8 @@ class FinancesController extends Controller
 
         $validated['is_active'] = true;
 
+        $this->authorize('create', Vendor::class);
+
         Vendor::create($validated);
 
         return back()->with('success', 'Vendor created successfully.');
@@ -1018,11 +994,7 @@ class FinancesController extends Controller
 
     public function updateVendor(Request $request, Vendor $vendor): RedirectResponse
     {
-        $landlordId = $this->getLandlordId();
-
-        if ($vendor->landlord_id !== $landlordId) {
-            abort(403);
-        }
+        $this->authorize('update', $vendor);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -1042,11 +1014,7 @@ class FinancesController extends Controller
 
     public function destroyVendor(Vendor $vendor): RedirectResponse
     {
-        $landlordId = $this->getLandlordId();
-
-        if ($vendor->landlord_id !== $landlordId) {
-            abort(403);
-        }
+        $this->authorize('delete', $vendor);
 
         if ($vendor->expenses()->exists()) {
             return back()->withErrors(['error' => 'Cannot delete vendor with existing expenses.']);
