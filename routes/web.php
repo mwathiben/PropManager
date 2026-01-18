@@ -78,7 +78,7 @@ Route::post('/tenant-invite/{token}/accept', [TenantInvitationController::class,
 
 // Payment Links (WhatsApp/SMS clickable links)
 Route::get('/pay/{token}', [PaymentLinkController::class, 'show'])
-    ->middleware('throttle:60,1')
+    ->middleware('throttle:payment-link')
     ->name('payment.link');
 
 // --- TWO-FACTOR AUTHENTICATION CHALLENGE (Post-Login) ---

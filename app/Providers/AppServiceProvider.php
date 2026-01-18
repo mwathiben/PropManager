@@ -197,6 +197,26 @@ class AppServiceProvider extends ServiceProvider
                     ], 429, $headers);
                 });
         });
+
+        // Payment link rate limiter - stricter with security logging
+        RateLimiter::for('payment-link', function (Request $request) {
+            $token = $request->route('token');
+
+            return Limit::perMinute(30)
+                ->by($request->ip())
+                ->response(function (Request $request, array $headers) use ($token) {
+                    Log::channel('security')->warning('Payment link rate limit exceeded', [
+                        'ip' => $request->ip(),
+                        'token_prefix' => $token ? substr($token, 0, 8).'...' : 'unknown',
+                        'user_agent' => $request->userAgent(),
+                    ]);
+
+                    return \Inertia\Inertia::render('PaymentLink/Invalid', [
+                        'reason' => 'rate_limited',
+                        'message' => 'Too many requests. Please wait a moment and try again.',
+                    ])->toResponse($request)->setStatusCode(429);
+                });
+        });
     }
 
     /**

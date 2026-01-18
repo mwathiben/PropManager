@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\PaymentLinkService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -19,6 +20,12 @@ class PaymentLinkController extends Controller
         $link = $this->paymentLinkService->resolve($token);
 
         if (! $link) {
+            Log::channel('security')->warning('Invalid payment link token accessed', [
+                'ip' => $request->ip(),
+                'token_prefix' => substr($token, 0, 8).'...',
+                'user_agent' => $request->userAgent(),
+            ]);
+
             return Inertia::render('PaymentLink/Invalid', [
                 'reason' => 'not_found',
                 'message' => 'This payment link is invalid or does not exist.',
@@ -26,6 +33,12 @@ class PaymentLinkController extends Controller
         }
 
         if ($link->isRevoked()) {
+            Log::channel('security')->info('Revoked payment link accessed', [
+                'ip' => $request->ip(),
+                'payment_link_id' => $link->id,
+                'invoice_id' => $link->invoice_id,
+            ]);
+
             return Inertia::render('PaymentLink/Invalid', [
                 'reason' => 'revoked',
                 'message' => 'This payment link has been revoked.',
@@ -33,6 +46,12 @@ class PaymentLinkController extends Controller
         }
 
         if ($link->isExpired()) {
+            Log::channel('security')->info('Expired payment link accessed', [
+                'ip' => $request->ip(),
+                'payment_link_id' => $link->id,
+                'expired_at' => $link->expires_at?->toIso8601String(),
+            ]);
+
             return Inertia::render('PaymentLink/Invalid', [
                 'reason' => 'expired',
                 'message' => 'This payment link has expired.',

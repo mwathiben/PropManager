@@ -6700,3 +6700,58 @@ None
 ### Next Steps
 - DBP-003: Centralize Quiet Hours Logic (next MEDIUM priority in notification_consolidation)
 - DBP-006: Create Unified Badge Component System (next MEDIUM priority in component_consolidation)
+
+---
+
+## Session: 2026-01-18
+**Task**: DBP-011 - Add Authorization to PaymentLinkController
+**Status**: COMPLETED
+
+### Work Done
+- Analyzed existing security posture: PaymentLinkController already had solid foundations (64-char hex token, 30-day expiry, revocation, invoice state validation)
+- Created custom `payment-link` named rate limiter in AppServiceProvider:
+  - 30 requests/minute (stricter than previous 60/min)
+  - IP-based rate limiting
+  - Security logging on rate limit exceeded
+  - Returns Inertia rendered 429 response
+- Added security logging to PaymentLinkController::show():
+  - Logs invalid token access attempts (warning level)
+  - Logs expired link access attempts (info level)
+  - Logs revoked link access attempts (info level)
+  - All logs include IP, token prefix, and user agent where applicable
+- Updated route middleware from inline `throttle:60,1` to named `throttle:payment-link`
+
+### Files Changed
+- `app/Providers/AppServiceProvider.php` (added payment-link rate limiter)
+- `app/Http/Controllers/PaymentLinkController.php` (added security logging)
+- `routes/web.php` (updated middleware name)
+
+### Implementation Notes
+- Security log channel already existed in `config/logging.php`
+- Honeypot not implemented: PaymentLink/Show.vue is display-only (no form submission, just redirects to login)
+- Rate limit reduced from 60/min to 30/min for tighter security without impacting legitimate users
+
+### Acceptance Criteria Verification
+| Criterion | Implementation |
+|-----------|----------------|
+| Rate limiting prevents brute force | ✅ Custom limiter: 30 req/min per IP |
+| Suspicious activity is logged | ✅ Invalid tokens, expired/revoked links logged to security channel |
+| Legitimate users not impacted | ✅ 30 req/min generous for real users |
+| No security vulnerabilities | ✅ Existing token security + enhanced logging |
+
+### Verification
+- `vendor/bin/pint --test` - ✅ Passed (538 files)
+- `npm run build` - ✅ Passed
+- `php artisan test --parallel` - ✅ Passed (513 tests, 12 skipped)
+
+### Issues Encountered
+None
+
+### Learnings
+- PaymentLink already had strong security fundamentals; enhancement focused on observability
+- Named rate limiters with logging provide better security insight than inline throttle
+
+### Next Steps
+- DBP-012: Extract Validation Rules to FormRequest Classes (HIGH priority)
+- DBP-016: Remove Console Statements from Production Code (HIGH priority)
+- DBP-020: Fix N+1 Queries in PaymentController Bulk Import (HIGH priority)
