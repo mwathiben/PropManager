@@ -6584,3 +6584,62 @@ AFTER (2 clear locations + 2 special-purpose):
 - [x] No duplicate email/SMS config in Admin Settings
 - [x] Clear visual distinction between provider settings and preference defaults
 - [x] Navigation intuitive with info banners linking between locations
+
+
+---
+
+## Session: 2026-01-18T10:30:00Z
+**Task**: DBP-004 - Consolidate MetricCard Components
+**Status**: COMPLETED
+
+### Work Done
+- Replaced `Components/MetricCard.vue` with TypeScript version from `Components/Finances/MetricCard.vue`
+- New component features:
+  - Full TypeScript with interface Props
+  - Uses `useFormatters` composable (formatMoney, formatNumber, formatPercent)
+  - 8-color palette (`color` prop: emerald, blue, red, yellow, indigo, gray, purple, orange)
+  - Auto-formatting via `format` prop (currency, number, percent, text)
+  - Loading state with pulse animation
+  - Null/undefined handling (shows `-`)
+- Migrated 5 dashboard files from `iconBgColor`/`iconColor` to unified `color` prop:
+  - `Dashboard.vue` (4 usages)
+  - `Admin/Dashboard.vue` (6 usages)
+  - `Buildings/Dashboard.vue` (4 usages)
+  - `Caretaker/Dashboard.vue` (1 usage)
+  - `Tenant/Dashboard.vue` (1 usage)
+- Updated `Components/Finances/index.ts` to re-export from `@/Components/MetricCard.vue`
+- Deleted `Components/Finances/MetricCard.vue`
+
+### Files Changed
+- `resources/js/Components/MetricCard.vue` (replaced)
+- `resources/js/Components/Finances/index.ts` (updated export)
+- `resources/js/Components/Finances/MetricCard.vue` (deleted)
+- `resources/js/Pages/Dashboard.vue`
+- `resources/js/Pages/Admin/Dashboard.vue`
+- `resources/js/Pages/Buildings/Dashboard.vue`
+- `resources/js/Pages/Caretaker/Dashboard.vue`
+- `resources/js/Pages/Tenant/Dashboard.vue`
+
+### Color Mapping Applied
+| Legacy Props | Unified Color |
+|-------------|---------------|
+| `bg-green-100`/`text-green-600` | `emerald` |
+| `bg-blue-100`/`text-blue-600` | `blue` |
+| `bg-red-100`/`text-red-600` | `red` |
+| `bg-indigo-100`/`text-indigo-600` | `indigo` |
+| `bg-purple-100`/`text-purple-600` | `purple` |
+| `bg-amber-100`/`text-amber-600` | `yellow` |
+
+### Verification
+- `npm run build` - ✅ Passed (exit code 0)
+- `vendor/bin/pint --test` - ✅ Passed (538 files)
+
+### Issues Encountered
+None
+
+### Learnings
+- Re-exporting from barrel file (`index.ts`) allows existing imports to work without changing consumer files
+- The TypeScript version's `format` prop eliminates need for pre-formatting values
+
+### Next Steps
+- DBP-005: Consolidate Pagination Components (next HIGH priority in component_consolidation category)

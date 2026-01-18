@@ -555,11 +555,11 @@ const clearAllFilters = () => {
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <MetricCard
                     title="Monthly Revenue"
-                    :value="formatMoney(financialMetrics.monthly_revenue)"
+                    :value="financialMetrics.monthly_revenue"
+                    format="currency"
                     :subtitle="'Expected: ' + formatMoney(financialMetrics.expected_revenue)"
                     :icon="BanknotesIcon"
-                    iconBgColor="bg-green-100"
-                    iconColor="text-green-600"
+                    color="emerald"
                     :href="route('invoices.index')"
                     :trend="financialMetrics.collection_rate >= 80
                         ? { direction: 'up', value: financialMetrics.collection_rate + '%' }
@@ -568,31 +568,31 @@ const clearAllFilters = () => {
 
                 <MetricCard
                     title="Collection Rate"
-                    :value="financialMetrics.collection_rate + '%'"
+                    :value="financialMetrics.collection_rate"
+                    format="percent"
                     subtitle="This month"
                     :icon="ChartBarIcon"
-                    iconBgColor="bg-blue-100"
-                    iconColor="text-blue-600"
+                    color="blue"
                     :href="route('reports.index')"
                 />
 
                 <MetricCard
                     title="Total Arrears"
-                    :value="formatMoney(financialMetrics.total_arrears)"
+                    :value="financialMetrics.total_arrears"
+                    format="currency"
                     subtitle="Outstanding balance"
                     :icon="ExclamationTriangleIcon"
-                    iconBgColor="bg-red-100"
-                    iconColor="text-red-600"
+                    color="red"
                     :href="route('invoices.index', { has_arrears: true })"
                 />
 
                 <MetricCard
                     title="Occupancy Rate"
-                    :value="stats.occupancy_rate + '%'"
+                    :value="stats.occupancy_rate"
+                    format="percent"
                     :subtitle="stats.occupied_units + ' / ' + stats.total_units + ' units'"
                     :icon="UserGroupIcon"
-                    iconBgColor="bg-indigo-100"
-                    iconColor="text-indigo-600"
+                    color="indigo"
                     :href="route('buildings.dashboard', { building: activeBuilding.id, status: 'vacant' })"
                 />
             </div>

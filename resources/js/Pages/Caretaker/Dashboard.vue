@@ -205,10 +205,10 @@ onUnmounted(() => {
                     v-else
                     title="Total Units"
                     :value="unitStats.total"
+                    format="number"
                     :subtitle="unitStats.occupied + ' occupied'"
                     :icon="HomeModernIcon"
-                    iconBgColor="bg-indigo-100"
-                    iconColor="text-indigo-600"
+                    color="indigo"
                 />
             </div>
 

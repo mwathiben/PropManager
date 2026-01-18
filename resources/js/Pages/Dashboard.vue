@@ -599,11 +599,11 @@ onUnmounted(() => {
                 <div :class="['transition-all duration-500 rounded-2xl', metricsUpdating ? 'ring-2 ring-green-400 ring-opacity-60' : '']">
                     <MetricCard
                         title="Monthly Revenue"
-                        :value="formatMoney(localFinancialMetrics.monthly_revenue)"
+                        :value="localFinancialMetrics.monthly_revenue"
+                        format="currency"
                         :subtitle="'Expected: ' + formatMoney(localFinancialMetrics.expected_revenue)"
                         :icon="BanknotesIcon"
-                        iconBgColor="bg-green-100"
-                        iconColor="text-green-600"
+                        color="emerald"
                         :href="route('invoices.index')"
                         :trend="localFinancialMetrics.collection_rate >= 80
                             ? { direction: 'up', value: localFinancialMetrics.collection_rate + '%' }
@@ -614,11 +614,11 @@ onUnmounted(() => {
                 <div :class="['transition-all duration-500 rounded-2xl', metricsUpdating ? 'ring-2 ring-green-400 ring-opacity-60' : '']">
                     <MetricCard
                         title="Collection Rate"
-                        :value="localFinancialMetrics.collection_rate + '%'"
+                        :value="localFinancialMetrics.collection_rate"
+                        format="percent"
                         subtitle="This month"
                         :icon="ChartBarIcon"
-                        iconBgColor="bg-blue-100"
-                        iconColor="text-blue-600"
+                        color="blue"
                         :href="route('reports.index')"
                     />
                 </div>
@@ -626,22 +626,22 @@ onUnmounted(() => {
                 <div :class="['transition-all duration-500 rounded-2xl', metricsUpdating ? 'ring-2 ring-green-400 ring-opacity-60' : '']">
                     <MetricCard
                         title="Total Arrears"
-                        :value="formatMoney(localFinancialMetrics.total_arrears)"
+                        :value="localFinancialMetrics.total_arrears"
+                        format="currency"
                         subtitle="Outstanding balance"
                         :icon="ExclamationTriangleIcon"
-                        iconBgColor="bg-red-100"
-                        iconColor="text-red-600"
+                        color="red"
                         :href="route('invoices.index', { has_arrears: true })"
                     />
                 </div>
 
                 <MetricCard
                     title="Occupancy Rate"
-                    :value="stats.occupancy_rate + '%'"
+                    :value="stats.occupancy_rate"
+                    format="percent"
                     :subtitle="stats.occupied_units + ' / ' + stats.total_units + ' units'"
                     :icon="UserGroupIcon"
-                    iconBgColor="bg-indigo-100"
-                    iconColor="text-indigo-600"
+                    color="indigo"
                     :href="route('dashboard', { status: 'vacant' })"
                 />
             </div>

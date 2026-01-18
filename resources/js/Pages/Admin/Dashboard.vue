@@ -90,57 +90,57 @@ const impersonateLandlord = (landlordId) => {
                 <MetricCard
                     title="Active Landlords"
                     :value="systemHealth.active_landlords"
+                    format="number"
                     subtitle="Registered"
                     :icon="UserGroupIcon"
-                    iconBgColor="bg-purple-100"
-                    iconColor="text-purple-600"
+                    color="purple"
                     :href="route('admin.landlords')"
                 />
 
                 <MetricCard
                     title="Properties"
                     :value="systemHealth.total_properties"
+                    format="number"
                     subtitle="Total"
                     :icon="BuildingOfficeIcon"
-                    iconBgColor="bg-blue-100"
-                    iconColor="text-blue-600"
+                    color="blue"
                 />
 
                 <MetricCard
                     title="Units"
                     :value="systemHealth.total_units"
+                    format="number"
                     subtitle="Managed"
                     :icon="HomeModernIcon"
-                    iconBgColor="bg-green-100"
-                    iconColor="text-green-600"
+                    color="emerald"
                 />
 
                 <MetricCard
                     title="Tenants"
                     :value="systemHealth.total_tenants"
+                    format="number"
                     subtitle="Active"
                     :icon="UsersIcon"
-                    iconBgColor="bg-amber-100"
-                    iconColor="text-amber-600"
+                    color="yellow"
                     :href="route('admin.users')"
                 />
 
                 <MetricCard
                     title="This Month"
-                    :value="formatCurrency(systemHealth.monthly_revenue)"
+                    :value="systemHealth.monthly_revenue"
+                    format="currency"
                     subtitle="Revenue"
                     :icon="ArrowTrendingUpIcon"
-                    iconBgColor="bg-emerald-100"
-                    iconColor="text-emerald-600"
+                    color="emerald"
                 />
 
                 <MetricCard
                     title="Total Revenue"
-                    :value="formatCurrency(systemHealth.total_revenue)"
+                    :value="systemHealth.total_revenue"
+                    format="currency"
                     subtitle="All time"
                     :icon="CurrencyDollarIcon"
-                    iconBgColor="bg-indigo-100"
-                    iconColor="text-indigo-600"
+                    color="indigo"
                 />
             </div>
 
@@ -290,7 +290,7 @@ const impersonateLandlord = (landlordId) => {
                         <div v-for="(landlord, index) in topLandlords" :key="landlord.id"
                              class="flex items-center gap-3">
                             <!-- Rank Badge -->
-                            <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm"
+                            <div class="shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm"
                                  :class="index === 0 ? 'bg-amber-100 text-amber-700' :
                                          index === 1 ? 'bg-gray-100 text-gray-600' :
                                          index === 2 ? 'bg-orange-100 text-orange-700' :

@@ -1,90 +1,147 @@
-<script setup>
+<script setup lang="ts">
+import { computed, type Component } from 'vue';
 import { Link } from '@inertiajs/vue3';
-import ArrowUpIcon from '@heroicons/vue/24/solid/ArrowUpIcon';
-import ArrowDownIcon from '@heroicons/vue/24/solid/ArrowDownIcon';
+import { useFormatters } from '@/composables';
+import {
+    ArrowTrendingUpIcon,
+    ArrowTrendingDownIcon,
+} from '@heroicons/vue/24/solid';
 
-defineProps({
-    title: {
-        type: String,
-        required: true
-    },
-    value: {
-        type: [String, Number],
-        required: true
-    },
-    subtitle: {
-        type: String,
-        default: ''
-    },
-    icon: {
-        type: [Object, Function],
-        default: null
-    },
-    iconBgColor: {
-        type: String,
-        default: 'bg-gray-100'
-    },
-    iconColor: {
-        type: String,
-        default: 'text-gray-600'
-    },
-    trend: {
-        type: Object,
-        default: null
-        // { direction: 'up' | 'down', value: '5%', label: 'from last month' }
-    },
-    href: {
-        type: String,
-        default: ''
+type Format = 'currency' | 'number' | 'percent' | 'text';
+type Color = 'emerald' | 'blue' | 'red' | 'yellow' | 'indigo' | 'gray' | 'purple' | 'orange';
+
+interface Trend {
+    direction: 'up' | 'down';
+    value: string;
+}
+
+interface Props {
+    title: string;
+    value?: number | string;
+    format?: Format;
+    subtitle?: string;
+    trend?: Trend | null;
+    icon?: Component;
+    color?: Color;
+    href?: string;
+    loading?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    value: 0,
+    format: 'currency',
+    trend: null,
+    color: 'emerald',
+    loading: false,
+});
+
+const { formatMoney, formatNumber, formatPercent } = useFormatters();
+
+const formattedValue = computed(() => {
+    if (props.loading) return '...';
+    if (props.value === null || props.value === undefined) return '-';
+
+    switch (props.format) {
+        case 'currency':
+            return formatMoney(props.value);
+        case 'number':
+            return formatNumber(props.value);
+        case 'percent':
+            return formatPercent(props.value);
+        case 'text':
+        default:
+            return props.value;
     }
+});
+
+const colorClasses = computed(() => {
+    const colors = {
+        emerald: {
+            bg: 'bg-emerald-50',
+            icon: 'bg-emerald-100 text-emerald-600',
+            text: 'text-emerald-600',
+        },
+        blue: {
+            bg: 'bg-blue-50',
+            icon: 'bg-blue-100 text-blue-600',
+            text: 'text-blue-600',
+        },
+        red: {
+            bg: 'bg-red-50',
+            icon: 'bg-red-100 text-red-600',
+            text: 'text-red-600',
+        },
+        yellow: {
+            bg: 'bg-yellow-50',
+            icon: 'bg-yellow-100 text-yellow-600',
+            text: 'text-yellow-600',
+        },
+        indigo: {
+            bg: 'bg-indigo-50',
+            icon: 'bg-indigo-100 text-indigo-600',
+            text: 'text-indigo-600',
+        },
+        gray: {
+            bg: 'bg-gray-50',
+            icon: 'bg-gray-100 text-gray-600',
+            text: 'text-gray-600',
+        },
+        purple: {
+            bg: 'bg-purple-50',
+            icon: 'bg-purple-100 text-purple-600',
+            text: 'text-purple-600',
+        },
+        orange: {
+            bg: 'bg-orange-50',
+            icon: 'bg-orange-100 text-orange-600',
+            text: 'text-orange-600',
+        },
+    };
+    return colors[props.color] || colors.emerald;
+});
+
+const trendClasses = computed(() => {
+    if (!props.trend) return null;
+    return props.trend.direction === 'up'
+        ? 'text-emerald-600'
+        : 'text-red-600';
 });
 </script>
 
 <template>
     <component
         :is="href ? Link : 'div'"
-        :href="href || undefined"
+        :href="href"
         :class="[
-            'bg-white rounded-xl p-6 shadow-sm border border-gray-100 transition-all duration-200',
-            href ? 'hover:shadow-md hover:border-gray-200 cursor-pointer' : ''
+            'block bg-white rounded-xl border border-gray-200 p-5 transition-all duration-200',
+            href ? 'hover:shadow-md hover:border-gray-300 cursor-pointer' : '',
         ]"
     >
-        <div class="flex items-start justify-between mb-4">
-            <!-- Icon -->
-            <div
-                v-if="icon"
-                :class="[iconBgColor, 'h-10 w-10 rounded-full flex items-center justify-center']"
-            >
-                <component :is="icon" :class="[iconColor, 'h-5 w-5']" />
+        <div class="flex items-start justify-between">
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-500 truncate">{{ title }}</p>
+                <p
+                    :class="[
+                        'mt-2 text-2xl font-semibold',
+                        loading ? 'animate-pulse text-gray-400' : 'text-gray-900'
+                    ]"
+                >
+                    {{ formattedValue }}
+                </p>
+                <div v-if="subtitle || trend" class="mt-1 flex items-center gap-2">
+                    <p v-if="subtitle" class="text-xs text-gray-500">{{ subtitle }}</p>
+                    <div v-if="trend" :class="['flex items-center gap-0.5 text-xs font-medium', trendClasses]">
+                        <component
+                            :is="trend.direction === 'up' ? ArrowTrendingUpIcon : ArrowTrendingDownIcon"
+                            class="h-3.5 w-3.5"
+                        />
+                        <span>{{ trend.value }}</span>
+                    </div>
+                </div>
             </div>
-
-            <!-- Trend Badge -->
-            <div
-                v-if="trend"
-                :class="[
-                    'flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full',
-                    trend.direction === 'up' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-                ]"
-            >
-                <ArrowUpIcon v-if="trend.direction === 'up'" class="h-3 w-3" />
-                <ArrowDownIcon v-else class="h-3 w-3" />
-                {{ trend.value }}
+            <div v-if="icon" :class="['p-2.5 rounded-lg', colorClasses.icon]">
+                <component :is="icon" class="h-5 w-5" />
             </div>
-        </div>
-
-        <!-- Value -->
-        <div class="text-2xl font-bold text-gray-900">
-            {{ value }}
-        </div>
-
-        <!-- Title -->
-        <div class="text-sm text-gray-500 mt-1">
-            {{ title }}
-        </div>
-
-        <!-- Subtitle / Trend Label -->
-        <div v-if="subtitle || (trend && trend.label)" class="text-xs text-gray-400 mt-2">
-            {{ subtitle || trend.label }}
         </div>
     </component>
 </template>

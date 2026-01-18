@@ -333,11 +333,11 @@ onUnmounted(() => {
 
                     <MetricCard
                         title="Monthly Rent"
-                        :value="formatCurrency(lease?.rent_amount)"
+                        :value="lease?.rent_amount"
+                        format="currency"
                         subtitle="Due monthly"
                         :icon="CreditCardIcon"
-                        iconBgColor="bg-indigo-100"
-                        iconColor="text-indigo-600"
+                        color="indigo"
                     />
                 </div>
 

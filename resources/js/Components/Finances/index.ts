@@ -3,7 +3,7 @@
  * Import from '@/Components/Finances' for cleaner imports
  */
 
-export { default as MetricCard } from './MetricCard.vue';
+export { default as MetricCard } from '@/Components/MetricCard.vue';
 export { default as InvoiceStatusBadge } from './InvoiceStatusBadge.vue';
 export { default as PaymentMethodBadge } from './PaymentMethodBadge.vue';
 export { default as AmountDisplay } from './AmountDisplay.vue';
