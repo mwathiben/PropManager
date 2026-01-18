@@ -18,9 +18,7 @@ import {
     ArrowPathRoundedSquareIcon,
     ShieldCheckIcon,
     ArchiveBoxIcon,
-    UserGroupIcon,
     SignalIcon,
-    WrenchScrewdriverIcon,
     DocumentTextIcon,
     ArrowTopRightOnSquareIcon
 } from '@heroicons/vue/24/outline';
@@ -41,7 +39,7 @@ const settingsTabs = [
     { id: 'channels', name: 'Channels', icon: SignalIcon },
     { id: 'templates', name: 'Templates', icon: DocumentTextIcon },
     { id: 'delivery', name: 'Delivery & Retry', icon: ClockIcon },
-    { id: 'defaults', name: 'Defaults & Archive', icon: WrenchScrewdriverIcon },
+    { id: 'archive', name: 'Archive', icon: ArchiveBoxIcon },
 ];
 
 const showPassword = ref({});
@@ -122,7 +120,8 @@ providers.forEach(provider => {
     forms.value[provider.id] = useForm(formData);
 });
 
-// Global preferences form
+// Global preferences form (delivery, retry, rate limiting, and archive settings)
+// Note: Default notification preferences for new tenants are configured in Settings > Notifications
 const globalForm = useForm({
     // Quiet Hours
     quiet_hours_enabled: props.globalPreferences?.quiet_hours_enabled ?? false,
@@ -141,10 +140,6 @@ const globalForm = useForm({
     // Archive Settings
     notification_archive_days: props.globalPreferences?.notification_archive_days ?? 90,
     notification_track_read_status: props.globalPreferences?.notification_track_read_status ?? true,
-
-    // Default Preferences
-    default_rent_reminder_days: props.globalPreferences?.default_rent_reminder_days ?? 7,
-    default_notification_channels: props.globalPreferences?.default_notification_channels ?? ['email'],
 });
 
 const saveGlobalPreferences = () => {
@@ -170,25 +165,6 @@ const saveTemplates = () => {
 const getTemplateByType = (type) => {
     return props.whatsappTemplates.find(t => t.type === type);
 };
-
-const toggleChannel = (channel) => {
-    const channels = globalForm.default_notification_channels;
-    const index = channels.indexOf(channel);
-    if (index > -1) {
-        if (channels.length > 1) {
-            channels.splice(index, 1);
-        }
-    } else {
-        channels.push(channel);
-    }
-};
-
-const channelOptions = [
-    { value: 'email', label: 'Email', icon: EnvelopeIcon },
-    { value: 'sms', label: 'SMS', icon: DevicePhoneMobileIcon },
-    { value: 'whatsapp', label: 'WhatsApp', icon: ChatBubbleLeftRightIcon },
-    { value: 'push', label: 'Push', icon: BellIcon },
-];
 
 const getProviderStatus = (providerId) => {
     const providerSettings = props.settings;
@@ -758,18 +734,18 @@ const getColorClasses = (color) => {
         </div>
         <!-- End Delivery & Retry Tab -->
 
-        <!-- ==================== DEFAULTS & ARCHIVE TAB ==================== -->
-        <div v-if="settingsTab === 'defaults'" class="space-y-6">
+        <!-- ==================== ARCHIVE TAB ==================== -->
+        <div v-if="settingsTab === 'archive'" class="space-y-6">
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 <!-- Header -->
                 <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                     <div class="flex items-center gap-4">
-                        <div class="p-3 rounded-xl bg-green-100">
-                            <WrenchScrewdriverIcon class="w-6 h-6 text-green-600" />
+                        <div class="p-3 rounded-xl bg-purple-100">
+                            <ArchiveBoxIcon class="w-6 h-6 text-purple-600" />
                         </div>
                         <div>
-                            <h3 class="font-semibold text-gray-900">Defaults & Archive</h3>
-                            <p class="text-sm text-gray-500">System-wide defaults and data management</p>
+                            <h3 class="font-semibold text-gray-900">Archive Settings</h3>
+                            <p class="text-sm text-gray-500">Configure notification history and tracking</p>
                         </div>
                     </div>
                     <button
@@ -783,6 +759,20 @@ const getColorClasses = (color) => {
                 </div>
 
                 <form @submit.prevent="saveGlobalPreferences" class="p-6 space-y-6">
+                    <!-- Info Banner -->
+                    <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                        <div class="flex gap-3">
+                            <BellIcon class="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                            <div class="text-sm text-blue-800">
+                                <p class="font-medium">Default notification preferences for tenants</p>
+                                <p class="mt-1">
+                                    Configure default notification channels and types for new tenants in
+                                    <a :href="route('settings.index')" class="underline font-medium">Settings &gt; Notifications</a>.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Archive Settings Section -->
                     <div class="bg-gray-50 rounded-xl p-5">
                         <div class="flex items-center gap-3 mb-4">
@@ -790,8 +780,8 @@ const getColorClasses = (color) => {
                                 <ArchiveBoxIcon class="w-5 h-5 text-purple-600" />
                             </div>
                             <div>
-                                <h4 class="font-medium text-gray-900">Archive & Tracking</h4>
-                                <p class="text-sm text-gray-500">Configure notification history retention</p>
+                                <h4 class="font-medium text-gray-900">History Retention</h4>
+                                <p class="text-sm text-gray-500">Configure how long notification history is kept</p>
                             </div>
                         </div>
 
@@ -815,63 +805,12 @@ const getColorClasses = (color) => {
                             <div class="flex items-center justify-between">
                                 <div>
                                     <span class="text-sm text-gray-700">Track read status</span>
-                                    <p class="text-xs text-gray-500">Track when tenants read notifications</p>
+                                    <p class="text-xs text-gray-500">Track when tenants view notifications</p>
                                 </div>
                                 <label class="relative inline-flex items-center cursor-pointer">
                                     <input type="checkbox" v-model="globalForm.notification_track_read_status" class="sr-only peer" />
                                     <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                                 </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Default Preferences Section -->
-                    <div class="bg-gray-50 rounded-xl p-5">
-                        <div class="flex items-center gap-3 mb-4">
-                            <div class="p-2 bg-green-100 rounded-lg">
-                                <UserGroupIcon class="w-5 h-5 text-green-600" />
-                            </div>
-                            <div>
-                                <h4 class="font-medium text-gray-900">Default Preferences for New Tenants</h4>
-                                <p class="text-sm text-gray-500">Configure defaults applied to new tenant accounts</p>
-                            </div>
-                        </div>
-
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Rent Reminder Days</label>
-                                <select
-                                    v-model.number="globalForm.default_rent_reminder_days"
-                                    class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                                >
-                                    <option :value="1">1 day before due</option>
-                                    <option :value="3">3 days before due</option>
-                                    <option :value="5">5 days before due</option>
-                                    <option :value="7">7 days before due</option>
-                                    <option :value="14">14 days before due</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Default Notification Channels</label>
-                                <div class="flex flex-wrap gap-2">
-                                    <button
-                                        v-for="channel in channelOptions"
-                                        :key="channel.value"
-                                        type="button"
-                                        @click="toggleChannel(channel.value)"
-                                        :class="[
-                                            'inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
-                                            globalForm.default_notification_channels.includes(channel.value)
-                                                ? 'bg-indigo-600 text-white'
-                                                : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                                        ]"
-                                    >
-                                        <component :is="channel.icon" class="w-4 h-4" />
-                                        {{ channel.label }}
-                                    </button>
-                                </div>
-                                <p class="text-xs text-gray-500 mt-2">At least one channel must be selected</p>
                             </div>
                         </div>
                     </div>
@@ -894,7 +833,7 @@ const getColorClasses = (color) => {
                 </form>
             </div>
         </div>
-        <!-- End Defaults & Archive Tab -->
+        <!-- End Archive Tab -->
 
     </div>
 </template>

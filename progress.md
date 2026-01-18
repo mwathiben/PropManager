@@ -6404,6 +6404,7 @@ INFO  DRY-RUN: No changes were made.
 - [x] All existing tests pass
 
 ### Remaining Phases
+- **Phase 4**: Controller Migration & Feature Flag Flip
 - **Phase 5**: Cleanup (remove legacy code paths)
 
 ---
@@ -6517,3 +6518,69 @@ Completed migration of all 72 Setting calls from controllers to repository patte
   - Remove legacy Setting-based code paths
   - Remove feature flag conditional reads
   - Consolidate to single-write repository implementations
+
+---
+
+## DBP-002: Consolidate Notification Settings UI to Single Location
+**Status:** PASSED
+**Date:** 2026-01-18
+**Attempts:** 1
+
+### Implementation Summary
+
+Consolidated notification settings from 4 scattered UI locations to 2 clear locations with single source of truth for each concern:
+
+1. **Provider Configuration**: Operations > Notifications > Settings
+2. **Tenant Defaults**: Settings > Notifications
+3. **Payment Gateway**: Admin Settings (unchanged)
+4. **Tenant Push Subscription**: Profile > Notifications (unchanged)
+
+### Changes Made
+
+**Phase 1: Remove Email/SMS from Admin Settings**
+
+| File | Changes |
+|------|---------|
+| `resources/js/Pages/Admin/Settings.vue` | Reduced from 585 lines to 201 lines. Removed Email Configuration and SMS Gateway sections. Added info banner directing to Notification Center. Now only shows Payment Gateway (Paystack). |
+| `app/Http/Controllers/AdminController.php` | Removed 4 methods: `updateEmailSettings()`, `testEmailConnection()`, `updateSmsSettings()`, `testSmsConnection()`. Simplified `settings()` to only return payment settings. Removed unused `Mail` import. |
+| `routes/web.php` | Removed 4 routes: `admin.settings.email`, `admin.settings.email.test`, `admin.settings.sms`, `admin.settings.sms.test`. Added note comment directing to notification routes. |
+
+**Phase 2: Remove Duplicate Defaults from Notifications Settings Tab**
+
+| File | Changes |
+|------|---------|
+| `resources/js/Pages/Notifications/partials/SettingsTab.vue` | Renamed "Defaults & Archive" tab to "Archive". Removed `default_rent_reminder_days` and `default_notification_channels` from `globalForm`. Removed `toggleChannel()` function and `channelOptions` array. Removed `UserGroupIcon` and `WrenchScrewdriverIcon` imports. Simplified Archive tab UI with info banner linking to Settings > Notifications for defaults. |
+
+### Files Not Modified (Already Correct)
+
+| File | Reason |
+|------|--------|
+| `resources/js/Pages/Settings/partials/NotificationsTab.vue` | Already canonical location for tenant defaults. Well-designed UI with info banner linking to Notification Center. |
+| `resources/js/Pages/Profile/Partials/NotificationsTab.vue` | Tenant-only push notification subscription. No changes needed. |
+
+### Before/After Summary
+
+```
+BEFORE (4 locations with duplication):
+├── Admin/Settings.vue          → Payment + Email + SMS (DUPLICATE email/SMS)
+├── Notifications/SettingsTab   → Providers + Templates + Delivery + Defaults (DUPLICATE defaults)
+├── Settings/NotificationsTab   → Tenant Defaults ✓
+└── Profile/NotificationsTab    → Tenant Push ✓
+
+AFTER (2 clear locations + 2 special-purpose):
+├── Admin/Settings.vue          → Payment ONLY + info banner
+├── Notifications/SettingsTab   → Providers + Templates + Delivery + Archive
+├── Settings/NotificationsTab   → Tenant Defaults ✓ (unchanged, canonical)
+└── Profile/NotificationsTab    → Tenant Push ✓ (unchanged)
+```
+
+### Verification Results
+- **Build (Vite)**: PASS - 1702 modules transformed
+- **Lint (Pint)**: 538 files PASS (after auto-fix of unused `Mail` import)
+
+### Acceptance Criteria Met
+- [x] Landlord has ONE location for notification provider config (Notifications Settings)
+- [x] Landlord has ONE location for tenant defaults (Settings > Notifications)
+- [x] No duplicate email/SMS config in Admin Settings
+- [x] Clear visual distinction between provider settings and preference defaults
+- [x] Navigation intuitive with info banners linking between locations

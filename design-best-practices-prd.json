@@ -100,7 +100,15 @@
       "estimated_effort": "large",
       "passes": true,
       "attempt_count": 1,
-      "phase_progress": "Phase 4 of 5 complete (controllers migrated, feature flag enabled). Phase 5 (cleanup) is optional."
+      "phase_progress": "Phase 6 of 6 complete. All phases implemented including CodeRabbit bug fixes.",
+      "phases_completed": {
+        "phase_1": "Create notification config architecture tables and models",
+        "phase_2": "Repository pattern for notification config with dual-write",
+        "phase_3": "Create notification config backfill command",
+        "phase_4": "Controller migration and feature flag flip",
+        "phase_5": "Fix OR/AND logic bug in isEmailConfiguredLegacy (CodeRabbit issue)",
+        "phase_6": "Fix partial update inconsistency in credential setters (CodeRabbit issue)"
+      }
     },
     {
       "id": "DBP-002",
@@ -143,8 +151,9 @@
       ],
       "verification": "As landlord, navigate to notification settings; verify single destination with all options",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1,
+      "completion_notes": "Consolidated from 4 UI locations to 2: (1) Admin/Settings.vue now only shows Payment Gateway with info banner directing to Notifications Center for Email/SMS; (2) Notifications/SettingsTab.vue renamed 'Defaults & Archive' tab to 'Archive' and removed duplicate default preferences (now only in Settings > Notifications); (3) Settings/NotificationsTab.vue unchanged as canonical location for tenant defaults; (4) Profile/NotificationsTab.vue unchanged for tenant push subscriptions. Backend: Removed 4 methods from AdminController (updateEmailSettings, testEmailConnection, updateSmsSettings, testSmsConnection) and corresponding routes."
     },
     {
       "id": "DBP-003",

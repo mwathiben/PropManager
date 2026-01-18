@@ -700,13 +700,8 @@ Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->group(function
     Route::post('/settings/payment', [AdminController::class, 'updatePaymentSettings'])->name('admin.settings.payment');
     Route::post('/settings/payment/test', [AdminController::class, 'testPaystackConnection'])->name('admin.settings.payment.test');
 
-    // Email Settings
-    Route::post('/settings/email', [AdminController::class, 'updateEmailSettings'])->name('admin.settings.email');
-    Route::post('/settings/email/test', [AdminController::class, 'testEmailConnection'])->name('admin.settings.email.test');
-
-    // SMS Settings
-    Route::post('/settings/sms', [AdminController::class, 'updateSmsSettings'])->name('admin.settings.sms');
-    Route::post('/settings/sms/test', [AdminController::class, 'testSmsConnection'])->name('admin.settings.sms.test');
+    // Note: Email and SMS settings have been consolidated to the Notification Center
+    // See: Operations > Notifications > Settings (routes: notifications.settings.*)
 
     // Platform Billing Management
     Route::prefix('billing')->name('admin.billing.')->group(function () {
