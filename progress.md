@@ -5975,8 +5975,93 @@ Implemented real-time dashboard metrics updates. When a payment is received, the
 ### Note on Meta Template Approval
 The WhatsApp templates for `rent_reminder` and `arrears_notice` have been updated to include the `payment_link` variable. These template changes require Meta re-approval via Twilio Console before the payment links will be included in WhatsApp Business API messages.
 
+### COM-020-DEPLOY: Meta Template Re-approval (DEPLOYMENT BLOCKER)
+**Status:** PENDING  
+**Responsible Party:** DevOps / Account Owner  
+**Templates to Submit:**
+- `rent_reminder` (updated with `payment_link` variable)
+- `arrears_notice` (updated with `payment_link` variable)
+
+**Submission Process:**
+1. Log in to Twilio Console → Messaging → WhatsApp → Senders
+2. Navigate to Message Templates section
+3. Submit updated templates for Meta review
+
+**Expected Timeline:** 1–3 business days for Meta approval
+
+**Fallback Plan:**
+If approval is delayed beyond 3 business days:
+- Deploy without payment_link in WhatsApp messages (variable will be empty string)
+- Tenants can still access invoices via tenant portal login
+- Re-enable payment_link once templates are approved
+
+**Release Checklist:**
+- [ ] Templates submitted to Meta via Twilio Console
+- [ ] Approval confirmation received
+- [ ] Payment link integration verified in staging
+- [ ] Production deployment cleared
+
+**Related Tasks:** COM-020 (Payment Link WhatsApp Integration)
+
 ### ALL TASKS COMPLETE
 All 20 tasks in the Dashboard Communication PRD have been completed:
 - COM-001 through COM-020: All passed
 
 <promise>COMPLETE</promise>
+
+---
+
+## Session: 2026-01-18T21:00:00
+**Task**: DBP-009 - Extract Shared Controller Logic to Trait
+**Status**: COMPLETED
+
+### Work Done
+Created `WithLandlordScope` trait to eliminate code duplication across 8 controllers.
+
+### Files Created
+| File | Purpose |
+|------|---------|
+| `app/Http/Traits/WithLandlordScope.php` | Shared trait with `getLandlordId()`, `getBuildings()`, `getBuildingsWithWings()`, `getBuildingsForDropdown()`, `getBuildingsWithProperty()`, `getProperties()` |
+| `tests/Unit/Traits/WithLandlordScopeTest.php` | Integration tests for trait behavior |
+
+### Files Modified
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/FinancesController.php` | Added trait, removed 3 duplicate methods |
+| `app/Http/Controllers/PaymentsHubController.php` | Added trait, removed 2 duplicate methods |
+| `app/Http/Controllers/PaymentController.php` | Added trait, removed 3 duplicate methods |
+| `app/Http/Controllers/OperationsHubController.php` | Added trait, removed 1 duplicate method, simplified index() |
+| `app/Http/Controllers/WaterHubController.php` | Added trait, removed 1 duplicate method, simplified index() |
+| `app/Http/Controllers/TenantsHubController.php` | Added trait, removed 1 duplicate method, simplified index() |
+| `app/Http/Controllers/ArchiveHubController.php` | Added trait, removed 2 duplicate methods, simplified index() |
+| `app/Http/Controllers/MaintenanceHubController.php` | Added trait, removed 1 duplicate method, simplified index() |
+
+### Behavior Fix Applied
+- `PaymentController::getLandlordId()` previously lacked `abort(403)` authorization check
+- Now uses trait which includes proper authorization (safer default)
+
+### Methods Consolidated
+| Method | Original Locations | Now In |
+|--------|-------------------|--------|
+| `getLandlordId()` | 3 controllers | Trait only |
+| `getBuildings()` | 7 controllers | Trait only |
+| `getBuildingsWithWings()` | 1 controller | Trait only |
+| `getBuildingsForDropdown()` | 1 controller | Trait only |
+| `getBuildingsWithProperty()` | 1 controller | Trait only |
+| `getProperties()` | 1 controller | Trait only |
+
+### Verification Results
+- **Pint**: PASS (6 auto-fixes for unused imports)
+- **npm run build**: PASS (1m 1s)
+- **Tests**: 471 passed, 12 skipped (0 failures)
+- **grep verification**: No `private function getLandlordId` in controllers (only in trait)
+
+### Acceptance Criteria Met
+- [x] Single source of truth for `getLandlordId()` - Trait provides it
+- [x] Single source of truth for `getBuildings()` - Trait provides variants  
+- [x] All controllers use the shared trait - 8 controllers updated
+- [x] No code duplication for these methods - Verified via grep
+
+### Next Steps
+- DBP-001: Create Unified Notification Configuration Architecture (CRITICAL)
+- DBP-010: Create Missing Authorization Policies (CRITICAL)

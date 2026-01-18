@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Events\PaymentReceived as PaymentReceivedEvent;
 use App\Http\Requests\StorePaymentRequest;
+use App\Http\Traits\WithLandlordScope;
 use App\Mail\OverpaymentNotification;
 use App\Mail\PaymentReceived;
 use App\Mail\PaymentVerificationApproved;
@@ -30,6 +31,8 @@ use Inertia\Inertia;
 
 class PaymentController extends Controller
 {
+    use WithLandlordScope;
+
     protected PaystackService $paystackService;
 
     protected BillingModelService $billingService;
@@ -1851,45 +1854,5 @@ class PaymentController extends Controller
         fclose($handle);
 
         return $rows;
-    }
-
-    /**
-     * Get the landlord ID for the current user.
-     */
-    private function getLandlordId(): int
-    {
-        /** @var \App\Models\User $user */
-        $user = Auth::user();
-
-        return $user->isCaretaker() ? $user->landlord_id : $user->id;
-    }
-
-    /**
-     * Get buildings for dropdown selection.
-     */
-    private function getBuildingsForDropdown(): \Illuminate\Support\Collection
-    {
-        return Building::where('landlord_id', $this->getLandlordId())
-            ->select('id', 'name')
-            ->orderBy('name')
-            ->get();
-    }
-
-    /**
-     * Get buildings with property info for enhanced dropdowns.
-     */
-    private function getBuildingsWithProperty(): \Illuminate\Support\Collection
-    {
-        return Building::where('landlord_id', $this->getLandlordId())
-            ->with('property:id,name')
-            ->select('id', 'name', 'property_id')
-            ->orderBy('name')
-            ->get()
-            ->map(fn ($b) => [
-                'id' => $b->id,
-                'name' => $b->name,
-                'property_name' => $b->property?->name ?? 'Unknown Property',
-                'display_name' => ($b->property?->name ?? 'Unknown').' - '.$b->name,
-            ]);
     }
 }

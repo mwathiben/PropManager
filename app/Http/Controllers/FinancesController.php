@@ -8,8 +8,8 @@ use App\Http\Requests\UpdatePaymentMethodsRequest;
 use App\Http\Requests\UpdateReceiptSettingsRequest;
 use App\Http\Requests\UpdateReminderSettingsRequest;
 use App\Http\Traits\WithETag;
+use App\Http\Traits\WithLandlordScope;
 use App\Mail\DepositRefundNotification;
-use App\Models\Building;
 use App\Models\DepositTransaction;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
@@ -19,7 +19,6 @@ use App\Models\LateFeePolicy;
 use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\PaymentConfiguration;
-use App\Models\Property;
 use App\Models\User;
 use App\Models\Vendor;
 use App\Services\FinanceExportService;
@@ -40,6 +39,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 class FinancesController extends Controller
 {
     use WithETag;
+    use WithLandlordScope;
 
     public function __construct(
         protected FinanceStatsService $statsService,
@@ -1160,17 +1160,6 @@ class FinancesController extends Controller
         return Inertia::render('Finances/Index', array_merge($baseProps, $additionalProps));
     }
 
-    private function getLandlordId(): int
-    {
-        $user = auth()->user();
-
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
-            abort(403, 'Access denied.');
-        }
-
-        return $user->isCaretaker() ? $user->landlord_id : $user->id;
-    }
-
     private function getTabsConfig(): array
     {
         return [
@@ -1227,24 +1216,6 @@ class FinancesController extends Controller
         ];
 
         return $groupMap[$tab] ?? null;
-    }
-
-    private function getBuildings(int $landlordId): array
-    {
-        return Building::where('landlord_id', $landlordId)
-            ->select('id', 'name')
-            ->orderBy('name')
-            ->get()
-            ->toArray();
-    }
-
-    private function getProperties(int $landlordId): array
-    {
-        return Property::where('landlord_id', $landlordId)
-            ->select('id', 'name')
-            ->orderBy('name')
-            ->get()
-            ->toArray();
     }
 
     private function getLateFeePolices(int $landlordId): array

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\WithLandlordScope;
 use App\Models\Building;
 use App\Models\Invoice;
 use App\Models\LandlordPayoutAccount;
@@ -14,12 +15,15 @@ use App\Services\PaystackSubaccountService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class PaymentsHubController extends Controller
 {
+    use WithLandlordScope;
+
     public function __construct(
         protected BillingModelService $billingService,
         protected PaystackSubaccountService $subaccountService
@@ -160,7 +164,8 @@ class PaymentsHubController extends Controller
      */
     public function storePayoutAccount(Request $request): RedirectResponse
     {
-        $user = auth()->user();
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
 
         if (! $user->isLandlord()) {
             abort(403, 'Only landlords can add payout accounts.');
@@ -345,20 +350,6 @@ class PaymentsHubController extends Controller
         ];
 
         return Inertia::render('PaymentsHub/Index', array_merge($baseProps, $additionalProps));
-    }
-
-    /**
-     * Get landlord ID for the current user
-     */
-    private function getLandlordId(): int
-    {
-        $user = auth()->user();
-
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
-            abort(403, 'Access denied.');
-        }
-
-        return $user->isCaretaker() ? $user->landlord_id : $user->id;
     }
 
     /**
@@ -723,18 +714,6 @@ class PaymentsHubController extends Controller
     }
 
     /**
-     * Get buildings for filter
-     */
-    private function getBuildings(int $landlordId): array
-    {
-        return Building::where('landlord_id', $landlordId)
-            ->select('id', 'name')
-            ->orderBy('name')
-            ->get()
-            ->toArray();
-    }
-
-    /**
      * Get revenue data for analytics
      */
     private function getRevenueData(int $landlordId, string $period): array
@@ -843,7 +822,7 @@ class PaymentsHubController extends Controller
         $startDate = now()->subMonths($months - 1)->startOfMonth();
 
         // Single query with grouping instead of N queries in a loop
-        $dateFormat = match (DB::getDriverName()) {
+        $dateFormat = match (DB::connection()->getDriverName()) {
             'sqlite' => "strftime('%Y-%m', payment_date)",
             'mysql' => "DATE_FORMAT(payment_date, '%Y-%m')",
             'pgsql' => "TO_CHAR(payment_date, 'YYYY-MM')",

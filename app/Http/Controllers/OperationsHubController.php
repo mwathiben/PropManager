@@ -2,27 +2,28 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\WithLandlordScope;
 use App\Models\Building;
 use App\Models\Import;
 use App\Models\Invitation;
+use App\Models\Notification;
+use App\Models\NotificationSchedule;
 use App\Models\NotificationTemplate;
+use App\Models\Setting;
 use App\Models\TenantMessage;
 use App\Models\User;
+use App\Services\PushNotificationService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class OperationsHubController extends Controller
 {
+    use WithLandlordScope;
+
     public function index(Request $request): Response
     {
-        $user = auth()->user();
-
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
-            abort(403, 'Access denied.');
-        }
-
-        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+        $landlordId = $this->getLandlordId();
         $tab = $request->query('tab', 'notifications');
 
         $baseProps = [
@@ -45,16 +46,69 @@ class OperationsHubController extends Controller
 
     private function getNotificationsData(Request $request, int $landlordId): array
     {
-        $subTab = $request->query('sub_tab', 'reminders');
+        $stats = [
+            'total_sent' => Notification::where('landlord_id', $landlordId)
+                ->whereIn('status', ['sent', 'delivered', 'read'])
+                ->count(),
+            'pending' => Notification::where('landlord_id', $landlordId)
+                ->where('status', 'pending')
+                ->count(),
+            'failed' => Notification::where('landlord_id', $landlordId)
+                ->where('status', 'failed')
+                ->count(),
+            'this_month' => Notification::where('landlord_id', $landlordId)
+                ->whereMonth('created_at', now()->month)
+                ->count(),
+        ];
+
+        $recentNotifications = Notification::where('landlord_id', $landlordId)
+            ->with('recipient:id,name')
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+
+        $channelStats = Notification::where('landlord_id', $landlordId)
+            ->selectRaw('channel, count(*) as count')
+            ->groupBy('channel')
+            ->pluck('count', 'channel')
+            ->toArray();
+
+        $tenants = User::where('role', 'tenant')
+            ->where('landlord_id', $landlordId)
+            ->orderBy('name')
+            ->get(['id', 'name', 'email']);
 
         $templates = NotificationTemplate::where('landlord_id', $landlordId)
             ->orderBy('name')
             ->get();
 
+        $scheduled = NotificationSchedule::where('landlord_id', $landlordId)
+            ->where('is_active', true)
+            ->orderBy('last_run_at', 'desc')
+            ->limit(5)
+            ->get();
+
         return [
-            'notificationSubTab' => $subTab,
+            'stats' => $stats,
+            'recentNotifications' => $recentNotifications,
+            'channelStats' => $channelStats,
+            'tenants' => $tenants,
             'templates' => $templates,
+            'scheduled' => $scheduled,
+            'setupComplete' => $this->isNotificationSetupComplete($landlordId),
         ];
+    }
+
+    private function isNotificationSetupComplete(int $landlordId): bool
+    {
+        if (Setting::get('notifications_setup_complete', false, $landlordId)) {
+            return true;
+        }
+
+        $smsConfigured = Setting::get('sms_provider', 'none', $landlordId) !== 'none';
+        $pushConfigured = app(PushNotificationService::class)->isConfigured($landlordId);
+
+        return $smsConfigured || $pushConfigured;
     }
 
     private function getInboxData(Request $request, int $landlordId): array
@@ -202,14 +256,5 @@ class OperationsHubController extends Controller
             'imports' => $imports,
             'importTemplates' => $importTemplates,
         ];
-    }
-
-    private function getBuildings(int $landlordId): array
-    {
-        return Building::where('landlord_id', $landlordId)
-            ->select('id', 'name')
-            ->orderBy('name')
-            ->get()
-            ->toArray();
     }
 }

@@ -1,0 +1,1046 @@
+{
+  "project": {
+    "name": "PropManager Design & Best Practices Consolidation",
+    "description": "Systematic elimination of technical debt, code duplication, and architectural inconsistencies in the PropManager property management SaaS. This PRD addresses 23 items across notification consolidation, component consolidation, backend architecture, code quality, and performance optimization.",
+    "version": "1.0.0",
+    "techStack": {
+      "backend": "Laravel 12 (PHP 8.2+)",
+      "frontend": "Inertia.js + Vue 3 + Tailwind CSS v4",
+      "database": "SQLite (development), MySQL/PostgreSQL (production)",
+      "testing": "PHPUnit, Vitest"
+    }
+  },
+  "qualityStandards": {
+    "description": "Technical debt degrades velocity exponentially. This PRD focuses on high-impact consolidation work that reduces maintenance burden, improves developer experience, and establishes clear patterns for future development.",
+    "principles": [
+      "Single source of truth for all shared functionality",
+      "Consistent patterns reduce cognitive load",
+      "Type safety catches bugs at compile time, not runtime",
+      "Authorization belongs in policies, not controllers",
+      "Configuration over hardcoding for business values",
+      "Components should be reusable and well-typed"
+    ]
+  },
+  "feedbackLoops": {
+    "description": "Run ALL feedback loops before committing. Do NOT commit if any fail.",
+    "commands": {
+      "typecheck": "npm run build -- --mode development 2>&1 | grep -i error",
+      "lint_frontend": "npm run lint",
+      "lint_backend": "vendor/bin/pint --test",
+      "test_backend": "php artisan test --parallel",
+      "test_frontend": "npm run test"
+    }
+  },
+  "categories": {
+    "notification_consolidation": {
+      "priority": 1,
+      "description": "Consolidate notification system architecture to eliminate confusion between NotificationPreference, Setting, and 4 different UI locations"
+    },
+    "component_consolidation": {
+      "priority": 2,
+      "description": "Eliminate duplicate Vue components and establish single-source-of-truth shared components"
+    },
+    "backend_architecture": {
+      "priority": 3,
+      "description": "Extract shared controller logic, implement missing policies, and consolidate validation rules"
+    },
+    "code_quality": {
+      "priority": 4,
+      "description": "Remove console statements, add typed exceptions, improve TypeScript usage"
+    },
+    "performance_optimization": {
+      "priority": 5,
+      "description": "Fix N+1 queries, add caching for expensive operations, optimize bulk operations"
+    }
+  },
+  "items": [
+    {
+      "id": "DBP-001",
+      "category": "notification_consolidation",
+      "priority": "CRITICAL",
+      "title": "Create Unified Notification Configuration Architecture",
+      "description": "The notification system has conceptual confusion: NotificationPreference stores per-user preferences, Setting stores provider credentials, but landlord's NotificationPreference is treated as 'defaults for new tenants'. This creates maintenance nightmares and user confusion. Create a clear architectural separation.",
+      "steps": [
+        "Audit current notification tables: notification_preferences, settings (notifications category)",
+        "Design new schema: notification_provider_config (landlord provider settings), notification_defaults (landlord default preferences for tenants), notification_preferences (individual user preferences)",
+        "Create migration to restructure tables while preserving existing data",
+        "Update NotificationService to use new architecture",
+        "Update NotificationPreference model to only handle user preferences",
+        "Create NotificationProviderConfig model for provider credentials",
+        "Create NotificationDefaults model for landlord-level defaults",
+        "Update all controllers referencing notification settings"
+      ],
+      "files": [
+        "app/Models/NotificationPreference.php",
+        "app/Models/Setting.php",
+        "app/Services/NotificationService.php",
+        "database/migrations/*_restructure_notification_tables.php",
+        "app/Http/Controllers/NotificationsController.php"
+      ],
+      "definition_of_ready": [
+        "Current notification data flow fully documented",
+        "New schema design reviewed and approved",
+        "Migration strategy for existing data defined",
+        "Rollback plan documented"
+      ],
+      "acceptance_criteria": [
+        "Clear separation: provider config vs defaults vs user preferences",
+        "Landlord can configure providers in ONE location only",
+        "Landlord can set tenant defaults in ONE location only",
+        "Tenants can override preferences in their profile",
+        "All existing notification functionality preserved"
+      ],
+      "definition_of_done": [
+        "Migration runs successfully with data preservation",
+        "All notification tests pass",
+        "No references to old dual-purpose patterns remain",
+        "Documentation updated"
+      ],
+      "verification": "Send notification to tenant; verify routing uses correct preference hierarchy (user > defaults > system)",
+      "estimated_effort": "large",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-002",
+      "category": "notification_consolidation",
+      "priority": "HIGH",
+      "title": "Consolidate Notification Settings UI to Single Location",
+      "description": "Notification settings are scattered across 4 UI locations: Settings/NotificationsTab (landlord defaults), Notifications/SettingsTab (provider config), Profile/NotificationsTab (user preferences), Admin/Settings (system). Consolidate to 2 clear locations: Notifications Center (providers + defaults) and Profile (user preferences).",
+      "steps": [
+        "Audit all 4 notification UI locations and document what each controls",
+        "Design consolidated UI: Notifications/Index.vue becomes the single landlord destination",
+        "Remove Settings/partials/NotificationsTab.vue - redirect to Notifications Center",
+        "Keep Profile/Partials/NotificationsTab.vue for user-specific preferences only",
+        "Update navigation to reflect new structure",
+        "Add clear section headers distinguishing Provider Config vs Tenant Defaults",
+        "Implement breadcrumbs for clear navigation context"
+      ],
+      "files": [
+        "resources/js/Pages/Notifications/partials/SettingsTab.vue",
+        "resources/js/Pages/Settings/partials/NotificationsTab.vue",
+        "resources/js/Pages/Profile/Partials/NotificationsTab.vue",
+        "resources/js/Pages/Admin/Settings.vue",
+        "resources/js/Layouts/AuthenticatedLayout.vue",
+        "routes/web.php"
+      ],
+      "definition_of_ready": [
+        "DBP-001 (architecture consolidation) completed or in parallel",
+        "UI/UX mockups approved for consolidated views",
+        "User journey documented for landlord vs tenant"
+      ],
+      "acceptance_criteria": [
+        "Landlord has exactly ONE location for notification configuration",
+        "Tenant has exactly ONE location for notification preferences",
+        "Clear visual distinction between provider settings and preference defaults",
+        "Navigation is intuitive with no dead ends"
+      ],
+      "definition_of_done": [
+        "Old notification settings tabs removed or redirected",
+        "E2E test for landlord notification configuration flow",
+        "E2E test for tenant preference customization flow"
+      ],
+      "verification": "As landlord, navigate to notification settings; verify single destination with all options",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-003",
+      "category": "notification_consolidation",
+      "priority": "MEDIUM",
+      "title": "Centralize Quiet Hours Logic",
+      "description": "Quiet hours implementation is scattered across NotificationPreference model, NotificationService, and frontend components. Consolidate to a single QuietHoursService with clear API.",
+      "steps": [
+        "Create QuietHoursService with methods: isQuietHours(), getNextDeliveryTime(), shouldDefer()",
+        "Move isInQuietHours() and getQuietHoursEnd() from NotificationPreference to service",
+        "Update NotificationService to use QuietHoursService",
+        "Update ProcessScheduledNotifications command to use service",
+        "Create QuietHoursConfig value object for type-safe configuration",
+        "Add unit tests for all timezone edge cases"
+      ],
+      "files": [
+        "app/Services/QuietHoursService.php",
+        "app/Models/NotificationPreference.php",
+        "app/Services/NotificationService.php",
+        "app/Console/Commands/ProcessScheduledNotifications.php",
+        "tests/Unit/Services/QuietHoursServiceTest.php"
+      ],
+      "definition_of_ready": [
+        "All current quiet hours logic locations identified",
+        "Timezone handling requirements documented"
+      ],
+      "acceptance_criteria": [
+        "Single service handles all quiet hours logic",
+        "Supports user timezone preferences",
+        "Handles overnight quiet hours (22:00-08:00) correctly",
+        "Clear API with type hints"
+      ],
+      "definition_of_done": [
+        "QuietHoursService created with full test coverage",
+        "Old model methods marked deprecated with migration path",
+        "All callers updated to use new service"
+      ],
+      "verification": "Unit test: 23:00 with 22:00-08:00 quiet hours returns true; 12:00 returns false",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-004",
+      "category": "component_consolidation",
+      "priority": "HIGH",
+      "title": "Consolidate MetricCard Components",
+      "description": "Two MetricCard components exist: Components/MetricCard.vue (simpler, no TypeScript) and Components/Finances/MetricCard.vue (more features, TypeScript, uses formatters). Consolidate to single well-typed component.",
+      "steps": [
+        "Audit all usages of both MetricCard components across the codebase",
+        "Design consolidated API merging best features from both",
+        "Update Components/MetricCard.vue to match Finances/MetricCard.vue feature set",
+        "Add TypeScript types to consolidated component",
+        "Migrate all usages to use the consolidated component",
+        "Delete Components/Finances/MetricCard.vue",
+        "Update component index exports"
+      ],
+      "files": [
+        "resources/js/Components/MetricCard.vue",
+        "resources/js/Components/Finances/MetricCard.vue",
+        "resources/js/Components/Finances/index.ts",
+        "resources/js/Pages/Dashboard.vue",
+        "resources/js/Pages/Finances/Hub.vue"
+      ],
+      "definition_of_ready": [
+        "All MetricCard usages identified and documented",
+        "Consolidated API design approved"
+      ],
+      "acceptance_criteria": [
+        "Single MetricCard component handles all use cases",
+        "Full TypeScript types for props",
+        "Uses useFormatters composable for all formatting",
+        "Supports all existing features: trends, icons, colors, links, loading states"
+      ],
+      "definition_of_done": [
+        "Single MetricCard component at Components/MetricCard.vue",
+        "All pages using the consolidated component",
+        "Duplicate file deleted",
+        "No TypeScript errors"
+      ],
+      "verification": "Build succeeds; visual regression test shows no UI changes",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-005",
+      "category": "component_consolidation",
+      "priority": "HIGH",
+      "title": "Consolidate Pagination Components",
+      "description": "Two Pagination components exist: Components/Pagination.vue (basic, uses Link) and Components/Finances/Pagination.vue (TypeScript, uses router.visit, conditional rendering). Consolidate to single flexible component.",
+      "steps": [
+        "Audit all pagination usages across the codebase",
+        "Design consolidated API supporting both navigation methods",
+        "Implement single Pagination.vue with TypeScript",
+        "Add prop for navigation method (link vs router)",
+        "Migrate all usages to consolidated component",
+        "Delete Components/Finances/Pagination.vue",
+        "Update component index exports"
+      ],
+      "files": [
+        "resources/js/Components/Pagination.vue",
+        "resources/js/Components/Finances/Pagination.vue",
+        "resources/js/Components/Finances/index.ts",
+        "resources/js/types/finances.d.ts"
+      ],
+      "definition_of_ready": [
+        "All pagination usages identified",
+        "Edge cases documented (empty, single page, many pages)"
+      ],
+      "acceptance_criteria": [
+        "Single Pagination component with TypeScript",
+        "Supports both Link-based and router.visit navigation",
+        "Handles empty/single-page cases gracefully",
+        "Consistent styling across all usages"
+      ],
+      "definition_of_done": [
+        "Single Pagination component at Components/Pagination.vue",
+        "All pages migrated",
+        "Duplicate deleted",
+        "Types in global types file"
+      ],
+      "verification": "Navigate pagination on multiple pages; verify consistent behavior",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-006",
+      "category": "component_consolidation",
+      "priority": "MEDIUM",
+      "title": "Create Unified Badge Component System",
+      "description": "Multiple badge components exist with inconsistent patterns: KycBadge, TicketStatusBadge, InvoiceStatusBadge, PaymentMethodBadge, TicketPriorityBadge. Create a unified Badge component with status-specific presets.",
+      "steps": [
+        "Audit all badge components and extract common patterns",
+        "Design unified Badge.vue with preset system",
+        "Create status color mappings in useStatusColors composable",
+        "Implement Badge.vue with TypeScript and preset support",
+        "Create specific wrappers: StatusBadge.vue (for statuses), MethodBadge.vue (for payment methods)",
+        "Migrate existing badges to use new system",
+        "Delete old badge components"
+      ],
+      "files": [
+        "resources/js/Components/Badge.vue",
+        "resources/js/Components/StatusBadge.vue",
+        "resources/js/Components/KycBadge.vue",
+        "resources/js/Components/TicketStatusBadge.vue",
+        "resources/js/Components/Finances/InvoiceStatusBadge.vue",
+        "resources/js/Components/Finances/PaymentMethodBadge.vue",
+        "resources/js/composables/useStatusColors.ts"
+      ],
+      "definition_of_ready": [
+        "All badge usages documented",
+        "Color palette for all statuses defined",
+        "Design system approved"
+      ],
+      "acceptance_criteria": [
+        "Single Badge component with color/size/variant props",
+        "Preset system for common statuses (invoice, payment, ticket, kyc)",
+        "Consistent sizing and spacing",
+        "TypeScript types for all presets"
+      ],
+      "definition_of_done": [
+        "Unified Badge system implemented",
+        "All old badges migrated or deleted",
+        "Storybook/examples for each preset",
+        "No duplicate badge implementations"
+      ],
+      "verification": "Visual regression test; all badge usages render correctly",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-007",
+      "category": "component_consolidation",
+      "priority": "MEDIUM",
+      "title": "Promote Finances/EmptyState to Shared Component",
+      "description": "Finances/EmptyState.vue is well-designed but only available in Finances module. Many pages have ad-hoc empty states. Promote to shared component and standardize all empty states.",
+      "steps": [
+        "Move EmptyState.vue from Components/Finances/ to Components/",
+        "Update imports in all Finances pages",
+        "Identify all inline empty states in codebase",
+        "Migrate inline empty states to use shared component",
+        "Add additional size variants if needed",
+        "Update component documentation"
+      ],
+      "files": [
+        "resources/js/Components/EmptyState.vue",
+        "resources/js/Components/Finances/EmptyState.vue",
+        "resources/js/Components/Finances/index.ts",
+        "resources/js/Pages/Finances/tabs/*.vue",
+        "resources/js/Pages/Tenants/*.vue"
+      ],
+      "definition_of_ready": [
+        "All empty state usages identified",
+        "Common patterns documented"
+      ],
+      "acceptance_criteria": [
+        "Single EmptyState component at Components/EmptyState.vue",
+        "Supports icon, title, description, action props",
+        "Multiple size variants (sm, md, lg)",
+        "Optional slot for custom content"
+      ],
+      "definition_of_done": [
+        "EmptyState promoted to shared",
+        "All inline empty states migrated",
+        "Consistent appearance across app"
+      ],
+      "verification": "Check multiple empty state scenarios; verify consistent styling",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-008",
+      "category": "component_consolidation",
+      "priority": "LOW",
+      "title": "Enforce useFormatters Composable Usage",
+      "description": "30+ files have inline formatters (toLocaleString, toFixed, manual date formatting) instead of using the existing useFormatters composable. Standardize all formatting to use the composable.",
+      "steps": [
+        "Create ESLint rule or grep pattern to identify inline formatting",
+        "Generate list of all files with inline formatters",
+        "Update each file to import and use useFormatters",
+        "Remove inline formatting functions",
+        "Add formatPhoneNumber to useFormatters if not present",
+        "Document formatters in README"
+      ],
+      "files": [
+        "resources/js/composables/useFormatters.ts",
+        "resources/js/Pages/Dashboard.vue",
+        "resources/js/Pages/Finances/**/*.vue",
+        "resources/js/Pages/Reports/Index.vue",
+        "resources/js/Components/FinancialSummaryCard.vue"
+      ],
+      "definition_of_ready": [
+        "All inline formatter usages identified",
+        "useFormatters composable reviewed for completeness"
+      ],
+      "acceptance_criteria": [
+        "No inline toLocaleString for currency",
+        "No inline date formatting",
+        "All formatting goes through useFormatters",
+        "Consistent number/currency/date display"
+      ],
+      "definition_of_done": [
+        "All files migrated to useFormatters",
+        "ESLint rule added to prevent future inline formatting",
+        "useFormatters documented"
+      ],
+      "verification": "Grep for toLocaleString and manual date formatting; should find only useFormatters",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-009",
+      "category": "backend_architecture",
+      "priority": "CRITICAL",
+      "title": "Extract Shared Controller Logic to Trait",
+      "description": "getLandlordId() is duplicated in 9+ controllers (FinancesController, PaymentController, PaymentsHubController, OperationsHubController, WaterHubController, TenantsHubController, ArchiveHubController, MaintenanceHubController, etc.). getBuildings() is duplicated in 7+ controllers. Extract to shared trait.",
+      "steps": [
+        "Create WithLandlordScope trait with getLandlordId(), getBuildings(), getProperties()",
+        "Add trait to all controllers with duplicated methods",
+        "Remove duplicated methods from individual controllers",
+        "Ensure consistent authorization checks in trait",
+        "Add unit tests for trait methods",
+        "Consider middleware alternative for auth check"
+      ],
+      "files": [
+        "app/Http/Traits/WithLandlordScope.php",
+        "app/Http/Controllers/FinancesController.php",
+        "app/Http/Controllers/PaymentController.php",
+        "app/Http/Controllers/PaymentsHubController.php",
+        "app/Http/Controllers/OperationsHubController.php",
+        "app/Http/Controllers/WaterHubController.php",
+        "app/Http/Controllers/TenantsHubController.php",
+        "app/Http/Controllers/ArchiveHubController.php",
+        "app/Http/Controllers/MaintenanceHubController.php"
+      ],
+      "definition_of_ready": [
+        "All duplicated methods identified and documented",
+        "Consistent behavior confirmed across all implementations"
+      ],
+      "acceptance_criteria": [
+        "Single source of truth for getLandlordId()",
+        "Single source of truth for getBuildings()",
+        "All controllers use the shared trait",
+        "No code duplication for these methods"
+      ],
+      "definition_of_done": [
+        "Trait created with all shared methods",
+        "All 9+ controllers updated",
+        "All tests pass",
+        "Code review approved"
+      ],
+      "verification": "grep for 'private function getLandlordId' should return only trait",
+      "estimated_effort": "medium",
+      "passes": true,
+      "attempt_count": 1
+    },
+    {
+      "id": "DBP-010",
+      "category": "backend_architecture",
+      "priority": "CRITICAL",
+      "title": "Create Missing Authorization Policies",
+      "description": "Policies are missing for Expense, LateFeePolicy, Deposit, ExpenseCategory, Vendor, WaterSetting models. Manual auth checks (33+ instances) in controllers should use policies.",
+      "steps": [
+        "Create ExpensePolicy with viewAny, view, create, update, delete methods",
+        "Create LateFeeRulePolicy for late fee rules configuration",
+        "Create DepositPolicy for deposit transactions",
+        "Create ExpenseCategoryPolicy for expense categorization",
+        "Create VendorPolicy for vendor management",
+        "Create WaterSettingPolicy for water rate configuration",
+        "Register all policies in AuthServiceProvider",
+        "Migrate manual auth checks in controllers to policy calls"
+      ],
+      "files": [
+        "app/Policies/ExpensePolicy.php",
+        "app/Policies/LateFeeRulePolicy.php",
+        "app/Policies/DepositPolicy.php",
+        "app/Policies/ExpenseCategoryPolicy.php",
+        "app/Policies/VendorPolicy.php",
+        "app/Policies/WaterSettingPolicy.php",
+        "app/Providers/AuthServiceProvider.php",
+        "app/Http/Controllers/FinancesController.php"
+      ],
+      "definition_of_ready": [
+        "All models without policies identified",
+        "Authorization requirements documented for each",
+        "TenantScope implications understood"
+      ],
+      "acceptance_criteria": [
+        "Every model with CRUD operations has corresponding policy",
+        "Policies handle landlord/caretaker/tenant roles correctly",
+        "Controllers use $this->authorize() instead of manual checks",
+        "Consistent authorization error messages"
+      ],
+      "definition_of_done": [
+        "All missing policies created",
+        "Policies registered in AuthServiceProvider",
+        "Manual auth checks migrated to policy calls",
+        "Authorization tests added"
+      ],
+      "verification": "Try accessing expense as wrong landlord; verify 403 response",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-011",
+      "category": "backend_architecture",
+      "priority": "HIGH",
+      "title": "Add Authorization to PaymentLinkController",
+      "description": "PaymentLinkController::show() has minimal authorization. While payment links are public by design (signed URLs), there should be rate limiting and validation to prevent abuse and token brute-forcing.",
+      "steps": [
+        "Add rate limiting middleware to payment link routes",
+        "Implement signed URL validation (already using token)",
+        "Add honeypot field for bot detection",
+        "Log suspicious access patterns",
+        "Add CSRF protection where applicable",
+        "Consider IP-based rate limiting for repeated failures"
+      ],
+      "files": [
+        "app/Http/Controllers/PaymentLinkController.php",
+        "routes/web.php",
+        "app/Http/Middleware/ThrottlePaymentLinks.php"
+      ],
+      "definition_of_ready": [
+        "Current security posture documented",
+        "Threat model for payment links defined"
+      ],
+      "acceptance_criteria": [
+        "Rate limiting prevents brute force token guessing",
+        "Suspicious activity is logged",
+        "Legitimate users are not impacted",
+        "No security vulnerabilities"
+      ],
+      "definition_of_done": [
+        "Rate limiting middleware added",
+        "Security logging implemented",
+        "Penetration test considerations documented"
+      ],
+      "verification": "Attempt 100 rapid requests to payment link; verify rate limit triggers",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-012",
+      "category": "backend_architecture",
+      "priority": "HIGH",
+      "title": "Extract Validation Rules to FormRequest Classes",
+      "description": "50+ inline $request->validate() calls in controllers duplicate validation rules. Extract to FormRequest classes for reusability, testability, and cleaner controllers.",
+      "steps": [
+        "Identify all inline validation in controllers (50+ instances)",
+        "Group by domain: payments, tenants, water readings, expenses, etc.",
+        "Create FormRequest classes for each domain",
+        "Migrate controller validation to FormRequest type hints",
+        "Ensure custom error messages are preserved",
+        "Add validation unit tests"
+      ],
+      "files": [
+        "app/Http/Requests/StorePaymentRequest.php",
+        "app/Http/Requests/UpdateTenantRequest.php",
+        "app/Http/Requests/StoreWaterReadingRequest.php",
+        "app/Http/Requests/StoreExpenseRequest.php",
+        "app/Http/Controllers/PaymentController.php",
+        "app/Http/Controllers/TenantController.php"
+      ],
+      "definition_of_ready": [
+        "All inline validation calls cataloged",
+        "Common validation rules identified"
+      ],
+      "acceptance_criteria": [
+        "No inline $request->validate() in controllers",
+        "FormRequest classes for all validated endpoints",
+        "Custom error messages preserved",
+        "Validation rules centralized and reusable"
+      ],
+      "definition_of_done": [
+        "All FormRequest classes created",
+        "Controllers using type-hinted requests",
+        "Validation tests pass",
+        "No code duplication in validation rules"
+      ],
+      "verification": "Submit invalid data to endpoint; verify correct validation error returned",
+      "estimated_effort": "large",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-013",
+      "category": "backend_architecture",
+      "priority": "MEDIUM",
+      "title": "Centralize Payment Methods Configuration",
+      "description": "Payment methods array is hardcoded in 3+ places (PaymentConfiguration, frontend components, validation rules). Centralize to single source of truth.",
+      "steps": [
+        "Audit all payment method definitions in codebase",
+        "Create PaymentMethod enum with all valid methods",
+        "Update PaymentConfiguration to use enum",
+        "Create API endpoint for frontend to fetch payment methods",
+        "Update frontend to fetch from API instead of hardcoding",
+        "Update all validation rules to reference enum"
+      ],
+      "files": [
+        "app/Enums/PaymentMethod.php",
+        "app/Models/PaymentConfiguration.php",
+        "resources/js/types/finances.d.ts",
+        "app/Http/Controllers/Api/ConfigController.php",
+        "resources/js/Pages/Finances/tabs/SettingsTab.vue"
+      ],
+      "definition_of_ready": [
+        "All payment method definitions identified",
+        "New methods needed (if any) documented"
+      ],
+      "acceptance_criteria": [
+        "Single PaymentMethod enum is source of truth",
+        "Frontend fetches from API, no hardcoding",
+        "Adding new payment method requires single code change",
+        "Type safety in PHP and TypeScript"
+      ],
+      "definition_of_done": [
+        "PaymentMethod enum created",
+        "All references updated",
+        "API endpoint created",
+        "Frontend fetches dynamically"
+      ],
+      "verification": "Add new payment method to enum; verify it appears in all UIs",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-014",
+      "category": "backend_architecture",
+      "priority": "MEDIUM",
+      "title": "Split FinancesController into Domain Controllers",
+      "description": "FinancesController is 1278 lines with mixed concerns (invoices, payments, expenses, deposits, reports, settings). Split into focused domain controllers following single responsibility principle.",
+      "steps": [
+        "Analyze FinancesController methods and group by domain",
+        "Create Finance/InvoicesController for invoice operations",
+        "Create Finance/ExpensesController for expense operations",
+        "Create Finance/ReportsController for report generation",
+        "Create Finance/SettingsController for settings management",
+        "Keep FinancesController as thin orchestrator for index/hub view",
+        "Update routes to use new controllers",
+        "Preserve URL structure using route model binding"
+      ],
+      "files": [
+        "app/Http/Controllers/FinancesController.php",
+        "app/Http/Controllers/Finance/InvoicesController.php",
+        "app/Http/Controllers/Finance/ExpensesController.php",
+        "app/Http/Controllers/Finance/ReportsController.php",
+        "app/Http/Controllers/Finance/SettingsController.php",
+        "routes/web.php"
+      ],
+      "definition_of_ready": [
+        "Domain boundaries clearly defined",
+        "Route structure decided (preserve URLs or restructure)"
+      ],
+      "acceptance_criteria": [
+        "No controller exceeds 300 lines",
+        "Each controller has single responsibility",
+        "Routes continue to work (or redirect properly)",
+        "Tests continue to pass"
+      ],
+      "definition_of_done": [
+        "FinancesController split into 4+ focused controllers",
+        "Routes updated",
+        "All tests pass",
+        "No functionality lost"
+      ],
+      "verification": "Access all Finance pages; verify functionality unchanged",
+      "estimated_effort": "large",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-015",
+      "category": "backend_architecture",
+      "priority": "MEDIUM",
+      "title": "Standardize Invoice Status Constants",
+      "description": "Invoice status strings are used inconsistently across the codebase. Create enum and use consistently throughout for type safety.",
+      "steps": [
+        "Create InvoiceStatus enum with all valid statuses",
+        "Update Invoice model to use enum cast",
+        "Update all status comparisons to use enum",
+        "Update frontend to use typed status values",
+        "Add validation for status transitions",
+        "Update tests"
+      ],
+      "files": [
+        "app/Enums/InvoiceStatus.php",
+        "app/Models/Invoice.php",
+        "app/Services/InvoiceService.php",
+        "resources/js/types/invoice.d.ts"
+      ],
+      "definition_of_ready": [
+        "All invoice statuses documented",
+        "Valid status transitions defined"
+      ],
+      "acceptance_criteria": [
+        "InvoiceStatus enum is single source of truth",
+        "Model casts status to enum",
+        "All comparisons use enum, not strings",
+        "Invalid status transitions are prevented"
+      ],
+      "definition_of_done": [
+        "Enum created and registered",
+        "All usages migrated",
+        "Status transition validation added"
+      ],
+      "verification": "Attempt invalid status transition; verify rejection",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-016",
+      "category": "code_quality",
+      "priority": "HIGH",
+      "title": "Remove Console Statements from Production Code",
+      "description": "50+ console.log/console.error statements exist in production Vue code. Remove or replace with proper logging/error handling service.",
+      "steps": [
+        "Grep for all console.* statements in resources/js",
+        "Categorize: debug logs vs error handling",
+        "Remove debug logs entirely",
+        "Replace error logging with proper error service integration",
+        "Add ESLint rule to prevent future console statements",
+        "Create useErrorHandler composable for consistent error handling"
+      ],
+      "files": [
+        "resources/js/Pages/**/*.vue",
+        "resources/js/Components/**/*.vue",
+        "resources/js/composables/useErrorHandler.ts",
+        ".eslintrc.js"
+      ],
+      "definition_of_ready": [
+        "All console statements identified",
+        "Error logging strategy decided"
+      ],
+      "acceptance_criteria": [
+        "Zero console.log in production code",
+        "Errors reported to monitoring service or handled gracefully",
+        "ESLint rule prevents new console statements",
+        "Development-only logging preserved via env flag"
+      ],
+      "definition_of_done": [
+        "All console statements removed or replaced",
+        "ESLint rule added and enforced",
+        "Error handling composable created"
+      ],
+      "verification": "Build production bundle; grep for console. should return 0 matches",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-017",
+      "category": "code_quality",
+      "priority": "MEDIUM",
+      "title": "Make Water Rate Configurable",
+      "description": "Water rate is hardcoded to 150 KES per unit in WaterReadingObserver. Should be configurable per landlord/building via settings.",
+      "steps": [
+        "Verify PaymentConfiguration already has water_unit_rate field",
+        "Ensure WaterReadingObserver uses configured rate, not hardcoded 150",
+        "Remove all hardcoded 150 references for water rate",
+        "Add UI in Water Settings to configure rate per building",
+        "Support building-level overrides with fallback to landlord default",
+        "Update documentation"
+      ],
+      "files": [
+        "app/Observers/WaterReadingObserver.php",
+        "app/Models/PaymentConfiguration.php",
+        "app/Models/WaterSetting.php",
+        "app/Http/Controllers/WaterSettingsController.php",
+        "resources/js/Pages/Water/tabs/SettingsTab.vue"
+      ],
+      "definition_of_ready": [
+        "Current water rate configuration documented",
+        "Business rules for rate inheritance defined"
+      ],
+      "acceptance_criteria": [
+        "No hardcoded 150 in codebase for water rate",
+        "Rate configurable at landlord level",
+        "Building-level override supported",
+        "Default rate is sensible (configurable via env)"
+      ],
+      "definition_of_done": [
+        "All hardcoded rates removed",
+        "Configuration UI working",
+        "Tests verify rate inheritance"
+      ],
+      "verification": "Change water rate in settings; verify new reading uses new rate",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-018",
+      "category": "code_quality",
+      "priority": "MEDIUM",
+      "title": "Create Typed Exception Classes",
+      "description": "21+ generic Exception throws exist without typed exceptions. Create domain-specific exception classes for better error handling and API responses.",
+      "steps": [
+        "Audit all throw new Exception calls",
+        "Group by domain: Payment, Import, Invoice, Refund, etc.",
+        "Create app/Exceptions directory structure if needed",
+        "Create PaymentException, ImportException, InvoiceException, RefundException",
+        "Add error codes and context to exceptions",
+        "Update throws to use typed exceptions",
+        "Add exception handler for custom exceptions"
+      ],
+      "files": [
+        "app/Exceptions/PaymentException.php",
+        "app/Exceptions/ImportException.php",
+        "app/Exceptions/InvoiceException.php",
+        "app/Exceptions/RefundException.php",
+        "app/Exceptions/Handler.php",
+        "app/Services/ImportService.php",
+        "app/Services/RefundService.php"
+      ],
+      "definition_of_ready": [
+        "All generic exceptions cataloged",
+        "Exception hierarchy designed"
+      ],
+      "acceptance_criteria": [
+        "No generic Exception throws in services",
+        "Each domain has typed exception class",
+        "Exceptions have error codes for API clients",
+        "Exception handler produces consistent responses"
+      ],
+      "definition_of_done": [
+        "Exception classes created",
+        "All throws updated",
+        "Handler configured",
+        "API error responses consistent"
+      ],
+      "verification": "Trigger payment failure; verify PaymentException with error code returned",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-019",
+      "category": "code_quality",
+      "priority": "MEDIUM",
+      "title": "Add TypeScript Interfaces for Vue Props",
+      "description": "Multiple Vue components use Object type for props instead of proper TypeScript interfaces. Add proper typing for better IDE support and compile-time error catching.",
+      "steps": [
+        "Audit all defineProps with Object type",
+        "Create interfaces in types/ directory for each entity",
+        "Update components to use typed props",
+        "Enable strict TypeScript checks for props",
+        "Add interface documentation"
+      ],
+      "files": [
+        "resources/js/types/",
+        "resources/js/Pages/Profile/Partials/NotificationsTab.vue",
+        "resources/js/Components/*.vue"
+      ],
+      "definition_of_ready": [
+        "All Object-typed props identified",
+        "TypeScript strict mode requirements understood"
+      ],
+      "acceptance_criteria": [
+        "No Object type in defineProps",
+        "All props have explicit interface types",
+        "TypeScript catches incorrect prop usage",
+        "Interfaces documented"
+      ],
+      "definition_of_done": [
+        "All components with Object props updated",
+        "Interfaces created in types/",
+        "TypeScript build passes",
+        "No any types introduced"
+      ],
+      "verification": "Pass wrong prop type to component; verify TypeScript error",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-020",
+      "category": "performance_optimization",
+      "priority": "HIGH",
+      "title": "Fix N+1 Queries in PaymentController Bulk Import",
+      "description": "PaymentController bulk import has N+1 query pattern - units are loaded individually in loop. Use eager loading and keyed collections for O(1) lookup.",
+      "steps": [
+        "Profile bulk import to identify all N+1 queries",
+        "Pre-load all units for building before loop (partially done)",
+        "Pre-load all leases with tenants",
+        "Use keyed collections for O(1) lookup",
+        "Add query count assertion to test",
+        "Consider chunk processing for large imports"
+      ],
+      "files": [
+        "app/Http/Controllers/PaymentController.php",
+        "tests/Feature/Controllers/PaymentControllerTest.php"
+      ],
+      "definition_of_ready": [
+        "Current query count for bulk import measured",
+        "Target query count defined"
+      ],
+      "acceptance_criteria": [
+        "Query count is O(1), not O(n) for n payments",
+        "Import of 100 payments uses < 20 queries",
+        "Performance test added"
+      ],
+      "definition_of_done": [
+        "N+1 queries eliminated",
+        "Performance test passing",
+        "Large import (1000 rows) completes in < 30s"
+      ],
+      "verification": "Import 100 payments with query logging; verify < 20 queries",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-021",
+      "category": "performance_optimization",
+      "priority": "MEDIUM",
+      "title": "Add Caching for Finance Statistics",
+      "description": "Finance hub stats are computed fresh on every request. Add caching with cache invalidation on relevant events to improve page load times.",
+      "steps": [
+        "Identify all stats computed in FinanceStatsService",
+        "Add cache layer with appropriate TTL (5-15 minutes)",
+        "Implement cache invalidation on payment/invoice events",
+        "Add cache tags for granular invalidation",
+        "Create CacheInvalidator listener for finance events",
+        "Add cache warmup command for cold start"
+      ],
+      "files": [
+        "app/Services/FinanceStatsService.php",
+        "app/Listeners/InvalidateFinanceCacheListener.php",
+        "app/Events/PaymentReceived.php",
+        "app/Console/Commands/WarmFinanceCache.php"
+      ],
+      "definition_of_ready": [
+        "Stats computation time measured",
+        "Cache invalidation triggers identified"
+      ],
+      "acceptance_criteria": [
+        "Cached stats returned in < 50ms",
+        "Cache invalidated on payment/invoice changes",
+        "Stale data window is acceptable (< 5 minutes)",
+        "Cache warming available for cold start"
+      ],
+      "definition_of_done": [
+        "Caching implemented",
+        "Invalidation listeners registered",
+        "Performance improvement measured",
+        "Cache warmup command working"
+      ],
+      "verification": "Load finance hub twice; second load shows cache hit in < 50ms",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-022",
+      "category": "code_quality",
+      "priority": "LOW",
+      "title": "Remove or Integrate Orphaned Components",
+      "description": "QuickActionsPanel and BuildingMap components appear to be orphaned (not used anywhere). Either remove or integrate properly.",
+      "steps": [
+        "Search codebase for usages of QuickActionsPanel",
+        "Search codebase for usages of BuildingMap",
+        "If unused: delete components",
+        "If planned for future: create ticket for integration",
+        "Document decision in ADR"
+      ],
+      "files": [
+        "resources/js/Components/QuickActionsPanel.vue",
+        "resources/js/Components/BuildingMap.vue"
+      ],
+      "definition_of_ready": [
+        "Usage search completed",
+        "Product decision on future use"
+      ],
+      "acceptance_criteria": [
+        "No orphaned components in codebase",
+        "All components either used or deleted",
+        "Decision documented"
+      ],
+      "definition_of_done": [
+        "Components removed or integrated",
+        "No dead code in components directory"
+      ],
+      "verification": "Grep for component names; verify either deleted or used",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-023",
+      "category": "code_quality",
+      "priority": "LOW",
+      "title": "Standardize Modal Implementation",
+      "description": "Some pages use raw HTML modals while others use the Modal component. Standardize all modals to use the shared Modal component for consistency and accessibility.",
+      "steps": [
+        "Audit all modal implementations in codebase",
+        "Identify raw HTML modals not using Modal.vue",
+        "Migrate each to use Modal component",
+        "Ensure consistent styling and behavior",
+        "Add accessibility attributes (aria-modal, role)",
+        "Test keyboard navigation (Escape to close)"
+      ],
+      "files": [
+        "resources/js/Components/Modal.vue",
+        "resources/js/Pages/**/*.vue"
+      ],
+      "definition_of_ready": [
+        "All modal implementations identified",
+        "Accessibility requirements documented"
+      ],
+      "acceptance_criteria": [
+        "All modals use Modal component",
+        "Consistent open/close animations",
+        "Keyboard accessible (Escape closes)",
+        "Proper ARIA attributes"
+      ],
+      "definition_of_done": [
+        "All raw modals migrated",
+        "Accessibility audit passed",
+        "Consistent behavior across app"
+      ],
+      "verification": "Open modal; press Escape; verify close behavior",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    }
+  ],
+  "progressTracking": {
+    "description": "Track progress in progress.md file, committed to repo after each task",
+    "format": {
+      "taskCompleted": "Task ID and title",
+      "decisionsMade": "Key decisions and reasoning",
+      "filesChanged": "List of modified files",
+      "blockers": "Any blockers or notes for next iteration"
+    }
+  },
+  "completionCriteria": {
+    "metrics": [
+      "Zero duplicate MetricCard, Pagination, or Badge components",
+      "Zero inline $request->validate() calls in controllers",
+      "All models have corresponding authorization policies",
+      "Zero console.log in production Vue code",
+      "Finance hub loads in < 200ms (with caching)",
+      "All PHPUnit tests passing",
+      "All Pint style checks passing",
+      "TypeScript build passes with no errors",
+      "Single location for notification provider configuration",
+      "Single location for notification default preferences"
+    ],
+    "outputSignal": "<promise>COMPLETE</promise>"
+  }
+}
