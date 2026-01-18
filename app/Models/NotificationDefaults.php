@@ -36,6 +36,15 @@ class NotificationDefaults extends Model
         'quiet_hours_enabled',
         'quiet_hours_start',
         'quiet_hours_end',
+        'quiet_hours_queue_notifications',
+        'max_retries',
+        'retry_delay_minutes',
+        'daily_limit_per_tenant',
+        'hourly_limit_per_tenant',
+        'sender_name',
+        'reply_to_email',
+        'archive_days',
+        'track_read_status',
     ];
 
     protected $casts = [
@@ -43,6 +52,13 @@ class NotificationDefaults extends Model
         'type_settings' => 'array',
         'reminder_days_before_due' => 'integer',
         'quiet_hours_enabled' => 'boolean',
+        'quiet_hours_queue_notifications' => 'boolean',
+        'max_retries' => 'integer',
+        'retry_delay_minutes' => 'integer',
+        'daily_limit_per_tenant' => 'integer',
+        'hourly_limit_per_tenant' => 'integer',
+        'archive_days' => 'integer',
+        'track_read_status' => 'boolean',
     ];
 
     public function landlord()
@@ -82,6 +98,15 @@ class NotificationDefaults extends Model
             'quiet_hours_enabled' => true,
             'quiet_hours_start' => '22:00',
             'quiet_hours_end' => '08:00',
+            'quiet_hours_queue_notifications' => true,
+            'max_retries' => 3,
+            'retry_delay_minutes' => 5,
+            'daily_limit_per_tenant' => 20,
+            'hourly_limit_per_tenant' => 5,
+            'sender_name' => null,
+            'reply_to_email' => null,
+            'archive_days' => 90,
+            'track_read_status' => true,
         ];
     }
 

@@ -6,11 +6,11 @@ use App\Mail\TenantInvitationMail;
 use App\Mail\TenantWelcome;
 use App\Models\Lease;
 use App\Models\Notification;
-use App\Models\Setting;
 use App\Models\TenantInvitation;
 use App\Models\TenantPaymentVerification;
 use App\Models\Unit;
 use App\Models\User;
+use App\Repositories\Contracts\NotificationConfigRepositoryInterface;
 use App\Services\InvoiceService;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
@@ -24,6 +24,13 @@ use Inertia\Inertia;
 
 class TenantInvitationController extends Controller
 {
+    protected NotificationConfigRepositoryInterface $configRepository;
+
+    public function __construct(NotificationConfigRepositoryInterface $configRepository)
+    {
+        $this->configRepository = $configRepository;
+    }
+
     /**
      * Display a listing of tenant invitations for the authenticated landlord/caretaker
      */
@@ -573,7 +580,7 @@ class TenantInvitationController extends Controller
      */
     protected function sendSms(string $phone, string $message, int $landlordId): bool
     {
-        $provider = Setting::get('sms_provider', 'none', $landlordId);
+        $provider = $this->configRepository->getSmsProvider($landlordId);
 
         if ($provider === 'none') {
             Log::warning('SMS provider not configured', ['landlord_id' => $landlordId]);
@@ -593,9 +600,10 @@ class TenantInvitationController extends Controller
      */
     protected function sendViaTwilio(string $phone, string $message, int $landlordId): bool
     {
-        $accountSid = Setting::get('twilio_account_sid', null, $landlordId);
-        $authToken = Setting::get('twilio_auth_token', null, $landlordId);
-        $fromNumber = Setting::get('twilio_phone_number', null, $landlordId);
+        $credentials = $this->configRepository->getTwilioCredentials($landlordId);
+        $accountSid = $credentials['account_sid'];
+        $authToken = $credentials['auth_token'];
+        $fromNumber = $credentials['phone_number'];
 
         if (! $accountSid || ! $authToken || ! $fromNumber) {
             Log::warning('Twilio credentials not configured', ['landlord_id' => $landlordId]);
@@ -633,9 +641,10 @@ class TenantInvitationController extends Controller
      */
     protected function sendViaAfricasTalking(string $phone, string $message, int $landlordId): bool
     {
-        $apiKey = Setting::get('africas_talking_api_key', null, $landlordId);
-        $username = Setting::get('africas_talking_username', null, $landlordId);
-        $from = Setting::get('africas_talking_from', null, $landlordId);
+        $credentials = $this->configRepository->getAfricasTalkingCredentials($landlordId);
+        $apiKey = $credentials['api_key'];
+        $username = $credentials['username'];
+        $from = $credentials['from'];
 
         if (! $apiKey || ! $username) {
             Log::warning("Africa's Talking credentials not configured", ['landlord_id' => $landlordId]);
@@ -679,9 +688,10 @@ class TenantInvitationController extends Controller
      */
     protected function sendWhatsApp(string $phone, string $message, int $landlordId): bool
     {
-        $accountSid = Setting::get('twilio_account_sid', null, $landlordId);
-        $authToken = Setting::get('twilio_auth_token', null, $landlordId);
-        $fromNumber = Setting::get('twilio_whatsapp_number', null, $landlordId);
+        $credentials = $this->configRepository->getTwilioCredentials($landlordId);
+        $accountSid = $credentials['account_sid'];
+        $authToken = $credentials['auth_token'];
+        $fromNumber = $this->configRepository->getWhatsAppNumber($landlordId);
 
         if (! $accountSid || ! $authToken || ! $fromNumber) {
             Log::warning('WhatsApp (Twilio) credentials not configured', ['landlord_id' => $landlordId]);
@@ -719,19 +729,9 @@ class TenantInvitationController extends Controller
      */
     public static function isSmsConfigured(int $landlordId): bool
     {
-        $provider = Setting::get('sms_provider', 'none', $landlordId);
-        if ($provider === 'none') {
-            return false;
-        }
+        $repository = app(NotificationConfigRepositoryInterface::class);
 
-        return match ($provider) {
-            'twilio' => (bool) Setting::get('twilio_account_sid', null, $landlordId)
-                     && (bool) Setting::get('twilio_auth_token', null, $landlordId)
-                     && (bool) Setting::get('twilio_phone_number', null, $landlordId),
-            'africas_talking' => (bool) Setting::get('africas_talking_api_key', null, $landlordId)
-                              && (bool) Setting::get('africas_talking_username', null, $landlordId),
-            default => false,
-        };
+        return $repository->isProviderConfigured($landlordId, 'sms');
     }
 
     /**
@@ -739,9 +739,9 @@ class TenantInvitationController extends Controller
      */
     public static function isWhatsAppConfigured(int $landlordId): bool
     {
-        return (bool) Setting::get('twilio_account_sid', null, $landlordId)
-            && (bool) Setting::get('twilio_auth_token', null, $landlordId)
-            && (bool) Setting::get('twilio_whatsapp_number', null, $landlordId);
+        $repository = app(NotificationConfigRepositoryInterface::class);
+
+        return $repository->isProviderConfigured($landlordId, 'whatsapp');
     }
 
     // ==================== Authenticated Accept/Decline (In-App) ====================

@@ -190,4 +190,176 @@ class DualWriteNotificationConfigRepository implements NotificationConfigReposit
             'settings' => array_merge($config->settings ?? [], ['templates' => $templates]),
         ]);
     }
+
+    public function getEmailCredentials(int $landlordId): array
+    {
+        if (config('features.notification_v2')) {
+            $config = NotificationProviderConfig::forLandlord($landlordId, NotificationProviderConfig::TYPE_EMAIL);
+            if ($config && $config->credentials) {
+                return [
+                    'mailer' => $config->getCredential('mailer'),
+                    'host' => $config->getCredential('host'),
+                    'port' => $config->getCredential('port'),
+                    'username' => $config->getCredential('username'),
+                    'password' => $config->getCredential('password'),
+                    'encryption' => $config->getCredential('encryption'),
+                    'from_address' => $config->getCredential('from_address'),
+                    'from_name' => $config->getCredential('from_name'),
+                    'enabled' => $config->is_enabled,
+                ];
+            }
+
+            return $this->getEmptyEmailCredentials();
+        }
+
+        return [
+            'mailer' => Setting::get('mail_mailer', null, $landlordId),
+            'host' => Setting::get('mail_host', null, $landlordId),
+            'port' => Setting::get('mail_port', null, $landlordId),
+            'username' => Setting::get('mail_username', null, $landlordId),
+            'password' => Setting::get('mail_password', null, $landlordId),
+            'encryption' => Setting::get('mail_encryption', null, $landlordId),
+            'from_address' => Setting::get('mail_from_address', null, $landlordId),
+            'from_name' => Setting::get('mail_from_name', null, $landlordId),
+            'enabled' => (bool) Setting::get('email_enabled', true, $landlordId),
+        ];
+    }
+
+    public function setEmailCredentials(int $landlordId, array $credentials): void
+    {
+        // Legacy Setting (password is encrypted)
+        $emailFields = ['mailer', 'host', 'port', 'username', 'encryption', 'from_address', 'from_name'];
+        foreach ($emailFields as $field) {
+            if (isset($credentials[$field])) {
+                Setting::set("mail_{$field}", $credentials[$field], false, 'email', ucfirst(str_replace('_', ' ', $field)), $landlordId);
+            }
+        }
+        if (isset($credentials['password'])) {
+            Setting::set('mail_password', $credentials['password'], true, 'email', 'Mail Password', $landlordId);
+        }
+        if (isset($credentials['enabled'])) {
+            Setting::set('email_enabled', $credentials['enabled'], false, 'email', 'Email Enabled', $landlordId);
+        }
+
+        // New NotificationProviderConfig
+        $config = NotificationProviderConfig::getOrCreate($landlordId, NotificationProviderConfig::TYPE_EMAIL);
+        $config->update([
+            'provider_name' => $credentials['mailer'] ?? 'smtp',
+            'credentials' => [
+                'mailer' => $credentials['mailer'] ?? null,
+                'host' => $credentials['host'] ?? null,
+                'port' => $credentials['port'] ?? null,
+                'username' => $credentials['username'] ?? null,
+                'password' => $credentials['password'] ?? null,
+                'encryption' => $credentials['encryption'] ?? null,
+                'from_address' => $credentials['from_address'] ?? null,
+                'from_name' => $credentials['from_name'] ?? null,
+            ],
+            'is_enabled' => $credentials['enabled'] ?? true,
+        ]);
+    }
+
+    public function isEmailEnabled(int $landlordId): bool
+    {
+        if (config('features.notification_v2')) {
+            $config = NotificationProviderConfig::forLandlord($landlordId, NotificationProviderConfig::TYPE_EMAIL);
+
+            return $config?->is_enabled ?? true;
+        }
+
+        return (bool) Setting::get('email_enabled', true, $landlordId);
+    }
+
+    public function isSetupComplete(int $landlordId): bool
+    {
+        if (config('features.notification_v2')) {
+            $smsConfig = NotificationProviderConfig::forLandlord($landlordId, NotificationProviderConfig::TYPE_SMS);
+
+            return $smsConfig?->getSetting('setup_complete', false) ?? false;
+        }
+
+        return (bool) Setting::get('notifications_setup_complete', false, $landlordId);
+    }
+
+    public function markSetupComplete(int $landlordId): void
+    {
+        // Legacy Setting
+        Setting::set('notifications_setup_complete', true, false, 'notifications', 'Setup Completed', $landlordId);
+
+        // New NotificationProviderConfig - store on SMS config as the "primary" config
+        $config = NotificationProviderConfig::getOrCreate($landlordId, NotificationProviderConfig::TYPE_SMS);
+        $config->update([
+            'settings' => array_merge($config->settings ?? [], ['setup_complete' => true]),
+        ]);
+    }
+
+    public function isProviderConfigured(int $landlordId, string $providerType): bool
+    {
+        if (config('features.notification_v2')) {
+            $typeMap = [
+                'sms' => NotificationProviderConfig::TYPE_SMS,
+                'whatsapp' => NotificationProviderConfig::TYPE_WHATSAPP,
+                'email' => NotificationProviderConfig::TYPE_EMAIL,
+                'push' => NotificationProviderConfig::TYPE_PUSH,
+            ];
+            $type = $typeMap[$providerType] ?? $providerType;
+            $config = NotificationProviderConfig::forLandlord($landlordId, $type);
+
+            return $config?->isConfigured() ?? false;
+        }
+
+        return match ($providerType) {
+            'sms' => $this->isSmsConfiguredLegacy($landlordId),
+            'whatsapp' => $this->isWhatsAppConfiguredLegacy($landlordId),
+            'email' => $this->isEmailConfiguredLegacy($landlordId),
+            default => false,
+        };
+    }
+
+    private function getEmptyEmailCredentials(): array
+    {
+        return [
+            'mailer' => null,
+            'host' => null,
+            'port' => null,
+            'username' => null,
+            'password' => null,
+            'encryption' => null,
+            'from_address' => null,
+            'from_name' => null,
+            'enabled' => true,
+        ];
+    }
+
+    private function isSmsConfiguredLegacy(int $landlordId): bool
+    {
+        $provider = Setting::get('sms_provider', 'none', $landlordId);
+        if ($provider === 'none') {
+            return false;
+        }
+        if ($provider === 'twilio') {
+            return ! empty(Setting::get('twilio_account_sid', null, $landlordId))
+                && ! empty(Setting::get('twilio_auth_token', null, $landlordId))
+                && ! empty(Setting::get('twilio_phone_number', null, $landlordId));
+        }
+        if ($provider === 'africas_talking') {
+            return ! empty(Setting::get('africas_talking_api_key', null, $landlordId))
+                && ! empty(Setting::get('africas_talking_username', null, $landlordId));
+        }
+
+        return false;
+    }
+
+    private function isWhatsAppConfiguredLegacy(int $landlordId): bool
+    {
+        return ! empty(Setting::get('twilio_account_sid', null, $landlordId))
+            && ! empty(Setting::get('twilio_auth_token', null, $landlordId))
+            && ! empty(Setting::get('twilio_whatsapp_number', null, $landlordId));
+    }
+
+    private function isEmailConfiguredLegacy(int $landlordId): bool
+    {
+        return ! empty(Setting::get('mail_host', null, $landlordId))
+            || (bool) Setting::get('email_enabled', true, $landlordId);
+    }
 }

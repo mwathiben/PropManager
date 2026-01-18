@@ -197,28 +197,32 @@ class BackfillNotificationConfiguration extends Command
             ->where('user_id', $landlordId)
             ->first();
 
-        if (! $preference) {
+        $settings = $this->getSettingsForLandlord($landlordId);
+
+        if (! $preference && empty($settings)) {
             return;
         }
 
         $channels = [];
-        if ($preference->email_enabled) {
-            $channels[] = 'email';
-        }
-        if ($preference->sms_enabled) {
-            $channels[] = 'sms';
-        }
-        if ($preference->whatsapp_enabled) {
-            $channels[] = 'whatsapp';
-        }
-        if ($preference->push_enabled) {
-            $channels[] = 'push';
-        }
-        if ($preference->in_app_enabled) {
-            $channels[] = 'in_app';
+        if ($preference) {
+            if ($preference->email_enabled) {
+                $channels[] = 'email';
+            }
+            if ($preference->sms_enabled) {
+                $channels[] = 'sms';
+            }
+            if ($preference->whatsapp_enabled) {
+                $channels[] = 'whatsapp';
+            }
+            if ($preference->push_enabled) {
+                $channels[] = 'push';
+            }
+            if ($preference->in_app_enabled) {
+                $channels[] = 'in_app';
+            }
         }
 
-        $typeSettings = [
+        $typeSettings = $preference ? [
             'rent_reminder' => (bool) $preference->rent_reminder_enabled,
             'arrears_notice' => (bool) $preference->arrears_notice_enabled,
             'invoice' => (bool) $preference->invoice_enabled,
@@ -231,11 +235,13 @@ class BackfillNotificationConfiguration extends Command
             'eviction_notice' => (bool) $preference->eviction_notice_enabled,
             'caretaker_invitation' => (bool) $preference->caretaker_invitation_enabled,
             'tenant_invitation' => (bool) $preference->tenant_invitation_enabled,
-        ];
+        ] : NotificationDefaults::DEFAULT_TYPE_SETTINGS;
 
         if (empty($channels)) {
             $channels = NotificationDefaults::DEFAULT_CHANNELS;
         }
+
+        $defaults = NotificationDefaults::getDefaultAttributes();
 
         if (! $this->dryRun) {
             NotificationDefaults::withoutGlobalScope('landlord')->updateOrCreate(
@@ -243,10 +249,19 @@ class BackfillNotificationConfiguration extends Command
                 [
                     'default_channels' => $channels,
                     'type_settings' => $typeSettings,
-                    'reminder_days_before_due' => $preference->rent_reminder_days_before ?? NotificationDefaults::DEFAULT_REMINDER_DAYS,
-                    'quiet_hours_enabled' => $preference->quiet_hours_enabled ?? true,
-                    'quiet_hours_start' => $preference->quiet_hours_start ?? '22:00',
-                    'quiet_hours_end' => $preference->quiet_hours_end ?? '08:00',
+                    'reminder_days_before_due' => $preference?->rent_reminder_days_before ?? (int) ($settings['notification_default_reminder_days'] ?? $defaults['reminder_days_before_due']),
+                    'quiet_hours_enabled' => $preference?->quiet_hours_enabled ?? filter_var($settings['notification_default_quiet_hours_enabled'] ?? $defaults['quiet_hours_enabled'], FILTER_VALIDATE_BOOLEAN),
+                    'quiet_hours_start' => $preference?->quiet_hours_start ?? ($settings['notification_default_quiet_hours_start'] ?? $defaults['quiet_hours_start']),
+                    'quiet_hours_end' => $preference?->quiet_hours_end ?? ($settings['notification_default_quiet_hours_end'] ?? $defaults['quiet_hours_end']),
+                    'quiet_hours_queue_notifications' => filter_var($settings['notification_default_quiet_hours_queue'] ?? $defaults['quiet_hours_queue_notifications'], FILTER_VALIDATE_BOOLEAN),
+                    'max_retries' => (int) ($settings['notification_default_max_retries'] ?? $defaults['max_retries']),
+                    'retry_delay_minutes' => (int) ($settings['notification_default_retry_delay_minutes'] ?? $defaults['retry_delay_minutes']),
+                    'daily_limit_per_tenant' => (int) ($settings['notification_default_daily_limit'] ?? $defaults['daily_limit_per_tenant']),
+                    'hourly_limit_per_tenant' => (int) ($settings['notification_default_hourly_limit'] ?? $defaults['hourly_limit_per_tenant']),
+                    'sender_name' => $settings['notification_default_sender_name'] ?? $defaults['sender_name'],
+                    'reply_to_email' => $settings['notification_default_reply_to_email'] ?? $defaults['reply_to_email'],
+                    'archive_days' => (int) ($settings['notification_default_archive_days'] ?? $defaults['archive_days']),
+                    'track_read_status' => filter_var($settings['notification_default_track_read_status'] ?? $defaults['track_read_status'], FILTER_VALIDATE_BOOLEAN),
                 ]
             );
         }

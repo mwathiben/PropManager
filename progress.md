@@ -6404,8 +6404,116 @@ INFO  DRY-RUN: No changes were made.
 - [x] All existing tests pass
 
 ### Remaining Phases
-- **Phase 4**: Feature Flag Flip + Controller Migration
-  - Update NotificationsController (22 Setting calls)
-  - Update TenantInvitationController (19 Setting calls)
-  - Flip feature flag to enable new tables
 - **Phase 5**: Cleanup (remove legacy code paths)
+
+---
+
+## DBP-001 Phase 4: Controller Migration & Feature Flag Flip
+**Status:** COMPLETED
+**Date:** 2026-01-18
+**Session:** Phase 4 of 5
+
+### Overview
+Completed migration of all 72 Setting calls from controllers to repository pattern, added extended settings support to NotificationDefaults, and flipped the feature flag to enable the new notification_v2 system by default.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Repositories/Contracts/NotificationDefaultsRepositoryInterface.php` | Interface for defaults access |
+| `app/Repositories/DualWriteNotificationDefaultsRepository.php` | Dual-write implementation with feature flag |
+| `database/migrations/2026_01_18_210000_add_extended_settings_to_notification_defaults_table.php` | Adds 9 extended settings columns |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Repositories/Contracts/NotificationConfigRepositoryInterface.php` | Added 6 methods: email credentials, setup status, provider checks |
+| `app/Repositories/DualWriteNotificationConfigRepository.php` | Implemented 6 new interface methods |
+| `app/Models/NotificationDefaults.php` | Extended fillable/casts for new fields |
+| `app/Http/Controllers/NotificationsController.php` | Migrated 56 Setting calls to repositories |
+| `app/Http/Controllers/TenantInvitationController.php` | Migrated 16 Setting calls to repositories |
+| `app/Console/Commands/BackfillNotificationConfiguration.php` | Extended for global preference migration |
+| `app/Providers/AppServiceProvider.php` | Added NotificationDefaultsRepository binding |
+| `config/features.php` | Flipped `notification_v2` default to `true` |
+
+### New Repository Interface Methods
+
+**NotificationConfigRepositoryInterface:**
+- `getEmailCredentials(int $landlordId): array`
+- `setEmailCredentials(int $landlordId, array $credentials): void`
+- `isEmailEnabled(int $landlordId): bool`
+- `isSetupComplete(int $landlordId): bool`
+- `markSetupComplete(int $landlordId): void`
+- `isProviderConfigured(int $landlordId, string $providerType): bool`
+
+**NotificationDefaultsRepositoryInterface:**
+- `getDefaults(int $landlordId): array`
+- `updateDefaults(int $landlordId, array $defaults): void`
+- `getQuietHours(int $landlordId): array`
+- `getNotificationLimits(int $landlordId): array`
+- `getSenderSettings(int $landlordId): array`
+- `getArchiveSettings(int $landlordId): array`
+- `getDefaultChannels(int $landlordId): array`
+- `getReminderDays(int $landlordId): int`
+
+### Migration - Extended NotificationDefaults Columns
+
+| Column | Type | Purpose |
+|--------|------|---------|
+| `quiet_hours_queue_notifications` | boolean | Queue during quiet hours |
+| `max_retries` | tinyint | Max retry attempts |
+| `retry_delay_minutes` | tinyint | Delay between retries |
+| `daily_limit_per_tenant` | smallint | Daily notification cap |
+| `hourly_limit_per_tenant` | smallint | Hourly notification cap |
+| `sender_name` | string | Custom sender name |
+| `reply_to_email` | string | Reply-to email address |
+| `archive_days` | smallint | Days before archiving |
+| `track_read_status` | boolean | Track read receipts |
+
+### Controller Migration Summary
+
+**NotificationsController (56 Setting calls migrated):**
+| Method | Calls | Repository |
+|--------|-------|------------|
+| settings() | 8 get | configRepository, defaultsRepository |
+| checkSetupStatus() | 2 get | configRepository.isProviderConfigured() |
+| completeSetup() | 1 set | configRepository.markSetupComplete() |
+| updateEmailSettings() | 8 set | configRepository.setEmailCredentials() |
+| updateSmsSettings() | 7 set | configRepository.setTwilio/AfricasTalkingCredentials() |
+| updateWhatsAppSettings() | 2 set | configRepository.setWhatsAppNumber/TemplateSid() |
+| testSmsProvider() | 4 get | configRepository.getTwilioCredentials() |
+| loadGlobalPreferences() | 13 get | defaultsRepository.getDefaults() |
+| updateGlobalPreferences() | 13 set | defaultsRepository.updateDefaults() |
+
+**TenantInvitationController (16 Setting calls migrated):**
+| Method | Calls | Repository |
+|--------|-------|------------|
+| sendSms() | 1 get | configRepository.getSmsProvider() |
+| sendViaTwilio() | 3 get | configRepository.getTwilioCredentials() |
+| sendViaAfricasTalking() | 3 get | configRepository.getAfricasTalkingCredentials() |
+| sendWhatsApp() | 3 get | configRepository.getTwilioCredentials() + getWhatsAppNumber() |
+| isSmsConfigured() | 3 get | configRepository.isProviderConfigured('sms') |
+| isWhatsAppConfigured() | 3 get | configRepository.isProviderConfigured('whatsapp') |
+
+### Verification Results
+- **Tests**: 500 passed, 12 skipped (0 failures)
+- **Lint (Pint)**: 538 files PASS
+- **Build (Vite)**: PASS
+
+### Phase 4 Acceptance Criteria Met
+- [x] All 56 NotificationsController Setting calls migrated
+- [x] All 16 TenantInvitationController Setting calls migrated
+- [x] NotificationDefaultsRepository interface created with dual-write
+- [x] Migration adds 9 extended settings columns
+- [x] Backfill command extended for global preferences
+- [x] Feature flag flipped to `true`
+- [x] All existing tests pass
+- [x] Lint passes
+- [x] Build passes
+
+### Remaining Phase
+- **Phase 5**: Cleanup
+  - Remove legacy Setting-based code paths
+  - Remove feature flag conditional reads
+  - Consolidate to single-write repository implementations

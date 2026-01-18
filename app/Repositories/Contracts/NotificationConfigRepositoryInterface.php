@@ -72,4 +72,38 @@ interface NotificationConfigRepositoryInterface
      * Set WhatsApp template SID for a notification type (dual-write).
      */
     public function setWhatsAppTemplateSid(int $landlordId, string $type, string $sid): void;
+
+    /**
+     * Get email provider credentials.
+     *
+     * @return array{mailer: ?string, host: ?string, port: ?int, username: ?string, password: ?string, encryption: ?string, from_address: ?string, from_name: ?string, enabled: bool}
+     */
+    public function getEmailCredentials(int $landlordId): array;
+
+    /**
+     * Set email provider credentials (dual-write).
+     */
+    public function setEmailCredentials(int $landlordId, array $credentials): void;
+
+    /**
+     * Check if email is enabled for a landlord.
+     */
+    public function isEmailEnabled(int $landlordId): bool;
+
+    /**
+     * Check if notification setup is complete for a landlord.
+     */
+    public function isSetupComplete(int $landlordId): bool;
+
+    /**
+     * Mark notification setup as complete for a landlord.
+     */
+    public function markSetupComplete(int $landlordId): void;
+
+    /**
+     * Check if a provider type is configured for a landlord.
+     *
+     * @param  string  $providerType  'sms', 'whatsapp', 'email', 'push'
+     */
+    public function isProviderConfigured(int $landlordId, string $providerType): bool;
 }

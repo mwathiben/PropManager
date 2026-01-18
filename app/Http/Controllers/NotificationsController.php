@@ -12,6 +12,8 @@ use App\Models\NotificationSchedule;
 use App\Models\NotificationTemplate;
 use App\Models\Setting;
 use App\Models\User;
+use App\Repositories\Contracts\NotificationConfigRepositoryInterface;
+use App\Repositories\Contracts\NotificationDefaultsRepositoryInterface;
 use App\Services\NotificationService;
 use App\Services\PushNotificationService;
 use App\Services\SchedulerService;
@@ -19,6 +21,7 @@ use App\Services\TemplateService;
 use App\Services\WhatsAppTemplateService;
 use App\Traits\HasBuildingFilter;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -37,24 +40,29 @@ class NotificationsController extends Controller
 
     protected WhatsAppTemplateService $whatsAppTemplateService;
 
+    protected NotificationConfigRepositoryInterface $configRepository;
+
+    protected NotificationDefaultsRepositoryInterface $defaultsRepository;
+
     public function __construct(
         NotificationService $notificationService,
         TemplateService $templateService,
         SchedulerService $schedulerService,
         PushNotificationService $pushService,
-        WhatsAppTemplateService $whatsAppTemplateService
+        WhatsAppTemplateService $whatsAppTemplateService,
+        NotificationConfigRepositoryInterface $configRepository,
+        NotificationDefaultsRepositoryInterface $defaultsRepository
     ) {
         $this->notificationService = $notificationService;
         $this->templateService = $templateService;
         $this->schedulerService = $schedulerService;
         $this->pushService = $pushService;
         $this->whatsAppTemplateService = $whatsAppTemplateService;
+        $this->configRepository = $configRepository;
+        $this->defaultsRepository = $defaultsRepository;
     }
 
-    /**
-     * Display notification history
-     */
-    public function index(Request $request)
+    public function index(Request $request): Response
     {
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
@@ -128,10 +136,7 @@ class NotificationsController extends Controller
         ]);
     }
 
-    /**
-     * Send a notification to a single recipient
-     */
-    public function send(Request $request)
+    public function send(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'recipient_id' => 'required|exists:users,id',
@@ -160,22 +165,19 @@ class NotificationsController extends Controller
         }
 
         // Queue for background processing
-        SendNotificationJob::dispatch(
+        dispatch(SendNotificationJob::forNew(
             $validated['recipient_id'],
             $validated['type'],
             $validated['subject'],
             $validated['message'],
             $validated['data'] ?? null,
             $landlordId
-        );
+        ));
 
         return redirect()->back()->with('success', 'Notification queued for sending.');
     }
 
-    /**
-     * Send bulk notifications
-     */
-    public function sendBulk(Request $request)
+    public function sendBulk(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'recipient_ids' => 'required|array|min:1',
@@ -210,10 +212,7 @@ class NotificationsController extends Controller
         ));
     }
 
-    /**
-     * Send rent reminders to all tenants with upcoming rent
-     */
-    public function sendRentReminders(Request $request)
+    public function sendRentReminders(Request $request): RedirectResponse
     {
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
@@ -228,7 +227,7 @@ class NotificationsController extends Controller
 
         foreach ($leases as $lease) {
             if ($lease->tenant) {
-                SendNotificationJob::dispatch(
+                dispatch(SendNotificationJob::forNew(
                     $lease->tenant_id,
                     'rent_reminder',
                     'Rent Reminder',
@@ -243,7 +242,7 @@ class NotificationsController extends Controller
                         'due_date' => now()->format('Y-m-d'),
                     ],
                     $landlordId
-                );
+                ));
 
                 $sent++;
             }
@@ -252,10 +251,7 @@ class NotificationsController extends Controller
         return redirect()->back()->with('success', "Rent reminders queued for {$sent} tenants.");
     }
 
-    /**
-     * Send arrears notices to tenants with outstanding balances
-     */
-    public function sendArrearsNotices(Request $request)
+    public function sendArrearsNotices(Request $request): RedirectResponse
     {
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
@@ -271,7 +267,7 @@ class NotificationsController extends Controller
 
         foreach ($leases as $lease) {
             if ($lease->tenant) {
-                SendNotificationJob::dispatch(
+                dispatch(SendNotificationJob::forNew(
                     $lease->tenant_id,
                     'arrears_notice',
                     'Payment Overdue - Arrears Notice',
@@ -285,7 +281,7 @@ class NotificationsController extends Controller
                         'arrears_amount' => $lease->arrears,
                     ],
                     $landlordId
-                );
+                ));
 
                 $sent++;
             }
@@ -294,10 +290,7 @@ class NotificationsController extends Controller
         return redirect()->back()->with('success', "Arrears notices queued for {$sent} tenants.");
     }
 
-    /**
-     * Get notification preferences for current user
-     */
-    public function getPreferences()
+    public function getPreferences(): JsonResponse
     {
         $user = auth()->user();
         $landlordId = $user->role === 'tenant' ? $user->landlord_id : $user->id;
@@ -307,10 +300,7 @@ class NotificationsController extends Controller
         return response()->json($preferences);
     }
 
-    /**
-     * Update notification preferences
-     */
-    public function updatePreferences(Request $request)
+    public function updatePreferences(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'rent_reminder_enabled' => 'boolean',
@@ -340,10 +330,7 @@ class NotificationsController extends Controller
         return redirect()->back()->with('success', 'Notification preferences updated successfully.');
     }
 
-    /**
-     * Mark notification as read
-     */
-    public function markAsRead(Notification $notification)
+    public function markAsRead(Notification $notification): RedirectResponse
     {
         // Authorization check
         $user = auth()->user();
@@ -358,10 +345,7 @@ class NotificationsController extends Controller
         return redirect()->back()->with('success', 'Notification marked as read.');
     }
 
-    /**
-     * Retry failed notification
-     */
-    public function retry(Notification $notification)
+    public function retry(Notification $notification): RedirectResponse
     {
         // Authorization check
         $user = auth()->user();
@@ -375,22 +359,19 @@ class NotificationsController extends Controller
             return redirect()->back()->with('error', 'Only failed notifications can be retried.');
         }
 
-        SendNotificationJob::dispatch(
+        dispatch(SendNotificationJob::forNew(
             $notification->recipient_id,
             $notification->type,
             $notification->subject,
             $notification->message,
             $notification->data,
             $notification->landlord_id
-        );
+        ));
 
         return redirect()->back()->with('success', 'Notification queued for retry.');
     }
 
-    /**
-     * Delete notification
-     */
-    public function destroy(Notification $notification)
+    public function destroy(Notification $notification): RedirectResponse
     {
         // Authorization check
         $user = auth()->user();
@@ -440,10 +421,7 @@ class NotificationsController extends Controller
         ]);
     }
 
-    /**
-     * Store a new template
-     */
-    public function storeTemplate(Request $request)
+    public function storeTemplate(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -470,10 +448,7 @@ class NotificationsController extends Controller
         return redirect()->back()->with('success', 'Template created successfully.');
     }
 
-    /**
-     * Update a template
-     */
-    public function updateTemplate(NotificationTemplate $template, Request $request)
+    public function updateTemplate(NotificationTemplate $template, Request $request): RedirectResponse
     {
         $this->authorizeTemplate($template);
 
@@ -489,10 +464,7 @@ class NotificationsController extends Controller
         return redirect()->back()->with('success', 'Template updated successfully.');
     }
 
-    /**
-     * Delete a template
-     */
-    public function destroyTemplate(NotificationTemplate $template)
+    public function destroyTemplate(NotificationTemplate $template): RedirectResponse
     {
         $this->authorizeTemplate($template);
 
@@ -582,10 +554,7 @@ class NotificationsController extends Controller
         ]);
     }
 
-    /**
-     * Store a new schedule
-     */
-    public function storeSchedule(Request $request)
+    public function storeSchedule(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -617,10 +586,7 @@ class NotificationsController extends Controller
         return redirect()->back()->with('success', 'Schedule created successfully.');
     }
 
-    /**
-     * Update a schedule
-     */
-    public function updateSchedule(NotificationSchedule $schedule, Request $request)
+    public function updateSchedule(NotificationSchedule $schedule, Request $request): RedirectResponse
     {
         $this->authorizeSchedule($schedule);
 
@@ -639,10 +605,7 @@ class NotificationsController extends Controller
         return redirect()->back()->with('success', 'Schedule updated successfully.');
     }
 
-    /**
-     * Toggle schedule active status
-     */
-    public function toggleSchedule(NotificationSchedule $schedule)
+    public function toggleSchedule(NotificationSchedule $schedule): RedirectResponse
     {
         $this->authorizeSchedule($schedule);
 
@@ -653,10 +616,7 @@ class NotificationsController extends Controller
         return redirect()->back()->with('success', "Schedule {$status} successfully.");
     }
 
-    /**
-     * Delete a schedule
-     */
-    public function destroySchedule(NotificationSchedule $schedule)
+    public function destroySchedule(NotificationSchedule $schedule): RedirectResponse
     {
         $this->authorizeSchedule($schedule);
 
@@ -665,10 +625,7 @@ class NotificationsController extends Controller
         return redirect()->back()->with('success', 'Schedule deleted successfully.');
     }
 
-    /**
-     * Run a schedule immediately
-     */
-    public function runScheduleNow(NotificationSchedule $schedule)
+    public function runScheduleNow(NotificationSchedule $schedule): RedirectResponse
     {
         $this->authorizeSchedule($schedule);
 
@@ -689,6 +646,11 @@ class NotificationsController extends Controller
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
 
+        $smsProvider = $this->configRepository->getSmsProvider($landlordId);
+        $twilioCredentials = $this->configRepository->getTwilioCredentials($landlordId);
+        $atCredentials = $this->configRepository->getAfricasTalkingCredentials($landlordId);
+        $whatsappNumber = $this->configRepository->getWhatsAppNumber($landlordId);
+
         // Get provider configurations
         $providers = [
             'email' => [
@@ -696,13 +658,13 @@ class NotificationsController extends Controller
                 'provider' => 'Laravel Mail',
             ],
             'sms' => [
-                'configured' => ! empty(Setting::get('sms_provider', null, $landlordId)) && Setting::get('sms_provider', null, $landlordId) !== 'none',
-                'provider' => Setting::get('sms_provider', 'none', $landlordId),
-                'has_credentials' => ! empty(Setting::get('twilio_account_sid', null, $landlordId)) || ! empty(Setting::get('africas_talking_api_key', null, $landlordId)),
+                'configured' => $smsProvider !== 'none',
+                'provider' => $smsProvider,
+                'has_credentials' => ! empty($twilioCredentials['account_sid']) || ! empty($atCredentials['api_key']),
             ],
             'whatsapp' => [
-                'configured' => ! empty(Setting::get('twilio_whatsapp_number', null, $landlordId)),
-                'has_credentials' => ! empty(Setting::get('twilio_account_sid', null, $landlordId)),
+                'configured' => ! empty($whatsappNumber),
+                'has_credentials' => ! empty($twilioCredentials['account_sid']),
             ],
             'push' => [
                 'configured' => $this->pushService->isConfigured($landlordId),
@@ -720,7 +682,7 @@ class NotificationsController extends Controller
             'activeTab' => 'settings',
             'providers' => $providers,
             'smsProviders' => $smsProviders,
-            'currentSmsProvider' => Setting::get('sms_provider', 'none', $landlordId),
+            'currentSmsProvider' => $smsProvider,
             'globalPreferences' => $this->loadGlobalPreferences($landlordId),
             'setupComplete' => $this->isSetupComplete($landlordId),
             'buildings' => $this->getBuildingsForFilter(),
@@ -731,10 +693,7 @@ class NotificationsController extends Controller
         ]);
     }
 
-    /**
-     * Update provider settings
-     */
-    public function updateProviderSettings(Request $request, string $provider)
+    public function updateProviderSettings(Request $request, string $provider): RedirectResponse
     {
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
@@ -757,10 +716,7 @@ class NotificationsController extends Controller
         return redirect()->back()->with('success', 'Provider settings updated successfully.');
     }
 
-    /**
-     * Update WhatsApp template SIDs
-     */
-    public function updateWhatsAppTemplates(Request $request)
+    public function updateWhatsAppTemplates(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'templates' => 'required|array',
@@ -772,13 +728,12 @@ class NotificationsController extends Controller
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
 
         foreach ($validated['templates'] as $template) {
-            $key = "whatsapp_template_{$template['type']}_sid";
-
             if (! empty($template['sid'])) {
-                Setting::set($key, $template['sid'], false, 'whatsapp', null, $landlordId);
+                $this->configRepository->setWhatsAppTemplateSid($landlordId, $template['type'], $template['sid']);
             } else {
+                // Delete template by setting empty via legacy method (to maintain backwards compatibility)
                 Setting::where('landlord_id', $landlordId)
-                    ->where('key', $key)
+                    ->where('key', "whatsapp_template_{$template['type']}_sid")
                     ->delete();
             }
         }
@@ -822,8 +777,8 @@ class NotificationsController extends Controller
             'complete' => $this->isSetupComplete($landlordId),
             'providers' => [
                 'email' => true,
-                'sms' => Setting::get('sms_provider', 'none', $landlordId) !== 'none',
-                'whatsapp' => ! empty(Setting::get('twilio_whatsapp_number', null, $landlordId)),
+                'sms' => $this->configRepository->isProviderConfigured($landlordId, 'sms'),
+                'whatsapp' => $this->configRepository->isProviderConfigured($landlordId, 'whatsapp'),
                 'push' => $this->pushService->isConfigured($landlordId),
             ],
         ]);
@@ -1012,15 +967,12 @@ class NotificationsController extends Controller
         ];
     }
 
-    /**
-     * Mark setup as complete
-     */
-    public function completeSetup(Request $request)
+    public function completeSetup(Request $request): RedirectResponse
     {
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
 
-        Setting::set('notifications_setup_complete', true, false, 'notifications', 'Setup Completed', $landlordId);
+        $this->configRepository->markSetupComplete($landlordId);
 
         return redirect()->route('notifications.overview')->with('success', 'Notification setup completed successfully!');
     }
@@ -1031,12 +983,12 @@ class NotificationsController extends Controller
     private function isSetupComplete(int $landlordId): bool
     {
         // Check if explicitly marked as complete
-        if (Setting::get('notifications_setup_complete', false, $landlordId)) {
+        if ($this->configRepository->isSetupComplete($landlordId)) {
             return true;
         }
 
         // Or if at least one additional channel besides email is configured
-        $smsConfigured = Setting::get('sms_provider', 'none', $landlordId) !== 'none';
+        $smsConfigured = $this->configRepository->isProviderConfigured($landlordId, 'sms');
         $pushConfigured = $this->pushService->isConfigured($landlordId);
 
         return $smsConfigured || $pushConfigured;
@@ -1059,18 +1011,17 @@ class NotificationsController extends Controller
             'enabled' => 'boolean',
         ]);
 
-        // Email settings are typically stored in .env, but we can store overrides
-        foreach (['mail_mailer', 'mail_host', 'mail_port', 'mail_username', 'mail_from_address', 'mail_from_name', 'mail_encryption'] as $key) {
-            if (! empty($validated[$key])) {
-                Setting::set($key, $validated[$key], false, 'email', ucwords(str_replace('_', ' ', $key)), $landlordId);
-            }
-        }
-
-        if (! empty($validated['mail_password'])) {
-            Setting::set('mail_password', $validated['mail_password'], true, 'email', 'Mail Password', $landlordId);
-        }
-
-        Setting::set('email_enabled', $validated['enabled'] ?? true, false, 'email', 'Email Enabled', $landlordId);
+        $this->configRepository->setEmailCredentials($landlordId, [
+            'mailer' => $validated['mail_mailer'] ?? null,
+            'host' => $validated['mail_host'] ?? null,
+            'port' => $validated['mail_port'] ?? null,
+            'username' => $validated['mail_username'] ?? null,
+            'password' => $validated['mail_password'] ?? null,
+            'encryption' => $validated['mail_encryption'] ?? null,
+            'from_address' => $validated['mail_from_address'] ?? null,
+            'from_name' => $validated['mail_from_name'] ?? null,
+            'enabled' => $validated['enabled'] ?? true,
+        ]);
     }
 
     /**
@@ -1088,28 +1039,20 @@ class NotificationsController extends Controller
             'africas_talking_from' => 'nullable|string',
         ]);
 
-        Setting::set('sms_provider', $validated['sms_provider'], false, 'sms', 'SMS Provider', $landlordId);
+        $this->configRepository->setSmsProvider($landlordId, $validated['sms_provider']);
 
         if ($validated['sms_provider'] === 'twilio') {
-            if (! empty($validated['twilio_account_sid'])) {
-                Setting::set('twilio_account_sid', $validated['twilio_account_sid'], true, 'sms', 'Twilio Account SID', $landlordId);
-            }
-            if (! empty($validated['twilio_auth_token'])) {
-                Setting::set('twilio_auth_token', $validated['twilio_auth_token'], true, 'sms', 'Twilio Auth Token', $landlordId);
-            }
-            if (! empty($validated['twilio_phone_number'])) {
-                Setting::set('twilio_phone_number', $validated['twilio_phone_number'], false, 'sms', 'Twilio Phone Number', $landlordId);
-            }
+            $this->configRepository->setTwilioCredentials($landlordId, [
+                'account_sid' => $validated['twilio_account_sid'] ?? null,
+                'auth_token' => $validated['twilio_auth_token'] ?? null,
+                'phone_number' => $validated['twilio_phone_number'] ?? null,
+            ]);
         } elseif ($validated['sms_provider'] === 'africas_talking') {
-            if (! empty($validated['africas_talking_api_key'])) {
-                Setting::set('africas_talking_api_key', $validated['africas_talking_api_key'], true, 'sms', "Africa's Talking API Key", $landlordId);
-            }
-            if (! empty($validated['africas_talking_username'])) {
-                Setting::set('africas_talking_username', $validated['africas_talking_username'], false, 'sms', "Africa's Talking Username", $landlordId);
-            }
-            if (! empty($validated['africas_talking_from'])) {
-                Setting::set('africas_talking_from', $validated['africas_talking_from'], false, 'sms', "Africa's Talking Sender ID", $landlordId);
-            }
+            $this->configRepository->setAfricasTalkingCredentials($landlordId, [
+                'api_key' => $validated['africas_talking_api_key'] ?? null,
+                'username' => $validated['africas_talking_username'] ?? null,
+                'from' => $validated['africas_talking_from'] ?? null,
+            ]);
         }
     }
 
@@ -1123,7 +1066,7 @@ class NotificationsController extends Controller
         ]);
 
         if (! empty($validated['twilio_whatsapp_number'])) {
-            Setting::set('twilio_whatsapp_number', $validated['twilio_whatsapp_number'], false, 'whatsapp', 'Twilio WhatsApp Number', $landlordId);
+            $this->configRepository->setWhatsAppNumber($landlordId, $validated['twilio_whatsapp_number']);
         }
     }
 
@@ -1145,7 +1088,7 @@ class NotificationsController extends Controller
      */
     private function testSmsProvider(int $landlordId): array
     {
-        $provider = Setting::get('sms_provider', 'none', $landlordId);
+        $provider = $this->configRepository->getSmsProvider($landlordId);
 
         if ($provider === 'none') {
             return ['success' => false, 'message' => 'No SMS provider configured'];
@@ -1153,8 +1096,8 @@ class NotificationsController extends Controller
 
         // Just verify credentials exist for now
         if ($provider === 'twilio') {
-            $hasCredentials = ! empty(Setting::get('twilio_account_sid', null, $landlordId))
-                && ! empty(Setting::get('twilio_auth_token', null, $landlordId));
+            $credentials = $this->configRepository->getTwilioCredentials($landlordId);
+            $hasCredentials = ! empty($credentials['account_sid']) && ! empty($credentials['auth_token']);
 
             return [
                 'success' => $hasCredentials,
@@ -1163,8 +1106,8 @@ class NotificationsController extends Controller
         }
 
         if ($provider === 'africas_talking') {
-            $hasCredentials = ! empty(Setting::get('africas_talking_api_key', null, $landlordId))
-                && ! empty(Setting::get('africas_talking_username', null, $landlordId));
+            $credentials = $this->configRepository->getAfricasTalkingCredentials($landlordId);
+            $hasCredentials = ! empty($credentials['api_key']) && ! empty($credentials['username']);
 
             return [
                 'success' => $hasCredentials,
@@ -1188,10 +1131,7 @@ class NotificationsController extends Controller
         ]);
     }
 
-    /**
-     * Update global notification preferences
-     */
-    public function updateGlobalPreferences(Request $request)
+    public function updateGlobalPreferences(Request $request): RedirectResponse
     {
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
@@ -1225,34 +1165,22 @@ class NotificationsController extends Controller
             'default_notification_channels.*' => 'in:email,sms,whatsapp,push',
         ]);
 
-        // Store each preference
-        $category = 'notifications_global';
-
-        // Quiet Hours
-        Setting::set('quiet_hours_enabled', $validated['quiet_hours_enabled'] ?? false, false, $category, 'Quiet Hours Enabled', $landlordId);
-        Setting::set('quiet_hours_start', $validated['quiet_hours_start'] ?? '22:00', false, $category, 'Quiet Hours Start', $landlordId);
-        Setting::set('quiet_hours_end', $validated['quiet_hours_end'] ?? '08:00', false, $category, 'Quiet Hours End', $landlordId);
-        Setting::set('quiet_hours_queue_notifications', $validated['quiet_hours_queue_notifications'] ?? true, false, $category, 'Queue During Quiet Hours', $landlordId);
-
-        // Retry Configuration
-        Setting::set('notification_max_retries', $validated['notification_max_retries'] ?? 3, false, $category, 'Max Retries', $landlordId);
-        Setting::set('notification_retry_delay', $validated['notification_retry_delay'] ?? 5, false, $category, 'Retry Delay (minutes)', $landlordId);
-
-        // Rate Limiting
-        Setting::set('notification_daily_limit_per_tenant', $validated['notification_daily_limit_per_tenant'] ?? 20, false, $category, 'Daily Limit Per Tenant', $landlordId);
-        Setting::set('notification_hourly_limit_per_tenant', $validated['notification_hourly_limit_per_tenant'] ?? 5, false, $category, 'Hourly Limit Per Tenant', $landlordId);
-
-        // Sender Information
-        Setting::set('notification_sender_name', $validated['notification_sender_name'] ?? '', false, $category, 'Sender Name', $landlordId);
-        Setting::set('notification_reply_to_email', $validated['notification_reply_to_email'] ?? '', false, $category, 'Reply-To Email', $landlordId);
-
-        // Archive Settings
-        Setting::set('notification_archive_days', $validated['notification_archive_days'] ?? 90, false, $category, 'Archive Days', $landlordId);
-        Setting::set('notification_track_read_status', $validated['notification_track_read_status'] ?? true, false, $category, 'Track Read Status', $landlordId);
-
-        // Default Preferences
-        Setting::set('default_rent_reminder_days', $validated['default_rent_reminder_days'] ?? 7, false, $category, 'Default Rent Reminder Days', $landlordId);
-        Setting::set('default_notification_channels', json_encode($validated['default_notification_channels'] ?? ['email']), false, $category, 'Default Channels', $landlordId);
+        $this->defaultsRepository->updateDefaults($landlordId, [
+            'quiet_hours_enabled' => $validated['quiet_hours_enabled'] ?? false,
+            'quiet_hours_start' => $validated['quiet_hours_start'] ?? '22:00',
+            'quiet_hours_end' => $validated['quiet_hours_end'] ?? '08:00',
+            'quiet_hours_queue_notifications' => $validated['quiet_hours_queue_notifications'] ?? true,
+            'max_retries' => $validated['notification_max_retries'] ?? 3,
+            'retry_delay_minutes' => $validated['notification_retry_delay'] ?? 5,
+            'daily_limit_per_tenant' => $validated['notification_daily_limit_per_tenant'] ?? 20,
+            'hourly_limit_per_tenant' => $validated['notification_hourly_limit_per_tenant'] ?? 5,
+            'sender_name' => $validated['notification_sender_name'] ?? '',
+            'reply_to_email' => $validated['notification_reply_to_email'] ?? '',
+            'archive_days' => $validated['notification_archive_days'] ?? 90,
+            'track_read_status' => $validated['notification_track_read_status'] ?? true,
+            'reminder_days_before_due' => $validated['default_rent_reminder_days'] ?? 7,
+            'default_channels' => $validated['default_notification_channels'] ?? ['email'],
+        ]);
 
         return redirect()->back()->with('success', 'Global preferences saved successfully.');
     }
@@ -1262,34 +1190,34 @@ class NotificationsController extends Controller
      */
     private function loadGlobalPreferences(int $landlordId): array
     {
-        $defaultChannels = Setting::get('default_notification_channels', '["email"]', $landlordId);
+        $defaults = $this->defaultsRepository->getDefaults($landlordId);
 
         return [
             // Quiet Hours
-            'quiet_hours_enabled' => (bool) Setting::get('quiet_hours_enabled', false, $landlordId),
-            'quiet_hours_start' => Setting::get('quiet_hours_start', '22:00', $landlordId),
-            'quiet_hours_end' => Setting::get('quiet_hours_end', '08:00', $landlordId),
-            'quiet_hours_queue_notifications' => (bool) Setting::get('quiet_hours_queue_notifications', true, $landlordId),
+            'quiet_hours_enabled' => $defaults['quiet_hours_enabled'],
+            'quiet_hours_start' => $defaults['quiet_hours_start'],
+            'quiet_hours_end' => $defaults['quiet_hours_end'],
+            'quiet_hours_queue_notifications' => $defaults['quiet_hours_queue_notifications'],
 
             // Retry Configuration
-            'notification_max_retries' => (int) Setting::get('notification_max_retries', 3, $landlordId),
-            'notification_retry_delay' => (int) Setting::get('notification_retry_delay', 5, $landlordId),
+            'notification_max_retries' => $defaults['max_retries'],
+            'notification_retry_delay' => $defaults['retry_delay_minutes'],
 
             // Rate Limiting
-            'notification_daily_limit_per_tenant' => (int) Setting::get('notification_daily_limit_per_tenant', 20, $landlordId),
-            'notification_hourly_limit_per_tenant' => (int) Setting::get('notification_hourly_limit_per_tenant', 5, $landlordId),
+            'notification_daily_limit_per_tenant' => $defaults['daily_limit_per_tenant'],
+            'notification_hourly_limit_per_tenant' => $defaults['hourly_limit_per_tenant'],
 
             // Sender Information
-            'notification_sender_name' => Setting::get('notification_sender_name', '', $landlordId),
-            'notification_reply_to_email' => Setting::get('notification_reply_to_email', '', $landlordId),
+            'notification_sender_name' => $defaults['sender_name'] ?? '',
+            'notification_reply_to_email' => $defaults['reply_to_email'] ?? '',
 
             // Archive Settings
-            'notification_archive_days' => (int) Setting::get('notification_archive_days', 90, $landlordId),
-            'notification_track_read_status' => (bool) Setting::get('notification_track_read_status', true, $landlordId),
+            'notification_archive_days' => $defaults['archive_days'],
+            'notification_track_read_status' => $defaults['track_read_status'],
 
             // Default Preferences
-            'default_rent_reminder_days' => (int) Setting::get('default_rent_reminder_days', 7, $landlordId),
-            'default_notification_channels' => is_string($defaultChannels) ? json_decode($defaultChannels, true) : $defaultChannels,
+            'default_rent_reminder_days' => $defaults['reminder_days_before_due'],
+            'default_notification_channels' => $defaults['default_channels'],
         ];
     }
 }

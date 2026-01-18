@@ -11,5 +11,5 @@ return [
     |
     */
 
-    'notification_v2' => env('FEATURE_NOTIFICATION_V2', false),
+    'notification_v2' => env('FEATURE_NOTIFICATION_V2', true),
 ];
