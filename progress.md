@@ -6316,3 +6316,96 @@ interface NotificationConfigRepositoryInterface
 - **Phase 3**: Data Backfill (artisan command to migrate Setting → NotificationProviderConfig)
 - **Phase 4**: Feature Flag Flip + Controller Migration (22 calls in NotificationsController, 19 in TenantInvitationController)
 - **Phase 5**: Cleanup (remove legacy code paths)
+
+---
+
+## DBP-001 Phase 3: Data Backfill Command
+**Status:** COMPLETED
+**Date:** 2026-01-18
+**Session:** Phase 3 of 5
+
+### Overview
+Created the `BackfillNotificationConfiguration` artisan command to migrate existing notification configuration data from the legacy `Setting` table to the new normalized tables.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Console/Commands/BackfillNotificationConfiguration.php` | Backfill command with dry-run and force options |
+
+### Command Features
+
+**Signature:**
+```bash
+php artisan notification:backfill [--dry-run] [--force]
+```
+
+**Options:**
+- `--dry-run`: Simulate migration without writing data
+- `--force`: Skip confirmation prompt
+
+**Migration Tasks:**
+1. **SMS Provider Credentials** → `notification_provider_configs`
+   - Extracts `sms_provider`, Twilio/Africa's Talking credentials
+   - Validates required fields, sets `is_enabled` accordingly
+   - Includes rate limits in `settings` JSON
+
+2. **WhatsApp Provider Credentials** → `notification_provider_configs`
+   - Extracts `twilio_whatsapp_number` and Twilio credentials
+   - Collects all `whatsapp_template_*_sid` keys into `settings.templates`
+
+3. **Landlord Notification Defaults** → `notification_defaults`
+   - Extracts from `NotificationPreference` where `user_id = landlord_id`
+   - Converts channel toggles to `default_channels` array
+   - Converts type toggles to `type_settings` JSON
+   - Includes quiet hours settings
+
+4. **Tenant Preference Flags** → `notification_preferences`
+   - Sets `uses_landlord_defaults = true` for all tenant preferences
+   - Enables preference hierarchy (user > landlord > system)
+
+### Safety Features
+
+- **Dry-run mode**: Logs changes without writing
+- **Idempotent**: Uses `updateOrCreate()` for safe reruns
+- **Transaction wrapper**: Rollback on failure
+- **Confirmation prompt**: Requires `--force` or confirmation
+- **Warnings**: Reports incomplete credentials
+
+### Dry-Run Output
+
+```
+INFO  Running in DRY-RUN mode - no data will be written.
+INFO  Found 1 landlords with notification settings.
+...
+INFO  Notification Configuration Backfill Summary.
+  SMS Providers Migrated ............... 0
+  WhatsApp Providers Migrated .......... 0
+  Landlord Defaults Created ............ 1
+  Tenant Preferences Updated ........... 1
+INFO  DRY-RUN: No changes were made.
+```
+
+### Verification Results
+- **Pint**: PASS
+- **npm run build**: PASS (29.41s)
+- **Tests**: 500 passed, 12 skipped (0 failures)
+- **Command dry-run**: PASS
+
+### Phase 3 Acceptance Criteria Met
+- [x] Command created with `--dry-run` and `--force` options
+- [x] SMS provider credentials migration implemented
+- [x] WhatsApp credentials and templates migration implemented
+- [x] Rate limits migrated to settings JSON
+- [x] Landlord defaults extracted to `notification_defaults`
+- [x] Tenant preferences flagged with `uses_landlord_defaults=true`
+- [x] Summary report shows migration counts and warnings
+- [x] Idempotent (safe to run multiple times)
+- [x] All existing tests pass
+
+### Remaining Phases
+- **Phase 4**: Feature Flag Flip + Controller Migration
+  - Update NotificationsController (22 Setting calls)
+  - Update TenantInvitationController (19 Setting calls)
+  - Flip feature flag to enable new tables
+- **Phase 5**: Cleanup (remove legacy code paths)
