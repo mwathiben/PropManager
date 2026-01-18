@@ -222,7 +222,7 @@ const filterByStatus = (status) => {
                         </table>
                     </div>
                     <div v-if="creditNotes.data.length > 0" class="px-4 py-3 border-t border-gray-200">
-                        <Pagination :links="creditNotes.links" />
+                        <Pagination :links="creditNotes.links" color="indigo" />
                     </div>
                 </div>
             </div>

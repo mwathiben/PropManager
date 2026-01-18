@@ -189,7 +189,7 @@ const formatDateTime = (dateString) => {
                             <li v-for="activity in activities.data" :key="activity.id" class="px-6 py-4 hover:bg-gray-50">
                                 <div class="flex items-start space-x-4">
                                     <!-- Activity Type Badge -->
-                                    <div class="flex-shrink-0">
+                                    <div class="shrink-0">
                                         <span
                                             :class="activity.type_color"
                                             class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
@@ -217,7 +217,7 @@ const formatDateTime = (dateString) => {
                                     </div>
 
                                     <!-- Timestamp -->
-                                    <div class="flex-shrink-0 text-right">
+                                    <div class="shrink-0 text-right">
                                         <p class="text-xs text-gray-500">{{ formatDateTime(activity.created_at) }}</p>
                                         <p class="text-xs text-gray-400">{{ activity.created_at_human }}</p>
                                     </div>
@@ -233,7 +233,7 @@ const formatDateTime = (dateString) => {
                 </div>
 
                 <!-- Pagination -->
-                <Pagination v-if="activities.data.length > 0" :links="activities.links" class="mt-6" />
+                <Pagination v-if="activities.data.length > 0" :links="activities.links" color="indigo" class="mt-6" />
             </div>
         </div>
     </AuthenticatedLayout>

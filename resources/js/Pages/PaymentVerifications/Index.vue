@@ -254,7 +254,7 @@ const awaitingReviewCount = computed(() => {
 
                     <!-- Pagination -->
                     <div v-if="verifications.links?.length > 3" class="px-6 py-4 border-t border-gray-200">
-                        <Pagination :links="verifications.links" />
+                        <Pagination :links="verifications.links" color="indigo" />
                     </div>
                 </div>
             </div>

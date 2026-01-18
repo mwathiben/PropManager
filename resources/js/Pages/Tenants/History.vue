@@ -153,7 +153,7 @@ const formatReason = (reason) => {
                             <tr v-for="tenant in pastTenants.data" :key="tenant.id" class="hover:bg-gray-50">
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center">
-                                        <div class="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
+                                        <div class="shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
                                             <UserIcon class="w-5 h-5 text-gray-500" />
                                         </div>
                                         <div class="ml-4">
@@ -220,7 +220,7 @@ const formatReason = (reason) => {
                 </div>
 
                 <!-- Pagination -->
-                <Pagination v-if="pastTenants.data.length > 0" :links="pastTenants.links" class="mt-6" />
+                <Pagination v-if="pastTenants.data.length > 0" :links="pastTenants.links" color="indigo" class="mt-6" />
             </div>
         </div>
     </AuthenticatedLayout>

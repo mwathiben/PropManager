@@ -242,7 +242,7 @@ const getLeaseDuration = (startDate, endDate) => {
                 </div>
 
                 <!-- Pagination -->
-                <Pagination v-if="leases.data.length > 0" :links="leases.links" class="mt-6" />
+                <Pagination v-if="leases.data.length > 0" :links="leases.links" color="indigo" class="mt-6" />
             </div>
         </div>
     </AuthenticatedLayout>
