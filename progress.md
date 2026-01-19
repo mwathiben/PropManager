@@ -7202,3 +7202,68 @@ Audited the entire codebase for SQLite-specific SQL functions (strftime, JULIAND
 - MYS-008: Create Data Migration Script (export SQLite data to MySQL)
 - MYS-010: Run Test Suite on MySQL
 - MYS-011: Manual Smoke Test on MySQL
+
+---
+
+## Session: 2026-01-19
+**Task**: MYS-008 - Create Data Migration Script
+**PRD**: mysql-migration-prd.json
+**Status**: COMPLETED
+
+### Work Done
+1. Re-ran migrations on MySQL 9.4 (fresh Laragon upgrade)
+2. Fixed SQLite connection config (hardcoded path instead of env var)
+3. Created `app/Console/Commands/MigrateToMysql.php` command
+
+### Files Modified/Created
+| File | Action |
+|------|--------|
+| `config/database.php` | MODIFIED - SQLite connection uses `database_path()` instead of `env('DB_DATABASE')` |
+| `app/Console/Commands/MigrateToMysql.php` | CREATED - Data migration command |
+
+### Command Features
+- `--dry-run` option to preview migration
+- `--tables=` to migrate specific tables
+- `--skip-tables=` to exclude tables
+- Progress bars for each table
+- Row count validation after each table
+- 78 tables processed in dependency order
+- Default skip: migrations, cache, sessions, jobs, failed_jobs, password_reset_tokens
+
+### Migration Results
+```
+Tables processed: 78
+Successful: 78
+Total rows migrated: 743
+```
+
+### Row Count Verification
+| Table | SQLite | MySQL | Status |
+|-------|--------|-------|--------|
+| users | 6 | 6 | OK |
+| properties | 6 | 6 | OK |
+| buildings | 8 | 8 | OK |
+| units | 540 | 540 | OK |
+| leases | 4 | 4 | OK |
+| invoices | 3 | 3 | OK |
+| settings | 29 | 29 | OK |
+| security_logs | 76 | 76 | OK |
+
+### Acceptance Criteria Verification
+| Criterion | Status |
+|-----------|--------|
+| Command migrates all data from SQLite to MySQL | ✅ 743 rows migrated |
+| Data integrity preserved (no data loss) | ✅ Row counts match |
+| Foreign key relationships maintained | ✅ FK checks re-enabled successfully |
+| Progress feedback during migration | ✅ Progress bars shown |
+| Dry-run option for testing | ✅ --dry-run works |
+
+### Verification Results
+- `vendor/bin/pint --test` - ✅ PASS (558 files)
+- `php artisan test --parallel` - ✅ 535 tests passed, 12 skipped
+- Row count verification - ✅ All tables match
+
+### Next Steps
+- MYS-010: Run Test Suite on MySQL
+- MYS-011: Manual Smoke Test on MySQL
+- MYS-012: Performance Benchmark
