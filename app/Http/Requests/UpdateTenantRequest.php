@@ -13,9 +13,11 @@ class UpdateTenantRequest extends FormRequest
 
     public function rules(): array
     {
+        $tenantId = $this->route('tenant')?->id;
+
         return [
             'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:users,email,'.$this->route('tenant')->id,
+            'email' => 'required|email|max:255|unique:users,email,'.$tenantId,
             'phone' => 'required|string|max:20',
             'id_number' => 'nullable|string|max:20',
         ];

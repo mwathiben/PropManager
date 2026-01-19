@@ -2,6 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Notification\SendBulkNotificationRequest;
+use App\Http\Requests\Notification\SendNotificationRequest;
+use App\Http\Requests\Notification\StoreNotificationScheduleRequest;
+use App\Http\Requests\Notification\StoreNotificationTemplateRequest;
+use App\Http\Requests\Notification\SubscribePushRequest;
+use App\Http\Requests\Notification\UnsubscribePushRequest;
+use App\Http\Requests\Notification\UpdateGlobalPreferencesRequest;
+use App\Http\Requests\Notification\UpdateNotificationPreferencesRequest;
+use App\Http\Requests\Notification\UpdateNotificationScheduleRequest;
+use App\Http\Requests\Notification\UpdateNotificationTemplateRequest;
+use App\Http\Requests\Notification\UpdateWhatsAppTemplatesRequest;
 use App\Jobs\SendBulkNotificationsJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Building;
@@ -136,16 +147,9 @@ class NotificationsController extends Controller
         ]);
     }
 
-    public function send(Request $request): RedirectResponse
+    public function send(SendNotificationRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'recipient_id' => 'required|exists:users,id',
-            'type' => 'required|in:rent_reminder,arrears_notice,invoice,receipt,rent_hike,lease_expiry,lease_renewal,maintenance_notice,general,eviction_notice',
-            'subject' => 'required|string|max:255',
-            'message' => 'required|string',
-            'data' => 'nullable|array',
-            'send_immediately' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
@@ -177,18 +181,9 @@ class NotificationsController extends Controller
         return redirect()->back()->with('success', 'Notification queued for sending.');
     }
 
-    public function sendBulk(Request $request): RedirectResponse
+    public function sendBulk(SendBulkNotificationRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'recipient_ids' => 'required|array|min:1',
-            'recipient_ids.*' => 'exists:users,id',
-            'type' => 'required|in:rent_reminder,arrears_notice,invoice,receipt,rent_hike,lease_expiry,lease_renewal,maintenance_notice,general,eviction_notice',
-            'subject' => 'required|string|max:255',
-            'message' => 'required|string',
-            'data' => 'nullable|array',
-            'channels' => 'nullable|array',
-            'channels.*' => 'in:email,sms,whatsapp',
-        ]);
+        $validated = $request->validated();
 
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
@@ -310,26 +305,9 @@ class NotificationsController extends Controller
         return response()->json($preferences);
     }
 
-    public function updatePreferences(Request $request): RedirectResponse
+    public function updatePreferences(UpdateNotificationPreferencesRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'rent_reminder_enabled' => 'boolean',
-            'arrears_notice_enabled' => 'boolean',
-            'invoice_enabled' => 'boolean',
-            'receipt_enabled' => 'boolean',
-            'rent_hike_enabled' => 'boolean',
-            'lease_expiry_enabled' => 'boolean',
-            'lease_renewal_enabled' => 'boolean',
-            'maintenance_notice_enabled' => 'boolean',
-            'general_enabled' => 'boolean',
-            'eviction_notice_enabled' => 'boolean',
-            'email_enabled' => 'boolean',
-            'sms_enabled' => 'boolean',
-            'whatsapp_enabled' => 'boolean',
-            'rent_reminder_days_before' => 'nullable|integer|min:1|max:30',
-            'preferred_time' => 'nullable|date_format:H:i',
-            'whatsapp_number' => ['nullable', 'string', 'max:20', 'regex:/^(\+?[1-9]\d{1,14}|0[71]\d{8})$/'],
-        ]);
+        $validated = $request->validated();
 
         $user = auth()->user();
         $landlordId = $user->role === 'tenant' ? $user->landlord_id : $user->id;
@@ -431,15 +409,9 @@ class NotificationsController extends Controller
         ]);
     }
 
-    public function storeTemplate(Request $request): RedirectResponse
+    public function storeTemplate(StoreNotificationTemplateRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'type' => 'required|in:rent_reminder,arrears_notice,invoice,receipt,rent_hike,lease_expiry,lease_renewal,maintenance_notice,general,eviction_notice',
-            'subject' => 'required|string|max:255',
-            'body' => 'required|string',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
@@ -458,16 +430,11 @@ class NotificationsController extends Controller
         return redirect()->back()->with('success', 'Template created successfully.');
     }
 
-    public function updateTemplate(NotificationTemplate $template, Request $request): RedirectResponse
+    public function updateTemplate(NotificationTemplate $template, UpdateNotificationTemplateRequest $request): RedirectResponse
     {
         $this->authorizeTemplate($template);
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'subject' => 'required|string|max:255',
-            'body' => 'required|string',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $template->update($validated);
 
@@ -564,19 +531,9 @@ class NotificationsController extends Controller
         ]);
     }
 
-    public function storeSchedule(Request $request): RedirectResponse
+    public function storeSchedule(StoreNotificationScheduleRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'type' => 'required|in:rent_reminder,arrears_notice,lease_expiry',
-            'trigger' => 'required|in:days_before_due,days_after_overdue,days_before_expiry',
-            'days_offset' => 'required|integer|min:1|max:90',
-            'send_time' => 'required|date_format:H:i',
-            'channels' => 'required|array|min:1',
-            'channels.*' => 'in:email,sms,whatsapp,push',
-            'template_id' => 'nullable|exists:notification_templates,id',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
@@ -596,19 +553,11 @@ class NotificationsController extends Controller
         return redirect()->back()->with('success', 'Schedule created successfully.');
     }
 
-    public function updateSchedule(NotificationSchedule $schedule, Request $request): RedirectResponse
+    public function updateSchedule(NotificationSchedule $schedule, UpdateNotificationScheduleRequest $request): RedirectResponse
     {
         $this->authorizeSchedule($schedule);
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'days_offset' => 'required|integer|min:1|max:90',
-            'send_time' => 'required|date_format:H:i',
-            'channels' => 'required|array|min:1',
-            'channels.*' => 'in:email,sms,whatsapp,push',
-            'template_id' => 'nullable|exists:notification_templates,id',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $schedule->update($validated);
 
@@ -726,13 +675,9 @@ class NotificationsController extends Controller
         return redirect()->back()->with('success', 'Provider settings updated successfully.');
     }
 
-    public function updateWhatsAppTemplates(Request $request): RedirectResponse
+    public function updateWhatsAppTemplates(UpdateWhatsAppTemplatesRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'templates' => 'required|array',
-            'templates.*.type' => 'required|string|max:50',
-            'templates.*.sid' => 'nullable|string|max:100',
-        ]);
+        $validated = $request->validated();
 
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
@@ -818,13 +763,9 @@ class NotificationsController extends Controller
     /**
      * Subscribe to push notifications
      */
-    public function subscribePush(Request $request): JsonResponse
+    public function subscribePush(SubscribePushRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'endpoint' => 'required|string',
-            'keys.p256dh' => 'required|string',
-            'keys.auth' => 'required|string',
-        ]);
+        $validated = $request->validated();
 
         $user = auth()->user();
 
@@ -839,11 +780,9 @@ class NotificationsController extends Controller
     /**
      * Unsubscribe from push notifications
      */
-    public function unsubscribePush(Request $request): JsonResponse
+    public function unsubscribePush(UnsubscribePushRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'endpoint' => 'required|string',
-        ]);
+        $validated = $request->validated();
 
         $result = $this->pushService->unsubscribe($validated['endpoint']);
 
@@ -1141,39 +1080,12 @@ class NotificationsController extends Controller
         ]);
     }
 
-    public function updateGlobalPreferences(Request $request): RedirectResponse
+    public function updateGlobalPreferences(UpdateGlobalPreferencesRequest $request): RedirectResponse
     {
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
 
-        $validated = $request->validate([
-            // Quiet Hours
-            'quiet_hours_enabled' => 'boolean',
-            'quiet_hours_start' => 'nullable|date_format:H:i',
-            'quiet_hours_end' => 'nullable|date_format:H:i',
-            'quiet_hours_queue_notifications' => 'boolean',
-
-            // Retry Configuration
-            'notification_max_retries' => 'integer|min:0|max:10',
-            'notification_retry_delay' => 'integer|min:1|max:60',
-
-            // Rate Limiting
-            'notification_daily_limit_per_tenant' => 'integer|min:1|max:100',
-            'notification_hourly_limit_per_tenant' => 'integer|min:1|max:20',
-
-            // Sender Information
-            'notification_sender_name' => 'nullable|string|max:100',
-            'notification_reply_to_email' => 'nullable|email|max:255',
-
-            // Archive Settings
-            'notification_archive_days' => 'integer|min:7|max:365',
-            'notification_track_read_status' => 'boolean',
-
-            // Default Preferences
-            'default_rent_reminder_days' => 'integer|min:1|max:30',
-            'default_notification_channels' => 'array',
-            'default_notification_channels.*' => 'in:email,sms,whatsapp,push',
-        ]);
+        $validated = $request->validated();
 
         $this->defaultsRepository->updateDefaults($landlordId, [
             'quiet_hours_enabled' => $validated['quiet_hours_enabled'] ?? false,

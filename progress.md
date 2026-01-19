@@ -7568,3 +7568,57 @@ Extracted 13 inline `$request->validate()` calls from TenantController and MoveO
 - Phase 6: BulkOperationsController + TicketController
 - Phase 7: SettingsController + ProfileController
 
+
+---
+
+## DBP-012 Phase 4: NotificationsController FormRequest Extraction
+**Status:** COMPLETED
+**Date:** 2026-01-19
+**Attempts:** 1
+
+### Implementation Summary
+
+Extracted 11 inline `$request->validate()` calls from NotificationsController into dedicated FormRequest classes under `app/Http/Requests/Notification/`.
+
+### Files Created (11 FormRequest classes)
+
+| File | Directory | Source |
+|------|-----------|--------|
+| SendNotificationRequest.php | app/Http/Requests/Notification/ | send() |
+| SendBulkNotificationRequest.php | app/Http/Requests/Notification/ | sendBulk() |
+| UpdateNotificationPreferencesRequest.php | app/Http/Requests/Notification/ | updatePreferences() |
+| StoreNotificationTemplateRequest.php | app/Http/Requests/Notification/ | storeTemplate() |
+| UpdateNotificationTemplateRequest.php | app/Http/Requests/Notification/ | updateTemplate() |
+| StoreNotificationScheduleRequest.php | app/Http/Requests/Notification/ | storeSchedule() |
+| UpdateNotificationScheduleRequest.php | app/Http/Requests/Notification/ | updateSchedule() |
+| UpdateWhatsAppTemplatesRequest.php | app/Http/Requests/Notification/ | updateWhatsAppTemplates() |
+| SubscribePushRequest.php | app/Http/Requests/Notification/ | subscribePush() |
+| UnsubscribePushRequest.php | app/Http/Requests/Notification/ | unsubscribePush() |
+| UpdateGlobalPreferencesRequest.php | app/Http/Requests/Notification/ | updateGlobalPreferences() |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| NotificationsController.php | Added 11 FormRequest imports, updated 11 method signatures, removed inline validation |
+
+### Notes
+
+3 private helper methods retain inline validation (updateEmailSettings, updateSmsSettings, updateWhatsAppSettings) as they are called conditionally from updateProviderSettings() via switch statement. These are internal helpers and not directly exposed routes.
+
+### Verification Commands Run
+- `vendor/bin/pint` - ✅ PASS (1 auto-fix)
+- `npm run build` - ✅ PASS (built in 15.34s)
+- `php artisan test --parallel` - ✅ 535 passed, 12 skipped
+
+### Phase Progress Summary
+- Phase 1: FinancesController - 12 FormRequest classes
+- Phase 2: PaymentController + TenantPaymentController - 5 FormRequest classes
+- Phase 3: TenantController + MoveOutController - 13 FormRequest classes
+- Phase 4: NotificationsController - 11 FormRequest classes (COMPLETED)
+- **Total FormRequests created so far**: 41 classes
+
+### Next Steps
+- Phase 5: BuildingController + WaterReadingController
+- Phase 6: BulkOperationsController + TicketController
+- Phase 7: SettingsController + ProfileController
