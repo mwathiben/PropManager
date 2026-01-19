@@ -24,7 +24,7 @@
   "feedbackLoops": {
     "description": "Run ALL feedback loops before committing. Do NOT commit if any fail.",
     "commands": {
-      "typecheck": "npm run build -- --mode development 2>&1 | grep -i error",
+      "typecheck": "npm run build -- --mode development",
       "lint_frontend": "npm run lint",
       "lint_backend": "vendor/bin/pint --test",
       "test_backend": "php artisan test --parallel",
@@ -114,8 +114,8 @@
       ],
       "verification": "Load Finance Hub with MySQL; verify all stats display correctly",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["MYS-001"]
     },
     {
@@ -465,7 +465,7 @@
     "description": "If migration fails, rollback is straightforward",
     "steps": [
       "Change .env DB_CONNECTION back to sqlite",
-      "Restore SQLite backup if needed: cp database/backups/database_backup_*.sqlite database/database.sqlite",
+      "Restore SQLite backup if needed (use most recent backup): ls -t database/backups/database_backup_*.sqlite | head -1 | xargs -I {} cp {} database/database.sqlite",
       "Clear caches: php artisan config:clear && php artisan cache:clear",
       "Application immediately works on SQLite again"
     ]

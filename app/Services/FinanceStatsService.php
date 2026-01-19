@@ -9,35 +9,44 @@ use App\Models\LateFeePolicy;
 use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\Refund;
+use App\Traits\DatabaseAgnosticQueries;
 use Illuminate\Support\Collection;
 
 class FinanceStatsService
 {
+    use DatabaseAgnosticQueries;
+
     public function getOverviewStats(int $landlordId): array
     {
         $suffix = now()->format('Y-m');
 
         return FinanceCacheService::rememberStats('overview', $landlordId, function () use ($landlordId) {
             $now = now();
-            $currentMonth = sprintf('%02d', $now->month);
-            $currentYear = (string) $now->year;
-            $prevMonth = sprintf('%02d', $now->copy()->subMonth()->month);
-            $prevYear = (string) $now->copy()->subMonth()->year;
+            $currentMonth = $now->month;
+            $currentYear = $now->year;
+            $prevMonth = $now->copy()->subMonth()->month;
+            $prevYear = $now->copy()->subMonth()->year;
+
+            $paymentMonthSql = $this->getMonthSql('payment_date');
+            $paymentYearSql = $this->getYearSql('payment_date');
 
             $paymentStats = Payment::where('landlord_id', $landlordId)
-                ->selectRaw('
-                    COALESCE(SUM(CASE WHEN strftime(\'%m\', payment_date) = ? AND strftime(\'%Y\', payment_date) = ? THEN amount ELSE 0 END), 0) as this_month,
-                    COALESCE(SUM(CASE WHEN strftime(\'%m\', payment_date) = ? AND strftime(\'%Y\', payment_date) = ? THEN amount ELSE 0 END), 0) as last_month
-                ', [$currentMonth, $currentYear, $prevMonth, $prevYear])
+                ->selectRaw("
+                    COALESCE(SUM(CASE WHEN {$paymentMonthSql} = ? AND {$paymentYearSql} = ? THEN amount ELSE 0 END), 0) as this_month,
+                    COALESCE(SUM(CASE WHEN {$paymentMonthSql} = ? AND {$paymentYearSql} = ? THEN amount ELSE 0 END), 0) as last_month
+                ", [$currentMonth, $currentYear, $prevMonth, $prevYear])
                 ->first();
 
+            $invoiceMonthSql = $this->getMonthSql('created_at');
+            $invoiceYearSql = $this->getYearSql('created_at');
+
             $invoiceStats = Invoice::where('landlord_id', $landlordId)
-                ->selectRaw('
-                    COALESCE(SUM(CASE WHEN status IN (\'sent\', \'partial\', \'overdue\') THEN total_due - amount_paid ELSE 0 END), 0) as pending_amount,
-                    COUNT(CASE WHEN status = \'overdue\' THEN 1 END) as overdue_count,
-                    COALESCE(SUM(CASE WHEN strftime(\'%m\', created_at) = ? AND strftime(\'%Y\', created_at) = ? THEN total_due ELSE 0 END), 0) as invoiced_this_month,
-                    COALESCE(SUM(CASE WHEN strftime(\'%m\', created_at) = ? AND strftime(\'%Y\', created_at) = ? THEN amount_paid ELSE 0 END), 0) as collected_this_month
-                ', [$currentMonth, $currentYear, $currentMonth, $currentYear])
+                ->selectRaw("
+                    COALESCE(SUM(CASE WHEN status IN ('sent', 'partial', 'overdue') THEN total_due - amount_paid ELSE 0 END), 0) as pending_amount,
+                    COUNT(CASE WHEN status = 'overdue' THEN 1 END) as overdue_count,
+                    COALESCE(SUM(CASE WHEN {$invoiceMonthSql} = ? AND {$invoiceYearSql} = ? THEN total_due ELSE 0 END), 0) as invoiced_this_month,
+                    COALESCE(SUM(CASE WHEN {$invoiceMonthSql} = ? AND {$invoiceYearSql} = ? THEN amount_paid ELSE 0 END), 0) as collected_this_month
+                ", [$currentMonth, $currentYear, $currentMonth, $currentYear])
                 ->first();
 
             $thisMonth = (float) $paymentStats->this_month;
@@ -70,8 +79,8 @@ class FinanceStatsService
             $overviewStats = $this->getOverviewStats($landlordId);
             $arrearsStats = $this->getArrearsStats($landlordId);
             $now = now();
-            $currentMonth = sprintf('%02d', $now->month);
-            $currentYear = (string) $now->year;
+            $currentMonth = $now->month;
+            $currentYear = $now->year;
 
             $leaseStats = Lease::where('landlord_id', $landlordId)
                 ->selectRaw('
@@ -87,18 +96,24 @@ class FinanceStatsService
                 ")
                 ->first();
 
+            $paymentMonthSql = $this->getMonthSql('payment_date');
+            $paymentYearSql = $this->getYearSql('payment_date');
+
             $paymentStats = Payment::where('landlord_id', $landlordId)
-                ->selectRaw('
-                    COUNT(CASE WHEN strftime(\'%m\', payment_date) = ? AND strftime(\'%Y\', payment_date) = ? THEN 1 END) as this_month_count,
+                ->selectRaw("
+                    COUNT(CASE WHEN {$paymentMonthSql} = ? AND {$paymentYearSql} = ? THEN 1 END) as this_month_count,
                     COUNT(CASE WHEN invoice_id IS NULL THEN 1 END) as unreconciled_count
-                ', [$currentMonth, $currentYear])
+                ", [$currentMonth, $currentYear])
                 ->first();
 
+            $expenseMonthSql = $this->getMonthSql('expense_date');
+            $expenseYearSql = $this->getYearSql('expense_date');
+
             $expenseStats = Expense::where('landlord_id', $landlordId)
-                ->selectRaw('
-                    COUNT(CASE WHEN strftime(\'%m\', expense_date) = ? AND strftime(\'%Y\', expense_date) = ? THEN 1 END) as this_month_count,
-                    COALESCE(SUM(CASE WHEN strftime(\'%m\', expense_date) = ? AND strftime(\'%Y\', expense_date) = ? THEN amount ELSE 0 END), 0) as this_month_amount
-                ', [$currentMonth, $currentYear, $currentMonth, $currentYear])
+                ->selectRaw("
+                    COUNT(CASE WHEN {$expenseMonthSql} = ? AND {$expenseYearSql} = ? THEN 1 END) as this_month_count,
+                    COALESCE(SUM(CASE WHEN {$expenseMonthSql} = ? AND {$expenseYearSql} = ? THEN amount ELSE 0 END), 0) as this_month_amount
+                ", [$currentMonth, $currentYear, $currentMonth, $currentYear])
                 ->first();
 
             $refundsPending = Refund::where('landlord_id', $landlordId)
@@ -132,28 +147,29 @@ class FinanceStatsService
     {
         return FinanceCacheService::rememberStats('arrears', $landlordId, function () use ($landlordId) {
             $today = now()->format('Y-m-d');
+            $daysDiffSql = $this->getDaysBetweenSql('due_date', $today);
 
             $stats = Invoice::where('landlord_id', $landlordId)
                 ->where('status', 'overdue')
-                ->selectRaw('
+                ->selectRaw("
                     COALESCE(SUM(total_due - amount_paid), 0) as total_arrears,
                     COUNT(DISTINCT lease_id) as tenants_in_arrears,
                     COUNT(*) as overdue_count,
                     COALESCE(SUM(CASE
-                        WHEN due_date IS NOT NULL AND julianday(?) - julianday(due_date) <= 30
+                        WHEN due_date IS NOT NULL AND {$daysDiffSql} <= 30
                         THEN total_due - amount_paid ELSE 0 END), 0) as age_0_30,
                     COALESCE(SUM(CASE
-                        WHEN due_date IS NOT NULL AND julianday(?) - julianday(due_date) > 30
-                        AND julianday(?) - julianday(due_date) <= 60
+                        WHEN due_date IS NOT NULL AND {$daysDiffSql} > 30
+                        AND {$daysDiffSql} <= 60
                         THEN total_due - amount_paid ELSE 0 END), 0) as age_31_60,
                     COALESCE(SUM(CASE
-                        WHEN due_date IS NOT NULL AND julianday(?) - julianday(due_date) > 60
-                        AND julianday(?) - julianday(due_date) <= 90
+                        WHEN due_date IS NOT NULL AND {$daysDiffSql} > 60
+                        AND {$daysDiffSql} <= 90
                         THEN total_due - amount_paid ELSE 0 END), 0) as age_61_90,
                     COALESCE(SUM(CASE
-                        WHEN due_date IS NOT NULL AND julianday(?) - julianday(due_date) > 90
+                        WHEN due_date IS NOT NULL AND {$daysDiffSql} > 90
                         THEN total_due - amount_paid ELSE 0 END), 0) as age_90_plus
-                ', [$today, $today, $today, $today, $today, $today])
+                ")
                 ->first();
 
             return [
@@ -226,32 +242,38 @@ class FinanceStatsService
     {
         return FinanceCacheService::rememberStats('expenses', $landlordId, function () use ($landlordId) {
             $now = now();
-            $currentMonth = sprintf('%02d', $now->month);
-            $currentYear = (string) $now->year;
-            $prevMonth = sprintf('%02d', $now->copy()->subMonth()->month);
-            $prevYear = (string) $now->copy()->subMonth()->year;
+            $currentMonth = $now->month;
+            $currentYear = $now->year;
+            $prevMonth = $now->copy()->subMonth()->month;
+            $prevYear = $now->copy()->subMonth()->year;
+
+            $expenseMonthSql = $this->getMonthSql('expense_date');
+            $expenseYearSql = $this->getYearSql('expense_date');
 
             $totals = Expense::where('landlord_id', $landlordId)
-                ->selectRaw('
-                    COALESCE(SUM(CASE WHEN strftime(\'%m\', expense_date) = ? AND strftime(\'%Y\', expense_date) = ? THEN amount ELSE 0 END), 0) as this_month,
-                    COALESCE(SUM(CASE WHEN strftime(\'%m\', expense_date) = ? AND strftime(\'%Y\', expense_date) = ? THEN amount ELSE 0 END), 0) as last_month,
-                    COALESCE(SUM(CASE WHEN strftime(\'%Y\', expense_date) = ? THEN amount ELSE 0 END), 0) as this_year
-                ', [$currentMonth, $currentYear, $prevMonth, $prevYear, $currentYear])
+                ->selectRaw("
+                    COALESCE(SUM(CASE WHEN {$expenseMonthSql} = ? AND {$expenseYearSql} = ? THEN amount ELSE 0 END), 0) as this_month,
+                    COALESCE(SUM(CASE WHEN {$expenseMonthSql} = ? AND {$expenseYearSql} = ? THEN amount ELSE 0 END), 0) as last_month,
+                    COALESCE(SUM(CASE WHEN {$expenseYearSql} = ? THEN amount ELSE 0 END), 0) as this_year
+                ", [$currentMonth, $currentYear, $prevMonth, $prevYear, $currentYear])
                 ->first();
 
             $thisMonth = (float) $totals->this_month;
             $lastMonth = (float) $totals->last_month;
 
+            $expenseMonthSqlJoin = $this->getMonthSql('expenses.expense_date');
+            $expenseYearSqlJoin = $this->getYearSql('expenses.expense_date');
+
             $categoryBreakdown = Expense::withoutGlobalScopes()
                 ->where('expenses.landlord_id', $landlordId)
-                ->whereRaw('strftime(\'%m\', expenses.expense_date) = ? AND strftime(\'%Y\', expenses.expense_date) = ?', [$currentMonth, $currentYear])
+                ->whereRaw("{$expenseMonthSqlJoin} = ? AND {$expenseYearSqlJoin} = ?", [$currentMonth, $currentYear])
                 ->leftJoin('expense_categories', 'expenses.category_id', '=', 'expense_categories.id')
-                ->selectRaw('
+                ->selectRaw("
                     expenses.category_id,
-                    COALESCE(expense_categories.name, \'Uncategorized\') as name,
-                    COALESCE(expense_categories.color, \'#6B7280\') as color,
+                    COALESCE(expense_categories.name, 'Uncategorized') as name,
+                    COALESCE(expense_categories.color, '#6B7280') as color,
                     SUM(expenses.amount) as amount
-                ')
+                ")
                 ->groupBy('expenses.category_id', 'expense_categories.name', 'expense_categories.color')
                 ->get()
                 ->map(fn ($row) => [
@@ -283,11 +305,14 @@ class FinanceStatsService
     private function calculateCollectionRateUncached(int $landlordId): float
     {
         $now = now();
-        $currentMonth = sprintf('%02d', $now->month);
-        $currentYear = (string) $now->year;
+        $currentMonth = $now->month;
+        $currentYear = $now->year;
+
+        $invoiceMonthSql = $this->getMonthSql('created_at');
+        $invoiceYearSql = $this->getYearSql('created_at');
 
         $totals = Invoice::where('landlord_id', $landlordId)
-            ->whereRaw('strftime(\'%m\', created_at) = ? AND strftime(\'%Y\', created_at) = ?', [$currentMonth, $currentYear])
+            ->whereRaw("{$invoiceMonthSql} = ? AND {$invoiceYearSql} = ?", [$currentMonth, $currentYear])
             ->selectRaw('COALESCE(SUM(total_due), 0) as invoiced, COALESCE(SUM(amount_paid), 0) as collected')
             ->first();
 
@@ -354,15 +379,19 @@ class FinanceStatsService
         return FinanceCacheService::rememberStats('trend', $landlordId, function () use ($landlordId, $months) {
             $startDate = now()->subMonths($months - 1)->startOfMonth();
 
+            $paymentDateFormatSql = $this->getDateFormatSql('payment_date', '%Y-%m');
+
             $paymentsGrouped = Payment::where('landlord_id', $landlordId)
                 ->where('payment_date', '>=', $startDate)
-                ->selectRaw("strftime('%Y-%m', payment_date) as month_key, SUM(amount) as collected")
+                ->selectRaw("{$paymentDateFormatSql} as month_key, SUM(amount) as collected")
                 ->groupBy('month_key')
                 ->pluck('collected', 'month_key');
 
+            $invoiceDateFormatSql = $this->getDateFormatSql('created_at', '%Y-%m');
+
             $invoicesGrouped = Invoice::where('landlord_id', $landlordId)
                 ->where('created_at', '>=', $startDate)
-                ->selectRaw("strftime('%Y-%m', created_at) as month_key, SUM(total_due) as invoiced")
+                ->selectRaw("{$invoiceDateFormatSql} as month_key, SUM(total_due) as invoiced")
                 ->groupBy('month_key')
                 ->pluck('invoiced', 'month_key');
 

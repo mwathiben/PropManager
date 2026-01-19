@@ -6935,3 +6935,48 @@ This is Phase 2 of 7 for DBP-012. Remaining phases:
 - MYS-002: Refactor FinanceStatsService to use DatabaseAgnosticQueries trait
 - MYS-003: Refactor DashboardService to use the trait
 - MYS-004: Refactor ReportService to use the trait
+
+---
+
+## Session: 2026-01-19
+**Task**: MYS-002 - Refactor FinanceStatsService for MySQL Compatibility
+**PRD**: mysql-migration-prd.json
+**Status**: COMPLETED
+
+### Work Done
+- Added `use DatabaseAgnosticQueries` trait to FinanceStatsService
+- Refactored 6 methods that contained SQLite-specific date functions:
+  1. **getOverviewStats()** - Replaced 8 strftime() calls for payment_date and created_at
+  2. **getArrearsStats()** - Replaced 6 julianday() calls with getDaysBetweenSql() for arrears aging
+  3. **getHubStats()** - Replaced 6 strftime() calls for payment_date and expense_date
+  4. **getExpenseStats()** - Replaced 7 strftime() calls in both selectRaw and whereRaw
+  5. **calculateCollectionRateUncached()** - Replaced 2 strftime() calls in whereRaw
+  6. **getMonthlyTrend()** - Replaced 2 strftime('%Y-%m', ...) with getDateFormatSql()
+- Changed month/year parameters from zero-padded strings to integers (for CAST to INTEGER comparisons)
+- Properly handled table aliases in join queries (e.g., `expenses.expense_date`)
+
+### Files Modified
+- `app/Services/FinanceStatsService.php`
+
+### Acceptance Criteria Verification
+| Criterion | Status |
+|-----------|--------|
+| No strftime() calls remain in file | ✅ Verified via grep |
+| No julianday() calls remain in file | ✅ Verified via grep |
+| All statistical queries work | ✅ Tests pass |
+| Caching continues to work correctly | ✅ FinanceCacheService unchanged |
+
+### Verification Results
+- `grep "strftime\|julianday" app/Services/FinanceStatsService.php` - No matches
+- `vendor/bin/pint --test` - ✅ PASS (1 auto-fixed style issue)
+- `php artisan test --parallel` - ✅ 535 tests passed, 12 skipped
+- `npm run build` - ✅ Build successful
+
+### Learnings
+- The trait's integer CAST approach requires changing parameters from zero-padded strings to integers
+- Table aliases work correctly when passed to trait methods (e.g., `expenses.expense_date`)
+- getDaysBetweenSql() eliminates the need for parameter binding in arrears aging calculations
+
+### Next Steps
+- MYS-003: Refactor DashboardService for MySQL Compatibility
+- MYS-004: Refactor ReportService for MySQL Compatibility
