@@ -13,6 +13,8 @@
             <directory>tests/Feature</directory>
             <exclude>tests/Feature/Controllers</exclude>
             <exclude>tests/Feature/Api</exclude>
+            <exclude>tests/Feature/Broadcasting</exclude>
+            <exclude>tests/Feature/Services</exclude>
         </testsuite>
         <testsuite name="Controllers">
             <directory>tests/Feature/Controllers</directory>
@@ -22,6 +24,10 @@
         </testsuite>
         <testsuite name="Services">
             <directory>tests/Unit/Services</directory>
+            <directory>tests/Feature/Services</directory>
+        </testsuite>
+        <testsuite name="Broadcasting">
+            <directory>tests/Feature/Broadcasting</directory>
         </testsuite>
     </testsuites>
     <source>
@@ -35,8 +41,8 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
+        <env name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_DATABASE" value="propmanager_test"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

@@ -68,7 +68,7 @@ class PaymentController extends Controller
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         // Get enabled payment methods from settings
-        $settings = \App\Models\Setting::where('user_id', $landlordId)
+        $settings = \App\Models\Setting::where('landlord_id', $landlordId)
             ->where('key', 'accepted_payment_methods')
             ->first();
 

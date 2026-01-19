@@ -111,7 +111,7 @@ return new class extends Migration
             $table->decimal('total_due', 10, 2);
             $table->decimal('amount_paid', 10, 2)->default(0);
 
-            $table->enum('status', ['draft', 'sent', 'partial', 'paid', 'overdue'])->default('draft');
+            $table->enum('status', ['draft', 'sent', 'partial', 'paid', 'overdue', 'voided', 'cancelled'])->default('draft');
             $table->timestamps();
         });
 

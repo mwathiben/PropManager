@@ -7267,3 +7267,62 @@ Total rows migrated: 743
 - MYS-010: Run Test Suite on MySQL
 - MYS-011: Manual Smoke Test on MySQL
 - MYS-012: Performance Benchmark
+
+---
+
+## Session: 2026-01-19 (continued)
+**Task**: MYS-010 - Run Test Suite on MySQL
+**PRD**: mysql-migration-prd.json
+**Status**: COMPLETED
+
+### Work Done
+1. Created MySQL test database: `propmanager_test`
+2. Created `.env.testing` with MySQL configuration
+3. Updated `phpunit.xml` to use MySQL instead of SQLite
+4. Fixed multiple MySQL compatibility bugs discovered during test runs
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `.env.testing` | Created - MySQL test configuration |
+| `phpunit.xml` | Updated DB_CONNECTION=mysql, DB_DATABASE=propmanager_test |
+| `app/Http/Controllers/LeaseController.php` | Fixed `type` → `document_type` column name |
+| `database/migrations/2026_01_18_124928_create_notification_provider_configs_table.php` | Changed `json()` → `text()` for encrypted credentials |
+| `database/migrations/2025_12_16_093818_create_payments_table.php` | Added 'mpesa' to payment_method ENUM |
+| `database/migrations/2025_01_01_000001_create_prop_manager_tables.php` | Added 'voided', 'cancelled' to invoices status ENUM |
+| `app/Services/BuildingService.php` | Added `reorder()` before `distinct()->pluck()` (MySQL DISTINCT+ORDER BY fix) |
+| `app/Http/Controllers/PaymentController.php` | Fixed `user_id` → `landlord_id` for Setting model |
+| `app/Http/Controllers/BulkOperationsController.php` | Fixed `phone` → `mobile_number` column name |
+| `app/Http/Controllers/NotificationsController.php` | Refactored arrears query to use invoices instead of non-existent lease.arrears column |
+| `tests/Feature/NotificationsTest.php` | Fixed test to create overdue invoice instead of setting lease.arrears |
+
+### MySQL Compatibility Issues Fixed
+1. **Column name bugs**: `type` vs `document_type`, `phone` vs `mobile_number`, `user_id` vs `landlord_id`
+2. **JSON columns for encrypted data**: MySQL JSON columns reject base64 encrypted strings; changed to TEXT
+3. **ENUM missing values**: MySQL strict mode rejects values not in ENUM definition
+4. **DISTINCT + ORDER BY**: MySQL disallows ORDER BY columns not in SELECT when using DISTINCT
+5. **Non-existent columns**: Code referenced `lease.arrears` column that doesn't exist; refactored to calculate from invoices
+
+### Test Results
+- **Initial run**: 19 errors, 11 failures
+- **After fixes**: 535 tests passed, 12 skipped, 0 failures
+
+### Acceptance Criteria Verification
+| Criterion | Status |
+|-----------|--------|
+| All existing tests pass on MySQL | ✅ 535 tests passed |
+| No new test failures | ✅ Only 12 pre-existing skips |
+| Test database properly isolated | ✅ propmanager_test database |
+
+### Verification Commands Run
+- `php artisan test --parallel` - ✅ 535 passed, 12 skipped
+
+### Learnings
+- SQLite is more lenient than MySQL for column name validation (SQLite doesn't error on non-existent columns in eager loads)
+- MySQL strict mode enforces ENUM constraints that SQLite ignores
+- MySQL JSON columns have stricter requirements than SQLite TEXT columns
+- MySQL's DISTINCT behavior with ORDER BY is database-specific
+
+### Next Steps
+- MYS-011: Manual Smoke Test on MySQL
+- MYS-012: Performance Benchmark

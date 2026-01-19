@@ -36,7 +36,7 @@ class LeaseController extends Controller
             ->with([
                 'tenant:id,name,email,mobile_number',
                 'unit.building:id,name',
-                'documents' => fn ($q) => $q->where('type', 'lease_agreement'),
+                'documents' => fn ($q) => $q->where('document_type', 'lease_agreement'),
             ]);
 
         // Search filter

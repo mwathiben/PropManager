@@ -256,34 +256,44 @@ class NotificationsController extends Controller
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
 
-        // Get all active leases with arrears
+        // Get all active leases that have overdue invoices
         $leases = Lease::where('landlord_id', $landlordId)
             ->where('is_active', true)
-            ->where('arrears', '>', 0)
-            ->with('tenant:id,name')
+            ->whereHas('invoices', function ($query) {
+                $query->whereIn('status', ['overdue', 'partial', 'sent'])
+                    ->whereColumn('amount_paid', '<', 'total_due');
+            })
+            ->with(['tenant:id,name', 'invoices' => function ($query) {
+                $query->whereIn('status', ['overdue', 'partial', 'sent'])
+                    ->whereColumn('amount_paid', '<', 'total_due');
+            }])
             ->get();
 
         $sent = 0;
 
         foreach ($leases as $lease) {
             if ($lease->tenant) {
-                dispatch(SendNotificationJob::forNew(
-                    $lease->tenant_id,
-                    'arrears_notice',
-                    'Payment Overdue - Arrears Notice',
-                    sprintf(
-                        "Hello %s,\n\nYou have an outstanding balance of KES %s. Please clear your arrears as soon as possible.\n\nThank you.",
-                        $lease->tenant->name,
-                        number_format($lease->arrears, 2)
-                    ),
-                    [
-                        'lease_id' => $lease->id,
-                        'arrears_amount' => $lease->arrears,
-                    ],
-                    $landlordId
-                ));
+                $arrearsAmount = $lease->invoices->sum(fn ($inv) => $inv->total_due - $inv->amount_paid);
 
-                $sent++;
+                if ($arrearsAmount > 0) {
+                    dispatch(SendNotificationJob::forNew(
+                        $lease->tenant_id,
+                        'arrears_notice',
+                        'Payment Overdue - Arrears Notice',
+                        sprintf(
+                            "Hello %s,\n\nYou have an outstanding balance of KES %s. Please clear your arrears as soon as possible.\n\nThank you.",
+                            $lease->tenant->name,
+                            number_format($arrearsAmount, 2)
+                        ),
+                        [
+                            'lease_id' => $lease->id,
+                            'arrears_amount' => $arrearsAmount,
+                        ],
+                        $landlordId
+                    ));
+
+                    $sent++;
+                }
             }
         }
 

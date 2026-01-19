@@ -231,8 +231,8 @@ class BuildingService
         $recentTickets = $this->getRecentTickets($building->id);
         $expiringLeases = $this->getExpiringLeases($filteredUnitIds);
 
-        $availableFloors = $building->units()->distinct()->pluck('floor_number')->sort()->values();
-        $availableUnitTypes = $building->units()->distinct()->pluck('unit_type')->filter()->values();
+        $availableFloors = $building->units()->reorder()->distinct()->pluck('floor_number')->sort()->values();
+        $availableUnitTypes = $building->units()->reorder()->distinct()->pluck('unit_type')->filter()->values();
 
         return [
             'property' => $property,

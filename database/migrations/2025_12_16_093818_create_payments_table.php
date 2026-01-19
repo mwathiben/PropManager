@@ -18,7 +18,7 @@ return new class extends Migration
             $table->foreignId('landlord_id')->constrained('users'); // For tenant scoping
 
             $table->decimal('amount', 10, 2);
-            $table->enum('payment_method', ['cash', 'bank_transfer', 'mobile_money', 'paystack', 'stripe']);
+            $table->enum('payment_method', ['cash', 'bank_transfer', 'mobile_money', 'mpesa', 'paystack', 'stripe']);
             $table->date('payment_date');
             $table->string('reference')->nullable(); // Transaction ID / Receipt number
             $table->string('paystack_reference')->nullable(); // Paystack transaction reference

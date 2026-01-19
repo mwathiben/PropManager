@@ -10,19 +10,18 @@ use App\Models\RentHistory;
 use App\Models\Unit;
 use App\Models\User;
 use App\Traits\HasBuildingFilter;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class BulkOperationsController extends Controller
 {
     use HasBuildingFilter;
 
-    /**
-     * Display the bulk operations dashboard
-     */
-    public function index(Request $request)
+    public function index(Request $request): Response
     {
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
@@ -47,7 +46,7 @@ class BulkOperationsController extends Controller
                 'building:id,name,property_id,parent_building_id,is_wing',
                 'building.property:id,name',
                 'activeLease:id,unit_id,tenant_id,rent_amount,is_active',
-                'activeLease.tenant:id,name,email,phone',
+                'activeLease.tenant:id,name,email,mobile_number',
             ])
             ->get();
 
@@ -55,7 +54,7 @@ class BulkOperationsController extends Controller
         $tenants = User::where('role', 'tenant')
             ->where('landlord_id', $landlordId)
             ->orderBy('name')
-            ->get(['id', 'name', 'email', 'phone']);
+            ->get(['id', 'name', 'email', 'mobile_number']);
 
         return Inertia::render('BulkOperations/Index', [
             'properties' => $properties,
@@ -65,9 +64,6 @@ class BulkOperationsController extends Controller
         ]);
     }
 
-    /**
-     * Validate that leases belong to specified building/wing (strict enforcement)
-     */
     protected function validateLeasesBelongToBuilding(array $leaseIds, ?int $buildingId, ?int $wingId): bool
     {
         if (! $buildingId && ! $wingId) {
@@ -85,9 +81,6 @@ class BulkOperationsController extends Controller
         return $count === count($leaseIds);
     }
 
-    /**
-     * Validate that units belong to specified building/wing (strict enforcement)
-     */
     protected function validateUnitsBelongToBuilding(array $unitIds, ?int $buildingId, ?int $wingId): bool
     {
         if (! $buildingId && ! $wingId) {
@@ -103,10 +96,7 @@ class BulkOperationsController extends Controller
         return $count === count($unitIds);
     }
 
-    /**
-     * Bulk rent adjustment - increase/decrease rent for multiple units
-     */
-    public function adjustRent(Request $request)
+    public function adjustRent(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'lease_ids' => 'required|array|min:1',
@@ -176,7 +166,7 @@ class BulkOperationsController extends Controller
 
                     // Notify tenant if requested
                     if ($validated['notify_tenants'] ?? false) {
-                        SendNotificationJob::dispatch(
+                        dispatch(SendNotificationJob::forNew(
                             $lease->tenant_id,
                             'rent_hike',
                             'Rent Adjustment Notice',
@@ -194,7 +184,7 @@ class BulkOperationsController extends Controller
                                 'effective_date' => $validated['effective_date'],
                             ],
                             $landlordId
-                        );
+                        ));
                     }
 
                     $results['success']++;
@@ -228,10 +218,7 @@ class BulkOperationsController extends Controller
         }
     }
 
-    /**
-     * Bulk unit status update
-     */
-    public function updateUnitStatus(Request $request)
+    public function updateUnitStatus(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'unit_ids' => 'required|array|min:1',
@@ -301,10 +288,7 @@ class BulkOperationsController extends Controller
         }
     }
 
-    /**
-     * Bulk lease termination
-     */
-    public function terminateLeases(Request $request)
+    public function terminateLeases(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'lease_ids' => 'required|array|min:1',
@@ -360,7 +344,7 @@ class BulkOperationsController extends Controller
 
                     // Notify tenant if requested
                     if ($validated['notify_tenants'] ?? false) {
-                        SendNotificationJob::dispatch(
+                        dispatch(SendNotificationJob::forNew(
                             $lease->tenant_id,
                             'general',
                             'Lease Termination Notice',
@@ -375,7 +359,7 @@ class BulkOperationsController extends Controller
                                 'reason' => $validated['reason'],
                             ],
                             $landlordId
-                        );
+                        ));
                     }
 
                     $results['success']++;
@@ -403,10 +387,7 @@ class BulkOperationsController extends Controller
         }
     }
 
-    /**
-     * Bulk lease extension
-     */
-    public function extendLeases(Request $request)
+    public function extendLeases(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'lease_ids' => 'required|array|min:1',
@@ -456,7 +437,7 @@ class BulkOperationsController extends Controller
 
                     // Notify tenant if requested
                     if ($validated['notify_tenants'] ?? false) {
-                        SendNotificationJob::dispatch(
+                        dispatch(SendNotificationJob::forNew(
                             $lease->tenant_id,
                             'lease_renewal',
                             'Lease Extension Notice',
@@ -472,7 +453,7 @@ class BulkOperationsController extends Controller
                                 'extension_months' => $validated['extension_months'],
                             ],
                             $landlordId
-                        );
+                        ));
                     }
 
                     $results['success']++;
@@ -501,10 +482,7 @@ class BulkOperationsController extends Controller
         }
     }
 
-    /**
-     * Bulk deposit adjustment
-     */
-    public function adjustDeposits(Request $request)
+    public function adjustDeposits(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'lease_ids' => 'required|array|min:1',
@@ -563,7 +541,7 @@ class BulkOperationsController extends Controller
 
                     // Notify tenant if requested
                     if (($validated['notify_tenants'] ?? false) && $lease->tenant) {
-                        SendNotificationJob::dispatch(
+                        dispatch(SendNotificationJob::forNew(
                             $lease->tenant_id,
                             'general',
                             'Deposit Adjustment Notice',
@@ -578,7 +556,7 @@ class BulkOperationsController extends Controller
                                 'new_deposit' => $newDeposit,
                             ],
                             $landlordId
-                        );
+                        ));
                     }
 
                     $results['success']++;
@@ -606,10 +584,7 @@ class BulkOperationsController extends Controller
         }
     }
 
-    /**
-     * Bulk target rent update for units
-     */
-    public function updateTargetRent(Request $request)
+    public function updateTargetRent(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'unit_ids' => 'required|array|min:1',
@@ -690,10 +665,7 @@ class BulkOperationsController extends Controller
         }
     }
 
-    /**
-     * Bulk water meter number update
-     */
-    public function updateMeterNumbers(Request $request)
+    public function updateMeterNumbers(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'updates' => 'required|array|min:1',

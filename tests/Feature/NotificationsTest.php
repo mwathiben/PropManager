@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\SendBulkNotificationsJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Building;
+use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\Notification;
 use App\Models\NotificationPreference;
@@ -288,8 +289,20 @@ class NotificationsTest extends TestCase
     {
         Queue::fake();
 
-        // Update lease to have arrears
-        $this->lease->update(['arrears' => 5000]);
+        // Create an overdue invoice with outstanding balance
+        Invoice::create([
+            'lease_id' => $this->lease->id,
+            'landlord_id' => $this->landlord->id,
+            'invoice_number' => 'INV-'.date('Ym').'-0001',
+            'rent_due' => 5000,
+            'water_due' => 0,
+            'arrears' => 0,
+            'total_due' => 5000,
+            'amount_paid' => 0,
+            'status' => 'overdue',
+            'due_date' => now()->subDays(7),
+            'billing_period_start' => now()->startOfMonth(),
+        ]);
 
         $response = $this->actingAs($this->landlord)
             ->post('/notifications/arrears-notices');

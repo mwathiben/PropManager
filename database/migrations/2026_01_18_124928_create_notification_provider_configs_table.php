@@ -13,7 +13,7 @@ return new class extends Migration
             $table->foreignId('landlord_id')->constrained('users')->cascadeOnDelete();
             $table->enum('provider_type', ['email', 'sms', 'whatsapp', 'push']);
             $table->string('provider_name')->nullable();
-            $table->json('credentials')->nullable();
+            $table->text('credentials')->nullable();
             $table->boolean('is_enabled')->default(false);
             $table->boolean('is_verified')->default(false);
             $table->json('settings')->nullable();
