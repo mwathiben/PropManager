@@ -176,39 +176,25 @@ class NotificationPreference extends Model
 
     /**
      * Check if the current time falls within quiet hours.
+     *
+     * @deprecated Use QuietHoursService::isQuietHours() instead
      */
     public function isInQuietHours(Carbon $now): bool
     {
-        if (! $this->quiet_hours_enabled) {
-            return false;
-        }
+        $config = \App\ValueObjects\QuietHoursConfig::fromPreference($this, $now->timezone->getName());
 
-        $start = Carbon::parse($this->quiet_hours_start ?? '22:00', $now->timezone);
-        $end = Carbon::parse($this->quiet_hours_end ?? '08:00', $now->timezone);
-
-        $start->setDate($now->year, $now->month, $now->day);
-        $end->setDate($now->year, $now->month, $now->day);
-
-        if ($end->lessThan($start)) {
-            return $now->greaterThanOrEqualTo($start) || $now->lessThan($end);
-        }
-
-        return $now->between($start, $end);
+        return app(\App\Services\QuietHoursService::class)->isQuietHours($config, $now);
     }
 
     /**
      * Get the next quiet hours end time from now.
+     *
+     * @deprecated Use QuietHoursService::getNextDeliveryTime() instead
      */
     public function getQuietHoursEnd(string $timezone): Carbon
     {
-        $now = Carbon::now($timezone);
-        $end = Carbon::parse($this->quiet_hours_end ?? '08:00', $timezone);
-        $end->setDate($now->year, $now->month, $now->day);
+        $config = \App\ValueObjects\QuietHoursConfig::fromPreference($this, $timezone);
 
-        if ($end->lessThanOrEqualTo($now)) {
-            $end->addDay();
-        }
-
-        return $end;
+        return app(\App\Services\QuietHoursService::class)->getNextDeliveryTime($config);
     }
 }

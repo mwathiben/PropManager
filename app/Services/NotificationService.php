@@ -45,7 +45,8 @@ class NotificationService
     public function __construct(
         private readonly WhatsAppTemplateService $whatsAppTemplateService,
         private readonly PaymentLinkService $paymentLinkService,
-        private readonly NotificationConfigRepositoryInterface $configRepository
+        private readonly NotificationConfigRepositoryInterface $configRepository,
+        private readonly QuietHoursService $quietHoursService
     ) {}
 
     /**
@@ -1111,16 +1112,9 @@ class NotificationService
      */
     protected function isInQuietHours(User $recipient, int $landlordId): bool
     {
-        $prefs = NotificationPreference::getOrCreate($recipient->id, $landlordId);
+        $config = $this->quietHoursService->getConfigForUser($recipient, $landlordId);
 
-        if (! $prefs->quiet_hours_enabled) {
-            return false;
-        }
-
-        $timezone = $recipient->getTimezone();
-        $now = Carbon::now($timezone);
-
-        return $prefs->isInQuietHours($now);
+        return $this->quietHoursService->isQuietHours($config);
     }
 
     /**
@@ -1129,10 +1123,7 @@ class NotificationService
      */
     protected function canBypassQuietHours(string $urgency): bool
     {
-        return in_array($urgency, [
-            Notification::URGENCY_CRITICAL,
-            Notification::URGENCY_URGENT,
-        ]);
+        return $this->quietHoursService->canBypassQuietHours($urgency);
     }
 
     /**
@@ -1140,10 +1131,9 @@ class NotificationService
      */
     protected function getQuietHoursEndTime(User $recipient, int $landlordId): Carbon
     {
-        $prefs = NotificationPreference::getOrCreate($recipient->id, $landlordId);
-        $timezone = $recipient->getTimezone();
+        $config = $this->quietHoursService->getConfigForUser($recipient, $landlordId);
 
-        return $prefs->getQuietHoursEnd($timezone);
+        return $this->quietHoursService->getNextDeliveryTime($config);
     }
 
     /**

@@ -7842,3 +7842,82 @@ Fixed Ticket FormRequest authorization (UpdateTicketRequest.php and ResolveTicke
 | Validation rules centralized and reusable | ✅ Organized by domain in app/Http/Requests/ |
 
 **DBP-012 COMPLETE** - All 7 phases done, 74 FormRequest classes created, tests passing.
+
+---
+
+## Session: 2026-01-19T11:30:00
+**Task**: DBP-003 - Centralize Quiet Hours Logic
+**Status**: COMPLETED
+
+### Work Done
+Consolidated scattered quiet hours logic from NotificationPreference model and NotificationService into a single QuietHoursService with clear API.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/ValueObjects/QuietHoursConfig.php` | Type-safe value object for quiet hours configuration with factory methods |
+| `app/Services/QuietHoursService.php` | Centralized quiet hours logic with all methods |
+| `tests/Unit/Services/QuietHoursServiceTest.php` | 19 unit tests covering all edge cases |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Models/NotificationPreference.php` | Marked `isInQuietHours()` and `getQuietHoursEnd()` as @deprecated, forwarding to service |
+| `app/Services/NotificationService.php` | Injected QuietHoursService, updated `isInQuietHours()`, `canBypassQuietHours()`, `getQuietHoursEndTime()` to use service |
+
+### QuietHoursService API
+
+| Method | Purpose |
+|--------|---------|
+| `isQuietHours(QuietHoursConfig $config, ?Carbon $now): bool` | Check if current time is within quiet hours |
+| `shouldDefer(QuietHoursConfig $config, string $urgency): bool` | Check if notification should be deferred (respects urgency bypass) |
+| `getNextDeliveryTime(QuietHoursConfig $config): Carbon` | Get next available delivery time after quiet hours |
+| `canBypassQuietHours(string $urgency): bool` | Check if urgency level bypasses quiet hours |
+| `getConfigForUser(User $user, int $landlordId): QuietHoursConfig` | Factory to get config from user preferences |
+
+### QuietHoursConfig Value Object
+
+```php
+final readonly class QuietHoursConfig
+{
+    public function __construct(
+        public bool $enabled,
+        public string $start,    // '22:00' format
+        public string $end,      // '08:00' format
+        public string $timezone, // 'Africa/Nairobi' default
+    ) {}
+
+    public static function fromPreference(NotificationPreference $pref, string $timezone): self
+    public static function disabled(): self
+}
+```
+
+### Test Coverage (19 tests)
+
+- Quiet hours disabled/enabled states
+- Overnight quiet hours (22:00-08:00) before and after midnight
+- Boundary conditions (exact start/end times)
+- Daytime quiet hours
+- Urgency bypass (critical/urgent bypass, important/informational respect)
+- shouldDefer() integration
+- Next delivery time calculation (today vs tomorrow)
+- Multi-timezone support (Africa/Nairobi, UTC, Europe/London)
+- Factory methods
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| Single service handles all quiet hours logic | ✅ QuietHoursService is single source of truth |
+| Supports user timezone preferences | ✅ All operations use user timezone from config |
+| Handles overnight quiet hours (22:00-08:00) correctly | ✅ 4 tests verify overnight handling |
+| Clear API with type hints | ✅ All methods fully typed |
+
+### Verification Results
+- **Pint**: 619 files PASS
+- **Tests**: 554 passed, 12 skipped (pre-existing)
+- **QuietHoursServiceTest**: 19 passed (22 assertions)
+
+**DBP-003 COMPLETE**

@@ -193,8 +193,9 @@
       ],
       "verification": "Unit test: 23:00 with 22:00-08:00 quiet hours returns true; 12:00 returns false",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1,
+      "completion_notes": "Centralized quiet hours logic: (1) Created QuietHoursConfig value object (app/ValueObjects/QuietHoursConfig.php) with fromPreference() and disabled() factory methods; (2) Created QuietHoursService (app/Services/QuietHoursService.php) with isQuietHours(), shouldDefer(), getNextDeliveryTime(), canBypassQuietHours(), getConfigForUser() methods; (3) Updated NotificationPreference model marking isInQuietHours() and getQuietHoursEnd() as @deprecated with forwarding to service; (4) Updated NotificationService to inject QuietHoursService and use it instead of duplicated logic; (5) Created QuietHoursServiceTest with 19 test cases covering disabled state, overnight hours, boundaries, urgency bypass, timezone handling."
     },
     {
       "id": "DBP-004",
