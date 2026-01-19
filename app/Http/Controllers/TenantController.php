@@ -2,6 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Tenant\StoreEmergencyContactRequest;
+use App\Http\Requests\Tenant\StoreTenantNoteRequest;
+use App\Http\Requests\Tenant\UpdateEmergencyContactRequest;
+use App\Http\Requests\Tenant\UpdateTenantNoteRequest;
+use App\Http\Requests\UpdateTenantRequest;
 use App\Models\CreditNote;
 use App\Models\EmergencyContact;
 use App\Models\Invoice;
@@ -323,7 +328,7 @@ class TenantController extends Controller
     /**
      * Update tenant details.
      */
-    public function update(Request $request, User $tenant)
+    public function update(UpdateTenantRequest $request, User $tenant)
     {
         $user = auth()->user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
@@ -332,12 +337,7 @@ class TenantController extends Controller
             abort(403);
         }
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:users,email,'.$tenant->id,
-            'phone' => 'required|string|max:20',
-            'id_number' => 'nullable|string|max:20',
-        ]);
+        $validated = $request->validated();
 
         $tenant->update([
             'name' => $validated['name'],
@@ -522,7 +522,7 @@ class TenantController extends Controller
     /**
      * Add a note to a tenant.
      */
-    public function addNote(Request $request, User $tenant)
+    public function addNote(StoreTenantNoteRequest $request, User $tenant)
     {
         $user = auth()->user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
@@ -531,10 +531,7 @@ class TenantController extends Controller
             abort(403);
         }
 
-        $validated = $request->validate([
-            'content' => 'required|string|max:5000',
-            'is_pinned' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $note = TenantNote::create([
             'landlord_id' => $landlordId,
@@ -558,7 +555,7 @@ class TenantController extends Controller
     /**
      * Update a note.
      */
-    public function updateNote(Request $request, TenantNote $note)
+    public function updateNote(UpdateTenantNoteRequest $request, TenantNote $note)
     {
         $user = auth()->user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
@@ -567,12 +564,7 @@ class TenantController extends Controller
             abort(403);
         }
 
-        $validated = $request->validate([
-            'content' => 'required|string|max:5000',
-            'is_pinned' => 'boolean',
-        ]);
-
-        $note->update($validated);
+        $note->update($request->validated());
 
         return Redirect::back()->with('success', 'Note updated.');
     }
@@ -599,7 +591,7 @@ class TenantController extends Controller
     /**
      * Add an emergency contact.
      */
-    public function addEmergencyContact(Request $request, User $tenant)
+    public function addEmergencyContact(StoreEmergencyContactRequest $request, User $tenant)
     {
         $user = auth()->user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
@@ -608,13 +600,7 @@ class TenantController extends Controller
             abort(403);
         }
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'relationship' => 'required|string|max:100',
-            'phone' => 'required|string|max:20',
-            'email' => 'nullable|email|max:255',
-            'is_primary' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         // If setting as primary, unset others
         if ($validated['is_primary'] ?? false) {
@@ -641,7 +627,7 @@ class TenantController extends Controller
     /**
      * Update an emergency contact.
      */
-    public function updateEmergencyContact(Request $request, EmergencyContact $contact)
+    public function updateEmergencyContact(UpdateEmergencyContactRequest $request, EmergencyContact $contact)
     {
         $user = auth()->user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
@@ -650,13 +636,7 @@ class TenantController extends Controller
             abort(403);
         }
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'relationship' => 'required|string|max:100',
-            'phone' => 'required|string|max:20',
-            'email' => 'nullable|email|max:255',
-            'is_primary' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         // If setting as primary, unset others
         if ($validated['is_primary'] ?? false) {

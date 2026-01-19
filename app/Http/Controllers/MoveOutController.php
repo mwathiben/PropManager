@@ -2,6 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\MoveOut\CancelMoveOutRequest;
+use App\Http\Requests\MoveOut\CompleteMoveOutInspectionRequest;
+use App\Http\Requests\MoveOut\CompleteMoveOutSettlementRequest;
+use App\Http\Requests\MoveOut\StartMoveOutInspectionRequest;
+use App\Http\Requests\MoveOut\StoreMoveOutDeductionRequest;
+use App\Http\Requests\MoveOut\StoreMoveOutRequest;
+use App\Http\Requests\MoveOut\UpdateMoveOutDeductionRequest;
+use App\Http\Requests\MoveOut\UpdateMoveOutRequest;
 use App\Models\Lease;
 use App\Models\MoveOut;
 use App\Models\MoveOutDeduction;
@@ -87,7 +95,7 @@ class MoveOutController extends Controller
     /**
      * Initiate a new move-out process
      */
-    public function store(Request $request, Lease $lease)
+    public function store(StoreMoveOutRequest $request, Lease $lease)
     {
         $user = auth()->user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
@@ -101,11 +109,7 @@ class MoveOutController extends Controller
             return Redirect::back()->withErrors(['lease' => 'Move-out already in progress.']);
         }
 
-        $validated = $request->validate([
-            'notice_date' => 'required|date',
-            'intended_move_out_date' => 'required|date|after_or_equal:notice_date',
-            'reason' => 'nullable|string|max:500',
-        ]);
+        $validated = $request->validated();
 
         try {
             DB::beginTransaction();
@@ -172,7 +176,7 @@ class MoveOutController extends Controller
     /**
      * Update move-out details (dates, notes)
      */
-    public function update(Request $request, MoveOut $moveOut)
+    public function update(UpdateMoveOutRequest $request, MoveOut $moveOut)
     {
         $user = auth()->user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
@@ -185,13 +189,7 @@ class MoveOutController extends Controller
             return Redirect::back()->withErrors(['move_out' => 'Cannot update a completed or cancelled move-out.']);
         }
 
-        $validated = $request->validate([
-            'intended_move_out_date' => 'nullable|date',
-            'actual_move_out_date' => 'nullable|date',
-            'inspection_notes' => 'nullable|string|max:2000',
-        ]);
-
-        $moveOut->update($validated);
+        $moveOut->update($request->validated());
 
         return Redirect::back()->with('success', 'Move-out updated.');
     }
@@ -199,7 +197,7 @@ class MoveOutController extends Controller
     /**
      * Mark actual move-out date and start inspection
      */
-    public function startInspection(Request $request, MoveOut $moveOut)
+    public function startInspection(StartMoveOutInspectionRequest $request, MoveOut $moveOut)
     {
         $user = auth()->user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
@@ -208,9 +206,7 @@ class MoveOutController extends Controller
             abort(403);
         }
 
-        $validated = $request->validate([
-            'actual_move_out_date' => 'required|date',
-        ]);
+        $validated = $request->validated();
 
         $moveOut->update([
             'actual_move_out_date' => $validated['actual_move_out_date'],
@@ -233,7 +229,7 @@ class MoveOutController extends Controller
     /**
      * Add a deduction to the move-out
      */
-    public function addDeduction(Request $request, MoveOut $moveOut)
+    public function addDeduction(StoreMoveOutDeductionRequest $request, MoveOut $moveOut)
     {
         $user = auth()->user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
@@ -246,12 +242,7 @@ class MoveOutController extends Controller
             return Redirect::back()->withErrors(['move_out' => 'Cannot add deductions to completed move-out.']);
         }
 
-        $validated = $request->validate([
-            'description' => 'required|string|max:255',
-            'amount' => 'required|numeric|min:0',
-            'notes' => 'nullable|string|max:500',
-            'photo' => 'nullable|image|max:5120', // 5MB max
-        ]);
+        $validated = $request->validated();
 
         $photoPath = null;
         if ($request->hasFile('photo')) {
@@ -262,7 +253,7 @@ class MoveOutController extends Controller
             'move_out_id' => $moveOut->id,
             'description' => $validated['description'],
             'amount' => $validated['amount'],
-            'notes' => $validated['notes'],
+            'notes' => $validated['notes'] ?? null,
             'photo_path' => $photoPath,
         ]);
 
@@ -276,7 +267,7 @@ class MoveOutController extends Controller
     /**
      * Update a deduction
      */
-    public function updateDeduction(Request $request, MoveOutDeduction $deduction)
+    public function updateDeduction(UpdateMoveOutDeductionRequest $request, MoveOutDeduction $deduction)
     {
         $user = auth()->user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
@@ -290,13 +281,7 @@ class MoveOutController extends Controller
             return Redirect::back()->withErrors(['move_out' => 'Cannot update deductions on completed move-out.']);
         }
 
-        $validated = $request->validate([
-            'description' => 'required|string|max:255',
-            'amount' => 'required|numeric|min:0',
-            'notes' => 'nullable|string|max:500',
-        ]);
-
-        $deduction->update($validated);
+        $deduction->update($request->validated());
 
         // Recalculate refund
         $moveOut->calculateRefund();
@@ -339,7 +324,7 @@ class MoveOutController extends Controller
     /**
      * Complete inspection and move to settlement
      */
-    public function completeInspection(Request $request, MoveOut $moveOut)
+    public function completeInspection(CompleteMoveOutInspectionRequest $request, MoveOut $moveOut)
     {
         $user = auth()->user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
@@ -348,13 +333,11 @@ class MoveOutController extends Controller
             abort(403);
         }
 
-        $validated = $request->validate([
-            'inspection_notes' => 'nullable|string|max:2000',
-        ]);
+        $validated = $request->validated();
 
         $moveOut->update([
             'status' => 'settlement_pending',
-            'inspection_notes' => $validated['inspection_notes'],
+            'inspection_notes' => $validated['inspection_notes'] ?? null,
         ]);
 
         // Recalculate final amounts
@@ -381,7 +364,7 @@ class MoveOutController extends Controller
     /**
      * Complete the move-out process (settle deposit)
      */
-    public function complete(Request $request, MoveOut $moveOut)
+    public function complete(CompleteMoveOutSettlementRequest $request, MoveOut $moveOut)
     {
         $user = auth()->user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
@@ -394,10 +377,7 @@ class MoveOutController extends Controller
             return Redirect::back()->withErrors(['move_out' => 'Inspection must be completed first.']);
         }
 
-        $validated = $request->validate([
-            'settlement_method' => 'required|in:cash,bank_transfer,mobile_money,offset',
-            'settlement_reference' => 'nullable|string|max:255',
-        ]);
+        $validated = $request->validated();
 
         try {
             DB::beginTransaction();
@@ -408,7 +388,7 @@ class MoveOutController extends Controller
             $moveOut->update([
                 'status' => 'completed',
                 'settlement_method' => $validated['settlement_method'],
-                'settlement_reference' => $validated['settlement_reference'],
+                'settlement_reference' => $validated['settlement_reference'] ?? null,
                 'settled_at' => now(),
                 'processed_by' => $user->id,
             ]);
@@ -450,7 +430,7 @@ class MoveOutController extends Controller
     /**
      * Cancel a move-out process
      */
-    public function cancel(Request $request, MoveOut $moveOut)
+    public function cancel(CancelMoveOutRequest $request, MoveOut $moveOut)
     {
         $user = auth()->user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
@@ -463,9 +443,7 @@ class MoveOutController extends Controller
             return Redirect::back()->withErrors(['move_out' => 'Cannot cancel a completed move-out.']);
         }
 
-        $validated = $request->validate([
-            'cancellation_reason' => 'nullable|string|max:500',
-        ]);
+        $validated = $request->validated();
 
         $moveOut->update(['status' => 'cancelled']);
 

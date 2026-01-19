@@ -7507,3 +7507,64 @@ Total rows migrated: 743
 - Better performance at scale with proper indexing
 
 <promise>MYSQL_MIGRATION_COMPLETE</promise>
+
+---
+
+## Session: 2026-01-19 (continued)
+**Task**: DBP-012 Phase 3 - Extract Validation Rules to FormRequest Classes
+**PRD**: design-best-practices-prd.json
+**Status**: COMPLETED
+
+### Work Done
+Extracted 13 inline `$request->validate()` calls from TenantController and MoveOutController into dedicated FormRequest classes.
+
+### Files Created (13 FormRequest classes)
+
+| File | Directory | Source |
+|------|-----------|--------|
+| UpdateTenantRequest.php | app/Http/Requests/ | TenantController::update() |
+| StoreTenantNoteRequest.php | app/Http/Requests/Tenant/ | TenantController::addNote() |
+| UpdateTenantNoteRequest.php | app/Http/Requests/Tenant/ | TenantController::updateNote() |
+| StoreEmergencyContactRequest.php | app/Http/Requests/Tenant/ | TenantController::addEmergencyContact() |
+| UpdateEmergencyContactRequest.php | app/Http/Requests/Tenant/ | TenantController::updateEmergencyContact() |
+| StoreMoveOutRequest.php | app/Http/Requests/MoveOut/ | MoveOutController::store() |
+| UpdateMoveOutRequest.php | app/Http/Requests/MoveOut/ | MoveOutController::update() |
+| StartMoveOutInspectionRequest.php | app/Http/Requests/MoveOut/ | MoveOutController::startInspection() |
+| StoreMoveOutDeductionRequest.php | app/Http/Requests/MoveOut/ | MoveOutController::addDeduction() |
+| UpdateMoveOutDeductionRequest.php | app/Http/Requests/MoveOut/ | MoveOutController::updateDeduction() |
+| CompleteMoveOutInspectionRequest.php | app/Http/Requests/MoveOut/ | MoveOutController::completeInspection() |
+| CompleteMoveOutSettlementRequest.php | app/Http/Requests/MoveOut/ | MoveOutController::complete() |
+| CancelMoveOutRequest.php | app/Http/Requests/MoveOut/ | MoveOutController::cancel() |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| TenantController.php | Added 5 FormRequest imports, updated 5 method signatures |
+| MoveOutController.php | Added 8 FormRequest imports, updated 8 method signatures |
+
+### Acceptance Criteria Verification
+| Criterion | Status |
+|-----------|--------|
+| No inline $request->validate() in controllers | ✅ Removed 13 calls |
+| FormRequest classes for all validated endpoints | ✅ 13 classes created |
+| Custom error messages preserved | ✅ Rules preserved as-is |
+| Validation rules centralized and reusable | ✅ In dedicated directories |
+
+### Verification Commands Run
+- `vendor/bin/pint` - ✅ 572 files PASS
+- `php artisan test --parallel` - ✅ 535 passed, 12 skipped
+- `grep '$request->validate'` - ✅ Returns only $request->validated() calls
+
+### Phase Progress Summary
+- Phase 1: FinancesController - 12 FormRequest classes
+- Phase 2: PaymentController + TenantPaymentController - 5 FormRequest classes
+- Phase 3: TenantController + MoveOutController - 13 FormRequest classes (COMPLETED)
+- **Total FormRequests created so far**: 30 classes
+
+### Next Steps
+- Phase 4: NotificationsController
+- Phase 5: BuildingController + WaterReadingController
+- Phase 6: BulkOperationsController + TicketController
+- Phase 7: SettingsController + ProfileController
+
