@@ -2,6 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Building\AddUnitRequest;
+use App\Http\Requests\Building\StorePropertyBuildingRequest;
+use App\Http\Requests\Building\StoreWingRequest;
+use App\Http\Requests\Building\UpdateAutomationSettingsRequest;
+use App\Http\Requests\Building\UpdateBuildingSettingsRequest;
+use App\Http\Requests\Building\UpdateBuildingWaterSettingsRequest;
+use App\Http\Requests\Building\UpdateUnitsRequest;
 use App\Http\Requests\StoreBuildingRequest;
 use App\Models\Building;
 use App\Models\Unit;
@@ -69,57 +76,23 @@ class BuildingController extends Controller
         return Inertia::render('Buildings/Dashboard', $data);
     }
 
-    public function updateSettings(Request $request, Building $building)
+    public function updateSettings(UpdateBuildingSettingsRequest $request, Building $building)
     {
-        if ($building->landlord_id !== auth()->id()) {
-            abort(403);
-        }
-
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'building_type' => 'required|string|in:'.implode(',', array_keys(Building::BUILDING_TYPES)),
-            'address' => 'nullable|string|max:500',
-            'description' => 'nullable|string|max:2000',
-            'amenities' => 'nullable|array',
-            'amenities.selected' => 'nullable|array',
-            'amenities.custom' => 'nullable|array',
-            'coordinates' => 'nullable|array',
-            'coordinates.lat' => 'nullable|numeric|between:-90,90',
-            'coordinates.lng' => 'nullable|numeric|between:-180,180',
-            'photos' => 'nullable|array',
-        ]);
-
-        $building->update($validated);
+        $building->update($request->validated());
 
         return redirect()->back()->with('success', 'Building settings updated.');
     }
 
-    public function store(Request $request, $propertyId)
+    public function store(StorePropertyBuildingRequest $request, $propertyId)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'floors' => 'required|integer|min:1',
-            'units_per_floor' => 'required|integer|min:1',
-        ]);
-
-        $this->buildingService->createBuilding($propertyId, $validated, auth()->id());
+        $this->buildingService->createBuilding($propertyId, $request->validated(), auth()->id());
 
         return redirect()->back();
     }
 
-    public function storeWing(Request $request, Building $building)
+    public function storeWing(StoreWingRequest $request, Building $building)
     {
-        if ($building->landlord_id !== auth()->id()) {
-            abort(403);
-        }
-
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'unit_prefix' => 'required|string|max:3',
-            'floors' => 'required|integer|min:1|max:100',
-            'units_per_floor' => 'required|integer|min:1|max:50',
-        ]);
-
+        $validated = $request->validated();
         $prefix = strtoupper($validated['unit_prefix']);
         $existingPrefixes = $building->wings()->pluck('unit_prefix')->toArray();
 
@@ -150,32 +123,23 @@ class BuildingController extends Controller
         ]);
     }
 
-    public function updateUnits(Request $request, Building $building)
+    public function updateUnits(UpdateUnitsRequest $request, Building $building)
     {
-        $request->validate([
-            'selectedUnitIds' => 'required|array',
-            'action' => 'required|string',
-            'value' => 'nullable',
-        ]);
+        $validated = $request->validated();
 
         $this->buildingService->bulkUpdateUnits(
             $building,
-            $request->selectedUnitIds,
-            $request->action,
-            $request->value
+            $validated['selectedUnitIds'],
+            $validated['action'],
+            $validated['value'] ?? null
         );
 
         return redirect()->back();
     }
 
-    public function addUnit(Request $request, Building $building)
+    public function addUnit(AddUnitRequest $request, Building $building)
     {
-        $validated = $request->validate([
-            'floor_number' => 'required',
-            'unit_number' => 'required',
-            'target_rent' => 'required|numeric',
-            'unit_type' => 'required|string',
-        ]);
+        $validated = $request->validated();
 
         $exists = Unit::where('building_id', $building->id)
             ->where('unit_number', (string) $validated['unit_number'])
@@ -197,36 +161,23 @@ class BuildingController extends Controller
         ]);
     }
 
-    public function updateWaterSettings(Request $request, Building $building)
+    public function updateWaterSettings(UpdateBuildingWaterSettingsRequest $request, Building $building)
     {
-        $request->validate([
-            'water_billing_type' => 'nullable|in:consumption,flat_rate',
-            'water_flat_rate' => 'nullable|numeric|min:0|required_if:water_billing_type,flat_rate',
-        ]);
+        $validated = $request->validated();
 
         $building->update([
-            'water_billing_type' => $request->water_billing_type,
-            'water_flat_rate' => $request->water_billing_type === 'flat_rate'
-                ? $request->water_flat_rate
+            'water_billing_type' => $validated['water_billing_type'] ?? null,
+            'water_flat_rate' => ($validated['water_billing_type'] ?? null) === 'flat_rate'
+                ? ($validated['water_flat_rate'] ?? null)
                 : null,
         ]);
 
         return redirect()->back()->with('success', 'Water settings updated successfully.');
     }
 
-    public function updateAutomationSettings(Request $request, Building $building)
+    public function updateAutomationSettings(UpdateAutomationSettingsRequest $request, Building $building)
     {
-        if ($building->landlord_id !== auth()->id()) {
-            abort(403);
-        }
-
-        $validated = $request->validate([
-            'auto_generate_invoices' => 'boolean',
-            'invoice_generation_day' => 'required_if:auto_generate_invoices,true|integer|min:1|max:28',
-            'auto_send_invoices' => 'boolean',
-        ]);
-
-        $building->update($validated);
+        $building->update($request->validated());
 
         return redirect()->back()->with('success', 'Invoice automation settings updated.');
     }

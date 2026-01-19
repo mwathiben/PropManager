@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreWaterReadingRequest;
+use App\Http\Requests\WaterReading\ApproveWaterReadingRequest;
+use App\Http\Requests\WaterReading\RejectWaterReadingRequest;
+use App\Http\Requests\WaterReading\UpdateWaterReadingRequest;
 use App\Models\WaterReading;
 use App\Services\WaterReadingService;
 use Illuminate\Http\Request;
@@ -67,12 +70,9 @@ class WaterReadingController extends Controller
         ]);
     }
 
-    public function update(Request $request, WaterReading $reading)
+    public function update(UpdateWaterReadingRequest $request, WaterReading $reading)
     {
-        $validated = $request->validate([
-            'current_reading' => 'required|numeric|min:0',
-            'reading_date' => 'required|date',
-        ]);
+        $validated = $request->validated();
 
         $error = $this->waterReadingService->validateReadingUpdate($reading, $validated['current_reading']);
         if ($error) {
@@ -118,12 +118,8 @@ class WaterReadingController extends Controller
         ]);
     }
 
-    public function approve(Request $request, WaterReading $reading)
+    public function approve(ApproveWaterReadingRequest $request, WaterReading $reading)
     {
-        if (auth()->user()->role !== 'landlord') {
-            return redirect()->back()->with('error', 'Only landlords can approve water readings.');
-        }
-
         if ($reading->status === 'approved') {
             return redirect()->back()->with('error', 'Reading is already approved.');
         }
@@ -132,21 +128,14 @@ class WaterReadingController extends Controller
             return redirect()->back()->with('error', 'Cannot approve reading that has been invoiced.');
         }
 
-        $validated = $request->validate([
-            'notes' => 'nullable|string|max:500',
-        ]);
-
+        $validated = $request->validated();
         $reading->approve(auth()->id(), $validated['notes'] ?? null);
 
         return redirect()->back()->with('success', 'Water reading approved successfully.');
     }
 
-    public function reject(Request $request, WaterReading $reading)
+    public function reject(RejectWaterReadingRequest $request, WaterReading $reading)
     {
-        if (auth()->user()->role !== 'landlord') {
-            return redirect()->back()->with('error', 'Only landlords can reject water readings.');
-        }
-
         if ($reading->status === 'rejected') {
             return redirect()->back()->with('error', 'Reading is already rejected.');
         }
@@ -155,10 +144,7 @@ class WaterReadingController extends Controller
             return redirect()->back()->with('error', 'Cannot reject reading that has been invoiced.');
         }
 
-        $validated = $request->validate([
-            'reason' => 'required|string|max:500',
-        ]);
-
+        $validated = $request->validated();
         $reading->reject(auth()->id(), $validated['reason']);
 
         return redirect()->back()->with('success', 'Water reading rejected successfully.');

@@ -7622,3 +7622,68 @@ Extracted 11 inline `$request->validate()` calls from NotificationsController in
 - Phase 5: BuildingController + WaterReadingController
 - Phase 6: BulkOperationsController + TicketController
 - Phase 7: SettingsController + ProfileController
+
+---
+
+## DBP-012 Phase 5: BuildingController + WaterReadingController FormRequest Extraction
+**Status:** COMPLETED
+**Date:** 2026-01-19
+**Attempts:** 1
+
+### Implementation Summary
+
+Extracted 10 inline `$request->validate()` calls from BuildingController (7) and WaterReadingController (3) into dedicated FormRequest classes.
+
+### Files Created (10 FormRequest classes)
+
+**Building FormRequests (app/Http/Requests/Building/):**
+| File | Source Method |
+|------|---------------|
+| UpdateBuildingSettingsRequest.php | BuildingController::updateSettings() |
+| StorePropertyBuildingRequest.php | BuildingController::store() |
+| StoreWingRequest.php | BuildingController::storeWing() |
+| UpdateUnitsRequest.php | BuildingController::updateUnits() |
+| AddUnitRequest.php | BuildingController::addUnit() |
+| UpdateBuildingWaterSettingsRequest.php | BuildingController::updateWaterSettings() |
+| UpdateAutomationSettingsRequest.php | BuildingController::updateAutomationSettings() |
+
+**WaterReading FormRequests (app/Http/Requests/WaterReading/):**
+| File | Source Method |
+|------|---------------|
+| UpdateWaterReadingRequest.php | WaterReadingController::update() |
+| ApproveWaterReadingRequest.php | WaterReadingController::approve() |
+| RejectWaterReadingRequest.php | WaterReadingController::reject() |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| BuildingController.php | Added 7 FormRequest imports, updated 7 method signatures, removed inline validation |
+| WaterReadingController.php | Added 3 FormRequest imports, updated 3 method signatures, removed inline validation |
+
+### Authorization Moved to FormRequests
+
+Several FormRequests include authorization logic previously in controllers:
+- `UpdateBuildingSettingsRequest`: Checks `$building->landlord_id === auth()->id()`
+- `StoreWingRequest`: Checks `$building->landlord_id === auth()->id()`
+- `UpdateAutomationSettingsRequest`: Checks `$building->landlord_id === auth()->id()`
+- `ApproveWaterReadingRequest`: Checks `auth()->user()->role === 'landlord'`
+- `RejectWaterReadingRequest`: Checks `auth()->user()->role === 'landlord'`
+
+### Verification Commands Run
+- `vendor/bin/pint` - ✅ 593 files PASS
+- `php artisan test --parallel` - ✅ 535 passed, 12 skipped
+- `grep '$request->validate' BuildingController.php` - ✅ No matches
+- `grep '$request->validate' WaterReadingController.php` - ✅ No matches
+
+### Phase Progress Summary
+- Phase 1: FinancesController - 12 FormRequest classes
+- Phase 2: PaymentController + TenantPaymentController - 5 FormRequest classes
+- Phase 3: TenantController + MoveOutController - 13 FormRequest classes
+- Phase 4: NotificationsController - 11 FormRequest classes
+- Phase 5: BuildingController + WaterReadingController - 10 FormRequest classes (COMPLETED)
+- **Total FormRequests created so far**: 51 classes
+
+### Next Steps
+- Phase 6: BulkOperationsController + TicketController
+- Phase 7: SettingsController + ProfileController
