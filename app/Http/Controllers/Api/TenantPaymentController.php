@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\CheckMpesaStatusRequest;
 use App\Http\Requests\Api\InitiateMpesaPaymentRequest;
 use App\Http\Requests\Api\InitiatePaystackPaymentRequest;
 use App\Http\Resources\PaymentResource;
@@ -115,13 +116,10 @@ class TenantPaymentController extends Controller
         ]);
     }
 
-    public function checkMpesaStatus(Request $request)
+    public function checkMpesaStatus(CheckMpesaStatusRequest $request)
     {
-        $request->validate([
-            'checkout_request_id' => 'required|string',
-        ]);
-
-        $checkoutRequestId = $request->checkout_request_id;
+        $validated = $request->validated();
+        $checkoutRequestId = $validated['checkout_request_id'];
 
         $payment = Payment::where('mpesa_checkout_request_id', $checkoutRequestId)->first();
 

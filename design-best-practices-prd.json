@@ -586,12 +586,13 @@
       "verification": "Submit invalid data to endpoint; verify correct validation error returned",
       "estimated_effort": "large",
       "passes": false,
-      "attempt_count": 1,
-      "phase_progress": "Phase 1 of 7 complete (FinancesController - 12 FormRequest classes created)",
+      "attempt_count": 2,
+      "phase_progress": "Phase 2 of 7 complete (PaymentController + TenantPaymentController - 5 FormRequest classes created)",
       "phases_completed": {
-        "phase_1": "FinancesController: Created 12 FormRequest classes (MatchPaymentRequest, RefundDepositRequest, ForfeitDepositRequest, StoreLateFeeRuleRequest, UpdateLateFeeRuleRequest, WaiveLateFeeRequest, StoreExpenseRequest, UpdateExpenseRequest, StoreExpenseCategoryRequest, UpdateExpenseCategoryRequest, StoreVendorRequest, UpdateVendorRequest) in app/Http/Requests/Finance/. Removed 14 inline $request->validate() calls."
+        "phase_1": "FinancesController: Created 12 FormRequest classes (MatchPaymentRequest, RefundDepositRequest, ForfeitDepositRequest, StoreLateFeeRuleRequest, UpdateLateFeeRuleRequest, WaiveLateFeeRequest, StoreExpenseRequest, UpdateExpenseRequest, StoreExpenseCategoryRequest, UpdateExpenseCategoryRequest, StoreVendorRequest, UpdateVendorRequest) in app/Http/Requests/Finance/. Removed 14 inline $request->validate() calls.",
+        "phase_2": "PaymentController + TenantPaymentController: Created 5 FormRequest classes (VoidPaymentRequest, ValidateBulkImportRequest, ProcessBulkImportRequest, InitializePaystackRequest in app/Http/Requests/Payment/, CheckMpesaStatusRequest in app/Http/Requests/Api/). Removed 6 inline $request->validate() calls. Updated processCurrentImport and processHistoricalImport to accept validated array instead of Request."
       },
-      "phases_remaining": ["phase_2: PaymentController", "phase_3: TenantController + MoveOutController", "phase_4: NotificationsController", "phase_5: BuildingController + WaterReadingController", "phase_6: BulkOperationsController + TicketController", "phase_7: SettingsController + ProfileController"]
+      "phases_remaining": ["phase_3: TenantController + MoveOutController", "phase_4: NotificationsController", "phase_5: BuildingController + WaterReadingController", "phase_6: BulkOperationsController + TicketController", "phase_7: SettingsController + ProfileController"]
     },
     {
       "id": "DBP-013",

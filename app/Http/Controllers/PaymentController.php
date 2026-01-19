@@ -3,6 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Events\PaymentReceived as PaymentReceivedEvent;
+use App\Http\Requests\Payment\InitializePaystackRequest;
+use App\Http\Requests\Payment\ProcessBulkImportRequest;
+use App\Http\Requests\Payment\ValidateBulkImportRequest;
+use App\Http\Requests\Payment\VoidPaymentRequest;
 use App\Http\Requests\StorePaymentRequest;
 use App\Http\Traits\WithLandlordScope;
 use App\Mail\OverpaymentNotification;
@@ -298,11 +302,9 @@ class PaymentController extends Controller
     /**
      * Initialize Paystack payment with split payment support
      */
-    public function initializePaystack(Request $request, Invoice $invoice)
+    public function initializePaystack(InitializePaystackRequest $request, Invoice $invoice)
     {
-        $request->validate([
-            'amount' => 'required|numeric|min:1|max:'.($invoice->total_due - $invoice->amount_paid),
-        ]);
+        $validated = $request->validated();
 
         $lease = $invoice->lease;
         if (! $lease || ! $lease->tenant) {
@@ -784,13 +786,11 @@ class PaymentController extends Controller
     /**
      * Void a payment
      */
-    public function void(Request $request, Payment $payment)
+    public function void(VoidPaymentRequest $request, Payment $payment)
     {
         $this->authorize('downloadReceipt', $payment);
 
-        $request->validate([
-            'reason' => 'required|string|max:500',
-        ]);
+        $validated = $request->validated();
 
         if ($payment->is_voided) {
             return back()->withErrors(['error' => 'Payment is already voided.']);
@@ -802,7 +802,7 @@ class PaymentController extends Controller
             $payment->update([
                 'is_voided' => true,
                 'voided_at' => now(),
-                'void_reason' => $request->reason,
+                'void_reason' => $validated['reason'],
             ]);
 
             if ($payment->invoice_id) {
@@ -984,23 +984,15 @@ class PaymentController extends Controller
     /**
      * Validate CSV and return preview.
      */
-    public function validateBulkImport(Request $request)
+    public function validateBulkImport(ValidateBulkImportRequest $request)
     {
-        $request->validate([
-            'file' => 'required|file|mimes:csv,txt|max:5120',
-            'building_id' => 'required|integer|exists:buildings,id',
-            'mode' => 'required|in:current,historical',
-        ]);
+        $validated = $request->validated();
 
         /** @var \App\Models\User $user */
         $user = Auth::user();
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
-            abort(403, 'Access denied.');
-        }
-
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
-        $buildingId = $request->input('building_id');
-        $mode = $request->input('mode');
+        $buildingId = $validated['building_id'];
+        $mode = $validated['mode'];
 
         $building = Building::where('id', $buildingId)
             ->where('landlord_id', $landlordId)
@@ -1496,37 +1488,25 @@ class PaymentController extends Controller
     /**
      * Process validated bulk import.
      */
-    public function processBulkImport(Request $request)
+    public function processBulkImport(ProcessBulkImportRequest $request)
     {
-        $mode = $request->input('mode', 'current');
+        $validated = $request->validated();
+        $mode = $validated['mode'] ?? 'current';
 
         if ($mode === 'historical') {
-            return $this->processHistoricalImport($request);
+            return $this->processHistoricalImport($validated);
         }
 
-        return $this->processCurrentImport($request);
+        return $this->processCurrentImport($validated);
     }
 
     /**
      * Process current tenant bulk import.
      */
-    private function processCurrentImport(Request $request)
+    private function processCurrentImport(array $validated)
     {
-        $request->validate([
-            'payments' => 'required|array|min:1',
-            'payments.*.tenant_id' => 'required|integer',
-            'payments.*.amount' => 'required|numeric|min:0.01',
-            'payments.*.payment_date' => 'required|date',
-            'payments.*.payment_method' => 'required|string',
-            'payments.*.allocations' => 'present|array',
-        ]);
-
         /** @var \App\Models\User $user */
         $user = Auth::user();
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
-            abort(403, 'Access denied.');
-        }
-
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         $successCount = 0;
@@ -1537,7 +1517,7 @@ class PaymentController extends Controller
         DB::beginTransaction();
 
         try {
-            foreach ($request->payments as $paymentData) {
+            foreach ($validated['payments'] as $paymentData) {
                 foreach ($paymentData['allocations'] as $allocation) {
                     $invoice = Invoice::where('id', $allocation['invoice_id'])
                         ->where('landlord_id', $landlordId)
@@ -1600,7 +1580,7 @@ class PaymentController extends Controller
             return response()->json([
                 'success' => false,
                 'success_count' => 0,
-                'failed_count' => count($request->payments),
+                'failed_count' => count($validated['payments']),
                 'total_amount' => 0,
                 'errors' => [['error' => $e->getMessage()]],
                 'error' => 'Bulk import failed: '.$e->getMessage(),
@@ -1611,26 +1591,12 @@ class PaymentController extends Controller
     /**
      * Process historical data bulk import.
      */
-    private function processHistoricalImport(Request $request)
+    private function processHistoricalImport(array $validated)
     {
-        $request->validate([
-            'payments' => 'required|array|min:1',
-            'payments.*.unit_id' => 'required|integer',
-            'payments.*.tenant_name' => 'required|string',
-            'payments.*.amount' => 'required|numeric|min:0.01',
-            'payments.*.payment_date' => 'required|date',
-            'payments.*.payment_method' => 'required|string',
-            'building_id' => 'required|integer',
-        ]);
-
         /** @var \App\Models\User $user */
         $user = Auth::user();
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
-            abort(403, 'Access denied.');
-        }
-
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
-        $buildingId = $request->input('building_id');
+        $buildingId = $validated['building_id'];
 
         $successCount = 0;
         $failedCount = 0;
@@ -1641,7 +1607,7 @@ class PaymentController extends Controller
         DB::beginTransaction();
 
         try {
-            foreach ($request->payments as $paymentData) {
+            foreach ($validated['payments'] as $paymentData) {
                 $unitId = $paymentData['unit_id'];
                 $tenantName = $paymentData['tenant_name'];
                 $tenantEmail = $paymentData['tenant_email'] ?? null;
@@ -1693,7 +1659,7 @@ class PaymentController extends Controller
             return response()->json([
                 'success' => false,
                 'success_count' => 0,
-                'failed_count' => count($request->payments),
+                'failed_count' => count($validated['payments']),
                 'total_amount' => 0,
                 'archived_tenants_created' => 0,
                 'errors' => [['error' => $e->getMessage()]],

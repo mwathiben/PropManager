@@ -6824,3 +6824,65 @@ This is Phase 1 of 7 for DBP-012. Remaining phases:
 - Phase 7: SettingsController + ProfileController (9 validations)
 
 ---
+
+## DBP-012 Phase 2: Extract Validation Rules (PaymentController + TenantPaymentController)
+**Status:** COMPLETED
+**Date:** 2026-01-19
+**Attempts:** 1
+
+### Implementation Summary
+
+Extracted 6 inline `$request->validate()` calls from PaymentController and TenantPaymentController into 5 FormRequest classes.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Http/Requests/Payment/VoidPaymentRequest.php` | Validates void reason (string, max:500) |
+| `app/Http/Requests/Payment/ValidateBulkImportRequest.php` | Validates bulk import file, building_id (with tenant scope), mode |
+| `app/Http/Requests/Payment/ProcessBulkImportRequest.php` | Validates payments array for both current and historical modes |
+| `app/Http/Requests/Payment/InitializePaystackRequest.php` | Validates payment amount with dynamic max based on invoice balance |
+| `app/Http/Requests/Api/CheckMpesaStatusRequest.php` | Validates checkout_request_id for M-Pesa status check |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/PaymentController.php` | Added 4 FormRequest imports; Updated 5 method signatures; Removed inline validations; Changed processCurrentImport and processHistoricalImport to accept validated array instead of Request |
+| `app/Http/Controllers/Api/TenantPaymentController.php` | Added CheckMpesaStatusRequest import; Updated checkMpesaStatus method signature |
+
+### Methods Updated
+
+1. `initializePaystack()` → `InitializePaystackRequest`
+2. `void()` → `VoidPaymentRequest`
+3. `validateBulkImport()` → `ValidateBulkImportRequest`
+4. `processBulkImport()` → `ProcessBulkImportRequest`
+5. `processCurrentImport()` → Accepts `array $validated` (private method)
+6. `processHistoricalImport()` → Accepts `array $validated` (private method)
+7. `checkMpesaStatus()` → `CheckMpesaStatusRequest`
+
+### Key Implementation Details
+
+- **ProcessBulkImportRequest** handles both current and historical modes by checking the `mode` input and returning appropriate rules
+- **InitializePaystackRequest** uses `$this->route('invoice')` to dynamically calculate max amount based on remaining invoice balance
+- **ValidateBulkImportRequest** includes tenant scoping via `Rule::exists()` with `where('landlord_id', $landlordId)`
+- Private methods `processCurrentImport` and `processHistoricalImport` were refactored to accept `array $validated` instead of `Request $request` since validation now happens at the route level
+
+### Verification Results
+
+- Pint: PASS (555 files)
+- Tests: 513 passed, 12 skipped
+- Build: Success (18.01s)
+- Grep for `$request->validate(` in PaymentController: 0 matches
+- Grep for `$request->validate(` in TenantPaymentController: 0 matches
+
+### Phase Progress
+
+This is Phase 2 of 7 for DBP-012. Remaining phases:
+- Phase 3: TenantController + MoveOutController (13 validations)
+- Phase 4: NotificationsController (13+ validations)
+- Phase 5: BuildingController + WaterReadingController (10 validations)
+- Phase 6: BulkOperationsController + TicketController (14 validations)
+- Phase 7: SettingsController + ProfileController (9 validations)
+
+---
