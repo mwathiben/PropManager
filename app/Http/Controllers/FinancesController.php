@@ -2,6 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Finance\ForfeitDepositRequest;
+use App\Http\Requests\Finance\MatchPaymentRequest;
+use App\Http\Requests\Finance\RefundDepositRequest;
+use App\Http\Requests\Finance\StoreExpenseCategoryRequest;
+use App\Http\Requests\Finance\StoreExpenseRequest;
+use App\Http\Requests\Finance\StoreLateFeeRuleRequest;
+use App\Http\Requests\Finance\StoreVendorRequest;
+use App\Http\Requests\Finance\UpdateExpenseCategoryRequest;
+use App\Http\Requests\Finance\UpdateExpenseRequest;
+use App\Http\Requests\Finance\UpdateLateFeeRuleRequest;
+use App\Http\Requests\Finance\UpdateVendorRequest;
+use App\Http\Requests\Finance\WaiveLateFeeRequest;
 use App\Http\Requests\UpdateFiscalYearSettingsRequest;
 use App\Http\Requests\UpdateInvoiceSettingsRequest;
 use App\Http\Requests\UpdatePaymentMethodsRequest;
@@ -463,17 +475,13 @@ class FinancesController extends Controller
         ])->stream('receipt-preview.pdf');
     }
 
-    public function matchPayment(Request $request, Payment $payment): RedirectResponse
+    public function matchPayment(MatchPaymentRequest $request, Payment $payment): RedirectResponse
     {
         $landlordId = $this->getLandlordId();
 
         if ($payment->landlord_id !== $landlordId) {
             abort(403);
         }
-
-        $request->validate([
-            'invoice_id' => 'required|exists:invoices,id',
-        ]);
 
         $invoice = Invoice::where('landlord_id', $landlordId)
             ->where('id', $request->invoice_id)
@@ -493,19 +501,13 @@ class FinancesController extends Controller
         return back()->with('success', 'Payment matched to invoice successfully.');
     }
 
-    public function refundDeposit(Request $request, Lease $lease): RedirectResponse
+    public function refundDeposit(RefundDepositRequest $request, Lease $lease): RedirectResponse
     {
         $landlordId = $this->getLandlordId();
 
         if ($lease->landlord_id !== $landlordId) {
             abort(403);
         }
-
-        $request->validate([
-            'refund_amount' => 'required|numeric|min:0|max:'.$lease->deposit_amount,
-            'deductions' => 'nullable|numeric|min:0|max:'.$lease->deposit_amount,
-            'deduction_reason' => 'nullable|string|max:500',
-        ]);
 
         if ($lease->deposit_status !== 'held') {
             return back()->withErrors(['error' => 'This deposit has already been processed.']);
@@ -563,17 +565,13 @@ class FinancesController extends Controller
         return back()->with('success', 'Deposit refund processed successfully.');
     }
 
-    public function forfeitDeposit(Request $request, Lease $lease): RedirectResponse
+    public function forfeitDeposit(ForfeitDepositRequest $request, Lease $lease): RedirectResponse
     {
         $landlordId = $this->getLandlordId();
 
         if ($lease->landlord_id !== $landlordId) {
             abort(403);
         }
-
-        $request->validate([
-            'reason' => 'required|string|max:500',
-        ]);
 
         if ($lease->deposit_status !== 'held') {
             return back()->withErrors(['error' => 'This deposit has already been processed.']);
@@ -679,21 +677,9 @@ class FinancesController extends Controller
         ]);
     }
 
-    public function storeLateFeePolicy(Request $request): RedirectResponse
+    public function storeLateFeePolicy(StoreLateFeeRuleRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'property_id' => 'nullable|exists:properties,id',
-            'building_id' => 'nullable|exists:buildings,id',
-            'grace_period_days' => 'required|integer|min:0|max:60',
-            'fee_type' => 'required|in:percentage,flat_amount',
-            'fee_percentage' => 'required_if:fee_type,percentage|nullable|numeric|min:0|max:100',
-            'fee_amount' => 'required_if:fee_type,flat_amount|nullable|numeric|min:0',
-            'is_compounding' => 'boolean',
-            'compounding_frequency' => 'nullable|in:daily,weekly,monthly',
-            'max_fee_cap' => 'nullable|numeric|min:0',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $validated['priority'] = match (true) {
             isset($validated['building_id']) && $validated['building_id'] => 30,
@@ -708,23 +694,11 @@ class FinancesController extends Controller
         return back()->with('success', 'Late fee policy created successfully.');
     }
 
-    public function updateLateFeePolicy(Request $request, LateFeePolicy $policy): RedirectResponse
+    public function updateLateFeePolicy(UpdateLateFeeRuleRequest $request, LateFeePolicy $policy): RedirectResponse
     {
         $this->authorize('update', $policy);
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'property_id' => 'nullable|exists:properties,id',
-            'building_id' => 'nullable|exists:buildings,id',
-            'grace_period_days' => 'required|integer|min:0|max:60',
-            'fee_type' => 'required|in:percentage,flat_amount',
-            'fee_percentage' => 'required_if:fee_type,percentage|nullable|numeric|min:0|max:100',
-            'fee_amount' => 'required_if:fee_type,flat_amount|nullable|numeric|min:0',
-            'is_compounding' => 'boolean',
-            'compounding_frequency' => 'nullable|in:daily,weekly,monthly',
-            'max_fee_cap' => 'nullable|numeric|min:0',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $validated['priority'] = match (true) {
             isset($validated['building_id']) && $validated['building_id'] => 30,
@@ -761,7 +735,7 @@ class FinancesController extends Controller
         return back()->with('success', "Late fee policy {$status} successfully.");
     }
 
-    public function waiveLateFee(Request $request, LateFee $lateFee, LateFeeService $service): RedirectResponse
+    public function waiveLateFee(WaiveLateFeeRequest $request, LateFee $lateFee, LateFeeService $service): RedirectResponse
     {
         $landlordId = $this->getLandlordId();
 
@@ -769,26 +743,18 @@ class FinancesController extends Controller
             abort(403);
         }
 
-        $request->validate([
-            'reason' => 'required|string|min:10|max:500',
-        ]);
-
         $service->waiveLateFee($lateFee, auth()->id(), $request->reason);
 
         return back()->with('success', 'Late fee waived successfully.');
     }
 
-    public function waiveAllLateFees(Request $request, Invoice $invoice, LateFeeService $service): RedirectResponse
+    public function waiveAllLateFees(WaiveLateFeeRequest $request, Invoice $invoice, LateFeeService $service): RedirectResponse
     {
         $landlordId = $this->getLandlordId();
 
         if ($invoice->landlord_id !== $landlordId) {
             abort(403);
         }
-
-        $request->validate([
-            'reason' => 'required|string|min:10|max:500',
-        ]);
 
         $count = $service->waiveAllFeesForInvoice($invoice, auth()->id(), $request->reason);
 
@@ -836,23 +802,9 @@ class FinancesController extends Controller
         ]);
     }
 
-    public function storeExpense(Request $request): RedirectResponse
+    public function storeExpense(StoreExpenseRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'category_id' => 'nullable|exists:expense_categories,id',
-            'vendor_id' => 'nullable|exists:vendors,id',
-            'property_id' => 'nullable|exists:properties,id',
-            'building_id' => 'nullable|exists:buildings,id',
-            'unit_id' => 'nullable|exists:units,id',
-            'description' => 'required|string|max:255',
-            'amount' => 'required|numeric|min:0.01',
-            'expense_date' => 'required|date',
-            'payment_method' => 'nullable|string|max:50',
-            'reference' => 'nullable|string|max:100',
-            'notes' => 'nullable|string|max:1000',
-            'is_recurring' => 'boolean',
-            'recurring_frequency' => 'nullable|in:weekly,monthly,quarterly,yearly',
-        ]);
+        $validated = $request->validated();
 
         $this->authorize('create', Expense::class);
 
@@ -861,27 +813,11 @@ class FinancesController extends Controller
         return back()->with('success', 'Expense recorded successfully.');
     }
 
-    public function updateExpense(Request $request, Expense $expense): RedirectResponse
+    public function updateExpense(UpdateExpenseRequest $request, Expense $expense): RedirectResponse
     {
         $this->authorize('update', $expense);
 
-        $validated = $request->validate([
-            'category_id' => 'nullable|exists:expense_categories,id',
-            'vendor_id' => 'nullable|exists:vendors,id',
-            'property_id' => 'nullable|exists:properties,id',
-            'building_id' => 'nullable|exists:buildings,id',
-            'unit_id' => 'nullable|exists:units,id',
-            'description' => 'required|string|max:255',
-            'amount' => 'required|numeric|min:0.01',
-            'expense_date' => 'required|date',
-            'payment_method' => 'nullable|string|max:50',
-            'reference' => 'nullable|string|max:100',
-            'notes' => 'nullable|string|max:1000',
-            'is_recurring' => 'boolean',
-            'recurring_frequency' => 'nullable|in:weekly,monthly,quarterly,yearly',
-        ]);
-
-        $expense->update($validated);
+        $expense->update($request->validated());
 
         return back()->with('success', 'Expense updated successfully.');
     }
@@ -925,14 +861,9 @@ class FinancesController extends Controller
         ], 60, 300);
     }
 
-    public function storeExpenseCategory(Request $request): RedirectResponse
+    public function storeExpenseCategory(StoreExpenseCategoryRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:100',
-            'description' => 'nullable|string|max:255',
-            'color' => 'nullable|string|max:7',
-        ]);
-
+        $validated = $request->validated();
         $validated['is_active'] = true;
 
         $this->authorize('create', ExpenseCategory::class);
@@ -942,18 +873,11 @@ class FinancesController extends Controller
         return back()->with('success', 'Category created successfully.');
     }
 
-    public function updateExpenseCategory(Request $request, ExpenseCategory $category): RedirectResponse
+    public function updateExpenseCategory(UpdateExpenseCategoryRequest $request, ExpenseCategory $category): RedirectResponse
     {
         $this->authorize('update', $category);
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:100',
-            'description' => 'nullable|string|max:255',
-            'color' => 'nullable|string|max:7',
-            'is_active' => 'boolean',
-        ]);
-
-        $category->update($validated);
+        $category->update($request->validated());
 
         return back()->with('success', 'Category updated successfully.');
     }
@@ -971,18 +895,9 @@ class FinancesController extends Controller
         return back()->with('success', 'Category deleted successfully.');
     }
 
-    public function storeVendor(Request $request): RedirectResponse
+    public function storeVendor(StoreVendorRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'contact_person' => 'nullable|string|max:255',
-            'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:50',
-            'address' => 'nullable|string|max:500',
-            'tax_id' => 'nullable|string|max:50',
-            'notes' => 'nullable|string|max:1000',
-        ]);
-
+        $validated = $request->validated();
         $validated['is_active'] = true;
 
         $this->authorize('create', Vendor::class);
@@ -992,22 +907,11 @@ class FinancesController extends Controller
         return back()->with('success', 'Vendor created successfully.');
     }
 
-    public function updateVendor(Request $request, Vendor $vendor): RedirectResponse
+    public function updateVendor(UpdateVendorRequest $request, Vendor $vendor): RedirectResponse
     {
         $this->authorize('update', $vendor);
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'contact_person' => 'nullable|string|max:255',
-            'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:50',
-            'address' => 'nullable|string|max:500',
-            'tax_id' => 'nullable|string|max:50',
-            'notes' => 'nullable|string|max:1000',
-            'is_active' => 'boolean',
-        ]);
-
-        $vendor->update($validated);
+        $vendor->update($request->validated());
 
         return back()->with('success', 'Vendor updated successfully.');
     }

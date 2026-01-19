@@ -6755,3 +6755,72 @@ None
 - DBP-012: Extract Validation Rules to FormRequest Classes (HIGH priority)
 - DBP-016: Remove Console Statements from Production Code (HIGH priority)
 - DBP-020: Fix N+1 Queries in PaymentController Bulk Import (HIGH priority)
+
+---
+
+## DBP-012 Phase 1: Extract Validation Rules (FinancesController)
+**Status:** COMPLETED
+**Date:** 2026-01-19
+**Attempts:** 1
+
+### Implementation Summary
+
+Extracted 14 inline `$request->validate()` calls from FinancesController into 12 FormRequest classes following established patterns.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Http/Requests/Finance/MatchPaymentRequest.php` | Validates invoice_id for payment matching |
+| `app/Http/Requests/Finance/RefundDepositRequest.php` | Validates refund_amount, deductions, deduction_reason with dynamic max from lease |
+| `app/Http/Requests/Finance/ForfeitDepositRequest.php` | Validates forfeit reason |
+| `app/Http/Requests/Finance/StoreLateFeeRuleRequest.php` | Validates late fee policy creation (name, grace_period, fee_type, etc.) |
+| `app/Http/Requests/Finance/UpdateLateFeeRuleRequest.php` | Validates late fee policy updates |
+| `app/Http/Requests/Finance/WaiveLateFeeRequest.php` | Validates waiver reason (min:10, max:500) with custom message |
+| `app/Http/Requests/Finance/StoreExpenseRequest.php` | Validates expense creation (description, amount, date, recurring settings) |
+| `app/Http/Requests/Finance/UpdateExpenseRequest.php` | Validates expense updates |
+| `app/Http/Requests/Finance/StoreExpenseCategoryRequest.php` | Validates category creation (name, description, color) |
+| `app/Http/Requests/Finance/UpdateExpenseCategoryRequest.php` | Validates category updates (+ is_active) |
+| `app/Http/Requests/Finance/StoreVendorRequest.php` | Validates vendor creation (name, contact, email, phone, etc.) |
+| `app/Http/Requests/Finance/UpdateVendorRequest.php` | Validates vendor updates (+ is_active) |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/FinancesController.php` | Added 12 FormRequest imports; Updated 14 method signatures from `Request $request` to specific FormRequest; Removed inline `$request->validate()` blocks; Changed to `$request->validated()` |
+
+### Methods Updated
+
+1. `matchPayment()` → `MatchPaymentRequest`
+2. `refundDeposit()` → `RefundDepositRequest`
+3. `forfeitDeposit()` → `ForfeitDepositRequest`
+4. `storeLateFeePolicy()` → `StoreLateFeeRuleRequest`
+5. `updateLateFeePolicy()` → `UpdateLateFeeRuleRequest`
+6. `waiveLateFee()` → `WaiveLateFeeRequest`
+7. `waiveAllLateFees()` → `WaiveLateFeeRequest` (reused)
+8. `storeExpense()` → `StoreExpenseRequest`
+9. `updateExpense()` → `UpdateExpenseRequest`
+10. `storeExpenseCategory()` → `StoreExpenseCategoryRequest`
+11. `updateExpenseCategory()` → `UpdateExpenseCategoryRequest`
+12. `storeVendor()` → `StoreVendorRequest`
+13. `updateVendor()` → `UpdateVendorRequest`
+
+### Verification Results
+
+- Pint: PASS (550 files)
+- Tests: 513 passed, 12 skipped
+- Build: Success (22.98s)
+- Grep for `$request->validate(` in FinancesController: 0 matches
+
+### Phase Progress
+
+This is Phase 1 of 7 for DBP-012. Remaining phases:
+- Phase 2: PaymentController (5 validations)
+- Phase 3: TenantController + MoveOutController (13 validations)
+- Phase 4: NotificationsController (13+ validations)
+- Phase 5: BuildingController + WaterReadingController (10 validations)
+- Phase 6: BulkOperationsController + TicketController (14 validations)
+- Phase 7: SettingsController + ProfileController (9 validations)
+
+---
