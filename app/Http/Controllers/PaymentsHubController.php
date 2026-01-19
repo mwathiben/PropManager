@@ -12,16 +12,17 @@ use App\Models\PlatformBillingSetting;
 use App\Models\PlatformFee;
 use App\Services\BillingModelService;
 use App\Services\PaystackSubaccountService;
+use App\Traits\DatabaseAgnosticQueries;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class PaymentsHubController extends Controller
 {
+    use DatabaseAgnosticQueries;
     use WithLandlordScope;
 
     public function __construct(
@@ -821,13 +822,7 @@ class PaymentsHubController extends Controller
     {
         $startDate = now()->subMonths($months - 1)->startOfMonth();
 
-        // Single query with grouping instead of N queries in a loop
-        $dateFormat = match (DB::connection()->getDriverName()) {
-            'sqlite' => "strftime('%Y-%m', payment_date)",
-            'mysql' => "DATE_FORMAT(payment_date, '%Y-%m')",
-            'pgsql' => "TO_CHAR(payment_date, 'YYYY-MM')",
-            default => "DATE_FORMAT(payment_date, '%Y-%m')",
-        };
+        $dateFormat = $this->getDateFormatSql('payment_date', '%Y-%m');
 
         $payments = Payment::where('landlord_id', $landlordId)
             ->where('payment_date', '>=', $startDate)

@@ -7087,3 +7087,46 @@ use DatabaseAgnosticQueries;
 
 ### Next Steps
 - MYS-005: Audit and Fix All Raw SQL Queries
+
+---
+
+## Session: 2026-01-19
+**Task**: MYS-005 - Audit and Fix All Raw SQL Queries
+**Status**: COMPLETED
+
+### Work Done
+Audited the entire codebase for SQLite-specific SQL functions (strftime, JULIANDAY) and ensured all raw SQL is database-agnostic using the DatabaseAgnosticQueries trait.
+
+### Audit Findings
+
+| File | Issue | Fix |
+|------|-------|-----|
+| `app/Services/FinanceReportService.php` | Duplicate `getDateDiffSql()` method with JULIANDAY | Removed, now uses trait |
+| `app/Http/Controllers/PaymentsHubController.php` | Inline strftime match statement | Replaced with trait method |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Services/FinanceReportService.php` | Added `use DatabaseAgnosticQueries;` trait, removed duplicate `getDateDiffSql()` method, removed unused `DB` import |
+| `app/Http/Controllers/PaymentsHubController.php` | Added `use DatabaseAgnosticQueries;` trait, replaced inline date format match with `$this->getDateFormatSql('payment_date', '%Y-%m')` |
+
+### Verification Results
+
+- Grep check: `grep -rn 'strftime\|JULIANDAY' app/` returns only DatabaseAgnosticQueries.php
+- Lint (Pint): PASS (557 files)
+- Build: PASS (built successfully)
+- Tests: PASS (535 tests, 12 skipped)
+
+### Acceptance Criteria Verification
+
+1. **Zero strftime() calls outside the trait** - VERIFIED
+2. **Zero JULIANDAY() calls outside the trait** - VERIFIED
+3. **All raw SQL is database-agnostic or uses the trait** - VERIFIED
+
+### Next Steps
+
+- MYS-006: Configure MySQL 9.4 Connection in Laravel
+- MYS-007: Run Migrations on MySQL 9.4
+- MYS-009: Backup SQLite Database
+

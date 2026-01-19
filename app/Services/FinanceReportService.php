@@ -9,21 +9,12 @@ use App\Models\Payment;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\WaterReading;
+use App\Traits\DatabaseAgnosticQueries;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 
 class FinanceReportService
 {
-    private function getDateDiffSql(string $column): string
-    {
-        $driver = DB::getDriverName();
-        $today = now()->format('Y-m-d');
-
-        return match ($driver) {
-            'sqlite' => "CAST(JULIANDAY('{$today}') - JULIANDAY({$column}) AS INTEGER)",
-            default => "DATEDIFF('{$today}', {$column})",
-        };
-    }
+    use DatabaseAgnosticQueries;
 
     private function buildCacheFilters(array $dateRange, ?int $buildingId = null): array
     {

@@ -42,6 +42,7 @@ trait DatabaseAgnosticQueries
     {
         return match (DB::getDriverName()) {
             'sqlite' => "CAST(strftime('%m', {$column}) AS INTEGER)",
+            'pgsql' => "CAST(EXTRACT(MONTH FROM {$column}) AS INTEGER)",
             default => "MONTH({$column})",
         };
     }
@@ -59,9 +60,35 @@ trait DatabaseAgnosticQueries
     {
         return match (DB::getDriverName()) {
             'sqlite' => "CAST(strftime('%Y', {$column}) AS INTEGER)",
+            'pgsql' => "CAST(EXTRACT(YEAR FROM {$column}) AS INTEGER)",
             default => "YEAR({$column})",
         };
     }
+
+    /**
+     * Token mapping from MySQL DATE_FORMAT tokens to other database formats.
+     *
+     * Supported tokens:
+     * - %Y : 4-digit year (2024)
+     * - %m : 2-digit month (01-12)
+     * - %d : 2-digit day (01-31)
+     * - %u : ISO week number (01-53) - MySQL uses %u for ISO week
+     * - %W : Weekday name (Monday..Sunday) in MySQL - DO NOT use for week number
+     *
+     * Note: For year+week formatting, use '%Y-%u' (ISO week number).
+     * '%Y-%W' is NOT supported as %W means weekday name in MySQL.
+     */
+    private const FORMAT_TOKEN_MAP = [
+        // Token => [sqlite, pgsql, mysql]
+        '%Y' => ['%Y', 'YYYY', '%Y'],
+        '%m' => ['%m', 'MM', '%m'],
+        '%d' => ['%d', 'DD', '%d'],
+        '%u' => ['%W', 'IW', '%u'],  // ISO week number
+        '%H' => ['%H', 'HH24', '%H'],
+        '%i' => ['%M', 'MI', '%i'],
+        '%s' => ['%S', 'SS', '%s'],
+        '%j' => ['%j', 'DDD', '%j'], // Day of year
+    ];
 
     /**
      * Get SQL to format a date column with a specific format.
@@ -69,30 +96,92 @@ trait DatabaseAgnosticQueries
      * Common formats supported:
      * - '%Y-%m-%d' : Full date (2024-01-15)
      * - '%Y-%m'    : Year and month (2024-01)
-     * - '%Y-%W'    : Year and week number (2024-03)
+     * - '%Y-%u'    : Year and ISO week number (2024-03)
      *
      * @param  string  $column  The date column name
      * @param  string  $format  Date format string (MySQL DATE_FORMAT style)
      * @return string SQL expression that formats the date
+     *
+     * @throws \InvalidArgumentException If format contains unsupported tokens
      */
     protected function getDateFormatSql(string $column, string $format): string
     {
         $driver = DB::getDriverName();
 
+        // Handle common pre-defined formats for performance and clarity
+        $predefinedFormats = $this->getPredefinedDateFormats($column, $format, $driver);
+        if ($predefinedFormats !== null) {
+            return $predefinedFormats;
+        }
+
+        // For custom formats, translate tokens based on driver
+        return $this->translateDateFormat($column, $format, $driver);
+    }
+
+    /**
+     * Get predefined date format SQL for common formats.
+     */
+    private function getPredefinedDateFormats(string $column, string $format, string $driver): ?string
+    {
         return match ($driver) {
             'sqlite' => match ($format) {
                 '%Y-%m-%d' => "strftime('%Y-%m-%d', {$column})",
                 '%Y-%m' => "strftime('%Y-%m', {$column})",
-                '%Y-%W', '%Y-%u' => "strftime('%Y-%W', {$column})",
-                default => "strftime('{$format}', {$column})",
+                '%Y-%u' => "strftime('%Y-%W', {$column})",  // SQLite uses %W for week number
+                default => null,
             },
             'pgsql' => match ($format) {
                 '%Y-%m-%d' => "TO_CHAR({$column}, 'YYYY-MM-DD')",
                 '%Y-%m' => "TO_CHAR({$column}, 'YYYY-MM')",
-                '%Y-%W', '%Y-%u' => "TO_CHAR({$column}, 'IYYY-IW')",
-                default => "TO_CHAR({$column}, '{$format}')",
+                '%Y-%u' => "TO_CHAR({$column}, 'IYYY-IW')",  // ISO year + ISO week
+                default => null,
             },
-            default => "DATE_FORMAT({$column}, '{$format}')",
+            default => match ($format) {  // MySQL
+                '%Y-%m-%d' => "DATE_FORMAT({$column}, '%Y-%m-%d')",
+                '%Y-%m' => "DATE_FORMAT({$column}, '%Y-%m')",
+                '%Y-%u' => "DATE_FORMAT({$column}, '%x-%v')",  // ISO year + ISO week in MySQL
+                default => null,
+            },
+        };
+    }
+
+    /**
+     * Translate date format tokens for the given driver.
+     *
+     * @throws \InvalidArgumentException If format contains unsupported tokens
+     */
+    private function translateDateFormat(string $column, string $format, string $driver): string
+    {
+        // Validate and translate tokens
+        $translatedFormat = $format;
+        $driverIndex = match ($driver) {
+            'sqlite' => 0,
+            'pgsql' => 1,
+            default => 2,  // MySQL
+        };
+
+        // Find all tokens in the format string
+        preg_match_all('/%[a-zA-Z]/', $format, $matches);
+        $tokens = $matches[0] ?? [];
+
+        foreach ($tokens as $token) {
+            if (! isset(self::FORMAT_TOKEN_MAP[$token])) {
+                throw new \InvalidArgumentException(
+                    "Unsupported date format token '{$token}' in format '{$format}'. "
+                    .'Supported tokens: '.implode(', ', array_keys(self::FORMAT_TOKEN_MAP))
+                );
+            }
+            $translatedFormat = str_replace(
+                $token,
+                self::FORMAT_TOKEN_MAP[$token][$driverIndex],
+                $translatedFormat
+            );
+        }
+
+        return match ($driver) {
+            'sqlite' => "strftime('{$translatedFormat}', {$column})",
+            'pgsql' => "TO_CHAR({$column}, '{$translatedFormat}')",
+            default => "DATE_FORMAT({$column}, '{$translatedFormat}')",
         };
     }
 
