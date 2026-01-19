@@ -6980,3 +6980,61 @@ This is Phase 2 of 7 for DBP-012. Remaining phases:
 ### Next Steps
 - MYS-003: Refactor DashboardService for MySQL Compatibility
 - MYS-004: Refactor ReportService for MySQL Compatibility
+
+---
+
+## Session: 2026-01-19
+**Task**: MYS-003 - Refactor DashboardService for MySQL Compatibility
+**PRD**: mysql-migration-prd.json
+**Status**: COMPLETED
+
+### Work Done
+- Added `use DatabaseAgnosticQueries` trait to DashboardService
+- Refactored `getSuperAdminMetrics()` method to use database-agnostic date helpers
+- Replaced 2 `strftime()` calls with trait methods:
+  - `strftime("%m", p.payment_date)` → `$this->getMonthSql('p.payment_date')`
+  - `strftime("%Y", p.payment_date)` → `$this->getYearSql('p.payment_date')`
+- Changed from SQLite date literals to parameterized integer comparisons
+
+### Files Modified
+- `app/Services/DashboardService.php`
+
+### Code Changes
+```php
+// Before (SQLite-only):
+AND strftime("%m", p.payment_date) = strftime("%m", "now")
+AND strftime("%Y", p.payment_date) = strftime("%Y", "now")
+
+// After (database-agnostic):
+$month = (int) now()->format('m');
+$year = (int) now()->format('Y');
+$monthSql = $this->getMonthSql('p.payment_date');
+$yearSql = $this->getYearSql('p.payment_date');
+// ...
+AND {$monthSql} = ?
+AND {$yearSql} = ?
+// with bindings: [$month, $year]
+```
+
+### Acceptance Criteria Verification
+| Criterion | Status |
+|-----------|--------|
+| No strftime() calls remain in file | ✅ Verified via grep |
+| DatabaseAgnosticQueries trait is used | ✅ Added to class |
+| Dashboard loads correctly | ✅ Tests pass |
+| All statistics are accurate | ✅ Tests pass |
+
+### Verification Results
+- `grep "strftime\|julianday" app/Services/DashboardService.php` - No matches
+- `vendor/bin/pint --test` - ✅ PASS (after auto-fix)
+- `php artisan test --parallel` - ✅ 535 tests passed, 12 skipped
+- `npm run build` - ✅ Build successful
+
+### Learnings
+- DashboardService only had one method with SQLite-specific code (`getSuperAdminMetrics()`)
+- Other dashboard methods already used Laravel's `whereMonth()`/`whereYear()` helpers
+- The `$topLandlords` subquery was the only holdout using raw strftime()
+
+### Next Steps
+- MYS-004: Refactor ReportService for MySQL Compatibility
+- MYS-005: Audit and Fix All Raw SQL Queries

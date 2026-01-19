@@ -12,11 +12,14 @@ use App\Models\Ticket;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\WaterReading;
+use App\Traits\DatabaseAgnosticQueries;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
 class DashboardService
 {
+    use DatabaseAgnosticQueries;
+
     public function getSuperAdminMetrics(): array
     {
         return FinanceCacheService::rememberSuperAdminStats('metrics', function () {
@@ -65,17 +68,22 @@ class DashboardService
             $monthlyRevenues = $this->getLandlordsMonthlyRevenue($landlordIds);
             $landlords->each(fn ($l) => $l->monthly_revenue = $monthlyRevenues[$l->id] ?? 0);
 
+            $month = (int) now()->format('m');
+            $year = (int) now()->format('Y');
+            $monthSql = $this->getMonthSql('p.payment_date');
+            $yearSql = $this->getYearSql('p.payment_date');
+
             $topLandlords = User::where('role', 'landlord')
                 ->select('users.*')
-                ->selectRaw('COALESCE((
+                ->selectRaw("COALESCE((
                     SELECT SUM(p.amount)
                     FROM payments p
                     INNER JOIN leases l ON p.lease_id = l.id
                     INNER JOIN units u ON l.unit_id = u.id
                     WHERE u.landlord_id = users.id
-                    AND strftime("%m", p.payment_date) = strftime("%m", "now")
-                    AND strftime("%Y", p.payment_date) = strftime("%Y", "now")
-                ), 0) as monthly_revenue')
+                    AND {$monthSql} = ?
+                    AND {$yearSql} = ?
+                ), 0) as monthly_revenue", [$month, $year])
                 ->orderByDesc('monthly_revenue')
                 ->limit(5)
                 ->get();

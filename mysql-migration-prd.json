@@ -145,8 +145,8 @@
       ],
       "verification": "Load Dashboard with MySQL; verify all stats and charts display correctly",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["MYS-001"]
     },
     {
@@ -465,9 +465,15 @@
     "description": "If migration fails, rollback is straightforward",
     "steps": [
       "Change .env DB_CONNECTION back to sqlite",
-      "Restore SQLite backup if needed (use most recent backup): ls -t database/backups/database_backup_*.sqlite | head -1 | xargs -I {} cp {} database/database.sqlite",
+      "Restore SQLite backup if needed (use most recent backup): BACKUP=$(find database/backups -maxdepth 1 -name 'database_backup_*.sqlite' -type f -printf '%T@ %p\\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-); [ -n \"$BACKUP\" ] && cp -- \"$BACKUP\" database/database.sqlite || echo 'ERROR: No backup files found in database/backups/'",
       "Clear caches: php artisan config:clear && php artisan cache:clear",
       "Application immediately works on SQLite again"
+    ],
+    "notes": [
+      "The restore command uses find with -printf for reliable sorting by modification time",
+      "The command handles filenames with spaces via proper quoting",
+      "If no backups exist, an error message is printed and no file is copied",
+      "Always verify backup existence before running: ls -la database/backups/"
     ]
   },
   "progressTracking": {
