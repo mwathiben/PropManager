@@ -7038,3 +7038,52 @@ AND {$yearSql} = ?
 ### Next Steps
 - MYS-004: Refactor ReportService for MySQL Compatibility
 - MYS-005: Audit and Fix All Raw SQL Queries
+
+---
+
+## Session: 2026-01-19
+**Task**: MYS-004 - Refactor ReportService for MySQL Compatibility
+**PRD**: mysql-migration-prd.json
+**Status**: COMPLETED
+
+### Work Done
+- Audited ReportService for SQLite-specific code
+- Found 2 duplicate private methods: `getDateDiffSql()` and `getDateFormatSql()`
+- Replaced with shared `DatabaseAgnosticQueries` trait
+- Removed local implementations (lines 15-39)
+- The trait provides identical functionality plus PostgreSQL support
+
+### Files Modified
+- `app/Services/ReportService.php`
+
+### Code Changes
+```php
+// Before (duplicate local methods):
+private function getDateDiffSql(string $column): string { ... }
+private function getDateFormatSql(string $column, string $format): string { ... }
+
+// After (uses shared trait):
+use DatabaseAgnosticQueries;
+// Local methods removed, trait methods used instead
+```
+
+### Acceptance Criteria Verification
+| Criterion | Status |
+|-----------|--------|
+| No SQLite-specific code remains | ✅ grep confirms no strftime/julianday |
+| All reports generate correctly | ✅ Tests pass |
+| Uses shared trait | ✅ Consolidated with DatabaseAgnosticQueries |
+
+### Verification Results
+- `grep "strftime|julianday" app/Services/ReportService.php` - No matches
+- `vendor/bin/pint` - ✅ PASS
+- `php artisan test --parallel` - ✅ 535 tests passed, 12 skipped
+- `npm run build` - ✅ Built in 17.76s
+
+### Learnings
+- ReportService already had working database-agnostic code, just duplicated
+- Consolidating to shared trait improves maintainability
+- The trait adds PostgreSQL support the local methods lacked
+
+### Next Steps
+- MYS-005: Audit and Fix All Raw SQL Queries

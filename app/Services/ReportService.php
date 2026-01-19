@@ -7,36 +7,13 @@ use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\Unit;
 use App\Models\WaterReading;
+use App\Traits\DatabaseAgnosticQueries;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class ReportService
 {
-    private function getDateDiffSql(string $column): string
-    {
-        $driver = DB::getDriverName();
-        $today = now()->format('Y-m-d');
-
-        return match ($driver) {
-            'sqlite' => "CAST(JULIANDAY('{$today}') - JULIANDAY({$column}) AS INTEGER)",
-            default => "DATEDIFF('{$today}', {$column})",
-        };
-    }
-
-    private function getDateFormatSql(string $column, string $format): string
-    {
-        $driver = DB::getDriverName();
-
-        return match ($driver) {
-            'sqlite' => match ($format) {
-                '%Y-%m-%d' => "strftime('%Y-%m-%d', {$column})",
-                '%Y-%u' => "strftime('%Y-%W', {$column})",
-                '%Y-%m' => "strftime('%Y-%m', {$column})",
-                default => "strftime('%Y-%m-%d', {$column})",
-            },
-            default => "DATE_FORMAT({$column}, '{$format}')",
-        };
-    }
+    use DatabaseAgnosticQueries;
 
     /**
      * Get comprehensive dashboard analytics for a landlord

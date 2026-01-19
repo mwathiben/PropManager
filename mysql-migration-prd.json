@@ -174,8 +174,8 @@
       ],
       "verification": "Generate all report types with MySQL; verify correct output",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["MYS-001"]
     },
     {
@@ -465,13 +465,13 @@
     "description": "If migration fails, rollback is straightforward",
     "steps": [
       "Change .env DB_CONNECTION back to sqlite",
-      "Restore SQLite backup if needed (use most recent backup): BACKUP=$(find database/backups -maxdepth 1 -name 'database_backup_*.sqlite' -type f -printf '%T@ %p\\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-); [ -n \"$BACKUP\" ] && cp -- \"$BACKUP\" database/database.sqlite || echo 'ERROR: No backup files found in database/backups/'",
+      "Restore SQLite backup if needed (use most recent backup): BACKUP=$(ls -t database/backups/database_backup_*.sqlite 2>/dev/null | head -1); [ -n \"$BACKUP\" ] && cp -- \"$BACKUP\" database/database.sqlite || echo 'ERROR: No backup files found in database/backups/'",
       "Clear caches: php artisan config:clear && php artisan cache:clear",
       "Application immediately works on SQLite again"
     ],
     "notes": [
-      "The restore command uses find with -printf for reliable sorting by modification time",
-      "The command handles filenames with spaces via proper quoting",
+      "The restore command uses POSIX-compatible ls -t to sort backups by modification time (newest first)",
+      "ASSUMPTION: Backup filenames do not contain spaces or special characters (the automated backup script produces filenames like database_backup_20260119_120000.sqlite)",
       "If no backups exist, an error message is printed and no file is copied",
       "Always verify backup existence before running: ls -la database/backups/"
     ]
