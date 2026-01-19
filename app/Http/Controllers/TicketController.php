@@ -3,6 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Events\TicketStatusChanged;
+use App\Http\Requests\Ticket\AddTicketCommentRequest;
+use App\Http\Requests\Ticket\AssignTicketRequest;
+use App\Http\Requests\Ticket\ResolveTicketRequest;
+use App\Http\Requests\Ticket\StoreTicketRequest;
+use App\Http\Requests\Ticket\SubmitTicketFeedbackRequest;
+use App\Http\Requests\Ticket\UpdateTicketRequest;
 use App\Jobs\SendNotificationJob;
 use App\Models\Building;
 use App\Models\Ticket;
@@ -11,20 +17,19 @@ use App\Models\TicketFeedback;
 use App\Models\Unit;
 use App\Models\User;
 use App\Traits\HasBuildingFilter;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class TicketController extends Controller
 {
     use HasBuildingFilter;
 
-    /**
-     * Display a listing of tickets.
-     * Role-aware: tenants see own tickets, caretakers see assigned, landlords see all.
-     */
-    public function index(Request $request)
+    public function index(Request $request): Response
     {
         $user = Auth::user();
 
@@ -106,10 +111,7 @@ class TicketController extends Controller
         ]);
     }
 
-    /**
-     * Show the form for creating a new ticket.
-     */
-    public function create(Request $request)
+    public function create(Request $request): Response
     {
         $user = Auth::user();
 
@@ -146,21 +148,9 @@ class TicketController extends Controller
         ]);
     }
 
-    /**
-     * Store a newly created ticket.
-     */
-    public function store(Request $request)
+    public function store(StoreTicketRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'building_id' => 'required|exists:buildings,id',
-            'unit_id' => 'nullable|exists:units,id',
-            'category' => 'required|in:issue,complaint',
-            'subcategory' => 'required|string|max:100',
-            'title' => 'required|string|max:255',
-            'description' => 'required|string|max:2000',
-            'location' => 'nullable|string|max:255',
-            'priority' => 'required|in:low,medium,high,urgent',
-        ]);
+        $validated = $request->validated();
 
         DB::beginTransaction();
 
@@ -180,10 +170,7 @@ class TicketController extends Controller
         }
     }
 
-    /**
-     * Display the specified ticket.
-     */
-    public function show(Ticket $ticket)
+    public function show(Ticket $ticket): Response
     {
         $user = Auth::user();
 
@@ -237,35 +224,9 @@ class TicketController extends Controller
         ]);
     }
 
-    /**
-     * Update the specified ticket.
-     */
-    public function update(Request $request, Ticket $ticket)
+    public function update(UpdateTicketRequest $request, Ticket $ticket): RedirectResponse
     {
-        $user = Auth::user();
-
-        // Only allow tenants to update their own open tickets
-        if ($user->isTenant()) {
-            if ($ticket->reporter_id !== $user->id || ! $ticket->canBeEdited()) {
-                abort(403, 'You cannot edit this ticket.');
-            }
-
-            $validated = $request->validate([
-                'title' => 'required|string|max:255',
-                'description' => 'required|string|max:2000',
-                'location' => 'nullable|string|max:255',
-                'priority' => 'required|in:low,medium,high,urgent',
-            ]);
-        } else {
-            $validated = $request->validate([
-                'title' => 'sometimes|string|max:255',
-                'description' => 'sometimes|string|max:2000',
-                'location' => 'nullable|string|max:255',
-                'priority' => 'sometimes|in:low,medium,high,urgent',
-                'status' => 'sometimes|in:open,acknowledged,in_progress,resolved,closed,cancelled',
-                'resolution_notes' => 'nullable|string|max:2000',
-            ]);
-        }
+        $validated = $request->validated();
 
         $oldStatus = $ticket->status;
         $ticket->update($validated);
@@ -274,34 +235,24 @@ class TicketController extends Controller
             event(new TicketStatusChanged($ticket->fresh(), $oldStatus, $validated['status']));
 
             if ($ticket->reporter_id) {
-                SendNotificationJob::dispatch(
+                dispatch(SendNotificationJob::forNew(
                     $ticket->reporter_id,
                     'maintenance_notice',
                     'Ticket Status Update',
                     "Your ticket \"{$ticket->title}\" has been updated to: {$validated['status']}.",
                     ['ticket_id' => $ticket->id],
                     $ticket->landlord_id
-                );
+                ));
             }
         }
 
         return redirect()->back()->with('success', 'Ticket updated successfully.');
     }
 
-    /**
-     * Assign the ticket to a caretaker.
-     */
-    public function assign(Request $request, Ticket $ticket)
+    public function assign(AssignTicketRequest $request, Ticket $ticket): RedirectResponse
     {
         $user = Auth::user();
-
-        if (! $user->isLandlord()) {
-            abort(403, 'Only landlords can reassign tickets.');
-        }
-
-        $validated = $request->validate([
-            'assigned_to' => 'required|exists:users,id',
-        ]);
+        $validated = $request->validated();
 
         // Verify the assignee is a caretaker for this landlord
         $assignee = User::where('id', $validated['assigned_to'])
@@ -318,27 +269,10 @@ class TicketController extends Controller
         return redirect()->back()->with('success', "Ticket assigned to {$assignee->name}.");
     }
 
-    /**
-     * Add a comment to the ticket.
-     */
-    public function addComment(Request $request, Ticket $ticket)
+    public function addComment(AddTicketCommentRequest $request, Ticket $ticket): RedirectResponse
     {
         $user = Auth::user();
-
-        // Authorization
-        if ($user->isTenant() && $ticket->reporter_id !== $user->id) {
-            abort(403, 'You are not authorized to comment on this ticket.');
-        }
-
-        $validated = $request->validate([
-            'comment' => 'required|string|max:2000',
-            'is_internal' => 'boolean',
-        ]);
-
-        // Tenants cannot add internal comments
-        if ($user->isTenant()) {
-            $validated['is_internal'] = false;
-        }
+        $validated = $request->validated();
 
         $comment = $ticket->comments()->create([
             'user_id' => $user->id,
@@ -358,46 +292,35 @@ class TicketController extends Controller
         if (! $comment->is_internal) {
             // Notify reporter if comment is from staff
             if (! $user->isTenant() && $ticket->reporter_id) {
-                SendNotificationJob::dispatch(
+                dispatch(SendNotificationJob::forNew(
                     $ticket->reporter_id,
                     'maintenance_notice',
                     'New comment on your ticket',
                     "A new comment has been added to your ticket: {$ticket->title}\n\nComment: ".substr($validated['comment'], 0, 200),
                     ['ticket_id' => $ticket->id],
                     $ticket->landlord_id
-                );
+                ));
             }
 
             // Notify assignee if comment is from someone else
             if ($ticket->assigned_to && $ticket->assigned_to !== $user->id) {
-                SendNotificationJob::dispatch(
+                dispatch(SendNotificationJob::forNew(
                     $ticket->assigned_to,
                     'maintenance_notice',
                     'New comment on assigned ticket',
                     "A new comment has been added to ticket: {$ticket->title}\n\nComment: ".substr($validated['comment'], 0, 200),
                     ['ticket_id' => $ticket->id],
                     $ticket->landlord_id
-                );
+                ));
             }
         }
 
         return redirect()->back()->with('success', 'Comment added successfully.');
     }
 
-    /**
-     * Mark the ticket as resolved.
-     */
-    public function resolve(Request $request, Ticket $ticket)
+    public function resolve(ResolveTicketRequest $request, Ticket $ticket): RedirectResponse
     {
-        $user = Auth::user();
-
-        if ($user->isTenant()) {
-            abort(403, 'Tenants cannot resolve tickets.');
-        }
-
-        $validated = $request->validate([
-            'resolution_notes' => 'nullable|string|max:2000',
-        ]);
+        $validated = $request->validated();
 
         $oldStatus = $ticket->status;
         $ticket->resolve($validated['resolution_notes'] ?? null);
@@ -405,7 +328,7 @@ class TicketController extends Controller
         event(new TicketStatusChanged($ticket->fresh(), $oldStatus, 'resolved'));
 
         if ($ticket->reporter_id) {
-            SendNotificationJob::dispatch(
+            dispatch(SendNotificationJob::forNew(
                 $ticket->reporter_id,
                 'maintenance_notice',
                 'Ticket Resolved',
@@ -413,16 +336,13 @@ class TicketController extends Controller
                     ($validated['resolution_notes'] ? "\n\nResolution: {$validated['resolution_notes']}" : ''),
                 ['ticket_id' => $ticket->id],
                 $ticket->landlord_id
-            );
+            ));
         }
 
         return redirect()->back()->with('success', 'Ticket marked as resolved.');
     }
 
-    /**
-     * Close the ticket.
-     */
-    public function close(Ticket $ticket)
+    public function close(Ticket $ticket): RedirectResponse
     {
         $user = Auth::user();
 
@@ -436,30 +356,22 @@ class TicketController extends Controller
         event(new TicketStatusChanged($ticket->fresh(), $oldStatus, 'closed'));
 
         if ($ticket->reporter_id) {
-            SendNotificationJob::dispatch(
+            dispatch(SendNotificationJob::forNew(
                 $ticket->reporter_id,
                 'maintenance_notice',
                 'Ticket Closed',
                 "Your ticket \"{$ticket->title}\" has been closed. You can now leave feedback.",
                 ['ticket_id' => $ticket->id],
                 $ticket->landlord_id
-            );
+            ));
         }
 
         return redirect()->back()->with('success', 'Ticket closed successfully.');
     }
 
-    /**
-     * Submit feedback for a closed ticket.
-     */
-    public function submitFeedback(Request $request, Ticket $ticket)
+    public function submitFeedback(SubmitTicketFeedbackRequest $request, Ticket $ticket): RedirectResponse
     {
         $user = Auth::user();
-
-        // Only the reporter can submit feedback
-        if ($ticket->reporter_id !== $user->id) {
-            abort(403, 'You are not authorized to submit feedback for this ticket.');
-        }
 
         // Ticket must be closed and not have existing feedback
         if ($ticket->status !== 'closed') {
@@ -470,10 +382,7 @@ class TicketController extends Controller
             return redirect()->back()->with('error', 'Feedback has already been submitted for this ticket.');
         }
 
-        $validated = $request->validate([
-            'rating' => 'required|integer|min:1|max:5',
-            'comments' => 'nullable|string|max:1000',
-        ]);
+        $validated = $request->validated();
 
         $feedback = TicketFeedback::create([
             'ticket_id' => $ticket->id,
@@ -491,7 +400,7 @@ class TicketController extends Controller
         );
 
         // Notify landlord about feedback
-        SendNotificationJob::dispatch(
+        dispatch(SendNotificationJob::forNew(
             $ticket->landlord_id,
             'maintenance_notice',
             'Tenant feedback received',
@@ -499,15 +408,12 @@ class TicketController extends Controller
                 ($validated['comments'] ? "\n\nComments: {$validated['comments']}" : ''),
             ['ticket_id' => $ticket->id, 'rating' => $validated['rating']],
             $ticket->landlord_id
-        );
+        ));
 
         return redirect()->back()->with('success', 'Thank you for your feedback!');
     }
 
-    /**
-     * Cancel/delete the ticket (reporter only, if open).
-     */
-    public function destroy(Ticket $ticket)
+    public function destroy(Ticket $ticket): RedirectResponse
     {
         $user = Auth::user();
 
@@ -528,10 +434,7 @@ class TicketController extends Controller
         return redirect()->route('tickets.index')->with('success', 'Ticket cancelled successfully.');
     }
 
-    /**
-     * Get units for a building (AJAX endpoint).
-     */
-    public function getUnits(Building $building)
+    public function getUnits(Building $building): JsonResponse
     {
         $units = $building->units()
             ->select('id', 'unit_number', 'status')

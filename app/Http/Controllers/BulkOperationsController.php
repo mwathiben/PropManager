@@ -2,6 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\BulkOperations\AdjustDepositsRequest;
+use App\Http\Requests\BulkOperations\AdjustRentRequest;
+use App\Http\Requests\BulkOperations\ExtendLeasesRequest;
+use App\Http\Requests\BulkOperations\TerminateLeasesRequest;
+use App\Http\Requests\BulkOperations\UpdateMeterNumbersRequest;
+use App\Http\Requests\BulkOperations\UpdateTargetRentRequest;
+use App\Http\Requests\BulkOperations\UpdateUnitStatusRequest;
 use App\Jobs\SendNotificationJob;
 use App\Models\Building;
 use App\Models\Lease;
@@ -96,19 +103,9 @@ class BulkOperationsController extends Controller
         return $count === count($unitIds);
     }
 
-    public function adjustRent(Request $request): RedirectResponse
+    public function adjustRent(AdjustRentRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'lease_ids' => 'required|array|min:1',
-            'lease_ids.*' => 'exists:leases,id',
-            'adjustment_type' => 'required|in:percentage,fixed',
-            'adjustment_value' => 'required|numeric',
-            'effective_date' => 'required|date|after_or_equal:today',
-            'notify_tenants' => 'boolean',
-            'reason' => 'nullable|string|max:500',
-            'building_id' => 'nullable|integer|exists:buildings,id',
-            'wing_id' => 'nullable|integer|exists:buildings,id',
-        ]);
+        $validated = $request->validated();
 
         // Strict enforcement: validate all leases belong to selected building/wing
         $buildingId = $validated['building_id'] ?? null;
@@ -218,16 +215,9 @@ class BulkOperationsController extends Controller
         }
     }
 
-    public function updateUnitStatus(Request $request): RedirectResponse
+    public function updateUnitStatus(UpdateUnitStatusRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'unit_ids' => 'required|array|min:1',
-            'unit_ids.*' => 'exists:units,id',
-            'new_status' => 'required|in:vacant,occupied,maintenance,arrears',
-            'notes' => 'nullable|string|max:500',
-            'building_id' => 'nullable|integer|exists:buildings,id',
-            'wing_id' => 'nullable|integer|exists:buildings,id',
-        ]);
+        $validated = $request->validated();
 
         // Strict enforcement: validate all units belong to selected building/wing
         $buildingId = $validated['building_id'] ?? null;
@@ -288,18 +278,9 @@ class BulkOperationsController extends Controller
         }
     }
 
-    public function terminateLeases(Request $request): RedirectResponse
+    public function terminateLeases(TerminateLeasesRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'lease_ids' => 'required|array|min:1',
-            'lease_ids.*' => 'exists:leases,id',
-            'termination_date' => 'required|date',
-            'reason' => 'nullable|string|max:500',
-            'notify_tenants' => 'boolean',
-            'update_unit_status' => 'boolean',
-            'building_id' => 'nullable|integer|exists:buildings,id',
-            'wing_id' => 'nullable|integer|exists:buildings,id',
-        ]);
+        $validated = $request->validated();
 
         // Strict enforcement: validate all leases belong to selected building/wing
         $buildingId = $validated['building_id'] ?? null;
@@ -387,16 +368,9 @@ class BulkOperationsController extends Controller
         }
     }
 
-    public function extendLeases(Request $request): RedirectResponse
+    public function extendLeases(ExtendLeasesRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'lease_ids' => 'required|array|min:1',
-            'lease_ids.*' => 'exists:leases,id',
-            'extension_months' => 'required|integer|min:1|max:60',
-            'notify_tenants' => 'boolean',
-            'building_id' => 'nullable|integer|exists:buildings,id',
-            'wing_id' => 'nullable|integer|exists:buildings,id',
-        ]);
+        $validated = $request->validated();
 
         // Strict enforcement: validate all leases belong to selected building/wing
         $buildingId = $validated['building_id'] ?? null;
@@ -482,17 +456,9 @@ class BulkOperationsController extends Controller
         }
     }
 
-    public function adjustDeposits(Request $request): RedirectResponse
+    public function adjustDeposits(AdjustDepositsRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'lease_ids' => 'required|array|min:1',
-            'lease_ids.*' => 'exists:leases,id',
-            'adjustment_type' => 'required|in:percentage,fixed,set',
-            'adjustment_value' => 'required|numeric',
-            'notify_tenants' => 'boolean',
-            'building_id' => 'nullable|integer|exists:buildings,id',
-            'wing_id' => 'nullable|integer|exists:buildings,id',
-        ]);
+        $validated = $request->validated();
 
         // Strict enforcement: validate all leases belong to selected building/wing
         $buildingId = $validated['building_id'] ?? null;
@@ -584,16 +550,9 @@ class BulkOperationsController extends Controller
         }
     }
 
-    public function updateTargetRent(Request $request): RedirectResponse
+    public function updateTargetRent(UpdateTargetRentRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'unit_ids' => 'required|array|min:1',
-            'unit_ids.*' => 'exists:units,id',
-            'adjustment_type' => 'required|in:percentage,fixed,set',
-            'adjustment_value' => 'required|numeric',
-            'building_id' => 'nullable|integer|exists:buildings,id',
-            'wing_id' => 'nullable|integer|exists:buildings,id',
-        ]);
+        $validated = $request->validated();
 
         // Strict enforcement: validate all units belong to selected building/wing
         $buildingId = $validated['building_id'] ?? null;
@@ -665,15 +624,9 @@ class BulkOperationsController extends Controller
         }
     }
 
-    public function updateMeterNumbers(Request $request): RedirectResponse
+    public function updateMeterNumbers(UpdateMeterNumbersRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'updates' => 'required|array|min:1',
-            'updates.*.unit_id' => 'required|exists:units,id',
-            'updates.*.meter_number' => 'nullable|string|max:50',
-            'building_id' => 'nullable|integer|exists:buildings,id',
-            'wing_id' => 'nullable|integer|exists:buildings,id',
-        ]);
+        $validated = $request->validated();
 
         // Strict enforcement: validate all units belong to selected building/wing
         $buildingId = $validated['building_id'] ?? null;

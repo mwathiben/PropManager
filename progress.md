@@ -7687,3 +7687,76 @@ Several FormRequests include authorization logic previously in controllers:
 ### Next Steps
 - Phase 6: BulkOperationsController + TicketController
 - Phase 7: SettingsController + ProfileController
+
+---
+
+## Session: 2026-01-19T09:00:00
+**Task**: DBP-012 Phase 6 - Extract Validation to FormRequest Classes (BulkOperationsController + TicketController)
+**Status**: COMPLETED
+
+### Work Done
+Extracted validation rules from BulkOperationsController and TicketController to dedicated FormRequest classes.
+
+### Files Created
+
+**BulkOperations FormRequest Classes (7 files):**
+| File | Method | Key Rules |
+|------|--------|-----------|
+| `app/Http/Requests/BulkOperations/AdjustRentRequest.php` | adjustRent() | lease_ids array, adjustment_type, adjustment_value, effective_date |
+| `app/Http/Requests/BulkOperations/UpdateUnitStatusRequest.php` | updateUnitStatus() | unit_ids array, new_status enum |
+| `app/Http/Requests/BulkOperations/TerminateLeasesRequest.php` | terminateLeases() | lease_ids array, termination_date, reason |
+| `app/Http/Requests/BulkOperations/ExtendLeasesRequest.php` | extendLeases() | lease_ids array, extension_months (1-60) |
+| `app/Http/Requests/BulkOperations/AdjustDepositsRequest.php` | adjustDeposits() | lease_ids array, adjustment_type (percentage/fixed/set) |
+| `app/Http/Requests/BulkOperations/UpdateTargetRentRequest.php` | updateTargetRent() | unit_ids array, adjustment_type |
+| `app/Http/Requests/BulkOperations/UpdateMeterNumbersRequest.php` | updateMeterNumbers() | updates array with unit_id + meter_number |
+
+**Ticket FormRequest Classes (6 files):**
+| File | Method | Key Rules |
+|------|--------|-----------|
+| `app/Http/Requests/Ticket/StoreTicketRequest.php` | store() | building_id, category, title, description, priority |
+| `app/Http/Requests/Ticket/UpdateTicketRequest.php` | update() | Role-based rules: tenant vs staff |
+| `app/Http/Requests/Ticket/AssignTicketRequest.php` | assign() | assigned_to (exists:users) |
+| `app/Http/Requests/Ticket/AddTicketCommentRequest.php` | addComment() | comment, is_internal boolean |
+| `app/Http/Requests/Ticket/ResolveTicketRequest.php` | resolve() | resolution_notes nullable |
+| `app/Http/Requests/Ticket/SubmitTicketFeedbackRequest.php` | submitFeedback() | rating (1-5), comments |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `BulkOperationsController.php` | Added 7 FormRequest imports, updated 7 method signatures, removed 7 inline validations |
+| `TicketController.php` | Added 6 FormRequest imports, updated 6 method signatures, removed 7 inline validations |
+| `UpdateWaterReadingRequest.php` | Fixed authorization bug from Phase 5 (was checking user_id, now checks role) |
+
+### Authorization in FormRequests
+
+- All BulkOperations requests: `isLandlord() || isCaretaker()`
+- StoreTicketRequest: `auth()->check()` (any authenticated user)
+- UpdateTicketRequest: Role-based authorize + `canBeEdited()` check for tenants
+- AssignTicketRequest: `isLandlord()` only
+- AddTicketCommentRequest: Reporter check for tenants, role check for staff
+- ResolveTicketRequest: `isLandlord() || isCaretaker()`
+- SubmitTicketFeedbackRequest: `reporter_id === auth()->id()`
+
+### Bugfix
+
+Fixed `UpdateWaterReadingRequest` from Phase 5:
+- **Before**: `$waterReading->user_id === Auth::id()` (only creator could update)
+- **After**: `$user->isLandlord() || $user->isCaretaker()` (any staff can update)
+
+### Verification Results
+- **Pint**: PASS (1 auto-fix - unused import)
+- **npm build**: PASS (52.94s)
+- **Tests**: 535 passed, 12 skipped (0 failures)
+
+### Phase Progress Summary
+- Phase 1: FinancesController - 12 FormRequest classes
+- Phase 2: PaymentController + TenantPaymentController - 5 FormRequest classes
+- Phase 3: TenantController + MoveOutController - 13 FormRequest classes
+- Phase 4: NotificationsController - 11 FormRequest classes
+- Phase 5: BuildingController + WaterReadingController - 10 FormRequest classes
+- **Phase 6: BulkOperationsController + TicketController - 13 FormRequest classes (COMPLETED)**
+- **Total FormRequests created so far**: 64 classes
+
+### Next Steps
+- Phase 7: SettingsController + ProfileController (final phase)
