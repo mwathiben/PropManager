@@ -1,0 +1,493 @@
+{
+  "project": {
+    "name": "PropManager SQLite to MySQL 9.4 Migration",
+    "description": "Complete migration from SQLite to MySQL 9.4 including database-agnostic code refactoring, data migration, and performance optimization for production-ready multi-tenant operations.",
+    "version": "1.0.0",
+    "techStack": {
+      "backend": "Laravel 12 (PHP 8.4+)",
+      "frontend": "Inertia.js + Vue 3 + Tailwind CSS v4",
+      "database_current": "SQLite (database/database.sqlite)",
+      "database_target": "MySQL 9.4",
+      "testing": "PHPUnit"
+    }
+  },
+  "rationale": {
+    "description": "SQLite is unsuitable for production multi-tenant SaaS applications. MySQL 9.4 provides concurrent access, better performance at scale, and production-grade reliability.",
+    "benefits": [
+      "Concurrent read/write operations without file locking",
+      "Connection pooling for better performance",
+      "Proper transaction isolation levels",
+      "Production-ready replication and backup options",
+      "Better query optimization and indexing"
+    ]
+  },
+  "feedbackLoops": {
+    "description": "Run ALL feedback loops before committing. Do NOT commit if any fail.",
+    "commands": {
+      "typecheck": "npm run build -- --mode development 2>&1 | grep -i error",
+      "lint_frontend": "npm run lint",
+      "lint_backend": "vendor/bin/pint --test",
+      "test_backend": "php artisan test --parallel",
+      "test_mysql": "php artisan test --env=mysql"
+    }
+  },
+  "categories": {
+    "code_compatibility": {
+      "priority": 1,
+      "description": "Fix SQLite-specific code to be database-agnostic (works on both SQLite and MySQL)"
+    },
+    "database_setup": {
+      "priority": 2,
+      "description": "Create MySQL database, run migrations, configure connection"
+    },
+    "data_migration": {
+      "priority": 3,
+      "description": "Export SQLite data and import to MySQL with validation"
+    },
+    "verification": {
+      "priority": 4,
+      "description": "Verify application works correctly on MySQL 9.4"
+    }
+  },
+  "items": [
+    {
+      "id": "MYS-001",
+      "category": "code_compatibility",
+      "priority": "CRITICAL",
+      "title": "Create Database-Agnostic Date Helper Trait",
+      "description": "FinanceStatsService, DashboardService, and ReportService use SQLite's strftime() function which doesn't exist in MySQL. Create a trait with database-agnostic date extraction methods following the pattern already established in FinanceReportService::getDateDiffSql().",
+      "steps": [
+        "Create app/Traits/DatabaseAgnosticQueries.php trait",
+        "Add getMonthSql(column) method: SQLite uses strftime('%m', col), MySQL uses MONTH(col)",
+        "Add getYearSql(column) method: SQLite uses strftime('%Y', col), MySQL uses YEAR(col)",
+        "Add getDateFormatSql(column, format) method for custom date formatting",
+        "Add getDateDiffSql(column, column2) method (move from FinanceReportService)",
+        "Add comprehensive unit tests for both database drivers"
+      ],
+      "files": [
+        "app/Traits/DatabaseAgnosticQueries.php",
+        "tests/Unit/Traits/DatabaseAgnosticQueriesTest.php"
+      ],
+      "acceptance_criteria": [
+        "Trait provides consistent API for date operations",
+        "Works correctly on both SQLite and MySQL",
+        "Unit tests pass on both database drivers",
+        "No direct strftime() or MySQL-specific date functions in application code"
+      ],
+      "definition_of_done": [
+        "Trait created with all date helper methods",
+        "Tests pass on both SQLite and MySQL",
+        "Documentation added as PHPDoc"
+      ],
+      "verification": "Run unit tests: php artisan test --filter=DatabaseAgnosticQueriesTest",
+      "estimated_effort": "small",
+      "passes": true,
+      "attempt_count": 1
+    },
+    {
+      "id": "MYS-002",
+      "category": "code_compatibility",
+      "priority": "CRITICAL",
+      "title": "Refactor FinanceStatsService for MySQL Compatibility",
+      "description": "FinanceStatsService has 12+ strftime() calls that will fail on MySQL. Refactor to use the DatabaseAgnosticQueries trait.",
+      "steps": [
+        "Add use DatabaseAgnosticQueries trait to FinanceStatsService",
+        "Replace strftime('%m', payment_date) with $this->getMonthSql('payment_date')",
+        "Replace strftime('%Y', payment_date) with $this->getYearSql('payment_date')",
+        "Update all selectRaw() queries to use trait methods",
+        "Test on both SQLite and MySQL",
+        "Preserve caching behavior"
+      ],
+      "files": [
+        "app/Services/FinanceStatsService.php"
+      ],
+      "acceptance_criteria": [
+        "No strftime() calls remain in file",
+        "All statistical queries work on MySQL",
+        "Caching continues to work correctly",
+        "Performance is acceptable (< 100ms for stats queries)"
+      ],
+      "definition_of_done": [
+        "All strftime() replaced with trait methods",
+        "Integration tests pass on MySQL",
+        "Finance hub loads correctly"
+      ],
+      "verification": "Load Finance Hub with MySQL; verify all stats display correctly",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["MYS-001"]
+    },
+    {
+      "id": "MYS-003",
+      "category": "code_compatibility",
+      "priority": "CRITICAL",
+      "title": "Refactor DashboardService for MySQL Compatibility",
+      "description": "DashboardService uses strftime() for date-based calculations. Refactor to use database-agnostic queries.",
+      "steps": [
+        "Add use DatabaseAgnosticQueries trait to DashboardService",
+        "Identify all strftime() calls in the file",
+        "Replace with appropriate trait methods",
+        "Test dashboard loading on MySQL",
+        "Verify all widgets display correct data"
+      ],
+      "files": [
+        "app/Services/DashboardService.php"
+      ],
+      "acceptance_criteria": [
+        "No strftime() calls remain",
+        "Dashboard loads correctly on MySQL",
+        "All statistics are accurate"
+      ],
+      "definition_of_done": [
+        "All strftime() replaced",
+        "Dashboard tests pass on MySQL"
+      ],
+      "verification": "Load Dashboard with MySQL; verify all stats and charts display correctly",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["MYS-001"]
+    },
+    {
+      "id": "MYS-004",
+      "category": "code_compatibility",
+      "priority": "HIGH",
+      "title": "Refactor ReportService for MySQL Compatibility",
+      "description": "ReportService may have SQLite-specific date functions. Audit and refactor as needed.",
+      "steps": [
+        "Audit ReportService for SQLite-specific code",
+        "Add use DatabaseAgnosticQueries trait if needed",
+        "Replace any strftime() or SQLite-specific functions",
+        "Test report generation on MySQL"
+      ],
+      "files": [
+        "app/Services/ReportService.php"
+      ],
+      "acceptance_criteria": [
+        "No SQLite-specific code remains",
+        "All reports generate correctly on MySQL"
+      ],
+      "definition_of_done": [
+        "ReportService works on MySQL",
+        "Report generation tests pass"
+      ],
+      "verification": "Generate all report types with MySQL; verify correct output",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["MYS-001"]
+    },
+    {
+      "id": "MYS-005",
+      "category": "code_compatibility",
+      "priority": "HIGH",
+      "title": "Audit and Fix All Raw SQL Queries",
+      "description": "Search entire codebase for raw SQL that may be SQLite-specific. The exploration found 69 occurrences of selectRaw/whereRaw/DB::raw across 15 files.",
+      "steps": [
+        "Run: grep -rn 'strftime' app/ to find all occurrences",
+        "Run: grep -rn 'JULIANDAY' app/ to find SQLite date functions",
+        "Run: grep -rn 'selectRaw\\|whereRaw\\|DB::raw' app/ to audit all raw SQL",
+        "Document each occurrence and whether it's database-agnostic",
+        "Fix any remaining SQLite-specific code",
+        "Add trait usage where needed"
+      ],
+      "files": [
+        "app/Http/Controllers/*.php",
+        "app/Services/*.php",
+        "app/Models/*.php"
+      ],
+      "acceptance_criteria": [
+        "Zero strftime() calls outside the trait",
+        "Zero JULIANDAY() calls outside the trait",
+        "All raw SQL is database-agnostic or uses the trait"
+      ],
+      "definition_of_done": [
+        "Grep returns zero results for SQLite-specific functions",
+        "All affected files refactored"
+      ],
+      "verification": "grep -rn 'strftime' app/ returns no results",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["MYS-001"]
+    },
+    {
+      "id": "MYS-006",
+      "category": "database_setup",
+      "priority": "CRITICAL",
+      "title": "Configure MySQL 9.4 Connection in Laravel",
+      "description": "Set up MySQL 9.4 database and configure Laravel connection with optimal settings for production.",
+      "steps": [
+        "Create MySQL database: CREATE DATABASE propmanager CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;",
+        "Create MySQL user with appropriate privileges",
+        "Update .env with MySQL connection settings",
+        "Verify config/database.php has correct MySQL settings",
+        "Enable strict mode for data integrity",
+        "Configure connection pooling if applicable"
+      ],
+      "files": [
+        ".env",
+        "config/database.php"
+      ],
+      "env_changes": {
+        "DB_CONNECTION": "mysql",
+        "DB_HOST": "127.0.0.1",
+        "DB_PORT": "3306",
+        "DB_DATABASE": "propmanager",
+        "DB_USERNAME": "propmanager_user",
+        "DB_PASSWORD": "<secure_password>"
+      },
+      "acceptance_criteria": [
+        "Laravel can connect to MySQL 9.4",
+        "Strict mode enabled",
+        "Character set is utf8mb4",
+        "Collation is utf8mb4_unicode_ci"
+      ],
+      "definition_of_done": [
+        ".env configured for MySQL",
+        "php artisan db:show works",
+        "Connection verified"
+      ],
+      "verification": "php artisan tinker --execute=\"DB::connection()->getPdo()\"",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "MYS-007",
+      "category": "database_setup",
+      "priority": "CRITICAL",
+      "title": "Run Migrations on MySQL 9.4",
+      "description": "Run all Laravel migrations to create schema in MySQL. Fix any migration-specific issues.",
+      "steps": [
+        "Backup current SQLite database first",
+        "Run: php artisan migrate --database=mysql",
+        "Fix any migration errors (ENUM syntax, default values, etc.)",
+        "Verify all tables created correctly",
+        "Verify all indexes created",
+        "Verify all foreign keys created"
+      ],
+      "files": [
+        "database/migrations/*.php"
+      ],
+      "acceptance_criteria": [
+        "All migrations run successfully on MySQL",
+        "Schema matches SQLite schema",
+        "All indexes and foreign keys created"
+      ],
+      "definition_of_done": [
+        "php artisan migrate runs without errors",
+        "All 90+ tables created",
+        "Foreign key constraints working"
+      ],
+      "verification": "php artisan migrate:status shows all migrations ran",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["MYS-006"]
+    },
+    {
+      "id": "MYS-008",
+      "category": "data_migration",
+      "priority": "CRITICAL",
+      "title": "Create Data Migration Script",
+      "description": "Create artisan command to export SQLite data and import to MySQL with validation and error handling.",
+      "steps": [
+        "Create app/Console/Commands/MigrateToMysql.php command",
+        "Read all tables from SQLite in dependency order (respect foreign keys)",
+        "Disable foreign key checks during import",
+        "Insert data into MySQL tables",
+        "Re-enable foreign key checks",
+        "Validate row counts match",
+        "Add --dry-run option for testing",
+        "Add progress bars for user feedback"
+      ],
+      "files": [
+        "app/Console/Commands/MigrateToMysql.php"
+      ],
+      "acceptance_criteria": [
+        "Command migrates all data from SQLite to MySQL",
+        "Data integrity preserved (no data loss)",
+        "Foreign key relationships maintained",
+        "Progress feedback during migration",
+        "Dry-run option for testing"
+      ],
+      "definition_of_done": [
+        "Command runs successfully",
+        "All tables have matching row counts",
+        "Spot-check data integrity verified"
+      ],
+      "verification": "Compare: SELECT COUNT(*) from each table in both databases",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["MYS-007"]
+    },
+    {
+      "id": "MYS-009",
+      "category": "data_migration",
+      "priority": "HIGH",
+      "title": "Backup SQLite Database",
+      "description": "Create timestamped backup of SQLite database before migration.",
+      "steps": [
+        "Copy database/database.sqlite to database/backups/",
+        "Add timestamp to filename: database_backup_YYYYMMDD_HHMMSS.sqlite",
+        "Verify backup is readable",
+        "Document backup location"
+      ],
+      "files": [
+        "database/database.sqlite",
+        "database/backups/"
+      ],
+      "acceptance_criteria": [
+        "Backup file exists and is readable",
+        "Backup is complete copy of original",
+        "Original database unchanged"
+      ],
+      "definition_of_done": [
+        "Backup created with timestamp",
+        "Verified backup integrity"
+      ],
+      "verification": "sqlite3 database/backups/database_backup_*.sqlite '.tables' shows all tables",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "MYS-010",
+      "category": "verification",
+      "priority": "CRITICAL",
+      "title": "Run Test Suite on MySQL",
+      "description": "Run full PHPUnit test suite against MySQL to verify all functionality works.",
+      "steps": [
+        "Create .env.testing.mysql with MySQL configuration",
+        "Create separate test database: propmanager_test",
+        "Run: php artisan test --env=mysql",
+        "Fix any failing tests",
+        "Document any MySQL-specific test adjustments"
+      ],
+      "files": [
+        ".env.testing.mysql",
+        "phpunit.xml"
+      ],
+      "acceptance_criteria": [
+        "All existing tests pass on MySQL",
+        "No new test failures",
+        "Test database properly isolated"
+      ],
+      "definition_of_done": [
+        "Full test suite passes on MySQL",
+        "CI can run tests on both SQLite and MySQL"
+      ],
+      "verification": "php artisan test --env=mysql shows all tests passing",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["MYS-001", "MYS-002", "MYS-003", "MYS-004", "MYS-005", "MYS-007"]
+    },
+    {
+      "id": "MYS-011",
+      "category": "verification",
+      "priority": "HIGH",
+      "title": "Manual Smoke Test on MySQL",
+      "description": "Perform manual smoke testing of critical user flows on MySQL.",
+      "steps": [
+        "Login as landlord, caretaker, and tenant",
+        "Test Dashboard loading and stats accuracy",
+        "Test Finance Hub - all tabs and reports",
+        "Test creating/editing invoices and payments",
+        "Test water readings workflow",
+        "Test notification sending",
+        "Test search functionality",
+        "Verify multi-tenancy isolation"
+      ],
+      "acceptance_criteria": [
+        "All critical flows work correctly",
+        "Data displays accurately",
+        "No errors in browser console",
+        "No errors in Laravel logs"
+      ],
+      "definition_of_done": [
+        "All smoke test scenarios pass",
+        "No regressions identified"
+      ],
+      "verification": "Complete manual test checklist",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["MYS-008"]
+    },
+    {
+      "id": "MYS-012",
+      "category": "verification",
+      "priority": "MEDIUM",
+      "title": "Performance Comparison Benchmark",
+      "description": "Compare query performance between SQLite and MySQL to verify expected improvements.",
+      "steps": [
+        "Benchmark Finance Hub load time on SQLite",
+        "Benchmark Finance Hub load time on MySQL",
+        "Benchmark Dashboard load time on both",
+        "Benchmark report generation on both",
+        "Document results and any performance regressions"
+      ],
+      "acceptance_criteria": [
+        "MySQL performs equal or better than SQLite for all benchmarks",
+        "No significant performance regressions",
+        "Concurrent access performs better on MySQL"
+      ],
+      "definition_of_done": [
+        "Benchmark results documented",
+        "Performance meets expectations"
+      ],
+      "verification": "Compare average response times",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["MYS-011"]
+    }
+  ],
+  "executionOrder": [
+    "MYS-009 - Backup SQLite (safety first)",
+    "MYS-001 - Create DatabaseAgnosticQueries trait",
+    "MYS-002 - Refactor FinanceStatsService",
+    "MYS-003 - Refactor DashboardService",
+    "MYS-004 - Refactor ReportService",
+    "MYS-005 - Audit and fix all raw SQL",
+    "MYS-006 - Configure MySQL connection",
+    "MYS-007 - Run migrations on MySQL",
+    "MYS-008 - Migrate data from SQLite to MySQL",
+    "MYS-010 - Run test suite on MySQL",
+    "MYS-011 - Manual smoke test",
+    "MYS-012 - Performance benchmark"
+  ],
+  "rollbackPlan": {
+    "description": "If migration fails, rollback is straightforward",
+    "steps": [
+      "Change .env DB_CONNECTION back to sqlite",
+      "Restore SQLite backup if needed: cp database/backups/database_backup_*.sqlite database/database.sqlite",
+      "Clear caches: php artisan config:clear && php artisan cache:clear",
+      "Application immediately works on SQLite again"
+    ]
+  },
+  "progressTracking": {
+    "description": "Track progress in progress.md file",
+    "format": {
+      "taskCompleted": "Task ID and title",
+      "decisionsMade": "Key decisions and reasoning",
+      "filesChanged": "List of modified files",
+      "blockers": "Any blockers or notes"
+    }
+  },
+  "completionCriteria": {
+    "metrics": [
+      "Zero strftime() or SQLite-specific SQL in app/ directory",
+      "All migrations run successfully on MySQL 9.4",
+      "All data migrated with matching row counts",
+      "Full test suite passes on MySQL",
+      "All critical user flows work correctly",
+      "MySQL performance equal or better than SQLite"
+    ],
+    "outputSignal": "<promise>MYSQL_MIGRATION_COMPLETE</promise>"
+  }
+}
