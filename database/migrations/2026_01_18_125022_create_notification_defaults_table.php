@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('notification_defaults', function (Blueprint $table) {
             $table->id();
             $table->foreignId('landlord_id')->unique()->constrained('users')->cascadeOnDelete();
-            $table->json('default_channels')->default('["email"]');
+            $table->json('default_channels');
             $table->json('type_settings')->nullable();
             $table->unsignedTinyInteger('reminder_days_before_due')->default(7);
             $table->boolean('quiet_hours_enabled')->default(true);

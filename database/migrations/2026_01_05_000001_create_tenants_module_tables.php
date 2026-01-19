@@ -119,7 +119,7 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamps();
 
-            $table->unique(['move_out_id', 'inspection_item_id']);
+            $table->unique(['move_out_id', 'inspection_item_id'], 'move_out_inspection_unique');
         });
 
         // 8. Tenant Notes - Private landlord notes about tenants

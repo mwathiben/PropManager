@@ -251,8 +251,8 @@
       ],
       "verification": "php artisan tinker --execute=\"DB::connection()->getPdo()\"",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "MYS-007",
@@ -283,8 +283,8 @@
       ],
       "verification": "php artisan migrate:status shows all migrations ran",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["MYS-006"]
     },
     {
@@ -351,8 +351,8 @@
       ],
       "verification": "sqlite3 database/backups/database_backup_*.sqlite '.tables' shows all tables",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "MYS-010",

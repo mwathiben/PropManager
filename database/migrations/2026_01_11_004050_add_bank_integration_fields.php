@@ -27,22 +27,22 @@ return new class extends Migration
         // Add bank settings to payment_configurations table
         Schema::table('payment_configurations', function (Blueprint $table) {
             // Equity Bank
-            $table->boolean('equity_bank_enabled')->default(false)->after('paystack_subaccount_code');
-            $table->string('equity_bank_account_number')->nullable()->after('equity_bank_enabled');
-            $table->string('equity_bank_account_name')->nullable()->after('equity_bank_account_number');
+            $table->boolean('equity_bank_enabled')->default(false);
+            $table->string('equity_bank_account_number')->nullable();
+            $table->string('equity_bank_account_name')->nullable();
 
             // KCB Bank
-            $table->boolean('kcb_bank_enabled')->default(false)->after('equity_bank_account_name');
-            $table->string('kcb_bank_account_number')->nullable()->after('kcb_bank_enabled');
-            $table->string('kcb_bank_account_name')->nullable()->after('kcb_bank_account_number');
+            $table->boolean('kcb_bank_enabled')->default(false);
+            $table->string('kcb_bank_account_number')->nullable();
+            $table->string('kcb_bank_account_name')->nullable();
 
             // Co-operative Bank
-            $table->boolean('coop_bank_enabled')->default(false)->after('kcb_bank_account_name');
-            $table->string('coop_bank_virtual_account')->nullable()->after('coop_bank_enabled');
-            $table->string('coop_bank_account_name')->nullable()->after('coop_bank_virtual_account');
+            $table->boolean('coop_bank_enabled')->default(false);
+            $table->string('coop_bank_virtual_account')->nullable();
+            $table->string('coop_bank_account_name')->nullable();
 
             // Reconciliation settings
-            $table->boolean('auto_reconcile_enabled')->default(true)->after('coop_bank_account_name');
+            $table->boolean('auto_reconcile_enabled')->default(true);
         });
 
         // Create bank reconciliation queue for unmatched payments

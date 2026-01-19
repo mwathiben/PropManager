@@ -27,7 +27,7 @@ return new class extends Migration
             ]);
             $table->unsignedInteger('days_offset')->default(7);
             $table->time('send_time')->default('09:00:00');
-            $table->json('channels')->default('["email"]');
+            $table->json('channels');
             $table->foreignId('template_id')->nullable()->constrained('notification_templates')->nullOnDelete();
             $table->boolean('is_active')->default(true);
             $table->timestamp('last_run_at')->nullable();

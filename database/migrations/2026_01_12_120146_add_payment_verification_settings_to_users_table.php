@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->boolean('require_payment_before_access')->default(true)->after('onboarding_complete');
-            $table->boolean('auto_verify_payments')->default(false)->after('require_payment_before_access');
+            $table->boolean('require_payment_before_access')->default(true);
+            $table->boolean('auto_verify_payments')->default(false);
         });
     }
 
