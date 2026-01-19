@@ -48,7 +48,7 @@ class ReportService
         // Total rent collected (payments)
         $collectedRent = Payment::where('landlord_id', $landlordId)
             ->whereBetween('payment_date', [$dateRange['start'], $dateRange['end']])
-            ->where('status', 'completed')
+            ->where('is_voided', false)
             ->sum('amount');
 
         // Total water charges (from invoices)
@@ -65,10 +65,7 @@ class ReportService
         $revenueBreakdown = [
             'rent' => $collectedRent,
             'water' => $waterCharges,
-            'deposits' => Payment::where('landlord_id', $landlordId)
-                ->whereBetween('payment_date', [$dateRange['start'], $dateRange['end']])
-                ->where('payment_type', 'deposit')
-                ->sum('amount'),
+            'deposits' => 0,
         ];
 
         return [
@@ -137,7 +134,7 @@ class ReportService
 
         $trendData = Payment::where('landlord_id', $landlordId)
             ->whereBetween('payment_date', [$dateRange['start'], $dateRange['end']])
-            ->where('status', 'completed')
+            ->where('is_voided', false)
             ->selectRaw("{$dateFormatSql} as date_group, MIN(payment_date) as first_date, SUM(amount) as total_amount, COUNT(*) as payment_count")
             ->groupBy('date_group')
             ->orderBy('date_group')
