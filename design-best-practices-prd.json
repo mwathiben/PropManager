@@ -585,18 +585,19 @@
       ],
       "verification": "Submit invalid data to endpoint; verify correct validation error returned",
       "estimated_effort": "large",
-      "passes": false,
-      "attempt_count": 6,
-      "phase_progress": "Phase 6 of 7 complete (BulkOperationsController + TicketController - 13 FormRequest classes created)",
+      "passes": true,
+      "attempt_count": 7,
+      "phase_progress": "Phase 7 of 7 complete - ALL PHASES DONE",
       "phases_completed": {
         "phase_1": "FinancesController: Created 12 FormRequest classes (MatchPaymentRequest, RefundDepositRequest, ForfeitDepositRequest, StoreLateFeeRuleRequest, UpdateLateFeeRuleRequest, WaiveLateFeeRequest, StoreExpenseRequest, UpdateExpenseRequest, StoreExpenseCategoryRequest, UpdateExpenseCategoryRequest, StoreVendorRequest, UpdateVendorRequest) in app/Http/Requests/Finance/. Removed 14 inline $request->validate() calls.",
         "phase_2": "PaymentController + TenantPaymentController: Created 5 FormRequest classes (VoidPaymentRequest, ValidateBulkImportRequest, ProcessBulkImportRequest, InitializePaystackRequest in app/Http/Requests/Payment/, CheckMpesaStatusRequest in app/Http/Requests/Api/). Removed 6 inline $request->validate() calls. Updated processCurrentImport and processHistoricalImport to accept validated array instead of Request.",
         "phase_3": "TenantController + MoveOutController: Created 13 FormRequest classes (UpdateTenantRequest in app/Http/Requests/; StoreTenantNoteRequest, UpdateTenantNoteRequest, StoreEmergencyContactRequest, UpdateEmergencyContactRequest in app/Http/Requests/Tenant/; StoreMoveOutRequest, UpdateMoveOutRequest, StartMoveOutInspectionRequest, StoreMoveOutDeductionRequest, UpdateMoveOutDeductionRequest, CompleteMoveOutInspectionRequest, CompleteMoveOutSettlementRequest, CancelMoveOutRequest in app/Http/Requests/MoveOut/). Removed 13 inline $request->validate() calls.",
         "phase_4": "NotificationsController: Created 11 FormRequest classes (SendNotificationRequest, SendBulkNotificationRequest, UpdateNotificationPreferencesRequest, StoreNotificationTemplateRequest, UpdateNotificationTemplateRequest, StoreNotificationScheduleRequest, UpdateNotificationScheduleRequest, UpdateWhatsAppTemplatesRequest, SubscribePushRequest, UnsubscribePushRequest, UpdateGlobalPreferencesRequest) in app/Http/Requests/Notification/. Removed 11 inline $request->validate() calls from public methods. 3 private helper method validations remain inline (updateEmailSettings, updateSmsSettings, updateWhatsAppSettings).",
         "phase_5": "BuildingController + WaterReadingController: Created 10 FormRequest classes (UpdateBuildingSettingsRequest, StorePropertyBuildingRequest, StoreWingRequest, UpdateUnitsRequest, AddUnitRequest, UpdateBuildingWaterSettingsRequest, UpdateAutomationSettingsRequest in app/Http/Requests/Building/; UpdateWaterReadingRequest, ApproveWaterReadingRequest, RejectWaterReadingRequest in app/Http/Requests/WaterReading/). Removed 10 inline $request->validate() calls.",
-        "phase_6": "BulkOperationsController + TicketController: Created 13 FormRequest classes (AdjustRentRequest, UpdateUnitStatusRequest, TerminateLeasesRequest, ExtendLeasesRequest, AdjustDepositsRequest, UpdateTargetRentRequest, UpdateMeterNumbersRequest in app/Http/Requests/BulkOperations/; StoreTicketRequest, UpdateTicketRequest, AssignTicketRequest, AddTicketCommentRequest, ResolveTicketRequest, SubmitTicketFeedbackRequest in app/Http/Requests/Ticket/). Removed 14 inline $request->validate() calls. Fixed UpdateWaterReadingRequest authorization bug from Phase 5."
+        "phase_6": "BulkOperationsController + TicketController: Created 13 FormRequest classes (AdjustRentRequest, UpdateUnitStatusRequest, TerminateLeasesRequest, ExtendLeasesRequest, AdjustDepositsRequest, UpdateTargetRentRequest, UpdateMeterNumbersRequest in app/Http/Requests/BulkOperations/; StoreTicketRequest, UpdateTicketRequest, AssignTicketRequest, AddTicketCommentRequest, ResolveTicketRequest, SubmitTicketFeedbackRequest in app/Http/Requests/Ticket/). Removed 14 inline $request->validate() calls. Fixed UpdateWaterReadingRequest authorization bug from Phase 5.",
+        "phase_7": "SettingsController + ProfileController + WaterSettingsController: Created 10 FormRequest classes (UpdateBusinessProfileRequest, UpdatePaymentMethodsRequest, UpdateNotificationDefaultsRequest, UpdateOcrRequest, UpdateBrandingRequest, UploadLogoRequest, DeleteApiKeyRequest in app/Http/Requests/Settings/; UpdateVerificationRequest, DeleteAccountRequest in app/Http/Requests/Profile/; UpdateWaterSettingsRequest in app/Http/Requests/WaterSetting/). Removed 10 inline $request->validate() calls. Fixed authorization bug in Ticket FormRequests (use ticket->landlord_id instead of ticket->unit->building)."
       },
-      "phases_remaining": ["phase_7: SettingsController + ProfileController"]
+      "total_formrequests_created": 74
     },
     {
       "id": "DBP-013",

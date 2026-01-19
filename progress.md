@@ -7760,3 +7760,85 @@ Fixed `UpdateWaterReadingRequest` from Phase 5:
 
 ### Next Steps
 - Phase 7: SettingsController + ProfileController (final phase)
+
+---
+
+## Session: 2026-01-19T10:00:00
+**Task**: DBP-012 Phase 7 - Extract Validation to FormRequest Classes (FINAL PHASE)
+**Status**: COMPLETED
+
+### Work Done
+Extracted validation rules from SettingsController (7 methods), ProfileController (2 methods), and WaterSettingsController (1 method) into dedicated FormRequest classes. This completes the entire DBP-012 task.
+
+### Files Created (10 FormRequest classes)
+
+**Settings FormRequest Classes (7 files):**
+| File | Method | Key Rules |
+|------|--------|-----------|
+| `app/Http/Requests/Settings/UpdateBusinessProfileRequest.php` | updateBusinessProfile() | company_name, tax_id, address, city, country, website |
+| `app/Http/Requests/Settings/UpdatePaymentMethodsRequest.php` | updatePaymentMethods() | accepted_payment_methods array, bank details, mpesa, paystack |
+| `app/Http/Requests/Settings/UpdateNotificationDefaultsRequest.php` | updateNotificationDefaults() | 12 notification toggle booleans + reminder_days |
+| `app/Http/Requests/Settings/UpdateOcrRequest.php` | updateOcr() | provider enum, enabled, auto_verify, api_key, azure_endpoint |
+| `app/Http/Requests/Settings/UpdateBrandingRequest.php` | updateBranding() | invoice_number_format, footer texts |
+| `app/Http/Requests/Settings/UploadLogoRequest.php` | uploadLogo() | logo (image file validation) |
+| `app/Http/Requests/Settings/DeleteApiKeyRequest.php` | deleteApiKey() | provider enum |
+
+**Profile FormRequest Classes (2 files):**
+| File | Method | Key Rules |
+|------|--------|-----------|
+| `app/Http/Requests/Profile/UpdateVerificationRequest.php` | updateVerification() | mobile_number, national_id, emergency_contact_name/phone |
+| `app/Http/Requests/Profile/DeleteAccountRequest.php` | destroy() | password (current_password rule) |
+
+**WaterSetting FormRequest Class (1 file):**
+| File | Method | Key Rules |
+|------|--------|-----------|
+| `app/Http/Requests/WaterSetting/UpdateWaterSettingsRequest.php` | update() | water_billing_type enum, rates, building_overrides array |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `SettingsController.php` | Added 7 FormRequest imports, updated 7 method signatures, removed inline validation + authorization |
+| `ProfileController.php` | Added 2 FormRequest imports, updated 2 method signatures, removed inline validation + authorization |
+| `WaterSettingsController.php` | Added 1 FormRequest import, updated 1 method signature, removed inline validation + authorization |
+
+### Authorization in FormRequests
+
+- All Settings requests: `auth()->user()->isLandlord()`
+- UpdateVerificationRequest: `auth()->user()->isTenant()` (tenants only)
+- DeleteAccountRequest: `true` (auth middleware handles)
+- UpdateWaterSettingsRequest: `auth()->user()->isLandlord()`
+
+### Bugfix (Phase 6 Issue)
+
+Fixed Ticket FormRequest authorization (UpdateTicketRequest.php and ResolveTicketRequest.php):
+- **Before**: Checked `$ticket->unit->building->landlord_id` which failed for tickets without unit_id
+- **After**: Checks `$ticket->landlord_id` directly (tickets always have landlord_id)
+
+### Verification Results
+- **Pint**: PASS (616 files)
+- **Tests**: 535 passed, 12 skipped (0 failures)
+- **No inline validation**: grep confirms no `$request->validate` calls in target controllers
+
+### DBP-012 Complete Summary
+
+| Phase | Controllers | FormRequest Classes |
+|-------|-------------|---------------------|
+| 1 | FinancesController | 12 |
+| 2 | PaymentController + TenantPaymentController | 5 |
+| 3 | TenantController + MoveOutController | 13 |
+| 4 | NotificationsController | 11 |
+| 5 | BuildingController + WaterReadingController | 10 |
+| 6 | BulkOperationsController + TicketController | 13 |
+| 7 | SettingsController + ProfileController + WaterSettingsController | 10 |
+| **TOTAL** | **14 Controllers** | **74 FormRequest classes** |
+
+### Acceptance Criteria Verification
+| Criterion | Status |
+|-----------|--------|
+| No inline $request->validate() in controllers | ✅ Zero remaining in target controllers |
+| FormRequest classes for all validated endpoints | ✅ 74 classes created |
+| Custom error messages preserved | ✅ Rules preserved as-is |
+| Validation rules centralized and reusable | ✅ Organized by domain in app/Http/Requests/ |
+
+**DBP-012 COMPLETE** - All 7 phases done, 74 FormRequest classes created, tests passing.

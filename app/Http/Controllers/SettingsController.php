@@ -2,6 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Settings\DeleteApiKeyRequest;
+use App\Http\Requests\Settings\UpdateBrandingRequest;
+use App\Http\Requests\Settings\UpdateBusinessProfileRequest;
+use App\Http\Requests\Settings\UpdateNotificationDefaultsRequest;
+use App\Http\Requests\Settings\UpdateOcrRequest;
+use App\Http\Requests\Settings\UpdatePaymentMethodsRequest;
+use App\Http\Requests\Settings\UploadLogoRequest;
 use App\Models\LandlordProfile;
 use App\Models\NotificationPreference;
 use App\Models\PaymentConfiguration;
@@ -107,27 +114,11 @@ class SettingsController extends Controller
     /**
      * Update business profile
      */
-    public function updateBusinessProfile(Request $request)
+    public function updateBusinessProfile(UpdateBusinessProfileRequest $request)
     {
-        $user = auth()->user();
-
-        if (! $user->isLandlord()) {
-            abort(403);
-        }
-
-        $validated = $request->validate([
-            'company_name' => 'nullable|string|max:255',
-            'business_registration_number' => 'nullable|string|max:100',
-            'tax_id' => 'nullable|string|max:100',
-            'address' => 'nullable|string|max:500',
-            'city' => 'nullable|string|max:100',
-            'country' => 'nullable|string|max:100',
-            'website' => 'nullable|url|max:255',
-        ]);
-
         $profile = LandlordProfile::updateOrCreate(
-            ['user_id' => $user->id],
-            $validated
+            ['user_id' => auth()->id()],
+            $request->validated()
         );
 
         return redirect()->back()->with('success', 'Business profile updated successfully.');
@@ -136,28 +127,10 @@ class SettingsController extends Controller
     /**
      * Update payment methods configuration
      */
-    public function updatePaymentMethods(Request $request)
+    public function updatePaymentMethods(UpdatePaymentMethodsRequest $request)
     {
-        $user = auth()->user();
-
-        if (! $user->isLandlord()) {
-            abort(403);
-        }
-
-        $validated = $request->validate([
-            'accepted_payment_methods' => 'required|array|min:1',
-            'accepted_payment_methods.*' => 'string|in:cash,bank_transfer,mobile_money,paystack',
-            'bank_name' => 'nullable|string|max:255',
-            'bank_account_name' => 'nullable|string|max:255',
-            'bank_account_number' => 'nullable|string|max:50',
-            'bank_branch' => 'nullable|string|max:255',
-            'mpesa_paybill' => 'nullable|string|max:20',
-            'mpesa_account_name' => 'nullable|string|max:255',
-            'paystack_enabled' => 'boolean',
-        ]);
-
-        $config = PaymentConfiguration::getOrCreateForLandlord($user->id);
-        $config->update($validated);
+        $config = PaymentConfiguration::getOrCreateForLandlord(auth()->id());
+        $config->update($request->validated());
 
         return redirect()->back()->with('success', 'Payment methods updated successfully.');
     }
@@ -165,32 +138,13 @@ class SettingsController extends Controller
     /**
      * Update notification defaults
      */
-    public function updateNotificationDefaults(Request $request)
+    public function updateNotificationDefaults(UpdateNotificationDefaultsRequest $request)
     {
-        $user = auth()->user();
-
-        if (! $user->isLandlord()) {
-            abort(403);
-        }
-
-        $validated = $request->validate([
-            'rent_reminder_enabled' => 'boolean',
-            'arrears_notice_enabled' => 'boolean',
-            'invoice_enabled' => 'boolean',
-            'receipt_enabled' => 'boolean',
-            'rent_hike_enabled' => 'boolean',
-            'lease_expiry_enabled' => 'boolean',
-            'maintenance_notice_enabled' => 'boolean',
-            'general_enabled' => 'boolean',
-            'email_enabled' => 'boolean',
-            'sms_enabled' => 'boolean',
-            'whatsapp_enabled' => 'boolean',
-            'rent_reminder_days_before' => 'nullable|integer|min:1|max:30',
-        ]);
+        $userId = auth()->id();
 
         NotificationPreference::updateOrCreate(
-            ['user_id' => $user->id, 'landlord_id' => $user->id],
-            $validated
+            ['user_id' => $userId, 'landlord_id' => $userId],
+            $request->validated()
         );
 
         return redirect()->back()->with('success', 'Notification defaults updated successfully.');
@@ -199,30 +153,15 @@ class SettingsController extends Controller
     /**
      * Update OCR settings
      */
-    public function updateOcr(Request $request)
+    public function updateOcr(UpdateOcrRequest $request)
     {
-        $validated = $request->validate([
-            'provider' => 'required|string|in:none,ocr_space,google_vision,azure_vision,tesseract',
-            'enabled' => 'required|boolean',
-            'auto_verify' => 'required|boolean',
-            'api_key' => 'nullable|string',
-            'azure_endpoint' => 'nullable|string|url',
-        ]);
+        $validated = $request->validated();
+        $landlordId = auth()->id();
 
-        $user = auth()->user();
-
-        if (! $user->isLandlord()) {
-            abort(403);
-        }
-
-        $landlordId = $user->id;
-
-        // Save OCR provider
         Setting::set('ocr_provider', $validated['provider'], false, 'ocr', 'OCR service provider', $landlordId);
         Setting::set('ocr_enabled', $validated['enabled'] ? 'true' : 'false', false, 'ocr', 'Enable OCR processing', $landlordId);
         Setting::set('ocr_auto_verify', $validated['auto_verify'] ? 'true' : 'false', false, 'ocr', 'Auto-verify matching OCR readings', $landlordId);
 
-        // Save API key if provided (encrypted)
         if (! empty($validated['api_key'])) {
             if ($validated['provider'] === 'ocr_space') {
                 Setting::set('ocr_space_api_key', $validated['api_key'], true, 'ocr', 'OCR.space API Key', $landlordId);
@@ -266,21 +205,10 @@ class SettingsController extends Controller
     /**
      * Update branding settings
      */
-    public function updateBranding(Request $request)
+    public function updateBranding(UpdateBrandingRequest $request)
     {
-        $user = auth()->user();
-
-        if (! $user->isLandlord()) {
-            abort(403);
-        }
-
-        $validated = $request->validate([
-            'invoice_number_format' => 'required|string|max:50',
-            'invoice_footer_text' => 'nullable|string|max:500',
-            'receipt_footer_text' => 'nullable|string|max:500',
-        ]);
-
-        $landlordId = $user->id;
+        $validated = $request->validated();
+        $landlordId = auth()->id();
 
         Setting::set('invoice_number_format', $validated['invoice_number_format'], false, 'branding', 'Invoice number format', $landlordId);
         Setting::set('invoice_footer_text', $validated['invoice_footer_text'] ?? '', false, 'branding', 'Invoice footer text', $landlordId);
@@ -292,27 +220,15 @@ class SettingsController extends Controller
     /**
      * Upload business logo
      */
-    public function uploadLogo(Request $request)
+    public function uploadLogo(UploadLogoRequest $request)
     {
-        $user = auth()->user();
+        $landlordId = auth()->id();
 
-        if (! $user->isLandlord()) {
-            abort(403);
-        }
-
-        $request->validate([
-            'logo' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
-        ]);
-
-        $landlordId = $user->id;
-
-        // Delete old logo if exists
         $oldLogoPath = Setting::get('business_logo_path', '', $landlordId);
         if ($oldLogoPath && Storage::disk('public')->exists($oldLogoPath)) {
             Storage::disk('public')->delete($oldLogoPath);
         }
 
-        // Store new logo
         $path = $request->file('logo')->store('logos/'.$landlordId, 'public');
 
         Setting::set('business_logo_path', $path, false, 'branding', 'Business logo path', $landlordId);
@@ -348,19 +264,10 @@ class SettingsController extends Controller
     /**
      * Delete API key
      */
-    public function deleteApiKey(Request $request)
+    public function deleteApiKey(DeleteApiKeyRequest $request)
     {
-        $validated = $request->validate([
-            'provider' => 'required|string|in:ocr_space,google_vision,azure_vision',
-        ]);
-
-        $user = auth()->user();
-
-        if (! $user->isLandlord()) {
-            abort(403);
-        }
-
-        $landlordId = $user->id;
+        $validated = $request->validated();
+        $landlordId = auth()->id();
 
         $keyName = match ($validated['provider']) {
             'ocr_space' => 'ocr_space_api_key',

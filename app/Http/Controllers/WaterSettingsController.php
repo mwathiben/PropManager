@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\WaterSetting\UpdateWaterSettingsRequest;
 use App\Models\Building;
 use App\Models\PaymentConfiguration;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class WaterSettingsController extends Controller
@@ -45,28 +45,13 @@ class WaterSettingsController extends Controller
     /**
      * Update the water settings.
      */
-    public function update(Request $request)
+    public function update(UpdateWaterSettingsRequest $request)
     {
-        $user = auth()->user();
+        $validated = $request->validated();
+        $userId = auth()->id();
 
-        if (! $user->isLandlord()) {
-            abort(403, 'Only landlords can update water settings.');
-        }
-
-        $validated = $request->validate([
-            'water_billing_type' => 'required|in:consumption,flat_rate,none',
-            'water_unit_rate' => 'nullable|numeric|min:0',
-            'flat_water_rate' => 'nullable|numeric|min:0',
-            'building_overrides' => 'nullable|array',
-            'building_overrides.*.id' => 'required|exists:buildings,id',
-            'building_overrides.*.water_billing_type' => 'nullable|in:consumption,flat_rate,none,inherit',
-            'building_overrides.*.water_unit_rate' => 'nullable|numeric|min:0',
-            'building_overrides.*.water_flat_rate' => 'nullable|numeric|min:0',
-        ]);
-
-        // Update global settings
         PaymentConfiguration::updateOrCreate(
-            ['landlord_id' => $user->id],
+            ['landlord_id' => $userId],
             [
                 'water_billing_type' => $validated['water_billing_type'],
                 'water_unit_rate' => $validated['water_unit_rate'] ?? 150,
@@ -74,17 +59,15 @@ class WaterSettingsController extends Controller
             ]
         );
 
-        // Update per-building overrides
         if (! empty($validated['building_overrides'])) {
             foreach ($validated['building_overrides'] as $override) {
                 $building = Building::where('id', $override['id'])
-                    ->where('landlord_id', $user->id)
+                    ->where('landlord_id', $userId)
                     ->first();
 
                 if ($building) {
                     $billingType = $override['water_billing_type'] ?? 'inherit';
 
-                    // If set to inherit, clear the building-specific settings
                     if ($billingType === 'inherit') {
                         $building->update([
                             'water_billing_type' => null,

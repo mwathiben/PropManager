@@ -3,26 +3,42 @@
 namespace App\Http\Requests\Ticket;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Auth;
 
 class UpdateTicketRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        $user = auth()->user();
-        $ticket = $this->route('ticket');
-
-        if ($user->isTenant()) {
-            return $ticket->reporter_id === $user->id && $ticket->canBeEdited();
+        $user = Auth::user();
+        if (! $user) {
+            return false;
         }
 
-        return $user->isLandlord() || $user->isCaretaker();
+        $ticket = $this->route('ticket');
+        if (! $ticket) {
+            return false;
+        }
+
+        if ($user->isTenant()) {
+            return (int) $ticket->reporter_id === (int) $user->id && $ticket->canBeEdited();
+        }
+
+        if ($user->isLandlord()) {
+            return (int) $ticket->landlord_id === (int) $user->id;
+        }
+
+        if ($user->isCaretaker()) {
+            return (int) $ticket->landlord_id === (int) $user->landlord_id;
+        }
+
+        return false;
     }
 
     public function rules(): array
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
-        if ($user->isTenant()) {
+        if ($user && $user->isTenant()) {
             return [
                 'title' => 'required|string|max:255',
                 'description' => 'required|string|max:2000',

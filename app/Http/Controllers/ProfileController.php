@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Profile\DeleteAccountRequest;
+use App\Http\Requests\Profile\UpdateVerificationRequest;
 use App\Http\Requests\ProfileUpdateRequest;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
@@ -123,24 +125,11 @@ class ProfileController extends Controller
     /**
      * Update tenant verification (KYC) information.
      */
-    public function updateVerification(Request $request): RedirectResponse
+    public function updateVerification(UpdateVerificationRequest $request): RedirectResponse
     {
         $user = $request->user();
+        $user->update($request->validated());
 
-        if (! $user->isTenant()) {
-            abort(403, 'Only tenants can update verification information.');
-        }
-
-        $validated = $request->validate([
-            'mobile_number' => ['required', 'string', 'max:20'],
-            'national_id' => ['required', 'string', 'max:50'],
-            'emergency_contact_name' => ['required', 'string', 'max:255'],
-            'emergency_contact_phone' => ['required', 'string', 'max:20'],
-        ]);
-
-        $user->update($validated);
-
-        // Mark KYC as completed if all fields are filled
         if ($user->hasCompletedKyc() && ! $user->kyc_completed_at) {
             $user->update(['kyc_completed_at' => now()]);
         }
@@ -151,15 +140,10 @@ class ProfileController extends Controller
     /**
      * Delete the user's account.
      */
-    public function destroy(Request $request): RedirectResponse
+    public function destroy(DeleteAccountRequest $request): RedirectResponse
     {
-        $request->validate([
-            'password' => ['required', 'current_password'],
-        ]);
-
         $user = $request->user();
 
-        // Delete profile photo if exists
         if ($user->profile_photo_path) {
             Storage::disk('public')->delete($user->profile_photo_path);
         }
