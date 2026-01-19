@@ -460,12 +460,12 @@ class ImportService
                 ]);
 
                 // Update invoice paid amount
-                $invoice->increment('paid_amount', $row['amount']);
+                $invoice->increment('amount_paid', $row['amount']);
 
                 // Update invoice status
-                if ($invoice->paid_amount >= $invoice->total_amount) {
+                if ($invoice->amount_paid >= $invoice->total_due) {
                     $invoice->update(['status' => 'paid']);
-                } elseif ($invoice->paid_amount > 0) {
+                } elseif ($invoice->amount_paid > 0) {
                     $invoice->update(['status' => 'partial']);
                 }
 

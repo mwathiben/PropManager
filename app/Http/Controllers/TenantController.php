@@ -195,7 +195,7 @@ class TenantController extends Controller
                 ->get();
 
             $totalPaid = Payment::where('lease_id', $activeLease->id)->sum('amount');
-            $totalInvoiced = Invoice::where('lease_id', $activeLease->id)->sum('total_amount');
+            $totalInvoiced = Invoice::where('lease_id', $activeLease->id)->sum('total_due');
 
             $financialSummary = [
                 'total_paid' => $totalPaid,
@@ -1086,7 +1086,7 @@ class TenantController extends Controller
             ->get();
 
         $totalPaid = Payment::where('lease_id', $lease->id)->sum('amount');
-        $totalInvoiced = Invoice::where('lease_id', $lease->id)->sum('total_amount');
+        $totalInvoiced = Invoice::where('lease_id', $lease->id)->sum('total_due');
         $balance = $totalPaid - $totalInvoiced;
 
         return Inertia::render('Tenant/Payments', [
