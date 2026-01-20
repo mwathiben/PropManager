@@ -10,7 +10,9 @@ export interface UseStatusColorsReturn {
     unitStatusColor: (status: string) => ColorClasses;
     unitStatusBadgeColor: (status: string) => ColorClasses;
     notificationStatusColor: (status: string) => ColorClasses;
+    ticketStatusColor: (status: string) => ColorClasses;
     ticketPriorityColor: (priority: string) => ColorClasses;
+    kycStatusColor: (completed: boolean) => ColorClasses;
     documentTypeColor: (type: string) => ColorClasses;
     paymentMethodColor: (method: string) => ColorClasses;
     refundStatusColor: (status: string) => ColorClasses;
@@ -77,6 +79,21 @@ export function useStatusColors(): UseStatusColorsReturn {
     };
 
     /**
+     * Ticket status colors (full ticket lifecycle)
+     */
+    const ticketStatusColor = (status: string): ColorClasses => {
+        const colors: Record<string, ColorClasses> = {
+            'open': 'bg-yellow-100 text-yellow-800',
+            'acknowledged': 'bg-blue-100 text-blue-800',
+            'in_progress': 'bg-purple-100 text-purple-800',
+            'resolved': 'bg-green-100 text-green-800',
+            'closed': 'bg-gray-100 text-gray-800',
+            'cancelled': 'bg-red-100 text-red-800'
+        };
+        return colors[status] || 'bg-gray-100 text-gray-800';
+    };
+
+    /**
      * Ticket priority colors
      */
     const ticketPriorityColor = (priority: string): ColorClasses => {
@@ -87,6 +104,15 @@ export function useStatusColors(): UseStatusColorsReturn {
             'urgent': 'bg-red-100 text-red-800'
         };
         return colors[priority] || 'bg-gray-100 text-gray-800';
+    };
+
+    /**
+     * KYC status colors
+     */
+    const kycStatusColor = (completed: boolean): ColorClasses => {
+        return completed
+            ? 'bg-green-100 text-green-800'
+            : 'bg-yellow-100 text-yellow-800';
     };
 
     /**
@@ -165,7 +191,9 @@ export function useStatusColors(): UseStatusColorsReturn {
         unitStatusColor,
         unitStatusBadgeColor,
         notificationStatusColor,
+        ticketStatusColor,
         ticketPriorityColor,
+        kycStatusColor,
         documentTypeColor,
         paymentMethodColor,
         refundStatusColor,

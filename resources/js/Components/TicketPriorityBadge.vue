@@ -1,23 +1,28 @@
-<script setup>
-const props = defineProps({
-    priority: {
-        type: String,
-        required: true
-    }
-});
+<script setup lang="ts">
+import { computed } from 'vue';
+import Badge from '@/Components/Badge.vue';
+import { useStatusColors } from '@/composables';
 
-const priorityConfig = {
-    low: { label: 'Low', class: 'bg-gray-100 text-gray-700' },
-    medium: { label: 'Medium', class: 'bg-blue-100 text-blue-700' },
-    high: { label: 'High', class: 'bg-orange-100 text-orange-700' },
-    urgent: { label: 'Urgent', class: 'bg-red-100 text-red-700' }
+interface Props {
+    priority: string;
+}
+
+const props = defineProps<Props>();
+
+const { ticketPriorityColor } = useStatusColors();
+
+const colorClasses = computed(() => ticketPriorityColor(props.priority));
+
+const labels: Record<string, string> = {
+    low: 'Low',
+    medium: 'Medium',
+    high: 'High',
+    urgent: 'Urgent'
 };
 
-const config = priorityConfig[props.priority] || { label: props.priority, class: 'bg-gray-100 text-gray-700' };
+const label = computed(() => labels[props.priority] || props.priority);
 </script>
 
 <template>
-    <span :class="[config.class, 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium']">
-        {{ config.label }}
-    </span>
+    <Badge :color-classes="colorClasses" :label="label" />
 </template>

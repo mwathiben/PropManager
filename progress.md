@@ -8082,3 +8082,72 @@ Removed `notification_v2` entry from config/features.php (file now empty of feat
 - **Grep for DualWrite**: Only in docs (progress.md, PRD)
 
 **DBP-024 COMPLETE**
+
+---
+
+## Session: 2026-01-20
+**Task**: DBP-006 - Create Unified Badge Component System
+**PRD**: design-best-practices-prd.json
+**Status**: COMPLETED
+
+### Work Done
+Created a unified Badge component system to eliminate inconsistent badge implementations across the codebase.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `resources/js/Components/Badge.vue` | Base badge component with TypeScript, supporting color/colorClasses/size/showDot/label props and icon slot |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `resources/js/composables/useStatusColors.ts` | Added `ticketStatusColor()` function (6 ticket statuses) and `kycStatusColor(completed: boolean)` function |
+| `resources/js/Components/TicketStatusBadge.vue` | Refactored to use Badge + useStatusColors composable, added TypeScript |
+| `resources/js/Components/TicketPriorityBadge.vue` | Refactored to use Badge + useStatusColors composable, added TypeScript |
+| `resources/js/Components/KycBadge.vue` | Refactored to use Badge + kycStatusColor, added TypeScript, uses icon slot |
+| `resources/js/Components/Finances/InvoiceStatusBadge.vue` | Refactored to use Badge component internally |
+| `resources/js/Components/Finances/PaymentMethodBadge.vue` | Refactored to use Badge component with icon slot |
+
+### Badge.vue Features
+- **Props**: `color` (10-color palette), `colorClasses` (override), `size` (sm/md/lg), `showDot`, `label`
+- **Slots**: `icon` (for custom icons), default (for label override)
+- **Colors**: gray, green, yellow, red, blue, purple, orange, indigo, cyan, pink
+- **Size Classes**: sm (px-1.5 py-0.5), md (px-2.5 py-0.5), lg (px-2.5 py-1)
+
+### useStatusColors Extensions
+- `ticketStatusColor(status)`: open, acknowledged, in_progress, resolved, closed, cancelled
+- `kycStatusColor(completed)`: green (completed) or yellow (incomplete)
+
+### Before/After Summary
+
+| Badge | Before | After |
+|-------|--------|-------|
+| TicketStatusBadge | Hardcoded colors, no TypeScript | Uses Badge + composable, TypeScript |
+| TicketPriorityBadge | Hardcoded colors, no TypeScript | Uses Badge + composable, TypeScript |
+| KycBadge | Inline SVG + conditional colors | Uses Badge + icon slot + composable |
+| InvoiceStatusBadge | Already TypeScript, own template | Uses Badge internally |
+| PaymentMethodBadge | Already TypeScript, own template | Uses Badge + icon slot |
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| Single Badge component with color/size/variant props | ✅ Badge.vue created |
+| Preset system for common statuses | ✅ useStatusColors handles ticket/kyc/invoice/payment |
+| Consistent sizing and spacing | ✅ sm/md/lg size variants |
+| TypeScript types for all presets | ✅ All badges now TypeScript |
+
+### Verification Results
+- **npm run build**: ✅ PASS (1710 modules)
+- **vendor/bin/pint --test**: ✅ 619 files PASS
+
+### Usages Preserved (no changes needed in consumer files)
+- TicketStatusBadge: 5 usages
+- TicketPriorityBadge: 5 usages
+- KycBadge: 2 usages
+- InvoiceStatusBadge: 8 usages
+- PaymentMethodBadge: 7 usages
+
+**DBP-006 COMPLETE**

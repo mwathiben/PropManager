@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Models\NotificationProviderConfig;
 use App\Repositories\Contracts\NotificationConfigRepositoryInterface;
+use InvalidArgumentException;
 
 class NotificationConfigRepository implements NotificationConfigRepositoryInterface
 {
@@ -81,6 +82,7 @@ class NotificationConfigRepository implements NotificationConfigRepositoryInterf
     {
         $config = NotificationProviderConfig::getOrCreate($landlordId, NotificationProviderConfig::TYPE_SMS);
         $existingCreds = $config->credentials ?? [];
+        $existingProvider = $config->provider_name;
 
         $newCreds = array_filter([
             'account_sid' => $credentials['account_sid'] ?? null,
@@ -88,9 +90,14 @@ class NotificationConfigRepository implements NotificationConfigRepositoryInterf
             'phone_number' => $credentials['phone_number'] ?? null,
         ], fn ($v) => $v !== null);
 
+        // If provider changed, replace credentials entirely; otherwise merge for partial updates
+        $finalCreds = ($existingProvider !== null && $existingProvider !== 'twilio')
+            ? $newCreds
+            : array_merge($existingCreds, $newCreds);
+
         $config->update([
             'provider_name' => 'twilio',
-            'credentials' => array_merge($existingCreds, $newCreds),
+            'credentials' => $finalCreds,
         ]);
     }
 
@@ -98,6 +105,7 @@ class NotificationConfigRepository implements NotificationConfigRepositoryInterf
     {
         $config = NotificationProviderConfig::getOrCreate($landlordId, NotificationProviderConfig::TYPE_SMS);
         $existingCreds = $config->credentials ?? [];
+        $existingProvider = $config->provider_name;
 
         $newCreds = array_filter([
             'api_key' => $credentials['api_key'] ?? null,
@@ -105,9 +113,14 @@ class NotificationConfigRepository implements NotificationConfigRepositoryInterf
             'from' => $credentials['from'] ?? null,
         ], fn ($v) => $v !== null);
 
+        // If provider changed, replace credentials entirely; otherwise merge for partial updates
+        $finalCreds = ($existingProvider !== null && $existingProvider !== 'africas_talking')
+            ? $newCreds
+            : array_merge($existingCreds, $newCreds);
+
         $config->update([
             'provider_name' => 'africas_talking',
-            'credentials' => array_merge($existingCreds, $newCreds),
+            'credentials' => $finalCreds,
         ]);
     }
 
@@ -119,13 +132,24 @@ class NotificationConfigRepository implements NotificationConfigRepositoryInterf
         $smsConfig = NotificationProviderConfig::forLandlord($landlordId, NotificationProviderConfig::TYPE_SMS);
         $existingCreds = $config->credentials ?? [];
 
+        // Start with existing credentials and only overwrite with non-null values
+        $mergedCreds = $existingCreds;
+        $mergedCreds['whatsapp_number'] = $number;
+
+        // Only copy account_sid and auth_token if they are non-null to preserve existing values
+        $accountSid = $smsConfig?->getCredential('account_sid');
+        $authToken = $smsConfig?->getCredential('auth_token');
+
+        if ($accountSid !== null) {
+            $mergedCreds['account_sid'] = $accountSid;
+        }
+        if ($authToken !== null) {
+            $mergedCreds['auth_token'] = $authToken;
+        }
+
         $config->update([
             'provider_name' => 'twilio',
-            'credentials' => array_merge($existingCreds, [
-                'whatsapp_number' => $number,
-                'account_sid' => $smsConfig?->getCredential('account_sid'),
-                'auth_token' => $smsConfig?->getCredential('auth_token'),
-            ]),
+            'credentials' => $mergedCreds,
         ]);
     }
 
@@ -227,7 +251,15 @@ class NotificationConfigRepository implements NotificationConfigRepositoryInterf
             'email' => NotificationProviderConfig::TYPE_EMAIL,
             'push' => NotificationProviderConfig::TYPE_PUSH,
         ];
-        $type = $typeMap[$providerType] ?? $providerType;
+
+        if (! array_key_exists($providerType, $typeMap)) {
+            $validTypes = implode(', ', array_keys($typeMap));
+            throw new InvalidArgumentException(
+                "Invalid provider type '{$providerType}'. Valid types are: {$validTypes}."
+            );
+        }
+
+        $type = $typeMap[$providerType];
         $config = NotificationProviderConfig::forLandlord($landlordId, $type);
 
         return $config?->isConfigured() ?? false;

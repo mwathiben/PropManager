@@ -1,25 +1,30 @@
-<script setup>
-const props = defineProps({
-    status: {
-        type: String,
-        required: true
-    }
-});
+<script setup lang="ts">
+import { computed } from 'vue';
+import Badge from '@/Components/Badge.vue';
+import { useStatusColors } from '@/composables';
 
-const statusConfig = {
-    open: { label: 'Open', class: 'bg-yellow-100 text-yellow-800' },
-    acknowledged: { label: 'Acknowledged', class: 'bg-blue-100 text-blue-800' },
-    in_progress: { label: 'In Progress', class: 'bg-purple-100 text-purple-800' },
-    resolved: { label: 'Resolved', class: 'bg-green-100 text-green-800' },
-    closed: { label: 'Closed', class: 'bg-gray-100 text-gray-800' },
-    cancelled: { label: 'Cancelled', class: 'bg-red-100 text-red-800' }
+interface Props {
+    status: string;
+}
+
+const props = defineProps<Props>();
+
+const { ticketStatusColor } = useStatusColors();
+
+const colorClasses = computed(() => ticketStatusColor(props.status));
+
+const labels: Record<string, string> = {
+    open: 'Open',
+    acknowledged: 'Acknowledged',
+    in_progress: 'In Progress',
+    resolved: 'Resolved',
+    closed: 'Closed',
+    cancelled: 'Cancelled'
 };
 
-const config = statusConfig[props.status] || { label: props.status, class: 'bg-gray-100 text-gray-800' };
+const label = computed(() => labels[props.status] || props.status);
 </script>
 
 <template>
-    <span :class="[config.class, 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium']">
-        {{ config.label }}
-    </span>
+    <Badge :color-classes="colorClasses" :label="label" />
 </template>

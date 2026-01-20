@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, type Component } from 'vue';
+import { computed } from 'vue';
+import Badge from '@/Components/Badge.vue';
 import { useStatusColors, usePayments } from '@/composables';
 import {
     BanknotesIcon,
@@ -28,17 +29,8 @@ const { getPaymentMethodLabel } = usePayments();
 const colorClasses = computed(() => paymentMethodColor(props.method));
 const label = computed(() => getPaymentMethodLabel(props.method));
 
-const sizeClasses = computed(() => {
-    const sizes = {
-        sm: 'px-1.5 py-0.5 text-xs',
-        md: 'px-2 py-1 text-xs',
-        lg: 'px-2.5 py-1 text-sm',
-    };
-    return sizes[props.size];
-});
-
 const iconComponent = computed(() => {
-    const icons = {
+    const icons: Record<string, typeof BanknotesIcon> = {
         cash: BanknotesIcon,
         bank_transfer: BuildingLibraryIcon,
         mobile_money: DevicePhoneMobileIcon,
@@ -50,7 +42,7 @@ const iconComponent = computed(() => {
 });
 
 const iconSizeClasses = computed(() => {
-    const sizes = {
+    const sizes: Record<Size, string> = {
         sm: 'h-3 w-3',
         md: 'h-3.5 w-3.5',
         lg: 'h-4 w-4',
@@ -60,14 +52,9 @@ const iconSizeClasses = computed(() => {
 </script>
 
 <template>
-    <span
-        :class="[
-            'inline-flex items-center gap-1 rounded-full font-medium',
-            colorClasses,
-            sizeClasses,
-        ]"
-    >
-        <component v-if="showIcon" :is="iconComponent" :class="iconSizeClasses" />
-        {{ label }}
-    </span>
+    <Badge :color-classes="colorClasses" :size="size" :label="label">
+        <template v-if="showIcon" #icon>
+            <component :is="iconComponent" :class="iconSizeClasses" />
+        </template>
+    </Badge>
 </template>
