@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\PaymentMethod;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -37,15 +38,15 @@ class PaymentConfiguration extends Model
         'mpesa_passkey' => 'encrypted',
     ];
 
-    /**
-     * Available payment methods
-     */
-    const PAYMENT_METHODS = [
-        'cash' => 'Cash',
-        'bank_transfer' => 'Bank Transfer',
-        'mobile_money' => 'Mobile Money (M-Pesa)',
-        'paystack' => 'Paystack (Online)',
-    ];
+    public static function getAvailablePaymentMethods(): array
+    {
+        return PaymentMethod::labelsMap();
+    }
+
+    public static function getPaymentMethodOptions(): array
+    {
+        return PaymentMethod::options();
+    }
 
     /**
      * Water billing types
@@ -77,7 +78,9 @@ class PaymentConfiguration extends Model
      */
     public function acceptsPaymentMethod(string $method): bool
     {
-        return in_array($method, $this->accepted_payment_methods ?? []);
+        $normalizedMethod = PaymentMethod::normalize($method);
+
+        return in_array($normalizedMethod, $this->accepted_payment_methods ?? []);
     }
 
     /**

@@ -13,8 +13,8 @@ export interface BaseEntity {
 // Invoice Status
 export type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'partial' | 'paid' | 'overdue' | 'void';
 
-// Payment Method
-export type PaymentMethod = 'cash' | 'bank_transfer' | 'mobile_money' | 'mpesa' | 'paystack' | 'stripe' | 'cheque';
+// Payment Method (canonical 4 methods - matches App\Enums\PaymentMethod)
+export type PaymentMethod = 'cash' | 'bank_transfer' | 'mobile_money' | 'paystack';
 
 // Refund Status
 export type RefundStatus = 'pending' | 'approved' | 'processing' | 'completed' | 'failed' | 'cancelled';

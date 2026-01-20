@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\PaymentMethod;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StorePaymentRequest extends FormRequest
 {
@@ -13,13 +15,22 @@ class StorePaymentRequest extends FormRequest
         return $user->isLandlord() || $user->isCaretaker();
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('payment_method')) {
+            $this->merge([
+                'payment_method' => PaymentMethod::normalize($this->payment_method),
+            ]);
+        }
+    }
+
     public function rules(): array
     {
         return [
             'tenant_id' => 'required_without:invoice_id|nullable|exists:users,id',
             'invoice_id' => 'nullable|exists:invoices,id',
             'amount' => 'required|numeric|min:0.01',
-            'payment_method' => 'required|in:cash,bank_transfer,mobile_money,mpesa,cheque',
+            'payment_method' => ['required', Rule::in(PaymentMethod::values())],
             'payment_date' => 'required|date|before_or_equal:today',
             'reference' => 'nullable|string|max:255',
             'notes' => 'nullable|string|max:500',

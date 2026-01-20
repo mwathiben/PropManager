@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Settings;
 
+use App\Enums\PaymentMethod;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdatePaymentMethodsRequest extends FormRequest
 {
@@ -15,7 +17,7 @@ class UpdatePaymentMethodsRequest extends FormRequest
     {
         return [
             'accepted_payment_methods' => 'required|array|min:1',
-            'accepted_payment_methods.*' => 'string|in:cash,bank_transfer,mobile_money,paystack',
+            'accepted_payment_methods.*' => ['string', Rule::in(PaymentMethod::values())],
             'bank_name' => 'nullable|string|max:255',
             'bank_account_name' => 'nullable|string|max:255',
             'bank_account_number' => 'nullable|string|max:50',

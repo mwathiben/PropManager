@@ -87,7 +87,7 @@ class SettingsController extends Controller
             'activeTab' => $activeTab,
             'landlordProfile' => $landlordProfile,
             'paymentConfig' => $paymentConfig,
-            'paymentMethods' => PaymentConfiguration::PAYMENT_METHODS,
+            'paymentMethods' => PaymentConfiguration::getAvailablePaymentMethods(),
             'ocrSettings' => $ocrSettings,
             'ocrProviders' => OcrService::getAvailableProviders(),
             'brandingSettings' => $brandingSettings,

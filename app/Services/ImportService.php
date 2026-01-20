@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\PaymentMethod;
 use App\Models\Building;
 use App\Models\Import;
 use App\Models\Invoice;
@@ -11,7 +12,9 @@ use App\Models\Tenant;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\WaterReading;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class ImportService
 {
@@ -294,7 +297,7 @@ class ImportService
                     'previous_reading' => $row['previous_reading'],
                     'current_reading' => $row['current_reading'],
                     'status' => $row['status'] ?? 'approved', // Default to approved for historical data
-                    'recorded_by' => auth()->id(),
+                    'recorded_by' => Auth::id(),
                 ]);
 
                 $successful++;
@@ -340,7 +343,7 @@ class ImportService
                 'water_charge' => 'nullable|numeric|min:0',
                 'previous_arrears' => 'nullable|numeric|min:0',
                 'status' => 'required|in:draft,sent,partial,paid,overdue',
-                'paid_amount' => 'nullable|numeric|min:0',
+                'amount_paid' => 'nullable|numeric|min:0',
             ]);
 
             if ($validator->fails()) {
@@ -382,8 +385,8 @@ class ImportService
                     'rent_charge' => $row['rent_charge'],
                     'water_charge' => $waterCharge,
                     'previous_arrears' => $previousArrears,
-                    'total_amount' => $totalAmount,
-                    'paid_amount' => $row['paid_amount'] ?? 0,
+                    'total_due' => $totalAmount,
+                    'amount_paid' => $row['amount_paid'] ?? 0,
                     'status' => $row['status'],
                 ]);
 
@@ -425,7 +428,7 @@ class ImportService
                 'invoice_number' => 'required|string',
                 'payment_date' => 'required|date',
                 'amount' => 'required|numeric|min:0',
-                'payment_method' => 'required|in:cash,mpesa,bank_transfer,cheque',
+                'payment_method' => ['required', Rule::in(PaymentMethod::values())],
                 'reference_number' => 'nullable|string',
             ]);
 

@@ -141,7 +141,6 @@ export function useStatusColors(): UseStatusColorsReturn {
             'bank_transfer': 'bg-blue-100 text-blue-800',
             'mobile_money': 'bg-orange-100 text-orange-800',
             'paystack': 'bg-cyan-100 text-cyan-800',
-            'stripe': 'bg-purple-100 text-purple-800'
         };
         return colors[method] || 'bg-gray-100 text-gray-800';
     };

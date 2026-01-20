@@ -67,7 +67,7 @@ class PaymentsHubController extends Controller
         $landlordId = $this->getLandlordId();
 
         return $this->renderHub('collection', [
-            'paymentMethods' => PaymentConfiguration::PAYMENT_METHODS,
+            'paymentMethods' => PaymentConfiguration::getAvailablePaymentMethods(),
             'paymentConfig' => $this->getPaymentConfig($landlordId),
             'payoutAccounts' => $this->getPayoutAccounts($landlordId),
             'billingSettings' => $this->getBillingSettings(),
@@ -807,7 +807,7 @@ class PaymentsHubController extends Controller
             ->map(function ($item) {
                 return [
                     'method' => $item->payment_method,
-                    'label' => PaymentConfiguration::PAYMENT_METHODS[$item->payment_method] ?? ucfirst($item->payment_method),
+                    'label' => PaymentConfiguration::getAvailablePaymentMethods()[$item->payment_method] ?? ucfirst($item->payment_method),
                     'count' => $item->count,
                     'total' => round($item->total, 2),
                 ];

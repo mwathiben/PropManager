@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { router, Head, Link } from '@inertiajs/vue3';
-import { useFormatters } from '@/composables';
+import { useFormatters, useErrorHandler } from '@/composables';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import {
     ArrowUturnLeftIcon,
@@ -24,6 +24,7 @@ const props = defineProps({
 });
 
 const { formatMoney, formatDate } = useFormatters();
+const { logError } = useErrorHandler();
 
 const form = ref({
     tenant_id: null,
@@ -67,7 +68,7 @@ watch(searchQuery, (newVal) => {
             searchResults.value = data.data || [];
             showSearchResults.value = true;
         } catch (err) {
-            console.error('Search failed:', err);
+            logError(err, { component: 'RefundsCreate', action: 'searchTenants' });
             searchResults.value = [];
         } finally {
             isSearching.value = false;
@@ -89,7 +90,7 @@ const selectTenant = async (tenant) => {
         const data = await response.json();
         tenantPayments.value = data.data || [];
     } catch (err) {
-        console.error('Failed to load payments:', err);
+        logError(err, { component: 'RefundsCreate', action: 'loadPayments' });
         tenantPayments.value = [];
     } finally {
         isLoadingPayments.value = false;
@@ -196,8 +197,7 @@ const paymentMethodLabels = {
     cash: 'Cash',
     bank_transfer: 'Bank Transfer',
     mobile_money: 'M-Pesa',
-    paystack: 'Paystack',
-    stripe: 'Stripe',
+    paystack: 'Paystack (Online)',
 };
 </script>
 

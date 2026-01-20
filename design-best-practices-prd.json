@@ -641,8 +641,9 @@
       ],
       "verification": "Add new payment method to enum; verify it appears in all UIs",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1,
+      "completion_notes": "Centralized payment methods: (1) Created PaymentMethod enum (app/Enums/PaymentMethod.php) with 4 values: Cash, BankTransfer, MobileMoney, Paystack. Includes label(), values(), options(), labelsMap(), normalize() methods. normalize() handles legacy 'mpesa' -> 'mobile_money' conversion; (2) Updated PaymentConfiguration model to use enum via getAvailablePaymentMethods() and getPaymentMethodOptions() static methods. Removed PAYMENT_METHODS constant; (3) Updated 4 controller references from PAYMENT_METHODS constant to getAvailablePaymentMethods(); (4) Updated 4 FormRequest files to use Rule::in(PaymentMethod::values()). StorePaymentRequest also normalizes payment_method in prepareForValidation(); (5) Updated ImportService validation to use enum; (6) Updated TypeScript type PaymentMethod to 4 canonical values (removed mpesa, stripe, cheque); (7) Updated 6 frontend files: usePayments.ts, useStatusColors.ts, PaymentMethodBadge.vue, RecordPaymentModal.vue, Refunds/Create.vue, BulkImport.vue. All mpesa/stripe/cheque references removed."
     },
     {
       "id": "DBP-014",

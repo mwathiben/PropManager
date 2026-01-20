@@ -108,10 +108,8 @@ export function usePayments(): UsePaymentsReturn {
     const paymentMethods: Record<string, PaymentMethodInfo> = {
         cash: { label: 'Cash', icon: 'BanknotesIcon' },
         bank_transfer: { label: 'Bank Transfer', icon: 'BuildingLibraryIcon' },
-        mobile_money: { label: 'Mobile Money', icon: 'DevicePhoneMobileIcon' },
-        mpesa: { label: 'M-Pesa', icon: 'DevicePhoneMobileIcon' },
-        paystack: { label: 'Paystack', icon: 'CreditCardIcon' },
-        stripe: { label: 'Card', icon: 'CreditCardIcon' },
+        mobile_money: { label: 'M-Pesa', icon: 'DevicePhoneMobileIcon' },
+        paystack: { label: 'Paystack (Online)', icon: 'CreditCardIcon' },
     };
 
     /**

@@ -8217,3 +8217,87 @@ Created a unified Badge component system to eliminate inconsistent badge impleme
 - **vendor/bin/pint --test**: ✅ 619 files PASS
 
 **DBP-007 COMPLETE**
+
+---
+
+## Session: 2026-01-20
+**Task**: DBP-013 - Centralize Payment Methods Configuration
+**Status**: COMPLETED
+
+### Work Done
+
+1. **Created PaymentMethod Enum**
+   - Created `app/Enums/PaymentMethod.php` with 4 canonical values: Cash, BankTransfer, MobileMoney, Paystack
+   - Added helper methods: `label()`, `values()`, `options()`, `labelsMap()`, `normalize()`, `tryFromNormalized()`
+   - `normalize()` handles legacy 'mpesa' -> 'mobile_money' conversion for backward compatibility
+
+2. **Updated PaymentConfiguration Model**
+   - Removed `PAYMENT_METHODS` constant
+   - Added `getAvailablePaymentMethods()` and `getPaymentMethodOptions()` static methods
+   - Updated `acceptsPaymentMethod()` to normalize input before checking
+
+3. **Updated Controller References (4 files)**
+   - `FinancesController.php` - Changed PAYMENT_METHODS to getAvailablePaymentMethods()
+   - `SettingsController.php` - Changed PAYMENT_METHODS to getAvailablePaymentMethods()
+   - `PaymentsHubController.php` - Changed 2 PAYMENT_METHODS usages to getAvailablePaymentMethods()
+
+4. **Updated Validation Rules (4 files)**
+   - `StorePaymentRequest.php` - Added prepareForValidation() to normalize 'mpesa', validation uses Rule::in(PaymentMethod::values())
+   - `UpdatePaymentMethodsRequest.php` (root) - Uses Rule::in(PaymentMethod::values())
+   - `UpdatePaymentMethodsRequest.php` (Settings) - Uses Rule::in(PaymentMethod::values())
+   - `ImportService.php` - Updated validation to use Rule::in(PaymentMethod::values())
+
+5. **Updated TypeScript Types**
+   - Updated `finances.d.ts` PaymentMethod type from 7 values to 4 canonical values
+   - Removed: mpesa, stripe, cheque
+
+6. **Updated Frontend Components (6 files)**
+   - `usePayments.ts` - Removed mpesa/stripe from paymentMethods object
+   - `useStatusColors.ts` - Removed stripe from paymentMethodColor mapping
+   - `PaymentMethodBadge.vue` - Removed mpesa/stripe from icon mapping
+   - `RecordPaymentModal.vue` - Updated dropdown to 4 methods (removed mpesa/cheque)
+   - `Refunds/Create.vue` - Removed stripe from paymentMethodLabels
+   - `BulkImport.vue` - Updated documentation to list 4 canonical methods
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `app/Enums/PaymentMethod.php` | CREATE |
+| `app/Models/PaymentConfiguration.php` | MODIFY - Remove constant, add enum methods |
+| `app/Http/Controllers/FinancesController.php` | MODIFY - Use enum |
+| `app/Http/Controllers/SettingsController.php` | MODIFY - Use enum |
+| `app/Http/Controllers/PaymentsHubController.php` | MODIFY - Use enum |
+| `app/Http/Requests/StorePaymentRequest.php` | MODIFY - Add normalization, use enum |
+| `app/Http/Requests/UpdatePaymentMethodsRequest.php` | MODIFY - Use enum |
+| `app/Http/Requests/Settings/UpdatePaymentMethodsRequest.php` | MODIFY - Use enum |
+| `app/Services/ImportService.php` | MODIFY - Use enum |
+| `resources/js/types/finances.d.ts` | MODIFY - 4 canonical methods |
+| `resources/js/composables/usePayments.ts` | MODIFY - Remove extras |
+| `resources/js/composables/useStatusColors.ts` | MODIFY - Remove extras |
+| `resources/js/Components/Finances/PaymentMethodBadge.vue` | MODIFY - Remove extras |
+| `resources/js/Pages/Finances/modals/RecordPaymentModal.vue` | MODIFY - 4 methods |
+| `resources/js/Pages/Finances/Refunds/Create.vue` | MODIFY - Remove stripe |
+| `resources/js/Pages/Finances/Payments/BulkImport.vue` | MODIFY - Update docs |
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| Single PaymentMethod enum is source of truth | ✅ app/Enums/PaymentMethod.php |
+| Frontend fetches from API, no hardcoding | ✅ Uses props from controllers or centralized composables |
+| Adding new payment method requires single code change | ✅ Just add to enum |
+| Type safety in PHP and TypeScript | ✅ Both updated to 4 canonical methods |
+
+### Verification Results
+- **vendor/bin/pint --test**: ✅ 620 files PASS
+- **npm run build**: ✅ Built in 17.73s
+- **php artisan test --filter=Payment**: ✅ 89 passed, 1 skipped (pre-existing)
+
+### Backward Compatibility
+- Existing payments with 'mpesa' value remain in DB untouched
+- Display layer uses composables with fallback for unknown methods
+- StorePaymentRequest normalizes 'mpesa' to 'mobile_money' before validation
+- PaymentConfiguration.acceptsPaymentMethod() normalizes input
+
+**DBP-013 COMPLETE**

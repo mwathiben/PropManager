@@ -157,7 +157,7 @@ class FinancesController extends Controller
 
         return $this->renderFinances('settings', [
             'paymentConfig' => $this->settingsService->getPaymentConfig($landlordId),
-            'paymentMethods' => PaymentConfiguration::PAYMENT_METHODS,
+            'paymentMethods' => PaymentConfiguration::getAvailablePaymentMethods(),
             'invoiceSettings' => $this->settingsService->getInvoiceSettings($landlordId),
             'reminderSettings' => $this->settingsService->getReminderSettings($landlordId),
             'receiptSettings' => $this->settingsService->getReceiptSettings($landlordId),

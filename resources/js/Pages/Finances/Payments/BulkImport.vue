@@ -77,7 +77,7 @@ const currentModeInstructions = [
     { field: 'Invoice Number', desc: 'Optional. Leave empty for auto-allocation (FIFO).' },
     { field: 'Payment Date', desc: 'Required. Format: YYYY-MM-DD' },
     { field: 'Amount', desc: 'Required. Payment amount (numbers only).' },
-    { field: 'Payment Method', desc: 'Required. One of: cash, mpesa, bank_transfer, cheque, mobile_money' },
+    { field: 'Payment Method', desc: 'Required. One of: cash, bank_transfer, mobile_money, paystack' },
     { field: 'Reference', desc: 'Optional. Transaction reference number.' },
 ];
 
@@ -87,7 +87,7 @@ const historicalModeInstructions = [
     { field: 'Tenant Email', desc: 'Optional. Will generate placeholder if empty.' },
     { field: 'Payment Date', desc: 'Required. Format: YYYY-MM-DD (can be in the past).' },
     { field: 'Amount', desc: 'Required. Payment amount (numbers only).' },
-    { field: 'Payment Method', desc: 'Required. One of: cash, mpesa, bank_transfer, cheque, mobile_money' },
+    { field: 'Payment Method', desc: 'Required. One of: cash, bank_transfer, mobile_money, paystack' },
     { field: 'Reference', desc: 'Optional. Transaction reference number.' },
 ];
 
@@ -334,7 +334,7 @@ const totalValidAmount = computed(() => {
                     <!-- Historical Mode Warning -->
                     <div v-if="importMode === 'historical'" class="p-4 bg-amber-50 border border-amber-200 rounded-lg">
                         <div class="flex gap-3">
-                            <InformationCircleIcon class="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                            <InformationCircleIcon class="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                             <div class="text-sm text-amber-800">
                                 <p class="font-medium mb-1">Historical Import Mode</p>
                                 <ul class="space-y-1 text-amber-700">

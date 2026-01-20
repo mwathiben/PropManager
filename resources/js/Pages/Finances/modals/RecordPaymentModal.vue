@@ -61,8 +61,7 @@ const paymentMethods = [
     { id: 'cash', label: 'Cash' },
     { id: 'bank_transfer', label: 'Bank Transfer' },
     { id: 'mobile_money', label: 'M-Pesa' },
-    { id: 'mpesa', label: 'M-Pesa (STK)' },
-    { id: 'cheque', label: 'Cheque' },
+    { id: 'paystack', label: 'Paystack (Online)' },
 ];
 
 watch(() => modalData.value.show, (newVal) => {
