@@ -10,8 +10,9 @@ import {
     ClockIcon,
     XCircleIcon,
     PaperAirplaneIcon,
-    TrashIcon
+    TrashIcon,
 } from '@heroicons/vue/24/outline';
+import EmptyState from '@/Components/EmptyState.vue';
 
 const props = defineProps({
     invitations: Array,
@@ -210,7 +211,7 @@ const copyInviteLink = (token) => {
                                     <button
                                         v-if="invitation.status === 'pending'"
                                         @click="resendInvitation(invitation.id)"
-                                        class="text-indigo-600 hover:text-indigo-900 flex items-center gap-1 inline-flex"
+                                        class="text-indigo-600 hover:text-indigo-900 inline-flex items-center gap-1"
                                         title="Resend invitation"
                                     >
                                         <PaperAirplaneIcon class="w-4 h-4" />
@@ -221,7 +222,7 @@ const copyInviteLink = (token) => {
                                     <button
                                         v-if="invitation.status === 'pending'"
                                         @click="cancelInvitation(invitation.id)"
-                                        class="text-red-600 hover:text-red-900 flex items-center gap-1 inline-flex"
+                                        class="text-red-600 hover:text-red-900 inline-flex items-center gap-1"
                                         title="Cancel invitation"
                                     >
                                         <TrashIcon class="w-4 h-4" />
@@ -238,20 +239,14 @@ const copyInviteLink = (token) => {
                     </table>
 
                     <!-- Empty State -->
-                    <div v-if="localInvitations.length === 0" class="text-center py-12">
-                        <EnvelopeIcon class="mx-auto h-12 w-12 text-gray-400" />
-                        <h3 class="mt-2 text-sm font-medium text-gray-900">No invitations sent</h3>
-                        <p class="mt-1 text-sm text-gray-500">Get started by sending an invitation to a caretaker.</p>
-                        <div class="mt-6">
-                            <button
-                                @click="showInviteModal = true"
-                                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 inline-flex items-center gap-2"
-                            >
-                                <PlusIcon class="w-5 h-5" />
-                                Send First Invitation
-                            </button>
-                        </div>
-                    </div>
+                    <EmptyState
+                        v-if="localInvitations.length === 0"
+                        :icon="EnvelopeIcon"
+                        title="No invitations sent"
+                        description="Get started by sending an invitation to a caretaker."
+                        action-label="Send First Invitation"
+                        @action="showInviteModal = true"
+                    />
                 </div>
             </div>
         </div>

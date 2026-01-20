@@ -2,6 +2,8 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
+import { ClipboardDocumentListIcon } from '@heroicons/vue/24/outline';
+import EmptyState from '@/Components/EmptyState.vue';
 
 const props = defineProps({
     readings: Object,
@@ -239,13 +241,12 @@ const deleteReading = (readingId) => {
                         </div>
 
                         <!-- Empty State -->
-                        <div v-if="readings.data.length === 0" class="text-center py-12">
-                            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                            </svg>
-                            <h3 class="mt-2 text-sm font-medium text-gray-900">No readings found</h3>
-                            <p class="mt-1 text-sm text-gray-500">Try adjusting your filters or add new readings.</p>
-                        </div>
+                        <EmptyState
+                            v-if="readings.data.length === 0"
+                            :icon="ClipboardDocumentListIcon"
+                            title="No readings found"
+                            description="Try adjusting your filters or add new readings."
+                        />
 
                     </div>
                 </div>

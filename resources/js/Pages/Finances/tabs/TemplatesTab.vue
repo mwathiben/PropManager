@@ -9,6 +9,7 @@ import PlusIcon from '@heroicons/vue/24/outline/PlusIcon';
 import PencilIcon from '@heroicons/vue/24/outline/PencilIcon';
 import StarIcon from '@heroicons/vue/24/outline/StarIcon';
 import StarIconSolid from '@heroicons/vue/24/solid/StarIcon';
+import EmptyState from '@/Components/EmptyState.vue';
 
 interface Template {
     id: number;
@@ -160,17 +161,14 @@ const setDefaultReceiptTemplate = (templateId: number) => {
             </div>
 
             <!-- Empty State -->
-            <div v-else class="bg-white rounded-xl border border-gray-200 p-12 text-center">
-                <DocumentDuplicateIcon class="w-12 h-12 text-gray-400 mx-auto" />
-                <h3 class="mt-4 text-lg font-medium text-gray-900">No invoice templates yet</h3>
-                <p class="mt-2 text-sm text-gray-600">Create your first template to customize how your invoices look.</p>
-                <Link
-                    :href="route('invoice-templates.create')"
-                    class="inline-flex items-center gap-2 px-4 py-2 mt-6 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
-                >
-                    <PlusIcon class="w-5 h-5" />
-                    Create Template
-                </Link>
+            <div v-else class="bg-white rounded-xl border border-gray-200">
+                <EmptyState
+                    :icon="DocumentDuplicateIcon"
+                    title="No invoice templates yet"
+                    description="Create your first template to customize how your invoices look."
+                    action-label="Create Template"
+                    :action-href="route('invoice-templates.create')"
+                />
             </div>
         </div>
 
@@ -247,17 +245,14 @@ const setDefaultReceiptTemplate = (templateId: number) => {
             </div>
 
             <!-- Empty State -->
-            <div v-else class="bg-white rounded-xl border border-gray-200 p-12 text-center">
-                <ReceiptPercentIcon class="w-12 h-12 text-gray-400 mx-auto" />
-                <h3 class="mt-4 text-lg font-medium text-gray-900">No receipt templates yet</h3>
-                <p class="mt-2 text-sm text-gray-600">Create your first template to customize how your payment receipts look.</p>
-                <Link
-                    :href="route('receipt-templates.create')"
-                    class="inline-flex items-center gap-2 px-4 py-2 mt-6 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
-                >
-                    <PlusIcon class="w-5 h-5" />
-                    Create Template
-                </Link>
+            <div v-else class="bg-white rounded-xl border border-gray-200">
+                <EmptyState
+                    :icon="ReceiptPercentIcon"
+                    title="No receipt templates yet"
+                    description="Create your first template to customize how your payment receipts look."
+                    action-label="Create Template"
+                    :action-href="route('receipt-templates.create')"
+                />
             </div>
         </div>
 

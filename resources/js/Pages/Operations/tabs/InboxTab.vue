@@ -12,6 +12,7 @@ import {
     FunnelIcon,
     ArrowTopRightOnSquareIcon,
 } from '@heroicons/vue/24/outline';
+import EmptyState from '@/Components/EmptyState.vue';
 
 const props = defineProps({
     inbox: Object,
@@ -196,12 +197,12 @@ const statusLabel = (status) => {
         </div>
 
         <!-- Empty State -->
-        <div v-else class="text-center py-12 border border-gray-200 rounded-lg bg-gray-50">
-            <InboxIcon class="mx-auto h-12 w-12 text-gray-400" />
-            <h3 class="mt-2 text-sm font-medium text-gray-900">No messages</h3>
-            <p class="mt-1 text-sm text-gray-500">
-                Tenant messages from WhatsApp and SMS will appear here.
-            </p>
+        <div v-else class="border border-gray-200 rounded-lg bg-gray-50">
+            <EmptyState
+                :icon="InboxIcon"
+                title="No messages"
+                description="Tenant messages from WhatsApp and SMS will appear here."
+            />
         </div>
 
         <!-- Pagination -->

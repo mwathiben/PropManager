@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { useErrorHandler } from '@/composables';
 import {
     BanknotesIcon,
     PlusIcon,
@@ -10,8 +11,9 @@ import {
     ClockIcon,
     StarIcon,
     TrashIcon,
-    ArrowPathIcon
+    ArrowPathIcon,
 } from '@heroicons/vue/24/outline';
+import EmptyState from '@/Components/EmptyState.vue';
 
 const props = defineProps({
     accounts: Array,
@@ -21,6 +23,7 @@ const props = defineProps({
     billingModel: String,
 });
 
+const { logError } = useErrorHandler();
 const showAddModal = ref(false);
 const banks = ref([]);
 const loadingBanks = ref(false);
@@ -59,7 +62,7 @@ const loadBanks = async () => {
         const data = await response.json();
         banks.value = data.banks || [];
     } catch (error) {
-        console.error('Failed to load banks:', error);
+        logError(error, { component: 'PayoutAccounts', action: 'loadBanks' });
     } finally {
         loadingBanks.value = false;
     }
@@ -100,7 +103,7 @@ const verifyAccount = async () => {
             alert(data.message || 'Could not verify account');
         }
     } catch (error) {
-        console.error('Verification failed:', error);
+        logError(error, { component: 'PayoutAccounts', action: 'verifyAccount' });
         alert('Account verification failed');
     } finally {
         verifyingAccount.value = false;
@@ -207,7 +210,7 @@ const getStatusColor = (status) => {
                         <li v-for="account in accounts" :key="account.id" class="p-6">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center">
-                                    <div class="flex-shrink-0">
+                                    <div class="shrink-0">
                                         <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
                                             <BanknotesIcon class="w-6 h-6 text-gray-600" />
                                         </div>
@@ -261,17 +264,14 @@ const getStatusColor = (status) => {
                 </div>
 
                 <!-- Empty State -->
-                <div v-else class="bg-white shadow rounded-lg p-12 text-center">
-                    <BanknotesIcon class="mx-auto h-12 w-12 text-gray-400" />
-                    <h3 class="mt-4 text-lg font-medium text-gray-900">No payout accounts</h3>
-                    <p class="mt-2 text-gray-500">Get started by connecting your bank account.</p>
-                    <button
-                        @click="openAddModal"
-                        class="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                    >
-                        <PlusIcon class="w-5 h-5 mr-2" />
-                        Add Account
-                    </button>
+                <div v-else class="bg-white shadow rounded-lg">
+                    <EmptyState
+                        :icon="BanknotesIcon"
+                        title="No payout accounts"
+                        description="Get started by connecting your bank account."
+                        action-label="Add Account"
+                        @action="openAddModal"
+                    />
                 </div>
             </div>
         </div>

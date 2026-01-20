@@ -14,6 +14,7 @@ import {
     XMarkIcon,
 } from '@heroicons/vue/24/outline';
 import AddBuildingModal from '@/Components/Modals/AddBuildingModal.vue';
+import EmptyState from '@/Components/EmptyState.vue';
 
 const props = defineProps({
     buildings: Array,
@@ -178,19 +179,15 @@ const getBuildingTypeColor = (type) => {
                 </div>
 
                 <!-- Empty State -->
-                <div v-if="buildings.length === 0" class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-                    <BuildingOffice2Icon class="w-16 h-16 mx-auto text-gray-300" />
-                    <h3 class="mt-4 text-lg font-semibold text-gray-900">No buildings yet</h3>
-                    <p class="mt-2 text-gray-500 max-w-md mx-auto">
-                        Get started by adding your first building. You can manage apartments, offices, warehouses, and more.
-                    </p>
-                    <button
-                        @click="showAddModal = true"
-                        class="mt-6 inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold text-sm hover:bg-indigo-700 transition"
-                    >
-                        <PlusIcon class="w-5 h-5 mr-2" />
-                        Add Your First Building
-                    </button>
+                <div v-if="buildings.length === 0" class="bg-white rounded-xl shadow-sm border border-gray-100">
+                    <EmptyState
+                        :icon="BuildingOffice2Icon"
+                        title="No buildings yet"
+                        description="Get started by adding your first building. You can manage apartments, offices, warehouses, and more."
+                        action-label="Add Your First Building"
+                        size="lg"
+                        @action="showAddModal = true"
+                    />
                 </div>
 
                 <!-- Buildings Grid -->
@@ -242,7 +239,7 @@ const getBuildingTypeColor = (type) => {
 
                             <!-- Address -->
                             <div v-if="building.address" class="mt-1 flex items-center text-sm text-gray-500">
-                                <MapPinIcon class="w-4 h-4 mr-1 flex-shrink-0" />
+                                <MapPinIcon class="w-4 h-4 mr-1 shrink-0" />
                                 <span class="truncate">{{ building.address }}</span>
                             </div>
                             <div v-else class="mt-1 text-sm text-gray-400 italic">No address set</div>

@@ -14,6 +14,7 @@ import ArrowLeftIcon from '@heroicons/vue/24/outline/ArrowLeftIcon';
 import Bars3Icon from '@heroicons/vue/24/outline/Bars3Icon';
 import ExclamationCircleIcon from '@heroicons/vue/24/outline/ExclamationCircleIcon';
 import StarIconSolid from '@heroicons/vue/24/solid/StarIcon';
+import EmptyState from '@/Components/EmptyState.vue';
 
 const props = defineProps({
     templates: Array,
@@ -234,20 +235,14 @@ const defaultTemplate = computed(() => props.templates.find(t => t.is_default));
                     </div>
 
                     <!-- Empty State -->
-                    <div v-if="!templates.length" class="text-center py-12">
-                        <ClipboardDocumentCheckIcon class="mx-auto h-12 w-12 text-gray-400" />
-                        <h3 class="mt-2 text-sm font-medium text-gray-900">No templates</h3>
-                        <p class="mt-1 text-sm text-gray-500">Create a verification template to get started.</p>
-                        <div class="mt-6">
-                            <button
-                                @click="showCreateModal = true"
-                                class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                            >
-                                <PlusIcon class="w-5 h-5" />
-                                New Template
-                            </button>
-                        </div>
-                    </div>
+                    <EmptyState
+                        v-if="!templates.length"
+                        :icon="ClipboardDocumentCheckIcon"
+                        title="No templates"
+                        description="Create a verification template to get started."
+                        action-label="New Template"
+                        @action="showCreateModal = true"
+                    />
                 </div>
             </div>
         </div>

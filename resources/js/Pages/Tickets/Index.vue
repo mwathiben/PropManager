@@ -12,8 +12,9 @@ import {
     PlusIcon,
     ExclamationTriangleIcon,
     WrenchScrewdriverIcon,
-    ChatBubbleBottomCenterTextIcon
+    ChatBubbleBottomCenterTextIcon,
 } from '@heroicons/vue/24/outline';
+import EmptyState from '@/Components/EmptyState.vue';
 
 const props = defineProps({
     tickets: Object,
@@ -79,6 +80,14 @@ const getCategoryClass = (cat) => {
         ? 'bg-orange-50 text-orange-700 border-orange-200'
         : 'bg-indigo-50 text-indigo-700 border-indigo-200';
 };
+
+const emptyStateTitle = computed(() => isTenant.value ? 'No issues reported' : 'No tickets found');
+const emptyStateDescription = computed(() => {
+    if (hasActiveFilters.value) return 'Try adjusting your filters.';
+    if (isTenant.value) return 'Having a problem? Report it and we\'ll help you.';
+    return 'No open issues or complaints to address.';
+});
+const emptyStateActionLabel = computed(() => isTenant.value ? 'Report an Issue' : 'Report Issue');
 </script>
 
 <template>
@@ -258,26 +267,14 @@ const getCategoryClass = (cat) => {
                     </div>
 
                     <!-- Empty State -->
-                    <div v-else class="text-center py-12">
-                        <WrenchScrewdriverIcon class="mx-auto h-12 w-12 text-gray-400" />
-                        <h3 class="mt-2 text-sm font-medium text-gray-900">
-                            {{ isTenant ? 'No issues reported' : 'No tickets found' }}
-                        </h3>
-                        <p class="mt-1 text-sm text-gray-500">
-                            <template v-if="hasActiveFilters">Try adjusting your filters.</template>
-                            <template v-else-if="isTenant">Having a problem? Report it and we'll help you.</template>
-                            <template v-else>No open issues or complaints to address.</template>
-                        </p>
-                        <div class="mt-6">
-                            <Link
-                                :href="route('tickets.create')"
-                                class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
-                            >
-                                <PlusIcon class="h-5 w-5 mr-2" />
-                                {{ isTenant ? 'Report an Issue' : 'Report Issue' }}
-                            </Link>
-                        </div>
-                    </div>
+                    <EmptyState
+                        v-else
+                        :icon="WrenchScrewdriverIcon"
+                        :title="emptyStateTitle"
+                        :description="emptyStateDescription"
+                        :action-label="emptyStateActionLabel"
+                        :action-href="route('tickets.create')"
+                    />
 
                     <!-- Pagination -->
                     <div v-if="tickets.data.length > 0" class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">

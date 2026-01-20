@@ -25,6 +25,7 @@ import {
     BanknotesIcon,
     DocumentDuplicateIcon,
 } from '@heroicons/vue/24/outline';
+import EmptyState from '@/Components/EmptyState.vue';
 
 const props = defineProps({
     activeTenants: Object,
@@ -349,22 +350,14 @@ const getLastLeaseInfo = (tenant) => {
                         </table>
 
                         <!-- Empty State -->
-                        <div v-if="!activeTenants?.data?.length" class="text-center py-12">
-                            <UsersIcon class="mx-auto h-12 w-12 text-gray-400" />
-                            <h3 class="mt-2 text-sm font-medium text-gray-900">No active tenants</h3>
-                            <p class="mt-1 text-sm text-gray-500">
-                                {{ search ? 'Try a different search term.' : 'Invite tenants to get started.' }}
-                            </p>
-                            <div class="mt-6">
-                                <Link
-                                    :href="route('tenant-invitations.index')"
-                                    class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                                >
-                                    <UserPlusIcon class="w-5 h-5" />
-                                    Invite Tenant
-                                </Link>
-                            </div>
-                        </div>
+                        <EmptyState
+                            v-if="!activeTenants?.data?.length"
+                            :icon="UsersIcon"
+                            title="No active tenants"
+                            :description="search ? 'Try a different search term.' : 'Invite tenants to get started.'"
+                            :action-label="search ? null : 'Invite Tenant'"
+                            :action-href="search ? null : route('tenant-invitations.index')"
+                        />
 
                         <!-- Pagination -->
                         <div v-if="activeTenants?.data?.length && activeTenants.last_page > 1" class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">

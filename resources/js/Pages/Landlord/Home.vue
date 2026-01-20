@@ -11,8 +11,9 @@ import {
     ChartBarIcon,
     Cog6ToothIcon,
     UsersIcon,
-    ArrowRightIcon
+    ArrowRightIcon,
 } from '@heroicons/vue/24/outline';
+import EmptyState from '@/Components/EmptyState.vue';
 
 const props = defineProps({
     properties: Array,
@@ -142,19 +143,15 @@ const getOccupancyColor = (rate) => {
                 </div>
 
                 <!-- Empty State -->
-                <div v-if="properties.length === 0" class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-                    <HomeModernIcon class="mx-auto h-16 w-16 text-gray-300" />
-                    <h3 class="mt-4 text-lg font-semibold text-gray-900">No properties yet</h3>
-                    <p class="mt-2 text-sm text-gray-500 max-w-sm mx-auto">Get started by adding your first property. You can add multiple buildings/wings to each property.</p>
-                    <div class="mt-6">
-                        <button
-                            @click="showAddPropertyModal = true"
-                            class="inline-flex items-center px-5 py-2.5 bg-indigo-600 border border-transparent rounded-lg font-semibold text-sm text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition shadow-sm"
-                        >
-                            <PlusIcon class="w-5 h-5 mr-2" />
-                            Add Your First Property
-                        </button>
-                    </div>
+                <div v-if="properties.length === 0" class="bg-white rounded-xl shadow-sm border border-gray-100">
+                    <EmptyState
+                        :icon="HomeModernIcon"
+                        title="No properties yet"
+                        description="Get started by adding your first property. You can add multiple buildings/wings to each property."
+                        action-label="Add Your First Property"
+                        size="lg"
+                        @action="showAddPropertyModal = true"
+                    />
                 </div>
 
                 <!-- Properties List -->

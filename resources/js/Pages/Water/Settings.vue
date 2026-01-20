@@ -9,6 +9,7 @@ import {
     HomeModernIcon,
     CheckIcon,
 } from '@heroicons/vue/24/outline';
+import EmptyState from '@/Components/EmptyState.vue';
 
 const props = defineProps({
     buildings: Array,
@@ -201,7 +202,7 @@ const getBuildingOverrideIndex = (buildingId) => {
 
                         <div class="space-y-4">
                             <div
-                                v-for="(building, index) in buildings"
+                                v-for="building in buildings"
                                 :key="building.id"
                                 class="border border-gray-200 rounded-lg p-4"
                             >
@@ -258,9 +259,13 @@ const getBuildingOverrideIndex = (buildingId) => {
                     </div>
 
                     <!-- Empty State -->
-                    <div v-if="buildings.length === 0" class="bg-white shadow-sm rounded-lg p-6 mb-6 text-center">
-                        <BeakerIcon class="w-12 h-12 mx-auto text-gray-300 mb-4" />
-                        <p class="text-gray-500">No buildings found. Add buildings to configure per-building water settings.</p>
+                    <div v-if="buildings.length === 0" class="bg-white shadow-sm rounded-lg mb-6">
+                        <EmptyState
+                            :icon="BeakerIcon"
+                            title="No buildings found"
+                            description="Add buildings to configure per-building water settings."
+                            size="sm"
+                        />
                     </div>
 
                     <!-- Save Button -->

@@ -20,6 +20,7 @@ import {
     CalendarDaysIcon,
     EyeIcon,
 } from '@heroicons/vue/24/outline';
+import EmptyState from '@/Components/EmptyState.vue';
 
 const props = defineProps({
     invitations: Array,
@@ -388,22 +389,14 @@ const closeEditModal = () => {
                     </div>
 
                     <!-- Empty State -->
-                    <div v-if="!filteredInvitations.length" class="text-center py-12">
-                        <UserPlusIcon class="mx-auto h-12 w-12 text-gray-400" />
-                        <h3 class="mt-2 text-sm font-medium text-gray-900">No invitations</h3>
-                        <p class="mt-1 text-sm text-gray-500">
-                            {{ statusFilter !== 'all' ? 'No invitations match this filter.' : 'Get started by sending a tenant invitation.' }}
-                        </p>
-                        <div v-if="vacantUnits.length && statusFilter === 'all'" class="mt-6">
-                            <button
-                                @click="showCreateModal = true"
-                                class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                            >
-                                <UserPlusIcon class="w-5 h-5" />
-                                Send Invitation
-                            </button>
-                        </div>
-                    </div>
+                    <EmptyState
+                        v-if="!filteredInvitations.length"
+                        :icon="UserPlusIcon"
+                        title="No invitations"
+                        :description="statusFilter !== 'all' ? 'No invitations match this filter.' : 'Get started by sending a tenant invitation.'"
+                        :action-label="vacantUnits.length && statusFilter === 'all' ? 'Send Invitation' : null"
+                        @action="showCreateModal = true"
+                    />
                 </div>
             </div>
         </div>

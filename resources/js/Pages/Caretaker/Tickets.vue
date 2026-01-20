@@ -13,8 +13,9 @@ import {
     PlayIcon,
     EyeIcon,
     FunnelIcon,
-    ExclamationTriangleIcon
+    ExclamationTriangleIcon,
 } from '@heroicons/vue/24/outline';
+import EmptyState from '@/Components/EmptyState.vue';
 
 const props = defineProps({
     tickets: Object,
@@ -281,12 +282,12 @@ const getTimeAgo = (dateString) => {
                     </div>
 
                     <!-- Empty State -->
-                    <div v-if="tickets.data.length === 0" class="bg-white rounded-lg shadow-sm border p-12 text-center">
-                        <CheckCircleIcon class="mx-auto h-12 w-12 text-green-400" />
-                        <h3 class="mt-2 text-sm font-medium text-gray-900">All caught up!</h3>
-                        <p class="mt-1 text-sm text-gray-500">
-                            No tickets in your queue matching the current filters.
-                        </p>
+                    <div v-if="tickets.data.length === 0" class="bg-white rounded-lg shadow-sm border">
+                        <EmptyState
+                            :icon="CheckCircleIcon"
+                            title="All caught up!"
+                            description="No tickets in your queue matching the current filters."
+                        />
                     </div>
                 </div>
 

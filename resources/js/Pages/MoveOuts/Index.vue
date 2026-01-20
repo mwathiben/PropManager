@@ -13,6 +13,7 @@ import {
     ChevronLeftIcon,
     ChevronRightIcon,
 } from '@heroicons/vue/24/outline';
+import EmptyState from '@/Components/EmptyState.vue';
 
 const props = defineProps({
     moveOuts: Object,
@@ -214,13 +215,12 @@ const goToPage = (url) => {
                     </div>
 
                     <!-- Empty State -->
-                    <div v-if="!moveOuts.data?.length" class="text-center py-12">
-                        <ArrowRightOnRectangleIcon class="mx-auto h-12 w-12 text-gray-400" />
-                        <h3 class="mt-2 text-sm font-medium text-gray-900">No move-outs</h3>
-                        <p class="mt-1 text-sm text-gray-500">
-                            {{ currentStatus === 'active' ? 'No active move-outs at the moment.' : 'No completed move-outs to display.' }}
-                        </p>
-                    </div>
+                    <EmptyState
+                        v-if="!moveOuts.data?.length"
+                        :icon="ArrowRightOnRectangleIcon"
+                        title="No move-outs"
+                        :description="currentStatus === 'active' ? 'No active move-outs at the moment.' : 'No completed move-outs to display.'"
+                    />
 
                     <!-- Pagination -->
                     <div v-if="moveOuts.data?.length && moveOuts.last_page > 1" class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">

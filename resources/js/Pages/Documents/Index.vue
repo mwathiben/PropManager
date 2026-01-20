@@ -13,8 +13,9 @@ import {
     TrashIcon,
     PlusIcon,
     FunnelIcon,
-    MagnifyingGlassIcon
+    MagnifyingGlassIcon,
 } from '@heroicons/vue/24/outline';
+import EmptyState from '@/Components/EmptyState.vue';
 
 const props = defineProps({
     documents: Object,
@@ -309,24 +310,14 @@ const getFileIcon = (document) => {
                     </div>
 
                     <!-- Empty State -->
-                    <div v-if="documents.data.length === 0" class="text-center py-12">
-                        <FolderIcon class="mx-auto h-12 w-12 text-gray-400" />
-                        <h3 class="mt-2 text-sm font-medium text-gray-900">No documents found</h3>
-                        <p class="mt-1 text-sm text-gray-500">
-                            {{ isTenant
-                                ? 'No documents have been shared with you yet.'
-                                : 'Upload your first document to get started.' }}
-                        </p>
-                        <div v-if="canUploadDocuments" class="mt-6">
-                            <button
-                                @click="showUploadModal = true"
-                                class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 gap-2"
-                            >
-                                <PlusIcon class="w-5 h-5" />
-                                Upload First Document
-                            </button>
-                        </div>
-                    </div>
+                    <EmptyState
+                        v-if="documents.data.length === 0"
+                        :icon="FolderIcon"
+                        title="No documents found"
+                        :description="isTenant ? 'No documents have been shared with you yet.' : 'Upload your first document to get started.'"
+                        :action-label="canUploadDocuments ? 'Upload First Document' : null"
+                        @action="showUploadModal = true"
+                    />
                 </div>
             </div>
         </div>

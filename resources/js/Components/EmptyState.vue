@@ -1,12 +1,7 @@
 <script setup lang="ts">
 import { computed, type Component } from 'vue';
 import { Link } from '@inertiajs/vue3';
-import {
-    DocumentTextIcon,
-    CreditCardIcon,
-    BanknotesIcon,
-    FolderOpenIcon,
-} from '@heroicons/vue/24/outline';
+import { FolderOpenIcon } from '@heroicons/vue/24/outline';
 
 type Size = 'sm' | 'md' | 'lg';
 

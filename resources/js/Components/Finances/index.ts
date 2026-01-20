@@ -7,7 +7,7 @@ export { default as MetricCard } from '@/Components/MetricCard.vue';
 export { default as InvoiceStatusBadge } from './InvoiceStatusBadge.vue';
 export { default as PaymentMethodBadge } from './PaymentMethodBadge.vue';
 export { default as AmountDisplay } from './AmountDisplay.vue';
-export { default as EmptyState } from './EmptyState.vue';
+export { default as EmptyState } from '@/Components/EmptyState.vue';
 export { default as FilterBar } from './FilterBar.vue';
 export { default as DataTable } from './DataTable.vue';
 export { default as VirtualDataTable } from './VirtualDataTable.vue';

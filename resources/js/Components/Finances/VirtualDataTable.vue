@@ -3,7 +3,7 @@ import { computed, ref, type Component } from 'vue';
 import { useVirtualList } from '@vueuse/core';
 import ChevronUpIcon from '@heroicons/vue/24/solid/ChevronUpIcon';
 import ChevronDownIcon from '@heroicons/vue/24/solid/ChevronDownIcon';
-import EmptyState from './EmptyState.vue';
+import EmptyState from '@/Components/EmptyState.vue';
 import type { ColumnDefinition, SortState } from '@/types/finances';
 
 type SortDirection = 'asc' | 'desc';

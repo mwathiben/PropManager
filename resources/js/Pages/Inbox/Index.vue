@@ -12,6 +12,7 @@ import {
     MagnifyingGlassIcon,
     FunnelIcon,
 } from '@heroicons/vue/24/outline';
+import EmptyState from '@/Components/EmptyState.vue';
 
 const props = defineProps({
     messages: Object,
@@ -171,7 +172,7 @@ const statusLabel = (status) => {
                             >
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center">
-                                        <div class="flex-shrink-0 h-10 w-10 bg-gray-100 rounded-full flex items-center justify-center">
+                                        <div class="shrink-0 h-10 w-10 bg-gray-100 rounded-full flex items-center justify-center">
                                             <ChatBubbleLeftIcon class="w-5 h-5 text-gray-500" />
                                         </div>
                                         <div class="ml-3">
@@ -230,7 +231,7 @@ const statusLabel = (status) => {
                                     <button
                                         v-if="message.status === 'received'"
                                         @click.stop="markAsRead(message.id)"
-                                        class="text-indigo-600 hover:text-indigo-900 flex items-center gap-1 inline-flex"
+                                        class="text-indigo-600 hover:text-indigo-900 inline-flex items-center gap-1"
                                         title="Mark as read"
                                     >
                                         <EnvelopeOpenIcon class="w-4 h-4" />
@@ -249,13 +250,12 @@ const statusLabel = (status) => {
                     </table>
 
                     <!-- Empty State -->
-                    <div v-if="messages.data.length === 0" class="text-center py-12">
-                        <InboxIcon class="mx-auto h-12 w-12 text-gray-400" />
-                        <h3 class="mt-2 text-sm font-medium text-gray-900">No messages</h3>
-                        <p class="mt-1 text-sm text-gray-500">
-                            When tenants reply to notifications via WhatsApp or SMS, their messages will appear here.
-                        </p>
-                    </div>
+                    <EmptyState
+                        v-if="messages.data.length === 0"
+                        :icon="InboxIcon"
+                        title="No messages"
+                        description="When tenants reply to notifications via WhatsApp or SMS, their messages will appear here."
+                    />
 
                     <!-- Pagination -->
                     <div v-if="messages.data.length > 0" class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
