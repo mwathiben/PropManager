@@ -263,22 +263,19 @@ class PaymentController extends Controller
 
         $payments = $query->paginate(20)->withQueryString();
 
-        // Calculate stats in a single query (database-agnostic)
-        $thisMonthStart = now()->startOfMonth()->toDateTimeString();
-        $nextMonthStart = now()->addMonth()->startOfMonth()->toDateTimeString();
-
-        $statsRaw = Payment::where('landlord_id', $landlordId)
-            ->selectRaw('
-                COALESCE(SUM(amount), 0) as total_received,
-                COALESCE(SUM(CASE WHEN payment_date >= ? AND payment_date < ? THEN amount ELSE 0 END), 0) as this_month,
-                COUNT(*) as payment_count
-            ', [$thisMonthStart, $nextMonthStart])
-            ->first();
+        // Calculate stats using DB-agnostic Eloquent queries
+        $now = now();
+        $totalReceived = Payment::where('landlord_id', $landlordId)->sum('amount') ?? 0;
+        $thisMonth = Payment::where('landlord_id', $landlordId)
+            ->whereMonth('payment_date', $now->month)
+            ->whereYear('payment_date', $now->year)
+            ->sum('amount') ?? 0;
+        $paymentCount = Payment::where('landlord_id', $landlordId)->count();
 
         $stats = [
-            'total_received' => (float) $statsRaw->total_received,
-            'this_month' => (float) $statsRaw->this_month,
-            'payment_count' => (int) $statsRaw->payment_count,
+            'total_received' => (float) $totalReceived,
+            'this_month' => (float) $thisMonth,
+            'payment_count' => (int) $paymentCount,
         ];
 
         // Get payment methods for filter
@@ -1288,7 +1285,7 @@ class PaymentController extends Controller
                 ];
             }
 
-            $outstanding = $invoice->getOutstandingBalance();
+            $outstanding = $invoice->getOutstandingAmount();
             $allocationAmount = min($remainingAmount, $outstanding);
             $allocations[] = [
                 'invoice_id' => $invoice->id,
@@ -1313,7 +1310,7 @@ class PaymentController extends Controller
                     break;
                 }
 
-                $outstanding = $invoice->getOutstandingBalance();
+                $outstanding = $invoice->getOutstandingAmount();
                 if ($outstanding <= 0) {
                     continue;
                 }
@@ -1427,7 +1424,7 @@ class PaymentController extends Controller
                 ];
             }
 
-            $outstanding = $invoice->getOutstandingBalance();
+            $outstanding = $invoice->getOutstandingAmount();
             $allocationAmount = min($remainingAmount, $outstanding);
             $allocations[] = [
                 'invoice_id' => $invoice->id,
@@ -1448,7 +1445,7 @@ class PaymentController extends Controller
                     break;
                 }
 
-                $outstanding = $invoice->getOutstandingBalance();
+                $outstanding = $invoice->getOutstandingAmount();
                 if ($outstanding <= 0) {
                     continue;
                 }
@@ -1502,6 +1499,8 @@ class PaymentController extends Controller
 
     /**
      * Process current tenant bulk import.
+     *
+     * Optimized to use batch queries instead of N+1 pattern.
      */
     private function processCurrentImport(array $validated)
     {
@@ -1517,12 +1516,41 @@ class PaymentController extends Controller
         DB::beginTransaction();
 
         try {
+            // Pre-load all invoice IDs from allocations (O(1) instead of O(n))
+            $allInvoiceIds = collect($validated['payments'])
+                ->flatMap(fn ($p) => collect($p['allocations'] ?? [])->pluck('invoice_id'))
+                ->unique()
+                ->filter()
+                ->values()
+                ->all();
+
+            // Batch lock and load all invoices with a single query
+            $invoicesMap = Invoice::where('landlord_id', $landlordId)
+                ->whereIn('id', $allInvoiceIds)
+                ->lockForUpdate()
+                ->with('lease:id,tenant_id')
+                ->get()
+                ->keyBy('id');
+
+            // Pre-load leases for tenants with wallet credit (single query)
+            $tenantIdsWithWalletCredit = collect($validated['payments'])
+                ->filter(fn ($p) => ($p['wallet_credit'] ?? 0) > 0 && empty($p['allocations']))
+                ->pluck('tenant_id')
+                ->unique()
+                ->filter()
+                ->values()
+                ->all();
+
+            $leasesMap = ! empty($tenantIdsWithWalletCredit)
+                ? Lease::where('landlord_id', $landlordId)
+                    ->whereIn('tenant_id', $tenantIdsWithWalletCredit)
+                    ->get()
+                    ->keyBy('tenant_id')
+                : collect();
+
             foreach ($validated['payments'] as $paymentData) {
                 foreach ($paymentData['allocations'] as $allocation) {
-                    $invoice = Invoice::where('id', $allocation['invoice_id'])
-                        ->where('landlord_id', $landlordId)
-                        ->lockForUpdate()
-                        ->first();
+                    $invoice = $invoicesMap->get($allocation['invoice_id']);
 
                     if (! $invoice) {
                         throw new \Exception("Invoice {$allocation['invoice_id']} not found or not owned by landlord");
@@ -1548,13 +1576,12 @@ class PaymentController extends Controller
                 }
 
                 if (($paymentData['wallet_credit'] ?? 0) > 0) {
+                    $lease = null;
                     if (! empty($paymentData['allocations'])) {
-                        $firstInvoice = Invoice::find($paymentData['allocations'][0]['invoice_id']);
-                        $lease = $firstInvoice ? $firstInvoice->lease : null;
+                        $firstInvoice = $invoicesMap->get($paymentData['allocations'][0]['invoice_id']);
+                        $lease = $firstInvoice?->lease;
                     } else {
-                        $lease = Lease::where('tenant_id', $paymentData['tenant_id'])
-                            ->where('landlord_id', $landlordId)
-                            ->first();
+                        $lease = $leasesMap->get($paymentData['tenant_id']);
                     }
                     if ($lease) {
                         $lease->creditToWallet($paymentData['wallet_credit'], 'Bulk import wallet credit');
@@ -1590,6 +1617,8 @@ class PaymentController extends Controller
 
     /**
      * Process historical data bulk import.
+     *
+     * Optimized to use batch queries instead of N+1 pattern.
      */
     private function processHistoricalImport(array $validated)
     {
@@ -1607,25 +1636,40 @@ class PaymentController extends Controller
         DB::beginTransaction();
 
         try {
+            // Pre-load all existing archived tenants for this landlord (O(1) query)
+            $archivedTenantsMap = User::where('landlord_id', $landlordId)
+                ->where('role', 'tenant')
+                ->where('is_archived', true)
+                ->get()
+                ->keyBy(fn ($t) => strtolower($t->name));
+
+            // Pre-load all existing inactive leases for this landlord (O(1) query)
+            $historicalLeasesMap = Lease::where('landlord_id', $landlordId)
+                ->where('is_active', false)
+                ->get()
+                ->keyBy(fn ($l) => "{$l->unit_id}|{$l->tenant_id}");
+
             foreach ($validated['payments'] as $paymentData) {
                 $unitId = $paymentData['unit_id'];
                 $tenantName = $paymentData['tenant_name'];
                 $tenantEmail = $paymentData['tenant_email'] ?? null;
                 $paymentDate = $paymentData['payment_date'];
 
-                $archivedTenant = $this->findOrCreateArchivedTenant(
+                $archivedTenant = $this->findOrCreateArchivedTenantOptimized(
                     $landlordId,
                     $unitId,
                     $tenantName,
                     $tenantEmail,
-                    $archivedTenantsCreated
+                    $archivedTenantsCreated,
+                    $archivedTenantsMap
                 );
 
-                $historicalLease = $this->findOrCreateHistoricalLease(
+                $historicalLease = $this->findOrCreateHistoricalLeaseOptimized(
                     $landlordId,
                     $unitId,
                     $archivedTenant->id,
-                    $paymentDate
+                    $paymentDate,
+                    $historicalLeasesMap
                 );
 
                 Payment::create([
@@ -1670,6 +1714,8 @@ class PaymentController extends Controller
 
     /**
      * Find or create an archived tenant record for historical imports.
+     *
+     * @deprecated Use findOrCreateArchivedTenantOptimized with pre-loaded map
      */
     private function findOrCreateArchivedTenant(
         int $landlordId,
@@ -1706,7 +1752,48 @@ class PaymentController extends Controller
     }
 
     /**
+     * Find or create an archived tenant using pre-loaded map (optimized).
+     *
+     * @param  \Illuminate\Support\Collection  $tenantsMap  Mutable collection keyed by lowercase name
+     */
+    private function findOrCreateArchivedTenantOptimized(
+        int $landlordId,
+        int $unitId,
+        string $tenantName,
+        ?string $tenantEmail,
+        int &$createdCount,
+        $tenantsMap
+    ): User {
+        $key = strtolower($tenantName);
+        $existingTenant = $tenantsMap->get($key);
+
+        if ($existingTenant) {
+            return $existingTenant;
+        }
+
+        $email = $tenantEmail ?: 'archived_'.Str::slug($tenantName).'_'.$unitId.'_'.time().'@placeholder.local';
+
+        $tenant = User::create([
+            'name' => $tenantName,
+            'email' => $email,
+            'password' => Hash::make(Str::random(32)),
+            'role' => 'tenant',
+            'landlord_id' => $landlordId,
+            'is_archived' => true,
+            'archived_at' => now(),
+        ]);
+
+        // Add to map for subsequent lookups in same batch
+        $tenantsMap->put($key, $tenant);
+        $createdCount++;
+
+        return $tenant;
+    }
+
+    /**
      * Find or create a historical lease record.
+     *
+     * @deprecated Use findOrCreateHistoricalLeaseOptimized with pre-loaded map
      */
     private function findOrCreateHistoricalLease(
         int $landlordId,
@@ -1741,6 +1828,49 @@ class PaymentController extends Controller
             'deposit_amount' => 0,
             'is_active' => false,
         ]);
+    }
+
+    /**
+     * Find or create a historical lease using pre-loaded map (optimized).
+     *
+     * @param  \Illuminate\Support\Collection  $leasesMap  Mutable collection keyed by "unit_id|tenant_id"
+     */
+    private function findOrCreateHistoricalLeaseOptimized(
+        int $landlordId,
+        int $unitId,
+        int $tenantId,
+        string $paymentDate,
+        $leasesMap
+    ): Lease {
+        $key = "{$unitId}|{$tenantId}";
+        $existingLease = $leasesMap->get($key);
+
+        if ($existingLease) {
+            if (strtotime($existingLease->end_date) < strtotime($paymentDate)) {
+                $existingLease->update(['end_date' => $paymentDate]);
+            }
+            if (strtotime($existingLease->start_date) > strtotime($paymentDate)) {
+                $existingLease->update(['start_date' => $paymentDate]);
+            }
+
+            return $existingLease;
+        }
+
+        $lease = Lease::create([
+            'unit_id' => $unitId,
+            'tenant_id' => $tenantId,
+            'landlord_id' => $landlordId,
+            'start_date' => $paymentDate,
+            'end_date' => $paymentDate,
+            'rent_amount' => 0,
+            'deposit_amount' => 0,
+            'is_active' => false,
+        ]);
+
+        // Add to map for subsequent lookups in same batch
+        $leasesMap->put($key, $lease);
+
+        return $lease;
     }
 
     /**
