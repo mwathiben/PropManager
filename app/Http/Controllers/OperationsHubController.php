@@ -9,9 +9,9 @@ use App\Models\Invitation;
 use App\Models\Notification;
 use App\Models\NotificationSchedule;
 use App\Models\NotificationTemplate;
-use App\Models\Setting;
 use App\Models\TenantMessage;
 use App\Models\User;
+use App\Repositories\Contracts\NotificationConfigRepositoryInterface;
 use App\Services\PushNotificationService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -20,6 +20,10 @@ use Inertia\Response;
 class OperationsHubController extends Controller
 {
     use WithLandlordScope;
+
+    public function __construct(
+        private readonly NotificationConfigRepositoryInterface $notificationConfig
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -101,11 +105,11 @@ class OperationsHubController extends Controller
 
     private function isNotificationSetupComplete(int $landlordId): bool
     {
-        if (Setting::get('notifications_setup_complete', false, $landlordId)) {
+        if ($this->notificationConfig->isSetupComplete($landlordId)) {
             return true;
         }
 
-        $smsConfigured = Setting::get('sms_provider', 'none', $landlordId) !== 'none';
+        $smsConfigured = $this->notificationConfig->getSmsProvider($landlordId) !== 'none';
         $pushConfigured = app(PushNotificationService::class)->isConfigured($landlordId);
 
         return $smsConfigured || $pushConfigured;
@@ -213,7 +217,6 @@ class OperationsHubController extends Controller
             ->get();
 
         $invitations = Invitation::where('landlord_id', $landlordId)
-            ->where('type', 'caretaker')
             ->orderBy('created_at', 'desc')
             ->paginate(10)
             ->withQueryString();

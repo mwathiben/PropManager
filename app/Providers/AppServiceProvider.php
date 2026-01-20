@@ -18,8 +18,8 @@ use App\Observers\UserObserver;
 use App\Observers\WaterReadingObserver;
 use App\Repositories\Contracts\NotificationConfigRepositoryInterface;
 use App\Repositories\Contracts\NotificationDefaultsRepositoryInterface;
-use App\Repositories\DualWriteNotificationConfigRepository;
-use App\Repositories\DualWriteNotificationDefaultsRepository;
+use App\Repositories\NotificationConfigRepository;
+use App\Repositories\NotificationDefaultsRepository;
 use App\Services\SecurityLogger;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -40,16 +40,16 @@ class AppServiceProvider extends ServiceProvider
             return new SecurityLogger($app['request']);
         });
 
-        // Register notification config repository (dual-write for migration)
+        // Register notification config repository
         $this->app->bind(
             NotificationConfigRepositoryInterface::class,
-            DualWriteNotificationConfigRepository::class
+            NotificationConfigRepository::class
         );
 
-        // Register notification defaults repository (dual-write for migration)
+        // Register notification defaults repository
         $this->app->bind(
             NotificationDefaultsRepositoryInterface::class,
-            DualWriteNotificationDefaultsRepository::class
+            NotificationDefaultsRepository::class
         );
     }
 
