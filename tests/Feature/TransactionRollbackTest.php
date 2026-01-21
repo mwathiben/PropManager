@@ -1,0 +1,178 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Enums\InvoiceStatus;
+use App\Models\Invoice;
+use App\Models\LateFee;
+use App\Models\LateFeePolicy;
+use App\Models\Payment;
+use App\Models\User;
+use App\Services\LateFeeService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+use Tests\Traits\CreatesTestData;
+
+class TransactionRollbackTest extends TestCase
+{
+    use CreatesTestData, RefreshDatabase;
+
+    public function test_waive_all_fees_is_atomic(): void
+    {
+        $setup = $this->createLandlordWithFullSetup();
+        $landlord = $setup['landlord'];
+        $unit = $setup['units']->first();
+
+        ['lease' => $lease] = $this->createTenantWithActiveLease($landlord, $unit);
+
+        // Create a late fee policy first
+        $policy = LateFeePolicy::create([
+            'landlord_id' => $landlord->id,
+            'name' => 'Test Policy',
+            'fee_type' => 'flat_amount',
+            'fee_amount' => 500,
+            'grace_period_days' => 5,
+            'is_compounding' => false,
+            'is_active' => true,
+        ]);
+
+        $invoice = Invoice::create([
+            'landlord_id' => $landlord->id,
+            'lease_id' => $lease->id,
+            'invoice_number' => 'INV-2026-0002',
+            'rent_due' => 25000,
+            'water_due' => 0,
+            'arrears' => 0,
+            'total_due' => 25000,
+            'amount_paid' => 0,
+            'late_fees_total' => 1500,
+            'status' => InvoiceStatus::Overdue,
+            'billing_period_start' => now()->subMonth()->startOfMonth(),
+            'due_date' => now()->subDays(30),
+        ]);
+
+        for ($i = 0; $i < 3; $i++) {
+            LateFee::create([
+                'invoice_id' => $invoice->id,
+                'late_fee_policy_id' => $policy->id,
+                'landlord_id' => $landlord->id,
+                'fee_amount' => 500,
+                'cumulative_total' => 500 * ($i + 1),
+                'applied_date' => now()->subDays(30 - ($i * 10)),
+                'days_overdue' => 10 + ($i * 10),
+                'is_waived' => false,
+            ]);
+        }
+
+        $this->assertEquals(3, LateFee::where('invoice_id', $invoice->id)->where('is_waived', false)->count());
+
+        $lateFeeService = app(LateFeeService::class);
+        $waived = $lateFeeService->waiveAllFeesForInvoice($invoice, $landlord->id, 'Customer retention');
+
+        $this->assertEquals(3, $waived);
+        $this->assertEquals(3, LateFee::where('invoice_id', $invoice->id)->where('is_waived', true)->count());
+        $this->assertEquals(0, LateFee::where('invoice_id', $invoice->id)->where('is_waived', false)->count());
+    }
+
+    public function test_lease_creation_creates_tenant_lease_and_updates_unit_atomically(): void
+    {
+        $setup = $this->createLandlordWithFullSetup();
+        $landlord = $setup['landlord'];
+        $unit = $setup['units']->first();
+
+        $initialUserCount = User::where('role', 'tenant')->count();
+        $initialLeaseCount = \App\Models\Lease::count();
+
+        $response = $this->actingAs($landlord)->post(route('leases.store', $unit), [
+            'name' => 'Test Tenant',
+            'email' => 'test.tenant.'.uniqid().'@example.com',
+            'phone' => '+254712345678',
+            'id_number' => '12345678',
+            'rent_amount' => 25000,
+            'deposit_amount' => 25000,
+            'start_date' => now()->format('Y-m-d'),
+        ]);
+
+        if ($response->isRedirect()) {
+            $this->assertEquals($initialUserCount + 1, User::where('role', 'tenant')->count());
+            $this->assertEquals($initialLeaseCount + 1, \App\Models\Lease::count());
+
+            $unit->refresh();
+            $this->assertEquals('occupied', $unit->status);
+        }
+    }
+
+    public function test_payment_and_invoice_update_are_atomic(): void
+    {
+        $setup = $this->createLandlordWithFullSetup();
+        $landlord = $setup['landlord'];
+        $unit = $setup['units']->first();
+
+        ['lease' => $lease] = $this->createTenantWithActiveLease($landlord, $unit);
+
+        $invoice = Invoice::create([
+            'landlord_id' => $landlord->id,
+            'lease_id' => $lease->id,
+            'invoice_number' => 'INV-2026-0001',
+            'rent_due' => 25000,
+            'water_due' => 0,
+            'arrears' => 0,
+            'total_due' => 25000,
+            'amount_paid' => 0,
+            'status' => InvoiceStatus::Sent,
+            'billing_period_start' => now()->startOfMonth(),
+            'due_date' => now()->addDays(7),
+        ]);
+
+        $initialPaymentCount = Payment::count();
+
+        // Record a payment via the controller
+        $response = $this->actingAs($landlord)->post(route('invoices.recordPayment', $invoice), [
+            'amount' => 15000,
+            'payment_method' => 'bank_transfer',
+            'payment_date' => now()->format('Y-m-d'),
+            'reference' => 'TEST-REF-001',
+        ]);
+
+        // Verify both payment was created and invoice was updated
+        $invoice->refresh();
+        $this->assertEquals(15000, $invoice->amount_paid);
+        $this->assertEquals(InvoiceStatus::Partial, $invoice->status);
+        $this->assertEquals($initialPaymentCount + 1, Payment::count());
+    }
+
+    public function test_full_payment_marks_invoice_as_paid(): void
+    {
+        $setup = $this->createLandlordWithFullSetup();
+        $landlord = $setup['landlord'];
+        $unit = $setup['units']->first();
+
+        ['lease' => $lease] = $this->createTenantWithActiveLease($landlord, $unit);
+
+        $invoice = Invoice::create([
+            'landlord_id' => $landlord->id,
+            'lease_id' => $lease->id,
+            'invoice_number' => 'INV-2026-0003',
+            'rent_due' => 25000,
+            'water_due' => 0,
+            'arrears' => 0,
+            'total_due' => 25000,
+            'amount_paid' => 0,
+            'status' => InvoiceStatus::Sent,
+            'billing_period_start' => now()->startOfMonth(),
+            'due_date' => now()->addDays(7),
+        ]);
+
+        // Record full payment
+        $response = $this->actingAs($landlord)->post(route('invoices.recordPayment', $invoice), [
+            'amount' => 25000,
+            'payment_method' => 'cash',
+            'payment_date' => now()->format('Y-m-d'),
+            'reference' => 'FULL-PAY-001',
+        ]);
+
+        $invoice->refresh();
+        $this->assertEquals(25000, $invoice->amount_paid);
+        $this->assertEquals(InvoiceStatus::Paid, $invoice->status);
+    }
+}

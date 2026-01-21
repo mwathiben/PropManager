@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\InvoiceStatus;
 use App\Models\Invoice;
 use App\Models\LateFee;
 use App\Models\LateFeePolicy;
@@ -74,7 +75,7 @@ class LateFeeService
 
     protected function invoiceCanReceiveLateFee(Invoice $invoice): bool
     {
-        if (! in_array($invoice->status, ['overdue', 'partial', 'sent'])) {
+        if (! in_array($invoice->status, [InvoiceStatus::Overdue, InvoiceStatus::Partial, InvoiceStatus::Sent])) {
             return false;
         }
 
@@ -153,7 +154,7 @@ class LateFeeService
         ];
 
         $invoices = Invoice::with(['lease.unit.building.property'])
-            ->whereIn('status', ['overdue', 'partial', 'sent'])
+            ->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial, InvoiceStatus::Sent])
             ->where('due_date', '<', now())
             ->whereColumn('amount_paid', '<', 'total_due')
             ->get();
@@ -187,21 +188,23 @@ class LateFeeService
 
     public function waiveAllFeesForInvoice(Invoice $invoice, int $userId, string $reason): int
     {
-        $count = 0;
+        return DB::transaction(function () use ($invoice, $userId, $reason) {
+            $count = 0;
 
-        foreach ($invoice->lateFees()->where('is_waived', false)->get() as $fee) {
-            $fee->update([
-                'is_waived' => true,
-                'waived_by' => $userId,
-                'waived_at' => now(),
-                'waiver_reason' => $reason,
-            ]);
-            $count++;
-        }
+            foreach ($invoice->lateFees()->where('is_waived', false)->get() as $fee) {
+                $fee->update([
+                    'is_waived' => true,
+                    'waived_by' => $userId,
+                    'waived_at' => now(),
+                    'waiver_reason' => $reason,
+                ]);
+                $count++;
+            }
 
-        $invoice->recalculateLateFees();
+            $invoice->recalculateLateFees();
 
-        return $count;
+            return $count;
+        });
     }
 
     public function previewLateFee(Invoice $invoice): ?array

@@ -1,7 +1,7 @@
 {
   "project": {
     "name": "PropManager Design & Best Practices Consolidation",
-    "description": "Systematic elimination of technical debt, code duplication, and architectural inconsistencies in the PropManager property management SaaS. This PRD addresses 23 items across notification consolidation, component consolidation, backend architecture, code quality, and performance optimization.",
+    "description": "Systematic elimination of technical debt, code duplication, and architectural inconsistencies in the PropManager property management SaaS. This PRD addresses 44 items across notification consolidation, component consolidation, backend architecture, code quality, and performance optimization. Phase 2 adds 20 items identified from skill gap analysis.",
     "version": "1.0.0",
     "techStack": {
       "backend": "Laravel 12 (PHP 8.2+)",
@@ -1170,6 +1170,711 @@
       "passes": true,
       "attempt_count": 1,
       "depends_on": ["DBP-001"]
+    },
+    {
+      "id": "DBP-025",
+      "category": "backend_architecture",
+      "priority": "CRITICAL",
+      "title": "Audit and Wrap Multi-Write Operations in Transactions",
+      "description": "Per laraveltransactions-and-consistency skill: All multi-write operations must be wrapped in DB::transaction(). Audit all services for multi-write patterns and ensure atomic operations.",
+      "steps": [
+        "Audit InvoiceService for multi-write operations",
+        "Audit PaymentController for multi-write operations",
+        "Audit LeaseController for multi-write operations",
+        "Audit MoveOutController for multi-write operations",
+        "Audit bulk import operations",
+        "Wrap all multi-write operations in DB::transaction()",
+        "Add tests verifying transaction rollback on failure"
+      ],
+      "files": [
+        "app/Services/InvoiceService.php",
+        "app/Http/Controllers/PaymentController.php",
+        "app/Http/Controllers/LeaseController.php",
+        "app/Http/Controllers/MoveOutController.php"
+      ],
+      "acceptance_criteria": [
+        "Invoice generation wrapped in transaction",
+        "Payment processing wrapped in transaction",
+        "Lease creation + first invoice wrapped in transaction",
+        "Bulk import operations use transaction per batch",
+        "Move-out settlement wrapped in transaction",
+        "Water reading + invoice marking atomic"
+      ],
+      "definition_of_done": [
+        "All multi-write operations identified and wrapped",
+        "Tests verify rollback behavior",
+        "No partial writes possible on failure"
+      ],
+      "verification": "Create test that fails mid-transaction; verify complete rollback",
+      "estimated_effort": "medium",
+      "passes": true,
+      "attempt_count": 1
+    },
+    {
+      "id": "DBP-026",
+      "category": "backend_architecture",
+      "priority": "HIGH",
+      "title": "Add $afterCommit to Queued Jobs and Events",
+      "description": "Per laraveltransactions-and-consistency skill: Jobs dispatched inside transactions must use $afterCommit = true or dispatchAfterCommit(). Currently 15 queued Mailables exist with zero using $afterCommit.",
+      "steps": [
+        "Audit all Mailable classes implementing ShouldQueue",
+        "Identify which are dispatched inside DB::transaction()",
+        "Add $afterCommit = true property to affected Mailables",
+        "Convert Mail::queue() inside transactions to dispatchAfterCommit()",
+        "Add tests verifying email not sent on rollback"
+      ],
+      "files": [
+        "app/Mail/PaymentReceived.php",
+        "app/Mail/OverpaymentNotification.php",
+        "app/Mail/InvoiceSent.php",
+        "app/Mail/CreditNoteIssued.php"
+      ],
+      "acceptance_criteria": [
+        "PaymentReceived mailable uses $afterCommit",
+        "OverpaymentNotification uses $afterCommit",
+        "All queued jobs inside transactions use dispatchAfterCommit()",
+        "Invoice generation email uses $afterCommit"
+      ],
+      "definition_of_done": [
+        "All affected Mailables updated",
+        "Tests verify no email on transaction rollback",
+        "Document pattern in CLAUDE.md"
+      ],
+      "verification": "Create payment inside transaction that rolls back; verify no email sent",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-027",
+      "category": "backend_architecture",
+      "priority": "HIGH",
+      "title": "Ensure All Jobs Are Idempotent",
+      "description": "Per laravelqueues-and-horizon skill: Jobs must be safe to retry. Add idempotency checks (unique constraints, state checks) to all jobs.",
+      "steps": [
+        "Audit all Job classes in app/Jobs/",
+        "Identify jobs that modify state without idempotency checks",
+        "Add state checks before processing",
+        "Add unique constraints where applicable",
+        "Add structured logging with context to all jobs"
+      ],
+      "files": [
+        "app/Jobs/FallbackNotificationJob.php",
+        "app/Console/Commands/GenerateMonthlyInvoices.php",
+        "app/Jobs/*.php"
+      ],
+      "acceptance_criteria": [
+        "FallbackNotificationJob checks if notification already sent",
+        "GenerateMonthlyInvoices checks if invoice exists for month",
+        "Payment processing jobs check payment status before processing",
+        "All jobs log with context for debugging"
+      ],
+      "definition_of_done": [
+        "All jobs have idempotency checks",
+        "Jobs safe to retry multiple times",
+        "Structured logging added"
+      ],
+      "verification": "Run same job twice; verify no duplicate data created",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-029",
+      "category": "backend_architecture",
+      "priority": "HIGH",
+      "title": "Add Timeouts and Retry Logic to Payment Gateway Calls",
+      "description": "Per laravelhttp-client-resilience skill: External HTTP calls must have explicit timeouts and limited retries with backoff. Currently PaystackService and MpesaService have no timeouts configured.",
+      "steps": [
+        "Add Http::timeout(30) to all PaystackService methods",
+        "Add Http::timeout(30) to all MpesaService methods",
+        "Add retry(3, 100) for transient failures",
+        "Implement exponential backoff",
+        "Add structured logging with redacted secrets",
+        "Handle connection failures gracefully"
+      ],
+      "files": [
+        "app/Services/PaystackService.php",
+        "app/Services/MpesaService.php"
+      ],
+      "acceptance_criteria": [
+        "PaystackService uses Http::timeout(30)->retry(3, 100)",
+        "MpesaService uses Http::timeout(30)->retry(3, 100)",
+        "All API calls log request/response (redact secrets)",
+        "Transient failures retry, permanent failures don't",
+        "Connection failures handled gracefully"
+      ],
+      "definition_of_done": [
+        "All external HTTP calls have timeouts",
+        "Retry logic with exponential backoff",
+        "Secrets redacted from logs"
+      ],
+      "verification": "Mock slow API response; verify timeout triggers after 30s",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-030",
+      "category": "backend_architecture",
+      "priority": "MEDIUM",
+      "title": "Add Rate Limiting to All API Endpoints",
+      "description": "Per laravelrate-limiting skill: All API endpoints should have rate limiting with user/IP scoping. Currently only payment links have rate limiting.",
+      "steps": [
+        "Define rate limiters in AppServiceProvider for api, webhooks, exports",
+        "Apply 'api' rate limiter to API v1 routes",
+        "Apply specific rate limiters to webhook endpoints",
+        "Add rate limiting to tenant search/autocomplete",
+        "Add rate limiting to export endpoints",
+        "Configure rate limit headers in responses"
+      ],
+      "files": [
+        "app/Providers/AppServiceProvider.php",
+        "routes/api.php",
+        "app/Http/Controllers/Api/*.php"
+      ],
+      "acceptance_criteria": [
+        "API v1 endpoints use 'api' rate limiter",
+        "Webhook endpoints use specific rate limiters",
+        "Tenant search/autocomplete endpoints rate limited",
+        "Export endpoints rate limited (prevent abuse)",
+        "Rate limit headers returned in responses"
+      ],
+      "definition_of_done": [
+        "Rate limiters defined and applied",
+        "Headers returned in responses",
+        "429 responses with retry hints"
+      ],
+      "verification": "Exceed rate limit; verify 429 response with retry header",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-031",
+      "category": "performance_optimization",
+      "priority": "HIGH",
+      "title": "Enable Lazy Loading Prevention in Development",
+      "description": "Per laravelperformance-eager-loading skill: Enable Model::preventLazyLoading() in non-production environments to catch N+1 queries during development. Currently not enabled anywhere.",
+      "steps": [
+        "Add Model::preventLazyLoading() in AppServiceProvider boot()",
+        "Only enable when APP_ENV != production",
+        "Configure to log violations instead of throwing",
+        "Document N+1 detection in CLAUDE.md",
+        "Fix any N+1 queries discovered"
+      ],
+      "files": [
+        "app/Providers/AppServiceProvider.php",
+        "CLAUDE.md"
+      ],
+      "acceptance_criteria": [
+        "AppServiceProvider enables preventLazyLoading() when APP_ENV != production",
+        "Handles lazy loading violations gracefully (log, don't crash)",
+        "Document N+1 detection in CLAUDE.md"
+      ],
+      "definition_of_done": [
+        "preventLazyLoading() enabled in non-production",
+        "Violations logged to dedicated channel",
+        "Documentation updated"
+      ],
+      "verification": "Access relationship without eager loading in dev; verify log entry",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-032",
+      "category": "performance_optimization",
+      "priority": "MEDIUM",
+      "title": "Use Chunking for Large Dataset Operations",
+      "description": "Per laraveldata-chunking-large-datasets skill: Avoid loading entire datasets with all()/get(). Use chunk()/chunkById()/lazy()/cursor() for processing large datasets.",
+      "steps": [
+        "Audit GenerateMonthlyInvoices command for all()/get() usage",
+        "Audit bulk export operations",
+        "Audit ProcessScheduledNotifications command",
+        "Replace all()/get() with chunkById() where appropriate",
+        "Use lazy() or cursor() for exports"
+      ],
+      "files": [
+        "app/Console/Commands/GenerateMonthlyInvoices.php",
+        "app/Services/FinanceExportService.php",
+        "app/Console/Commands/ProcessScheduledNotifications.php"
+      ],
+      "acceptance_criteria": [
+        "GenerateMonthlyInvoices uses chunkById() for leases",
+        "Bulk export operations use lazy() or cursor()",
+        "Bulk notification sending uses chunk()",
+        "Arrears calculation uses chunking for large datasets",
+        "ProcessScheduledNotifications uses chunkById()"
+      ],
+      "definition_of_done": [
+        "No all()/get() on potentially large datasets",
+        "Memory usage stable regardless of dataset size"
+      ],
+      "verification": "Process 10k records; verify memory stays under 256MB",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-033",
+      "category": "code_quality",
+      "priority": "MEDIUM",
+      "title": "Audit and Reduce High-Complexity Functions",
+      "description": "Per laravelcomplexity-guardrails skill: Functions should have cyclomatic complexity ≤ 7 and length ≤ 80 lines (aim ≤ 30). Audit and refactor high-complexity functions.",
+      "steps": [
+        "Run complexity analysis with PHPStan or PHPMD",
+        "Identify functions with complexity > 7",
+        "Identify functions exceeding 80 lines",
+        "Refactor top 10 most complex functions",
+        "Document complexity thresholds in CLAUDE.md"
+      ],
+      "files": [
+        "app/Http/Controllers/*.php",
+        "app/Services/*.php",
+        "CLAUDE.md"
+      ],
+      "acceptance_criteria": [
+        "Run complexity analysis tool (PHPStan, PHPMD)",
+        "Identify functions with complexity > 7",
+        "Refactor top 10 complex functions",
+        "No function exceeds 80 lines",
+        "Document complexity thresholds in CLAUDE.md"
+      ],
+      "definition_of_done": [
+        "Complexity analysis report generated",
+        "Top 10 functions refactored",
+        "Thresholds documented"
+      ],
+      "verification": "Run phpmd; verify no complexity violations",
+      "estimated_effort": "large",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-034",
+      "category": "backend_architecture",
+      "priority": "MEDIUM",
+      "title": "Create PaymentGateway Interface and Adapters",
+      "description": "Per laravelports-and-adapters skill: Abstract external integrations behind interfaces. PaystackService and MpesaService should implement a common PaymentGatewayInterface.",
+      "steps": [
+        "Design PaymentGatewayInterface with common operations",
+        "Create PaystackGatewayAdapter implementing interface",
+        "Create MpesaGatewayAdapter implementing interface",
+        "Create PaymentGatewayManager for adapter selection",
+        "Bind appropriate adapter in service provider",
+        "Update controllers to inject interface"
+      ],
+      "files": [
+        "app/Contracts/PaymentGatewayInterface.php",
+        "app/Services/Gateways/PaystackGatewayAdapter.php",
+        "app/Services/Gateways/MpesaGatewayAdapter.php",
+        "app/Services/PaymentGatewayManager.php",
+        "app/Providers/AppServiceProvider.php"
+      ],
+      "acceptance_criteria": [
+        "PaymentGatewayInterface defines common payment operations",
+        "PaystackGatewayAdapter implements interface",
+        "MpesaGatewayAdapter implements interface",
+        "Service provider binds appropriate adapter based on config",
+        "Controllers/services inject interface, not concrete class"
+      ],
+      "definition_of_done": [
+        "Interface and adapters created",
+        "Manager handles adapter selection",
+        "All references updated to use interface"
+      ],
+      "verification": "Switch payment gateway via config; verify app uses correct adapter",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-035a",
+      "category": "code_quality",
+      "priority": "HIGH",
+      "title": "Create Factories: Critical Finance Models (15)",
+      "description": "Per laravelmigrations-and-factories skill: Every model must have a corresponding factory for testing. Create factories for core finance models. Currently only 8/76 models have factories.",
+      "steps": [
+        "Create CreditNoteFactory with relationships",
+        "Create RefundFactory with relationships",
+        "Create ReceiptFactory with relationships",
+        "Create InvoiceItemFactory with relationships",
+        "Create LateFee, LateFeePolicy, Expense, ExpenseCategory, Vendor factories",
+        "Create DepositTransaction, WalletTransaction, RentHistory factories",
+        "Create PaymentConfiguration, PaymentLink, LandlordPayoutAccount factories"
+      ],
+      "files": [
+        "database/factories/CreditNoteFactory.php",
+        "database/factories/RefundFactory.php",
+        "database/factories/ReceiptFactory.php",
+        "database/factories/InvoiceItemFactory.php",
+        "database/factories/LateFeeFactory.php",
+        "database/factories/ExpenseFactory.php"
+      ],
+      "acceptance_criteria": [
+        "CreditNote, Refund, Receipt, InvoiceItem factories",
+        "LateFee, LateFeePolicy, Expense, ExpenseCategory, Vendor factories",
+        "DepositTransaction, WalletTransaction, RentHistory factories",
+        "PaymentConfiguration, PaymentLink, LandlordPayoutAccount factories",
+        "All factories include proper relationships and realistic data"
+      ],
+      "definition_of_done": [
+        "15 factories created",
+        "All factories create valid records",
+        "Relationships properly defined"
+      ],
+      "verification": "Run tinker; create each model via factory; verify no errors",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-035b",
+      "category": "code_quality",
+      "priority": "HIGH",
+      "title": "Create Factories: Notification & Ticket Models (15)",
+      "description": "Per laravelmigrations-and-factories skill: Create factories for notification and support ticket related models.",
+      "steps": [
+        "Create Ticket, TicketComment, TicketActivity, TicketFeedback factories",
+        "Create Notification, NotificationSchedule, NotificationTemplate factories",
+        "Create NotificationPreference, NotificationProviderConfig, NotificationDefaults factories",
+        "Create TenantMessage, PushSubscription factories",
+        "Create Document, Import factories"
+      ],
+      "files": [
+        "database/factories/TicketFactory.php",
+        "database/factories/NotificationFactory.php",
+        "database/factories/DocumentFactory.php"
+      ],
+      "acceptance_criteria": [
+        "Ticket, TicketComment, TicketActivity, TicketFeedback factories",
+        "Notification, NotificationSchedule, NotificationTemplate factories",
+        "NotificationPreference, NotificationProviderConfig, NotificationDefaults factories",
+        "TenantMessage, PushSubscription factories",
+        "Document, Import factories",
+        "All factories include proper relationships"
+      ],
+      "definition_of_done": [
+        "15 factories created",
+        "All factories create valid records"
+      ],
+      "verification": "Run tinker; create each model via factory; verify no errors",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-035c",
+      "category": "code_quality",
+      "priority": "MEDIUM",
+      "title": "Create Factories: Tenant & Move-Out Models (18)",
+      "description": "Per laravelmigrations-and-factories skill: Create factories for tenant lifecycle and verification models.",
+      "steps": [
+        "Create Invitation, TenantInvitation factories",
+        "Create MoveOut, MoveOutDeduction, MoveOutInspectionItem, MoveOutInspectionResult factories",
+        "Create TenantNote, EmergencyContact, TenantActivity factories",
+        "Create TenantVerification, TenantPaymentVerification, VerificationTemplate, VerificationItem factories",
+        "Create LandlordProfile, LegalDocument, Consent, DeletionRequest factories",
+        "Create OnboardingProgress factory"
+      ],
+      "files": [
+        "database/factories/InvitationFactory.php",
+        "database/factories/MoveOutFactory.php",
+        "database/factories/TenantNoteFactory.php"
+      ],
+      "acceptance_criteria": [
+        "Invitation, TenantInvitation factories",
+        "MoveOut, MoveOutDeduction, MoveOutInspectionItem, MoveOutInspectionResult factories",
+        "TenantNote, EmergencyContact, TenantActivity factories",
+        "TenantVerification, TenantPaymentVerification, VerificationTemplate, VerificationItem factories",
+        "LandlordProfile, LegalDocument, Consent, DeletionRequest factories",
+        "OnboardingProgress factory"
+      ],
+      "definition_of_done": [
+        "18 factories created",
+        "All factories create valid records"
+      ],
+      "verification": "Run tinker; create each model via factory; verify no errors",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-035d",
+      "category": "code_quality",
+      "priority": "LOW",
+      "title": "Create Factories: Settings & Admin Models (20)",
+      "description": "Per laravelmigrations-and-factories skill: Create factories for configuration and administrative models.",
+      "steps": [
+        "Create InvoiceTemplate, InvoiceSetting, ReceiptTemplate, WaterSetting factories",
+        "Create AuditLog, SecurityLog, SecurityIncident factories",
+        "Create Setting, HelpArticle, Faq factories",
+        "Create SubscriptionPlan, Subscription, SubscriptionPayment, UsageRecord factories",
+        "Create PlatformFee, PlatformBillingSetting, BillingModelChange factories",
+        "Create BankReconciliationQueue, BankWebhookLog factories"
+      ],
+      "files": [
+        "database/factories/InvoiceTemplateFactory.php",
+        "database/factories/AuditLogFactory.php",
+        "database/factories/SubscriptionFactory.php"
+      ],
+      "acceptance_criteria": [
+        "InvoiceTemplate, InvoiceSetting, ReceiptTemplate, WaterSetting factories",
+        "AuditLog, SecurityLog, SecurityIncident factories",
+        "Setting, HelpArticle, Faq factories",
+        "SubscriptionPlan, Subscription, SubscriptionPayment, UsageRecord factories",
+        "PlatformFee, PlatformBillingSetting, BillingModelChange factories",
+        "BankReconciliationQueue, BankWebhookLog factories"
+      ],
+      "definition_of_done": [
+        "20 factories created",
+        "All factories create valid records"
+      ],
+      "verification": "Run tinker; create each model via factory; verify no errors",
+      "estimated_effort": "large",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-036",
+      "category": "backend_architecture",
+      "priority": "MEDIUM",
+      "title": "Ensure All API Endpoints Use Resources",
+      "description": "Per laravelapi-resources-and-pagination skill: API responses should use Resource classes for consistent transformation instead of returning raw Eloquent models.",
+      "steps": [
+        "Audit all Api/* controllers for raw model returns",
+        "Create missing Resources (TenantResource, LeaseResource, BuildingResource)",
+        "Update paginated responses to use Resource::collection()",
+        "Add conditional fields with when()/mergeWhen()",
+        "Ensure sensitive fields not exposed"
+      ],
+      "files": [
+        "app/Http/Controllers/Api/*.php",
+        "app/Http/Resources/*.php"
+      ],
+      "acceptance_criteria": [
+        "Audit all Api/* controllers",
+        "Create missing Resources (TenantResource, LeaseResource, etc.)",
+        "Paginated responses use Resource::collection()",
+        "Conditional fields use when()/mergeWhen()",
+        "Sensitive fields (national_id) not exposed without authorization"
+      ],
+      "definition_of_done": [
+        "All API endpoints return Resources",
+        "No raw Eloquent model returns",
+        "Sensitive data protected"
+      ],
+      "verification": "Call API endpoint; verify response uses resource format",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-037",
+      "category": "code_quality",
+      "priority": "LOW",
+      "title": "Audit File Operations for Storage Facade Compliance",
+      "description": "Per laravelfilesystem-uploads skill: All file operations must use Storage facade with proper visibility settings, not direct file paths.",
+      "steps": [
+        "Grep for file_get_contents/file_put_contents usage",
+        "Replace with Storage::get()/Storage::put()",
+        "Ensure document uploads use private disk",
+        "Ensure logo uploads use public disk",
+        "Verify file type/size validation at upload boundaries"
+      ],
+      "files": [
+        "app/Services/*.php",
+        "app/Http/Controllers/*.php"
+      ],
+      "acceptance_criteria": [
+        "Audit all file_get_contents/file_put_contents usage",
+        "Replace with Storage::get()/Storage::put()",
+        "Document uploads use private disk",
+        "Logo uploads use public disk with storage:link",
+        "File type/size validation at upload boundaries"
+      ],
+      "definition_of_done": [
+        "No direct file operations outside Storage facade",
+        "Proper visibility settings applied"
+      ],
+      "verification": "Grep for file_get_contents; verify zero matches outside allowed contexts",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-038",
+      "category": "code_quality",
+      "priority": "LOW",
+      "title": "Prepare Codebase for Internationalization",
+      "description": "Per laravelinternationalization-and-translation skill: Wrap user-facing strings in __() for future translation support.",
+      "steps": [
+        "Create lang/en/ directory structure",
+        "Identify hardcoded strings in email templates",
+        "Wrap email template strings in __()",
+        "Move validation messages to lang files",
+        "Wrap flash messages in __()"
+      ],
+      "files": [
+        "lang/en/*.php",
+        "resources/views/emails/*.blade.php",
+        "app/Http/Controllers/*.php"
+      ],
+      "acceptance_criteria": [
+        "Email templates use translatable strings",
+        "Validation messages use lang files",
+        "Flash messages use __() helper",
+        "PDF templates use translatable strings",
+        "Create lang/en/ directory structure"
+      ],
+      "definition_of_done": [
+        "lang/en/ structure created",
+        "Key strings wrapped in __()",
+        "Ready for future translation"
+      ],
+      "verification": "Change locale; verify strings would be translatable",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-039",
+      "category": "code_quality",
+      "priority": "LOW",
+      "title": "Document Complex Business Logic",
+      "description": "Per laraveldocumentation-best-practices skill: Document WHY complex code exists, not WHAT it does. Complex business logic should have explanatory comments.",
+      "steps": [
+        "Identify complex business logic areas",
+        "Document water rate 3-tier inheritance logic",
+        "Document invoice status transition rules",
+        "Document late fee calculation algorithm",
+        "Document tenant scope bypass scenarios",
+        "Document payment allocation FIFO logic"
+      ],
+      "files": [
+        "app/Services/WaterRateService.php",
+        "app/Services/InvoiceService.php",
+        "app/Services/LateFeeService.php",
+        "app/Traits/TenantScope.php"
+      ],
+      "acceptance_criteria": [
+        "Document water rate 3-tier inheritance logic",
+        "Document invoice status transition rules",
+        "Document late fee calculation algorithm",
+        "Document tenant scope bypass scenarios",
+        "Document payment allocation FIFO logic"
+      ],
+      "definition_of_done": [
+        "Key business logic documented",
+        "Comments explain WHY, not WHAT",
+        "New developers can understand intent"
+      ],
+      "verification": "Code review; verify comments explain business rationale",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-040",
+      "category": "performance_optimization",
+      "priority": "MEDIUM",
+      "title": "Replace SELECT * with Explicit Column Selection",
+      "description": "Per laravelperformance-select-columns skill: Avoid SELECT *; select only required columns to reduce memory and transfer.",
+      "steps": [
+        "Audit dashboard queries for SELECT *",
+        "Audit pagination queries",
+        "Audit API responses for unnecessary columns",
+        "Update queries to select only needed columns",
+        "Ensure encrypted fields not leaked"
+      ],
+      "files": [
+        "app/Services/FinanceStatsService.php",
+        "app/Services/FinanceFilterService.php",
+        "app/Http/Controllers/Api/*.php"
+      ],
+      "acceptance_criteria": [
+        "Dashboard queries select only displayed columns",
+        "Pagination queries select only needed columns",
+        "API responses don't leak encrypted fields",
+        "Export queries select only export columns"
+      ],
+      "definition_of_done": [
+        "No SELECT * on high-volume queries",
+        "Encrypted fields protected",
+        "Query logging shows selective columns"
+      ],
+      "verification": "Enable query logging; verify no SELECT * on dashboard load",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-041",
+      "category": "code_quality",
+      "priority": "MEDIUM",
+      "title": "Audit Logs for Secrets and Add Structured Context",
+      "description": "Per laravelexception-handling-and-logging skill: Add structured context to logs; never log secrets.",
+      "steps": [
+        "Grep for Log:: calls across codebase",
+        "Identify potential secret exposure (API keys, tokens)",
+        "Add redaction for sensitive data",
+        "Add context arrays to log calls",
+        "Create logging guidelines in CLAUDE.md"
+      ],
+      "files": [
+        "app/Services/PaystackService.php",
+        "app/Services/MpesaService.php",
+        "CLAUDE.md"
+      ],
+      "acceptance_criteria": [
+        "Audit all Log:: calls for secret exposure",
+        "Redact API keys, tokens, passwords from logs",
+        "Add context arrays to log calls (user_id, action, etc.)",
+        "Payment gateway logs redact sensitive data",
+        "Create logging guidelines in CLAUDE.md"
+      ],
+      "definition_of_done": [
+        "No secrets in logs",
+        "Structured context added",
+        "Guidelines documented"
+      ],
+      "verification": "Search logs for API key patterns; verify zero matches",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "DBP-042",
+      "category": "code_quality",
+      "priority": "LOW",
+      "title": "Document and Enforce TDD Workflow",
+      "description": "Per laraveltdd-with-pest skill: Enforce test-first development for all new features. Document TDD workflow and requirements.",
+      "steps": [
+        "Update CLAUDE.md with TDD requirements",
+        "Document RED-GREEN-REFACTOR cycle",
+        "Add 'Write failing test' as first step in PRD template",
+        "Document test organization (Feature vs Unit)",
+        "Consider CI test coverage requirements"
+      ],
+      "files": [
+        "CLAUDE.md"
+      ],
+      "acceptance_criteria": [
+        "Update CLAUDE.md with TDD requirements",
+        "PRD items include 'Write failing test' as first step",
+        "CI blocks merge without test coverage",
+        "Document test organization (Feature vs Unit)"
+      ],
+      "definition_of_done": [
+        "TDD workflow documented",
+        "New PRD items follow TDD pattern",
+        "Team aligned on test-first approach"
+      ],
+      "verification": "Review CLAUDE.md; verify TDD section exists",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     }
   ],
   "progressTracking": {
@@ -1192,7 +1897,14 @@
       "All Pint style checks passing",
       "TypeScript build passes with no errors",
       "Single location for notification provider configuration",
-      "Single location for notification default preferences"
+      "Single location for notification default preferences",
+      "All multi-write operations wrapped in DB::transaction()",
+      "All queued jobs use $afterCommit when inside transactions",
+      "All external HTTP calls have explicit timeouts and retry logic",
+      "Model::preventLazyLoading() enabled in non-production",
+      "76/76 models have factories (100% coverage)",
+      "All API endpoints use Resource classes for transformation",
+      "Zero SELECT * queries in dashboard/pagination endpoints"
     ],
     "outputSignal": "<promise>COMPLETE</promise>"
   }

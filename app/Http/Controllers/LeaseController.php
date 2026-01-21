@@ -12,8 +12,10 @@ use App\Models\RentHistory;
 use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
@@ -111,45 +113,59 @@ class LeaseController extends Controller
 
     public function store(StoreLeaseRequest $request, Unit $unit)
     {
-        // Handle File Upload
         $docPath = null;
         if ($request->hasFile('lease_doc')) {
-            // Store in a private folder, not public
             $docPath = $request->file('lease_doc')->store('leases', 'local');
         }
 
         $landlord = auth()->user();
         $temporaryPassword = Str::random(12);
 
-        $tenant = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'mobile_number' => $request->phone,
-            'national_id' => $request->id_number,
-            'password' => Hash::make($temporaryPassword),
-            'role' => 'tenant',
-            'landlord_id' => $landlord->id,
-        ]);
+        try {
+            $result = DB::transaction(function () use ($request, $unit, $landlord, $temporaryPassword, $docPath) {
+                $tenant = User::create([
+                    'name' => $request->name,
+                    'email' => $request->email,
+                    'mobile_number' => $request->phone,
+                    'national_id' => $request->id_number,
+                    'password' => Hash::make($temporaryPassword),
+                    'role' => 'tenant',
+                    'landlord_id' => $landlord->id,
+                ]);
 
-        $lease = Lease::create([
-            'unit_id' => $unit->id,
-            'tenant_id' => $tenant->id,
-            'landlord_id' => $landlord->id,
-            'start_date' => $request->start_date,
-            'rent_amount' => $request->rent_amount,
-            'service_charge' => $request->service_charge ?? 0,
-            'deposit_amount' => $request->deposit_amount,
-            'lease_doc_path' => $docPath,
-            'wallet_balance' => 0,
-            'is_active' => true,
-        ]);
+                $lease = Lease::create([
+                    'unit_id' => $unit->id,
+                    'tenant_id' => $tenant->id,
+                    'landlord_id' => $landlord->id,
+                    'start_date' => $request->start_date,
+                    'rent_amount' => $request->rent_amount,
+                    'service_charge' => $request->service_charge ?? 0,
+                    'deposit_amount' => $request->deposit_amount,
+                    'lease_doc_path' => $docPath,
+                    'wallet_balance' => 0,
+                    'is_active' => true,
+                ]);
 
-        $unit->update(['status' => 'occupied']);
+                $unit->update(['status' => 'occupied']);
 
-        $lease->load('unit.building.property');
-        Mail::to($tenant)->queue(new TenantCredentials($tenant, $lease, $temporaryPassword, $landlord));
+                return compact('tenant', 'lease');
+            });
 
-        return redirect()->route('dashboard');
+            $result['lease']->load('unit.building.property');
+            Mail::to($result['tenant'])->queue(new TenantCredentials(
+                $result['tenant'],
+                $result['lease'],
+                $temporaryPassword,
+                $landlord
+            ));
+
+            return redirect()->route('dashboard');
+        } catch (\Exception $e) {
+            if ($docPath) {
+                Storage::disk('local')->delete($docPath);
+            }
+            throw $e;
+        }
     }
 
     public function adjustRent(AdjustRentRequest $request, Lease $lease)

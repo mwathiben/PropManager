@@ -181,7 +181,7 @@ class BulkOperationsController extends Controller
                                 'effective_date' => $validated['effective_date'],
                             ],
                             $landlordId
-                        ));
+                        ))->afterCommit();
                     }
 
                     $results['success']++;
@@ -340,7 +340,7 @@ class BulkOperationsController extends Controller
                                 'reason' => $validated['reason'],
                             ],
                             $landlordId
-                        ));
+                        ))->afterCommit();
                     }
 
                     $results['success']++;
@@ -427,7 +427,7 @@ class BulkOperationsController extends Controller
                                 'extension_months' => $validated['extension_months'],
                             ],
                             $landlordId
-                        ));
+                        ))->afterCommit();
                     }
 
                     $results['success']++;
@@ -522,7 +522,7 @@ class BulkOperationsController extends Controller
                                 'new_deposit' => $newDeposit,
                             ],
                             $landlordId
-                        ));
+                        ))->afterCommit();
                     }
 
                     $results['success']++;

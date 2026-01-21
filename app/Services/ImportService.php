@@ -19,6 +19,7 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\WaterReading;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
@@ -217,21 +218,21 @@ class ImportService
                     throw new EntityNotFoundException('Tenant', $row['tenant_email'], 'email');
                 }
 
-                // Create lease
-                Lease::create([
-                    'unit_id' => $unit->id,
-                    'tenant_id' => $tenant->id,
-                    'landlord_id' => $landlordId,
-                    'rent_amount' => $row['rent_amount'],
-                    'deposit_amount' => $row['deposit_amount'],
-                    'wallet_balance' => 0,
-                    'start_date' => $row['start_date'],
-                    'end_date' => $row['end_date'] ?? null,
-                    'is_active' => true,
-                ]);
+                DB::transaction(function () use ($unit, $tenant, $landlordId, $row) {
+                    Lease::create([
+                        'unit_id' => $unit->id,
+                        'tenant_id' => $tenant->id,
+                        'landlord_id' => $landlordId,
+                        'rent_amount' => $row['rent_amount'],
+                        'deposit_amount' => $row['deposit_amount'],
+                        'wallet_balance' => 0,
+                        'start_date' => $row['start_date'],
+                        'end_date' => $row['end_date'] ?? null,
+                        'is_active' => true,
+                    ]);
 
-                // Update unit status
-                $unit->update(['status' => 'occupied']);
+                    $unit->update(['status' => 'occupied']);
+                });
 
                 $successful++;
             } catch (\Exception $e) {
@@ -458,25 +459,25 @@ class ImportService
                     throw new EntityNotFoundException('Invoice', $row['invoice_number'], 'invoice_number');
                 }
 
-                Payment::create([
-                    'invoice_id' => $invoice->id,
-                    'landlord_id' => $landlordId,
-                    'amount' => $row['amount'],
-                    'payment_date' => $row['payment_date'],
-                    'payment_method' => $row['payment_method'],
-                    'reference_number' => $row['reference_number'] ?? null,
-                    'status' => 'completed',
-                ]);
+                DB::transaction(function () use ($invoice, $landlordId, $row) {
+                    Payment::create([
+                        'invoice_id' => $invoice->id,
+                        'landlord_id' => $landlordId,
+                        'amount' => $row['amount'],
+                        'payment_date' => $row['payment_date'],
+                        'payment_method' => $row['payment_method'],
+                        'reference_number' => $row['reference_number'] ?? null,
+                        'status' => 'completed',
+                    ]);
 
-                // Update invoice paid amount
-                $invoice->increment('amount_paid', $row['amount']);
+                    $invoice->increment('amount_paid', $row['amount']);
 
-                // Update invoice status
-                if ($invoice->amount_paid >= $invoice->total_due) {
-                    $invoice->update(['status' => InvoiceStatus::Paid]);
-                } elseif ($invoice->amount_paid > 0) {
-                    $invoice->update(['status' => InvoiceStatus::Partial]);
-                }
+                    if ($invoice->amount_paid >= $invoice->total_due) {
+                        $invoice->update(['status' => InvoiceStatus::Paid]);
+                    } elseif ($invoice->amount_paid > 0) {
+                        $invoice->update(['status' => InvoiceStatus::Partial]);
+                    }
+                });
 
                 $successful++;
             } catch (\Exception $e) {

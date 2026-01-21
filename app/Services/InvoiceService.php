@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\InvoiceStatus;
 use App\Jobs\GenerateInvoicePdf;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
@@ -44,7 +45,7 @@ class InvoiceService
                 'wallet_applied' => $walletApplied,
                 'total_due' => $totalDue,
                 'amount_paid' => 0,
-                'status' => $totalDue == 0 ? 'paid' : 'draft',
+                'status' => $totalDue == 0 ? InvoiceStatus::Paid : InvoiceStatus::Draft,
             ]);
 
             if ($walletApplied > 0) {
@@ -60,7 +61,7 @@ class InvoiceService
                 $this->markWaterReadingsAsInvoiced($lease, $billingPeriod);
             }
 
-            GenerateInvoicePdf::dispatch($invoice->id);
+            GenerateInvoicePdf::dispatch($invoice->id)->afterCommit();
 
             return $invoice;
         });
@@ -105,7 +106,7 @@ class InvoiceService
     protected function getPreviousArrears(Lease $lease)
     {
         $lastInvoice = Invoice::where('lease_id', $lease->id)
-            ->where('status', '!=', 'paid')
+            ->where('status', '!=', InvoiceStatus::Paid)
             ->orderBy('created_at', 'desc')
             ->first();
 
@@ -188,7 +189,7 @@ class InvoiceService
                 'status' => $totalDue > 0 ? Invoice::STATUS_DRAFT : Invoice::STATUS_PAID,
             ]);
 
-            GenerateInvoicePdf::dispatch($invoice->id);
+            GenerateInvoicePdf::dispatch($invoice->id)->afterCommit();
 
             return $invoice->fresh(['items']);
         });

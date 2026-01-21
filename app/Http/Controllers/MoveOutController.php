@@ -208,20 +208,21 @@ class MoveOutController extends Controller
 
         $validated = $request->validated();
 
-        $moveOut->update([
-            'actual_move_out_date' => $validated['actual_move_out_date'],
-            'status' => 'inspection_pending',
-        ]);
+        DB::transaction(function () use ($moveOut, $validated, $landlordId, $user) {
+            $moveOut->update([
+                'actual_move_out_date' => $validated['actual_move_out_date'],
+                'status' => 'inspection_pending',
+            ]);
 
-        // Log activity
-        TenantActivity::create([
-            'landlord_id' => $landlordId,
-            'tenant_id' => $moveOut->lease->tenant_id,
-            'performed_by' => $user->id,
-            'action' => 'move_out_inspection_started',
-            'description' => 'Tenant moved out. Inspection started.',
-            'metadata' => ['move_out_id' => $moveOut->id],
-        ]);
+            TenantActivity::create([
+                'landlord_id' => $landlordId,
+                'tenant_id' => $moveOut->lease->tenant_id,
+                'performed_by' => $user->id,
+                'action' => 'move_out_inspection_started',
+                'description' => 'Tenant moved out. Inspection started.',
+                'metadata' => ['move_out_id' => $moveOut->id],
+            ]);
+        });
 
         return Redirect::back()->with('success', 'Inspection started.');
     }
@@ -249,19 +250,27 @@ class MoveOutController extends Controller
             $photoPath = $request->file('photo')->store("move-outs/{$moveOut->id}", 'private');
         }
 
-        $deduction = MoveOutDeduction::create([
-            'move_out_id' => $moveOut->id,
-            'description' => $validated['description'],
-            'amount' => $validated['amount'],
-            'notes' => $validated['notes'] ?? null,
-            'photo_path' => $photoPath,
-        ]);
+        try {
+            DB::transaction(function () use ($moveOut, $validated, $photoPath) {
+                MoveOutDeduction::create([
+                    'move_out_id' => $moveOut->id,
+                    'description' => $validated['description'],
+                    'amount' => $validated['amount'],
+                    'notes' => $validated['notes'] ?? null,
+                    'photo_path' => $photoPath,
+                ]);
 
-        // Recalculate refund
-        $moveOut->calculateRefund();
-        $moveOut->save();
+                $moveOut->calculateRefund();
+                $moveOut->save();
+            });
 
-        return Redirect::back()->with('success', 'Deduction added.');
+            return Redirect::back()->with('success', 'Deduction added.');
+        } catch (\Exception $e) {
+            if ($photoPath) {
+                Storage::disk('private')->delete($photoPath);
+            }
+            throw $e;
+        }
     }
 
     /**
@@ -281,11 +290,12 @@ class MoveOutController extends Controller
             return Redirect::back()->withErrors(['move_out' => 'Cannot update deductions on completed move-out.']);
         }
 
-        $deduction->update($request->validated());
+        DB::transaction(function () use ($deduction, $moveOut, $request) {
+            $deduction->update($request->validated());
 
-        // Recalculate refund
-        $moveOut->calculateRefund();
-        $moveOut->save();
+            $moveOut->calculateRefund();
+            $moveOut->save();
+        });
 
         return Redirect::back()->with('success', 'Deduction updated.');
     }
@@ -335,28 +345,28 @@ class MoveOutController extends Controller
 
         $validated = $request->validated();
 
-        $moveOut->update([
-            'status' => 'settlement_pending',
-            'inspection_notes' => $validated['inspection_notes'] ?? null,
-        ]);
+        DB::transaction(function () use ($moveOut, $validated, $landlordId, $user) {
+            $moveOut->update([
+                'status' => 'settlement_pending',
+                'inspection_notes' => $validated['inspection_notes'] ?? null,
+            ]);
 
-        // Recalculate final amounts
-        $moveOut->calculateRefund();
-        $moveOut->save();
+            $moveOut->calculateRefund();
+            $moveOut->save();
 
-        // Log activity
-        TenantActivity::create([
-            'landlord_id' => $landlordId,
-            'tenant_id' => $moveOut->lease->tenant_id,
-            'performed_by' => $user->id,
-            'action' => 'move_out_inspection_complete',
-            'description' => 'Inspection completed. Settlement pending.',
-            'metadata' => [
-                'move_out_id' => $moveOut->id,
-                'total_deductions' => $moveOut->total_deductions,
-                'refund_amount' => $moveOut->refund_amount,
-            ],
-        ]);
+            TenantActivity::create([
+                'landlord_id' => $landlordId,
+                'tenant_id' => $moveOut->lease->tenant_id,
+                'performed_by' => $user->id,
+                'action' => 'move_out_inspection_complete',
+                'description' => 'Inspection completed. Settlement pending.',
+                'metadata' => [
+                    'move_out_id' => $moveOut->id,
+                    'total_deductions' => $moveOut->total_deductions,
+                    'refund_amount' => $moveOut->refund_amount,
+                ],
+            ]);
+        });
 
         return Redirect::back()->with('success', 'Inspection completed. Ready for settlement.');
     }
@@ -445,20 +455,21 @@ class MoveOutController extends Controller
 
         $validated = $request->validated();
 
-        $moveOut->update(['status' => 'cancelled']);
+        DB::transaction(function () use ($moveOut, $validated, $landlordId, $user) {
+            $moveOut->update(['status' => 'cancelled']);
 
-        // Log activity
-        TenantActivity::create([
-            'landlord_id' => $landlordId,
-            'tenant_id' => $moveOut->lease->tenant_id,
-            'performed_by' => $user->id,
-            'action' => 'move_out_cancelled',
-            'description' => 'Move-out process cancelled.',
-            'metadata' => [
-                'move_out_id' => $moveOut->id,
-                'reason' => $validated['cancellation_reason'] ?? null,
-            ],
-        ]);
+            TenantActivity::create([
+                'landlord_id' => $landlordId,
+                'tenant_id' => $moveOut->lease->tenant_id,
+                'performed_by' => $user->id,
+                'action' => 'move_out_cancelled',
+                'description' => 'Move-out process cancelled.',
+                'metadata' => [
+                    'move_out_id' => $moveOut->id,
+                    'reason' => $validated['cancellation_reason'] ?? null,
+                ],
+            ]);
+        });
 
         return Redirect::route('tenants.show', $moveOut->lease->tenant_id)->with('success', 'Move-out cancelled.');
     }

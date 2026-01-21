@@ -20,35 +20,36 @@ class DataDeletionService
      */
     public function requestDeletion(User $user, ?string $reason = null): DeletionRequest
     {
-        $graceDays = config('security.compliance.deletion_grace_days', 30);
+        return DB::transaction(function () use ($user, $reason) {
+            $graceDays = config('security.compliance.deletion_grace_days', 30);
 
-        $request = DeletionRequest::create([
-            'user_id' => $user->id,
-            'reason' => $reason,
-            'status' => 'pending',
-            'requested_at' => now(),
-            'scheduled_deletion_at' => now()->addDays($graceDays),
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
-        ]);
+            $request = DeletionRequest::create([
+                'user_id' => $user->id,
+                'reason' => $reason,
+                'status' => 'pending',
+                'requested_at' => now(),
+                'scheduled_deletion_at' => now()->addDays($graceDays),
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ]);
 
-        // Log the deletion request
-        AuditLog::create([
-            'user_id' => $user->id,
-            'landlord_id' => $user->isLandlord() ? $user->id : $user->landlord_id,
-            'event_type' => 'deletion_requested',
-            'auditable_type' => User::class,
-            'auditable_id' => $user->id,
-            'metadata' => [
-                'deletion_request_id' => $request->id,
-                'scheduled_deletion_at' => $request->scheduled_deletion_at->toIso8601String(),
-                'compliance' => ['gdpr_article_17', 'kenya_dpa_section_28'],
-            ],
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
-        ]);
+            AuditLog::create([
+                'user_id' => $user->id,
+                'landlord_id' => $user->isLandlord() ? $user->id : $user->landlord_id,
+                'event_type' => 'deletion_requested',
+                'auditable_type' => User::class,
+                'auditable_id' => $user->id,
+                'metadata' => [
+                    'deletion_request_id' => $request->id,
+                    'scheduled_deletion_at' => $request->scheduled_deletion_at->toIso8601String(),
+                    'compliance' => ['gdpr_article_17', 'kenya_dpa_section_28'],
+                ],
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ]);
 
-        return $request;
+            return $request;
+        });
     }
 
     /**
@@ -60,24 +61,26 @@ class DataDeletionService
             return false;
         }
 
-        $request->update([
-            'status' => 'cancelled',
-            'cancelled_at' => now(),
-        ]);
+        return DB::transaction(function () use ($request) {
+            $request->update([
+                'status' => 'cancelled',
+                'cancelled_at' => now(),
+            ]);
 
-        AuditLog::create([
-            'user_id' => $request->user_id,
-            'event_type' => 'deletion_cancelled',
-            'auditable_type' => User::class,
-            'auditable_id' => $request->user_id,
-            'metadata' => [
-                'deletion_request_id' => $request->id,
-            ],
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
-        ]);
+            AuditLog::create([
+                'user_id' => $request->user_id,
+                'event_type' => 'deletion_cancelled',
+                'auditable_type' => User::class,
+                'auditable_id' => $request->user_id,
+                'metadata' => [
+                    'deletion_request_id' => $request->id,
+                ],
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ]);
 
-        return true;
+            return true;
+        });
     }
 
     /**
