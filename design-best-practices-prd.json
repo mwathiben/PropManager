@@ -886,8 +886,39 @@
       ],
       "verification": "Trigger payment failure; verify PaymentException with error code returned",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1,
+      "completion_notes": "Created domain-specific exception hierarchy: (1) Created base DomainException class with error codes, context array, status codes, render() for API responses, and report() for logging; (2) Created EntityNotFoundException for generic entity lookups; (3) Created Import exceptions: ImportException (base), ImportFileException, InvalidCsvFormatException, InvalidImportTypeException, DuplicateEntityException - updated ImportService with 10 typed throws; (4) Created Payment exceptions: PaymentException (base), UnsupportedPaymentMethodException, RefundException, MissingMobileNumberException - updated RefundService and PaymentController; (5) Created WaterReading exceptions: WaterReadingException (base), ReadingLockedException with INVOICED/APPROVED constants - updated WaterReadingObserver; (6) Created Notification exceptions: NotificationException (base), RecipientNotFoundException, ChannelSendException - updated FallbackNotificationJob; (7) Created Subscription exception: GracePeriodExpiredException - updated SubscriptionService; (8) Created Integration exception: PaystackException with bankVerificationFailed() factory method - updated PaystackSubaccountService; (9) Configured exception handler in bootstrap/app.php to render DomainException as JSON for API requests.",
+      "files_created": [
+        "app/Exceptions/DomainException.php",
+        "app/Exceptions/EntityNotFoundException.php",
+        "app/Exceptions/Import/ImportException.php",
+        "app/Exceptions/Import/ImportFileException.php",
+        "app/Exceptions/Import/InvalidCsvFormatException.php",
+        "app/Exceptions/Import/InvalidImportTypeException.php",
+        "app/Exceptions/Import/DuplicateEntityException.php",
+        "app/Exceptions/Payment/PaymentException.php",
+        "app/Exceptions/Payment/UnsupportedPaymentMethodException.php",
+        "app/Exceptions/Payment/RefundException.php",
+        "app/Exceptions/Payment/MissingMobileNumberException.php",
+        "app/Exceptions/WaterReading/WaterReadingException.php",
+        "app/Exceptions/WaterReading/ReadingLockedException.php",
+        "app/Exceptions/Notification/NotificationException.php",
+        "app/Exceptions/Notification/RecipientNotFoundException.php",
+        "app/Exceptions/Notification/ChannelSendException.php",
+        "app/Exceptions/Subscription/GracePeriodExpiredException.php",
+        "app/Exceptions/Integration/PaystackException.php"
+      ],
+      "files_modified": [
+        "app/Services/ImportService.php",
+        "app/Services/RefundService.php",
+        "app/Http/Controllers/PaymentController.php",
+        "app/Observers/WaterReadingObserver.php",
+        "app/Jobs/FallbackNotificationJob.php",
+        "app/Services/SubscriptionService.php",
+        "app/Services/PaystackSubaccountService.php",
+        "bootstrap/app.php"
+      ]
     },
     {
       "id": "DBP-019",

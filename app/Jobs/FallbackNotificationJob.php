@@ -2,6 +2,8 @@
 
 namespace App\Jobs;
 
+use App\Exceptions\Notification\ChannelSendException;
+use App\Exceptions\Notification\RecipientNotFoundException;
 use App\Models\Notification;
 use App\Services\NotificationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -73,7 +75,7 @@ class FallbackNotificationJob implements ShouldQueue
             $recipient = $notification->recipient;
 
             if (! $recipient) {
-                throw new \Exception('Recipient not found');
+                throw new RecipientNotFoundException($notification->recipient_id, $notification->type);
             }
 
             $sent = $notificationService->sendViaChannel(
@@ -96,7 +98,7 @@ class FallbackNotificationJob implements ShouldQueue
                 ]);
                 $notification->incrementRetryCount();
 
-                throw new \Exception("Failed to send via fallback channel: {$nextChannel}");
+                throw new ChannelSendException($nextChannel);
             }
         } catch (\Exception $e) {
             Log::error('FallbackNotificationJob: Failed to send via fallback', [

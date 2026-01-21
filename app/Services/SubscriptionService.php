@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\Subscription\GracePeriodExpiredException;
 use App\Models\Subscription;
 use App\Models\SubscriptionPayment;
 use App\Models\SubscriptionPlan;
@@ -81,7 +82,7 @@ class SubscriptionService
     public function resume(Subscription $subscription): Subscription
     {
         if (! $subscription->onGracePeriod()) {
-            throw new \Exception('Cannot resume - grace period has ended');
+            throw new GracePeriodExpiredException($subscription->id);
         }
 
         $subscription->update([

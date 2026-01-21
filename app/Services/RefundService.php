@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Enums\InvoiceStatus;
+use App\Exceptions\Payment\MissingMobileNumberException;
+use App\Exceptions\Payment\UnsupportedPaymentMethodException;
 use App\Models\Payment;
 use App\Models\PlatformFee;
 use App\Models\Refund;
@@ -43,7 +46,7 @@ class RefundService
                 'paystack' => $this->processPaystackRefund($refund),
                 'mobile_money' => $this->processMpesaRefund($refund),
                 'cash', 'bank_transfer' => $this->processManualRefund($refund),
-                default => throw new \Exception("Unsupported payment method: {$refund->payment_method}"),
+                default => throw new UnsupportedPaymentMethodException($refund->payment_method),
             };
 
             if ($result) {
@@ -112,7 +115,7 @@ class RefundService
         $tenant = $payment->lease->tenant;
 
         if (! $tenant->mobile_number) {
-            throw new \Exception('Tenant has no mobile number for M-Pesa refund');
+            throw new MissingMobileNumberException($tenant->id);
         }
 
         $result = $this->mpesaService->initiateB2C(
@@ -151,11 +154,11 @@ class RefundService
             $invoice = $refund->invoice;
             $newAmountPaid = max(0, $invoice->amount_paid - $refund->amount);
 
-            $newStatus = 'sent';
+            $newStatus = InvoiceStatus::Sent;
             if ($newAmountPaid >= $invoice->total_due) {
-                $newStatus = 'paid';
+                $newStatus = InvoiceStatus::Paid;
             } elseif ($newAmountPaid > 0) {
-                $newStatus = 'partial';
+                $newStatus = InvoiceStatus::Partial;
             }
 
             $invoice->update([

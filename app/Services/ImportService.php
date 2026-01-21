@@ -2,7 +2,13 @@
 
 namespace App\Services;
 
+use App\Enums\InvoiceStatus;
 use App\Enums\PaymentMethod;
+use App\Exceptions\EntityNotFoundException;
+use App\Exceptions\Import\DuplicateEntityException;
+use App\Exceptions\Import\ImportFileException;
+use App\Exceptions\Import\InvalidCsvFormatException;
+use App\Exceptions\Import\InvalidImportTypeException;
 use App\Models\Building;
 use App\Models\Import;
 use App\Models\Invoice;
@@ -27,7 +33,7 @@ class ImportService
         $handle = fopen($filePath, 'r');
 
         if ($handle === false) {
-            throw new \Exception('Unable to open file');
+            throw new ImportFileException($filePath);
         }
 
         // Get headers from first row
@@ -35,7 +41,7 @@ class ImportService
 
         if ($headers === false) {
             fclose($handle);
-            throw new \Exception('Invalid CSV file - no headers found');
+            throw new InvalidCsvFormatException('no headers found');
         }
 
         // Clean headers (trim, lowercase, replace spaces with underscores)
@@ -73,7 +79,7 @@ class ImportService
                 'invoices' => $this->importInvoices($data, $import->landlord_id),
                 'payments' => $this->importPayments($data, $import->landlord_id),
                 'units' => $this->importUnits($data, $import->landlord_id),
-                default => throw new \Exception('Invalid import type'),
+                default => throw new InvalidImportTypeException($import->type),
             };
 
             $import->update([
@@ -198,7 +204,7 @@ class ImportService
                     ->first();
 
                 if (! $unit) {
-                    throw new \Exception("Unit {$row['unit_number']} not found");
+                    throw new EntityNotFoundException('Unit', $row['unit_number'], 'unit_number');
                 }
 
                 // Find tenant
@@ -208,7 +214,7 @@ class ImportService
                     ->first();
 
                 if (! $tenant) {
-                    throw new \Exception("Tenant with email {$row['tenant_email']} not found");
+                    throw new EntityNotFoundException('Tenant', $row['tenant_email'], 'email');
                 }
 
                 // Create lease
@@ -286,7 +292,7 @@ class ImportService
                     ->first();
 
                 if (! $unit) {
-                    throw new \Exception("Unit {$row['unit_number']} not found");
+                    throw new EntityNotFoundException('Unit', $row['unit_number'], 'unit_number');
                 }
 
                 // Create water reading (Observer will auto-calculate consumption and cost)
@@ -343,7 +349,7 @@ class ImportService
                 'water_charge' => 'nullable|numeric|min:0',
                 'previous_arrears' => 'nullable|numeric|min:0',
                 'status' => 'required|in:draft,sent,partial,paid,overdue',
-                'amount_paid' => 'nullable|numeric|min:0',
+                'paid_amount' => 'nullable|numeric|min:0',
             ]);
 
             if ($validator->fails()) {
@@ -363,13 +369,13 @@ class ImportService
                     ->first();
 
                 if (! $unit) {
-                    throw new \Exception("Unit {$row['unit_number']} not found");
+                    throw new EntityNotFoundException('Unit', $row['unit_number'], 'unit_number');
                 }
 
                 $lease = $unit->activeLease;
 
                 if (! $lease) {
-                    throw new \Exception("No active lease found for unit {$row['unit_number']}");
+                    throw new EntityNotFoundException('Active Lease', $row['unit_number'], 'unit_number');
                 }
 
                 $waterCharge = $row['water_charge'] ?? 0;
@@ -386,7 +392,7 @@ class ImportService
                     'water_charge' => $waterCharge,
                     'previous_arrears' => $previousArrears,
                     'total_due' => $totalAmount,
-                    'amount_paid' => $row['amount_paid'] ?? 0,
+                    'amount_paid' => $row['paid_amount'] ?? 0,
                     'status' => $row['status'],
                 ]);
 
@@ -449,7 +455,7 @@ class ImportService
                     ->first();
 
                 if (! $invoice) {
-                    throw new \Exception("Invoice {$row['invoice_number']} not found");
+                    throw new EntityNotFoundException('Invoice', $row['invoice_number'], 'invoice_number');
                 }
 
                 Payment::create([
@@ -467,9 +473,9 @@ class ImportService
 
                 // Update invoice status
                 if ($invoice->amount_paid >= $invoice->total_due) {
-                    $invoice->update(['status' => 'paid']);
+                    $invoice->update(['status' => InvoiceStatus::Paid]);
                 } elseif ($invoice->amount_paid > 0) {
-                    $invoice->update(['status' => 'partial']);
+                    $invoice->update(['status' => InvoiceStatus::Partial]);
                 }
 
                 $successful++;
@@ -532,7 +538,7 @@ class ImportService
                     ->first();
 
                 if (! $building) {
-                    throw new \Exception("Building {$row['building_name']} not found");
+                    throw new EntityNotFoundException('Building', $row['building_name'], 'name');
                 }
 
                 // Check if unit already exists
@@ -541,7 +547,7 @@ class ImportService
                     ->first();
 
                 if ($existingUnit) {
-                    throw new \Exception("Unit {$row['unit_number']} already exists in building {$row['building_name']}");
+                    throw new DuplicateEntityException('Unit', $row['unit_number'], "building {$row['building_name']}");
                 }
 
                 Unit::create([

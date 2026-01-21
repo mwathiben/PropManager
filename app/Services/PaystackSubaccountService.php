@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\Integration\PaystackException;
 use App\Models\LandlordPayoutAccount;
 use App\Models\PlatformBillingSetting;
 use App\Models\User;
@@ -30,7 +31,7 @@ class PaystackSubaccountService
         );
 
         if (! $verification || ! $verification['status']) {
-            throw new \Exception('Could not verify bank account. Please check account details.');
+            throw PaystackException::bankVerificationFailed($data['account_number']);
         }
 
         $billingSettings = PlatformBillingSetting::current();
@@ -53,7 +54,7 @@ class PaystackSubaccountService
 
             if (! $subaccountResponse || ! $subaccountResponse['status']) {
                 $message = $subaccountResponse['message'] ?? 'Failed to create Paystack subaccount.';
-                throw new \Exception($message);
+                throw new PaystackException($message);
             }
 
             $subaccountData = $subaccountResponse['data'];

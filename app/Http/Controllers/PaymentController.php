@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\InvoiceStatus;
 use App\Events\PaymentReceived as PaymentReceivedEvent;
+use App\Exceptions\EntityNotFoundException;
 use App\Http\Requests\Payment\InitializePaystackRequest;
 use App\Http\Requests\Payment\ProcessBulkImportRequest;
 use App\Http\Requests\Payment\ValidateBulkImportRequest;
@@ -142,7 +144,7 @@ class PaymentController extends Controller
 
             if ($invoice) {
                 $newAmountPaid = $invoice->amount_paid + $appliedAmount;
-                $newStatus = $newAmountPaid >= $invoice->total_due ? 'paid' : 'partial';
+                $newStatus = $newAmountPaid >= $invoice->total_due ? InvoiceStatus::Paid : InvoiceStatus::Partial;
 
                 $invoice->update([
                     'amount_paid' => $newAmountPaid,
@@ -512,7 +514,7 @@ class PaymentController extends Controller
             $overpayment = max(0, $amount - $remainingBalance);
 
             $newAmountPaid = $invoice->amount_paid + $appliedAmount;
-            $newStatus = $newAmountPaid >= $invoice->total_due ? 'paid' : 'partial';
+            $newStatus = $newAmountPaid >= $invoice->total_due ? InvoiceStatus::Paid : InvoiceStatus::Partial;
 
             $invoice->update([
                 'amount_paid' => $newAmountPaid,
@@ -684,7 +686,7 @@ class PaymentController extends Controller
             $overpayment = max(0, $amount - $remainingBalance);
 
             $newAmountPaid = $invoice->amount_paid + $appliedAmount;
-            $newStatus = $newAmountPaid >= $invoice->total_due ? 'paid' : 'partial';
+            $newStatus = $newAmountPaid >= $invoice->total_due ? InvoiceStatus::Paid : InvoiceStatus::Partial;
 
             $invoice->update([
                 'amount_paid' => $newAmountPaid,
@@ -806,10 +808,10 @@ class PaymentController extends Controller
                 $invoice = Invoice::lockForUpdate()->find($payment->invoice_id);
                 if ($invoice) {
                     $newAmountPaid = max(0, $invoice->amount_paid - $payment->amount);
-                    $newStatus = $newAmountPaid <= 0 ? 'sent' : ($newAmountPaid >= $invoice->total_due ? 'paid' : 'partial');
+                    $newStatus = $newAmountPaid <= 0 ? InvoiceStatus::Sent : ($newAmountPaid >= $invoice->total_due ? InvoiceStatus::Paid : InvoiceStatus::Partial);
 
-                    if ($invoice->status === 'voided') {
-                        $newStatus = 'voided';
+                    if ($invoice->status === InvoiceStatus::Voided) {
+                        $newStatus = InvoiceStatus::Voided;
                     }
 
                     $invoice->update([
@@ -1048,7 +1050,7 @@ class PaymentController extends Controller
             if ($tenantIds->isNotEmpty()) {
                 $tenantInvoicesMap = Invoice::where('landlord_id', $landlordId)
                     ->whereHas('lease', fn ($q) => $q->whereIn('tenant_id', $tenantIds))
-                    ->whereIn('status', ['sent', 'partial', 'overdue'])
+                    ->whereIn('status', [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue])
                     ->with('lease:id,tenant_id')
                     ->orderBy('due_date', 'asc')
                     ->get()
@@ -1301,7 +1303,7 @@ class PaymentController extends Controller
         } else {
             $invoices = Invoice::where('landlord_id', $landlordId)
                 ->whereHas('lease', fn ($q) => $q->where('tenant_id', $tenant->id))
-                ->whereIn('status', ['sent', 'partial', 'overdue'])
+                ->whereIn('status', [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue])
                 ->orderBy('due_date', 'asc')
                 ->get();
 
@@ -1553,7 +1555,7 @@ class PaymentController extends Controller
                     $invoice = $invoicesMap->get($allocation['invoice_id']);
 
                     if (! $invoice) {
-                        throw new \Exception("Invoice {$allocation['invoice_id']} not found or not owned by landlord");
+                        throw new EntityNotFoundException('Invoice', $allocation['invoice_id']);
                     }
 
                     $payment = Payment::create([
@@ -1567,10 +1569,13 @@ class PaymentController extends Controller
                         'notes' => 'Bulk import',
                     ]);
 
-                    $invoice->update([
+                    $paidStatus = InvoiceStatus::Paid->value;
+                    $partialStatus = InvoiceStatus::Partial->value;
+                    Invoice::where('id', $invoice->id)->update([
                         'amount_paid' => DB::raw("amount_paid + {$allocation['amount']}"),
-                        'status' => DB::raw("CASE WHEN amount_paid + {$allocation['amount']} >= total_due THEN 'paid' WHEN amount_paid + {$allocation['amount']} > 0 THEN 'partial' ELSE status END"),
+                        'status' => DB::raw("CASE WHEN amount_paid + {$allocation['amount']} >= total_due THEN '{$paidStatus}' WHEN amount_paid + {$allocation['amount']} > 0 THEN '{$partialStatus}' ELSE status END"),
                     ]);
+                    $invoice->refresh();
 
                     $this->receiptService->createReceipt($payment, $invoice);
                 }
@@ -1637,6 +1642,9 @@ class PaymentController extends Controller
 
         try {
             // Pre-load all existing archived tenants for this landlord (O(1) query)
+            // NOTE: Keyed by lowercase name for case-insensitive deduplication.
+            // This means "John Doe" and "john doe" are treated as the same tenant,
+            // which is intentional to prevent duplicate archived tenant records.
             $archivedTenantsMap = User::where('landlord_id', $landlordId)
                 ->where('role', 'tenant')
                 ->where('is_archived', true)
@@ -1753,6 +1761,9 @@ class PaymentController extends Controller
 
     /**
      * Find or create an archived tenant using pre-loaded map (optimized).
+     *
+     * Uses case-insensitive matching (lowercase) to deduplicate tenant names.
+     * This prevents creating multiple archived tenants for "John Doe" vs "john doe".
      *
      * @param  \Illuminate\Support\Collection  $tenantsMap  Mutable collection keyed by lowercase name
      */

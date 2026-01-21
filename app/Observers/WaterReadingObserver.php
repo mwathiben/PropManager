@@ -2,6 +2,7 @@
 
 namespace App\Observers;
 
+use App\Exceptions\WaterReading\ReadingLockedException;
 use App\Models\WaterReading;
 use App\Services\WaterRateService;
 use Illuminate\Support\Facades\Auth;
@@ -51,14 +52,14 @@ class WaterReadingObserver
     {
         // Prevent updates to invoiced readings (regardless of approval status)
         if ($waterReading->is_invoiced && $waterReading->isDirty(['current_reading', 'previous_reading', 'photo_path'])) {
-            throw new \Exception('Cannot modify readings that have been invoiced. Please void the invoice first.');
+            throw new ReadingLockedException($waterReading->id, ReadingLockedException::INVOICED);
         }
 
         // Prevent modifications to approved readings (except for approval workflow fields)
         if ($waterReading->getOriginal('status') === 'approved' &&
             $waterReading->isDirty(['current_reading', 'previous_reading', 'photo_path']) &&
             ! $waterReading->isDirty(['status', 'reviewed_by', 'reviewed_at', 'review_notes'])) {
-            throw new \Exception('Cannot modify approved readings. Please reject the reading first if changes are needed.');
+            throw new ReadingLockedException($waterReading->id, ReadingLockedException::APPROVED);
         }
 
         // Recalculate if readings changed

@@ -8557,3 +8557,112 @@ WaterReading created
 - **npm run build**: ✅ Built successfully
 
 **DBP-017 COMPLETE**
+
+---
+
+## Session: 2026-01-21
+**Task**: DBP-018 - Create Typed Exception Classes
+**Status**: COMPLETED
+
+### Work Done
+
+1. **Created Base Exception Classes**
+   - `DomainException.php` - Abstract base with error codes, context, status codes, render(), report()
+   - `EntityNotFoundException.php` - Generic entity lookup failures
+
+2. **Created Import Domain Exceptions (5 classes)**
+   - `ImportException.php` - Base for import domain
+   - `ImportFileException.php` - File open failures
+   - `InvalidCsvFormatException.php` - CSV format errors
+   - `InvalidImportTypeException.php` - Unknown import types
+   - `DuplicateEntityException.php` - Entity already exists
+   - Updated `ImportService.php` with 10 typed throws
+
+3. **Created Payment Domain Exceptions (4 classes)**
+   - `PaymentException.php` - Base for payment domain
+   - `UnsupportedPaymentMethodException.php` - Unknown payment methods
+   - `RefundException.php` - Refund-specific errors
+   - `MissingMobileNumberException.php` - M-Pesa refund precondition
+   - Updated `RefundService.php` and `PaymentController.php`
+
+4. **Created Water Reading Exceptions (2 classes)**
+   - `WaterReadingException.php` - Base for water reading domain
+   - `ReadingLockedException.php` - Invoiced/approved state violations
+   - Updated `WaterReadingObserver.php`
+
+5. **Created Notification Exceptions (3 classes)**
+   - `NotificationException.php` - Base for notification domain
+   - `RecipientNotFoundException.php` - Recipient lookup failures
+   - `ChannelSendException.php` - Channel send failures
+   - Updated `FallbackNotificationJob.php`
+
+6. **Created Subscription Exception (1 class)**
+   - `GracePeriodExpiredException.php` - Grace period violations
+   - Updated `SubscriptionService.php`
+
+7. **Created Integration Exception (1 class)**
+   - `PaystackException.php` - Paystack API failures with factory method
+   - Updated `PaystackSubaccountService.php`
+
+8. **Configured Exception Handler**
+   - Updated `bootstrap/app.php` with DomainException rendering for API responses
+
+### Files Created (18)
+
+```
+app/Exceptions/
+├── DomainException.php
+├── EntityNotFoundException.php
+├── Import/
+│   ├── ImportException.php
+│   ├── ImportFileException.php
+│   ├── InvalidCsvFormatException.php
+│   ├── InvalidImportTypeException.php
+│   └── DuplicateEntityException.php
+├── Payment/
+│   ├── PaymentException.php
+│   ├── UnsupportedPaymentMethodException.php
+│   ├── RefundException.php
+│   └── MissingMobileNumberException.php
+├── WaterReading/
+│   ├── WaterReadingException.php
+│   └── ReadingLockedException.php
+├── Notification/
+│   ├── NotificationException.php
+│   ├── RecipientNotFoundException.php
+│   └── ChannelSendException.php
+├── Subscription/
+│   └── GracePeriodExpiredException.php
+└── Integration/
+    └── PaystackException.php
+```
+
+### Files Modified (8)
+
+| File | Changes |
+|------|---------|
+| `app/Services/ImportService.php` | 10 throws → typed exceptions |
+| `app/Services/RefundService.php` | 2 throws → typed exceptions |
+| `app/Http/Controllers/PaymentController.php` | 1 throw → typed exception |
+| `app/Observers/WaterReadingObserver.php` | 2 throws → typed exceptions |
+| `app/Jobs/FallbackNotificationJob.php` | 2 throws → typed exceptions |
+| `app/Services/SubscriptionService.php` | 1 throw → typed exception |
+| `app/Services/PaystackSubaccountService.php` | 2 throws → typed exceptions |
+| `bootstrap/app.php` | Added exception rendering |
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| No generic Exception throws in services | ✅ grep returns 0 matches |
+| Each domain has typed exception class | ✅ 6 domains covered |
+| Exceptions have error codes for API clients | ✅ All have errorCode property |
+| Exception handler produces consistent responses | ✅ JSON format configured |
+| All tests pass | ✅ 548 passed, 13 skipped |
+
+### Verification Results
+- **vendor/bin/pint**: ✅ 650 files PASS
+- **grep "throw new \Exception"**: ✅ 0 matches in app/
+- **php artisan test --parallel**: ✅ 548 passed, 13 skipped
+
+**DBP-018 COMPLETE**
