@@ -687,8 +687,9 @@
       ],
       "verification": "Access all Finance pages; verify functionality unchanged",
       "estimated_effort": "large",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1,
+      "completion_notes": "Split FinancesController (1,122 lines) into 8 focused controllers: (1) FinancesController (287 lines) - Hub, overview, billing tabs, reconciliation; (2) Finance/DepositController (190 lines) - Deposits, refunds, forfeit; (3) Finance/LateFeeController (182 lines) - Late fee policies and waivers; (4) Finance/ExpenseController (195 lines) - Expenses, categories, vendors; (5) Finance/FinanceReportController (86 lines) - Reports and export; (6) Finance/FinanceSettingsController (122 lines) - Payment methods, invoice/receipt settings; (7) Finance/FinanceTemplateController (78 lines) - Invoice/receipt/credit note templates; (8) Finance/FinanceNotificationController (63 lines) - Arrears notices and rent reminders. Created WithFinanceRendering trait (81 lines) for shared tab rendering logic. All route names preserved for backward compatibility. All tests pass (548 tests)."
     },
     {
       "id": "DBP-015",
@@ -708,7 +709,7 @@
         "app/Enums/InvoiceStatus.php",
         "app/Models/Invoice.php",
         "app/Services/InvoiceService.php",
-        "resources/js/types/invoice.d.ts"
+        "resources/js/types/finances.d.ts"
       ],
       "definition_of_ready": [
         "All invoice statuses documented",
@@ -727,8 +728,9 @@
       ],
       "verification": "Attempt invalid status transition; verify rejection",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1,
+      "completion_notes": "Created InvoiceStatus enum and fixed critical void/voided mismatch bug: (1) Created app/Enums/InvoiceStatus.php with 8 cases (Draft, Sent, Viewed, Partial, Paid, Overdue, Voided, Cancelled) including label(), color(), values(), options(), labelsMap(), activeStatuses(), closedStatuses(), isActive(), isClosed(), canTransitionTo() methods; (2) Updated Invoice model - removed 7 STATUS_* constants, added enum cast, fixed isVoid() to use InvoiceStatus::Voided; (3) Updated 15+ controllers to use InvoiceStatus enum (InvoiceController, FinancesController, PaymentController, ArrearsController, CreditNoteController, PaymentLinkController, PaymentsHubController, TenantController, TenantFinancesController, ReconciliationController, NotificationsController, and API controllers); (4) Updated services (InvoiceService, FinanceFilterService - replaced getInvoiceStatusOptions() with InvoiceStatus::options(), PaymentLinkService, LateFeeService); (5) Fixed PaymentController bulk import to use query builder for raw SQL status updates (bypassing enum cast); (6) Updated validation rules to use Rule::in(InvoiceStatus::values()); (7) Updated TypeScript type in finances.d.ts - fixed 'void' to 'voided', added 'cancelled'; (8) Updated useStatusColors.ts composable with voided/cancelled colors; (9) Fixed invoice-pdf.blade.php to use $invoice->status->value and $invoice->status->label(); (10) Updated 7 test files to use InvoiceStatus enum instead of string comparisons. Critical bug fixed: STATUS_VOID='void' never matched actual 'voided' values in database."
     },
     {
       "id": "DBP-016",

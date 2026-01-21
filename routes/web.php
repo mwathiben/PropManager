@@ -12,6 +12,13 @@ use App\Http\Controllers\CreditNoteController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepositController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\Finance\DepositController as FinanceDepositController;
+use App\Http\Controllers\Finance\ExpenseController;
+use App\Http\Controllers\Finance\FinanceNotificationController;
+use App\Http\Controllers\Finance\FinanceReportController;
+use App\Http\Controllers\Finance\FinanceSettingsController;
+use App\Http\Controllers\Finance\FinanceTemplateController;
+use App\Http\Controllers\Finance\LateFeeController;
 use App\Http\Controllers\FinancesController;
 use App\Http\Controllers\GdprController;
 use App\Http\Controllers\HelpController;
@@ -541,39 +548,39 @@ Route::middleware('auth')->group(function () {
         Route::get('/refunds/create', [RefundController::class, 'createStandalone'])->name('refunds.create');
         Route::post('/refunds/store', [RefundController::class, 'storeStandalone'])->name('refunds.store');
         Route::get('/reconciliation', [FinancesController::class, 'reconciliation'])->name('reconciliation');
-        Route::get('/deposits', [FinancesController::class, 'deposits'])->name('deposits');
+        Route::get('/deposits', [FinanceDepositController::class, 'index'])->name('deposits');
         Route::get('/arrears', [FinancesController::class, 'arrears'])->name('arrears');
-        Route::get('/settings', [FinancesController::class, 'settings'])->name('settings');
-        Route::post('/settings/payment-methods', [FinancesController::class, 'updatePaymentMethods'])->name('settings.payment-methods');
-        Route::post('/settings/invoice', [FinancesController::class, 'updateInvoiceSettings'])->name('settings.invoice');
-        Route::post('/settings/reminder', [FinancesController::class, 'updateReminderSettings'])->name('settings.reminder');
-        Route::post('/settings/receipt', [FinancesController::class, 'updateReceiptSettings'])->name('settings.receipt');
-        Route::get('/settings/receipt/preview', [FinancesController::class, 'previewReceipt'])->name('settings.receipt.preview');
-        Route::post('/settings/fiscal-year', [FinancesController::class, 'updateFiscalYearSettings'])->name('settings.fiscal-year');
+        Route::get('/settings', [FinanceSettingsController::class, 'index'])->name('settings');
+        Route::post('/settings/payment-methods', [FinanceSettingsController::class, 'updatePaymentMethods'])->name('settings.payment-methods');
+        Route::post('/settings/invoice', [FinanceSettingsController::class, 'updateInvoiceSettings'])->name('settings.invoice');
+        Route::post('/settings/reminder', [FinanceSettingsController::class, 'updateReminderSettings'])->name('settings.reminder');
+        Route::post('/settings/receipt', [FinanceSettingsController::class, 'updateReceiptSettings'])->name('settings.receipt');
+        Route::get('/settings/receipt/preview', [FinanceSettingsController::class, 'previewReceipt'])->name('settings.receipt.preview');
+        Route::post('/settings/fiscal-year', [FinanceSettingsController::class, 'updateFiscalYearSettings'])->name('settings.fiscal-year');
 
         // Reports
-        Route::get('/reports', [FinancesController::class, 'reports'])->name('reports');
-        Route::get('/reports/export', [FinancesController::class, 'exportReports'])->name('reports.export');
+        Route::get('/reports', [FinanceReportController::class, 'index'])->name('reports');
+        Route::get('/reports/export', [FinanceReportController::class, 'export'])->name('reports.export');
 
         // Templates
-        Route::get('/templates', [FinancesController::class, 'templates'])->name('templates');
-        Route::get('/templates/invoices', [FinancesController::class, 'templateInvoices'])->name('templates.invoices');
-        Route::get('/templates/receipts', [FinancesController::class, 'templateReceipts'])->name('templates.receipts');
-        Route::get('/templates/credit-notes', [FinancesController::class, 'templateCreditNotes'])->name('templates.credit-notes');
+        Route::get('/templates', [FinanceTemplateController::class, 'index'])->name('templates');
+        Route::get('/templates/invoices', [FinanceTemplateController::class, 'invoices'])->name('templates.invoices');
+        Route::get('/templates/receipts', [FinanceTemplateController::class, 'receipts'])->name('templates.receipts');
+        Route::get('/templates/credit-notes', [FinanceTemplateController::class, 'creditNotes'])->name('templates.credit-notes');
 
         // Late Fees Management
-        Route::get('/late-fees', [FinancesController::class, 'lateFees'])->name('late-fees');
-        Route::post('/late-fee-policies', [FinancesController::class, 'storeLateFeePolicy'])->name('late-fee-policies.store');
-        Route::put('/late-fee-policies/{policy}', [FinancesController::class, 'updateLateFeePolicy'])->name('late-fee-policies.update');
-        Route::delete('/late-fee-policies/{policy}', [FinancesController::class, 'destroyLateFeePolicy'])->name('late-fee-policies.destroy');
-        Route::post('/late-fee-policies/{policy}/toggle', [FinancesController::class, 'toggleLateFeePolicy'])->name('late-fee-policies.toggle');
-        Route::post('/late-fees/{lateFee}/waive', [FinancesController::class, 'waiveLateFee'])->name('late-fees.waive');
-        Route::post('/invoices/{invoice}/waive-all-late-fees', [FinancesController::class, 'waiveAllLateFees'])->name('invoices.waive-all-late-fees');
-        Route::get('/invoices/{invoice}/late-fees', [FinancesController::class, 'invoiceLateFees'])->name('invoices.late-fees');
+        Route::get('/late-fees', [LateFeeController::class, 'index'])->name('late-fees');
+        Route::post('/late-fee-policies', [LateFeeController::class, 'store'])->name('late-fee-policies.store');
+        Route::put('/late-fee-policies/{policy}', [LateFeeController::class, 'update'])->name('late-fee-policies.update');
+        Route::delete('/late-fee-policies/{policy}', [LateFeeController::class, 'destroy'])->name('late-fee-policies.destroy');
+        Route::post('/late-fee-policies/{policy}/toggle', [LateFeeController::class, 'toggle'])->name('late-fee-policies.toggle');
+        Route::post('/late-fees/{lateFee}/waive', [LateFeeController::class, 'waive'])->name('late-fees.waive');
+        Route::post('/invoices/{invoice}/waive-all-late-fees', [LateFeeController::class, 'waiveAll'])->name('invoices.waive-all-late-fees');
+        Route::get('/invoices/{invoice}/late-fees', [LateFeeController::class, 'invoiceLateFees'])->name('invoices.late-fees');
 
         // Notifications
-        Route::post('/notifications/arrears', [FinancesController::class, 'sendArrearsNotices'])->name('notifications.arrears');
-        Route::post('/notifications/reminders', [FinancesController::class, 'sendRentReminders'])->name('notifications.reminders');
+        Route::post('/notifications/arrears', [FinanceNotificationController::class, 'sendArrearsNotices'])->name('notifications.arrears');
+        Route::post('/notifications/reminders', [FinanceNotificationController::class, 'sendRentReminders'])->name('notifications.reminders');
 
         // Reconciliation
         Route::post('/reconciliation/import', [FinancesController::class, 'importBankStatement'])->name('reconciliation.import');
@@ -585,33 +592,33 @@ Route::middleware('auth')->group(function () {
         Route::post('/payments/{payment}/match', [FinancesController::class, 'matchPayment'])->name('payments.match');
 
         // Deposit actions
-        Route::post('/deposits/{lease}/refund', [FinancesController::class, 'refundDeposit'])->name('deposits.refund');
-        Route::post('/deposits/{lease}/forfeit', [FinancesController::class, 'forfeitDeposit'])->name('deposits.forfeit');
-        Route::get('/deposits/{lease}/transactions', [FinancesController::class, 'depositTransactions'])->name('deposits.transactions');
+        Route::post('/deposits/{lease}/refund', [FinanceDepositController::class, 'refund'])->name('deposits.refund');
+        Route::post('/deposits/{lease}/forfeit', [FinanceDepositController::class, 'forfeit'])->name('deposits.forfeit');
+        Route::get('/deposits/{lease}/transactions', [FinanceDepositController::class, 'transactions'])->name('deposits.transactions');
 
         // Export endpoints
-        Route::get('/deposits/export', [FinancesController::class, 'exportDeposits'])->name('deposits.export');
+        Route::get('/deposits/export', [FinanceDepositController::class, 'export'])->name('deposits.export');
         Route::get('/invoices/export', [FinancesController::class, 'exportInvoices'])->name('invoices.export');
         Route::get('/payments/export', [FinancesController::class, 'exportPayments'])->name('payments.export');
-        Route::get('/expenses/export', [FinancesController::class, 'exportExpenses'])->name('expenses.export');
-        Route::get('/vendors/export', [FinancesController::class, 'exportVendors'])->name('vendors.export');
+        Route::get('/expenses/export', [ExpenseController::class, 'export'])->name('expenses.export');
+        Route::get('/vendors/export', [ExpenseController::class, 'exportVendors'])->name('vendors.export');
 
         // Expenses Management
-        Route::get('/expenses', [FinancesController::class, 'expenses'])->name('expenses');
-        Route::post('/expenses', [FinancesController::class, 'storeExpense'])->name('expenses.store');
-        Route::put('/expenses/{expense}', [FinancesController::class, 'updateExpense'])->name('expenses.update');
-        Route::delete('/expenses/{expense}', [FinancesController::class, 'destroyExpense'])->name('expenses.destroy');
-        Route::get('/expenses/{expense}/detail', [FinancesController::class, 'expenseDetail'])->name('expenses.detail');
+        Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses');
+        Route::post('/expenses', [ExpenseController::class, 'store'])->name('expenses.store');
+        Route::put('/expenses/{expense}', [ExpenseController::class, 'update'])->name('expenses.update');
+        Route::delete('/expenses/{expense}', [ExpenseController::class, 'destroy'])->name('expenses.destroy');
+        Route::get('/expenses/{expense}/detail', [ExpenseController::class, 'show'])->name('expenses.detail');
 
         // Expense Categories
-        Route::post('/expense-categories', [FinancesController::class, 'storeExpenseCategory'])->name('expense-categories.store');
-        Route::put('/expense-categories/{category}', [FinancesController::class, 'updateExpenseCategory'])->name('expense-categories.update');
-        Route::delete('/expense-categories/{category}', [FinancesController::class, 'destroyExpenseCategory'])->name('expense-categories.destroy');
+        Route::post('/expense-categories', [ExpenseController::class, 'storeCategory'])->name('expense-categories.store');
+        Route::put('/expense-categories/{category}', [ExpenseController::class, 'updateCategory'])->name('expense-categories.update');
+        Route::delete('/expense-categories/{category}', [ExpenseController::class, 'destroyCategory'])->name('expense-categories.destroy');
 
         // Vendors
-        Route::post('/vendors', [FinancesController::class, 'storeVendor'])->name('vendors.store');
-        Route::put('/vendors/{vendor}', [FinancesController::class, 'updateVendor'])->name('vendors.update');
-        Route::delete('/vendors/{vendor}', [FinancesController::class, 'destroyVendor'])->name('vendors.destroy');
+        Route::post('/vendors', [ExpenseController::class, 'storeVendor'])->name('vendors.store');
+        Route::put('/vendors/{vendor}', [ExpenseController::class, 'updateVendor'])->name('vendors.update');
+        Route::delete('/vendors/{vendor}', [ExpenseController::class, 'destroyVendor'])->name('vendors.destroy');
     });
 
     // 16. Deposits (Security Deposits Tracking)
