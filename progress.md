@@ -8948,3 +8948,51 @@ php artisan finance:warm-cache --landlord=1 # Warm for specific landlord
 - **npm run build**: ✅ Built successfully
 
 **DBP-021 COMPLETE**
+
+---
+
+## Session: 2026-01-21
+**Task**: DBP-022 - Remove or Integrate Orphaned Components
+**Status**: COMPLETED
+
+### Work Done
+
+Audited the supposedly orphaned components (QuickActionsPanel, BuildingMap) and found:
+- **BuildingMap**: ACTIVE - used in Buildings/Edit.vue and Buildings/Show.vue for location editing
+- **QuickActionsPanel**: ORPHANED - fully implemented (~250 lines) but never integrated into any page
+
+User decision: Delete QuickActionsPanel (clean codebase over unused feature code).
+
+### Files Deleted
+
+| File | Reason |
+|------|--------|
+| `resources/js/Components/QuickActionsPanel.vue` | Orphaned - not used anywhere |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `resources/js/types/components.d.ts` | Removed VacantUnit (lines 150-153) and QuickActionsPanelProps (lines 156-159) interfaces |
+
+### Key Decisions
+
+1. **BuildingMap is NOT orphaned** - actively used in building location management
+2. **Delete over integrate** - User chose to delete QuickActionsPanel rather than integrate it into Dashboard
+3. **finances.d.ts VacantUnit preserved** - separate interface for tenant invitations, unrelated to deleted type
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| No orphaned components in codebase | ✅ QuickActionsPanel deleted |
+| All components either used or deleted | ✅ BuildingMap used, QuickActionsPanel deleted |
+| Decision documented | ✅ This progress entry |
+
+### Verification Results
+- **npm run build**: ✅ Built successfully
+- **npm run lint**: ✅ Pre-existing warnings only (no new issues)
+- **Grep QuickActionsPanel**: ✅ 0 results
+- **Grep VacantUnit**: ✅ Only unrelated interfaces in finances.d.ts and onboarding.d.ts
+
+**DBP-022 COMPLETE**
