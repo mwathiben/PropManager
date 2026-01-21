@@ -8666,3 +8666,285 @@ app/Exceptions/
 - **php artisan test --parallel**: ✅ 548 passed, 13 skipped
 
 **DBP-018 COMPLETE**
+
+---
+
+## Session: 2026-01-21
+**Task**: DBP-019 - Add TypeScript Interfaces for Vue Props
+**Status**: COMPLETED
+
+### Work Done
+
+Replaced `Object` type in `defineProps` across 32 Vue files with proper TypeScript interfaces, organized in 7 phases.
+
+### Phase 1: Create Missing Type Definitions
+
+**Files Created:**
+- `resources/js/types/profile.d.ts` - ProfileUser, PersonalInfoTabProps, DangerZoneTabProps, NotificationsTabProps, VerificationTabProps
+- `resources/js/types/tenant-portal.d.ts` - TenantDashboardPageProps, TenantLeasePageProps, PaymentRequiredPageProps, CompleteKycPageProps, TenantFinancesPayPageProps, TenantFinancesHistoryPageProps, TenantFinancesIndexPageProps
+
+**Files Updated:**
+- `resources/js/types/components.d.ts` - Added TenantOverviewTabProps, BuildingForQuickActions
+- `resources/js/types/index.ts` - Added exports for new type files
+
+### Phase 2: Update Components (3 files)
+
+| File | Changes |
+|------|---------|
+| `Components/Modals/AddBuildingModal.vue` | buildingTypes, amenityOptions typed |
+| `Components/QuickActionsPanel.vue` | building typed |
+| `Components/TenantProfile/OverviewTab.vue` | tenant, activeLease, financialSummary, verificationStatus typed |
+
+### Phase 3: Update Profile Pages (5 files)
+
+| File | Interface |
+|------|-----------|
+| `Profile/Edit.vue` | ProfileUser |
+| `Profile/Partials/PersonalInfoTab.vue` | PersonalInfoTabProps |
+| `Profile/Partials/DangerZoneTab.vue` | DangerZoneTabProps |
+| `Profile/Partials/NotificationsTab.vue` | NotificationsTabProps |
+| `Profile/Partials/VerificationTab.vue` | VerificationTabProps |
+
+### Phase 4: Update Tenant Portal Pages (8 files)
+
+| File | Interface |
+|------|-----------|
+| `Tenant/Dashboard.vue` | TenantDashboardPageProps |
+| `Tenant/Lease.vue` | TenantLeasePageProps |
+| `Tenant/PaymentRequired.vue` | PaymentRequiredPageProps |
+| `Tenant/CompleteKyc.vue` | CompleteKycPageProps |
+| `TenantFinances/Index.vue` | TenantFinancesIndexPageProps |
+| `TenantFinances/Pay.vue` | TenantFinancesPayPageProps |
+| `TenantFinances/History.vue` | TenantFinancesHistoryPageProps |
+| `Invitations/Accept.vue` | Already typed (skipped) |
+
+### Phase 5: Update Tenants Hub Tabs (6 files)
+
+All tabs already had interfaces defined in `tenants.d.ts`:
+
+| File | Interface |
+|------|-----------|
+| `Tenants/tabs/DirectoryTab.vue` | TenantsDirectoryTabProps |
+| `Tenants/tabs/OnboardingTab.vue` | TenantsOnboardingTabProps |
+| `Tenants/tabs/VerificationsTab.vue` | TenantsVerificationsTabProps |
+| `Tenants/tabs/PaymentVerificationsTab.vue` | TenantsPaymentVerificationsTabProps |
+| `Tenants/tabs/MoveOutsTab.vue` | TenantsMoveOutsTabProps |
+| `Tenants/tabs/HistoryTab.vue` | TenantsHistoryTabProps |
+
+### Phase 6: Update Buildings/Maintenance/Water Pages (6 files)
+
+**Types Added to tickets.d.ts:**
+- MaintenanceTicketsTabProps
+- MaintenanceComplaintsTabProps
+
+**Types Added to water.d.ts:**
+- WaterSettingsPageProps (updated)
+- WaterReadingsInputTabProps
+- BuildingsWaterSettingsPageProps
+- BuildingsShowPageProps
+
+| File | Interface |
+|------|-----------|
+| `Buildings/Show.vue` | BuildingsShowPageProps |
+| `Buildings/WaterSettings.vue` | BuildingsWaterSettingsPageProps |
+| `Maintenance/tabs/TicketsTab.vue` | MaintenanceTicketsTabProps |
+| `Maintenance/tabs/ComplaintsTab.vue` | MaintenanceComplaintsTabProps |
+| `Water/Settings.vue` | WaterSettingsPageProps |
+| `Water/tabs/ReadingsTab.vue` | WaterReadingsInputTabProps |
+
+### Phase 7: Update Imports/Inbox/Invoices Pages (5 files)
+
+**Types Added to operations.d.ts:**
+- ImportsIndexPageProps
+- ImportsShowPageProps
+- InboxIndexPageProps
+- InboxShowPageProps
+
+**Types Added to finances.d.ts:**
+- InvoicesShowPageProps
+
+| File | Interface |
+|------|-----------|
+| `Imports/Index.vue` | ImportsIndexPageProps |
+| `Imports/Show.vue` | ImportsShowPageProps |
+| `Inbox/Index.vue` | InboxIndexPageProps |
+| `Inbox/Show.vue` | InboxShowPageProps |
+| `Invoices/Show.vue` | InvoicesShowPageProps |
+
+### Summary
+
+| Category | Count |
+|----------|-------|
+| Type files created | 2 |
+| Type files updated | 5 |
+| Vue files updated | 32 |
+| New interfaces created | ~25 |
+
+### Out of Scope (53 files remaining with Object-typed props)
+
+- Auth pages (Breeze defaults): Login, Register, ForgotPassword, etc.
+- BulkOperations pages: Complex forms with many props
+- Generic modals: ResolveTicketModal, etc.
+- Settings pages: Various tabs with complex nested structures
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| No Object type in updated defineProps | ✅ 32 files migrated |
+| All props have explicit interface types | ✅ Using `defineProps<Interface>()` pattern |
+| TypeScript catches incorrect prop usage | ✅ Build verifies |
+| Interfaces documented | ✅ In respective .d.ts files |
+
+### Verification Results
+- **npm run build**: ✅ Built in 31.08s
+- **vendor/bin/pint --test**: ✅ 650 files PASS
+- **Remaining Object-typed defineProps**: 53 files (out of scope)
+
+**DBP-019 COMPLETE**
+
+---
+
+## Session: 2026-01-21
+**Task**: DBP-008 - Enforce useFormatters Composable Usage
+**Status**: COMPLETED
+
+### Work Done
+
+Migrated 52+ Vue files to use the centralized `useFormatters` composable, eliminating all inline formatters (toLocaleString, toLocaleDateString, Intl.NumberFormat, manual date parsing) and adding ESLint rules to prevent future violations.
+
+### Implementation Phases
+
+| Phase | Description | Files |
+|-------|-------------|-------|
+| 1 | Added `todayAsISODate()` helper to useFormatters.ts | 1 |
+| 2 | Migrated custom formatCurrency/formatDate declarations | 35 |
+| 3 | Migrated inline template formatting | 15 |
+| 4 | Migrated form default dates | 19 |
+| 5 | Added ESLint rules + documentation | 2 |
+
+### Files Modified
+
+**Composable Enhanced:**
+- `resources/js/composables/useFormatters.ts` - Added `todayAsISODate()` helper, enhanced documentation
+
+**ESLint Configuration:**
+- `eslint.config.js` - Added `no-restricted-syntax` rules to prevent inline formatting
+
+**Vue Files Migrated (sample):**
+- Dashboard.vue, Buildings/Dashboard.vue
+- Finances/Payments/Record.vue, Finances/modals/RecordPaymentModal.vue
+- TenantFinances/Index.vue, Tenants/tabs/OnboardingTab.vue
+- BulkOperations/*.vue (LeaseManagementTab, RentAdjustmentTab, TargetRentTab)
+- Readings/Index.vue, Water/tabs/ReadingsTab.vue
+- MassHikeModal.vue, Leases/Create.vue, MoveOuts/Create.vue
+- Profile/Partials/DangerZoneTab.vue, Verifications/Conduct.vue
+- Notifications/partials/ScheduledTab.vue, TemplatesTab.vue
+- And 40+ more files
+
+### ESLint Rules Added
+
+```javascript
+'no-restricted-syntax': [
+    'error',
+    {
+        selector: "CallExpression[callee.property.name='toLocaleDateString']",
+        message: 'Use formatDate() from useFormatters composable'
+    },
+    {
+        selector: "CallExpression[callee.property.name='toLocaleString'][arguments.length>=1]",
+        message: 'Use formatMoney() or formatNumber() from useFormatters composable'
+    },
+    {
+        selector: "NewExpression[callee.object.name='Intl'][callee.property.name='NumberFormat']",
+        message: 'Use formatMoney() or formatNumber() from useFormatters composable'
+    }
+]
+```
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| No inline toLocaleString for currency | ✅ Grep returns 0 results |
+| No inline date formatting | ✅ Grep returns 0 results |
+| All formatting goes through useFormatters | ✅ Verified via migration |
+| Consistent number/currency/date display | ✅ Single locale (en-KE) |
+| ESLint rule prevents future violations | ✅ Rules active |
+| useFormatters documented | ✅ Enhanced header comments |
+
+### Verification Results
+- **npm run build**: ✅ Built successfully
+- **Grep for prohibited patterns**: ✅ 0 results
+- **ESLint on useFormatters.ts**: ✅ Passes (exempted from rules)
+
+**DBP-008 COMPLETE**
+
+---
+
+## Session: 2026-01-21
+**Task**: DBP-021 - Add Caching for Finance Statistics
+**Status**: COMPLETED
+
+### Work Done
+
+Completed the finance statistics caching system by adding missing cache invalidation observers for 5 models and creating a cache warmup command. The caching infrastructure (FinanceCacheService, FinanceStatsService) already existed with Payment and Invoice observers.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Observers/ExpenseObserver.php` | Invalidates finance cache on expense changes |
+| `app/Observers/LateFeeObserver.php` | Invalidates cache on late fee changes |
+| `app/Observers/LateFeePolicyObserver.php` | Invalidates cache on policy changes |
+| `app/Observers/RefundObserver.php` | Invalidates cache on refund changes |
+| `app/Observers/LeaseObserver.php` | Invalidates cache on deposit field changes only |
+| `app/Console/Commands/WarmFinanceCache.php` | Artisan command to pre-warm cache |
+| `tests/Feature/FinanceCacheTest.php` | 10 test cases for cache behavior |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Providers/AppServiceProvider.php` | Registered 5 new observers |
+
+### Implementation Details
+
+**Observers Pattern:**
+All observers follow a consistent pattern - invalidating the landlord's finance cache on created/updated/deleted events.
+
+**LeaseObserver Selective Invalidation:**
+Only invalidates cache when deposit-related fields change (deposit_amount, deposit_status, deposit_refund_amount), not on every lease update.
+
+**WarmFinanceCache Command:**
+```bash
+php artisan finance:warm-cache --all        # Warm for all landlords
+php artisan finance:warm-cache --landlord=1 # Warm for specific landlord
+```
+
+**Test Coverage:**
+- Cache hit verification
+- Expense/LateFee/Refund creation invalidates cache
+- LateFeePolicy change invalidates cache
+- Lease deposit change invalidates cache
+- Lease non-deposit change preserves cache
+- Warmup command functionality
+- Invalid landlord handling
+- Cache performance (< 50ms for cached response)
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| Cached stats returned in < 50ms | ✅ Performance test verifies |
+| Cache invalidated on payment/invoice changes | ✅ Existing observers |
+| Cache invalidated on expense/lateFee/refund/lease | ✅ New observers |
+| Stale data window acceptable (< 5 min) | ✅ 300s TTL configured |
+| Cache warming available for cold start | ✅ WarmFinanceCache command |
+
+### Verification Results
+- **php artisan test --filter=FinanceCacheTest**: ✅ 10 tests PASS
+- **vendor/bin/pint --test**: ✅ 657 files PASS
+- **npm run build**: ✅ Built successfully
+
+**DBP-021 COMPLETE**

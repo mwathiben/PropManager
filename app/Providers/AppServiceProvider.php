@@ -3,15 +3,25 @@
 namespace App\Providers;
 
 use App\Models\Building;
+use App\Models\Expense;
 use App\Models\Invoice;
+use App\Models\LateFee;
+use App\Models\LateFeePolicy;
+use App\Models\Lease;
 use App\Models\Payment;
+use App\Models\Refund;
 use App\Models\Ticket;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\WaterReading;
 use App\Observers\BuildingObserver;
+use App\Observers\ExpenseObserver;
 use App\Observers\InvoiceObserver;
+use App\Observers\LateFeeObserver;
+use App\Observers\LateFeePolicyObserver;
+use App\Observers\LeaseObserver;
 use App\Observers\PaymentObserver;
+use App\Observers\RefundObserver;
 use App\Observers\TicketObserver;
 use App\Observers\UnitObserver;
 use App\Observers\UserObserver;
@@ -68,6 +78,13 @@ class AppServiceProvider extends ServiceProvider
         User::observe(UserObserver::class);
         Invoice::observe(InvoiceObserver::class);
         Payment::observe(PaymentObserver::class);
+
+        // Finance cache invalidation observers
+        Expense::observe(ExpenseObserver::class);
+        LateFee::observe(LateFeeObserver::class);
+        LateFeePolicy::observe(LateFeePolicyObserver::class);
+        Lease::observe(LeaseObserver::class);
+        Refund::observe(RefundObserver::class);
 
         // Configure rate limiters
         $this->configureRateLimiting();
