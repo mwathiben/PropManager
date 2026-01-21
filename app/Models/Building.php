@@ -5,7 +5,41 @@ namespace App\Models;
 use App\Traits\Auditable;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property int $id
+ * @property int $property_id
+ * @property int|null $parent_building_id
+ * @property int $landlord_id
+ * @property int|null $caretaker_id
+ * @property string $name
+ * @property bool $is_wing
+ * @property string|null $unit_prefix
+ * @property string|null $building_type
+ * @property string|null $address
+ * @property string|null $description
+ * @property int|null $total_floors
+ * @property int|null $units_per_floor
+ * @property string|null $water_billing_type
+ * @property float|null $water_flat_rate
+ * @property float|null $water_unit_rate
+ * @property array|null $coordinates
+ * @property array|null $amenities
+ * @property array|null $photos
+ * @property bool $auto_generate_invoices
+ * @property int|null $invoice_generation_day
+ * @property bool $auto_send_invoices
+ * @property \Carbon\Carbon $created_at
+ * @property \Carbon\Carbon $updated_at
+ * @property-read Property $property
+ * @property-read User|null $caretaker
+ * @property-read Building|null $parentBuilding
+ * @property-read \Illuminate\Database\Eloquent\Collection<Unit> $units
+ * @property-read \Illuminate\Database\Eloquent\Collection<Building> $wings
+ * @property-read \Illuminate\Database\Eloquent\Collection<Ticket> $tickets
+ */
 class Building extends Model
 {
     use Auditable, TenantScope;
@@ -25,6 +59,7 @@ class Building extends Model
         'units_per_floor',
         'water_billing_type',
         'water_flat_rate',
+        'water_unit_rate',
         'coordinates',
         'amenities',
         'photos',
@@ -35,6 +70,7 @@ class Building extends Model
 
     protected $casts = [
         'water_flat_rate' => 'decimal:2',
+        'water_unit_rate' => 'decimal:2',
         'coordinates' => 'array',
         'amenities' => 'array',
         'photos' => 'array',
@@ -122,41 +158,32 @@ class Building extends Model
         ],
     ];
 
-    // --- RELATIONSHIPS ---
-
-    public function property()
+    public function property(): BelongsTo
     {
         return $this->belongsTo(Property::class);
     }
 
-    public function units()
+    public function units(): HasMany
     {
-        // Order units logically: Floor 1, Unit 101, then Unit 102...
         return $this->hasMany(Unit::class)->orderBy('floor_number')->orderBy('unit_number');
     }
 
-    public function caretaker()
+    public function caretaker(): BelongsTo
     {
         return $this->belongsTo(User::class, 'caretaker_id');
     }
 
-    public function tickets()
+    public function tickets(): HasMany
     {
         return $this->hasMany(Ticket::class);
     }
 
-    /**
-     * Parent building (if this is a wing).
-     */
-    public function parentBuilding()
+    public function parentBuilding(): BelongsTo
     {
         return $this->belongsTo(Building::class, 'parent_building_id');
     }
 
-    /**
-     * Wings belonging to this building.
-     */
-    public function wings()
+    public function wings(): HasMany
     {
         return $this->hasMany(Building::class, 'parent_building_id');
     }

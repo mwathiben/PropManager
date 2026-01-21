@@ -397,7 +397,7 @@ class OnboardingService
                 'default_rent' => $data['default_rent'],
                 'water_billing_type' => $data['water_billing_type'],
                 'flat_water_rate' => $data['flat_water_rate'] ?? null,
-                'water_unit_rate' => $data['water_unit_rate'] ?? 150,
+                'water_unit_rate' => $data['water_unit_rate'] ?? config('propmanager.water.default_rate', 150),
                 'accepted_payment_methods' => $data['accepted_payment_methods'],
                 'bank_name' => $data['bank_name'] ?? null,
                 'bank_account_name' => $data['bank_account_name'] ?? null,

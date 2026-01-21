@@ -32,11 +32,13 @@ class WaterSettingsController extends Controller
         // Get global payment configuration
         $paymentConfig = PaymentConfiguration::where('landlord_id', $landlordId)->first();
 
+        $defaultRate = config('propmanager.water.default_rate', 150);
+
         return Inertia::render('Water/Settings', [
             'buildings' => $buildings,
             'globalSettings' => [
                 'water_billing_type' => $paymentConfig->water_billing_type ?? 'consumption',
-                'water_unit_rate' => $paymentConfig->water_unit_rate ?? 150,
+                'water_unit_rate' => $paymentConfig->water_unit_rate ?? $defaultRate,
                 'flat_water_rate' => $paymentConfig->flat_water_rate ?? 0,
             ],
         ]);
@@ -49,12 +51,13 @@ class WaterSettingsController extends Controller
     {
         $validated = $request->validated();
         $userId = auth()->id();
+        $defaultRate = config('propmanager.water.default_rate', 150);
 
         PaymentConfiguration::updateOrCreate(
             ['landlord_id' => $userId],
             [
                 'water_billing_type' => $validated['water_billing_type'],
-                'water_unit_rate' => $validated['water_unit_rate'] ?? 150,
+                'water_unit_rate' => $validated['water_unit_rate'] ?? $defaultRate,
                 'flat_water_rate' => $validated['flat_water_rate'] ?? 0,
             ]
         );

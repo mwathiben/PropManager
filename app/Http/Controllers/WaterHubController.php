@@ -141,7 +141,7 @@ class WaterHubController extends Controller
         if (! $settings) {
             $settings = WaterSetting::create([
                 'landlord_id' => $landlordId,
-                'rate_per_unit' => 150,
+                'rate_per_unit' => config('propmanager.water.default_rate', 150),
                 'billing_day' => 1,
                 'is_enabled' => true,
             ]);

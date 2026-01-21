@@ -164,11 +164,15 @@ class BuildingController extends Controller
     public function updateWaterSettings(UpdateBuildingWaterSettingsRequest $request, Building $building)
     {
         $validated = $request->validated();
+        $billingType = $validated['water_billing_type'] ?? null;
 
         $building->update([
-            'water_billing_type' => $validated['water_billing_type'] ?? null,
-            'water_flat_rate' => ($validated['water_billing_type'] ?? null) === 'flat_rate'
+            'water_billing_type' => $billingType,
+            'water_flat_rate' => $billingType === 'flat_rate'
                 ? ($validated['water_flat_rate'] ?? null)
+                : null,
+            'water_unit_rate' => $billingType === 'consumption'
+                ? ($validated['water_unit_rate'] ?? null)
                 : null,
         ]);
 

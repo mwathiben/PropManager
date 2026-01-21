@@ -86,7 +86,7 @@ const form = useForm({
     default_rent: props.paymentConfig?.default_rent || props.stepData?.default_rent || 20000,
     water_billing_type: props.paymentConfig?.water_billing_type || props.stepData?.water_billing_type || 'consumption',
     flat_water_rate: props.paymentConfig?.flat_water_rate || props.stepData?.flat_water_rate || 500,
-    water_unit_rate: props.paymentConfig?.water_unit_rate || props.stepData?.water_unit_rate || 150,
+    water_unit_rate: props.paymentConfig?.water_unit_rate || props.stepData?.water_unit_rate || '',
     accepted_payment_methods: props.paymentConfig?.accepted_payment_methods || props.stepData?.accepted_payment_methods || ['cash', 'mobile_money'],
     bank_name: props.paymentConfig?.bank_name || '',
     bank_account_name: props.paymentConfig?.bank_account_name || '',
@@ -335,7 +335,7 @@ function formatCurrency(amount) {
 
                     <div class="space-y-4 mb-8">
                         <div class="flex items-start gap-4 p-4 bg-indigo-50 rounded-xl">
-                            <div class="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <div class="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center shrink-0">
                                 <UserIcon class="w-5 h-5 text-indigo-600" />
                             </div>
                             <div>
@@ -345,7 +345,7 @@ function formatCurrency(amount) {
                         </div>
 
                         <div class="flex items-start gap-4 p-4 bg-purple-50 rounded-xl">
-                            <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center shrink-0">
                                 <BuildingOffice2Icon class="w-5 h-5 text-purple-600" />
                             </div>
                             <div>
@@ -355,7 +355,7 @@ function formatCurrency(amount) {
                         </div>
 
                         <div class="flex items-start gap-4 p-4 bg-green-50 rounded-xl">
-                            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center shrink-0">
                                 <UserPlusIcon class="w-5 h-5 text-green-600" />
                             </div>
                             <div>
@@ -523,7 +523,7 @@ function formatCurrency(amount) {
                                     :class="form.property_type === 'residential' ? 'ring-2 ring-indigo-600 bg-indigo-50 border-transparent' : 'border-gray-200 hover:border-indigo-300 hover:shadow-md'"
                                     class="relative rounded-xl border p-4 cursor-pointer flex items-start space-x-4 transition-all duration-200"
                                 >
-                                    <HomeModernIcon class="h-8 w-8 flex-shrink-0" :class="form.property_type === 'residential' ? 'text-indigo-600' : 'text-gray-400'" />
+                                    <HomeModernIcon class="h-8 w-8 shrink-0" :class="form.property_type === 'residential' ? 'text-indigo-600' : 'text-gray-400'" />
                                     <div>
                                         <span class="block text-sm font-bold text-gray-900">Residential</span>
                                         <span class="block text-xs text-gray-500 mt-1">Multi-story apartments</span>
@@ -537,7 +537,7 @@ function formatCurrency(amount) {
                                     :class="form.property_type === 'estate' ? 'ring-2 ring-indigo-600 bg-indigo-50 border-transparent' : 'border-gray-200 hover:border-indigo-300 hover:shadow-md'"
                                     class="relative rounded-xl border p-4 cursor-pointer flex items-start space-x-4 transition-all duration-200"
                                 >
-                                    <HomeIcon class="h-8 w-8 flex-shrink-0" :class="form.property_type === 'estate' ? 'text-indigo-600' : 'text-gray-400'" />
+                                    <HomeIcon class="h-8 w-8 shrink-0" :class="form.property_type === 'estate' ? 'text-indigo-600' : 'text-gray-400'" />
                                     <div>
                                         <span class="block text-sm font-bold text-gray-900">Gated Estate</span>
                                         <span class="block text-xs text-gray-500 mt-1">Standalone houses/villas</span>
@@ -551,7 +551,7 @@ function formatCurrency(amount) {
                                     :class="form.property_type === 'commercial' ? 'ring-2 ring-indigo-600 bg-indigo-50 border-transparent' : 'border-gray-200 hover:border-indigo-300 hover:shadow-md'"
                                     class="relative rounded-xl border p-4 cursor-pointer flex items-start space-x-4 transition-all duration-200"
                                 >
-                                    <BuildingOffice2Icon class="h-8 w-8 flex-shrink-0" :class="form.property_type === 'commercial' ? 'text-indigo-600' : 'text-gray-400'" />
+                                    <BuildingOffice2Icon class="h-8 w-8 shrink-0" :class="form.property_type === 'commercial' ? 'text-indigo-600' : 'text-gray-400'" />
                                     <div>
                                         <span class="block text-sm font-bold text-gray-900">Commercial</span>
                                         <span class="block text-xs text-gray-500 mt-1">Offices, shops, malls</span>
@@ -565,7 +565,7 @@ function formatCurrency(amount) {
                                     :class="form.property_type === 'mixed' ? 'ring-2 ring-indigo-600 bg-indigo-50 border-transparent' : 'border-gray-200 hover:border-indigo-300 hover:shadow-md'"
                                     class="relative rounded-xl border p-4 cursor-pointer flex items-start space-x-4 transition-all duration-200"
                                 >
-                                    <BuildingStorefrontIcon class="h-8 w-8 flex-shrink-0" :class="form.property_type === 'mixed' ? 'text-indigo-600' : 'text-gray-400'" />
+                                    <BuildingStorefrontIcon class="h-8 w-8 shrink-0" :class="form.property_type === 'mixed' ? 'text-indigo-600' : 'text-gray-400'" />
                                     <div>
                                         <span class="block text-sm font-bold text-gray-900">Mixed Use</span>
                                         <span class="block text-xs text-gray-500 mt-1">Shops + apartments</span>
@@ -736,7 +736,7 @@ function formatCurrency(amount) {
 
                         <!-- Summary Box -->
                         <div class="flex items-start p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
-                            <div class="flex-shrink-0 text-2xl">🏗️</div>
+                            <div class="shrink-0 text-2xl">🏗️</div>
                             <div class="ml-3 text-sm text-gray-600">
                                 <span class="font-semibold text-gray-900">We will generate {{ totalUnits }} units.</span><br />
                                 <span class="text-xs">Unit naming: {{ unitNamingPreview }}</span><br />
@@ -859,14 +859,14 @@ function formatCurrency(amount) {
                                     :class="form.accepted_payment_methods.includes(method.id) ? 'ring-2 ring-indigo-600 bg-indigo-50 border-indigo-200' : 'bg-white hover:bg-gray-50'"
                                     class="p-4 rounded-lg border flex items-start gap-3 transition-all text-left"
                                 >
-                                    <component :is="method.icon" class="w-6 h-6 text-gray-400 flex-shrink-0" />
+                                    <component :is="method.icon" class="w-6 h-6 text-gray-400 shrink-0" />
                                     <div>
                                         <div class="font-medium text-gray-900 text-sm">{{ method.label }}</div>
                                         <div class="text-xs text-gray-500">{{ method.description }}</div>
                                     </div>
                                     <CheckCircleSolidIcon
                                         v-if="form.accepted_payment_methods.includes(method.id)"
-                                        class="w-5 h-5 text-indigo-600 ml-auto flex-shrink-0"
+                                        class="w-5 h-5 text-indigo-600 ml-auto shrink-0"
                                     />
                                 </button>
                             </div>
@@ -959,7 +959,7 @@ function formatCurrency(amount) {
                                 :key="index"
                                 class="flex items-center gap-3"
                             >
-                                <EnvelopeIcon class="w-5 h-5 text-gray-400 flex-shrink-0" />
+                                <EnvelopeIcon class="w-5 h-5 text-gray-400 shrink-0" />
                                 <input
                                     v-model="invitation.email"
                                     type="email"
@@ -1196,7 +1196,7 @@ function formatCurrency(amount) {
                         <h3 class="font-semibold text-gray-900 mb-4">What's Next?</h3>
                         <ul class="space-y-3">
                             <li class="flex items-start gap-3">
-                                <div class="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <div class="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                                     <span class="text-xs font-bold text-indigo-600">1</span>
                                 </div>
                                 <div>
@@ -1205,7 +1205,7 @@ function formatCurrency(amount) {
                                 </div>
                             </li>
                             <li class="flex items-start gap-3">
-                                <div class="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <div class="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                                     <span class="text-xs font-bold text-indigo-600">2</span>
                                 </div>
                                 <div>
@@ -1214,7 +1214,7 @@ function formatCurrency(amount) {
                                 </div>
                             </li>
                             <li class="flex items-start gap-3">
-                                <div class="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <div class="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                                     <span class="text-xs font-bold text-indigo-600">3</span>
                                 </div>
                                 <div>

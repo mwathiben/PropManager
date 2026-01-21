@@ -10,6 +10,7 @@ const props = defineProps({
 const form = useForm({
     water_billing_type: props.building.water_billing_type || null,
     water_flat_rate: props.building.water_flat_rate || '',
+    water_unit_rate: props.building.water_unit_rate || '',
 });
 
 const billingOptions = [
@@ -19,6 +20,7 @@ const billingOptions = [
 ];
 
 const showFlatRateInput = computed(() => form.water_billing_type === 'flat_rate');
+const showUnitRateInput = computed(() => form.water_billing_type === 'consumption');
 
 const submit = () => {
     form.put(route('buildings.water-settings.update', props.building.id), {
@@ -114,6 +116,33 @@ const submit = () => {
                                 </p>
                                 <p v-if="form.errors.water_flat_rate" class="mt-2 text-sm text-red-600">
                                     {{ form.errors.water_flat_rate }}
+                                </p>
+                            </div>
+
+                            <!-- Unit Rate Override Input -->
+                            <div v-if="showUnitRateInput" class="transition-all">
+                                <label for="water_unit_rate" class="block text-sm font-medium text-gray-700">
+                                    Rate per Unit (KES/m³) - Optional Override
+                                </label>
+                                <div class="mt-1 relative rounded-md shadow-sm">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <span class="text-gray-500 sm:text-sm">KES</span>
+                                    </div>
+                                    <input
+                                        type="number"
+                                        id="water_unit_rate"
+                                        v-model="form.water_unit_rate"
+                                        step="0.01"
+                                        min="0"
+                                        class="block w-full pl-12 pr-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="Leave empty to use global rate"
+                                    />
+                                </div>
+                                <p class="mt-1 text-sm text-gray-500">
+                                    Override the global water rate for this building. Leave empty to use the landlord's default rate.
+                                </p>
+                                <p v-if="form.errors.water_unit_rate" class="mt-2 text-sm text-red-600">
+                                    {{ form.errors.water_unit_rate }}
                                 </p>
                             </div>
 

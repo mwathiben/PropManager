@@ -134,7 +134,7 @@ class PaymentConfiguration extends Model
             return $this->flat_water_rate ?? 0;
         }
 
-        return $this->water_unit_rate ?? 150;
+        return $this->water_unit_rate ?? (float) config('propmanager.water.default_rate', 150);
     }
 
     /**
@@ -154,7 +154,7 @@ class PaymentConfiguration extends Model
             ['landlord_id' => $landlordId],
             [
                 'water_billing_type' => 'consumption',
-                'water_unit_rate' => 150,
+                'water_unit_rate' => config('propmanager.water.default_rate', 150),
                 'accepted_payment_methods' => ['cash', 'mobile_money'],
                 'paystack_enabled' => false,
             ]

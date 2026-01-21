@@ -16,6 +16,7 @@ class UpdateBuildingWaterSettingsRequest extends FormRequest
         return [
             'water_billing_type' => 'nullable|in:consumption,flat_rate',
             'water_flat_rate' => 'nullable|numeric|min:0|required_if:water_billing_type,flat_rate',
+            'water_unit_rate' => 'nullable|numeric|min:0',
         ];
     }
 

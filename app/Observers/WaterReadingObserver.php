@@ -2,12 +2,16 @@
 
 namespace App\Observers;
 
-use App\Models\Setting;
 use App\Models\WaterReading;
+use App\Services\WaterRateService;
 use Illuminate\Support\Facades\Auth;
 
 class WaterReadingObserver
 {
+    public function __construct(
+        private WaterRateService $waterRateService
+    ) {}
+
     /**
      * Handle the WaterReading "creating" event.
      * Auto-calculate consumption, cost, set landlord_id, and track who recorded it.
@@ -30,9 +34,7 @@ class WaterReadingObserver
         // 2. Calculate consumption (current - previous)
         $waterReading->consumption = max(0, $waterReading->current_reading - $waterReading->previous_reading);
 
-        // 3. Calculate cost
-        // TODO: Make this configurable per landlord or property
-        // For now, using a flat rate of 150 KES per unit (cubic meter)
+        // 3. Calculate cost using configured water rate
         $waterReading->cost = $waterReading->consumption * $this->getWaterRate($waterReading);
 
         // 4. Set status to pending by default (migration handles this, but being explicit)
@@ -68,13 +70,15 @@ class WaterReadingObserver
 
     /**
      * Get the water rate for a given reading.
-     * Fetches from landlord's settings or uses default of 150 KES per cubic meter.
+     * Uses WaterRateService to fetch from building override -> landlord config -> system default.
      */
     private function getWaterRate(WaterReading $waterReading): float
     {
-        // Fetch configured rate from settings, default to 150 KES
-        $rate = Setting::get('water_rate_per_unit', '150.00', $waterReading->landlord_id);
+        $unit = $waterReading->unit;
+        if ($unit) {
+            return $this->waterRateService->getEffectiveRate($unit);
+        }
 
-        return (float) $rate;
+        return $this->waterRateService->getDefaultRate();
     }
 }

@@ -8464,3 +8464,96 @@ Created a unified Badge component system to eliminate inconsistent badge impleme
 - **php artisan test --parallel**: ✅ 548 passed, 13 skipped
 
 **DBP-014 COMPLETE**
+
+---
+
+## Session: 2026-01-21
+**Task**: DBP-017 - Make Water Rate Configurable
+**Status**: COMPLETED
+
+### Work Done
+
+1. **Created Migration for Building-Level Override**
+   - Added `water_unit_rate` column to buildings table
+   - Allows per-building consumption rate override
+
+2. **Created WaterRateService**
+   - Location: `app/Services/WaterRateService.php`
+   - Implements 3-tier inheritance: building override → landlord PaymentConfiguration → system config default
+   - Methods: `getEffectiveRate(Unit)`, `getDefaultRate()`
+
+3. **Created Config File**
+   - Location: `config/propmanager.php`
+   - Defines `water.default_rate` configurable via `WATER_DEFAULT_RATE` env variable
+   - Default: 150 KES
+
+4. **Updated WaterReadingObserver**
+   - Removed Setting model dependency
+   - Now uses WaterRateService for rate retrieval
+   - Constructor injection for service
+
+5. **Updated Backend for Config Fallback**
+   - PaymentConfiguration: Uses config fallback in `getWaterRate()` and `getOrCreateForLandlord()`
+   - WaterSettingsController: Uses config fallback
+   - WaterHubController: Uses config fallback
+   - OnboardingService: Uses config fallback
+
+6. **Updated Frontend UI**
+   - Buildings/WaterSettings.vue: Added water_unit_rate input for consumption billing
+   - Water/tabs/SettingsTab.vue: Removed hardcoded 150 fallback
+   - Water/Settings.vue: Removed hardcoded 150 fallback
+   - Onboarding/Index.vue: Removed hardcoded 150 fallback
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/2026_01_21_065059_add_water_unit_rate_to_buildings_table.php` | Add water_unit_rate column to buildings |
+| `app/Services/WaterRateService.php` | Centralized rate retrieval with inheritance |
+| `config/propmanager.php` | System default water rate config |
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `app/Models/Building.php` | Added water_unit_rate to fillable/casts |
+| `app/Observers/WaterReadingObserver.php` | Use WaterRateService instead of Setting |
+| `app/Models/PaymentConfiguration.php` | Use config fallback |
+| `app/Http/Controllers/WaterSettingsController.php` | Use config fallback |
+| `app/Http/Controllers/WaterHubController.php` | Use config fallback |
+| `app/Services/OnboardingService.php` | Use config fallback |
+| `app/Http/Requests/Building/UpdateBuildingWaterSettingsRequest.php` | Add water_unit_rate validation |
+| `app/Http/Controllers/BuildingController.php` | Save water_unit_rate |
+| `resources/js/Pages/Buildings/WaterSettings.vue` | Add water_unit_rate UI |
+| `resources/js/Pages/Water/tabs/SettingsTab.vue` | Remove hardcoded fallback |
+| `resources/js/Pages/Water/Settings.vue` | Remove hardcoded fallback |
+| `resources/js/Pages/Onboarding/Index.vue` | Remove hardcoded fallback |
+
+### Rate Inheritance Flow
+
+```
+WaterReading created
+    └─> WaterRateService::getEffectiveRate(unit)
+        ├─> Check unit->building->water_unit_rate (building override)
+        │   └─> If not null, return it
+        ├─> Check PaymentConfiguration for landlord
+        │   └─> If water_unit_rate set, return it
+        └─> Return config('propmanager.water.default_rate', 150)
+```
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| No hardcoded 150 in codebase for water rate | ✅ Config fallback everywhere |
+| Rate configurable at landlord level | ✅ PaymentConfiguration |
+| Building-level override supported | ✅ Building.water_unit_rate |
+| Default rate via env | ✅ WATER_DEFAULT_RATE |
+
+### Verification Results
+- **vendor/bin/pint --test**: ✅ 632 files PASS
+- **php artisan test --filter=Water**: ✅ 17 passed
+- **php artisan test --parallel**: ✅ 548 passed, 13 skipped
+- **npm run build**: ✅ Built successfully
+
+**DBP-017 COMPLETE**

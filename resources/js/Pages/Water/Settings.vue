@@ -21,7 +21,7 @@ const { formatCurrency } = useFormatters();
 // Form for global settings
 const form = useForm({
     water_billing_type: props.globalSettings.water_billing_type || 'consumption',
-    water_unit_rate: props.globalSettings.water_unit_rate || 150,
+    water_unit_rate: props.globalSettings.water_unit_rate || '',
     flat_water_rate: props.globalSettings.flat_water_rate || 0,
     building_overrides: props.buildings.map(b => ({
         id: b.id,

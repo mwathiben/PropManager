@@ -821,8 +821,28 @@
       ],
       "verification": "Change water rate in settings; verify new reading uses new rate",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1,
+      "completion_notes": "Removed hardcoded 150 KES water rate and implemented 3-tier inheritance: (1) Created migration adding water_unit_rate column to buildings table for building-level override; (2) Created WaterRateService with getEffectiveRate(Unit) implementing: building override → landlord PaymentConfiguration → system config default; (3) Created config/propmanager.php with water.default_rate configurable via WATER_DEFAULT_RATE env; (4) Updated WaterReadingObserver to use WaterRateService instead of Setting model; (5) Updated PaymentConfiguration, WaterSettingsController, WaterHubController, OnboardingService to use config fallback; (6) Updated Buildings/WaterSettings.vue to show water_unit_rate field for consumption billing; (7) Updated Water/tabs/SettingsTab.vue and Water/Settings.vue to remove hardcoded 150 fallbacks. Placeholder values ('150') in Vue input fields retained for UX hints.",
+      "files_created": [
+        "database/migrations/2026_01_21_065059_add_water_unit_rate_to_buildings_table.php",
+        "app/Services/WaterRateService.php",
+        "config/propmanager.php"
+      ],
+      "files_modified": [
+        "app/Models/Building.php",
+        "app/Observers/WaterReadingObserver.php",
+        "app/Models/PaymentConfiguration.php",
+        "app/Http/Controllers/WaterSettingsController.php",
+        "app/Http/Controllers/WaterHubController.php",
+        "app/Services/OnboardingService.php",
+        "app/Http/Requests/Building/UpdateBuildingWaterSettingsRequest.php",
+        "app/Http/Controllers/BuildingController.php",
+        "resources/js/Pages/Buildings/WaterSettings.vue",
+        "resources/js/Pages/Water/tabs/SettingsTab.vue",
+        "resources/js/Pages/Water/Settings.vue",
+        "resources/js/Pages/Onboarding/Index.vue"
+      ]
     },
     {
       "id": "DBP-018",
