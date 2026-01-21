@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import { router } from '@inertiajs/vue3';
+import Modal from '@/Components/Modal.vue';
 import { useFinancesStore } from '@/stores/finances';
 import {
     XMarkIcon,
@@ -59,39 +60,16 @@ const handleSend = async () => {
 </script>
 
 <template>
-    <Teleport to="body">
-        <Transition
-            enter-active-class="duration-200 ease-out"
-            enter-from-class="opacity-0"
-            enter-to-class="opacity-100"
-            leave-active-class="duration-150 ease-in"
-            leave-from-class="opacity-100"
-            leave-to-class="opacity-0"
-        >
-            <div v-if="modalData.show" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <div class="absolute inset-0 bg-black/50" @click="close" />
+    <Modal :show="modalData.show" max-width="md" @close="close">
+        <div v-if="success" class="p-8 text-center">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 rounded-full mb-4">
+                <CheckIcon class="w-8 h-8 text-emerald-600" />
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900">Reminders Sent!</h3>
+            <p class="text-sm text-gray-500 mt-2">Rent reminders have been queued for all active tenants.</p>
+        </div>
 
-                <Transition
-                    enter-active-class="duration-300 ease-out"
-                    enter-from-class="opacity-0 scale-95"
-                    enter-to-class="opacity-100 scale-100"
-                    leave-active-class="duration-200 ease-in"
-                    leave-from-class="opacity-100 scale-100"
-                    leave-to-class="opacity-0 scale-95"
-                >
-                    <div
-                        v-if="modalData.show"
-                        class="relative w-full max-w-md bg-white rounded-xl shadow-xl overflow-hidden"
-                    >
-                        <div v-if="success" class="p-8 text-center">
-                            <div class="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 rounded-full mb-4">
-                                <CheckIcon class="w-8 h-8 text-emerald-600" />
-                            </div>
-                            <h3 class="text-lg font-semibold text-gray-900">Reminders Sent!</h3>
-                            <p class="text-sm text-gray-500 mt-2">Rent reminders have been queued for all active tenants.</p>
-                        </div>
-
-                        <template v-else>
+        <template v-else>
                             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
                                 <div class="flex items-center gap-3">
                                     <div class="p-2 bg-orange-100 rounded-lg">
@@ -110,7 +88,7 @@ const handleSend = async () => {
                             <div class="p-6 space-y-4">
                                 <div class="p-4 bg-orange-50 border border-orange-200 rounded-lg">
                                     <div class="flex items-start gap-3">
-                                        <UserGroupIcon class="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
+                                        <UserGroupIcon class="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
                                         <div>
                                             <p class="text-sm font-medium text-orange-800">Bulk Reminder</p>
                                             <p class="text-sm text-orange-700 mt-1">
@@ -153,10 +131,6 @@ const handleSend = async () => {
                                     </button>
                                 </div>
                             </div>
-                        </template>
-                    </div>
-                </Transition>
-            </div>
-        </Transition>
-    </Teleport>
+        </template>
+    </Modal>
 </template>

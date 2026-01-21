@@ -1,6 +1,7 @@
-<script setup>
+<script setup lang="ts">
 import { ref, watch } from 'vue';
 import { useForm } from '@inertiajs/vue3';
+import Modal from '@/Components/Modal.vue';
 import {
     XMarkIcon,
     UsersIcon,
@@ -10,21 +11,12 @@ import {
     BellIcon,
     CheckIcon
 } from '@heroicons/vue/24/outline';
+import type { BulkSendNotificationModalProps } from '@/types';
 
-const props = defineProps({
-    show: Boolean,
-    tenants: {
-        type: Array,
-        default: () => []
-    },
-    notificationTypes: {
-        type: Array,
-        default: () => []
-    },
-    channels: {
-        type: Array,
-        default: () => []
-    }
+const props = withDefaults(defineProps<BulkSendNotificationModalProps>(), {
+    tenants: () => [],
+    notificationTypes: () => [],
+    channels: () => [],
 });
 
 const emit = defineEmits(['close']);
@@ -86,29 +78,24 @@ watch(() => props.show, (newVal) => {
 </script>
 
 <template>
-    <Teleport to="body">
-        <div v-if="show" class="fixed inset-0 z-50 overflow-y-auto">
-            <div class="flex min-h-full items-center justify-center p-4">
-                <div class="fixed inset-0 bg-gray-500/75 transition-opacity" @click="close"></div>
-
-                <div class="relative bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                    <!-- Header -->
-                    <div class="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 rounded-t-2xl z-10">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <div class="p-2 bg-purple-100 rounded-xl">
-                                    <UsersIcon class="w-5 h-5 text-purple-600" />
-                                </div>
-                                <h3 class="text-lg font-semibold text-gray-900">Bulk Send Notification</h3>
-                            </div>
-                            <button @click="close" class="p-2 text-gray-400 hover:text-gray-600 rounded-lg">
-                                <XMarkIcon class="w-5 h-5" />
-                            </button>
-                        </div>
+    <Modal :show="show" max-width="2xl" @close="close">
+        <!-- Header -->
+        <div class="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 rounded-t-2xl z-10">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-purple-100 rounded-xl">
+                        <UsersIcon class="w-5 h-5 text-purple-600" />
                     </div>
+                    <h3 class="text-lg font-semibold text-gray-900">Bulk Send Notification</h3>
+                </div>
+                <button @click="close" class="p-2 text-gray-400 hover:text-gray-600 rounded-lg">
+                    <XMarkIcon class="w-5 h-5" />
+                </button>
+            </div>
+        </div>
 
-                    <!-- Content -->
-                    <form @submit.prevent="submit" class="p-6 space-y-5">
+        <!-- Content -->
+        <form @submit.prevent="submit" class="p-6 space-y-5">
                         <!-- Recipients -->
                         <div>
                             <div class="flex justify-between items-center mb-2">
@@ -235,27 +222,24 @@ watch(() => props.show, (newVal) => {
                             </p>
                         </div>
 
-                        <!-- Actions -->
-                        <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
-                            <button
-                                type="button"
-                                @click="close"
-                                class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                :disabled="form.processing || form.recipient_ids.length === 0"
-                                class="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
-                            >
-                                <UsersIcon class="w-4 h-4" />
-                                {{ form.processing ? 'Sending...' : `Send to ${form.recipient_ids.length} Recipient(s)` }}
-                            </button>
-                        </div>
-                    </form>
-                </div>
+            <!-- Actions -->
+            <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <button
+                    type="button"
+                    @click="close"
+                    class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    :disabled="form.processing || form.recipient_ids.length === 0"
+                    class="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                >
+                    <UsersIcon class="w-4 h-4" />
+                    {{ form.processing ? 'Sending...' : `Send to ${form.recipient_ids.length} Recipient(s)` }}
+                </button>
             </div>
-        </div>
-    </Teleport>
+        </form>
+    </Modal>
 </template>

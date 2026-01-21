@@ -8996,3 +8996,71 @@ User decision: Delete QuickActionsPanel (clean codebase over unused feature code
 - **Grep VacantUnit**: ✅ Only unrelated interfaces in finances.d.ts and onboarding.d.ts
 
 **DBP-022 COMPLETE**
+
+---
+
+## Session: 2026-01-21
+**Task**: DBP-023 - Standardize Modal Implementation
+**Status**: COMPLETED
+
+### Implementation Summary
+
+Migrated 13 raw HTML modals to use shared Modal.vue and SlideOutPanel.vue components for consistent accessibility, keyboard handling, and animations.
+
+### Modal.vue Component Features
+- Native `<dialog>` element for semantic HTML
+- `useEscapeKey()` composable for keyboard handling
+- `useBodyScrollLock()` composable for scroll prevention
+- Backdrop click to close
+- Smooth enter/leave transitions
+
+### Files Modified
+
+**Components/Modals/ (5 files) → Modal.vue:**
+
+| File | Changes |
+|------|---------|
+| `UploadDocumentModal.vue` | Replaced raw `<div v-if>` with `<Modal :show>` |
+| `SendNotificationModal.vue` | Replaced Teleport + raw divs with `<Modal>` |
+| `BulkSendNotificationModal.vue` | Replaced Teleport + raw divs with `<Modal>` |
+| `EvictionNoticeModal.vue` | Replaced raw `<div v-if>` with `<Modal>` |
+| `AddWingModal.vue` | Replaced complex fixed positioning with `<Modal>` |
+
+**Pages/Finances/modals/ (6 files) → Modal.vue:**
+
+| File | Changes |
+|------|---------|
+| `RecordPaymentModal.vue` | Replaced Teleport + dual Transitions with `<Modal>` |
+| `RefundModal.vue` | Replaced Teleport + dual Transitions with `<Modal>` |
+| `ForfeitDepositModal.vue` | Replaced Teleport + dual Transitions with `<Modal>` |
+| `SendRemindersModal.vue` | Replaced Teleport + dual Transitions with `<Modal>` |
+| `RefundDepositModal.vue` | Replaced Teleport + dual Transitions with `<Modal>` |
+| `MatchPaymentModal.vue` | Replaced Teleport + dual Transitions with `<Modal>` |
+
+**Pages/Finances/modals/ (2 files) → SlideOutPanel.vue:**
+
+| File | Changes |
+|------|---------|
+| `PaymentDetailModal.vue` | Replaced slide-right raw HTML with `<SlideOutPanel>`, nested void dialog uses `<Modal>` |
+| `InvoiceDetailModal.vue` | Replaced slide-right raw HTML with `<SlideOutPanel>` with footer slot |
+
+### Skills Applied
+- **web-design-guidelines**: Modal accessibility requirements (escape key, focus trapping, ARIA)
+- **verification-first**: Verified build passes after each phase
+- **laravelquality-checks**: Ran npm build and lint for feedback loops
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| All modals use Modal component | ✅ 11 modals migrated |
+| Slide-out panels use SlideOutPanel | ✅ 2 panels migrated |
+| Consistent open/close animations | ✅ Via Modal.vue transitions |
+| Keyboard accessible (Escape closes) | ✅ Via useEscapeKey() composable |
+| Proper ARIA attributes | ✅ Via native <dialog> element |
+
+### Verification Results
+- **npm run build**: ✅ Built successfully in 26.67s
+- **npm run lint**: ✅ No new errors in modal files (pre-existing warnings only)
+
+**DBP-023 COMPLETE**

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
+import SlideOutPanel from '@/Components/SlideOutPanel.vue';
+import Modal from '@/Components/Modal.vue';
 import { useFormatters, usePayments, useSWR } from '@/composables';
 import { useFinancesStore } from '@/stores/finances';
 import {
@@ -134,49 +136,14 @@ const handleVoid = async () => {
 </script>
 
 <template>
-    <Teleport to="body">
-        <Transition
-            enter-active-class="duration-200 ease-out"
-            enter-from-class="opacity-0"
-            enter-to-class="opacity-100"
-            leave-active-class="duration-150 ease-in"
-            leave-from-class="opacity-100"
-            leave-to-class="opacity-0"
-        >
-            <div v-if="modalData.show" class="fixed inset-0 z-50">
-                <div class="absolute inset-0 bg-black/50" @click="close" />
-
-                <Transition
-                    enter-active-class="duration-300 ease-out"
-                    enter-from-class="translate-x-full"
-                    enter-to-class="translate-x-0"
-                    leave-active-class="duration-200 ease-in"
-                    leave-from-class="translate-x-0"
-                    leave-to-class="translate-x-full"
-                >
-                    <div
-                        v-if="modalData.show"
-                        class="absolute right-0 top-0 h-full w-full max-w-lg bg-white shadow-xl overflow-hidden flex flex-col"
-                    >
-                        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
-                            <div class="flex items-center gap-3">
-                                <div class="p-2 bg-emerald-100 rounded-lg">
-                                    <BanknotesIcon class="w-5 h-5 text-emerald-600" />
-                                </div>
-                                <div>
-                                    <h2 class="text-lg font-semibold text-gray-900">Payment Details</h2>
-                                    <p v-if="payment" class="text-sm text-gray-500">{{ payment.reference }}</p>
-                                </div>
-                            </div>
-                            <button
-                                @click="close"
-                                class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                                <XMarkIcon class="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <div class="flex-1 overflow-y-auto">
+    <SlideOutPanel
+        :show="modalData.show"
+        width="lg"
+        title="Payment Details"
+        :subtitle="payment?.reference"
+        @close="close"
+    >
+        <div class="flex-1 overflow-y-auto">
                             <div v-if="loading" class="flex items-center justify-center h-64">
                                 <div class="animate-spin rounded-full h-8 w-8 border-2 border-emerald-500 border-t-transparent" />
                             </div>
@@ -269,7 +236,7 @@ const handleVoid = async () => {
 
                                 <div v-if="payment.refund_status === 'refunded'" class="p-4 bg-orange-50 border border-orange-200 rounded-lg">
                                     <div class="flex items-start gap-2">
-                                        <ArrowPathIcon class="w-5 h-5 text-orange-500 flex-shrink-0" />
+                                        <ArrowPathIcon class="w-5 h-5 text-orange-500 shrink-0" />
                                         <div>
                                             <p class="text-sm font-medium text-orange-800">This payment has been refunded</p>
                                             <p v-if="payment.refund_date" class="text-sm text-orange-700 mt-1">
@@ -281,7 +248,7 @@ const handleVoid = async () => {
 
                                 <div v-if="payment.is_voided" class="p-4 bg-red-50 border border-red-200 rounded-lg">
                                     <div class="flex items-start gap-2">
-                                        <NoSymbolIcon class="w-5 h-5 text-red-500 flex-shrink-0" />
+                                        <NoSymbolIcon class="w-5 h-5 text-red-500 shrink-0" />
                                         <div>
                                             <p class="text-sm font-medium text-red-800">This payment has been voided</p>
                                             <p v-if="payment.voided_at" class="text-sm text-red-700 mt-1">
@@ -294,10 +261,10 @@ const handleVoid = async () => {
                                     </div>
                                 </div>
                             </div>
-                        </div>
+        </div>
 
-                        <div v-if="payment" class="px-6 py-4 border-t border-gray-200 bg-gray-50">
-                            <div class="flex flex-wrap gap-2">
+        <template #footer v-if="payment">
+            <div class="flex flex-wrap gap-2">
                                 <button
                                     @click="handleDownloadReceipt"
                                     class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
@@ -332,26 +299,13 @@ const handleVoid = async () => {
                                     <NoSymbolIcon class="w-4 h-4" />
                                     Void Payment
                                 </button>
-                            </div>
-                        </div>
-                    </div>
-                </Transition>
+            </div>
+        </template>
+    </SlideOutPanel>
 
-                <!-- Void Confirmation Dialog -->
-                <Transition
-                    enter-active-class="duration-200 ease-out"
-                    enter-from-class="opacity-0 scale-95"
-                    enter-to-class="opacity-100 scale-100"
-                    leave-active-class="duration-150 ease-in"
-                    leave-from-class="opacity-100 scale-100"
-                    leave-to-class="opacity-0 scale-95"
-                >
-                    <div
-                        v-if="showVoidConfirm"
-                        class="fixed inset-0 z-60 flex items-center justify-center p-4"
-                    >
-                        <div class="absolute inset-0 bg-black/50" @click="showVoidConfirm = false" />
-                        <div class="relative bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+    <!-- Void Confirmation Dialog -->
+    <Modal :show="showVoidConfirm" max-width="md" @close="showVoidConfirm = false">
+        <div class="p-6">
                             <div class="flex items-center gap-3 mb-4">
                                 <div class="p-2 bg-red-100 rounded-full">
                                     <NoSymbolIcon class="w-6 h-6 text-red-600" />
@@ -387,10 +341,6 @@ const handleVoid = async () => {
                                     {{ isProcessing ? 'Voiding...' : 'Void Payment' }}
                                 </button>
                             </div>
-                        </div>
-                    </div>
-                </Transition>
-            </div>
-        </Transition>
-    </Teleport>
+        </div>
+    </Modal>
 </template>

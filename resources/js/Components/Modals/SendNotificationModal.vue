@@ -1,6 +1,7 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useForm } from '@inertiajs/vue3';
+import Modal from '@/Components/Modal.vue';
 import {
     XMarkIcon,
     PaperAirplaneIcon,
@@ -10,17 +11,11 @@ import {
     BellIcon,
     UserIcon
 } from '@heroicons/vue/24/outline';
+import type { SendNotificationModalProps } from '@/types';
 
-const props = defineProps({
-    show: Boolean,
-    tenants: {
-        type: Array,
-        default: () => []
-    },
-    notificationTypes: {
-        type: Array,
-        default: () => []
-    }
+const props = withDefaults(defineProps<SendNotificationModalProps>(), {
+    tenants: () => [],
+    notificationTypes: () => [],
 });
 
 const emit = defineEmits(['close']);
@@ -66,29 +61,24 @@ watch(() => props.show, (newVal) => {
 </script>
 
 <template>
-    <Teleport to="body">
-        <div v-if="show" class="fixed inset-0 z-50 overflow-y-auto">
-            <div class="flex min-h-full items-center justify-center p-4">
-                <div class="fixed inset-0 bg-gray-500/75 transition-opacity" @click="close"></div>
-
-                <div class="relative bg-white rounded-2xl shadow-xl max-w-lg w-full">
-                    <!-- Header -->
-                    <div class="border-b border-gray-100 px-6 py-4 rounded-t-2xl">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <div class="p-2 bg-indigo-100 rounded-xl">
-                                    <PaperAirplaneIcon class="w-5 h-5 text-indigo-600" />
-                                </div>
-                                <h3 class="text-lg font-semibold text-gray-900">Send Notification</h3>
-                            </div>
-                            <button @click="close" class="p-2 text-gray-400 hover:text-gray-600 rounded-lg">
-                                <XMarkIcon class="w-5 h-5" />
-                            </button>
-                        </div>
+    <Modal :show="show" max-width="lg" @close="close">
+        <!-- Header -->
+        <div class="border-b border-gray-100 px-6 py-4 rounded-t-2xl">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-indigo-100 rounded-xl">
+                        <PaperAirplaneIcon class="w-5 h-5 text-indigo-600" />
                     </div>
+                    <h3 class="text-lg font-semibold text-gray-900">Send Notification</h3>
+                </div>
+                <button @click="close" class="p-2 text-gray-400 hover:text-gray-600 rounded-lg">
+                    <XMarkIcon class="w-5 h-5" />
+                </button>
+            </div>
+        </div>
 
-                    <!-- Content -->
-                    <form @submit.prevent="submit" class="p-6 space-y-5">
+        <!-- Content -->
+        <form @submit.prevent="submit" class="p-6 space-y-5">
                         <!-- Recipient -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Recipient</label>
@@ -175,27 +165,24 @@ watch(() => props.show, (newVal) => {
                             <span>Will be sent via {{ form.channel }}</span>
                         </div>
 
-                        <!-- Actions -->
-                        <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
-                            <button
-                                type="button"
-                                @click="close"
-                                class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                :disabled="form.processing"
-                                class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
-                            >
-                                <PaperAirplaneIcon class="w-4 h-4" />
-                                {{ form.processing ? 'Sending...' : 'Send Notification' }}
-                            </button>
-                        </div>
-                    </form>
-                </div>
+            <!-- Actions -->
+            <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <button
+                    type="button"
+                    @click="close"
+                    class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    :disabled="form.processing"
+                    class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                >
+                    <PaperAirplaneIcon class="w-4 h-4" />
+                    {{ form.processing ? 'Sending...' : 'Send Notification' }}
+                </button>
             </div>
-        </div>
-    </Teleport>
+        </form>
+    </Modal>
 </template>

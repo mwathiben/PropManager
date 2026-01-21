@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
+import SlideOutPanel from '@/Components/SlideOutPanel.vue';
 import { useFormatters, usePayments, useSWR } from '@/composables';
 import { useFinancesStore } from '@/stores/finances';
 import {
@@ -151,49 +152,14 @@ const handleVoid = async () => {
 </script>
 
 <template>
-    <Teleport to="body">
-        <Transition
-            enter-active-class="duration-200 ease-out"
-            enter-from-class="opacity-0"
-            enter-to-class="opacity-100"
-            leave-active-class="duration-150 ease-in"
-            leave-from-class="opacity-100"
-            leave-to-class="opacity-0"
-        >
-            <div v-if="modalData.show" class="fixed inset-0 z-50">
-                <div class="absolute inset-0 bg-black/50" @click="close" />
-
-                <Transition
-                    enter-active-class="duration-300 ease-out"
-                    enter-from-class="translate-x-full"
-                    enter-to-class="translate-x-0"
-                    leave-active-class="duration-200 ease-in"
-                    leave-from-class="translate-x-0"
-                    leave-to-class="translate-x-full"
-                >
-                    <div
-                        v-if="modalData.show"
-                        class="absolute right-0 top-0 h-full w-full max-w-lg bg-white shadow-xl overflow-hidden flex flex-col"
-                    >
-                        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
-                            <div class="flex items-center gap-3">
-                                <div class="p-2 bg-blue-100 rounded-lg">
-                                    <DocumentTextIcon class="w-5 h-5 text-blue-600" />
-                                </div>
-                                <div>
-                                    <h2 class="text-lg font-semibold text-gray-900">Invoice Details</h2>
-                                    <p v-if="invoice" class="text-sm text-gray-500">{{ invoice.invoice_number }}</p>
-                                </div>
-                            </div>
-                            <button
-                                @click="close"
-                                class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                                <XMarkIcon class="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <div class="flex-1 overflow-y-auto">
+    <SlideOutPanel
+        :show="modalData.show"
+        width="lg"
+        title="Invoice Details"
+        :subtitle="invoice?.invoice_number"
+        @close="close"
+    >
+        <div class="flex-1 overflow-y-auto">
                             <div v-if="loading" class="flex items-center justify-center h-64">
                                 <div class="animate-spin rounded-full h-8 w-8 border-2 border-emerald-500 border-t-transparent" />
                             </div>
@@ -308,9 +274,9 @@ const handleVoid = async () => {
                                     </div>
                                 </div>
                             </div>
-                        </div>
+        </div>
 
-                        <div v-if="invoice" class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+        <template #footer v-if="invoice">
                             <div class="flex flex-wrap gap-2">
                                 <button
                                     v-if="invoice.status !== 'paid'"
@@ -402,10 +368,6 @@ const handleVoid = async () => {
                                     </button>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                </Transition>
-            </div>
-        </Transition>
-    </Teleport>
+        </template>
+    </SlideOutPanel>
 </template>

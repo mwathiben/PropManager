@@ -1121,8 +1121,9 @@
       ],
       "verification": "Open modal; press Escape; verify close behavior",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1,
+      "completion_notes": "Migrated 13 raw HTML modals: 5 in Components/Modals/ (UploadDocumentModal, SendNotificationModal, BulkSendNotificationModal, EvictionNoticeModal, AddWingModal) to Modal.vue; 6 in Pages/Finances/modals/ (RecordPaymentModal, RefundModal, ForfeitDepositModal, SendRemindersModal, RefundDepositModal, MatchPaymentModal) to Modal.vue; 2 slide-out panels (PaymentDetailModal, InvoiceDetailModal) to existing SlideOutPanel.vue. All now have consistent escape key handling, body scroll lock, and backdrop click via shared composables."
     },
     {
       "id": "DBP-024",

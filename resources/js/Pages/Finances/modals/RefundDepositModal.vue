@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
+import Modal from '@/Components/Modal.vue';
 import { useFormatters } from '@/composables';
 import { useFinancesStore } from '@/stores/finances';
 import {
@@ -138,30 +139,7 @@ const setFullRefund = () => {
 </script>
 
 <template>
-    <Teleport to="body">
-        <Transition
-            enter-active-class="duration-200 ease-out"
-            enter-from-class="opacity-0"
-            enter-to-class="opacity-100"
-            leave-active-class="duration-150 ease-in"
-            leave-from-class="opacity-100"
-            leave-to-class="opacity-0"
-        >
-            <div v-if="modalData.show" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <div class="absolute inset-0 bg-black/50" @click="close" />
-
-                <Transition
-                    enter-active-class="duration-300 ease-out"
-                    enter-from-class="opacity-0 scale-95"
-                    enter-to-class="opacity-100 scale-100"
-                    leave-active-class="duration-200 ease-in"
-                    leave-from-class="opacity-100 scale-100"
-                    leave-to-class="opacity-0 scale-95"
-                >
-                    <div
-                        v-if="modalData.show"
-                        class="relative w-full max-w-md bg-white rounded-xl shadow-xl overflow-hidden"
-                    >
+    <Modal :show="modalData.show" max-width="md" @close="close">
                         <div v-if="success" class="p-8 text-center">
                             <div class="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 rounded-full mb-4">
                                 <CheckIcon class="w-8 h-8 text-emerald-600" />
@@ -313,9 +291,5 @@ const setFullRefund = () => {
                                 </div>
                             </form>
                         </template>
-                    </div>
-                </Transition>
-            </div>
-        </Transition>
-    </Teleport>
+    </Modal>
 </template>

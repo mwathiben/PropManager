@@ -1,16 +1,11 @@
-<script setup>
+<script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import Modal from '@/Components/Modal.vue';
+import type { EvictionNoticeModalProps } from '@/types';
 
-const props = defineProps({
-    show: Boolean,
-    tenants: {
-        type: Array,
-        default: () => []
-    },
-    channels: {
-        type: Array,
-        default: () => []
-    }
+const props = withDefaults(defineProps<EvictionNoticeModalProps>(), {
+    tenants: () => [],
+    channels: () => [],
 });
 
 const emit = defineEmits(['close']);
@@ -61,8 +56,8 @@ const close = () => {
 </script>
 
 <template>
-    <div v-if="show" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
+    <Modal :show="show" max-width="2xl" @close="close">
+        <div class="p-6">
             <div class="flex items-center gap-3 mb-4">
                 <div class="p-2 bg-orange-100 rounded-lg">
                     <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -182,5 +177,5 @@ const close = () => {
                 </div>
             </form>
         </div>
-    </div>
+    </Modal>
 </template>
