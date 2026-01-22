@@ -304,6 +304,36 @@ DB::transaction(function () use ($invoice, $payment) {
 
 See `tests/Feature/TransactionRollbackTest.php` for verification tests.
 
+### N+1 Query Detection (Development Only)
+
+Lazy loading prevention is enabled in non-production environments (`local`, `testing`, `staging`). When a relationship is accessed without eager loading, it logs a warning to `storage/logs/security.log` instead of throwing an exception.
+
+**What it catches**: N+1 query patterns like:
+```php
+// BAD - Triggers N+1 warning
+$units = Unit::all();
+foreach ($units as $unit) {
+    echo $unit->building->name; // Lazy loads building for each unit
+}
+
+// GOOD - Eager load upfront
+$units = Unit::with('building')->get();
+foreach ($units as $unit) {
+    echo $unit->building->name; // Already loaded
+}
+```
+
+**Log format**:
+```
+[warning] N+1 Query Detected {"model":"App\\Models\\Unit","relation":"building","trace":[...]}
+```
+
+**Fixing N+1 queries**:
+1. Check `storage/logs/security.log` for warnings
+2. Add `->with(['relation'])` to your query
+3. For conditional loading, use `->load('relation')` or `->loadMissing('relation')`
+4. See DBP-020 in progress.md for optimization patterns
+
 ### Frontend
 - Use Ziggy for route generation in Vue: `route('leases.create', unit.id)`
 - Inertia props are passed from controllers, accessed via `defineProps()`

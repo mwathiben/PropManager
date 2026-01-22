@@ -1381,8 +1381,9 @@
       ],
       "verification": "Access relationship without eager loading in dev; verify log entry",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1,
+      "completion_notes": "Enabled lazy loading prevention in non-production environments: (1) Added Model::preventLazyLoading() to AppServiceProvider boot() for non-production; (2) Configured handleLazyLoadingViolationUsing() to log warnings to security channel instead of throwing exceptions; (3) Log includes model class, relation name, and filtered stack trace (excludes vendor, limited to 5 frames); (4) Added 'N+1 Query Detection (Development Only)' section to CLAUDE.md with examples of bad/good patterns and fix instructions."
     },
     {
       "id": "DBP-032",

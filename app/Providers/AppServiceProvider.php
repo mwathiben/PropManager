@@ -32,6 +32,7 @@ use App\Repositories\NotificationConfigRepository;
 use App\Repositories\NotificationDefaultsRepository;
 use App\Services\SecurityLogger;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
@@ -85,6 +86,25 @@ class AppServiceProvider extends ServiceProvider
         LateFeePolicy::observe(LateFeePolicyObserver::class);
         Lease::observe(LeaseObserver::class);
         Refund::observe(RefundObserver::class);
+
+        // Prevent lazy loading in non-production to catch N+1 queries
+        // Violations are logged to security channel instead of throwing
+        if (! app()->environment('production')) {
+            Model::preventLazyLoading();
+
+            Model::handleLazyLoadingViolationUsing(function ($model, $relation) {
+                Log::channel('security')->warning('N+1 Query Detected', [
+                    'model' => get_class($model),
+                    'relation' => $relation,
+                    'trace' => collect(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 10))
+                        ->filter(fn ($frame) => isset($frame['file']) && ! str_contains($frame['file'], '/vendor/'))
+                        ->take(5)
+                        ->map(fn ($frame) => ($frame['file'] ?? '').':'.($frame['line'] ?? ''))
+                        ->values()
+                        ->toArray(),
+                ]);
+            });
+        }
 
         // Configure rate limiters
         $this->configureRateLimiting();
