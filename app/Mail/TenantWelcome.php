@@ -24,7 +24,7 @@ class TenantWelcome extends Mailable implements ShouldQueue
         public TenantInvitation $invitation,
         public Lease $lease
     ) {
-        //
+        $this->afterCommit = true;
     }
 
     /**

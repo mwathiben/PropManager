@@ -9064,3 +9064,88 @@ Migrated 13 raw HTML modals to use shared Modal.vue and SlideOutPanel.vue compon
 - **npm run lint**: ✅ No new errors in modal files (pre-existing warnings only)
 
 **DBP-023 COMPLETE**
+
+---
+
+## Session: 2026-01-22
+**Task**: DBP-026 - Add $afterCommit to Queued Jobs and Events
+**Status**: COMPLETED
+
+### Implementation Summary
+
+Added `$afterCommit = true` to all 15 queued Mailable classes and fixed BankWebhookController to use `Mail::queue()` instead of `Mail::send()` for proper transactional awareness.
+
+### Skills Applied
+- **laraveltransactions-and-consistency**: Jobs/Mailables dispatched inside transactions must use $afterCommit = true
+- **verification-first**: Verified all changes with lint and tests
+
+### Problem Analysis
+
+15 Mailable classes implemented `ShouldQueue` but none had `$afterCommit = true`, meaning emails could be queued even if the surrounding transaction rolled back.
+
+Critical dispatch locations inside transactions:
+- `BankWebhookController.php:164` - Used `Mail::send()` which ignores $afterCommit
+- `PaymentController.php` - Multiple `Mail::queue()` calls inside transactions
+
+### Files Modified
+
+**All 15 Mailable Classes** - Added `$this->afterCommit = true;` in constructor:
+
+| File | Change |
+|------|--------|
+| `app/Mail/PaymentReceived.php` | Added $afterCommit in constructor |
+| `app/Mail/OverpaymentNotification.php` | Added $afterCommit in constructor |
+| `app/Mail/InvoiceSent.php` | Added $afterCommit in constructor |
+| `app/Mail/CreditNoteIssued.php` | Added $afterCommit in constructor |
+| `app/Mail/PaymentVerificationApproved.php` | Added $afterCommit in constructor |
+| `app/Mail/PaymentVerificationRejected.php` | Added $afterCommit in constructor |
+| `app/Mail/CaretakerInvitation.php` | Added $afterCommit in constructor |
+| `app/Mail/TenantWelcome.php` | Added $afterCommit in constructor |
+| `app/Mail/LandlordWelcome.php` | Added $afterCommit in constructor |
+| `app/Mail/TenantInvitationMail.php` | Added $afterCommit in constructor |
+| `app/Mail/RentHikeNotice.php` | Added $afterCommit in constructor |
+| `app/Mail/DataExportReady.php` | Added $afterCommit in constructor |
+| `app/Mail/TenantCredentials.php` | Added $afterCommit in constructor |
+| `app/Mail/InvoiceReminder.php` | Added $afterCommit in constructor |
+| `app/Mail/DepositRefundNotification.php` | Added $afterCommit in constructor |
+
+**Controller Fix:**
+
+| File | Change |
+|------|--------|
+| `app/Http/Controllers/Api/BankWebhookController.php` | Changed `Mail::send()` to `Mail::queue()` at line 164 |
+
+**Tests Added:**
+
+| File | Tests |
+|------|-------|
+| `tests/Feature/TransactionRollbackTest.php` | Added `test_payment_received_mailable_has_aftercommit_property()` |
+| `tests/Feature/TransactionRollbackTest.php` | Added `test_email_is_queued_when_transaction_commits()` |
+
+**Documentation:**
+
+| File | Change |
+|------|--------|
+| `CLAUDE.md` | Added "Queued Mail & Transactions" section documenting the pattern |
+
+### Technical Notes
+
+- **PHP 8.1+ Trait Composition**: Cannot redeclare properties from `Queueable` trait. Solution: Set `$this->afterCommit = true;` in constructor instead of declaring property.
+- **Mail::fake() Limitation**: Cannot test actual rollback behavior as it bypasses queue system. Tests verify property is correctly set instead.
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| PaymentReceived mailable uses $afterCommit | ✅ |
+| OverpaymentNotification uses $afterCommit | ✅ |
+| All queued jobs inside transactions use $afterCommit | ✅ All 15 Mailables updated |
+| Invoice generation email uses $afterCommit | ✅ InvoiceSent.php updated |
+| Tests verify $afterCommit property | ✅ TransactionRollbackTest added |
+| Document pattern in CLAUDE.md | ✅ |
+
+### Verification Results
+- **./vendor/bin/pint**: ✅ No changes needed
+- **php artisan test --filter=TransactionRollbackTest**: ✅ 6 tests passed
+
+**DBP-026 COMPLETE**

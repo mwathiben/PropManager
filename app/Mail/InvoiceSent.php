@@ -20,7 +20,7 @@ class InvoiceSent extends Mailable implements ShouldQueue
     public function __construct(
         public Invoice $invoice
     ) {
-        //
+        $this->afterCommit = true;
     }
 
     /**

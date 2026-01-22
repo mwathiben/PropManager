@@ -19,7 +19,9 @@ class CreditNoteIssued extends Mailable implements ShouldQueue
     public function __construct(
         public CreditNote $creditNote,
         public ?string $pdfPath = null
-    ) {}
+    ) {
+        $this->afterCommit = true;
+    }
 
     public function envelope(): Envelope
     {

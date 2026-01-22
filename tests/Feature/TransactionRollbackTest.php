@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\InvoiceStatus;
+use App\Mail\PaymentReceived;
 use App\Models\Invoice;
 use App\Models\LateFee;
 use App\Models\LateFeePolicy;
@@ -10,6 +11,8 @@ use App\Models\Payment;
 use App\Models\User;
 use App\Services\LateFeeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestData;
 
@@ -174,5 +177,86 @@ class TransactionRollbackTest extends TestCase
         $invoice->refresh();
         $this->assertEquals(25000, $invoice->amount_paid);
         $this->assertEquals(InvoiceStatus::Paid, $invoice->status);
+    }
+
+    public function test_payment_received_mailable_has_aftercommit_property(): void
+    {
+        $setup = $this->createLandlordWithFullSetup();
+        $landlord = $setup['landlord'];
+        $unit = $setup['units']->first();
+
+        ['lease' => $lease] = $this->createTenantWithActiveLease($landlord, $unit);
+
+        $invoice = Invoice::create([
+            'landlord_id' => $landlord->id,
+            'lease_id' => $lease->id,
+            'invoice_number' => 'INV-2026-AFTERCOMMIT',
+            'rent_due' => 25000,
+            'water_due' => 0,
+            'arrears' => 0,
+            'total_due' => 25000,
+            'amount_paid' => 0,
+            'status' => InvoiceStatus::Sent,
+            'billing_period_start' => now()->startOfMonth(),
+            'due_date' => now()->addDays(7),
+        ]);
+
+        $payment = Payment::create([
+            'landlord_id' => $landlord->id,
+            'invoice_id' => $invoice->id,
+            'lease_id' => $lease->id,
+            'amount' => 25000,
+            'payment_method' => 'bank_transfer',
+            'payment_date' => now(),
+            'reference' => 'TEST-AFTERCOMMIT-REF',
+        ]);
+
+        $mailable = new PaymentReceived($payment, $invoice);
+
+        $this->assertTrue($mailable->afterCommit, 'PaymentReceived mailable should have afterCommit = true');
+    }
+
+    public function test_email_is_queued_when_transaction_commits(): void
+    {
+        Mail::fake();
+
+        $setup = $this->createLandlordWithFullSetup();
+        $landlord = $setup['landlord'];
+        $unit = $setup['units']->first();
+
+        ['lease' => $lease, 'tenant' => $tenant] = $this->createTenantWithActiveLease($landlord, $unit);
+
+        $invoice = Invoice::create([
+            'landlord_id' => $landlord->id,
+            'lease_id' => $lease->id,
+            'invoice_number' => 'INV-2026-COMMIT',
+            'rent_due' => 25000,
+            'water_due' => 0,
+            'arrears' => 0,
+            'total_due' => 25000,
+            'amount_paid' => 0,
+            'status' => InvoiceStatus::Sent,
+            'billing_period_start' => now()->startOfMonth(),
+            'due_date' => now()->addDays(7),
+        ]);
+
+        $invoice->load(['lease.tenant']);
+
+        DB::transaction(function () use ($invoice, $landlord, $lease, $tenant) {
+            $payment = Payment::create([
+                'landlord_id' => $landlord->id,
+                'invoice_id' => $invoice->id,
+                'lease_id' => $lease->id,
+                'amount' => 25000,
+                'payment_method' => 'bank_transfer',
+                'payment_date' => now(),
+                'reference' => 'TEST-COMMIT-REF',
+            ]);
+
+            Mail::to($tenant->email)->queue(new PaymentReceived($payment, $invoice));
+        });
+
+        Mail::assertQueued(PaymentReceived::class);
+        $this->assertEquals(1, Payment::where('reference', 'TEST-COMMIT-REF')->count());
     }
 }

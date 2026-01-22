@@ -20,7 +20,7 @@ class LandlordWelcome extends Mailable implements ShouldQueue
     public function __construct(
         public User $landlord
     ) {
-        //
+        $this->afterCommit = true;
     }
 
     /**

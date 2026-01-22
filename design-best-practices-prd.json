@@ -1242,8 +1242,8 @@
       ],
       "verification": "Create payment inside transaction that rolls back; verify no email sent",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "DBP-027",

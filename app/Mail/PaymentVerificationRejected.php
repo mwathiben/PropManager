@@ -16,7 +16,9 @@ class PaymentVerificationRejected extends Mailable implements ShouldQueue
 
     public function __construct(
         public TenantPaymentVerification $verification
-    ) {}
+    ) {
+        $this->afterCommit = true;
+    }
 
     public function envelope(): Envelope
     {

@@ -24,7 +24,7 @@ class RentHikeNotice extends Mailable implements ShouldQueue
         public string $effectiveDate,
         public ?string $reason = null
     ) {
-        //
+        $this->afterCommit = true;
     }
 
     /**

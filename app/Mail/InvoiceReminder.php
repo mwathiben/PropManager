@@ -16,7 +16,9 @@ class InvoiceReminder extends Mailable implements ShouldQueue
 
     public function __construct(
         public Invoice $invoice
-    ) {}
+    ) {
+        $this->afterCommit = true;
+    }
 
     public function envelope(): Envelope
     {

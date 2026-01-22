@@ -23,7 +23,7 @@ class OverpaymentNotification extends Mailable implements ShouldQueue
         public float $overpaymentAmount,
         public float $newWalletBalance
     ) {
-        //
+        $this->afterCommit = true;
     }
 
     public function envelope(): Envelope

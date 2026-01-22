@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\InvoiceStatus;
 use App\Http\Controllers\Controller;
 use App\Mail\PaymentReceived;
 use App\Models\BankReconciliationQueue;
@@ -144,7 +145,7 @@ class BankWebhookController extends Controller
             $overpayment = max(0, $amount - $remainingBalance);
 
             $newAmountPaid = $invoice->amount_paid + $appliedAmount;
-            $newStatus = $newAmountPaid >= $invoice->total_due ? 'paid' : 'partial';
+            $newStatus = $newAmountPaid >= $invoice->total_due ? InvoiceStatus::Paid : InvoiceStatus::Partial;
 
             $invoice->update([
                 'amount_paid' => $newAmountPaid,
@@ -160,7 +161,7 @@ class BankWebhookController extends Controller
             }
 
             $invoice->load(['lease.tenant', 'lease.unit.building']);
-            Mail::to($invoice->lease->tenant->email)->send(new PaymentReceived($payment, $invoice));
+            Mail::to($invoice->lease->tenant->email)->queue(new PaymentReceived($payment, $invoice));
 
             Log::info('Bank payment recorded', [
                 'payment_id' => $payment->id,
@@ -200,7 +201,7 @@ class BankWebhookController extends Controller
                 $lease = $tenant->leases()->where('is_active', true)->first();
 
                 return $lease?->invoices()
-                    ->whereIn('status', ['sent', 'partial', 'overdue'])
+                    ->whereIn('status', [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue])
                     ->orderBy('due_date', 'asc')
                     ->first();
             }

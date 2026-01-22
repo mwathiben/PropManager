@@ -20,7 +20,7 @@ class TenantInvitationMail extends Mailable implements ShouldQueue
     public function __construct(
         public TenantInvitation $invitation
     ) {
-        //
+        $this->afterCommit = true;
     }
 
     /**

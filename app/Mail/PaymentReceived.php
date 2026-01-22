@@ -22,7 +22,7 @@ class PaymentReceived extends Mailable implements ShouldQueue
         public Payment $payment,
         public Invoice $invoice
     ) {
-        //
+        $this->afterCommit = true;
     }
 
     /**

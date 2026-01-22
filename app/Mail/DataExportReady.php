@@ -20,7 +20,9 @@ class DataExportReady extends Mailable implements ShouldQueue
     public function __construct(
         public User $user,
         public string $exportPath
-    ) {}
+    ) {
+        $this->afterCommit = true;
+    }
 
     /**
      * Get the message envelope.

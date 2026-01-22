@@ -6,12 +6,126 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 PropManager is a multi-tenant property management system for landlords to manage properties, buildings, units, tenants, leases, water readings, and invoices. Built with Laravel 12, Inertia.js, and Vue 3.
 
+## ⛔ SKILL GATE (MANDATORY - BLOCKING)
+
+**This gate MUST be completed before ANY implementation (edits, writes, code changes).**
+
+### Step 1: Parse Task
+Identify from the user's request:
+- **Domain**: frontend | backend | database | auth | API | deployment | testing
+- **Type**: new feature | refactor | bug fix | API endpoint | optimization
+- **Tech**: Laravel | Vue | Eloquent | queues | migrations | etc.
+
+### Step 2: Match Skills
+Using the task context, find ALL matching skills from the table below.
+
+| Task Domain/Type | MUST Check These Skills |
+|------------------|-------------------------|
+| Laravel controller work | `laravelcontroller-cleanup` |
+| Laravel any | `laravelquality-checks` |
+| Database/migrations | `laravelmigrations-and-factories` |
+| Eloquent queries | `laraveleloquent-relationships`, `laravelperformance-eager-loading` |
+| API endpoints | `laravelapi-resources-and-pagination` |
+| Form validation | `laravelform-requests` |
+| Testing | `laraveltdd-with-pest`, `verification-first` |
+| Feature implementation | `feature-development`, `verification-first` |
+| PRD/autonomous | `ralph-wiggum` |
+| Frontend Vue | `web-design-guidelines` |
+| Refactoring | `laravelcontroller-cleanup`, `laravelinterfaces-and-di` |
+| Performance | `laravelperformance-caching`, `laravelperformance-select-columns` |
+| Auth/policies | `laravelpolicies-and-authorization` |
+
+### Step 3: Read & Cite (REQUIRED OUTPUT)
+
+For each matched custom skill, read the file: `~/.claude/skills/[name]/SKILL.md`
+
+**You MUST output this block before implementation:**
+
+```
+## Skills Applied
+- **[skill-name]**: [1-2 sentence summary of guidance being applied]
+- **[skill-name]**: [1-2 sentence summary of guidance being applied]
+```
+
+If no custom skills match (rare), output:
+```
+## Skills Applied
+- None matched (task domain: [domain], type: [type])
+```
+
+### Step 4: Proceed
+Only after completing Steps 1-3 and outputting "Skills Applied" may you begin implementation.
+
+---
+
+### Mid-Task Skill Check
+
+When a blocking issue is discovered during implementation:
+
+1. **STOP** - Do not immediately start fixing
+2. **Re-run Steps 1-3** for the blocking issue specifically
+3. **Output a new "Skills Applied" block** for the issue
+4. **Then fix** using the skill guidance
+
+---
+
+### Violations (BLOCKING)
+
+| Violation | Consequence |
+|-----------|-------------|
+| Starting implementation without "Skills Applied" output | Invalid work - redo |
+| Skipping skill read for matched domain | Invalid work - redo |
+| Not re-running gate for mid-task blocking issues | Invalid fix - redo |
+
+---
+
+### Full Skill Reference
+
+<details>
+<summary><b>Custom Skills (~/.claude/skills/)</b></summary>
+
+**Laravel (52 skills)** - All prefixed `laravel*`
+- Controllers: `laravelcontroller-cleanup`, `laravelform-requests`, `laravelcontroller-tests`
+- Eloquent: `laraveleloquent-relationships`, `laravelperformance-eager-loading`, `laraveldata-chunking-large-datasets`
+- Testing: `laraveltdd-with-pest`, `laravele2e-playwright`, `laravelquality-checks`
+- API: `laravelapi-resources-and-pagination`, `laravelapi-surface-evolution`, `laravelrate-limiting`
+- Architecture: `laravelports-and-adapters`, `laravelstrategy-pattern`, `laravelinterfaces-and-di`
+- Database: `laravelmigrations-and-factories`, `laraveltransactions-and-consistency`
+- Performance: `laravelperformance-caching`, `laravelperformance-select-columns`
+- Auth: `laravelpolicies-and-authorization`
+- Queues: `laravelqueues-and-horizon`, `laraveltask-scheduling`
+- Files: `laravelfilesystem-uploads`, `laravelconfig-env-storage`
+
+**Workflow**
+- `verification-first` - Verify changes before claiming success
+- `feature-development` - End-to-end feature implementation
+- `ralph-wiggum` - Autonomous PRD task execution
+- `planning-with-files` - Persistent markdown planning
+
+**Frontend**
+- `web-design-guidelines` - UI/UX/accessibility (100+ rules)
+- `vercel-react-best-practices` - React/Next.js patterns
+
+</details>
+
+<details>
+<summary><b>Built-in Claude Code Skills</b></summary>
+
+- `code-review` / `code-reviewer` - Code review
+- `api-design-principles` - REST/GraphQL design
+- `e2e-testing-patterns` - Playwright/Cypress
+- `frontend-design` - Production frontend
+- `tech-docs-writer` - Documentation
+- `auth-implementation-patterns` - JWT, OAuth2, sessions
+
+</details>
+
 ## Tech Stack
 
 - **Backend**: Laravel 12 (PHP 8.2+)
 - **Frontend**: Inertia.js with Vue 3, Tailwind CSS v4
 - **Build Tool**: Vite 7
-- **Database**: SQLite (development), supports MySQL/PostgreSQL
+- **Database**: MySQL 9.4 (primary), SQLite supported for testing
 - **Testing**: PHPUnit
 - **Code Style**: Laravel Pint
 
@@ -172,6 +286,24 @@ Status calculation logic is in the dashboard route (routes/web.php:48-55).
 - Water readings use `is_invoiced` flag to prevent duplicate billing
 - Leases have `is_active` boolean for current occupancy tracking
 
+### Queued Mail & Transactions
+All Mailable classes implementing `ShouldQueue` have `$afterCommit = true` property. This ensures:
+- Emails are only queued AFTER the database transaction commits
+- If a transaction rolls back, no email is sent
+- Use `Mail::queue()` (not `Mail::send()`) inside transactions to benefit from this behavior
+
+**Pattern:**
+```php
+DB::transaction(function () use ($invoice, $payment) {
+    // ... database operations ...
+
+    // Safe: Will only queue after transaction commits
+    Mail::to($tenant->email)->queue(new PaymentReceived($payment, $invoice));
+});
+```
+
+See `tests/Feature/TransactionRollbackTest.php` for verification tests.
+
 ### Frontend
 - Use Ziggy for route generation in Vue: `route('leases.create', unit.id)`
 - Inertia props are passed from controllers, accessed via `defineProps()`
@@ -186,7 +318,7 @@ Status calculation logic is in the dashboard route (routes/web.php:48-55).
 
 ## Testing
 
-Tests use in-memory SQLite database. Key test files:
+Tests run against MySQL by default (configure in `.env.testing`). Key test files:
 - `tests/Feature/Auth/*` - Breeze authentication tests
 - `tests/Feature/ProfileTest.php` - Profile management
 - `tests/Unit/` - Unit tests for models/services
@@ -199,7 +331,7 @@ When adding features:
 ## Environment Configuration
 
 Required environment variables (see `.env.example`):
-- `DB_CONNECTION=sqlite` (default) or mysql/pgsql
+- `DB_CONNECTION=mysql` (default)
 - `QUEUE_CONNECTION=database` (for background jobs)
 - `SESSION_DRIVER=database`
 - `MAIL_MAILER=log` (development) or smtp (production)

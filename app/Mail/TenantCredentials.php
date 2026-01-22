@@ -20,7 +20,9 @@ class TenantCredentials extends Mailable implements ShouldQueue
         public Lease $lease,
         public string $temporaryPassword,
         public User $landlord
-    ) {}
+    ) {
+        $this->afterCommit = true;
+    }
 
     public function envelope(): Envelope
     {

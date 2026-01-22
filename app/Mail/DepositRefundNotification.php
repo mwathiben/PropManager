@@ -17,7 +17,9 @@ class DepositRefundNotification extends Mailable implements ShouldQueue
     public function __construct(
         public Lease $lease,
         public string $type
-    ) {}
+    ) {
+        $this->afterCommit = true;
+    }
 
     public function envelope(): Envelope
     {

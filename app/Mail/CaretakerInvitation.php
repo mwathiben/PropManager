@@ -20,7 +20,7 @@ class CaretakerInvitation extends Mailable implements ShouldQueue
     public function __construct(
         public Invitation $invitation
     ) {
-        //
+        $this->afterCommit = true;
     }
 
     /**
