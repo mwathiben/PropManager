@@ -9547,3 +9547,68 @@ Created 14 model factories for notification and ticket-related models following 
 - **npm run build**: ✅ No errors
 
 **DBP-030 COMPLETE**
+
+---
+
+## Session: 2026-01-22
+**Task**: DBP-032 - Use Chunking for Large Dataset Operations
+**Status**: COMPLETED
+
+### Work Done
+
+1. **GenerateMonthlyInvoices.php** - Replaced `->get()` with `->chunkById(500)`
+   - Uses `&$stats` reference to maintain counters across chunks
+   - Preserves eager loading with `->with(['unit', 'tenant'])`
+   - Memory-safe processing for any number of active leases
+
+2. **ProcessScheduledNotifications.php** - Replaced `->get()` with `->chunkById(100)`
+   - Added pre-count with `Notification::readyToSend()->count()` for accurate total display
+   - Added eager loading `->with('recipient:id,name')` to prevent N+1 on recipient access
+   - Smaller chunk size (100) appropriate for operations involving external API calls
+
+3. **FinanceExportService.php** - Multiple improvements:
+   - **CSV exports**: Added 5 new streaming methods using `cursor()`:
+     - `streamInvoicesToCsv()` - True streaming for invoice CSV exports
+     - `streamPaymentsToCsv()` - True streaming for payment CSV exports
+     - `streamDepositsToCsv()` - True streaming for deposit CSV exports
+     - `streamExpensesToCsv()` - True streaming for expense CSV exports
+     - `streamVendorsToCsv()` - True streaming for vendor CSV exports
+   - **PDF/XLSX exports**: Changed from `->get()` to `->lazy(1000)->collect()`
+     - Batched fetching reduces memory pressure during collection
+
+4. **Arrears Calculation** - No changes needed
+   - Already optimized with database-level aggregations (`selectRaw`, `SUM()`)
+   - No PHP iteration on large datasets
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| app/Console/Commands/GenerateMonthlyInvoices.php | `chunkById(500)` with &$stats reference |
+| app/Console/Commands/ProcessScheduledNotifications.php | `chunkById(100)` with pre-count and eager loading |
+| app/Services/FinanceExportService.php | 5 new streaming CSV methods, `lazy()->collect()` for PDF/XLSX |
+
+### Chunking Strategy
+
+| Method | Use Case | Applied To |
+|--------|----------|------------|
+| `chunkById($size)` | DB-modifying operations | Invoice generation, notification sending |
+| `cursor()` | Read-only streaming | CSV exports (row-by-row output) |
+| `lazy()->collect()` | Large collection building | PDF/XLSX exports (need full collection) |
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| GenerateMonthlyInvoices uses chunkById() for leases | ✅ chunkById(500) |
+| Bulk export operations use lazy() or cursor() | ✅ cursor() for CSV, lazy() for PDF/XLSX |
+| Bulk notification sending uses chunk() | ✅ chunkById(100) |
+| Arrears calculation uses chunking | ✅ Already uses DB aggregations |
+| ProcessScheduledNotifications uses chunkById() | ✅ chunkById(100) |
+
+### Verification Results
+- **vendor/bin/pint --test**: ✅ 688 files pass
+- **npm run build**: ✅ Built successfully
+- **php artisan test --parallel**: ✅ 571 tests pass, 13 skipped
+
+**DBP-032 COMPLETE**

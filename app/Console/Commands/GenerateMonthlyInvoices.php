@@ -27,31 +27,33 @@ class GenerateMonthlyInvoices extends Command
 
         $this->info('Generating invoices for '.$billingPeriod->format('F Y'));
 
-        $leases = Lease::where('is_active', true)->with(['unit', 'tenant'])->get();
-
         $stats = ['generated' => 0, 'skipped' => 0, 'failed' => 0];
 
-        foreach ($leases as $lease) {
-            try {
-                $invoice = $invoiceService->generateInvoiceForLease($lease, $billingPeriod);
+        Lease::where('is_active', true)
+            ->with(['unit', 'tenant'])
+            ->chunkById(500, function ($leases) use ($invoiceService, $billingPeriod, &$stats) {
+                foreach ($leases as $lease) {
+                    try {
+                        $invoice = $invoiceService->generateInvoiceForLease($lease, $billingPeriod);
 
-                if ($invoice->wasRecentlyCreated) {
-                    $this->line('Generated '.$invoice->invoice_number.' for '.$lease->unit->unit_number);
-                    $stats['generated']++;
-                } else {
-                    $this->line('Skipped (exists): '.$invoice->invoice_number.' for '.$lease->unit->unit_number);
-                    $stats['skipped']++;
+                        if ($invoice->wasRecentlyCreated) {
+                            $this->line('Generated '.$invoice->invoice_number.' for '.$lease->unit->unit_number);
+                            $stats['generated']++;
+                        } else {
+                            $this->line('Skipped (exists): '.$invoice->invoice_number.' for '.$lease->unit->unit_number);
+                            $stats['skipped']++;
+                        }
+                    } catch (\Exception $e) {
+                        $this->error('Failed for unit '.$lease->unit->unit_number.': '.$e->getMessage());
+                        Log::error('GenerateMonthlyInvoices: Failed to generate invoice', [
+                            'lease_id' => $lease->id,
+                            'unit_number' => $lease->unit->unit_number,
+                            'error' => $e->getMessage(),
+                        ]);
+                        $stats['failed']++;
+                    }
                 }
-            } catch (\Exception $e) {
-                $this->error('Failed for unit '.$lease->unit->unit_number.': '.$e->getMessage());
-                Log::error('GenerateMonthlyInvoices: Failed to generate invoice', [
-                    'lease_id' => $lease->id,
-                    'unit_number' => $lease->unit->unit_number,
-                    'error' => $e->getMessage(),
-                ]);
-                $stats['failed']++;
-            }
-        }
+            });
 
         Log::info('GenerateMonthlyInvoices: Completed', $stats);
         $this->info("Generated {$stats['generated']}, skipped {$stats['skipped']}, failed {$stats['failed']}");

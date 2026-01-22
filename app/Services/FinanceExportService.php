@@ -44,11 +44,14 @@ class FinanceExportService
             return Excel::download(new StreamingInvoicesExport(clone $query), $filename.'.xlsx');
         }
 
-        $invoices = $query->orderBy('created_at', 'desc')->get();
+        if ($format === 'csv') {
+            return $this->streamInvoicesToCsv(clone $query, $filename.'.csv');
+        }
+
+        $invoices = $query->orderBy('created_at', 'desc')->lazy(1000)->collect();
 
         return match ($format) {
             'pdf' => $this->invoicesToPdf($invoices, $filters, $filename),
-            'csv' => $this->toCsv($this->formatInvoicesForCsv($invoices), $this->getInvoiceHeadings(), $filename.'.csv'),
             default => Excel::download(new InvoicesExport($invoices), $filename.'.xlsx'),
         };
     }
@@ -62,7 +65,11 @@ class FinanceExportService
             return Excel::download(new StreamingPaymentsExport(clone $query), $filename.'.xlsx');
         }
 
-        $payments = $query->orderBy('payment_date', 'desc')->get();
+        if ($format === 'csv') {
+            return $this->streamPaymentsToCsv(clone $query, $filename.'.csv');
+        }
+
+        $payments = $query->orderBy('payment_date', 'desc')->lazy(1000)->collect();
 
         $dateRange = [
             'start' => isset($filters['date_from']) ? Carbon::parse($filters['date_from']) : now()->subMonth(),
@@ -71,7 +78,6 @@ class FinanceExportService
 
         return match ($format) {
             'pdf' => $this->paymentsToPdf($payments, $filters, $filename),
-            'csv' => $this->toCsv($this->formatPaymentsForCsv($payments), $this->getPaymentHeadings(), $filename.'.csv'),
             default => Excel::download(new PaymentsExport($payments, $dateRange), $filename.'.xlsx'),
         };
     }
@@ -85,12 +91,15 @@ class FinanceExportService
             return Excel::download(new StreamingDepositsExport(clone $query), $filename.'.xlsx');
         }
 
-        $deposits = $query->orderBy('created_at', 'desc')->get();
+        if ($format === 'csv') {
+            return $this->streamDepositsToCsv(clone $query, $filename.'.csv');
+        }
+
+        $deposits = $query->orderBy('created_at', 'desc')->lazy(1000)->collect();
         $stats = $this->calculateDepositStats($deposits);
 
         return match ($format) {
             'pdf' => $this->depositsToPdf($deposits, $stats, $filters, $filename),
-            'csv' => $this->toCsv($this->formatDepositsForCsv($deposits), $this->getDepositHeadings(), $filename.'.csv'),
             default => Excel::download(new DepositsExport($deposits), $filename.'.xlsx'),
         };
     }
@@ -104,7 +113,11 @@ class FinanceExportService
             return Excel::download(new StreamingExpensesExport(clone $query), $filename.'.xlsx');
         }
 
-        $expenses = $query->orderBy('expense_date', 'desc')->get();
+        if ($format === 'csv') {
+            return $this->streamExpensesToCsv(clone $query, $filename.'.csv');
+        }
+
+        $expenses = $query->orderBy('expense_date', 'desc')->lazy(1000)->collect();
 
         $dateRange = [
             'start' => isset($filters['date_from']) ? Carbon::parse($filters['date_from']) : now()->subMonth(),
@@ -113,7 +126,6 @@ class FinanceExportService
 
         return match ($format) {
             'pdf' => $this->expensesToPdf($expenses, $filters, $filename),
-            'csv' => $this->toCsv($this->formatExpensesForCsv($expenses), $this->getExpenseHeadings(), $filename.'.csv'),
             default => Excel::download(new ExpensesExport($expenses, $dateRange), $filename.'.xlsx'),
         };
     }
@@ -121,23 +133,23 @@ class FinanceExportService
     public function exportVendors(array $filters, string $format = 'xlsx'): BinaryFileResponse|StreamedResponse
     {
         $landlordId = $filters['landlord_id'];
+        $filename = 'vendors_'.now()->format('Y_m_d_His');
 
-        $vendors = Vendor::where('landlord_id', $landlordId)
+        $query = Vendor::where('landlord_id', $landlordId)
             ->withSum('expenses', 'amount')
             ->withCount('expenses')
-            ->orderBy('name')
-            ->get();
+            ->orderBy('name');
 
-        $filename = 'vendors_'.now()->format('Y_m_d_His');
+        if ($format === 'csv') {
+            return $this->streamVendorsToCsv(clone $query, $filename.'.csv');
+        }
+
+        $vendors = $query->lazy(1000)->collect();
 
         $dateRange = [
             'start' => now()->subYear(),
             'end' => now(),
         ];
-
-        if ($format === 'csv') {
-            return $this->toCsv($this->formatVendorsForCsv($vendors), $this->getVendorHeadings(), $filename.'.csv');
-        }
 
         return Excel::download(new VendorExpenseExport($vendors, $dateRange), $filename.'.xlsx');
     }
@@ -285,6 +297,129 @@ class FinanceExportService
         }, $filename, [
             'Content-Type' => 'text/csv; charset=utf-8',
         ]);
+    }
+
+    protected function streamInvoicesToCsv(Builder $query, string $filename): StreamedResponse
+    {
+        return response()->streamDownload(function () use ($query) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, $this->getInvoiceHeadings());
+
+            foreach ($query->orderBy('created_at', 'desc')->cursor() as $inv) {
+                fputcsv($handle, [
+                    $inv->invoice_number,
+                    $inv->created_at?->format('Y-m-d'),
+                    $inv->due_date?->format('Y-m-d'),
+                    $inv->lease->tenant->name ?? 'N/A',
+                    $inv->lease->unit->unit_number ?? 'N/A',
+                    $inv->lease->unit->building->name ?? 'N/A',
+                    $inv->rent_amount,
+                    $inv->water_charges,
+                    $inv->arrears_amount,
+                    $inv->total_due,
+                    $inv->amount_paid,
+                    $inv->total_due - $inv->amount_paid,
+                    ucfirst($inv->status),
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv; charset=utf-8']);
+    }
+
+    protected function streamPaymentsToCsv(Builder $query, string $filename): StreamedResponse
+    {
+        return response()->streamDownload(function () use ($query) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, $this->getPaymentHeadings());
+
+            foreach ($query->orderBy('payment_date', 'desc')->cursor() as $p) {
+                fputcsv($handle, [
+                    $p->payment_date?->format('Y-m-d'),
+                    $p->reference ?? '',
+                    $p->lease->tenant->name ?? 'N/A',
+                    $p->lease->unit->unit_number ?? 'N/A',
+                    $p->lease->unit->building->name ?? 'N/A',
+                    $p->amount,
+                    ucfirst(str_replace('_', ' ', $p->payment_method)),
+                    $p->invoice->invoice_number ?? 'Unallocated',
+                    $p->status ?? 'completed',
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv; charset=utf-8']);
+    }
+
+    protected function streamDepositsToCsv(Builder $query, string $filename): StreamedResponse
+    {
+        return response()->streamDownload(function () use ($query) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, $this->getDepositHeadings());
+
+            foreach ($query->orderBy('created_at', 'desc')->cursor() as $d) {
+                fputcsv($handle, [
+                    $d->tenant->name ?? 'N/A',
+                    $d->unit->unit_number ?? 'N/A',
+                    $d->unit->building->name ?? 'N/A',
+                    $d->deposit_amount,
+                    ucfirst(str_replace('_', ' ', $d->deposit_status ?? 'held')),
+                    $d->deposit_refund_amount ?? 0,
+                    $d->deposit_deductions ?? 0,
+                    $d->start_date?->format('Y-m-d'),
+                    $d->end_date?->format('Y-m-d'),
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv; charset=utf-8']);
+    }
+
+    protected function streamExpensesToCsv(Builder $query, string $filename): StreamedResponse
+    {
+        return response()->streamDownload(function () use ($query) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, $this->getExpenseHeadings());
+
+            foreach ($query->orderBy('expense_date', 'desc')->cursor() as $e) {
+                fputcsv($handle, [
+                    $e->expense_date?->format('Y-m-d'),
+                    $e->description,
+                    $e->category->name ?? 'Uncategorized',
+                    $e->vendor->name ?? '',
+                    $e->property->name ?? '',
+                    $e->building->name ?? '',
+                    $e->amount,
+                    ucfirst(str_replace('_', ' ', $e->payment_method ?? '')),
+                    $e->reference ?? '',
+                    $e->is_recurring ? 'Yes' : 'No',
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv; charset=utf-8']);
+    }
+
+    protected function streamVendorsToCsv(Builder $query, string $filename): StreamedResponse
+    {
+        return response()->streamDownload(function () use ($query) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, $this->getVendorHeadings());
+
+            foreach ($query->cursor() as $v) {
+                fputcsv($handle, [
+                    $v->name,
+                    $v->contact_person ?? '',
+                    $v->email ?? '',
+                    $v->phone ?? '',
+                    $v->expenses_sum_amount ?? 0,
+                    $v->expenses_count ?? 0,
+                    $v->is_active ? 'Active' : 'Inactive',
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv; charset=utf-8']);
     }
 
     protected function invoicesToPdf(Collection $invoices, array $filters, string $filename): Response

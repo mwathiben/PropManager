@@ -30,43 +30,47 @@ class ProcessScheduledNotifications extends Command
     {
         $dryRun = $this->option('dry-run');
 
-        $notifications = Notification::readyToSend()->get();
+        $totalCount = Notification::readyToSend()->count();
 
-        if ($notifications->isEmpty()) {
+        if ($totalCount === 0) {
             $this->info('No scheduled notifications ready to send.');
 
             return self::SUCCESS;
         }
 
-        $this->info("Found {$notifications->count()} scheduled notification(s) ready to send.");
+        $this->info("Found {$totalCount} scheduled notification(s) ready to send.");
 
         $sent = 0;
         $failed = 0;
 
-        foreach ($notifications as $notification) {
-            $this->line("Processing notification #{$notification->id} for {$notification->recipient?->name}...");
+        Notification::readyToSend()
+            ->with('recipient:id,name')
+            ->chunkById(100, function ($notifications) use ($notificationService, $dryRun, &$sent, &$failed) {
+                foreach ($notifications as $notification) {
+                    $this->line("Processing notification #{$notification->id} for {$notification->recipient?->name}...");
 
-            if ($dryRun) {
-                $this->info("  [DRY RUN] Would send: {$notification->subject}");
+                    if ($dryRun) {
+                        $this->info("  [DRY RUN] Would send: {$notification->subject}");
 
-                continue;
-            }
+                        continue;
+                    }
 
-            try {
-                $success = $notificationService->sendDeferredNotification($notification);
+                    try {
+                        $success = $notificationService->sendDeferredNotification($notification);
 
-                if ($success) {
-                    $sent++;
-                    $this->info("  Sent successfully via {$notification->channel}");
-                } else {
-                    $failed++;
-                    $this->warn('  Failed to send');
+                        if ($success) {
+                            $sent++;
+                            $this->info("  Sent successfully via {$notification->channel}");
+                        } else {
+                            $failed++;
+                            $this->warn('  Failed to send');
+                        }
+                    } catch (\Exception $e) {
+                        $failed++;
+                        $this->error("  Error: {$e->getMessage()}");
+                    }
                 }
-            } catch (\Exception $e) {
-                $failed++;
-                $this->error("  Error: {$e->getMessage()}");
-            }
-        }
+            });
 
         if (! $dryRun) {
             $this->newLine();

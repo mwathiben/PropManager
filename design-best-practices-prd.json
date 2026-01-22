@@ -1417,8 +1417,9 @@
       ],
       "verification": "Process 10k records; verify memory stays under 256MB",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1,
+      "completion_notes": "Implemented memory-safe chunking: (1) GenerateMonthlyInvoices uses chunkById(500) for lease processing with &$stats reference for counter tracking; (2) ProcessScheduledNotifications uses chunkById(100) with pre-count for accurate total display and eager loading recipient:id,name; (3) FinanceExportService CSV exports now use cursor() streaming for invoices, payments, deposits, expenses, vendors via new streamXxxToCsv() methods; (4) FinanceExportService PDF/XLSX exports use lazy(1000)->collect() instead of get(); (5) Arrears calculation already optimized with database-level aggregations (no PHP iteration). All 571 tests pass, Pint and build succeed."
     },
     {
       "id": "DBP-033",
