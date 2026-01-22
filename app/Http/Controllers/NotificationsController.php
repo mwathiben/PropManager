@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\InvoiceStatus;
 use App\Http\Requests\Notification\SendBulkNotificationRequest;
 use App\Http\Requests\Notification\SendNotificationRequest;
 use App\Http\Requests\Notification\StoreNotificationScheduleRequest;
@@ -25,6 +26,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Repositories\Contracts\NotificationConfigRepositoryInterface;
 use App\Repositories\Contracts\NotificationDefaultsRepositoryInterface;
+use App\Services\Notification\ProviderStatusCollector;
 use App\Services\NotificationService;
 use App\Services\PushNotificationService;
 use App\Services\SchedulerService;
@@ -255,11 +257,11 @@ class NotificationsController extends Controller
         $leases = Lease::where('landlord_id', $landlordId)
             ->where('is_active', true)
             ->whereHas('invoices', function ($query) {
-                $query->whereIn('status', ['overdue', 'partial', 'sent'])
+                $query->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial, InvoiceStatus::Sent])
                     ->whereColumn('amount_paid', '<', 'total_due');
             })
             ->with(['tenant:id,name', 'invoices' => function ($query) {
-                $query->whereIn('status', ['overdue', 'partial', 'sent'])
+                $query->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial, InvoiceStatus::Sent])
                     ->whereColumn('amount_paid', '<', 'total_due');
             }])
             ->get();
@@ -605,43 +607,13 @@ class NotificationsController extends Controller
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
 
-        $smsProvider = $this->configRepository->getSmsProvider($landlordId);
-        $twilioCredentials = $this->configRepository->getTwilioCredentials($landlordId);
-        $atCredentials = $this->configRepository->getAfricasTalkingCredentials($landlordId);
-        $whatsappNumber = $this->configRepository->getWhatsAppNumber($landlordId);
-
-        // Get provider configurations
-        $providers = [
-            'email' => [
-                'configured' => true, // Email is always configured via Laravel
-                'provider' => 'Laravel Mail',
-            ],
-            'sms' => [
-                'configured' => $smsProvider !== 'none',
-                'provider' => $smsProvider,
-                'has_credentials' => ! empty($twilioCredentials['account_sid']) || ! empty($atCredentials['api_key']),
-            ],
-            'whatsapp' => [
-                'configured' => ! empty($whatsappNumber),
-                'has_credentials' => ! empty($twilioCredentials['account_sid']),
-            ],
-            'push' => [
-                'configured' => $this->pushService->isConfigured($landlordId),
-                'public_key' => $this->pushService->getPublicKey($landlordId),
-            ],
-        ];
-
-        $smsProviders = [
-            ['value' => 'none', 'label' => 'None (Disabled)'],
-            ['value' => 'twilio', 'label' => 'Twilio'],
-            ['value' => 'africas_talking', 'label' => "Africa's Talking"],
-        ];
+        $providerCollector = app(ProviderStatusCollector::class);
 
         return Inertia::render('Notifications/Index', [
             'activeTab' => 'settings',
-            'providers' => $providers,
-            'smsProviders' => $smsProviders,
-            'currentSmsProvider' => $smsProvider,
+            'providers' => $providerCollector->collect($landlordId),
+            'smsProviders' => ProviderStatusCollector::getSmsProviderOptions(),
+            'currentSmsProvider' => $providerCollector->getCurrentSmsProvider($landlordId),
             'globalPreferences' => $this->loadGlobalPreferences($landlordId),
             'setupComplete' => $this->isSetupComplete($landlordId),
             'buildings' => $this->getBuildingsForFilter(),

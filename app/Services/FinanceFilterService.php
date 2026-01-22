@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\InvoiceStatus;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\Invoice;
@@ -9,6 +10,8 @@ use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\Refund;
 use App\Models\Vendor;
+use App\Transformers\DepositTransformer;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -129,7 +132,19 @@ class FinanceFilterService
 
     public function getPaginatedDeposits(Request $request, int $landlordId): LengthAwarePaginator
     {
-        $query = Lease::where('landlord_id', $landlordId)
+        return $this->buildDepositsQuery($landlordId)
+            ->when($request->filled('search'), fn (Builder $q) => $this->applyDepositSearch($q, $request->search))
+            ->when($request->filled('status'), fn (Builder $q) => $q->where('deposit_status', $request->status))
+            ->when($request->filled('building_id'), fn (Builder $q) => $q->whereHas('unit', fn ($u) => $u->where('building_id', $request->building_id)))
+            ->orderBy('created_at', 'desc')
+            ->paginate(20)
+            ->through(fn ($lease) => DepositTransformer::transform($lease))
+            ->withQueryString();
+    }
+
+    private function buildDepositsQuery(int $landlordId): Builder
+    {
+        return Lease::where('landlord_id', $landlordId)
             ->where('deposit_amount', '>', 0)
             ->with([
                 'tenant:id,name,email',
@@ -138,66 +153,14 @@ class FinanceFilterService
                 'depositTransactions' => fn ($q) => $q->orderBy('created_at', 'desc')->limit(10),
                 'depositTransactions.processedBy:id,name',
             ]);
+    }
 
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->whereHas('tenant', fn ($q) => $q->where('name', 'like', "%{$search}%"))
-                    ->orWhereHas('unit', fn ($q) => $q->where('unit_number', 'like', "%{$search}%"));
-            });
-        }
-
-        if ($request->filled('status')) {
-            $query->where('deposit_status', $request->status);
-        }
-
-        if ($request->filled('building_id')) {
-            $query->whereHas('unit', fn ($q) => $q->where('building_id', $request->building_id));
-        }
-
-        return $query->orderBy('created_at', 'desc')
-            ->paginate(20)
-            ->through(fn ($lease) => [
-                'id' => $lease->id,
-                'amount' => $lease->deposit_amount,
-                'status' => $lease->deposit_status,
-                'refund_amount' => $lease->deposit_refund_amount,
-                'deductions' => $lease->deposit_deductions,
-                'deduction_reason' => $lease->deposit_deduction_reason,
-                'processed_at' => $lease->deposit_processed_at?->format('Y-m-d'),
-                'tenant_name' => $lease->tenant?->name,
-                'tenant_email' => $lease->tenant?->email,
-                'unit_number' => $lease->unit?->unit_number,
-                'building_name' => $lease->unit?->building?->name,
-                'start_date' => $lease->start_date?->format('Y-m-d'),
-                'end_date' => $lease->end_date?->format('Y-m-d'),
-                'is_active' => $lease->is_active,
-                'lease' => [
-                    'id' => $lease->id,
-                    'tenant' => $lease->tenant ? [
-                        'id' => $lease->tenant->id,
-                        'name' => $lease->tenant->name,
-                    ] : null,
-                    'unit' => $lease->unit ? [
-                        'id' => $lease->unit->id,
-                        'unit_number' => $lease->unit->unit_number,
-                        'building' => $lease->unit->building?->name,
-                    ] : null,
-                ],
-                'transactions' => $lease->depositTransactions->map(fn ($t) => [
-                    'id' => $t->id,
-                    'type' => $t->type,
-                    'type_label' => $t->getTypeLabel(),
-                    'amount' => $t->amount,
-                    'balance_after' => $t->balance_after,
-                    'reason' => $t->reason,
-                    'payment_method' => $t->payment_method,
-                    'reference' => $t->reference,
-                    'processed_by' => $t->processedBy?->name,
-                    'created_at' => $t->created_at->format('Y-m-d H:i'),
-                ]),
-            ])
-            ->withQueryString();
+    private function applyDepositSearch(Builder $query, string $search): Builder
+    {
+        return $query->where(function ($q) use ($search) {
+            $q->whereHas('tenant', fn ($q) => $q->where('name', 'like', "%{$search}%"))
+                ->orWhereHas('unit', fn ($q) => $q->where('unit_number', 'like', "%{$search}%"));
+        });
     }
 
     public function getPaginatedExpenses(Request $request, int $landlordId): LengthAwarePaginator
@@ -255,7 +218,7 @@ class FinanceFilterService
     public function getArrearsData(Request $request, int $landlordId): array
     {
         $query = Invoice::where('landlord_id', $landlordId)
-            ->where('status', 'overdue')
+            ->where('status', InvoiceStatus::Overdue)
             ->with([
                 'lease.tenant:id,name,email,mobile_number',
                 'lease.unit:id,unit_number,building_id',
@@ -353,13 +316,7 @@ class FinanceFilterService
 
     public function getInvoiceStatusOptions(): array
     {
-        return [
-            ['value' => 'draft', 'label' => 'Draft'],
-            ['value' => 'sent', 'label' => 'Sent'],
-            ['value' => 'partial', 'label' => 'Partial'],
-            ['value' => 'paid', 'label' => 'Paid'],
-            ['value' => 'overdue', 'label' => 'Overdue'],
-        ];
+        return InvoiceStatus::options();
     }
 
     public function getPaymentMethodOptions(): array

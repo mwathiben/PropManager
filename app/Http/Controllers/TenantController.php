@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\InvoiceStatus;
 use App\Http\Requests\Tenant\StoreEmergencyContactRequest;
 use App\Http\Requests\Tenant\StoreTenantNoteRequest;
 use App\Http\Requests\Tenant\UpdateEmergencyContactRequest;
@@ -14,10 +15,10 @@ use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\Refund;
 use App\Models\TenantActivity;
-use App\Models\TenantInvitation;
 use App\Models\TenantNote;
 use App\Models\User;
 use App\Models\VerificationTemplate;
+use App\Services\Tenant\TenantIndexService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -32,113 +33,25 @@ class TenantController extends Controller
      * Tab 2: Pending Invitations (pending tenant invitations)
      * Tab 3: Past Tenants (inactive/terminated leases)
      */
-    public function index(Request $request)
+    public function index(Request $request, TenantIndexService $indexService)
     {
         $user = auth()->user();
 
-        // Only landlords and caretakers can access
         if (! $user->isLandlord() && ! $user->isCaretaker()) {
             abort(403, 'Access denied.');
         }
 
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
         $tab = $request->get('tab', 'active');
-        $search = $request->get('search', '');
 
-        // Base query for tenants
-        $tenantsQuery = User::where('role', 'tenant')
-            ->where('landlord_id', $landlordId)
-            ->when($search, function ($q, $search) {
-                $q->where(function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%")
-                        ->orWhere('mobile_number', 'like', "%{$search}%");
-                });
-            });
-
-        // Tab-specific data
-        $activeTenants = null;
-        $pastTenants = null;
-        $pendingInvitations = null;
-
-        if ($tab === 'active') {
-            $activeTenants = (clone $tenantsQuery)
-                ->whereHas('leases', fn ($q) => $q->where('is_active', true))
-                ->with([
-                    'leases' => fn ($q) => $q->where('is_active', true)->with('unit.building.property'),
-                    'emergencyContacts',
-                ])
-                ->withCount(['tenantNotes', 'activities'])
-                ->orderBy('name')
-                ->paginate(20)
-                ->withQueryString();
-        } elseif ($tab === 'past') {
-            $pastTenants = (clone $tenantsQuery)
-                ->whereDoesntHave('leases', fn ($q) => $q->where('is_active', true))
-                ->whereHas('leases') // Must have had a lease before
-                ->with([
-                    'leases' => fn ($q) => $q->where('is_active', false)
-                        ->orderBy('end_date', 'desc')
-                        ->with('unit.building.property'),
-                ])
-                ->orderBy('name')
-                ->paginate(20)
-                ->withQueryString();
-        } elseif ($tab === 'pending') {
-            $pendingInvitations = TenantInvitation::where('landlord_id', $landlordId)
-                ->where('status', 'pending')
-                ->where('expires_at', '>', now())
-                ->when($search, function ($q, $search) {
-                    $q->where(function ($q) use ($search) {
-                        $q->where('email', 'like', "%{$search}%")
-                            ->orWhere('tenant_name', 'like', "%{$search}%")
-                            ->orWhere('tenant_phone', 'like', "%{$search}%");
-                    });
-                })
-                ->with('unit.building.property')
-                ->orderBy('created_at', 'desc')
-                ->paginate(20)
-                ->withQueryString();
-        }
-
-        // Get counts for badges
-        $counts = [
-            'active' => User::where('role', 'tenant')
-                ->where('landlord_id', $landlordId)
-                ->whereHas('leases', fn ($q) => $q->where('is_active', true))
-                ->count(),
-            'pending' => TenantInvitation::where('landlord_id', $landlordId)
-                ->where('status', 'pending')
-                ->where('expires_at', '>', now())
-                ->count(),
-            'past' => User::where('role', 'tenant')
-                ->where('landlord_id', $landlordId)
-                ->whereDoesntHave('leases', fn ($q) => $q->where('is_active', true))
-                ->whereHas('leases')
-                ->count(),
-        ];
-
-        // Summary stats
-        $stats = [
-            'totalTenants' => $counts['active'] + $counts['past'],
-            'activeTenants' => $counts['active'],
-            'pendingInvitations' => $counts['pending'],
-            'withArrears' => User::where('role', 'tenant')
-                ->where('landlord_id', $landlordId)
-                ->whereHas('leases', fn ($q) => $q->where('is_active', true)->where('arrears', '>', 0))
-                ->count(),
-            'totalMonthlyRent' => Lease::where('landlord_id', $landlordId)
-                ->where('is_active', true)
-                ->sum('rent_amount'),
-            'totalArrears' => Lease::where('landlord_id', $landlordId)
-                ->where('is_active', true)
-                ->sum('arrears'),
-        ];
+        $data = $indexService->getDataForTab($tab, $landlordId, $request);
+        $counts = $indexService->getCounts($landlordId);
+        $stats = $indexService->getStats($landlordId, $counts);
 
         return Inertia::render('Tenants/Index', [
-            'activeTenants' => $activeTenants,
-            'pastTenants' => $pastTenants,
-            'pendingInvitations' => $pendingInvitations,
+            'activeTenants' => $tab === 'active' ? $data : null,
+            'pastTenants' => $tab === 'past' ? $data : null,
+            'pendingInvitations' => $tab === 'pending' ? $data : null,
             'tab' => $tab,
             'counts' => $counts,
             'stats' => $stats,
@@ -439,7 +352,7 @@ class TenantController extends Controller
         }
 
         $invoices = Invoice::where('lease_id', $activeLease->id)
-            ->whereIn('status', ['draft', 'sent', 'partial', 'overdue'])
+            ->whereIn('status', [InvoiceStatus::Draft, InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue])
             ->whereRaw('total_due > amount_paid')
             ->orderBy('due_date', 'asc')
             ->get()

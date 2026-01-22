@@ -9,6 +9,7 @@ use App\Models\InvoiceItem;
 use App\Models\InvoiceType;
 use App\Models\Lease;
 use App\Models\WaterReading;
+use App\Services\Invoice\FirstInvoiceItemBuilder;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -215,80 +216,19 @@ class InvoiceService
 
     protected function buildFirstInvoiceItems(Lease $lease, $settings, array $overrides): array
     {
-        $items = [];
-
         $rentAmount = $this->calculateFirstMonthRent($lease, $settings, $overrides);
-        if ($rentAmount > 0) {
-            $items[] = [
-                'type' => InvoiceItem::TYPE_RENT,
-                'description' => $this->getFirstMonthRentDescription($lease, $settings, $overrides),
-                'quantity' => 1,
-                'unit_price' => $rentAmount,
-                'total' => $rentAmount,
-            ];
-        }
+        $rentDescription = $this->getFirstMonthRentDescription($lease, $settings, $overrides);
 
-        $deposit = $overrides['deposit'] ?? $lease->deposit_amount ?? 0;
-        if ($deposit > 0) {
-            $items[] = [
-                'type' => InvoiceItem::TYPE_DEPOSIT,
-                'description' => 'Security Deposit',
-                'quantity' => 1,
-                'unit_price' => $deposit,
-                'total' => $deposit,
-            ];
-        }
-
-        $includeLastMonth = $overrides['include_last_month_rent'] ?? $settings->include_last_month_rent ?? false;
-        if ($includeLastMonth) {
-            $lastMonthRent = $overrides['last_month_rent'] ?? $lease->rent_amount ?? 0;
-            if ($lastMonthRent > 0) {
-                $items[] = [
-                    'type' => InvoiceItem::TYPE_RENT,
-                    'description' => 'Last Month Rent (Advance)',
-                    'quantity' => 1,
-                    'unit_price' => $lastMonthRent,
-                    'total' => $lastMonthRent,
-                ];
-            }
-        }
-
-        $adminFee = $overrides['admin_fee'] ?? $settings->admin_fee_amount ?? 0;
-        if ($adminFee > 0) {
-            $items[] = [
-                'type' => InvoiceItem::TYPE_ADMIN_FEE,
-                'description' => 'Administrative/Processing Fee',
-                'quantity' => 1,
-                'unit_price' => $adminFee,
-                'total' => $adminFee,
-            ];
-        }
-
-        $keyDeposit = $overrides['key_deposit'] ?? $settings->key_deposit_amount ?? 0;
-        if ($keyDeposit > 0) {
-            $items[] = [
-                'type' => InvoiceItem::TYPE_KEY_DEPOSIT,
-                'description' => 'Key Deposit',
-                'quantity' => 1,
-                'unit_price' => $keyDeposit,
-                'total' => $keyDeposit,
-            ];
-        }
-
-        $otherCharges = $overrides['other_charges'] ?? [];
-        foreach ($otherCharges as $charge) {
-            if (($charge['amount'] ?? 0) > 0) {
-                $items[] = [
-                    'type' => InvoiceItem::TYPE_OTHER,
-                    'description' => $charge['description'] ?? 'Other Charge',
-                    'quantity' => 1,
-                    'unit_price' => $charge['amount'],
-                    'total' => $charge['amount'],
-                ];
-            }
-        }
-
-        return $items;
+        return FirstInvoiceItemBuilder::forLease($lease)
+            ->withSettings($settings)
+            ->withOverrides($overrides)
+            ->addRentItem($rentAmount, $rentDescription)
+            ->addDepositItem()
+            ->addLastMonthRentItem()
+            ->addAdminFeeItem()
+            ->addKeyDepositItem()
+            ->addOtherCharges()
+            ->getItems();
     }
 
     protected function calculateFirstMonthRent(Lease $lease, $settings, array $overrides): float

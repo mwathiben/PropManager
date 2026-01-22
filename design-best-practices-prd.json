@@ -1425,14 +1425,13 @@
       "id": "DBP-033",
       "category": "code_quality",
       "priority": "MEDIUM",
-      "title": "Audit and Reduce High-Complexity Functions",
-      "description": "Per laravelcomplexity-guardrails skill: Functions should have cyclomatic complexity ≤ 7 and length ≤ 80 lines (aim ≤ 30). Audit and refactor high-complexity functions.",
+      "title": "Audit and Reduce High-Complexity Functions (Parent Task)",
+      "description": "Per laravelcomplexity-guardrails skill: Functions should have cyclomatic complexity ≤ 7 and length ≤ 80 lines (aim ≤ 30). Split into 4 sub-tasks: DBP-033a (low-risk), DBP-033b (medium-risk), DBP-033c (high-risk PaymentController), DBP-033d (documentation).",
       "steps": [
-        "Run complexity analysis with PHPStan or PHPMD",
-        "Identify functions with complexity > 7",
-        "Identify functions exceeding 80 lines",
-        "Refactor top 10 most complex functions",
-        "Document complexity thresholds in CLAUDE.md"
+        "DBP-033a: Refactor 4 low-risk functions",
+        "DBP-033b: Refactor 3 medium-risk functions",
+        "DBP-033c: Refactor 3 high-risk PaymentController functions",
+        "DBP-033d: Add PHPMD config and document complexity thresholds"
       ],
       "files": [
         "app/Http/Controllers/*.php",
@@ -1440,21 +1439,156 @@
         "CLAUDE.md"
       ],
       "acceptance_criteria": [
-        "Run complexity analysis tool (PHPStan, PHPMD)",
-        "Identify functions with complexity > 7",
-        "Refactor top 10 complex functions",
-        "No function exceeds 80 lines",
-        "Document complexity thresholds in CLAUDE.md"
+        "All sub-tasks (DBP-033a, b, c, d) completed",
+        "Top 10 complex functions refactored below 80 lines",
+        "Complexity thresholds documented in CLAUDE.md"
       ],
       "definition_of_done": [
-        "Complexity analysis report generated",
-        "Top 10 functions refactored",
-        "Thresholds documented"
+        "All sub-tasks pass",
+        "All tests pass after each sub-task"
       ],
       "verification": "Run phpmd; verify no complexity violations",
       "estimated_effort": "large",
       "passes": false,
-      "attempt_count": 0
+      "attempt_count": 0,
+      "phase_progress": "1 of 4 sub-tasks complete (DBP-033a)",
+      "sub_tasks": ["DBP-033a", "DBP-033b", "DBP-033c", "DBP-033d"]
+    },
+    {
+      "id": "DBP-033a",
+      "category": "code_quality",
+      "priority": "MEDIUM",
+      "title": "Low-Risk Complexity Refactoring (4 Functions)",
+      "description": "Refactor 4 low-risk high-complexity functions: FinanceFilterService::getPaginatedDeposits, NotificationsController::settings, InvoiceService::buildFirstInvoiceItems, TenantController::index.",
+      "steps": [
+        "Extract DepositTransformer from getPaginatedDeposits (71 -> 10 lines)",
+        "Extract ProviderStatusCollector from settings (50 -> 20 lines)",
+        "Create FirstInvoiceItemBuilder from buildFirstInvoiceItems (76 -> 15 lines)",
+        "Create TenantIndexService from index (112 -> 30 lines)"
+      ],
+      "files": [
+        "app/Transformers/DepositTransformer.php",
+        "app/Services/Notification/ProviderStatusCollector.php",
+        "app/Services/Invoice/FirstInvoiceItemBuilder.php",
+        "app/Services/Tenant/TenantIndexService.php",
+        "app/Services/FinanceFilterService.php",
+        "app/Http/Controllers/NotificationsController.php",
+        "app/Services/InvoiceService.php",
+        "app/Http/Controllers/TenantController.php"
+      ],
+      "acceptance_criteria": [
+        "getPaginatedDeposits reduced to <35 lines with DepositTransformer",
+        "settings reduced to <25 lines with ProviderStatusCollector",
+        "buildFirstInvoiceItems reduced to <20 lines with FirstInvoiceItemBuilder",
+        "index reduced to <35 lines with TenantIndexService"
+      ],
+      "definition_of_done": [
+        "All 4 functions refactored",
+        "All tests pass (571 tests)",
+        "Pint and build pass"
+      ],
+      "verification": "php artisan test --parallel && ./vendor/bin/pint && npm run build",
+      "estimated_effort": "medium",
+      "passes": true,
+      "attempt_count": 1,
+      "depends_on": [],
+      "completion_notes": "Refactored 4 low-risk functions: (1) FinanceFilterService::getPaginatedDeposits (71->10 lines) - created app/Transformers/DepositTransformer.php with transform(), transformLeaseRelations(), transformTransactions() methods; extracted buildDepositsQuery() and applyDepositSearch() helpers. (2) NotificationsController::settings (50->20 lines) - created app/Services/Notification/ProviderStatusCollector.php with collect(), getCurrentSmsProvider(), getSmsProviderOptions() methods. (3) InvoiceService::buildFirstInvoiceItems (76->15 lines) - created app/Services/Invoice/FirstInvoiceItemBuilder.php with fluent interface: forLease()->withSettings()->withOverrides()->addRentItem()->addDepositItem()->addLastMonthRentItem()->addAdminFeeItem()->addKeyDepositItem()->addOtherCharges()->getItems(). (4) TenantController::index (112->30 lines) - created app/Services/Tenant/TenantIndexService.php with getDataForTab(), getCounts(), getStats() and private query methods. All 571 tests pass, Pint passes, build succeeds."
+    },
+    {
+      "id": "DBP-033b",
+      "category": "code_quality",
+      "priority": "MEDIUM",
+      "title": "Medium-Risk Complexity Refactoring (3 Functions)",
+      "description": "Refactor 3 medium-risk high-complexity functions: TenantController::buildLedgerTransactions, BulkOperationsController::adjustRent, NotificationService::send.",
+      "steps": [
+        "Extract LedgerTransactionBuilder from buildLedgerTransactions (93 lines)",
+        "Extract BulkRentAdjuster from adjustRent (110 lines)",
+        "Extract ChannelSelector and NotificationDispatcher from send (98 lines)"
+      ],
+      "files": [
+        "app/Http/Controllers/TenantController.php",
+        "app/Http/Controllers/BulkOperationsController.php",
+        "app/Services/NotificationService.php"
+      ],
+      "acceptance_criteria": [
+        "buildLedgerTransactions reduced to <30 lines",
+        "adjustRent reduced to <40 lines",
+        "send reduced to <40 lines"
+      ],
+      "definition_of_done": [
+        "All 3 functions refactored",
+        "All tests pass",
+        "Pint and build pass"
+      ],
+      "verification": "php artisan test --parallel && ./vendor/bin/pint && npm run build",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["DBP-033a"]
+    },
+    {
+      "id": "DBP-033c",
+      "category": "code_quality",
+      "priority": "MEDIUM",
+      "title": "High-Risk PaymentController Complexity Refactoring (3 Functions)",
+      "description": "Refactor 3 high-risk high-complexity functions in PaymentController: validateBulkImport (194 lines), validateCurrentRowOptimized (126 lines), handleCallback (170 lines).",
+      "steps": [
+        "Create Strategy Pattern validators for validateBulkImport",
+        "Extract PaymentAllocator from validateCurrentRowOptimized",
+        "Create Template Method handlers for handleCallback"
+      ],
+      "files": [
+        "app/Http/Controllers/PaymentController.php",
+        "app/Services/BulkImport/*.php",
+        "app/Services/Payment/*.php"
+      ],
+      "acceptance_criteria": [
+        "validateBulkImport reduced to <50 lines with validators",
+        "validateCurrentRowOptimized reduced to <40 lines with allocator",
+        "handleCallback reduced to <50 lines with handlers"
+      ],
+      "definition_of_done": [
+        "All 3 functions refactored",
+        "Payment flow tests pass",
+        "Idempotency preserved"
+      ],
+      "verification": "php artisan test --filter=Payment && php artisan test --parallel",
+      "estimated_effort": "large",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["DBP-033b"]
+    },
+    {
+      "id": "DBP-033d",
+      "category": "code_quality",
+      "priority": "MEDIUM",
+      "title": "Complexity Documentation and Tooling",
+      "description": "Install PHPMD, configure complexity thresholds, and document guidelines in CLAUDE.md.",
+      "steps": [
+        "Install PHPMD: composer require --dev phpmd/phpmd",
+        "Create phpmd.xml with complexity threshold = 7",
+        "Add complexity guidelines to CLAUDE.md",
+        "Run baseline report and verify compliance"
+      ],
+      "files": [
+        "composer.json",
+        "phpmd.xml",
+        "CLAUDE.md"
+      ],
+      "acceptance_criteria": [
+        "PHPMD installed and configured",
+        "phpmd.xml with complexity=7, method_length=80 rules",
+        "CLAUDE.md documents complexity thresholds and patterns"
+      ],
+      "definition_of_done": [
+        "PHPMD runs without critical violations",
+        "Documentation complete"
+      ],
+      "verification": "./vendor/bin/phpmd app text phpmd.xml --minimumpriority 2",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["DBP-033c"]
     },
     {
       "id": "DBP-034",
