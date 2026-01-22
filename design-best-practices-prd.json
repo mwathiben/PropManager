@@ -1349,8 +1349,9 @@
       ],
       "verification": "Exceed rate limit; verify 429 response with retry header",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1,
+      "completion_notes": "Added 'export' (5/min) and 'search' (30/min) rate limiters to AppServiceProvider. Applied throttle:export to 7 export endpoints (invoices, payments, deposits, expenses, vendors, reports, audit-logs). Applied throttle:search to help/search endpoint. Applied throttle:api to payments-hub/banks endpoints. All limiters use env-configurable limits via config/security.php. Created RateLimitingTest.php with 7 tests verifying headers, enforcement, and user-specific limiting. All 558 tests pass, Pint passes."
     },
     {
       "id": "DBP-031",

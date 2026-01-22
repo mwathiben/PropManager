@@ -224,7 +224,9 @@ Route::middleware('auth')->group(function () {
     Route::put('/emergency-contacts/{contact}', [TenantEmergencyContactController::class, 'update'])->name('tenants.emergency-contacts.update');
     Route::delete('/emergency-contacts/{contact}', [TenantEmergencyContactController::class, 'destroy'])->name('tenants.emergency-contacts.destroy');
     // Tenant API for payment recording
-    Route::get('/tenants/search', [TenantController::class, 'search'])->name('tenants.search');
+    Route::get('/tenants/search', [TenantController::class, 'search'])
+        ->middleware('throttle:search')
+        ->name('tenants.search');
     Route::get('/tenants/{tenant}/outstanding-invoices', [TenantController::class, 'outstandingInvoices'])->name('tenants.outstanding-invoices');
     Route::get('/tenants/{tenant}/refundable-payments', [TenantController::class, 'refundablePayments'])->name('tenants.refundable-payments');
     // Tenant Ledger/Statement
@@ -528,7 +530,9 @@ Route::middleware('auth')->group(function () {
         Route::post('/complete-setup', [PaymentsHubController::class, 'completeSetup'])->name('complete-setup');
 
         // AJAX APIs
-        Route::get('/banks', [PaymentsHubController::class, 'getBanks'])->name('banks');
+        Route::get('/banks', [PaymentsHubController::class, 'getBanks'])
+            ->middleware('throttle:api')
+            ->name('banks');
         Route::post('/verify-account', [PaymentsHubController::class, 'verifyAccount'])->name('verify-account');
     });
 
@@ -560,7 +564,9 @@ Route::middleware('auth')->group(function () {
 
         // Reports
         Route::get('/reports', [FinanceReportController::class, 'index'])->name('reports');
-        Route::get('/reports/export', [FinanceReportController::class, 'export'])->name('reports.export');
+        Route::get('/reports/export', [FinanceReportController::class, 'export'])
+            ->middleware('throttle:export')
+            ->name('reports.export');
 
         // Templates
         Route::get('/templates', [FinanceTemplateController::class, 'index'])->name('templates');
@@ -596,12 +602,22 @@ Route::middleware('auth')->group(function () {
         Route::post('/deposits/{lease}/forfeit', [FinanceDepositController::class, 'forfeit'])->name('deposits.forfeit');
         Route::get('/deposits/{lease}/transactions', [FinanceDepositController::class, 'transactions'])->name('deposits.transactions');
 
-        // Export endpoints
-        Route::get('/deposits/export', [FinanceDepositController::class, 'export'])->name('deposits.export');
-        Route::get('/invoices/export', [FinancesController::class, 'exportInvoices'])->name('invoices.export');
-        Route::get('/payments/export', [FinancesController::class, 'exportPayments'])->name('payments.export');
-        Route::get('/expenses/export', [ExpenseController::class, 'export'])->name('expenses.export');
-        Route::get('/vendors/export', [ExpenseController::class, 'exportVendors'])->name('vendors.export');
+        // Export endpoints (rate limited to prevent abuse of resource-intensive operations)
+        Route::get('/deposits/export', [FinanceDepositController::class, 'export'])
+            ->middleware('throttle:export')
+            ->name('deposits.export');
+        Route::get('/invoices/export', [FinancesController::class, 'exportInvoices'])
+            ->middleware('throttle:export')
+            ->name('invoices.export');
+        Route::get('/payments/export', [FinancesController::class, 'exportPayments'])
+            ->middleware('throttle:export')
+            ->name('payments.export');
+        Route::get('/expenses/export', [ExpenseController::class, 'export'])
+            ->middleware('throttle:export')
+            ->name('expenses.export');
+        Route::get('/vendors/export', [ExpenseController::class, 'exportVendors'])
+            ->middleware('throttle:export')
+            ->name('vendors.export');
 
         // Expenses Management
         Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses');
@@ -643,7 +659,9 @@ Route::middleware('auth')->group(function () {
     // 21b. Audit Logs (Comprehensive Audit System)
     Route::prefix('audit-logs')->name('audit-logs.')->group(function () {
         Route::get('/', [AuditLogController::class, 'index'])->name('index');
-        Route::get('/export', [AuditLogController::class, 'export'])->name('export');
+        Route::get('/export', [AuditLogController::class, 'export'])
+            ->middleware('throttle:export')
+            ->name('export');
         Route::get('/for-model', [AuditLogController::class, 'forModel'])->name('forModel');
         Route::get('/{auditLog}', [AuditLogController::class, 'show'])->name('show');
     });
@@ -658,7 +676,9 @@ Route::middleware('auth')->group(function () {
 
     // 16. Help Center (All Users)
     Route::get('/help', [HelpController::class, 'index'])->name('help.index');
-    Route::get('/help/search', [HelpController::class, 'search'])->name('help.search');
+    Route::get('/help/search', [HelpController::class, 'search'])
+        ->middleware('throttle:search')
+        ->name('help.search');
     Route::get('/help/{article:slug}', [HelpController::class, 'show'])->name('help.show');
 
     // 17. Subscription Management (Landlords Only)
@@ -684,7 +704,9 @@ Route::middleware('auth')->group(function () {
 
     // API endpoints for payout accounts - redirect to Payments Hub endpoints
     Route::middleware('role:landlord')->group(function () {
-        Route::get('/api/banks', [PaymentsHubController::class, 'getBanks'])->name('api.banks');
+        Route::get('/api/banks', [PaymentsHubController::class, 'getBanks'])
+            ->middleware('throttle:api')
+            ->name('api.banks');
         Route::post('/api/verify-account', [PaymentsHubController::class, 'verifyAccount'])->name('api.verify-account');
     });
 });

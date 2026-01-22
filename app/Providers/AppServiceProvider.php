@@ -254,6 +254,36 @@ class AppServiceProvider extends ServiceProvider
                     ])->toResponse($request)->setStatusCode(429);
                 });
         });
+
+        // Export rate limiter - resource intensive operations (PDF/Excel generation)
+        RateLimiter::for('export', function (Request $request) {
+            $config = config('security.rate_limits.export', '5,1');
+            [$maxAttempts, $decayMinutes] = explode(',', $config);
+
+            return Limit::perMinutes((int) $decayMinutes, (int) $maxAttempts)
+                ->by($request->user()?->id ?: $request->ip())
+                ->response(function (Request $request, array $headers) {
+                    return response()->json([
+                        'message' => 'Too many export requests. Please wait before exporting again.',
+                        'retry_after' => $headers['Retry-After'] ?? 60,
+                    ], 429, $headers);
+                });
+        });
+
+        // Search/autocomplete rate limiter - higher limit for UX
+        RateLimiter::for('search', function (Request $request) {
+            $config = config('security.rate_limits.search', '30,1');
+            [$maxAttempts, $decayMinutes] = explode(',', $config);
+
+            return Limit::perMinutes((int) $decayMinutes, (int) $maxAttempts)
+                ->by($request->user()?->id ?: $request->ip())
+                ->response(function (Request $request, array $headers) {
+                    return response()->json([
+                        'message' => 'Too many search requests. Please slow down.',
+                        'retry_after' => $headers['Retry-After'] ?? 60,
+                    ], 429, $headers);
+                });
+        });
     }
 
     /**

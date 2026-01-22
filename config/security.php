@@ -29,7 +29,7 @@ return [
         // Development CSP includes unsafe-eval (needed for Vite dev server)
         // For production, set SECURITY_CSP in .env to remove unsafe-inline/unsafe-eval
         'csp_enabled' => env('SECURITY_CSP_ENABLED', true),
-        'csp' => env('SECURITY_CSP', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.paystack.co; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' ws: wss: https://api.paystack.co; frame-ancestors 'none';"),
+        'csp' => env('SECURITY_CSP', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.paystack.co; style-src 'self' 'unsafe-inline' https://fonts.bunny.net; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.bunny.net; connect-src 'self' ws: wss: https://api.paystack.co; frame-ancestors 'none';"),
         // Production CSP (set SECURITY_CSP in .env):
         // "default-src 'self'; script-src 'self' https://js.paystack.co; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.paystack.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
     ],
@@ -53,6 +53,8 @@ return [
         'two_factor' => env('RATE_LIMIT_TWO_FACTOR', '5,1'),
         'api' => env('RATE_LIMIT_API', '60,1'), // 60 requests per minute
         'file_upload' => env('RATE_LIMIT_FILE_UPLOAD', '10,1'),
+        'export' => env('RATE_LIMIT_EXPORT', '5,1'), // 5 exports per minute (resource intensive)
+        'search' => env('RATE_LIMIT_SEARCH', '30,1'), // 30 searches per minute (autocomplete UX)
     ],
 
     /*

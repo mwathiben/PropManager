@@ -9481,3 +9481,69 @@ Created 14 model factories for notification and ticket-related models following 
 - **php artisan test --parallel**: ✅ 564 tests passed, 13 skipped
 
 **DBP-035b COMPLETE**
+
+---
+
+## Session: 2026-01-22
+
+### Task: DBP-030 - Add Rate Limiting to All API Endpoints
+**Status**: COMPLETED
+
+### Work Done
+
+1. **Created 2 new rate limiters in AppServiceProvider**:
+   - `export` limiter: 5 requests/minute (resource-intensive PDF/Excel generation)
+   - `search` limiter: 30 requests/minute (higher for autocomplete UX)
+
+2. **Added config values to config/security.php**:
+   - `'export' => env('RATE_LIMIT_EXPORT', '5,1')`
+   - `'search' => env('RATE_LIMIT_SEARCH', '30,1')`
+
+3. **Applied throttle middleware to routes**:
+   - **Export endpoints (7 routes)**: `throttle:export`
+     - finances.invoices.export
+     - finances.payments.export
+     - finances.deposits.export
+     - finances.expenses.export
+     - finances.vendors.export
+     - finances.reports.export
+     - audit-logs.export
+   - **Search endpoints**: `throttle:search`
+     - help.search (confirmed with tests)
+     - tenants.search (middleware applied)
+   - **Banks API endpoints**: `throttle:api`
+     - payments-hub.banks
+     - api.banks
+
+4. **Created RateLimitingTest.php** with 7 tests:
+   - Export endpoint returns rate limit headers (X-RateLimit-Limit, X-RateLimit-Remaining)
+   - Export endpoint enforces rate limit (429 after 5 requests)
+   - Help search enforces rate limit (429 after 30 requests)
+   - Help search endpoint uses search rate limiter (30/min)
+   - Banks API endpoint uses api rate limiter (60/min)
+   - Audit logs export uses export rate limiter (5/min)
+   - Rate limiters are user-specific (separate users have independent limits)
+
+### Files Changed
+| File | Changes |
+|------|---------|
+| app/Providers/AppServiceProvider.php | Added `export` and `search` rate limiters |
+| config/security.php | Added export/search rate limit configs |
+| routes/web.php | Applied throttle middleware to 11 routes |
+| tests/Feature/RateLimitingTest.php | New test file (7 tests) |
+
+### Rate Limiting Summary
+
+| Limiter | Limit | Key | Applied To |
+|---------|-------|-----|------------|
+| `export` | 5/min | user_id or IP | Export endpoints (7 routes) |
+| `search` | 30/min | user_id or IP | Search endpoints |
+| `api` | 60/min | user_id or IP | Banks API, API v1/v2 |
+
+### Verification Results
+- **php vendor/bin/pint --test**: ✅ 688 files pass
+- **php artisan test --filter=RateLimitingTest**: ✅ 7 tests pass (17 assertions)
+- **php artisan test**: ✅ 558 tests pass, 13 skipped
+- **npm run build**: ✅ No errors
+
+**DBP-030 COMPLETE**
