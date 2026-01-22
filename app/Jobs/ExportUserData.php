@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Mail\DataExportReady;
+use App\Models\AuditLog;
 use App\Models\User;
 use App\Services\DataExportService;
 use Illuminate\Bus\Queueable;
@@ -10,6 +11,8 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class ExportUserData implements ShouldQueue
@@ -39,27 +42,55 @@ class ExportUserData implements ShouldQueue
      */
     public function handle(DataExportService $exportService): void
     {
-        $zipPath = $exportService->exportUserData($this->user);
+        $recentExportLog = AuditLog::where('user_id', $this->user->id)
+            ->where('event_type', 'data_exported')
+            ->where('created_at', '>=', now()->subHour())
+            ->first();
 
-        // Store the export path in a way that can be accessed later
+        if ($recentExportLog) {
+            Log::info('ExportUserData: Recent export exists, skipping', [
+                'user_id' => $this->user->id,
+                'existing_log_id' => $recentExportLog->id,
+                'existing_export_path' => $recentExportLog->metadata['export_path'] ?? null,
+            ]);
+
+            return;
+        }
+
+        $zipPath = $exportService->exportUserData($this->user);
         $relativePath = str_replace(storage_path('app/'), '', $zipPath);
 
-        // Log the export
-        \App\Models\AuditLog::create([
-            'user_id' => $this->user->id,
-            'landlord_id' => $this->user->isLandlord() ? $this->user->id : $this->user->landlord_id,
-            'event_type' => 'data_exported',
-            'auditable_type' => User::class,
-            'auditable_id' => $this->user->id,
-            'metadata' => [
-                'export_path' => $relativePath,
-                'compliance' => ['gdpr_article_20', 'kenya_dpa_section_26'],
-            ],
-            'ip_address' => null, // Background job
-            'user_agent' => 'Background Job',
-        ]);
+        DB::transaction(function () use ($relativePath) {
+            $existingLog = AuditLog::where('user_id', $this->user->id)
+                ->where('event_type', 'data_exported')
+                ->where('created_at', '>=', now()->subHour())
+                ->lockForUpdate()
+                ->first();
 
-        // Send email notification if requested
+            if ($existingLog) {
+                Log::info('ExportUserData: Export created by concurrent job, skipping audit log', [
+                    'user_id' => $this->user->id,
+                ]);
+
+                return;
+            }
+
+            AuditLog::create([
+                'user_id' => $this->user->id,
+                'landlord_id' => $this->user->isLandlord() ? $this->user->id : $this->user->landlord_id,
+                'event_type' => 'data_exported',
+                'auditable_type' => User::class,
+                'auditable_id' => $this->user->id,
+                'metadata' => [
+                    'export_path' => $relativePath,
+                    'compliance' => ['gdpr_article_20', 'kenya_dpa_section_26'],
+                    'job_id' => $this->job?->uuid(),
+                ],
+                'ip_address' => null,
+                'user_agent' => 'Background Job',
+            ]);
+        });
+
         if ($this->sendEmail) {
             Mail::to($this->user->email)->queue(new DataExportReady($this->user, $relativePath));
         }
@@ -70,7 +101,8 @@ class ExportUserData implements ShouldQueue
      */
     public function failed(\Throwable $exception): void
     {
-        \Log::error('Data export failed for user '.$this->user->id, [
+        Log::error('ExportUserData: Data export failed', [
+            'user_id' => $this->user->id,
             'error' => $exception->getMessage(),
         ]);
     }

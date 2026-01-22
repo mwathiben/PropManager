@@ -127,6 +127,23 @@ class SendNotificationJob implements ShouldQueue
      */
     protected function handleNewNotification(NotificationService $notificationService): void
     {
+        $existingNotification = Notification::where('recipient_id', $this->recipientId)
+            ->where('type', $this->type)
+            ->where('subject', $this->subject)
+            ->where('landlord_id', $this->landlordId)
+            ->where('created_at', '>=', now()->subMinutes(5))
+            ->first();
+
+        if ($existingNotification) {
+            Log::info('SendNotificationJob: Duplicate notification detected, skipping', [
+                'recipient_id' => $this->recipientId,
+                'type' => $this->type,
+                'existing_notification_id' => $existingNotification->id,
+            ]);
+
+            return;
+        }
+
         $notificationService->send(
             $this->recipientId,
             $this->type,

@@ -11,12 +11,30 @@ use App\Models\Lease;
 use App\Models\WaterReading;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class InvoiceService
 {
     public function generateInvoiceForLease(Lease $lease, Carbon $billingPeriod)
     {
         return DB::transaction(function () use ($lease, $billingPeriod) {
+            $existingInvoice = Invoice::where('lease_id', $lease->id)
+                ->whereYear('billing_period_start', $billingPeriod->year)
+                ->whereMonth('billing_period_start', $billingPeriod->month)
+                ->lockForUpdate()
+                ->first();
+
+            if ($existingInvoice) {
+                Log::info('InvoiceService: Invoice already exists for billing period', [
+                    'lease_id' => $lease->id,
+                    'billing_period' => $billingPeriod->format('Y-m'),
+                    'existing_invoice_id' => $existingInvoice->id,
+                    'existing_invoice_number' => $existingInvoice->invoice_number,
+                ]);
+
+                return $existingInvoice;
+            }
+
             $dueDate = $billingPeriod->copy()->addMonth()->startOfMonth()->addDays(5);
 
             $rentDue = $lease->rent_amount;

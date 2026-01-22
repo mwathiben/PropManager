@@ -9,6 +9,7 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class GenerateInvoicePdf implements ShouldQueue
 {
@@ -32,11 +33,34 @@ class GenerateInvoicePdf implements ShouldQueue
             return;
         }
 
-        try {
-            $pdfService->savePdfAndRecord($invoice);
-        } catch (\Exception $e) {
-            Log::error('GenerateInvoicePdf failed', [
+        if ($invoice->pdf_path && Storage::disk('local')->exists($invoice->pdf_path)) {
+            Log::info('GenerateInvoicePdf: PDF already exists, skipping regeneration', [
                 'invoice_id' => $this->invoiceId,
+                'invoice_number' => $invoice->invoice_number,
+                'pdf_path' => $invoice->pdf_path,
+                'pdf_generated_at' => $invoice->pdf_generated_at?->toDateTimeString(),
+            ]);
+
+            return;
+        }
+
+        try {
+            Log::info('GenerateInvoicePdf: Generating PDF', [
+                'invoice_id' => $this->invoiceId,
+                'invoice_number' => $invoice->invoice_number,
+            ]);
+
+            $pdfService->savePdfAndRecord($invoice);
+
+            Log::info('GenerateInvoicePdf: PDF generated successfully', [
+                'invoice_id' => $this->invoiceId,
+                'invoice_number' => $invoice->invoice_number,
+                'pdf_path' => $invoice->fresh()->pdf_path,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('GenerateInvoicePdf: Failed', [
+                'invoice_id' => $this->invoiceId,
+                'invoice_number' => $invoice->invoice_number,
                 'error' => $e->getMessage(),
             ]);
 

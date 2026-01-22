@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\Notification;
 use App\Models\NotificationSchedule;
 use App\Models\User;
 use App\Services\NotificationService;
@@ -29,11 +30,17 @@ class SendScheduledNotificationsJob implements ShouldQueue
      */
     public function handle(NotificationService $notificationService): void
     {
+        Log::info('SendScheduledNotificationsJob: Starting', [
+            'schedule_id' => $this->schedule->id,
+            'recipient_id' => $this->recipientId,
+            'channels' => $this->schedule->channels,
+        ]);
+
         try {
             $recipient = User::find($this->recipientId);
 
             if (! $recipient) {
-                Log::warning('Scheduled notification recipient not found', [
+                Log::warning('SendScheduledNotificationsJob: Recipient not found', [
                     'recipient_id' => $this->recipientId,
                     'schedule_id' => $this->schedule->id,
                 ]);
@@ -41,28 +48,39 @@ class SendScheduledNotificationsJob implements ShouldQueue
                 return;
             }
 
-            // Send via all configured channels for this schedule
-            foreach ($this->schedule->channels as $channel) {
-                try {
-                    $notificationService->send(
-                        $this->recipientId,
-                        $this->schedule->type,
-                        $this->subject,
-                        $this->message,
-                        $this->context,
-                        $this->schedule->landlord_id
-                    );
-                } catch (\Exception $e) {
-                    Log::error('Scheduled notification channel failed', [
-                        'channel' => $channel,
-                        'recipient_id' => $this->recipientId,
-                        'schedule_id' => $this->schedule->id,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
+            $existingNotification = Notification::where('recipient_id', $this->recipientId)
+                ->where('type', $this->schedule->type)
+                ->whereJsonContains('data->schedule_id', $this->schedule->id)
+                ->whereIn('status', ['sent', 'delivered', 'read', 'pending'])
+                ->first();
+
+            if ($existingNotification) {
+                Log::info('SendScheduledNotificationsJob: Already sent for this schedule', [
+                    'schedule_id' => $this->schedule->id,
+                    'recipient_id' => $this->recipientId,
+                    'existing_notification_id' => $existingNotification->id,
+                ]);
+
+                return;
             }
+
+            $contextWithSchedule = array_merge($this->context, ['schedule_id' => $this->schedule->id]);
+
+            $notificationService->send(
+                $this->recipientId,
+                $this->schedule->type,
+                $this->subject,
+                $this->message,
+                $contextWithSchedule,
+                $this->schedule->landlord_id
+            );
+
+            Log::info('SendScheduledNotificationsJob: Completed', [
+                'schedule_id' => $this->schedule->id,
+                'recipient_id' => $this->recipientId,
+            ]);
         } catch (\Exception $e) {
-            Log::error('Scheduled notification job failed', [
+            Log::error('SendScheduledNotificationsJob: Failed', [
                 'recipient_id' => $this->recipientId,
                 'schedule_id' => $this->schedule->id,
                 'error' => $e->getMessage(),

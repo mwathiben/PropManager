@@ -1276,8 +1276,9 @@
       ],
       "verification": "Run same job twice; verify no duplicate data created",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1,
+      "completion_notes": "Added idempotency checks to: InvoiceService.generateInvoiceForLease() (duplicate invoice prevention with lockForUpdate), GenerateMonthlyInvoices command (skipped vs generated tracking), SendNotificationJob (5-minute deduplication window), SendBulkNotificationsJob (batch_id tracking), ExportUserData (1-hour recent export check), SendScheduledNotificationsJob (schedule_id tracking), GenerateInvoicePdf (existing PDF check). Also fixed pre-existing PHP 8.4 trait property conflict in PaymentReceived.php."
     },
     {
       "id": "DBP-029",

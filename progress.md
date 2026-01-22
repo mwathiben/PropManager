@@ -9149,3 +9149,55 @@ Critical dispatch locations inside transactions:
 - **php artisan test --filter=TransactionRollbackTest**: ✅ 6 tests passed
 
 **DBP-026 COMPLETE**
+
+---
+
+## DBP-027: Ensure All Jobs Are Idempotent
+**Status:** PASSED
+**Date:** 2026-01-22
+**Attempts:** 1
+
+### Implementation Summary
+
+Added idempotency checks to all queued jobs and the invoice generation command to ensure they're safe to retry without creating duplicate data.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Services/InvoiceService.php` | Added duplicate invoice check with `lockForUpdate()` in `generateInvoiceForLease()` |
+| `app/Console/Commands/GenerateMonthlyInvoices.php` | Added skipped vs generated stats tracking, structured logging |
+| `app/Jobs/SendNotificationJob.php` | Added 5-minute deduplication window check in `handleNewNotification()` |
+| `app/Jobs/SendBulkNotificationsJob.php` | Added `batchId` tracking and recipient filtering |
+| `app/Jobs/ExportUserData.php` | Added 1-hour recent export check with `lockForUpdate()` |
+| `app/Jobs/SendScheduledNotificationsJob.php` | Added `schedule_id` tracking to prevent duplicate sends |
+| `app/Jobs/GenerateInvoicePdf.php` | Added PDF existence check before regeneration |
+| `app/Mail/PaymentReceived.php` | Fixed PHP 8.4 trait property conflict (set `$afterCommit` in constructor) |
+
+### Idempotency Patterns Applied
+
+| Job/Command | Pattern Used |
+|-------------|--------------|
+| InvoiceService | `lockForUpdate()` + billing period unique check |
+| GenerateMonthlyInvoices | `wasRecentlyCreated` flag to distinguish new vs existing |
+| SendNotificationJob | 5-minute window duplicate check on recipient+type+subject |
+| SendBulkNotificationsJob | UUID batch_id tracking in notification data |
+| ExportUserData | 1-hour window + `lockForUpdate()` for race condition prevention |
+| SendScheduledNotificationsJob | schedule_id in data to prevent duplicate scheduled sends |
+| GenerateInvoicePdf | Storage::exists() check on pdf_path |
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| FallbackNotificationJob checks if notification already sent | ✅ Already had excellent idempotency |
+| GenerateMonthlyInvoices checks if invoice exists for month | ✅ Added to InvoiceService with lockForUpdate |
+| Payment processing jobs check payment status before processing | ✅ Already had idempotency (PaystackService, MpesaService) |
+| All jobs log with context for debugging | ✅ Added structured logging to all jobs |
+
+### Verification Results
+- **./vendor/bin/pint --test**: ✅ 658 files passed
+- **php artisan test --parallel**: ✅ 564 tests passed (13 skipped)
+- **npm run build**: ✅ Built in 23.55s
+
+**DBP-027 COMPLETE**
