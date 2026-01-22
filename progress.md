@@ -9612,3 +9612,62 @@ Created 14 model factories for notification and ticket-related models following 
 - **php artisan test --parallel**: ✅ 571 tests pass, 13 skipped
 
 **DBP-032 COMPLETE**
+
+---
+
+## Session: 2026-01-22
+**Task**: DBP-041 - Audit Logs for Secrets and Add Structured Context
+**Status**: COMPLETED
+
+### Summary
+
+Audited all 207 Log:: calls across 45 files. **No secrets are being logged** - the codebase already has excellent security practices. Created documentation in CLAUDE.md to preserve these patterns.
+
+### Audit Findings
+
+**Existing Security Mechanisms (No Changes Needed)**:
+
+| Component | Method | Coverage |
+|-----------|--------|----------|
+| PaystackService | `redactSecrets()` lines 599-609 | API keys, Bearer tokens, authorization headers |
+| MpesaService | `redactSecrets()` lines 440-451 | AccessToken, SecurityCredential, passkey, Basic auth |
+| MpesaWebhookController | `substr($phone, -4)` | Phone numbers masked to last 4 digits |
+| DomainException | `sanitizeForLogging()` line 145 | Central PII/secret stripping before logging |
+| SecurityLogger | Dual-logging with context | Structured context for security events |
+
+**Redaction Patterns Implemented**:
+- `secret_key`, `authorization`, `Bearer`, `password`, `token`, `api_key` (PaystackService)
+- `SecurityCredential`, `AccessToken`, `access_token`, `passkey` (MpesaService)
+- `password`, `secret`, `ssn`, `credentials`, `credit_card`, `cvv`, `private_key` (DomainException)
+
+### Work Done
+
+1. **Audited Log:: calls** - 207 calls in 45 files, all using structured context arrays
+2. **Verified no secrets exposed** - Grepped for sensitive patterns in Log:: calls, zero matches
+3. **Added CLAUDE.md documentation** - New "Logging & Error Handling" section documenting:
+   - Use `redactSecrets()` for external API responses
+   - Mask PII to last 4 characters
+   - Always use structured context arrays
+   - Use DomainException for business exceptions
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `CLAUDE.md` | ADD "Logging & Error Handling" section after N+1 Query Detection |
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| Audit all Log:: calls for secret exposure | ✅ 207 calls audited, 0 secrets found |
+| Redact API keys, tokens, passwords from logs | ✅ Already implemented via redactSecrets() |
+| Add context arrays to log calls | ✅ Already standard practice |
+| Payment gateway logs redact sensitive data | ✅ PaystackService, MpesaService have redaction |
+| Create logging guidelines in CLAUDE.md | ✅ Added section with patterns and references |
+
+### Verification Results
+- **vendor/bin/pint --test**: ✅ 688 files pass
+- **php artisan test --parallel**: ✅ 571 tests pass, 13 skipped
+
+**DBP-041 COMPLETE**

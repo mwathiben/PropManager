@@ -334,6 +334,44 @@ foreach ($units as $unit) {
 3. For conditional loading, use `->load('relation')` or `->loadMissing('relation')`
 4. See DBP-020 in progress.md for optimization patterns
 
+### Logging & Error Handling
+
+**Never log secrets.** The codebase has established patterns for secure logging:
+
+1. **Use `redactSecrets()` for external API responses**
+   - `PaystackService::redactSecrets()` (line 599-609)
+   - `MpesaService::redactSecrets()` (line 440-451)
+   - Patterns redacted: `secret_key`, `authorization`, `Bearer`, `password`, `token`, `api_key`
+
+2. **Mask PII to last 4 characters**
+   ```php
+   // Good - mask phone numbers
+   Log::info('Payment received', ['phone' => substr($phone, -4)]);
+
+   // Bad - full PII exposed
+   Log::info('Payment received', ['phone' => $phone]);
+   ```
+
+3. **Always use structured context arrays**
+   ```php
+   // Good - structured context
+   Log::error('Operation failed', [
+       'reference' => $reference,
+       'status' => $response->status(),
+       'error' => $e->getMessage(),
+   ]);
+
+   // Bad - concatenated strings
+   Log::error("Operation failed: $reference - " . $e->getMessage());
+   ```
+
+4. **Use DomainException for business exceptions**
+   - Automatically sanitizes context before logging (line 145)
+   - Strips: password, secret, ssn, token, api_key, credentials, credit_card
+   - Masks: email, phone, mobile, account_number, national_id
+
+**Reference implementations**: See `app/Services/PaystackService.php`, `app/Services/MpesaService.php`, `app/Exceptions/DomainException.php`
+
 ### Frontend
 - Use Ziggy for route generation in Vue: `route('leases.create', unit.id)`
 - Inertia props are passed from controllers, accessed via `defineProps()`
