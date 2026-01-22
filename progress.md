@@ -9423,3 +9423,61 @@ public function forLease(Lease $lease): static
 - **php artisan test --parallel**: ✅ 564 tests passed, 13 skipped
 
 **DBP-035a COMPLETE**
+
+---
+
+## Session: 2026-01-22T12:00:00
+**Task**: DBP-035b - Create Factories: Notification & Ticket Models (14)
+**Status**: COMPLETED
+
+### Work Done
+Created 14 model factories for notification and ticket-related models following established patterns from DBP-035a.
+
+### Files Created
+
+**Ticket System (4 factories):**
+| Factory | States/Helpers |
+|---------|----------------|
+| TicketFactory | open(), acknowledged(), inProgress(), resolved(), closed(), cancelled(), lowPriority(), mediumPriority(), highPriority(), urgent(), issue(), complaint(), forBuilding(), forUnit(), reportedBy(), assignedTo(), forLandlord() |
+| TicketCommentFactory | internal(), public(), forTicket(), byUser(), forLandlord() |
+| TicketActivityFactory | created(), statusChanged(), assigned(), commented(), resolved(), closed(), feedbackSubmitted(), systemAction(), forTicket(), byUser(), forLandlord() |
+| TicketFeedbackFactory | excellent(), good(), average(), poor(), veryPoor(), forTicket(), byUser() |
+
+**Core Notifications (3 factories):**
+| Factory | States/Helpers |
+|---------|----------------|
+| NotificationFactory | pending(), sent(), delivered(), read(), failed(), email(), sms(), whatsapp(), push(), inApp(), rentReminder(), arrearsNotice(), invoice(), receipt(), leaseExpiry(), caretakerInvitation(), tenantInvitation(), scheduled(), suppressedByQuietHours(), forLandlord(), forRecipient(), withFallback() |
+| NotificationTemplateFactory | active(), inactive(), default(), rentReminder(), arrearsNotice(), invoice(), receipt(), leaseExpiry(), forLandlord() |
+| NotificationScheduleFactory | active(), inactive(), daysBeforeDue(), daysAfterOverdue(), daysBeforeExpiry(), rentReminder(), arrearsNotice(), leaseExpiry(), withEmailAndSms(), withAllChannels(), withTemplate(), lastRan(), forLandlord() |
+
+**Notification Config (3 factories):**
+| Factory | States/Helpers |
+|---------|----------------|
+| NotificationPreferenceFactory | allTypesEnabled(), allTypesDisabled(), emailOnly(), smsOnly(), allChannels(), noChannels(), withQuietHours(), withCustomQuietHours(), noQuietHours(), withWhatsApp(), forUser(), forLandlord() |
+| NotificationProviderConfigFactory | email(), sms(), smsTwilio(), whatsapp(), push(), enabled(), disabled(), verified(), unverified(), configured(), forLandlord() |
+| NotificationDefaultsFactory | withQuietHours(), noQuietHours(), highVolume(), lowVolume(), allChannels(), emailOnly(), allTypesEnabled(), minimalTypes(), withSender(), withArchiveDays(), trackingDisabled(), forLandlord() |
+
+**Supporting Models (4 factories):**
+| Factory | States/Helpers |
+|---------|----------------|
+| TenantMessageFactory | whatsapp(), sms(), received(), processed(), actionTaken(), ignored(), yesResponse(), noResponse(), helpRequest(), issueReport(), paymentInquiry(), withMedia(), forNotification(), forTicket(), forUser(), forLandlord() |
+| PushSubscriptionFactory | active(), expired(), neverExpires(), expiringIn(), chrome(), firefox(), safari(), mobile(), forUser() |
+| DocumentFactory | leaseAgreement(), tenantId(), tenantPassport(), bankStatement(), payslip(), referenceLetter(), utilityBill(), other(), pdf(), image(), forLease(), forTicket(), forUser(), uploadedBy(), forLandlord(), unattached() |
+| ImportFactory | processing(), completed(), failed(), withErrors(), perfectImport(), tenantsImport(), unitsImport(), paymentsImport(), waterReadingsImport(), withRowCount(), importedBy(), forLandlord() |
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| Ticket, TicketComment, TicketActivity, TicketFeedback factories | ✅ |
+| Notification, NotificationSchedule, NotificationTemplate factories | ✅ |
+| NotificationPreference, NotificationProviderConfig, NotificationDefaults factories | ✅ |
+| TenantMessage, PushSubscription factories | ✅ |
+| Document, Import factories | ✅ |
+| All factories include proper relationships | ✅ |
+
+### Verification Results
+- **./vendor/bin/pint database/factories/ --test**: ✅ 37 files pass
+- **php artisan test --parallel**: ✅ 564 tests passed, 13 skipped
+
+**DBP-035b COMPLETE**
