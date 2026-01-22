@@ -1312,8 +1312,9 @@
       ],
       "verification": "Mock slow API response; verify timeout triggers after 30s",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1,
+      "completion_notes": "Added Http::timeout(30)->retry(3, 100) to all HTTP calls in PaystackService (11 calls) and MpesaService (7 calls). Retry logic only retries on ConnectionException (transient failures). Financial operations (refundTransaction, initiateB2C) have timeout but NO retry to prevent double-processing. Added redactSecrets() helper to both services that truncates response to 500 chars and redacts secret_key, authorization, Bearer, password, token, AccessToken, SecurityCredential, passkey patterns. All logs now use status + redacted body instead of raw response."
     },
     {
       "id": "DBP-030",

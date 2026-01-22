@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -12,6 +13,12 @@ class PaystackService
     protected $publicKey;
 
     protected $baseUrl;
+
+    private const TIMEOUT_SECONDS = 30;
+
+    private const RETRY_ATTEMPTS = 3;
+
+    private const RETRY_DELAY_MS = 100;
 
     public function __construct()
     {
@@ -34,29 +41,44 @@ class PaystackService
     public function initializeTransaction(array $data)
     {
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.$this->secretKey,
-                'Content-Type' => 'application/json',
-            ])->post($this->baseUrl.'/transaction/initialize', [
-                'email' => $data['email'],
-                'amount' => $data['amount'] * 100, // Convert to kobo
-                'reference' => $data['reference'],
-                'callback_url' => $data['callback_url'] ?? route('payments.callback'),
-                'metadata' => $data['metadata'] ?? [],
-            ]);
+            $response = Http::timeout(self::TIMEOUT_SECONDS)
+                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+                    return $exception instanceof ConnectionException;
+                }, throw: false)
+                ->withHeaders([
+                    'Authorization' => 'Bearer '.$this->secretKey,
+                    'Content-Type' => 'application/json',
+                ])->post($this->baseUrl.'/transaction/initialize', [
+                    'email' => $data['email'],
+                    'amount' => $data['amount'] * 100, // Convert to kobo
+                    'reference' => $data['reference'],
+                    'callback_url' => $data['callback_url'] ?? route('payments.callback'),
+                    'metadata' => $data['metadata'] ?? [],
+                ]);
 
             if ($response->successful()) {
                 return $response->json();
             }
 
             Log::error('Paystack initialization failed', [
-                'response' => $response->body(),
                 'status' => $response->status(),
+                'body' => $this->redactSecrets($response->body()),
+                'reference' => $data['reference'] ?? null,
+            ]);
+
+            return null;
+        } catch (ConnectionException $e) {
+            Log::error('Paystack initialization connection failed', [
+                'error' => $e->getMessage(),
+                'reference' => $data['reference'] ?? null,
             ]);
 
             return null;
         } catch (\Exception $e) {
-            Log::error('Paystack initialization exception', ['error' => $e->getMessage()]);
+            Log::error('Paystack initialization exception', [
+                'error' => $e->getMessage(),
+                'reference' => $data['reference'] ?? null,
+            ]);
 
             return null;
         }
@@ -70,9 +92,13 @@ class PaystackService
     public function verifyTransaction(string $reference)
     {
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.$this->secretKey,
-            ])->get($this->baseUrl.'/transaction/verify/'.$reference);
+            $response = Http::timeout(self::TIMEOUT_SECONDS)
+                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+                    return $exception instanceof ConnectionException;
+                }, throw: false)
+                ->withHeaders([
+                    'Authorization' => 'Bearer '.$this->secretKey,
+                ])->get($this->baseUrl.'/transaction/verify/'.$reference);
 
             if ($response->successful()) {
                 return $response->json();
@@ -80,7 +106,15 @@ class PaystackService
 
             Log::error('Paystack verification failed', [
                 'reference' => $reference,
-                'response' => $response->body(),
+                'status' => $response->status(),
+                'body' => $this->redactSecrets($response->body()),
+            ]);
+
+            return null;
+        } catch (ConnectionException $e) {
+            Log::error('Paystack verification connection failed', [
+                'reference' => $reference,
+                'error' => $e->getMessage(),
             ]);
 
             return null;
@@ -122,31 +156,46 @@ class PaystackService
     public function createSubaccount(array $data): ?array
     {
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.$this->secretKey,
-                'Content-Type' => 'application/json',
-            ])->post($this->baseUrl.'/subaccount', [
-                'business_name' => $data['business_name'],
-                'bank_code' => $data['bank_code'],
-                'account_number' => $data['account_number'],
-                'percentage_charge' => $data['percentage_charge'],
-                'primary_contact_email' => $data['email'] ?? null,
-                'primary_contact_phone' => $data['phone'] ?? null,
-                'metadata' => $data['metadata'] ?? [],
-            ]);
+            $response = Http::timeout(self::TIMEOUT_SECONDS)
+                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+                    return $exception instanceof ConnectionException;
+                }, throw: false)
+                ->withHeaders([
+                    'Authorization' => 'Bearer '.$this->secretKey,
+                    'Content-Type' => 'application/json',
+                ])->post($this->baseUrl.'/subaccount', [
+                    'business_name' => $data['business_name'],
+                    'bank_code' => $data['bank_code'],
+                    'account_number' => $data['account_number'],
+                    'percentage_charge' => $data['percentage_charge'],
+                    'primary_contact_email' => $data['email'] ?? null,
+                    'primary_contact_phone' => $data['phone'] ?? null,
+                    'metadata' => $data['metadata'] ?? [],
+                ]);
 
             if ($response->successful()) {
                 return $response->json();
             }
 
             Log::error('Paystack subaccount creation failed', [
-                'response' => $response->body(),
                 'status' => $response->status(),
+                'body' => $this->redactSecrets($response->body()),
+                'business_name' => $data['business_name'] ?? null,
+            ]);
+
+            return null;
+        } catch (ConnectionException $e) {
+            Log::error('Paystack subaccount creation connection failed', [
+                'error' => $e->getMessage(),
+                'business_name' => $data['business_name'] ?? null,
             ]);
 
             return null;
         } catch (\Exception $e) {
-            Log::error('Paystack subaccount creation exception', ['error' => $e->getMessage()]);
+            Log::error('Paystack subaccount creation exception', [
+                'error' => $e->getMessage(),
+                'business_name' => $data['business_name'] ?? null,
+            ]);
 
             return null;
         }
@@ -158,10 +207,14 @@ class PaystackService
     public function updateSubaccount(string $subaccountCode, array $data): ?array
     {
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.$this->secretKey,
-                'Content-Type' => 'application/json',
-            ])->put($this->baseUrl.'/subaccount/'.$subaccountCode, $data);
+            $response = Http::timeout(self::TIMEOUT_SECONDS)
+                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+                    return $exception instanceof ConnectionException;
+                }, throw: false)
+                ->withHeaders([
+                    'Authorization' => 'Bearer '.$this->secretKey,
+                    'Content-Type' => 'application/json',
+                ])->put($this->baseUrl.'/subaccount/'.$subaccountCode, $data);
 
             if ($response->successful()) {
                 return $response->json();
@@ -169,12 +222,23 @@ class PaystackService
 
             Log::error('Paystack subaccount update failed', [
                 'subaccount_code' => $subaccountCode,
-                'response' => $response->body(),
+                'status' => $response->status(),
+                'body' => $this->redactSecrets($response->body()),
+            ]);
+
+            return null;
+        } catch (ConnectionException $e) {
+            Log::error('Paystack subaccount update connection failed', [
+                'subaccount_code' => $subaccountCode,
+                'error' => $e->getMessage(),
             ]);
 
             return null;
         } catch (\Exception $e) {
-            Log::error('Paystack subaccount update exception', ['error' => $e->getMessage()]);
+            Log::error('Paystack subaccount update exception', [
+                'subaccount_code' => $subaccountCode,
+                'error' => $e->getMessage(),
+            ]);
 
             return null;
         }
@@ -186,9 +250,13 @@ class PaystackService
     public function getSubaccount(string $subaccountCode): ?array
     {
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.$this->secretKey,
-            ])->get($this->baseUrl.'/subaccount/'.$subaccountCode);
+            $response = Http::timeout(self::TIMEOUT_SECONDS)
+                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+                    return $exception instanceof ConnectionException;
+                }, throw: false)
+                ->withHeaders([
+                    'Authorization' => 'Bearer '.$this->secretKey,
+                ])->get($this->baseUrl.'/subaccount/'.$subaccountCode);
 
             if ($response->successful()) {
                 return $response->json();
@@ -196,12 +264,23 @@ class PaystackService
 
             Log::error('Paystack subaccount fetch failed', [
                 'subaccount_code' => $subaccountCode,
-                'response' => $response->body(),
+                'status' => $response->status(),
+                'body' => $this->redactSecrets($response->body()),
+            ]);
+
+            return null;
+        } catch (ConnectionException $e) {
+            Log::error('Paystack subaccount fetch connection failed', [
+                'subaccount_code' => $subaccountCode,
+                'error' => $e->getMessage(),
             ]);
 
             return null;
         } catch (\Exception $e) {
-            Log::error('Paystack subaccount fetch exception', ['error' => $e->getMessage()]);
+            Log::error('Paystack subaccount fetch exception', [
+                'subaccount_code' => $subaccountCode,
+                'error' => $e->getMessage(),
+            ]);
 
             return null;
         }
@@ -213,11 +292,15 @@ class PaystackService
     public function listBanks(string $country = 'kenya'): ?array
     {
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.$this->secretKey,
-            ])->get($this->baseUrl.'/bank', [
-                'country' => $country,
-            ]);
+            $response = Http::timeout(self::TIMEOUT_SECONDS)
+                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+                    return $exception instanceof ConnectionException;
+                }, throw: false)
+                ->withHeaders([
+                    'Authorization' => 'Bearer '.$this->secretKey,
+                ])->get($this->baseUrl.'/bank', [
+                    'country' => $country,
+                ]);
 
             if ($response->successful()) {
                 return $response->json();
@@ -225,12 +308,23 @@ class PaystackService
 
             Log::error('Paystack list banks failed', [
                 'country' => $country,
-                'response' => $response->body(),
+                'status' => $response->status(),
+                'body' => $this->redactSecrets($response->body()),
+            ]);
+
+            return null;
+        } catch (ConnectionException $e) {
+            Log::error('Paystack list banks connection failed', [
+                'country' => $country,
+                'error' => $e->getMessage(),
             ]);
 
             return null;
         } catch (\Exception $e) {
-            Log::error('Paystack list banks exception', ['error' => $e->getMessage()]);
+            Log::error('Paystack list banks exception', [
+                'country' => $country,
+                'error' => $e->getMessage(),
+            ]);
 
             return null;
         }
@@ -242,12 +336,16 @@ class PaystackService
     public function resolveAccountNumber(string $accountNumber, string $bankCode): ?array
     {
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.$this->secretKey,
-            ])->get($this->baseUrl.'/bank/resolve', [
-                'account_number' => $accountNumber,
-                'bank_code' => $bankCode,
-            ]);
+            $response = Http::timeout(self::TIMEOUT_SECONDS)
+                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+                    return $exception instanceof ConnectionException;
+                }, throw: false)
+                ->withHeaders([
+                    'Authorization' => 'Bearer '.$this->secretKey,
+                ])->get($this->baseUrl.'/bank/resolve', [
+                    'account_number' => $accountNumber,
+                    'bank_code' => $bankCode,
+                ]);
 
             if ($response->successful()) {
                 return $response->json();
@@ -256,12 +354,25 @@ class PaystackService
             Log::error('Paystack account resolution failed', [
                 'account_number' => substr($accountNumber, -4),
                 'bank_code' => $bankCode,
-                'response' => $response->body(),
+                'status' => $response->status(),
+                'body' => $this->redactSecrets($response->body()),
+            ]);
+
+            return null;
+        } catch (ConnectionException $e) {
+            Log::error('Paystack account resolution connection failed', [
+                'account_number' => substr($accountNumber, -4),
+                'bank_code' => $bankCode,
+                'error' => $e->getMessage(),
             ]);
 
             return null;
         } catch (\Exception $e) {
-            Log::error('Paystack account resolution exception', ['error' => $e->getMessage()]);
+            Log::error('Paystack account resolution exception', [
+                'account_number' => substr($accountNumber, -4),
+                'bank_code' => $bankCode,
+                'error' => $e->getMessage(),
+            ]);
 
             return null;
         }
@@ -317,28 +428,46 @@ class PaystackService
                 $payload['split_code'] = $data['split_code'];
             }
 
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.$this->secretKey,
-                'Content-Type' => 'application/json',
-            ])->post($this->baseUrl.'/transaction/initialize', $payload);
+            $response = Http::timeout(self::TIMEOUT_SECONDS)
+                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+                    return $exception instanceof ConnectionException;
+                }, throw: false)
+                ->withHeaders([
+                    'Authorization' => 'Bearer '.$this->secretKey,
+                    'Content-Type' => 'application/json',
+                ])->post($this->baseUrl.'/transaction/initialize', $payload);
 
             if ($response->successful()) {
                 return $response->json();
             }
 
             Log::error('Paystack split transaction init failed', [
-                'response' => $response->body(),
                 'status' => $response->status(),
+                'body' => $this->redactSecrets($response->body()),
+                'reference' => $data['reference'] ?? null,
+            ]);
+
+            return null;
+        } catch (ConnectionException $e) {
+            Log::error('Paystack split transaction connection failed', [
+                'error' => $e->getMessage(),
+                'reference' => $data['reference'] ?? null,
             ]);
 
             return null;
         } catch (\Exception $e) {
-            Log::error('Paystack split transaction exception', ['error' => $e->getMessage()]);
+            Log::error('Paystack split transaction exception', [
+                'error' => $e->getMessage(),
+                'reference' => $data['reference'] ?? null,
+            ]);
 
             return null;
         }
     }
 
+    /**
+     * Refund a transaction (NO RETRY - financial operation)
+     */
     public function refundTransaction(string $reference, ?float $amount = null): ?array
     {
         try {
@@ -348,10 +477,12 @@ class PaystackService
                 $data['amount'] = (int) ($amount * 100);
             }
 
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.$this->secretKey,
-                'Content-Type' => 'application/json',
-            ])->post($this->baseUrl.'/refund', $data);
+            // NO RETRY for refunds - financial operation must not be duplicated
+            $response = Http::timeout(self::TIMEOUT_SECONDS)
+                ->withHeaders([
+                    'Authorization' => 'Bearer '.$this->secretKey,
+                    'Content-Type' => 'application/json',
+                ])->post($this->baseUrl.'/refund', $data);
 
             if ($response->successful() && $response->json('status')) {
                 return $response->json('data');
@@ -359,7 +490,15 @@ class PaystackService
 
             Log::error('Paystack refund failed', [
                 'reference' => $reference,
-                'response' => $response->json(),
+                'status' => $response->status(),
+                'body' => $this->redactSecrets(json_encode($response->json())),
+            ]);
+
+            return null;
+        } catch (ConnectionException $e) {
+            Log::error('Paystack refund connection failed', [
+                'reference' => $reference,
+                'error' => $e->getMessage(),
             ]);
 
             return null;
@@ -376,13 +515,29 @@ class PaystackService
     public function getRefund(string $refundId): ?array
     {
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.$this->secretKey,
-            ])->get($this->baseUrl.'/refund/'.$refundId);
+            $response = Http::timeout(self::TIMEOUT_SECONDS)
+                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+                    return $exception instanceof ConnectionException;
+                }, throw: false)
+                ->withHeaders([
+                    'Authorization' => 'Bearer '.$this->secretKey,
+                ])->get($this->baseUrl.'/refund/'.$refundId);
 
             if ($response->successful()) {
                 return $response->json('data');
             }
+
+            Log::warning('Paystack get refund failed', [
+                'refund_id' => $refundId,
+                'status' => $response->status(),
+            ]);
+
+            return null;
+        } catch (ConnectionException $e) {
+            Log::error('Paystack get refund connection failed', [
+                'refund_id' => $refundId,
+                'error' => $e->getMessage(),
+            ]);
 
             return null;
         } catch (\Exception $e) {
@@ -403,19 +558,53 @@ class PaystackService
                 $params['reference'] = $reference;
             }
 
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.$this->secretKey,
-            ])->get($this->baseUrl.'/refund', $params);
+            $response = Http::timeout(self::TIMEOUT_SECONDS)
+                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+                    return $exception instanceof ConnectionException;
+                }, throw: false)
+                ->withHeaders([
+                    'Authorization' => 'Bearer '.$this->secretKey,
+                ])->get($this->baseUrl.'/refund', $params);
 
             if ($response->successful()) {
                 return $response->json('data');
             }
 
+            Log::warning('Paystack list refunds failed', [
+                'reference' => $reference,
+                'status' => $response->status(),
+            ]);
+
+            return null;
+        } catch (ConnectionException $e) {
+            Log::error('Paystack list refunds connection failed', [
+                'reference' => $reference,
+                'error' => $e->getMessage(),
+            ]);
+
             return null;
         } catch (\Exception $e) {
-            Log::error('Paystack list refunds exception', ['error' => $e->getMessage()]);
+            Log::error('Paystack list refunds exception', [
+                'reference' => $reference,
+                'error' => $e->getMessage(),
+            ]);
 
             return null;
         }
+    }
+
+    /**
+     * Redact sensitive data from response body before logging
+     */
+    private function redactSecrets(string $body): string
+    {
+        $truncated = substr($body, 0, 500);
+
+        $patterns = [
+            '/("?(?:secret_key|authorization|Bearer|password|token|api_key|access_token)"?\s*[:=]\s*)"[^"]*"/i' => '$1"[REDACTED]"',
+            '/(Bearer\s+)[A-Za-z0-9._-]+/i' => '$1[REDACTED]',
+        ];
+
+        return preg_replace(array_keys($patterns), array_values($patterns), $truncated) ?? $truncated;
     }
 }

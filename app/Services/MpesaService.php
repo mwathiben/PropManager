@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\PaymentConfiguration;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -16,6 +17,12 @@ class MpesaService
     protected string $baseUrl;
 
     protected string $environment;
+
+    private const TIMEOUT_SECONDS = 30;
+
+    private const RETRY_ATTEMPTS = 3;
+
+    private const RETRY_DELAY_MS = 100;
 
     public function __construct()
     {
@@ -33,9 +40,13 @@ class MpesaService
             try {
                 $credentials = base64_encode("{$this->consumerKey}:{$this->consumerSecret}");
 
-                $response = Http::withHeaders([
-                    'Authorization' => 'Basic '.$credentials,
-                ])->get("{$this->baseUrl}/oauth/v1/generate?grant_type=client_credentials");
+                $response = Http::timeout(self::TIMEOUT_SECONDS)
+                    ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+                        return $exception instanceof ConnectionException;
+                    }, throw: false)
+                    ->withHeaders([
+                        'Authorization' => 'Basic '.$credentials,
+                    ])->get("{$this->baseUrl}/oauth/v1/generate?grant_type=client_credentials");
 
                 if ($response->successful()) {
                     return $response->json('access_token');
@@ -43,12 +54,20 @@ class MpesaService
 
                 Log::error('M-Pesa auth failed', [
                     'status' => $response->status(),
-                    'response' => $response->body(),
+                    'body' => $this->redactSecrets($response->body()),
+                ]);
+
+                return null;
+            } catch (ConnectionException $e) {
+                Log::error('M-Pesa auth connection failed', [
+                    'error' => $e->getMessage(),
                 ]);
 
                 return null;
             } catch (\Exception $e) {
-                Log::error('M-Pesa auth exception', ['error' => $e->getMessage()]);
+                Log::error('M-Pesa auth exception', [
+                    'error' => $e->getMessage(),
+                ]);
 
                 return null;
             }
@@ -81,22 +100,26 @@ class MpesaService
         $phone = $this->formatPhoneNumber($data['phone']);
 
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.$token,
-                'Content-Type' => 'application/json',
-            ])->post("{$this->baseUrl}/mpesa/stkpush/v1/processrequest", [
-                'BusinessShortCode' => $shortcode,
-                'Password' => $password,
-                'Timestamp' => $timestamp,
-                'TransactionType' => $transactionType,
-                'Amount' => (int) $data['amount'],
-                'PartyA' => $phone,
-                'PartyB' => $shortcode,
-                'PhoneNumber' => $phone,
-                'CallBackURL' => $data['callback_url'] ?? config('mpesa.stk.callback_url'),
-                'AccountReference' => $accountRef,
-                'TransactionDesc' => $data['description'] ?? 'Payment',
-            ]);
+            $response = Http::timeout(self::TIMEOUT_SECONDS)
+                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+                    return $exception instanceof ConnectionException;
+                }, throw: false)
+                ->withHeaders([
+                    'Authorization' => 'Bearer '.$token,
+                    'Content-Type' => 'application/json',
+                ])->post("{$this->baseUrl}/mpesa/stkpush/v1/processrequest", [
+                    'BusinessShortCode' => $shortcode,
+                    'Password' => $password,
+                    'Timestamp' => $timestamp,
+                    'TransactionType' => $transactionType,
+                    'Amount' => (int) $data['amount'],
+                    'PartyA' => $phone,
+                    'PartyB' => $shortcode,
+                    'PhoneNumber' => $phone,
+                    'CallBackURL' => $data['callback_url'] ?? config('mpesa.stk.callback_url'),
+                    'AccountReference' => $accountRef,
+                    'TransactionDesc' => $data['description'] ?? 'Payment',
+                ]);
 
             $result = $response->json();
 
@@ -111,13 +134,22 @@ class MpesaService
             }
 
             Log::error('M-Pesa STK Push failed', [
-                'response' => $result,
+                'body' => $this->redactSecrets(json_encode($result)),
                 'status' => $response->status(),
             ]);
 
             return $result;
+        } catch (ConnectionException $e) {
+            Log::error('M-Pesa STK Push connection failed', [
+                'error' => $e->getMessage(),
+                'phone' => substr($phone, -4),
+            ]);
+
+            return null;
         } catch (\Exception $e) {
-            Log::error('M-Pesa STK Push exception', ['error' => $e->getMessage()]);
+            Log::error('M-Pesa STK Push exception', [
+                'error' => $e->getMessage(),
+            ]);
 
             return null;
         }
@@ -136,19 +168,33 @@ class MpesaService
         $password = base64_encode($shortcode.$passkey.$timestamp);
 
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.$token,
-                'Content-Type' => 'application/json',
-            ])->post("{$this->baseUrl}/mpesa/stkpushquery/v1/query", [
-                'BusinessShortCode' => $shortcode,
-                'Password' => $password,
-                'Timestamp' => $timestamp,
-                'CheckoutRequestID' => $checkoutRequestId,
-            ]);
+            $response = Http::timeout(self::TIMEOUT_SECONDS)
+                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+                    return $exception instanceof ConnectionException;
+                }, throw: false)
+                ->withHeaders([
+                    'Authorization' => 'Bearer '.$token,
+                    'Content-Type' => 'application/json',
+                ])->post("{$this->baseUrl}/mpesa/stkpushquery/v1/query", [
+                    'BusinessShortCode' => $shortcode,
+                    'Password' => $password,
+                    'Timestamp' => $timestamp,
+                    'CheckoutRequestID' => $checkoutRequestId,
+                ]);
 
             return $response->json();
+        } catch (ConnectionException $e) {
+            Log::error('M-Pesa STK query connection failed', [
+                'checkout_request_id' => $checkoutRequestId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
         } catch (\Exception $e) {
-            Log::error('M-Pesa STK query exception', ['error' => $e->getMessage()]);
+            Log::error('M-Pesa STK query exception', [
+                'checkout_request_id' => $checkoutRequestId,
+                'error' => $e->getMessage(),
+            ]);
 
             return null;
         }
@@ -164,34 +210,54 @@ class MpesaService
         $config = $type === 'till' ? config('mpesa.till') : config('mpesa.c2b');
 
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.$token,
-                'Content-Type' => 'application/json',
-            ])->post("{$this->baseUrl}/mpesa/c2b/v1/registerurl", [
-                'ShortCode' => $config['shortcode'],
-                'ResponseType' => 'Completed',
-                'ConfirmationURL' => $config['confirmation_url'],
-                'ValidationURL' => $config['validation_url'],
-            ]);
+            $response = Http::timeout(self::TIMEOUT_SECONDS)
+                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+                    return $exception instanceof ConnectionException;
+                }, throw: false)
+                ->withHeaders([
+                    'Authorization' => 'Bearer '.$token,
+                    'Content-Type' => 'application/json',
+                ])->post("{$this->baseUrl}/mpesa/c2b/v1/registerurl", [
+                    'ShortCode' => $config['shortcode'],
+                    'ResponseType' => 'Completed',
+                    'ConfirmationURL' => $config['confirmation_url'],
+                    'ValidationURL' => $config['validation_url'],
+                ]);
 
             $result = $response->json();
 
             if ($response->successful()) {
-                Log::info("M-Pesa {$type} C2B URLs registered", ['response' => $result]);
+                Log::info("M-Pesa {$type} C2B URLs registered", [
+                    'body' => $this->redactSecrets(json_encode($result)),
+                ]);
 
                 return $result;
             }
 
-            Log::error("M-Pesa {$type} C2B registration failed", ['response' => $result]);
+            Log::error("M-Pesa {$type} C2B registration failed", [
+                'body' => $this->redactSecrets(json_encode($result)),
+                'status' => $response->status(),
+            ]);
 
             return $result;
+        } catch (ConnectionException $e) {
+            Log::error("M-Pesa {$type} C2B registration connection failed", [
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
         } catch (\Exception $e) {
-            Log::error("M-Pesa {$type} C2B registration exception", ['error' => $e->getMessage()]);
+            Log::error("M-Pesa {$type} C2B registration exception", [
+                'error' => $e->getMessage(),
+            ]);
 
             return null;
         }
     }
 
+    /**
+     * Initiate B2C payment (NO RETRY - financial operation)
+     */
     public function initiateB2C(string $phone, float $amount, string $reference, string $remarks): ?array
     {
         $token = $this->getAccessToken();
@@ -202,21 +268,23 @@ class MpesaService
         $phone = $this->formatPhoneNumber($phone);
 
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.$token,
-                'Content-Type' => 'application/json',
-            ])->post("{$this->baseUrl}/mpesa/b2c/v1/paymentrequest", [
-                'InitiatorName' => config('mpesa.b2c.initiator_name'),
-                'SecurityCredential' => config('mpesa.b2c.security_credential'),
-                'CommandID' => 'BusinessPayment',
-                'Amount' => (int) $amount,
-                'PartyA' => config('mpesa.b2c.shortcode'),
-                'PartyB' => $phone,
-                'Remarks' => $remarks,
-                'QueueTimeOutURL' => config('mpesa.b2c.timeout_url'),
-                'ResultURL' => config('mpesa.b2c.result_url'),
-                'Occasion' => $reference,
-            ]);
+            // NO RETRY for B2C - financial operation must not be duplicated
+            $response = Http::timeout(self::TIMEOUT_SECONDS)
+                ->withHeaders([
+                    'Authorization' => 'Bearer '.$token,
+                    'Content-Type' => 'application/json',
+                ])->post("{$this->baseUrl}/mpesa/b2c/v1/paymentrequest", [
+                    'InitiatorName' => config('mpesa.b2c.initiator_name'),
+                    'SecurityCredential' => config('mpesa.b2c.security_credential'),
+                    'CommandID' => 'BusinessPayment',
+                    'Amount' => (int) $amount,
+                    'PartyA' => config('mpesa.b2c.shortcode'),
+                    'PartyB' => $phone,
+                    'Remarks' => $remarks,
+                    'QueueTimeOutURL' => config('mpesa.b2c.timeout_url'),
+                    'ResultURL' => config('mpesa.b2c.result_url'),
+                    'Occasion' => $reference,
+                ]);
 
             $result = $response->json();
 
@@ -233,11 +301,24 @@ class MpesaService
                 ];
             }
 
-            Log::error('M-Pesa B2C initiation failed', ['response' => $result]);
+            Log::error('M-Pesa B2C initiation failed', [
+                'body' => $this->redactSecrets(json_encode($result)),
+                'status' => $response->status(),
+            ]);
+
+            return null;
+        } catch (ConnectionException $e) {
+            Log::error('M-Pesa B2C connection failed', [
+                'phone' => substr($phone, -4),
+                'amount' => $amount,
+                'error' => $e->getMessage(),
+            ]);
 
             return null;
         } catch (\Exception $e) {
-            Log::error('M-Pesa B2C exception', ['error' => $e->getMessage()]);
+            Log::error('M-Pesa B2C exception', [
+                'error' => $e->getMessage(),
+            ]);
 
             return null;
         }
@@ -251,20 +332,24 @@ class MpesaService
         }
 
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.$token,
-                'Content-Type' => 'application/json',
-            ])->post("{$this->baseUrl}/mpesa/transactionstatus/v1/query", [
-                'Initiator' => config('mpesa.b2c.initiator_name'),
-                'SecurityCredential' => config('mpesa.b2c.security_credential'),
-                'CommandID' => 'TransactionStatusQuery',
-                'TransactionID' => $transactionId,
-                'PartyA' => config('mpesa.b2c.shortcode'),
-                'IdentifierType' => '4',
-                'ResultURL' => config('mpesa.b2c.result_url'),
-                'QueueTimeOutURL' => config('mpesa.b2c.timeout_url'),
-                'Remarks' => 'Transaction status query',
-            ]);
+            $response = Http::timeout(self::TIMEOUT_SECONDS)
+                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+                    return $exception instanceof ConnectionException;
+                }, throw: false)
+                ->withHeaders([
+                    'Authorization' => 'Bearer '.$token,
+                    'Content-Type' => 'application/json',
+                ])->post("{$this->baseUrl}/mpesa/transactionstatus/v1/query", [
+                    'Initiator' => config('mpesa.b2c.initiator_name'),
+                    'SecurityCredential' => config('mpesa.b2c.security_credential'),
+                    'CommandID' => 'TransactionStatusQuery',
+                    'TransactionID' => $transactionId,
+                    'PartyA' => config('mpesa.b2c.shortcode'),
+                    'IdentifierType' => '4',
+                    'ResultURL' => config('mpesa.b2c.result_url'),
+                    'QueueTimeOutURL' => config('mpesa.b2c.timeout_url'),
+                    'Remarks' => 'Transaction status query',
+                ]);
 
             $result = $response->json();
 
@@ -272,11 +357,25 @@ class MpesaService
                 return $result;
             }
 
-            Log::error('M-Pesa transaction status query failed', ['response' => $result]);
+            Log::error('M-Pesa transaction status query failed', [
+                'transaction_id' => $transactionId,
+                'body' => $this->redactSecrets(json_encode($result)),
+                'status' => $response->status(),
+            ]);
+
+            return null;
+        } catch (ConnectionException $e) {
+            Log::error('M-Pesa transaction status connection failed', [
+                'transaction_id' => $transactionId,
+                'error' => $e->getMessage(),
+            ]);
 
             return null;
         } catch (\Exception $e) {
-            Log::error('M-Pesa transaction status exception', ['error' => $e->getMessage()]);
+            Log::error('M-Pesa transaction status exception', [
+                'transaction_id' => $transactionId,
+                'error' => $e->getMessage(),
+            ]);
 
             return null;
         }
@@ -333,5 +432,21 @@ class MpesaService
         return ! empty($this->consumerKey)
             && ! empty($this->consumerSecret)
             && ! empty(config('mpesa.stk.shortcode'));
+    }
+
+    /**
+     * Redact sensitive data from response body before logging
+     */
+    private function redactSecrets(string $body): string
+    {
+        $truncated = substr($body, 0, 500);
+
+        $patterns = [
+            '/("?(?:SecurityCredential|AccessToken|access_token|password|token|secret|passkey)"?\s*[:=]\s*)"[^"]*"/i' => '$1"[REDACTED]"',
+            '/(Bearer\s+)[A-Za-z0-9._-]+/i' => '$1[REDACTED]',
+            '/(Basic\s+)[A-Za-z0-9._=+-]+/i' => '$1[REDACTED]',
+        ];
+
+        return preg_replace(array_keys($patterns), array_values($patterns), $truncated) ?? $truncated;
     }
 }

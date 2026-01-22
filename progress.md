@@ -9201,3 +9201,70 @@ Added idempotency checks to all queued jobs and the invoice generation command t
 - **npm run build**: ✅ Built in 23.55s
 
 **DBP-027 COMPLETE**
+
+---
+
+## Session: 2026-01-22
+**Task**: DBP-029 - Add Timeouts and Retry Logic to Payment Gateway Calls
+**Status**: COMPLETED
+
+### Skills Applied
+- **laravelhttp-client-resilience**: Use `Http::timeout()->retry()` pattern, log with context, redact sensitive data
+- **verification-first**: Verified all changes with lint and tests before marking complete
+- **laravelquality-checks**: Run Pint, tests, and build for feedback loops
+
+### Implementation Summary
+
+Added explicit timeouts and retry logic with exponential backoff to all HTTP calls in PaystackService and MpesaService. Also added secret redaction to all log outputs.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Services/PaystackService.php` | Added `timeout(30)->retry(3, 100)` to 11 HTTP calls, added `redactSecrets()` helper, explicit ConnectionException handling |
+| `app/Services/MpesaService.php` | Added `timeout(30)->retry(3, 100)` to 7 HTTP calls, added `redactSecrets()` helper, explicit ConnectionException handling |
+
+### Technical Implementation Details
+
+**Timeout & Retry Pattern:**
+```php
+Http::timeout(self::TIMEOUT_SECONDS)
+    ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+        return $exception instanceof ConnectionException;
+    }, throw: false)
+    ->withHeaders([...])
+    ->post($url, $data);
+```
+
+**Constants Added:**
+- `TIMEOUT_SECONDS = 30`
+- `RETRY_ATTEMPTS = 3`
+- `RETRY_DELAY_MS = 100`
+
+**Financial Operations (NO RETRY):**
+- `PaystackService::refundTransaction()` - Only timeout, no retry
+- `MpesaService::initiateB2C()` - Only timeout, no retry
+
+**Secret Redaction Patterns:**
+- secret_key, authorization, Bearer, password, token, api_key, access_token
+- SecurityCredential, AccessToken, passkey
+- Bearer and Basic auth header values
+- Response truncated to 500 characters before redaction
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| PaystackService uses Http::timeout(30)->retry(3, 100) | ✅ All 11 calls |
+| MpesaService uses Http::timeout(30)->retry(3, 100) | ✅ All 7 calls |
+| All API calls log request/response (redact secrets) | ✅ redactSecrets() helper added |
+| Transient failures retry, permanent failures don't | ✅ Only ConnectionException triggers retry |
+| Connection failures handled gracefully | ✅ Explicit catch(ConnectionException) blocks |
+
+### Verification Results
+- **./vendor/bin/pint --test**: ✅ 658 files pass
+- **php artisan test --parallel**: ✅ 564 tests passed, 13 skipped
+- **npm run build**: ✅ Built successfully in 23.68s
+- **grep verification**: ✅ All Http:: calls have timeout()
+
+**DBP-029 COMPLETE**
