@@ -9337,3 +9337,89 @@ if (! app()->environment('production')) {
 - **npm run build**: ✅ Built in 29.24s
 
 **DBP-031 COMPLETE**
+
+---
+
+## Session: 2026-01-22
+**Task**: DBP-035a - Create Factories: Critical Finance Models (15)
+**Status**: COMPLETED
+
+### Skills Applied
+- **laravelmigrations-and-factories**: Every model must have a corresponding factory for testing
+- **verification-first**: Verified all factories create valid records before marking complete
+- **laraveltdd-with-pest**: Factories enable TDD with realistic test data
+
+### Implementation Summary
+
+Created 15 factories for critical finance models, following the established patterns from existing factories (LeaseFactory, InvoiceFactory, PaymentFactory). Each factory includes proper relationship handling, state methods for status variations, and helper methods for test flexibility.
+
+### Files Created (15 Factories)
+
+| Factory | Group | Key States |
+|---------|-------|------------|
+| VendorFactory | Base | inactive() |
+| ExpenseCategoryFactory | Base | inactive() |
+| LateFeePolicyFactory | Base | percentage(), fixed(), compounding(), inactive() |
+| PaymentConfigurationFactory | Base | withBankDetails(), withMpesa(), withPaystack(), flatWaterRate(), noWaterBilling() |
+| RentHistoryFactory | Base | notified(), decrease() |
+| ExpenseFactory | Single Dep | recurring(), forProperty(), forBuilding(), forUnit() |
+| LateFeeFactory | Single Dep | waived() |
+| InvoiceItemFactory | Single Dep | rent(), deposit(), water(), lateFee(), arrears(), credit(), other() |
+| ReceiptFactory | Single Dep | partial(), emailed(), withPdf() |
+| PaymentLinkFactory | Single Dep | expired(), revoked(), clicked(), withUtm() |
+| LandlordPayoutAccountFactory | Single Dep | paystack(), flutterwave(), bank(), mobileMoney(), verified(), pending(), rejected(), suspended() |
+| CreditNoteFactory | Multiple Dep | pending(), approved(), applied(), voided(), overpayment(), billingError(), goodwill() |
+| RefundFactory | Multiple Dep | pending(), approved(), processing(), completed(), failed(), cancelled(), viaPaystack(), viaMpesa() |
+| DepositTransactionFactory | Multiple Dep | received(), partialRefund(), fullRefund(), deduction(), forfeit(), transfer() |
+| WalletTransactionFactory | Multiple Dep | credit(), debit(), fromPayment(), appliedToInvoice() |
+
+### Pattern Highlights
+
+**Relationship Handling:**
+```php
+// Create parent and inherit landlord_id
+$invoice = Invoice::factory()->create();
+return [
+    'invoice_id' => $invoice->id,
+    'landlord_id' => $invoice->landlord_id,
+];
+```
+
+**State Methods:**
+```php
+public function approved(User $approver = null): static
+{
+    return $this->state(fn (array $attrs) => [
+        'status' => 'approved',
+        'approved_by' => $approver?->id ?? User::find($attrs['landlord_id'])?->id,
+        'approved_at' => now(),
+    ]);
+}
+```
+
+**Helper Methods:**
+```php
+public function forLease(Lease $lease): static
+{
+    return $this->state([
+        'lease_id' => $lease->id,
+        'landlord_id' => $lease->landlord_id,
+    ]);
+}
+```
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| CreditNote, Refund, Receipt, InvoiceItem factories | ✅ |
+| LateFee, LateFeePolicy, Expense, ExpenseCategory, Vendor factories | ✅ |
+| DepositTransaction, WalletTransaction, RentHistory factories | ✅ |
+| PaymentConfiguration, PaymentLink, LandlordPayoutAccount factories | ✅ |
+| All factories include proper relationships and realistic data | ✅ |
+
+### Verification Results
+- **./vendor/bin/pint database/factories/**: ✅ 23 files pass (8 auto-fixes)
+- **php artisan test --parallel**: ✅ 564 tests passed, 13 skipped
+
+**DBP-035a COMPLETE**
