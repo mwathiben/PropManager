@@ -7,6 +7,8 @@ use App\Models\Notification;
 use App\Models\NotificationPreference;
 use App\Models\User;
 use App\Repositories\Contracts\NotificationConfigRepositoryInterface;
+use App\Services\Notification\ChannelSelector;
+use App\Services\Notification\NotificationDispatcher;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -46,7 +48,9 @@ class NotificationService
         private readonly WhatsAppTemplateService $whatsAppTemplateService,
         private readonly PaymentLinkService $paymentLinkService,
         private readonly NotificationConfigRepositoryInterface $configRepository,
-        private readonly QuietHoursService $quietHoursService
+        private readonly QuietHoursService $quietHoursService,
+        private readonly ChannelSelector $channelSelector,
+        private readonly NotificationDispatcher $dispatcher
     ) {}
 
     /**
@@ -63,94 +67,59 @@ class NotificationService
         ?int $landlordId = null
     ): array {
         $recipient = User::findOrFail($recipientId);
-
-        if (! $landlordId) {
-            $landlordId = $recipient->role === 'tenant'
-                ? $recipient->landlord_id
-                : $recipient->id;
-        }
+        $landlordId = $landlordId ?? $this->resolveLandlordId($recipient);
 
         $urgency = Notification::getUrgencyForType($type);
-        $allowedChannels = $this->getChannelsForUrgency($urgency);
+        $allowedChannels = $this->channelSelector->getChannelsForUrgency($urgency);
 
-        // Check quiet hours - defer non-critical/urgent notifications
-        if (! $this->canBypassQuietHours($urgency) && $this->isInQuietHours($recipient, $landlordId)) {
+        if ($this->shouldDeferForQuietHours($urgency, $recipient, $landlordId)) {
             return $this->deferNotificationForQuietHours(
-                $recipientId,
-                $type,
-                $subject,
-                $message,
-                $data,
-                $landlordId,
-                $urgency,
-                $allowedChannels
+                $recipientId, $type, $subject, $message, $data, $landlordId, $urgency, $allowedChannels
             );
         }
 
-        // Critical notifications: send to ALL allowed channels simultaneously
         if ($urgency === Notification::URGENCY_CRITICAL) {
             return $this->sendToAllowedChannels(
-                $recipientId,
-                $type,
-                $subject,
-                $message,
-                $data,
-                $landlordId,
-                $allowedChannels,
-                $urgency
+                $recipientId, $type, $subject, $message, $data, $landlordId, $allowedChannels, $urgency
             );
         }
 
-        // Other urgency levels: use prioritized single channel with fallback
         $preferences = NotificationPreference::getOrCreate($recipientId, $landlordId);
-        $prioritizedChannels = $this->prioritizeChannelsWithUrgency($preferences, $allowedChannels);
-        $results = [];
-
-        $primaryChannel = $this->findPrimaryChannel($prioritizedChannels, $preferences, $type);
+        $primaryChannel = $this->channelSelector->selectChannel($urgency, $type, $preferences);
 
         if (! $primaryChannel) {
-            Log::warning('No available channel for notification', [
-                'recipient_id' => $recipientId,
-                'type' => $type,
-                'urgency' => $urgency,
-            ]);
+            Log::warning('No available channel for notification', compact('recipientId', 'type', 'urgency'));
 
             return ['error' => 'no_available_channel'];
         }
 
         if (! $this->checkRateLimits($landlordId, $primaryChannel)) {
-            Log::warning('Notification rate limited', [
-                'landlord_id' => $landlordId,
-                'channel' => $primaryChannel,
-            ]);
+            Log::warning('Notification rate limited', compact('landlordId', 'primaryChannel'));
 
             return [$primaryChannel => 'rate_limited'];
         }
 
         $notification = $this->createNotification(
-            $landlordId,
-            $recipientId,
-            $type,
-            $primaryChannel,
-            $subject,
-            $message,
-            $data,
-            $urgency
+            $landlordId, $recipientId, $type, $primaryChannel, $subject, $message, $data, $urgency
         );
 
-        try {
-            $sent = $this->sendViaChannel($notification, $recipient);
-            $results[$primaryChannel] = $sent ? 'sent' : 'failed';
-        } catch (\Exception $e) {
-            $notification->markAsFailed($e->getMessage());
-            $results[$primaryChannel] = 'failed';
-            Log::error("Notification failed via {$primaryChannel}", [
-                'error' => $e->getMessage(),
-                'notification_id' => $notification->id,
-            ]);
-        }
+        $status = $this->dispatcher->dispatch(
+            $notification,
+            $recipient,
+            fn ($n, $r) => $this->sendViaChannel($n, $r)
+        );
 
-        return $results;
+        return [$primaryChannel => $status];
+    }
+
+    private function resolveLandlordId(User $recipient): int
+    {
+        return $recipient->role === 'tenant' ? $recipient->landlord_id : $recipient->id;
+    }
+
+    private function shouldDeferForQuietHours(string $urgency, User $recipient, int $landlordId): bool
+    {
+        return ! $this->canBypassQuietHours($urgency) && $this->isInQuietHours($recipient, $landlordId);
     }
 
     /**
@@ -297,7 +266,7 @@ class NotificationService
      */
     public function getChannelsForUrgency(string $urgency): array
     {
-        return self::URGENCY_CHANNELS[$urgency] ?? self::URGENCY_CHANNELS[Notification::URGENCY_INFORMATIONAL];
+        return $this->channelSelector->getChannelsForUrgency($urgency);
     }
 
     /**

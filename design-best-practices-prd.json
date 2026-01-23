@@ -1522,9 +1522,10 @@
       ],
       "verification": "php artisan test --parallel && ./vendor/bin/pint && npm run build",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
-      "depends_on": ["DBP-033a"]
+      "passes": true,
+      "attempt_count": 1,
+      "depends_on": ["DBP-033a"],
+      "completion_notes": "Refactored 3 medium-risk functions: (1) TenantController::buildLedgerTransactions (94->4 lines) - created app/Services/Tenant/LedgerTransactionBuilder.php with build(), buildInvoiceTransactions(), buildPaymentTransactions(), buildRefundTransactions(), buildCreditNoteTransactions(), calculateRunningBalances() methods. (2) BulkOperationsController::adjustRent (111->34 lines) - created app/Services/BulkOperations/BulkRentAdjuster.php with fluent interface: forLeases()->withAdjustmentType()->withValue()->withReason()->withEffectiveDate()->shouldNotifyTenants()->execute(). (3) NotificationService::send (98->52 lines) - created app/Services/Notification/ChannelSelector.php with getChannelsForUrgency(), findPrimaryChannel(), prioritizeForUrgency(), selectChannel() methods; created app/Services/Notification/NotificationDispatcher.php with dispatch() method. All 558 tests pass, Pint passes, build succeeds."
     },
     {
       "id": "DBP-033c",

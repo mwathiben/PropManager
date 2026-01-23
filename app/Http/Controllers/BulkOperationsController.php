@@ -13,9 +13,9 @@ use App\Jobs\SendNotificationJob;
 use App\Models\Building;
 use App\Models\Lease;
 use App\Models\Property;
-use App\Models\RentHistory;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\BulkOperations\BulkRentAdjuster;
 use App\Traits\HasBuildingFilter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -107,11 +107,11 @@ class BulkOperationsController extends Controller
     {
         $validated = $request->validated();
 
-        // Strict enforcement: validate all leases belong to selected building/wing
-        $buildingId = $validated['building_id'] ?? null;
-        $wingId = $validated['wing_id'] ?? null;
-
-        if (! $this->validateLeasesBelongToBuilding($validated['lease_ids'], $buildingId, $wingId)) {
+        if (! $this->validateLeasesBelongToBuilding(
+            $validated['lease_ids'],
+            $validated['building_id'] ?? null,
+            $validated['wing_id'] ?? null
+        )) {
             return redirect()->back()->with('error',
                 'Some selected leases do not belong to the selected building/wing. Please verify your selection.');
         }
@@ -119,88 +119,14 @@ class BulkOperationsController extends Controller
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
 
-        $results = [
-            'total' => count($validated['lease_ids']),
-            'success' => 0,
-            'failed' => 0,
-            'errors' => [],
-            'adjustments' => [],
-        ];
-
-        DB::beginTransaction();
-
         try {
-            foreach ($validated['lease_ids'] as $leaseId) {
-                try {
-                    $lease = Lease::where('id', $leaseId)
-                        ->where('landlord_id', $landlordId)
-                        ->where('is_active', true)
-                        ->with('tenant:id,name')
-                        ->firstOrFail();
-
-                    $oldRent = $lease->rent_amount;
-
-                    // Calculate new rent
-                    if ($validated['adjustment_type'] === 'percentage') {
-                        $newRent = $oldRent * (1 + ($validated['adjustment_value'] / 100));
-                    } else {
-                        $newRent = $oldRent + $validated['adjustment_value'];
-                    }
-
-                    $newRent = max(0, round($newRent, 2)); // Ensure non-negative
-
-                    // Update lease
-                    $lease->update(['rent_amount' => $newRent]);
-
-                    // Record rent history
-                    RentHistory::create([
-                        'lease_id' => $lease->id,
-                        'old_amount' => $oldRent,
-                        'new_amount' => $newRent,
-                        'reason' => $validated['reason'] ?? 'Bulk rent adjustment',
-                        'effective_date' => $validated['effective_date'],
-                    ]);
-
-                    // Notify tenant if requested
-                    if ($validated['notify_tenants'] ?? false) {
-                        dispatch(SendNotificationJob::forNew(
-                            $lease->tenant_id,
-                            'rent_hike',
-                            'Rent Adjustment Notice',
-                            sprintf(
-                                "Hello %s,\n\nThis is to inform you that your rent will be adjusted from KES %s to KES %s effective %s.\n\nReason: %s\n\nThank you for your understanding.",
-                                $lease->tenant->name,
-                                number_format($oldRent, 2),
-                                number_format($newRent, 2),
-                                $validated['effective_date'],
-                                $validated['reason'] ?? 'Periodic rent review'
-                            ),
-                            [
-                                'old_rent' => $oldRent,
-                                'new_rent' => $newRent,
-                                'effective_date' => $validated['effective_date'],
-                            ],
-                            $landlordId
-                        ))->afterCommit();
-                    }
-
-                    $results['success']++;
-                    $results['adjustments'][] = [
-                        'lease_id' => $lease->id,
-                        'tenant' => $lease->tenant->name ?? 'Unknown',
-                        'old_rent' => $oldRent,
-                        'new_rent' => $newRent,
-                    ];
-                } catch (\Exception $e) {
-                    $results['failed']++;
-                    $results['errors'][] = [
-                        'lease_id' => $leaseId,
-                        'error' => $e->getMessage(),
-                    ];
-                }
-            }
-
-            DB::commit();
+            $results = BulkRentAdjuster::forLeases($validated['lease_ids'], $landlordId)
+                ->withAdjustmentType($validated['adjustment_type'])
+                ->withValue($validated['adjustment_value'])
+                ->withReason($validated['reason'] ?? null)
+                ->withEffectiveDate($validated['effective_date'])
+                ->shouldNotifyTenants($validated['notify_tenants'] ?? false)
+                ->execute();
 
             return redirect()->back()->with('success', sprintf(
                 'Rent adjusted for %d of %d leases.',
@@ -208,9 +134,6 @@ class BulkOperationsController extends Controller
                 $results['total']
             ))->with('bulk_results', $results);
         } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Bulk rent adjustment failed', ['error' => $e->getMessage()]);
-
             return redirect()->back()->with('error', 'Bulk rent adjustment failed: '.$e->getMessage());
         }
     }

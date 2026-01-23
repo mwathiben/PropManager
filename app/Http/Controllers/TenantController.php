@@ -8,16 +8,15 @@ use App\Http\Requests\Tenant\StoreTenantNoteRequest;
 use App\Http\Requests\Tenant\UpdateEmergencyContactRequest;
 use App\Http\Requests\Tenant\UpdateTenantNoteRequest;
 use App\Http\Requests\UpdateTenantRequest;
-use App\Models\CreditNote;
 use App\Models\EmergencyContact;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\Payment;
-use App\Models\Refund;
 use App\Models\TenantActivity;
 use App\Models\TenantNote;
 use App\Models\User;
 use App\Models\VerificationTemplate;
+use App\Services\Tenant\LedgerTransactionBuilder;
 use App\Services\Tenant\TenantIndexService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -750,97 +749,7 @@ class TenantController extends Controller
      */
     private function buildLedgerTransactions(User $tenant, ?string $dateFrom, ?string $dateTo)
     {
-        $leaseIds = $tenant->leases()->pluck('id');
-
-        $invoices = Invoice::whereIn('lease_id', $leaseIds)
-            ->when($dateFrom, fn ($q) => $q->whereDate('created_at', '>=', $dateFrom))
-            ->when($dateTo, fn ($q) => $q->whereDate('created_at', '<=', $dateTo))
-            ->get()
-            ->map(fn ($inv) => [
-                'id' => $inv->id,
-                'type' => 'invoice',
-                'date' => $inv->created_at,
-                'description' => "Invoice #{$inv->invoice_number}",
-                'reference' => $inv->invoice_number,
-                'amount' => $inv->total_due ?? $inv->total_amount ?? 0,
-                'status' => $inv->status,
-            ]);
-
-        $payments = Payment::whereIn('lease_id', $leaseIds)
-            ->when($dateFrom, fn ($q) => $q->whereDate('created_at', '>=', $dateFrom))
-            ->when($dateTo, fn ($q) => $q->whereDate('created_at', '<=', $dateTo))
-            ->with('invoice:id,invoice_number')
-            ->get()
-            ->map(fn ($pmt) => [
-                'id' => $pmt->id,
-                'type' => 'payment',
-                'date' => $pmt->created_at,
-                'description' => 'Payment'.($pmt->invoice ? " for Invoice #{$pmt->invoice->invoice_number}" : ''),
-                'reference' => $pmt->reference ?? "PAY-{$pmt->id}",
-                'amount' => $pmt->amount,
-                'status' => $pmt->status ?? 'completed',
-            ]);
-
-        $refunds = Refund::whereHas('payment', fn ($q) => $q->whereIn('lease_id', $leaseIds))
-            ->when($dateFrom, fn ($q) => $q->whereDate('created_at', '>=', $dateFrom))
-            ->when($dateTo, fn ($q) => $q->whereDate('created_at', '<=', $dateTo))
-            ->where('status', 'completed')
-            ->get()
-            ->map(fn ($ref) => [
-                'id' => $ref->id,
-                'type' => 'refund',
-                'date' => $ref->processed_at ?? $ref->created_at,
-                'description' => "Refund - {$ref->reason}",
-                'reference' => "REF-{$ref->id}",
-                'amount' => $ref->amount,
-                'status' => $ref->status,
-            ]);
-
-        $creditNotes = CreditNote::whereIn('lease_id', $leaseIds)
-            ->when($dateFrom, fn ($q) => $q->whereDate('created_at', '>=', $dateFrom))
-            ->when($dateTo, fn ($q) => $q->whereDate('created_at', '<=', $dateTo))
-            ->whereIn('status', ['approved', 'applied'])
-            ->get()
-            ->map(fn ($cn) => [
-                'id' => $cn->id,
-                'type' => 'credit_note',
-                'date' => $cn->approved_at ?? $cn->created_at,
-                'description' => "Credit Note - {$cn->reason_label}",
-                'reference' => $cn->credit_number,
-                'amount' => $cn->applied_amount ?: $cn->amount,
-                'status' => $cn->status,
-            ]);
-
-        $transactions = $invoices->concat($payments)->concat($refunds)->concat($creditNotes)
-            ->sortBy('date')
-            ->values();
-
-        $runningBalance = 0;
-        $transactions = $transactions->map(function ($txn) use (&$runningBalance) {
-            if ($txn['type'] === 'invoice') {
-                $runningBalance += $txn['amount'];
-                $txn['debit'] = $txn['amount'];
-                $txn['credit'] = 0;
-            } elseif ($txn['type'] === 'payment') {
-                $runningBalance -= $txn['amount'];
-                $txn['debit'] = 0;
-                $txn['credit'] = $txn['amount'];
-            } elseif ($txn['type'] === 'refund') {
-                $runningBalance += $txn['amount'];
-                $txn['debit'] = $txn['amount'];
-                $txn['credit'] = 0;
-            } elseif ($txn['type'] === 'credit_note') {
-                $runningBalance -= $txn['amount'];
-                $txn['debit'] = 0;
-                $txn['credit'] = $txn['amount'];
-            }
-
-            $txn['running_balance'] = $runningBalance;
-
-            return $txn;
-        });
-
-        return $transactions;
+        return (new LedgerTransactionBuilder($tenant, $dateFrom, $dateTo))->build();
     }
 
     // ==================== TENANT HISTORY ====================
