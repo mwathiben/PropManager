@@ -2,13 +2,53 @@
 
 namespace App\Models;
 
+use App\Enums\KycSubmissionStatus;
 use App\Traits\Auditable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 
+/**
+ * @property int $id
+ * @property string $name
+ * @property string $email
+ * @property string $password
+ * @property string $role
+ * @property bool $is_archived
+ * @property \Carbon\Carbon|null $archived_at
+ * @property string|null $mobile_number
+ * @property int|null $landlord_id
+ * @property string|null $national_id
+ * @property string|null $bank_details
+ * @property string|null $emergency_contact_name
+ * @property string|null $emergency_contact_phone
+ * @property string|null $profile_photo_path
+ * @property \Carbon\Carbon|null $kyc_completed_at
+ * @property string|null $timezone
+ * @property \Carbon\Carbon|null $email_verified_at
+ * @property \Carbon\Carbon $created_at
+ * @property \Carbon\Carbon $updated_at
+ * @property-read string|null $profile_photo_url
+ * @property-read SubscriptionPlan|null $plan
+ * @property-read User|null $landlord
+ * @property-read Lease|null $lease
+ * @property-read Subscription|null $subscription
+ * @property-read \Illuminate\Database\Eloquent\Collection<Property> $properties
+ * @property-read \Illuminate\Database\Eloquent\Collection<Lease> $leases
+ * @property-read \Illuminate\Database\Eloquent\Collection<User> $caretakers
+ * @property-read \Illuminate\Database\Eloquent\Collection<Document> $documents
+ * @property-read \Illuminate\Database\Eloquent\Collection<Building> $assignedBuildings
+ * @property-read \Illuminate\Database\Eloquent\Collection<Ticket> $reportedTickets
+ * @property-read \Illuminate\Database\Eloquent\Collection<Ticket> $assignedTickets
+ * @property-read \Illuminate\Database\Eloquent\Collection<TenantKycSubmission> $kycSubmissions
+ */
 class User extends Authenticatable
 {
     use Auditable, HasApiTokens, HasFactory, Notifiable;
@@ -49,60 +89,93 @@ class User extends Authenticatable
         'archived_at' => 'datetime',
     ];
 
-    // --- ROLES ---
-
-    public function isSuperAdmin()
+    public function isSuperAdmin(): bool
     {
         return $this->role === 'super_admin';
     }
 
-    public function isLandlord()
+    public function isLandlord(): bool
     {
         return $this->role === 'landlord';
     }
 
-    public function isCaretaker()
+    public function isCaretaker(): bool
     {
         return $this->role === 'caretaker';
     }
 
-    public function isTenant()
+    public function isTenant(): bool
     {
         return $this->role === 'tenant';
     }
 
-    public function isArchived()
+    public function isArchived(): bool
     {
         return $this->is_archived === true;
     }
 
-    public function scopeArchived($query)
+    /**
+     * @param  Builder<User>  $query
+     */
+    public function scopeArchived(Builder $query): Builder
     {
         return $query->where('is_archived', true);
     }
 
-    public function scopeActive($query)
+    /**
+     * @param  Builder<User>  $query
+     */
+    public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_archived', false);
     }
 
     // --- KYC ---
 
+    public function kycSubmissions(): HasMany
+    {
+        return $this->hasMany(TenantKycSubmission::class, 'user_id');
+    }
+
     /**
      * Check if tenant has completed KYC verification.
+     * Uses the dynamic KYC requirements system. All required requirements
+     * must have approved submissions for this to return true.
      * Non-tenants always return true (they don't need KYC).
      */
     public function hasCompletedKyc(): bool
     {
         if ($this->role !== 'tenant') {
-            return true; // Non-tenants don't need KYC
+            return true;
         }
 
-        return ! empty($this->mobile_number)
-            && ! empty($this->national_id)
-            && ! empty($this->emergency_contact_name)
-            && ! empty($this->emergency_contact_phone)
-            && ! empty($this->profile_photo_path);
+        $activeLease = $this->lease;
+        $buildingId = $activeLease?->unit?->building_id;
+        $landlordId = $this->landlord_id;
+
+        $requiredRequirements = KycRequirement::withoutGlobalScope('landlord')
+            ->where(function ($query) use ($landlordId) {
+                $query->where('landlord_id', $landlordId)
+                    ->orWhereNull('landlord_id');
+            })
+            ->where(function ($query) use ($buildingId) {
+                $query->where('building_id', $buildingId)
+                    ->orWhereNull('building_id');
+            })
+            ->active()
+            ->required()
+            ->pluck('id');
+
+        if ($requiredRequirements->isEmpty()) {
+            return true;
+        }
+
+        $approvedCount = $this->kycSubmissions()
+            ->whereIn('requirement_id', $requiredRequirements)
+            ->where('status', KycSubmissionStatus::Approved)
+            ->count();
+
+        return $approvedCount >= $requiredRequirements->count();
     }
 
     /**
@@ -125,133 +198,107 @@ class User extends Authenticatable
         return $this->timezone ?? 'Africa/Nairobi';
     }
 
-    // --- RELATIONSHIPS ---
-
-    public function properties()
+    public function properties(): HasMany
     {
         return $this->hasMany(Property::class, 'landlord_id');
     }
 
-    // For Tenants: Their active lease
-    public function lease()
+    public function lease(): HasOne
     {
         return $this->hasOne(Lease::class, 'tenant_id')->where('is_active', true);
     }
 
-    // For Tenants: All their leases (current and past)
-    public function leases()
+    public function leases(): HasMany
     {
         return $this->hasMany(Lease::class, 'tenant_id');
     }
 
-    // For Tenants: Credit notes issued to them
-    public function creditNotes()
+    public function creditNotes(): HasMany
     {
         return $this->hasMany(CreditNote::class, 'tenant_id');
     }
 
-    // For Landlords: Credit notes they've issued
-    public function issuedCreditNotes()
+    public function issuedCreditNotes(): HasMany
     {
         return $this->hasMany(CreditNote::class, 'landlord_id');
     }
 
-    // For Landlords: Invitations they've sent
-    public function invitations()
+    public function invitations(): HasMany
     {
         return $this->hasMany(Invitation::class, 'landlord_id');
     }
 
-    // For Caretakers: The landlord they work for
-    public function landlord()
+    public function landlord(): BelongsTo
     {
         return $this->belongsTo(User::class, 'landlord_id');
     }
 
-    // For Landlords: Caretakers working for them
-    public function caretakers()
+    public function caretakers(): HasMany
     {
         return $this->hasMany(User::class, 'landlord_id')->where('role', 'caretaker');
     }
 
-    // For Tenants: Their documents (ID, passport, etc.)
-    public function documents()
+    public function documents(): MorphMany
     {
         return $this->morphMany(Document::class, 'documentable');
     }
 
-    // For Caretakers: Buildings they are assigned to
-    public function assignedBuildings()
+    public function assignedBuildings(): HasMany
     {
         return $this->hasMany(Building::class, 'caretaker_id');
     }
 
-    // For Tenants: Tickets they have reported
-    public function reportedTickets()
+    public function reportedTickets(): HasMany
     {
         return $this->hasMany(Ticket::class, 'reporter_id');
     }
 
-    // For Caretakers: Tickets assigned to them
-    public function assignedTickets()
+    public function assignedTickets(): HasMany
     {
         return $this->hasMany(Ticket::class, 'assigned_to');
     }
 
-    // --- TENANT MODULE RELATIONSHIPS ---
-
-    // For Tenants: Notes about this tenant (landlord's private notes)
-    public function tenantNotes()
+    public function tenantNotes(): HasMany
     {
         return $this->hasMany(TenantNote::class, 'tenant_id');
     }
 
-    // For Tenants: Emergency contacts
-    public function emergencyContacts()
+    public function emergencyContacts(): HasMany
     {
         return $this->hasMany(EmergencyContact::class, 'tenant_id');
     }
 
-    // For Tenants: Activity timeline
-    public function activities()
+    public function activities(): HasMany
     {
         return $this->hasMany(TenantActivity::class, 'tenant_id')->orderBy('created_at', 'desc');
     }
 
-    // For Landlords: Tenant invitations they've sent
-    public function tenantInvitations()
+    public function tenantInvitations(): HasMany
     {
         return $this->hasMany(TenantInvitation::class, 'landlord_id');
     }
 
-    // --- ONBOARDING MODULE RELATIONSHIPS ---
-
-    // For Landlords: Their profile information
-    public function landlordProfile()
+    public function landlordProfile(): HasOne
     {
         return $this->hasOne(LandlordProfile::class);
     }
 
-    // For Landlords: Their onboarding progress
-    public function onboardingProgress()
+    public function onboardingProgress(): HasOne
     {
         return $this->hasOne(OnboardingProgress::class);
     }
 
-    // For Landlords: Their payment configuration
-    public function paymentConfiguration()
+    public function paymentConfiguration(): HasOne
     {
         return $this->hasOne(PaymentConfiguration::class, 'landlord_id');
     }
 
-    // For Landlords: Their invoice settings
-    public function invoiceSetting()
+    public function invoiceSetting(): HasOne
     {
         return $this->hasOne(InvoiceSetting::class, 'landlord_id');
     }
 
-    // For Landlords: Their invoice templates
-    public function invoiceTemplates()
+    public function invoiceTemplates(): HasMany
     {
         return $this->hasMany(InvoiceTemplate::class, 'landlord_id');
     }
@@ -292,24 +339,22 @@ class User extends Authenticatable
         return PaymentConfiguration::getOrCreateForLandlord($this->id);
     }
 
-    // --- SUBSCRIPTIONS (for Landlords) ---
-
-    public function subscription()
+    public function subscription(): HasOne
     {
         return $this->hasOne(Subscription::class)->latest();
     }
 
-    public function subscriptions()
+    public function subscriptions(): HasMany
     {
         return $this->hasMany(Subscription::class);
     }
 
-    public function subscriptionPayments()
+    public function subscriptionPayments(): HasMany
     {
         return $this->hasMany(SubscriptionPayment::class);
     }
 
-    public function usageRecords()
+    public function usageRecords(): HasMany
     {
         return $this->hasMany(UsageRecord::class);
     }

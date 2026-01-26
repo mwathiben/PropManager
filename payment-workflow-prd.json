@@ -226,8 +226,8 @@
       ],
       "verification": "php artisan tinker: Create requirement, create submission, test relationships and scopes.",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["PAY-002"]
     },
     {

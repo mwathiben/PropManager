@@ -10688,3 +10688,88 @@ Created database tables for configurable KYC requirements per building and tenan
 - PAY-003: Create KYC Models and Relationships (with factories)
 
 **PAY-002 COMPLETE**
+
+---
+
+## Session: 2026-01-26T15:00:00
+**Task**: PAY-003 - Create KYC Models and Relationships
+**Status**: PASSED
+
+### Skills Applied
+- **laraveltdd-with-pest**: Write failing tests first for model relationships and scopes
+- **laravelmigrations-and-factories**: Follow existing factory patterns for complex factories
+- **laraveleloquent-relationships**: Proper belongsTo/hasMany with foreign key specifications
+- **laravelquality-checks**: Pint formatting, all tests pass
+
+### Work Done
+
+#### Phase 1: Created KycSubmissionStatus Enum
+- Created `app/Enums/KycSubmissionStatus.php` with Pending, Approved, Rejected cases
+- Added helper methods: `label()`, `color()`, `canTransitionTo()`
+
+#### Phase 2: Created KycRequirement Model
+- Created `app/Models/KycRequirement.php` with traits: Auditable, HasFactory, SoftDeletes, TenantScope
+- Relationships: `landlord()`, `building()`, `submissions()`
+- Scopes: `scopeActive()`, `scopeRequired()`, `scopeGlobal()`, `scopeForBuilding($buildingId)`
+
+#### Phase 3: Created TenantKycSubmission Model
+- Created `app/Models/TenantKycSubmission.php` with traits: Auditable, HasFactory, TenantScope
+- Status cast to KycSubmissionStatus enum
+- Relationships: `tenant()`, `landlord()`, `requirement()`, `document()`, `reviewer()`
+- Scopes: `scopePending()`, `scopeApproved()`, `scopeRejected()`
+
+#### Phase 4: Updated User Model
+- Added `kycSubmissions()` relationship
+- Updated `hasCompletedKyc()` to check dynamic requirements from KycRequirement table
+- Logic: Returns true if all required+active requirements have approved submissions
+
+#### Phase 5: Updated Building Model
+- Added `kycRequirements()` relationship
+
+#### Phase 6: Created Factories
+- Created `KycRequirementFactory` with states: required(), optional(), active(), inactive(), forLandlord(), forBuilding(), platformDefault(), selfie(), nationalId(), signedLease()
+- Created `TenantKycSubmissionFactory` with states: pending(), approved(), rejected(), withDocument(), withValue(), forTenant(), forRequirement(), forLandlord()
+
+#### Phase 7: Created Tests
+- Created `tests/Unit/Models/KycRequirementTest.php` (9 tests)
+- Created `tests/Unit/Models/TenantKycSubmissionTest.php` (10 tests)
+- Created `tests/Feature/KycWorkflowTest.php` (12 tests)
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Enums/KycSubmissionStatus.php` | Status enum for KYC submissions |
+| `app/Models/KycRequirement.php` | Model for configurable KYC requirements |
+| `app/Models/TenantKycSubmission.php` | Model for tenant submission tracking |
+| `database/factories/KycRequirementFactory.php` | Factory with state methods |
+| `database/factories/TenantKycSubmissionFactory.php` | Factory with state methods |
+| `tests/Unit/Models/KycRequirementTest.php` | Unit tests for KycRequirement |
+| `tests/Unit/Models/TenantKycSubmissionTest.php` | Unit tests for TenantKycSubmission |
+| `tests/Feature/KycWorkflowTest.php` | Integration tests for hasCompletedKyc |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Models/User.php` | Added kycSubmissions() relationship, updated hasCompletedKyc() |
+| `app/Models/Building.php` | Added kycRequirements() relationship |
+
+### Acceptance Criteria Verification
+
+1. **Models have proper fillable, casts, and relationships** - ✅ All defined
+2. **Scopes work for filtering active/required requirements** - ✅ 4 scopes on KycRequirement
+3. **Can query building-specific requirements with fallback to global** - ✅ scopeForBuilding() includes null building_id
+4. **hasCompletedKyc() returns correct boolean** - ✅ 12 integration tests pass
+
+### Verification Results
+
+- Pint: Passed (765 files)
+- KYC Tests: 31 passed (54 assertions)
+- Full Suite: 635 passed, 1 failed (pre-existing DashboardControllerTest issue), 13 skipped
+
+### Note on Pre-existing Test Failure
+
+`DashboardControllerTest::test_tenant_gets_redirected_to_tenant_portal` expects redirect but gets 200. This is unrelated to KYC changes - the DashboardController renders Tenant/Dashboard directly without redirect logic.
+
+**PAY-003 COMPLETE**

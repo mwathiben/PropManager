@@ -39,6 +39,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read \Illuminate\Database\Eloquent\Collection<Unit> $units
  * @property-read \Illuminate\Database\Eloquent\Collection<Building> $wings
  * @property-read \Illuminate\Database\Eloquent\Collection<Ticket> $tickets
+ * @property-read \Illuminate\Database\Eloquent\Collection<KycRequirement> $kycRequirements
  */
 class Building extends Model
 {
@@ -186,6 +187,11 @@ class Building extends Model
     public function wings(): HasMany
     {
         return $this->hasMany(Building::class, 'parent_building_id');
+    }
+
+    public function kycRequirements(): HasMany
+    {
+        return $this->hasMany(KycRequirement::class);
     }
 
     // --- WING HELPERS ---
