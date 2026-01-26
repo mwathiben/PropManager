@@ -10616,3 +10616,75 @@ Route::redirect('/payments', '/tenant/finances')->name('tenant.payments');
 - **Grep verification**: ✅ No stray `tenant.payments` references in Vue files
 
 **PAY-001 COMPLETE**
+
+---
+
+## Session: 2026-01-26
+**Task**: PAY-002 - Create KYC Requirements Database Schema
+**PRD**: payment-workflow-prd.json
+**Status**: COMPLETED
+
+### Skills Applied
+- **laravelmigrations-and-factories**: Migration patterns, foreign keys, indexes
+- **laraveltransactions-and-consistency**: Proper cascade deletes and null on delete
+- **verification-first**: Verified migration runs on fresh and existing databases
+
+### Work Done
+Created database tables for configurable KYC requirements per building and tenant submission tracking with review workflow.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/2026_01_26_100000_create_kyc_requirements_tables.php` | KYC tables migration |
+| `database/seeders/KycRequirementSeeder.php` | Default requirements seeder |
+
+### kyc_requirements Table
+- id, landlord_id (nullable FK), building_id (nullable FK)
+- requirement_type (varchar 50), label, description
+- is_required, is_active (booleans), sort_order
+- timestamps, soft_deletes
+- Indexes: [landlord_id, building_id, is_active], unique [landlord_id, building_id, requirement_type]
+
+### tenant_kyc_submissions Table
+- id, user_id (FK), landlord_id (FK), requirement_id (FK), document_id (nullable FK)
+- submission_value (nullable), status (enum: pending, approved, rejected)
+- rejection_reason, reviewed_by (nullable FK), reviewed_at, submitted_at
+- timestamps
+- Indexes: [user_id, status], [landlord_id, status], unique [user_id, requirement_id]
+
+### Seeded Data (Platform Defaults)
+| Type | Label | Required | Sort |
+|------|-------|----------|------|
+| selfie | Profile Photo / Selfie | Yes | 1 |
+| national_id | National ID | Yes | 2 |
+| signed_lease | Signed Lease Agreement | Yes | 3 |
+
+### Design Decisions
+1. **requirement_type as VARCHAR**: Extensibility for custom types
+2. **landlord_id NULL**: Platform-wide defaults (override per landlord/building)
+3. **Soft deletes on requirements only**: Preserve history for submission references
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| Tables created with proper indexes and foreign keys | ✅ |
+| Default requirements seeded (3 with is_required=true) | ✅ |
+| Migration runs on fresh database | ✅ |
+| Migration runs on existing database | ✅ |
+| Rollback works cleanly | ✅ |
+| Seeder is idempotent | ✅ |
+
+### Verification Results
+- **php artisan migrate**: ✅ Tables created
+- **php artisan db:seed --class=KycRequirementSeeder**: ✅ 3 defaults seeded
+- **php artisan migrate:rollback --step=1**: ✅ Clean rollback
+- **vendor/bin/pint --test**: ✅ 757 files pass
+- **php artisan test --parallel**: ✅ 604 tests passed, 13 skipped
+- **npm run build**: ✅ Build successful
+
+### Next Steps
+- PAY-003: Create KYC Models and Relationships (with factories)
+
+**PAY-002 COMPLETE**

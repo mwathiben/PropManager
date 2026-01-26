@@ -187,8 +187,8 @@
       ],
       "verification": "php artisan migrate:fresh --seed completes successfully; query tables to verify structure and seeded data.",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "PAY-003",
@@ -729,7 +729,7 @@
       ],
       "definition_of_done": [
         "Command created",
-        "Scheduled in Kernel",
+        "Scheduled via Schedule::command('invitations:cleanup')->daily() in routes/console.php (Laravel 11+ scheduling)",
         "Test with expired invitation"
       ],
       "verification": "Create test expired invitation with unverified user; run command; verify user soft-deleted, invitation marked expired.",
