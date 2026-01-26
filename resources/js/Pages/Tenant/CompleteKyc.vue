@@ -1,94 +1,243 @@
-<script setup>
-import { ref, computed } from 'vue';
+<script setup lang="ts">
+import { ref, computed, reactive } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import InputLabel from '@/Components/InputLabel.vue';
-import TextInput from '@/Components/TextInput.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import type { CompleteKycPageProps, KycSubmission } from '@/types';
 import {
     UserCircleIcon,
-    PhoneIcon,
-    IdentificationIcon,
-    UserGroupIcon,
-    CameraIcon,
     CheckCircleIcon,
-    ExclamationCircleIcon,
+    ClockIcon,
+    XCircleIcon,
+    DocumentIcon,
+    ArrowUpTrayIcon,
+    ExclamationTriangleIcon,
 } from '@heroicons/vue/24/outline';
+import { CheckBadgeIcon } from '@heroicons/vue/24/solid';
 
-const props = defineProps({
-    user: Object,
-});
+const props = defineProps<CompleteKycPageProps>();
 
-const form = useForm({
-    mobile_number: props.user.mobile_number || '',
-    national_id: props.user.national_id || '',
-    emergency_contact_name: props.user.emergency_contact_name || '',
-    emergency_contact_phone: props.user.emergency_contact_phone || '',
-    profile_photo: null,
-});
+interface SubmissionEntry {
+    requirement_id: number;
+    file: File | null;
+    value: string;
+}
 
-const photoPreview = ref(props.user.profile_photo_url);
-const photoInput = ref(null);
+interface SubmissionStatus {
+    status: 'not_submitted' | 'pending' | 'approved' | 'rejected';
+    label: string;
+    color: 'gray' | 'yellow' | 'green' | 'red';
+    rejectionReason?: string;
+    document?: KycSubmission['document'];
+    submittedAt?: string;
+}
 
-const selectPhoto = () => {
-    photoInput.value.click();
+// Build form dynamically based on requirements
+const buildSubmissions = (): Record<number, SubmissionEntry> => {
+    const entries: Record<number, SubmissionEntry> = {};
+    props.requirements.forEach((req) => {
+        entries[req.id] = {
+            requirement_id: req.id,
+            file: null,
+            value: '',
+        };
+    });
+    return entries;
 };
 
-const updatePhotoPreview = (event) => {
-    const file = event.target.files[0];
+const form = useForm({
+    submissions: buildSubmissions(),
+});
+
+// Track file previews per requirement
+const filePreviews = ref<Record<number, string>>({});
+
+// Track selected file names for display
+const fileNames = reactive<Record<number, string>>({});
+
+// Get submission status for a requirement
+const getSubmissionStatus = (requirementId: number): SubmissionStatus => {
+    const submission = props.submissions.find((s) => s.requirement_id === requirementId);
+
+    if (!submission) {
+        return {
+            status: 'not_submitted',
+            label: 'Not submitted',
+            color: 'gray',
+        };
+    }
+
+    const colorMap: Record<string, 'gray' | 'yellow' | 'green' | 'red'> = {
+        approved: 'green',
+        rejected: 'red',
+        pending: 'yellow',
+    };
+
+    return {
+        status: submission.status,
+        label: submission.status_label,
+        color: colorMap[submission.status] || 'gray',
+        rejectionReason: submission.rejection_reason,
+        document: submission.document,
+        submittedAt: submission.submitted_at,
+    };
+};
+
+// Dynamic completion status
+const completionStatus = computed(() => {
+    const requiredReqs = props.requirements.filter((r) => r.is_required);
+
+    const completedReqs = requiredReqs.filter((req) => {
+        const status = getSubmissionStatus(req.id);
+        // Count as complete if approved, pending, or has a new file ready to upload
+        return (
+            status.status === 'approved' ||
+            status.status === 'pending' ||
+            form.submissions[req.id]?.file !== null
+        );
+    });
+
+    const fields = props.requirements.map((req) => {
+        const status = getSubmissionStatus(req.id);
+        const hasNewFile = form.submissions[req.id]?.file !== null;
+        return {
+            name: req.label,
+            required: req.is_required,
+            complete:
+                status.status === 'approved' ||
+                status.status === 'pending' ||
+                hasNewFile,
+        };
+    });
+
+    return {
+        fields,
+        completed: completedReqs.length,
+        total: requiredReqs.length,
+        percentage:
+            requiredReqs.length > 0
+                ? Math.round((completedReqs.length / requiredReqs.length) * 100)
+                : 100,
+    };
+});
+
+// Can submit form?
+const canSubmit = computed(() => {
+    return props.requirements.filter((req) => req.is_required).every((req) => {
+        const status = getSubmissionStatus(req.id);
+        // Already approved or pending - no action needed
+        if (status.status === 'approved' || status.status === 'pending') {
+            return true;
+        }
+        // Rejected or not submitted - needs new file
+        return form.submissions[req.id]?.file !== null;
+    });
+});
+
+// Handle file selection for a requirement
+const handleFileSelect = (requirementId: number, event: Event) => {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
 
     if (!file) return;
 
-    // Validate file size (2MB max)
-    if (file.size > 2 * 1024 * 1024) {
-        form.errors.profile_photo = 'Photo must not exceed 2MB';
+    // Validate file size (10MB max)
+    if (file.size > 10 * 1024 * 1024) {
+        form.setError(`submissions.${requirementId}.file`, 'File must not exceed 10MB');
         return;
     }
 
     // Validate file type
-    if (!file.type.startsWith('image/')) {
-        form.errors.profile_photo = 'File must be an image';
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+        form.setError(
+            `submissions.${requirementId}.file`,
+            'File must be PDF, JPG, PNG, or GIF'
+        );
         return;
     }
 
-    form.profile_photo = file;
-    form.errors.profile_photo = null;
+    // Clear any previous errors
+    form.clearErrors(`submissions.${requirementId}.file`);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        photoPreview.value = e.target.result;
-    };
-    reader.readAsDataURL(file);
+    // Set file in form
+    form.submissions[requirementId].file = file;
+    fileNames[requirementId] = file.name;
+
+    // Generate preview for images
+    if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            filePreviews.value[requirementId] = e.target?.result as string;
+        };
+        reader.readAsDataURL(file);
+    } else {
+        // Clear preview for non-images (PDF)
+        filePreviews.value[requirementId] = '';
+    }
 };
 
-const completionStatus = computed(() => {
-    const fields = [
-        { name: 'Phone Number', complete: !!form.mobile_number },
-        { name: 'National ID', complete: !!form.national_id },
-        { name: 'Emergency Contact', complete: !!form.emergency_contact_name && !!form.emergency_contact_phone },
-        { name: 'Profile Photo', complete: !!photoPreview.value },
-    ];
+// Clear selected file
+const clearFile = (requirementId: number) => {
+    form.submissions[requirementId].file = null;
+    delete fileNames[requirementId];
+    delete filePreviews.value[requirementId];
+    form.clearErrors(`submissions.${requirementId}.file`);
+};
 
-    const completed = fields.filter(f => f.complete).length;
-    return {
-        fields,
-        completed,
-        total: fields.length,
-        percentage: Math.round((completed / fields.length) * 100),
-    };
-});
+// Format file size
+const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
 
+// Check if requirement needs action (not submitted or rejected)
+const needsAction = (requirementId: number): boolean => {
+    const status = getSubmissionStatus(requirementId);
+    return status.status === 'not_submitted' || status.status === 'rejected';
+};
+
+// Submit the form
 const submit = () => {
+    // Filter to only submit requirements that need action and have files
+    const submissionsToSend = Object.values(form.submissions).filter(
+        (sub) => sub.file !== null
+    );
+
+    if (submissionsToSend.length === 0) {
+        return;
+    }
+
     form.post(route('tenant.kyc.update'), {
         forceFormData: true,
         preserveScroll: true,
+        onSuccess: () => {
+            // Clear local state on success
+            Object.keys(fileNames).forEach((key) => delete fileNames[Number(key)]);
+            Object.keys(filePreviews.value).forEach(
+                (key) => delete filePreviews.value[Number(key)]
+            );
+        },
     });
+};
+
+// Status badge classes
+const getStatusBadgeClasses = (color: string): string => {
+    const classes: Record<string, string> = {
+        gray: 'bg-gray-100 text-gray-700',
+        yellow: 'bg-yellow-100 text-yellow-700',
+        green: 'bg-green-100 text-green-700',
+        red: 'bg-red-100 text-red-700',
+    };
+    return classes[color] || classes.gray;
 };
 </script>
 
 <template>
-    <Head title="Complete Your Profile" />
+    <Head title="Complete Your KYC" />
 
     <AuthenticatedLayout>
         <template #header>
@@ -97,8 +246,12 @@ const submit = () => {
                     <UserCircleIcon class="w-6 h-6 text-indigo-600" />
                 </div>
                 <div>
-                    <h1 class="text-lg font-semibold text-gray-900">Complete Your Profile</h1>
-                    <p class="text-sm text-gray-500">Please provide the required information to continue</p>
+                    <h1 class="text-lg font-semibold text-gray-900">
+                        Complete Your KYC
+                    </h1>
+                    <p class="text-sm text-gray-500">
+                        Please upload the required documents to verify your identity
+                    </p>
                 </div>
             </div>
         </template>
@@ -108,8 +261,12 @@ const submit = () => {
                 <!-- Progress Card -->
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
                     <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-sm font-medium text-gray-700">Profile Completion</h2>
-                        <span class="text-sm font-semibold text-indigo-600">{{ completionStatus.percentage }}%</span>
+                        <h2 class="text-sm font-medium text-gray-700">
+                            KYC Completion
+                        </h2>
+                        <span class="text-sm font-semibold text-indigo-600">
+                            {{ completionStatus.percentage }}%
+                        </span>
                     </div>
                     <div class="w-full bg-gray-200 rounded-full h-2 mb-4">
                         <div
@@ -117,7 +274,7 @@ const submit = () => {
                             :style="{ width: completionStatus.percentage + '%' }"
                         ></div>
                     </div>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         <div
                             v-for="field in completionStatus.fields"
                             :key="field.name"
@@ -125,168 +282,312 @@ const submit = () => {
                         >
                             <CheckCircleIcon
                                 v-if="field.complete"
-                                class="w-5 h-5 text-green-500 flex-shrink-0"
+                                class="w-5 h-5 text-green-500 shrink-0"
                             />
-                            <ExclamationCircleIcon
+                            <XCircleIcon
+                                v-else-if="field.required"
+                                class="w-5 h-5 text-red-300 shrink-0"
+                            />
+                            <ClockIcon
                                 v-else
-                                class="w-5 h-5 text-gray-300 flex-shrink-0"
+                                class="w-5 h-5 text-gray-300 shrink-0"
                             />
-                            <span :class="field.complete ? 'text-gray-700' : 'text-gray-400'">
+                            <span
+                                :class="
+                                    field.complete
+                                        ? 'text-gray-700'
+                                        : 'text-gray-400'
+                                "
+                            >
                                 {{ field.name }}
                             </span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Form Card -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <form @submit.prevent="submit" class="p-6 space-y-6">
-                        <!-- Profile Photo -->
-                        <div>
-                            <InputLabel value="Profile Photo" class="mb-2" />
-                            <div class="flex items-center gap-6">
-                                <div class="relative">
-                                    <div
-                                        v-if="photoPreview"
-                                        class="w-24 h-24 rounded-full bg-cover bg-center border-4 border-white shadow-lg"
-                                        :style="'background-image: url(' + photoPreview + ')'"
-                                    ></div>
-                                    <div
-                                        v-else
-                                        class="w-24 h-24 rounded-full bg-gray-100 border-4 border-white shadow-lg flex items-center justify-center"
+                <!-- Requirements List -->
+                <form @submit.prevent="submit" class="space-y-4">
+                    <div
+                        v-for="requirement in props.requirements"
+                        :key="requirement.id"
+                        class="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+                    >
+                        <!-- Header -->
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2">
+                                    <h3 class="text-base font-medium text-gray-900">
+                                        {{ requirement.label }}
+                                    </h3>
+                                    <span
+                                        v-if="requirement.is_required"
+                                        class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full"
                                     >
-                                        <UserCircleIcon class="w-12 h-12 text-gray-400" />
-                                    </div>
+                                        Required
+                                    </span>
                                 </div>
-                                <div>
+                                <p
+                                    v-if="requirement.description"
+                                    class="mt-1 text-sm text-gray-500"
+                                >
+                                    {{ requirement.description }}
+                                </p>
+                            </div>
+
+                            <!-- Status Badge -->
+                            <span
+                                :class="[
+                                    'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium',
+                                    getStatusBadgeClasses(
+                                        getSubmissionStatus(requirement.id).color
+                                    ),
+                                ]"
+                            >
+                                <CheckBadgeIcon
+                                    v-if="
+                                        getSubmissionStatus(requirement.id).status ===
+                                        'approved'
+                                    "
+                                    class="w-3.5 h-3.5"
+                                />
+                                <ClockIcon
+                                    v-else-if="
+                                        getSubmissionStatus(requirement.id).status ===
+                                        'pending'
+                                    "
+                                    class="w-3.5 h-3.5"
+                                />
+                                <XCircleIcon
+                                    v-else-if="
+                                        getSubmissionStatus(requirement.id).status ===
+                                        'rejected'
+                                    "
+                                    class="w-3.5 h-3.5"
+                                />
+                                {{ getSubmissionStatus(requirement.id).label }}
+                            </span>
+                        </div>
+
+                        <!-- Existing Document Info (if submitted) -->
+                        <div
+                            v-if="getSubmissionStatus(requirement.id).document"
+                            class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg mb-3"
+                        >
+                            <DocumentIcon class="w-8 h-8 text-gray-400" />
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-gray-900 truncate">
+                                    {{
+                                        getSubmissionStatus(requirement.id).document
+                                            ?.file_name
+                                    }}
+                                </p>
+                                <p class="text-xs text-gray-500">
+                                    {{
+                                        getSubmissionStatus(requirement.id).document
+                                            ?.file_size_formatted
+                                    }}
+                                    <span
+                                        v-if="
+                                            getSubmissionStatus(requirement.id)
+                                                .submittedAt
+                                        "
+                                    >
+                                        &middot; Submitted
+                                        {{
+                                            getSubmissionStatus(requirement.id)
+                                                .submittedAt
+                                        }}
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Rejection Reason -->
+                        <div
+                            v-if="
+                                getSubmissionStatus(requirement.id).status ===
+                                    'rejected' &&
+                                getSubmissionStatus(requirement.id).rejectionReason
+                            "
+                            class="flex items-start gap-2 p-3 bg-red-50 border border-red-100 rounded-lg mb-3"
+                        >
+                            <ExclamationTriangleIcon
+                                class="w-5 h-5 text-red-500 shrink-0 mt-0.5"
+                            />
+                            <div>
+                                <p class="text-sm font-medium text-red-800">
+                                    Document Rejected
+                                </p>
+                                <p class="text-sm text-red-700 mt-0.5">
+                                    {{
+                                        getSubmissionStatus(requirement.id)
+                                            .rejectionReason
+                                    }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- File Upload (if needs action) -->
+                        <div
+                            v-if="needsAction(requirement.id)"
+                            class="mt-3"
+                        >
+                            <InputLabel :value="getSubmissionStatus(requirement.id).status === 'rejected' ? 'Upload New Document' : 'Upload Document'" />
+
+                            <!-- File Input Area -->
+                            <div class="mt-2">
+                                <!-- No file selected yet -->
+                                <label
+                                    v-if="!form.submissions[requirement.id]?.file"
+                                    class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors"
+                                >
+                                    <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                        <ArrowUpTrayIcon
+                                            class="w-8 h-8 text-gray-400 mb-2"
+                                        />
+                                        <p class="text-sm text-gray-600">
+                                            <span class="font-medium text-indigo-600">
+                                                Click to upload
+                                            </span>
+                                            or drag and drop
+                                        </p>
+                                        <p class="text-xs text-gray-500 mt-1">
+                                            PDF, JPG, PNG or GIF (Max 10MB)
+                                        </p>
+                                    </div>
                                     <input
-                                        ref="photoInput"
                                         type="file"
                                         class="hidden"
-                                        accept="image/*"
-                                        @change="updatePhotoPreview"
+                                        accept=".pdf,.jpg,.jpeg,.png,.gif"
+                                        @change="handleFileSelect(requirement.id, $event)"
                                     />
+                                </label>
+
+                                <!-- File selected -->
+                                <div
+                                    v-else
+                                    class="flex items-center gap-3 p-3 bg-indigo-50 border border-indigo-200 rounded-lg"
+                                >
+                                    <!-- Image Preview -->
+                                    <img
+                                        v-if="filePreviews[requirement.id]"
+                                        :src="filePreviews[requirement.id]"
+                                        alt="Preview"
+                                        class="w-12 h-12 object-cover rounded"
+                                    />
+                                    <DocumentIcon
+                                        v-else
+                                        class="w-10 h-10 text-indigo-400"
+                                    />
+
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-gray-900 truncate">
+                                            {{ fileNames[requirement.id] }}
+                                        </p>
+                                        <p class="text-xs text-gray-500">
+                                            {{
+                                                formatFileSize(
+                                                    form.submissions[requirement.id]
+                                                        ?.file?.size || 0
+                                                )
+                                            }}
+                                        </p>
+                                    </div>
+
                                     <button
                                         type="button"
-                                        @click="selectPhoto"
-                                        class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                        @click="clearFile(requirement.id)"
+                                        class="text-gray-400 hover:text-red-500 transition-colors"
                                     >
-                                        <CameraIcon class="w-5 h-5 mr-2 text-gray-400" />
-                                        {{ photoPreview ? 'Change Photo' : 'Upload Photo' }}
+                                        <XCircleIcon class="w-5 h-5" />
                                     </button>
-                                    <p class="mt-2 text-xs text-gray-500">JPG, PNG or GIF. Max 2MB.</p>
                                 </div>
                             </div>
-                            <InputError :message="form.errors.profile_photo" class="mt-2" />
+
+                            <InputError
+                                :message="form.errors[`submissions.${requirement.id}.file`]"
+                                class="mt-2"
+                            />
                         </div>
 
-                        <!-- Phone Number -->
-                        <div>
-                            <InputLabel for="mobile_number" value="Phone Number" />
-                            <div class="mt-1 relative">
-                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <PhoneIcon class="h-5 w-5 text-gray-400" />
-                                </div>
-                                <TextInput
-                                    id="mobile_number"
-                                    v-model="form.mobile_number"
-                                    type="tel"
-                                    class="pl-10 block w-full"
-                                    placeholder="+254 712 345 678"
-                                    required
-                                />
-                            </div>
-                            <InputError :message="form.errors.mobile_number" class="mt-2" />
+                        <!-- Approved - No action needed -->
+                        <div
+                            v-else-if="
+                                getSubmissionStatus(requirement.id).status === 'approved'
+                            "
+                            class="flex items-center gap-2 mt-3 text-sm text-green-600"
+                        >
+                            <CheckCircleIcon class="w-5 h-5" />
+                            <span>Document verified and approved</span>
                         </div>
 
-                        <!-- National ID -->
-                        <div>
-                            <InputLabel for="national_id" value="National ID / Passport Number" />
-                            <div class="mt-1 relative">
-                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <IdentificationIcon class="h-5 w-5 text-gray-400" />
-                                </div>
-                                <TextInput
-                                    id="national_id"
-                                    v-model="form.national_id"
-                                    type="text"
-                                    class="pl-10 block w-full"
-                                    placeholder="Enter your ID number"
-                                    required
-                                />
-                            </div>
-                            <InputError :message="form.errors.national_id" class="mt-2" />
+                        <!-- Pending - Awaiting review -->
+                        <div
+                            v-else-if="
+                                getSubmissionStatus(requirement.id).status === 'pending'
+                            "
+                            class="flex items-center gap-2 mt-3 text-sm text-yellow-600"
+                        >
+                            <ClockIcon class="w-5 h-5" />
+                            <span>Awaiting review by landlord</span>
                         </div>
+                    </div>
 
-                        <!-- Emergency Contact Section -->
-                        <div class="border-t border-gray-200 pt-6">
-                            <div class="flex items-center gap-2 mb-4">
-                                <UserGroupIcon class="w-5 h-5 text-gray-500" />
-                                <h3 class="text-sm font-medium text-gray-900">Emergency Contact</h3>
-                            </div>
-                            <p class="text-sm text-gray-500 mb-4">
-                                Please provide someone we can contact in case of an emergency.
-                            </p>
-
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <InputLabel for="emergency_contact_name" value="Contact Name" />
-                                    <TextInput
-                                        id="emergency_contact_name"
-                                        v-model="form.emergency_contact_name"
-                                        type="text"
-                                        class="mt-1 block w-full"
-                                        placeholder="Full name"
-                                        required
-                                    />
-                                    <InputError :message="form.errors.emergency_contact_name" class="mt-2" />
-                                </div>
-                                <div>
-                                    <InputLabel for="emergency_contact_phone" value="Contact Phone" />
-                                    <TextInput
-                                        id="emergency_contact_phone"
-                                        v-model="form.emergency_contact_phone"
-                                        type="tel"
-                                        class="mt-1 block w-full"
-                                        placeholder="+254 712 345 678"
-                                        required
-                                    />
-                                    <InputError :message="form.errors.emergency_contact_phone" class="mt-2" />
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Submit Button -->
-                        <div class="border-t border-gray-200 pt-6">
-                            <div class="flex items-center justify-between">
-                                <p class="text-sm text-gray-500">
-                                    All fields are required to continue.
+                    <!-- Submit Button -->
+                    <div
+                        class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-6"
+                    >
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-700">
+                                    {{ completionStatus.completed }} of
+                                    {{ completionStatus.total }} required documents
+                                    submitted
                                 </p>
-                                <PrimaryButton
-                                    :disabled="form.processing || completionStatus.percentage < 100"
-                                    :class="{ 'opacity-50 cursor-not-allowed': completionStatus.percentage < 100 }"
+                                <p
+                                    v-if="!canSubmit"
+                                    class="text-xs text-gray-500 mt-1"
                                 >
-                                    <span v-if="form.processing">Saving...</span>
-                                    <span v-else>Complete Profile</span>
-                                </PrimaryButton>
+                                    Upload all required documents to continue
+                                </p>
                             </div>
+                            <PrimaryButton
+                                :disabled="form.processing || !canSubmit"
+                                :class="{
+                                    'opacity-50 cursor-not-allowed': !canSubmit,
+                                }"
+                            >
+                                <span v-if="form.processing">Uploading...</span>
+                                <span v-else>Submit Documents</span>
+                            </PrimaryButton>
                         </div>
-                    </form>
-                </div>
+                    </div>
+                </form>
 
                 <!-- Info Card -->
                 <div class="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
                     <div class="flex">
-                        <div class="flex-shrink-0">
-                            <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                        <div class="shrink-0">
+                            <svg
+                                class="h-5 w-5 text-blue-400"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                            >
+                                <path
+                                    fill-rule="evenodd"
+                                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                    clip-rule="evenodd"
+                                />
                             </svg>
                         </div>
                         <div class="ml-3">
-                            <h3 class="text-sm font-medium text-blue-800">Why we need this information</h3>
+                            <h3 class="text-sm font-medium text-blue-800">
+                                About KYC Verification
+                            </h3>
                             <p class="mt-1 text-sm text-blue-700">
-                                Your profile information helps us verify your identity and contact you or your emergency contact if needed.
-                                This information is kept secure and confidential.
+                                Your documents will be reviewed by your landlord. Once
+                                approved, you'll have full access to your tenant portal.
+                                Make sure documents are clear and legible.
                             </p>
                         </div>
                     </div>

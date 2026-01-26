@@ -10869,3 +10869,89 @@ Created database tables for configurable KYC requirements per building and tenan
 - PAY-005: Update CompleteKyc.vue for Dynamic Requirements (frontend)
 
 **PAY-004 COMPLETE**
+
+---
+
+## Session: 2026-01-26T20:00:00
+**Task**: PAY-005 - Update CompleteKyc.vue for Dynamic Requirements
+**Status**: PASSED
+
+### Skills Applied
+- **web-design-guidelines**: UI patterns for form states, status badges, file upload UX
+- **verification-first**: Build verification after implementation
+- **feature-development**: End-to-end feature implementation workflow
+
+### Work Done
+
+Complete refactor of CompleteKyc.vue from static 4-field form to dynamic KYC requirements system.
+
+#### Key Changes
+
+1. **Form Structure**
+   - Replaced static form fields with dynamic `submissions` object keyed by requirement_id
+   - Form structure: `{ submissions: { [req_id]: { requirement_id, file, value } } }`
+
+2. **Status Badge System**
+   - `getSubmissionStatus()` helper returns status, label, color, rejectionReason, document
+   - Status colors: gray (not submitted), yellow (pending), green (approved), red (rejected)
+   - Icons: CheckBadgeIcon, ClockIcon, XCircleIcon
+
+3. **Dynamic Progress Calculation**
+   - `completionStatus` computed property calculates percentage based on required requirements
+   - Counts as complete: approved, pending, or has new file ready to upload
+
+4. **File Upload Per Requirement**
+   - `handleFileSelect()` validates size (10MB) and type (PDF, JPG, PNG, GIF)
+   - `clearFile()` removes selected file
+   - Image preview via FileReader for image files
+   - PDF shows DocumentIcon instead of preview
+
+5. **Submit Logic**
+   - `canSubmit` computed property checks all required requirements have file/submission
+   - Disabled button with clear messaging when requirements missing
+
+6. **Rejection Handling**
+   - Red background alert box shows rejection reason
+   - "Upload New Document" label indicates re-submission
+   - File input enabled for rejected submissions
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `resources/js/Pages/Tenant/CompleteKyc.vue` | Complete refactor from ~300 lines static to ~600 lines dynamic |
+
+### UI Components
+
+- **Progress Card**: Shows completion percentage with field status list
+- **Requirement Cards**: One card per requirement with:
+  - Header (label + required badge)
+  - Description (if provided)
+  - Status badge
+  - Existing document info (if submitted)
+  - Rejection reason alert (if rejected)
+  - File upload dropzone (if needs action)
+  - Status message (approved/pending)
+- **Submit Section**: Shows progress count + submit button
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| Form displays all required and optional requirements | ✅ `v-for` over `props.requirements` |
+| Upload works for each document type | ✅ File input per requirement with preview |
+| Progress shows accurate completion percentage | ✅ Dynamic calculation based on submissions |
+| Rejected documents show reason and allow resubmission | ✅ Status badge + reason + enabled file input |
+| Submit button disabled until all required docs uploaded | ✅ `canSubmit` computed property |
+
+### Verification Results
+
+- **npm run build**: ✅ Built in 30.27s
+- **vendor/bin/pint --test**: ✅ 769 files PASS
+- **php artisan test --filter=TenantKyc**: ✅ 36 passed (141 assertions)
+
+### Next Steps
+- PAY-006: IntaSend Configuration
+- PAY-017: KYC Settings Page for Landlords (depends: PAY-004)
+
+**PAY-005 COMPLETE**
