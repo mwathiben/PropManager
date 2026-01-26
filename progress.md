@@ -10426,3 +10426,69 @@ Added PHPDoc blocks and inline comments explaining WHY complex business logic ex
 - **php artisan test --parallel**: ✅ 604 tests pass, 13 skipped
 
 **DBP-039 COMPLETE**
+
+---
+
+## Session: 2026-01-26
+**Task**: DBP-042 - Document and Enforce TDD Workflow
+**Status**: COMPLETED
+
+### Work Done
+Documented TDD workflow in CLAUDE.md and created GitHub Actions CI workflow for enforcement. Per laraveltdd-with-pest skill: "Every production change starts with a failing test."
+
+### Files Created
+| File | Purpose |
+|------|---------|
+| `.github/workflows/ci.yml` | CI workflow with lint (Pint), test (PHPUnit + 70% coverage), build (npm) jobs |
+
+### Files Modified
+| File | Changes |
+|------|---------|
+| `CLAUDE.md` | Expanded Testing section (~100 lines) with TDD workflow, test organization, helper traits |
+
+### CLAUDE.md Testing Section Now Includes
+1. **RED-GREEN-REFACTOR workflow** - Step-by-step TDD process
+2. **Test organization tree** - Unit/Feature/Controllers/Api/Browser structure
+3. **Test commands** - Full suite, parallel, filtered, coverage
+4. **Helper traits** - CreatesTestData, MocksExternalServices with usage example
+5. **Writing good tests** - Do's and Don'ts
+6. **PRD task template** - "Write failing test" as first step
+7. **Database configuration** - MySQL, RefreshDatabase, factories
+
+### GitHub Actions CI Workflow
+- **lint job**: Runs Pint (`./vendor/bin/pint --test`)
+- **test job**: PHPUnit with 70% coverage minimum, MySQL 8.0 service container
+- **build job**: npm ci && npm run build
+- **Triggers**: push/PR to main/master branches
+- **Caching**: Composer and npm dependencies
+
+### Acceptance Criteria Verification
+1. ✅ Update CLAUDE.md with TDD requirements
+2. ✅ PRD items include 'Write failing test' as first step
+3. ✅ CI blocks merge without test coverage (70% minimum)
+4. ✅ Document test organization (Feature vs Unit)
+
+### Verification Results
+- **php artisan test --parallel**: ✅ 604 tests pass, 13 skipped
+- **vendor/bin/pint --test**: ✅ 755 files pass
+- **npm run build**: ✅ Success
+
+**DBP-042 COMPLETE**
+
+---
+
+## PRD COMPLETE
+
+All 44 items in design-best-practices-prd.json have passed verification.
+
+**Categories completed:**
+- notification_consolidation: 4 items
+- component_consolidation: 5 items  
+- backend_architecture: 15 items
+- code_quality: 17 items
+- performance_optimization: 3 items
+
+**Next steps:**
+1. Merge to main branch
+2. Monitor CI workflow on first run
+3. Adjust coverage threshold if needed

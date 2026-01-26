@@ -415,15 +415,117 @@ foreach ($units as $unit) {
 
 ## Testing
 
-Tests run against MySQL by default (configure in `.env.testing`). Key test files:
-- `tests/Feature/Auth/*` - Breeze authentication tests
-- `tests/Feature/ProfileTest.php` - Profile management
-- `tests/Unit/` - Unit tests for models/services
+### TDD Workflow (RED-GREEN-REFACTOR)
 
-When adding features:
-1. Write feature tests for user-facing flows
-2. Write unit tests for complex business logic
-3. Test tenant scoping to ensure data isolation
+**Every production change starts with a failing test.** This is mandatory, not optional.
+
+| Phase | What to Do |
+|-------|------------|
+| **RED** | Write a failing test first. Confirm it fails for the right reason. |
+| **GREEN** | Write the simplest code to make the test pass. No extras. |
+| **REFACTOR** | Clean up code while keeping tests green. Extract services if needed. |
+
+**Why test-first?**
+- Forces you to think about the API/interface before implementation
+- Prevents "it works on my machine" syndrome
+- Creates living documentation of expected behavior
+- Makes refactoring safe
+
+### Test Organization
+
+```
+tests/
+├── Unit/                    # Isolated logic, no HTTP, no database (fast)
+│   ├── Services/            # Service class unit tests
+│   ├── ValueObjects/        # Value object tests
+│   ├── Traits/              # Trait tests
+│   └── Policies/            # Authorization policy tests
+├── Feature/                 # HTTP/integration tests (slower, real database)
+│   ├── Controllers/         # Controller workflow tests
+│   ├── Api/                 # API endpoint tests
+│   └── Services/            # Service integration tests
+└── Browser/                 # Dusk E2E tests (slowest, real browser)
+```
+
+**When to use each:**
+- **Unit tests**: Pure functions, value objects, transformers, calculations
+- **Feature tests**: HTTP endpoints, database transactions, multi-step workflows
+- **Browser tests**: JavaScript-heavy flows, visual regression (use sparingly)
+
+### Test Commands
+
+```bash
+php artisan test                          # Run full suite
+php artisan test --parallel               # Parallel execution (faster)
+php artisan test --filter=InvoiceService  # Run specific test/class
+php artisan test tests/Feature/Controllers/ # Run suite subset
+php artisan test --coverage --min=70      # With coverage (CI enforced)
+```
+
+### Test Helpers
+
+Two traits are available for common setup patterns:
+
+| Trait | Purpose |
+|-------|---------|
+| `CreatesTestData` | Factory-based setup for landlords, properties, buildings, units, leases, invoices, payments |
+| `MocksExternalServices` | Mock Paystack, M-Pesa, and other external APIs |
+
+Usage:
+```php
+class InvoiceControllerTest extends TestCase
+{
+    use RefreshDatabase, CreatesTestData, MocksExternalServices;
+
+    public function test_invoice_can_be_generated(): void
+    {
+        $this->createTestData();  // Sets up $this->landlord, $this->lease, etc.
+        $this->mockPaystack();     // Prevents real API calls
+
+        $response = $this->actingAs($this->landlord)
+            ->post(route('invoices.generate'));
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('invoices', ['lease_id' => $this->lease->id]);
+    }
+}
+```
+
+### Writing Good Tests
+
+**Do:**
+- Use model factories, not manual `create()` calls
+- Name tests by behavior: `test_rejects_payment_when_invoice_already_paid()`
+- One assertion per test (or closely related assertions)
+- Use `$this->assertDatabaseHas()` for state verification
+- Mock external services (payment gateways, SMS APIs)
+
+**Don't:**
+- Use `sleep()` or time-dependent logic
+- Test framework behavior (Laravel already tests Eloquent)
+- Write tests after the code is "done"
+- Skip the RED phase - you must see the test fail first
+
+### PRD Task Template
+
+When defining new PRD tasks, always include:
+```json
+{
+  "steps": [
+    "Write failing test for [acceptance criteria]",
+    "Implement minimum code to pass",
+    "Refactor if needed",
+    "Run full test suite"
+  ]
+}
+```
+
+### Database Configuration
+
+Tests run against MySQL by default (configure in `.env.testing`):
+- Uses `propmanager_test` database
+- `RefreshDatabase` trait resets between tests
+- Factories available for all 76+ models (see `database/factories/`)
 
 ## Environment Configuration
 
