@@ -10220,3 +10220,82 @@ The following fields are never selected unnecessarily:
 - **npm run build**: ✅ Build successful
 
 **DBP-040 COMPLETE**
+
+---
+
+## Session: 2026-01-26 - DBP-035d: Create Factories for Settings & Admin Models
+
+### Summary
+Created 18 model factories following existing codebase patterns with comprehensive state methods and relationship helpers.
+
+### Skills Applied
+- **laravelmigrations-and-factories**: Every model must have a factory for testing. Follow existing factory conventions with relationships, states, and helper methods.
+- **verification-first**: Run tests after each batch to ensure factories create valid records.
+
+### Factories Created (18 total)
+
+| Phase | Factories | Description |
+|-------|-----------|-------------|
+| Phase 1 | WaterSettingFactory, HelpArticleFactory, FaqFactory, UsageRecordFactory, BankWebhookLogFactory | Low-complexity factories with simple relationships |
+| Phase 2 | InvoiceTemplateFactory, ReceiptTemplateFactory, PlatformBillingSettingFactory | Template factories with DESIGN_* constants and boolean toggles |
+| Phase 3 | SubscriptionPlanFactory, SubscriptionFactory, SubscriptionPaymentFactory, BillingModelChangeFactory | Subscription lifecycle factories with status states |
+| Phase 4 | AuditLogFactory, SecurityLogFactory, SecurityIncidentFactory | Audit/security factories with event types and severity levels |
+| Phase 5 | InvoiceSettingFactory, PlatformFeeFactory, BankReconciliationQueueFactory | Complex relationship factories with financial calculations |
+
+### Factory Patterns Used
+
+**Relationship pattern:**
+```php
+'landlord_id' => User::factory()->state(['role' => 'landlord']),
+```
+
+**State methods:**
+```php
+public function active(): static {
+    return $this->state(['status' => 'active']);
+}
+
+public function trialing(): static {
+    return $this->state([
+        'status' => 'trialing',
+        'trial_ends_at' => now()->addDays(14),
+    ]);
+}
+```
+
+**Helper methods:**
+```php
+public function forLandlord(User $landlord): static {
+    return $this->state(['landlord_id' => $landlord->id]);
+}
+
+public function forUser(User $user): static {
+    return $this->state(['user_id' => $user->id]);
+}
+```
+
+**Financial calculations:**
+```php
+$grossAmount = fake()->randomFloat(2, 1000, 50000);
+$feePercentage = fake()->randomFloat(2, 1.5, 5);
+$feeAmount = round($grossAmount * ($feePercentage / 100), 2);
+$netAmount = $grossAmount - $feeAmount;
+```
+
+### Models Updated (HasFactory trait added)
+
+- WaterSetting, HelpArticle, Faq, UsageRecord, BankWebhookLog
+- InvoiceTemplate, ReceiptTemplate, PlatformBillingSetting  
+- SubscriptionPlan, Subscription, SubscriptionPayment, BillingModelChange
+- AuditLog, SecurityIncident (SecurityLog already had it)
+- InvoiceSetting, PlatformFee, BankReconciliationQueue
+
+### Exclusions
+- **Setting model**: Not factory-eligible (simple key-value store, not suited for factory-based testing)
+
+### Verification Results
+- **vendor/bin/pint --test**: ✅ 750 files pass (4 style issues fixed by pint)
+- **php artisan test --parallel**: ✅ 604 tests pass, 13 skipped
+- **npm run build**: ✅ Build successful
+
+**DBP-035d COMPLETE**
