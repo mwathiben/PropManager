@@ -1923,8 +1923,9 @@
       ],
       "verification": "Code review; verify comments explain business rationale",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1,
+      "completion_notes": "Documented 5 complex business logic areas with WHY comments: (1) WaterRateService.php - 3-tier hierarchy (Building > Landlord > System) enables per-building pricing while maintaining simplicity; (2) InvoiceService.php - pessimistic locking for race conditions, wallet deduction before invoice creation, arrears rollforward for tenant liability, status auto-set to Paid when wallet covers bill, flat-rate readings not marked invoiced to prevent false billing; (3) LateFeeService.php - policy hierarchy for building-specific rules, grace period as tenant protection, fee cap prevents runaway charges, compounding frequency prevents fee spam; (4) TenantScope.php - multi-tenancy isolation, Super Admin bypass for cross-landlord reporting, security guidance for scope bypass; (5) BulkImportValidator.php - FIFO payment allocation (oldest invoices first) as industry standard, wallet credit for overpayments. All 604 tests pass, Pint passes."
     },
     {
       "id": "DBP-040",

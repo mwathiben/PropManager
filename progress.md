@@ -10395,3 +10395,34 @@ This is "preparation work" - representative samples establish patterns that futu
 - **npm run build**: ✅ Build successful
 
 **DBP-038 COMPLETE**
+
+---
+
+## Session: 2026-01-26
+**Task**: DBP-039 - Document Complex Business Logic
+**Status**: COMPLETED
+
+### Work Done
+Added PHPDoc blocks and inline comments explaining WHY complex business logic exists (not WHAT it does). Per laraveldocumentation-best-practices skill: "Write meaningful documentation that explains why not what; focus on business rationale."
+
+### Files Modified
+| File | Documentation Added |
+|------|---------------------|
+| `app/Services/WaterRateService.php` | Class docblock explaining WHY 3-tier hierarchy exists (building > landlord > system) - enables per-building pricing while maintaining simplicity for most landlords |
+| `app/Services/InvoiceService.php` | Class docblock for status transitions, inline comments for: pessimistic locking (race condition), wallet deduction (prepayments), arrears rollforward (tenant liability continuity), flat-rate readings not marked invoiced (prevent false billing) |
+| `app/Services/LateFeeService.php` | Class docblock for policy hierarchy and fee calculation algorithm, inline comments for: grace period (tenant protection), fee cap (prevents runaway charges), compounding frequency (prevents fee spam) |
+| `app/Traits/TenantScope.php` | Class docblock explaining multi-tenancy isolation, Super Admin bypass for cross-landlord reporting, security guidance for safe scope bypass pattern |
+| `app/Services/BulkImport/BulkImportValidator.php` | Class docblock explaining FIFO payment allocation (oldest invoices first - industry standard), inline comments for allocation loop and wallet credit for overpayments |
+
+### Acceptance Criteria Verification
+1. ✅ Document water rate 3-tier inheritance logic
+2. ✅ Document invoice status transition rules  
+3. ✅ Document late fee calculation algorithm
+4. ✅ Document tenant scope bypass scenarios
+5. ✅ Document payment allocation FIFO logic
+
+### Verification Results
+- **vendor/bin/pint --test**: ✅ 755 files pass
+- **php artisan test --parallel**: ✅ 604 tests pass, 13 skipped
+
+**DBP-039 COMPLETE**

@@ -22,6 +22,18 @@ use Illuminate\Support\Facades\DB;
  * - 'historical': For archived/past tenant payments
  *
  * Uses batch pre-loading to eliminate N+1 queries.
+ *
+ * Payment Allocation Strategy: FIFO (First-In, First-Out)
+ *
+ * WHY FIFO: Industry-standard approach for payment allocation in property management.
+ * Payments are applied to the oldest outstanding invoices first (ordered by due_date ASC).
+ * This reduces aged receivables and matches tenant expectations (paying oldest debts first).
+ *
+ * WHY wallet credit for overpayment: When a payment exceeds all outstanding invoices,
+ * the remainder becomes a prepayment credit applied to future invoices. This is common
+ * in property management where tenants may pay ahead.
+ *
+ * @see calculateAllocations() for the FIFO implementation
  */
 class BulkImportValidator
 {
@@ -190,13 +202,15 @@ class BulkImportValidator
                 ->keyBy('invoice_number');
         }
 
+        // Pre-load invoices ordered by due_date ASC for FIFO allocation.
+        // Oldest invoices first ensures aged receivables are paid down first.
         $tenantIds = $this->tenantsMap->pluck('id')->unique()->filter();
         if ($tenantIds->isNotEmpty()) {
             $this->tenantInvoicesMap = Invoice::where('landlord_id', $this->landlordId)
                 ->whereHas('lease', fn ($q) => $q->whereIn('tenant_id', $tenantIds))
                 ->whereIn('status', [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue])
                 ->with('lease:id,tenant_id')
-                ->orderBy('due_date', 'asc')
+                ->orderBy('due_date', 'asc')  // FIFO: oldest invoices first
                 ->get()
                 ->groupBy(fn ($inv) => $inv->lease?->tenant_id);
         }
@@ -392,7 +406,17 @@ class BulkImportValidator
     }
 
     /**
-     * Calculate invoice allocations for a payment amount.
+     * Calculate invoice allocations for a payment amount using FIFO strategy.
+     *
+     * WHY FIFO (First-In, First-Out):
+     * Payments are applied to oldest outstanding invoices first (by due_date).
+     * This is industry-standard in property management because:
+     * - Reduces aged receivables (older debts cleared first)
+     * - Matches tenant expectations (paying oldest bills first)
+     * - Simplifies accounting reconciliation
+     *
+     * If explicit invoice_number is provided, payment goes to that invoice directly.
+     * Any remainder after all invoices are paid becomes wallet credit (prepayment).
      *
      * @return array{allocations: array, wallet_credit: float}|array{errors: array}
      */
@@ -427,18 +451,20 @@ class BulkImportValidator
                 $walletCredit = $remainingAmount;
             }
         } else {
+            // FIFO allocation: invoices already sorted by due_date ASC (oldest first)
             $invoices = $this->tenantInvoicesMap->get($tenant->id, collect());
 
             foreach ($invoices as $invoice) {
                 if ($remainingAmount <= 0) {
-                    break;
+                    break;  // Payment exhausted
                 }
 
                 $outstanding = $invoice->getOutstandingAmount();
                 if ($outstanding <= 0) {
-                    continue;
+                    continue;  // Skip fully paid invoices
                 }
 
+                // Allocate min(remaining payment, invoice outstanding)
                 $allocationAmount = min($remainingAmount, $outstanding);
                 $allocations[] = [
                     'invoice_id' => $invoice->id,
@@ -449,6 +475,7 @@ class BulkImportValidator
                 $remainingAmount -= $allocationAmount;
             }
 
+            // Overpayment becomes wallet credit (prepayment for future invoices)
             if ($remainingAmount > 0) {
                 $walletCredit = $remainingAmount;
             }

@@ -8,8 +8,34 @@ use App\Models\LateFee;
 use App\Models\LateFeePolicy;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Late Fee Service - Calculates and applies late fees based on policy hierarchy.
+ *
+ * Policy Hierarchy (most specific wins):
+ * 1. Building-level policy - for buildings needing strict/lenient rules
+ * 2. Property-level policy - shared across buildings in a property
+ * 3. Landlord default policy - applies to all properties without overrides
+ *
+ * WHY this hierarchy: Different buildings may warrant different fee policies
+ * (e.g., commercial properties with stricter enforcement vs residential with
+ * more lenient grace periods).
+ *
+ * Late Fee Calculation Algorithm:
+ * - Grace period protects tenants from immediate penalties (industry standard)
+ * - Fee cap prevents runaway charges that could exceed the original debt
+ * - Compounding frequency controls how often fees accumulate (daily/weekly/monthly)
+ * - Non-compounding fees apply once only (simpler for small landlords)
+ *
+ * WHY fee cap exists: Tenant protection - without caps, compound interest on
+ * late fees could theoretically exceed the original invoice amount, creating
+ * an unenforceable or legally questionable debt.
+ */
 class LateFeeService
 {
+    /**
+     * Find the applicable late fee policy using 3-tier hierarchy.
+     * Building > Property > Landlord default (most specific wins).
+     */
     public function getPolicyForInvoice(Invoice $invoice): ?LateFeePolicy
     {
         $lease = $invoice->lease;
@@ -21,6 +47,7 @@ class LateFeeService
         $property = $building->property;
         $landlordId = $invoice->landlord_id;
 
+        // Check building-specific policy first (most specific)
         $policy = LateFeePolicy::active()
             ->where('landlord_id', $landlordId)
             ->where('building_id', $building->id)
@@ -30,6 +57,7 @@ class LateFeeService
             return $policy;
         }
 
+        // Fallback to property-level policy
         $policy = LateFeePolicy::active()
             ->where('landlord_id', $landlordId)
             ->where('property_id', $property->id)
@@ -40,6 +68,7 @@ class LateFeeService
             return $policy;
         }
 
+        // Fallback to landlord default policy (least specific)
         return LateFeePolicy::active()
             ->where('landlord_id', $landlordId)
             ->whereNull('property_id')
@@ -47,6 +76,16 @@ class LateFeeService
             ->first();
     }
 
+    /**
+     * Check if invoice is eligible for a late fee today.
+     *
+     * Eligibility gates (all must pass):
+     * - Invoice status allows fees (Overdue, Partial, Sent)
+     * - Past due date with outstanding balance
+     * - Past grace period (tenant protection window)
+     * - Under fee cap (prevents runaway charges)
+     * - Compounding frequency satisfied (prevents fee spam)
+     */
     public function isEligibleForLateFeeToday(Invoice $invoice, LateFeePolicy $policy): bool
     {
         if (! $this->invoiceCanReceiveLateFee($invoice)) {
@@ -55,10 +94,12 @@ class LateFeeService
 
         $daysOverdue = $invoice->due_date->diffInDays(now());
 
+        // Grace period: Industry-standard protection before penalties kick in
         if ($daysOverdue <= $policy->grace_period_days) {
             return false;
         }
 
+        // Fee cap: Prevents cumulative fees from exceeding reasonable limits
         if ($policy->max_fee_cap !== null) {
             $currentTotal = (float) $invoice->late_fees_total;
             if ($currentTotal >= $policy->max_fee_cap) {
@@ -66,6 +107,7 @@ class LateFeeService
             }
         }
 
+        // Non-compounding: Single fee only (simpler for small landlords)
         if (! $policy->is_compounding) {
             return $invoice->lateFees()->count() === 0;
         }
@@ -88,6 +130,13 @@ class LateFeeService
         return $outstanding > 0;
     }
 
+    /**
+     * Check if enough time has passed for next compounding fee.
+     *
+     * WHY frequency limits: Prevents fee spam by ensuring fees only
+     * accumulate at the configured rate (daily/weekly/monthly).
+     * Without this, fees could theoretically apply multiple times per day.
+     */
     protected function shouldApplyCompoundingFee(Invoice $invoice, LateFeePolicy $policy): bool
     {
         $lastFee = $invoice->lateFees()->latest('applied_date')->first();

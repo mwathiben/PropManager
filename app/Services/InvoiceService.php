@@ -14,11 +14,38 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * Invoice Service - Handles invoice generation and status management.
+ *
+ * Invoice Status Transitions:
+ * - Draft: Created but not sent to tenant (initial state)
+ * - Sent: Delivered to tenant, awaiting payment
+ * - Partial: Some payment received, balance outstanding
+ * - Paid: Fully paid (amount_paid >= total_due)
+ * - Overdue: Past due_date without full payment
+ *
+ * WHY wallet is applied before creating invoice:
+ * Prepayments (from overpayments on previous invoices) should reduce the amount due
+ * immediately. If wallet covers the full bill, invoice is auto-marked Paid to avoid
+ * sending unnecessary payment requests.
+ *
+ * WHY arrears roll forward to next invoice:
+ * Unpaid amounts from previous invoices compound into future invoices to ensure
+ * tenants cannot escape past-due amounts by simply not paying. This maintains
+ * landlord's receivable balance continuity.
+ *
+ * WHY water readings marked invoiced only for consumption billing:
+ * Flat-rate buildings charge a fixed amount regardless of readings, so readings
+ * are informational only. Marking them "invoiced" would incorrectly suggest they
+ * were billed when the flat rate was charged instead.
+ */
 class InvoiceService
 {
     public function generateInvoiceForLease(Lease $lease, Carbon $billingPeriod)
     {
         return DB::transaction(function () use ($lease, $billingPeriod) {
+            // Pessimistic lock prevents race condition where concurrent requests
+            // could create duplicate invoices for the same billing period
             $existingInvoice = Invoice::where('lease_id', $lease->id)
                 ->whereYear('billing_period_start', $billingPeriod->year)
                 ->whereMonth('billing_period_start', $billingPeriod->month)
@@ -46,6 +73,8 @@ class InvoiceService
 
             $totalDue = $rentDue + $waterDue + $arrears;
 
+            // Apply tenant's prepayment balance (from previous overpayments) before
+            // creating invoice - reduces amount due and may fully settle the bill
             $walletApplied = 0;
             if ($lease->hasWalletBalance()) {
                 $walletApplied = $lease->deductFromWallet($totalDue, 'Applied to invoice');
@@ -64,6 +93,7 @@ class InvoiceService
                 'wallet_applied' => $walletApplied,
                 'total_due' => $totalDue,
                 'amount_paid' => 0,
+                // Auto-set to Paid if wallet fully covered bill (no payment action needed)
                 'status' => $totalDue == 0 ? InvoiceStatus::Paid : InvoiceStatus::Draft,
             ]);
 
@@ -74,7 +104,9 @@ class InvoiceService
                 }
             }
 
-            // Only mark readings as invoiced for consumption-based billing
+            // Only mark readings as invoiced for consumption-based billing.
+            // Flat-rate buildings charge fixed amounts, so readings are informational
+            // only - marking them invoiced would falsely imply consumption was billed.
             $building = $lease->unit->building;
             if ($waterDue > 0 && $building->usesConsumptionBilling()) {
                 $this->markWaterReadingsAsInvoiced($lease, $billingPeriod);
@@ -122,6 +154,13 @@ class InvoiceService
             ->update(['is_invoiced' => true]);
     }
 
+    /**
+     * Get unpaid balance from previous invoices to roll forward.
+     *
+     * WHY arrears roll forward: Tenants cannot escape past-due amounts by not paying.
+     * Unpaid balances compound into future invoices, maintaining landlord's receivable
+     * continuity and ensuring the debt remains visible until fully settled.
+     */
     protected function getPreviousArrears(Lease $lease)
     {
         $lastInvoice = Invoice::where('lease_id', $lease->id)

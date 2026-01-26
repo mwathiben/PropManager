@@ -5,15 +5,39 @@ namespace App\Traits;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 
+/**
+ * TenantScope Trait - Multi-tenancy data isolation for landlord-owned models.
+ *
+ * WHY this trait exists:
+ * In a multi-tenant SaaS, each landlord's data must be completely isolated.
+ * Without automatic scoping, every query would need explicit where('landlord_id', $id)
+ * clauses, creating maintenance burden and risk of accidental cross-tenant data leaks.
+ *
+ * Role-based scoping:
+ * - Landlords see only their own data (landlord_id = user.id)
+ * - Caretakers see their assigned landlord's data (landlord_id = user.landlord_id)
+ * - Tenants see their landlord's data (landlord_id = user.landlord_id)
+ *
+ * WHY Super Admin bypasses scope:
+ * Admin dashboards require cross-landlord visibility for reporting, debugging,
+ * and system-wide statistics. Admins have no landlord_id, so the scope would
+ * filter out all data. Bypass is safe because admins already have full system access.
+ *
+ * SECURITY: To bypass scope safely (admin only), use:
+ *   Model::withoutGlobalScope('landlord')->where('landlord_id', $specificId)
+ * Always re-apply explicit landlord filter to prevent accidental full-table access.
+ *
+ * @see AdminController for scope bypass examples
+ */
 trait TenantScope
 {
     /**
-     * The "Boot" method of the model.
-     * This is where we attach the Global Scope.
+     * Attach global landlord scope on model boot.
+     * Skipped for Super Admins who need cross-tenant visibility.
      */
     protected static function bootTenantScope()
     {
-        // Only apply this scope if a user is logged in and NOT a Super Admin
+        // Super Admins bypass all scoping for admin dashboard access
         if (Auth::check() && ! Auth::user()->isSuperAdmin()) {
 
             static::addGlobalScope('landlord', function (Builder $builder) {
@@ -21,14 +45,13 @@ trait TenantScope
                 $user = Auth::user();
 
                 if ($user->role === 'landlord') {
-                    // Landlord sees their own data
                     $builder->where('landlord_id', $user->id);
                 } elseif ($user->role === 'caretaker') {
-                    // Caretaker sees data belonging to their assigned Landlord
+                    // Caretaker manages landlord's properties, sees landlord's data
                     $builder->where('landlord_id', $user->landlord_id);
                 } elseif ($user->role === 'tenant') {
-                    // Tenants generally only see data linked to their specific ID
-                    // But for general queries, we scope to their landlord
+                    // Tenant scoped to their landlord for general queries
+                    // (tenant-specific filtering done at controller level)
                     $builder->where('landlord_id', $user->landlord_id);
                 }
             });
@@ -36,7 +59,8 @@ trait TenantScope
     }
 
     /**
-     * Automatically fill the 'landlord_id' when creating new records.
+     * Auto-populate landlord_id on record creation.
+     * Ensures data ownership is set correctly regardless of who creates the record.
      */
     protected static function boot()
     {
@@ -46,8 +70,7 @@ trait TenantScope
             if (Auth::check()) {
                 $user = Auth::user();
 
-                // If creator is Landlord, ID is theirs.
-                // If creator is Caretaker, ID is their boss's.
+                // Landlord owns their data; caretaker's data belongs to their boss
                 $model->landlord_id = $user->role === 'landlord' ? $user->id : $user->landlord_id;
             }
         });
