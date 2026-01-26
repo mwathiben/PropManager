@@ -10492,3 +10492,58 @@ All 44 items in design-best-practices-prd.json have passed verification.
 1. Merge to main branch
 2. Monitor CI workflow on first run
 3. Adjust coverage threshold if needed
+
+---
+
+## Session: 2026-01-26
+**Task**: COM-021 - Submit WhatsApp Template Changes to Meta for Approval (Code Prerequisites)
+**Status**: IN_PROGRESS (Code prereqs complete, awaiting external Meta approval)
+
+### Skills Applied
+- **verification-first**: Run tests after every change, verify behavior
+- **laravelconfig-env-storage**: Proper .env configuration patterns for feature flags
+- **laraveldocumentation-best-practices**: Write meaningful documentation explaining WHY
+
+### Work Done
+
+Implemented code-level prerequisites for COM-021 (Definition of Ready #4: "Fallback plan documented and feature flag implemented").
+
+#### Files Created/Modified
+
+| File | Changes |
+|------|---------|
+| `config/features.php` | Added `whatsapp_payment_links_enabled` feature flag with comprehensive documentation |
+| `.env.example` | Added `WHATSAPP_PAYMENT_LINKS_ENABLED=false` with documentation |
+| `app/Services/NotificationService.php` | Updated `sendRentReminder()` and `sendArrearsNotice()` to conditionally include payment_link in template data based on feature flag |
+| `config/whatsapp.php` | Added Meta approval documentation explaining the payment_link dependency |
+
+#### Feature Flag Behavior
+
+When `WHATSAPP_PAYMENT_LINKS_ENABLED=false` (default):
+- Payment links are still generated and included in plain text messages
+- Payment links are excluded from WhatsApp template variables
+- WhatsApp falls back to plain text (not template rendering)
+- SMS fallback channel delivers payment links after 1 hour timeout
+
+When `WHATSAPP_PAYMENT_LINKS_ENABLED=true` (after Meta approval):
+- Payment links included in WhatsApp template variables
+- WhatsApp uses Meta-approved templates with payment_link rendering
+- Full template functionality enabled
+
+### Verification Results
+- **vendor/bin/pint --test**: ✅ 755 files pass
+- **php artisan test --parallel**: ✅ 604 tests pass, 13 skipped
+- **npm run build**: ✅ Build successful
+
+### Next Steps (External)
+1. Product Owner/DevOps Lead navigates to Twilio Console → Content Template Builder
+2. Update rent_reminder and arrears_notice templates to include {{payment_link}} variable
+3. Submit templates for Meta approval (1-3 business days typical)
+4. Once approved, set `WHATSAPP_PAYMENT_LINKS_ENABLED=true` in .env
+5. Mark COM-021 `passes: true` in PRD
+
+### Notes
+- PRD remains `passes: false` - awaiting external Meta template approval
+- `code_prereqs_complete: true` added to PRD to track code work completion
+- Feature flag provides graceful degradation (payment links work via SMS fallback)
+

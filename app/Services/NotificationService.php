@@ -681,8 +681,13 @@ class NotificationService
             'tenant_name' => $tenant->name,
             'amount' => number_format($data['amount'], 0),
             'due_date' => $data['due_date'],
-            'payment_link' => $paymentLink,
         ];
+
+        // Only include payment_link in template data if feature enabled
+        // (requires Meta-approved WhatsApp template with payment_link variable)
+        if (config('features.whatsapp_payment_links_enabled', false)) {
+            $templateData['payment_link'] = $paymentLink;
+        }
 
         return $this->send(
             $tenantId,
@@ -716,8 +721,12 @@ class NotificationService
             'tenant_name' => $tenant->name,
             'amount' => number_format($data['arrears_amount'], 0),
             'days_overdue' => (string) ($data['days_overdue'] ?? 0),
-            'payment_link' => $paymentLink,
         ];
+
+        // Only include payment_link in template data if feature enabled
+        if (config('features.whatsapp_payment_links_enabled', false)) {
+            $templateData['payment_link'] = $paymentLink;
+        }
 
         return $this->send(
             $tenantId,

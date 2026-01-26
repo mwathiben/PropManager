@@ -4,8 +4,9 @@
     "description": "World-class tenant-landlord communication infrastructure implementing WhatsApp-first messaging, real-time WebSocket updates via Laravel Reverb, and intelligent multi-channel notification routing for a Kenya-focused property management SaaS",
     "version": "1.0.0",
     "techStack": {
-      "backend": "Laravel 12 (PHP 8.2+)",
+      "backend": "Laravel 12 (PHP 8.4+)",
       "frontend": "Inertia.js + Vue 3 + Tailwind CSS v4",
+      "database": "MySQL 9.4",
       "realtime": "Laravel Reverb (WebSocket)",
       "messaging": {
         "primary": "WhatsApp Business API (Twilio)",
@@ -708,7 +709,71 @@
       ],
       "verification": "Click payment link in WhatsApp; verify redirects to payment page with correct invoice",
       "passes": true,
-      "attempt_count": 1
+      "attempt_count": 1,
+      "blocked_by": ["COM-021"]
+    },
+    {
+      "id": "COM-021",
+      "category": "whatsapp_integration",
+      "priority": "CRITICAL",
+      "type": "deployment_blocker",
+      "title": "Submit WhatsApp Template Changes to Meta for Approval",
+      "description": "The payment_link variable added to rent_reminder and arrears_notice templates requires Meta re-approval before payment links will work in production WhatsApp messages. This is an external dependency blocking production deployment of COM-020.",
+      "blocks": ["COM-020"],
+      "steps": [
+        "Navigate to Twilio Console → Messaging → Content Template Builder",
+        "Locate existing templates: rent_reminder, arrears_notice",
+        "Update templates to include new {{payment_link}} variable",
+        "Submit both templates for Meta approval",
+        "Monitor approval status in Twilio Console (typical: 1-3 business days)",
+        "Document approved template SIDs in config/whatsapp.php",
+        "Verify templates work in production with actual Meta approval",
+        "Update COM-020 status once templates are approved"
+      ],
+      "templates_requiring_approval": [
+        {
+          "name": "rent_reminder",
+          "new_variable": "payment_link",
+          "updated_content": "Hi {{1}}, your rent of KES {{2}} is due on {{3}}. Pay now: {{4}} or via M-Pesa. Questions? Reply to this message.",
+          "variables": ["tenant_name", "amount", "due_date", "payment_link"]
+        },
+        {
+          "name": "arrears_notice",
+          "new_variable": "payment_link",
+          "updated_content": "Hi {{1}}, you have an outstanding balance of KES {{2}} that is {{3}} days overdue. Pay now: {{4}} to avoid penalties.",
+          "variables": ["tenant_name", "amount", "days_overdue", "payment_link"]
+        }
+      ],
+      "responsible_party": "Product Owner / DevOps Lead",
+      "expected_timeline": "1-3 business days (typical Meta approval time)",
+      "fallback_plan": {
+        "description": "If Meta approval is delayed beyond 5 business days",
+        "actions": [
+          "Deploy COM-020 with payment links disabled in WhatsApp templates",
+          "Send payment links via SMS fallback channel instead",
+          "Add feature flag: WHATSAPP_PAYMENT_LINKS_ENABLED=false",
+          "Monitor Meta approval and enable flag once approved",
+          "Escalate to Twilio support if approval exceeds 7 days"
+        ]
+      },
+      "definition_of_ready": [
+        "Access to Twilio Console with Content Template Builder permissions",
+        "Template text changes reviewed and approved by product owner",
+        "Test templates validated in Twilio sandbox environment",
+        "Fallback plan documented and feature flag implemented",
+        "Monitoring alert configured for template approval status"
+      ],
+      "files": [
+        "config/whatsapp.php",
+        "config/features.php",
+        ".env.example",
+        "app/Services/NotificationService.php"
+      ],
+      "verification": "Templates show 'approved' status in Twilio Console; test message with payment_link variable sends successfully to production WhatsApp number",
+      "passes": false,
+      "attempt_count": 1,
+      "code_prereqs_complete": true,
+      "code_prereqs_note": "Feature flag (WHATSAPP_PAYMENT_LINKS_ENABLED) implemented in config/features.php. NotificationService updated to conditionally include payment_link in template data. Awaiting external Meta template approval via Twilio Console."
     }
   ],
   "progressTracking": {

@@ -14,6 +14,15 @@ return [
     | UI and stored in the database. This file contains only the static
     | template definitions (content and variable mappings).
     |
+    | IMPORTANT: rent_reminder and arrears_notice templates include {{payment_link}}.
+    | These require Meta re-approval with the payment_link variable before
+    | the feature can be enabled. See COM-021 in dashboard-communication-prd.json.
+    |
+    | Until approved:
+    | - Set WHATSAPP_PAYMENT_LINKS_ENABLED=false in .env
+    | - WhatsApp will use plain text fallback (payment links still work)
+    | - SMS fallback chain will deliver payment links via SMS after 1 hour
+    |
     */
 
     'templates' => [
