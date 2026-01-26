@@ -711,6 +711,10 @@ Route::middleware('auth')->group(function () {
             ->name('api.banks');
         Route::post('/api/verify-account', [PaymentsHubController::class, 'verifyAccount'])->name('api.verify-account');
     });
+
+    // 19. KYC Review Routes (Landlords and Caretakers)
+    Route::get('/kyc/pending', [\App\Http\Controllers\TenantKycController::class, 'pendingReviews'])->name('kyc.pending');
+    Route::post('/kyc/submissions/{submission}/review', [\App\Http\Controllers\TenantKycController::class, 'review'])->name('kyc.review');
 });
 
 // --- SUPER ADMIN ROUTES ---

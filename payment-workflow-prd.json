@@ -265,8 +265,8 @@
       ],
       "verification": "Complete KYC flow as new tenant, verify submissions created; as landlord, approve submissions, verify tenant can access lease.",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["PAY-003"]
     },
     {
