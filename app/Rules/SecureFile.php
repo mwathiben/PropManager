@@ -126,14 +126,13 @@ class SecureFile implements ValidationRule
             return true;
         }
 
-        $handle = fopen($file->getRealPath(), 'rb');
-        if (! $handle) {
+        $content = $file->get();
+        if ($content === false) {
             return false;
         }
 
-        // Read first 20 bytes for signature checking
-        $header = fread($handle, 20);
-        fclose($handle);
+        // Get first 20 bytes for signature checking
+        $header = substr($content, 0, 20);
 
         foreach ($this->signatures[$mimeType] as $signature) {
             if (str_starts_with($header, $signature)) {
@@ -149,7 +148,7 @@ class SecureFile implements ValidationRule
      */
     protected function containsPhpCode(UploadedFile $file): bool
     {
-        $content = file_get_contents($file->getRealPath());
+        $content = $file->get();
 
         // Check for PHP tags
         $patterns = [

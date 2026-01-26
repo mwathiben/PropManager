@@ -10299,3 +10299,45 @@ $netAmount = $grossAmount - $feeAmount;
 - **npm run build**: ✅ Build successful
 
 **DBP-035d COMPLETE**
+
+---
+
+## Session: 2026-01-26
+**Task**: DBP-037 - Audit File Operations for Storage Facade Compliance
+**Status**: COMPLETED
+
+### Work Done
+Migrated raw filesystem operations to Laravel's Storage facade across 5 files for consistency and proper abstraction.
+
+### Files Created
+| File | Purpose |
+|------|---------|
+| `app/Http/Traits/ParsesCSVFiles.php` | Reusable trait for CSV parsing via Storage facade |
+
+### Files Modified
+| File | Changes |
+|------|---------|
+| `app/Services/DataExportService.php` | Replaced `storage_path()` with `Storage::path()`, replaced `unlink/rmdir` with `Storage::deleteDirectory()` |
+| `app/Services/ImportService.php` | Replaced `fopen/fgetcsv/fclose` with `Storage::get()` + ParsesCSVFiles trait |
+| `app/Services/BulkImport/BulkImportValidator.php` | Replaced `fopen/fgetcsv/fclose` with `UploadedFile::get()` + ParsesCSVFiles trait |
+| `app/Rules/SecureFile.php` | Replaced `fopen/fread/fclose` and `file_get_contents` with `UploadedFile::get()` |
+| `app/Services/OcrService.php` | Replaced `file_get_contents` with `UploadedFile::get()` and `Storage::get()` |
+
+### Patterns Applied
+1. **Storage facade for all file I/O**: No more raw `file_get_contents`, `fopen`, `fread`, `unlink`, `rmdir`
+2. **UploadedFile::get() for temp uploads**: More idiomatic than `file_get_contents($file->getRealPath())`
+3. **Centralized CSV parsing**: ParsesCSVFiles trait provides `parseCSVContent()` and `parseCSVFromStorage()`
+4. **Preserved legitimate uses**: `php://output` for streaming, `php://temp` for in-memory buffers
+
+### Legitimate Uses NOT Migrated (as designed)
+- `fopen('php://output')` in FinanceExportService, AuditLogController - streaming CSV to browser
+- `fopen('php://temp')` in ImportsController, PaymentController, ReportsController - in-memory CSV buffers
+- BankStatementImport - Maatwebsite Excel framework-specific
+
+### Verification Results
+- **vendor/bin/pint --test**: ✅ 751 files pass
+- **php artisan test --parallel**: ✅ 604 tests pass, 13 skipped
+- **npm run build**: ✅ Build successful
+- **grep for violations**: ✅ Zero `file_get_contents/unlink/rmdir` outside allowed contexts
+
+**DBP-037 COMPLETE**

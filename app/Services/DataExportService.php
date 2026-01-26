@@ -52,7 +52,7 @@ class DataExportService
         Storage::disk('local')->put($jsonPath, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
         // Create ZIP archive
-        $zipPath = storage_path("app/{$exportPath}/data_export_{$user->id}_{$exportId}.zip");
+        $zipPath = Storage::disk('local')->path("{$exportPath}/data_export_{$user->id}_{$exportId}.zip");
         $this->createZipArchive($exportPath, $zipPath, $user);
 
         // Clean up JSON file after zipping
@@ -355,40 +355,24 @@ README;
     public function cleanupOldExports(int $daysToKeep = 7): int
     {
         $deleted = 0;
-        $exportDir = storage_path('app/exports');
+        $disk = Storage::disk('local');
 
-        if (! is_dir($exportDir)) {
+        if (! $disk->exists('exports')) {
             return 0;
         }
 
-        foreach (glob("{$exportDir}/*", GLOB_ONLYDIR) as $userDir) {
-            foreach (glob("{$userDir}/*", GLOB_ONLYDIR) as $exportDir) {
-                $dirTime = filemtime($exportDir);
-                if ($dirTime < now()->subDays($daysToKeep)->timestamp) {
-                    $this->deleteDirectory($exportDir);
+        $cutoffDate = now()->subDays($daysToKeep);
+
+        foreach ($disk->directories('exports') as $userDir) {
+            foreach ($disk->directories($userDir) as $exportDir) {
+                $dirTime = $disk->lastModified($exportDir);
+                if ($dirTime < $cutoffDate->timestamp) {
+                    $disk->deleteDirectory($exportDir);
                     $deleted++;
                 }
             }
         }
 
         return $deleted;
-    }
-
-    /**
-     * Delete a directory recursively.
-     */
-    protected function deleteDirectory(string $dir): bool
-    {
-        if (! is_dir($dir)) {
-            return false;
-        }
-
-        $files = array_diff(scandir($dir), ['.', '..']);
-        foreach ($files as $file) {
-            $path = "{$dir}/{$file}";
-            is_dir($path) ? $this->deleteDirectory($path) : unlink($path);
-        }
-
-        return rmdir($dir);
     }
 }

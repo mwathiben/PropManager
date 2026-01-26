@@ -9,6 +9,7 @@ use App\Exceptions\Import\DuplicateEntityException;
 use App\Exceptions\Import\ImportFileException;
 use App\Exceptions\Import\InvalidCsvFormatException;
 use App\Exceptions\Import\InvalidImportTypeException;
+use App\Http\Traits\ParsesCSVFiles;
 use App\Models\Building;
 use App\Models\Import;
 use App\Models\Invoice;
@@ -20,42 +21,36 @@ use App\Models\User;
 use App\Models\WaterReading;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
 class ImportService
 {
-    /**
-     * Parse CSV file and return data
-     */
-    public function parseCSV(string $filePath): array
-    {
-        $rows = [];
-        $handle = fopen($filePath, 'r');
+    use ParsesCSVFiles;
 
-        if ($handle === false) {
-            throw new ImportFileException($filePath);
+    /**
+     * Parse CSV file from a storage path.
+     *
+     * @param  string  $storagePath  Relative path within local storage disk
+     */
+    public function parseCSV(string $storagePath): array
+    {
+        if (! Storage::disk('local')->exists($storagePath)) {
+            throw new ImportFileException($storagePath);
         }
 
-        // Get headers from first row
-        $headers = fgetcsv($handle);
+        $content = Storage::disk('local')->get($storagePath);
 
-        if ($headers === false) {
-            fclose($handle);
+        if ($content === null || trim($content) === '') {
+            throw new InvalidCsvFormatException('empty file');
+        }
+
+        $rows = $this->parseCSVContent($content);
+
+        if (empty($rows)) {
             throw new InvalidCsvFormatException('no headers found');
         }
-
-        // Clean headers (trim, lowercase, replace spaces with underscores)
-        $headers = array_map(fn ($h) => strtolower(trim(str_replace(' ', '_', $h))), $headers);
-
-        // Read remaining rows
-        while (($row = fgetcsv($handle)) !== false) {
-            if (count($row) === count($headers)) {
-                $rows[] = array_combine($headers, $row);
-            }
-        }
-
-        fclose($handle);
 
         return $rows;
     }
@@ -71,7 +66,7 @@ class ImportService
         ]);
 
         try {
-            $data = $this->parseCSV(storage_path('app/'.$import->file_path));
+            $data = $this->parseCSV($import->file_path);
 
             $result = match ($import->type) {
                 'tenants' => $this->importTenants($data, $import->landlord_id),

@@ -6,6 +6,7 @@ use App\Models\Setting;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class OcrService
 {
@@ -49,12 +50,8 @@ class OcrService
             return null;
         }
 
-        // Convert image to base64 if it's an UploadedFile
-        if ($image instanceof UploadedFile) {
-            $base64Image = base64_encode(file_get_contents($image->getRealPath()));
-        } else {
-            $base64Image = base64_encode(file_get_contents($image));
-        }
+        // Convert image to base64
+        $base64Image = base64_encode($this->getImageContent($image));
 
         $response = Http::asForm()->post('https://api.ocr.space/parse/image', [
             'apikey' => $apiKey,
@@ -98,11 +95,7 @@ class OcrService
         }
 
         // Convert image to base64
-        if ($image instanceof UploadedFile) {
-            $base64Image = base64_encode(file_get_contents($image->getRealPath()));
-        } else {
-            $base64Image = base64_encode(file_get_contents($image));
-        }
+        $base64Image = base64_encode($this->getImageContent($image));
 
         $response = Http::withHeaders([
             'x-goog-api-key' => $apiKey,
@@ -156,11 +149,7 @@ class OcrService
         }
 
         // Read image content
-        if ($image instanceof UploadedFile) {
-            $imageContent = file_get_contents($image->getRealPath());
-        } else {
-            $imageContent = file_get_contents($image);
-        }
+        $imageContent = $this->getImageContent($image);
 
         $response = Http::withHeaders([
             'Ocp-Apim-Subscription-Key' => $apiKey,
@@ -213,7 +202,10 @@ class OcrService
             return null;
         }
 
-        $imagePath = $image instanceof UploadedFile ? $image->getRealPath() : $image;
+        // Tesseract requires a filesystem path
+        $imagePath = $image instanceof UploadedFile
+            ? $image->getRealPath()
+            : Storage::disk('local')->path($image);
 
         // Run tesseract
         $command = 'tesseract '.escapeshellarg($imagePath).' stdout --psm 6 digits';
@@ -340,5 +332,19 @@ class OcrService
                 'recommended' => false,
             ],
         ];
+    }
+
+    /**
+     * Get image content from UploadedFile or storage path.
+     *
+     * @param  UploadedFile|string  $image  UploadedFile instance or storage path
+     */
+    protected function getImageContent(UploadedFile|string $image): string
+    {
+        if ($image instanceof UploadedFile) {
+            return $image->get();
+        }
+
+        return Storage::disk('local')->get($image);
     }
 }

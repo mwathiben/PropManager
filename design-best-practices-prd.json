@@ -1849,8 +1849,9 @@
       ],
       "verification": "Grep for file_get_contents; verify zero matches outside allowed contexts",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1,
+      "completion_notes": "Migrated 5 files to use Storage facade: (1) DataExportService - replaced storage_path() with Storage::disk('local')->path(), replaced unlink/rmdir with Storage::deleteDirectory(); (2) ImportService - replaced fopen/fgetcsv with Storage::get() + ParsesCSVFiles trait; (3) BulkImportValidator - replaced fopen/fgetcsv with UploadedFile::get() + ParsesCSVFiles trait; (4) SecureFile - replaced fopen/fread/file_get_contents with UploadedFile::get(); (5) OcrService - replaced file_get_contents with UploadedFile::get() and Storage::get(). Created ParsesCSVFiles trait for reusable CSV parsing. Legitimate uses preserved: php://output for streaming, php://temp for in-memory buffers."
     },
     {
       "id": "DBP-038",

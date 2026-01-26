@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\BulkImport;
 
 use App\Enums\InvoiceStatus;
+use App\Http\Traits\ParsesCSVFiles;
 use App\Models\Building;
 use App\Models\Invoice;
 use App\Models\Unit;
@@ -24,6 +25,8 @@ use Illuminate\Support\Facades\DB;
  */
 class BulkImportValidator
 {
+    use ParsesCSVFiles;
+
     private ?string $mode = null;
 
     private ?int $landlordId = null;
@@ -98,6 +101,23 @@ class BulkImportValidator
      */
     public function validate(): array
     {
+        // Precondition checks - ensure all required properties are set
+        if ($this->file === null) {
+            return ['success' => false, 'error' => 'No file provided. Use withFile() before calling validate().'];
+        }
+
+        if ($this->buildingId === null) {
+            return ['success' => false, 'error' => 'Building ID not set. Use forBuilding() before calling validate().'];
+        }
+
+        if ($this->landlordId === null) {
+            return ['success' => false, 'error' => 'Landlord ID not set. Use forLandlord() before calling validate().'];
+        }
+
+        if ($this->mode === null) {
+            return ['success' => false, 'error' => 'Import mode not set. Use forMode() before calling validate().'];
+        }
+
         $building = Building::where('id', $this->buildingId)
             ->where('landlord_id', $this->landlordId)
             ->first();
@@ -438,32 +458,20 @@ class BulkImportValidator
     }
 
     /**
-     * Parse CSV file into array of rows.
+     * Parse CSV file into array of rows using UploadedFile content.
      */
     private function parseCsv(string $path): array
     {
-        $rows = [];
-
-        if (($handle = fopen($path, 'r')) !== false) {
-            $headers = fgetcsv($handle, 0, ',');
-
-            if (! $headers) {
-                fclose($handle);
-
-                return [];
-            }
-
-            $headers = array_map('trim', $headers);
-
-            while (($data = fgetcsv($handle, 0, ',')) !== false) {
-                if (count($data) === count($headers)) {
-                    $rows[] = array_combine($headers, $data);
-                }
-            }
-
-            fclose($handle);
+        if ($this->file === null) {
+            return [];
         }
 
-        return $rows;
+        $content = $this->file->get();
+
+        if ($content === false || trim($content) === '') {
+            return [];
+        }
+
+        return $this->parseCSVContent($content);
     }
 }
