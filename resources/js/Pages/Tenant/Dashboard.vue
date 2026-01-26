@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
@@ -6,6 +6,7 @@ import ActionItemCard from '@/Components/ActionItemCard.vue';
 import MetricCard from '@/Components/MetricCard.vue';
 import PushNotificationPrompt from '@/Components/PushNotificationPrompt.vue';
 import { useFormatters, useStatusColors, useEcho } from '@/composables';
+import type { TenantDashboardPageProps } from '@/types';
 import {
     HomeIcon,
     CreditCardIcon,
@@ -25,21 +26,7 @@ import {
     XMarkIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    hasLease: Boolean,
-    message: String,
-    unit: Object,
-    building: Object,
-    lease: Object,
-    balance: Number,
-    actionItems: Object,
-    nextPayment: Object,
-    recentPayments: Array,
-    recentTickets: Array,
-    pendingInvoices: Array,
-    pendingInvitations: Array,
-    caretaker: Object,
-});
+const props = defineProps<TenantDashboardPageProps>();
 
 // Use composables
 const { formatCurrency, formatDate, formatRelativeDate } = useFormatters();
@@ -133,7 +120,7 @@ onUnmounted(() => {
                     <p class="text-sm text-gray-500" v-if="hasLease">Unit {{ unit?.unit_number }} • Floor {{ unit?.floor_number }}</p>
                 </div>
                 <div v-if="hasLease && pendingInvoices?.length > 0" class="flex items-center gap-2">
-                    <Link :href="route('tenant.payments')"
+                    <Link :href="route('tenant.finances.index')"
                           class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium text-sm">
                         <CreditCardIcon class="w-4 h-4 mr-2" />
                         Pay Now
@@ -273,7 +260,7 @@ onUnmounted(() => {
                             </div>
                         </div>
                         <div v-if="balance < 0" class="flex gap-3">
-                            <Link :href="route('tenant.payments')"
+                            <Link :href="route('tenant.finances.index')"
                                   class="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium">
                                 Pay Now
                             </Link>
@@ -291,7 +278,7 @@ onUnmounted(() => {
                         title="Overdue Invoices"
                         :description="localActionItems.overdue_days + ' days late'"
                         actionLabel="Pay Now"
-                        :actionHref="route('tenant.payments')"
+                        :actionHref="route('tenant.finances.index')"
                     />
                     <ActionItemCard
                         v-else-if="localActionItems?.pending_invoices > 0"
@@ -301,7 +288,7 @@ onUnmounted(() => {
                         title="Pending Invoices"
                         description="Awaiting payment"
                         actionLabel="View"
-                        :actionHref="route('tenant.payments')"
+                        :actionHref="route('tenant.finances.index')"
                     />
                     <ActionItemCard
                         v-else
@@ -352,7 +339,7 @@ onUnmounted(() => {
                             </p>
                         </div>
                         <div class="flex gap-3">
-                            <Link :href="route('tenant.payments')"
+                            <Link :href="route('tenant.finances.index')"
                                   class="px-6 py-3 bg-white text-indigo-600 rounded-lg hover:bg-indigo-50 transition font-medium">
                                 Pay Invoice
                             </Link>
@@ -411,7 +398,7 @@ onUnmounted(() => {
                     <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                         <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                             <h3 class="font-bold text-gray-900">Payment History</h3>
-                            <Link :href="route('tenant.payments')" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center">
+                            <Link :href="route('tenant.finances.history')" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center">
                                 View All <ChevronRightIcon class="w-4 h-4 ml-1" />
                             </Link>
                         </div>

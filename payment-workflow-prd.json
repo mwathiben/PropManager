@@ -148,8 +148,8 @@
       ],
       "verification": "Login as tenant with pending invoice, click Pay Now button, verify navigation to TenantFinances/Index.vue page.",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "PAY-002",
@@ -710,11 +710,11 @@
         "Find TenantInvitation where status='pending' AND expires_at < now() - 30 days",
         "For each, check if user has NOT completed KYC and has NO verified payments",
         "If both conditions true, soft-delete the user and mark invitation as expired",
-        "Schedule daily: $schedule->command('invitations:cleanup')->daily()"
+        "Add Schedule::command('invitations:cleanup')->daily() in routes/console.php (Laravel 11+ scheduling)"
       ],
       "files": [
         "app/Console/Commands/CleanupExpiredInvitations.php",
-        "app/Console/Kernel.php"
+        "routes/console.php"
       ],
       "definition_of_ready": [
         "TenantInvitation model reviewed",

@@ -155,6 +155,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/leases/batch-adjust', [LeaseController::class, 'batchAdjustRent'])->name('leases.batch-adjust');
     Route::post('/leases/{lease}/wallet-adjustment', [LeaseController::class, 'walletAdjustment'])->name('leases.wallet-adjustment');
     Route::get('/leases/{lease}/wallet-history', [LeaseController::class, 'walletHistory'])->name('leases.wallet-history');
+    Route::get('/leases/{lease}', [LeaseController::class, 'show'])->name('leases.show');
+    Route::get('/leases/{lease}/download', [LeaseController::class, 'download'])->name('leases.download');
 
     // 3. The Architect (Building Configuration)
     Route::get('/buildings/{building}/configure', [BuildingController::class, 'edit'])->name('buildings.edit');
@@ -775,7 +777,7 @@ Route::middleware(['auth', 'role:tenant', 'payment.verified'])->prefix('tenant')
 
 // --- TENANT ROUTES (Require Payment Verification + KYC completion) ---
 Route::middleware(['auth', 'role:tenant', 'payment.verified', 'kyc.complete'])->prefix('tenant')->group(function () {
-    Route::get('/payments', [TenantPortalController::class, 'payments'])->name('tenant.payments');
+    Route::redirect('/payments', '/tenant/finances')->name('tenant.payments');
     Route::get('/lease', [TenantPortalController::class, 'lease'])->name('tenant.lease');
 
     // Tenant Finances (New Simplified Payment Flow)
