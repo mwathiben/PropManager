@@ -156,7 +156,36 @@ php artisan test --filter=TestName  # Run specific test
 ### Code Quality
 ```bash
 ./vendor/bin/pint       # Format code (Laravel Pint)
+./vendor/bin/phpmd app text phpmd.xml  # Check code complexity
 ```
+
+### Code Complexity Guidelines
+
+Per `laravelcomplexity-guardrails` skill, maintain these thresholds:
+
+| Metric | Warning | Hard Limit |
+|--------|---------|------------|
+| Cyclomatic Complexity | > 7 | > 10 |
+| NPath Complexity | > 200 | > 500 |
+| Method Length | > 80 lines | > 100 lines |
+| Class Length | > 400 lines | > 600 lines |
+| Parameter Count | > 5 | > 8 |
+
+**Refactoring Patterns** (when limits exceeded):
+1. **Extract Method** - Break long methods into focused helpers
+2. **Extract Class** - Move related methods to dedicated service/transformer
+3. **Replace Conditional with Polymorphism** - Use Strategy pattern for complex switch/if chains
+4. **Introduce Parameter Object** - Group related parameters into value objects
+
+**Prior Refactoring** (DBP-033 series):
+- `DepositTransformer` - Extracted from FinanceFilterService
+- `ProviderStatusCollector` - Extracted from NotificationsController
+- `FirstInvoiceItemBuilder` - Extracted from InvoiceService
+- `TenantIndexService` - Extracted from TenantController
+- `LedgerTransactionBuilder` - Extracted from TenantController
+- `BulkRentAdjuster` - Extracted from BulkOperationsController
+- `BulkImportValidator` - Extracted from PaymentController
+- `PaymentCallbackProcessor` - Extracted from PaymentController
 
 ### Database
 ```bash

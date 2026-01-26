@@ -43,8 +43,20 @@ class BulkRentAdjuster
         return $adjuster;
     }
 
+    private const ALLOWED_ADJUSTMENT_TYPES = ['percentage', 'fixed', 'absolute'];
+
     public function withAdjustmentType(string $type): self
     {
+        if (! in_array($type, self::ALLOWED_ADJUSTMENT_TYPES, true)) {
+            throw new \InvalidArgumentException(
+                sprintf(
+                    'Invalid adjustment type "%s". Allowed types are: %s',
+                    $type,
+                    implode(', ', self::ALLOWED_ADJUSTMENT_TYPES)
+                )
+            );
+        }
+
         $this->adjustmentType = $type;
 
         return $this;
@@ -159,14 +171,19 @@ class BulkRentAdjuster
 
     private function notifyTenant(Lease $lease, float $oldRent, float $newRent): void
     {
+        $tenantName = $lease->tenant->name ?? 'Tenant';
+        $currency = config('app.currency', 'KES');
+
         dispatch(SendNotificationJob::forNew(
             $lease->tenant_id,
             'rent_hike',
             'Rent Adjustment Notice',
             sprintf(
-                "Hello %s,\n\nThis is to inform you that your rent will be adjusted from KES %s to KES %s effective %s.\n\nReason: %s\n\nThank you for your understanding.",
-                $lease->tenant->name,
+                "Hello %s,\n\nThis is to inform you that your rent will be adjusted from %s %s to %s %s effective %s.\n\nReason: %s\n\nThank you for your understanding.",
+                $tenantName,
+                $currency,
                 number_format($oldRent, 2),
+                $currency,
                 number_format($newRent, 2),
                 $this->effectiveDate,
                 $this->reason
@@ -175,6 +192,7 @@ class BulkRentAdjuster
                 'old_rent' => $oldRent,
                 'new_rent' => $newRent,
                 'effective_date' => $this->effectiveDate,
+                'currency' => $currency,
             ],
             $this->landlordId
         ))->afterCommit();
