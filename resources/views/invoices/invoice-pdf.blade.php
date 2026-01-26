@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Invoice {{ $invoice->invoice_number }}</title>
+    <title>{{ __('pdfs.invoice.title') }} {{ $invoice->invoice_number }}</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -178,14 +178,14 @@
 <body>
     <div class="invoice-container">
         <div class="header">
-            <h1>INVOICE</h1>
+            <h1>{{ __('pdfs.invoice.title') }}</h1>
             <div class="subtitle">{{ $invoice->invoice_number }}</div>
         </div>
 
         <div class="info-grid">
             <div class="info-column">
                 <div class="info-section">
-                    <h3>From</h3>
+                    <h3>{{ __('pdfs.invoice.from') }}</h3>
                     <div class="info-row">
                         <span class="info-value">{{ $property->name }}</span>
                     </div>
@@ -201,20 +201,20 @@
             </div>
             <div class="info-column">
                 <div class="info-section">
-                    <h3>Bill To</h3>
+                    <h3>{{ __('pdfs.invoice.bill_to') }}</h3>
                     <div class="info-row">
                         <span class="info-value">{{ $tenant->name }}</span>
                     </div>
                     <div class="info-row">
                         <span class="info-value">{{ $tenant->email }}</span>
                     </div>
-                    @if($tenant->phone)
+                    @if($tenant->mobile_number)
                     <div class="info-row">
-                        <span class="info-value">{{ $tenant->phone }}</span>
+                        <span class="info-value">{{ $tenant->mobile_number }}</span>
                     </div>
                     @endif
                     <div class="info-row">
-                        <span class="info-value">Unit {{ $unit->unit_number }}</span>
+                        <span class="info-value">{{ __('pdfs.invoice.unit', ['number' => $unit->unit_number]) }}</span>
                     </div>
                 </div>
             </div>
@@ -223,22 +223,22 @@
         <div class="info-grid">
             <div class="info-column">
                 <div class="info-row">
-                    <span class="info-label">Invoice Date:</span>
+                    <span class="info-label">{{ __('pdfs.invoice.invoice_date') }}</span>
                     <span class="info-value">{{ $invoice->created_at->format('F d, Y') }}</span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Due Date:</span>
+                    <span class="info-label">{{ __('pdfs.invoice.due_date') }}</span>
                     <span class="info-value">{{ $invoice->due_date->format('F d, Y') }}</span>
                 </div>
             </div>
             <div class="info-column">
                 <div class="info-row">
-                    <span class="info-label">Billing Period:</span>
+                    <span class="info-label">{{ __('pdfs.invoice.billing_period') }}</span>
                     <span class="info-value">{{ $invoice->billing_period_start?->format('M d') }} - {{ $invoice->billing_period_end?->format('M d, Y') }}</span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Status:</span>
-                    <span class="status-badge status-{{ $invoice->status }}">{{ ucfirst($invoice->status) }}</span>
+                    <span class="info-label">{{ __('pdfs.invoice.status') }}</span>
+                    <span class="status-badge status-{{ $invoice->status->value }}">{{ $invoice->status->label() }}</span>
                 </div>
             </div>
         </div>
@@ -246,26 +246,26 @@
         <table class="line-items-table">
             <thead>
                 <tr>
-                    <th>Description</th>
-                    <th class="text-right">Amount (KES)</th>
+                    <th>{{ __('pdfs.invoice.description') }}</th>
+                    <th class="text-right">{{ __('pdfs.invoice.amount') }}</th>
                 </tr>
             </thead>
             <tbody>
                 @if($invoice->rent_amount > 0)
                 <tr>
-                    <td>Monthly Rent</td>
+                    <td>{{ __('pdfs.invoice.monthly_rent') }}</td>
                     <td class="text-right">{{ number_format($invoice->rent_amount, 2) }}</td>
                 </tr>
                 @endif
                 @if($invoice->water_charges > 0)
                 <tr>
-                    <td>Water Charges</td>
+                    <td>{{ __('pdfs.invoice.water_charges') }}</td>
                     <td class="text-right">{{ number_format($invoice->water_charges, 2) }}</td>
                 </tr>
                 @endif
                 @if($invoice->arrears_amount > 0)
                 <tr>
-                    <td>Previous Arrears</td>
+                    <td>{{ __('pdfs.invoice.previous_arrears') }}</td>
                     <td class="text-right">{{ number_format($invoice->arrears_amount, 2) }}</td>
                 </tr>
                 @endif
@@ -274,44 +274,44 @@
 
         <div class="totals-section">
             <div class="totals-row">
-                <span class="totals-label">Subtotal:</span>
+                <span class="totals-label">{{ __('pdfs.invoice.subtotal') }}</span>
                 <span class="totals-value">KES {{ number_format($invoice->total_due, 2) }}</span>
             </div>
             @if($invoice->amount_paid > 0)
             <div class="totals-row">
-                <span class="totals-label">Amount Paid:</span>
+                <span class="totals-label">{{ __('pdfs.invoice.amount_paid') }}</span>
                 <span class="totals-value" style="color: #059669;">- KES {{ number_format($invoice->amount_paid, 2) }}</span>
             </div>
             @endif
             <div class="totals-row grand-total">
-                <span class="totals-label">Balance Due:</span>
+                <span class="totals-label">{{ __('pdfs.invoice.balance_due') }}</span>
                 <span class="totals-value">KES {{ number_format($invoice->total_due - $invoice->amount_paid, 2) }}</span>
             </div>
         </div>
 
         @if($invoice->total_due - $invoice->amount_paid > 0)
         <div class="amount-due-box">
-            <div class="label">Amount Due</div>
+            <div class="label">{{ __('pdfs.invoice.amount_due') }}</div>
             <div class="amount">KES {{ number_format($invoice->total_due - $invoice->amount_paid, 2) }}</div>
         </div>
 
         <div class="payment-instructions">
-            <h3>Payment Instructions</h3>
+            <h3>{{ __('pdfs.invoice.payment_instructions') }}</h3>
             <ul>
-                <li><strong>M-Pesa:</strong> Pay via Lipa Na M-Pesa using Paybill/Till number provided by your landlord</li>
-                <li><strong>Bank Transfer:</strong> Transfer to the bank account provided by your landlord</li>
-                <li><strong>Online:</strong> Pay securely through the tenant portal</li>
+                <li><strong>M-Pesa:</strong> {{ __('pdfs.invoice.mpesa_instruction') }}</li>
+                <li><strong>Bank Transfer:</strong> {{ __('pdfs.invoice.bank_instruction') }}</li>
+                <li><strong>Online:</strong> {{ __('pdfs.invoice.online_instruction') }}</li>
             </ul>
         </div>
         @endif
 
         <div class="stamp">
-            Generated on {{ now()->format('F d, Y \a\t h:i A') }}
+            {{ __('pdfs.invoice.generated_on', ['date' => now()->format('F d, Y \a\t h:i A')]) }}
         </div>
 
         <div class="footer">
-            <p>This invoice was generated by PropManager</p>
-            <p>For inquiries, please contact your property manager</p>
+            <p>{{ __('pdfs.invoice.footer_generated') }}</p>
+            <p>{{ __('pdfs.invoice.footer_contact') }}</p>
         </div>
     </div>
 </body>

@@ -1,42 +1,42 @@
 <x-mail::message>
-# Payment Received
+# {{ __('emails.payment.title') }}
 
-Dear {{ $tenant->name }},
+{{ __('emails.payment.greeting', ['name' => $tenant->name]) }},
 
-We have successfully received your payment. Thank you for your prompt payment!
+{{ __('emails.payment.success_message') }}
 
-## Payment Details
+## {{ __('emails.payment.details_title') }}
 
-**Amount Paid:** KES {{ number_format($payment->amount, 2) }}<br>
-**Payment Date:** {{ $payment->payment_date->format('F d, Y') }}<br>
-**Payment Method:** {{ ucwords(str_replace('_', ' ', $payment->payment_method)) }}<br>
-**Receipt Number:** {{ $payment->reference }}
+**{{ __('emails.payment.amount_paid') }}:** KES {{ number_format($payment->amount, 2) }}<br>
+**{{ __('emails.payment.payment_date') }}:** {{ $payment->payment_date->format('F d, Y') }}<br>
+**{{ __('emails.payment.payment_method') }}:** {{ ucwords(str_replace('_', ' ', $payment->payment_method)) }}<br>
+**{{ __('emails.payment.receipt_number') }}:** {{ $payment->reference }}
 
-## Invoice Information
+## {{ __('emails.payment.invoice_info_title') }}
 
-**Invoice Number:** {{ $invoice->invoice_number }}<br>
-**Billing Period:** {{ $invoice->billing_period_start->format('F Y') }}<br>
-**Unit:** {{ $unit->unit_number }} - {{ $unit->building->name }}
+**{{ __('emails.payment.invoice_number') }}:** {{ $invoice->invoice_number }}<br>
+**{{ __('emails.payment.billing_period') }}:** {{ $invoice->billing_period_start->format('F Y') }}<br>
+**{{ __('emails.payment.unit') }}:** {{ $unit->unit_number }} - {{ $unit->building->name }}
 
-## Invoice Summary
+## {{ __('emails.payment.summary_title') }}
 
-**Total Due:** KES {{ number_format($invoice->total_due, 2) }}<br>
-**Amount Paid (This Payment):** KES {{ number_format($payment->amount, 2) }}<br>
-**Total Paid to Date:** KES {{ number_format($invoice->amount_paid, 2) }}<br>
-**Balance Remaining:** KES {{ number_format($invoice->total_due - $invoice->amount_paid, 2) }}
+**{{ __('emails.payment.total_due') }}:** KES {{ number_format($invoice->total_due, 2) }}<br>
+**{{ __('emails.payment.amount_paid_this') }}:** KES {{ number_format($payment->amount, 2) }}<br>
+**{{ __('emails.payment.total_paid_to_date') }}:** KES {{ number_format($invoice->amount_paid, 2) }}<br>
+**{{ __('emails.payment.balance_remaining') }}:** KES {{ number_format($invoice->total_due - $invoice->amount_paid, 2) }}
 
 @if($invoice->status === 'paid')
 <x-mail::panel>
-**Congratulations!** Your invoice has been fully paid. Thank you!
+**{{ __('emails.payment.fully_paid') }}**
 </x-mail::panel>
 @endif
 
 <x-mail::button :url="route('payments.downloadReceipt', $payment)">
-Download Receipt
+{{ __('emails.payment.download_receipt') }}
 </x-mail::button>
 
-If you have any questions about this payment, please don't hesitate to contact your property manager.
+{{ __('emails.payment.questions') }}
 
-Thanks,<br>
-{{ config('app.name') }} Team
+{{ __('emails.payment.thanks') }},<br>
+{{ __('emails.payment.team', ['app' => config('app.name')]) }}
 </x-mail::message>

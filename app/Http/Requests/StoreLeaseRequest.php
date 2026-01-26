@@ -29,9 +29,9 @@ class StoreLeaseRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'email.unique' => 'A user with this email already exists.',
-            'rent_amount.min' => 'Rent amount cannot be negative.',
-            'deposit_amount.min' => 'Deposit amount cannot be negative.',
+            'email.unique' => __('validation.custom.email.unique'),
+            'rent_amount.min' => __('validation.custom.rent_amount.min'),
+            'deposit_amount.min' => __('validation.custom.deposit_amount.min'),
         ];
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\InvoiceStatus;
 use App\Http\Requests\GenerateInvoicesRequest;
 use App\Jobs\GenerateInvoicePdf;
 use App\Mail\InvoiceReminder;
@@ -19,6 +20,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class InvoiceController extends Controller
@@ -43,7 +45,7 @@ class InvoiceController extends Controller
             ->when($request->search, fn ($q) => $q->where('invoice_number', 'like', '%'.$request->search.'%'))
             ->when($request->arrears_age, function ($q) use ($request) {
                 $now = Carbon::now();
-                $q->where('status', 'overdue');
+                $q->where('status', InvoiceStatus::Overdue);
 
                 switch ($request->arrears_age) {
                     case '0_30':
@@ -99,27 +101,26 @@ class InvoiceController extends Controller
             }
         }
 
-        return redirect()->route('invoices.index')->with('success', "Generated $successCount invoices.");
+        return redirect()->route('invoices.index')->with('success', __('messages.invoice.generated', ['count' => $successCount]));
     }
 
     public function updateStatus(Request $request, Invoice $invoice)
     {
         $request->validate([
-            'status' => 'required|in:draft,sent,partial,paid,overdue',
+            'status' => ['required', Rule::in(InvoiceStatus::values())],
         ]);
 
         $oldStatus = $invoice->status;
         $invoice->update(['status' => $request->status]);
 
-        // Send invoice email when status changes to 'sent'
-        if ($request->status === 'sent' && $oldStatus !== 'sent') {
+        if ($request->status === InvoiceStatus::Sent->value && $oldStatus !== InvoiceStatus::Sent) {
             $invoice->load(['lease.tenant', 'lease.unit.building.property']);
             if ($invoice->lease && $invoice->lease->tenant) {
                 Mail::to($invoice->lease->tenant)->send(new InvoiceSent($invoice));
             }
         }
 
-        return back()->with('success', 'Invoice status updated.');
+        return back()->with('success', __('messages.invoice.status_updated'));
     }
 
     public function recordPayment(Request $request, Invoice $invoice)
@@ -139,7 +140,7 @@ class InvoiceController extends Controller
         $overpayment = max(0, $paymentAmount - $remainingBalance);
 
         $newAmountPaid = $invoice->amount_paid + $appliedAmount;
-        $newStatus = $newAmountPaid >= $invoice->total_due ? 'paid' : 'partial';
+        $newStatus = $newAmountPaid >= $invoice->total_due ? InvoiceStatus::Paid : InvoiceStatus::Partial;
 
         $payment = $invoice->payments()->create([
             'landlord_id' => $invoice->landlord_id,
@@ -195,21 +196,21 @@ class InvoiceController extends Controller
 
     public function destroy(Invoice $invoice)
     {
-        if ($invoice->status === 'paid') {
-            return back()->withErrors(['error' => 'Cannot delete paid invoices.']);
+        if ($invoice->status === InvoiceStatus::Paid) {
+            return back()->withErrors(['error' => __('messages.invoice.cannot_delete_paid')]);
         }
 
         $invoice->delete();
 
-        return redirect()->route('invoices.index')->with('success', 'Invoice deleted.');
+        return redirect()->route('invoices.index')->with('success', __('messages.invoice.deleted'));
     }
 
     public function sendReminder(Invoice $invoice)
     {
         $this->authorize('view', $invoice);
 
-        if ($invoice->status === 'paid') {
-            return back()->withErrors(['error' => 'Cannot send reminder for paid invoices.']);
+        if ($invoice->status === InvoiceStatus::Paid) {
+            return back()->withErrors(['error' => __('messages.invoice.cannot_remind_paid')]);
         }
 
         $invoice->load(['lease.tenant', 'lease.unit.building.property']);
@@ -218,7 +219,7 @@ class InvoiceController extends Controller
             Mail::to($invoice->lease->tenant)->send(new InvoiceReminder($invoice));
         }
 
-        return back()->with('success', 'Payment reminder sent successfully.');
+        return back()->with('success', __('messages.invoice.reminder_sent'));
     }
 
     public function download(Invoice $invoice)
@@ -253,21 +254,21 @@ class InvoiceController extends Controller
             'reason' => 'required|string|max:500',
         ]);
 
-        if (! in_array($invoice->status, ['draft', 'sent'])) {
-            return back()->withErrors(['error' => 'Only draft or sent invoices can be voided.']);
+        if (! in_array($invoice->status, [InvoiceStatus::Draft, InvoiceStatus::Sent])) {
+            return back()->withErrors(['error' => __('messages.invoice.cannot_void_status')]);
         }
 
         if ($invoice->amount_paid > 0) {
-            return back()->withErrors(['error' => 'Cannot void an invoice with payments. Refund payments first.']);
+            return back()->withErrors(['error' => __('messages.invoice.cannot_void_with_payments')]);
         }
 
         $invoice->update([
-            'status' => 'voided',
+            'status' => InvoiceStatus::Voided,
             'voided_at' => now(),
             'void_reason' => $request->reason,
         ]);
 
-        return back()->with('success', 'Invoice voided successfully.');
+        return back()->with('success', __('messages.invoice.voided'));
     }
 
     public function preview(Invoice $invoice, InvoicePdfService $pdfService)
@@ -283,8 +284,8 @@ class InvoiceController extends Controller
     {
         $this->authorize('update', $invoice);
 
-        if ($invoice->status !== 'voided') {
-            return back()->withErrors(['error' => 'Only voided invoices can be reissued.']);
+        if ($invoice->status !== InvoiceStatus::Voided) {
+            return back()->withErrors(['error' => __('messages.invoice.cannot_reissue')]);
         }
 
         $newInvoice = $invoice->replicate([
@@ -299,7 +300,7 @@ class InvoiceController extends Controller
         ]);
 
         $newInvoice->invoice_number = $invoiceService->generateInvoiceNumber();
-        $newInvoice->status = Invoice::STATUS_DRAFT;
+        $newInvoice->status = InvoiceStatus::Draft;
         $newInvoice->amount_paid = 0;
         $newInvoice->save();
 
@@ -311,6 +312,6 @@ class InvoiceController extends Controller
 
         GenerateInvoicePdf::dispatch($newInvoice->id);
 
-        return redirect()->route('invoices.show', $newInvoice)->with('success', 'Invoice reissued as draft.');
+        return redirect()->route('invoices.show', $newInvoice)->with('success', __('messages.invoice.reissued'));
     }
 }

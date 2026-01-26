@@ -24,14 +24,14 @@ class GenerateInvoicesRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'month.required' => 'Billing month is required.',
-            'month.integer' => 'Month must be a number.',
-            'month.min' => 'Month must be between 1 and 12.',
-            'month.max' => 'Month must be between 1 and 12.',
-            'year.required' => 'Billing year is required.',
-            'year.integer' => 'Year must be a number.',
-            'year.min' => 'Year must be 2020 or later.',
-            'year.max' => 'Year cannot exceed 2100.',
+            'month.required' => __('validation.custom.month.required'),
+            'month.integer' => __('validation.custom.month.integer'),
+            'month.min' => __('validation.custom.month.min'),
+            'month.max' => __('validation.custom.month.max'),
+            'year.required' => __('validation.custom.year.required'),
+            'year.integer' => __('validation.custom.year.integer'),
+            'year.min' => __('validation.custom.year.min'),
+            'year.max' => __('validation.custom.year.max'),
         ];
     }
 }

@@ -1,0 +1,125 @@
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Email Template Strings
+    |--------------------------------------------------------------------------
+    |
+    | All user-facing strings used in email templates.
+    | Organized by email type for maintainability.
+    |
+    */
+
+    'payment' => [
+        'title' => 'Payment Received',
+        'greeting' => 'Dear :name',
+        'success_message' => 'We have successfully received your payment. Thank you for your prompt payment!',
+        'details_title' => 'Payment Details',
+        'amount_paid' => 'Amount Paid',
+        'payment_date' => 'Payment Date',
+        'payment_method' => 'Payment Method',
+        'receipt_number' => 'Receipt Number',
+        'invoice_info_title' => 'Invoice Information',
+        'invoice_number' => 'Invoice Number',
+        'billing_period' => 'Billing Period',
+        'unit' => 'Unit',
+        'summary_title' => 'Invoice Summary',
+        'total_due' => 'Total Due',
+        'amount_paid_this' => 'Amount Paid (This Payment)',
+        'total_paid_to_date' => 'Total Paid to Date',
+        'balance_remaining' => 'Balance Remaining',
+        'fully_paid' => 'Congratulations! Your invoice has been fully paid. Thank you!',
+        'download_receipt' => 'Download Receipt',
+        'questions' => "If you have any questions about this payment, please don't hesitate to contact your property manager.",
+        'thanks' => 'Thanks',
+        'team' => ':app Team',
+    ],
+
+    'invoice' => [
+        'title' => 'Invoice :number',
+        'greeting' => 'Hello :name',
+        'intro' => 'Your invoice for :period has been generated and is now due.',
+        'property_details' => 'Property Details',
+        'property' => 'Property',
+        'building' => 'Building',
+        'unit' => 'Unit',
+        'summary' => 'Invoice Summary',
+        'description' => 'Description',
+        'amount' => 'Amount',
+        'rent' => 'Rent',
+        'water_charges' => 'Water Charges',
+        'previous_arrears' => 'Previous Arrears',
+        'total_due' => 'Total Due',
+        'due_date' => 'Due Date',
+        'due_warning' => 'Please ensure payment is made by the due date to avoid late fees.',
+        'view_pay_button' => 'View Invoice & Pay',
+        'payment_methods_title' => 'Payment Methods',
+        'payment_methods_intro' => 'You can pay your invoice using any of the following methods:',
+        'method_mpesa' => 'M-Pesa (Mobile Money) - Quick and convenient',
+        'method_bank' => "Bank Transfer - Direct deposit to landlord's account",
+        'method_online' => 'Online Payment - Pay securely via card',
+        'already_paid' => 'If you have already made this payment, please disregard this notice.',
+        'questions' => 'If you have any questions about this invoice, please contact your landlord.',
+        'thanks' => 'Thanks',
+    ],
+
+    'caretaker_invitation' => [
+        'title' => "You're Invited!",
+        'greeting' => 'Hello',
+        'intro' => ':landlord has invited you to join as a caretaker for :property.',
+        'abilities_intro' => "As a caretaker, you'll be able to:",
+        'ability_water' => 'Record water meter readings for all units',
+        'ability_tenants' => 'View tenant information',
+        'ability_maintenance' => 'Manage maintenance requests (coming soon)',
+        'ability_operations' => 'Assist with day-to-day property operations',
+        'get_started' => 'Get Started',
+        'get_started_text' => 'Click the button below to accept this invitation and create your caretaker account.',
+        'accept_button' => 'Accept Invitation',
+        'expiry_notice' => 'This invitation will expire on :date.',
+        'contact' => 'If you have any questions, please contact :landlord directly.',
+        'ignore' => "If you weren't expecting this invitation, you can safely ignore this email.",
+        'thanks' => 'Thanks',
+        'team' => ':app Team',
+    ],
+
+    'reminder' => [
+        'title_overdue' => 'Payment Overdue',
+        'title_reminder' => 'Payment Reminder',
+        'overdue_intro' => 'This is a reminder that your invoice :number is overdue.',
+        'upcoming_intro' => 'This is a friendly reminder that your invoice :number is due for payment.',
+        'pay_immediately' => 'Please settle this balance immediately to avoid further action.',
+        'pay_by_due_date' => 'Please ensure payment is made by the due date.',
+        'pay_now_button' => 'Pay Now',
+    ],
+
+    'tenant_welcome' => [
+        'title' => 'Welcome to :property!',
+        'subtitle' => 'Your lease is now active!',
+        'intro' => "We're excited to have you as a tenant.",
+        'lease_details' => 'Your Lease Details',
+        'monthly_rent' => 'Monthly Rent',
+        'security_deposit' => 'Security Deposit',
+        'lease_start' => 'Lease Start Date',
+        'landlord' => 'Your Landlord',
+        'portal_title' => 'Access Your Tenant Portal',
+        'portal_intro' => 'Log in to your tenant portal to:',
+        'portal_lease' => 'View your lease details',
+        'portal_payments' => 'Pay rent and view payment history',
+        'portal_maintenance' => 'Submit maintenance requests',
+        'portal_communicate' => 'Communicate with your landlord',
+        'portal_button' => 'Go to Tenant Portal',
+        'questions' => 'If you have any questions or concerns, please reach out to your landlord.',
+    ],
+
+    'common' => [
+        'thanks' => 'Thanks',
+        'regards' => 'Best regards',
+        'team' => ':app Team',
+        'important' => 'Important',
+        'note' => 'Note',
+        'currency' => 'KES',
+    ],
+
+];

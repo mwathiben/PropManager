@@ -10341,3 +10341,57 @@ Migrated raw filesystem operations to Laravel's Storage facade across 5 files fo
 - **grep for violations**: ✅ Zero `file_get_contents/unlink/rmdir` outside allowed contexts
 
 **DBP-037 COMPLETE**
+
+---
+
+## Session: 2026-01-26
+**Task**: DBP-038 - Prepare Codebase for Internationalization
+**Status**: COMPLETED
+
+### Work Done
+Created i18n foundation by establishing lang/en directory structure and wrapping representative user-facing strings in __() helper to establish patterns for future translation work.
+
+### Files Created
+| File | Purpose |
+|------|---------|
+| `lang/en/messages.php` | Flash messages translations (~20 keys for invoice/payment/bulk operations) |
+| `lang/en/emails.php` | Email template translations (~50 keys for payment, invoice, caretaker invitation) |
+| `lang/en/pdfs.php` | PDF template translations (~30 keys for invoice, credit note, receipt, ledger) |
+| `lang/en/validation.php` | Custom validation messages (~15 keys extending Laravel defaults) |
+
+### Files Modified
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/InvoiceController.php` | 12 flash messages wrapped in __() |
+| `resources/views/emails/payment-received.blade.php` | All ~15 strings wrapped in __() |
+| `resources/views/invoices/invoice-pdf.blade.php` | All ~30 strings wrapped in __() |
+| `app/Http/Requests/GenerateInvoicesRequest.php` | 8 validation messages use __() |
+| `app/Http/Requests/StoreLeaseRequest.php` | 3 validation messages use __() |
+
+### Patterns Established
+```php
+// Flash messages
+return back()->with('success', __('messages.invoice.status_updated'));
+return back()->with('success', __('messages.invoice.generated', ['count' => $successCount]));
+
+// Email templates
+{{ __('emails.payment.greeting', ['name' => $tenant->name]) }}
+{{ __('emails.payment.download_receipt') }}
+
+// PDF templates
+{{ __('pdfs.invoice.title') }}
+{{ __('pdfs.invoice.unit', ['number' => $unit->unit_number]) }}
+
+// Validation messages
+'month.required' => __('validation.custom.month.required'),
+```
+
+### Scope Notes
+This is "preparation work" - representative samples establish patterns that future tasks can follow for complete i18n migration. Full string extraction deferred to dedicated i18n phase.
+
+### Verification Results
+- **vendor/bin/pint --test**: ✅ 755 files pass
+- **php artisan test --parallel**: ✅ 604 tests pass, 13 skipped
+- **npm run build**: ✅ Build successful
+
+**DBP-038 COMPLETE**

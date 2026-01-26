@@ -1885,8 +1885,9 @@
       ],
       "verification": "Change locale; verify strings would be translatable",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1,
+      "completion_notes": "Created i18n foundation: (1) lang/en/messages.php with ~20 flash message keys for invoice/payment/bulk operations; (2) lang/en/emails.php with ~50 email template string keys; (3) lang/en/pdfs.php with ~30 PDF template string keys; (4) lang/en/validation.php with custom validation messages. Updated InvoiceController flash messages (12 strings), payment-received email template (~15 strings), invoice-pdf.blade.php (~30 strings), and 2 Form Requests (GenerateInvoicesRequest, StoreLeaseRequest) to use __() helper. All tests pass (604), Pint passes, npm build passes."
     },
     {
       "id": "DBP-039",
