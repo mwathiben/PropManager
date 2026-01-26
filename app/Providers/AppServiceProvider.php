@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Contracts\PaymentGatewayInterface;
 use App\Models\Building;
 use App\Models\Expense;
 use App\Models\Invoice;
@@ -30,6 +31,7 @@ use App\Repositories\Contracts\NotificationConfigRepositoryInterface;
 use App\Repositories\Contracts\NotificationDefaultsRepositoryInterface;
 use App\Repositories\NotificationConfigRepository;
 use App\Repositories\NotificationDefaultsRepository;
+use App\Services\PaymentGatewayManager;
 use App\Services\SecurityLogger;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
@@ -62,6 +64,14 @@ class AppServiceProvider extends ServiceProvider
             NotificationDefaultsRepositoryInterface::class,
             NotificationDefaultsRepository::class
         );
+
+        // Register payment gateway manager as singleton
+        $this->app->singleton(PaymentGatewayManager::class);
+
+        // Bind interface to default gateway
+        $this->app->bind(PaymentGatewayInterface::class, function ($app) {
+            return $app->make(PaymentGatewayManager::class)->defaultGateway();
+        });
     }
 
     /**

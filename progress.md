@@ -9931,3 +9931,87 @@ All 4 sub-tasks completed:
 - BulkRentAdjuster
 - BulkImportValidator
 - PaymentCallbackProcessor
+
+---
+
+## DBP-034: Create PaymentGateway Interface and Adapters
+**Status:** PASSED
+**Date:** 2026-01-26
+**Attempts:** 1
+
+### Implementation Summary
+
+Created a PaymentGateway abstraction layer following the ports-and-adapters pattern. The implementation wraps existing PaystackService and MpesaService classes using the decorator pattern, preserving all gateway-specific functionality while exposing a common interface.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Contracts/PaymentGatewayInterface.php` | Core interface with 7 methods for payment operations |
+| `app/ValueObjects/Payment/Money.php` | Currency-aware amount value object with Paystack/M-Pesa conversion |
+| `app/ValueObjects/Payment/PaymentRequest.php` | Input DTO for payment initialization |
+| `app/ValueObjects/Payment/PaymentResult.php` | Output DTO with factory methods for different states |
+| `app/Services/Gateways/PaystackGateway.php` | Adapter wrapping PaystackService |
+| `app/Services/Gateways/MpesaGateway.php` | Adapter wrapping MpesaService |
+| `app/Services/PaymentGatewayManager.php` | Factory for gateway selection with caching |
+| `tests/Unit/Services/PaymentGatewayManagerTest.php` | 20 unit tests for gateway manager |
+| `tests/Unit/ValueObjects/MoneyTest.php` | 13 unit tests for Money value object |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Providers/AppServiceProvider.php` | Added singleton binding for PaymentGatewayManager and interface resolution |
+| `app/Http/Controllers/Api/TenantPaymentController.php` | Added PaymentGatewayManager injection as proof of concept |
+
+### Architecture
+
+```
+PaymentGatewayInterface (Port)
+        ↑
+        │ implements
+   ┌────┴────┐
+   │         │
+PaystackGateway  MpesaGateway (Adapters)
+   │         │
+   │ wraps   │ wraps
+   ↓         ↓
+PaystackService  MpesaService (Existing Services)
+```
+
+### Key Design Decisions
+
+1. **Decorator Pattern**: Adapters wrap existing services instead of replacing them, maintaining backward compatibility
+2. **Value Objects**: Money, PaymentRequest, PaymentResult provide type safety and self-documenting code
+3. **Factory Pattern**: PaymentGatewayManager handles gateway selection with instance caching
+4. **Gateway-Specific Methods**: Preserved via `getService()` method on adapters (e.g., `MpesaGateway::initiateB2CRefund()`)
+
+### Interface Methods
+
+| Method | Purpose |
+|--------|---------|
+| `getIdentifier()` | Returns gateway name (paystack/mpesa) |
+| `isConfigured()` | Checks if credentials are set |
+| `initializePayment()` | Starts a payment transaction |
+| `verifyPayment()` | Checks payment status |
+| `refundPayment()` | Initiates refund (limited for M-Pesa) |
+| `validateWebhook()` | Validates incoming webhook |
+| `getPublicKey()` | Returns public key for frontend |
+| `generateReference()` | Creates unique payment reference |
+
+### Acceptance Criteria
+
+| Criterion | Status |
+|-----------|--------|
+| PaymentGatewayInterface defines common operations | ✅ 7 methods |
+| PaystackGatewayAdapter implements interface | ✅ With full wrapping |
+| MpesaGatewayAdapter implements interface | ✅ With B2C refund support |
+| Service provider binds adapter based on config | ✅ Via defaultGateway() |
+| Controllers inject interface | ✅ TenantPaymentController proof of concept |
+
+### Verification Results
+- **vendor/bin/pint**: ✅ 2 auto-fixes, passing
+- **php artisan test --parallel**: ✅ 604 tests pass, 13 skipped
+- **npm run build**: ✅ Built in 22.85s
+
+**DBP-034 COMPLETE**

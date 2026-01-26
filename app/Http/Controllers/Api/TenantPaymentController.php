@@ -12,6 +12,7 @@ use App\Models\InvoiceSetting;
 use App\Models\Payment;
 use App\Models\PaymentConfiguration;
 use App\Services\MpesaService;
+use App\Services\PaymentGatewayManager;
 use App\Services\PaystackService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -20,7 +21,8 @@ class TenantPaymentController extends Controller
 {
     public function __construct(
         protected MpesaService $mpesaService,
-        protected PaystackService $paystackService
+        protected PaystackService $paystackService,
+        protected PaymentGatewayManager $gatewayManager,
     ) {}
 
     public function index(Request $request)
