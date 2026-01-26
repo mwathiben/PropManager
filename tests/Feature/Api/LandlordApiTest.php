@@ -41,10 +41,12 @@ class LandlordApiTest extends TestCase
                         'buildings',
                     ],
                 ],
-                'current_page',
-                'last_page',
-                'per_page',
-                'total',
+                'meta' => [
+                    'current_page',
+                    'last_page',
+                    'per_page',
+                    'total',
+                ],
             ])
             ->assertJsonCount(1, 'data');
     }
@@ -123,8 +125,10 @@ class LandlordApiTest extends TestCase
                         'building',
                     ],
                 ],
-                'current_page',
-                'total',
+                'meta' => [
+                    'current_page',
+                    'total',
+                ],
             ])
             ->assertJsonCount(8, 'data');
     }
@@ -355,14 +359,14 @@ class LandlordApiTest extends TestCase
         $response = $this->getJson('/api/v1/landlord/units?per_page=3&page=1');
 
         $response->assertOk()
-            ->assertJsonPath('per_page', 3)
-            ->assertJsonPath('current_page', 1)
+            ->assertJsonPath('meta.per_page', 3)
+            ->assertJsonPath('meta.current_page', 1)
             ->assertJsonCount(3, 'data');
 
         $response2 = $this->getJson('/api/v1/landlord/units?per_page=3&page=2');
 
         $response2->assertOk()
-            ->assertJsonPath('current_page', 2)
+            ->assertJsonPath('meta.current_page', 2)
             ->assertJsonCount(3, 'data');
     }
 }

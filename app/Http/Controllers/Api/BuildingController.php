@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\BuildingResource;
+use App\Http\Resources\UnitResource;
 use App\Models\Building;
 use Illuminate\Http\Request;
 
@@ -20,7 +22,7 @@ class BuildingController extends Controller
             ->withCount('units')
             ->paginate($perPage);
 
-        return response()->json($buildings);
+        return BuildingResource::collection($buildings);
     }
 
     public function show(Request $request, Building $building)
@@ -34,7 +36,7 @@ class BuildingController extends Controller
 
         $building->load(['property', 'units']);
 
-        return response()->json(['data' => $building]);
+        return new BuildingResource($building);
     }
 
     public function units(Request $request, Building $building)
@@ -52,6 +54,6 @@ class BuildingController extends Controller
             ->with('activeLease.tenant:id,name,email,mobile_number')
             ->paginate($perPage);
 
-        return response()->json($units);
+        return UnitResource::collection($units);
     }
 }

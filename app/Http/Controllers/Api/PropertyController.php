@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\PropertyResource;
 use App\Models\Property;
 use Illuminate\Http\Request;
 
@@ -19,7 +20,7 @@ class PropertyController extends Controller
             ->with('buildings:id,property_id,name')
             ->paginate($perPage);
 
-        return response()->json($properties);
+        return PropertyResource::collection($properties);
     }
 
     public function show(Request $request, Property $property)
@@ -33,6 +34,6 @@ class PropertyController extends Controller
 
         $property->load('buildings.units');
 
-        return response()->json(['data' => $property]);
+        return new PropertyResource($property);
     }
 }

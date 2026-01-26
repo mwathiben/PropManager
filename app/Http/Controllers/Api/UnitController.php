@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\UnitResource;
 use App\Models\Unit;
 use Illuminate\Http\Request;
 
@@ -27,7 +28,7 @@ class UnitController extends Controller
         $perPage = min($request->integer('per_page', 20), 100);
         $units = $query->paginate($perPage);
 
-        return response()->json($units);
+        return UnitResource::collection($units);
     }
 
     public function show(Request $request, Unit $unit)
@@ -41,7 +42,7 @@ class UnitController extends Controller
 
         $unit->load(['building.property', 'activeLease.tenant', 'waterReadings' => fn ($q) => $q->latest()->limit(5)]);
 
-        return response()->json(['data' => $unit]);
+        return new UnitResource($unit);
     }
 
     public function updateStatus(Request $request, Unit $unit)
@@ -59,6 +60,6 @@ class UnitController extends Controller
 
         $unit->update(['status' => $request->status]);
 
-        return response()->json(['data' => $unit, 'message' => 'Status updated']);
+        return (new UnitResource($unit))->additional(['message' => 'Status updated']);
     }
 }

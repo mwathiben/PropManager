@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\NotificationResource;
 use Illuminate\Http\Request;
 
 class TenantNotificationController extends Controller
@@ -15,16 +16,12 @@ class TenantNotificationController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate($request->get('per_page', 20));
 
-        return response()->json([
-            'data' => $notifications->items(),
-            'meta' => [
-                'current_page' => $notifications->currentPage(),
-                'last_page' => $notifications->lastPage(),
-                'per_page' => $notifications->perPage(),
-                'total' => $notifications->total(),
-                'unread_count' => $user->unreadNotifications()->count(),
-            ],
-        ]);
+        return NotificationResource::collection($notifications)
+            ->additional([
+                'meta' => [
+                    'unread_count' => $user->unreadNotifications()->count(),
+                ],
+            ]);
     }
 
     public function markAsRead(Request $request, string $id)

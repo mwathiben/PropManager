@@ -10074,3 +10074,69 @@ Created 18 factories for tenant lifecycle and verification models per laravelmig
 - **npm run build**: ✅ Build successful
 
 **DBP-035c COMPLETE**
+
+---
+
+## Session: 2026-01-26
+**Task**: DBP-036 - Ensure All API Endpoints Use Resources
+**PRD**: design-best-practices-prd.json
+**Status**: COMPLETED
+
+### Skills Applied
+- **laravelapi-resources-and-pagination**: Use Resource::collection($query->paginate()) over manual arrays, use when()/mergeWhen() for conditional fields, keep pagination links intact
+
+### Implementation Summary
+
+Created 6 new Resource classes and updated 4 API controllers to use consistent Resource transformations. Added PII protection to TenantResource using conditional `when()` method for national_id field.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Http/Resources/PropertyResource.php` | Property model resource with buildings embedding |
+| `app/Http/Resources/BuildingResource.php` | Building resource with whenCounted('units') and nested relations |
+| `app/Http/Resources/UnitResource.php` | Unit resource with building, activeLease, waterReadings |
+| `app/Http/Resources/TenantResource.php` | Tenant resource with PII protection (national_id conditional) |
+| `app/Http/Resources/NotificationResource.php` | Laravel notification resource with type basename |
+| `app/Http/Resources/WaterReadingResource.php` | Water reading resource with unit embedding |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/Api/PropertyController.php` | Changed to PropertyResource::collection() and new PropertyResource() |
+| `app/Http/Controllers/Api/BuildingController.php` | Changed to BuildingResource::collection() and UnitResource::collection() |
+| `app/Http/Controllers/Api/UnitController.php` | Changed to UnitResource::collection(), new UnitResource(), ->additional() |
+| `app/Http/Controllers/Api/TenantNotificationController.php` | Changed to NotificationResource::collection()->additional(['meta' => ...]) |
+| `app/Http/Resources/LeaseResource.php` | Added tenant embedding: 'tenant' => new TenantResource($this->whenLoaded('tenant')) |
+| `tests/Feature/Api/LandlordApiTest.php` | Updated 3 tests to use meta.* prefix for pagination fields |
+
+### PII Protection (TenantResource)
+
+```php
+$isOwnerOrLandlord = $user && (
+    $user->id === $this->id
+    || $user->isLandlord()
+    || $user->isCaretaker()
+    || $user->isSuperAdmin()
+);
+
+'national_id' => $this->when($isOwnerOrLandlord, fn () => $this->national_id),
+```
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| Audit all Api/* controllers | ✅ 15 controllers audited |
+| Create missing Resources | ✅ 6 created (PropertyResource, BuildingResource, UnitResource, TenantResource, NotificationResource, WaterReadingResource) |
+| Paginated responses use Resource::collection() | ✅ All 4 updated controllers |
+| Conditional fields use when()/mergeWhen() | ✅ TenantResource, UnitResource |
+| Sensitive fields protected | ✅ national_id, emergency contacts |
+
+### Verification Results
+- **vendor/bin/pint**: ✅ Passes
+- **php artisan test --parallel**: ✅ 604 tests pass, 13 skipped
+- **npm run build**: ✅ Built successfully
+
+**DBP-036 COMPLETE**

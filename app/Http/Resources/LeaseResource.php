@@ -17,6 +17,7 @@ class LeaseResource extends JsonResource
             'deposit_amount' => (float) $this->deposit_amount,
             'wallet_balance' => (float) $this->wallet_balance,
             'is_active' => $this->is_active,
+            'tenant' => new TenantResource($this->whenLoaded('tenant')),
             'unit' => $this->whenLoaded('unit', fn () => [
                 'id' => $this->unit->id,
                 'unit_number' => $this->unit->unit_number,
