@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\InvoiceStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Models\Payment;
@@ -67,7 +68,8 @@ class ReportController extends Controller
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         $overdueInvoices = Invoice::where('landlord_id', $landlordId)
-            ->where('status', 'overdue')
+            ->where('status', InvoiceStatus::Overdue)
+            ->select(['id', 'invoice_number', 'lease_id', 'total_due', 'amount_paid', 'due_date'])
             ->with(['lease.tenant:id,name,email,mobile_number', 'lease.unit:id,unit_number,building_id', 'lease.unit.building:id,name'])
             ->get();
 
@@ -125,7 +127,7 @@ class ReportController extends Controller
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         $summary = Invoice::where('landlord_id', $landlordId)
-            ->where('status', 'overdue')
+            ->where('status', InvoiceStatus::Overdue)
             ->selectRaw("
                 COUNT(*) as invoice_count,
                 COALESCE(SUM(total_due - amount_paid), 0) as total_overdue,
@@ -139,7 +141,8 @@ class ReportController extends Controller
         $perPage = min((int) $request->input('per_page', 25), 100);
 
         $invoices = Invoice::where('landlord_id', $landlordId)
-            ->where('status', 'overdue')
+            ->where('status', InvoiceStatus::Overdue)
+            ->select(['id', 'invoice_number', 'lease_id', 'total_due', 'amount_paid', 'due_date'])
             ->with(['lease.tenant:id,name,email,mobile_number', 'lease.unit:id,unit_number,building_id', 'lease.unit.building:id,name'])
             ->orderBy('due_date', 'asc')
             ->cursorPaginate($perPage);

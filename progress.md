@@ -10140,3 +10140,83 @@ $isOwnerOrLandlord = $user && (
 - **npm run build**: ✅ Built successfully
 
 **DBP-036 COMPLETE**
+
+---
+
+## Session: 2026-01-26
+**Task**: DBP-040 - Replace SELECT * with Explicit Column Selection
+**PRD**: design-best-practices-prd.json
+**Status**: COMPLETED
+
+### Skills Applied
+- **laravelperformance-select-columns**: Select only required columns to reduce memory and database transfer; protect encrypted fields by not selecting them
+- **laravelperformance-eager-loading**: Constrained eager loading with explicit columns in relationship callbacks
+
+### Implementation Summary
+
+Replaced SELECT * patterns with explicit column selection across 4 key files. Focused on dashboard queries (highest traffic), API endpoints, and GDPR compliance services.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Services/DashboardService.php` | 14 queries updated: super admin landlords query, landlord properties/buildings/wings, caretaker assignedBuildings/todaysTasks, tenant payments/tickets/invoices, getAllUnitsWithColorClass |
+| `app/Http/Controllers/Api/ReportController.php` | 2 queries: arrears() and arrearsV2() now select only needed invoice columns |
+| `app/Services/DataExportService.php` | 8 queries: getLeaseData, getInvoiceData, getPaymentData, getDocumentData, getWaterReadingData, getActivityLog, createZipArchive (2 document queries) |
+| `app/Services/DataDeletionService.php` | 3 queries: processScheduledDeletions, deleteUserDocuments, anonymizeLeases |
+
+### Key Patterns Applied
+
+**Explicit column selection:**
+```php
+// BEFORE
+$landlords = User::where('role', 'landlord')->selectRaw('users.*')->get();
+
+// AFTER
+$landlords = User::where('role', 'landlord')
+    ->select(['users.id', 'users.name', 'users.email', 'users.created_at'])
+    ->get();
+```
+
+**Constrained eager loading:**
+```php
+->with(['buildings' => function ($query) {
+    $query->whereNull('parent_building_id')
+        ->select(['id', 'property_id', 'parent_building_id', 'name', 'is_wing', 'unit_prefix'])
+        ->with(['wings' => function ($q) {
+            $q->select(['id', 'property_id', 'parent_building_id', 'name', 'is_wing', 'unit_prefix']);
+        }]);
+}])
+```
+
+**Removed unnecessary eager loads:**
+- Removed `rentHistory` from getAllUnitsWithColorClass (not displayed in dashboard grid)
+
+### Files Not Modified (Already Compliant)
+
+| File | Reason |
+|------|--------|
+| `app/Services/FinanceStatsService.php` | Already uses selectRaw() with aggregates |
+| `app/Services/FinanceFilterService.php` | Already uses constrained eager loading patterns |
+
+### Encrypted Fields Protection
+
+The following fields are never selected unnecessarily:
+- `User.national_id` (encrypted)
+- `User.bank_details` (encrypted)
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| Dashboard queries select only displayed columns | ✅ 14 queries updated |
+| Pagination queries select only needed columns | ✅ arrearsV2() with cursorPaginate |
+| API responses don't leak encrypted fields | ✅ No encrypted fields selected |
+| Export queries select only export columns | ✅ 8 GDPR queries updated |
+
+### Verification Results
+- **vendor/bin/pint --test**: ✅ 732 files pass
+- **php artisan test --parallel**: ✅ 604 tests pass, 13 skipped
+- **npm run build**: ✅ Build successful
+
+**DBP-040 COMPLETE**

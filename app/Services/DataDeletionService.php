@@ -92,6 +92,7 @@ class DataDeletionService
 
         $requests = DeletionRequest::where('status', 'pending')
             ->where('scheduled_deletion_at', '<=', now())
+            ->select(['id', 'user_id', 'status', 'scheduled_deletion_at'])
             ->get();
 
         foreach ($requests as $request) {
@@ -173,6 +174,7 @@ class DataDeletionService
         // User's own documents
         $documents = Document::where('documentable_type', User::class)
             ->where('documentable_id', $user->id)
+            ->select(['id', 'file_path'])
             ->get();
 
         foreach ($documents as $doc) {
@@ -200,6 +202,7 @@ class DataDeletionService
         $leaseIds = Lease::where('tenant_id', $user->id)->pluck('id');
         $leaseDocs = Document::where('documentable_type', Lease::class)
             ->whereIn('documentable_id', $leaseIds)
+            ->select(['id', 'file_path'])
             ->get();
 
         foreach ($leaseDocs as $doc) {

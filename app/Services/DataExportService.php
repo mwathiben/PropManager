@@ -88,7 +88,12 @@ class DataExportService
     protected function getLeaseData(User $user): array
     {
         $leases = Lease::where('tenant_id', $user->id)
-            ->with(['unit.building.property'])
+            ->select(['id', 'unit_id', 'start_date', 'end_date', 'rent_amount', 'deposit_amount', 'service_charge', 'is_active', 'created_at'])
+            ->with([
+                'unit:id,unit_number,building_id',
+                'unit.building:id,name,property_id',
+                'unit.building.property:id,name',
+            ])
             ->get();
 
         return $leases->map(function ($lease) {
@@ -115,7 +120,9 @@ class DataExportService
     {
         $invoices = Invoice::whereHas('lease', function ($q) use ($user) {
             $q->where('tenant_id', $user->id);
-        })->get();
+        })
+            ->select(['id', 'invoice_number', 'lease_id', 'due_date', 'billing_period_start', 'rent_due', 'water_due', 'arrears', 'total_due', 'amount_paid', 'status', 'created_at'])
+            ->get();
 
         return $invoices->map(function ($invoice) {
             return [
@@ -141,7 +148,9 @@ class DataExportService
     {
         $payments = Payment::whereHas('lease', function ($q) use ($user) {
             $q->where('tenant_id', $user->id);
-        })->get();
+        })
+            ->select(['id', 'amount', 'payment_method', 'payment_date', 'reference', 'notes', 'created_at'])
+            ->get();
 
         return $payments->map(function ($payment) {
             return [
@@ -163,6 +172,7 @@ class DataExportService
     {
         $documents = Document::where('documentable_type', User::class)
             ->where('documentable_id', $user->id)
+            ->select(['id', 'title', 'document_type', 'file_name', 'file_size', 'mime_type', 'created_at'])
             ->get();
 
         return $documents->map(function ($doc) {
@@ -174,7 +184,6 @@ class DataExportService
                 'file_size' => $doc->file_size_formatted,
                 'mime_type' => $doc->mime_type,
                 'uploaded_at' => $doc->created_at->toIso8601String(),
-                // Note: Actual files are included in the ZIP archive
             ];
         })->toArray();
     }
@@ -191,6 +200,7 @@ class DataExportService
             ->whereHas('unit.leases', function ($q) use ($user) {
                 $q->where('tenant_id', $user->id);
             })
+            ->select(['id', 'reading_date', 'previous_reading', 'current_reading', 'consumption', 'cost', 'status'])
             ->get();
 
         return $readings->map(function ($reading) {
@@ -216,6 +226,7 @@ class DataExportService
                 $q->where('auditable_type', User::class)
                     ->where('auditable_id', $user->id);
             })
+            ->select(['id', 'event_type', 'description', 'auditable_type', 'auditable_id', 'ip_address', 'created_at'])
             ->orderBy('created_at', 'desc')
             ->limit(1000)
             ->get();
@@ -251,6 +262,7 @@ class DataExportService
         // Add user documents
         $documents = Document::where('documentable_type', User::class)
             ->where('documentable_id', $user->id)
+            ->select(['id', 'document_type', 'file_name', 'file_path'])
             ->get();
 
         foreach ($documents as $doc) {
@@ -263,7 +275,12 @@ class DataExportService
         }
 
         // Add lease documents
-        $leases = Lease::where('tenant_id', $user->id)->with('documents')->get();
+        $leases = Lease::where('tenant_id', $user->id)
+            ->select(['id'])
+            ->with(['documents' => function ($q) {
+                $q->select(['id', 'documentable_id', 'documentable_type', 'file_name', 'file_path']);
+            }])
+            ->get();
         foreach ($leases as $lease) {
             foreach ($lease->documents as $doc) {
                 if ($doc->fileExists()) {

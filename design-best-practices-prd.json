@@ -1954,8 +1954,9 @@
       ],
       "verification": "Enable query logging; verify no SELECT * on dashboard load",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1,
+      "completion_notes": "Updated ~20+ queries across 4 files: DashboardService.php (14 queries for super admin, landlord, caretaker, tenant dashboards), Api/ReportController.php (2 arrears queries), DataExportService.php (8 GDPR export queries), DataDeletionService.php (3 deletion queries). All queries now use explicit column selection with constrained eager loading. Verified: 604 tests pass, pint passes, npm build passes."
     },
     {
       "id": "DBP-041",

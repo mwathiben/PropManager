@@ -46,7 +46,7 @@ class DashboardService
 
             $landlords = User::where('role', 'landlord')
                 ->withCount(['properties'])
-                ->selectRaw('users.*')
+                ->select(['users.id', 'users.name', 'users.email', 'users.created_at'])
                 ->selectSub(
                     Unit::withoutGlobalScope('landlord')
                         ->selectRaw('COUNT(*)')
@@ -74,7 +74,7 @@ class DashboardService
             $yearSql = $this->getYearSql('p.payment_date');
 
             $topLandlords = User::where('role', 'landlord')
-                ->select('users.*')
+                ->select(['users.id', 'users.name', 'users.email', 'users.created_at'])
                 ->selectRaw("COALESCE((
                     SELECT SUM(p.amount)
                     FROM payments p
@@ -100,8 +100,13 @@ class DashboardService
     public function getLandlordDashboardData(User $landlord, Request $request): array
     {
         $allProperties = $landlord->properties()
+            ->select(['id', 'landlord_id', 'name'])
             ->with(['buildings' => function ($query) {
-                $query->whereNull('parent_building_id')->with('wings');
+                $query->whereNull('parent_building_id')
+                    ->select(['id', 'property_id', 'parent_building_id', 'name', 'is_wing', 'unit_prefix', 'total_floors', 'units_per_floor'])
+                    ->with(['wings' => function ($q) {
+                        $q->select(['id', 'property_id', 'parent_building_id', 'name', 'is_wing', 'unit_prefix']);
+                    }]);
             }])
             ->get();
 
@@ -124,7 +129,12 @@ class DashboardService
             ? ($mainBuildings->firstWhere('id', $buildingId) ?? $mainBuildings->first())
             : $mainBuildings->first();
 
-        $wings = $activeBuilding->wings()->with('units')->get();
+        $wings = $activeBuilding->wings()
+            ->select(['id', 'property_id', 'parent_building_id', 'name', 'is_wing', 'unit_prefix'])
+            ->with(['units' => function ($q) {
+                $q->select(['id', 'building_id', 'unit_number', 'floor_number', 'status', 'target_rent']);
+            }])
+            ->get();
         $hasWings = $wings->isNotEmpty();
 
         $wingId = $request->get('wing_id');
@@ -171,8 +181,15 @@ class DashboardService
 
     public function getCaretakerDashboardData(User $caretaker): array
     {
-        $property = Property::where('landlord_id', $caretaker->landlord_id)->first();
-        $assignedBuildings = $caretaker->assignedBuildings()->with('units')->get();
+        $property = Property::where('landlord_id', $caretaker->landlord_id)
+            ->select(['id', 'landlord_id', 'name'])
+            ->first();
+        $assignedBuildings = $caretaker->assignedBuildings()
+            ->select(['buildings.id', 'buildings.property_id', 'buildings.name', 'buildings.water_billing_type'])
+            ->with(['units' => function ($q) {
+                $q->select(['id', 'building_id', 'status']);
+            }])
+            ->get();
 
         if ($assignedBuildings->isEmpty() && ! $property) {
             return [
@@ -209,7 +226,12 @@ class DashboardService
 
         $todaysTasks = Ticket::where('assigned_to', $caretaker->id)
             ->open()
-            ->with(['building', 'unit', 'reporter'])
+            ->select(['id', 'title', 'description', 'priority', 'status', 'building_id', 'unit_id', 'reporter_id'])
+            ->with([
+                'building:id,name',
+                'unit:id,unit_number',
+                'reporter:id,name',
+            ])
             ->orderByRaw("CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 WHEN 'low' THEN 4 ELSE 5 END")
             ->limit(10)
             ->get();
@@ -262,18 +284,21 @@ class DashboardService
             ->first();
 
         $recentPayments = Payment::where('lease_id', $lease->id)
+            ->select(['id', 'amount', 'payment_method', 'payment_date'])
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get();
 
         $recentTickets = Ticket::where('reporter_id', $tenant->id)
-            ->with('building')
+            ->select(['id', 'title', 'status', 'priority', 'building_id', 'created_at'])
+            ->with('building:id,name')
             ->orderBy('created_at', 'desc')
             ->limit(3)
             ->get();
 
         $pendingInvoices = Invoice::where('lease_id', $lease->id)
             ->whereIn('status', ['sent', 'partial', 'overdue'])
+            ->select(['id', 'invoice_number', 'total_due', 'amount_paid', 'due_date', 'status'])
             ->orderBy('due_date', 'asc')
             ->get();
 
@@ -367,7 +392,14 @@ class DashboardService
     protected function getAllUnitsWithColorClass(Building $building): Collection
     {
         return $building->allUnits()
-            ->with(['activeLease.tenant', 'activeLease.rentHistory', 'building'])
+            ->select(['id', 'building_id', 'unit_number', 'floor_number', 'status', 'target_rent'])
+            ->with([
+                'activeLease' => function ($q) {
+                    $q->select(['id', 'unit_id', 'tenant_id', 'rent_amount']);
+                },
+                'activeLease.tenant:id,name,email',
+                'building:id,name,unit_prefix,is_wing',
+            ])
             ->orderBy('floor_number', 'desc')
             ->orderBy('unit_number', 'asc')
             ->get()
@@ -479,12 +511,20 @@ class DashboardService
         ];
 
         $recentPayments = Payment::whereHas('lease', fn ($q) => $q->whereIn('unit_id', $metricsUnitIds))
-            ->with(['invoice.lease.tenant', 'invoice.lease.unit.building'])
+            ->select(['id', 'invoice_id', 'amount', 'payment_method', 'payment_date', 'created_at'])
+            ->with([
+                'invoice:id,lease_id',
+                'invoice.lease:id,tenant_id,unit_id',
+                'invoice.lease.tenant:id,name',
+                'invoice.lease.unit:id,unit_number,building_id',
+                'invoice.lease.unit.building:id,name',
+            ])
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get();
 
         $recentTickets = Ticket::whereIn('building_id', $metricsBuildingIds)
+            ->select(['id', 'title', 'category', 'subcategory', 'priority', 'status', 'building_id', 'unit_id', 'reporter_id', 'created_at'])
             ->with(['building:id,name', 'unit:id,unit_number', 'reporter:id,name,role,profile_photo_path'])
             ->orderBy('created_at', 'desc')
             ->limit(5)
@@ -508,7 +548,12 @@ class DashboardService
             ->where('is_active', true)
             ->where('end_date', '<=', now()->addDays(60))
             ->where('end_date', '>=', now())
-            ->with(['tenant', 'unit.building'])
+            ->select(['id', 'tenant_id', 'unit_id', 'end_date'])
+            ->with([
+                'tenant:id,name',
+                'unit:id,unit_number,building_id',
+                'unit.building:id,name',
+            ])
             ->orderBy('end_date')
             ->limit(5)
             ->get();
@@ -555,7 +600,13 @@ class DashboardService
     {
         $pendingInvitations = TenantInvitation::valid()
             ->where('existing_user_id', $tenant->id)
-            ->with(['unit.building.property', 'landlord'])
+            ->select(['id', 'unit_id', 'landlord_id', 'rent_amount', 'service_charge', 'deposit_amount', 'start_date', 'end_date', 'expires_at'])
+            ->with([
+                'unit:id,unit_number,floor_number,building_id',
+                'unit.building:id,name,property_id',
+                'unit.building.property:id,name',
+                'landlord:id,name',
+            ])
             ->get()
             ->map(function ($invitation) {
                 return [
