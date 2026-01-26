@@ -16,13 +16,13 @@ use App\Mail\PaymentReceived;
 use App\Mail\PaymentVerificationApproved;
 use App\Models\Building;
 use App\Models\Invoice;
-use App\Models\LandlordPayoutAccount;
 use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\TenantPaymentVerification;
-use App\Models\Unit;
 use App\Models\User;
 use App\Services\BillingModelService;
+use App\Services\BulkImport\BulkImportValidator;
+use App\Services\Payment\PaymentCallbackProcessor;
 use App\Services\PaystackService;
 use App\Services\ReceiptService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -416,15 +416,12 @@ class PaymentController extends Controller
             return redirect()->route('invoices.index')->with('error', 'Payment was not successful');
         }
 
-        // Extract metadata
         $metadata = $data['metadata'] ?? [];
 
-        // Check if this is an initial payment verification
         if (($metadata['type'] ?? null) === 'initial_payment' && isset($metadata['verification_id'])) {
             return $this->handleInitialPaymentCallback($data, $metadata);
         }
 
-        // Regular invoice payment flow
         $invoiceId = $metadata['invoice_id'] ?? null;
 
         if (! $invoiceId) {
@@ -437,135 +434,30 @@ class PaymentController extends Controller
             return redirect()->route('invoices.index')->with('error', 'Invoice not found');
         }
 
-        try {
-            DB::beginTransaction();
-            $pendingOverpayments = [];
+        $processor = PaymentCallbackProcessor::make($this->billingService, $this->receiptService)
+            ->forReference($reference)
+            ->forInvoice($invoiceId)
+            ->withPaymentData($data)
+            ->fromSource('payment')
+            ->onOverpayment(fn ($pending) => $this->sendPendingOverpaymentNotifications($pending));
 
-            // Use pessimistic locking to prevent duplicate payments from race conditions
-            $existingPayment = Payment::where('paystack_reference', $reference)
-                ->lockForUpdate()
-                ->first();
+        $result = $processor->process();
 
-            if ($existingPayment) {
-                DB::rollBack();
+        if ($result->isAlreadyProcessed()) {
+            return redirect()->route('invoices.show', $invoice)->with('info', 'Payment already recorded');
+        }
 
-                return redirect()->route('invoices.show', $invoice)->with('info', 'Payment already recorded');
-            }
+        if ($result->isInvoiceNotFound()) {
+            return redirect()->route('invoices.index')->with('error', 'Invoice not found');
+        }
 
-            // Lock the invoice for update to prevent concurrent modifications
-            $invoice = Invoice::where('id', $invoiceId)->lockForUpdate()->first();
-
-            if (! $invoice) {
-                DB::rollBack();
-
-                return redirect()->route('invoices.index')->with('error', 'Invoice not found');
-            }
-
-            // Convert amount from kobo to KES
-            $amount = $data['amount'] / 100;
-
-            // Extract split payment info from metadata
-            $isSplitPayment = $metadata['is_split_payment'] ?? false;
-            $payoutAccountId = $metadata['payout_account_id'] ?? null;
-
-            // Create payment record
-            $payment = $invoice->payments()->create([
-                'landlord_id' => $invoice->landlord_id,
-                'lease_id' => $invoice->lease_id,
-                'payout_account_id' => $payoutAccountId,
-                'amount' => $amount,
-                'payment_method' => 'paystack',
-                'payment_date' => now(),
-                'reference' => $data['reference'],
-                'paystack_reference' => $reference,
-                'paystack_split_code' => $data['subaccount'] ?? null,
-                'is_split_payment' => $isSplitPayment,
-                'notes' => 'Paystack payment - '.($data['channel'] ?? 'online'),
-            ]);
-
-            // Record platform fee
-            $landlord = User::find($invoice->landlord_id);
-
-            if ($landlord) {
-                $feeResult = $this->billingService->calculatePlatformFee($amount, $landlord);
-
-                $payoutAccount = $payoutAccountId
-                    ? LandlordPayoutAccount::find($payoutAccountId)
-                    : null;
-
-                $this->billingService->recordPlatformFee(
-                    payment: $payment,
-                    feeResult: $feeResult,
-                    payoutAccount: $payoutAccount,
-                    splitReference: $isSplitPayment ? $reference : null,
-                    splitDetails: $isSplitPayment ? [
-                        'subaccount' => $data['subaccount'] ?? null,
-                        'fees_split' => $data['fees_split'] ?? null,
-                        'authorization' => $data['authorization'] ?? null,
-                    ] : null
-                );
-            }
-
-            // Auto-generate receipt
-            $this->receiptService->createReceipt($payment, $invoice);
-
-            $remainingBalance = $invoice->total_due - $invoice->amount_paid;
-            $appliedAmount = min($amount, $remainingBalance);
-            $overpayment = max(0, $amount - $remainingBalance);
-
-            $newAmountPaid = $invoice->amount_paid + $appliedAmount;
-            $newStatus = $newAmountPaid >= $invoice->total_due ? InvoiceStatus::Paid : InvoiceStatus::Partial;
-
-            $invoice->update([
-                'amount_paid' => $newAmountPaid,
-                'status' => $newStatus,
-            ]);
-
-            $lease = $invoice->lease;
-            if ($overpayment > 0 && $lease) {
-                $lease->creditToWallet(
-                    $overpayment,
-                    "Overpayment from Paystack payment #{$payment->id}",
-                    $payment->id
-                );
-                $lease->refresh();
-
-                // Defer notifications until after commit
-                $pendingOverpayments[] = [
-                    'payment_id' => $payment->id,
-                    'lease_id' => $lease->id,
-                    'overpayment' => $overpayment,
-                ];
-            }
-
-            DB::commit();
-
-            // Send overpayment notifications after successful commit
-            $this->sendPendingOverpaymentNotifications($pendingOverpayments);
-
-            $invoice->load(['lease.tenant', 'lease.unit.building']);
-            $tenant = $invoice->lease?->tenant;
-            if ($tenant) {
-                Mail::to($tenant->email)->send(new PaymentReceived($payment, $invoice));
-                PaymentReceivedEvent::dispatch($payment, $invoice);
-            }
-
-            $message = 'Payment of KES '.number_format($amount, 2).' successful!';
-            if ($overpayment > 0) {
-                $message .= ' KES '.number_format($overpayment, 2).' credited to wallet.';
-            }
-
-            return redirect()->route('invoices.show', $invoice)->with('success', $message);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Payment recording failed', [
-                'reference' => $reference,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
+        if ($result->isError()) {
             return redirect()->route('invoices.show', $invoice)->with('error', 'Failed to record payment');
         }
+
+        $processor->sendNotifications($result);
+
+        return redirect()->route('invoices.show', $invoice)->with('success', $result->getSuccessMessage());
     }
 
     /**
@@ -617,121 +509,30 @@ class PaymentController extends Controller
             return response()->json(['status' => 'no_invoice']);
         }
 
-        try {
-            DB::beginTransaction();
-            $pendingOverpayments = [];
+        $processor = PaymentCallbackProcessor::make($this->billingService, $this->receiptService)
+            ->forReference($reference)
+            ->forInvoice($invoiceId)
+            ->withPaymentData($data)
+            ->fromSource('webhook')
+            ->onOverpayment(fn ($pending) => $this->sendPendingOverpaymentNotifications($pending));
 
-            $existingPayment = Payment::where('paystack_reference', $reference)
-                ->lockForUpdate()
-                ->first();
+        $result = $processor->process();
 
-            if ($existingPayment) {
-                DB::rollBack();
+        if ($result->isAlreadyProcessed()) {
+            return response()->json(['status' => 'already_processed']);
+        }
 
-                return response()->json(['status' => 'already_processed']);
-            }
+        if ($result->isInvoiceNotFound()) {
+            return response()->json(['error' => 'Invoice not found'], 404);
+        }
 
-            $invoice = Invoice::where('id', $invoiceId)->lockForUpdate()->first();
-
-            if (! $invoice) {
-                DB::rollBack();
-
-                return response()->json(['error' => 'Invoice not found'], 404);
-            }
-
-            $amount = $data['amount'] / 100;
-            $isSplitPayment = $metadata['is_split_payment'] ?? false;
-            $payoutAccountId = $metadata['payout_account_id'] ?? null;
-
-            $payment = $invoice->payments()->create([
-                'landlord_id' => $invoice->landlord_id,
-                'lease_id' => $invoice->lease_id,
-                'payout_account_id' => $payoutAccountId,
-                'amount' => $amount,
-                'payment_method' => 'paystack',
-                'payment_date' => now(),
-                'reference' => $data['reference'],
-                'paystack_reference' => $reference,
-                'paystack_split_code' => $data['subaccount']['subaccount_code'] ?? null,
-                'is_split_payment' => $isSplitPayment,
-                'notes' => 'Paystack webhook - '.($data['channel'] ?? 'online'),
-            ]);
-
-            $landlord = User::find($invoice->landlord_id);
-
-            if ($landlord) {
-                $feeResult = $this->billingService->calculatePlatformFee($amount, $landlord);
-
-                $payoutAccount = $payoutAccountId
-                    ? LandlordPayoutAccount::find($payoutAccountId)
-                    : null;
-
-                $this->billingService->recordPlatformFee(
-                    payment: $payment,
-                    feeResult: $feeResult,
-                    payoutAccount: $payoutAccount,
-                    splitReference: $isSplitPayment ? $reference : null,
-                    splitDetails: $isSplitPayment ? [
-                        'subaccount' => $data['subaccount'] ?? null,
-                        'fees_split' => $data['fees_split'] ?? null,
-                    ] : null
-                );
-            }
-
-            // Auto-generate receipt
-            $this->receiptService->createReceipt($payment, $invoice);
-
-            $remainingBalance = $invoice->total_due - $invoice->amount_paid;
-            $appliedAmount = min($amount, $remainingBalance);
-            $overpayment = max(0, $amount - $remainingBalance);
-
-            $newAmountPaid = $invoice->amount_paid + $appliedAmount;
-            $newStatus = $newAmountPaid >= $invoice->total_due ? InvoiceStatus::Paid : InvoiceStatus::Partial;
-
-            $invoice->update([
-                'amount_paid' => $newAmountPaid,
-                'status' => $newStatus,
-            ]);
-
-            $lease = $invoice->lease;
-            if ($overpayment > 0 && $lease) {
-                $lease->creditToWallet(
-                    $overpayment,
-                    "Overpayment from Paystack webhook #{$payment->id}",
-                    $payment->id
-                );
-                $lease->refresh();
-
-                // Defer notification until after successful commit
-                $pendingOverpayments[] = [
-                    'payment_id' => $payment->id,
-                    'lease_id' => $lease->id,
-                    'overpayment' => $overpayment,
-                ];
-            }
-
-            DB::commit();
-
-            // Send overpayment notifications after successful commit
-            $this->sendPendingOverpaymentNotifications($pendingOverpayments);
-
-            $invoice->load(['lease.tenant', 'lease.unit.building']);
-            $tenant = $invoice->lease?->tenant;
-            if ($tenant) {
-                Mail::to($tenant->email)->send(new PaymentReceived($payment, $invoice));
-                PaymentReceivedEvent::dispatch($payment, $invoice);
-            }
-
-            return response()->json(['status' => 'success']);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Paystack webhook processing failed', [
-                'reference' => $reference,
-                'error' => $e->getMessage(),
-            ]);
-
+        if ($result->isError()) {
             return response()->json(['error' => 'Processing failed'], 500);
         }
+
+        $processor->sendNotifications($result);
+
+        return response()->json(['status' => 'success']);
     }
 
     /**
@@ -990,498 +791,23 @@ class PaymentController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
-        $buildingId = $validated['building_id'];
-        $mode = $validated['mode'];
 
-        $building = Building::where('id', $buildingId)
-            ->where('landlord_id', $landlordId)
-            ->first();
+        $result = BulkImportValidator::make()
+            ->forMode($validated['mode'])
+            ->forLandlord($landlordId)
+            ->forBuilding($validated['building_id'])
+            ->withFile($request->file('file'))
+            ->validate();
 
-        if (! $building) {
-            return response()->json(['error' => 'Building not found or access denied.'], 403);
+        if (! $result['success']) {
+            $statusCode = str_contains($result['error'], 'access denied') ? 403 : 422;
+
+            return response()->json(['error' => $result['error']], $statusCode);
         }
 
-        $file = $request->file('file');
-        $rows = $this->parseCsv($file->getPathname());
+        unset($result['success']);
 
-        if (empty($rows)) {
-            return response()->json(['error' => 'CSV file is empty or invalid format.'], 422);
-        }
-
-        // Pre-load all units for this building (eliminates N+1 in loop)
-        $unitsMap = Unit::where('building_id', $buildingId)
-            ->get()
-            ->keyBy(fn ($u) => strtolower(trim($u->unit_number)));
-
-        // For current mode, pre-load tenants and invoices
-        $tenantsMap = collect();
-        $invoicesMap = collect();
-        $tenantInvoicesMap = collect();
-
-        if ($mode === 'current') {
-            $tenantEmails = collect($rows)
-                ->map(fn ($r) => strtolower(trim($r['tenant_email'] ?? $r['Tenant Email'] ?? '')))
-                ->filter()
-                ->unique();
-
-            $invoiceNumbers = collect($rows)
-                ->map(fn ($r) => trim($r['invoice_number'] ?? $r['Invoice Number'] ?? ''))
-                ->filter()
-                ->unique();
-
-            $tenantsMap = User::where('landlord_id', $landlordId)
-                ->where('role', 'tenant')
-                ->where('is_archived', false)
-                ->whereIn(DB::raw('LOWER(email)'), $tenantEmails)
-                ->with('lease')
-                ->get()
-                ->keyBy(fn ($t) => strtolower($t->email));
-
-            if ($invoiceNumbers->isNotEmpty()) {
-                $invoicesMap = Invoice::where('landlord_id', $landlordId)
-                    ->whereIn('invoice_number', $invoiceNumbers)
-                    ->with('lease')
-                    ->get()
-                    ->keyBy('invoice_number');
-            }
-
-            // Pre-load outstanding invoices for all tenants in the CSV
-            $tenantIds = $tenantsMap->pluck('id')->unique()->filter();
-            if ($tenantIds->isNotEmpty()) {
-                $tenantInvoicesMap = Invoice::where('landlord_id', $landlordId)
-                    ->whereHas('lease', fn ($q) => $q->whereIn('tenant_id', $tenantIds))
-                    ->whereIn('status', [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue])
-                    ->with('lease:id,tenant_id')
-                    ->orderBy('due_date', 'asc')
-                    ->get()
-                    ->groupBy(fn ($inv) => $inv->lease?->tenant_id);
-            }
-        }
-
-        $validRows = [];
-        $invalidRows = [];
-
-        foreach ($rows as $index => $row) {
-            $rowNumber = $index + 2;
-            $errors = [];
-
-            $unitNumber = trim($row['unit_number'] ?? $row['Unit Number'] ?? '');
-            $tenantName = trim($row['tenant_name'] ?? $row['Tenant Name'] ?? '');
-            $tenantEmail = trim($row['tenant_email'] ?? $row['Tenant Email'] ?? '');
-            $invoiceNumber = trim($row['invoice_number'] ?? $row['Invoice Number'] ?? '');
-            $paymentDate = trim($row['payment_date'] ?? $row['Payment Date'] ?? '');
-            $amount = trim($row['amount'] ?? $row['Amount'] ?? '');
-            $paymentMethod = strtolower(trim($row['payment_method'] ?? $row['Payment Method'] ?? ''));
-            $reference = trim($row['reference'] ?? $row['Reference'] ?? '');
-
-            if (empty($unitNumber)) {
-                $errors[] = 'Unit Number is required';
-            }
-
-            if ($mode === 'historical' && empty($tenantName)) {
-                $errors[] = 'Tenant Name is required for historical imports';
-            }
-
-            if ($mode === 'current' && empty($tenantEmail)) {
-                $errors[] = 'Tenant Email is required for current imports';
-            } elseif ($mode === 'current' && ! empty($tenantEmail) && ! filter_var($tenantEmail, FILTER_VALIDATE_EMAIL)) {
-                $errors[] = 'Invalid email format';
-            }
-
-            if (empty($paymentDate)) {
-                $errors[] = 'Payment Date is required';
-            } elseif (! strtotime($paymentDate)) {
-                $errors[] = 'Invalid date format (use YYYY-MM-DD)';
-            } elseif ($mode === 'current' && strtotime($paymentDate) > time()) {
-                $errors[] = 'Payment date cannot be in the future';
-            }
-
-            if (empty($amount)) {
-                $errors[] = 'Amount is required';
-            } elseif (! is_numeric($amount) || (float) $amount <= 0) {
-                $errors[] = 'Amount must be a positive number';
-            }
-
-            $validMethods = ['cash', 'mpesa', 'bank_transfer', 'cheque', 'mobile_money'];
-            if (empty($paymentMethod)) {
-                $errors[] = 'Payment Method is required';
-            } elseif (! in_array($paymentMethod, $validMethods)) {
-                $errors[] = 'Payment Method must be one of: '.implode(', ', $validMethods);
-            }
-
-            // Use pre-loaded units map instead of querying
-            $unit = $unitsMap->get(strtolower($unitNumber));
-
-            if (! $unit && ! empty($unitNumber)) {
-                $errors[] = "Unit '{$unitNumber}' not found in selected building";
-            }
-
-            if (! empty($errors)) {
-                $invalidRows[] = [
-                    'row' => $rowNumber,
-                    'unit_number' => $unitNumber,
-                    'tenant_name' => $tenantName,
-                    'tenant_email' => $tenantEmail,
-                    'amount' => $amount,
-                    'errors' => $errors,
-                ];
-
-                continue;
-            }
-
-            if ($mode === 'historical') {
-                $validRows[] = $this->validateHistoricalRow(
-                    $rowNumber,
-                    $unit,
-                    $unitNumber,
-                    $tenantName,
-                    $tenantEmail,
-                    $paymentDate,
-                    (float) $amount,
-                    $paymentMethod,
-                    $reference,
-                    $landlordId
-                );
-            } else {
-                $result = $this->validateCurrentRowOptimized(
-                    $rowNumber,
-                    $unit,
-                    $unitNumber,
-                    $tenantName,
-                    $tenantEmail,
-                    $invoiceNumber,
-                    $paymentDate,
-                    (float) $amount,
-                    $paymentMethod,
-                    $reference,
-                    $landlordId,
-                    $tenantsMap,
-                    $invoicesMap,
-                    $tenantInvoicesMap
-                );
-
-                if (isset($result['errors'])) {
-                    $invalidRows[] = $result;
-                } else {
-                    $validRows[] = $result;
-                }
-            }
-        }
-
-        return response()->json([
-            'total_rows' => count($rows),
-            'valid_rows' => count($validRows),
-            'invalid_rows' => count($invalidRows),
-            'valid' => $validRows,
-            'invalid' => $invalidRows,
-            'mode' => $mode,
-            'building_id' => $buildingId,
-        ]);
-    }
-
-    /**
-     * Validate a row for historical import mode.
-     */
-    private function validateHistoricalRow(
-        int $rowNumber,
-        ?Unit $unit,
-        string $unitNumber,
-        string $tenantName,
-        string $tenantEmail,
-        string $paymentDate,
-        float $amount,
-        string $paymentMethod,
-        string $reference,
-        int $landlordId
-    ): array {
-        return [
-            'row' => $rowNumber,
-            'unit_id' => $unit?->id,
-            'unit_number' => $unitNumber,
-            'tenant_name' => $tenantName,
-            'tenant_email' => $tenantEmail,
-            'payment_date' => $paymentDate,
-            'amount' => $amount,
-            'payment_method' => $paymentMethod,
-            'reference' => $reference,
-            'is_historical' => true,
-            'will_create_tenant' => true,
-            'allocations' => [],
-            'wallet_credit' => 0,
-        ];
-    }
-
-    /**
-     * Validate a row for current tenant import mode.
-     */
-    private function validateCurrentRow(
-        int $rowNumber,
-        ?Unit $unit,
-        string $unitNumber,
-        string $tenantName,
-        string $tenantEmail,
-        string $invoiceNumber,
-        string $paymentDate,
-        float $amount,
-        string $paymentMethod,
-        string $reference,
-        int $landlordId
-    ): array {
-        $tenant = User::where('landlord_id', $landlordId)
-            ->where('role', 'tenant')
-            ->where('email', $tenantEmail)
-            ->where('is_archived', false)
-            ->first();
-
-        if (! $tenant) {
-            return [
-                'row' => $rowNumber,
-                'unit_number' => $unitNumber,
-                'tenant_name' => $tenantName,
-                'tenant_email' => $tenantEmail,
-                'amount' => $amount,
-                'errors' => ["Active tenant not found with email: {$tenantEmail}"],
-            ];
-        }
-
-        $activeLease = $tenant->lease;
-        if (! $activeLease || ! $unit || $activeLease->unit_id !== $unit->id) {
-            return [
-                'row' => $rowNumber,
-                'unit_number' => $unitNumber,
-                'tenant_name' => $tenantName,
-                'tenant_email' => $tenantEmail,
-                'amount' => $amount,
-                'errors' => ["Tenant does not have an active lease for unit {$unitNumber}"],
-            ];
-        }
-
-        $allocations = [];
-        $walletCredit = 0;
-        $remainingAmount = $amount;
-
-        if (! empty($invoiceNumber)) {
-            $invoice = Invoice::where('landlord_id', $landlordId)
-                ->where('invoice_number', $invoiceNumber)
-                ->first();
-
-            if (! $invoice) {
-                return [
-                    'row' => $rowNumber,
-                    'unit_number' => $unitNumber,
-                    'tenant_name' => $tenantName,
-                    'tenant_email' => $tenantEmail,
-                    'amount' => $amount,
-                    'errors' => ["Invoice not found: {$invoiceNumber}"],
-                ];
-            }
-
-            if ($invoice->lease && $invoice->lease->tenant_id !== $tenant->id) {
-                return [
-                    'row' => $rowNumber,
-                    'unit_number' => $unitNumber,
-                    'tenant_name' => $tenantName,
-                    'tenant_email' => $tenantEmail,
-                    'amount' => $amount,
-                    'errors' => ["Invoice {$invoiceNumber} does not belong to this tenant"],
-                ];
-            }
-
-            $outstanding = $invoice->getOutstandingAmount();
-            $allocationAmount = min($remainingAmount, $outstanding);
-            $allocations[] = [
-                'invoice_id' => $invoice->id,
-                'invoice_number' => $invoice->invoice_number,
-                'amount' => $allocationAmount,
-                'outstanding_before' => $outstanding,
-            ];
-            $remainingAmount -= $allocationAmount;
-
-            if ($remainingAmount > 0) {
-                $walletCredit = $remainingAmount;
-            }
-        } else {
-            $invoices = Invoice::where('landlord_id', $landlordId)
-                ->whereHas('lease', fn ($q) => $q->where('tenant_id', $tenant->id))
-                ->whereIn('status', [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue])
-                ->orderBy('due_date', 'asc')
-                ->get();
-
-            foreach ($invoices as $invoice) {
-                if ($remainingAmount <= 0) {
-                    break;
-                }
-
-                $outstanding = $invoice->getOutstandingAmount();
-                if ($outstanding <= 0) {
-                    continue;
-                }
-
-                $allocationAmount = min($remainingAmount, $outstanding);
-                $allocations[] = [
-                    'invoice_id' => $invoice->id,
-                    'invoice_number' => $invoice->invoice_number,
-                    'amount' => $allocationAmount,
-                    'outstanding_before' => $outstanding,
-                ];
-                $remainingAmount -= $allocationAmount;
-            }
-
-            if ($remainingAmount > 0) {
-                $walletCredit = $remainingAmount;
-            }
-        }
-
-        return [
-            'row' => $rowNumber,
-            'unit_id' => $unit->id,
-            'unit_number' => $unitNumber,
-            'tenant_id' => $tenant->id,
-            'tenant_name' => $tenant->name,
-            'tenant_email' => $tenantEmail,
-            'payment_date' => $paymentDate,
-            'amount' => $amount,
-            'payment_method' => $paymentMethod,
-            'reference' => $reference,
-            'is_historical' => false,
-            'allocations' => $allocations,
-            'wallet_credit' => $walletCredit,
-        ];
-    }
-
-    /**
-     * Validate a row for current tenant import using pre-loaded collections (optimized).
-     *
-     * @param  \Illuminate\Support\Collection  $tenantsMap
-     * @param  \Illuminate\Support\Collection  $invoicesMap
-     * @param  \Illuminate\Support\Collection  $tenantInvoicesMap
-     */
-    private function validateCurrentRowOptimized(
-        int $rowNumber,
-        ?Unit $unit,
-        string $unitNumber,
-        string $tenantName,
-        string $tenantEmail,
-        string $invoiceNumber,
-        string $paymentDate,
-        float $amount,
-        string $paymentMethod,
-        string $reference,
-        int $landlordId,
-        $tenantsMap,
-        $invoicesMap,
-        $tenantInvoicesMap
-    ): array {
-        $tenant = $tenantsMap->get(strtolower($tenantEmail));
-
-        if (! $tenant) {
-            return [
-                'row' => $rowNumber,
-                'unit_number' => $unitNumber,
-                'tenant_name' => $tenantName,
-                'tenant_email' => $tenantEmail,
-                'amount' => $amount,
-                'errors' => ["Active tenant not found with email: {$tenantEmail}"],
-            ];
-        }
-
-        $activeLease = $tenant->lease;
-        if (! $activeLease || ! $unit || $activeLease->unit_id !== $unit->id) {
-            return [
-                'row' => $rowNumber,
-                'unit_number' => $unitNumber,
-                'tenant_name' => $tenantName,
-                'tenant_email' => $tenantEmail,
-                'amount' => $amount,
-                'errors' => ["Tenant does not have an active lease for unit {$unitNumber}"],
-            ];
-        }
-
-        $allocations = [];
-        $walletCredit = 0;
-        $remainingAmount = $amount;
-
-        if (! empty($invoiceNumber)) {
-            $invoice = $invoicesMap->get($invoiceNumber);
-
-            if (! $invoice) {
-                return [
-                    'row' => $rowNumber,
-                    'unit_number' => $unitNumber,
-                    'tenant_name' => $tenantName,
-                    'tenant_email' => $tenantEmail,
-                    'amount' => $amount,
-                    'errors' => ["Invoice not found: {$invoiceNumber}"],
-                ];
-            }
-
-            if ($invoice->lease && $invoice->lease->tenant_id !== $tenant->id) {
-                return [
-                    'row' => $rowNumber,
-                    'unit_number' => $unitNumber,
-                    'tenant_name' => $tenantName,
-                    'tenant_email' => $tenantEmail,
-                    'amount' => $amount,
-                    'errors' => ["Invoice {$invoiceNumber} does not belong to this tenant"],
-                ];
-            }
-
-            $outstanding = $invoice->getOutstandingAmount();
-            $allocationAmount = min($remainingAmount, $outstanding);
-            $allocations[] = [
-                'invoice_id' => $invoice->id,
-                'invoice_number' => $invoice->invoice_number,
-                'amount' => $allocationAmount,
-                'outstanding_before' => $outstanding,
-            ];
-            $remainingAmount -= $allocationAmount;
-
-            if ($remainingAmount > 0) {
-                $walletCredit = $remainingAmount;
-            }
-        } else {
-            $invoices = $tenantInvoicesMap->get($tenant->id, collect());
-
-            foreach ($invoices as $invoice) {
-                if ($remainingAmount <= 0) {
-                    break;
-                }
-
-                $outstanding = $invoice->getOutstandingAmount();
-                if ($outstanding <= 0) {
-                    continue;
-                }
-
-                $allocationAmount = min($remainingAmount, $outstanding);
-                $allocations[] = [
-                    'invoice_id' => $invoice->id,
-                    'invoice_number' => $invoice->invoice_number,
-                    'amount' => $allocationAmount,
-                    'outstanding_before' => $outstanding,
-                ];
-                $remainingAmount -= $allocationAmount;
-            }
-
-            if ($remainingAmount > 0) {
-                $walletCredit = $remainingAmount;
-            }
-        }
-
-        return [
-            'row' => $rowNumber,
-            'unit_id' => $unit->id,
-            'unit_number' => $unitNumber,
-            'tenant_id' => $tenant->id,
-            'tenant_name' => $tenant->name,
-            'tenant_email' => $tenantEmail,
-            'payment_date' => $paymentDate,
-            'amount' => $amount,
-            'payment_method' => $paymentMethod,
-            'reference' => $reference,
-            'is_historical' => false,
-            'allocations' => $allocations,
-            'wallet_credit' => $walletCredit,
-        ];
+        return response()->json($result);
     }
 
     /**
@@ -1926,40 +1252,5 @@ class PaymentController extends Controller
                 ));
             }
         }
-    }
-
-    /**
-     * Parse CSV file into array of rows.
-     */
-    private function parseCsv(string $filepath): array
-    {
-        $rows = [];
-        $handle = fopen($filepath, 'r');
-
-        if ($handle === false) {
-            return [];
-        }
-
-        $headers = fgetcsv($handle);
-        if ($headers === false) {
-            fclose($handle);
-
-            return [];
-        }
-
-        $headers = array_map('trim', $headers);
-
-        while (($data = fgetcsv($handle)) !== false) {
-            if (count($data) < count($headers)) {
-                $data = array_pad($data, count($headers), '');
-            } elseif (count($data) > count($headers)) {
-                $data = array_slice($data, 0, count($headers));
-            }
-            $rows[] = array_combine($headers, $data);
-        }
-
-        fclose($handle);
-
-        return $rows;
     }
 }

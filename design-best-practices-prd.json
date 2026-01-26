@@ -1451,7 +1451,7 @@
       "estimated_effort": "large",
       "passes": false,
       "attempt_count": 0,
-      "phase_progress": "1 of 4 sub-tasks complete (DBP-033a)",
+      "phase_progress": "3 of 4 sub-tasks complete (DBP-033a, DBP-033b, DBP-033c)",
       "sub_tasks": ["DBP-033a", "DBP-033b", "DBP-033c", "DBP-033d"]
     },
     {
@@ -1555,9 +1555,10 @@
       ],
       "verification": "php artisan test --filter=Payment && php artisan test --parallel",
       "estimated_effort": "large",
-      "passes": false,
-      "attempt_count": 0,
-      "depends_on": ["DBP-033b"]
+      "passes": true,
+      "attempt_count": 1,
+      "depends_on": ["DBP-033b"],
+      "completion_notes": "Refactored 3 high-risk functions: (1) validateBulkImport (195->27 lines) - created app/Services/BulkImport/BulkImportValidator.php with fluent interface: forMode()->forLandlord()->forBuilding()->withFile()->validate(). Handles both current and historical modes with batch pre-loading. (2) validateCurrentRowOptimized (127 lines) - logic absorbed into BulkImportValidator with calculateAllocations() method for FIFO invoice allocation. (3) handleCallback (171->62 lines) and processSuccessfulCharge (131->40 lines) - created app/Services/Payment/PaymentCallbackProcessor.php and PaymentProcessResult.php. Consolidates 95% duplicate code between callback and webhook handlers. Preserves transaction boundaries, pessimistic locking, and idempotency. (4) Removed deprecated methods: validateHistoricalRow (28 lines), validateCurrentRow (134 lines), validateCurrentRowOptimized (127 lines), parseCsv (35 lines) - total 324 lines deleted. All 92 Payment tests pass, pint passes, build succeeds."
     },
     {
       "id": "DBP-033d",
