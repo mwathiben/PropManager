@@ -1743,8 +1743,9 @@
       ],
       "verification": "Run tinker; create each model via factory; verify no errors",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1,
+      "completion_notes": "Created 18 factories for tenant lifecycle and verification models: InvitationFactory (pending/accepted/expired states), LandlordProfileFactory (complete/incomplete/withPhoto states), LegalDocumentFactory (terms/privacy/cookies/dpa type states), ConsentFactory (granted/withdrawn, 5 consent type states), DeletionRequestFactory (5 status states), OnboardingProgressFactory (step states, complete/incomplete), TenantNoteFactory (pinned state, forTenant/createdBy helpers), EmergencyContactFactory (primary/secondary, relationship states), TenantActivityFactory (15 activity type states with metadata), MoveOutInspectionItemFactory (active/inactive, category states), VerificationTemplateFactory (default/forProperty), VerificationItemFactory (required/optional, document type states), TenantInvitationFactory (4 status states, notification channel states), MoveOutFactory (6 status states, deduction/arrears helpers), MoveOutDeductionFactory (minor/major/cleaning/damage), MoveOutInspectionResultFactory (pass/fail/na), TenantVerificationFactory (pending/verified/rejected), TenantPaymentVerificationFactory (4 status states, payment helpers). All factories include proper relationship helpers (forLandlord, forTenant, forLease, etc.). Pint passes, all 604 tests pass."
     },
     {
       "id": "DBP-035d",
