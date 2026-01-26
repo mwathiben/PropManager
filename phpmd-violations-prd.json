@@ -1,0 +1,1050 @@
+{
+  "project": {
+    "name": "PropManager PHPMD Violations Remediation",
+    "description": "Systematic elimination of PHPMD code quality violations. 228 violations across 90 files, grouped into 52 actionable items.",
+    "version": "1.0.0"
+  },
+  "qualityStandards": {
+    "description": "Systematic code quality improvement through complexity reduction and pattern application.",
+    "principles": [
+      "Write failing test FIRST (RED-GREEN-REFACTOR) before refactoring",
+      "Refactor only when tests pass - ensure no regressions",
+      "Extract one responsibility at a time",
+      "Use existing patterns from prior refactoring (see CLAUDE.md Code Complexity Guidelines)",
+      "All new extracted classes must have Factories for testing"
+    ],
+    "thresholds": {
+      "cyclomaticComplexity": 7,
+      "npathComplexity": 200,
+      "methodLength": 80,
+      "classLength": 400,
+      "parameterCount": 5,
+      "publicCount": 20
+    },
+    "strategies": {
+      "cyclomaticComplexity": "Extract methods, use early returns, replace conditionals with polymorphism",
+      "excessiveParameterList": "Create DTOs/value objects to group related parameters",
+      "excessiveMethodLength": "Extract focused helper methods",
+      "excessiveClassLength": "Extract services/transformers/builders",
+      "npathComplexity": "Reduce nesting, simplify branching logic",
+      "excessivePublicCount": "Review API surface, extract concerns (note: Eloquent models may be unavoidable)"
+    },
+    "skills_to_apply": [
+      "laravelcomplexity-guardrails",
+      "laraveltdd-with-pest",
+      "verification-first",
+      "laravelcontroller-cleanup",
+      "laravelinterfaces-and-di",
+      "laravelstrategy-pattern"
+    ]
+  },
+  "feedbackLoops": {
+    "description": "Run ALL feedback loops before committing. Do NOT commit if any fail.",
+    "commands": {
+      "phpmd": "./vendor/bin/phpmd app text phpmd.xml",
+      "pint": "./vendor/bin/pint --test",
+      "test": "php artisan test --parallel"
+    },
+    "verification": {
+      "before_commit": [
+        "All tests pass (php artisan test)",
+        "Pint passes (vendor/bin/pint --test)",
+        "PHPMD violation count reduced or unchanged",
+        "Extracted classes have corresponding tests"
+      ]
+    }
+  },
+  "workflow": {
+    "description": "Refactoring workflow for each PRD item - test-first approach",
+    "steps": [
+      {
+        "step": 1,
+        "name": "Ensure Existing Tests Pass",
+        "description": "Before any refactoring, verify all existing tests pass. If tests fail, fix them first."
+      },
+      {
+        "step": 2,
+        "name": "Write Characterization Tests",
+        "description": "If the code lacks tests, write characterization tests that capture current behavior before refactoring.",
+        "example": "test('storeManual creates payment with valid data', function() { ... current behavior ... })"
+      },
+      {
+        "step": 3,
+        "name": "Extract and Refactor",
+        "description": "Extract services/DTOs/helpers one at a time. Run tests after each extraction.",
+        "checklist": [
+          "Extract one class/method per commit",
+          "Run tests after each extraction",
+          "New classes get their own test files",
+          "Follow existing patterns (see CLAUDE.md)"
+        ]
+      },
+      {
+        "step": 4,
+        "name": "Verify PHPMD",
+        "description": "Run PHPMD to confirm violations are reduced.",
+        "command": "./vendor/bin/phpmd app text phpmd.xml"
+      }
+    ]
+  },
+  "categories": {
+    "controller_critical": {
+      "priority": 1,
+      "description": "Controllers with 6+ violations - highest impact"
+    },
+    "service_critical": {
+      "priority": 2,
+      "description": "Services with 5+ violations"
+    },
+    "dto_introduction": {
+      "priority": 3,
+      "description": "Files with ExcessiveParameterList - quick wins with DTOs"
+    },
+    "controller_moderate": {
+      "priority": 4,
+      "description": "Controllers with 2-5 violations"
+    },
+    "service_moderate": {
+      "priority": 5,
+      "description": "Services with 2-4 violations"
+    },
+    "single_violations": {
+      "priority": 6,
+      "description": "Files with only 1 violation"
+    },
+    "model_review": {
+      "priority": 7,
+      "description": "Models with ExcessivePublicCount - may be acceptable"
+    }
+  },
+  "items": [
+    {
+      "id": "PMD-001",
+      "category": "controller_critical",
+      "priority": "CRITICAL",
+      "title": "Refactor PaymentController (20 violations)",
+      "violations": [
+        "ExcessiveClassLength: 1219 lines (limit 400)",
+        "storeManual(): CC=14, NPath=674, 106 lines",
+        "index(): CC=9, 94 lines",
+        "initializePaystack(): CC=10, 91 lines",
+        "handleCallback(): CC=12, NPath=1152",
+        "bulkImport(): CC=8, NPath=216",
+        "processBulkImport(): CC=10, NPath=960, 139 lines",
+        "validateBulkImport(): CC=9",
+        "deletePayment(): CC=8",
+        "voidPayment(): CC=9, NPath=336"
+      ],
+      "files": ["app/Http/Controllers/PaymentController.php"],
+      "steps": [
+        "Extract PaymentIndexService for index() query building",
+        "Extract PaymentBulkProcessor for bulk import logic",
+        "Extract PaystackPaymentProcessor for Paystack-specific flows",
+        "Create StoreManualPaymentDTO to reduce storeManual() parameters",
+        "Move callback verification to PaymentCallbackProcessor (already exists)",
+        "Simplify deletePayment/voidPayment with early returns"
+      ],
+      "estimated_effort": "large"
+    },
+    {
+      "id": "PMD-002",
+      "category": "controller_critical",
+      "priority": "CRITICAL",
+      "title": "Refactor TenantInvitationController (10 violations)",
+      "violations": [
+        "ExcessiveClassLength: 855 lines",
+        "accept(): CC=10, NPath=576",
+        "sendNotification(): CC=8, 90 lines",
+        "resend(): CC=8",
+        "batchInvite(): CC=10, NPath=960, 88 lines",
+        "updateContact(): CC=8, NPath=560",
+        "sendBatchSmsReminder(): CC=11, NPath=576, 108 lines"
+      ],
+      "files": ["app/Http/Controllers/TenantInvitationController.php"],
+      "steps": [
+        "Extract TenantInvitationProcessor for accept/resend logic",
+        "Extract BatchInvitationService for batchInvite",
+        "Create InvitationNotificationService for notification methods",
+        "Simplify contact update with early returns"
+      ],
+      "estimated_effort": "large"
+    },
+    {
+      "id": "PMD-003",
+      "category": "controller_critical",
+      "priority": "HIGH",
+      "title": "Refactor BulkOperationsController (8 violations)",
+      "violations": [
+        "ExcessiveClassLength: 585 lines",
+        "terminateLeases(): CC=8, 89 lines",
+        "extendLeases(): CC=8, 87 lines",
+        "adjustDeposits(): CC=10, 93 lines",
+        "updateTargetRent(): CC=8"
+      ],
+      "files": ["app/Http/Controllers/BulkOperationsController.php"],
+      "steps": [
+        "Extract BulkLeaseTerminator for terminateLeases",
+        "Extract BulkLeaseExtender for extendLeases",
+        "Extract BulkDepositAdjuster for adjustDeposits (similar to BulkRentAdjuster)",
+        "Extract BulkTargetRentUpdater for updateTargetRent"
+      ],
+      "estimated_effort": "medium"
+    },
+    {
+      "id": "PMD-004",
+      "category": "controller_critical",
+      "priority": "HIGH",
+      "title": "Refactor TicketController (6 violations)",
+      "violations": [
+        "store(): CC=9, NPath=360, 97 lines",
+        "update(): CC=9, NPath=672",
+        "destroy(): CC=8"
+      ],
+      "files": ["app/Http/Controllers/TicketController.php"],
+      "steps": [
+        "Extract TicketCreationService for store() logic",
+        "Extract TicketUpdateService for update() transitions",
+        "Simplify destroy() with early returns"
+      ],
+      "estimated_effort": "medium"
+    },
+    {
+      "id": "PMD-005",
+      "category": "controller_critical",
+      "priority": "HIGH",
+      "title": "Refactor TenantController (6 violations)",
+      "violations": [
+        "index(): CC=7",
+        "profile(): CC=7",
+        "showPaymentPage(): CC=7, 88 lines",
+        "history(): CC=7, 104 lines"
+      ],
+      "files": ["app/Http/Controllers/TenantController.php"],
+      "steps": [
+        "Simplify index() query building with scopes",
+        "Extract TenantPaymentPageBuilder for showPaymentPage",
+        "Use TenantIndexService (already exists) more extensively"
+      ],
+      "estimated_effort": "medium"
+    },
+    {
+      "id": "PMD-006",
+      "category": "controller_critical",
+      "priority": "HIGH",
+      "title": "Refactor NotificationsController (6 violations)",
+      "violations": [
+        "ExcessiveClassLength: 1076 lines",
+        "ExcessivePublicCount: 35 methods",
+        "__construct(): 7 parameters",
+        "index(): CC=12, NPath=1152",
+        "testSmsProvider(): CC=8"
+      ],
+      "files": ["app/Http/Controllers/NotificationsController.php"],
+      "steps": [
+        "Split into NotificationIndexController, NotificationSettingsController, NotificationTestController",
+        "Create NotificationsControllerDependencies DTO for constructor",
+        "Move provider testing to dedicated NotificationProviderTestService"
+      ],
+      "estimated_effort": "large"
+    },
+    {
+      "id": "PMD-007",
+      "category": "service_critical",
+      "priority": "CRITICAL",
+      "title": "Refactor NotificationService (13 violations)",
+      "violations": [
+        "ExcessiveClassLength: 1204 lines",
+        "__construct(): 6 parameters",
+        "send(): 6 parameters",
+        "sendToAllChannels(): CC=8, 6 parameters",
+        "sendToAllowedChannels(): 8 parameters",
+        "sendBulk(): 7 parameters",
+        "createNotification(): 8 parameters",
+        "sendViaAfricasTalking(): CC=7",
+        "sendWhatsApp(): CC=8",
+        "sendInAppOnly(): 6 parameters",
+        "createDeferredNotification(): 9 parameters",
+        "deferNotificationForQuietHours(): 8 parameters"
+      ],
+      "files": ["app/Services/NotificationService.php"],
+      "steps": [
+        "Create NotificationRequest DTO (recipient, channels, template, variables, metadata)",
+        "Create NotificationOptions DTO (priority, scheduled_at, bypass_quiet_hours)",
+        "Extract SmsNotificationSender for SMS-specific logic",
+        "Extract WhatsAppNotificationSender for WhatsApp logic",
+        "Extract EmailNotificationSender for email logic",
+        "Use Strategy pattern for channel dispatch",
+        "Reduce constructor to 3-4 dependencies max"
+      ],
+      "estimated_effort": "x-large"
+    },
+    {
+      "id": "PMD-008",
+      "category": "service_critical",
+      "priority": "HIGH",
+      "title": "Refactor PushNotificationService (5 violations)",
+      "violations": [
+        "send(): CC=13, NPath=450, 5 parameters",
+        "sendToMultiple(): 5 parameters",
+        "sendToSubscription(): 5 parameters"
+      ],
+      "files": ["app/Services/PushNotificationService.php"],
+      "steps": [
+        "Create PushNotificationPayload DTO (title, body, icon, data, url)",
+        "Simplify send() branching with early returns",
+        "Extract subscription validation to helper method"
+      ],
+      "estimated_effort": "medium"
+    },
+    {
+      "id": "PMD-009",
+      "category": "service_critical",
+      "priority": "HIGH",
+      "title": "Refactor DashboardService (5 violations)",
+      "violations": [
+        "ExcessiveClassLength: 694 lines",
+        "getLandlordDashboardData(): CC=7",
+        "calculateLandlordMetrics(): CC=7, 127 lines, 6 parameters"
+      ],
+      "files": ["app/Services/DashboardService.php"],
+      "steps": [
+        "Create LandlordMetricsCalculator for metrics logic",
+        "Create DashboardDataBuilder for data assembly",
+        "Create DashboardFilters DTO for filter parameters",
+        "Split by dashboard type: LandlordDashboard, CaretakerDashboard, TenantDashboard"
+      ],
+      "estimated_effort": "medium"
+    },
+    {
+      "id": "PMD-010",
+      "category": "service_critical",
+      "priority": "HIGH",
+      "title": "Refactor BulkImportValidator (5 violations)",
+      "violations": [
+        "ExcessiveClassLength: 462 lines",
+        "validate(): CC=7",
+        "validateBasicFields(): CC=18, NPath=2160",
+        "calculateAllocations(): CC=10"
+      ],
+      "files": ["app/Services/BulkImport/BulkImportValidator.php"],
+      "steps": [
+        "Extract BasicFieldValidator for validateBasicFields",
+        "Extract AllocationCalculator for calculateAllocations",
+        "Use rule objects for individual field validations",
+        "Simplify main validate() to orchestrate sub-validators"
+      ],
+      "estimated_effort": "medium"
+    },
+    {
+      "id": "PMD-011",
+      "category": "service_critical",
+      "priority": "HIGH",
+      "title": "Refactor MpesaWebhookController (5 violations)",
+      "violations": [
+        "ExcessiveClassLength: 518 lines",
+        "stkCallback(): CC=8",
+        "processPayment(): CC=10, 109 lines",
+        "processTillPayment(): 5 parameters"
+      ],
+      "files": ["app/Http/Controllers/Api/MpesaWebhookController.php"],
+      "steps": [
+        "Extract MpesaCallbackProcessor for callback handling",
+        "Extract MpesaPaymentProcessor for payment processing",
+        "Create MpesaTillPaymentRequest DTO"
+      ],
+      "estimated_effort": "medium"
+    },
+    {
+      "id": "PMD-012",
+      "category": "dto_introduction",
+      "priority": "MEDIUM",
+      "title": "Create DTOs for SecurityLogger",
+      "violations": [
+        "log(): 6 parameters",
+        "logToFile(): 5 parameters"
+      ],
+      "files": ["app/Services/SecurityLogger.php"],
+      "steps": [
+        "Create SecurityLogEntry DTO (level, message, context, user, ip, extra)",
+        "Update log() and logToFile() to accept DTO"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-013",
+      "category": "dto_introduction",
+      "priority": "MEDIUM",
+      "title": "Create DTOs for BuildingService",
+      "violations": [
+        "generateUnits(): 5 parameters",
+        "getPeriodComparison(): 5 parameters"
+      ],
+      "files": ["app/Services/BuildingService.php"],
+      "steps": [
+        "Create UnitGenerationConfig DTO",
+        "Create PeriodComparisonRequest DTO"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-014",
+      "category": "dto_introduction",
+      "priority": "MEDIUM",
+      "title": "Create DTOs for OnboardingService",
+      "violations": [
+        "generateUnits(): 6 parameters"
+      ],
+      "files": ["app/Services/OnboardingService.php"],
+      "steps": [
+        "Create OnboardingUnitConfig DTO",
+        "Refactor processStructure() to use DTO"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-015",
+      "category": "dto_introduction",
+      "priority": "MEDIUM",
+      "title": "Create DTOs for KenyaDpaService",
+      "violations": [
+        "logDataProcessing(): 5 parameters",
+        "initiateBreachNotification(): 5 parameters"
+      ],
+      "files": ["app/Services/KenyaDpaService.php"],
+      "steps": [
+        "Create DataProcessingLog DTO",
+        "Create BreachNotificationRequest DTO"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-016",
+      "category": "dto_introduction",
+      "priority": "MEDIUM",
+      "title": "Create DTO for PaymentNotification",
+      "violations": [
+        "__construct(): 9 parameters"
+      ],
+      "files": ["app/Services/Banking/PaymentNotification.php"],
+      "steps": [
+        "This is already a value object - consider builder pattern or factory method"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-017",
+      "category": "dto_introduction",
+      "priority": "MEDIUM",
+      "title": "Create DTO for MpesaPaymentStatusChanged",
+      "violations": [
+        "__construct(): 6 parameters"
+      ],
+      "files": ["app/Events/MpesaPaymentStatusChanged.php"],
+      "steps": [
+        "Create MpesaPaymentStatus DTO to wrap payment state"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-018",
+      "category": "dto_introduction",
+      "priority": "MEDIUM",
+      "title": "Create DTO for FeeCalculationResult",
+      "violations": [
+        "__construct(): 6 parameters"
+      ],
+      "files": ["app/Services/FeeCalculation/FeeCalculationResult.php"],
+      "steps": [
+        "This is already a value object - acceptable or use named constructor"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-019",
+      "category": "dto_introduction",
+      "priority": "MEDIUM",
+      "title": "Create DTO for PaymentProcessResult",
+      "violations": [
+        "__construct(): 6 parameters"
+      ],
+      "files": ["app/Services/Payment/PaymentProcessResult.php"],
+      "steps": [
+        "This is already a value object - acceptable or use named constructor"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-020",
+      "category": "dto_introduction",
+      "priority": "MEDIUM",
+      "title": "Create DTO for LegalDocument::publish",
+      "violations": [
+        "publish(): 7 parameters"
+      ],
+      "files": ["app/Models/LegalDocument.php"],
+      "steps": [
+        "Create PublishDocumentRequest DTO"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-021",
+      "category": "dto_introduction",
+      "priority": "MEDIUM",
+      "title": "Create DTO for Setting::set methods",
+      "violations": [
+        "set(): 6 parameters",
+        "setSystem(): 5 parameters"
+      ],
+      "files": ["app/Models/Setting.php"],
+      "steps": [
+        "Create SettingValue DTO with metadata"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-022",
+      "category": "controller_moderate",
+      "priority": "MEDIUM",
+      "title": "Refactor VerificationController",
+      "violations": [
+        "store(): CC=9, NPath=288, 86 lines",
+        "edit(): CC=7",
+        "update(): CC=7"
+      ],
+      "files": ["app/Http/Controllers/VerificationController.php"],
+      "steps": [
+        "Extract VerificationProcessor for store logic",
+        "Simplify edit/update with early returns"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-023",
+      "category": "controller_moderate",
+      "priority": "MEDIUM",
+      "title": "Refactor DocumentController",
+      "violations": [
+        "index(): CC=8, 80 lines",
+        "download(): CC=11",
+        "view(): CC=11"
+      ],
+      "files": ["app/Http/Controllers/DocumentController.php"],
+      "steps": [
+        "Extract DocumentAccessVerifier for download/view auth checks",
+        "Simplify index with query scopes"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-024",
+      "category": "controller_moderate",
+      "priority": "MEDIUM",
+      "title": "Refactor AuditLogController",
+      "violations": [
+        "index(): CC=13, NPath=2048, 106 lines",
+        "export(): CC=7"
+      ],
+      "files": ["app/Http/Controllers/AuditLogController.php"],
+      "steps": [
+        "Extract AuditLogQueryBuilder for index filters",
+        "Extract AuditLogExporter for export logic"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-025",
+      "category": "controller_moderate",
+      "priority": "MEDIUM",
+      "title": "Refactor PaymentLinkController",
+      "violations": [
+        "store(): CC=9, NPath=336, 80 lines",
+        "getPaymentLinkData(): CC=7"
+      ],
+      "files": ["app/Http/Controllers/PaymentLinkController.php"],
+      "steps": [
+        "Use PaymentLinkService more extensively",
+        "Simplify store() validation flow"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-026",
+      "category": "controller_moderate",
+      "priority": "MEDIUM",
+      "title": "Refactor ArchiveHubController",
+      "violations": [
+        "getDocumentsData(): CC=7",
+        "getActivityData(): CC=7, 81 lines"
+      ],
+      "files": ["app/Http/Controllers/ArchiveHubController.php"],
+      "steps": [
+        "Extract ActivityDataBuilder",
+        "Simplify document query with scopes"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-027",
+      "category": "controller_moderate",
+      "priority": "MEDIUM",
+      "title": "Refactor ActivityLogController",
+      "violations": [
+        "index(): CC=10, NPath=384, 102 lines"
+      ],
+      "files": ["app/Http/Controllers/ActivityLogController.php"],
+      "steps": [
+        "Extract ActivityLogQueryBuilder",
+        "Use query scopes for filtering"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-028",
+      "category": "controller_moderate",
+      "priority": "MEDIUM",
+      "title": "Refactor SettingsController",
+      "violations": [
+        "updatePaymentMethods(): CC=8, NPath=400",
+        "updateIntegrations(): CC=7"
+      ],
+      "files": ["app/Http/Controllers/SettingsController.php"],
+      "steps": [
+        "Extract PaymentMethodUpdater",
+        "Extract IntegrationUpdater"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-029",
+      "category": "controller_moderate",
+      "priority": "MEDIUM",
+      "title": "Refactor ReportsController",
+      "violations": [
+        "generateIncomeStatement(): CC=8, NPath=240"
+      ],
+      "files": ["app/Http/Controllers/ReportsController.php"],
+      "steps": [
+        "Use FinanceReportService more extensively",
+        "Simplify date range handling"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-030",
+      "category": "controller_moderate",
+      "priority": "MEDIUM",
+      "title": "Refactor MoveOutController",
+      "violations": [
+        "ExcessiveClassLength: 472 lines",
+        "addDeduction(): CC=8"
+      ],
+      "files": ["app/Http/Controllers/MoveOutController.php"],
+      "steps": [
+        "Extract MoveOutDeductionProcessor",
+        "Extract MoveOutCalculator"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-031",
+      "category": "controller_moderate",
+      "priority": "MEDIUM",
+      "title": "Refactor ArrearsController",
+      "violations": [
+        "index(): CC=11, 137 lines"
+      ],
+      "files": ["app/Http/Controllers/ArrearsController.php"],
+      "steps": [
+        "Extract ArrearsQueryBuilder",
+        "Use query scopes for filtering"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-032",
+      "category": "service_moderate",
+      "priority": "MEDIUM",
+      "title": "Refactor ImportService",
+      "violations": [
+        "ExcessiveClassLength: 595 lines",
+        "importLeases(): 86 lines",
+        "importInvoices(): 86 lines",
+        "importPayments(): CC=7"
+      ],
+      "files": ["app/Services/ImportService.php"],
+      "steps": [
+        "Extract LeaseImporter",
+        "Extract InvoiceImporter",
+        "Extract PaymentImporter",
+        "Create ImportResult value object"
+      ],
+      "estimated_effort": "medium"
+    },
+    {
+      "id": "PMD-033",
+      "category": "service_moderate",
+      "priority": "MEDIUM",
+      "title": "Refactor FinanceReportService",
+      "violations": [
+        "ExcessiveClassLength: 625 lines",
+        "getTopPerformingUnitsReport(): CC=7",
+        "getTopPerformingUnitsReportFiltered(): CC=7",
+        "getReportDateRange(): CC=8"
+      ],
+      "files": ["app/Services/FinanceReportService.php"],
+      "steps": [
+        "Extract TopPerformingUnitsReport builder",
+        "Extract ReportDateRangeResolver",
+        "Split by report type"
+      ],
+      "estimated_effort": "medium"
+    },
+    {
+      "id": "PMD-034",
+      "category": "service_moderate",
+      "priority": "MEDIUM",
+      "title": "Refactor MpesaService",
+      "violations": [
+        "ExcessiveClassLength: 442 lines",
+        "initiateSTKPush(): CC=10, 80 lines"
+      ],
+      "files": ["app/Services/MpesaService.php"],
+      "steps": [
+        "Extract STKPushInitiator",
+        "Extract MpesaAuthenticator",
+        "Simplify error handling"
+      ],
+      "estimated_effort": "medium"
+    },
+    {
+      "id": "PMD-035",
+      "category": "service_moderate",
+      "priority": "MEDIUM",
+      "title": "Refactor BankReconciliationService",
+      "violations": [
+        "attemptMatch(): CC=7",
+        "matchByAmount(): CC=7"
+      ],
+      "files": ["app/Services/Banking/BankReconciliationService.php"],
+      "steps": [
+        "Use Strategy pattern for matching algorithms",
+        "Simplify branching in match methods"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-036",
+      "category": "service_moderate",
+      "priority": "MEDIUM",
+      "title": "Refactor TenantMessageService",
+      "violations": [
+        "processInbound(): CC=8, 88 lines"
+      ],
+      "files": ["app/Services/TenantMessageService.php"],
+      "steps": [
+        "Extract InboundMessageProcessor",
+        "Use Command pattern for message handling"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-037",
+      "category": "service_moderate",
+      "priority": "LOW",
+      "title": "Reduce NotificationDefaultsRepository complexity",
+      "violations": [
+        "updateDefaults(): CC=17, NPath=65536"
+      ],
+      "files": ["app/Repositories/NotificationDefaultsRepository.php"],
+      "steps": [
+        "Break down updateDefaults into focused methods",
+        "Use transaction callbacks"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-038",
+      "category": "single_violations",
+      "priority": "LOW",
+      "title": "Simplify PasswordPolicy validation",
+      "violations": [
+        "validate(): CC=13, NPath=972"
+      ],
+      "files": ["app/Rules/PasswordPolicy.php"],
+      "steps": [
+        "Extract individual checks to helper methods",
+        "Use early returns"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-039",
+      "category": "single_violations",
+      "priority": "LOW",
+      "title": "Simplify SecureFile validation",
+      "violations": [
+        "validate(): CC=10, NPath=288"
+      ],
+      "files": ["app/Rules/SecureFile.php"],
+      "steps": [
+        "Extract validation helpers",
+        "Use early returns"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-040",
+      "category": "single_violations",
+      "priority": "LOW",
+      "title": "Simplify AppServiceProvider methods",
+      "violations": [
+        "configureRateLimiting(): CC=9, NPath=256, 169 lines",
+        "validateProductionSecurity(): CC=10, NPath=384"
+      ],
+      "files": ["app/Providers/AppServiceProvider.php"],
+      "steps": [
+        "Extract RateLimitingConfigurator",
+        "Extract ProductionSecurityValidator"
+      ],
+      "estimated_effort": "medium"
+    },
+    {
+      "id": "PMD-041",
+      "category": "single_violations",
+      "priority": "LOW",
+      "title": "Simplify SubscriptionPlan::getFeaturesList",
+      "violations": [
+        "getFeaturesList(): CC=12, NPath=2048"
+      ],
+      "files": ["app/Models/SubscriptionPlan.php"],
+      "steps": [
+        "Refactor to use feature configuration array",
+        "Reduce conditional logic"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-042",
+      "category": "single_violations",
+      "priority": "LOW",
+      "title": "Simplify DomainException",
+      "violations": [
+        "__construct(): 5 parameters",
+        "sanitizeForPublic(): CC=7"
+      ],
+      "files": ["app/Exceptions/DomainException.php"],
+      "steps": [
+        "Use ExceptionContext DTO",
+        "Extract sanitization to helper"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-043",
+      "category": "single_violations",
+      "priority": "LOW",
+      "title": "Simplify TicketObserver::creating",
+      "violations": [
+        "creating(): CC=9"
+      ],
+      "files": ["app/Observers/TicketObserver.php"],
+      "steps": [
+        "Extract ticket number generation logic",
+        "Simplify branching"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-044",
+      "category": "single_violations",
+      "priority": "LOW",
+      "title": "Simplify WaterReadingService::processOcr",
+      "violations": [
+        "processOcr(): CC=10"
+      ],
+      "files": ["app/Services/WaterReadingService.php"],
+      "steps": [
+        "Extract OCR result parsing logic",
+        "Use early returns"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-045",
+      "category": "single_violations",
+      "priority": "LOW",
+      "title": "Simplify Auditable::logAudit",
+      "violations": [
+        "logAudit(): CC=9"
+      ],
+      "files": ["app/Traits/Auditable.php"],
+      "steps": [
+        "Extract context building logic",
+        "Simplify branching"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-046",
+      "category": "model_review",
+      "priority": "LOW",
+      "title": "Review User model public count",
+      "violations": [
+        "ExcessiveClassLength: 404 lines",
+        "ExcessivePublicCount: 49 methods/attributes"
+      ],
+      "files": ["app/Models/User.php"],
+      "steps": [
+        "Evaluate if any methods can move to traits",
+        "Note: High public count often acceptable for User model"
+      ],
+      "estimated_effort": "small",
+      "notes": "May be acceptable - User models typically have many relationships and accessors"
+    },
+    {
+      "id": "PMD-047",
+      "category": "model_review",
+      "priority": "LOW",
+      "title": "Review Notification model",
+      "violations": [
+        "ExcessiveClassLength: 557 lines",
+        "ExcessivePublicCount: 38 methods"
+      ],
+      "files": ["app/Models/Notification.php"],
+      "steps": [
+        "Extract query scopes to separate trait",
+        "Extract helper methods to service"
+      ],
+      "estimated_effort": "medium"
+    },
+    {
+      "id": "PMD-048",
+      "category": "model_review",
+      "priority": "LOW",
+      "title": "Review Ticket model public count",
+      "violations": [
+        "ExcessivePublicCount: 36 methods",
+        "logActivity(): 5 parameters"
+      ],
+      "files": ["app/Models/Ticket.php"],
+      "steps": [
+        "Create TicketActivityLog DTO for logActivity",
+        "Consider if some methods can move to service"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-049",
+      "category": "model_review",
+      "priority": "LOW",
+      "title": "Review Building/Lease/Invoice/TenantInvitation models",
+      "violations": [
+        "Building: ExcessivePublicCount 26",
+        "Invoice: ExcessivePublicCount 24",
+        "Lease: ExcessivePublicCount 23",
+        "TenantInvitation: ExcessivePublicCount 27",
+        "TenantPaymentVerification: ExcessivePublicCount 20"
+      ],
+      "files": [
+        "app/Models/Building.php",
+        "app/Models/Invoice.php",
+        "app/Models/Lease.php",
+        "app/Models/TenantInvitation.php",
+        "app/Models/TenantPaymentVerification.php"
+      ],
+      "steps": [
+        "Review if any methods can be extracted",
+        "Note: Eloquent models often have high public counts due to relationships"
+      ],
+      "estimated_effort": "small",
+      "notes": "May be acceptable - these are large domain models with many relationships"
+    },
+    {
+      "id": "PMD-050",
+      "category": "single_violations",
+      "priority": "LOW",
+      "title": "Simplify remaining middleware complexity",
+      "violations": [
+        "SecurityHeaders::handle(): CC=9, NPath=240",
+        "TwoFactorChallenge::handle(): CC=8",
+        "EnsureTenantKycComplete::handle(): CC=7",
+        "EnsurePaymentVerified::handle(): CC=7",
+        "EnsureOnboardingComplete::handle(): CC=7",
+        "CheckPlanLimits::handle(): CC=7"
+      ],
+      "files": [
+        "app/Http/Middleware/SecurityHeaders.php",
+        "app/Http/Middleware/TwoFactorChallenge.php",
+        "app/Http/Middleware/EnsureTenantKycComplete.php",
+        "app/Http/Middleware/EnsurePaymentVerified.php",
+        "app/Http/Middleware/EnsureOnboardingComplete.php",
+        "app/Http/Middleware/CheckPlanLimits.php"
+      ],
+      "steps": [
+        "Use early returns to reduce nesting",
+        "Extract validation helpers where applicable"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-051",
+      "category": "single_violations",
+      "priority": "LOW",
+      "title": "Simplify remaining job complexity",
+      "violations": [
+        "SendNotificationJob::handle(): CC=8, NPath=576",
+        "SendBulkNotificationsJob::handle(): CC=7",
+        "SendScheduledNotificationsJob::handle(): CC=8, NPath=240",
+        "FallbackNotificationJob::handle(): CC=8"
+      ],
+      "files": [
+        "app/Jobs/SendNotificationJob.php",
+        "app/Jobs/SendBulkNotificationsJob.php",
+        "app/Jobs/SendScheduledNotificationsJob.php",
+        "app/Jobs/FallbackNotificationJob.php"
+      ],
+      "steps": [
+        "Delegate complex logic to services",
+        "Use early returns"
+      ],
+      "estimated_effort": "small"
+    },
+    {
+      "id": "PMD-052",
+      "category": "single_violations",
+      "priority": "LOW",
+      "title": "Address remaining single-violation files",
+      "violations": [
+        "LeaseChannel::join(): CC=7",
+        "AuthServiceProvider::boot(): CC=8",
+        "WaterReadingObserver::updating(): CC=7",
+        "FinanceFilterService::getPaginatedExpenses(): CC=7",
+        "DataDeletionService::canRequestDeletion(): CC=8",
+        "DataExportService::createZipArchive(): CC=7",
+        "OcrService::processWithAzureVision(): CC=7",
+        "SubscriptionService::create(): CC=8",
+        "InvoiceService::generateInvoiceForLease(): CC=8",
+        "plus 15 more single-method violations"
+      ],
+      "files": [
+        "app/Broadcasting/LeaseChannel.php",
+        "app/Providers/AuthServiceProvider.php",
+        "app/Observers/WaterReadingObserver.php",
+        "app/Services/FinanceFilterService.php",
+        "app/Services/DataDeletionService.php",
+        "app/Services/DataExportService.php",
+        "app/Services/OcrService.php",
+        "app/Services/SubscriptionService.php",
+        "app/Services/InvoiceService.php"
+      ],
+      "steps": [
+        "Apply early returns",
+        "Extract helper methods where logic is complex",
+        "Consider if complexity is inherent (7 is borderline)"
+      ],
+      "estimated_effort": "medium",
+      "notes": "Many of these are borderline (CC=7) and may be acceptable with minor cleanup"
+    }
+  ]
+}

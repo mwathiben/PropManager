@@ -1,0 +1,1202 @@
+{
+  "project": {
+    "name": "PropManager Native Encrypted Messaging",
+    "description": "Signal Protocol E2E encrypted messaging system for secure tenant-landlord communication within the ticketing and complaints workflow. Provides zero-knowledge architecture where the server cannot read message contents, with forward secrecy and post-compromise security.",
+    "version": "1.0.0",
+    "created_at": "2026-01-17",
+    "techStack": {
+      "backend": "Laravel 12 (PHP 8.2+)",
+      "frontend": "Inertia.js + Vue 3 + Tailwind CSS v4",
+      "realtime": "Laravel Reverb (WebSocket)",
+      "crypto_backend": "paragonie/sodium_compat (libsodium)",
+      "crypto_frontend": "libsodium-wrappers / tweetnacl-es",
+      "storage": "IndexedDB (client-side keys), MySQL/PostgreSQL (encrypted data)",
+      "protocol": "Signal Protocol (X3DH + Double Ratchet)"
+    },
+    "scope": {
+      "included": [
+        "E2E encrypted messaging within ticket context",
+        "Signal Protocol key management",
+        "Real-time message delivery via Laravel Reverb",
+        "Encrypted file attachments",
+        "Read receipts and typing indicators",
+        "Key rotation and session healing"
+      ],
+      "excluded": [
+        "WhatsApp/SMS integration (retained as-is)",
+        "Twilio webhooks (retained as-is)",
+        "General site-wide messaging",
+        "Group conversations (future enhancement)"
+      ]
+    }
+  },
+  "qualityStandards": {
+    "description": "This is a security-critical system. Every cryptographic operation must be implemented correctly. A single bug can compromise all user messages. Build for paranoid security while maintaining excellent UX.",
+    "principles": [
+      "Write failing test FIRST (RED-GREEN-REFACTOR) - especially critical for cryptographic operations",
+      "Zero-knowledge architecture: Server NEVER sees plaintext messages or private keys",
+      "Forward secrecy: Compromised keys cannot decrypt past messages",
+      "Post-compromise security: Sessions heal automatically after breach",
+      "Client-side key generation: All keypairs generated in browser, never transmitted",
+      "Cryptographic audit trail: Log key operations without exposing secrets",
+      "Graceful degradation: Handle key loss, device changes, session corruption",
+      "GDPR compliance: Users can export and delete their cryptographic identity",
+      "Accessibility: Encryption should be invisible to users—just works",
+      "Use FormRequest for validation on all API endpoints",
+      "Use Policy for authorization (KeyPolicy, ConversationPolicy, MessagePolicy)",
+      "Wrap multi-write operations in DB::transaction()"
+    ],
+    "skills_to_apply": [
+      "laraveltdd-with-pest",
+      "verification-first",
+      "laravelform-requests",
+      "laravelpolicies-and-authorization",
+      "laraveltransactions-and-consistency",
+      "laravelapi-resources-and-pagination"
+    ],
+    "securityRequirements": [
+      "All private keys stored encrypted in IndexedDB with user-derived key",
+      "Session state encrypted before server storage",
+      "No plaintext in server logs, error messages, or database",
+      "Rate limiting on key bundle requests to prevent enumeration",
+      "Signature verification on all prekeys before use",
+      "Constant-time comparison for all cryptographic operations"
+    ]
+  },
+  "signalProtocol": {
+    "overview": "The Signal Protocol provides end-to-end encryption with forward secrecy and post-compromise security. It combines the X3DH key agreement protocol for initial key exchange with the Double Ratchet algorithm for ongoing message encryption.",
+    "x3dh": {
+      "name": "Extended Triple Diffie-Hellman",
+      "purpose": "Establish shared secret between two parties who have never communicated",
+      "keys": {
+        "identityKey": {
+          "type": "Ed25519 keypair",
+          "lifetime": "Permanent (until user resets)",
+          "purpose": "Long-term identity, signs prekeys",
+          "storage": "Private in IndexedDB, public on server"
+        },
+        "signedPreKey": {
+          "type": "X25519 keypair",
+          "lifetime": "7-30 days",
+          "purpose": "Medium-term key for session initiation",
+          "signature": "Signed by identity key",
+          "storage": "Private in IndexedDB, public+signature on server"
+        },
+        "oneTimePreKeys": {
+          "type": "X25519 keypairs",
+          "lifetime": "Single use (deleted after consumption)",
+          "purpose": "Ephemeral keys for perfect forward secrecy",
+          "count": "Generate 100 initially, replenish when < 20 remain",
+          "storage": "Private in IndexedDB, public on server"
+        }
+      },
+      "keyBundle": {
+        "description": "Public keys fetched before initiating conversation",
+        "contents": ["identityKey", "signedPreKey", "signedPreKeySignature", "oneTimePreKey (optional)"]
+      },
+      "sharedSecretDerivation": {
+        "inputs": ["DH(IK_A, SPK_B)", "DH(EK_A, IK_B)", "DH(EK_A, SPK_B)", "DH(EK_A, OPK_B) if available"],
+        "output": "32-byte shared secret via HKDF"
+      }
+    },
+    "doubleRatchet": {
+      "name": "Double Ratchet Algorithm",
+      "purpose": "Derive unique encryption key for each message with forward secrecy",
+      "ratchets": {
+        "dhRatchet": {
+          "trigger": "Direction change (Alice→Bob then Bob→Alice)",
+          "operation": "New ephemeral X25519 keypair, DH with recipient's ratchet key",
+          "purpose": "Post-compromise security—healing after key compromise"
+        },
+        "symmetricRatchet": {
+          "trigger": "Every message sent",
+          "operation": "HKDF chain key derivation",
+          "purpose": "Forward secrecy—each message has unique key"
+        }
+      },
+      "keyTypes": {
+        "rootKey": "32 bytes, derived from X3DH, updated on DH ratchet",
+        "chainKey": "32 bytes, for deriving message keys",
+        "messageKey": "32 bytes, unique per message, deleted after use"
+      },
+      "messageEncryption": {
+        "algorithm": "XChaCha20-Poly1305",
+        "keyDerivation": "HKDF from chain key",
+        "nonce": "24 bytes, derived from message number",
+        "aad": "Header (ratchet public key, message numbers)"
+      },
+      "outOfOrder": {
+        "description": "Messages may arrive out of order; store skipped message keys",
+        "maxSkip": 1000,
+        "storage": "Encrypted in message_keys_skipped table"
+      }
+    }
+  },
+  "feedbackLoops": {
+    "description": "Run ALL feedback loops before committing. Do NOT commit if any fail.",
+    "commands": {
+      "typecheck": "npm run build -- --mode development 2>&1 | grep -i error",
+      "lint_frontend": "npm run lint",
+      "lint_backend": "vendor/bin/pint --test",
+      "test_crypto": "php artisan test --filter=Encryption",
+      "test_messaging": "php artisan test --filter=SecureMessaging",
+      "security_audit": "npm audit && composer audit"
+    },
+    "verification": {
+      "before_commit": [
+        "All tests pass (php artisan test)",
+        "Pint passes (vendor/bin/pint --test)",
+        "No new inline validation in controllers",
+        "Policies exist for new models",
+        "Factories exist for new models"
+      ]
+    }
+  },
+  "workflow": {
+    "description": "Standard workflow for implementing each PRD item",
+    "steps": [
+      {
+        "step": 1,
+        "name": "Write Failing Test",
+        "description": "Before writing any implementation code, create test(s) that verify the acceptance criteria. For crypto operations, test edge cases extensively.",
+        "example": "test('user can generate identity keypair', function() { ... expectation that fails ... })"
+      },
+      {
+        "step": 2,
+        "name": "Minimal Implementation",
+        "description": "Write the minimum code to make the test pass. Do not optimize prematurely.",
+        "checklist": [
+          "FormRequest for validation",
+          "Policy for authorization",
+          "DB::transaction() for multi-write",
+          "Factory for new models",
+          "Constant-time comparison for crypto"
+        ]
+      },
+      {
+        "step": 3,
+        "name": "Refactor",
+        "description": "Clean up the implementation while keeping tests green.",
+        "focus": ["Remove duplication", "Extract helpers", "Follow existing patterns"]
+      },
+      {
+        "step": 4,
+        "name": "Verify",
+        "description": "Run full test suite and quality checks before marking item complete.",
+        "commands": ["php artisan test", "vendor/bin/pint --test", "npm run build"]
+      }
+    ]
+  },
+  "categories": {
+    "key_management": {
+      "priority": 1,
+      "description": "Cryptographic key generation, storage, exchange, and rotation"
+    },
+    "session": {
+      "priority": 2,
+      "description": "Double Ratchet session initialization and state management"
+    },
+    "messaging": {
+      "priority": 3,
+      "description": "Message encryption, decryption, and transport"
+    },
+    "realtime": {
+      "priority": 4,
+      "description": "Real-time delivery, typing indicators, and read receipts"
+    },
+    "attachments": {
+      "priority": 5,
+      "description": "Encrypted file attachments with symmetric key sharing"
+    },
+    "ui": {
+      "priority": 6,
+      "description": "Frontend components for ticket conversation interface"
+    },
+    "security": {
+      "priority": 7,
+      "description": "Key rotation, session healing, and security auditing"
+    }
+  },
+  "databaseSchema": {
+    "tables": [
+      {
+        "name": "user_identity_keys",
+        "description": "Stores public identity keys for each user",
+        "columns": [
+          {"name": "id", "type": "bigint unsigned", "primary": true},
+          {"name": "user_id", "type": "bigint unsigned", "foreign": "users.id", "unique": true},
+          {"name": "public_key", "type": "binary(32)", "description": "Ed25519 public key"},
+          {"name": "key_id", "type": "char(16)", "description": "First 8 bytes of SHA256(public_key), hex encoded"},
+          {"name": "created_at", "type": "timestamp"},
+          {"name": "rotated_at", "type": "timestamp", "nullable": true}
+        ],
+        "indexes": ["user_id", "key_id"]
+      },
+      {
+        "name": "user_signed_prekeys",
+        "description": "Medium-term signed prekeys, rotated weekly",
+        "columns": [
+          {"name": "id", "type": "bigint unsigned", "primary": true},
+          {"name": "user_id", "type": "bigint unsigned", "foreign": "users.id"},
+          {"name": "key_id", "type": "integer unsigned", "description": "Sequential ID for this user"},
+          {"name": "public_key", "type": "binary(32)", "description": "X25519 public key"},
+          {"name": "signature", "type": "binary(64)", "description": "Ed25519 signature from identity key"},
+          {"name": "is_active", "type": "boolean", "default": true},
+          {"name": "created_at", "type": "timestamp"},
+          {"name": "expires_at", "type": "timestamp"}
+        ],
+        "indexes": ["user_id", "is_active"]
+      },
+      {
+        "name": "user_one_time_prekeys",
+        "description": "Ephemeral one-time prekeys, consumed on first use",
+        "columns": [
+          {"name": "id", "type": "bigint unsigned", "primary": true},
+          {"name": "user_id", "type": "bigint unsigned", "foreign": "users.id"},
+          {"name": "key_id", "type": "integer unsigned", "description": "Sequential ID for this user"},
+          {"name": "public_key", "type": "binary(32)", "description": "X25519 public key"},
+          {"name": "consumed_at", "type": "timestamp", "nullable": true},
+          {"name": "consumed_by", "type": "bigint unsigned", "nullable": true, "foreign": "users.id"},
+          {"name": "created_at", "type": "timestamp"}
+        ],
+        "indexes": ["user_id", "consumed_at"]
+      },
+      {
+        "name": "encrypted_sessions",
+        "description": "Double Ratchet session state (encrypted)",
+        "columns": [
+          {"name": "id", "type": "bigint unsigned", "primary": true},
+          {"name": "owner_user_id", "type": "bigint unsigned", "foreign": "users.id"},
+          {"name": "peer_user_id", "type": "bigint unsigned", "foreign": "users.id"},
+          {"name": "session_data", "type": "text", "description": "Encrypted session state (base64)"},
+          {"name": "version", "type": "integer unsigned", "default": 1},
+          {"name": "created_at", "type": "timestamp"},
+          {"name": "updated_at", "type": "timestamp"}
+        ],
+        "indexes": [["owner_user_id", "peer_user_id"]],
+        "constraints": ["UNIQUE(owner_user_id, peer_user_id)"]
+      },
+      {
+        "name": "ticket_conversations",
+        "description": "Links tickets to encrypted conversation threads",
+        "columns": [
+          {"name": "id", "type": "bigint unsigned", "primary": true},
+          {"name": "ticket_id", "type": "bigint unsigned", "foreign": "tickets.id", "unique": true},
+          {"name": "landlord_id", "type": "bigint unsigned", "foreign": "users.id"},
+          {"name": "tenant_id", "type": "bigint unsigned", "foreign": "users.id"},
+          {"name": "is_active", "type": "boolean", "default": true},
+          {"name": "last_message_at", "type": "timestamp", "nullable": true},
+          {"name": "created_at", "type": "timestamp"},
+          {"name": "updated_at", "type": "timestamp"}
+        ],
+        "indexes": ["ticket_id", "landlord_id", "tenant_id"]
+      },
+      {
+        "name": "encrypted_messages",
+        "description": "Stores encrypted message ciphertext",
+        "columns": [
+          {"name": "id", "type": "bigint unsigned", "primary": true},
+          {"name": "conversation_id", "type": "bigint unsigned", "foreign": "ticket_conversations.id"},
+          {"name": "sender_id", "type": "bigint unsigned", "foreign": "users.id"},
+          {"name": "recipient_id", "type": "bigint unsigned", "foreign": "users.id"},
+          {"name": "message_type", "type": "enum", "values": ["text", "attachment", "system"]},
+          {"name": "ciphertext", "type": "text", "description": "Encrypted message (base64)"},
+          {"name": "header", "type": "text", "description": "Ratchet header for decryption (base64)"},
+          {"name": "attachment_id", "type": "bigint unsigned", "nullable": true, "foreign": "encrypted_attachments.id"},
+          {"name": "delivered_at", "type": "timestamp", "nullable": true},
+          {"name": "read_at", "type": "timestamp", "nullable": true},
+          {"name": "created_at", "type": "timestamp"}
+        ],
+        "indexes": ["conversation_id", "sender_id", "recipient_id", "created_at"]
+      },
+      {
+        "name": "encrypted_attachments",
+        "description": "Encrypted file attachments",
+        "columns": [
+          {"name": "id", "type": "bigint unsigned", "primary": true},
+          {"name": "conversation_id", "type": "bigint unsigned", "foreign": "ticket_conversations.id"},
+          {"name": "uploader_id", "type": "bigint unsigned", "foreign": "users.id"},
+          {"name": "file_key_ciphertext", "type": "binary(48)", "description": "Encrypted symmetric file key"},
+          {"name": "file_path", "type": "string(255)", "description": "Path to encrypted file in storage"},
+          {"name": "original_name_encrypted", "type": "text", "description": "Encrypted original filename"},
+          {"name": "mime_type_encrypted", "type": "text", "description": "Encrypted MIME type"},
+          {"name": "file_size", "type": "bigint unsigned"},
+          {"name": "created_at", "type": "timestamp"}
+        ],
+        "indexes": ["conversation_id", "uploader_id"]
+      },
+      {
+        "name": "message_keys_skipped",
+        "description": "Skipped message keys for out-of-order message handling",
+        "columns": [
+          {"name": "id", "type": "bigint unsigned", "primary": true},
+          {"name": "session_id", "type": "bigint unsigned", "foreign": "encrypted_sessions.id"},
+          {"name": "ratchet_key_hash", "type": "binary(32)", "description": "SHA256 of DH ratchet public key"},
+          {"name": "message_number", "type": "integer unsigned"},
+          {"name": "message_key_encrypted", "type": "binary(48)", "description": "Encrypted message key"},
+          {"name": "created_at", "type": "timestamp"},
+          {"name": "expires_at", "type": "timestamp"}
+        ],
+        "indexes": [["session_id", "ratchet_key_hash", "message_number"]],
+        "constraints": ["UNIQUE(session_id, ratchet_key_hash, message_number)"]
+      },
+      {
+        "name": "key_rotation_logs",
+        "description": "Audit trail for key operations (GDPR compliance)",
+        "columns": [
+          {"name": "id", "type": "bigint unsigned", "primary": true},
+          {"name": "user_id", "type": "bigint unsigned", "foreign": "users.id"},
+          {"name": "action", "type": "enum", "values": ["identity_created", "identity_rotated", "prekey_uploaded", "prekey_consumed", "session_created", "session_reset", "keys_exported", "keys_deleted"]},
+          {"name": "key_id", "type": "string(16)", "nullable": true},
+          {"name": "ip_address", "type": "string(45)", "nullable": true},
+          {"name": "user_agent", "type": "string(255)", "nullable": true},
+          {"name": "created_at", "type": "timestamp"}
+        ],
+        "indexes": ["user_id", "action", "created_at"]
+      }
+    ]
+  },
+  "apiEndpoints": [
+    {
+      "method": "POST",
+      "path": "/api/v1/keys/identity",
+      "description": "Upload user's public identity key (first-time setup)",
+      "auth": "Bearer token",
+      "request": {
+        "public_key": "base64 encoded Ed25519 public key (32 bytes)"
+      },
+      "response": {
+        "key_id": "string (first 8 bytes of SHA256, hex)",
+        "created_at": "ISO 8601 timestamp"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/keys/prekeys",
+      "description": "Upload signed prekey and batch of one-time prekeys",
+      "auth": "Bearer token",
+      "request": {
+        "signed_prekey": {
+          "key_id": "integer",
+          "public_key": "base64 (32 bytes)",
+          "signature": "base64 (64 bytes)"
+        },
+        "one_time_prekeys": [
+          {"key_id": "integer", "public_key": "base64 (32 bytes)"}
+        ]
+      },
+      "response": {
+        "signed_prekey_id": "integer",
+        "one_time_prekeys_stored": "integer count"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/keys/{userId}/bundle",
+      "description": "Fetch recipient's key bundle for X3DH",
+      "auth": "Bearer token",
+      "response": {
+        "identity_key": "base64 (32 bytes)",
+        "signed_prekey": {
+          "key_id": "integer",
+          "public_key": "base64 (32 bytes)",
+          "signature": "base64 (64 bytes)"
+        },
+        "one_time_prekey": {
+          "key_id": "integer",
+          "public_key": "base64 (32 bytes)"
+        }
+      },
+      "notes": "One-time prekey is consumed and removed from pool"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/keys/prekey-count",
+      "description": "Get count of remaining one-time prekeys for replenishment check",
+      "auth": "Bearer token",
+      "response": {
+        "count": "integer"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/conversations/{ticketId}/messages",
+      "description": "Send encrypted message within ticket conversation",
+      "auth": "Bearer token",
+      "request": {
+        "ciphertext": "base64 encoded encrypted message",
+        "header": "base64 encoded ratchet header",
+        "message_type": "text | attachment",
+        "attachment_id": "integer (optional)"
+      },
+      "response": {
+        "id": "message ID",
+        "created_at": "ISO 8601 timestamp"
+      },
+      "broadcasts": "SecureMessageSent event to recipient channel"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/conversations/{ticketId}/messages",
+      "description": "Get encrypted messages for ticket conversation",
+      "auth": "Bearer token",
+      "query": {
+        "after": "message ID (for pagination)",
+        "limit": "integer (default 50, max 100)"
+      },
+      "response": {
+        "messages": [
+          {
+            "id": "integer",
+            "sender_id": "integer",
+            "ciphertext": "base64",
+            "header": "base64",
+            "message_type": "string",
+            "created_at": "ISO 8601"
+          }
+        ],
+        "has_more": "boolean"
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/messages/{messageId}/delivered",
+      "description": "Mark message as delivered",
+      "auth": "Bearer token",
+      "broadcasts": "MessageDelivered event to sender channel"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/messages/{messageId}/read",
+      "description": "Mark message as read",
+      "auth": "Bearer token",
+      "broadcasts": "MessageRead event to sender channel"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/conversations/{ticketId}/typing",
+      "description": "Broadcast typing indicator",
+      "auth": "Bearer token",
+      "request": {
+        "is_typing": "boolean"
+      },
+      "broadcasts": "UserTyping event to conversation channel"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/attachments",
+      "description": "Upload encrypted attachment",
+      "auth": "Bearer token",
+      "request": {
+        "conversation_id": "integer",
+        "encrypted_file": "multipart file",
+        "file_key_ciphertext": "base64 (encrypted symmetric key)",
+        "original_name_encrypted": "base64",
+        "mime_type_encrypted": "base64"
+      },
+      "response": {
+        "id": "attachment ID",
+        "file_size": "integer bytes"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/attachments/{attachmentId}",
+      "description": "Download encrypted attachment",
+      "auth": "Bearer token",
+      "response": "Binary encrypted file stream"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/sessions/sync",
+      "description": "Sync session state to server (encrypted)",
+      "auth": "Bearer token",
+      "request": {
+        "peer_user_id": "integer",
+        "session_data": "base64 encrypted session state",
+        "version": "integer"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/sessions/{peerUserId}",
+      "description": "Retrieve encrypted session state",
+      "auth": "Bearer token",
+      "response": {
+        "session_data": "base64 encrypted session state",
+        "version": "integer"
+      }
+    }
+  ],
+  "realtimeEvents": [
+    {
+      "name": "SecureMessageSent",
+      "channel": "private-user.{recipientId}",
+      "payload": {
+        "conversation_id": "integer",
+        "message_id": "integer",
+        "sender_id": "integer",
+        "ciphertext": "base64",
+        "header": "base64",
+        "message_type": "string",
+        "created_at": "ISO 8601"
+      }
+    },
+    {
+      "name": "MessageDelivered",
+      "channel": "private-user.{senderId}",
+      "payload": {
+        "message_id": "integer",
+        "delivered_at": "ISO 8601"
+      }
+    },
+    {
+      "name": "MessageRead",
+      "channel": "private-user.{senderId}",
+      "payload": {
+        "message_id": "integer",
+        "read_at": "ISO 8601"
+      }
+    },
+    {
+      "name": "UserTyping",
+      "channel": "private-conversation.{conversationId}",
+      "payload": {
+        "user_id": "integer",
+        "is_typing": "boolean"
+      }
+    },
+    {
+      "name": "PrekeysLow",
+      "channel": "private-user.{userId}",
+      "payload": {
+        "remaining_count": "integer"
+      },
+      "description": "Triggered when one-time prekeys drop below threshold (20)"
+    }
+  ],
+  "frontendComponents": [
+    {
+      "name": "TicketConversation.vue",
+      "path": "resources/js/Components/Secure/TicketConversation.vue",
+      "description": "Main chat interface embedded in ticket detail page",
+      "features": [
+        "Message list with auto-scroll",
+        "Message input with send button",
+        "Encryption status indicator",
+        "Typing indicator display",
+        "Read receipts (double checkmarks)",
+        "Attachment upload button"
+      ]
+    },
+    {
+      "name": "MessageBubble.vue",
+      "path": "resources/js/Components/Secure/MessageBubble.vue",
+      "description": "Individual message display with sender alignment",
+      "features": [
+        "Left/right alignment based on sender",
+        "Timestamp display",
+        "Delivery/read status icons",
+        "Attachment preview/download"
+      ]
+    },
+    {
+      "name": "EncryptionIndicator.vue",
+      "path": "resources/js/Components/Secure/EncryptionIndicator.vue",
+      "description": "Lock icon showing encryption status and verification option",
+      "features": [
+        "Green lock for verified encryption",
+        "Click to show safety number",
+        "QR code generation for verification"
+      ]
+    },
+    {
+      "name": "TypingIndicator.vue",
+      "path": "resources/js/Components/Secure/TypingIndicator.vue",
+      "description": "Animated dots showing user is typing"
+    },
+    {
+      "name": "AttachmentPreview.vue",
+      "path": "resources/js/Components/Secure/AttachmentPreview.vue",
+      "description": "Preview and download decrypted attachments",
+      "features": [
+        "Image thumbnail preview",
+        "File icon for non-images",
+        "Download with client-side decryption"
+      ]
+    },
+    {
+      "name": "KeySetup.vue",
+      "path": "resources/js/Components/Secure/KeySetup.vue",
+      "description": "First-time key generation wizard",
+      "features": [
+        "Generate identity keypair",
+        "Generate and upload prekeys",
+        "Backup key export option"
+      ]
+    }
+  ],
+  "composables": [
+    {
+      "name": "useSignalProtocol.ts",
+      "path": "resources/js/composables/useSignalProtocol.ts",
+      "description": "Core Signal Protocol implementation",
+      "exports": [
+        "generateIdentityKeyPair()",
+        "generateSignedPreKey(identityKey, keyId)",
+        "generateOneTimePreKeys(startId, count)",
+        "performX3DH(recipientBundle, identityKeyPair)",
+        "initializeSession(sharedSecret, isInitiator)"
+      ]
+    },
+    {
+      "name": "useDoubleRatchet.ts",
+      "path": "resources/js/composables/useDoubleRatchet.ts",
+      "description": "Double Ratchet algorithm implementation",
+      "exports": [
+        "ratchetEncrypt(session, plaintext)",
+        "ratchetDecrypt(session, header, ciphertext)",
+        "serializeSession(session)",
+        "deserializeSession(data)"
+      ]
+    },
+    {
+      "name": "useKeyStore.ts",
+      "path": "resources/js/composables/useKeyStore.ts",
+      "description": "IndexedDB key storage",
+      "exports": [
+        "storeIdentityKeyPair(keyPair)",
+        "getIdentityKeyPair()",
+        "storeSignedPreKey(prekey)",
+        "storeOneTimePreKeys(prekeys)",
+        "getSession(peerId)",
+        "storeSession(peerId, session)"
+      ]
+    },
+    {
+      "name": "useSecureMessaging.ts",
+      "path": "resources/js/composables/useSecureMessaging.ts",
+      "description": "High-level messaging API for components",
+      "exports": [
+        "sendMessage(conversationId, plaintext)",
+        "decryptMessage(encryptedMessage)",
+        "subscribeToMessages(conversationId, callback)",
+        "sendTypingIndicator(conversationId, isTyping)"
+      ]
+    }
+  ],
+  "items": [
+    {
+      "id": "MSG-001",
+      "category": "key_management",
+      "priority": "CRITICAL",
+      "title": "Generate User Identity Keys on Registration",
+      "description": "When a user registers or first accesses secure messaging, generate an Ed25519 identity keypair client-side and upload the public key to the server.",
+      "steps": [
+        "Create KeySetup.vue component shown on first secure messaging access",
+        "Generate Ed25519 keypair using libsodium crypto_sign_keypair()",
+        "Store private key encrypted in IndexedDB using user's password-derived key",
+        "POST public key to /api/v1/keys/identity",
+        "Store key_id in localStorage for quick lookup",
+        "Add identity_key_uploaded_at column to users table",
+        "Show success confirmation with safety number preview"
+      ],
+      "files": [
+        "resources/js/Components/Secure/KeySetup.vue",
+        "resources/js/composables/useKeyStore.ts",
+        "app/Http/Controllers/Api/KeyController.php",
+        "app/Models/UserIdentityKey.php",
+        "database/migrations/*_create_user_identity_keys_table.php"
+      ],
+      "acceptance_criteria": [
+        "Identity keypair generated entirely client-side (server never sees private key)",
+        "Private key encrypted before IndexedDB storage",
+        "Public key successfully uploaded to server",
+        "Key generation takes < 500ms on modern devices",
+        "User can see their key fingerprint (safety number)"
+      ],
+      "verification": "Generate keys; verify only public key in server DB; verify private key in IndexedDB is encrypted",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "MSG-002",
+      "category": "key_management",
+      "priority": "CRITICAL",
+      "title": "Prekey Bundle Generation and Upload",
+      "description": "Generate and upload a signed prekey and batch of one-time prekeys. The signed prekey is valid for 7 days; one-time prekeys are single-use.",
+      "steps": [
+        "Generate X25519 signed prekey with crypto_box_keypair()",
+        "Sign the prekey public key with identity private key",
+        "Generate 100 X25519 one-time prekeys",
+        "Store all private keys encrypted in IndexedDB",
+        "POST prekey bundle to /api/v1/keys/prekeys",
+        "Set up periodic check for prekey count replenishment",
+        "Listen for PrekeysLow WebSocket event to trigger replenishment"
+      ],
+      "files": [
+        "resources/js/composables/useSignalProtocol.ts",
+        "resources/js/composables/useKeyStore.ts",
+        "app/Http/Controllers/Api/KeyController.php",
+        "app/Models/UserSignedPrekey.php",
+        "app/Models/UserOneTimePrekey.php",
+        "database/migrations/*_create_user_prekeys_tables.php"
+      ],
+      "acceptance_criteria": [
+        "Signed prekey includes valid Ed25519 signature",
+        "Server validates signature before storing prekey",
+        "100 one-time prekeys generated and uploaded",
+        "Prekey replenishment triggers when count < 20",
+        "Private prekeys never leave the client"
+      ],
+      "verification": "Generate prekeys; verify signature validation works; consume prekeys and verify replenishment",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "MSG-003",
+      "category": "key_management",
+      "priority": "CRITICAL",
+      "title": "Fetch Recipient's Key Bundle",
+      "description": "Before initiating a conversation, fetch the recipient's public key bundle for X3DH key agreement.",
+      "steps": [
+        "Create getKeyBundle() function in useSignalProtocol.ts",
+        "GET /api/v1/keys/{userId}/bundle with bearer auth",
+        "Verify signed prekey signature using identity public key",
+        "Cache bundle in memory for session duration (don't persist)",
+        "Handle case where no one-time prekeys available (X3DH still works)",
+        "Rate limit bundle requests to prevent enumeration attacks"
+      ],
+      "files": [
+        "resources/js/composables/useSignalProtocol.ts",
+        "app/Http/Controllers/Api/KeyController.php",
+        "app/Services/KeyBundleService.php"
+      ],
+      "acceptance_criteria": [
+        "Key bundle fetched successfully via API",
+        "Signed prekey signature verified client-side",
+        "One-time prekey marked as consumed server-side",
+        "Graceful fallback when no one-time prekeys available",
+        "Rate limiting prevents abuse (max 10 requests/minute)"
+      ],
+      "verification": "Fetch bundle; verify one-time prekey consumed; fetch again and get different prekey",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "MSG-004",
+      "category": "session",
+      "priority": "CRITICAL",
+      "title": "Initialize Double Ratchet Session",
+      "description": "Perform X3DH key agreement to establish shared secret, then initialize Double Ratchet session for ongoing encryption.",
+      "steps": [
+        "Implement performX3DH() function computing 3 or 4 DH operations",
+        "Derive shared secret using HKDF with protocol-specific info string",
+        "Initialize Double Ratchet state with shared secret",
+        "Set root key, sending/receiving chain keys",
+        "Generate initial ratchet keypair for initiator",
+        "Mark session as 'initiator' or 'responder' for ratchet direction"
+      ],
+      "files": [
+        "resources/js/composables/useSignalProtocol.ts",
+        "resources/js/composables/useDoubleRatchet.ts"
+      ],
+      "x3dhCalculation": {
+        "initiator": "SK = HKDF(DH(IK_A, SPK_B) || DH(EK_A, IK_B) || DH(EK_A, SPK_B) || DH(EK_A, OPK_B))",
+        "info": "PropManager_X3DH_v1",
+        "salt": "32 zero bytes"
+      },
+      "acceptance_criteria": [
+        "X3DH produces identical shared secret on both sides",
+        "Double Ratchet initialized with correct root key",
+        "Session state can be serialized and restored",
+        "Works with and without one-time prekey",
+        "Info string includes protocol version for future upgrades"
+      ],
+      "verification": "Initialize session between two users; verify both derive same root key",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "MSG-005",
+      "category": "session",
+      "priority": "CRITICAL",
+      "title": "Session State Persistence",
+      "description": "Persist encrypted Double Ratchet session state to both IndexedDB (client) and server for cross-device continuity.",
+      "steps": [
+        "Serialize session state to JSON (root key, chain keys, counters, skipped keys)",
+        "Encrypt serialized state with user's storage key",
+        "Store in IndexedDB for offline access",
+        "Sync encrypted state to server via /api/v1/sessions/sync",
+        "Implement version number for conflict resolution",
+        "Handle session restore on page reload and device switch"
+      ],
+      "files": [
+        "resources/js/composables/useDoubleRatchet.ts",
+        "resources/js/composables/useKeyStore.ts",
+        "app/Http/Controllers/Api/SessionController.php",
+        "app/Models/EncryptedSession.php",
+        "database/migrations/*_create_encrypted_sessions_table.php"
+      ],
+      "acceptance_criteria": [
+        "Session state encrypted before server storage",
+        "Session restored correctly after page reload",
+        "Version conflict detected and latest version used",
+        "Conversation works after browser clear (fetch from server)",
+        "Deleted sessions cannot be recovered by server admin"
+      ],
+      "verification": "Send messages; close browser; reopen and continue conversation without re-keying",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "MSG-006",
+      "category": "messaging",
+      "priority": "CRITICAL",
+      "title": "Encrypt and Send Message",
+      "description": "Encrypt plaintext message using Double Ratchet and send to recipient through ticket conversation.",
+      "steps": [
+        "Implement ratchetEncrypt(session, plaintext) function",
+        "Perform symmetric ratchet step to derive message key",
+        "Encrypt plaintext with XChaCha20-Poly1305 using message key",
+        "Include header: ratchet public key, previous chain length, message number",
+        "POST encrypted message to /api/v1/conversations/{ticketId}/messages",
+        "Update and persist session state",
+        "Show optimistic UI update while awaiting confirmation"
+      ],
+      "files": [
+        "resources/js/composables/useDoubleRatchet.ts",
+        "resources/js/composables/useSecureMessaging.ts",
+        "resources/js/Components/Secure/TicketConversation.vue",
+        "app/Http/Controllers/Api/SecureMessageController.php",
+        "app/Models/EncryptedMessage.php",
+        "app/Events/SecureMessageSent.php"
+      ],
+      "acceptance_criteria": [
+        "Message encrypted with unique key (never reused)",
+        "Header allows recipient to derive same key",
+        "Message stored as ciphertext on server (not readable)",
+        "Session state updated correctly after send",
+        "Optimistic UI shows message before server confirmation"
+      ],
+      "verification": "Send message; verify server only has ciphertext; verify recipient can decrypt",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "MSG-007",
+      "category": "messaging",
+      "priority": "CRITICAL",
+      "title": "Receive and Decrypt Message",
+      "description": "Receive encrypted message via WebSocket and decrypt using Double Ratchet.",
+      "steps": [
+        "Listen for SecureMessageSent event on private-user.{userId} channel",
+        "Parse header to get ratchet public key and message numbers",
+        "Check if DH ratchet step needed (new ratchet key from sender)",
+        "Perform symmetric ratchet steps to derive message key",
+        "Decrypt ciphertext with XChaCha20-Poly1305",
+        "Update and persist session state",
+        "Display decrypted message in UI",
+        "Send delivery confirmation"
+      ],
+      "files": [
+        "resources/js/composables/useDoubleRatchet.ts",
+        "resources/js/composables/useSecureMessaging.ts",
+        "resources/js/Components/Secure/TicketConversation.vue"
+      ],
+      "acceptance_criteria": [
+        "Real-time message reception via WebSocket",
+        "Correct DH ratchet step on direction change",
+        "Message decrypted and displayed correctly",
+        "Session state matches sender's state",
+        "Delivery confirmation sent after decryption"
+      ],
+      "verification": "Send message from user A; verify user B receives and decrypts in < 100ms",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "MSG-008",
+      "category": "messaging",
+      "priority": "HIGH",
+      "title": "Handle Out-of-Order Messages",
+      "description": "Messages may arrive out of order due to network conditions. Store skipped message keys to decrypt late-arriving messages.",
+      "steps": [
+        "When receiving message with higher number than expected, store skipped keys",
+        "Store skipped keys in message_keys_skipped table (encrypted)",
+        "Set max skip limit (1000) to prevent DoS",
+        "When message arrives, check skipped keys first",
+        "Delete skipped key after successful decryption",
+        "Set expiration on skipped keys (7 days) for cleanup"
+      ],
+      "files": [
+        "resources/js/composables/useDoubleRatchet.ts",
+        "app/Models/MessageKeySkipped.php",
+        "database/migrations/*_create_message_keys_skipped_table.php"
+      ],
+      "acceptance_criteria": [
+        "Messages decrypt correctly regardless of arrival order",
+        "Skipped keys stored encrypted",
+        "Max skip limit enforced (reject if would skip > 1000)",
+        "Skipped keys cleaned up after use or expiration",
+        "No duplicate key storage for same message number"
+      ],
+      "verification": "Send 10 messages; deliver in random order; all decrypt correctly",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "MSG-009",
+      "category": "realtime",
+      "priority": "HIGH",
+      "title": "Real-time Message Delivery via Reverb",
+      "description": "Use Laravel Reverb WebSocket for instant message delivery without polling.",
+      "steps": [
+        "Create SecureMessageSent event implementing ShouldBroadcast",
+        "Broadcast to private-user.{recipientId} channel",
+        "Include only ciphertext and header in broadcast (no plaintext ever)",
+        "Add Echo listener in TicketConversation.vue",
+        "Handle reconnection and missed message recovery",
+        "Fallback to polling if WebSocket unavailable"
+      ],
+      "files": [
+        "app/Events/SecureMessageSent.php",
+        "routes/channels.php",
+        "resources/js/Components/Secure/TicketConversation.vue",
+        "resources/js/composables/useSecureMessaging.ts"
+      ],
+      "acceptance_criteria": [
+        "Messages delivered in < 100ms via WebSocket",
+        "Reconnection automatically recovers missed messages",
+        "Fallback polling works if WebSocket fails",
+        "No plaintext in WebSocket payload",
+        "Private channel authorization works correctly"
+      ],
+      "verification": "Measure delivery latency; disconnect and reconnect; verify no messages lost",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "MSG-010",
+      "category": "realtime",
+      "priority": "MEDIUM",
+      "title": "Typing Indicators",
+      "description": "Show 'User is typing...' indicator in real-time while the other party types.",
+      "steps": [
+        "Create UserTyping event for presence channel",
+        "Broadcast to private-conversation.{conversationId} channel",
+        "Debounce typing detection (send after 500ms of typing, clear after 3s idle)",
+        "Add TypingIndicator.vue component with animated dots",
+        "Handle multiple participants typing simultaneously"
+      ],
+      "files": [
+        "app/Events/UserTyping.php",
+        "app/Http/Controllers/Api/SecureMessageController.php",
+        "resources/js/Components/Secure/TypingIndicator.vue",
+        "resources/js/Components/Secure/TicketConversation.vue"
+      ],
+      "acceptance_criteria": [
+        "Typing indicator appears within 500ms of typing start",
+        "Indicator disappears 3 seconds after typing stops",
+        "Multiple typers shown correctly",
+        "No typing indicator spam (debounced)",
+        "Indicator hidden when own user is typing"
+      ],
+      "verification": "Type in one browser; see indicator in other browser; stop typing and see indicator disappear",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "MSG-011",
+      "category": "realtime",
+      "priority": "MEDIUM",
+      "title": "Read Receipts",
+      "description": "Show double checkmarks when messages have been read by recipient.",
+      "steps": [
+        "Mark message as read when scrolled into view (IntersectionObserver)",
+        "PUT /api/v1/messages/{id}/read to update server",
+        "Broadcast MessageRead event to sender",
+        "Update message UI to show double checkmarks",
+        "Batch read receipts for efficiency (every 1 second)"
+      ],
+      "files": [
+        "app/Events/MessageRead.php",
+        "app/Http/Controllers/Api/SecureMessageController.php",
+        "resources/js/Components/Secure/MessageBubble.vue"
+      ],
+      "acceptance_criteria": [
+        "Read receipt sent when message visible for 1 second",
+        "Sender sees double checkmarks update in real-time",
+        "Batch processing prevents receipt spam",
+        "Works offline (syncs when reconnected)",
+        "Read timestamps stored for analytics"
+      ],
+      "verification": "Send message; scroll into view on recipient; verify sender sees read status",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "MSG-012",
+      "category": "attachments",
+      "priority": "MEDIUM",
+      "title": "Encrypted File Attachments",
+      "description": "Allow sending encrypted file attachments (images, documents) within ticket conversations.",
+      "steps": [
+        "Generate random 256-bit symmetric key for file",
+        "Encrypt file client-side with XChaCha20-Poly1305",
+        "Encrypt file key with recipient's current message key",
+        "Upload encrypted file to /api/v1/attachments",
+        "Send message with attachment reference and encrypted file key",
+        "Recipient decrypts file key with message key, then decrypts file"
+      ],
+      "files": [
+        "resources/js/Components/Secure/AttachmentUpload.vue",
+        "resources/js/Components/Secure/AttachmentPreview.vue",
+        "resources/js/composables/useSecureMessaging.ts",
+        "app/Http/Controllers/Api/AttachmentController.php",
+        "app/Models/EncryptedAttachment.php",
+        "database/migrations/*_create_encrypted_attachments_table.php"
+      ],
+      "sizeLimit": "10MB per file",
+      "allowedTypes": ["image/*", "application/pdf", "text/*"],
+      "acceptance_criteria": [
+        "File encrypted entirely client-side before upload",
+        "Server stores only encrypted blob (cannot view)",
+        "Recipient can download and decrypt file",
+        "Image thumbnails generated client-side",
+        "File size and type validation before upload"
+      ],
+      "verification": "Upload image; verify server file is encrypted; download and view on recipient",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "MSG-013",
+      "category": "ui",
+      "priority": "HIGH",
+      "title": "Ticket Conversation Thread UI",
+      "description": "Create the main conversation UI embedded in the ticket detail page, separate from ticket comments.",
+      "steps": [
+        "Add TicketConversation.vue component to Tickets/Show.vue",
+        "Show encryption indicator and verification option",
+        "Display message list with infinite scroll pagination",
+        "Auto-scroll to newest message on load and new message",
+        "Add message input with send button and attachment button",
+        "Show connection status indicator (WebSocket state)",
+        "Handle first-time key setup flow if no keys exist"
+      ],
+      "files": [
+        "resources/js/Components/Secure/TicketConversation.vue",
+        "resources/js/Components/Secure/MessageBubble.vue",
+        "resources/js/Components/Secure/EncryptionIndicator.vue",
+        "resources/js/Pages/Tickets/Show.vue"
+      ],
+      "uiGuidelines": {
+        "placement": "Collapsible panel or tab in ticket detail view",
+        "separateFrom": "Ticket comments (comments remain for caretaker visibility)",
+        "indicator": "Green lock icon when encrypted, with 'Verify' option"
+      },
+      "acceptance_criteria": [
+        "Conversation panel visible on ticket detail page",
+        "Clear visual distinction from ticket comments",
+        "Encryption status always visible",
+        "Key setup prompts if no identity key exists",
+        "Mobile-responsive design",
+        "Accessible (keyboard navigation, screen reader)"
+      ],
+      "verification": "Open ticket; see conversation panel; send and receive messages; verify encryption indicator",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "MSG-014",
+      "category": "security",
+      "priority": "HIGH",
+      "title": "Key Rotation and Session Healing",
+      "description": "Implement key rotation policies and session recovery after key compromise or device loss.",
+      "steps": [
+        "Rotate signed prekey every 7 days automatically",
+        "Detect when recipient's identity key changes (potential compromise)",
+        "Show security warning when identity key changes",
+        "Allow user to verify new key via safety number comparison",
+        "Implement session reset that re-establishes X3DH",
+        "Log all key rotations for audit compliance"
+      ],
+      "files": [
+        "app/Console/Commands/RotateSignedPrekeys.php",
+        "app/Services/KeyRotationService.php",
+        "resources/js/Components/Secure/EncryptionIndicator.vue",
+        "resources/js/composables/useSecureMessaging.ts",
+        "app/Models/KeyRotationLog.php",
+        "database/migrations/*_create_key_rotation_logs_table.php"
+      ],
+      "safetyNumber": {
+        "calculation": "SHA256(sort(user_a_identity_key + user_b_identity_key))",
+        "display": "12 groups of 5 digits (60 digits total)"
+      },
+      "acceptance_criteria": [
+        "Signed prekeys rotate automatically every 7 days",
+        "Identity key change triggers security warning",
+        "Safety number matches on both devices when verified",
+        "Session can be reset without losing access to old messages",
+        "All key operations logged for compliance audit"
+      ],
+      "verification": "Rotate prekey; verify session continues; change identity key; verify warning shown",
+      "passes": false,
+      "attempt_count": 0
+    }
+  ],
+  "implementationPhases": [
+    {
+      "phase": 1,
+      "name": "Foundation",
+      "items": ["MSG-001", "MSG-002", "MSG-003", "MSG-004", "MSG-005"],
+      "description": "Key management and session establishment",
+      "deliverables": [
+        "User can generate and upload identity keys",
+        "Prekey bundles can be fetched",
+        "X3DH key agreement works",
+        "Sessions persist across page reloads"
+      ]
+    },
+    {
+      "phase": 2,
+      "name": "Core Messaging",
+      "items": ["MSG-006", "MSG-007", "MSG-008", "MSG-009"],
+      "description": "Basic encrypted messaging with real-time delivery",
+      "deliverables": [
+        "Messages encrypt and decrypt correctly",
+        "Real-time delivery via WebSocket",
+        "Out-of-order messages handled"
+      ]
+    },
+    {
+      "phase": 3,
+      "name": "UX Enhancements",
+      "items": ["MSG-010", "MSG-011", "MSG-012", "MSG-013"],
+      "description": "Rich messaging features and polished UI",
+      "deliverables": [
+        "Typing indicators work",
+        "Read receipts shown",
+        "File attachments encrypted",
+        "Full conversation UI in ticket page"
+      ]
+    },
+    {
+      "phase": 4,
+      "name": "Security Hardening",
+      "items": ["MSG-014"],
+      "description": "Key rotation and advanced security features",
+      "deliverables": [
+        "Automatic key rotation",
+        "Identity verification",
+        "Audit logging complete"
+      ]
+    }
+  ],
+  "metadata": {
+    "total_items": 14,
+    "passing_items": 0,
+    "categories": ["key_management", "session", "messaging", "realtime", "attachments", "ui", "security"]
+  }
+}

@@ -34,6 +34,14 @@ Using the task context, find ALL matching skills from the table below.
 | Refactoring | `laravelcontroller-cleanup`, `laravelinterfaces-and-di` |
 | Performance | `laravelperformance-caching`, `laravelperformance-select-columns` |
 | Auth/policies | `laravelpolicies-and-authorization` |
+| Multi-write operations | `laraveltransactions-and-consistency` |
+| External HTTP calls | `laravelhttp-client-resilience` |
+| Rate limiting | `laravelrate-limiting` |
+| File uploads | `laravelfilesystem-uploads` |
+| Bulk data processing | `laraveldata-chunking-large-datasets` |
+| Exception handling | `laravelexception-handling-and-logging` |
+| Queue jobs | `laravelqueues-and-horizon` |
+| Complexity refactoring | `laravelcomplexity-guardrails` |
 
 ### Step 3: Read & Cite (REQUIRED OUTPUT)
 
@@ -119,6 +127,28 @@ When a blocking issue is discovered during implementation:
 - `auth-implementation-patterns` - JWT, OAuth2, sessions
 
 </details>
+
+---
+
+## Pre-Implementation Checklist
+
+Before writing ANY code, verify these patterns are followed. These are the standards established in `design-best-practices-prd.json` (DBP series):
+
+| Pattern | Required Approach | Anti-Pattern to Avoid |
+|---------|-------------------|----------------------|
+| **Validation** | FormRequest class in `app/Http/Requests/` | Inline `$request->validate()` in controller |
+| **Authorization** | Policy class in `app/Policies/` | Manual `if ($user->id !== ...)` checks |
+| **Models** | Factory in `database/factories/` | Creating without factory for tests |
+| **Controllers** | ≤300 lines, single responsibility | God controllers with mixed concerns |
+| **External APIs** | `Http::timeout(30)->retry(3, 100)` | No timeout, no retry logic |
+| **Multi-write ops** | `DB::transaction()` wrapper | Multiple saves without transaction |
+| **Queued jobs** | `$afterCommit = true` if inside transaction | Queue dispatch without afterCommit |
+| **File operations** | `Storage` facade | `file_get_contents`, `file_put_contents` |
+| **Vue formatting** | `useFormatters` composable | Inline `toLocaleString`, `toLocaleDateString` |
+| **Logging** | Structured context arrays, secrets redacted | Concatenated strings, raw API responses |
+| **Tests** | Write failing test FIRST (RED-GREEN-REFACTOR) | Code first, tests after |
+
+**Violation of these patterns requires refactoring before the work is considered complete.**
 
 ## Tech Stack
 

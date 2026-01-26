@@ -1,0 +1,397 @@
+{
+  "project": "PropManager Ticket System Enhancements",
+  "version": "1.0.0",
+  "description": "Comprehensive ticket system features for 3-party interaction between landlords, tenants, and caretakers",
+  "created_at": "2026-01-17",
+  "metadata": {
+    "total_stories": 12,
+    "passing_stories": 0,
+    "categories": ["real_time_events", "dashboard_widgets", "notifications", "workflow"]
+  },
+  "qualityStandards": {
+    "description": "All items must follow PropManager design best practices established in design-best-practices-prd.json",
+    "principles": [
+      "Write failing test FIRST (RED-GREEN-REFACTOR)",
+      "Use FormRequest for validation, not inline $request->validate()",
+      "Use Policy for authorization, not manual checks",
+      "Wrap multi-write operations in DB::transaction()",
+      "All new models must have Factories"
+    ],
+    "skills_to_apply": [
+      "laraveltdd-with-pest",
+      "verification-first",
+      "laravelform-requests",
+      "laravelpolicies-and-authorization",
+      "laraveltransactions-and-consistency"
+    ]
+  },
+  "feedbackLoops": {
+    "description": "Run ALL feedback loops before marking passes:true",
+    "commands": {
+      "typecheck": "npm run build -- --mode development 2>&1 | grep -i error",
+      "lint_frontend": "npm run lint",
+      "lint_backend": "vendor/bin/pint --test",
+      "test_backend": "php artisan test --parallel",
+      "verification": "Run propmanager-verification skill"
+    }
+  },
+  "workflow": {
+    "description": "Each item should follow this workflow",
+    "steps": [
+      "1. Write failing test for acceptance criteria",
+      "2. Implement minimum code to pass",
+      "3. Refactor while keeping tests green",
+      "4. Run verification skill",
+      "5. Update passes:true only if all checks pass"
+    ]
+  },
+  "user_stories": [
+    {
+      "id": "TKT-001",
+      "category": "real_time_events",
+      "priority": "HIGH",
+      "title": "Real-time Ticket Created Notification",
+      "description": "When a tenant creates a new ticket, landlord and assigned caretaker (if auto-assigned) see it instantly on their dashboards.",
+      "steps": [
+        "Create TicketCreated event implementing ShouldBroadcast",
+        "Dispatch from TicketController::store() after ticket creation",
+        "Broadcast to landlord.{landlordId} channel",
+        "Add Echo listener in landlord Dashboard.vue for new tickets",
+        "Prepend new ticket to recentTickets list",
+        "Increment open_tickets count in action items",
+        "Play notification sound or show toast"
+      ],
+      "acceptance_criteria": [
+        "Landlord sees new ticket appear in dashboard without refresh",
+        "New ticket appears at top of recentTickets list",
+        "Action items count updates instantly",
+        "Works for tickets created via web and API"
+      ],
+      "files": [
+        "app/Events/TicketCreated.php",
+        "app/Http/Controllers/TicketController.php",
+        "resources/js/Pages/Dashboard.vue"
+      ],
+      "depends_on": [],
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "TKT-002",
+      "category": "real_time_events",
+      "priority": "HIGH",
+      "title": "Real-time Ticket Assignment Notification",
+      "description": "When a landlord assigns a ticket to a caretaker, the caretaker sees it appear in their todaysTasks instantly.",
+      "steps": [
+        "Create TicketAssigned event implementing ShouldBroadcast",
+        "Dispatch from TicketController::assign() after assignment",
+        "Broadcast to landlord.{landlordId} channel (caretakers subscribe here)",
+        "Include old_assignee_id and new_assignee_id in payload",
+        "Add Echo listener in Caretaker/Dashboard.vue for assignments",
+        "New assignee: prepend ticket to todaysTasks",
+        "Old assignee (if any): remove ticket from todaysTasks",
+        "Update ticket stats for both caretakers"
+      ],
+      "acceptance_criteria": [
+        "New assignee sees ticket appear without refresh",
+        "Old assignee sees ticket removed without refresh",
+        "Tenant sees 'Assigned to [caretaker_name]' update",
+        "Stats update correctly for both parties"
+      ],
+      "files": [
+        "app/Events/TicketAssigned.php",
+        "app/Http/Controllers/TicketController.php",
+        "resources/js/Pages/Caretaker/Dashboard.vue",
+        "resources/js/Pages/Tenant/Dashboard.vue"
+      ],
+      "depends_on": [],
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "TKT-003",
+      "category": "real_time_events",
+      "priority": "MEDIUM",
+      "title": "Real-time Ticket Comment Notification",
+      "description": "When a comment is added to a ticket, all parties see a comment indicator update in real-time.",
+      "steps": [
+        "Create TicketCommented event implementing ShouldBroadcast",
+        "Dispatch from TicketController::addComment()",
+        "Broadcast to landlord and tenant channels",
+        "Include is_internal flag (internal comments not sent to tenant channel)",
+        "Add comment_count to ticket in dashboard lists",
+        "Show visual indicator for new comments on ticket cards"
+      ],
+      "acceptance_criteria": [
+        "Reporter sees new comment indicator on their ticket",
+        "Landlord sees comment count update",
+        "Caretaker sees comment on assigned tickets",
+        "Internal comments not visible to tenant"
+      ],
+      "files": [
+        "app/Events/TicketCommented.php",
+        "app/Http/Controllers/TicketController.php",
+        "resources/js/Pages/Dashboard.vue",
+        "resources/js/Pages/Tenant/Dashboard.vue",
+        "resources/js/Pages/Caretaker/Dashboard.vue"
+      ],
+      "depends_on": [],
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "TKT-004",
+      "category": "real_time_events",
+      "priority": "MEDIUM",
+      "title": "Real-time Ticket List Page Updates",
+      "description": "Extend real-time updates to Tickets/Index.vue pages for all roles, not just dashboards.",
+      "steps": [
+        "Add Echo listeners to Tickets/Index.vue",
+        "Handle TicketCreated, TicketStatusChanged, TicketAssigned events",
+        "Filter updates based on current page filters",
+        "Update pagination counts if needed",
+        "Handle ticket removal from list when status changes"
+      ],
+      "acceptance_criteria": [
+        "Ticket list updates without refresh",
+        "Respects current filters (status, priority, building)",
+        "Pagination counts update correctly",
+        "Works for all user roles"
+      ],
+      "files": [
+        "resources/js/Pages/Tickets/Index.vue"
+      ],
+      "depends_on": ["TKT-001", "TKT-002"],
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "TKT-005",
+      "category": "dashboard_widgets",
+      "priority": "HIGH",
+      "title": "Landlord Ticket Summary Widget",
+      "description": "Add a comprehensive ticket summary widget to landlord dashboard showing ticket distribution by status, priority, and building.",
+      "steps": [
+        "Create ticket summary component with charts/stats",
+        "Show breakdown by status (open, in_progress, resolved, closed)",
+        "Show breakdown by priority (urgent, high, medium, low)",
+        "Show breakdown by building (if multiple buildings)",
+        "Add quick filters to jump to filtered ticket list",
+        "Real-time update counts when tickets change"
+      ],
+      "acceptance_criteria": [
+        "Widget shows accurate ticket counts by category",
+        "Clicking a category navigates to filtered list",
+        "Counts update in real-time with WebSocket events",
+        "Responsive design for mobile"
+      ],
+      "files": [
+        "resources/js/Components/TicketSummaryWidget.vue",
+        "resources/js/Pages/Dashboard.vue",
+        "app/Http/Controllers/DashboardController.php"
+      ],
+      "depends_on": [],
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "TKT-006",
+      "category": "dashboard_widgets",
+      "priority": "MEDIUM",
+      "title": "Caretaker Workload Dashboard",
+      "description": "Enhanced caretaker dashboard showing workload metrics, completion rate, and average resolution time.",
+      "steps": [
+        "Calculate tickets resolved this week/month",
+        "Calculate average resolution time",
+        "Show completion rate percentage",
+        "Add performance trend chart (optional)",
+        "Show upcoming ticket deadlines/SLAs if any"
+      ],
+      "acceptance_criteria": [
+        "Caretaker sees their performance metrics",
+        "Metrics update when tickets are resolved",
+        "Shows comparison to previous period",
+        "Mobile-friendly layout"
+      ],
+      "files": [
+        "resources/js/Pages/Caretaker/Dashboard.vue",
+        "app/Http/Controllers/CaretakerDashboardController.php"
+      ],
+      "depends_on": [],
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "TKT-007",
+      "category": "dashboard_widgets",
+      "priority": "MEDIUM",
+      "title": "Tenant Ticket History Widget",
+      "description": "Add a ticket history section to tenant dashboard showing resolved tickets with feedback status.",
+      "steps": [
+        "Add 'Recent Resolved' section below 'My Tickets'",
+        "Show tickets closed in last 30 days",
+        "Indicate which have feedback submitted",
+        "Allow quick feedback submission from dashboard",
+        "Link to full ticket history page"
+      ],
+      "acceptance_criteria": [
+        "Tenant sees recently resolved tickets",
+        "Can submit feedback directly from widget",
+        "Feedback status clearly indicated",
+        "Links to full ticket detail"
+      ],
+      "files": [
+        "resources/js/Pages/Tenant/Dashboard.vue",
+        "app/Http/Controllers/TenantDashboardController.php"
+      ],
+      "depends_on": [],
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "TKT-008",
+      "category": "notifications",
+      "priority": "HIGH",
+      "title": "Ticket SLA Breach Alerts",
+      "description": "Alert landlord and caretaker when a ticket is approaching or has breached its SLA based on priority.",
+      "steps": [
+        "Define SLA thresholds per priority (urgent: 4h, high: 24h, etc.)",
+        "Create scheduled job to check ticket ages",
+        "Send notification when approaching SLA (75% of time)",
+        "Send urgent notification when SLA breached",
+        "Show SLA status indicator on ticket cards",
+        "Add SLA breach count to action items"
+      ],
+      "acceptance_criteria": [
+        "Tickets approaching SLA show warning indicator",
+        "Breached tickets show critical indicator",
+        "Landlord/caretaker receive notifications",
+        "Action items show SLA breach count"
+      ],
+      "files": [
+        "app/Console/Commands/CheckTicketSLA.php",
+        "app/Models/Ticket.php",
+        "resources/js/Components/TicketCard.vue"
+      ],
+      "depends_on": [],
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "TKT-009",
+      "category": "notifications",
+      "priority": "MEDIUM",
+      "title": "Ticket Escalation Workflow",
+      "description": "Auto-escalate tickets to landlord if caretaker doesn't respond within threshold.",
+      "steps": [
+        "Add escalated_at and escalation_level fields to tickets",
+        "Create scheduled job to check unacknowledged tickets",
+        "Escalate if no response within threshold (e.g., 2 hours for urgent)",
+        "Notify landlord of escalation",
+        "Show escalation status on ticket",
+        "Allow manual escalation by tenant"
+      ],
+      "acceptance_criteria": [
+        "Unacknowledged urgent tickets auto-escalate after 2 hours",
+        "Landlord receives escalation notification",
+        "Ticket shows escalation history",
+        "Tenant can manually escalate"
+      ],
+      "files": [
+        "app/Console/Commands/EscalateTickets.php",
+        "app/Models/Ticket.php",
+        "database/migrations/add_escalation_to_tickets.php"
+      ],
+      "depends_on": ["TKT-008"],
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "TKT-010",
+      "category": "workflow",
+      "priority": "MEDIUM",
+      "title": "Ticket Templates for Common Issues",
+      "description": "Allow landlords to create ticket templates for common issues to speed up ticket creation.",
+      "steps": [
+        "Create TicketTemplate model with title, description, category, subcategory, priority",
+        "Add CRUD for templates (landlord only)",
+        "Show template selector when creating ticket",
+        "Auto-fill form fields from template",
+        "Track template usage for analytics"
+      ],
+      "acceptance_criteria": [
+        "Landlord can create/edit/delete templates",
+        "Tenants see template selector when creating ticket",
+        "Selecting template fills form fields",
+        "Templates are landlord-specific"
+      ],
+      "files": [
+        "app/Models/TicketTemplate.php",
+        "app/Http/Controllers/TicketTemplateController.php",
+        "resources/js/Pages/Tickets/Create.vue",
+        "resources/js/Pages/Settings/TicketTemplates.vue"
+      ],
+      "depends_on": [],
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "TKT-011",
+      "category": "workflow",
+      "priority": "LOW",
+      "title": "Ticket Auto-Assignment Rules",
+      "description": "Allow landlords to set rules for auto-assigning tickets to caretakers based on category, building, or round-robin.",
+      "steps": [
+        "Create TicketAssignmentRule model",
+        "Support rules: by category, by building, by load balancing",
+        "Apply rules in TicketObserver::created",
+        "Show assigned caretaker immediately after ticket creation",
+        "Allow override of auto-assignment"
+      ],
+      "acceptance_criteria": [
+        "Tickets auto-assign based on rules",
+        "Multiple rule types supported",
+        "Rules can be prioritized",
+        "Manual override always possible"
+      ],
+      "files": [
+        "app/Models/TicketAssignmentRule.php",
+        "app/Observers/TicketObserver.php",
+        "app/Services/TicketAssignmentService.php",
+        "resources/js/Pages/Settings/TicketRules.vue"
+      ],
+      "depends_on": ["TKT-002"],
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "TKT-012",
+      "category": "workflow",
+      "priority": "LOW",
+      "title": "Ticket Analytics and Reporting",
+      "description": "Provide analytics dashboard for landlords showing ticket trends, resolution times, and caretaker performance.",
+      "steps": [
+        "Create TicketAnalyticsService for aggregations",
+        "Build analytics dashboard page",
+        "Show: tickets by period, avg resolution time, by category, by building",
+        "Show caretaker leaderboard (optional)",
+        "Export to PDF/Excel",
+        "Add date range filters"
+      ],
+      "acceptance_criteria": [
+        "Landlord can view ticket analytics",
+        "Charts show trends over time",
+        "Can filter by date range",
+        "Export functionality works"
+      ],
+      "files": [
+        "app/Services/TicketAnalyticsService.php",
+        "app/Http/Controllers/TicketAnalyticsController.php",
+        "resources/js/Pages/Reports/TicketAnalytics.vue"
+      ],
+      "depends_on": [],
+      "passes": false,
+      "attempt_count": 0
+    }
+  ]
+}

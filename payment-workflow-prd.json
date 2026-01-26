@@ -1,0 +1,830 @@
+{
+  "project": {
+    "name": "PropManager Tenant Payment Workflow",
+    "description": "End-to-end tenant payment workflow from onboarding through move-out. Fixes broken payment button, implements M-Pesa split payments via IntaSend, enhances configurable KYC, standardizes move-out deductions, and adds real-time dashboard updates.",
+    "version": "1.0.0",
+    "techStack": {
+      "backend": "Laravel 12 (PHP 8.4+)",
+      "frontend": "Inertia.js + Vue 3 + Tailwind CSS v4",
+      "database": "MySQL 9.4",
+      "payments": "Paystack (cards), IntaSend (M-Pesa splits)",
+      "realtime": "Laravel Reverb (WebSockets)"
+    }
+  },
+  "qualityStandards": {
+    "description": "The payment workflow is the core revenue path for both landlords and platform. Reliability, security, and real-time feedback are non-negotiable.",
+    "principles": [
+      "Write failing test FIRST (RED-GREEN-REFACTOR) for all payment operations",
+      "Every payment must be idempotent - duplicate webhooks must not create duplicate payments",
+      "Platform fees tracked for 100% of digital payments",
+      "Real-time status updates reduce support burden",
+      "KYC and payment gates prevent lease activation without compliance",
+      "Move-out deductions must be auditable with photo evidence support",
+      "Use FormRequest for all validation (StorePaymentRequest, etc.)",
+      "Use Policy for authorization (PaymentPolicy, InvoicePolicy, KycPolicy)",
+      "Wrap multi-write operations in DB::transaction()",
+      "All new models must have Factories for testing"
+    ],
+    "skills_to_apply": [
+      "laraveltdd-with-pest",
+      "verification-first",
+      "laravelform-requests",
+      "laravelpolicies-and-authorization",
+      "laraveltransactions-and-consistency",
+      "laravelhttp-client-resilience",
+      "laravelqueues-and-horizon"
+    ]
+  },
+  "feedbackLoops": {
+    "description": "Run ALL feedback loops before committing. Do NOT commit if any fail.",
+    "commands": {
+      "typecheck": "npm run build -- --mode development",
+      "lint_frontend": "npm run lint",
+      "lint_backend": "vendor/bin/pint --test",
+      "test_backend": "php artisan test --parallel"
+    },
+    "verification": {
+      "before_commit": [
+        "All tests pass (php artisan test)",
+        "Pint passes (vendor/bin/pint --test)",
+        "No new inline validation in controllers",
+        "Policies exist for new models",
+        "Factories exist for new models"
+      ]
+    }
+  },
+  "workflow": {
+    "description": "Standard workflow for implementing each PRD item",
+    "steps": [
+      {
+        "step": 1,
+        "name": "Write Failing Test",
+        "description": "Before writing any implementation code, create test(s) that verify the acceptance criteria. Payment operations require extensive edge case coverage.",
+        "example": "test('webhook creates payment idempotently', function() { ... expectation that fails ... })"
+      },
+      {
+        "step": 2,
+        "name": "Minimal Implementation",
+        "description": "Write the minimum code to make the test pass. Do not optimize prematurely.",
+        "checklist": [
+          "FormRequest for validation",
+          "Policy for authorization",
+          "DB::transaction() for multi-write",
+          "Factory for new models",
+          "Http::timeout(30)->retry(3, 100) for external APIs"
+        ]
+      },
+      {
+        "step": 3,
+        "name": "Refactor",
+        "description": "Clean up the implementation while keeping tests green.",
+        "focus": ["Remove duplication", "Extract helpers", "Follow existing patterns"]
+      },
+      {
+        "step": 4,
+        "name": "Verify",
+        "description": "Run full test suite and quality checks before marking item complete.",
+        "commands": ["php artisan test", "vendor/bin/pint --test", "npm run build"]
+      }
+    ]
+  },
+  "categories": {
+    "critical_fix": {
+      "priority": 1,
+      "description": "Fix broken functionality blocking tenants"
+    },
+    "kyc_enhancement": {
+      "priority": 2,
+      "description": "Customizable KYC document requirements"
+    },
+    "payment_integration": {
+      "priority": 3,
+      "description": "IntaSend M-Pesa split payments"
+    },
+    "move_out": {
+      "priority": 4,
+      "description": "Deduction categories and building defaults"
+    },
+    "realtime": {
+      "priority": 5,
+      "description": "WebSocket event enhancements"
+    },
+    "cleanup": {
+      "priority": 6,
+      "description": "Expired invitation handling"
+    }
+  },
+  "items": [
+    {
+      "id": "PAY-001",
+      "category": "critical_fix",
+      "priority": "CRITICAL",
+      "title": "Fix Tenant Dashboard Pay Now Button",
+      "description": "The Pay Now button on Tenant Dashboard links to route('tenant.payments') which renders an incomplete/legacy page (TenantPortalController@payments). Should link to tenant.finances.index which renders TenantFinances/Index.vue with the working payment flow.",
+      "steps": [
+        "Open resources/js/Pages/Tenant/Dashboard.vue",
+        "Find all occurrences of route('tenant.payments') - lines 123, 263, 281, 291, 342, 401",
+        "Replace with route('tenant.finances.index')",
+        "Verify no other files reference tenant.payments route",
+        "Consider removing the legacy route from routes/web.php"
+      ],
+      "files": [
+        "resources/js/Pages/Tenant/Dashboard.vue",
+        "routes/web.php"
+      ],
+      "definition_of_ready": [
+        "Broken route confirmed via manual testing",
+        "Correct target route (tenant.finances.index) verified working"
+      ],
+      "acceptance_criteria": [
+        "All Pay Now buttons navigate to TenantFinances/Index page",
+        "No 404 or blank page errors",
+        "Payment flow works end-to-end from tenant dashboard"
+      ],
+      "definition_of_done": [
+        "Route references updated in Dashboard.vue",
+        "Manual test: login as tenant, click Pay Now, lands on finances page",
+        "npm run build passes"
+      ],
+      "verification": "Login as tenant with pending invoice, click Pay Now button, verify navigation to TenantFinances/Index.vue page.",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-002",
+      "category": "kyc_enhancement",
+      "priority": "HIGH",
+      "title": "Create KYC Requirements Database Schema",
+      "description": "Create tables for configurable KYC requirements per building and track tenant submissions with review workflow. Currently KYC is hardcoded (selfie, national_id). Landlords need to configure required documents per building.",
+      "steps": [
+        "Create migration 2026_01_22_000001_create_kyc_requirements_tables.php",
+        "Create kyc_requirements table with id, building_id (nullable FK), requirement_type, label, description, is_required, is_active, sort_order, timestamps",
+        "Create tenant_kyc_submissions table with id, user_id FK, requirement_id FK, document_id FK, status enum, rejection_reason, reviewed_by, reviewed_at, timestamps",
+        "Run migration",
+        "Create seeder for default KYC requirements (selfie, national_id, signed_lease)"
+      ],
+      "files": [
+        "database/migrations/2026_01_22_000001_create_kyc_requirements_tables.php",
+        "database/seeders/KycRequirementSeeder.php"
+      ],
+      "definition_of_ready": [
+        "Current KYC flow audited",
+        "Schema design accounts for building-level and global defaults",
+        "Existing user documents relationship verified"
+      ],
+      "acceptance_criteria": [
+        "Tables created with proper indexes and foreign keys",
+        "Default requirements seeded (selfie, national_id, signed_lease with is_required=true)",
+        "Migration runs without errors on fresh and existing databases",
+        "Rollback works cleanly"
+      ],
+      "definition_of_done": [
+        "Migration runs: php artisan migrate",
+        "Seeder runs: php artisan db:seed --class=KycRequirementSeeder",
+        "Tables visible in database with correct structure",
+        "php artisan migrate:rollback works"
+      ],
+      "verification": "php artisan migrate:fresh --seed completes successfully; query tables to verify structure and seeded data.",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-003",
+      "category": "kyc_enhancement",
+      "priority": "HIGH",
+      "title": "Create KYC Models and Relationships",
+      "description": "Create Eloquent models for KycRequirement and TenantKycSubmission with proper relationships, scopes, and helper methods.",
+      "steps": [
+        "Create app/Models/KycRequirement.php with belongsTo(Building), scopes: active(), required(), forBuilding($buildingId), global()",
+        "Create app/Models/TenantKycSubmission.php with belongsTo(User), belongsTo(KycRequirement), belongsTo(Document), scopes: pending(), approved(), rejected()",
+        "Add kycSubmissions() relationship to User model",
+        "Add kycRequirements() relationship to Building model",
+        "Add hasCompletedKyc() method to User (checks all required submissions approved)"
+      ],
+      "files": [
+        "app/Models/KycRequirement.php",
+        "app/Models/TenantKycSubmission.php",
+        "app/Models/User.php",
+        "app/Models/Building.php"
+      ],
+      "definition_of_ready": [
+        "PAY-002 migration completed",
+        "Existing User model reviewed for conflicts"
+      ],
+      "acceptance_criteria": [
+        "Models have proper fillable, casts, and relationships",
+        "Scopes work for filtering active/required requirements",
+        "Can query building-specific requirements with fallback to global",
+        "hasCompletedKyc() returns correct boolean"
+      ],
+      "definition_of_done": [
+        "Models created with proper types",
+        "Relationships work in Tinker testing",
+        "Pint passes"
+      ],
+      "verification": "php artisan tinker: Create requirement, create submission, test relationships and scopes.",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-002"]
+    },
+    {
+      "id": "PAY-004",
+      "category": "kyc_enhancement",
+      "priority": "HIGH",
+      "title": "Update KYC Controller for Dynamic Requirements",
+      "description": "Refactor TenantKycController to use dynamic requirements instead of fixed fields. The controller should fetch requirements based on tenant's building and track submissions with review workflow.",
+      "steps": [
+        "Update TenantKycController@show to fetch requirements for tenant's lease building with global fallback",
+        "Update TenantKycController@update to accept uploads keyed by requirement_id, create Document and TenantKycSubmission records",
+        "Create TenantKycController@review for landlord to approve/reject submissions",
+        "Update EnsureTenantKycComplete middleware to check all required requirements have approved submissions"
+      ],
+      "files": [
+        "app/Http/Controllers/TenantKycController.php",
+        "app/Http/Middleware/EnsureTenantKycComplete.php"
+      ],
+      "definition_of_ready": [
+        "PAY-003 models completed",
+        "Current KYC flow documented",
+        "Document upload infrastructure verified"
+      ],
+      "acceptance_criteria": [
+        "KYC page shows dynamic requirements based on tenant's building",
+        "Documents uploaded and linked to requirements correctly",
+        "Middleware blocks access until all required KYC approved",
+        "Landlord can review (approve/reject) submissions"
+      ],
+      "definition_of_done": [
+        "Controller methods updated",
+        "Middleware updated",
+        "Manual test: new tenant sees correct requirements, uploads work",
+        "Pint passes"
+      ],
+      "verification": "Complete KYC flow as new tenant, verify submissions created; as landlord, approve submissions, verify tenant can access lease.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-003"]
+    },
+    {
+      "id": "PAY-005",
+      "category": "kyc_enhancement",
+      "priority": "MEDIUM",
+      "title": "Update CompleteKyc.vue for Dynamic Requirements",
+      "description": "Update frontend KYC page to render dynamic form based on building requirements. Show upload status for each requirement with rejection handling.",
+      "steps": [
+        "Update props to receive requirements array and submissions from controller",
+        "Create dynamic form iterating over requirements with label, description, required badge",
+        "Show upload input (if no submission or rejected), status badge, rejection reason",
+        "Update progress indicator to show completion percentage",
+        "Handle resubmission for rejected documents",
+        "Disable submit until all required documents uploaded"
+      ],
+      "files": [
+        "resources/js/Pages/Tenant/CompleteKyc.vue",
+        "resources/js/types/tenant-portal.d.ts"
+      ],
+      "definition_of_ready": [
+        "PAY-004 backend completed",
+        "Props structure defined",
+        "Current UI reviewed"
+      ],
+      "acceptance_criteria": [
+        "Form displays all required and optional requirements",
+        "Upload works for each document type",
+        "Progress shows accurate completion percentage",
+        "Rejected documents show reason and allow resubmission",
+        "Submit button disabled until all required docs uploaded"
+      ],
+      "definition_of_done": [
+        "Vue component updated with TypeScript",
+        "All requirement types render correctly",
+        "Build passes",
+        "Manual visual test"
+      ],
+      "verification": "As tenant, navigate to KYC page, verify dynamic form renders, upload documents, verify submission states update.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-004"]
+    },
+    {
+      "id": "PAY-006",
+      "category": "payment_integration",
+      "priority": "HIGH",
+      "title": "Create IntaSend Configuration",
+      "description": "Add IntaSend configuration file and environment variables for M-Pesa split payments. IntaSend allows STK Push with simultaneous splits to platform and landlord wallets.",
+      "steps": [
+        "Create config/intasend.php with api_key, secret_key, environment, webhook_secret, platform_wallet_id, endpoints",
+        "Add INTASEND_* variables to .env.example",
+        "Document in CLAUDE.md"
+      ],
+      "files": [
+        "config/intasend.php",
+        ".env.example",
+        "CLAUDE.md"
+      ],
+      "definition_of_ready": [
+        "IntaSend API documentation reviewed",
+        "Sandbox account created"
+      ],
+      "acceptance_criteria": [
+        "Config file loads correctly via config('intasend.*')",
+        "Sandbox and live endpoints configurable via environment",
+        "All required credentials have env placeholders"
+      ],
+      "definition_of_done": [
+        "Config file created",
+        ".env.example updated",
+        "Tinker test: config('intasend.endpoints.sandbox') returns correct URL"
+      ],
+      "verification": "php artisan tinker: config('intasend') returns expected array structure.",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-007",
+      "category": "payment_integration",
+      "priority": "HIGH",
+      "title": "Create IntaSendService",
+      "description": "Create service class for IntaSend M-Pesa API integration with split payment support. Reference PaystackService for pattern.",
+      "steps": [
+        "Create app/Services/IntaSendService.php",
+        "Implement initializeMpesaStkPush(amount, phone, reference, splitConfig) for STK Push with split",
+        "Implement verifyTransaction(checkoutId) for status checks",
+        "Implement validateWebhookSignature(payload, signature) for HMAC verification",
+        "Implement formatPhoneNumber(phone) to normalize to 254 format",
+        "Create typed exceptions: IntaSendException, IntaSendValidationException"
+      ],
+      "files": [
+        "app/Services/IntaSendService.php",
+        "app/Exceptions/Integration/IntaSendException.php"
+      ],
+      "definition_of_ready": [
+        "PAY-006 config completed",
+        "IntaSend API docs reviewed (STK Push, webhooks)",
+        "PaystackService pattern reviewed"
+      ],
+      "acceptance_criteria": [
+        "STK push initiates correctly in sandbox",
+        "Split configuration sends correct percentages",
+        "Phone number formatting handles all Kenya formats (07xx, 01xx, 254xx)",
+        "Webhook signature validation works",
+        "All exceptions typed and logged"
+      ],
+      "definition_of_done": [
+        "Service created with all methods",
+        "Unit tests for phone formatting",
+        "Manual sandbox test: STK push received on phone",
+        "Pint passes"
+      ],
+      "verification": "Unit test phone formatting; sandbox test: initiate STK push, verify phone receives prompt.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-006"]
+    },
+    {
+      "id": "PAY-008",
+      "category": "payment_integration",
+      "priority": "HIGH",
+      "title": "Create IntaSend Transaction Tracking",
+      "description": "Create database table and model for tracking IntaSend transactions. Add columns to payments table for IntaSend references.",
+      "steps": [
+        "Create migration 2026_01_22_000002_create_intasend_transactions_table.php with payment_id, invoice_id, intasend_reference, checkout_id, phone_number, amount, platform_fee, landlord_amount, status, mpesa_receipt, failure_reason, webhook_payload",
+        "Create migration to add intasend_reference to payments table",
+        "Create app/Models/IntaSendTransaction.php model with relationships"
+      ],
+      "files": [
+        "database/migrations/2026_01_22_000002_create_intasend_transactions_table.php",
+        "database/migrations/2026_01_22_000003_add_intasend_columns_to_payments.php",
+        "app/Models/IntaSendTransaction.php",
+        "app/Models/Payment.php"
+      ],
+      "definition_of_ready": [
+        "Payment model reviewed",
+        "Transaction tracking requirements defined"
+      ],
+      "acceptance_criteria": [
+        "Tables created with proper indexes",
+        "Model relationships work correctly",
+        "Can track full transaction lifecycle (pending -> processing -> completed/failed)",
+        "Platform fee and landlord amount tracked separately"
+      ],
+      "definition_of_done": [
+        "Migrations run successfully",
+        "Model created with relationships",
+        "Tinker test relationships work"
+      ],
+      "verification": "php artisan migrate; Tinker: create transaction, verify relationships.",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-006"]
+    },
+    {
+      "id": "PAY-009",
+      "category": "payment_integration",
+      "priority": "HIGH",
+      "title": "Create IntaSend Webhook Controller",
+      "description": "Create webhook handler for IntaSend M-Pesa callbacks with idempotency, payment creation, and real-time events.",
+      "steps": [
+        "Create app/Http/Controllers/Api/IntaSendWebhookController.php",
+        "Implement handleMpesa() with signature validation, pessimistic locking, payment creation, invoice update, event dispatch",
+        "Add route: POST /webhooks/intasend/mpesa",
+        "Exclude from CSRF verification",
+        "Add IP whitelist middleware if IntaSend provides"
+      ],
+      "files": [
+        "app/Http/Controllers/Api/IntaSendWebhookController.php",
+        "routes/api.php",
+        "app/Http/Middleware/VerifyCsrfToken.php"
+      ],
+      "definition_of_ready": [
+        "PAY-007 service completed",
+        "PAY-008 transaction model completed",
+        "IntaSend webhook format documented"
+      ],
+      "acceptance_criteria": [
+        "Webhook validates signature correctly",
+        "Idempotency prevents duplicate payments",
+        "Payment and PlatformFee records created correctly",
+        "Invoice status updated (partial or paid)",
+        "Event dispatched for real-time updates"
+      ],
+      "definition_of_done": [
+        "Controller created",
+        "Route added",
+        "Manual test with IntaSend sandbox webhook"
+      ],
+      "verification": "Sandbox test: complete STK push, verify webhook received, payment created, invoice updated.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-007", "PAY-008"]
+    },
+    {
+      "id": "PAY-010",
+      "category": "payment_integration",
+      "priority": "HIGH",
+      "title": "Create IntaSendPaymentStatusChanged Event",
+      "description": "Create broadcasting event for real-time M-Pesa STK push status updates. Frontend subscribes to show pending/processing/success/failed states.",
+      "steps": [
+        "Create app/Events/IntaSendPaymentStatusChanged.php",
+        "Implement ShouldBroadcast interface",
+        "Broadcast to private channel: intasend.{checkoutId}",
+        "Payload: status, message, mpesa_receipt (if success), failure_reason (if failed)",
+        "Add channel auth in routes/channels.php"
+      ],
+      "files": [
+        "app/Events/IntaSendPaymentStatusChanged.php",
+        "routes/channels.php"
+      ],
+      "definition_of_ready": [
+        "Broadcasting infrastructure verified (Reverb)",
+        "Channel naming convention reviewed"
+      ],
+      "acceptance_criteria": [
+        "Event broadcasts to correct private channel",
+        "Channel authorization works (user owns the transaction)",
+        "Status updates include all relevant data",
+        "Frontend can subscribe and receive updates"
+      ],
+      "definition_of_done": [
+        "Event created",
+        "Channel auth added",
+        "Manual test: dispatch event, verify received in browser console"
+      ],
+      "verification": "Browser test: subscribe to channel, dispatch test event, verify received.",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-008"]
+    },
+    {
+      "id": "PAY-011",
+      "category": "payment_integration",
+      "priority": "HIGH",
+      "title": "Update TenantFinances/Pay.vue for IntaSend",
+      "description": "Add IntaSend M-Pesa as payment option in tenant payment page. Show real-time STK push status feedback.",
+      "steps": [
+        "Add intasend_mpesa to payment method options (when landlord has it configured)",
+        "Add phone number input for IntaSend M-Pesa",
+        "Create initiateIntaSendPayment() function: POST to /api/v1/tenant/payments/intasend/initiate, subscribe to status channel",
+        "Add status feedback UI: sending, waiting for PIN, processing, success/failed",
+        "Handle timeout (60 seconds)"
+      ],
+      "files": [
+        "resources/js/Pages/TenantFinances/Pay.vue",
+        "resources/js/composables/usePayments.ts"
+      ],
+      "definition_of_ready": [
+        "PAY-009 webhook completed",
+        "PAY-010 event completed",
+        "Current Pay.vue reviewed"
+      ],
+      "acceptance_criteria": [
+        "IntaSend option appears when landlord has it configured",
+        "Phone number validated (Kenyan format)",
+        "Real-time status updates shown during payment",
+        "Success navigates back to finances page",
+        "Failure shows clear error message"
+      ],
+      "definition_of_done": [
+        "Pay.vue updated",
+        "Build passes",
+        "Manual sandbox test: full payment flow"
+      ],
+      "verification": "As tenant, select IntaSend M-Pesa, enter phone, verify STK push received, complete payment, verify success shown.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-009", "PAY-010"]
+    },
+    {
+      "id": "PAY-012",
+      "category": "move_out",
+      "priority": "MEDIUM",
+      "title": "Create Move-Out Deduction Categories Schema",
+      "description": "Create standardized deduction categories with building defaults. Based on Kenya rental practices: paint works, cleaning, key replacement, repairs, etc.",
+      "steps": [
+        "Create migration 2026_01_22_000004_create_move_out_deduction_categories.php with building_id, name, description, default_amount, always_apply, is_active, sort_order",
+        "Add category_id FK to move_out_deductions table",
+        "Create seeder with common categories: Paint Works (5,000 KES), Cleaning Fee (3,000), Key Replacement (500), repairs, etc."
+      ],
+      "files": [
+        "database/migrations/2026_01_22_000004_create_move_out_deduction_categories.php",
+        "database/migrations/2026_01_22_000005_add_category_to_move_out_deductions.php",
+        "database/seeders/MoveOutDeductionCategorySeeder.php",
+        "app/Models/MoveOutDeductionCategory.php",
+        "app/Models/MoveOutDeduction.php"
+      ],
+      "definition_of_ready": [
+        "Kenya rental deduction practices researched",
+        "Current MoveOutDeduction model reviewed"
+      ],
+      "acceptance_criteria": [
+        "Categories table created with building relationship",
+        "Deductions can reference categories",
+        "Common categories seeded with appropriate defaults",
+        "always_apply flag works for auto-adding"
+      ],
+      "definition_of_done": [
+        "Migrations run",
+        "Seeder populates categories",
+        "MoveOutDeduction has category relationship"
+      ],
+      "verification": "php artisan migrate:fresh --seed; query categories table; create deduction with category.",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-013",
+      "category": "move_out",
+      "priority": "MEDIUM",
+      "title": "Implement Building Default Deductions",
+      "description": "Allow landlords to configure default deductions per building that auto-apply when inspection starts. Defaults can be removed/adjusted during inspection.",
+      "steps": [
+        "Add building_deduction_defaults JSON column to buildings table (or create pivot table)",
+        "Update MoveOutController@startInspection to auto-create deductions for building's always_apply categories",
+        "Create UI in Buildings/Edit.vue for configuring default deductions",
+        "Allow landlord to remove auto-applied deductions during inspection"
+      ],
+      "files": [
+        "database/migrations/2026_01_22_000006_add_deduction_defaults_to_buildings.php",
+        "app/Http/Controllers/MoveOutController.php",
+        "app/Http/Controllers/BuildingController.php",
+        "resources/js/Pages/Buildings/Edit.vue"
+      ],
+      "definition_of_ready": [
+        "PAY-012 categories completed",
+        "Buildings/Edit.vue reviewed",
+        "MoveOutController flow reviewed"
+      ],
+      "acceptance_criteria": [
+        "Landlord can set default deductions per building",
+        "Defaults auto-apply when inspection starts",
+        "Auto-applied deductions clearly marked",
+        "Landlord can modify/remove auto-applied during inspection"
+      ],
+      "definition_of_done": [
+        "Migration run",
+        "Controller updated",
+        "UI added to building settings",
+        "Manual test: configure defaults, start inspection, verify auto-applied"
+      ],
+      "verification": "Configure building with 2 default deductions; start move-out inspection; verify both auto-added.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-012"]
+    },
+    {
+      "id": "PAY-014",
+      "category": "move_out",
+      "priority": "MEDIUM",
+      "title": "Update MoveOuts/Show.vue for Categories",
+      "description": "Update move-out inspection UI to use deduction categories. Show category dropdown, default amounts, and distinguish auto vs manual deductions.",
+      "steps": [
+        "Add category dropdown when adding new deduction",
+        "Auto-fill default amount when category selected",
+        "Show category name in deduction list",
+        "Badge for auto-applied vs manually added",
+        "Update deduction form to include category_id"
+      ],
+      "files": [
+        "resources/js/Pages/MoveOuts/Show.vue",
+        "app/Http/Controllers/MoveOutController.php",
+        "app/Http/Requests/MoveOut/StoreMoveOutDeductionRequest.php"
+      ],
+      "definition_of_ready": [
+        "PAY-013 backend completed",
+        "Current MoveOuts/Show.vue reviewed",
+        "Category data passed to frontend"
+      ],
+      "acceptance_criteria": [
+        "Category dropdown shows available options",
+        "Default amount auto-fills when category selected",
+        "Clear distinction between auto and manual deductions",
+        "Category name shown in deduction list"
+      ],
+      "definition_of_done": [
+        "Vue component updated",
+        "Request validation updated",
+        "Build passes",
+        "Manual visual test"
+      ],
+      "verification": "During inspection, add deduction via category, verify amount prefills, verify displays correctly.",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-013"]
+    },
+    {
+      "id": "PAY-015",
+      "category": "realtime",
+      "priority": "MEDIUM",
+      "title": "Enhance PaymentReceived Event with Split Details",
+      "description": "Add split payment details to PaymentReceived broadcast so landlord dashboard shows net amount after platform fee.",
+      "steps": [
+        "Update app/Events/PaymentReceived.php broadcastWith() to add platform_fee, landlord_amount, split_provider",
+        "Update landlord dashboard to show net amount in real-time updates",
+        "Update metrics calculation to use landlord_amount"
+      ],
+      "files": [
+        "app/Events/PaymentReceived.php",
+        "resources/js/Pages/Dashboard.vue"
+      ],
+      "definition_of_ready": [
+        "PaymentReceived event reviewed",
+        "Dashboard real-time handling reviewed"
+      ],
+      "acceptance_criteria": [
+        "Split details included in broadcast payload",
+        "Landlord sees net amount (after platform fee)",
+        "Dashboard metrics show correct revenue figures"
+      ],
+      "definition_of_done": [
+        "Event updated",
+        "Dashboard updated if needed",
+        "Manual test: make payment, verify split details in broadcast"
+      ],
+      "verification": "Make payment via Paystack/IntaSend; verify landlord dashboard updates with correct net amount.",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-016",
+      "category": "cleanup",
+      "priority": "LOW",
+      "title": "Create Expired Invitation Cleanup Command",
+      "description": "Create scheduled command to cleanup expired tenant invitations and delete associated unverified user accounts (users who registered but never completed KYC or payment verification).",
+      "steps": [
+        "Create app/Console/Commands/CleanupExpiredInvitations.php",
+        "Find TenantInvitation where status='pending' AND expires_at < now() - 30 days",
+        "For each, check if user has NOT completed KYC and has NO verified payments",
+        "If both conditions true, soft-delete the user and mark invitation as expired",
+        "Schedule daily: $schedule->command('invitations:cleanup')->daily()"
+      ],
+      "files": [
+        "app/Console/Commands/CleanupExpiredInvitations.php",
+        "app/Console/Kernel.php"
+      ],
+      "definition_of_ready": [
+        "TenantInvitation model reviewed",
+        "User deletion implications understood",
+        "Soft delete vs hard delete decision made"
+      ],
+      "acceptance_criteria": [
+        "Command identifies correct expired invitations (30+ days past expiry)",
+        "Only deletes users who haven't completed KYC or payment",
+        "Does NOT delete users who are active tenants",
+        "Logs all actions for audit"
+      ],
+      "definition_of_done": [
+        "Command created",
+        "Scheduled in Kernel",
+        "Test with expired invitation"
+      ],
+      "verification": "Create test expired invitation with unverified user; run command; verify user soft-deleted, invitation marked expired.",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-017",
+      "category": "kyc_enhancement",
+      "priority": "MEDIUM",
+      "title": "Create KYC Settings Page for Landlords",
+      "description": "Allow landlords to configure KYC requirements per building. Can add custom requirements beyond the defaults (selfie, ID, signed lease).",
+      "steps": [
+        "Create resources/js/Pages/Settings/KycRequirements.vue",
+        "Add route and controller method",
+        "List all KYC requirements (global defaults + building-specific)",
+        "Toggle required/optional for each requirement",
+        "Add new requirements for specific buildings",
+        "Reorder requirements (sort_order)",
+        "Add navigation link in Settings or Building edit"
+      ],
+      "files": [
+        "resources/js/Pages/Settings/KycRequirements.vue",
+        "app/Http/Controllers/SettingsController.php",
+        "routes/web.php"
+      ],
+      "definition_of_ready": [
+        "PAY-004 backend completed",
+        "Settings page structure reviewed",
+        "UI/UX approach defined"
+      ],
+      "acceptance_criteria": [
+        "Landlord can view all KYC requirements",
+        "Can add building-specific requirements",
+        "Can toggle required/optional",
+        "Changes immediately reflect in tenant KYC flow"
+      ],
+      "definition_of_done": [
+        "Vue component created",
+        "Controller methods added",
+        "Routes configured",
+        "Manual test: add requirement, verify tenant sees it"
+      ],
+      "verification": "As landlord, add custom requirement for building; as tenant of that building, verify new requirement shown in KYC form.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-004"]
+    }
+  ],
+  "executionOrder": [
+    "PAY-001 - Fix broken Pay Now button (CRITICAL, no dependencies)",
+    "PAY-002 - Create KYC tables",
+    "PAY-003 - Create KYC models (depends: PAY-002)",
+    "PAY-004 - Update KYC controller (depends: PAY-003)",
+    "PAY-005 - Update CompleteKyc.vue (depends: PAY-004)",
+    "PAY-006 - IntaSend configuration",
+    "PAY-007 - IntaSendService (depends: PAY-006)",
+    "PAY-008 - IntaSend transaction tracking (depends: PAY-006)",
+    "PAY-009 - IntaSend webhook controller (depends: PAY-007, PAY-008)",
+    "PAY-010 - IntaSend status event (depends: PAY-008)",
+    "PAY-011 - Update Pay.vue for IntaSend (depends: PAY-009, PAY-010)",
+    "PAY-012 - Move-out deduction categories",
+    "PAY-013 - Building default deductions (depends: PAY-012)",
+    "PAY-014 - Update MoveOuts/Show.vue (depends: PAY-013)",
+    "PAY-015 - Enhance PaymentReceived event",
+    "PAY-016 - Expired invitation cleanup",
+    "PAY-017 - KYC settings page for landlords (depends: PAY-004)"
+  ],
+  "criticalFiles": {
+    "resources/js/Pages/Tenant/Dashboard.vue": "Fix Pay Now button (lines 123, 263, 281, 291, 342, 401)",
+    "resources/js/Pages/TenantFinances/Pay.vue": "Add IntaSend payment option",
+    "resources/js/Pages/Tenant/CompleteKyc.vue": "Dynamic KYC form",
+    "app/Services/IntaSendService.php": "New - M-Pesa split payments",
+    "app/Services/PaystackService.php": "Reference for IntaSendService pattern",
+    "app/Http/Controllers/TenantKycController.php": "Dynamic KYC flow",
+    "app/Http/Controllers/MoveOutController.php": "Add deduction categories",
+    "resources/js/Pages/MoveOuts/Show.vue": "Category UI for deductions",
+    "app/Events/PaymentReceived.php": "Add split details"
+  },
+  "completionCriteria": {
+    "metrics": [
+      "Tenant Dashboard 'Pay Now' navigates to TenantFinances/Index",
+      "KYC requirements are configurable per building",
+      "Signed lease agreement can be uploaded during KYC",
+      "IntaSend M-Pesa payments split correctly (platform + landlord)",
+      "Platform fees tracked for all IntaSend payments",
+      "Real-time STK push status shown to tenant",
+      "Landlord dashboard updates in real-time when tenant pays",
+      "Move-out deduction categories display and can be selected",
+      "Building default deductions auto-apply on inspection start",
+      "Expired invitations cleaned up after 30 days",
+      "Unverified tenant accounts deleted with expired invitations"
+    ],
+    "outputSignal": "<promise>PAYMENT_WORKFLOW_COMPLETE</promise>"
+  }
+}
