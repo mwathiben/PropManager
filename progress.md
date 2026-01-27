@@ -10955,3 +10955,97 @@ Complete refactor of CompleteKyc.vue from static 4-field form to dynamic KYC req
 - PAY-017: KYC Settings Page for Landlords (depends: PAY-004)
 
 **PAY-005 COMPLETE**
+
+---
+
+## Session: 2026-01-27
+**Task**: PAY-007 - Create IntaSendService
+**PRD**: payment-workflow-prd.json
+**Status**: COMPLETED
+
+### Skills Applied
+- **laravelhttp-client-resilience**: HTTP calls use `Http::timeout(30)->retry(3, 100)` pattern. NO retry for STK Push (financial operation).
+- **laraveltdd-with-pest**: Wrote 29 failing tests FIRST, then implemented service.
+- **laravelexception-handling-and-logging**: IntaSendException with 5 error codes, structured logging with `redactSecrets()`.
+- **verification-first**: All acceptance criteria verified with unit tests.
+
+### Files Created
+
+| File | Purpose | Lines |
+|------|---------|-------|
+| `app/Exceptions/Integration/IntaSendException.php` | Typed exception with 5 error codes and factory methods | 60 |
+| `app/Services/IntaSendService.php` | IntaSend M-Pesa STK Push service | 265 |
+| `tests/Unit/Services/IntaSendServiceTest.php` | 29 unit tests for service | 235 |
+
+### IntaSendException Design
+
+**Error Codes**:
+- `INTASEND_API_ERROR` - Generic API error (default)
+- `INTASEND_STK_PUSH_FAILED` - STK push request failed
+- `INTASEND_VERIFICATION_FAILED` - Transaction verification failed
+- `INTASEND_NOT_CONFIGURED` - IntaSend not configured for landlord
+- `INTASEND_INVALID_PHONE` - Invalid Kenya phone format
+
+**Factory Methods**:
+- `notConfigured()` - 503 status
+- `stkPushFailed(?string $reason)` - 502 status
+- `verificationFailed(string $invoiceId)` - 502 status
+- `invalidPhoneNumber(string $phone)` - 422 status, masked phone in context
+
+### IntaSendService Design
+
+**Constructor**: `__construct(PaymentConfiguration $config)` - per-tenant credentials
+
+**Public Methods**:
+
+| Method | Purpose |
+|--------|---------|
+| `isConfigured(): bool` | Delegates to `$config->hasIntaSendConfig()` |
+| `formatPhoneNumber(string $phone): string` | Normalize Kenya formats to 254xxx |
+| `generateReference(string $prefix = 'ITS'): string` | Static, format: `ITS-{timestamp}-{uniqid}` |
+| `initializeMpesaStkPush(amount, phone, reference, splitConfig): ?array` | NO RETRY |
+| `verifyTransaction(string $invoiceId): ?array` | WITH RETRY |
+| `validateWebhookChallenge(string $receivedChallenge): bool` | Challenge-based, `hash_equals()` |
+| `getPublicKey(): string` | Return publishable key |
+| `isComplete(string $state): bool` | Static helper |
+| `isPending(string $state): bool` | Static helper |
+| `isFailed(string $state): bool` | Static helper |
+
+**Key Design Decisions**:
+1. **NO RETRY for STK Push**: Financial operation (same as MpesaService::initiateB2C)
+2. **Challenge-based webhook verification**: IntaSend uses challenge, NOT HMAC
+3. **Per-tenant credentials**: Constructor requires PaymentConfiguration
+
+### Phone Number Formatting Test Cases
+
+| Input | Output |
+|-------|--------|
+| `0712345678` | `254712345678` |
+| `0112345678` | `254112345678` |
+| `+254712345678` | `254712345678` |
+| `254712345678` | `254712345678` |
+| `712345678` | `254712345678` |
+| `0712-345-678` | `254712345678` |
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| STK push initiates correctly in sandbox | ✅ HTTP mocked test passes |
+| Split configuration sends correct percentages | ✅ wallet_id passed in request |
+| Phone number formatting handles all Kenya formats | ✅ 6 unit tests pass |
+| Webhook signature validation works | ✅ 3 unit tests for challenge-based |
+| All exceptions typed and logged | ✅ IntaSendException with 5 codes |
+
+### Verification Results
+
+- **Unit tests (IntaSendServiceTest)**: ✅ 29 passed (42 assertions)
+- **Full test suite**: ✅ 690 passed, 13 skipped
+- **vendor/bin/pint --test**: ✅ 3 files PASS
+
+### Next Steps
+- PAY-008: Create IntaSend Transaction Tracking (database tables)
+- PAY-009: Create IntaSend Webhook Controller (depends: PAY-007, PAY-008)
+- PAY-010: Create IntaSendPaymentStatusChanged Event (depends: PAY-008)
+
+**PAY-007 COMPLETE**
