@@ -11049,3 +11049,167 @@ Complete refactor of CompleteKyc.vue from static 4-field form to dynamic KYC req
 - PAY-010: Create IntaSendPaymentStatusChanged Event (depends: PAY-008)
 
 **PAY-007 COMPLETE**
+
+---
+
+## Session: 2026-01-27T11:00:00
+**Task**: PAY-008 - Create IntaSend Transaction Tracking
+**PRD**: payment-workflow-prd.json
+**Status**: COMPLETED
+
+### Skills Applied
+- **laravelmigrations-and-factories**: Created migrations with proper indexes, FK constraints, rollback support
+- **laraveleloquent-relationships**: Model with belongsTo relationships to Payment, Invoice, User
+- **laraveltdd-with-pest**: Wrote 18 failing tests FIRST, then implemented to make them pass
+- **verification-first**: All acceptance criteria verified with tests
+
+### Files Created
+
+| File | Purpose | Lines |
+|------|---------|-------|
+| \ | IntaSend transaction tracking table | 52 |
+| \ | Add intasend_transaction_id, intasend_reference to payments | 28 |
+| \ | Model with TenantScope, Auditable, state constants, scopes, helpers | 128 |
+| \ | Factory with pending/processing/complete/failed states | 100 |
+| \ | 18 tests covering relationships, scopes, helpers | 350 |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| \ | Added intasend_transaction_id, intasend_reference to fillable; Added intaSendTransaction() relationship |
+| \ | Added intasend() state method |
+
+### IntaSendTransaction Model Design
+
+**State Constants**:
+- \ - STK push initiated
+- \ - User interacting with M-Pesa prompt
+- \ - Payment successful
+- \ - Payment failed/cancelled
+
+**Relationships**:
+- \ - BelongsTo Payment (nullable until payment confirmed)
+- \ - BelongsTo Invoice
+- \ - BelongsTo User
+
+**Scopes**:
+- \, \, \, - 
+**Helpers**:
+- \, \, \, - \, \, 
+### Database Schema
+
+**intasend_transactions table**:
+- \ (unique) - IntaSend's transaction ID
+- \ (indexed) - Our internal reference
+- \, \, \ - Financial tracking
+- \, \ - Split payment tracking
+- \, \, \ - Status tracking
+- \ (JSON) - Full webhook for debugging
+
+**payments table additions**:
+- \ (indexed)
+- \ (indexed)
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| Tables created with proper indexes | ✅ 6 indexes created |
+| Model relationships work correctly | ✅ 18 tests pass |
+| Can track full transaction lifecycle | ✅ State constants + helpers |
+| Platform fee and landlord amount tracked separately | ✅ Dedicated columns |
+| Factory with state methods for testing | ✅ pending/processing/complete/failed |
+| Migration rollback works cleanly | ✅ Tested rollback + re-migrate |
+
+### Verification Results
+
+- **Tests**: 18 passed (44 assertions)
+- **vendor/bin/pint --test**: ✅ 779 files PASS
+- **npm run build**: ✅ Built in 29.51s
+- **Migration rollback**: ✅ Works cleanly
+
+### Next Steps
+- PAY-009: Create IntaSend Webhook Controller (depends: PAY-007, PAY-008)
+- PAY-010: Create IntaSendPaymentStatusChanged Event (depends: PAY-008)
+
+**PAY-008 COMPLETE**
+
+
+---
+
+## Session: 2026-01-27T11:00:00
+**Task**: PAY-008 - Create IntaSend Transaction Tracking
+**PRD**: payment-workflow-prd.json
+**Status**: COMPLETED
+
+### Skills Applied
+- **laravelmigrations-and-factories**: Created migrations with proper indexes, FK constraints, rollback support
+- **laraveleloquent-relationships**: Model with belongsTo relationships to Payment, Invoice, User
+- **laraveltdd-with-pest**: Wrote 18 failing tests FIRST, then implemented to make them pass
+- **verification-first**: All acceptance criteria verified with tests
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| database/migrations/2026_01_27_100000_create_intasend_transactions_table.php | IntaSend transaction tracking table |
+| database/migrations/2026_01_27_100001_add_intasend_columns_to_payments_table.php | Add intasend columns to payments |
+| app/Models/IntaSendTransaction.php | Model with TenantScope, state constants, scopes |
+| database/factories/IntaSendTransactionFactory.php | Factory with pending/complete/failed states |
+| tests/Feature/Models/IntaSendTransactionTest.php | 18 tests for model |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| app/Models/Payment.php | Added intasend_transaction_id, intasend_reference to fillable; Added intaSendTransaction() relationship |
+| database/factories/PaymentFactory.php | Added intasend() state method |
+
+### IntaSendTransaction Model Design
+
+**State Constants**: STATE_PENDING, STATE_PROCESSING, STATE_COMPLETE, STATE_FAILED
+
+**Relationships**: payment(), invoice(), landlord()
+
+**Scopes**: pending(), processing(), complete(), failed(), forInvoice(invoiceId)
+
+**Helpers**: isPending(), isComplete(), isFailed(), markComplete(), markFailed(), markProcessing()
+
+### Database Schema
+
+**intasend_transactions table**:
+- intasend_invoice_id (unique) - IntaSend's transaction ID
+- api_ref (indexed) - Our internal reference  
+- amount, intasend_charges, net_amount - Financial tracking
+- platform_fee, landlord_amount - Split payment tracking
+- state, mpesa_receipt, failure_reason - Status tracking
+- webhook_payload (JSON) - Full webhook for debugging
+
+**payments table additions**:
+- intasend_transaction_id (indexed)
+- intasend_reference (indexed)
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| Tables created with proper indexes | PASS - 6 indexes created |
+| Model relationships work correctly | PASS - 18 tests pass |
+| Can track full transaction lifecycle | PASS - State constants + helpers |
+| Platform fee and landlord amount tracked | PASS - Dedicated columns |
+| Factory with state methods for testing | PASS - pending/processing/complete/failed |
+| Migration rollback works cleanly | PASS - Tested rollback + re-migrate |
+
+### Verification Results
+
+- Tests: 18 passed (44 assertions)
+- vendor/bin/pint --test: 779 files PASS
+- npm run build: Built in 29.51s
+- Migration rollback: Works cleanly
+
+### Next Steps
+- PAY-009: Create IntaSend Webhook Controller (depends: PAY-007, PAY-008)
+- PAY-010: Create IntaSendPaymentStatusChanged Event (depends: PAY-008)
+
+**PAY-008 COMPLETE**

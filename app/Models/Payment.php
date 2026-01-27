@@ -24,6 +24,8 @@ class Payment extends Model
         'is_split_payment',
         'mpesa_transaction_id',
         'mpesa_checkout_request_id',
+        'intasend_transaction_id',
+        'intasend_reference',
         'notes',
         'is_voided',
         'voided_at',
@@ -66,5 +68,10 @@ class Payment extends Model
     public function receipt()
     {
         return $this->hasOne(Receipt::class);
+    }
+
+    public function intaSendTransaction()
+    {
+        return $this->hasOne(IntaSendTransaction::class);
     }
 }

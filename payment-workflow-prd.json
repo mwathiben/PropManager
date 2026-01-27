@@ -422,8 +422,8 @@
       ],
       "verification": "php artisan migrate; Tinker: create transaction, verify relationships.",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["PAY-006"]
     },
     {

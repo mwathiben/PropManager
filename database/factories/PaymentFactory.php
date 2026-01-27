@@ -58,6 +58,15 @@ class PaymentFactory extends Factory
         ]);
     }
 
+    public function intasend(): static
+    {
+        return $this->state([
+            'payment_method' => 'mobile_money',
+            'intasend_transaction_id' => strtoupper(fake()->unique()->bothify('???????')),
+            'intasend_reference' => 'ITS-'.time().'-'.strtoupper(substr(uniqid(), -6)),
+        ]);
+    }
+
     public function forInvoice(Invoice $invoice, ?float $amount = null): static
     {
         return $this->state([
