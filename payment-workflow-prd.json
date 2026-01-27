@@ -661,8 +661,8 @@
       ],
       "verification": "During inspection, add deduction via category, verify amount prefills, verify displays correctly.",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["PAY-013"]
     },
     {

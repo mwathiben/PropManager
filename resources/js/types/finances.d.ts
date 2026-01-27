@@ -10,8 +10,8 @@ export interface BaseEntity {
   updated_at?: string;
 }
 
-// Invoice Status
-export type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'partial' | 'paid' | 'overdue' | 'void';
+// Invoice Status (matches App\Enums\InvoiceStatus)
+export type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'partial' | 'paid' | 'overdue' | 'voided' | 'cancelled';
 
 // Payment Method (canonical 4 methods - matches App\Enums\PaymentMethod)
 export type PaymentMethod = 'cash' | 'bank_transfer' | 'mobile_money' | 'paystack';
@@ -343,4 +343,395 @@ export interface UsePaymentsReturn {
   isFullyPaid: (invoice: Invoice) => boolean;
   isOverdue: (invoice: Invoice) => boolean;
   recordManualPayment: (data: PaymentForm) => Promise<void>;
+}
+
+// ===== LEASE PAGE TYPES =====
+
+// Lease Stats
+export interface LeaseStats {
+  total: number;
+  active: number;
+  expiring_soon: number;
+  expired: number;
+}
+
+// Leases Index Page Props
+export interface LeasesIndexPageProps {
+  leases: PaginatedResponse<Lease>;
+  stats: LeaseStats;
+  buildings: Building[];
+  filters: {
+    search?: string;
+    status?: string;
+    building_id?: number | string | null;
+  };
+}
+
+// Leases Create Page Props
+export interface LeasesCreatePageProps {
+  unit: Unit & {
+    target_rent?: number;
+    building?: Building;
+  };
+  smsConfigured: boolean;
+  whatsappConfigured: boolean;
+}
+
+// ===== TENANT PAGE TYPES =====
+
+// Tenant Counts
+export interface TenantCounts {
+  active: number;
+  pending: number;
+  past: number;
+}
+
+// Tenant Stats
+export interface TenantStatsData {
+  total_active: number;
+  pending_invitations: number;
+  pending_verifications: number;
+  arrears_count: number;
+  total_arrears: number;
+}
+
+// Tenants Index Page Props
+export interface TenantsIndexPageProps {
+  activeTenants: PaginatedResponse<Tenant>;
+  pastTenants: PaginatedResponse<Tenant>;
+  pendingInvitations: PaginatedResponse<unknown>;
+  tab: string;
+  counts: TenantCounts;
+  stats: TenantStatsData;
+  filters: {
+    search?: string;
+  };
+}
+
+// Tenant Show Page Props
+export interface TenantShowPageProps {
+  tenant: Tenant & {
+    notes?: Array<{
+      id: number;
+      content: string;
+      created_at: string;
+      user?: { name: string };
+    }>;
+    emergency_contacts?: Array<{
+      id: number;
+      name: string;
+      phone: string;
+      relationship: string;
+    }>;
+  };
+  activeLease: Lease | null;
+  payments: Payment[];
+  invoices: Invoice[];
+  verificationTemplates: Array<{ id: number; name: string }>;
+  documents: Array<{
+    id: number;
+    type: string;
+    filename: string;
+    path: string;
+  }>;
+}
+
+// Tenant History Page Props
+export interface TenantHistoryPageProps {
+  pastTenants: PaginatedResponse<Tenant & {
+    move_out_date?: string;
+    total_payments?: number;
+    lease?: Lease;
+  }>;
+  stats: {
+    total: number;
+    this_year: number;
+  };
+  buildings: Building[];
+  filters: {
+    search?: string;
+    building_id?: number | string | null;
+  };
+}
+
+// Tenant Ledger Transaction
+export interface LedgerTransaction {
+  id: number;
+  type: 'invoice' | 'payment' | 'credit_note' | 'refund';
+  date: string;
+  description: string;
+  debit?: number;
+  credit?: number;
+  balance: number;
+  reference?: string;
+}
+
+// Tenant Ledger Summary
+export interface LedgerSummary {
+  opening_balance: number;
+  total_charges: number;
+  total_payments: number;
+  total_credits: number;
+  closing_balance: number;
+}
+
+// Tenant Ledger Page Props
+export interface TenantLedgerPageProps {
+  tenant: Tenant;
+  activeLease: Lease | null;
+  transactions: LedgerTransaction[];
+  summary: LedgerSummary;
+  filters: {
+    date_from?: string;
+    date_to?: string;
+  };
+}
+
+// ===== MOVE-OUT PAGE TYPES =====
+
+// Move-Out Deduction Category
+export interface MoveOutDeductionCategory {
+  id: number;
+  name: string;
+  description?: string;
+  default_amount: number;
+  always_apply: boolean;
+}
+
+// Move-Out Deduction
+export interface MoveOutDeduction {
+  id: number;
+  move_out_id: number;
+  category_id?: number;
+  category?: MoveOutDeductionCategory;
+  description: string;
+  amount: number;
+  notes?: string;
+  photo_path?: string;
+  auto_applied: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Move-Out
+export interface MoveOut extends BaseEntity {
+  lease_id: number;
+  tenant_id: number;
+  status: 'pending' | 'scheduled' | 'inspection' | 'completed' | 'cancelled';
+  notice_date: string;
+  intended_move_out_date: string;
+  actual_move_out_date?: string;
+  reason?: string;
+  deposit_held: number;
+  total_deductions: number;
+  arrears_balance: number;
+  refund_amount?: number;
+  tenant?: Tenant;
+  lease?: Lease & { unit?: Unit };
+  inspection_notes?: string;
+  inspection_photos?: string[];
+  deductions?: MoveOutDeduction[];
+}
+
+// Move-Out Stats
+export interface MoveOutStats {
+  pending: number;
+  scheduled: number;
+  completed_this_month: number;
+  total_refunded: number;
+}
+
+// Move-Outs Index Page Props
+export interface MoveOutsIndexPageProps {
+  moveOuts: PaginatedResponse<MoveOut>;
+  status: string;
+  stats: MoveOutStats;
+}
+
+// Move-Out Show Page Props
+export interface MoveOutShowPageProps {
+  moveOut: MoveOut;
+  categories: MoveOutDeductionCategory[];
+}
+
+// Move-Out Create Page Props
+export interface MoveOutCreatePageProps {
+  lease: Lease & {
+    tenant: Tenant;
+    unit: Unit;
+  };
+}
+
+// ===== BUILDING PAGE TYPES =====
+
+// Building with extended properties for Index page
+export interface BuildingListItem extends Building {
+  building_type?: string;
+  type_label?: string;
+  address?: string;
+  units_count: number;
+  occupied_units_count: number;
+  occupancy_rate: number;
+  primary_photo?: string;
+}
+
+// Building Types lookup
+export type BuildingTypesLookup = Record<string, string>;
+
+// Amenity Options
+export type AmenityOptionsLookup = Record<string, Record<string, string>>;
+
+// Buildings Index Filters
+export interface BuildingsIndexFilters {
+  search?: string;
+  type?: string;
+  sort?: string;
+}
+
+// Buildings Index Page Props
+export interface BuildingsIndexPageProps {
+  buildings: BuildingListItem[];
+  buildingTypes: BuildingTypesLookup;
+  amenityOptions: AmenityOptionsLookup;
+  filters: BuildingsIndexFilters;
+}
+
+// Building Edit Unit
+export interface BuildingEditUnit extends Unit {
+  floor_number: number;
+  unit_type?: 'residential' | 'commercial';
+}
+
+// Building Edit Data
+export interface BuildingEditData extends Building {
+  total_floors: number;
+  units_per_floor: number;
+  building_type?: string;
+  amenities?: {
+    selected: string[];
+    custom: string[];
+  };
+  coordinates?: {
+    lat: number;
+    lng: number;
+  } | null;
+  auto_generate_invoices?: boolean;
+  invoice_generation_day?: number;
+  auto_send_invoices?: boolean;
+}
+
+// Buildings Edit Page Props
+export interface BuildingsEditPageProps {
+  building: BuildingEditData;
+  buildings: Building[];
+  units: BuildingEditUnit[];
+  amenityOptions: AmenityOptionsLookup;
+}
+
+// Invoices Show Page Props
+export interface InvoicesShowPageProps {
+  invoice: Invoice & {
+    items?: InvoiceItem[];
+    payments?: Payment[];
+    lease?: Lease & {
+      tenant?: Tenant;
+      unit?: Unit & {
+        building?: Building;
+      };
+    };
+  };
+}
+
+// ===== FORM OPTIONS (dropdowns) =====
+
+// Generic label/value option for dropdowns
+export interface SelectOption {
+  label: string;
+  value: string;
+}
+
+// ===== PAYMENTS PAGE TYPES =====
+
+// Payments BulkImport Page Props
+export interface PaymentsBulkImportPageProps {
+  buildings: Building[];
+}
+
+// Payments Record Page Props
+export interface PaymentsRecordPageProps {
+  paymentMethods: SelectOption[];
+  buildings: Building[];
+}
+
+// ===== REFUNDS PAGE TYPES =====
+
+// Refunds Create Page Props
+export interface RefundsCreatePageProps {
+  refundMethods: SelectOption[];
+  refundReasons: SelectOption[];
+}
+
+// ===== INVITATIONS PAGE TYPES =====
+
+// Caretaker Invitation (for Invitations/Index.vue)
+export interface CaretakerInvitation {
+  id: number;
+  email: string;
+  token: string;
+  property: string;
+  status: 'pending' | 'accepted' | 'expired';
+  sent_at: string;
+  accepted_at?: string;
+}
+
+// Caretaker Invitations Index Page Props
+export interface CaretakerInvitationsIndexPageProps {
+  invitations: CaretakerInvitation[];
+  properties: Property[];
+}
+
+// Tenant Invitation (for TenantInvitations/Index.vue)
+export interface TenantInvitation {
+  id: number;
+  email: string;
+  tenant_name?: string;
+  tenant_phone?: string;
+  token: string;
+  unit: string;
+  building: string;
+  property: string;
+  rent_amount: number;
+  service_charge?: number;
+  deposit_amount: number;
+  start_date?: string;
+  start_date_display?: string;
+  end_date?: string;
+  notification_channels: string[];
+  status: 'pending' | 'accepted' | 'expired';
+  expires_at?: string;
+  viewed_at?: string;
+}
+
+// Vacant Unit (for tenant invitation selection)
+export interface VacantUnit {
+  id: number;
+  unit_number: string;
+  building_name: string;
+  property_name: string;
+  target_rent: number;
+}
+
+// Tenant Invitations Index Page Props
+export interface TenantInvitationsIndexPageProps {
+  invitations: TenantInvitation[];
+  vacantUnits: VacantUnit[];
+  editInvitation?: TenantInvitation | null;
+  smsConfigured: boolean;
+  whatsappConfigured: boolean;
+}
+
+// Tenant Invitation Accept Page Props
+export interface TenantInvitationAcceptPageProps {
+  invitation: TenantInvitation;
+  error?: string;
 }

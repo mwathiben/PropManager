@@ -18,6 +18,7 @@ use App\Models\TenantActivity;
 use App\Models\Unit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -132,7 +133,7 @@ class MoveOutController extends Controller
                 'landlord_id' => $landlordId,
                 'tenant_id' => $lease->tenant_id,
                 'performed_by' => $user->id,
-                'action' => 'move_out_initiated',
+                'type' => 'move_out_initiated',
                 'description' => 'Move-out notice given. Expected move-out: '.$validated['intended_move_out_date'],
                 'metadata' => [
                     'move_out_id' => $moveOut->id,
@@ -169,8 +170,20 @@ class MoveOutController extends Controller
             'processor',
         ]);
 
+        $buildingId = $moveOut->lease->unit->building_id;
+        $categories = MoveOutDeductionCategory::query()
+            ->where('landlord_id', $landlordId)
+            ->where(function ($q) use ($buildingId) {
+                $q->where('building_id', $buildingId)
+                    ->orWhereNull('building_id');
+            })
+            ->active()
+            ->ordered()
+            ->get(['id', 'name', 'description', 'default_amount', 'always_apply']);
+
         return Inertia::render('MoveOuts/Show', [
             'moveOut' => $moveOut,
+            'categories' => $categories,
         ]);
     }
 
@@ -209,25 +222,44 @@ class MoveOutController extends Controller
 
         $validated = $request->validated();
 
-        DB::transaction(function () use ($moveOut, $validated, $landlordId, $user) {
-            $moveOut->update([
-                'actual_move_out_date' => $validated['actual_move_out_date'],
-                'status' => 'inspection_pending',
+        try {
+            DB::transaction(function () use ($moveOut, $validated, $landlordId, $user) {
+                $lockedMoveOut = MoveOut::where('id', $moveOut->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if ($lockedMoveOut->status !== 'notice_given') {
+                    throw new \RuntimeException('Inspection already started or move-out in wrong state.');
+                }
+
+                $lockedMoveOut->update([
+                    'actual_move_out_date' => $validated['actual_move_out_date'],
+                    'status' => 'inspection_pending',
+                ]);
+
+                $this->autoApplyDeductions($lockedMoveOut, $landlordId);
+
+                TenantActivity::create([
+                    'landlord_id' => $landlordId,
+                    'tenant_id' => $lockedMoveOut->lease->tenant_id,
+                    'performed_by' => $user->id,
+                    'type' => 'move_out_inspection_started',
+                    'description' => 'Tenant moved out. Inspection started.',
+                    'metadata' => ['move_out_id' => $lockedMoveOut->id],
+                ]);
+            });
+
+            return Redirect::back()->with('success', 'Inspection started.');
+        } catch (\RuntimeException $e) {
+            return Redirect::back()->with('error', $e->getMessage());
+        } catch (\Exception $e) {
+            Log::error('Failed to start inspection', [
+                'move_out_id' => $moveOut->id,
+                'error' => $e->getMessage(),
             ]);
 
-            $this->autoApplyDeductions($moveOut, $landlordId);
-
-            TenantActivity::create([
-                'landlord_id' => $landlordId,
-                'tenant_id' => $moveOut->lease->tenant_id,
-                'performed_by' => $user->id,
-                'type' => 'move_out_inspection_started',
-                'description' => 'Tenant moved out. Inspection started.',
-                'metadata' => ['move_out_id' => $moveOut->id],
-            ]);
-        });
-
-        return Redirect::back()->with('success', 'Inspection started.');
+            return Redirect::back()->withErrors(['move_out' => 'Failed to start inspection. Please try again.']);
+        }
     }
 
     /**
@@ -257,10 +289,12 @@ class MoveOutController extends Controller
             DB::transaction(function () use ($moveOut, $validated, $photoPath) {
                 MoveOutDeduction::create([
                     'move_out_id' => $moveOut->id,
+                    'category_id' => $validated['category_id'] ?? null,
                     'description' => $validated['description'],
                     'amount' => $validated['amount'],
                     'notes' => $validated['notes'] ?? null,
                     'photo_path' => $photoPath,
+                    'auto_applied' => false,
                 ]);
 
                 $moveOut->calculateRefund();
@@ -501,34 +535,61 @@ class MoveOutController extends Controller
      */
     private function autoApplyDeductions(MoveOut $moveOut, int $landlordId): void
     {
-        $buildingId = $moveOut->lease->unit->building_id;
+        try {
+            $buildingId = $moveOut->lease->unit->building_id;
 
-        $categories = MoveOutDeductionCategory::query()
-            ->active()
-            ->alwaysApply()
-            ->where(function ($query) use ($buildingId, $landlordId) {
-                $query->where('building_id', $buildingId)
-                    ->orWhere(function ($q) use ($landlordId) {
-                        $q->where('landlord_id', $landlordId)
-                            ->whereNull('building_id');
-                    });
-            })
-            ->ordered()
-            ->get();
+            $categories = MoveOutDeductionCategory::query()
+                ->active()
+                ->alwaysApply()
+                ->where(function ($query) use ($buildingId, $landlordId) {
+                    $query->where('building_id', $buildingId)
+                        ->orWhere(function ($q) use ($landlordId) {
+                            $q->where('landlord_id', $landlordId)
+                                ->whereNull('building_id');
+                        });
+                })
+                ->ordered()
+                ->get();
 
-        foreach ($categories as $category) {
-            MoveOutDeduction::create([
+            $existingCategoryIds = MoveOutDeduction::where('move_out_id', $moveOut->id)
+                ->where('auto_applied', true)
+                ->pluck('category_id')
+                ->toArray();
+
+            $categoriesToApply = $categories->filter(function ($category) use ($existingCategoryIds) {
+                return ! in_array($category->id, $existingCategoryIds);
+            });
+
+            $totalApplied = 0;
+            foreach ($categoriesToApply as $category) {
+                MoveOutDeduction::create([
+                    'move_out_id' => $moveOut->id,
+                    'category_id' => $category->id,
+                    'description' => $category->name,
+                    'amount' => $category->default_amount,
+                    'auto_applied' => true,
+                ]);
+                $totalApplied++;
+            }
+
+            if ($totalApplied > 0) {
+                $moveOut->calculateRefund();
+                $moveOut->save();
+
+                Log::info('Auto-applied move-out deductions', [
+                    'move_out_id' => $moveOut->id,
+                    'building_id' => $buildingId,
+                    'count' => $totalApplied,
+                    'category_ids' => $categoriesToApply->pluck('id')->toArray(),
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to auto-apply deductions', [
                 'move_out_id' => $moveOut->id,
-                'category_id' => $category->id,
-                'description' => $category->name,
-                'amount' => $category->default_amount,
-                'auto_applied' => true,
+                'error' => $e->getMessage(),
             ]);
-        }
 
-        if ($categories->isNotEmpty()) {
-            $moveOut->calculateRefund();
-            $moveOut->save();
+            throw $e;
         }
     }
 }

@@ -39,6 +39,7 @@ const inspectionForm = useForm({
 });
 
 const deductionForm = useForm({
+    category_id: '' as number | '',
     description: '',
     amount: '',
     notes: '',
@@ -101,6 +102,7 @@ const startInspection = () => {
 const openDeductionModal = (deduction = null) => {
     editingDeduction.value = deduction;
     if (deduction) {
+        deductionForm.category_id = deduction.category_id || '';
         deductionForm.description = deduction.description;
         deductionForm.amount = deduction.amount;
         deductionForm.notes = deduction.notes || '';
@@ -109,6 +111,16 @@ const openDeductionModal = (deduction = null) => {
         deductionForm.reset();
     }
     showDeductionModal.value = true;
+};
+
+const onCategorySelected = () => {
+    if (deductionForm.category_id) {
+        const category = props.categories.find(c => c.id === deductionForm.category_id);
+        if (category) {
+            deductionForm.description = category.name;
+            deductionForm.amount = String(category.default_amount);
+        }
+    }
 };
 
 const saveDeduction = () => {
@@ -225,6 +237,7 @@ const statusInfo = computed(() => getStatusInfo());
                                 <button
                                     @click="startInspection"
                                     :disabled="inspectionForm.processing"
+                                    data-testid="start-inspection-button"
                                     class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
                                 >
                                     {{ inspectionForm.processing ? 'Starting...' : 'Start Inspection' }}
@@ -251,7 +264,7 @@ const statusInfo = computed(() => getStatusInfo());
 
                             <!-- Deductions List -->
                             <div v-if="moveOut.deductions?.length" class="divide-y divide-gray-200">
-                                <div v-for="deduction in moveOut.deductions" :key="deduction.id" class="p-4 flex items-center justify-between">
+                                <div v-for="deduction in moveOut.deductions" :key="deduction.id" class="p-4 flex items-center justify-between" :data-deduction="deduction.description">
                                     <div class="flex items-start gap-3">
                                         <div class="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
                                             <CurrencyDollarIcon class="w-5 h-5 text-red-600" />
@@ -261,6 +274,9 @@ const statusInfo = computed(() => getStatusInfo());
                                                 {{ deduction.description }}
                                                 <span v-if="deduction.auto_applied" class="ml-2 inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
                                                     Auto
+                                                </span>
+                                                <span v-else-if="deduction.category" class="ml-2 inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                                                    {{ deduction.category.name }}
                                                 </span>
                                             </p>
                                             <p v-if="deduction.notes" class="text-sm text-gray-500">{{ deduction.notes }}</p>
@@ -430,6 +446,22 @@ const statusInfo = computed(() => getStatusInfo());
                     </div>
 
                     <form @submit.prevent="saveDeduction" class="p-6 space-y-4">
+                        <div v-if="categories.length > 0">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Category (Optional)</label>
+                            <select
+                                v-model="deductionForm.category_id"
+                                @change="onCategorySelected"
+                                class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                                <option value="">Custom Deduction</option>
+                                <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                                    {{ cat.name }} ({{ formatCurrency(cat.default_amount) }})
+                                </option>
+                            </select>
+                            <p v-if="deductionForm.category_id" class="mt-1 text-xs text-gray-500">
+                                {{ categories.find(c => c.id === deductionForm.category_id)?.description }}
+                            </p>
+                        </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Description *</label>
                             <input

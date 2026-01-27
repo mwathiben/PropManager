@@ -14,6 +14,7 @@ class StoreMoveOutDeductionRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'category_id' => 'nullable|exists:move_out_deduction_categories,id',
             'description' => 'required|string|max:255',
             'amount' => 'required|numeric|min:0',
             'notes' => 'nullable|string|max:500',
