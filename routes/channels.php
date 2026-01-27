@@ -22,3 +22,7 @@ Broadcast::channel('notifications.{userId}', function ($user, $userId) {
 Broadcast::channel('mpesa.{checkoutRequestId}', function ($user, $checkoutRequestId) {
     return $user !== null;
 });
+
+Broadcast::channel('intasend.{intasendInvoiceId}', function ($user, $intasendInvoiceId) {
+    return $user !== null;
+});

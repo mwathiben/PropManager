@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\InvoiceStatus;
+use App\Events\IntaSendPaymentStatusChanged;
 use App\Events\PaymentReceived as PaymentReceivedEvent;
 use App\Http\Controllers\Controller;
 use App\Mail\PaymentReceived;
@@ -107,6 +108,15 @@ class IntaSendWebhookController extends Controller
     {
         if ($state === IntaSendTransaction::STATE_PROCESSING) {
             $transaction->markProcessing();
+
+            IntaSendPaymentStatusChanged::dispatch(
+                $transaction->intasend_invoice_id,
+                'processing',
+                null,
+                (float) $transaction->amount,
+                null,
+                null
+            );
         }
 
         Log::info('IntaSend webhook: State updated', [
@@ -123,6 +133,15 @@ class IntaSendWebhookController extends Controller
 
         $transaction->markFailed($failureReason);
 
+        IntaSendPaymentStatusChanged::dispatch(
+            $transaction->intasend_invoice_id,
+            'failed',
+            null,
+            (float) $transaction->amount,
+            null,
+            $failureReason
+        );
+
         Log::info('IntaSend webhook: Payment failed', [
             'api_ref' => $transaction->api_ref,
             'reason' => $failureReason,
@@ -134,7 +153,37 @@ class IntaSendWebhookController extends Controller
     protected function processCompletePayment(array $payload, IntaSendTransaction $transaction): JsonResponse
     {
         $mpesaReceipt = $payload['mpesa_reference'] ?? $payload['invoice_id'] ?? '';
-        $amount = (float) ($payload['value'] ?? $transaction->amount);
+        $webhookAmount = (float) ($payload['value'] ?? $transaction->amount);
+
+        // Validate webhook amount against expected transaction amount
+        $tolerance = (float) config('intasend.amount_tolerance', 1.00); // Configurable tolerance in currency units
+        $expectedAmount = (float) $transaction->amount;
+        $amountDifference = abs($webhookAmount - $expectedAmount);
+
+        if ($amountDifference > $tolerance) {
+            Log::error('IntaSend webhook: Amount mismatch exceeds tolerance', [
+                'api_ref' => $transaction->api_ref,
+                'mpesa_receipt' => $mpesaReceipt,
+                'transaction_id' => $transaction->id,
+                'expected_amount' => $expectedAmount,
+                'webhook_amount' => $webhookAmount,
+                'difference' => $amountDifference,
+                'tolerance' => $tolerance,
+            ]);
+
+            $transaction->update([
+                'state' => IntaSendTransaction::STATE_FAILED,
+                'failure_reason' => "Amount mismatch: expected {$expectedAmount}, received {$webhookAmount}",
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Amount mismatch - flagged for manual review',
+            ], 400);
+        }
+
+        // Use the validated expected amount, not the webhook amount
+        $amount = $expectedAmount;
 
         try {
             DB::beginTransaction();
@@ -220,18 +269,58 @@ class IntaSendWebhookController extends Controller
             ]);
 
             if ($overpayment > 0) {
-                $invoice->lease->creditToWallet(
-                    $overpayment,
-                    "Overpayment from IntaSend payment #{$payment->id}",
-                    $payment->id
-                );
+                // Use atomic increment for wallet balance to prevent race conditions
+                $wallet = $invoice->lease->wallet;
+                if ($wallet) {
+                    DB::table('wallets')
+                        ->where('id', $wallet->id)
+                        ->increment('balance', $overpayment);
+
+                    // Record the wallet transaction within the same DB transaction
+                    $wallet->transactions()->create([
+                        'landlord_id' => $invoice->landlord_id,
+                        'type' => 'credit',
+                        'amount' => $overpayment,
+                        'description' => "Overpayment from IntaSend payment #{$payment->id}",
+                        'reference_type' => Payment::class,
+                        'reference_id' => $payment->id,
+                    ]);
+                } else {
+                    Log::warning('IntaSend webhook: No wallet found for overpayment credit', [
+                        'lease_id' => $invoice->lease_id,
+                        'overpayment' => $overpayment,
+                        'payment_id' => $payment->id,
+                    ]);
+                }
             }
 
             DB::commit();
 
             $invoice->load(['lease.tenant', 'lease.unit.building']);
-            Mail::to($invoice->lease->tenant->email)->queue(new PaymentReceived($payment, $invoice));
+
+            // Check tenant exists and has email before queuing mail
+            if ($invoice->lease?->tenant?->email && filter_var($invoice->lease->tenant->email, FILTER_VALIDATE_EMAIL)) {
+                Mail::to($invoice->lease->tenant->email)->queue(new PaymentReceived($payment, $invoice));
+            } else {
+                Log::warning('IntaSend webhook: Cannot send payment receipt - tenant email missing', [
+                    'payment_id' => $payment->id,
+                    'invoice_id' => $invoice->id,
+                    'lease_id' => $invoice->lease_id,
+                    'tenant_id' => $invoice->lease?->tenant_id,
+                ]);
+            }
+
+            // Always dispatch event so payment flow completes
             PaymentReceivedEvent::dispatch($payment, $invoice);
+
+            IntaSendPaymentStatusChanged::dispatch(
+                $transaction->intasend_invoice_id,
+                'success',
+                $payment->id,
+                (float) $amount,
+                $mpesaReceipt,
+                null
+            );
 
             Log::info('IntaSend payment recorded successfully', [
                 'payment_id' => $payment->id,

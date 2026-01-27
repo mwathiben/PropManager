@@ -3,6 +3,7 @@
 namespace Tests\Feature\Controllers;
 
 use App\Enums\InvoiceStatus;
+use App\Events\IntaSendPaymentStatusChanged;
 use App\Events\PaymentReceived as PaymentReceivedEvent;
 use App\Mail\PaymentReceived;
 use App\Models\IntaSendTransaction;
@@ -44,7 +45,7 @@ class IntaSendWebhookControllerTest extends TestCase
         ]);
 
         Mail::fake();
-        Event::fake([PaymentReceivedEvent::class]);
+        Event::fake([PaymentReceivedEvent::class, IntaSendPaymentStatusChanged::class]);
     }
 
     protected function createWebhookPayload(
@@ -403,5 +404,80 @@ class IntaSendWebhookControllerTest extends TestCase
             'payment_id' => $payment->id,
             'invoice_id' => $invoice->id,
         ]);
+    }
+
+    public function test_complete_webhook_dispatches_intasend_status_changed_event(): void
+    {
+        $unit = $this->setupData['units']->first();
+        ['lease' => $lease] = $this->createTenantWithActiveLease($this->landlord, $unit);
+        $invoice = $this->createInvoiceForLease($lease, 'sent');
+
+        $transaction = IntaSendTransaction::factory()->forInvoice($invoice)->create([
+            'amount' => 15000,
+            'state' => IntaSendTransaction::STATE_PENDING,
+        ]);
+
+        $payload = $this->createWebhookPayload($transaction, 'COMPLETE');
+
+        $response = $this->postJson('/api/webhooks/intasend/mpesa', $payload);
+
+        $response->assertOk();
+
+        Event::assertDispatched(IntaSendPaymentStatusChanged::class, function ($event) use ($transaction) {
+            return $event->intasendInvoiceId === $transaction->intasend_invoice_id
+                && $event->status === 'success'
+                && $event->paymentId !== null
+                && $event->amount === 15000.0
+                && $event->mpesaReceipt !== null;
+        });
+    }
+
+    public function test_failed_webhook_dispatches_intasend_status_changed_event(): void
+    {
+        $unit = $this->setupData['units']->first();
+        ['lease' => $lease] = $this->createTenantWithActiveLease($this->landlord, $unit);
+        $invoice = $this->createInvoiceForLease($lease, 'sent');
+
+        $transaction = IntaSendTransaction::factory()->forInvoice($invoice)->create([
+            'amount' => 15000,
+            'state' => IntaSendTransaction::STATE_PROCESSING,
+        ]);
+
+        $payload = $this->createWebhookPayload($transaction, 'FAILED');
+        $payload['failed_reason'] = 'Insufficient funds';
+
+        $response = $this->postJson('/api/webhooks/intasend/mpesa', $payload);
+
+        $response->assertOk();
+
+        Event::assertDispatched(IntaSendPaymentStatusChanged::class, function ($event) use ($transaction) {
+            return $event->intasendInvoiceId === $transaction->intasend_invoice_id
+                && $event->status === 'failed'
+                && $event->failureReason === 'Insufficient funds';
+        });
+    }
+
+    public function test_processing_webhook_dispatches_intasend_status_changed_event(): void
+    {
+        $unit = $this->setupData['units']->first();
+        ['lease' => $lease] = $this->createTenantWithActiveLease($this->landlord, $unit);
+        $invoice = $this->createInvoiceForLease($lease, 'sent');
+
+        $transaction = IntaSendTransaction::factory()->forInvoice($invoice)->create([
+            'amount' => 15000,
+            'state' => IntaSendTransaction::STATE_PENDING,
+        ]);
+
+        $payload = $this->createWebhookPayload($transaction, 'PROCESSING');
+
+        $response = $this->postJson('/api/webhooks/intasend/mpesa', $payload);
+
+        $response->assertOk();
+
+        Event::assertDispatched(IntaSendPaymentStatusChanged::class, function ($event) use ($transaction) {
+            return $event->intasendInvoiceId === $transaction->intasend_invoice_id
+                && $event->status === 'processing'
+                && $event->amount === 15000.0;
+        });
     }
 }
