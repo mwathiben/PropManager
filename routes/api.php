@@ -130,6 +130,9 @@ Route::prefix('v2')->group(function () {
 
 Route::prefix('webhooks')->group(function () {
 
+    // IntaSend M-Pesa STK Push callback (challenge-based validation)
+    Route::post('/intasend/mpesa', [\App\Http\Controllers\Api\IntaSendWebhookController::class, 'handleMpesaWebhook']);
+
     // M-Pesa Paybill (C2B with account number)
     Route::post('/mpesa/c2b/validation', [\App\Http\Controllers\Api\MpesaWebhookController::class, 'c2bValidation']);
     Route::post('/mpesa/c2b/confirmation', [\App\Http\Controllers\Api\MpesaWebhookController::class, 'c2bConfirmation']);

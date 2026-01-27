@@ -11213,3 +11213,105 @@ Complete refactor of CompleteKyc.vue from static 4-field form to dynamic KYC req
 - PAY-010: Create IntaSendPaymentStatusChanged Event (depends: PAY-008)
 
 **PAY-008 COMPLETE**
+
+---
+
+## Session: 2026-01-27T14:00:00
+**Task**: PAY-009 - Create IntaSend Webhook Controller
+**PRD**: payment-workflow-prd.json
+**Status**: COMPLETED
+
+### Skills Applied
+- **laraveltransactions-and-consistency**: DB::transaction() with pessimistic locking for idempotency
+- **laravelexception-handling-and-logging**: Structured logging with secrets redacted
+- **laraveltdd-with-pest**: Wrote 14 failing tests FIRST (RED), then implemented to make them pass (GREEN)
+- **verification-first**: All acceptance criteria verified with tests before marking complete
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| app/Http/Controllers/Api/IntaSendWebhookController.php | Webhook controller for IntaSend M-Pesa STK Push callbacks |
+| tests/Feature/Controllers/IntaSendWebhookControllerTest.php | 14 feature tests for webhook handling |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| routes/api.php | Added IntaSend webhook route: POST /api/webhooks/intasend/mpesa |
+
+### Webhook Controller Design
+
+**Endpoint**: POST /api/webhooks/intasend/mpesa
+
+**Flow**:
+1. Parse payload and extract api_ref / intasend_invoice_id
+2. Find IntaSendTransaction by api_ref (fallback to intasend_invoice_id)
+3. Validate challenge against landlord's PaymentConfiguration
+4. Route to handler based on state:
+   - PENDING/PROCESSING → Update transaction state
+   - COMPLETE → Process payment with idempotency
+   - FAILED → Record failure reason
+
+**Idempotency Pattern** (following MpesaWebhookController):
+```php
+DB::beginTransaction();
+$transaction = IntaSendTransaction::where('id', $transaction->id)
+    ->lockForUpdate()
+    ->first();
+if ($transaction->payment_id !== null) {
+    DB::rollBack();
+    return; // Already processed
+}
+// ... create payment
+DB::commit();
+```
+
+**Challenge Validation**:
+- IntaSend uses challenge-based verification (NOT HMAC)
+- Payload contains `challenge` field
+- Compare with `payment_configurations.intasend_webhook_challenge` per landlord
+- Uses `hash_equals()` for timing-safe comparison
+
+### Test Coverage (14 tests, 40 assertions)
+
+| Test | Description |
+|------|-------------|
+| test_webhook_accepts_valid_complete_payment | Creates payment, updates invoice amount_paid |
+| test_webhook_rejects_invalid_challenge | Returns 200 but doesn't process payment |
+| test_idempotency_prevents_duplicate_payments | Skips if transaction.payment_id already set |
+| test_webhook_handles_pending_state | No state change for PENDING |
+| test_webhook_handles_processing_state | Updates transaction to PROCESSING |
+| test_webhook_handles_failed_state_with_reason | Records failure_reason |
+| test_webhook_updates_invoice_to_paid_when_fully_paid | Sets InvoiceStatus::Paid |
+| test_webhook_updates_invoice_to_partial_when_underpaid | Sets InvoiceStatus::Partial |
+| test_overpayment_credits_to_wallet | Excess amount credited to lease.wallet_balance |
+| test_webhook_creates_platform_fee_record | BillingModelService records fee |
+| test_webhook_returns_200_for_unknown_api_ref | Graceful handling of unknown transactions |
+| test_webhook_dispatches_payment_received_event | Event dispatched after commit |
+| test_webhook_sends_payment_received_email | Mail queued after commit |
+| test_webhook_creates_receipt | ReceiptService creates receipt |
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| Webhook validates challenge correctly | PASS - hash_equals with per-landlord config |
+| Idempotency prevents duplicate payments | PASS - lockForUpdate + payment_id check |
+| Payment and PlatformFee records created | PASS - via BillingModelService |
+| Invoice status updated (partial or paid) | PASS - Tested both scenarios |
+| Receipt created | PASS - via ReceiptService |
+| Event dispatched for real-time updates | PASS - PaymentReceivedEvent dispatched |
+| Email sent to tenant | PASS - PaymentReceived mail queued |
+
+### Verification Results
+
+- Tests: 14 passed (40 assertions)
+- vendor/bin/pint --test: 781 files PASS
+- npm run build: Built successfully
+
+### Next Steps
+- PAY-010: Create IntaSendPaymentStatusChanged Event (depends: PAY-008)
+- PAY-011: Handle IntaSend Payment Failures (depends: PAY-009)
+
+**PAY-009 COMPLETE**
