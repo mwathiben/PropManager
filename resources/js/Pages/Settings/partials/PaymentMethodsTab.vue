@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import InputLabel from '@/Components/InputLabel.vue';
@@ -10,17 +10,16 @@ import {
     BuildingLibraryIcon,
     DevicePhoneMobileIcon,
     CreditCardIcon,
+    GlobeAltIcon,
 } from '@heroicons/vue/24/outline';
+import type { PaymentConfiguration, PaymentMethodsLookup } from '@/types';
 
-const props = defineProps({
-    paymentConfig: {
-        type: Object,
-        default: () => ({}),
-    },
-    paymentMethods: {
-        type: Object,
-        default: () => ({}),
-    },
+const props = withDefaults(defineProps<{
+    paymentConfig?: PaymentConfiguration;
+    paymentMethods?: PaymentMethodsLookup;
+}>(), {
+    paymentConfig: () => ({} as PaymentConfiguration),
+    paymentMethods: () => ({} as PaymentMethodsLookup),
 });
 
 const form = useForm({
@@ -32,6 +31,11 @@ const form = useForm({
     mpesa_paybill: props.paymentConfig?.mpesa_paybill || '',
     mpesa_account_name: props.paymentConfig?.mpesa_account_name || '',
     paystack_enabled: props.paymentConfig?.paystack_enabled || false,
+    intasend_enabled: props.paymentConfig?.intasend_enabled || false,
+    intasend_publishable_key: props.paymentConfig?.intasend_publishable_key || '',
+    intasend_secret_key: '',
+    intasend_webhook_challenge: props.paymentConfig?.intasend_webhook_challenge || '',
+    intasend_environment: props.paymentConfig?.intasend_environment || 'sandbox',
 });
 
 const methodIcons = {
@@ -39,6 +43,7 @@ const methodIcons = {
     bank_transfer: BuildingLibraryIcon,
     mobile_money: DevicePhoneMobileIcon,
     paystack: CreditCardIcon,
+    intasend_mpesa: GlobeAltIcon,
 };
 
 const toggleMethod = (method) => {
@@ -60,6 +65,9 @@ const isMethodEnabled = (method) => {
 const showBankDetails = computed(() => isMethodEnabled('bank_transfer'));
 const showMpesaDetails = computed(() => isMethodEnabled('mobile_money'));
 const showPaystackDetails = computed(() => isMethodEnabled('paystack'));
+const showIntasendDetails = computed(() => isMethodEnabled('intasend_mpesa'));
+
+const hasIntasendSecretKey = computed(() => !!props.paymentConfig?.intasend_secret_key);
 
 const submit = () => {
     form.post(route('settings.payment.update'), {
@@ -249,6 +257,119 @@ const submit = () => {
                     </label>
                 </div>
                 <InputError :message="form.errors.paystack_enabled" class="mt-2" />
+            </div>
+
+            <!-- IntaSend M-Pesa Details -->
+            <div v-if="showIntasendDetails" class="bg-gray-50 rounded-xl p-6 space-y-4">
+                <div class="flex items-center gap-2">
+                    <GlobeAltIcon class="w-5 h-5 text-green-600" />
+                    <h4 class="text-sm font-medium text-gray-700 uppercase tracking-wider">IntaSend M-Pesa Payments</h4>
+                </div>
+                <p class="text-sm text-gray-500">
+                    Accept M-Pesa payments via IntaSend.
+                    <a href="https://developers.intasend.com/docs" target="_blank" class="text-indigo-600 hover:text-indigo-800">
+                        Get API keys from IntaSend Dashboard
+                    </a>
+                </p>
+
+                <!-- Enable/Disable Toggle -->
+                <div class="flex items-center gap-3">
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input
+                            type="checkbox"
+                            v-model="form.intasend_enabled"
+                            class="sr-only peer"
+                        >
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                        <span class="ml-3 text-sm font-medium text-gray-700">
+                            {{ form.intasend_enabled ? 'Enabled' : 'Disabled' }}
+                        </span>
+                    </label>
+                </div>
+                <InputError :message="form.errors.intasend_enabled" class="mt-2" />
+
+                <!-- IntaSend Configuration (shown when enabled) -->
+                <div v-if="form.intasend_enabled" class="space-y-4 pt-4 border-t border-gray-200">
+                    <!-- Environment -->
+                    <div>
+                        <InputLabel for="intasend_environment" value="Environment" />
+                        <select
+                            id="intasend_environment"
+                            v-model="form.intasend_environment"
+                            class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        >
+                            <option value="sandbox">Sandbox (Testing)</option>
+                            <option value="production">Production (Live)</option>
+                        </select>
+                        <p class="mt-1 text-xs text-gray-500">Use Sandbox for testing, Production for real payments.</p>
+                        <InputError :message="form.errors.intasend_environment" class="mt-2" />
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Publishable Key -->
+                        <div>
+                            <InputLabel for="intasend_publishable_key" value="Publishable Key" />
+                            <TextInput
+                                id="intasend_publishable_key"
+                                v-model="form.intasend_publishable_key"
+                                type="text"
+                                class="mt-1 block w-full font-mono text-sm"
+                                placeholder="ISPubKey_..."
+                            />
+                            <p class="mt-1 text-xs text-gray-500">Starts with ISPubKey_</p>
+                            <InputError :message="form.errors.intasend_publishable_key" class="mt-2" />
+                        </div>
+
+                        <!-- Secret Key -->
+                        <div>
+                            <InputLabel for="intasend_secret_key">
+                                Secret Key
+                                <span v-if="hasIntasendSecretKey" class="ml-2 text-xs text-green-600">(Configured)</span>
+                            </InputLabel>
+                            <TextInput
+                                id="intasend_secret_key"
+                                v-model="form.intasend_secret_key"
+                                type="password"
+                                class="mt-1 block w-full font-mono text-sm"
+                                :placeholder="hasIntasendSecretKey ? '••••••••••••' : 'ISSecretKey_...'"
+                            />
+                            <p class="mt-1 text-xs text-gray-500">Starts with ISSecretKey_. Leave blank to keep current.</p>
+                            <InputError :message="form.errors.intasend_secret_key" class="mt-2" />
+                        </div>
+                    </div>
+
+                    <!-- Webhook Challenge -->
+                    <div>
+                        <InputLabel for="intasend_webhook_challenge" value="Webhook Challenge" />
+                        <TextInput
+                            id="intasend_webhook_challenge"
+                            v-model="form.intasend_webhook_challenge"
+                            type="text"
+                            class="mt-1 block w-full"
+                            placeholder="your-webhook-challenge"
+                        />
+                        <p class="mt-1 text-xs text-gray-500">
+                            Set the same value in your IntaSend Dashboard &gt; Webhooks. Used for request validation.
+                        </p>
+                        <InputError :message="form.errors.intasend_webhook_challenge" class="mt-2" />
+                    </div>
+
+                    <!-- Status Indicator -->
+                    <div class="flex items-center gap-2 pt-2">
+                        <div :class="[
+                            'w-2 h-2 rounded-full',
+                            form.intasend_publishable_key && (hasIntasendSecretKey || form.intasend_secret_key)
+                                ? 'bg-green-500'
+                                : 'bg-yellow-500'
+                        ]"></div>
+                        <span class="text-sm text-gray-600">
+                            {{ form.intasend_publishable_key && (hasIntasendSecretKey || form.intasend_secret_key)
+                                ? 'Ready to accept payments'
+                                : 'Enter API keys to enable payments'
+                            }}
+                        </span>
+                    </div>
+                </div>
             </div>
 
             <!-- Submit Button -->

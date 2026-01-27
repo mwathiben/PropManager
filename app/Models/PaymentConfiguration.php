@@ -27,6 +27,11 @@ class PaymentConfiguration extends Model
         'mpesa_shortcode',
         'mpesa_passkey',
         'paystack_enabled',
+        'intasend_enabled',
+        'intasend_publishable_key',
+        'intasend_secret_key',
+        'intasend_webhook_challenge',
+        'intasend_environment',
     ];
 
     protected $casts = [
@@ -36,6 +41,8 @@ class PaymentConfiguration extends Model
         'accepted_payment_methods' => 'array',
         'paystack_enabled' => 'boolean',
         'mpesa_passkey' => 'encrypted',
+        'intasend_enabled' => 'boolean',
+        'intasend_secret_key' => 'encrypted',
     ];
 
     public static function getAvailablePaymentMethods(): array
@@ -63,6 +70,14 @@ class PaymentConfiguration extends Model
     const MPESA_SHORTCODE_TYPES = [
         'paybill' => 'Paybill',
         'till' => 'Till (Buy Goods)',
+    ];
+
+    /**
+     * IntaSend environment options
+     */
+    const INTASEND_ENVIRONMENTS = [
+        'sandbox' => 'Sandbox (Testing)',
+        'production' => 'Production (Live)',
     ];
 
     /**
@@ -126,6 +141,26 @@ class PaymentConfiguration extends Model
     }
 
     /**
+     * Check if IntaSend is fully configured
+     */
+    public function hasIntaSendConfig(): bool
+    {
+        return $this->intasend_enabled
+            && ! empty($this->intasend_publishable_key)
+            && ! empty($this->intasend_secret_key);
+    }
+
+    /**
+     * Get IntaSend API base URL based on environment
+     */
+    public function getIntaSendBaseUrl(): string
+    {
+        return $this->intasend_environment === 'production'
+            ? config('intasend.endpoints.production')
+            : config('intasend.endpoints.sandbox');
+    }
+
+    /**
      * Get the water rate based on billing type
      */
     public function getWaterRate(): float
@@ -157,6 +192,8 @@ class PaymentConfiguration extends Model
                 'water_unit_rate' => config('propmanager.water.default_rate', 150),
                 'accepted_payment_methods' => ['cash', 'mobile_money'],
                 'paystack_enabled' => false,
+                'intasend_enabled' => false,
+                'intasend_environment' => 'sandbox',
             ]
         );
     }

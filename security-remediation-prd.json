@@ -1,0 +1,289 @@
+{
+  "project": {
+    "name": "PropManager Security Remediation",
+    "description": "Migrate per-tenant credentials from .env to database storage. Implement System Admin dashboard for platform-level settings. Follows multi-tenant SaaS security best practices.",
+    "version": "1.0.0",
+    "created": "2026-01-27",
+    "techStack": {
+      "backend": "Laravel 12 (PHP 8.4+)",
+      "frontend": "Inertia.js + Vue 3 + Tailwind CSS v4",
+      "database": "MySQL 9.4"
+    }
+  },
+  "qualityStandards": {
+    "description": "Security-critical changes require extra verification and audit logging.",
+    "principles": [
+      "All secret keys MUST use Laravel's encrypted cast",
+      "Secret keys NEVER passed to frontend",
+      "All credential changes logged via Auditable trait",
+      "Backward compatibility during migration (fallback to .env if not in DB)",
+      "Write failing test FIRST for each migration"
+    ],
+    "skills_to_apply": [
+      "laraveltdd-with-pest",
+      "verification-first",
+      "laravelmigrations-and-factories",
+      "laraveltransactions-and-consistency",
+      "secrets-management"
+    ]
+  },
+  "feedbackLoops": {
+    "commands": {
+      "lint_backend": "vendor/bin/pint --test",
+      "test_backend": "php artisan test --parallel",
+      "build_frontend": "npm run build"
+    }
+  },
+  "categories": {
+    "credential_migration": {
+      "priority": 1,
+      "description": "Move per-tenant credentials from .env to database"
+    },
+    "admin_dashboard": {
+      "priority": 2,
+      "description": "System Admin dashboard for platform settings"
+    },
+    "audit_security": {
+      "priority": 3,
+      "description": "Enhanced security auditing"
+    }
+  },
+  "items": [
+    {
+      "id": "SEC-001",
+      "category": "credential_migration",
+      "priority": "HIGH",
+      "title": "Migrate Paystack Credentials to Database",
+      "description": "Move PAYSTACK_PUBLIC_KEY and PAYSTACK_SECRET_KEY from .env to payment_configurations table. Each landlord will configure their own Paystack account via Settings UI.",
+      "steps": [
+        "Create migration to add paystack_public_key, paystack_secret_key columns to payment_configurations",
+        "Update PaymentConfiguration model with new fields and encrypted cast for secret",
+        "Add helper method hasPaystackFullConfig()",
+        "Update PaystackService to accept landlord-specific config OR fallback to .env",
+        "Update PaymentMethodsTab.vue to include Paystack key inputs",
+        "Write tests for backward compatibility"
+      ],
+      "files": [
+        "database/migrations/2026_01_XX_add_paystack_keys_to_payment_configurations.php",
+        "app/Models/PaymentConfiguration.php",
+        "app/Services/PaystackService.php",
+        "resources/js/Pages/Settings/partials/PaymentMethodsTab.vue"
+      ],
+      "acceptance_criteria": [
+        "Paystack keys stored encrypted in database",
+        "Landlords can configure keys via Settings UI",
+        "Existing .env config continues to work as fallback",
+        "Secret key never exposed to frontend"
+      ],
+      "definition_of_done": [
+        "Migration runs successfully",
+        "Settings UI shows Paystack configuration",
+        "PaystackService uses landlord config when available",
+        "Tests pass for both DB and .env scenarios"
+      ],
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "SEC-002",
+      "category": "credential_migration",
+      "priority": "HIGH",
+      "title": "Migrate M-Pesa Consumer Credentials to Database",
+      "description": "Move MPESA_CONSUMER_KEY and MPESA_CONSUMER_SECRET from .env to payment_configurations. These are Safaricom app credentials that each landlord registers.",
+      "steps": [
+        "Create migration to add mpesa_consumer_key, mpesa_consumer_secret to payment_configurations",
+        "Update PaymentConfiguration model with encrypted secret",
+        "Update MpesaService to accept landlord-specific config",
+        "Update PaymentMethodsTab.vue with M-Pesa API credentials section",
+        "Maintain backward compatibility with .env fallback"
+      ],
+      "files": [
+        "database/migrations/2026_01_XX_add_mpesa_consumer_to_payment_configurations.php",
+        "app/Models/PaymentConfiguration.php",
+        "app/Services/MpesaService.php",
+        "resources/js/Pages/Settings/partials/PaymentMethodsTab.vue"
+      ],
+      "acceptance_criteria": [
+        "Consumer credentials stored encrypted per landlord",
+        "OAuth token generation uses landlord credentials",
+        "Backward compatibility with .env maintained"
+      ],
+      "definition_of_done": [
+        "Migration runs",
+        "MpesaService uses landlord config",
+        "STK Push works with per-landlord credentials",
+        "Tests pass"
+      ],
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["SEC-001"]
+    },
+    {
+      "id": "SEC-003",
+      "category": "credential_migration",
+      "priority": "MEDIUM",
+      "title": "Migrate M-Pesa B2C Credentials to Database",
+      "description": "Move MPESA_B2C_* variables (initiator, password, security_credential) from .env to payment_configurations. B2C is used for refunds.",
+      "steps": [
+        "Create migration for B2C columns (initiator, password, security_credential, result_url, timeout_url)",
+        "Update PaymentConfiguration model",
+        "Update MpesaService B2C methods",
+        "Add B2C section to PaymentMethodsTab.vue"
+      ],
+      "files": [
+        "database/migrations/2026_01_XX_add_mpesa_b2c_to_payment_configurations.php",
+        "app/Models/PaymentConfiguration.php",
+        "app/Services/MpesaService.php",
+        "resources/js/Pages/Settings/partials/PaymentMethodsTab.vue"
+      ],
+      "acceptance_criteria": [
+        "B2C credentials stored encrypted",
+        "Refunds work with per-landlord config",
+        "Security credential properly encrypted"
+      ],
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["SEC-002"]
+    },
+    {
+      "id": "SEC-004",
+      "category": "admin_dashboard",
+      "priority": "HIGH",
+      "title": "Create System Admin Dashboard",
+      "description": "Create admin dashboard for PropManager platform settings. Super admins can configure platform-level settings that apply across all tenants.",
+      "steps": [
+        "Create database/migrations for platform_settings table (key, value, encrypted, description)",
+        "Create app/Models/PlatformSetting.php model",
+        "Create app/Http/Controllers/Admin/PlatformSettingsController.php",
+        "Create resources/js/Pages/Admin/PlatformSettings.vue",
+        "Add route and navigation"
+      ],
+      "files": [
+        "database/migrations/2026_01_XX_create_platform_settings_table.php",
+        "app/Models/PlatformSetting.php",
+        "app/Http/Controllers/Admin/PlatformSettingsController.php",
+        "resources/js/Pages/Admin/PlatformSettings.vue",
+        "routes/web.php"
+      ],
+      "acceptance_criteria": [
+        "Super admins can access platform settings",
+        "Settings grouped by category (payments, email, security, etc.)",
+        "Sensitive settings encrypted and masked in UI",
+        "Changes logged to audit log"
+      ],
+      "definition_of_done": [
+        "Platform settings table created",
+        "Admin UI accessible at /admin/settings/platform",
+        "Settings can be viewed and updated",
+        "Authorization restricts to super_admin only"
+      ],
+      "estimated_effort": "large",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "SEC-005",
+      "category": "admin_dashboard",
+      "priority": "MEDIUM",
+      "title": "Move Platform Payment Wallets to Admin Settings",
+      "description": "Move INTASEND_PLATFORM_WALLET_ID and similar platform fee collection wallets from .env to PlatformSettings table, configurable via Admin dashboard.",
+      "steps": [
+        "Create seeder for platform payment settings",
+        "Update config/intasend.php to read from PlatformSetting model",
+        "Add Platform Payments section to Admin/PlatformSettings.vue",
+        "Update any services that use platform wallet IDs"
+      ],
+      "files": [
+        "database/seeders/PlatformSettingsSeeder.php",
+        "config/intasend.php",
+        "resources/js/Pages/Admin/PlatformSettings.vue"
+      ],
+      "acceptance_criteria": [
+        "Platform wallet IDs configurable via Admin UI",
+        "Platform fee percentages configurable",
+        "Changes take effect without deployment"
+      ],
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["SEC-004"]
+    },
+    {
+      "id": "SEC-006",
+      "category": "audit_security",
+      "priority": "LOW",
+      "title": "Implement Credential Access Logging",
+      "description": "Log all access to sensitive credentials (not values, just access events). Alert on suspicious patterns like repeated access failures.",
+      "steps": [
+        "Create middleware or service decorator for credential access logging",
+        "Log: who accessed, what credential type, when, IP address",
+        "Create alert rules for suspicious patterns",
+        "Add credential access report to Admin dashboard"
+      ],
+      "files": [
+        "app/Services/CredentialAccessLogger.php",
+        "app/Http/Middleware/LogCredentialAccess.php",
+        "resources/js/Pages/Admin/CredentialAccessLog.vue"
+      ],
+      "acceptance_criteria": [
+        "All credential access logged (not values)",
+        "Alerts for >10 failed accesses in 5 minutes",
+        "Admin can view access logs"
+      ],
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["SEC-004"]
+    },
+    {
+      "id": "SEC-007",
+      "category": "credential_migration",
+      "priority": "LOW",
+      "title": "Remove Deprecated .env Variables",
+      "description": "After SEC-001 through SEC-003 are deployed and verified, remove deprecated per-tenant credential variables from .env.example and add deprecation warnings.",
+      "steps": [
+        "Add deprecation warnings in config files when .env fallback is used",
+        "Update .env.example to remove per-tenant credential placeholders",
+        "Add migration guide to CLAUDE.md",
+        "Schedule removal of .env fallback in future version"
+      ],
+      "files": [
+        ".env.example",
+        "config/services.php",
+        "config/mpesa.php",
+        "CLAUDE.md"
+      ],
+      "acceptance_criteria": [
+        "Deprecation warnings logged when .env used for per-tenant creds",
+        ".env.example only contains platform-level vars",
+        "Documentation updated"
+      ],
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["SEC-001", "SEC-002", "SEC-003"]
+    }
+  ],
+  "executionOrder": [
+    "SEC-001 - Migrate Paystack to database (foundation)",
+    "SEC-002 - Migrate M-Pesa consumer creds (depends: SEC-001)",
+    "SEC-003 - Migrate M-Pesa B2C creds (depends: SEC-002)",
+    "SEC-004 - Create System Admin Dashboard",
+    "SEC-005 - Platform wallets to Admin (depends: SEC-004)",
+    "SEC-006 - Credential access logging (depends: SEC-004)",
+    "SEC-007 - Cleanup deprecated .env vars (depends: SEC-001,002,003)"
+  ],
+  "completionCriteria": {
+    "metrics": [
+      "All per-tenant credentials stored in database with encryption",
+      "No per-tenant API keys in .env.example",
+      "System Admin dashboard operational",
+      "All credential changes audited",
+      "Backward compatibility maintained during migration"
+    ],
+    "outputSignal": "<promise>SECURITY_REMEDIATION_COMPLETE</promise>"
+  }
+}

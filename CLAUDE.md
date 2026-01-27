@@ -152,7 +152,7 @@ Before writing ANY code, verify these patterns are followed. These are the stand
 
 ## Tech Stack
 
-- **Backend**: Laravel 12 (PHP 8.2+)
+- **Backend**: Laravel 12 (PHP 8.4+)
 - **Frontend**: Inertia.js with Vue 3, Tailwind CSS v4
 - **Build Tool**: Vite 7
 - **Database**: MySQL 9.4 (primary), SQLite supported for testing
@@ -338,6 +338,68 @@ Status calculation logic is in the dashboard route (routes/web.php:48-55).
 - Never bypass tenant scoping unless explicitly needed (use `withoutGlobalScope('landlord')`)
 - Encrypted fields: `national_id`, `bank_details` (configured in User model)
 - Invoice document paths should be private (S3 or storage/app/private)
+
+### Credential Storage Security Rules (CRITICAL)
+
+This is a **multi-tenant SaaS application**. Follow these rules strictly:
+
+#### 1. NEVER Put Per-Tenant Credentials in .env
+
+**Violations include storing these in .env:**
+- Payment provider API keys (Paystack, M-Pesa, IntaSend)
+- Per-landlord OAuth credentials
+- Per-landlord webhook secrets
+- Any credential that varies per landlord/tenant
+
+**Correct approach:**
+- Store in `payment_configurations` table (or appropriate settings table)
+- Use `encrypted` cast for secret keys
+- Provide frontend UI in Settings for landlords to configure
+
+#### 2. Platform-Level Secrets in .env (Acceptable)
+
+These belong in .env because they're shared across all tenants:
+- `APP_KEY` - Laravel encryption key
+- `DB_*` - Database connection
+- `MAIL_*` - Platform email sender (all emails go through platform)
+- `AWS_*` - Platform storage account
+- `REVERB_*` - WebSocket server
+- Platform's own payment wallet IDs (for collecting platform fees)
+
+#### 3. Encryption Requirements
+
+All secret keys stored in database MUST use Laravel's `encrypted` cast:
+```php
+protected $casts = [
+    'mpesa_passkey' => 'encrypted',
+    'intasend_secret_key' => 'encrypted',
+    // ... all secret keys
+];
+```
+
+#### 4. Frontend Never Sees Secrets
+
+- Never pass secret keys to frontend (even masked)
+- Use separate endpoints for key validation
+- Show only "Configured" / "Not configured" status
+
+#### 5. Audit Trail
+
+All credential changes must be logged via the `Auditable` trait.
+
+#### Environment Variable Categories Reference
+
+| Category | Storage | Example |
+|----------|---------|---------|
+| **Infrastructure** | .env | `DB_*`, `REDIS_*`, `CACHE_*` |
+| **Platform Services** | .env | `MAIL_*`, `AWS_*`, `REVERB_*` |
+| **Platform Fees** | .env | `INTASEND_PLATFORM_WALLET_ID` |
+| **Security Policies** | .env | `RATE_LIMIT_*`, `PASSWORD_*` |
+| **Per-Tenant Payment** | Database | Paystack, M-Pesa, IntaSend keys |
+| **Per-Tenant OAuth** | Database | If white-label OAuth |
+| **Per-Tenant Webhooks** | Database | Webhook secrets/challenges |
+
+**See:** `app/Models/PaymentConfiguration.php`, `resources/js/Pages/Settings/partials/PaymentMethodsTab.vue`
 
 ### Database
 - All tenant-scoped tables must have `landlord_id` foreign key
@@ -807,6 +869,23 @@ Water readings flow: WaterReading → Invoice → Payment
   - tenant:read - Tenant mobile app access
   - landlord:manage - Landlord/caretaker access
   - integration:webhook - Third-party integrations
+
+#### 8. IntaSend M-Pesa Integration (Configuration Complete)
+- **Per-Landlord Configuration** (payment_configurations table):
+  - `intasend_enabled` - Toggle IntaSend payments
+  - `intasend_publishable_key` - Public key (ISPubKey_*)
+  - `intasend_secret_key` - Secret key (encrypted, ISSecretKey_*)
+  - `intasend_webhook_challenge` - Challenge-based webhook verification
+  - `intasend_environment` - sandbox/production
+- **Platform Configuration** (config/intasend.php):
+  - API endpoints (sandbox/production URLs)
+  - HTTP client settings (timeout, retry)
+  - Platform wallet ID for fee collection
+- **Settings UI**: Settings > Payment Methods tab
+- **Webhook Verification**: Challenge-based (NOT HMAC)
+- **Transaction States**: PENDING → PROCESSING → COMPLETE/FAILED
+- **Docs**: https://developers.intasend.com/docs
+- **Next**: PAY-007 (IntaSendService), PAY-009 (Webhook Controller)
 
 ### 📋 Planned Features (In Order)
 
