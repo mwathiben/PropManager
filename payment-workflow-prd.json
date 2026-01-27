@@ -620,8 +620,8 @@
       ],
       "verification": "Configure building with 2 default deductions; start move-out inspection; verify both auto-added.",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["PAY-012"]
     },
     {

@@ -195,6 +195,11 @@ class Building extends Model
         return $this->hasMany(KycRequirement::class);
     }
 
+    public function moveOutDeductionCategories(): HasMany
+    {
+        return $this->hasMany(MoveOutDeductionCategory::class);
+    }
+
     // --- WING HELPERS ---
 
     /**

@@ -1,8 +1,12 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import BuildingMap from '@/Components/BuildingMap.vue';
 import { Head, useForm, Link, router, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
+import { useFormatters } from '@/composables';
+import type { BuildingsEditPageProps, BuildingEditUnit } from '@/types/finances';
+
+const { formatMoney } = useFormatters();
 import HomeIcon from '@heroicons/vue/24/outline/HomeIcon';
 import BuildingOfficeIcon from '@heroicons/vue/24/outline/BuildingOfficeIcon';
 import Cog6ToothIcon from '@heroicons/vue/24/outline/Cog6ToothIcon';
@@ -48,12 +52,7 @@ import CalendarDaysIcon from '@heroicons/vue/24/outline/CalendarDaysIcon';
 import CheckCircleIcon from '@heroicons/vue/24/solid/CheckCircleIcon';
 import StarIcon from '@heroicons/vue/24/solid/StarIcon';
 
-const props = defineProps({
-    building: Object,
-    buildings: Array,
-    units: Array,
-    amenityOptions: Object
-});
+const props = defineProps<BuildingsEditPageProps>();
 
 // Feature access from subscription
 const page = usePage();
@@ -67,6 +66,7 @@ const tabs = [
     { id: 'amenities', name: 'Amenities', icon: SparklesIcon, description: 'Features & facilities' },
     { id: 'location', name: 'Location', icon: MapPinIcon, description: 'Map & coordinates' },
     { id: 'automation', name: 'Automation', icon: ClockIcon, description: 'Invoice automation' },
+    { id: 'deductions', name: 'Deductions', icon: DocumentTextIcon, description: 'Move-out deduction defaults' },
 ];
 
 // --- AMENITY CATEGORIES CONFIG ---
@@ -630,7 +630,7 @@ const updateCoordinates = (coords) => {
                                         <!-- Bottom: Rent -->
                                         <div class="text-right">
                                             <span class="text-sm font-semibold text-gray-700">
-                                                KES {{ Number(findUnit(floor, col).target_rent).toLocaleString() }}
+                                                {{ formatMoney(findUnit(floor, col).target_rent) }}
                                             </span>
                                         </div>
                                     </div>
@@ -808,7 +808,7 @@ const updateCoordinates = (coords) => {
                                             : 'border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50'
                                     ]">
                                     <div :class="[
-                                        'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
+                                        'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
                                         isAmenitySelected(key)
                                             ? `bg-${categoryConfig[category]?.color || 'indigo'}-500 text-white`
                                             : 'bg-gray-100 text-gray-400'
@@ -904,7 +904,7 @@ const updateCoordinates = (coords) => {
                     <!-- Water Configuration Link (only if water billing feature is enabled) -->
                     <div v-if="canAccessWater" class="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl border border-blue-100 p-6">
                         <div class="flex items-start gap-4">
-                            <div class="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center flex-shrink-0">
+                            <div class="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center shrink-0">
                                 <Cog6ToothIcon class="w-6 h-6 text-white" />
                             </div>
                             <div class="flex-1">
@@ -987,7 +987,7 @@ const updateCoordinates = (coords) => {
                             <!-- Info Box -->
                             <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
                                 <div class="flex gap-3">
-                                    <DocumentTextIcon class="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                                    <DocumentTextIcon class="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
                                     <div class="text-sm text-blue-700">
                                         <p class="font-medium mb-1">What gets included in automated invoices:</p>
                                         <ul class="list-disc list-inside space-y-1 text-blue-600">
@@ -1009,6 +1009,50 @@ const updateCoordinates = (coords) => {
                                     {{ automationForm.processing ? 'Saving...' : 'Save Automation Settings' }}
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- === TAB: DEDUCTIONS === -->
+                <div v-show="activeTab === 'deductions'" class="space-y-6">
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+                            <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+                                <DocumentTextIcon class="w-5 h-5 text-gray-400" />
+                                Move-Out Deduction Defaults
+                            </h3>
+                            <p class="text-xs text-gray-500 mt-1">Configure deductions that automatically apply during move-out inspections</p>
+                        </div>
+                        <div class="p-6 space-y-6">
+                            <!-- Info Box -->
+                            <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                                <div class="flex gap-3">
+                                    <DocumentTextIcon class="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                                    <div class="text-sm text-blue-700">
+                                        <p class="font-medium mb-1">About Deduction Categories:</p>
+                                        <ul class="list-disc list-inside space-y-1 text-blue-600">
+                                            <li>Categories marked "Always Apply" are auto-added when inspections start</li>
+                                            <li>You can create building-specific or global categories</li>
+                                            <li>Default amounts can be adjusted during each inspection</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Manage Categories Button -->
+                            <div class="flex justify-center py-4">
+                                <Link
+                                    :href="route('move-out-categories.index')"
+                                    class="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold text-indigo-600 bg-indigo-50 rounded-xl hover:bg-indigo-100 transition-colors"
+                                >
+                                    <Cog6ToothIcon class="w-5 h-5" />
+                                    Manage Deduction Categories
+                                </Link>
+                            </div>
+
+                            <p class="text-center text-sm text-gray-500">
+                                Configure default deduction categories like cleaning fees, paint works, and repairs.
+                            </p>
                         </div>
                     </div>
                 </div>

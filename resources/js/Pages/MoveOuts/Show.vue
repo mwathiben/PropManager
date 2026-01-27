@@ -1,7 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, router, Link } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
+import { useFormatters } from '@/composables';
+import type { MoveOutShowPageProps } from '@/types/finances';
 import {
     ArrowLeftIcon,
     ArrowRightOnRectangleIcon,
@@ -19,9 +21,8 @@ import {
     CurrencyDollarIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    moveOut: Object,
-});
+const props = defineProps<MoveOutShowPageProps>();
+const { formatMoney: formatCurrency, formatDate, todayAsISODate } = useFormatters();
 
 const lease = props.moveOut.lease;
 const tenant = lease.tenant;
@@ -34,7 +35,7 @@ const editingDeduction = ref(null);
 
 // Forms
 const inspectionForm = useForm({
-    actual_move_out_date: props.moveOut.actual_move_out_date || new Date().toISOString().split('T')[0],
+    actual_move_out_date: props.moveOut.actual_move_out_date || todayAsISODate(),
 });
 
 const deductionForm = useForm({
@@ -72,24 +73,6 @@ const estimatedRefund = computed(() => {
     const arrears = parseFloat(props.moveOut.arrears_balance) || 0;
     return Math.max(0, deposit - totalDeductions.value - arrears);
 });
-
-// Helpers
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-    }).format(amount || 0);
-};
-
-const formatDate = (date) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString('en-KE', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-    });
-};
 
 const getStatusInfo = () => {
     switch (props.moveOut.status) {
@@ -274,7 +257,12 @@ const statusInfo = computed(() => getStatusInfo());
                                             <CurrencyDollarIcon class="w-5 h-5 text-red-600" />
                                         </div>
                                         <div>
-                                            <p class="font-medium text-gray-900">{{ deduction.description }}</p>
+                                            <p class="font-medium text-gray-900">
+                                                {{ deduction.description }}
+                                                <span v-if="deduction.auto_applied" class="ml-2 inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                                                    Auto
+                                                </span>
+                                            </p>
                                             <p v-if="deduction.notes" class="text-sm text-gray-500">{{ deduction.notes }}</p>
                                         </div>
                                     </div>
@@ -429,9 +417,9 @@ const statusInfo = computed(() => getStatusInfo());
         <!-- Deduction Modal -->
         <div v-if="showDeductionModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-                <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showDeductionModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="showDeductionModal = false"></div>
 
-                <div class="relative inline-block w-full max-w-md my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-xl shadow-xl">
+                <div class="relative z-50 inline-block w-full max-w-md my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
                         <h3 class="text-lg font-semibold text-gray-900">
                             {{ editingDeduction ? 'Edit Deduction' : 'Add Deduction' }}
@@ -496,9 +484,9 @@ const statusInfo = computed(() => getStatusInfo());
         <!-- Settlement Modal -->
         <div v-if="showSettlementModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-                <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showSettlementModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="showSettlementModal = false"></div>
 
-                <div class="relative inline-block w-full max-w-md my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-xl shadow-xl">
+                <div class="relative z-50 inline-block w-full max-w-md my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
                         <h3 class="text-lg font-semibold text-gray-900">Complete Settlement</h3>
                     </div>

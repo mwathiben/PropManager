@@ -18,10 +18,12 @@ class MoveOutDeduction extends Model
         'amount',
         'notes',
         'photo_path',
+        'auto_applied',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'auto_applied' => 'boolean',
     ];
 
     /**

@@ -13,6 +13,7 @@ use App\Http\Requests\MoveOut\UpdateMoveOutRequest;
 use App\Models\Lease;
 use App\Models\MoveOut;
 use App\Models\MoveOutDeduction;
+use App\Models\MoveOutDeductionCategory;
 use App\Models\TenantActivity;
 use App\Models\Unit;
 use Illuminate\Http\Request;
@@ -38,7 +39,7 @@ class MoveOutController extends Controller
         $status = $request->get('status', 'active');
 
         $query = MoveOut::where('landlord_id', $landlordId)
-            ->with(['lease.tenant', 'lease.unit.building.property', 'deductions', 'processor']);
+            ->with(['lease.tenant', 'lease.unit.building.property', 'deductions.category', 'processor']);
 
         if ($status === 'active') {
             $query->active();
@@ -164,7 +165,7 @@ class MoveOutController extends Controller
         $moveOut->load([
             'lease.tenant',
             'lease.unit.building.property',
-            'deductions',
+            'deductions.category',
             'processor',
         ]);
 
@@ -214,11 +215,13 @@ class MoveOutController extends Controller
                 'status' => 'inspection_pending',
             ]);
 
+            $this->autoApplyDeductions($moveOut, $landlordId);
+
             TenantActivity::create([
                 'landlord_id' => $landlordId,
                 'tenant_id' => $moveOut->lease->tenant_id,
                 'performed_by' => $user->id,
-                'action' => 'move_out_inspection_started',
+                'type' => 'move_out_inspection_started',
                 'description' => 'Tenant moved out. Inspection started.',
                 'metadata' => ['move_out_id' => $moveOut->id],
             ]);
@@ -491,5 +494,41 @@ class MoveOutController extends Controller
         }
 
         return Storage::disk('private')->response($deduction->photo_path);
+    }
+
+    /**
+     * Auto-apply deductions from categories with always_apply flag.
+     */
+    private function autoApplyDeductions(MoveOut $moveOut, int $landlordId): void
+    {
+        $buildingId = $moveOut->lease->unit->building_id;
+
+        $categories = MoveOutDeductionCategory::query()
+            ->active()
+            ->alwaysApply()
+            ->where(function ($query) use ($buildingId, $landlordId) {
+                $query->where('building_id', $buildingId)
+                    ->orWhere(function ($q) use ($landlordId) {
+                        $q->where('landlord_id', $landlordId)
+                            ->whereNull('building_id');
+                    });
+            })
+            ->ordered()
+            ->get();
+
+        foreach ($categories as $category) {
+            MoveOutDeduction::create([
+                'move_out_id' => $moveOut->id,
+                'category_id' => $category->id,
+                'description' => $category->name,
+                'amount' => $category->default_amount,
+                'auto_applied' => true,
+            ]);
+        }
+
+        if ($categories->isNotEmpty()) {
+            $moveOut->calculateRefund();
+            $moveOut->save();
+        }
     }
 }

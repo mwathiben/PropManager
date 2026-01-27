@@ -11428,3 +11428,114 @@ The PRD assumed the `/api/v1/tenant/payments/intasend/initiate` endpoint existed
 The `intasend_transactions.intasend_invoice_id` column was non-nullable, but the controller creates the transaction before the API call returns this value. Fixed by making the column nullable.
 
 **PAY-011 COMPLETE**
+
+---
+
+## PAY-013: Implement Building Default Deductions
+**Status:** PASSED
+**Date:** 2026-01-27
+**Attempts:** 1
+
+### Implementation Summary
+
+Implemented auto-apply default deductions for move-out inspections. When a landlord starts a move-out inspection, deduction categories marked as `always_apply` are automatically created as deductions. Building-specific and landlord global categories are both applied.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/2026_01_27_153609_add_auto_applied_to_move_out_deductions_table.php` | Add auto_applied boolean column |
+| `tests/Feature/Controllers/MoveOutStartInspectionAutoDeductionTest.php` | 9 tests for auto-apply logic |
+| `tests/Unit/Models/BuildingMoveOutCategoryRelationTest.php` | 2 tests for Building relationship |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Models/MoveOutDeduction.php` | Added auto_applied to fillable and casts |
+| `app/Models/Building.php` | Added moveOutDeductionCategories() relationship |
+| `app/Http/Controllers/MoveOutController.php` | Added autoApplyDeductions() method, fixed TenantActivity field bug |
+| `app/Http/Controllers/MoveOutDeductionCategoryController.php` | Updated index() to pass buildings and canCreate to frontend |
+| `resources/js/Pages/MoveOutCategories/Index.vue` | Complete CRUD UI for category management |
+| `resources/js/Pages/Buildings/Edit.vue` | Added Deductions tab |
+| `resources/js/Pages/MoveOuts/Show.vue` | Added auto-applied badge for deductions |
+
+### Backend Implementation
+
+**autoApplyDeductions() method**:
+- Fetches categories with `always_apply=true` for building + global (landlord) categories
+- Excludes platform defaults (categories with no landlord_id)
+- Creates MoveOutDeduction for each with `auto_applied=true`
+- Recalculates refund amount after applying deductions
+
+**Key query logic**:
+```php
+$categories = MoveOutDeductionCategory::query()
+    ->active()
+    ->alwaysApply()
+    ->where(function ($query) use ($buildingId, $landlordId) {
+        $query->where('building_id', $buildingId)
+            ->orWhere(function ($q) use ($landlordId) {
+                $q->where('landlord_id', $landlordId)
+                    ->whereNull('building_id');
+            });
+    })
+    ->ordered()
+    ->get();
+```
+
+### Frontend Implementation
+
+**MoveOutCategories/Index.vue** (complete rewrite):
+- Table listing all categories with pagination
+- Badge showing scope (Platform Default, Building-specific, All Buildings)
+- Toggle switches for `always_apply` and `is_active`
+- Add/Edit modal with validation
+- Delete confirmation dialog
+- Disabled actions for platform defaults
+
+**Buildings/Edit.vue**:
+- Added "Deductions" tab (after Automation tab)
+- Link to category management page filtered by building
+
+**MoveOuts/Show.vue**:
+- Added blue "Auto" badge for deductions where `auto_applied=true`
+
+### Test Coverage (TDD Approach)
+
+| Test | Description |
+|------|-------------|
+| test_start_inspection_auto_applies_always_apply_deductions | Full happy path - creates 2 deductions |
+| test_auto_applied_flag_is_true_for_auto_created_deductions | Verifies auto_applied=true |
+| test_only_active_categories_are_auto_applied | Inactive categories excluded |
+| test_building_specific_and_global_categories_both_apply | Both scopes work |
+| test_categories_from_other_buildings_are_not_auto_applied | Isolation between buildings |
+| test_categories_without_always_apply_are_not_auto_applied | Respects always_apply flag |
+| test_refund_is_recalculated_after_auto_applying_deductions | Financial calculation verified |
+| test_no_deductions_created_when_no_always_apply_categories_exist | Empty case handled |
+| test_platform_defaults_with_always_apply_are_not_auto_applied | Platform defaults excluded |
+| test_building_has_move_out_deduction_categories_relationship | Relationship works |
+| test_relationship_only_returns_categories_for_this_building | Correct scoping |
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| Landlord can set default deductions per building | PASS - MoveOutCategories/Index.vue allows configuration |
+| Defaults auto-apply when inspection starts | PASS - startInspection() calls autoApplyDeductions() |
+| Auto-applied deductions clearly marked | PASS - auto_applied flag + blue "Auto" badge in UI |
+| Landlord can modify/remove auto-applied during inspection | PASS - Existing edit/delete works on auto-applied deductions |
+
+### Bug Fix
+
+Fixed pre-existing bug in MoveOutController@startInspection:
+- TenantActivity::create used `'action' => 'move_out_inspection_started'` but schema has `'type'` column
+- Changed to `'type' => 'move_out_inspection_started'`
+
+### Verification Results
+
+- **MoveOut tests**: 49/49 passed (105 assertions)
+- **vendor/bin/pint**: 802 files PASS
+- **npm run build**: Build successful
+
+**PAY-013 COMPLETE**
