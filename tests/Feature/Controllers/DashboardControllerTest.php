@@ -35,7 +35,7 @@ class DashboardControllerTest extends TestCase
         $response->assertOk();
     }
 
-    public function test_tenant_gets_redirected_to_tenant_portal(): void
+    public function test_tenant_sees_tenant_dashboard(): void
     {
         $setupData = $this->createLandlordWithFullSetup();
         $unit = $setupData['units']->first();
@@ -44,7 +44,10 @@ class DashboardControllerTest extends TestCase
         $response = $this->actingAs($tenant)
             ->get(route('dashboard'));
 
-        $response->assertRedirect();
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('Tenant/Dashboard')
+        );
     }
 
     public function test_super_admin_sees_admin_dashboard(): void
