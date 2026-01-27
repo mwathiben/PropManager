@@ -4,11 +4,12 @@ namespace App\Models;
 
 use App\Traits\Auditable;
 use App\Traits\TenantScope;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Property extends Model
 {
-    use Auditable, TenantScope;
+    use Auditable, HasFactory, TenantScope;
 
     protected $fillable = [
         'landlord_id',

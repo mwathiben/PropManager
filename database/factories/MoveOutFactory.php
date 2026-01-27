@@ -23,7 +23,7 @@ class MoveOutFactory extends Factory
             'notice_date' => now(),
             'intended_move_out_date' => now()->addDays(30),
             'actual_move_out_date' => null,
-            'status' => 'initiated',
+            'status' => 'notice_given',
             'inspection_notes' => null,
             'deposit_held' => $depositHeld,
             'total_deductions' => 0,
@@ -36,10 +36,10 @@ class MoveOutFactory extends Factory
         ];
     }
 
-    public function initiated(): static
+    public function noticeGiven(): static
     {
         return $this->state([
-            'status' => 'initiated',
+            'status' => 'notice_given',
         ]);
     }
 
@@ -73,7 +73,7 @@ class MoveOutFactory extends Factory
                 'status' => 'completed',
                 'actual_move_out_date' => now(),
                 'settled_at' => now(),
-                'settlement_method' => fake()->randomElement(['bank_transfer', 'mpesa', 'cash', 'cheque']),
+                'settlement_method' => fake()->randomElement(['bank_transfer', 'mobile_money', 'cash']),
                 'settlement_reference' => fake()->uuid(),
                 'inspection_notes' => fake()->paragraph(),
             ];

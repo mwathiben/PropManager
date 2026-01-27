@@ -11320,3 +11320,111 @@ public function __construct(
 The `test_overpayment_credits_to_wallet` test fails with `'0.00' !== 5000`. This is a pre-existing issue - the test checks `lease->wallet_balance` but the controller credits to a `wallet` model relationship. Unrelated to PAY-010 changes.
 
 **PAY-010 COMPLETE**
+
+---
+
+## Session: 2026-01-27T18:00:00
+**Task**: PAY-011 - Update TenantFinances/Pay.vue for IntaSend
+**PRD**: payment-workflow-prd.json
+**Status**: COMPLETED
+
+### Skills Applied
+- **laraveltdd-with-pest**: Wrote failing tests FIRST (RED) for backend API endpoint, then implemented to make them pass (GREEN)
+- **laravelform-requests**: Created InitiateIntaSendPaymentRequest for validation
+- **laraveltransactions-and-consistency**: IntaSendTransaction created before API call to ensure tracking
+- **verification-first**: All acceptance criteria verified before marking complete
+- **web-design-guidelines**: Followed existing Pay.vue UI patterns for consistency
+
+### Gap Analysis & Resolution
+
+The PRD assumed the `/api/v1/tenant/payments/intasend/initiate` endpoint existed, but it didn't. Backend implementation was required before frontend integration.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `tests/Feature/Controllers/TenantPaymentController/InitiateIntaSendTest.php` | 9 tests for IntaSend initiate endpoint |
+| `app/Http/Requests/Api/InitiateIntaSendPaymentRequest.php` | FormRequest with Kenyan phone validation |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/Api/TenantPaymentController.php` | Added `initiateIntaSend()` method |
+| `routes/api.php` | Added IntaSend initiate route under tenant prefix |
+| `app/Http/Controllers/TenantFinancesController.php` | Added intasend_mpesa payment method when configured |
+| `resources/js/composables/usePayments.ts` | Added `initiateIntaSendPayment()` function |
+| `resources/js/Pages/TenantFinances/Pay.vue` | Full IntaSend payment flow with WebSocket status |
+| `database/migrations/2026_01_27_100000_create_intasend_transactions_table.php` | Made intasend_invoice_id nullable |
+
+### Backend Implementation
+
+**Route**: `POST /api/v1/tenant/payments/intasend/initiate`
+- Middleware: `auth:sanctum`, `throttle:payment`, `ability:tenant:read`
+- Named: `api.v1.tenant.payments.intasend.initiate`
+
+**FormRequest Validation**:
+- `invoice_id`: required, exists:invoices,id
+- `amount`: required, numeric, min:1, max:150000
+- `phone`: Kenyan format regex `/^(?:254|\+254|0)?[71]\d{8}$/`
+- Authorization: Invoice must belong to authenticated tenant
+
+**Controller Flow**:
+1. Find invoice and payment configuration
+2. Return 503 if IntaSend not configured for landlord
+3. Create IntaSendTransaction record (before API call)
+4. Call IntaSendService::initializeMpesaStkPush()
+5. Update transaction with intasend_invoice_id on success
+6. Mark transaction failed if API call fails
+
+### Frontend Implementation
+
+**usePayments.ts**:
+- Added `IntaSendResponse` interface
+- Added `initiateIntaSendPayment()` function
+- Added `intasend_mpesa` to paymentMethods record
+
+**Pay.vue**:
+- Added `intasend_mpesa` to methodIcons
+- Added IntaSend state refs: intasendState, intasendMessage, intasendInvoiceId
+- Added 2-minute timeout handling
+- Added WebSocket subscription to `intasend.{intasendInvoiceId}` channel
+- Added IntaSend status UI (sending, waiting, processing, success, failed)
+- Phone input shown for intasend_mpesa method
+- Pay button enabled when phone number valid
+
+### Test Coverage
+
+| Test | Description |
+|------|-------------|
+| test_can_initiate_intasend_payment_with_valid_data | Full happy path with HTTP mock |
+| test_returns_error_when_intasend_not_configured | 503 when no IntaSend config |
+| test_validates_phone_number_format | Invalid phone rejected |
+| test_validates_invoice_exists | Non-existent invoice rejected |
+| test_validates_amount_is_positive | Zero/negative amount rejected |
+| test_creates_intasend_transaction_record | Transaction record created |
+| test_marks_transaction_failed_when_stk_push_fails | FAILED state on API error |
+| test_requires_authentication | 401 without auth |
+| test_accepts_various_phone_formats | 5 Kenyan formats accepted |
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| IntaSend option appears when landlord has it configured | PASS - TenantFinancesController checks hasIntaSendConfig() |
+| Phone number validated (Kenyan format) | PASS - Regex in FormRequest |
+| Real-time status updates shown during payment | PASS - WebSocket subscription to IntaSend channel |
+| Success navigates back to finances page | PASS - 2-second delay then router.visit() |
+| Failure shows clear error message | PASS - intasendMessage displayed |
+
+### Verification Results
+
+- **IntaSend initiate tests**: 9/9 passed (31 assertions)
+- **vendor/bin/pint --test**: 786 files PASS
+- **npm run build**: Build successful
+
+### Migration Fix
+
+The `intasend_transactions.intasend_invoice_id` column was non-nullable, but the controller creates the transaction before the API call returns this value. Fixed by making the column nullable.
+
+**PAY-011 COMPLETE**

@@ -3,9 +3,15 @@
 namespace Tests\Traits;
 
 use App\Models\Building;
+use App\Models\Invitation;
 use App\Models\Invoice;
 use App\Models\Lease;
+use App\Models\NotificationPreference;
+use App\Models\Payment;
+use App\Models\PaymentLink;
 use App\Models\Property;
+use App\Models\TenantMessage;
+use App\Models\Ticket;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\WaterReading;
@@ -122,5 +128,84 @@ trait CreatesTestData
         }
 
         return $caretaker;
+    }
+
+    protected function createPaymentWithInvoice(Lease $lease, float $amount = 5000): array
+    {
+        $invoice = $this->createInvoiceForLease($lease, 'partial');
+        $payment = Payment::create([
+            'invoice_id' => $invoice->id,
+            'lease_id' => $lease->id,
+            'landlord_id' => $lease->landlord_id,
+            'amount' => $amount,
+            'payment_method' => 'mpesa',
+            'reference' => 'PAY-'.uniqid(),
+            'payment_date' => now(),
+        ]);
+
+        return compact('payment', 'invoice');
+    }
+
+    protected function createTenantMessage(User $landlord, User $tenant, array $attributes = []): TenantMessage
+    {
+        return TenantMessage::create(array_merge([
+            'landlord_id' => $landlord->id,
+            'user_id' => $tenant->id,
+            'twilio_message_sid' => 'SM'.bin2hex(random_bytes(16)),
+            'from_number' => $tenant->mobile_number ?? '+254712345678',
+            'body' => 'Test message from tenant',
+            'source' => TenantMessage::SOURCE_WHATSAPP,
+            'status' => TenantMessage::STATUS_RECEIVED,
+        ], $attributes));
+    }
+
+    protected function createNotificationPreference(User $user, User $landlord, array $attributes = []): NotificationPreference
+    {
+        return NotificationPreference::create(array_merge([
+            'user_id' => $user->id,
+            'landlord_id' => $landlord->id,
+            'email_enabled' => true,
+            'whatsapp_enabled' => true,
+            'whatsapp_number' => '+254712345678',
+            'sms_enabled' => false,
+            'push_enabled' => false,
+            'quiet_hours_enabled' => false,
+        ], $attributes));
+    }
+
+    protected function createPaymentLink(Invoice $invoice, array $attributes = []): PaymentLink
+    {
+        return PaymentLink::create(array_merge([
+            'token' => PaymentLink::generateToken(),
+            'invoice_id' => $invoice->id,
+            'landlord_id' => $invoice->landlord_id,
+            'expires_at' => now()->addDays(30),
+        ], $attributes));
+    }
+
+    protected function createTicketWithStatus(User $landlord, Building $building, User $reporter, string $status = 'open'): Ticket
+    {
+        return Ticket::create([
+            'landlord_id' => $landlord->id,
+            'building_id' => $building->id,
+            'reporter_id' => $reporter->id,
+            'category' => 'issue',
+            'subcategory' => 'plumbing',
+            'title' => 'Test Ticket',
+            'description' => 'Test description',
+            'priority' => 'medium',
+            'status' => $status,
+        ]);
+    }
+
+    protected function createInvitation(User $landlord, Property $property, array $attributes = []): Invitation
+    {
+        return Invitation::create(array_merge([
+            'landlord_id' => $landlord->id,
+            'property_id' => $property->id,
+            'email' => 'caretaker@example.com',
+            'token' => bin2hex(random_bytes(32)),
+            'expires_at' => now()->addDays(30),
+        ], $attributes));
     }
 }

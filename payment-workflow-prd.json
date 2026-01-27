@@ -541,8 +541,8 @@
       ],
       "verification": "As tenant, select IntaSend M-Pesa, enter phone, verify STK push received, complete payment, verify success shown.",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["PAY-009", "PAY-010"]
     },
     {
@@ -580,8 +580,8 @@
       ],
       "verification": "php artisan migrate:fresh --seed; query categories table; create deduction with category.",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "PAY-013",

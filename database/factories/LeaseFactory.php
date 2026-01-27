@@ -24,7 +24,7 @@ class LeaseFactory extends Factory
             'landlord_id' => $unit->landlord_id,
             'rent_amount' => $unit->target_rent ?? fake()->numberBetween(15000, 50000),
             'deposit_amount' => $unit->target_rent ?? fake()->numberBetween(15000, 50000),
-            'service_charge' => fake()->optional(0.3)->numberBetween(500, 2000),
+            'service_charge' => fake()->boolean(30) ? fake()->numberBetween(500, 2000) : 0,
             'start_date' => now(),
             'is_active' => true,
             'wallet_balance' => 0,

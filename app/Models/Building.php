@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Traits\Auditable;
 use App\Traits\TenantScope;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -43,7 +44,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Building extends Model
 {
-    use Auditable, TenantScope;
+    use Auditable, HasFactory, TenantScope;
 
     protected $fillable = [
         'property_id',
