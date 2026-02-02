@@ -1,8 +1,8 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
-import { useEcho } from '@/composables/useEcho';
+import { useEcho, useErrorHandler } from '@/composables';
 import TenantProfileModal from '@/Components/Modals/TenantProfileModal.vue';
 import SlideOutPanel from '@/Components/SlideOutPanel.vue';
 import AddWingModal from '@/Components/Modals/AddWingModal.vue';
@@ -11,6 +11,15 @@ import ActionItemCard from '@/Components/ActionItemCard.vue';
 import MetricCard from '@/Components/MetricCard.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import { useFormatters } from '@/composables';
+import type {
+    DashboardPageProps,
+    DashboardUnit,
+    DashboardPayment,
+    DashboardTicket,
+    FinancialMetrics,
+    ArrearsAging,
+    LandlordActionItems,
+} from '@/types';
 import {
     UserGroupIcon,
     WrenchScrewdriverIcon,
@@ -37,50 +46,30 @@ import {
     CheckBadgeIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    properties: Array,
-    property: Object,
-    buildings: Array,
-    activeBuilding: Object,
-    wings: Array,
-    hasWings: Boolean,
-    activeWingId: Number,
-    activeFloor: Number,
-    allFloors: Array,
-    units: Array,
-    allUnits: Array,
-    unitsByWing: Array,
-    actionItems: Object,
-    financialMetrics: Object,
-    arrearsAging: Object,
-    stats: Object,
-    recentPayments: Array,
-    recentTickets: Array,
-    expiringLeases: Array,
-    tenantKycStats: Object,
-});
+const props = defineProps<DashboardPageProps>();
 
 // --- STATE ---
-const selectedUnit = ref(null);
+const { logError } = useErrorHandler();
+const selectedUnit = ref<DashboardUnit | null>(null);
 const showAddWingModal = ref(false);
 const showProfileModal = ref(false);
 const showMassHikeModal = ref(false);
 const showPaymentPanel = ref(false);
-const selectedPayment = ref(null);
-const viewMode = ref('grid'); // 'grid' or 'list'
-const unitDetail = ref(null);
+const selectedPayment = ref<DashboardPayment | null>(null);
+const viewMode = ref<'grid' | 'list'>('grid');
+const unitDetail = ref<Record<string, unknown> | null>(null);
 const loadingUnitDetail = ref(false);
 
 // Wing/Floor filter state (initialized from props)
-const activeWingFilter = ref(props.activeWingId || null);
-const activeFloorFilter = ref(props.activeFloor || null);
+const activeWingFilter = ref<number | null>(props.activeWingId ?? null);
+const activeFloorFilter = ref<number | null>(props.activeFloor ?? null);
 
 // Local state for real-time updates (initialized from props)
-const localRecentPayments = ref([...(props.recentPayments || [])]);
-const localFinancialMetrics = ref({ ...props.financialMetrics });
-const localArrearsAging = ref({ ...props.arrearsAging });
-const localRecentTickets = ref([...(props.recentTickets || [])]);
-const localActionItems = ref({ ...props.actionItems });
+const localRecentPayments = ref<DashboardPayment[]>([...(props.recentPayments || [])]);
+const localFinancialMetrics = ref<FinancialMetrics>({ ...props.financialMetrics });
+const localArrearsAging = ref<ArrearsAging>({ ...props.arrearsAging });
+const localRecentTickets = ref<DashboardTicket[]>([...(props.recentTickets || [])]);
+const localActionItems = ref<LandlordActionItems>({ ...props.actionItems });
 const metricsUpdating = ref(false);
 
 // Fetch unit detail when a unit is selected
@@ -91,7 +80,7 @@ watch(() => selectedUnit.value, async (unit) => {
             const response = await fetch(route('units.detail', unit.id));
             unitDetail.value = await response.json();
         } catch (e) {
-            console.error('Failed to load unit detail', e);
+            logError(e, { component: 'Dashboard', action: 'loadUnitDetail' });
             unitDetail.value = null;
         } finally {
             loadingUnitDetail.value = false;
@@ -102,7 +91,7 @@ watch(() => selectedUnit.value, async (unit) => {
 }, { immediate: false });
 
 // --- ACTIONS ---
-const selectUnit = (unit) => {
+const selectUnit = (unit: DashboardUnit) => {
     selectedUnit.value = unit;
 };
 
@@ -165,13 +154,13 @@ const clearFilters = () => {
     });
 };
 
-const viewPayment = (payment) => {
+const viewPayment = (payment: DashboardPayment) => {
     selectedPayment.value = payment;
     showPaymentPanel.value = true;
 };
 
 // --- HELPERS (from composables) ---
-const { formatMoney, formatDate, formatRelativeDate } = useFormatters();
+const { formatMoney, formatDate, formatRelativeDate, todayAsISODate } = useFormatters();
 
 const totalArrears = computed(() => {
     return (localArrearsAging.value?.['0_30'] || 0) +
@@ -294,7 +283,11 @@ onMounted(() => {
                 id: data.payment_id,
                 amount: data.amount,
                 payment_method: data.payment_method,
-                payment_date: new Date().toISOString().split('T')[0],
+                payment_date: todayAsISODate(),
+                // Split payment details (for IntaSend/Paystack)
+                platform_fee: data.platform_fee,
+                landlord_amount: data.landlord_amount,
+                split_provider: data.split_provider,
                 invoice: {
                     id: data.invoice_id,
                     lease: {
@@ -966,7 +959,12 @@ onUnmounted(() => {
                                 </div>
                             </div>
                             <div class="text-right">
-                                <p class="font-bold text-green-600">{{ formatMoney(payment.amount) }}</p>
+                                <p
+                                    class="font-bold text-green-600"
+                                    :title="payment.platform_fee ? `Net: ${formatMoney(payment.landlord_amount)} (Fee: ${formatMoney(payment.platform_fee)})` : undefined"
+                                >
+                                    {{ formatMoney(payment.amount) }}
+                                </p>
                                 <p class="text-xs text-gray-500">{{ payment.payment_method }}</p>
                             </div>
                         </Link>
