@@ -11539,3 +11539,100 @@ Fixed pre-existing bug in MoveOutController@startInspection:
 - **npm run build**: Build successful
 
 **PAY-013 COMPLETE**
+
+---
+
+## PAY-015: Enhance PaymentReceived Event with Split Details
+**Status:** PASSED
+**Date:** 2026-02-02
+**Attempts:** 1
+
+### Implementation Summary
+
+Added split payment details (platform_fee, landlord_amount, split_provider) to the PaymentReceived broadcast event. This enables the landlord dashboard to display the net amount received after platform fees are deducted.
+
+### Skills Applied
+- **laraveltdd-with-pest**: RED-GREEN-REFACTOR methodology; wrote 6 failing tests first
+- **verification-first**: Verified with actual command output (tests, build, lint)
+- **feature-development**: End-to-end workflow from spec to production-ready code
+- **laravelquality-checks**: Ran Pint, full test suite, npm build
+- **laravelqueues-and-horizon**: ShouldBroadcast interface, queue processing
+- **laraveleloquent-relationships**: Used loadMissing('platformFee') to prevent N+1
+- **laravelperformance-eager-loading**: Efficient relationship loading
+- **agent-browser**: E2E browser testing for WebSocket verification
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Events/PaymentReceived.php` | Added platform_fee, landlord_amount, split_provider to broadcastWith() |
+| `tests/Feature/Broadcasting/PaymentReceivedEventTest.php` | Added 6 new tests for split payment details |
+| `app/Http/Controllers/MoveOutController.php` | Fixed pre-existing Pint style issues (unrelated to PAY-015) |
+
+### Test Cases Added
+
+| Test | Description |
+|------|-------------|
+| test_payload_contains_split_details_when_platform_fee_exists | Verifies fee=750, net=24250 when PlatformFee exists |
+| test_payload_has_null_platform_fee_for_cash_payments | Null platform_fee, full amount as landlord_amount |
+| test_split_provider_is_intasend_for_mobile_money | payment_method='mobile_money' → split_provider='intasend' |
+| test_split_provider_is_paystack_for_paystack_payments | payment_method='paystack' → split_provider='paystack' |
+| test_split_provider_is_null_for_bank_transfer | payment_method='bank_transfer' → split_provider=null |
+| test_landlord_amount_equals_payment_amount_when_no_platform_fee | Full amount passes through when no fee |
+
+### broadcastWith() Implementation
+
+```php
+// Load platform fee relationship if not already loaded
+$this->payment->loadMissing('platformFee');
+
+// Determine split provider from payment method
+$splitProvider = match ($this->payment->payment_method) {
+    'mobile_money' => 'intasend',
+    'paystack' => 'paystack',
+    default => null,
+};
+
+$platformFee = $this->payment->platformFee;
+
+return [
+    // ... existing fields ...
+    'platform_fee' => $platformFee?->fee_amount
+        ? (float) $platformFee->fee_amount
+        : null,
+    'landlord_amount' => $platformFee?->net_amount
+        ? (float) $platformFee->net_amount
+        : (float) $this->payment->amount,
+    'split_provider' => $splitProvider,
+];
+```
+
+### E2E Verification (agent-browser)
+
+1. Started Laravel server, Vite (production build), Reverb WebSocket server
+2. Logged in as test landlord via agent-browser
+3. Subscribed to Echo channel `private-landlord.2`
+4. Triggered PaymentReceived event with PlatformFee (fee=750, net=24250)
+5. Verified browser received broadcast with:
+   - `platform_fee: 750`
+   - `landlord_amount: 24250`
+   - `split_provider: "intasend"`
+
+### Verification Results
+
+| Check | Result |
+|-------|--------|
+| Pint lint | PASS (fixed MoveOutController.php pre-existing issue) |
+| npm run build | PASS |
+| Full test suite | 830/830 PASS |
+| E2E browser test | PASS - WebSocket broadcast received with split details |
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| Split details included in broadcast payload | PASS - platform_fee, landlord_amount, split_provider added |
+| Landlord sees net amount (after platform fee) | PASS - Data in payload; E2E verified |
+| Dashboard metrics show correct revenue | PASS - Kept GROSS revenue per user decision |
+
+**PAY-015 COMPLETE**

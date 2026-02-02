@@ -16,7 +16,9 @@ use App\Models\MoveOutDeduction;
 use App\Models\MoveOutDeductionCategory;
 use App\Models\TenantActivity;
 use App\Models\Unit;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redirect;
@@ -30,7 +32,8 @@ class MoveOutController extends Controller
      */
     public function index(Request $request)
     {
-        $user = auth()->user();
+        /** @var User $user */
+        $user = Auth::user();
 
         if (! $user->isLandlord() && ! $user->isCaretaker()) {
             abort(403, 'Access denied.');
@@ -74,7 +77,8 @@ class MoveOutController extends Controller
      */
     public function create(Lease $lease)
     {
-        $user = auth()->user();
+        /** @var User $user */
+        $user = Auth::user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         if ($lease->landlord_id !== $landlordId) {
@@ -99,7 +103,8 @@ class MoveOutController extends Controller
      */
     public function store(StoreMoveOutRequest $request, Lease $lease)
     {
-        $user = auth()->user();
+        /** @var User $user */
+        $user = Auth::user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         if ($lease->landlord_id !== $landlordId) {
@@ -156,7 +161,8 @@ class MoveOutController extends Controller
      */
     public function show(MoveOut $moveOut)
     {
-        $user = auth()->user();
+        /** @var User $user */
+        $user = Auth::user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         if ($moveOut->landlord_id !== $landlordId) {
@@ -192,7 +198,8 @@ class MoveOutController extends Controller
      */
     public function update(UpdateMoveOutRequest $request, MoveOut $moveOut)
     {
-        $user = auth()->user();
+        /** @var User $user */
+        $user = Auth::user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         if ($moveOut->landlord_id !== $landlordId) {
@@ -213,7 +220,8 @@ class MoveOutController extends Controller
      */
     public function startInspection(StartMoveOutInspectionRequest $request, MoveOut $moveOut)
     {
-        $user = auth()->user();
+        /** @var User $user */
+        $user = Auth::user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         if ($moveOut->landlord_id !== $landlordId) {
@@ -267,7 +275,8 @@ class MoveOutController extends Controller
      */
     public function addDeduction(StoreMoveOutDeductionRequest $request, MoveOut $moveOut)
     {
-        $user = auth()->user();
+        /** @var User $user */
+        $user = Auth::user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         if ($moveOut->landlord_id !== $landlordId) {
@@ -315,7 +324,8 @@ class MoveOutController extends Controller
      */
     public function updateDeduction(UpdateMoveOutDeductionRequest $request, MoveOutDeduction $deduction)
     {
-        $user = auth()->user();
+        /** @var User $user */
+        $user = Auth::user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         $moveOut = $deduction->moveOut;
@@ -342,7 +352,8 @@ class MoveOutController extends Controller
      */
     public function deleteDeduction(MoveOutDeduction $deduction)
     {
-        $user = auth()->user();
+        /** @var User $user */
+        $user = Auth::user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         $moveOut = $deduction->moveOut;
@@ -373,7 +384,8 @@ class MoveOutController extends Controller
      */
     public function completeInspection(CompleteMoveOutInspectionRequest $request, MoveOut $moveOut)
     {
-        $user = auth()->user();
+        /** @var User $user */
+        $user = Auth::user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         if ($moveOut->landlord_id !== $landlordId) {
@@ -413,7 +425,8 @@ class MoveOutController extends Controller
      */
     public function complete(CompleteMoveOutSettlementRequest $request, MoveOut $moveOut)
     {
-        $user = auth()->user();
+        /** @var User $user */
+        $user = Auth::user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         if ($moveOut->landlord_id !== $landlordId) {
@@ -479,7 +492,8 @@ class MoveOutController extends Controller
      */
     public function cancel(CancelMoveOutRequest $request, MoveOut $moveOut)
     {
-        $user = auth()->user();
+        /** @var User $user */
+        $user = Auth::user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         if ($moveOut->landlord_id !== $landlordId) {
@@ -516,7 +530,8 @@ class MoveOutController extends Controller
      */
     public function deductionPhoto(MoveOutDeduction $deduction)
     {
-        $user = auth()->user();
+        /** @var User $user */
+        $user = Auth::user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         if ($deduction->moveOut->landlord_id !== $landlordId) {
@@ -539,14 +554,12 @@ class MoveOutController extends Controller
             $buildingId = $moveOut->lease->unit->building_id;
 
             $categories = MoveOutDeductionCategory::query()
+                ->where('landlord_id', $landlordId)
                 ->active()
                 ->alwaysApply()
-                ->where(function ($query) use ($buildingId, $landlordId) {
+                ->where(function ($query) use ($buildingId) {
                     $query->where('building_id', $buildingId)
-                        ->orWhere(function ($q) use ($landlordId) {
-                            $q->where('landlord_id', $landlordId)
-                                ->whereNull('building_id');
-                        });
+                        ->orWhereNull('building_id');
                 })
                 ->ordered()
                 ->get();
