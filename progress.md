@@ -11743,3 +11743,120 @@ Implemented a full CRUD interface for landlords to configure KYC requirements pe
 | Changes reflect in tenant KYC flow | PASS - via existing forBuilding() scope |
 
 **PAY-017 COMPLETE**
+
+---
+
+## PAY-016: Create Expired Invitation Cleanup Command
+**Status:** PASSED
+**Date:** 2026-02-02
+**Attempts:** 1
+
+### Implementation Summary
+
+Implemented a scheduled Artisan command that:
+1. Marks stale pending invitations as expired (30+ days past expiry)
+2. Archives incomplete users from accepted invitations (no KYC AND no verified payment after 30 days)
+
+Uses archive pattern (is_archived, archived_at) instead of soft deletes for data safety.
+
+### Skills Applied
+
+- **laraveltdd-with-pest**: TDD RED-GREEN-REFACTOR; wrote 11 failing tests FIRST
+- **laraveltask-scheduling**: Schedule via routes/console.php with withoutOverlapping(), runInBackground()
+- **laraveltransactions-and-consistency**: Wrapped user archival in DB::transaction()
+- **laravelexception-handling-and-logging**: Structured logging with context arrays
+- **laravelmigrations-and-factories**: Used existing TenantInvitationFactory states
+- **laravelperformance-eager-loading**: Used with() for relationship loading
+- **laraveleloquent-relationships**: Proper relationship loading for existingUser, leases, paymentVerification
+- **laravelquality-checks**: Ran Pint, full test suite, npm build
+- **verification-first**: Verified every change with tests and manual command execution
+- **feature-development**: 6-phase lifecycle followed
+- **planning-with-files**: Used plan file for persistent tracking
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Console/Commands/CleanupExpiredInvitations.php` | Artisan command with 2-phase cleanup |
+| `tests/Feature/Commands/CleanupExpiredInvitationsTest.php` | 11 feature tests covering all edge cases |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Models/TenantInvitation.php` | Added markAsExpired() method |
+| `database/factories/TenantInvitationFactory.php` | Fixed service_charge nullable issue |
+| `routes/console.php` | Added schedule entry: dailyAt('02:30') |
+
+### Test Cases (11 total)
+
+| Test | Description |
+|------|-------------|
+| test_marks_pending_invitation_as_expired_after_30_days | Phase 1: Expires stale pending |
+| test_does_not_expire_pending_invitation_less_than_30_days | Phase 1: Keeps recent pending |
+| test_does_not_modify_already_accepted_invitations_in_phase_1 | Phase 1: Skips accepted |
+| test_does_not_modify_declined_invitations | Phase 1: Skips declined |
+| test_archives_user_with_accepted_invite_no_kyc_no_payment | Phase 2: Archives incomplete user |
+| test_does_not_archive_user_with_completed_kyc | Phase 2: Skips KYC complete |
+| test_does_not_archive_user_with_verified_payment | Phase 2: Skips verified payment |
+| test_does_not_archive_user_with_active_lease | Phase 2: Skips active tenants |
+| test_logs_expired_invitations | Audit: Verifies structured logging |
+| test_handles_empty_results_gracefully | Edge case: Empty database |
+| test_command_returns_success_status | Exit code 0 |
+
+### Command Logic
+
+**Phase 1 - Expire Pending Invitations:**
+```php
+TenantInvitation::withoutGlobalScope('landlord')
+    ->where('status', 'pending')
+    ->where('expires_at', '<', $thirtyDaysAgo)
+    ->get();
+```
+
+**Phase 2 - Archive Incomplete Users:**
+- Find accepted invitations > 30 days old with existing_user_id
+- Skip if: user already archived, user has active lease
+- Check: hasCompletedKyc() AND has verified payment
+- If BOTH incomplete: archive user + mark invitation expired
+
+### Schedule Configuration
+
+```php
+// routes/console.php
+Schedule::command('tenant-invitations:cleanup')
+    ->dailyAt('02:30')
+    ->withoutOverlapping()
+    ->runInBackground();
+```
+
+### DBP Pattern Verification
+
+| Check | Result |
+|-------|--------|
+| No inline validation | PASS - command has no request validation |
+| Structured logging | PASS - Log::info with context arrays |
+| DB::transaction for multi-write | PASS - wraps user update + invitation update |
+| Factory exists | PASS - TenantInvitationFactory with states |
+
+### Verification Results
+
+| Check | Result |
+|-------|--------|
+| Feature tests | 11/11 PASS (23 assertions) |
+| Pint lint | PASS |
+| npm run build | PASS |
+| Manual command run | PASS - "Expired 0 pending invitation(s). Archived 0 incomplete user(s)." |
+| Schedule registered | PASS - "30 2 * * * ... Next Due: 12 hours from now" |
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| Command identifies correct expired invitations (30+ days past expiry) | PASS |
+| Only archives users who haven't completed KYC or payment | PASS |
+| Does NOT archive users who are active tenants | PASS |
+| Logs all actions for audit | PASS |
+| Scheduled daily | PASS - 02:30 |
+
+**PAY-016 COMPLETE**

@@ -49,3 +49,9 @@ Schedule::command('payment-links:cleanup')
     ->dailyAt('02:00')
     ->withoutOverlapping()
     ->runInBackground();
+
+// Clean up expired tenant invitations daily at 02:30
+Schedule::command('tenant-invitations:cleanup')
+    ->dailyAt('02:30')
+    ->withoutOverlapping()
+    ->runInBackground();

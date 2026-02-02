@@ -24,7 +24,7 @@ class TenantInvitationFactory extends Factory
             'existing_user_id' => null,
             'token' => TenantInvitation::generateToken(),
             'rent_amount' => $rentAmount,
-            'service_charge' => fake()->optional(0.3)->numberBetween(500, 2000),
+            'service_charge' => fake()->boolean(30) ? fake()->numberBetween(500, 2000) : 0,
             'deposit_amount' => $rentAmount,
             'start_date' => now()->addDays(fake()->numberBetween(7, 30)),
             'end_date' => null,

@@ -3,12 +3,13 @@
 namespace App\Models;
 
 use App\Traits\TenantScope;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TenantInvitation extends Model
 {
-    use TenantScope;
+    use HasFactory, TenantScope;
 
     protected $fillable = [
         'landlord_id',
@@ -170,6 +171,14 @@ class TenantInvitation extends Model
     public function markAsDeclined(): void
     {
         $this->update(['status' => 'declined']);
+    }
+
+    /**
+     * Mark the invitation as expired
+     */
+    public function markAsExpired(): void
+    {
+        $this->update(['status' => 'expired']);
     }
 
     /**
