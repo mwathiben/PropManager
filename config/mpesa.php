@@ -26,25 +26,28 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | App Credentials
+    | App Credentials - REMOVED (Security)
     |--------------------------------------------------------------------------
     |
-    | Consumer key and secret from Safaricom developer portal.
+    | Per-tenant M-Pesa credentials must come from PaymentConfiguration
+    | (database), not .env. This prevents credential leakage in multi-tenant
+    | SaaS. Configure via Settings > Payment Methods.
+    |
+    | NEVER add consumer_key or consumer_secret here.
     |
     */
-
-    'consumer_key' => env('MPESA_CONSUMER_KEY'),
-    'consumer_secret' => env('MPESA_CONSUMER_SECRET'),
 
     /*
     |--------------------------------------------------------------------------
     | STK Push (Lipa Na M-Pesa Online)
     |--------------------------------------------------------------------------
+    |
+    | shortcode and passkey are per-tenant - stored in PaymentConfiguration.
+    | callback_url is platform-level - shared webhook endpoint.
+    |
     */
 
     'stk' => [
-        'shortcode' => env('MPESA_STK_SHORTCODE'),
-        'passkey' => env('MPESA_STK_PASSKEY'),
         'callback_url' => env('MPESA_STK_CALLBACK_URL'),
         'transaction_type' => env('MPESA_STK_TRANSACTION_TYPE', 'CustomerPayBillOnline'),
     ],
@@ -57,10 +60,12 @@ return [
     | Paybill requires an account number (BillRefNumber) for matching payments
     | to invoices. Used for recurring billing where tenant enters invoice number.
     |
+    | NOTE: Shortcode is per-tenant - stored in PaymentConfiguration.
+    | Only platform-level webhook URLs are configured here.
+    |
     */
 
     'c2b' => [
-        'shortcode' => env('MPESA_C2B_SHORTCODE'),
         'validation_url' => env('MPESA_C2B_VALIDATION_URL'),
         'confirmation_url' => env('MPESA_C2B_CONFIRMATION_URL'),
     ],
@@ -74,10 +79,12 @@ return [
     | sender phone number to tenant records. Unmatched payments are queued
     | for manual reconciliation.
     |
+    | NOTE: Shortcode is per-tenant - stored in PaymentConfiguration.
+    | Only platform-level webhook URLs are configured here.
+    |
     */
 
     'till' => [
-        'shortcode' => env('MPESA_TILL_NUMBER'),
         'validation_url' => env('MPESA_TILL_VALIDATION_URL'),
         'confirmation_url' => env('MPESA_TILL_CONFIRMATION_URL'),
     ],
@@ -86,13 +93,13 @@ return [
     |--------------------------------------------------------------------------
     | B2C (Business to Customer) - For refunds
     |--------------------------------------------------------------------------
+    |
+    | All B2C credentials are per-tenant - stored in PaymentConfiguration.
+    | Only platform-level webhook URLs are configured here.
+    |
     */
 
     'b2c' => [
-        'shortcode' => env('MPESA_B2C_SHORTCODE'),
-        'initiator_name' => env('MPESA_B2C_INITIATOR'),
-        'initiator_password' => env('MPESA_B2C_PASSWORD'),
-        'security_credential' => env('MPESA_B2C_SECURITY_CREDENTIAL'),
         'result_url' => env('MPESA_B2C_RESULT_URL'),
         'timeout_url' => env('MPESA_B2C_TIMEOUT_URL'),
     ],
@@ -113,10 +120,12 @@ return [
     |--------------------------------------------------------------------------
     | Transaction Defaults
     |--------------------------------------------------------------------------
+    |
+    | NOTE: party_b (usually shortcode) is per-tenant - use PaymentConfiguration.
+    |
     */
 
     'defaults' => [
-        'party_b' => env('MPESA_PARTY_B'), // Usually same as shortcode
         'account_reference_prefix' => env('MPESA_ACCOUNT_PREFIX', 'PROP'),
         'currency' => 'KES',
     ],

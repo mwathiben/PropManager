@@ -35,9 +35,15 @@ return [
         ],
     ],
 
-    'paystack' => [
-        'public_key' => env('PAYSTACK_PUBLIC_KEY'),
-        'secret_key' => env('PAYSTACK_SECRET_KEY'),
-    ],
+    /*
+    |--------------------------------------------------------------------------
+    | Paystack - REMOVED (Security)
+    |--------------------------------------------------------------------------
+    |
+    | Per-tenant Paystack credentials must come from PaymentConfiguration
+    | (database), not .env. This prevents credential leakage in multi-tenant
+    | SaaS. Configure via Settings > Payment Methods.
+    |
+    */
 
 ];
