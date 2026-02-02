@@ -2,53 +2,75 @@
 
 namespace App\Http\Requests\Kyc;
 
+use App\Models\Building;
+use App\Models\KycRequirement;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreKycRequirementRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->isLandlord();
-    }
-
-    /**
-     * @return array<string, array<int, mixed>>
-     */
-    public function rules(): array
-    {
-        $landlordId = $this->user()->id;
-        $buildingId = $this->input('building_id');
-
-        return [
-            'requirement_type' => [
-                'required',
-                'string',
-                'max:50',
-                Rule::unique('kyc_requirements')
-                    ->where('landlord_id', $landlordId)
-                    ->where('building_id', $buildingId),
-            ],
-            'label' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string', 'max:1000'],
-            'building_id' => [
-                'nullable',
-                Rule::exists('buildings', 'id')->where('landlord_id', $landlordId),
-            ],
-            'is_required' => ['boolean'],
-            'is_active' => ['boolean'],
-            'sort_order' => ['integer', 'min:0'],
-        ];
+        return $this->user()->can('create', KycRequirement::class);
     }
 
     /**
      * @return array<string, string>
      */
-    public function messages(): array
+    public function rules(): array
     {
         return [
-            'requirement_type.unique' => 'A requirement with this type already exists for this scope.',
-            'building_id.exists' => 'The selected building does not belong to you.',
+            'requirement_type' => 'required|string|max:50',
+            'label' => 'required|string|max:255',
+            'description' => 'nullable|string|max:1000',
+            'building_id' => 'nullable|integer|exists:buildings,id',
+            'is_required' => 'sometimes|boolean',
+            'is_active' => 'sometimes|boolean',
+            'sort_order' => 'sometimes|integer|min:0',
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            if ($this->buildingBelongsToOtherLandlord()) {
+                $validator->errors()->add('building_id', 'The selected building does not belong to you.');
+
+                return;
+            }
+
+            if ($this->duplicateRequirementTypeExists()) {
+                $validator->errors()->add('requirement_type', 'A requirement with this type already exists for this scope.');
+            }
+        });
+    }
+
+    private function buildingBelongsToOtherLandlord(): bool
+    {
+        if (! $this->building_id) {
+            return false;
+        }
+
+        $building = Building::find($this->building_id);
+
+        return $building && $building->landlord_id !== $this->user()->id;
+    }
+
+    private function duplicateRequirementTypeExists(): bool
+    {
+        $query = KycRequirement::where('landlord_id', $this->user()->id)
+            ->where('requirement_type', $this->requirement_type);
+
+        if ($this->building_id) {
+            $query->where('building_id', $this->building_id);
+        } else {
+            $query->whereNull('building_id');
+        }
+
+        return $query->exists();
     }
 }

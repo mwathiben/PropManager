@@ -34,13 +34,19 @@ interface KycRequirement {
     is_platform_default: boolean;
 }
 
-interface RequirementsData {
+interface PaginatedRequirements {
     data: KycRequirement[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    links: Array<{ url: string | null; label: string; active: boolean }>;
 }
 
 const props = defineProps<{
-    requirements: RequirementsData;
+    requirements: PaginatedRequirements;
     buildings: Building[];
+    canCreate: boolean;
 }>();
 
 const showModal = ref(false);
@@ -60,8 +66,8 @@ const isEditing = computed(() => editingRequirement.value !== null);
 const modalTitle = computed(() => isEditing.value ? 'Edit Requirement' : 'Add Requirement');
 
 const isPlatformDefault = (req: KycRequirement) => req.is_platform_default;
-const canEdit = (req: KycRequirement) => !isPlatformDefault(req);
-const canDelete = (req: KycRequirement) => !isPlatformDefault(req);
+const canEdit = (req: KycRequirement) => !isPlatformDefault(req) && props.canCreate;
+const canDelete = (req: KycRequirement) => !isPlatformDefault(req) && props.canCreate;
 
 const getScopeLabel = (req: KycRequirement): string => {
     if (isPlatformDefault(req)) return 'Platform Default';
@@ -164,6 +170,7 @@ const toggleActive = (req: KycRequirement) => {
                     </h2>
                 </div>
                 <button
+                    v-if="canCreate"
                     type="button"
                     data-testid="add-requirement-button"
                     @click="openCreateModal"
@@ -314,7 +321,7 @@ const toggleActive = (req: KycRequirement) => {
                             <DocumentCheckIcon class="w-12 h-12 mx-auto text-gray-400" />
                             <h3 class="mt-2 text-sm font-medium text-gray-900">No requirements</h3>
                             <p class="mt-1 text-sm text-gray-500">Get started by adding a KYC requirement.</p>
-                            <div class="mt-6">
+                            <div v-if="canCreate" class="mt-6">
                                 <button
                                     type="button"
                                     @click="openCreateModal"
@@ -325,6 +332,8 @@ const toggleActive = (req: KycRequirement) => {
                                 </button>
                             </div>
                         </div>
+
+                        <Pagination v-if="requirements.last_page > 1" :links="requirements.links" class="mt-6" />
                     </div>
                 </div>
             </div>
@@ -351,6 +360,7 @@ const toggleActive = (req: KycRequirement) => {
                                 </label>
                                 <input
                                     id="requirement_type"
+                                    data-testid="input-requirement-type"
                                     v-model="form.requirement_type"
                                     type="text"
                                     placeholder="e.g., proof_of_income"
@@ -369,6 +379,7 @@ const toggleActive = (req: KycRequirement) => {
                                 </label>
                                 <input
                                     id="label"
+                                    data-testid="input-label"
                                     v-model="form.label"
                                     type="text"
                                     placeholder="e.g., Proof of Income"
@@ -387,6 +398,7 @@ const toggleActive = (req: KycRequirement) => {
                                 </label>
                                 <textarea
                                     id="description"
+                                    data-testid="input-description"
                                     v-model="form.description"
                                     rows="2"
                                     placeholder="Instructions for the tenant..."
@@ -401,6 +413,7 @@ const toggleActive = (req: KycRequirement) => {
                                 </label>
                                 <select
                                     id="building_id"
+                                    data-testid="select-building"
                                     v-model="form.building_id"
                                     class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                                 >
@@ -418,6 +431,7 @@ const toggleActive = (req: KycRequirement) => {
                             <div class="flex gap-6">
                                 <label class="flex items-center">
                                     <input
+                                        data-testid="checkbox-required"
                                         v-model="form.is_required"
                                         type="checkbox"
                                         class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
@@ -426,6 +440,7 @@ const toggleActive = (req: KycRequirement) => {
                                 </label>
                                 <label class="flex items-center">
                                     <input
+                                        data-testid="checkbox-active"
                                         v-model="form.is_active"
                                         type="checkbox"
                                         class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"

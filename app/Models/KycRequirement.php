@@ -127,4 +127,15 @@ class KycRequirement extends Model
     {
         return $this->building_id !== null;
     }
+
+    /**
+     * Scope to order by sort_order and then by label.
+     *
+     * @param  Builder<KycRequirement>  $query
+     * @return Builder<KycRequirement>
+     */
+    public function scopeOrdered(Builder $query): Builder
+    {
+        return $query->orderBy('sort_order')->orderBy('label');
+    }
 }

@@ -7,7 +7,7 @@ use App\Http\Requests\Kyc\UpdateKycRequirementRequest;
 use App\Models\Building;
 use App\Models\KycRequirement;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -15,24 +15,25 @@ class KycRequirementController extends Controller
 {
     public function index(): Response
     {
+        $user = auth()->user();
+
         $this->authorize('viewAny', KycRequirement::class);
 
-        $landlordId = Auth::id();
+        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
-        $platformDefaults = KycRequirement::withoutGlobalScope('landlord')
-            ->global()
-            ->active()
-            ->orderBy('sort_order')
-            ->get()
-            ->map(fn ($req) => array_merge($req->toArray(), ['is_platform_default' => true]));
-
-        $landlordRequirements = KycRequirement::where('landlord_id', $landlordId)
+        $requirements = KycRequirement::withoutGlobalScope('landlord')
+            ->where(function ($query) use ($landlordId) {
+                $query->where('landlord_id', $landlordId)
+                    ->orWhereNull('landlord_id');
+            })
             ->with('building:id,name')
-            ->orderBy('sort_order')
-            ->get()
-            ->map(fn ($req) => array_merge($req->toArray(), ['is_platform_default' => false]));
-
-        $allRequirements = $platformDefaults->concat($landlordRequirements);
+            ->ordered()
+            ->paginate(25)
+            ->withQueryString()
+            ->through(fn ($req) => array_merge(
+                $req->toArray(),
+                ['is_platform_default' => $req->landlord_id === null]
+            ));
 
         $buildings = Building::where('landlord_id', $landlordId)
             ->select('id', 'name')
@@ -40,10 +41,9 @@ class KycRequirementController extends Controller
             ->get();
 
         return Inertia::render('Settings/KycRequirements', [
-            'requirements' => [
-                'data' => $allRequirements,
-            ],
+            'requirements' => $requirements,
             'buildings' => $buildings,
+            'canCreate' => $user->isLandlord(),
         ]);
     }
 
@@ -51,18 +51,23 @@ class KycRequirementController extends Controller
     {
         $this->authorize('create', KycRequirement::class);
 
-        $data = $request->validated();
-        $data['landlord_id'] = Auth::id();
+        $validated = $request->validated();
 
-        if (! isset($data['sort_order'])) {
-            $maxSortOrder = KycRequirement::where('landlord_id', Auth::id())
-                ->max('sort_order') ?? 0;
-            $data['sort_order'] = $maxSortOrder + 1;
-        }
+        $nextSortOrder = (KycRequirement::where('landlord_id', $request->user()->id)
+            ->max('sort_order') ?? 0) + 1;
 
-        KycRequirement::create($data);
+        KycRequirement::create([
+            'landlord_id' => $request->user()->id,
+            'building_id' => $validated['building_id'] ?? null,
+            'requirement_type' => $validated['requirement_type'],
+            'label' => $validated['label'],
+            'description' => $validated['description'] ?? null,
+            'is_required' => $validated['is_required'] ?? true,
+            'is_active' => $validated['is_active'] ?? true,
+            'sort_order' => $nextSortOrder,
+        ]);
 
-        return redirect()->back()->with('success', 'KYC requirement created successfully.');
+        return Redirect::back()->with('success', 'KYC requirement created.');
     }
 
     public function update(UpdateKycRequirementRequest $request, KycRequirement $kycRequirement): RedirectResponse
@@ -71,7 +76,7 @@ class KycRequirementController extends Controller
 
         $kycRequirement->update($request->validated());
 
-        return redirect()->back()->with('success', 'KYC requirement updated successfully.');
+        return Redirect::back()->with('success', 'KYC requirement updated.');
     }
 
     public function destroy(KycRequirement $kycRequirement): RedirectResponse
@@ -80,6 +85,6 @@ class KycRequirementController extends Controller
 
         $kycRequirement->delete();
 
-        return redirect()->back()->with('success', 'KYC requirement deleted successfully.');
+        return Redirect::back()->with('success', 'KYC requirement deleted.');
     }
 }
