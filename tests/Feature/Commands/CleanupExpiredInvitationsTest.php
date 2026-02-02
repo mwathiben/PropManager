@@ -245,4 +245,86 @@ class CleanupExpiredInvitationsTest extends TestCase
         $this->artisan('tenant-invitations:cleanup')
             ->assertExitCode(0);
     }
+
+    // --- Edge Cases: Multiple Invitations & PII ---
+
+    public function test_handles_multiple_invitations_for_same_user(): void
+    {
+        // Create a global KYC requirement so hasCompletedKyc() returns false
+        KycRequirement::create([
+            'landlord_id' => null,
+            'building_id' => null,
+            'requirement_type' => 'selfie',
+            'label' => 'Profile Photo',
+            'description' => 'A clear photo of your face',
+            'is_required' => true,
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        $setup = $this->createLandlordWithFullSetup();
+        $unit1 = $setup['units']->first();
+        $unit2 = $setup['units']->skip(1)->first();
+
+        $user = User::factory()->create([
+            'role' => 'tenant',
+            'landlord_id' => $setup['landlord']->id,
+            'is_archived' => false,
+        ]);
+
+        // Two invitations for same user (different units)
+        $invitation1 = TenantInvitation::factory()->create([
+            'landlord_id' => $setup['landlord']->id,
+            'unit_id' => $unit1->id,
+            'status' => 'accepted',
+            'accepted_at' => now()->subDays(45),
+            'existing_user_id' => $user->id,
+        ]);
+
+        $invitation2 = TenantInvitation::factory()->create([
+            'landlord_id' => $setup['landlord']->id,
+            'unit_id' => $unit2->id,
+            'status' => 'accepted',
+            'accepted_at' => now()->subDays(45),
+            'existing_user_id' => $user->id,
+        ]);
+
+        $this->artisan('tenant-invitations:cleanup')
+            ->assertSuccessful();
+
+        $user->refresh();
+        $this->assertTrue($user->is_archived);
+
+        // Both invitations should be expired
+        $this->assertDatabaseHas('tenant_invitations', [
+            'id' => $invitation1->id,
+            'status' => 'expired',
+        ]);
+        $this->assertDatabaseHas('tenant_invitations', [
+            'id' => $invitation2->id,
+            'status' => 'expired',
+        ]);
+    }
+
+    public function test_logs_do_not_contain_pii(): void
+    {
+        Log::shouldReceive('info')
+            ->once()
+            ->withArgs(function ($msg, $ctx) {
+                // Verify no email or phone in context
+                return str_contains($msg, 'Tenant invitation marked as expired')
+                    && isset($ctx['invitation_id'])
+                    && ! isset($ctx['email'])
+                    && ! isset($ctx['phone'])
+                    && ! isset($ctx['tenant_phone']);
+            });
+
+        TenantInvitation::factory()->create([
+            'status' => 'pending',
+            'expires_at' => now()->subDays(31),
+        ]);
+
+        $this->artisan('tenant-invitations:cleanup')
+            ->assertSuccessful();
+    }
 }
