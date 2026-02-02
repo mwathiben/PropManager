@@ -10,8 +10,10 @@ use App\Models\ExpenseCategory;
 use App\Models\Invitation;
 use App\Models\Invoice;
 use App\Models\InvoiceTemplate;
+use App\Models\KycRequirement;
 use App\Models\LateFeePolicy;
 use App\Models\Lease;
+use App\Models\MoveOutDeductionCategory;
 use App\Models\Payment;
 use App\Models\Property;
 use App\Models\ReceiptTemplate;
@@ -29,8 +31,10 @@ use App\Policies\ExpensePolicy;
 use App\Policies\InvitationPolicy;
 use App\Policies\InvoicePolicy;
 use App\Policies\InvoiceTemplatePolicy;
+use App\Policies\KycRequirementPolicy;
 use App\Policies\LateFeeRulePolicy;
 use App\Policies\LeasePolicy;
+use App\Policies\MoveOutDeductionCategoryPolicy;
 use App\Policies\PaymentPolicy;
 use App\Policies\PropertyPolicy;
 use App\Policies\ReceiptTemplatePolicy;
@@ -68,8 +72,10 @@ class AuthServiceProvider extends ServiceProvider
         Vendor::class => VendorPolicy::class,
         LateFeePolicy::class => LateFeeRulePolicy::class,
         DepositTransaction::class => DepositTransactionPolicy::class,
+        MoveOutDeductionCategory::class => MoveOutDeductionCategoryPolicy::class,
         WaterSetting::class => WaterSettingPolicy::class,
         TenantKycSubmission::class => TenantKycSubmissionPolicy::class,
+        KycRequirement::class => KycRequirementPolicy::class,
     ];
 
     /**

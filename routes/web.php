@@ -317,6 +317,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/move-outs/{moveOut}/complete', [\App\Http\Controllers\MoveOutController::class, 'complete'])->name('move-outs.complete');
     Route::post('/move-outs/{moveOut}/cancel', [\App\Http\Controllers\MoveOutController::class, 'cancel'])->name('move-outs.cancel');
 
+    // 6f. Move-Out Deduction Categories
+    Route::resource('move-out-categories', \App\Http\Controllers\MoveOutDeductionCategoryController::class)
+        ->except(['create', 'edit', 'show']);
+
     // 7. Documents (File Management)
     Route::get('/documents', [DocumentController::class, 'index'])->name('documents.index');
     Route::post('/documents', [DocumentController::class, 'store'])
@@ -414,6 +418,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/branding/logo', [\App\Http\Controllers\SettingsController::class, 'uploadLogo'])->name('settings.branding.logo');
     Route::delete('/settings/branding/logo', [\App\Http\Controllers\SettingsController::class, 'deleteLogo'])->name('settings.branding.logo.delete');
     Route::post('/settings/api-key/delete', [\App\Http\Controllers\SettingsController::class, 'deleteApiKey'])->name('settings.apiKey.delete');
+
+    // 9b. KYC Requirements Management
+    Route::get('/settings/kyc-requirements', [\App\Http\Controllers\KycRequirementController::class, 'index'])->name('settings.kyc.index');
+    Route::post('/kyc-requirements', [\App\Http\Controllers\KycRequirementController::class, 'store'])->name('kyc-requirements.store');
+    Route::put('/kyc-requirements/{kycRequirement}', [\App\Http\Controllers\KycRequirementController::class, 'update'])->name('kyc-requirements.update');
+    Route::delete('/kyc-requirements/{kycRequirement}', [\App\Http\Controllers\KycRequirementController::class, 'destroy'])->name('kyc-requirements.destroy');
 
     // 10. Data Import
     Route::get('/imports', [\App\Http\Controllers\ImportsController::class, 'index'])->name('imports.index');
@@ -713,8 +723,10 @@ Route::middleware('auth')->group(function () {
     });
 
     // 19. KYC Review Routes (Landlords and Caretakers)
-    Route::get('/kyc/pending', [\App\Http\Controllers\TenantKycController::class, 'pendingReviews'])->name('kyc.pending');
-    Route::post('/kyc/submissions/{submission}/review', [\App\Http\Controllers\TenantKycController::class, 'review'])->name('kyc.review');
+    Route::middleware('role:landlord,caretaker')->group(function () {
+        Route::get('/kyc/pending', [\App\Http\Controllers\TenantKycController::class, 'pendingReviews'])->name('kyc.pending');
+        Route::post('/kyc/submissions/{submission}/review', [\App\Http\Controllers\TenantKycController::class, 'review'])->name('kyc.review');
+    });
 });
 
 // --- SUPER ADMIN ROUTES ---

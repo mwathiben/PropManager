@@ -11636,3 +11636,110 @@ return [
 | Dashboard metrics show correct revenue | PASS - Kept GROSS revenue per user decision |
 
 **PAY-015 COMPLETE**
+
+---
+
+## PAY-017: Create KYC Settings Page for Landlords
+**Status:** PASSED
+**Date:** 2026-02-02
+**Attempts:** 1
+
+### Implementation Summary
+
+Implemented a full CRUD interface for landlords to configure KYC requirements per building. Landlords can add custom requirements beyond platform defaults (selfie, national_id, signed_lease). Platform defaults are displayed as read-only.
+
+### Skills Applied
+- **laraveltdd-with-pest**: TDD RED-GREEN-REFACTOR; wrote 13 failing tests FIRST
+- **laravelform-requests**: Created StoreKycRequirementRequest, UpdateKycRequirementRequest with validation
+- **laravelpolicies-and-authorization**: Created KycRequirementPolicy, registered in AuthServiceProvider
+- **laravelcontroller-cleanup**: Thin controller with explicit authorize() calls
+- **laravelmigrations-and-factories**: Factory already exists (KycRequirementFactory)
+- **laravele2e-playwright**: data-testid attributes on all interactive elements
+- **laravelquality-checks**: Ran Pint, full test suite, npm build
+- **verification-first**: Verified every change with tests and E2E browser automation
+- **feature-development**: 6-phase lifecycle followed
+- **agent-browser**: Full E2E browser testing for CRUD operations
+- **web-design-guidelines**: UI compliance with existing Settings patterns
+- **propmanager-verification**: DBP pattern checks all passed
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Policies/KycRequirementPolicy.php` | Authorization: viewAny, view, create, update, delete; protects platform defaults |
+| `app/Http/Requests/Kyc/StoreKycRequirementRequest.php` | Validation for create: unique type per landlord+building |
+| `app/Http/Requests/Kyc/UpdateKycRequirementRequest.php` | Validation for update with policy-based authorization |
+| `app/Http/Controllers/KycRequirementController.php` | CRUD controller: index, store, update, destroy |
+| `resources/js/Pages/Settings/KycRequirements.vue` | Full Vue CRUD UI with modal forms |
+| `tests/Feature/Controllers/KycRequirementControllerTest.php` | 13 feature tests |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `routes/web.php` | Added 4 routes: settings.kyc.index, kyc-requirements.store/update/destroy |
+| `app/Providers/AuthServiceProvider.php` | Registered KycRequirementPolicy |
+| `resources/js/Pages/Settings/Index.vue` | Added link to KYC Requirements in "Additional Settings" section |
+
+### Test Cases (13 total)
+
+| Test | Description |
+|------|-------------|
+| test_landlord_can_view_kyc_requirements_index_page | Index page loads for landlords |
+| test_index_shows_platform_defaults_and_landlord_requirements | Both types displayed correctly |
+| test_caretaker_cannot_access_kyc_requirements_page | 403 Forbidden |
+| test_tenant_cannot_access_kyc_requirements_page | 403 Forbidden |
+| test_landlord_can_create_requirement | Creates with all fields |
+| test_landlord_can_create_building_specific_requirement | Creates scoped to building |
+| test_landlord_cannot_create_duplicate_requirement_type_for_same_building | Validation error |
+| test_landlord_can_update_own_requirement | Updates label, description |
+| test_landlord_cannot_update_platform_default | 403 Forbidden |
+| test_landlord_cannot_update_other_landlord_requirement | 403 Forbidden |
+| test_landlord_can_delete_own_requirement | Soft deletes |
+| test_landlord_cannot_delete_platform_default | 403 Forbidden |
+| test_validation_errors_returned_for_invalid_data | Required field validation |
+
+### E2E Browser Testing (agent-browser)
+
+| Step | Result |
+|------|--------|
+| Login as landlord | PASS |
+| Navigate to /settings/kyc-requirements | PASS - page title "KYC Requirements" |
+| Click "Add Requirement" | PASS - modal opens |
+| Fill form (type, label, description) | PASS |
+| Submit form | PASS - requirement appears in table |
+| Click Edit button | PASS - edit modal opens |
+| Update label | PASS - label changed to "(Updated)" |
+| Click Delete button | PASS - confirm dialog |
+| Accept confirmation | PASS - "No requirements" empty state |
+
+### DBP Pattern Verification
+
+| Check | Result |
+|-------|--------|
+| No inline validation (DBP-012) | PASS - uses FormRequest classes |
+| Policy registered (DBP-010) | PASS - KycRequirement::class => KycRequirementPolicy::class |
+| Factory exists (DBP-035) | PASS - KycRequirementFactory.php |
+| data-testid for E2E | PASS - 8 attributes found |
+| FormRequest classes exist | PASS - Store and Update requests |
+
+### Verification Results
+
+| Check | Result |
+|-------|--------|
+| Feature tests | 22/22 PASS (9 unit + 13 feature) |
+| Pint lint | PASS |
+| npm run build | PASS |
+| E2E browser | PASS - full CRUD flow verified |
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| Landlord can view all KYC requirements | PASS |
+| Can add building-specific requirements | PASS |
+| Can toggle required/optional | PASS |
+| Cannot modify platform defaults | PASS - read-only in UI, 403 in API |
+| Changes reflect in tenant KYC flow | PASS - via existing forBuilding() scope |
+
+**PAY-017 COMPLETE**

@@ -1,6 +1,6 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import {
     Cog6ToothIcon,
@@ -10,7 +10,19 @@ import {
     PuzzlePieceIcon,
     ShieldCheckIcon,
     SwatchIcon,
+    DocumentCheckIcon,
+    ArrowRightIcon,
 } from '@heroicons/vue/24/outline';
+import type {
+    LandlordProfile,
+    PaymentConfiguration,
+    PaymentMethodsLookup,
+    OcrSettings,
+    OcrProvidersLookup,
+    BrandingSettings,
+    NotificationDefaults,
+    InvoiceNumberFormats,
+} from '@/types';
 
 // Tab Components
 import BusinessProfileTab from './partials/BusinessProfileTab.vue';
@@ -20,17 +32,28 @@ import IntegrationsTab from './partials/IntegrationsTab.vue';
 import SecurityTab from './partials/SecurityTab.vue';
 import BrandingTab from './partials/BrandingTab.vue';
 
-const props = defineProps({
-    activeTab: { type: String, default: 'business' },
-    landlordProfile: { type: Object, default: () => null },
-    paymentConfig: { type: Object, default: () => ({}) },
-    paymentMethods: { type: Object, default: () => ({}) },
-    ocrSettings: { type: Object, default: () => ({}) },
-    ocrProviders: { type: Object, default: () => ({}) },
-    brandingSettings: { type: Object, default: () => ({}) },
-    notificationDefaults: { type: Object, default: () => null },
-    twoFactorEnabled: { type: Boolean, default: false },
-    invoiceNumberFormats: { type: Object, default: () => ({}) },
+const props = withDefaults(defineProps<{
+    activeTab?: string;
+    landlordProfile?: LandlordProfile | null;
+    paymentConfig?: PaymentConfiguration;
+    paymentMethods?: PaymentMethodsLookup;
+    ocrSettings?: OcrSettings;
+    ocrProviders?: OcrProvidersLookup;
+    brandingSettings?: BrandingSettings;
+    notificationDefaults?: NotificationDefaults | null;
+    twoFactorEnabled?: boolean;
+    invoiceNumberFormats?: InvoiceNumberFormats;
+}>(), {
+    activeTab: 'business',
+    landlordProfile: null,
+    paymentConfig: () => ({} as PaymentConfiguration),
+    paymentMethods: () => ({}),
+    ocrSettings: () => ({} as OcrSettings),
+    ocrProviders: () => ({}),
+    brandingSettings: () => ({} as BrandingSettings),
+    notificationDefaults: null,
+    twoFactorEnabled: false,
+    invoiceNumberFormats: () => ({}),
 });
 
 const currentTab = ref(props.activeTab || 'business');
@@ -88,8 +111,8 @@ const navigateToTab = (tab) => {
                             :class="[
                                 'group flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium text-sm transition-all duration-200 whitespace-nowrap',
                                 currentTab === tab.id
-                                    ? 'bg-gradient-to-r from-slate-700 to-slate-900 text-white shadow-md flex-shrink-0'
-                                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50 flex-shrink-0'
+                                    ? 'bg-gradient-to-r from-slate-700 to-slate-900 text-white shadow-md shrink-0'
+                                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50 shrink-0'
                             ]"
                         >
                             <component :is="tab.icon" class="w-5 h-5" />
@@ -138,6 +161,28 @@ const navigateToTab = (tab) => {
                         :branding-settings="brandingSettings"
                         :invoice-number-formats="invoiceNumberFormats"
                     />
+                </div>
+
+                <!-- Additional Settings Links -->
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                    <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">Additional Settings</h3>
+                    <div class="space-y-3">
+                        <Link
+                            :href="route('settings.kyc.index')"
+                            class="flex items-center justify-between p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors group"
+                        >
+                            <div class="flex items-center gap-3">
+                                <div class="p-2 bg-blue-100 rounded-lg">
+                                    <DocumentCheckIcon class="w-5 h-5 text-blue-600" />
+                                </div>
+                                <div>
+                                    <span class="font-medium text-gray-900">KYC Requirements</span>
+                                    <p class="text-sm text-gray-500">Configure document requirements for tenant verification</p>
+                                </div>
+                            </div>
+                            <ArrowRightIcon class="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                        </Link>
+                    </div>
                 </div>
 
             </div>
