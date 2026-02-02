@@ -1,0 +1,1437 @@
+{
+  "project": {
+    "name": "PropManager Payment Workflow v2.0 - Critical Remediation",
+    "description": "Critical security, idempotency, and architecture fixes identified during comprehensive audit. This is the BLOCKING release before production deployment. Includes database-level idempotency, credential migration to database, Strategy pattern refactoring, full webhook security suite, and comprehensive test coverage.",
+    "version": "2.0.0",
+    "created": "2026-02-02",
+    "based_on": "payment-workflow-prd.json (v1.0.0 - 17 items PASSED)",
+    "audit_source": "Tracer bullet analysis found 70+ files touching payments",
+    "techStack": {
+      "backend": "Laravel 12 (PHP 8.4+)",
+      "frontend": "Inertia.js + Vue 3 + Tailwind CSS v4",
+      "database": "MySQL 9.4",
+      "payments": "Paystack (cards), IntaSend (M-Pesa), Direct M-Pesa (Daraja)",
+      "realtime": "Laravel Reverb (WebSockets)",
+      "sms": "Africa's Talking"
+    }
+  },
+  "auditFindings": {
+    "description": "Critical gaps from tracer bullet analysis of 70+ payment files",
+    "tracerBulletFiles": {
+      "models": ["Payment", "PaymentConfiguration", "PaymentLink", "IntaSendTransaction"],
+      "controllers": ["PaymentController (1,276 lines)", "Api/PaymentController", "Api/TenantPaymentController", "Api/MpesaWebhookController", "Api/IntaSendWebhookController"],
+      "services": ["PaymentGatewayManager", "PaystackService", "MpesaService", "IntaSendService", "PaymentCallbackProcessor", "PaymentLinkService", "ReceiptService"],
+      "events": ["PaymentReceived", "MpesaPaymentStatusChanged", "IntaSendPaymentStatusChanged"],
+      "tests": ["PaymentControllerTest", "PaymentIdempotencyTest", "PaymentGatewayManagerTest", "PaymentLinkServiceTest", "MpesaPaymentStatusChangedEventTest", "IntaSendPaymentStatusChangedEventTest", "IntaSendPaymentFlowTest", "PaymentReceivedBroadcastTest", "PaymentReceivedEventTest"],
+      "untested": ["PaymentObserver", "PaymentResource", "ReceiptService", "PaystackWebhookHandler"]
+    },
+    "critical": [
+      {
+        "id": "AUDIT-001",
+        "finding": "No unique database constraint on mpesa_transaction_id",
+        "risk": "Race conditions can create duplicate payments despite pessimistic locking",
+        "evidence": "Grep found no unique() in migrations for M-Pesa columns",
+        "resolution": "PAY-V2-001"
+      },
+      {
+        "id": "AUDIT-002",
+        "finding": "No unique database constraint on intasend_reference",
+        "risk": "Same race condition issue as M-Pesa",
+        "evidence": "Grep found no unique() in migrations for IntaSend columns",
+        "resolution": "PAY-V2-002"
+      },
+      {
+        "id": "AUDIT-003",
+        "finding": "Security PRD (SEC-001 to SEC-007) NOT STARTED",
+        "risk": "Per-tenant credentials in .env violates multi-tenant SaaS security",
+        "evidence": "All SEC items have passes:false, attempt_count:0",
+        "resolution": "PAY-V2-004 to PAY-V2-006"
+      },
+      {
+        "id": "AUDIT-004",
+        "finding": "PaymentController.php is 1,276 lines",
+        "risk": "Violates SRP, CLAUDE.md says max 300 lines",
+        "evidence": "Line count from tracer bullet",
+        "resolution": "PAY-V2-008 to PAY-V2-014"
+      },
+      {
+        "id": "AUDIT-005",
+        "finding": "M-Pesa IP validation only warns, doesn't reject",
+        "risk": "Spoofed webhooks from non-Safaricom IPs still processed",
+        "evidence": "Code review of MpesaWebhookController",
+        "resolution": "PAY-V2-015"
+      }
+    ],
+    "researchSources": [
+      {
+        "title": "Idempotency in Payment Processing",
+        "url": "https://www.computer.org/publications/tech-news/trends/idempotency-in-payment-processing-architecture",
+        "key_insight": "Use BOTH unique constraints AND early-insert pattern"
+      },
+      {
+        "title": "Airbnb Idempotency Pattern",
+        "url": "https://www.geeksforgeeks.org/system-design/airbnb-idempotency-avoiding-double-payments-in-a-distributed-payments-system/",
+        "key_insight": "Insert idempotency record BEFORE processing, not after"
+      },
+      {
+        "title": "Laravel Payment Gateway with Strategy Pattern",
+        "url": "https://blog.suhail-osman.com/building-a-scalable-payment-integration-system-in-laravel",
+        "key_insight": "Strategy + Adapter pattern for SOLID compliance"
+      },
+      {
+        "title": "M-Pesa Production Checklist",
+        "url": "https://dev.to/msnmongare/how-to-go-live-with-m-pesa-daraja-api-production-environment-4h96",
+        "key_insight": "Timestamp + IP + signature validation for webhooks"
+      }
+    ]
+  },
+  "userDecisions": {
+    "description": "Decisions gathered from user through comprehensive AskUserQuestion sessions",
+    "decisions": [
+      {"topic": "Priority", "choice": "All equal - comprehensive", "rationale": "Quality first approach"},
+      {"topic": "Duplicate handling", "choice": "Fail fast", "rationale": "Migration fails if duplicates exist"},
+      {"topic": "Refactoring scope", "choice": "Full extraction to 5+ services", "rationale": "SOLID compliance"},
+      {"topic": "Amount tolerance", "choice": "1 KES for all providers", "rationale": "Handles rounding"},
+      {"topic": "IP validation", "choice": "Reject & log (403 Forbidden)", "rationale": "Fail-closed security"},
+      {"topic": "Rate limiting", "choice": "Per invoice (1 per 60 seconds)", "rationale": "Prevent abuse"},
+      {"topic": "Test coverage", "choice": "80% minimum", "rationale": "Industry standard"},
+      {"topic": "Dead letter queue", "choice": "Yes with email alerts", "rationale": "Prevent lost payments"},
+      {"topic": "Performance logging", "choice": "All external calls", "rationale": "Debugging"},
+      {"topic": "Security PRD", "choice": "Merge into v2", "rationale": "Single comprehensive PRD"},
+      {"topic": "Network failures", "choice": "Retry with exponential backoff", "rationale": "Better UX"},
+      {"topic": "Architecture", "choice": "Interface/contract + Strategy pattern", "rationale": "SOLID"},
+      {"topic": "Retry tracking", "choice": "Track in DB", "rationale": "Audit trail"},
+      {"topic": "Key display", "choice": "Last 4 chars only", "rationale": "Security + identification"},
+      {"topic": "Offline mode", "choice": "Queue payments + SMS confirmation", "rationale": "Kenya connectivity"},
+      {"topic": "SMS confirmation", "choice": "Custom via Africa's Talking", "rationale": "Branding control"},
+      {"topic": "Payment intent", "choice": "Full intent pattern", "rationale": "Audit trail"},
+      {"topic": "Idempotency", "choice": "Early insert pattern", "rationale": "Research best practice"},
+      {"topic": "M-Pesa security", "choice": "Full suite (timestamp + IP + signing + SSL)", "rationale": "Enterprise grade"},
+      {"topic": "Caching", "choice": "Review & enhance", "rationale": "No stale data"},
+      {"topic": "Frontend", "choice": "Standardize Vue components", "rationale": "Consistency"},
+      {"topic": "Retry config", "choice": "Per-gateway", "rationale": "Provider reliability varies"},
+      {"topic": "Test files", "choice": "ALL payment files", "rationale": "Complete coverage"},
+      {"topic": "Race condition", "choice": "Retry with backoff (202 Accepted)", "rationale": "Common pattern"},
+      {"topic": "PRD detail", "choice": "Full detail (line numbers, commands)", "rationale": "Match v1"},
+      {"topic": "Workflow", "choice": "Enhanced TDD + ADR", "rationale": "Architecture docs"},
+      {"topic": "Rollback", "choice": "All migrations", "rationale": "Safety"},
+      {"topic": "Health checks", "choice": "Per gateway endpoint", "rationale": "Monitoring"},
+      {"topic": "Email templates", "choice": "Audit & standardize", "rationale": "Consistency"},
+      {"topic": "Real-time", "choice": "Hybrid (WebSocket + polling)", "rationale": "Performance"},
+      {"topic": "Estimates", "choice": "Story points (Fibonacci)", "rationale": "Sprint planning"}
+    ]
+  },
+  "qualityStandards": {
+    "description": "Enhanced standards based on audit findings and research",
+    "principles": [
+      "Database-level unique constraints for ALL payment idempotency keys",
+      "Early-insert idempotency pattern: insert record BEFORE processing",
+      "Write failing test FIRST (RED-GREEN-REFACTOR)",
+      "Per-tenant credentials stored encrypted in database, NEVER in .env",
+      "Controllers < 300 lines - extract to services with Strategy pattern",
+      "80% minimum test coverage on payment-related code",
+      "Reject unknown webhook IPs with 403 (fail-closed security)",
+      "Amount validation with 1 KES tolerance on ALL webhooks",
+      "Timestamp validation: reject callbacks >15 minutes old",
+      "Payment intent pattern: create pending record BEFORE external API call",
+      "Exponential backoff retry for network failures (1s, 2s, 4s)",
+      "Dead letter queue for failed webhooks with email alerts",
+      "Document all architectural decisions in docs/adr/",
+      "Rollback plan required for every migration"
+    ],
+    "skills_to_apply": [
+      "laraveltdd-with-pest",
+      "verification-first",
+      "laravelform-requests",
+      "laravelpolicies-and-authorization",
+      "laraveltransactions-and-consistency",
+      "laravelhttp-client-resilience",
+      "laravelqueues-and-horizon",
+      "laravelinterfaces-and-di",
+      "laravelrate-limiting",
+      "laravelstrategy-pattern"
+    ]
+  },
+  "feedbackLoops": {
+    "description": "Run ALL feedback loops before marking any item complete",
+    "commands": {
+      "typecheck": "npm run build -- --mode development",
+      "lint_frontend": "npm run lint",
+      "lint_backend": "vendor/bin/pint --test",
+      "test_backend": "php artisan test --parallel",
+      "test_coverage": "php artisan test --coverage --min=80"
+    },
+    "verification": {
+      "before_commit": [
+        "All tests pass (php artisan test)",
+        "80% coverage met (php artisan test --coverage --min=80)",
+        "Pint passes (vendor/bin/pint --test)",
+        "No per-tenant credentials in .env",
+        "PaymentController < 300 lines",
+        "Unique constraints exist on all payment reference columns",
+        "ADR documented for architectural changes"
+      ]
+    }
+  },
+  "workflow": {
+    "description": "Enhanced TDD workflow with ADR requirement",
+    "steps": [
+      {
+        "step": 1,
+        "name": "Write Failing Test",
+        "description": "Before writing any implementation code, create test(s) that verify the acceptance criteria.",
+        "example": "test('webhook with timestamp >15 min returns 403', function() { ... })",
+        "checklist": [
+          "Test file exists in tests/Feature/ or tests/Unit/",
+          "Test name describes expected behavior",
+          "Test fails for the right reason"
+        ]
+      },
+      {
+        "step": 2,
+        "name": "Minimal Implementation",
+        "description": "Write the minimum code to make the test pass.",
+        "checklist": [
+          "FormRequest for validation",
+          "Policy for authorization",
+          "DB::transaction() for multi-write",
+          "Factory for new models",
+          "Http::timeout(30)->retry(3, 100) for external APIs",
+          "Early-insert for idempotency"
+        ]
+      },
+      {
+        "step": 3,
+        "name": "Refactor",
+        "description": "Clean up while keeping tests green. Document architectural decisions.",
+        "focus": ["Remove duplication", "Extract services", "Strategy pattern", "Write ADR if needed"]
+      },
+      {
+        "step": 4,
+        "name": "Document Rollback",
+        "description": "For migrations, document explicit rollback steps.",
+        "checklist": [
+          "Rollback SQL documented in migration",
+          "php artisan migrate:rollback tested",
+          "No data loss on rollback"
+        ]
+      },
+      {
+        "step": 5,
+        "name": "Verify",
+        "description": "Run full suite and manual verification.",
+        "commands": ["php artisan test --coverage --min=80", "vendor/bin/pint --test", "npm run build"]
+      }
+    ]
+  },
+  "categories": {
+    "idempotency": {
+      "priority": 1,
+      "description": "Database-level idempotency with early-insert pattern - BLOCKING"
+    },
+    "security": {
+      "priority": 2,
+      "description": "Credential migration and webhook security - BLOCKING"
+    },
+    "architecture": {
+      "priority": 3,
+      "description": "Strategy pattern refactoring and service extraction"
+    },
+    "webhook_robustness": {
+      "priority": 4,
+      "description": "IP rejection, amount validation, dead letter queue"
+    },
+    "test_coverage": {
+      "priority": 5,
+      "description": "Fill coverage gaps for ALL payment files"
+    },
+    "monitoring": {
+      "priority": 6,
+      "description": "Health checks, duration logging, alerts"
+    }
+  },
+  "items": [
+    {
+      "id": "PAY-V2-001",
+      "category": "idempotency",
+      "priority": "CRITICAL",
+      "title": "Add Unique Constraint on mpesa_transaction_id with Early-Insert Pattern",
+      "description": "Add database-level unique constraint AND implement early-insert pattern. Currently only pessimistic locking is used which can fail under high concurrency. Research shows inserting idempotency record BEFORE processing prevents ALL race conditions.",
+      "story_points": 5,
+      "steps": [
+        "Create migration 2026_02_02_000001_add_unique_constraint_mpesa_transaction_id.php",
+        "Add audit query to check for existing duplicates: SELECT mpesa_transaction_id, COUNT(*) FROM payments WHERE mpesa_transaction_id IS NOT NULL GROUP BY mpesa_transaction_id HAVING COUNT(*) > 1",
+        "If duplicates exist, migration MUST FAIL with clear error listing duplicate IDs",
+        "Add unique index: $table->unique('mpesa_transaction_id') at line after index definition",
+        "Document rollback: $table->dropUnique('payments_mpesa_transaction_id_unique')",
+        "Update MpesaWebhookController::processPayment() (line ~170) to INSERT payment record with status='pending' BEFORE processing",
+        "Catch UniqueConstraintViolationException, return 200 OK (idempotent behavior)",
+        "Create ADR: docs/adr/006-payment-idempotency-pattern.md documenting early-insert approach"
+      ],
+      "files": [
+        "database/migrations/2026_02_02_000001_add_unique_constraint_mpesa_transaction_id.php",
+        "app/Http/Controllers/Api/MpesaWebhookController.php",
+        "docs/adr/006-payment-idempotency-pattern.md"
+      ],
+      "definition_of_ready": [
+        "Audit query run on production database to identify existing duplicates",
+        "If duplicates exist, manual resolution plan documented",
+        "Team understands early-insert pattern from research"
+      ],
+      "acceptance_criteria": [
+        "SHOW INDEX FROM payments shows unique constraint on mpesa_transaction_id",
+        "Duplicate M-Pesa webhooks return 200 OK without creating duplicate payment",
+        "Migration fails with clear message listing duplicate IDs if any exist",
+        "Payment record created with status='pending' BEFORE calling M-Pesa APIs",
+        "50+ concurrent webhooks with same transaction_id creates exactly 1 payment"
+      ],
+      "definition_of_done": [
+        "Migration runs successfully on clean database",
+        "SHOW INDEX FROM payments shows unique on mpesa_transaction_id",
+        "Feature test: 50 concurrent webhooks creates exactly 1 payment",
+        "Unit test: early-insert creates pending record before processing",
+        "ADR documented at docs/adr/006-payment-idempotency-pattern.md",
+        "All existing tests pass"
+      ],
+      "verification": "php artisan migrate; SHOW INDEX FROM payments; run ConcurrentWebhookTest 5 times to ensure no flakiness.",
+      "rollback_plan": {
+        "sql": "ALTER TABLE payments DROP INDEX payments_mpesa_transaction_id_unique",
+        "verification": "SHOW INDEX FROM payments should not show unique on mpesa_transaction_id",
+        "notes": "Rollback is safe - unique constraint removal doesn't affect data"
+      },
+      "estimated_effort": "medium",
+      "passes": true,
+      "attempt_count": 1,
+      "completed_date": "2026-02-02",
+      "implementation_notes": "Migration adds unique constraint with duplicate check. MpesaWebhookController updated with explicit QueryException handling (error 1062). Also fixed tillConfirmation() idempotency gap. ADR-006 documented at docs/adr/006-payment-idempotency-pattern.md. All 7 tests passing (MpesaIdempotencyTest)."
+    },
+    {
+      "id": "PAY-V2-002",
+      "category": "idempotency",
+      "priority": "CRITICAL",
+      "title": "Add Unique Constraint on intasend_reference with Early-Insert Pattern",
+      "description": "Same pattern as PAY-V2-001 for IntaSend. Add unique constraint and early-insert for bulletproof idempotency.",
+      "story_points": 3,
+      "steps": [
+        "Create migration 2026_02_02_000002_add_unique_constraint_intasend_reference.php",
+        "Audit for existing duplicates",
+        "Add unique index: $table->unique('intasend_reference')",
+        "Update IntaSendWebhookController::processCompletePayment() (line ~195) for early-insert",
+        "Handle UniqueConstraintViolationException gracefully"
+      ],
+      "files": [
+        "database/migrations/2026_02_02_000002_add_unique_constraint_intasend_reference.php",
+        "app/Http/Controllers/Api/IntaSendWebhookController.php"
+      ],
+      "definition_of_ready": [
+        "PAY-V2-001 pattern established",
+        "Audit query run for IntaSend duplicates"
+      ],
+      "acceptance_criteria": [
+        "Unique constraint exists on intasend_reference",
+        "Duplicate webhooks return 200 OK without duplicate payment",
+        "Test covers concurrent webhook scenario"
+      ],
+      "definition_of_done": [
+        "Migration runs",
+        "SHOW INDEX shows unique on intasend_reference",
+        "Feature test: concurrent webhooks handled correctly",
+        "All existing tests pass"
+      ],
+      "verification": "php artisan migrate; run concurrent webhook test.",
+      "rollback_plan": {
+        "sql": "ALTER TABLE payments DROP INDEX payments_intasend_reference_unique",
+        "verification": "SHOW INDEX should not show unique on intasend_reference"
+      },
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-V2-003",
+      "category": "idempotency",
+      "priority": "HIGH",
+      "title": "Create Idempotency Key Table for Cross-Request Synchronization",
+      "description": "Research shows idempotency table prevents duplicate processing BEFORE database insert. Create dedicated table for idempotency keys with TTL.",
+      "story_points": 5,
+      "steps": [
+        "Create migration 2026_02_02_000003_create_idempotency_keys_table.php",
+        "Columns: id, key (unique), request_hash, status (pending/processing/completed/failed), response_data (json), created_at, expires_at",
+        "Create app/Models/IdempotencyKey.php with scopes: active(), expired()",
+        "Create app/Services/IdempotencyService.php with acquire(key), release(key, response), isProcessing(key)",
+        "Implement in all webhook controllers as FIRST step",
+        "Add scheduled job to cleanup expired keys (>24 hours)"
+      ],
+      "files": [
+        "database/migrations/2026_02_02_000003_create_idempotency_keys_table.php",
+        "app/Models/IdempotencyKey.php",
+        "app/Services/IdempotencyService.php",
+        "app/Jobs/CleanupExpiredIdempotencyKeys.php",
+        "routes/console.php"
+      ],
+      "definition_of_ready": [
+        "PAY-V2-001 and PAY-V2-002 completed",
+        "Team understands idempotency key pattern"
+      ],
+      "acceptance_criteria": [
+        "Idempotency key checked BEFORE any processing",
+        "Concurrent requests with same key: first processes, others wait/return cached response",
+        "Expired keys cleaned up automatically",
+        "Works across all payment providers"
+      ],
+      "definition_of_done": [
+        "Migration runs",
+        "Service implements acquire/release pattern",
+        "All webhook controllers use IdempotencyService",
+        "Cleanup job scheduled daily",
+        "Tests cover all scenarios"
+      ],
+      "verification": "Feature test: send same webhook twice simultaneously, verify only one processes.",
+      "rollback_plan": {
+        "sql": "DROP TABLE idempotency_keys",
+        "code_changes": "Remove IdempotencyService calls from webhook controllers"
+      },
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-V2-001", "PAY-V2-002"]
+    },
+    {
+      "id": "PAY-V2-004",
+      "category": "security",
+      "priority": "HIGH",
+      "title": "Migrate Paystack Credentials to Database (SEC-001)",
+      "description": "Move PAYSTACK_PUBLIC_KEY and PAYSTACK_SECRET_KEY from .env to payment_configurations table. Each landlord configures their own Paystack account via Settings UI.",
+      "story_points": 8,
+      "steps": [
+        "Create migration 2026_02_02_000004_add_paystack_keys_to_payment_configurations.php",
+        "Add columns: paystack_public_key (string), paystack_secret_key (string, encrypted cast)",
+        "Add hasPaystackFullConfig() helper method to PaymentConfiguration model (line ~150)",
+        "Update PaystackService constructor to accept PaymentConfiguration (line ~45)",
+        "Add withConfig(PaymentConfiguration $config) method for per-landlord config",
+        "Implement fallback to .env if database config not set (backward compatibility)",
+        "Add deprecation warning when using .env: Log::warning('Using deprecated .env Paystack config...')",
+        "Update PaymentMethodsTab.vue to show Paystack public key input (full) and secret key input (last 4 chars only)",
+        "Write tests for both DB config and .env fallback scenarios"
+      ],
+      "files": [
+        "database/migrations/2026_02_02_000004_add_paystack_keys_to_payment_configurations.php",
+        "app/Models/PaymentConfiguration.php",
+        "app/Services/PaystackService.php",
+        "resources/js/Pages/Settings/partials/PaymentMethodsTab.vue",
+        "tests/Feature/PaystackCredentialMigrationTest.php"
+      ],
+      "definition_of_ready": [
+        "PaystackService current implementation reviewed",
+        "PaymentConfiguration model reviewed",
+        "Settings UI component reviewed"
+      ],
+      "acceptance_criteria": [
+        "Paystack keys stored encrypted in database (encrypted cast verified)",
+        "Landlords can configure keys via Settings > Payment Methods",
+        "Secret key shows as ****xxxx (last 4 chars) in UI",
+        "Existing .env config continues to work with deprecation warning",
+        "PaystackService uses landlord config when available"
+      ],
+      "definition_of_done": [
+        "Migration runs successfully",
+        "Settings UI shows Paystack configuration with masked secret",
+        "PaystackService uses landlord config",
+        "Tests pass for both DB and .env scenarios",
+        "Manual test: configure Paystack in UI, make payment"
+      ],
+      "verification": "Configure Paystack keys in Settings UI; initiate payment; verify keys used from DB not .env.",
+      "rollback_plan": {
+        "sql": "ALTER TABLE payment_configurations DROP COLUMN paystack_public_key, DROP COLUMN paystack_secret_key",
+        "code_changes": "Revert PaystackService to use only .env config"
+      },
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-V2-005",
+      "category": "security",
+      "priority": "HIGH",
+      "title": "Migrate M-Pesa Consumer Credentials to Database (SEC-002)",
+      "description": "Move MPESA_CONSUMER_KEY and MPESA_CONSUMER_SECRET from .env to payment_configurations. These are Safaricom Daraja app credentials per landlord.",
+      "story_points": 8,
+      "steps": [
+        "Create migration 2026_02_02_000005_add_mpesa_consumer_to_payment_configurations.php",
+        "Add columns: mpesa_consumer_key, mpesa_consumer_secret (encrypted)",
+        "Update MpesaService::getAccessToken() (line ~85) to use landlord credentials",
+        "Update cache key to include landlord_id to prevent cross-tenant token sharing",
+        "Update PaymentMethodsTab.vue with M-Pesa API credentials section",
+        "Maintain backward compatibility with .env fallback"
+      ],
+      "files": [
+        "database/migrations/2026_02_02_000005_add_mpesa_consumer_to_payment_configurations.php",
+        "app/Models/PaymentConfiguration.php",
+        "app/Services/MpesaService.php",
+        "resources/js/Pages/Settings/partials/PaymentMethodsTab.vue"
+      ],
+      "definition_of_ready": [
+        "PAY-V2-004 pattern established",
+        "MpesaService token caching logic reviewed"
+      ],
+      "acceptance_criteria": [
+        "Consumer credentials stored encrypted per landlord",
+        "OAuth token generation uses landlord credentials",
+        "Token cache key includes landlord_id",
+        "Backward compatibility with .env maintained"
+      ],
+      "definition_of_done": [
+        "Migration runs",
+        "MpesaService uses landlord config",
+        "STK Push works with per-landlord credentials",
+        "Token cache isolated per landlord",
+        "Tests pass"
+      ],
+      "verification": "Configure M-Pesa keys for 2 landlords; verify token cache is separate; initiate STK Push for each.",
+      "rollback_plan": {
+        "sql": "ALTER TABLE payment_configurations DROP COLUMN mpesa_consumer_key, DROP COLUMN mpesa_consumer_secret",
+        "code_changes": "Revert MpesaService to use .env"
+      },
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-V2-004"]
+    },
+    {
+      "id": "PAY-V2-006",
+      "category": "security",
+      "priority": "MEDIUM",
+      "title": "Migrate M-Pesa B2C Credentials to Database (SEC-003)",
+      "description": "Move MPESA_B2C_* variables (initiator, password, security_credential) from .env to payment_configurations. B2C is used for refunds.",
+      "story_points": 5,
+      "steps": [
+        "Create migration 2026_02_02_000006_add_mpesa_b2c_to_payment_configurations.php",
+        "Add columns: mpesa_b2c_initiator, mpesa_b2c_password (encrypted), mpesa_b2c_security_credential (encrypted)",
+        "Update MpesaService B2C methods (line ~350) to use landlord config",
+        "Add B2C section to PaymentMethodsTab.vue"
+      ],
+      "files": [
+        "database/migrations/2026_02_02_000006_add_mpesa_b2c_to_payment_configurations.php",
+        "app/Models/PaymentConfiguration.php",
+        "app/Services/MpesaService.php",
+        "resources/js/Pages/Settings/partials/PaymentMethodsTab.vue"
+      ],
+      "definition_of_ready": [
+        "PAY-V2-005 completed",
+        "B2C usage in MpesaService reviewed"
+      ],
+      "acceptance_criteria": [
+        "B2C credentials stored encrypted",
+        "Refunds work with per-landlord config",
+        "Security credential properly encrypted"
+      ],
+      "definition_of_done": [
+        "Migration runs",
+        "B2C credentials encrypted at rest",
+        "Refunds work with per-landlord config",
+        "Tests pass"
+      ],
+      "verification": "Configure B2C credentials; initiate test refund (sandbox).",
+      "rollback_plan": {
+        "sql": "ALTER TABLE payment_configurations DROP COLUMN mpesa_b2c_initiator, DROP COLUMN mpesa_b2c_password, DROP COLUMN mpesa_b2c_security_credential"
+      },
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-V2-005"]
+    },
+    {
+      "id": "PAY-V2-007",
+      "category": "architecture",
+      "priority": "HIGH",
+      "title": "Create PaymentGatewayInterface and Strategy Pattern Foundation",
+      "description": "Refactor payment gateway architecture to use Strategy + Adapter pattern following SOLID principles. Currently PaymentGatewayManager uses Factory pattern which is less flexible.",
+      "story_points": 8,
+      "steps": [
+        "Create app/Contracts/PaymentGatewayInterface.php with methods: getIdentifier(), isConfigured(), initializePayment(PaymentRequest), verifyPayment(string $reference), refundPayment(Payment), validateWebhook(Request), getPublicConfig()",
+        "Create app/ValueObjects/PaymentRequest.php with amount, currency, reference, metadata, callback_url",
+        "Create app/ValueObjects/PaymentResult.php with success, reference, provider_reference, raw_response, error_message",
+        "Update PaymentGatewayManager to use Strategy pattern (line ~25)",
+        "Create app/Services/Payment/AbstractPaymentGateway.php base class with shared logic",
+        "Create ADR: docs/adr/007-payment-gateway-strategy-pattern.md"
+      ],
+      "files": [
+        "app/Contracts/PaymentGatewayInterface.php",
+        "app/ValueObjects/PaymentRequest.php",
+        "app/ValueObjects/PaymentResult.php",
+        "app/Services/PaymentGatewayManager.php",
+        "app/Services/Payment/AbstractPaymentGateway.php",
+        "docs/adr/007-payment-gateway-strategy-pattern.md"
+      ],
+      "definition_of_ready": [
+        "Research on Strategy pattern for payments reviewed",
+        "Current PaymentGatewayManager analyzed",
+        "All gateway implementations listed"
+      ],
+      "acceptance_criteria": [
+        "Interface defines all gateway operations",
+        "Value objects provide type safety",
+        "New gateways can be added without modifying existing code (OCP)",
+        "Gateways are interchangeable (LSP)",
+        "ADR documents architectural decision"
+      ],
+      "definition_of_done": [
+        "Interface created",
+        "Value objects created",
+        "PaymentGatewayManager refactored",
+        "All existing tests pass",
+        "ADR documented"
+      ],
+      "verification": "Add mock gateway implementing interface; verify it works without changing existing code.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-V2-008",
+      "category": "architecture",
+      "priority": "HIGH",
+      "title": "Extract ManualPaymentHandler Service from PaymentController",
+      "description": "Extract manual payment recording logic (cash, bank transfer, mobile money) from PaymentController to dedicated service. First step in reducing controller from 1,276 to <300 lines.",
+      "story_points": 5,
+      "steps": [
+        "Create app/Services/Payment/ManualPaymentHandler.php implementing PaymentGatewayInterface methods where applicable",
+        "Move logic from PaymentController::storeManual() (lines 97-202)",
+        "Include: validation, transaction creation, invoice update, overpayment handling, event dispatch",
+        "Keep controller method to 15-20 lines: validate, delegate, return response",
+        "Create unit tests for service",
+        "Ensure PaymentObserver hooks still fire"
+      ],
+      "files": [
+        "app/Services/Payment/ManualPaymentHandler.php",
+        "app/Http/Controllers/PaymentController.php",
+        "tests/Unit/Services/Payment/ManualPaymentHandlerTest.php"
+      ],
+      "definition_of_ready": [
+        "PAY-V2-007 interface created",
+        "PaymentController::storeManual() code reviewed",
+        "Test coverage for current functionality documented"
+      ],
+      "acceptance_criteria": [
+        "Service handles all manual payment logic",
+        "PaymentController::storeManual() < 20 lines",
+        "Unit tests cover happy path and edge cases",
+        "Overpayment handling works correctly",
+        "PaymentReceived event dispatched",
+        "Existing feature tests still pass"
+      ],
+      "definition_of_done": [
+        "Service created and tested",
+        "PaymentController updated",
+        "Manual payment recording works end-to-end",
+        "Unit tests pass with 90% coverage on service",
+        "Feature tests pass"
+      ],
+      "verification": "Record manual payment; verify invoice updated, event fired, receipt generated.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-V2-007"]
+    },
+    {
+      "id": "PAY-V2-009",
+      "category": "architecture",
+      "priority": "HIGH",
+      "title": "Extract BulkPaymentProcessor Service from PaymentController",
+      "description": "Extract bulk payment import logic (validation + processing) from PaymentController. This is the largest method group (~300 lines).",
+      "story_points": 8,
+      "steps": [
+        "Create app/Services/Payment/BulkPaymentProcessor.php",
+        "Move validateBulkImport() logic (lines 650-750)",
+        "Move processBulkImport() logic (lines 750-900)",
+        "Move processCurrentImport() logic (lines 900-1000)",
+        "Move processHistoricalImport() logic (lines 1000-1100)",
+        "Keep controller methods to 15-20 lines each",
+        "Create unit tests with mock CSV data"
+      ],
+      "files": [
+        "app/Services/Payment/BulkPaymentProcessor.php",
+        "app/Http/Controllers/PaymentController.php",
+        "tests/Unit/Services/Payment/BulkPaymentProcessorTest.php"
+      ],
+      "definition_of_ready": [
+        "PAY-V2-008 pattern established",
+        "Bulk import flows documented",
+        "CSV format requirements documented"
+      ],
+      "acceptance_criteria": [
+        "Service handles all bulk import logic",
+        "Supports both 'current' and 'historical' import modes",
+        "Returns structured result with success count, errors, warnings",
+        "Unit tests cover partial failure scenarios",
+        "N+1 queries prevented (pre-loading verified)"
+      ],
+      "definition_of_done": [
+        "Service created and tested",
+        "PaymentController bulk methods < 20 lines each",
+        "Bulk import works end-to-end for both modes",
+        "Tests pass with 90% coverage on service"
+      ],
+      "verification": "Upload CSV with 10 payments (5 valid, 5 invalid); verify partial success handled.",
+      "estimated_effort": "large",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-V2-008"]
+    },
+    {
+      "id": "PAY-V2-010",
+      "category": "architecture",
+      "priority": "HIGH",
+      "title": "Extract PaystackCallbackHandler Service from PaymentController",
+      "description": "Extract Paystack callback and webhook handling from PaymentController to dedicated service.",
+      "story_points": 5,
+      "steps": [
+        "Create app/Services/Payment/PaystackCallbackHandler.php",
+        "Move handleCallback() logic (lines 280-350)",
+        "Move handleWebhook() logic (lines 350-420)",
+        "Integrate with existing PaymentCallbackProcessor",
+        "Add amount validation with 1 KES tolerance",
+        "Keep controller methods to 15-20 lines"
+      ],
+      "files": [
+        "app/Services/Payment/PaystackCallbackHandler.php",
+        "app/Http/Controllers/PaymentController.php",
+        "tests/Unit/Services/Payment/PaystackCallbackHandlerTest.php"
+      ],
+      "definition_of_ready": [
+        "PAY-V2-009 pattern established",
+        "PaymentCallbackProcessor analyzed"
+      ],
+      "acceptance_criteria": [
+        "Service handles Paystack callbacks and webhooks",
+        "Amount validation enforced (1 KES tolerance)",
+        "Integrates with PaymentCallbackProcessor",
+        "Unit tests cover success, failure, amount mismatch"
+      ],
+      "definition_of_done": [
+        "Service created and tested",
+        "PaymentController Paystack methods < 20 lines",
+        "Paystack payments work end-to-end",
+        "Tests pass"
+      ],
+      "verification": "Process Paystack callback; verify amount validated, payment created, invoice updated.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-V2-009"]
+    },
+    {
+      "id": "PAY-V2-011",
+      "category": "architecture",
+      "priority": "MEDIUM",
+      "title": "Extract ReceiptGenerator Service from PaymentController",
+      "description": "Extract PDF receipt generation from PaymentController to dedicated service.",
+      "story_points": 3,
+      "steps": [
+        "Create app/Services/Payment/ReceiptGenerator.php",
+        "Move downloadReceipt() logic (lines 550-600)",
+        "Move sendReceipt() logic (lines 600-650)",
+        "Include: PDF generation, email sending, template selection",
+        "Update PaymentController to delegate"
+      ],
+      "files": [
+        "app/Services/Payment/ReceiptGenerator.php",
+        "app/Http/Controllers/PaymentController.php",
+        "tests/Unit/Services/Payment/ReceiptGeneratorTest.php"
+      ],
+      "definition_of_ready": [
+        "PAY-V2-010 pattern established"
+      ],
+      "acceptance_criteria": [
+        "Service handles all receipt generation",
+        "Supports both download and email delivery",
+        "Unit tests cover PDF generation"
+      ],
+      "definition_of_done": [
+        "Service created and tested",
+        "Receipt generation works",
+        "Tests pass"
+      ],
+      "verification": "Generate receipt PDF; email receipt; verify both work.",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-V2-010"]
+    },
+    {
+      "id": "PAY-V2-012",
+      "category": "architecture",
+      "priority": "MEDIUM",
+      "title": "Extract VoidPaymentHandler Service from PaymentController",
+      "description": "Extract payment void logic from PaymentController to dedicated service.",
+      "story_points": 3,
+      "steps": [
+        "Create app/Services/Payment/VoidPaymentHandler.php",
+        "Move void() logic (lines 500-550)",
+        "Include reason tracking and invoice recalculation",
+        "Update PaymentController to delegate"
+      ],
+      "files": [
+        "app/Services/Payment/VoidPaymentHandler.php",
+        "app/Http/Controllers/PaymentController.php",
+        "tests/Unit/Services/Payment/VoidPaymentHandlerTest.php"
+      ],
+      "definition_of_ready": [
+        "PAY-V2-011 pattern established"
+      ],
+      "acceptance_criteria": [
+        "Service handles void logic",
+        "Invoice recalculated correctly after void",
+        "Audit trail maintained (Auditable trait)"
+      ],
+      "definition_of_done": [
+        "Service created and tested",
+        "Void works end-to-end",
+        "Tests pass"
+      ],
+      "verification": "Void a payment; verify invoice recalculated, audit logged.",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-V2-011"]
+    },
+    {
+      "id": "PAY-V2-013",
+      "category": "architecture",
+      "priority": "LOW",
+      "title": "Remove Deprecated Methods from PaymentController",
+      "description": "Remove deprecated findOrCreateArchivedTenant() and findOrCreateHistoricalLease() methods that have optimized replacements in BulkPaymentProcessor.",
+      "story_points": 2,
+      "steps": [
+        "grep codebase to verify no references to deprecated methods",
+        "Remove findOrCreateArchivedTenant() (lines ~1073-1130)",
+        "Remove findOrCreateHistoricalLease() (lines ~1131-1187)",
+        "Run all tests to confirm no breakage",
+        "Verify PaymentController now < 300 lines"
+      ],
+      "files": [
+        "app/Http/Controllers/PaymentController.php"
+      ],
+      "definition_of_ready": [
+        "PAY-V2-012 completed",
+        "All controller extractions complete",
+        "Grep confirms no references"
+      ],
+      "acceptance_criteria": [
+        "Deprecated methods removed",
+        "No references to deprecated methods anywhere",
+        "PaymentController < 300 lines",
+        "All tests pass"
+      ],
+      "definition_of_done": [
+        "Methods removed",
+        "wc -l PaymentController.php shows < 300",
+        "All tests pass"
+      ],
+      "verification": "grep -r 'findOrCreateArchivedTenant' finds no results; wc -l shows < 300.",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-V2-008", "PAY-V2-009", "PAY-V2-010", "PAY-V2-011", "PAY-V2-012"]
+    },
+    {
+      "id": "PAY-V2-014",
+      "category": "architecture",
+      "priority": "MEDIUM",
+      "title": "Implement Per-Gateway Retry Configuration",
+      "description": "Add configurable retry policies per payment gateway based on provider reliability.",
+      "story_points": 3,
+      "steps": [
+        "Add retry config to config/payments.php: paystack.retry_attempts (3), mpesa.retry_attempts (5), intasend.retry_attempts (3)",
+        "Add retry_backoff_base per gateway",
+        "Update PaystackService, MpesaService, IntaSendService to read from config",
+        "Create config/payments.php if not exists"
+      ],
+      "files": [
+        "config/payments.php",
+        "app/Services/PaystackService.php",
+        "app/Services/MpesaService.php",
+        "app/Services/IntaSendService.php"
+      ],
+      "definition_of_ready": [
+        "Current retry logic in each service documented"
+      ],
+      "acceptance_criteria": [
+        "Retry config per gateway in config/payments.php",
+        "Services use config values",
+        "Can change retry without code change"
+      ],
+      "definition_of_done": [
+        "Config file created",
+        "Services updated",
+        "Tests verify config is used"
+      ],
+      "verification": "Change retry config; verify service uses new value.",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-V2-015",
+      "category": "webhook_robustness",
+      "priority": "HIGH",
+      "title": "Implement Full M-Pesa Webhook Security Suite",
+      "description": "Research shows M-Pesa webhooks need timestamp + IP + signature validation. Currently only IP whitelist (warn-only) is used. Implement enterprise-grade security.",
+      "story_points": 8,
+      "steps": [
+        "Update MpesaWebhookController to return 403 Forbidden for unknown IPs (line ~35)",
+        "Add timestamp validation: reject callbacks with timestamp >15 minutes old",
+        "Extract timestamp from callback body (TransactionDate field)",
+        "Add request signing verification if available from Safaricom",
+        "Create app/Http/Middleware/ValidateMpesaWebhook.php with all checks",
+        "Apply middleware to M-Pesa webhook routes",
+        "Log all rejected requests with IP, timestamp, and reason"
+      ],
+      "files": [
+        "app/Http/Controllers/Api/MpesaWebhookController.php",
+        "app/Http/Middleware/ValidateMpesaWebhook.php",
+        "routes/api.php",
+        "tests/Feature/Controllers/MpesaWebhookSecurityTest.php"
+      ],
+      "definition_of_ready": [
+        "Safaricom IP list verified current",
+        "Timestamp format in callbacks documented",
+        "Current validation logic reviewed"
+      ],
+      "acceptance_criteria": [
+        "Unknown IPs receive 403 Forbidden (not just warning)",
+        "Callbacks >15 minutes old receive 403",
+        "Valid Safaricom IPs with recent timestamp processed",
+        "All rejections logged with full context",
+        "Tests verify all rejection scenarios"
+      ],
+      "definition_of_done": [
+        "Middleware created and applied",
+        "403 returned for invalid requests",
+        "Logging captures rejections",
+        "Tests pass"
+      ],
+      "verification": "Send webhook from non-Safaricom IP; verify 403. Send webhook with old timestamp; verify 403.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-V2-016",
+      "category": "webhook_robustness",
+      "priority": "HIGH",
+      "title": "Create Dead Letter Queue Table and Model",
+      "description": "Store failed webhooks for manual review. Prevents lost payments due to bugs or validation failures.",
+      "story_points": 3,
+      "steps": [
+        "Create migration 2026_02_02_000010_create_webhook_dead_letters_table.php",
+        "Columns: id, landlord_id (FK), provider (mpesa/paystack/intasend), event_type, payload (json), error_reason, attempts (int), resolved_at, resolved_by, resolution_notes, created_at, updated_at",
+        "Create app/Models/WebhookDeadLetter.php",
+        "Add scopes: unresolved(), byProvider(string), recentFirst()",
+        "Add TenantScope trait for multi-tenant isolation"
+      ],
+      "files": [
+        "database/migrations/2026_02_02_000010_create_webhook_dead_letters_table.php",
+        "app/Models/WebhookDeadLetter.php",
+        "database/factories/WebhookDeadLetterFactory.php"
+      ],
+      "definition_of_ready": [
+        "Failure scenarios documented",
+        "Multi-tenant requirements understood"
+      ],
+      "acceptance_criteria": [
+        "Table created with proper indexes",
+        "Model has relationships and scopes",
+        "Multi-tenant isolation via TenantScope",
+        "Factory exists for testing"
+      ],
+      "definition_of_done": [
+        "Migration runs",
+        "Model created with scopes",
+        "Factory created",
+        "Tinker test: can create and query dead letters"
+      ],
+      "verification": "php artisan migrate; Tinker: create dead letter, verify scopes work.",
+      "rollback_plan": {
+        "sql": "DROP TABLE webhook_dead_letters"
+      },
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-V2-017",
+      "category": "webhook_robustness",
+      "priority": "HIGH",
+      "title": "Implement Dead Letter Queue Handler with Email Alerts",
+      "description": "Service to capture failed webhooks and alert landlords and admins via email.",
+      "story_points": 5,
+      "steps": [
+        "Create app/Services/Payment/WebhookDeadLetterService.php",
+        "Implement capture(provider, payload, error): WebhookDeadLetter",
+        "Implement resolve(deadLetter, notes): void",
+        "Create app/Mail/FailedWebhookAlert.php mailable",
+        "Send alert to landlord email + admin email when captured",
+        "Add dead letter capture to all webhook controller catch blocks"
+      ],
+      "files": [
+        "app/Services/Payment/WebhookDeadLetterService.php",
+        "app/Mail/FailedWebhookAlert.php",
+        "resources/views/emails/failed-webhook-alert.blade.php",
+        "app/Http/Controllers/Api/MpesaWebhookController.php",
+        "app/Http/Controllers/Api/IntaSendWebhookController.php",
+        "app/Http/Controllers/PaymentController.php",
+        "tests/Unit/Services/Payment/WebhookDeadLetterServiceTest.php"
+      ],
+      "definition_of_ready": [
+        "PAY-V2-016 completed"
+      ],
+      "acceptance_criteria": [
+        "Failed webhooks captured with full payload",
+        "Email alert sent to landlord + admin",
+        "Dead letters can be marked resolved",
+        "Tests cover capture and alert scenarios"
+      ],
+      "definition_of_done": [
+        "Service created and tested",
+        "Email alert works",
+        "All webhook controllers integrated",
+        "Tests pass"
+      ],
+      "verification": "Trigger webhook failure; verify dead letter created and email sent.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-V2-016"]
+    },
+    {
+      "id": "PAY-V2-018",
+      "category": "webhook_robustness",
+      "priority": "HIGH",
+      "title": "Add Amount Validation with 1 KES Tolerance to All Webhooks",
+      "description": "Validate payment amount matches expected invoice amount within 1 KES tolerance. Currently only IntaSend has this check.",
+      "story_points": 5,
+      "steps": [
+        "Add amount validation to MpesaWebhookController::processPayment() (line ~200)",
+        "Add amount validation to PaymentCallbackProcessor (for Paystack)",
+        "Compare: abs($webhookAmount - $expectedAmount) <= 1.00",
+        "If mismatch > tolerance: log error, send to dead letter queue, return 200 OK",
+        "Create tests for exact, within-tolerance, and out-of-tolerance scenarios"
+      ],
+      "files": [
+        "app/Http/Controllers/Api/MpesaWebhookController.php",
+        "app/Services/Payment/PaymentCallbackProcessor.php",
+        "tests/Feature/AmountValidationTest.php"
+      ],
+      "definition_of_ready": [
+        "PAY-V2-017 dead letter queue ready",
+        "Expected amount source documented (invoice.total_amount)"
+      ],
+      "acceptance_criteria": [
+        "Amount validated on all webhook handlers",
+        "1 KES tolerance applied uniformly",
+        "Mismatches sent to dead letter queue",
+        "Tests cover all tolerance scenarios"
+      ],
+      "definition_of_done": [
+        "Amount validation in M-Pesa and Paystack handlers",
+        "Tests pass for all scenarios",
+        "Dead letter integration works"
+      ],
+      "verification": "Send webhook with amount 0.50 KES under; verify accepted. Send webhook 1.50 KES under; verify rejected to dead letter.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-V2-017"]
+    },
+    {
+      "id": "PAY-V2-019",
+      "category": "webhook_robustness",
+      "priority": "MEDIUM",
+      "title": "Implement Webhook Retry Tracking",
+      "description": "Track how many times providers retry the same webhook. Helps identify flaky webhooks and provider issues.",
+      "story_points": 3,
+      "steps": [
+        "Create migration 2026_02_02_000012_create_webhook_logs_table.php",
+        "Columns: id, landlord_id, provider, event_id, payload_hash, retry_count, first_received_at, last_received_at, status (pending/processed/failed), processing_time_ms",
+        "Create app/Models/WebhookLog.php",
+        "Update webhook controllers to log and increment retry_count on duplicate event_id"
+      ],
+      "files": [
+        "database/migrations/2026_02_02_000012_create_webhook_logs_table.php",
+        "app/Models/WebhookLog.php",
+        "app/Http/Controllers/Api/MpesaWebhookController.php",
+        "app/Http/Controllers/Api/IntaSendWebhookController.php"
+      ],
+      "definition_of_ready": [
+        "Event ID field identified for each provider"
+      ],
+      "acceptance_criteria": [
+        "All webhooks logged with retry count",
+        "Retry count incremented on duplicate events",
+        "Can query high-retry webhooks for investigation"
+      ],
+      "definition_of_done": [
+        "Migration runs",
+        "Logging implemented in all webhook controllers",
+        "Tests verify retry tracking"
+      ],
+      "verification": "Send same webhook 3 times; verify retry_count = 3 in log.",
+      "rollback_plan": {
+        "sql": "DROP TABLE webhook_logs"
+      },
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-V2-020",
+      "category": "webhook_robustness",
+      "priority": "MEDIUM",
+      "title": "Implement Rate Limiting Per Invoice",
+      "description": "Prevent payment abuse: 1 payment attempt per invoice per 60 seconds.",
+      "story_points": 3,
+      "steps": [
+        "Create RateLimiter for payment initiation in AppServiceProvider::boot()",
+        "Key: 'payment:' . $invoiceId",
+        "Limit: 1 per 60 seconds",
+        "Apply middleware to STK Push, Paystack init, IntaSend init endpoints",
+        "Return 429 Too Many Requests with retry-after header"
+      ],
+      "files": [
+        "app/Providers/AppServiceProvider.php",
+        "routes/api.php",
+        "tests/Feature/PaymentRateLimitingTest.php"
+      ],
+      "definition_of_ready": [
+        "Payment initiation endpoints listed"
+      ],
+      "acceptance_criteria": [
+        "Rate limiting applied to all payment initiation endpoints",
+        "1 per invoice per 60 seconds enforced",
+        "429 response with retry-after header",
+        "Tests verify rate limiting"
+      ],
+      "definition_of_done": [
+        "Rate limiter configured",
+        "Middleware applied to all routes",
+        "Tests pass"
+      ],
+      "verification": "Initiate payment for same invoice twice within 60s; verify second returns 429.",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-V2-021",
+      "category": "test_coverage",
+      "priority": "HIGH",
+      "title": "Create Paystack Webhook Controller Tests",
+      "description": "Fill critical test coverage gap: no tests exist for Paystack webhook handling in PaymentController::handleWebhook().",
+      "story_points": 5,
+      "steps": [
+        "Create tests/Feature/Controllers/PaystackWebhookControllerTest.php",
+        "Test: valid webhook creates payment (happy path)",
+        "Test: invalid signature returns 401",
+        "Test: duplicate webhook is idempotent (returns 200, no new payment)",
+        "Test: amount mismatch sent to dead letter queue",
+        "Test: missing invoice returns error",
+        "Test: already paid invoice handled correctly",
+        "Mock Paystack signature verification"
+      ],
+      "files": [
+        "tests/Feature/Controllers/PaystackWebhookControllerTest.php"
+      ],
+      "definition_of_ready": [
+        "PAY-V2-018 amount validation implemented",
+        "Paystack webhook format documented"
+      ],
+      "acceptance_criteria": [
+        "All Paystack webhook scenarios tested",
+        "Tests use mocked Paystack responses",
+        "Coverage includes happy path and all error cases"
+      ],
+      "definition_of_done": [
+        "Test file created with 10+ test cases",
+        "All tests pass",
+        "Coverage report shows webhook handler >90% covered"
+      ],
+      "verification": "php artisan test --filter=PaystackWebhookControllerTest; all pass.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-V2-018"]
+    },
+    {
+      "id": "PAY-V2-022",
+      "category": "test_coverage",
+      "priority": "HIGH",
+      "title": "Create Concurrent Webhook Tests (50+ Requests)",
+      "description": "Test idempotency under realistic concurrency. Current tests only use 5 concurrent requests.",
+      "story_points": 5,
+      "steps": [
+        "Create tests/Feature/ConcurrentWebhookTest.php",
+        "Test: 50 concurrent identical M-Pesa webhooks creates exactly 1 payment",
+        "Test: 50 concurrent identical IntaSend webhooks creates exactly 1 payment",
+        "Test: 50 concurrent identical Paystack webhooks creates exactly 1 payment",
+        "Use database transactions and pessimistic locking correctly in tests",
+        "Run each test 5 times to ensure no flakiness"
+      ],
+      "files": [
+        "tests/Feature/ConcurrentWebhookTest.php"
+      ],
+      "definition_of_ready": [
+        "PAY-V2-001, PAY-V2-002, PAY-V2-003 completed"
+      ],
+      "acceptance_criteria": [
+        "50+ concurrent requests tested per provider",
+        "Exactly 1 payment created per unique transaction",
+        "No race conditions or duplicates",
+        "Tests run 5 times without flakiness"
+      ],
+      "definition_of_done": [
+        "Tests created",
+        "All tests pass consistently (run 5+ times)",
+        "No flaky behavior"
+      ],
+      "verification": "Run test 5 times: php artisan test --filter=ConcurrentWebhookTest; all pass each time.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-V2-001", "PAY-V2-002", "PAY-V2-003"]
+    },
+    {
+      "id": "PAY-V2-023",
+      "category": "test_coverage",
+      "priority": "HIGH",
+      "title": "Create Tests for PaymentObserver, PaymentResource, ReceiptService",
+      "description": "Fill coverage gaps for untested payment files identified in tracer bullet analysis.",
+      "story_points": 5,
+      "steps": [
+        "Create tests/Unit/Observers/PaymentObserverTest.php - test cache invalidation, payment link revocation",
+        "Create tests/Unit/Resources/PaymentResourceTest.php - test JSON transformation",
+        "Create tests/Unit/Services/ReceiptServiceTest.php - test PDF generation (mock DomPDF)"
+      ],
+      "files": [
+        "tests/Unit/Observers/PaymentObserverTest.php",
+        "tests/Unit/Resources/PaymentResourceTest.php",
+        "tests/Unit/Services/ReceiptServiceTest.php"
+      ],
+      "definition_of_ready": [
+        "Each file reviewed for testable behavior"
+      ],
+      "acceptance_criteria": [
+        "PaymentObserver hooks tested",
+        "PaymentResource output format verified",
+        "ReceiptService PDF generation tested (mocked)"
+      ],
+      "definition_of_done": [
+        "3 test files created",
+        "All tests pass",
+        "80% coverage on each file"
+      ],
+      "verification": "php artisan test --filter=PaymentObserverTest --filter=PaymentResourceTest --filter=ReceiptServiceTest",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-V2-024",
+      "category": "monitoring",
+      "priority": "HIGH",
+      "title": "Add Request Duration Logging for All External Calls",
+      "description": "Log how long each external API call takes. Essential for performance debugging.",
+      "story_points": 3,
+      "steps": [
+        "Add duration logging to PaystackService (wrap all Http calls)",
+        "Add duration logging to MpesaService (wrap all Http calls)",
+        "Add duration logging to IntaSendService (wrap all Http calls)",
+        "Log format: 'External API call completed' with provider, endpoint, duration_ms, status_code",
+        "Use microtime() or Laravel's Benchmark helper"
+      ],
+      "files": [
+        "app/Services/PaystackService.php",
+        "app/Services/MpesaService.php",
+        "app/Services/IntaSendService.php"
+      ],
+      "definition_of_ready": [
+        "Current logging patterns reviewed"
+      ],
+      "acceptance_criteria": [
+        "All external API calls log duration",
+        "Log includes provider, endpoint, duration_ms, status_code",
+        "Can grep logs for slow calls (>5s)"
+      ],
+      "definition_of_done": [
+        "Duration logging added to all services",
+        "Logs visible in storage/logs",
+        "Can grep for slow calls"
+      ],
+      "verification": "Initiate payment; grep logs for 'duration_ms'.",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-V2-025",
+      "category": "monitoring",
+      "priority": "HIGH",
+      "title": "Create Health Check Endpoints for Payment Gateways",
+      "description": "Add /health/payments endpoint showing status of each configured gateway. Useful for monitoring.",
+      "story_points": 3,
+      "steps": [
+        "Create app/Http/Controllers/HealthCheckController.php",
+        "Implement payments() method returning status of each gateway",
+        "For each gateway: check isConfigured(), optionally ping API (with cache)",
+        "Add route: GET /health/payments (public, no auth)",
+        "Return JSON: { paystack: 'ok', mpesa: 'degraded', intasend: 'not_configured' }"
+      ],
+      "files": [
+        "app/Http/Controllers/HealthCheckController.php",
+        "routes/web.php",
+        "tests/Feature/HealthCheckTest.php"
+      ],
+      "definition_of_ready": [
+        "Gateway status checks documented"
+      ],
+      "acceptance_criteria": [
+        "Endpoint returns status of all payment gateways",
+        "Includes configured/not_configured status",
+        "Optionally pings gateway APIs (cached 5 min)",
+        "Works without authentication"
+      ],
+      "definition_of_done": [
+        "Controller created",
+        "Route added",
+        "Tests verify all scenarios"
+      ],
+      "verification": "curl /health/payments; verify JSON response with gateway statuses.",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    }
+  ],
+  "executionOrder": [
+    "Phase 1: Idempotency (Week 1) - BLOCKING",
+    "PAY-V2-001 - Unique constraint mpesa_transaction_id + early-insert",
+    "PAY-V2-002 - Unique constraint intasend_reference + early-insert",
+    "PAY-V2-003 - Idempotency key table for cross-request sync",
+    "",
+    "Phase 2: Security (Week 1-2) - BLOCKING",
+    "PAY-V2-004 - Paystack credentials to database",
+    "PAY-V2-005 - M-Pesa consumer to database",
+    "PAY-V2-006 - M-Pesa B2C to database",
+    "PAY-V2-015 - Full M-Pesa webhook security suite",
+    "",
+    "Phase 3: Architecture Refactoring (Week 2-3)",
+    "PAY-V2-007 - PaymentGatewayInterface + Strategy pattern",
+    "PAY-V2-008 - Extract ManualPaymentHandler",
+    "PAY-V2-009 - Extract BulkPaymentProcessor",
+    "PAY-V2-010 - Extract PaystackCallbackHandler",
+    "PAY-V2-011 - Extract ReceiptGenerator",
+    "PAY-V2-012 - Extract VoidPaymentHandler",
+    "PAY-V2-013 - Remove deprecated methods",
+    "PAY-V2-014 - Per-gateway retry config",
+    "",
+    "Phase 4: Webhook Robustness (Week 3)",
+    "PAY-V2-016 - Dead letter queue table",
+    "PAY-V2-017 - Dead letter handler + alerts",
+    "PAY-V2-018 - Amount validation all webhooks",
+    "PAY-V2-019 - Webhook retry tracking",
+    "PAY-V2-020 - Rate limiting per invoice",
+    "",
+    "Phase 5: Test Coverage (Week 4)",
+    "PAY-V2-021 - Paystack webhook tests",
+    "PAY-V2-022 - Concurrent webhook tests (50+)",
+    "PAY-V2-023 - Tests for Observer, Resource, ReceiptService",
+    "",
+    "Phase 6: Monitoring (Week 4)",
+    "PAY-V2-024 - Request duration logging",
+    "PAY-V2-025 - Health check endpoints"
+  ],
+  "criticalFiles": {
+    "MIGRATIONS": [
+      "database/migrations/2026_02_02_000001_add_unique_constraint_mpesa_transaction_id.php",
+      "database/migrations/2026_02_02_000002_add_unique_constraint_intasend_reference.php",
+      "database/migrations/2026_02_02_000003_create_idempotency_keys_table.php",
+      "database/migrations/2026_02_02_000004_add_paystack_keys_to_payment_configurations.php",
+      "database/migrations/2026_02_02_000005_add_mpesa_consumer_to_payment_configurations.php",
+      "database/migrations/2026_02_02_000006_add_mpesa_b2c_to_payment_configurations.php",
+      "database/migrations/2026_02_02_000010_create_webhook_dead_letters_table.php",
+      "database/migrations/2026_02_02_000012_create_webhook_logs_table.php"
+    ],
+    "CONTROLLERS": [
+      "app/Http/Controllers/PaymentController.php - MAJOR refactoring (1,276 → <300 lines)",
+      "app/Http/Controllers/Api/MpesaWebhookController.php - Security + validation",
+      "app/Http/Controllers/Api/IntaSendWebhookController.php - Idempotency improvements"
+    ],
+    "SERVICES": [
+      "app/Services/PaystackService.php - Landlord config + duration logging",
+      "app/Services/MpesaService.php - Landlord config + duration logging",
+      "app/Services/IntaSendService.php - Duration logging",
+      "app/Services/Payment/ManualPaymentHandler.php - NEW",
+      "app/Services/Payment/BulkPaymentProcessor.php - NEW",
+      "app/Services/Payment/PaystackCallbackHandler.php - NEW",
+      "app/Services/Payment/ReceiptGenerator.php - NEW",
+      "app/Services/Payment/VoidPaymentHandler.php - NEW",
+      "app/Services/Payment/WebhookDeadLetterService.php - NEW",
+      "app/Services/IdempotencyService.php - NEW"
+    ],
+    "MODELS": [
+      "app/Models/PaymentConfiguration.php - New credential columns",
+      "app/Models/IdempotencyKey.php - NEW",
+      "app/Models/WebhookDeadLetter.php - NEW",
+      "app/Models/WebhookLog.php - NEW"
+    ],
+    "FRONTEND": [
+      "resources/js/Pages/Settings/partials/PaymentMethodsTab.vue - Credential inputs"
+    ],
+    "CONFIG": [
+      "config/payments.php - NEW (retry config, tolerances)",
+      "config/mpesa.php - Security settings"
+    ],
+    "TESTS": [
+      "tests/Feature/Controllers/PaystackWebhookControllerTest.php - NEW",
+      "tests/Feature/ConcurrentWebhookTest.php - NEW",
+      "tests/Feature/AmountValidationTest.php - NEW",
+      "tests/Unit/Observers/PaymentObserverTest.php - NEW",
+      "tests/Unit/Resources/PaymentResourceTest.php - NEW",
+      "tests/Unit/Services/ReceiptServiceTest.php - NEW"
+    ],
+    "ADR": [
+      "docs/adr/006-payment-idempotency-pattern.md - NEW",
+      "docs/adr/007-payment-gateway-strategy-pattern.md - NEW"
+    ]
+  },
+  "totalStoryPoints": 110,
+  "completionCriteria": {
+    "metrics": [
+      "Unique constraints exist on mpesa_transaction_id, intasend_reference, paystack_reference",
+      "Early-insert idempotency pattern implemented for all webhooks",
+      "50+ concurrent webhook tests pass without duplicates",
+      "No per-tenant credentials in .env",
+      "PaymentController < 300 lines after extraction",
+      "Strategy pattern implemented for payment gateways",
+      "Invalid webhook IPs return 403 Forbidden",
+      "Amount validation with 1 KES tolerance on all webhooks",
+      "Timestamp validation rejects callbacks >15 min old",
+      "Dead letter queue captures failed webhooks with email alerts",
+      "80%+ test coverage on payment code",
+      "Request duration logged for all external API calls",
+      "Health check endpoint operational"
+    ],
+    "productionChecklist": [
+      "All 25 items marked PASSED",
+      "php artisan test --parallel - all pass",
+      "php artisan test --coverage --min=80 - passes",
+      "vendor/bin/pint --test - passes",
+      "npm run build - passes",
+      "wc -l PaymentController.php shows < 300",
+      "grep .env for per-tenant credentials returns empty",
+      "SHOW INDEX FROM payments shows unique on all reference columns",
+      "ADRs documented at docs/adr/006-*, docs/adr/007-*",
+      "Manual smoke test: complete payment via each provider"
+    ],
+    "outputSignal": "<promise>PAYMENT_WORKFLOW_V2_0_COMPLETE</promise>"
+  }
+}

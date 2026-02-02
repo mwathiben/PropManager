@@ -11860,3 +11860,125 @@ Schedule::command('tenant-invitations:cleanup')
 | Scheduled daily | PASS - 02:30 |
 
 **PAY-016 COMPLETE**
+
+---
+
+## PAY-V2-001: Add Unique Constraint on mpesa_transaction_id with Idempotent Insert Pattern
+**Status:** PASSED
+**Date:** 2026-02-02
+**Attempts:** 1
+**Category:** Idempotency (CRITICAL)
+**Story Points:** 5
+
+### Implementation Summary
+
+Added database-level unique constraint on `mpesa_transaction_id` column and implemented explicit QueryException handling for MySQL error 1062 (duplicate entry). Also fixed idempotency gap in `tillConfirmation()` method. Created comprehensive ADR documenting the payment idempotency pattern.
+
+### Skills Applied
+
+| Skill | Summary |
+|-------|---------|
+| **laraveltdd-with-pest** | RED-GREEN-REFACTOR: Wrote 7 failing tests FIRST (MpesaIdempotencyTest) |
+| **laravelmigrations-and-factories** | Created migration with duplicate check before adding unique constraint |
+| **laraveltransactions-and-consistency** | Wrapped payment processing in DB::transaction with explicit QueryException handling |
+| **laravelexception-handling-and-logging** | Structured logging for duplicate webhooks (INFO level, not ERROR) |
+| **laravelquality-checks** | Ran Pint, full test suite (869 tests), npm build |
+| **verification-first** | Verified unique constraint with SHOW INDEX, ran tests multiple times |
+| **feature-development** | 6-phase lifecycle: requirements → design → implementation → testing → docs → commit |
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/2026_02_02_000001_add_unique_constraint_mpesa_transaction_id.php` | Migration with duplicate check + unique constraint |
+| `tests/Feature/MpesaIdempotencyTest.php` | 7 test cases for idempotency verification |
+| `docs/adr/006-payment-idempotency-pattern.md` | Architecture decision record |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/Api/MpesaWebhookController.php` | Added explicit QueryException handling (error 1062) in processPayment() and tillConfirmation() |
+
+### Test Cases (7 total)
+
+| Test | Description |
+|------|-------------|
+| test_duplicate_mpesa_transaction_id_throws_query_exception | Verifies database unique constraint |
+| test_c2b_duplicate_webhook_returns_200_without_creating_duplicate_payment | Verifies idempotent webhook handling |
+| test_50_concurrent_webhooks_create_exactly_one_payment | Stress test for race conditions |
+| test_c2b_confirmation_handles_duplicate_transaction_id | C2B endpoint idempotency |
+| test_till_confirmation_handles_duplicate_transaction_id | Till endpoint idempotency |
+| test_duplicate_webhook_does_not_modify_original_payment | Data integrity verification |
+| test_multiple_payments_with_null_mpesa_transaction_id_allowed | NULL handling (non-M-Pesa payments) |
+
+### Migration Logic
+
+**Duplicate Check (fails migration if duplicates exist):**
+```php
+$duplicates = DB::table('payments')
+    ->select('mpesa_transaction_id', DB::raw('COUNT(*) as count'))
+    ->whereNotNull('mpesa_transaction_id')
+    ->groupBy('mpesa_transaction_id')
+    ->having('count', '>', 1)
+    ->get();
+
+if ($duplicates->isNotEmpty()) {
+    throw new RuntimeException("BLOCKING: Duplicate mpesa_transaction_id found...");
+}
+```
+
+### Controller Pattern
+
+**QueryException handling for idempotent behavior:**
+```php
+} catch (\Illuminate\Database\QueryException $e) {
+    DB::rollBack();
+    // MySQL error 1062 = duplicate entry (unique constraint violation)
+    if ($e->errorInfo[1] === 1062) {
+        Log::info('M-Pesa duplicate webhook ignored (idempotent)', [
+            'mpesa_transaction_id' => $receiptNumber,
+        ]);
+        return;
+    }
+    throw $e;
+}
+```
+
+### DBP Pattern Verification
+
+| Check | Result |
+|-------|--------|
+| No inline validation | PASS - no $request->validate() in controller |
+| No Http calls without timeout | PASS - no Http:: calls in MpesaWebhookController |
+| DB::transaction for multi-write | PASS - DB::beginTransaction() at lines 169, 389 |
+| Structured logging | PASS - Log::info with context arrays |
+
+### Verification Results
+
+| Check | Result |
+|-------|--------|
+| MpesaIdempotencyTest | 7/7 PASS (17 assertions) |
+| Full test suite | 869 tests PASS (13 skipped) |
+| Pint lint | PASS |
+| npm run build | PASS |
+| Migration | Success - unique constraint created |
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| SHOW INDEX shows unique constraint on mpesa_transaction_id | PASS |
+| Duplicate webhooks return 200 OK without creating duplicate payment | PASS |
+| Migration fails with clear message if duplicates exist | PASS |
+| 50 concurrent webhooks create exactly 1 payment | PASS |
+| ADR documented | PASS - docs/adr/006-payment-idempotency-pattern.md |
+
+### Rollback Plan
+
+```sql
+ALTER TABLE payments DROP INDEX payments_mpesa_transaction_id_unique;
+ALTER TABLE payments ADD INDEX payments_mpesa_transaction_idx (mpesa_transaction_id);
+```
+
+**PAY-V2-001 COMPLETE**

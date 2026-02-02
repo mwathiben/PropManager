@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\InvoiceStatus;
 use App\Events\MpesaPaymentStatusChanged;
 use App\Events\PaymentReceived as PaymentReceivedEvent;
 use App\Http\Controllers\Controller;
+use App\Mail\OverpaymentNotification;
 use App\Mail\PaymentReceived;
 use App\Models\Invoice;
 use App\Models\Payment;
@@ -220,7 +222,7 @@ class MpesaWebhookController extends Controller
             $overpayment = max(0, $amount - $remainingBalance);
 
             $newAmountPaid = $invoice->amount_paid + $appliedAmount;
-            $newStatus = $newAmountPaid >= $invoice->total_due ? 'paid' : 'partial';
+            $newStatus = $newAmountPaid >= $invoice->total_due ? InvoiceStatus::Paid : InvoiceStatus::Partial;
 
             $invoice->update([
                 'amount_paid' => $newAmountPaid,
@@ -233,12 +235,36 @@ class MpesaWebhookController extends Controller
                     "Overpayment from M-Pesa payment #{$payment->id}",
                     $payment->id
                 );
+                $invoice->lease->refresh();
             }
 
             DB::commit();
 
             $invoice->load(['lease.tenant', 'lease.unit.building']);
-            Mail::to($invoice->lease->tenant->email)->send(new PaymentReceived($payment, $invoice));
+
+            if ($invoice->lease?->tenant?->email && filter_var($invoice->lease->tenant->email, FILTER_VALIDATE_EMAIL)) {
+                Mail::to($invoice->lease->tenant->email)->queue(new PaymentReceived($payment, $invoice));
+            } else {
+                Log::warning('M-Pesa webhook: Cannot send payment receipt - tenant email missing', [
+                    'payment_id' => $payment->id,
+                    'invoice_id' => $invoice->id,
+                    'lease_id' => $invoice->lease_id,
+                ]);
+            }
+
+            if ($overpayment > 0 && $invoice->lease) {
+                $tenant = $invoice->lease->tenant;
+                if ($landlord && $tenant && filter_var($landlord->email, FILTER_VALIDATE_EMAIL)) {
+                    Mail::to($landlord->email)->queue(new OverpaymentNotification(
+                        $payment,
+                        $invoice->lease,
+                        $tenant,
+                        $overpayment,
+                        $invoice->lease->wallet_balance
+                    ));
+                }
+            }
+
             PaymentReceivedEvent::dispatch($payment, $invoice);
 
             if (! empty($data['checkout_request_id'])) {
@@ -258,6 +284,24 @@ class MpesaWebhookController extends Controller
                 'amount' => $amount,
                 'applied' => $appliedAmount,
                 'overpayment_to_wallet' => $overpayment,
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            DB::rollBack();
+
+            // MySQL error 1062 = duplicate entry (unique constraint violation)
+            // This is expected idempotent behavior - not an error condition
+            if ($e->errorInfo[1] === 1062) {
+                Log::info('M-Pesa duplicate webhook ignored (idempotent)', [
+                    'mpesa_transaction_id' => $receiptNumber,
+                ]);
+
+                return;
+            }
+
+            // Other database errors are real failures
+            Log::error('M-Pesa payment database error', [
+                'receipt' => $receiptNumber,
+                'error' => $e->getMessage(),
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -361,7 +405,7 @@ class MpesaWebhookController extends Controller
             if ($tenant) {
                 $lease = $tenant->leases()->where('is_active', true)->first();
                 $invoice = $lease?->invoices()
-                    ->whereIn('status', ['sent', 'partial', 'overdue'])
+                    ->whereIn('status', [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue])
                     ->orderBy('due_date', 'asc')
                     ->first();
             }
@@ -377,6 +421,25 @@ class MpesaWebhookController extends Controller
             DB::commit();
 
             return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Payment recorded']);
+        } catch (\Illuminate\Database\QueryException $e) {
+            DB::rollBack();
+
+            // MySQL error 1062 = duplicate entry (unique constraint violation)
+            // This is expected idempotent behavior - not an error condition
+            if ($e->errorInfo[1] === 1062) {
+                Log::info('M-Pesa Till duplicate webhook ignored (idempotent)', [
+                    'mpesa_transaction_id' => $transId,
+                ]);
+
+                return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Already processed']);
+            }
+
+            Log::error('M-Pesa Till payment database error', [
+                'receipt' => $transId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Error - will retry']);
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('M-Pesa Till payment processing failed', [
@@ -476,7 +539,7 @@ class MpesaWebhookController extends Controller
         $overpayment = max(0, $amount - $remainingBalance);
 
         $newAmountPaid = $invoice->amount_paid + $appliedAmount;
-        $newStatus = $newAmountPaid >= $invoice->total_due ? 'paid' : 'partial';
+        $newStatus = $newAmountPaid >= $invoice->total_due ? InvoiceStatus::Paid : InvoiceStatus::Partial;
 
         $invoice->update([
             'amount_paid' => $newAmountPaid,
@@ -489,10 +552,34 @@ class MpesaWebhookController extends Controller
                 "Overpayment from M-Pesa Till payment #{$payment->id}",
                 $payment->id
             );
+            $invoice->lease->refresh();
         }
 
         $invoice->load(['lease.tenant', 'lease.unit.building']);
-        Mail::to($invoice->lease->tenant->email)->send(new PaymentReceived($payment, $invoice));
+
+        if ($invoice->lease?->tenant?->email && filter_var($invoice->lease->tenant->email, FILTER_VALIDATE_EMAIL)) {
+            Mail::to($invoice->lease->tenant->email)->queue(new PaymentReceived($payment, $invoice));
+        } else {
+            Log::warning('M-Pesa Till webhook: Cannot send payment receipt - tenant email missing', [
+                'payment_id' => $payment->id,
+                'invoice_id' => $invoice->id,
+                'lease_id' => $invoice->lease_id,
+            ]);
+        }
+
+        if ($overpayment > 0 && $invoice->lease) {
+            $tenant = $invoice->lease->tenant;
+            if ($landlord && $tenant && filter_var($landlord->email, FILTER_VALIDATE_EMAIL)) {
+                Mail::to($landlord->email)->queue(new OverpaymentNotification(
+                    $payment,
+                    $invoice->lease,
+                    $tenant,
+                    $overpayment,
+                    $invoice->lease->wallet_balance
+                ));
+            }
+        }
+
         PaymentReceivedEvent::dispatch($payment, $invoice);
 
         Log::info('M-Pesa Till payment recorded', [
