@@ -18,10 +18,12 @@ use App\Models\Building;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\Payment;
+use App\Models\PaymentConfiguration;
 use App\Models\TenantPaymentVerification;
 use App\Models\User;
 use App\Services\BillingModelService;
 use App\Services\BulkImport\BulkImportValidator;
+use App\Services\IdempotencyService;
 use App\Services\Payment\PaymentCallbackProcessor;
 use App\Services\PaystackService;
 use App\Services\ReceiptService;
@@ -45,14 +47,18 @@ class PaymentController extends Controller
 
     protected ReceiptService $receiptService;
 
+    protected IdempotencyService $idempotencyService;
+
     public function __construct(
         PaystackService $paystackService,
         BillingModelService $billingService,
-        ReceiptService $receiptService
+        ReceiptService $receiptService,
+        IdempotencyService $idempotencyService
     ) {
         $this->paystackService = $paystackService;
         $this->billingService = $billingService;
         $this->receiptService = $receiptService;
+        $this->idempotencyService = $idempotencyService;
     }
 
     /**
@@ -349,6 +355,10 @@ class PaymentController extends Controller
             ],
         ];
 
+        // Get landlord's payment configuration for per-landlord credentials
+        $paymentConfig = PaymentConfiguration::where('landlord_id', $landlord->id)->first();
+        $paystackService = new PaystackService($paymentConfig);
+
         // Check if split payments are available
         $splitConfig = $this->billingService->getSplitPaymentConfig($landlord, $request->amount);
 
@@ -365,7 +375,7 @@ class PaymentController extends Controller
             $transactionData['metadata']['payout_account_id'] = $splitConfig['payout_account']->id;
             $transactionData['metadata']['fee_calculation'] = $feeResult->toArray();
 
-            $response = $this->paystackService->initializeSplitTransaction($transactionData);
+            $response = $paystackService->initializeSplitTransaction($transactionData);
 
             if ($response && $response['status']) {
                 return response()->json([
@@ -376,7 +386,7 @@ class PaymentController extends Controller
             }
         } else {
             // Regular payment (no split) - fee recorded manually later
-            $response = $this->paystackService->initializeTransaction($transactionData);
+            $response = $paystackService->initializeTransaction($transactionData);
 
             if ($response && $response['status']) {
                 return response()->json([
@@ -404,7 +414,15 @@ class PaymentController extends Controller
             return redirect()->route('invoices.index')->with('error', 'Payment reference not found');
         }
 
-        $verification = $this->paystackService->verifyTransaction($reference);
+        $pendingPayment = Payment::where('paystack_reference', $reference)->first();
+        $landlordId = $pendingPayment?->landlord_id ?? $request->user()?->id;
+
+        $paymentConfig = PaymentConfiguration::where('landlord_id', $landlordId)->first();
+        if (! $paymentConfig || ! $paymentConfig->hasPaystackConfig()) {
+            return redirect()->route('invoices.index')->with('error', 'Paystack not configured');
+        }
+
+        $verification = (new PaystackService($paymentConfig))->verifyTransaction($reference);
 
         if (! $verification || ! $verification['status']) {
             return redirect()->route('invoices.index')->with('error', 'Payment verification failed');
@@ -434,7 +452,7 @@ class PaymentController extends Controller
             return redirect()->route('invoices.index')->with('error', 'Invoice not found');
         }
 
-        $processor = PaymentCallbackProcessor::make($this->billingService, $this->receiptService)
+        $processor = PaymentCallbackProcessor::make($this->billingService, $this->receiptService, $this->idempotencyService)
             ->forReference($reference)
             ->forInvoice($invoiceId)
             ->withPaymentData($data)
@@ -463,24 +481,57 @@ class PaymentController extends Controller
     /**
      * Handle Paystack webhook (server-to-server)
      * This endpoint receives POST requests from Paystack with signature verification
+     *
+     * Security: Uses per-landlord secret key for signature verification (PAY-V2-004)
      */
     public function handleWebhook(Request $request)
     {
-        // Verify webhook signature
         $signature = $request->header('x-paystack-signature');
         $payload = $request->getContent();
 
-        if (! $signature || ! $this->paystackService->verifyWebhookSignature($payload, $signature)) {
-            Log::warning('Paystack webhook signature verification failed', [
+        if (! $signature) {
+            Log::warning('Paystack webhook missing signature', ['ip' => $request->ip()]);
+
+            return response()->json(['error' => 'Invalid signature'], 401);
+        }
+
+        $data = $request->input('data', []);
+        $metadata = $data['metadata'] ?? [];
+        $landlordId = $metadata['landlord_id'] ?? null;
+
+        if (! $landlordId) {
+            Log::warning('Paystack webhook missing landlord_id in metadata', [
+                'reference' => $data['reference'] ?? 'unknown',
                 'ip' => $request->ip(),
-                'signature_present' => ! empty($signature),
+            ]);
+
+            return response()->json(['error' => 'Missing landlord context'], 400);
+        }
+
+        $paymentConfig = PaymentConfiguration::where('landlord_id', $landlordId)->first();
+
+        if (! $paymentConfig || ! $paymentConfig->hasPaystackConfig()) {
+            Log::warning('Paystack webhook for unconfigured landlord', [
+                'landlord_id' => $landlordId,
+                'reference' => $data['reference'] ?? 'unknown',
+            ]);
+
+            return response()->json(['error' => 'Landlord not configured'], 400);
+        }
+
+        $paystackService = new PaystackService($paymentConfig);
+
+        if (! $paystackService->verifyWebhookSignature($payload, $signature)) {
+            Log::warning('Paystack webhook signature verification failed', [
+                'landlord_id' => $landlordId,
+                'reference' => $data['reference'] ?? 'unknown',
+                'ip' => $request->ip(),
             ]);
 
             return response()->json(['error' => 'Invalid signature'], 401);
         }
 
         $event = $request->input('event');
-        $data = $request->input('data');
 
         Log::info('Paystack webhook received', ['event' => $event, 'reference' => $data['reference'] ?? null]);
 
@@ -492,7 +543,10 @@ class PaymentController extends Controller
     }
 
     /**
-     * Process a successful charge from webhook
+     * Process a successful charge from webhook.
+     *
+     * Idempotency is handled by PaymentCallbackProcessor internally using
+     * IdempotencyService (application layer) + UNIQUE constraint (database layer).
      */
     protected function processSuccessfulCharge(array $data): \Illuminate\Http\JsonResponse
     {
@@ -509,7 +563,7 @@ class PaymentController extends Controller
             return response()->json(['status' => 'no_invoice']);
         }
 
-        $processor = PaymentCallbackProcessor::make($this->billingService, $this->receiptService)
+        $processor = PaymentCallbackProcessor::make($this->billingService, $this->receiptService, $this->idempotencyService)
             ->forReference($reference)
             ->forInvoice($invoiceId)
             ->withPaymentData($data)
@@ -538,10 +592,16 @@ class PaymentController extends Controller
     /**
      * Get Paystack public key for frontend
      */
-    public function getPublicKey()
+    public function getPublicKey(Request $request)
     {
+        $user = $request->user();
+        $landlordId = $user->isCaretaker() || $user->isTenant() ? $user->landlord_id : $user->id;
+
+        $paymentConfig = PaymentConfiguration::where('landlord_id', $landlordId)->first();
+        $paystackService = new PaystackService($paymentConfig);
+
         return response()->json([
-            'public_key' => $this->paystackService->getPublicKey(),
+            'public_key' => $paystackService->getPublicKey(),
         ]);
     }
 

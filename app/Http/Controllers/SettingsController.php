@@ -37,8 +37,33 @@ class SettingsController extends Controller
         // Get landlord profile
         $landlordProfile = LandlordProfile::where('user_id', $landlordId)->first();
 
-        // Get payment configuration
+        // Get payment configuration with secret sanitization (PAY-V2-004)
         $paymentConfig = PaymentConfiguration::getOrCreateForLandlord($landlordId);
+        $paymentConfigData = $paymentConfig->toArray();
+
+        // Add last 4 chars for secret keys (for UI display)
+        $paymentConfigData['paystack_secret_key_last4'] = $paymentConfig->paystack_secret_key
+            ? '****'.substr($paymentConfig->paystack_secret_key, -4)
+            : null;
+        $paymentConfigData['mpesa_consumer_key_last4'] = $paymentConfig->mpesa_consumer_key
+            ? '****'.substr($paymentConfig->mpesa_consumer_key, -4)
+            : null;
+        $paymentConfigData['mpesa_consumer_secret_last4'] = $paymentConfig->mpesa_consumer_secret
+            ? '****'.substr($paymentConfig->mpesa_consumer_secret, -4)
+            : null;
+        $paymentConfigData['intasend_secret_key_last4'] = $paymentConfig->intasend_secret_key
+            ? '****'.substr($paymentConfig->intasend_secret_key, -4)
+            : null;
+
+        // Remove actual secrets - they should NEVER go to frontend
+        unset(
+            $paymentConfigData['paystack_secret_key'],
+            $paymentConfigData['mpesa_consumer_key'],
+            $paymentConfigData['mpesa_consumer_secret'],
+            $paymentConfigData['mpesa_passkey'],
+            $paymentConfigData['intasend_secret_key'],
+            $paymentConfigData['intasend_webhook_challenge']
+        );
 
         // Get current OCR settings (mask sensitive data)
         $ocrSettings = [
@@ -86,7 +111,7 @@ class SettingsController extends Controller
         return Inertia::render('Settings/Index', [
             'activeTab' => $activeTab,
             'landlordProfile' => $landlordProfile,
-            'paymentConfig' => $paymentConfig,
+            'paymentConfig' => $paymentConfigData,
             'paymentMethods' => PaymentConfiguration::getAvailablePaymentMethods(),
             'ocrSettings' => $ocrSettings,
             'ocrProviders' => OcrService::getAvailableProviders(),
@@ -130,7 +155,23 @@ class SettingsController extends Controller
     public function updatePaymentMethods(UpdatePaymentMethodsRequest $request)
     {
         $config = PaymentConfiguration::getOrCreateForLandlord(auth()->id());
-        $config->update($request->validated());
+
+        $data = $request->validated();
+
+        $secretFields = [
+            'paystack_secret_key',
+            'mpesa_consumer_key',
+            'mpesa_consumer_secret',
+            'intasend_secret_key',
+        ];
+
+        foreach ($secretFields as $field) {
+            if (empty($data[$field])) {
+                unset($data[$field]);
+            }
+        }
+
+        $config->update($data);
 
         return redirect()->back()->with('success', 'Payment methods updated successfully.');
     }

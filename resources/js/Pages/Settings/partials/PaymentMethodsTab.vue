@@ -30,7 +30,11 @@ const form = useForm({
     bank_branch: props.paymentConfig?.bank_branch || '',
     mpesa_paybill: props.paymentConfig?.mpesa_paybill || '',
     mpesa_account_name: props.paymentConfig?.mpesa_account_name || '',
+    mpesa_consumer_key: '',
+    mpesa_consumer_secret: '',
     paystack_enabled: props.paymentConfig?.paystack_enabled || false,
+    paystack_public_key: props.paymentConfig?.paystack_public_key || '',
+    paystack_secret_key: '',
     intasend_enabled: props.paymentConfig?.intasend_enabled || false,
     intasend_publishable_key: props.paymentConfig?.intasend_publishable_key || '',
     intasend_secret_key: '',
@@ -67,7 +71,9 @@ const showMpesaDetails = computed(() => isMethodEnabled('mobile_money'));
 const showPaystackDetails = computed(() => isMethodEnabled('paystack'));
 const showIntasendDetails = computed(() => isMethodEnabled('intasend_mpesa'));
 
-const hasIntasendSecretKey = computed(() => !!props.paymentConfig?.intasend_secret_key);
+const hasIntasendSecretKey = computed(() => !!props.paymentConfig?.intasend_secret_key_last4);
+const hasPaystackSecretKey = computed(() => !!props.paymentConfig?.paystack_secret_key_last4);
+const hasMpesaConsumerKey = computed(() => !!props.paymentConfig?.mpesa_consumer_key_last4);
 
 const submit = () => {
     form.post(route('settings.payment.update'), {
@@ -233,6 +239,71 @@ const submit = () => {
                         <InputError :message="form.errors.mpesa_account_name" class="mt-2" />
                     </div>
                 </div>
+
+                <!-- M-Pesa API Credentials Section -->
+                <div class="pt-4 border-t border-gray-200 space-y-4">
+                    <div>
+                        <h5 class="text-sm font-medium text-gray-700">STK Push API Credentials (Optional)</h5>
+                        <p class="text-sm text-gray-500">
+                            For automatic STK Push payments.
+                            <a href="https://developer.safaricom.co.ke/APIs/MpesaExpressSimulate" target="_blank" class="text-indigo-600 hover:text-indigo-800">
+                                Get API keys from Safaricom Developer Portal
+                            </a>
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Consumer Key -->
+                        <div>
+                            <InputLabel for="mpesa_consumer_key">
+                                Consumer Key
+                                <span v-if="props.paymentConfig?.mpesa_consumer_key_last4" class="ml-2 text-xs text-green-600">({{ props.paymentConfig.mpesa_consumer_key_last4 }})</span>
+                            </InputLabel>
+                            <TextInput
+                                id="mpesa_consumer_key"
+                                v-model="form.mpesa_consumer_key"
+                                type="password"
+                                class="mt-1 block w-full font-mono text-sm"
+                                :placeholder="hasMpesaConsumerKey ? '••••••••••••' : 'Your consumer key'"
+                            />
+                            <p class="mt-1 text-xs text-gray-500">From Safaricom Developer Portal. Leave blank to keep current.</p>
+                            <InputError :message="form.errors.mpesa_consumer_key" class="mt-2" />
+                        </div>
+
+                        <!-- Consumer Secret -->
+                        <div>
+                            <InputLabel for="mpesa_consumer_secret">
+                                Consumer Secret
+                                <span v-if="props.paymentConfig?.mpesa_consumer_secret_last4" class="ml-2 text-xs text-green-600">({{ props.paymentConfig.mpesa_consumer_secret_last4 }})</span>
+                            </InputLabel>
+                            <TextInput
+                                id="mpesa_consumer_secret"
+                                v-model="form.mpesa_consumer_secret"
+                                type="password"
+                                class="mt-1 block w-full font-mono text-sm"
+                                :placeholder="hasMpesaConsumerKey ? '••••••••••••' : 'Your consumer secret'"
+                            />
+                            <p class="mt-1 text-xs text-gray-500">From Safaricom Developer Portal. Leave blank to keep current.</p>
+                            <InputError :message="form.errors.mpesa_consumer_secret" class="mt-2" />
+                        </div>
+                    </div>
+
+                    <!-- Status Indicator -->
+                    <div class="flex items-center gap-2 pt-2">
+                        <div :class="[
+                            'w-2 h-2 rounded-full',
+                            hasMpesaConsumerKey || (form.mpesa_consumer_key && form.mpesa_consumer_secret)
+                                ? 'bg-green-500'
+                                : 'bg-gray-300'
+                        ]"></div>
+                        <span class="text-sm text-gray-600">
+                            {{ hasMpesaConsumerKey || (form.mpesa_consumer_key && form.mpesa_consumer_secret)
+                                ? 'STK Push enabled'
+                                : 'STK Push not configured (manual payments only)'
+                            }}
+                        </span>
+                    </div>
+                </div>
             </div>
 
             <!-- Paystack Details -->
@@ -241,8 +312,14 @@ const submit = () => {
                     <CreditCardIcon class="w-5 h-5 text-blue-600" />
                     <h4 class="text-sm font-medium text-gray-700 uppercase tracking-wider">Paystack Online Payments</h4>
                 </div>
-                <p class="text-sm text-gray-500">Enable online card payments via Paystack. API keys are configured in Admin Settings.</p>
+                <p class="text-sm text-gray-500">
+                    Accept card payments via Paystack.
+                    <a href="https://dashboard.paystack.com/#/settings/developers" target="_blank" class="text-indigo-600 hover:text-indigo-800">
+                        Get API keys from Paystack Dashboard
+                    </a>
+                </p>
 
+                <!-- Enable/Disable Toggle -->
                 <div class="flex items-center gap-3">
                     <label class="relative inline-flex items-center cursor-pointer">
                         <input
@@ -257,6 +334,58 @@ const submit = () => {
                     </label>
                 </div>
                 <InputError :message="form.errors.paystack_enabled" class="mt-2" />
+
+                <!-- Paystack Configuration (shown when enabled) -->
+                <div v-if="form.paystack_enabled" class="space-y-4 pt-4 border-t border-gray-200">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Public Key -->
+                        <div>
+                            <InputLabel for="paystack_public_key" value="Public Key" />
+                            <TextInput
+                                id="paystack_public_key"
+                                v-model="form.paystack_public_key"
+                                type="text"
+                                class="mt-1 block w-full font-mono text-sm"
+                                placeholder="pk_live_... or pk_test_..."
+                            />
+                            <p class="mt-1 text-xs text-gray-500">Starts with pk_live_ or pk_test_</p>
+                            <InputError :message="form.errors.paystack_public_key" class="mt-2" />
+                        </div>
+
+                        <!-- Secret Key -->
+                        <div>
+                            <InputLabel for="paystack_secret_key">
+                                Secret Key
+                                <span v-if="props.paymentConfig?.paystack_secret_key_last4" class="ml-2 text-xs text-green-600">({{ props.paymentConfig.paystack_secret_key_last4 }})</span>
+                            </InputLabel>
+                            <TextInput
+                                id="paystack_secret_key"
+                                v-model="form.paystack_secret_key"
+                                type="password"
+                                class="mt-1 block w-full font-mono text-sm"
+                                :placeholder="hasPaystackSecretKey ? '••••••••••••' : 'sk_live_... or sk_test_...'"
+                            />
+                            <p class="mt-1 text-xs text-gray-500">Starts with sk_live_ or sk_test_. Leave blank to keep current.</p>
+                            <InputError :message="form.errors.paystack_secret_key" class="mt-2" />
+                        </div>
+                    </div>
+
+                    <!-- Status Indicator -->
+                    <div class="flex items-center gap-2 pt-2">
+                        <div :class="[
+                            'w-2 h-2 rounded-full',
+                            form.paystack_public_key && (hasPaystackSecretKey || form.paystack_secret_key)
+                                ? 'bg-green-500'
+                                : 'bg-yellow-500'
+                        ]"></div>
+                        <span class="text-sm text-gray-600">
+                            {{ form.paystack_public_key && (hasPaystackSecretKey || form.paystack_secret_key)
+                                ? 'Ready to accept card payments'
+                                : 'Enter API keys to enable payments'
+                            }}
+                        </span>
+                    </div>
+                </div>
             </div>
 
             <!-- IntaSend M-Pesa Details -->
@@ -324,7 +453,7 @@ const submit = () => {
                         <div>
                             <InputLabel for="intasend_secret_key">
                                 Secret Key
-                                <span v-if="hasIntasendSecretKey" class="ml-2 text-xs text-green-600">(Configured)</span>
+                                <span v-if="props.paymentConfig?.intasend_secret_key_last4" class="ml-2 text-xs text-green-600">({{ props.paymentConfig.intasend_secret_key_last4 }})</span>
                             </InputLabel>
                             <TextInput
                                 id="intasend_secret_key"
