@@ -502,9 +502,11 @@
         "code_changes": "Revert MpesaService to use .env"
       },
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
-      "depends_on": ["PAY-V2-004"]
+      "passes": true,
+      "attempt_count": 1,
+      "depends_on": ["PAY-V2-004"],
+      "completed_date": "2026-02-04",
+      "implementation_notes": "Fixed TenantPaymentController::checkMpesaStatus() to load PaymentConfiguration and pass to MpesaService::querySTKStatus(). Added withConfig() call in querySTKStatus() and initiateSTKPush() before getAccessToken(). Added missing mpesa_shortcode/passkey/environment fields to UpdatePaymentMethodsRequest validation. Created MpesaCredentialMigrationTest (12 tests) and MpesaCredentialSettingsTest (E2E)."
     },
     {
       "id": "PAY-V2-006",

@@ -12441,3 +12441,106 @@ interface PaymentConfiguration extends BaseEntity {
 | Webhook verifies with correct landlord secret | PASS |
 
 **PAY-V2-004 COMPLETE**
+
+---
+
+## Session: 2026-02-04 - PAY-V2-005 M-Pesa Consumer Credential Migration
+
+### Task
+
+**PAY-V2-005**: Migrate M-Pesa Consumer Credentials to Database (SEC-002)
+
+### Skills Applied
+
+- **laraveltdd-with-pest**: RED-GREEN-REFACTOR cycle with 12 feature tests
+- **verification-first**: TDD workflow - write failing tests first, then implement
+- **feature-development**: End-to-end implementation with verification
+- **laravelform-requests**: Added mpesa_shortcode, mpesa_passkey, mpesa_environment to validation
+- **laravelexception-handling-and-logging**: Proper config validation in MpesaService
+- **agent-browser**: E2E test file created (MpesaCredentialSettingsTest.php)
+
+### Tracer Bullet Analysis
+
+Mapped 16 files touching M-Pesa credentials:
+- `app/Services/MpesaService.php` - Main service with OAuth, STK Push, query methods
+- `app/Http/Controllers/Api/TenantPaymentController.php` - BUG: checkMpesaStatus() missing config
+- `app/Models/PaymentConfiguration.php` - Already has mpesa_consumer_key/secret columns
+- `app/Http/Requests/Settings/UpdatePaymentMethodsRequest.php` - Missing shortcode/passkey validation
+- `app/Http/Controllers/SettingsController.php` - Secret fields list
+
+### Bug Fixed
+
+**TenantPaymentController::checkMpesaStatus()** (line 141):
+- **Before**: `$this->mpesaService->querySTKStatus($checkoutRequestId);` (missing config)
+- **After**: Loads PaymentConfiguration from tenant's lease landlord_id, validates hasMpesaApiConfig(), passes config to querySTKStatus()
+
+### MpesaService Fixes
+
+1. **querySTKStatus()**: Added `$this->withConfig($config)` before `getAccessToken()`
+2. **initiateSTKPush()**: Added `$this->withConfig($config)` before `getAccessToken()`
+
+### Validation Rules Added
+
+`UpdatePaymentMethodsRequest.php`:
+- `mpesa_shortcode` - nullable|string|max:20
+- `mpesa_shortcode_type` - nullable|string|in:paybill,till
+- `mpesa_passkey` - nullable|string|max:255
+- `mpesa_environment` - nullable|string|in:sandbox,production
+
+### Secret Fields Updated
+
+`SettingsController::updatePaymentMethods()`:
+- Added `mpesa_passkey` to secret fields list (preserved when blank)
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/Api/TenantPaymentController.php` | Fixed checkMpesaStatus() to load PaymentConfiguration and pass to querySTKStatus() |
+| `app/Services/MpesaService.php` | Added withConfig() calls in querySTKStatus() and initiateSTKPush() before getAccessToken() |
+| `app/Http/Requests/Settings/UpdatePaymentMethodsRequest.php` | Added mpesa_shortcode, mpesa_shortcode_type, mpesa_passkey, mpesa_environment validation rules |
+| `app/Http/Controllers/SettingsController.php` | Added mpesa_passkey to secret fields list |
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `tests/Feature/MpesaCredentialMigrationTest.php` | 12 tests covering encryption, isolation, settings UI, update behavior, status check |
+| `tests/Browser/MpesaCredentialSettingsTest.php` | 5 E2E tests for Settings UI credential management |
+
+### Tests Created (12 Feature Tests)
+
+1. `test_mpesa_consumer_key_is_encrypted_in_database` - Verifies raw DB doesn't contain plaintext
+2. `test_mpesa_consumer_secret_is_encrypted_in_database` - Same for secret
+3. `test_mpesa_service_uses_landlord_config` - Service accepts PaymentConfiguration
+4. `test_has_mpesa_api_config_returns_correct_values` - Helper method validation
+5. `test_settings_controller_returns_last_4_chars_of_consumer_key` - UI shows ****xxxx
+6. `test_settings_controller_returns_last_4_chars_of_consumer_secret` - Same for secret
+7. `test_full_consumer_credentials_never_exposed_to_frontend` - Security check
+8. `test_different_landlords_have_isolated_oauth_tokens` - Cache key includes config_id
+9. `test_unconfigured_landlord_returns_503_on_mpesa_payment_init` - Graceful degradation
+10. `test_update_preserves_existing_secret_when_blank` - Blank = keep existing
+11. `test_update_overwrites_secret_when_provided` - New value replaces old
+12. `test_check_mpesa_status_uses_landlord_config` - Main bug fix verification
+
+### Verification Results
+
+```
+Tests: 12 passed (56 assertions)
+Pint: 832 files checked, no issues
+M-Pesa integration tests: 34 passed (95 assertions)
+```
+
+### Acceptance Criteria Verification
+
+| Criteria | Status |
+|----------|--------|
+| Consumer credentials stored encrypted per landlord | PASS |
+| OAuth token generation uses landlord credentials | PASS |
+| Token cache key includes landlord_id | PASS |
+| STK Push works with per-landlord credentials | PASS |
+| Status query works with per-landlord credentials | PASS |
+| NO .env fallback (security decision) | PASS |
+| Settings UI allows configuration | PASS |
+
+**PAY-V2-005 COMPLETE**

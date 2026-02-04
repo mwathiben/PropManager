@@ -10,13 +10,15 @@ use Illuminate\Support\Facades\Log;
 
 class MpesaService
 {
-    protected string $consumerKey;
+    protected string $consumerKey = '';
 
-    protected string $consumerSecret;
+    protected string $consumerSecret = '';
 
     protected string $baseUrl;
 
     protected string $environment;
+
+    protected ?PaymentConfiguration $config = null;
 
     private const TIMEOUT_SECONDS = 30;
 
@@ -24,17 +26,48 @@ class MpesaService
 
     private const RETRY_DELAY_MS = 100;
 
-    public function __construct()
+    public function __construct(?PaymentConfiguration $config = null)
     {
         $this->environment = config('mpesa.environment', 'sandbox') ?? 'sandbox';
-        $this->consumerKey = config('mpesa.consumer_key') ?? '';
-        $this->consumerSecret = config('mpesa.consumer_secret') ?? '';
         $this->baseUrl = config("mpesa.endpoints.{$this->environment}") ?? '';
+
+        if ($config !== null && $config->hasMpesaApiConfig()) {
+            $this->config = $config;
+            $this->consumerKey = $config->mpesa_consumer_key;
+            $this->consumerSecret = $config->mpesa_consumer_secret;
+        }
+    }
+
+    public function withConfig(PaymentConfiguration $config): self
+    {
+        if (! $config->hasMpesaApiConfig()) {
+            throw new \InvalidArgumentException(
+                'MpesaService requires a PaymentConfiguration with M-Pesa credentials. '
+                    .'Configure in Settings > Payment Methods.'
+            );
+        }
+
+        $this->config = $config;
+        $this->consumerKey = $config->mpesa_consumer_key;
+        $this->consumerSecret = $config->mpesa_consumer_secret;
+
+        return $this;
+    }
+
+    protected function ensureConfigured(): void
+    {
+        if (empty($this->consumerKey) || empty($this->consumerSecret)) {
+            throw new \InvalidArgumentException(
+                'MpesaService requires M-Pesa credentials. Call withConfig() first or construct with PaymentConfiguration.'
+            );
+        }
     }
 
     public function getAccessToken(): ?string
     {
-        $cacheKey = 'mpesa_access_token_'.$this->environment;
+        $this->ensureConfigured();
+
+        $cacheKey = 'mpesa_access_token_'.$this->environment.'_'.$this->config?->id;
 
         return Cache::remember($cacheKey, 3500, function () {
             try {
@@ -74,26 +107,27 @@ class MpesaService
         });
     }
 
-    public function initiateSTKPush(array $data, ?PaymentConfiguration $config = null): ?array
+    public function initiateSTKPush(array $data, PaymentConfiguration $config): ?array
     {
+        if (! $config->hasMpesaSTKConfig()) {
+            throw new \InvalidArgumentException(
+                'STK Push requires PaymentConfiguration with M-Pesa STK settings (shortcode, passkey). '
+                    .'Configure in Settings > Payment Methods.'
+            );
+        }
+
+        $this->withConfig($config);
         $token = $this->getAccessToken();
         if (! $token) {
             return null;
         }
 
-        if ($config && $config->hasMpesaSTKConfig()) {
-            $shortcode = $config->mpesa_shortcode;
-            $passkey = $config->mpesa_passkey;
-            $transactionType = $config->getMpesaCommandId();
-            $accountRef = $config->usesTillNumber()
-                ? $shortcode
-                : ($data['account_reference'] ?? $this->generateAccountReference());
-        } else {
-            $shortcode = config('mpesa.stk.shortcode');
-            $passkey = config('mpesa.stk.passkey');
-            $transactionType = config('mpesa.stk.transaction_type', 'CustomerPayBillOnline');
-            $accountRef = $data['account_reference'] ?? $this->generateAccountReference();
-        }
+        $shortcode = $config->mpesa_shortcode;
+        $passkey = $config->mpesa_passkey;
+        $transactionType = $config->getMpesaCommandId();
+        $accountRef = $config->usesTillNumber()
+            ? $shortcode
+            : ($data['account_reference'] ?? $this->generateAccountReference());
 
         $timestamp = now()->format('YmdHis');
         $password = base64_encode($shortcode.$passkey.$timestamp);
@@ -155,15 +189,22 @@ class MpesaService
         }
     }
 
-    public function querySTKStatus(string $checkoutRequestId): ?array
+    public function querySTKStatus(string $checkoutRequestId, PaymentConfiguration $config): ?array
     {
+        if (! $config->hasMpesaSTKConfig()) {
+            throw new \InvalidArgumentException(
+                'STK query requires PaymentConfiguration with M-Pesa STK settings.'
+            );
+        }
+
+        $this->withConfig($config);
         $token = $this->getAccessToken();
         if (! $token) {
             return null;
         }
 
-        $shortcode = config('mpesa.stk.shortcode');
-        $passkey = config('mpesa.stk.passkey');
+        $shortcode = $config->mpesa_shortcode;
+        $passkey = $config->mpesa_passkey;
         $timestamp = now()->format('YmdHis');
         $password = base64_encode($shortcode.$passkey.$timestamp);
 
@@ -260,6 +301,16 @@ class MpesaService
      */
     public function initiateB2C(string $phone, float $amount, string $reference, string $remarks): ?array
     {
+        $this->ensureConfigured();
+
+        if (! $this->config || ! $this->config->hasMpesaB2CConfig()) {
+            Log::error('M-Pesa B2C not configured for this landlord', [
+                'landlord_id' => $this->config->landlord_id,
+            ]);
+
+            return null;
+        }
+
         $token = $this->getAccessToken();
         if (! $token) {
             return null;
@@ -274,11 +325,11 @@ class MpesaService
                     'Authorization' => 'Bearer '.$token,
                     'Content-Type' => 'application/json',
                 ])->post("{$this->baseUrl}/mpesa/b2c/v1/paymentrequest", [
-                    'InitiatorName' => config('mpesa.b2c.initiator_name'),
-                    'SecurityCredential' => config('mpesa.b2c.security_credential'),
+                    'InitiatorName' => $this->config->mpesa_b2c_initiator,
+                    'SecurityCredential' => $this->config->mpesa_b2c_security_credential,
                     'CommandID' => 'BusinessPayment',
                     'Amount' => (int) $amount,
-                    'PartyA' => config('mpesa.b2c.shortcode'),
+                    'PartyA' => $this->config->mpesa_b2c_shortcode,
                     'PartyB' => $phone,
                     'Remarks' => $remarks,
                     'QueueTimeOutURL' => config('mpesa.b2c.timeout_url'),
@@ -326,6 +377,8 @@ class MpesaService
 
     public function queryTransactionStatus(string $transactionId): ?array
     {
+        $this->ensureConfigured();
+
         $token = $this->getAccessToken();
         if (! $token) {
             return null;
@@ -340,11 +393,11 @@ class MpesaService
                     'Authorization' => 'Bearer '.$token,
                     'Content-Type' => 'application/json',
                 ])->post("{$this->baseUrl}/mpesa/transactionstatus/v1/query", [
-                    'Initiator' => config('mpesa.b2c.initiator_name'),
-                    'SecurityCredential' => config('mpesa.b2c.security_credential'),
+                    'Initiator' => $this->config->mpesa_b2c_initiator,
+                    'SecurityCredential' => $this->config->mpesa_b2c_security_credential,
                     'CommandID' => 'TransactionStatusQuery',
                     'TransactionID' => $transactionId,
-                    'PartyA' => config('mpesa.b2c.shortcode'),
+                    'PartyA' => $this->config->mpesa_b2c_shortcode,
                     'IdentifierType' => '4',
                     'ResultURL' => config('mpesa.b2c.result_url'),
                     'QueueTimeOutURL' => config('mpesa.b2c.timeout_url'),
@@ -429,9 +482,7 @@ class MpesaService
 
     public function isConfigured(): bool
     {
-        return ! empty($this->consumerKey)
-            && ! empty($this->consumerSecret)
-            && ! empty(config('mpesa.stk.shortcode'));
+        return ! empty($this->consumerKey) && ! empty($this->consumerSecret);
     }
 
     /**

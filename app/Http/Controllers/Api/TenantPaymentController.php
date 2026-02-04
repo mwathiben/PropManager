@@ -4,18 +4,22 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\CheckMpesaStatusRequest;
+use App\Http\Requests\Api\InitiateIntaSendPaymentRequest;
 use App\Http\Requests\Api\InitiateMpesaPaymentRequest;
 use App\Http\Requests\Api\InitiatePaystackPaymentRequest;
 use App\Http\Resources\PaymentResource;
+use App\Models\IntaSendTransaction;
 use App\Models\Invoice;
 use App\Models\InvoiceSetting;
 use App\Models\Payment;
 use App\Models\PaymentConfiguration;
+use App\Services\IntaSendService;
 use App\Services\MpesaService;
 use App\Services\PaymentGatewayManager;
 use App\Services\PaystackService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class TenantPaymentController extends Controller
 {
@@ -134,7 +138,26 @@ class TenantPaymentController extends Controller
             ]);
         }
 
-        $result = $this->mpesaService->querySTKStatus($checkoutRequestId);
+        $tenant = $request->user();
+        $lease = $tenant->leases()->where('is_active', true)->first();
+
+        if (! $lease) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No active lease found.',
+            ], 404);
+        }
+
+        $paymentConfig = PaymentConfiguration::where('landlord_id', $lease->landlord_id)->first();
+
+        if (! $paymentConfig || ! $paymentConfig->hasMpesaApiConfig()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'M-Pesa payments are not configured.',
+            ], 503);
+        }
+
+        $result = $this->mpesaService->querySTKStatus($checkoutRequestId, $paymentConfig);
 
         if (! $result) {
             return response()->json([
@@ -171,19 +194,22 @@ class TenantPaymentController extends Controller
 
     public function initiatePaystack(InitiatePaystackPaymentRequest $request)
     {
-        if (! $this->paystackService->isConfigured()) {
+        $user = $request->user();
+        $invoice = Invoice::findOrFail($request->invoice_id);
+        $paymentConfig = PaymentConfiguration::where('landlord_id', $invoice->landlord_id)->first();
+
+        $paystackService = new PaystackService($paymentConfig);
+
+        if (! $paystackService->isConfigured()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Online card payments are not configured.',
             ], 503);
         }
 
-        $user = $request->user();
-        $invoice = Invoice::findOrFail($request->invoice_id);
-
         $reference = PaystackService::generateReference('API');
 
-        $result = $this->paystackService->initializeTransaction([
+        $result = $paystackService->initializeTransaction([
             'email' => $user->email,
             'amount' => $request->amount,
             'reference' => $reference,
@@ -210,6 +236,68 @@ class TenantPaymentController extends Controller
             'authorization_url' => $result['data']['authorization_url'],
             'reference' => $result['data']['reference'],
             'access_code' => $result['data']['access_code'],
+        ]);
+    }
+
+    public function initiateIntaSend(InitiateIntaSendPaymentRequest $request)
+    {
+        $invoice = Invoice::findOrFail($request->invoice_id);
+        $paymentConfig = PaymentConfiguration::where('landlord_id', $invoice->landlord_id)->first();
+
+        if (! $paymentConfig?->hasIntaSendConfig()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'IntaSend payments are not configured.',
+            ], 503);
+        }
+
+        $intaSendService = new IntaSendService($paymentConfig);
+        $reference = IntaSendService::generateReference('ITS');
+
+        $transaction = IntaSendTransaction::create([
+            'landlord_id' => $invoice->landlord_id,
+            'invoice_id' => $invoice->id,
+            'api_ref' => $reference,
+            'phone_number' => $intaSendService->formatPhoneNumber($request->phone),
+            'amount' => $request->amount,
+            'state' => IntaSendTransaction::STATE_PENDING,
+        ]);
+
+        $result = $intaSendService->initializeMpesaStkPush(
+            $request->amount,
+            $request->phone,
+            $reference,
+            $paymentConfig->intasend_wallet_id ? ['wallet_id' => $paymentConfig->intasend_wallet_id] : null
+        );
+
+        if (! $result || ! isset($result['invoice']['invoice_id'])) {
+            $transaction->markFailed('STK Push initiation failed');
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to initiate IntaSend payment.',
+            ], 500);
+        }
+
+        $intasendInvoiceId = $result['invoice']['invoice_id'];
+
+        try {
+            $transaction->update(['intasend_invoice_id' => $intasendInvoiceId]);
+        } catch (\Throwable $e) {
+            Log::emergency('IntaSend transaction update failed after successful STK push', [
+                'transaction_id' => $transaction->id,
+                'api_ref' => $reference,
+                'intasend_invoice_id' => $intasendInvoiceId,
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'STK Push sent. Please enter your M-Pesa PIN on your phone.',
+            'intasend_invoice_id' => $intasendInvoiceId,
+            'api_ref' => $reference,
         ]);
     }
 }

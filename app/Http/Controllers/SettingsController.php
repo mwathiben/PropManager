@@ -160,6 +160,7 @@ class SettingsController extends Controller
 
         $secretFields = [
             'paystack_secret_key',
+            'mpesa_passkey',
             'mpesa_consumer_key',
             'mpesa_consumer_secret',
             'intasend_secret_key',
