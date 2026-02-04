@@ -6,6 +6,7 @@ use App\Enums\InvoiceStatus;
 use App\Events\IntaSendPaymentStatusChanged;
 use App\Events\PaymentReceived as PaymentReceivedEvent;
 use App\Http\Controllers\Controller;
+use App\Mail\OverpaymentNotification;
 use App\Mail\PaymentReceived;
 use App\Models\IntaSendTransaction;
 use App\Models\Invoice;
@@ -176,6 +177,9 @@ class IntaSendWebhookController extends Controller
                 'failure_reason' => "Amount mismatch: expected {$expectedAmount}, received {$webhookAmount}",
             ]);
 
+            // Notify frontend of the failed status
+            IntaSendPaymentStatusChanged::dispatch($transaction);
+
             return response()->json([
                 'status' => 'error',
                 'message' => 'Amount mismatch - flagged for manual review',
@@ -269,28 +273,14 @@ class IntaSendWebhookController extends Controller
             ]);
 
             if ($overpayment > 0) {
-                // Use atomic increment for wallet balance to prevent race conditions
-                $wallet = $invoice->lease->wallet;
-                if ($wallet) {
-                    DB::table('wallets')
-                        ->where('id', $wallet->id)
-                        ->increment('balance', $overpayment);
-
-                    // Record the wallet transaction within the same DB transaction
-                    $wallet->transactions()->create([
-                        'landlord_id' => $invoice->landlord_id,
-                        'type' => 'credit',
-                        'amount' => $overpayment,
-                        'description' => "Overpayment from IntaSend payment #{$payment->id}",
-                        'reference_type' => Payment::class,
-                        'reference_id' => $payment->id,
-                    ]);
-                } else {
-                    Log::warning('IntaSend webhook: No wallet found for overpayment credit', [
-                        'lease_id' => $invoice->lease_id,
-                        'overpayment' => $overpayment,
-                        'payment_id' => $payment->id,
-                    ]);
+                $lease = $invoice->lease;
+                if ($lease) {
+                    $lease->creditToWallet(
+                        $overpayment,
+                        "Overpayment from IntaSend payment #{$payment->id}",
+                        $payment->id
+                    );
+                    $lease->refresh();
                 }
             }
 
@@ -308,6 +298,21 @@ class IntaSendWebhookController extends Controller
                     'lease_id' => $invoice->lease_id,
                     'tenant_id' => $invoice->lease?->tenant_id,
                 ]);
+            }
+
+            // Send overpayment notification to landlord (consistent with other payment handlers)
+            if ($overpayment > 0 && $invoice->lease) {
+                $landlord = User::find($invoice->landlord_id);
+                $tenant = $invoice->lease->tenant;
+                if ($landlord && $tenant && filter_var($landlord->email, FILTER_VALIDATE_EMAIL)) {
+                    Mail::to($landlord->email)->queue(new OverpaymentNotification(
+                        $payment,
+                        $invoice->lease,
+                        $tenant,
+                        $overpayment,
+                        $invoice->lease->wallet_balance
+                    ));
+                }
             }
 
             // Always dispatch event so payment flow completes
@@ -331,6 +336,25 @@ class IntaSendWebhookController extends Controller
             ]);
 
             return response()->json(['status' => 'success', 'message' => 'Payment recorded']);
+        } catch (\Illuminate\Database\QueryException $e) {
+            DB::rollBack();
+
+            // MySQL error 1062 = duplicate entry (unique constraint violation)
+            if ($e->errorInfo[1] === 1062) {
+                Log::info('IntaSend duplicate webhook ignored (idempotent)', [
+                    'intasend_reference' => $transaction->api_ref,
+                    'intasend_invoice_id' => $transaction->intasend_invoice_id,
+                ]);
+
+                return response()->json(['status' => 'success', 'message' => 'Already processed']);
+            }
+
+            Log::error('IntaSend payment database error', [
+                'api_ref' => $transaction->api_ref,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw $e;
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('IntaSend payment processing failed', [

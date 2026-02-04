@@ -11982,3 +11982,116 @@ ALTER TABLE payments ADD INDEX payments_mpesa_transaction_idx (mpesa_transaction
 ```
 
 **PAY-V2-001 COMPLETE**
+
+---
+
+## PAY-V2-002: Add Unique Constraint on intasend_reference with Idempotent Insert Pattern
+**Status:** PASSED
+**Date:** 2026-02-04
+**Attempts:** 1
+**Category:** Idempotency (CRITICAL)
+**Story Points:** 3
+**Depends On:** PAY-V2-001
+
+### Implementation Summary
+
+Added database-level unique constraint on `intasend_reference` column and implemented explicit QueryException handling for MySQL error 1062 (duplicate entry). Also fixed security gap by adding encrypted cast for `intasend_webhook_challenge`. Updated ADR-006 with IntaSend pattern. Fixed pre-existing bug in MpesaIdempotencyTest (till route path).
+
+### Skills Applied
+
+| Skill | Summary |
+|-------|---------|
+| **laraveltdd-with-pest** | RED-GREEN-REFACTOR: Wrote 6 failing tests FIRST (IntaSendIdempotencyTest) |
+| **laravelmigrations-and-factories** | Created migration with duplicate check before adding unique constraint |
+| **laraveltransactions-and-consistency** | Wrapped payment processing in DB::transaction with explicit QueryException handling |
+| **laravelexception-handling-and-logging** | Structured logging for duplicate webhooks (INFO level, not ERROR) |
+| **laravelquality-checks** | Ran Pint, full test suite (875 tests), npm build |
+| **verification-first** | Verified unique constraint with SHOW INDEX, ran tests multiple times |
+| **secrets-management** | Encrypted intasend_webhook_challenge in PaymentConfiguration model |
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/2026_02_04_000001_add_unique_constraint_intasend_reference.php` | Migration with duplicate check + unique constraint |
+| `tests/Feature/IntaSendIdempotencyTest.php` | 6 test cases for idempotency verification |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Http/Controllers/Api/IntaSendWebhookController.php` | Added explicit QueryException handling (error 1062) in processCompletePayment() |
+| `app/Models/PaymentConfiguration.php` | Added `intasend_webhook_challenge` to encrypted casts |
+| `docs/adr/006-payment-idempotency-pattern.md` | Updated with IntaSend pattern and test coverage |
+| `tests/Feature/MpesaIdempotencyTest.php` | Fixed pre-existing bug: till route path from /webhooks/... to /api/webhooks/... |
+
+### Test Cases (6 total)
+
+| Test | Description |
+|------|-------------|
+| test_duplicate_intasend_reference_throws_query_exception | Verifies database unique constraint |
+| test_duplicate_intasend_webhook_returns_200_without_creating_duplicate_payment | Verifies idempotent webhook handling |
+| test_50_concurrent_intasend_webhooks_create_exactly_one_payment | Stress test for race conditions |
+| test_process_complete_payment_handles_duplicate_reference | Controller QueryException handling |
+| test_multiple_payments_with_null_intasend_reference_allowed | NULL handling (non-IntaSend payments) |
+| test_duplicate_intasend_webhook_does_not_modify_original_payment | Data integrity verification |
+
+### Security Fix
+
+**Encrypted intasend_webhook_challenge:**
+```php
+protected $casts = [
+    // ... existing casts
+    'intasend_secret_key' => 'encrypted',
+    'intasend_webhook_challenge' => 'encrypted',  // Added
+];
+```
+
+### Controller Pattern
+
+**QueryException handling for idempotent behavior:**
+```php
+} catch (\Illuminate\Database\QueryException $e) {
+    DB::rollBack();
+    // MySQL error 1062 = duplicate entry (unique constraint violation)
+    if ($e->errorInfo[1] === 1062) {
+        Log::info('IntaSend duplicate webhook ignored (idempotent)', [
+            'intasend_reference' => $transaction->api_ref,
+            'intasend_invoice_id' => $transaction->intasend_invoice_id,
+        ]);
+        return response()->json(['status' => 'success', 'message' => 'Already processed']);
+    }
+    throw $e;
+}
+```
+
+### Verification Results
+
+| Check | Result |
+|-------|--------|
+| IntaSendIdempotencyTest | 6/6 PASS (16 assertions) |
+| MpesaIdempotencyTest | 7/7 PASS (after route fix) |
+| Full test suite | 875 tests PASS (13 skipped) |
+| Pint lint | PASS |
+| npm run build | PASS |
+| Migration | Success - unique constraint created |
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| SHOW INDEX shows unique constraint on intasend_reference | PASS |
+| Duplicate webhooks return 200 OK without creating duplicate payment | PASS |
+| Migration fails with clear message if duplicates exist | PASS |
+| 50 concurrent webhooks create exactly 1 payment | PASS |
+| intasend_webhook_challenge encrypted | PASS |
+| ADR-006 updated | PASS |
+
+### Rollback Plan
+
+```sql
+ALTER TABLE payments DROP INDEX payments_intasend_reference_unique;
+ALTER TABLE payments ADD INDEX payments_intasend_ref_idx (intasend_reference);
+```
+
+**PAY-V2-002 COMPLETE**

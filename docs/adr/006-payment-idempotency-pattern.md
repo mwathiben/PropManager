@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (PAY-V2-001)
+Accepted (PAY-V2-001, PAY-V2-002)
 
 ## Context
 
@@ -38,7 +38,9 @@ if ($existingPayment) {
 
 Implement database-level idempotency using:
 
-1. **UNIQUE constraint** on `mpesa_transaction_id` column
+1. **UNIQUE constraint** on transaction identifier columns:
+   - `mpesa_transaction_id` for M-Pesa payments (PAY-V2-001)
+   - `intasend_reference` for IntaSend payments (PAY-V2-002)
 2. **Exception handling** for MySQL error 1062 (duplicate entry)
 
 ### Migration
@@ -101,7 +103,7 @@ protected function processPayment(array $data): void
 1. **Database constraint is authoritative**: Even if application logic fails, the database prevents duplicates
 2. **Return success for duplicates**: Webhooks should return 200 OK to prevent provider retries
 3. **Log duplicates as INFO**: Expected behavior, not an error
-4. **Keep pessimistic lock**: Useful for read-modify-write operations on related records
+4. **Pessimistic lock is optional**: Only required when performing read-modify-write operations on related records (e.g., updating invoice balance or wallet credit); for simple insert-only flows, the UNIQUE constraint alone is sufficient
 
 ## Consequences
 
@@ -129,12 +131,24 @@ protected function processPayment(array $data): void
 
 ### Files Modified
 
+#### PAY-V2-001: M-Pesa Idempotency
+
 | File | Change |
 |------|--------|
-| `database/migrations/2026_02_02_000001_add_unique_constraint_mpesa_transaction_id.php` | Add UNIQUE constraint |
-| `app/Http/Controllers/Api/MpesaWebhookController.php` | Add QueryException handling |
+| `database/migrations/2026_02_02_000001_add_unique_constraint_mpesa_transaction_id.php` | Add UNIQUE constraint on `mpesa_transaction_id` |
+| `app/Http/Controllers/Api/MpesaWebhookController.php` | Add QueryException(1062) handling |
+
+#### PAY-V2-002: IntaSend Idempotency
+
+| File | Change |
+|------|--------|
+| `database/migrations/2026_02_04_000001_add_unique_constraint_intasend_reference.php` | Add UNIQUE constraint on `intasend_reference` |
+| `app/Http/Controllers/Api/IntaSendWebhookController.php` | Add QueryException(1062) handling |
+| `app/Models/PaymentConfiguration.php` | Encrypt `intasend_webhook_challenge` |
 
 ### Test Coverage
+
+#### M-Pesa Tests (`tests/Feature/MpesaIdempotencyTest.php`)
 
 | Test | Purpose |
 |------|---------|
@@ -144,9 +158,21 @@ protected function processPayment(array $data): void
 | `test_duplicate_webhook_does_not_modify_original_payment` | Verify data integrity |
 | `test_multiple_payments_with_null_mpesa_transaction_id_allowed` | Verify NULL handling |
 
+#### IntaSend Tests (`tests/Feature/IntaSendIdempotencyTest.php`)
+
+| Test | Purpose |
+|------|---------|
+| `test_duplicate_intasend_reference_throws_query_exception` | Verify database constraint |
+| `test_duplicate_intasend_webhook_returns_200_without_creating_duplicate_payment` | Verify idempotent response |
+| `test_50_concurrent_intasend_webhooks_create_exactly_one_payment` | Verify race condition handling |
+| `test_process_complete_payment_handles_duplicate_reference` | Verify controller handles QueryException |
+| `test_multiple_payments_with_null_intasend_reference_allowed` | Verify NULL handling |
+| `test_duplicate_intasend_webhook_does_not_modify_original_payment` | Verify data integrity |
+
 ## References
 
 - PAY-V2-001: Add Unique Constraint on mpesa_transaction_id
-- `laraveltransactions-and-consistency` skill
+- PAY-V2-002: Add Unique Constraint on intasend_reference
+- Laravel Transactions and Consistency (database best practices)
 - ADR-003: Wrap Multi-Write Operations in Transactions
 - ADR-004: Payment Gateway Interface (for Paystack idempotency pattern)

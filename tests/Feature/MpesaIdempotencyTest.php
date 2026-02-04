@@ -183,19 +183,99 @@ class MpesaIdempotencyTest extends TestCase
     /**
      * Test 3: 50 concurrent webhooks create exactly 1 payment
      *
-     * Stress test for race conditions. Simulates 50 concurrent identical
-     * webhook calls - only 1 payment should be created.
+     * Stress test for race conditions. Uses parallel processes to simulate
+     * truly concurrent identical webhook calls - only 1 payment should be created.
+     * Falls back to sequential test if pcntl extension is not available.
      */
     public function test_50_concurrent_webhooks_create_exactly_one_payment(): void
     {
         $transactionId = 'QKL'.rand(100000000, 999999999);
-        $successCount = 0;
         $concurrentCalls = 50;
+
+        // Check if pcntl is available for true concurrency
+        if (function_exists('pcntl_fork')) {
+            $this->runConcurrentForkTest($transactionId, $concurrentCalls);
+        } else {
+            // Fallback: use multiple database connections to simulate concurrency
+            $this->runParallelConnectionTest($transactionId, $concurrentCalls);
+        }
+
+        // Final assertion: exactly one payment exists
+        $this->assertEquals(1, Payment::where('mpesa_transaction_id', $transactionId)->count());
+    }
+
+    /**
+     * Run concurrent test using pcntl_fork for true parallelism.
+     */
+    private function runConcurrentForkTest(string $transactionId, int $concurrentCalls): void
+    {
+        $pids = [];
+        $successFile = tempnam(sys_get_temp_dir(), 'mpesa_test_');
+        file_put_contents($successFile, '0');
+
+        for ($i = 0; $i < $concurrentCalls; $i++) {
+            $pid = pcntl_fork();
+
+            if ($pid === -1) {
+                $this->fail('Could not fork process');
+            } elseif ($pid === 0) {
+                // Child process
+                try {
+                    DB::reconnect();
+                    DB::transaction(function () use ($transactionId) {
+                        Payment::create([
+                            'invoice_id' => $this->invoice->id,
+                            'lease_id' => $this->lease->id,
+                            'amount' => 25000,
+                            'payment_method' => 'mobile_money',
+                            'payment_date' => now(),
+                            'mpesa_transaction_id' => $transactionId,
+                            'landlord_id' => $this->landlord->id,
+                        ]);
+                    });
+                    // Increment success count atomically
+                    $fp = fopen($successFile, 'c+');
+                    flock($fp, LOCK_EX);
+                    $count = (int) fread($fp, 10);
+                    fseek($fp, 0);
+                    fwrite($fp, (string) ($count + 1));
+                    flock($fp, LOCK_UN);
+                    fclose($fp);
+                    exit(0);
+                } catch (QueryException $e) {
+                    if ($e->errorInfo[1] === 1062) {
+                        exit(0); // Expected duplicate key error
+                    }
+                    exit(1);
+                }
+            } else {
+                $pids[] = $pid;
+            }
+        }
+
+        // Wait for all children
+        foreach ($pids as $pid) {
+            pcntl_waitpid($pid, $status);
+        }
+
+        // Verify exactly one success
+        $successCount = (int) file_get_contents($successFile);
+        unlink($successFile);
+        $this->assertEquals(1, $successCount, 'Exactly one process should successfully create the payment');
+    }
+
+    /**
+     * Fallback: Run parallel test using rapid sequential attempts.
+     * Less rigorous than fork-based test but still validates constraint.
+     */
+    private function runParallelConnectionTest(string $transactionId, int $concurrentCalls): void
+    {
+        $successCount = 0;
 
         for ($i = 0; $i < $concurrentCalls; $i++) {
             try {
                 DB::transaction(function () use ($transactionId, &$successCount) {
-                    $payment = Payment::create([
+                    Payment::create([
                         'invoice_id' => $this->invoice->id,
                         'lease_id' => $this->lease->id,
                         'amount' => 25000,
@@ -204,21 +284,17 @@ class MpesaIdempotencyTest extends TestCase
                         'mpesa_transaction_id' => $transactionId,
                         'landlord_id' => $this->landlord->id,
                     ]);
-
-                    if ($payment->exists) {
-                        $successCount++;
-                    }
+                    $successCount++;
                 });
             } catch (QueryException $e) {
                 if ($e->errorInfo[1] === 1062) {
-                    continue;
+                    continue; // Expected duplicate key error
                 }
                 throw $e;
             }
         }
 
-        $this->assertEquals(1, $successCount);
-        $this->assertEquals(1, Payment::where('mpesa_transaction_id', $transactionId)->count());
+        $this->assertEquals(1, $successCount, 'Exactly one attempt should succeed');
     }
 
     /**
@@ -303,18 +379,24 @@ class MpesaIdempotencyTest extends TestCase
         ];
 
         $response1 = $this->postJson(
-            '/webhooks/mpesa/till/confirmation',
+            '/api/webhooks/mpesa/till/confirmation',
             $payload,
             ['REMOTE_ADDR' => $this->validMpesaIp]
         );
+
+        // Assert first response is successful
+        $response1->assertSuccessful();
 
         $paymentCount1 = Payment::where('mpesa_transaction_id', $transactionId)->count();
 
         $response2 = $this->postJson(
-            '/webhooks/mpesa/till/confirmation',
+            '/api/webhooks/mpesa/till/confirmation',
             $payload,
             ['REMOTE_ADDR' => $this->validMpesaIp]
         );
+
+        // Assert second (duplicate) response is also successful (idempotent)
+        $response2->assertSuccessful();
 
         $paymentCount2 = Payment::where('mpesa_transaction_id', $transactionId)->count();
 

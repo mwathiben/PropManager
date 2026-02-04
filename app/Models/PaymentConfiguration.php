@@ -4,12 +4,13 @@ namespace App\Models;
 
 use App\Enums\PaymentMethod;
 use App\Traits\TenantScope;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PaymentConfiguration extends Model
 {
-    use TenantScope;
+    use HasFactory, TenantScope;
 
     protected $fillable = [
         'landlord_id',
@@ -26,7 +27,15 @@ class PaymentConfiguration extends Model
         'mpesa_shortcode_type',
         'mpesa_shortcode',
         'mpesa_passkey',
+        'mpesa_consumer_key',
+        'mpesa_consumer_secret',
+        'mpesa_b2c_shortcode',
+        'mpesa_b2c_initiator',
+        'mpesa_b2c_password',
+        'mpesa_b2c_security_credential',
         'paystack_enabled',
+        'paystack_public_key',
+        'paystack_secret_key',
         'intasend_enabled',
         'intasend_publishable_key',
         'intasend_secret_key',
@@ -40,9 +49,15 @@ class PaymentConfiguration extends Model
         'water_unit_rate' => 'decimal:2',
         'accepted_payment_methods' => 'array',
         'paystack_enabled' => 'boolean',
+        'paystack_secret_key' => 'encrypted',
         'mpesa_passkey' => 'encrypted',
+        'mpesa_consumer_key' => 'encrypted',
+        'mpesa_consumer_secret' => 'encrypted',
+        'mpesa_b2c_password' => 'encrypted',
+        'mpesa_b2c_security_credential' => 'encrypted',
         'intasend_enabled' => 'boolean',
         'intasend_secret_key' => 'encrypted',
+        'intasend_webhook_challenge' => 'encrypted',
     ];
 
     public static function getAvailablePaymentMethods(): array
@@ -123,6 +138,35 @@ class PaymentConfiguration extends Model
     }
 
     /**
+     * Check if M-Pesa API credentials are configured (consumer key + secret)
+     */
+    public function hasMpesaApiConfig(): bool
+    {
+        return ! empty($this->mpesa_consumer_key) && ! empty($this->mpesa_consumer_secret);
+    }
+
+    /**
+     * Check if M-Pesa B2C (refunds) is configured
+     */
+    public function hasMpesaB2CConfig(): bool
+    {
+        return ! empty($this->mpesa_b2c_shortcode)
+            && ! empty($this->mpesa_b2c_initiator)
+            && ! empty($this->mpesa_b2c_password)
+            && ! empty($this->mpesa_b2c_security_credential);
+    }
+
+    /**
+     * Check if Paystack is fully configured
+     */
+    public function hasPaystackConfig(): bool
+    {
+        return $this->paystack_enabled
+            && ! empty($this->paystack_public_key)
+            && ! empty($this->paystack_secret_key);
+    }
+
+    /**
      * Get the M-Pesa command ID based on shortcode type
      */
     public function getMpesaCommandId(): string
@@ -155,9 +199,12 @@ class PaymentConfiguration extends Model
      */
     public function getIntaSendBaseUrl(): string
     {
+        $productionUrl = config('intasend.endpoints.production') ?? 'https://payment.intasend.com';
+        $sandboxUrl = config('intasend.endpoints.sandbox') ?? 'https://sandbox.intasend.com';
+
         return $this->intasend_environment === 'production'
-            ? config('intasend.endpoints.production')
-            : config('intasend.endpoints.sandbox');
+            ? $productionUrl
+            : $sandboxUrl;
     }
 
     /**

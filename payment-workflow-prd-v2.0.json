@@ -320,8 +320,11 @@
         "Handle UniqueConstraintViolationException gracefully"
       ],
       "files": [
-        "database/migrations/2026_02_02_000002_add_unique_constraint_intasend_reference.php",
-        "app/Http/Controllers/Api/IntaSendWebhookController.php"
+        "database/migrations/2026_02_04_000001_add_unique_constraint_intasend_reference.php",
+        "app/Http/Controllers/Api/IntaSendWebhookController.php",
+        "app/Models/PaymentConfiguration.php",
+        "tests/Feature/IntaSendIdempotencyTest.php",
+        "docs/adr/006-payment-idempotency-pattern.md"
       ],
       "definition_of_ready": [
         "PAY-V2-001 pattern established",
@@ -344,8 +347,10 @@
         "verification": "SHOW INDEX should not show unique on intasend_reference"
       },
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1,
+      "completed_date": "2026-02-04",
+      "implementation_notes": "Migration adds unique constraint with duplicate check (2026_02_04_000001). IntaSendWebhookController updated with QueryException(1062) handler. Security fix: intasend_webhook_challenge now encrypted in PaymentConfiguration. ADR-006 updated with IntaSend pattern. All 6 tests passing (IntaSendIdempotencyTest). Also fixed pre-existing MpesaIdempotencyTest route bug for till confirmation."
     },
     {
       "id": "PAY-V2-003",
@@ -1406,7 +1411,7 @@
   "totalStoryPoints": 110,
   "completionCriteria": {
     "metrics": [
-      "Unique constraints exist on mpesa_transaction_id, intasend_reference, paystack_reference",
+      "Unique constraints exist on mpesa_transaction_id, intasend_reference, paystack_reference (see PAY-V2-001, PAY-V2-002, PAY-V2-003)",
       "Early-insert idempotency pattern implemented for all webhooks",
       "50+ concurrent webhook tests pass without duplicates",
       "No per-tenant credentials in .env",
