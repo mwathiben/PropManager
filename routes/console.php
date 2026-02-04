@@ -55,3 +55,9 @@ Schedule::command('tenant-invitations:cleanup')
     ->dailyAt('02:30')
     ->withoutOverlapping()
     ->runInBackground();
+
+// Clean up expired idempotency keys daily at 03:00
+Schedule::command('idempotency:cleanup')
+    ->dailyAt('03:00')
+    ->withoutOverlapping()
+    ->runInBackground();

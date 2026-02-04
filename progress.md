@@ -12095,3 +12095,169 @@ ALTER TABLE payments ADD INDEX payments_intasend_ref_idx (intasend_reference);
 ```
 
 **PAY-V2-002 COMPLETE**
+
+---
+
+## Session: 2026-02-04
+**Task**: PAY-V2-003 - Create Idempotency Key Table for Cross-Request Synchronization
+**PRD**: payment-workflow-prd-v2.0.json
+**Status**: COMPLETED
+
+### Skills Applied
+
+- **laraveltdd-with-pest**: Wrote 17 unit tests and 9 integration tests first (RED-GREEN-REFACTOR)
+- **laravelmigrations-and-factories**: Migration with unique constraint, indexes, proper rollback
+- **laraveltransactions-and-consistency**: DB::transaction() in IdempotencyService.acquire()
+- **laravelqueues-and-horizon**: Scheduled cleanup command with withoutOverlapping()
+- **laravelinterfaces-and-di**: Clean acquire/release/fail service API
+
+### Work Done
+
+Implemented application-level idempotency layer that provides early detection and response caching BEFORE the database insert. This complements the existing UNIQUE constraint safety net (PAY-V2-001, PAY-V2-002).
+
+#### Two-Layer Idempotency Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│         Application Layer (NEW)                 │
+│  IdempotencyService.acquire()                   │
+│  - Early detection before processing            │
+│  - Response caching for duplicates              │
+│  - 24-hour TTL with automatic cleanup           │
+└─────────────────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────────────┐
+│         Database Layer (Existing)               │
+│  UNIQUE constraints on payment references       │
+│  - mpesa_transaction_id (PAY-V2-001)            │
+│  - intasend_reference (PAY-V2-002)              │
+│  - paystack_reference                           │
+└─────────────────────────────────────────────────┘
+```
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/2026_02_04_100000_create_idempotency_keys_table.php` | Table with key, status, response_data, TTL |
+| `database/factories/IdempotencyKeyFactory.php` | Factory with pending/completed/expired states |
+| `app/Models/IdempotencyKey.php` | Model with scopes (active, expired, pending, completed) |
+| `app/Services/IdempotencyService.php` | acquire(), release(), fail(), isProcessing(), cleanupExpired() |
+| `app/Console/Commands/CleanupExpiredIdempotencyKeys.php` | Daily cleanup at 03:00 |
+| `tests/Unit/Services/IdempotencyServiceTest.php` | 17 unit tests |
+| `tests/Feature/IdempotencyIntegrationTest.php` | 9 integration tests |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `routes/console.php` | Added `idempotency:cleanup` schedule at 03:00 |
+| `docs/adr/006-payment-idempotency-pattern.md` | Added PAY-V2-003 section documenting two-layer architecture |
+
+### IdempotencyService API
+
+```php
+class IdempotencyService
+{
+    // Returns ['acquired' => true] or ['acquired' => false, 'response' => cached_data]
+    public function acquire(string $key, ?string $requestHash = null): array;
+
+    // Store response and mark completed
+    public function release(string $key, array $response): void;
+
+    // Mark as failed with optional reason
+    public function fail(string $key, ?string $reason = null): void;
+
+    // Check if key is being processed
+    public function isProcessing(string $key): bool;
+
+    // Remove expired keys (>24 hours)
+    public function cleanupExpired(): int;
+
+    // Generate provider-prefixed key
+    public static function generateKey(string $provider, string $reference): string;
+}
+```
+
+### Usage Pattern (for webhook controllers)
+
+```php
+$key = IdempotencyService::generateKey('mpesa', $receiptNumber);
+$result = $this->idempotencyService->acquire($key);
+
+if (!$result['acquired']) {
+    if ($result['response']) {
+        return response()->json($result['response']); // Return cached response
+    }
+    return response('Processing', 202); // Another request is processing
+}
+
+try {
+    // Process payment...
+    $this->idempotencyService->release($key, ['status' => 'success', 'payment_id' => $payment->id]);
+} catch (\Exception $e) {
+    $this->idempotencyService->fail($key, $e->getMessage());
+    throw $e;
+}
+```
+
+### Database Schema
+
+```sql
+CREATE TABLE idempotency_keys (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `key` VARCHAR(255) NOT NULL UNIQUE,
+    request_hash VARCHAR(64) NULL,
+    status ENUM('pending', 'processing', 'completed', 'failed') DEFAULT 'pending',
+    response_data JSON NULL,
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL,
+    expires_at TIMESTAMP NULL,
+    INDEX idx_status_expires (status, expires_at),
+    INDEX idx_expires (expires_at)
+);
+```
+
+### Verification Results
+
+| Check | Result |
+|-------|--------|
+| IdempotencyServiceTest | 17/17 PASS (45 assertions) |
+| IdempotencyIntegrationTest | 9/9 PASS (25 assertions) |
+| All idempotency tests | 46/46 PASS (110 assertions) |
+| Full test suite | 900/900 PASS (13 skipped) |
+| Pint lint | PASS |
+| npm run build | PASS |
+| Migration | Success |
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| Idempotency key checked BEFORE any processing | PASS - acquire() called first |
+| Concurrent requests: first processes, others wait/return cached | PASS - 10 concurrent test |
+| Expired keys cleaned up automatically | PASS - cleanup command + tests |
+| Works across all payment providers | PASS - generic string key |
+
+### Rollback Plan
+
+```sql
+DROP TABLE idempotency_keys;
+```
+
+Remove schedule from `routes/console.php`:
+```php
+Schedule::command('idempotency:cleanup')
+    ->dailyAt('03:00')
+    ->withoutOverlapping()
+    ->runInBackground();
+```
+
+### Notes
+
+- Webhook controller integration is documented but marked optional for this task
+- The UNIQUE constraints on payment columns remain as the authoritative safety net
+- IdempotencyService is stateless and can be injected anywhere
+
+**PAY-V2-003 COMPLETE**

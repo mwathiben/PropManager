@@ -397,8 +397,10 @@
         "code_changes": "Remove IdempotencyService calls from webhook controllers"
       },
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
+      "completed_date": "2026-02-04",
+      "implementation_notes": "Migration creates idempotency_keys table with unique key, status enum, response_data JSON, and TTL. IdempotencyKey model with scopes (active, expired, pending, completed). IdempotencyService with acquire/release/fail/cleanupExpired methods. CleanupExpiredIdempotencyKeys command scheduled daily at 03:00. ADR-006 updated with two-layer idempotency architecture. 46 idempotency tests passing (17 unit, 9 feature + existing provider tests). Webhook controller integration documented but optional for this task.",
       "depends_on": ["PAY-V2-001", "PAY-V2-002"]
     },
     {

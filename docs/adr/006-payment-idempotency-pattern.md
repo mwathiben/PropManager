@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (PAY-V2-001, PAY-V2-002)
+Accepted (PAY-V2-001, PAY-V2-002, PAY-V2-003)
 
 ## Context
 
@@ -169,10 +169,147 @@ protected function processPayment(array $data): void
 | `test_multiple_payments_with_null_intasend_reference_allowed` | Verify NULL handling |
 | `test_duplicate_intasend_webhook_does_not_modify_original_payment` | Verify data integrity |
 
+---
+
+## PAY-V2-003: Application-Level Idempotency Service
+
+### Context
+
+While the UNIQUE constraints (PAY-V2-001, PAY-V2-002) prevent duplicate payments at the database level, they only catch duplicates at the INSERT moment. This means:
+
+1. Duplicate requests may execute expensive processing before hitting the constraint
+2. No response caching - each duplicate incurs full processing overhead
+3. Race condition handling relies on exception catching
+
+### Decision
+
+Add an application-level `IdempotencyService` that provides:
+
+1. **Early detection** - Check BEFORE processing begins
+2. **Response caching** - Return cached response for duplicates
+3. **TTL-based cleanup** - Auto-expire keys after 24 hours
+
+### Two-Layer Idempotency Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Application Layer                        │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │           IdempotencyService.acquire()               │   │
+│  │  - Early detection (BEFORE processing starts)       │   │
+│  │  - Response caching (return cached result)          │   │
+│  │  - TTL expiration (24 hours)                        │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Database Layer                           │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │         UNIQUE Constraints (Safety Net)              │   │
+│  │  - mpesa_transaction_id                              │   │
+│  │  - intasend_reference                                │   │
+│  │  - paystack_reference                                │   │
+│  │  - Catches race conditions that slip through         │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### IdempotencyService API
+
+```php
+class IdempotencyService
+{
+    // Attempt to acquire lock for processing
+    public function acquire(string $key, ?string $requestHash = null): array
+    {
+        // Returns: ['acquired' => true] or ['acquired' => false, 'response' => cached_data]
+    }
+
+    // Release lock and store response
+    public function release(string $key, array $response): void;
+
+    // Mark as failed with reason
+    public function fail(string $key, ?string $reason = null): void;
+
+    // Check if key is being processed
+    public function isProcessing(string $key): bool;
+
+    // Remove expired keys
+    public function cleanupExpired(): int;
+}
+```
+
+### Usage Pattern (Webhook Controllers)
+
+```php
+public function processWebhook(Request $request): Response
+{
+    $receiptNumber = $request->input('mpesa_receipt');
+    $idempotencyKey = IdempotencyService::generateKey('mpesa', $receiptNumber);
+
+    $result = $this->idempotencyService->acquire($idempotencyKey);
+
+    if (!$result['acquired']) {
+        if ($result['response']) {
+            // Return cached response
+            return response()->json($result['response']);
+        }
+        // Another request is processing - return 202 Accepted
+        return response('Processing', 202);
+    }
+
+    try {
+        // Process payment...
+        $response = $this->processPayment($request);
+
+        $this->idempotencyService->release($idempotencyKey, [
+            'status' => 'success',
+            'payment_id' => $response->payment_id,
+        ]);
+
+        return response()->json($response);
+
+    } catch (\Exception $e) {
+        $this->idempotencyService->fail($idempotencyKey, $e->getMessage());
+        throw $e;
+    }
+}
+```
+
+### Files Created (PAY-V2-003)
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/2026_02_04_100000_create_idempotency_keys_table.php` | Create idempotency_keys table |
+| `app/Models/IdempotencyKey.php` | Model with scopes (active, expired, pending, completed) |
+| `app/Services/IdempotencyService.php` | Acquire/release/fail/cleanup service |
+| `app/Console/Commands/CleanupExpiredIdempotencyKeys.php` | Scheduled cleanup command |
+| `database/factories/IdempotencyKeyFactory.php` | Test factory |
+
+### Test Coverage (PAY-V2-003)
+
+| Test File | Tests |
+|-----------|-------|
+| `tests/Unit/Services/IdempotencyServiceTest.php` | 17 unit tests for service methods |
+| `tests/Feature/IdempotencyIntegrationTest.php` | 10 integration tests for workflow |
+
+### Schedule
+
+Cleanup command runs daily at 03:00 via `routes/console.php`:
+
+```php
+Schedule::command('idempotency:cleanup')
+    ->dailyAt('03:00')
+    ->withoutOverlapping()
+    ->runInBackground();
+```
+
 ## References
 
 - PAY-V2-001: Add Unique Constraint on mpesa_transaction_id
 - PAY-V2-002: Add Unique Constraint on intasend_reference
+- PAY-V2-003: Create Idempotency Key Table for Cross-Request Synchronization
 - Laravel Transactions and Consistency (database best practices)
 - ADR-003: Wrap Multi-Write Operations in Transactions
 - ADR-004: Payment Gateway Interface (for Paystack idempotency pattern)
