@@ -87,7 +87,14 @@ class MpesaGateway implements PaymentGatewayInterface
 
     public function verifyPayment(string $reference): PaymentResult
     {
-        $response = $this->service->querySTKStatus($reference);
+        if (! $this->config) {
+            return PaymentResult::failed(
+                error: 'PaymentConfiguration required for M-Pesa verification. Call withConfig() first.',
+                reference: $reference,
+            );
+        }
+
+        $response = $this->service->querySTKStatus($reference, $this->config);
 
         if ($response === null) {
             return PaymentResult::failed(

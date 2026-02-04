@@ -55,6 +55,9 @@ Route::prefix('v1')->group(function () {
             Route::post('/payments/mpesa/status', [TenantPaymentController::class, 'checkMpesaStatus']);
             Route::post('/payments/paystack/initiate', [TenantPaymentController::class, 'initiatePaystack'])
                 ->middleware('throttle:payment');
+            Route::post('/payments/intasend/initiate', [TenantPaymentController::class, 'initiateIntaSend'])
+                ->middleware('throttle:payment')
+                ->name('api.v1.tenant.payments.intasend.initiate');
 
             // Notifications
             Route::get('/notifications', [TenantNotificationController::class, 'index']);
@@ -99,8 +102,10 @@ Route::prefix('v1')->group(function () {
         });
     });
 
-    // M-Pesa payment initiation (authenticated tenant)
+    // M-Pesa payment initiation and status check (authenticated tenant)
     Route::post('/mpesa/stk-push', [\App\Http\Controllers\Api\MpesaController::class, 'initiateStkPush'])
+        ->middleware(['auth:sanctum', 'throttle:payment']);
+    Route::post('/mpesa/status', [\App\Http\Controllers\Api\MpesaController::class, 'checkStatus'])
         ->middleware(['auth:sanctum', 'throttle:payment']);
 });
 

@@ -4,9 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\InitiateMpesaPaymentRequest;
+use App\Http\Requests\Api\MpesaCheckStatusRequest;
 use App\Models\Invoice;
+use App\Models\PaymentConfiguration;
 use App\Services\MpesaService;
-use Illuminate\Http\Request;
 
 class MpesaController extends Controller
 {
@@ -15,8 +16,9 @@ class MpesaController extends Controller
     public function initiateStkPush(InitiateMpesaPaymentRequest $request)
     {
         $invoice = Invoice::findOrFail($request->invoice_id);
+        $paymentConfig = PaymentConfiguration::where('landlord_id', $invoice->landlord_id)->first();
 
-        if (! $this->mpesaService->isConfigured()) {
+        if (! $paymentConfig || ! $paymentConfig->hasMpesaSTKConfig()) {
             return response()->json([
                 'success' => false,
                 'message' => 'M-Pesa payments are not configured.',
@@ -29,7 +31,7 @@ class MpesaController extends Controller
             'account_reference' => $invoice->invoice_number,
             'description' => "Payment for Invoice {$invoice->invoice_number}",
             'callback_url' => route('webhooks.mpesa.stk-callback'),
-        ]);
+        ], $paymentConfig);
 
         if (! $result) {
             return response()->json([
@@ -54,13 +56,19 @@ class MpesaController extends Controller
         ]);
     }
 
-    public function checkStatus(Request $request)
+    public function checkStatus(MpesaCheckStatusRequest $request)
     {
-        $request->validate([
-            'checkout_request_id' => 'required|string',
-        ]);
+        $invoice = Invoice::findOrFail($request->invoice_id);
+        $paymentConfig = PaymentConfiguration::where('landlord_id', $invoice->landlord_id)->first();
 
-        $result = $this->mpesaService->querySTKStatus($request->checkout_request_id);
+        if (! $paymentConfig || ! $paymentConfig->hasMpesaSTKConfig()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'M-Pesa payments are not configured.',
+            ], 503);
+        }
+
+        $result = $this->mpesaService->querySTKStatus($request->checkout_request_id, $paymentConfig);
 
         if (! $result) {
             return response()->json([
