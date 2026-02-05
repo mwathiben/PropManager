@@ -24,10 +24,11 @@ class PaymentConfigurationFactory extends Factory
             'bank_account_number' => null,
             'bank_branch' => null,
             'mpesa_account_name' => null,
-            'mpesa_shortcode_type' => null,
+            'mpesa_shortcode_type' => 'paybill',
             'mpesa_shortcode' => null,
             'mpesa_passkey' => null,
             'paystack_enabled' => false,
+            'intasend_environment' => 'sandbox',
         ];
     }
 
@@ -49,7 +50,19 @@ class PaymentConfigurationFactory extends Factory
             'mpesa_shortcode_type' => fake()->randomElement(['paybill', 'till']),
             'mpesa_shortcode' => fake()->numerify('######'),
             'mpesa_passkey' => fake()->uuid(),
+            'mpesa_consumer_key' => fake()->uuid(),
+            'mpesa_consumer_secret' => fake()->uuid(),
             'accepted_payment_methods' => ['cash', 'mobile_money'],
+        ]);
+    }
+
+    public function withMpesaB2C(): static
+    {
+        return $this->state([
+            'mpesa_b2c_shortcode' => fake()->numerify('######'),
+            'mpesa_b2c_initiator' => 'testInitiator',
+            'mpesa_b2c_password' => fake()->uuid(),
+            'mpesa_b2c_security_credential' => fake()->uuid(),
         ]);
     }
 

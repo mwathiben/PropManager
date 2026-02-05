@@ -6,6 +6,7 @@ use App\Enums\InvoiceStatus;
 use App\Exceptions\Payment\MissingMobileNumberException;
 use App\Exceptions\Payment\UnsupportedPaymentMethodException;
 use App\Models\Payment;
+use App\Models\PaymentConfiguration;
 use App\Models\PlatformFee;
 use App\Models\Refund;
 use Illuminate\Support\Facades\DB;
@@ -117,6 +118,9 @@ class RefundService
         if (! $tenant->mobile_number) {
             throw new MissingMobileNumberException($tenant->id);
         }
+
+        $config = PaymentConfiguration::where('landlord_id', $refund->landlord_id)->firstOrFail();
+        $this->mpesaService->withConfig($config);
 
         $result = $this->mpesaService->initiateB2C(
             $tenant->mobile_number,

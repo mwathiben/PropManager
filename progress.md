@@ -12544,3 +12544,73 @@ M-Pesa integration tests: 34 passed (95 assertions)
 | Settings UI allows configuration | PASS |
 
 **PAY-V2-005 COMPLETE**
+
+---
+
+## PAY-V2-006: Migrate M-Pesa B2C Credentials to Database (SEC-003)
+**Status:** PASSED
+**Date:** 2026-02-05
+**Attempts:** 1
+
+### Implementation Summary
+
+Added Settings UI, validation, controller masking, TypeScript types, and 9 feature tests for M-Pesa B2C credential management. Fixed a critical security bug in RefundService where `processMpesaRefund()` called `initiateB2C()` without loading the landlord's PaymentConfiguration.
+
+Backend infrastructure (migration, model columns, encrypted casts, MpesaService B2C methods) was already implemented in prior work. This task completed the remaining layers.
+
+### Critical Security Fix
+
+`RefundService::processMpesaRefund()` was calling `$this->mpesaService->initiateB2C()` without first loading the landlord's `PaymentConfiguration` via `withConfig()`. This would cause all B2C refund attempts to fail because `$this->config` would be null. Fixed by loading `PaymentConfiguration::where('landlord_id', $refund->landlord_id)->firstOrFail()` and calling `$this->mpesaService->withConfig($config)` before `initiateB2C()`.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Services/RefundService.php` | Load PaymentConfiguration before B2C call (security fix) |
+| `app/Http/Requests/Settings/UpdatePaymentMethodsRequest.php` | Added 4 B2C validation rules |
+| `app/Http/Controllers/SettingsController.php` | Added B2C last4 masking, secret removal, secret fields |
+| `resources/js/types/settings.d.ts` | Added 4 B2C TypeScript fields |
+| `resources/js/Pages/Settings/partials/PaymentMethodsTab.vue` | Added B2C credential form section with status indicator |
+| `database/factories/PaymentConfigurationFactory.php` | Added `withMpesaB2C()` factory state |
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `tests/Feature/MpesaB2CCredentialConfigurationTest.php` | 9 feature tests for B2C credential configuration |
+
+### Test Results
+
+```
+MpesaB2CCredentialConfigurationTest: 9 passed (25 assertions)
+MpesaCredentialMigrationTest: 12 passed (no regression)
+Pint: clean
+npm run build: success
+```
+
+### E2E Browser Verification (agent-browser)
+
+| Check | Result |
+|-------|--------|
+| B2C section renders in Payment Methods tab | PASS |
+| 4 input fields present (shortcode, initiator, password, credential) | PASS |
+| Safaricom Developer Portal link present | PASS |
+| Help text about 3-month password expiry | PASS |
+| Filled credentials save successfully | PASS |
+| Last4 masking shows after save (****word, ****tial) | PASS |
+| Blank password submit preserves existing credentials | PASS |
+| Full secrets NOT in page source | PASS |
+| "B2C refunds enabled" status indicator | PASS |
+
+### Acceptance Criteria Verification
+
+| Criteria | Status |
+|----------|--------|
+| B2C credentials stored encrypted | PASS |
+| Refunds work with per-landlord config (RefundService fix) | PASS |
+| Security credential properly encrypted | PASS |
+| Settings UI allows B2C configuration | PASS |
+| Secrets never exposed to frontend | PASS |
+| Blank-preserves pattern for password fields | PASS |
+
+**PAY-V2-006 COMPLETE**

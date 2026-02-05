@@ -18,12 +18,50 @@
   "auditFindings": {
     "description": "Critical gaps from tracer bullet analysis of 70+ payment files",
     "tracerBulletFiles": {
-      "models": ["Payment", "PaymentConfiguration", "PaymentLink", "IntaSendTransaction"],
-      "controllers": ["PaymentController (1,276 lines)", "Api/PaymentController", "Api/TenantPaymentController", "Api/MpesaWebhookController", "Api/IntaSendWebhookController"],
-      "services": ["PaymentGatewayManager", "PaystackService", "MpesaService", "IntaSendService", "PaymentCallbackProcessor", "PaymentLinkService", "ReceiptService"],
-      "events": ["PaymentReceived", "MpesaPaymentStatusChanged", "IntaSendPaymentStatusChanged"],
-      "tests": ["PaymentControllerTest", "PaymentIdempotencyTest", "PaymentGatewayManagerTest", "PaymentLinkServiceTest", "MpesaPaymentStatusChangedEventTest", "IntaSendPaymentStatusChangedEventTest", "IntaSendPaymentFlowTest", "PaymentReceivedBroadcastTest", "PaymentReceivedEventTest"],
-      "untested": ["PaymentObserver", "PaymentResource", "ReceiptService", "PaystackWebhookHandler"]
+      "models": [
+        "Payment",
+        "PaymentConfiguration",
+        "PaymentLink",
+        "IntaSendTransaction"
+      ],
+      "controllers": [
+        "PaymentController (1,276 lines)",
+        "Api/PaymentController",
+        "Api/TenantPaymentController",
+        "Api/MpesaWebhookController",
+        "Api/IntaSendWebhookController"
+      ],
+      "services": [
+        "PaymentGatewayManager",
+        "PaystackService",
+        "MpesaService",
+        "IntaSendService",
+        "PaymentCallbackProcessor",
+        "PaymentLinkService",
+        "ReceiptService"
+      ],
+      "events": [
+        "PaymentReceived",
+        "MpesaPaymentStatusChanged",
+        "IntaSendPaymentStatusChanged"
+      ],
+      "tests": [
+        "PaymentControllerTest",
+        "PaymentIdempotencyTest",
+        "PaymentGatewayManagerTest",
+        "PaymentLinkServiceTest",
+        "MpesaPaymentStatusChangedEventTest",
+        "IntaSendPaymentStatusChangedEventTest",
+        "IntaSendPaymentFlowTest",
+        "PaymentReceivedBroadcastTest",
+        "PaymentReceivedEventTest"
+      ],
+      "untested": [
+        "PaymentObserver",
+        "PaymentResource",
+        "ReceiptService",
+        "PaystackWebhookHandler"
+      ]
     },
     "critical": [
       {
@@ -88,37 +126,161 @@
   "userDecisions": {
     "description": "Decisions gathered from user through comprehensive AskUserQuestion sessions",
     "decisions": [
-      {"topic": "Priority", "choice": "All equal - comprehensive", "rationale": "Quality first approach"},
-      {"topic": "Duplicate handling", "choice": "Fail fast", "rationale": "Migration fails if duplicates exist"},
-      {"topic": "Refactoring scope", "choice": "Full extraction to 5+ services", "rationale": "SOLID compliance"},
-      {"topic": "Amount tolerance", "choice": "1 KES for all providers", "rationale": "Handles rounding"},
-      {"topic": "IP validation", "choice": "Reject & log (403 Forbidden)", "rationale": "Fail-closed security"},
-      {"topic": "Rate limiting", "choice": "Per invoice (1 per 60 seconds)", "rationale": "Prevent abuse"},
-      {"topic": "Test coverage", "choice": "80% minimum", "rationale": "Industry standard"},
-      {"topic": "Dead letter queue", "choice": "Yes with email alerts", "rationale": "Prevent lost payments"},
-      {"topic": "Performance logging", "choice": "All external calls", "rationale": "Debugging"},
-      {"topic": "Security PRD", "choice": "Merge into v2", "rationale": "Single comprehensive PRD"},
-      {"topic": "Network failures", "choice": "Retry with exponential backoff", "rationale": "Better UX"},
-      {"topic": "Architecture", "choice": "Interface/contract + Strategy pattern", "rationale": "SOLID"},
-      {"topic": "Retry tracking", "choice": "Track in DB", "rationale": "Audit trail"},
-      {"topic": "Key display", "choice": "Last 4 chars only", "rationale": "Security + identification"},
-      {"topic": "Offline mode", "choice": "Queue payments + SMS confirmation", "rationale": "Kenya connectivity"},
-      {"topic": "SMS confirmation", "choice": "Custom via Africa's Talking", "rationale": "Branding control"},
-      {"topic": "Payment intent", "choice": "Full intent pattern", "rationale": "Audit trail"},
-      {"topic": "Idempotency", "choice": "Early insert pattern", "rationale": "Research best practice"},
-      {"topic": "M-Pesa security", "choice": "Full suite (timestamp + IP + signing + SSL)", "rationale": "Enterprise grade"},
-      {"topic": "Caching", "choice": "Review & enhance", "rationale": "No stale data"},
-      {"topic": "Frontend", "choice": "Standardize Vue components", "rationale": "Consistency"},
-      {"topic": "Retry config", "choice": "Per-gateway", "rationale": "Provider reliability varies"},
-      {"topic": "Test files", "choice": "ALL payment files", "rationale": "Complete coverage"},
-      {"topic": "Race condition", "choice": "Retry with backoff (202 Accepted)", "rationale": "Common pattern"},
-      {"topic": "PRD detail", "choice": "Full detail (line numbers, commands)", "rationale": "Match v1"},
-      {"topic": "Workflow", "choice": "Enhanced TDD + ADR", "rationale": "Architecture docs"},
-      {"topic": "Rollback", "choice": "All migrations", "rationale": "Safety"},
-      {"topic": "Health checks", "choice": "Per gateway endpoint", "rationale": "Monitoring"},
-      {"topic": "Email templates", "choice": "Audit & standardize", "rationale": "Consistency"},
-      {"topic": "Real-time", "choice": "Hybrid (WebSocket + polling)", "rationale": "Performance"},
-      {"topic": "Estimates", "choice": "Story points (Fibonacci)", "rationale": "Sprint planning"}
+      {
+        "topic": "Priority",
+        "choice": "All equal - comprehensive",
+        "rationale": "Quality first approach"
+      },
+      {
+        "topic": "Duplicate handling",
+        "choice": "Fail fast",
+        "rationale": "Migration fails if duplicates exist"
+      },
+      {
+        "topic": "Refactoring scope",
+        "choice": "Full extraction to 5+ services",
+        "rationale": "SOLID compliance"
+      },
+      {
+        "topic": "Amount tolerance",
+        "choice": "1 KES for all providers",
+        "rationale": "Handles rounding"
+      },
+      {
+        "topic": "IP validation",
+        "choice": "Reject & log (403 Forbidden)",
+        "rationale": "Fail-closed security"
+      },
+      {
+        "topic": "Rate limiting",
+        "choice": "Per invoice (1 per 60 seconds)",
+        "rationale": "Prevent abuse"
+      },
+      {
+        "topic": "Test coverage",
+        "choice": "80% minimum",
+        "rationale": "Industry standard"
+      },
+      {
+        "topic": "Dead letter queue",
+        "choice": "Yes with email alerts",
+        "rationale": "Prevent lost payments"
+      },
+      {
+        "topic": "Performance logging",
+        "choice": "All external calls",
+        "rationale": "Debugging"
+      },
+      {
+        "topic": "Security PRD",
+        "choice": "Merge into v2",
+        "rationale": "Single comprehensive PRD"
+      },
+      {
+        "topic": "Network failures",
+        "choice": "Retry with exponential backoff",
+        "rationale": "Better UX"
+      },
+      {
+        "topic": "Architecture",
+        "choice": "Interface/contract + Strategy pattern",
+        "rationale": "SOLID"
+      },
+      {
+        "topic": "Retry tracking",
+        "choice": "Track in DB",
+        "rationale": "Audit trail"
+      },
+      {
+        "topic": "Key display",
+        "choice": "Last 4 chars only",
+        "rationale": "Security + identification"
+      },
+      {
+        "topic": "Offline mode",
+        "choice": "Queue payments + SMS confirmation",
+        "rationale": "Kenya connectivity"
+      },
+      {
+        "topic": "SMS confirmation",
+        "choice": "Custom via Africa's Talking",
+        "rationale": "Branding control"
+      },
+      {
+        "topic": "Payment intent",
+        "choice": "Full intent pattern",
+        "rationale": "Audit trail"
+      },
+      {
+        "topic": "Idempotency",
+        "choice": "Early insert pattern",
+        "rationale": "Research best practice"
+      },
+      {
+        "topic": "M-Pesa security",
+        "choice": "Full suite (timestamp + IP + signing + SSL)",
+        "rationale": "Enterprise grade"
+      },
+      {
+        "topic": "Caching",
+        "choice": "Review & enhance",
+        "rationale": "No stale data"
+      },
+      {
+        "topic": "Frontend",
+        "choice": "Standardize Vue components",
+        "rationale": "Consistency"
+      },
+      {
+        "topic": "Retry config",
+        "choice": "Per-gateway",
+        "rationale": "Provider reliability varies"
+      },
+      {
+        "topic": "Test files",
+        "choice": "ALL payment files",
+        "rationale": "Complete coverage"
+      },
+      {
+        "topic": "Race condition",
+        "choice": "Retry with backoff (202 Accepted)",
+        "rationale": "Common pattern"
+      },
+      {
+        "topic": "PRD detail",
+        "choice": "Full detail (line numbers, commands)",
+        "rationale": "Match v1"
+      },
+      {
+        "topic": "Workflow",
+        "choice": "Enhanced TDD + ADR",
+        "rationale": "Architecture docs"
+      },
+      {
+        "topic": "Rollback",
+        "choice": "All migrations",
+        "rationale": "Safety"
+      },
+      {
+        "topic": "Health checks",
+        "choice": "Per gateway endpoint",
+        "rationale": "Monitoring"
+      },
+      {
+        "topic": "Email templates",
+        "choice": "Audit & standardize",
+        "rationale": "Consistency"
+      },
+      {
+        "topic": "Real-time",
+        "choice": "Hybrid (WebSocket + polling)",
+        "rationale": "Performance"
+      },
+      {
+        "topic": "Estimates",
+        "choice": "Story points (Fibonacci)",
+        "rationale": "Sprint planning"
+      }
     ]
   },
   "qualityStandards": {
@@ -204,7 +366,12 @@
         "step": 3,
         "name": "Refactor",
         "description": "Clean up while keeping tests green. Document architectural decisions.",
-        "focus": ["Remove duplication", "Extract services", "Strategy pattern", "Write ADR if needed"]
+        "focus": [
+          "Remove duplication",
+          "Extract services",
+          "Strategy pattern",
+          "Write ADR if needed"
+        ]
       },
       {
         "step": 4,
@@ -220,7 +387,11 @@
         "step": 5,
         "name": "Verify",
         "description": "Run full suite and manual verification.",
-        "commands": ["php artisan test --coverage --min=80", "vendor/bin/pint --test", "npm run build"]
+        "commands": [
+          "php artisan test --coverage --min=80",
+          "vendor/bin/pint --test",
+          "npm run build"
+        ]
       }
     ]
   },
@@ -401,7 +572,10 @@
       "attempt_count": 1,
       "completed_date": "2026-02-04",
       "implementation_notes": "Migration creates idempotency_keys table with unique key, status enum, response_data JSON, and TTL. IdempotencyKey model with scopes (active, expired, pending, completed). IdempotencyService with acquire/release/fail/cleanupExpired methods. CleanupExpiredIdempotencyKeys command scheduled daily at 03:00. ADR-006 updated with two-layer idempotency architecture and controller integration details. CONTROLLER INTEGRATION COMPLETE: MpesaWebhookController (processPayment, tillConfirmation), IntaSendWebhookController (processCompletePayment), PaymentController (processSuccessfulCharge), BankWebhookController (processWebhook + FIXED missing QueryException handler). 54 idempotency tests passing (17 unit, 18 feature integration, 19 provider tests). 5 E2E browser tests added for frontend verification.",
-      "depends_on": ["PAY-V2-001", "PAY-V2-002"]
+      "depends_on": [
+        "PAY-V2-001",
+        "PAY-V2-002"
+      ]
     },
     {
       "id": "PAY-V2-004",
@@ -504,7 +678,9 @@
       "estimated_effort": "medium",
       "passes": true,
       "attempt_count": 1,
-      "depends_on": ["PAY-V2-004"],
+      "depends_on": [
+        "PAY-V2-004"
+      ],
       "completed_date": "2026-02-04",
       "implementation_notes": "Fixed TenantPaymentController::checkMpesaStatus() to load PaymentConfiguration and pass to MpesaService::querySTKStatus(). Added withConfig() call in querySTKStatus() and initiateSTKPush() before getAccessToken(). Added missing mpesa_shortcode/passkey/environment fields to UpdatePaymentMethodsRequest validation. Created MpesaCredentialMigrationTest (12 tests) and MpesaCredentialSettingsTest (E2E)."
     },
@@ -547,9 +723,11 @@
         "sql": "ALTER TABLE payment_configurations DROP COLUMN mpesa_b2c_initiator, DROP COLUMN mpesa_b2c_password, DROP COLUMN mpesa_b2c_security_credential"
       },
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
-      "depends_on": ["PAY-V2-005"]
+      "passes": true,
+      "attempt_count": 1,
+      "depends_on": [
+        "PAY-V2-005"
+      ]
     },
     {
       "id": "PAY-V2-007",
@@ -642,7 +820,9 @@
       "estimated_effort": "medium",
       "passes": false,
       "attempt_count": 0,
-      "depends_on": ["PAY-V2-007"]
+      "depends_on": [
+        "PAY-V2-007"
+      ]
     },
     {
       "id": "PAY-V2-009",
@@ -687,7 +867,9 @@
       "estimated_effort": "large",
       "passes": false,
       "attempt_count": 0,
-      "depends_on": ["PAY-V2-008"]
+      "depends_on": [
+        "PAY-V2-008"
+      ]
     },
     {
       "id": "PAY-V2-010",
@@ -729,7 +911,9 @@
       "estimated_effort": "medium",
       "passes": false,
       "attempt_count": 0,
-      "depends_on": ["PAY-V2-009"]
+      "depends_on": [
+        "PAY-V2-009"
+      ]
     },
     {
       "id": "PAY-V2-011",
@@ -767,7 +951,9 @@
       "estimated_effort": "small",
       "passes": false,
       "attempt_count": 0,
-      "depends_on": ["PAY-V2-010"]
+      "depends_on": [
+        "PAY-V2-010"
+      ]
     },
     {
       "id": "PAY-V2-012",
@@ -804,7 +990,9 @@
       "estimated_effort": "small",
       "passes": false,
       "attempt_count": 0,
-      "depends_on": ["PAY-V2-011"]
+      "depends_on": [
+        "PAY-V2-011"
+      ]
     },
     {
       "id": "PAY-V2-013",
@@ -843,7 +1031,13 @@
       "estimated_effort": "small",
       "passes": false,
       "attempt_count": 0,
-      "depends_on": ["PAY-V2-008", "PAY-V2-009", "PAY-V2-010", "PAY-V2-011", "PAY-V2-012"]
+      "depends_on": [
+        "PAY-V2-008",
+        "PAY-V2-009",
+        "PAY-V2-010",
+        "PAY-V2-011",
+        "PAY-V2-012"
+      ]
     },
     {
       "id": "PAY-V2-014",
@@ -1013,7 +1207,9 @@
       "estimated_effort": "medium",
       "passes": false,
       "attempt_count": 0,
-      "depends_on": ["PAY-V2-016"]
+      "depends_on": [
+        "PAY-V2-016"
+      ]
     },
     {
       "id": "PAY-V2-018",
@@ -1053,7 +1249,9 @@
       "estimated_effort": "medium",
       "passes": false,
       "attempt_count": 0,
-      "depends_on": ["PAY-V2-017"]
+      "depends_on": [
+        "PAY-V2-017"
+      ]
     },
     {
       "id": "PAY-V2-019",
@@ -1171,7 +1369,9 @@
       "estimated_effort": "medium",
       "passes": false,
       "attempt_count": 0,
-      "depends_on": ["PAY-V2-018"]
+      "depends_on": [
+        "PAY-V2-018"
+      ]
     },
     {
       "id": "PAY-V2-022",
@@ -1209,7 +1409,11 @@
       "estimated_effort": "medium",
       "passes": false,
       "attempt_count": 0,
-      "depends_on": ["PAY-V2-001", "PAY-V2-002", "PAY-V2-003"]
+      "depends_on": [
+        "PAY-V2-001",
+        "PAY-V2-002",
+        "PAY-V2-003"
+      ]
     },
     {
       "id": "PAY-V2-023",
@@ -1372,7 +1576,7 @@
       "database/migrations/2026_02_02_000012_create_webhook_logs_table.php"
     ],
     "CONTROLLERS": [
-      "app/Http/Controllers/PaymentController.php - MAJOR refactoring (1,276 → <300 lines)",
+      "app/Http/Controllers/PaymentController.php - MAJOR refactoring (1,276 \u00e2\u2020\u2019 <300 lines)",
       "app/Http/Controllers/Api/MpesaWebhookController.php - Security + validation",
       "app/Http/Controllers/Api/IntaSendWebhookController.php - Idempotency improvements"
     ],

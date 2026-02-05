@@ -51,6 +51,10 @@ export interface PaymentConfiguration extends BaseEntity {
   mpesa_shortcode?: string;
   mpesa_consumer_key_last4?: string;
   mpesa_consumer_secret_last4?: string;
+  mpesa_b2c_shortcode?: string;
+  mpesa_b2c_initiator?: string;
+  mpesa_b2c_password_last4?: string;
+  mpesa_b2c_security_credential_last4?: string;
   paystack_enabled: boolean;
   paystack_public_key?: string;
   paystack_secret_key_last4?: string;

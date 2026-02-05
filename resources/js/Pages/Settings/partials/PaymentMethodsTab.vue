@@ -40,6 +40,10 @@ const form = useForm({
     intasend_secret_key: '',
     intasend_webhook_challenge: props.paymentConfig?.intasend_webhook_challenge || '',
     intasend_environment: props.paymentConfig?.intasend_environment || 'sandbox',
+    mpesa_b2c_shortcode: props.paymentConfig?.mpesa_b2c_shortcode || '',
+    mpesa_b2c_initiator: props.paymentConfig?.mpesa_b2c_initiator || '',
+    mpesa_b2c_password: '',
+    mpesa_b2c_security_credential: '',
 });
 
 const methodIcons = {
@@ -74,6 +78,8 @@ const showIntasendDetails = computed(() => isMethodEnabled('intasend_mpesa'));
 const hasIntasendSecretKey = computed(() => !!props.paymentConfig?.intasend_secret_key_last4);
 const hasPaystackSecretKey = computed(() => !!props.paymentConfig?.paystack_secret_key_last4);
 const hasMpesaConsumerKey = computed(() => !!props.paymentConfig?.mpesa_consumer_key_last4);
+const hasMpesaB2CPassword = computed(() => !!props.paymentConfig?.mpesa_b2c_password_last4);
+const hasMpesaB2CCredential = computed(() => !!props.paymentConfig?.mpesa_b2c_security_credential_last4);
 
 const submit = () => {
     form.post(route('settings.payment.update'), {
@@ -300,6 +306,92 @@ const submit = () => {
                             {{ hasMpesaConsumerKey || (form.mpesa_consumer_key && form.mpesa_consumer_secret)
                                 ? 'STK Push enabled'
                                 : 'STK Push not configured (manual payments only)'
+                            }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- B2C Refund Credentials Section -->
+                <div class="pt-4 border-t border-gray-200 space-y-4">
+                    <div>
+                        <h5 class="text-sm font-medium text-gray-700">B2C Refund Credentials (Optional)</h5>
+                        <p class="text-sm text-gray-500">
+                            For automated refunds via M-Pesa B2C API. Initiator passwords expire approximately every 3 months.
+                            <a href="https://developer.safaricom.co.ke/APIs/BusinessToCustomer" target="_blank" class="text-indigo-600 hover:text-indigo-800">
+                                Get B2C credentials from Safaricom Developer Portal
+                            </a>
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <InputLabel for="mpesa_b2c_shortcode" value="B2C Shortcode" />
+                            <TextInput
+                                id="mpesa_b2c_shortcode"
+                                v-model="form.mpesa_b2c_shortcode"
+                                type="text"
+                                class="mt-1 block w-full"
+                                placeholder="e.g., 600123"
+                            />
+                            <InputError :message="form.errors.mpesa_b2c_shortcode" class="mt-2" />
+                        </div>
+
+                        <div>
+                            <InputLabel for="mpesa_b2c_initiator" value="Initiator Name" />
+                            <TextInput
+                                id="mpesa_b2c_initiator"
+                                v-model="form.mpesa_b2c_initiator"
+                                type="text"
+                                class="mt-1 block w-full"
+                                placeholder="e.g., testapi"
+                            />
+                            <InputError :message="form.errors.mpesa_b2c_initiator" class="mt-2" />
+                        </div>
+
+                        <div>
+                            <InputLabel for="mpesa_b2c_password">
+                                Initiator Password
+                                <span v-if="props.paymentConfig?.mpesa_b2c_password_last4" class="ml-2 text-xs text-green-600">({{ props.paymentConfig.mpesa_b2c_password_last4 }})</span>
+                            </InputLabel>
+                            <TextInput
+                                id="mpesa_b2c_password"
+                                v-model="form.mpesa_b2c_password"
+                                type="password"
+                                class="mt-1 block w-full font-mono text-sm"
+                                :placeholder="hasMpesaB2CPassword ? '••••••••••••' : 'Your initiator password'"
+                            />
+                            <p class="mt-1 text-xs text-gray-500">From Safaricom Developer Portal. Leave blank to keep current.</p>
+                            <InputError :message="form.errors.mpesa_b2c_password" class="mt-2" />
+                        </div>
+
+                        <div>
+                            <InputLabel for="mpesa_b2c_security_credential">
+                                Security Credential
+                                <span v-if="props.paymentConfig?.mpesa_b2c_security_credential_last4" class="ml-2 text-xs text-green-600">({{ props.paymentConfig.mpesa_b2c_security_credential_last4 }})</span>
+                            </InputLabel>
+                            <TextInput
+                                id="mpesa_b2c_security_credential"
+                                v-model="form.mpesa_b2c_security_credential"
+                                type="password"
+                                class="mt-1 block w-full font-mono text-sm"
+                                :placeholder="hasMpesaB2CCredential ? '••••••••••••' : 'Your security credential'"
+                            />
+                            <p class="mt-1 text-xs text-gray-500">RSA-encrypted credential from Safaricom. Leave blank to keep current.</p>
+                            <InputError :message="form.errors.mpesa_b2c_security_credential" class="mt-2" />
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2 pt-2">
+                        <div :class="[
+                            'w-2 h-2 rounded-full',
+                            (hasMpesaB2CPassword && hasMpesaB2CCredential) || (form.mpesa_b2c_password && form.mpesa_b2c_security_credential)
+                                ? 'bg-green-500'
+                                : 'bg-gray-300'
+                        ]"></div>
+                        <span class="text-sm text-gray-600">
+                            {{ (hasMpesaB2CPassword && hasMpesaB2CCredential) || (form.mpesa_b2c_password && form.mpesa_b2c_security_credential)
+                                ? 'B2C refunds enabled'
+                                : 'B2C refunds not configured'
                             }}
                         </span>
                     </div>

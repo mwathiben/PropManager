@@ -54,6 +54,12 @@ class SettingsController extends Controller
         $paymentConfigData['intasend_secret_key_last4'] = $paymentConfig->intasend_secret_key
             ? '****'.substr($paymentConfig->intasend_secret_key, -4)
             : null;
+        $paymentConfigData['mpesa_b2c_password_last4'] = $paymentConfig->mpesa_b2c_password
+            ? '****'.substr($paymentConfig->mpesa_b2c_password, -4)
+            : null;
+        $paymentConfigData['mpesa_b2c_security_credential_last4'] = $paymentConfig->mpesa_b2c_security_credential
+            ? '****'.substr($paymentConfig->mpesa_b2c_security_credential, -4)
+            : null;
 
         // Remove actual secrets - they should NEVER go to frontend
         unset(
@@ -61,6 +67,8 @@ class SettingsController extends Controller
             $paymentConfigData['mpesa_consumer_key'],
             $paymentConfigData['mpesa_consumer_secret'],
             $paymentConfigData['mpesa_passkey'],
+            $paymentConfigData['mpesa_b2c_password'],
+            $paymentConfigData['mpesa_b2c_security_credential'],
             $paymentConfigData['intasend_secret_key'],
             $paymentConfigData['intasend_webhook_challenge']
         );
@@ -163,6 +171,8 @@ class SettingsController extends Controller
             'mpesa_passkey',
             'mpesa_consumer_key',
             'mpesa_consumer_secret',
+            'mpesa_b2c_password',
+            'mpesa_b2c_security_credential',
             'intasend_secret_key',
         ];
 
