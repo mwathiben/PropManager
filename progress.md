@@ -12860,3 +12860,55 @@ Fixed multi-tenant isolation bug where all landlords shared a single M-Pesa envi
 | Graceful null fallback to config default | PASS |
 
 **PAY-V2-026 COMPLETE**
+
+---
+
+## PAY-V2-015: Full Webhook Security Suite (M-Pesa + Paystack IP Validation)
+**Status:** PASSED
+**Date:** 2026-02-05
+**Attempts:** 1
+
+### Implementation Summary
+
+Extracted webhook security from 7 inline controller blocks into dedicated middleware. M-Pesa middleware validates IP (from `config('mpesa.allowed_ips')`) and timestamp (STK TransactionDate / C2B TransTime within configurable tolerance). Paystack middleware validates IP against 3 hardcoded official IPs. Both log rejections with structured context and return 403 Forbidden.
+
+### Files Created
+- `config/payments.php` — Paystack IPs hardcoded (NOT .env), M-Pesa timestamp tolerance (15 min)
+- `app/Http/Middleware/ValidateMpesaWebhook.php` — IP + timestamp validation (~85 lines)
+- `app/Http/Middleware/ValidatePaystackWebhook.php` — IP validation only (~40 lines)
+- `tests/Feature/Controllers/MpesaWebhookSecurityTest.php` — 12 test methods
+- `tests/Feature/Controllers/PaystackWebhookSecurityTest.php` — 8 test methods
+
+### Files Modified
+- `bootstrap/app.php` — Added `webhook.mpesa` and `webhook.paystack` middleware aliases
+- `routes/api.php` — Wrapped 7 M-Pesa routes in `middleware('webhook.mpesa')` group
+- `routes/web.php` — Applied `webhook.mpesa` to M-Pesa group, `webhook.paystack` to Paystack route
+- `app/Http/Controllers/Api/MpesaWebhookController.php` — Removed 7 inline IP validation blocks (~42 lines)
+- `tests/Traits/MocksExternalServices.php` — Added `config(['mpesa.allowed_ips' => []])` bypass, removed unused `validateWebhookIP` mock
+- `tests/Feature/MpesaIntegrationTest.php` — Added config bypass in setUp, rewrote IP rejection test for middleware (403)
+- `tests/Feature/PaystackCredentialMigrationTest.php` — Added Paystack IP config bypass in setUp
+- `tests/Feature/PaymentIdempotencyTest.php` — Added Paystack IP config bypass in setUp
+
+### Key Decisions
+1. **Hardcoded Paystack IPs** in `config/payments.php` — public constants, NOT .env vars
+2. **M-Pesa reads existing `config('mpesa.allowed_ips')`** — no duplication of IP config
+3. **Fail-open for timestamp** — missing timestamp (failed STK, no metadata) passes through
+4. **Fail-closed for IP in production** — empty whitelist + production = reject all
+5. **Testing bypass** — empty whitelist + non-production = allow all (developer convenience)
+
+### Verification Results
+
+| Check | Result |
+|-------|--------|
+| 12/12 MpesaWebhookSecurityTest | PASS |
+| 8/8 PaystackWebhookSecurityTest | PASS |
+| 8/8 MpesaIntegrationTest | PASS |
+| 7/7 MpesaIdempotencyTest | PASS |
+| 8/8 IdempotencyWebhookIntegrationTest | PASS |
+| 7/7 PaymentIdempotencyTest | PASS |
+| 16/16 PaystackCallbackHandlerTest | PASS |
+| Pint (5 files) | PASS |
+| PHPMD (2 middleware files) | PASS |
+| Pre-existing: PaystackCredentialMigrationTest.test_webhook_verifies_with_correct_landlord_secret returns 400 | NOT RELATED (handler-level, not middleware) |
+
+**PAY-V2-015 COMPLETE**

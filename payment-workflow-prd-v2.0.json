@@ -1130,8 +1130,8 @@
       ],
       "verification": "Send webhook from non-Safaricom IP; verify 403. Send webhook with old timestamp; verify 403. Send Paystack webhook from non-whitelisted IP; verify 403.",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "PAY-V2-016",

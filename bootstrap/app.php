@@ -41,6 +41,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'payment.verified' => \App\Http\Middleware\EnsurePaymentVerified::class,
             'ability' => \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
             'abilities' => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
+            'webhook.mpesa' => \App\Http\Middleware\ValidateMpesaWebhook::class,
+            'webhook.paystack' => \App\Http\Middleware\ValidatePaystackWebhook::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -31,6 +31,8 @@ class PaymentIdempotencyTest extends TestCase
     {
         parent::setUp();
 
+        config(['payments.webhook_security.paystack.allowed_ips' => []]);
+
         $this->landlord = User::factory()->create(['role' => 'landlord']);
 
         $property = Property::create([

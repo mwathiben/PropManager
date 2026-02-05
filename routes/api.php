@@ -138,20 +138,16 @@ Route::prefix('webhooks')->group(function () {
     // IntaSend M-Pesa STK Push callback (challenge-based validation)
     Route::post('/intasend/mpesa', [\App\Http\Controllers\Api\IntaSendWebhookController::class, 'handleMpesaWebhook']);
 
-    // M-Pesa Paybill (C2B with account number)
-    Route::post('/mpesa/c2b/validation', [\App\Http\Controllers\Api\MpesaWebhookController::class, 'c2bValidation']);
-    Route::post('/mpesa/c2b/confirmation', [\App\Http\Controllers\Api\MpesaWebhookController::class, 'c2bConfirmation']);
-
-    // M-Pesa Till/Buy Goods (no account number)
-    Route::post('/mpesa/till/validation', [\App\Http\Controllers\Api\MpesaWebhookController::class, 'tillValidation']);
-    Route::post('/mpesa/till/confirmation', [\App\Http\Controllers\Api\MpesaWebhookController::class, 'tillConfirmation']);
-
-    // M-Pesa STK Push callback
-    Route::post('/mpesa/stk-callback', [\App\Http\Controllers\Api\MpesaWebhookController::class, 'stkCallback']);
-
-    // M-Pesa B2C (refunds)
-    Route::post('/mpesa/b2c/result', [\App\Http\Controllers\Api\MpesaWebhookController::class, 'b2cResult']);
-    Route::post('/mpesa/b2c/timeout', [\App\Http\Controllers\Api\MpesaWebhookController::class, 'b2cTimeout']);
+    // M-Pesa webhooks (IP + timestamp validated via middleware)
+    Route::middleware('webhook.mpesa')->group(function () {
+        Route::post('/mpesa/c2b/validation', [\App\Http\Controllers\Api\MpesaWebhookController::class, 'c2bValidation']);
+        Route::post('/mpesa/c2b/confirmation', [\App\Http\Controllers\Api\MpesaWebhookController::class, 'c2bConfirmation']);
+        Route::post('/mpesa/till/validation', [\App\Http\Controllers\Api\MpesaWebhookController::class, 'tillValidation']);
+        Route::post('/mpesa/till/confirmation', [\App\Http\Controllers\Api\MpesaWebhookController::class, 'tillConfirmation']);
+        Route::post('/mpesa/stk-callback', [\App\Http\Controllers\Api\MpesaWebhookController::class, 'stkCallback']);
+        Route::post('/mpesa/b2c/result', [\App\Http\Controllers\Api\MpesaWebhookController::class, 'b2cResult']);
+        Route::post('/mpesa/b2c/timeout', [\App\Http\Controllers\Api\MpesaWebhookController::class, 'b2cTimeout']);
+    });
 
     // Bank webhooks (signature validated)
     Route::post('/bank/equity', [\App\Http\Controllers\Api\BankWebhookController::class, 'equityWebhook']);

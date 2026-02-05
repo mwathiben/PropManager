@@ -12,7 +12,7 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\User;
 use App\Services\BillingModelService;
-use App\Services\MpesaService;
+use App\Services\IdempotencyService;
 use App\Services\ReceiptService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,19 +22,13 @@ use Illuminate\Support\Facades\Mail;
 class MpesaWebhookController extends Controller
 {
     public function __construct(
-        protected MpesaService $mpesaService,
         protected BillingModelService $billingService,
-        protected ReceiptService $receiptService
+        protected ReceiptService $receiptService,
+        protected IdempotencyService $idempotencyService
     ) {}
 
     public function stkCallback(Request $request)
     {
-        if (! $this->mpesaService->validateWebhookIP($request->ip())) {
-            Log::warning('M-Pesa STK callback from unauthorized IP', ['ip' => $request->ip()]);
-
-            return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Rejected']);
-        }
-
         $callback = $request->input('Body.stkCallback');
 
         if (! $callback) {
@@ -97,12 +91,6 @@ class MpesaWebhookController extends Controller
 
     public function c2bValidation(Request $request)
     {
-        if (! $this->mpesaService->validateWebhookIP($request->ip())) {
-            Log::warning('M-Pesa C2B validation from unauthorized IP', ['ip' => $request->ip()]);
-
-            return response()->json(['ResultCode' => 'C2B00012', 'ResultDesc' => 'Rejected']);
-        }
-
         $accountReference = $request->input('BillRefNumber');
         $amount = $request->input('TransAmount');
 
@@ -136,12 +124,6 @@ class MpesaWebhookController extends Controller
 
     public function c2bConfirmation(Request $request)
     {
-        if (! $this->mpesaService->validateWebhookIP($request->ip())) {
-            Log::warning('M-Pesa C2B confirmation from unauthorized IP', ['ip' => $request->ip()]);
-
-            return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Rejected']);
-        }
-
         Log::info('M-Pesa C2B confirmation received', [
             'transaction_id' => $request->input('TransID'),
             'amount' => $request->input('TransAmount'),
@@ -164,6 +146,18 @@ class MpesaWebhookController extends Controller
     protected function processPayment(array $data): void
     {
         $receiptNumber = $data['mpesa_receipt_number'];
+        $idempotencyKey = "mpesa:{$receiptNumber}";
+
+        $idempotencyResult = $this->idempotencyService->acquire($idempotencyKey);
+
+        if (! $idempotencyResult['acquired']) {
+            Log::info('M-Pesa payment already handled (idempotency)', [
+                'key' => $idempotencyKey,
+                'cached' => $idempotencyResult['response'] !== null,
+            ]);
+
+            return;
+        }
 
         try {
             DB::beginTransaction();
@@ -174,6 +168,10 @@ class MpesaWebhookController extends Controller
 
             if ($existingPayment) {
                 DB::rollBack();
+                $this->idempotencyService->release($idempotencyKey, [
+                    'status' => 'duplicate',
+                    'payment_id' => $existingPayment->id,
+                ]);
                 Log::info('M-Pesa payment already processed', ['receipt' => $receiptNumber]);
 
                 return;
@@ -190,6 +188,10 @@ class MpesaWebhookController extends Controller
 
             if (! $invoice) {
                 DB::rollBack();
+                $this->idempotencyService->release($idempotencyKey, [
+                    'status' => 'no_invoice',
+                    'message' => 'No matching invoice found',
+                ]);
                 Log::warning('M-Pesa payment: No matching invoice found', $data);
 
                 return;
@@ -285,12 +287,19 @@ class MpesaWebhookController extends Controller
                 'applied' => $appliedAmount,
                 'overpayment_to_wallet' => $overpayment,
             ]);
+
+            $this->idempotencyService->release($idempotencyKey, [
+                'status' => 'success',
+                'payment_id' => $payment->id,
+                'invoice_id' => $invoice->id,
+            ]);
         } catch (\Illuminate\Database\QueryException $e) {
             DB::rollBack();
 
             // MySQL error 1062 = duplicate entry (unique constraint violation)
             // This is expected idempotent behavior - not an error condition
             if ($e->errorInfo[1] === 1062) {
+                $this->idempotencyService->release($idempotencyKey, ['status' => 'duplicate']);
                 Log::info('M-Pesa duplicate webhook ignored (idempotent)', [
                     'mpesa_transaction_id' => $receiptNumber,
                 ]);
@@ -299,12 +308,14 @@ class MpesaWebhookController extends Controller
             }
 
             // Other database errors are real failures
+            $this->idempotencyService->fail($idempotencyKey, $e->getMessage());
             Log::error('M-Pesa payment database error', [
                 'receipt' => $receiptNumber,
                 'error' => $e->getMessage(),
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            $this->idempotencyService->fail($idempotencyKey, $e->getMessage());
             Log::error('M-Pesa payment processing failed', [
                 'receipt' => $receiptNumber,
                 'error' => $e->getMessage(),
@@ -335,12 +346,6 @@ class MpesaWebhookController extends Controller
 
     public function tillValidation(Request $request)
     {
-        if (! $this->mpesaService->validateWebhookIP($request->ip())) {
-            Log::warning('M-Pesa Till validation from unauthorized IP', ['ip' => $request->ip()]);
-
-            return response()->json(['ResultCode' => 'C2B00012', 'ResultDesc' => 'Rejected']);
-        }
-
         $phone = $request->input('MSISDN');
         $amount = (float) $request->input('TransAmount');
 
@@ -369,21 +374,27 @@ class MpesaWebhookController extends Controller
 
     public function tillConfirmation(Request $request)
     {
-        if (! $this->mpesaService->validateWebhookIP($request->ip())) {
-            Log::warning('M-Pesa Till confirmation from unauthorized IP', ['ip' => $request->ip()]);
-
-            return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Rejected']);
-        }
-
         $phone = $request->input('MSISDN');
         $amount = (float) $request->input('TransAmount');
         $transId = $request->input('TransID');
+        $idempotencyKey = "mpesa_till:{$transId}";
 
         Log::info('M-Pesa Till confirmation received', [
             'transaction_id' => $transId,
             'amount' => $amount,
             'phone' => substr($phone, -4),
         ]);
+
+        $idempotencyResult = $this->idempotencyService->acquire($idempotencyKey);
+
+        if (! $idempotencyResult['acquired']) {
+            Log::info('M-Pesa Till payment already handled (idempotency)', [
+                'key' => $idempotencyKey,
+                'cached' => $idempotencyResult['response'] !== null,
+            ]);
+
+            return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Already processed']);
+        }
 
         try {
             DB::beginTransaction();
@@ -394,6 +405,10 @@ class MpesaWebhookController extends Controller
 
             if ($existingPayment) {
                 DB::rollBack();
+                $this->idempotencyService->release($idempotencyKey, [
+                    'status' => 'duplicate',
+                    'payment_id' => $existingPayment->id,
+                ]);
                 Log::info('M-Pesa Till payment already processed', ['receipt' => $transId]);
 
                 return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Already processed']);
@@ -413,12 +428,19 @@ class MpesaWebhookController extends Controller
             if (! $invoice) {
                 $this->queueUnmatchedPayment('mpesa_till', $transId, $amount, $request->all());
                 DB::commit();
+                $this->idempotencyService->release($idempotencyKey, [
+                    'status' => 'queued_for_matching',
+                ]);
 
                 return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Queued for matching']);
             }
 
             $this->processTillPayment($invoice, $amount, $transId, $phone, $request->all());
             DB::commit();
+            $this->idempotencyService->release($idempotencyKey, [
+                'status' => 'success',
+                'invoice_id' => $invoice->id,
+            ]);
 
             return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Payment recorded']);
         } catch (\Illuminate\Database\QueryException $e) {
@@ -427,6 +449,7 @@ class MpesaWebhookController extends Controller
             // MySQL error 1062 = duplicate entry (unique constraint violation)
             // This is expected idempotent behavior - not an error condition
             if ($e->errorInfo[1] === 1062) {
+                $this->idempotencyService->release($idempotencyKey, ['status' => 'duplicate']);
                 Log::info('M-Pesa Till duplicate webhook ignored (idempotent)', [
                     'mpesa_transaction_id' => $transId,
                 ]);
@@ -434,6 +457,7 @@ class MpesaWebhookController extends Controller
                 return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Already processed']);
             }
 
+            $this->idempotencyService->fail($idempotencyKey, $e->getMessage());
             Log::error('M-Pesa Till payment database error', [
                 'receipt' => $transId,
                 'error' => $e->getMessage(),
@@ -442,6 +466,7 @@ class MpesaWebhookController extends Controller
             return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Error - will retry']);
         } catch (\Exception $e) {
             DB::rollBack();
+            $this->idempotencyService->fail($idempotencyKey, $e->getMessage());
             Log::error('M-Pesa Till payment processing failed', [
                 'receipt' => $transId,
                 'error' => $e->getMessage(),
@@ -453,12 +478,6 @@ class MpesaWebhookController extends Controller
 
     public function b2cResult(Request $request)
     {
-        if (! $this->mpesaService->validateWebhookIP($request->ip())) {
-            Log::warning('M-Pesa B2C result from unauthorized IP', ['ip' => $request->ip()]);
-
-            return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Rejected']);
-        }
-
         $result = $request->input('Result');
         $resultCode = $result['ResultCode'] ?? 1;
         $conversationId = $result['ConversationID'] ?? null;
@@ -482,12 +501,6 @@ class MpesaWebhookController extends Controller
 
     public function b2cTimeout(Request $request)
     {
-        if (! $this->mpesaService->validateWebhookIP($request->ip())) {
-            Log::warning('M-Pesa B2C timeout from unauthorized IP', ['ip' => $request->ip()]);
-
-            return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Rejected']);
-        }
-
         Log::warning('M-Pesa B2C timeout received', [
             'payload' => $request->all(),
         ]);

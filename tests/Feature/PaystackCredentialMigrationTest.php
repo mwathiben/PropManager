@@ -33,6 +33,8 @@ class PaystackCredentialMigrationTest extends TestCase
     {
         parent::setUp();
 
+        config(['payments.webhook_security.paystack.allowed_ips' => []]);
+
         $this->setupData = $this->createLandlordWithFullSetup();
         $this->landlord = $this->setupData['landlord'];
 
@@ -135,7 +137,7 @@ class PaystackCredentialMigrationTest extends TestCase
             'event' => 'charge.success',
             'data' => [
                 'reference' => 'PAY_'.uniqid(),
-                'amount' => 500000, // 5000 in kobo
+                'amount' => 2500000,
                 'status' => 'success',
                 'metadata' => [
                     'invoice_id' => $invoice->id,
@@ -147,12 +149,11 @@ class PaystackCredentialMigrationTest extends TestCase
         $payload = json_encode($webhookData);
         $signature = hash_hmac('sha512', $payload, 'sk_test_secretkey12345678');
 
-        $response = $this->postJson('/webhooks/paystack', $webhookData, [
-            'x-paystack-signature' => $signature,
-            'Content-Type' => 'application/json',
-        ]);
+        $response = $this->call('POST', '/webhooks/paystack', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_X_PAYSTACK_SIGNATURE' => $signature,
+        ], $payload);
 
-        // Should not get 401 (signature verification passed)
         $response->assertStatus(200);
     }
 

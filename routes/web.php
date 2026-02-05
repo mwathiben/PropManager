@@ -97,10 +97,10 @@ Route::post('/two-factor-challenge', [TwoFactorController::class, 'verifyChallen
 
 // --- PAYMENT WEBHOOKS (Server-to-Server, CSRF excluded) ---
 Route::post('/webhooks/paystack', [PaymentController::class, 'handleWebhook'])
+    ->middleware('webhook.paystack')
     ->name('webhooks.paystack');
 
-// M-Pesa Webhooks
-Route::prefix('webhooks/mpesa')->name('webhooks.mpesa.')->group(function () {
+Route::prefix('webhooks/mpesa')->name('webhooks.mpesa.')->middleware('webhook.mpesa')->group(function () {
     Route::post('/stk-callback', [\App\Http\Controllers\Api\MpesaWebhookController::class, 'stkCallback'])
         ->name('stk-callback');
     Route::post('/c2b/validation', [\App\Http\Controllers\Api\MpesaWebhookController::class, 'c2bValidation'])

@@ -6,6 +6,7 @@ use App\Models\Building;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\Payment;
+use App\Models\PaymentConfiguration;
 use App\Models\Property;
 use App\Models\Unit;
 use App\Models\User;
@@ -27,11 +28,22 @@ class MpesaIntegrationTest extends TestCase
 
     private Lease $lease;
 
+    private PaymentConfiguration $paymentConfig;
+
     protected function setUp(): void
     {
         parent::setUp();
 
+        config(['mpesa.allowed_ips' => []]);
+
         $this->landlord = User::factory()->create(['role' => 'landlord']);
+
+        $this->paymentConfig = PaymentConfiguration::factory()->forLandlord($this->landlord)->create([
+            'mpesa_consumer_key' => 'test_consumer_key',
+            'mpesa_consumer_secret' => 'test_consumer_secret',
+            'mpesa_shortcode' => '174379',
+            'mpesa_passkey' => 'test_passkey',
+        ]);
 
         $property = Property::create([
             'name' => 'Test Property',
@@ -131,7 +143,7 @@ class MpesaIntegrationTest extends TestCase
         $response->assertStatus(422);
     }
 
-    public function test_stk_callback_from_non_safaricom_ip_returns_rejected(): void
+    public function test_stk_callback_from_non_safaricom_ip_returns_403(): void
     {
         config(['mpesa.allowed_ips' => ['196.201.214.200']]);
 
@@ -147,20 +159,18 @@ class MpesaIntegrationTest extends TestCase
                             ['Name' => 'Amount', 'Value' => 25000],
                             ['Name' => 'MpesaReceiptNumber', 'Value' => 'QKL'.rand(100000000, 999999999)],
                             ['Name' => 'PhoneNumber', 'Value' => '254712345678'],
+                            ['Name' => 'TransactionDate', 'Value' => now()->format('YmdHis')],
                         ],
                     ],
                 ],
             ],
         ];
 
-        $mock = Mockery::mock(MpesaService::class);
-        $mock->shouldReceive('validateWebhookIP')->andReturn(false);
-        $this->app->instance(MpesaService::class, $mock);
+        $response = $this->postJson('/webhooks/mpesa/stk-callback', $payload, [
+            'REMOTE_ADDR' => '192.168.1.1',
+        ]);
 
-        $response = $this->postJson('/webhooks/mpesa/stk-callback', $payload);
-
-        $response->assertStatus(200);
-        $response->assertJson(['ResultCode' => 1, 'ResultDesc' => 'Rejected']);
+        $response->assertStatus(403);
     }
 
     public function test_stk_callback_handles_failed_transaction(): void
@@ -178,10 +188,6 @@ class MpesaIntegrationTest extends TestCase
             ],
         ];
 
-        $mock = Mockery::mock(MpesaService::class);
-        $mock->shouldReceive('validateWebhookIP')->andReturn(true);
-        $this->app->instance(MpesaService::class, $mock);
-
         $response = $this->postJson('/webhooks/mpesa/stk-callback', $payload);
 
         $response->assertStatus(200);
@@ -194,10 +200,6 @@ class MpesaIntegrationTest extends TestCase
 
     public function test_c2b_validation_accepts_valid_payment(): void
     {
-        $mock = Mockery::mock(MpesaService::class);
-        $mock->shouldReceive('validateWebhookIP')->andReturn(true);
-        $this->app->instance(MpesaService::class, $mock);
-
         $payload = [
             'TransactionType' => 'Pay Bill',
             'TransID' => 'QKL'.rand(100000000, 999999999),
@@ -219,10 +221,6 @@ class MpesaIntegrationTest extends TestCase
 
     public function test_c2b_validation_rejects_invalid_invoice(): void
     {
-        $mock = Mockery::mock(MpesaService::class);
-        $mock->shouldReceive('validateWebhookIP')->andReturn(true);
-        $this->app->instance(MpesaService::class, $mock);
-
         $payload = [
             'TransactionType' => 'Pay Bill',
             'TransID' => 'QKL'.rand(100000000, 999999999),
@@ -245,10 +243,6 @@ class MpesaIntegrationTest extends TestCase
     public function test_c2b_confirmation_creates_payment(): void
     {
         $transactionId = 'QKL'.rand(100000000, 999999999);
-
-        $mock = Mockery::mock(MpesaService::class);
-        $mock->shouldReceive('validateWebhookIP')->andReturn(true);
-        $this->app->instance(MpesaService::class, $mock);
 
         $payload = [
             'TransactionType' => 'Pay Bill',
@@ -279,10 +273,6 @@ class MpesaIntegrationTest extends TestCase
     public function test_duplicate_c2b_confirmation_is_idempotent(): void
     {
         $transactionId = 'QKL'.rand(100000000, 999999999);
-
-        $mock = Mockery::mock(MpesaService::class);
-        $mock->shouldReceive('validateWebhookIP')->andReturn(true);
-        $this->app->instance(MpesaService::class, $mock);
 
         $payload = [
             'TransactionType' => 'Pay Bill',
