@@ -12699,3 +12699,86 @@ Extracted manual payment recording logic from PaymentController::storeManual() (
 The `payments.invoice_id` column is NOT NULL in the DB schema, but the controller code supports an "unallocated payment" path where `invoice_id` would be null. This path would fail at the DB level. Pre-existing issue — not introduced or fixed in this extraction.
 
 **PAY-V2-008 COMPLETE**
+
+---
+
+## PAY-V2-009: Extract BulkPaymentProcessor Service from PaymentController
+**Status:** PASSED
+**Date:** 2026-02-05
+**Attempts:** 1
+
+### Skills Applied
+- **laravelcontroller-cleanup**: Extract ~391 lines of business logic from PaymentController into dedicated service
+- **laraveltransactions-and-consistency**: Manual begin/commit for partial success; per-payment try/catch error isolation
+- **laraveltdd-with-pest**: RED-GREEN-REFACTOR — wrote 16 failing tests first, then implemented to pass
+- **verification-first**: Full test suite (965 passed), Pint, PHPMD after every change
+- **laravelinterfaces-and-di**: Method injection of BulkPaymentProcessor into controller
+- **laravelcomplexity-guardrails**: All methods ≤80 lines, cyclomatic complexity ≤7, PHPMD clean
+- **laravelcontroller-tests**: Service tests verify business logic; controller stays thin HTTP orchestrator
+- **laraveldata-chunking-large-datasets**: Pre-loaded invoice/lease maps (batch queries), no N+1
+- **laravelexception-handling-and-logging**: Structured logging with context arrays; per-row error collection
+- **laravelperformance-eager-loading**: Explicit with() on pre-load queries
+- **laravelquality-checks**: Pint + full test suite + PHPMD clean
+- **laravelform-requests**: ProcessBulkImportRequest/ValidateBulkImportRequest handle HTTP validation
+- **feature-development**: End-to-end verification including Dusk E2E tests
+- **e2e-testing-patterns**: Dusk browser tests for page rendering verification
+- **payment-integration**: Bulk payment processing with per-payment error isolation
+
+### Research-Driven Design Change: Partial Success
+- **Previous**: All-or-nothing (single transaction wraps entire batch — one failure rolls back all)
+- **New**: Per-payment error isolation. Each payment processed independently; failures collected and reported; successful payments committed
+- **Rationale**: Best practice for user-uploaded bulk imports; PRD acceptance criteria explicitly request structured results with success/error counts
+
+### Bug Fixed During Extraction
+- **Invoice status SQL**: MySQL evaluates SET clauses left-to-right, so `amount_paid` in the CASE expression already had the updated value — causing partial payments to be incorrectly marked as "paid". Fixed by removing redundant `+ amount` from CASE expression since `amount_paid` is already updated.
+- **strtotime TypeError**: Lease date columns are cast to Carbon by Eloquent. Original code used `strtotime()` which fails on Carbon objects in PHP 8.4. Fixed with Carbon comparison methods (`->lt()`, `->gt()`).
+
+### Files Created
+| File | Lines | Purpose |
+|------|-------|---------|
+| app/Services/Payment/BulkPaymentResult.php | 76 | Value object with static factories |
+| app/Services/Payment/BulkPaymentProcessor.php | 343 | Service handling both import modes |
+| tests/Feature/Services/BulkPaymentProcessorTest.php | 622 | 16 feature tests |
+| tests/Browser/BulkPaymentImportTest.php | 140 | 4 Dusk E2E tests |
+
+### Files Modified
+| File | Change | Net Lines |
+|------|--------|-----------|
+| app/Http/Controllers/PaymentController.php | Thin delegate + delete 6 methods + clean imports | 1232→841 (-391) |
+| payment-workflow-prd-v2.0.json | passes: true, attempt_count: 1 | +2 |
+
+### Controller After Extraction
+```php
+public function processBulkImport(ProcessBulkImportRequest $request, BulkPaymentProcessor $processor)
+{
+    $user = Auth::user();
+    $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+    $result = $processor->process($landlordId, $request->validated());
+    return response()->json($result->toArray(), $result->success ? 200 : 500);
+}
+```
+
+### Deleted Methods (from PaymentController)
+- `processCurrentImport()` (115 lines) → moved to BulkPaymentProcessor::processCurrent()
+- `processHistoricalImport()` (94 lines) → moved to BulkPaymentProcessor::processHistorical()
+- `findOrCreateArchivedTenant()` (33 lines, deprecated dead code) → deleted
+- `findOrCreateArchivedTenantOptimized()` (33 lines) → moved to BulkPaymentProcessor
+- `findOrCreateHistoricalLease()` (34 lines, deprecated dead code) → deleted
+- `findOrCreateHistoricalLeaseOptimized()` (37 lines) → moved to BulkPaymentProcessor
+
+### Verification Matrix
+| Check | Result |
+|-------|--------|
+| 16/16 feature tests pass | PASS |
+| Full suite: 965 passed, 0 failed | PASS |
+| PaymentController 841 lines (from 1232) | PASS (-391) |
+| processBulkImport() ≤20 lines | PASS (6 lines) |
+| BulkPaymentProcessor PHPMD clean | PASS (0 violations) |
+| Pint clean | PASS |
+| Partial success: valid payments commit, failures collected | PASS |
+| Invoice status correctly set for partial payments | PASS (fixed MySQL left-to-right bug) |
+| Historical mode: archived tenant creation works | PASS |
+| Historical mode: lease date expansion works | PASS (fixed Carbon/strtotime bug) |
+| No secrets in .env for bulk import path | PASS (confirmed via audit) |
+
+**PAY-V2-009 COMPLETE**

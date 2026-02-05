@@ -865,8 +865,8 @@
       ],
       "verification": "Upload CSV with 10 payments (5 valid, 5 invalid); verify partial success handled.",
       "estimated_effort": "large",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": [
         "PAY-V2-008"
       ]
