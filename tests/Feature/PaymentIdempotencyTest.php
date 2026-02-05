@@ -2,17 +2,17 @@
 
 namespace Tests\Feature;
 
+use App\Enums\InvoiceStatus;
 use App\Models\Building;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\Payment;
+use App\Models\PaymentConfiguration;
 use App\Models\Property;
 use App\Models\Unit;
 use App\Models\User;
-use App\Services\PaystackService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Mockery;
 use Tests\TestCase;
 
 class PaymentIdempotencyTest extends TestCase
@@ -24,6 +24,8 @@ class PaymentIdempotencyTest extends TestCase
     private Invoice $invoice;
 
     private Lease $lease;
+
+    private string $paystackSecret = 'sk_test_idempotency_secret_1234';
 
     protected function setUp(): void
     {
@@ -82,6 +84,13 @@ class PaymentIdempotencyTest extends TestCase
             'billing_period_start' => now()->startOfMonth(),
             'billing_period_end' => now()->endOfMonth(),
             'landlord_id' => $this->landlord->id,
+        ]);
+
+        PaymentConfiguration::factory()->create([
+            'landlord_id' => $this->landlord->id,
+            'paystack_enabled' => true,
+            'paystack_public_key' => 'pk_test_idempotency_pub_key',
+            'paystack_secret_key' => $this->paystackSecret,
         ]);
     }
 
@@ -151,18 +160,20 @@ class PaymentIdempotencyTest extends TestCase
 
     public function test_webhook_with_invalid_signature_is_rejected(): void
     {
-        config(['services.paystack.secret' => 'test_secret_key']);
-
-        $payload = json_encode([
+        $webhookData = [
             'event' => 'charge.success',
             'data' => [
                 'reference' => 'PSK_'.uniqid(),
                 'amount' => 2500000,
                 'status' => 'success',
+                'metadata' => [
+                    'invoice_id' => $this->invoice->id,
+                    'landlord_id' => $this->landlord->id,
+                ],
             ],
-        ]);
+        ];
 
-        $response = $this->postJson('/webhooks/paystack', json_decode($payload, true), [
+        $response = $this->postJson('/webhooks/paystack', $webhookData, [
             'x-paystack-signature' => 'invalid_signature',
         ]);
 
@@ -171,14 +182,11 @@ class PaymentIdempotencyTest extends TestCase
 
     public function test_webhook_with_valid_signature_is_accepted(): void
     {
-        $secret = 'test_secret_key';
-        config(['services.paystack.secret' => $secret]);
-
         $reference = 'PSK_'.uniqid();
 
         $this->invoice->update(['paystack_reference' => $reference]);
 
-        $payload = json_encode([
+        $webhookData = [
             'event' => 'charge.success',
             'data' => [
                 'reference' => $reference,
@@ -186,26 +194,15 @@ class PaymentIdempotencyTest extends TestCase
                 'status' => 'success',
                 'metadata' => [
                     'invoice_id' => $this->invoice->id,
+                    'landlord_id' => $this->landlord->id,
                 ],
             ],
-        ]);
+        ];
 
-        $signature = hash_hmac('sha512', $payload, $secret);
+        $payload = json_encode($webhookData);
+        $signature = hash_hmac('sha512', $payload, $this->paystackSecret);
 
-        $mock = Mockery::mock(PaystackService::class);
-        $mock->shouldReceive('verifyWebhookSignature')->andReturn(true);
-        $mock->shouldReceive('verifyTransaction')->andReturn([
-            'status' => true,
-            'data' => [
-                'status' => 'success',
-                'amount' => 2500000,
-                'reference' => $reference,
-                'metadata' => ['invoice_id' => $this->invoice->id],
-            ],
-        ]);
-        $this->app->instance(PaystackService::class, $mock);
-
-        $response = $this->postJson('/webhooks/paystack', json_decode($payload, true), [
+        $response = $this->postJson('/webhooks/paystack', $webhookData, [
             'x-paystack-signature' => $signature,
         ]);
 
@@ -214,8 +211,6 @@ class PaymentIdempotencyTest extends TestCase
 
     public function test_invoice_status_updates_correctly_on_partial_payment(): void
     {
-        $reference = 'PSK_'.uniqid();
-
         Payment::create([
             'invoice_id' => $this->invoice->id,
             'lease_id' => $this->lease->id,
@@ -231,7 +226,7 @@ class PaymentIdempotencyTest extends TestCase
             'status' => 'partial',
         ]);
 
-        $this->assertEquals('partial', $this->invoice->fresh()->status);
+        $this->assertEquals(InvoiceStatus::Partial, $this->invoice->fresh()->status);
         $this->assertEquals(10000, $this->invoice->fresh()->amount_paid);
     }
 
@@ -251,7 +246,7 @@ class PaymentIdempotencyTest extends TestCase
             'status' => 'paid',
         ]);
 
-        $this->assertEquals('paid', $this->invoice->fresh()->status);
+        $this->assertEquals(InvoiceStatus::Paid, $this->invoice->fresh()->status);
         $this->assertEquals(25000, $this->invoice->fresh()->amount_paid);
     }
 
@@ -273,11 +268,5 @@ class PaymentIdempotencyTest extends TestCase
         $this->assertNotNull($existingPayment);
 
         $this->assertEquals(1, Payment::where('mpesa_transaction_id', $transactionId)->count());
-    }
-
-    protected function tearDown(): void
-    {
-        Mockery::close();
-        parent::tearDown();
     }
 }

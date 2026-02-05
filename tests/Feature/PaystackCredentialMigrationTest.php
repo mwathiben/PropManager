@@ -44,7 +44,6 @@ class PaystackCredentialMigrationTest extends TestCase
         ]);
     }
 
-    /** @test */
     public function test_paystack_secret_key_is_encrypted_in_database(): void
     {
         // Get raw value from database (bypassing Eloquent cast)
@@ -62,7 +61,6 @@ class PaystackCredentialMigrationTest extends TestCase
         );
     }
 
-    /** @test */
     public function test_paystack_service_uses_landlord_config(): void
     {
         $service = new PaystackService($this->paymentConfig);
@@ -71,7 +69,6 @@ class PaystackCredentialMigrationTest extends TestCase
         $this->assertEquals('pk_test_abcdef123456789', $service->getPublicKey());
     }
 
-    /** @test */
     public function test_has_paystack_config_returns_correct_values(): void
     {
         // Fully configured
@@ -96,7 +93,6 @@ class PaystackCredentialMigrationTest extends TestCase
         $this->assertFalse($this->paymentConfig->fresh()->hasPaystackConfig());
     }
 
-    /** @test */
     public function test_settings_controller_returns_last_4_chars_of_secret_key(): void
     {
         $response = $this->actingAs($this->landlord)
@@ -111,7 +107,6 @@ class PaystackCredentialMigrationTest extends TestCase
         );
     }
 
-    /** @test */
     public function test_full_secret_key_never_exposed_to_frontend(): void
     {
         $response = $this->actingAs($this->landlord)
@@ -129,7 +124,6 @@ class PaystackCredentialMigrationTest extends TestCase
         );
     }
 
-    /** @test */
     public function test_webhook_verifies_with_correct_landlord_secret(): void
     {
         // Create tenant and lease with invoice
@@ -162,7 +156,6 @@ class PaystackCredentialMigrationTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
     public function test_webhook_rejects_missing_landlord_id(): void
     {
         $webhookData = [
@@ -190,7 +183,6 @@ class PaystackCredentialMigrationTest extends TestCase
             ->assertJson(['error' => 'Missing landlord context']);
     }
 
-    /** @test */
     public function test_webhook_rejects_invalid_signature(): void
     {
         // Create tenant and lease with invoice
@@ -224,7 +216,6 @@ class PaystackCredentialMigrationTest extends TestCase
             ->assertJson(['error' => 'Invalid signature']);
     }
 
-    /** @test */
     public function test_update_preserves_existing_secret_when_blank(): void
     {
         $originalSecret = $this->paymentConfig->paystack_secret_key;
@@ -245,7 +236,6 @@ class PaystackCredentialMigrationTest extends TestCase
         $this->assertEquals('pk_test_new_public_key', $this->paymentConfig->paystack_public_key);
     }
 
-    /** @test */
     public function test_update_overwrites_secret_when_provided(): void
     {
         $this->actingAs($this->landlord)
@@ -262,7 +252,6 @@ class PaystackCredentialMigrationTest extends TestCase
         $this->assertEquals('sk_test_new_secret_key_9999', $this->paymentConfig->paystack_secret_key);
     }
 
-    /** @test */
     public function test_different_landlords_have_isolated_credentials(): void
     {
         // Create a second landlord with different credentials
@@ -289,7 +278,6 @@ class PaystackCredentialMigrationTest extends TestCase
         $this->assertFalse($service2->verifyWebhookSignature($payload, $signature1));
     }
 
-    /** @test */
     public function test_unconfigured_landlord_returns_503_on_payment_init(): void
     {
         // Create landlord without Paystack config using helper

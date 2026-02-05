@@ -47,7 +47,6 @@ class MpesaB2CCredentialConfigurationTest extends TestCase
         ]);
     }
 
-    /** @test */
     public function test_b2c_password_is_encrypted_in_database(): void
     {
         $raw = DB::table('payment_configurations')
@@ -62,7 +61,6 @@ class MpesaB2CCredentialConfigurationTest extends TestCase
         );
     }
 
-    /** @test */
     public function test_b2c_security_credential_is_encrypted_in_database(): void
     {
         $raw = DB::table('payment_configurations')
@@ -77,7 +75,6 @@ class MpesaB2CCredentialConfigurationTest extends TestCase
         );
     }
 
-    /** @test */
     public function test_has_mpesa_b2c_config_returns_correct_values(): void
     {
         $this->assertTrue($this->paymentConfig->hasMpesaB2CConfig());
@@ -109,7 +106,6 @@ class MpesaB2CCredentialConfigurationTest extends TestCase
         $this->assertTrue($this->paymentConfig->fresh()->hasMpesaB2CConfig());
     }
 
-    /** @test */
     public function test_settings_controller_returns_last4_for_b2c_password(): void
     {
         $response = $this->actingAs($this->landlord)
@@ -123,7 +119,6 @@ class MpesaB2CCredentialConfigurationTest extends TestCase
         );
     }
 
-    /** @test */
     public function test_settings_controller_returns_last4_for_b2c_security_credential(): void
     {
         $response = $this->actingAs($this->landlord)
@@ -137,7 +132,6 @@ class MpesaB2CCredentialConfigurationTest extends TestCase
         );
     }
 
-    /** @test */
     public function test_b2c_secrets_never_exposed_to_frontend(): void
     {
         $response = $this->actingAs($this->landlord)
@@ -151,19 +145,20 @@ class MpesaB2CCredentialConfigurationTest extends TestCase
         );
     }
 
-    /** @test */
     public function test_update_preserves_b2c_secrets_when_blank(): void
     {
         $originalPassword = $this->paymentConfig->mpesa_b2c_password;
         $originalCredential = $this->paymentConfig->mpesa_b2c_security_credential;
 
-        $this->actingAs($this->landlord)
+        $response = $this->actingAs($this->landlord)
             ->post(route('settings.payment.update'), [
                 'accepted_payment_methods' => ['cash', 'mobile_money'],
                 'mpesa_b2c_shortcode' => '999999',
                 'mpesa_b2c_password' => '',
                 'mpesa_b2c_security_credential' => '',
             ]);
+
+        $response->assertRedirect();
 
         $this->paymentConfig->refresh();
 
@@ -172,15 +167,16 @@ class MpesaB2CCredentialConfigurationTest extends TestCase
         $this->assertEquals('999999', $this->paymentConfig->mpesa_b2c_shortcode);
     }
 
-    /** @test */
     public function test_update_overwrites_b2c_secrets_when_provided(): void
     {
-        $this->actingAs($this->landlord)
+        $response = $this->actingAs($this->landlord)
             ->post(route('settings.payment.update'), [
                 'accepted_payment_methods' => ['cash', 'mobile_money'],
                 'mpesa_b2c_password' => 'new_b2c_password_xxxx',
                 'mpesa_b2c_security_credential' => 'new_b2c_cred_yyyy',
             ]);
+
+        $response->assertRedirect();
 
         $this->paymentConfig->refresh();
 
@@ -188,7 +184,6 @@ class MpesaB2CCredentialConfigurationTest extends TestCase
         $this->assertEquals('new_b2c_cred_yyyy', $this->paymentConfig->mpesa_b2c_security_credential);
     }
 
-    /** @test */
     public function test_refund_service_loads_config_before_b2c(): void
     {
         $mpesaService = $this->createMock(MpesaService::class);
