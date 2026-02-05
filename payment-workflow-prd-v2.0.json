@@ -909,8 +909,8 @@
       ],
       "verification": "Process Paystack callback; verify amount validated, payment created, invoice updated.",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": [
         "PAY-V2-009"
       ]
@@ -1080,8 +1080,8 @@
       "id": "PAY-V2-015",
       "category": "webhook_robustness",
       "priority": "HIGH",
-      "title": "Implement Full M-Pesa Webhook Security Suite",
-      "description": "Research shows M-Pesa webhooks need timestamp + IP + signature validation. Currently only IP whitelist (warn-only) is used. Implement enterprise-grade security.",
+      "title": "Implement Full Webhook Security Suite (M-Pesa + Paystack IP Validation)",
+      "description": "Enterprise-grade webhook security for ALL payment providers. M-Pesa: timestamp + IP + signature validation. Paystack: IP whitelisting + HMAC signature (already in PAY-V2-010). Currently M-Pesa only warns on unknown IPs. Paystack has NO IP validation. Paystack official docs specify webhook IPs: 52.31.139.75, 52.49.173.169, 52.214.14.220.",
       "story_points": 8,
       "steps": [
         "Update MpesaWebhookController to return 403 Forbidden for unknown IPs (line ~35)",
@@ -1090,33 +1090,45 @@
         "Add request signing verification if available from Safaricom",
         "Create app/Http/Middleware/ValidateMpesaWebhook.php with all checks",
         "Apply middleware to M-Pesa webhook routes",
-        "Log all rejected requests with IP, timestamp, and reason"
+        "Add Paystack IP whitelist: 52.31.139.75, 52.49.173.169, 52.214.14.220 (from Paystack official docs)",
+        "Create app/Http/Middleware/ValidatePaystackWebhook.php with IP check",
+        "Apply Paystack middleware to POST /webhooks/paystack route",
+        "Log all rejected webhook requests with IP and reason for both providers",
+        "Tests for Paystack IP validation (valid IP passes, unknown IP gets 403)"
       ],
       "files": [
         "app/Http/Controllers/Api/MpesaWebhookController.php",
         "app/Http/Middleware/ValidateMpesaWebhook.php",
+        "app/Http/Middleware/ValidatePaystackWebhook.php",
         "routes/api.php",
-        "tests/Feature/Controllers/MpesaWebhookSecurityTest.php"
+        "tests/Feature/Controllers/MpesaWebhookSecurityTest.php",
+        "tests/Feature/Controllers/PaystackWebhookSecurityTest.php"
       ],
       "definition_of_ready": [
         "Safaricom IP list verified current",
+        "Paystack IP list verified current (52.31.139.75, 52.49.173.169, 52.214.14.220)",
         "Timestamp format in callbacks documented",
         "Current validation logic reviewed"
       ],
       "acceptance_criteria": [
-        "Unknown IPs receive 403 Forbidden (not just warning)",
+        "Unknown IPs receive 403 Forbidden (not just warning) for M-Pesa",
         "Callbacks >15 minutes old receive 403",
         "Valid Safaricom IPs with recent timestamp processed",
-        "All rejections logged with full context",
+        "Paystack webhooks from non-whitelisted IPs receive 403 Forbidden",
+        "Paystack webhooks from 52.31.139.75, 52.49.173.169, 52.214.14.220 are allowed",
+        "IP whitelist configurable via config/payments.php for both providers",
+        "All IP rejections logged with provider, IP, and reason",
         "Tests verify all rejection scenarios"
       ],
       "definition_of_done": [
-        "Middleware created and applied",
-        "403 returned for invalid requests",
+        "M-Pesa middleware created and applied",
+        "Paystack IP middleware created and applied",
+        "403 returned for invalid requests from both providers",
+        "Config-driven IP whitelist for both M-Pesa and Paystack",
         "Logging captures rejections",
         "Tests pass"
       ],
-      "verification": "Send webhook from non-Safaricom IP; verify 403. Send webhook with old timestamp; verify 403.",
+      "verification": "Send webhook from non-Safaricom IP; verify 403. Send webhook with old timestamp; verify 403. Send Paystack webhook from non-whitelisted IP; verify 403.",
       "estimated_effort": "medium",
       "passes": false,
       "attempt_count": 0
@@ -1524,6 +1536,102 @@
       "estimated_effort": "small",
       "passes": false,
       "attempt_count": 0
+    },
+    {
+      "id": "PAY-V2-026",
+      "category": "security",
+      "priority": "HIGH",
+      "title": "Fix mpesa_environment .env Security Violation (PAY-V2-005 Regression)",
+      "description": "PAY-V2-005 migrated M-Pesa consumer credentials to database but missed mpesa_environment. The form validates it, but no DB column exists, $fillable doesn't include it, and MpesaService::withConfig() ignores it. ALL landlords share the global MPESA_ENVIRONMENT .env value. This violates multi-tenant SaaS isolation. IntaSend correctly has per-landlord intasend_environment — M-Pesa must match.",
+      "story_points": 3,
+      "steps": [
+        "Create migration: add mpesa_environment column to payment_configurations (nullable, default 'sandbox')",
+        "Add 'mpesa_environment' to PaymentConfiguration $fillable",
+        "Add MPESA_ENVIRONMENTS constant to PaymentConfiguration (mirrors INTASEND_ENVIRONMENTS)",
+        "Update MpesaService::withConfig() to set $this->environment and $this->baseUrl from PaymentConfiguration when mpesa_environment is not null",
+        "Write tests: verify per-landlord environment isolation (landlord A in sandbox, landlord B in production)"
+      ],
+      "files": [
+        "database/migrations/2026_02_05_200002_add_mpesa_environment_to_payment_configurations.php",
+        "app/Models/PaymentConfiguration.php",
+        "app/Services/MpesaService.php",
+        "tests/Feature/MpesaEnvironmentIsolationTest.php"
+      ],
+      "definition_of_ready": [
+        "Confirmed: mpesa_environment column does not exist in any migration",
+        "Confirmed: MpesaService::withConfig() does not set environment",
+        "Confirmed: IntaSend pattern exists as reference"
+      ],
+      "acceptance_criteria": [
+        "mpesa_environment column exists in payment_configurations table",
+        "PaymentConfiguration $fillable includes mpesa_environment",
+        "MpesaService::withConfig() sets $this->environment from per-landlord config",
+        "MpesaService::withConfig() sets $this->baseUrl to correct sandbox/production URL",
+        "Landlord A in sandbox and landlord B in production operate independently",
+        "Feature test verifies per-landlord isolation"
+      ],
+      "definition_of_done": [
+        "Migration runs successfully",
+        "Per-landlord environment isolation verified",
+        "Tests pass",
+        "No per-tenant credentials or environment settings in .env"
+      ],
+      "verification": "Create 2 landlords: one sandbox, one production. Verify MpesaService uses correct base URL for each.",
+      "rollback_plan": {
+        "sql": "ALTER TABLE payment_configurations DROP COLUMN mpesa_environment",
+        "code_changes": "Revert MpesaService::withConfig() to ignore environment"
+      },
+      "estimated_effort": "small",
+      "passes": true,
+      "attempt_count": 1,
+      "depends_on": ["PAY-V2-005"]
+    },
+    {
+      "id": "PAY-V2-027",
+      "category": "architecture",
+      "priority": "MEDIUM",
+      "title": "Extract InitialPaymentCallbackHandler from PaymentController",
+      "description": "Extract handleInitialPaymentCallback() (84 lines) from PaymentController to a dedicated service. This method handles tenant onboarding payment verification via Paystack and bypasses PaymentCallbackProcessor. It has complex logic including duplicate detection, kobo conversion, TenantPaymentVerification management, and auto-approval with email notification.",
+      "story_points": 5,
+      "steps": [
+        "Create app/Services/Payment/InitialPaymentCallbackHandler.php",
+        "Move handleInitialPaymentCallback() logic (PaymentController lines 616-699)",
+        "Service takes (array $data, array $metadata) and returns result object",
+        "Include: duplicate detection, kobo->KES conversion, verification record update, auto-approval, email sending",
+        "Keep controller method to 5-10 lines: delegate to service, map result to redirect",
+        "Create unit tests covering: successful payment, duplicate reference, partial payment, full payment auto-approval, verification not found",
+        "Consider integrating with PaymentCallbackProcessor for consistency (currently bypassed)"
+      ],
+      "files": [
+        "app/Services/Payment/InitialPaymentCallbackHandler.php",
+        "app/Services/Payment/InitialPaymentResult.php",
+        "app/Http/Controllers/PaymentController.php",
+        "tests/Feature/Services/InitialPaymentCallbackHandlerTest.php"
+      ],
+      "definition_of_ready": [
+        "PAY-V2-010 completed (PaystackCallbackHandler pattern established)",
+        "handleInitialPaymentCallback() code reviewed",
+        "TenantPaymentVerification model understood"
+      ],
+      "acceptance_criteria": [
+        "Service handles all initial payment callback logic",
+        "PaymentController handleInitialPaymentCallback() < 10 lines",
+        "Tests cover happy path and all edge cases",
+        "TenantPaymentVerification approval flow works correctly",
+        "PaymentVerificationApproved email sent on auto-approval",
+        "Existing feature tests still pass"
+      ],
+      "definition_of_done": [
+        "Service created and tested",
+        "Controller updated to delegate",
+        "Initial payment flow works end-to-end",
+        "Tests pass"
+      ],
+      "verification": "Process initial payment callback; verify verification record updated, auto-approval triggers, email sent.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-V2-010"]
     }
   ],
   "executionOrder": [
@@ -1536,7 +1644,8 @@
     "PAY-V2-004 - Paystack credentials to database",
     "PAY-V2-005 - M-Pesa consumer to database",
     "PAY-V2-006 - M-Pesa B2C to database",
-    "PAY-V2-015 - Full M-Pesa webhook security suite",
+    "PAY-V2-026 - Fix mpesa_environment .env security violation",
+    "PAY-V2-015 - Full webhook security suite (M-Pesa + Paystack IP)",
     "",
     "Phase 3: Architecture Refactoring (Week 2-3)",
     "PAY-V2-007 - PaymentGatewayInterface + Strategy pattern",
@@ -1547,6 +1656,7 @@
     "PAY-V2-012 - Extract VoidPaymentHandler",
     "PAY-V2-013 - Remove deprecated methods",
     "PAY-V2-014 - Per-gateway retry config",
+    "PAY-V2-027 - Extract InitialPaymentCallbackHandler",
     "",
     "Phase 4: Webhook Robustness (Week 3)",
     "PAY-V2-016 - Dead letter queue table",
@@ -1573,7 +1683,8 @@
       "database/migrations/2026_02_02_000005_add_mpesa_consumer_to_payment_configurations.php",
       "database/migrations/2026_02_02_000006_add_mpesa_b2c_to_payment_configurations.php",
       "database/migrations/2026_02_02_000010_create_webhook_dead_letters_table.php",
-      "database/migrations/2026_02_02_000012_create_webhook_logs_table.php"
+      "database/migrations/2026_02_02_000012_create_webhook_logs_table.php",
+      "database/migrations/2026_02_05_200002_add_mpesa_environment_to_payment_configurations.php"
     ],
     "CONTROLLERS": [
       "app/Http/Controllers/PaymentController.php - MAJOR refactoring (1,276 → <300 lines)",
@@ -1589,6 +1700,7 @@
       "app/Services/Payment/PaystackCallbackHandler.php - NEW",
       "app/Services/Payment/ReceiptGenerator.php - NEW",
       "app/Services/Payment/VoidPaymentHandler.php - NEW",
+      "app/Services/Payment/InitialPaymentCallbackHandler.php - NEW",
       "app/Services/Payment/WebhookDeadLetterService.php - NEW",
       "app/Services/IdempotencyService.php - NEW"
     ],
@@ -1618,7 +1730,7 @@
       "docs/adr/007-payment-gateway-strategy-pattern.md - NEW"
     ]
   },
-  "totalStoryPoints": 110,
+  "totalStoryPoints": 118,
   "completionCriteria": {
     "metrics": [
       "Unique constraints exist on mpesa_transaction_id, intasend_reference, paystack_reference (see PAY-V2-001, PAY-V2-002, PAY-V2-003)",
@@ -1636,7 +1748,7 @@
       "Health check endpoint operational"
     ],
     "productionChecklist": [
-      "All 25 items marked PASSED",
+      "All 27 items marked PASSED",
       "php artisan test --parallel - all pass",
       "php artisan test --coverage --min=80 - passes",
       "vendor/bin/pint --test - passes",

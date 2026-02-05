@@ -21,12 +21,11 @@ use App\Models\TenantPaymentVerification;
 use App\Models\User;
 use App\Services\BillingModelService;
 use App\Services\BulkImport\BulkImportValidator;
-use App\Services\IdempotencyService;
 use App\Services\Payment\BulkPaymentProcessor;
 use App\Services\Payment\ManualPaymentHandler;
-use App\Services\Payment\PaymentCallbackProcessor;
+use App\Services\Payment\PaystackCallbackHandler;
+use App\Services\Payment\PaystackHandlerResult;
 use App\Services\PaystackService;
-use App\Services\ReceiptService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -39,24 +38,12 @@ class PaymentController extends Controller
 {
     use WithLandlordScope;
 
-    protected PaystackService $paystackService;
-
     protected BillingModelService $billingService;
 
-    protected ReceiptService $receiptService;
-
-    protected IdempotencyService $idempotencyService;
-
     public function __construct(
-        PaystackService $paystackService,
         BillingModelService $billingService,
-        ReceiptService $receiptService,
-        IdempotencyService $idempotencyService
     ) {
-        $this->paystackService = $paystackService;
         $this->billingService = $billingService;
-        $this->receiptService = $receiptService;
-        $this->idempotencyService = $idempotencyService;
     }
 
     /**
@@ -318,9 +305,9 @@ class PaymentController extends Controller
     }
 
     /**
-     * Handle Paystack callback with platform fee recording
+     * Handle Paystack callback (browser redirect after payment)
      */
-    public function handleCallback(Request $request)
+    public function handleCallback(Request $request, PaystackCallbackHandler $handler)
     {
         $reference = $request->query('reference');
 
@@ -328,179 +315,49 @@ class PaymentController extends Controller
             return redirect()->route('invoices.index')->with('error', 'Payment reference not found');
         }
 
-        $pendingPayment = Payment::where('paystack_reference', $reference)->first();
-        $landlordId = $pendingPayment?->landlord_id ?? $request->user()?->id;
+        $result = $handler->processCallback(
+            $reference,
+            $request->user()?->id,
+            fn ($pending) => $this->sendPendingOverpaymentNotifications($pending)
+        );
 
-        $paymentConfig = PaymentConfiguration::where('landlord_id', $landlordId)->first();
-        if (! $paymentConfig || ! $paymentConfig->hasPaystackConfig()) {
-            return redirect()->route('invoices.index')->with('error', 'Paystack not configured');
+        if ($result->isInitialPayment()) {
+            return $this->handleInitialPaymentCallback($result->data, $result->metadata);
         }
 
-        $verification = (new PaystackService($paymentConfig))->verifyTransaction($reference);
-
-        if (! $verification || ! $verification['status']) {
-            return redirect()->route('invoices.index')->with('error', 'Payment verification failed');
-        }
-
-        $data = $verification['data'];
-
-        if ($data['status'] !== 'success') {
-            return redirect()->route('invoices.index')->with('error', 'Payment was not successful');
-        }
-
-        $metadata = $data['metadata'] ?? [];
-
-        if (($metadata['type'] ?? null) === 'initial_payment' && isset($metadata['verification_id'])) {
-            return $this->handleInitialPaymentCallback($data, $metadata);
-        }
-
-        $invoiceId = $metadata['invoice_id'] ?? null;
-
-        if (! $invoiceId) {
-            return redirect()->route('invoices.index')->with('error', 'Invoice not found in payment data');
-        }
-
-        $invoice = Invoice::find($invoiceId);
-
-        if (! $invoice) {
-            return redirect()->route('invoices.index')->with('error', 'Invoice not found');
-        }
-
-        $processor = PaymentCallbackProcessor::make($this->billingService, $this->receiptService, $this->idempotencyService)
-            ->forReference($reference)
-            ->forInvoice($invoiceId)
-            ->withPaymentData($data)
-            ->fromSource('payment')
-            ->onOverpayment(fn ($pending) => $this->sendPendingOverpaymentNotifications($pending));
-
-        $result = $processor->process();
-
-        if ($result->isAlreadyProcessed()) {
-            return redirect()->route('invoices.show', $invoice)->with('info', 'Payment already recorded');
-        }
-
-        if ($result->isInvoiceNotFound()) {
-            return redirect()->route('invoices.index')->with('error', 'Invoice not found');
-        }
-
-        if ($result->isError()) {
-            return redirect()->route('invoices.show', $invoice)->with('error', 'Failed to record payment');
-        }
-
-        $processor->sendNotifications($result);
-
-        return redirect()->route('invoices.show', $invoice)->with('success', $result->getSuccessMessage());
+        return $this->mapCallbackResult($result);
     }
 
     /**
      * Handle Paystack webhook (server-to-server)
-     * This endpoint receives POST requests from Paystack with signature verification
-     *
-     * Security: Uses per-landlord secret key for signature verification (PAY-V2-004)
      */
-    public function handleWebhook(Request $request)
+    public function handleWebhook(Request $request, PaystackCallbackHandler $handler)
     {
-        $signature = $request->header('x-paystack-signature');
-        $payload = $request->getContent();
+        $result = $handler->processWebhook(
+            $request->getContent(),
+            $request->header('x-paystack-signature'),
+            fn ($pending) => $this->sendPendingOverpaymentNotifications($pending)
+        );
 
-        if (! $signature) {
-            Log::warning('Paystack webhook missing signature', ['ip' => $request->ip()]);
-
-            return response()->json(['error' => 'Invalid signature'], 401);
-        }
-
-        $data = $request->input('data', []);
-        $metadata = $data['metadata'] ?? [];
-        $landlordId = $metadata['landlord_id'] ?? null;
-
-        if (! $landlordId) {
-            Log::warning('Paystack webhook missing landlord_id in metadata', [
-                'reference' => $data['reference'] ?? 'unknown',
-                'ip' => $request->ip(),
-            ]);
-
-            return response()->json(['error' => 'Missing landlord context'], 400);
-        }
-
-        $paymentConfig = PaymentConfiguration::where('landlord_id', $landlordId)->first();
-
-        if (! $paymentConfig || ! $paymentConfig->hasPaystackConfig()) {
-            Log::warning('Paystack webhook for unconfigured landlord', [
-                'landlord_id' => $landlordId,
-                'reference' => $data['reference'] ?? 'unknown',
-            ]);
-
-            return response()->json(['error' => 'Landlord not configured'], 400);
-        }
-
-        $paystackService = new PaystackService($paymentConfig);
-
-        if (! $paystackService->verifyWebhookSignature($payload, $signature)) {
-            Log::warning('Paystack webhook signature verification failed', [
-                'landlord_id' => $landlordId,
-                'reference' => $data['reference'] ?? 'unknown',
-                'ip' => $request->ip(),
-            ]);
-
-            return response()->json(['error' => 'Invalid signature'], 401);
-        }
-
-        $event = $request->input('event');
-
-        Log::info('Paystack webhook received', ['event' => $event, 'reference' => $data['reference'] ?? null]);
-
-        if ($event === 'charge.success') {
-            return $this->processSuccessfulCharge($data);
-        }
-
-        return response()->json(['status' => 'ignored']);
+        return response()->json($result->toResponse(), $result->httpStatus());
     }
 
-    /**
-     * Process a successful charge from webhook.
-     *
-     * Idempotency is handled by PaymentCallbackProcessor internally using
-     * IdempotencyService (application layer) + UNIQUE constraint (database layer).
-     */
-    protected function processSuccessfulCharge(array $data): \Illuminate\Http\JsonResponse
+    private function mapCallbackResult(PaystackHandlerResult $result): \Illuminate\Http\RedirectResponse
     {
-        $reference = $data['reference'] ?? null;
+        if ($result->isSuccess() && $result->processResult?->invoice) {
+            $invoice = $result->processResult->invoice;
 
-        if (! $reference) {
-            return response()->json(['error' => 'No reference provided'], 400);
+            return redirect()->route('invoices.show', $invoice)
+                ->with('success', $result->processResult->getSuccessMessage());
         }
-
-        $metadata = $data['metadata'] ?? [];
-        $invoiceId = $metadata['invoice_id'] ?? null;
-
-        if (! $invoiceId) {
-            return response()->json(['status' => 'no_invoice']);
-        }
-
-        $processor = PaymentCallbackProcessor::make($this->billingService, $this->receiptService, $this->idempotencyService)
-            ->forReference($reference)
-            ->forInvoice($invoiceId)
-            ->withPaymentData($data)
-            ->fromSource('webhook')
-            ->onOverpayment(fn ($pending) => $this->sendPendingOverpaymentNotifications($pending));
-
-        $result = $processor->process();
 
         if ($result->isAlreadyProcessed()) {
-            return response()->json(['status' => 'already_processed']);
+            return redirect()->route('invoices.index')->with('info', 'Payment already recorded');
         }
 
-        if ($result->isInvoiceNotFound()) {
-            return response()->json(['error' => 'Invoice not found'], 404);
-        }
+        $message = $result->errorMessage ?? 'Payment processing failed';
 
-        if ($result->isError()) {
-            return response()->json(['error' => 'Processing failed'], 500);
-        }
-
-        $processor->sendNotifications($result);
-
-        return response()->json(['status' => 'success']);
+        return redirect()->route('invoices.index')->with('error', $message);
     }
 
     /**

@@ -33,6 +33,7 @@ class PaymentConfiguration extends Model
         'mpesa_b2c_initiator',
         'mpesa_b2c_password',
         'mpesa_b2c_security_credential',
+        'mpesa_environment',
         'paystack_enabled',
         'paystack_public_key',
         'paystack_secret_key',
@@ -90,6 +91,11 @@ class PaymentConfiguration extends Model
     /**
      * IntaSend environment options
      */
+    const MPESA_ENVIRONMENTS = [
+        'sandbox' => 'Sandbox (Testing)',
+        'production' => 'Production (Live)',
+    ];
+
     const INTASEND_ENVIRONMENTS = [
         'sandbox' => 'Sandbox (Testing)',
         'production' => 'Production (Live)',

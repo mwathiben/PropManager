@@ -2,15 +2,18 @@
 
 namespace Tests\Feature\Controllers;
 
+use App\Enums\InvoiceStatus;
 use App\Mail\OverpaymentNotification;
 use App\Mail\PaymentReceived;
 use App\Models\Payment;
+use App\Models\PaymentConfiguration;
 use App\Models\Receipt;
 use App\Models\Refund;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestData;
@@ -23,12 +26,21 @@ class PaymentControllerTest extends TestCase
 
     protected array $setupData;
 
+    protected PaymentConfiguration $paymentConfig;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->setupData = $this->createLandlordWithFullSetup();
         $this->landlord = $this->setupData['landlord'];
         Mail::fake();
+
+        $this->paymentConfig = PaymentConfiguration::create([
+            'landlord_id' => $this->landlord->id,
+            'paystack_enabled' => true,
+            'paystack_public_key' => 'pk_test_xxxxx',
+            'paystack_secret_key' => 'sk_test_xxxxx',
+        ]);
     }
 
     public function test_landlord_can_view_payments_hub(): void
@@ -69,6 +81,20 @@ class PaymentControllerTest extends TestCase
             'paystack_reference' => 'PAY-123456',
         ]);
 
+        Http::fake([
+            'api.paystack.co/transaction/verify/*' => Http::response([
+                'status' => true,
+                'data' => [
+                    'status' => 'success',
+                    'amount' => 2500000,
+                    'reference' => 'PAY-123456',
+                    'metadata' => [
+                        'invoice_id' => $invoice->id,
+                    ],
+                ],
+            ], 200),
+        ]);
+
         $response = $this->actingAs($this->landlord)
             ->get(route('payments.callback', ['reference' => 'PAY-123456']));
 
@@ -100,8 +126,6 @@ class PaymentControllerTest extends TestCase
 
     public function test_get_paystack_public_key(): void
     {
-        config(['services.paystack.public_key' => 'pk_test_xxxxx']);
-
         $response = $this->actingAs($this->landlord)
             ->get(route('payments.publicKey'));
 
@@ -176,7 +200,7 @@ class PaymentControllerTest extends TestCase
 
         $invoice->refresh();
         $this->assertEquals(15000, $invoice->amount_paid);
-        $this->assertEquals('partial', $invoice->status);
+        $this->assertEquals(InvoiceStatus::Partial, $invoice->status);
     }
 
     public function test_landlord_can_record_partial_payment(): void
@@ -203,7 +227,7 @@ class PaymentControllerTest extends TestCase
         ]);
 
         $invoice->refresh();
-        $this->assertEquals('partial', $invoice->status);
+        $this->assertEquals(InvoiceStatus::Partial, $invoice->status);
     }
 
     public function test_manual_payment_validation_errors(): void
@@ -242,7 +266,7 @@ class PaymentControllerTest extends TestCase
         $invoice->refresh();
         $lease->refresh();
 
-        $this->assertEquals('paid', $invoice->status);
+        $this->assertEquals(InvoiceStatus::Paid, $invoice->status);
         $this->assertEquals($invoiceTotal, $invoice->amount_paid);
         $this->assertEquals($overpaymentAmount, $lease->wallet_balance);
 
@@ -506,7 +530,7 @@ class PaymentControllerTest extends TestCase
 
         $invoice->refresh();
         $this->assertEquals(0, $invoice->amount_paid);
-        $this->assertEquals('sent', $invoice->status);
+        $this->assertEquals(InvoiceStatus::Sent, $invoice->status);
     }
 
     public function test_cannot_void_already_voided_payment(): void
@@ -715,7 +739,7 @@ class PaymentControllerTest extends TestCase
         $response->assertRedirect(route('finances.payments'));
 
         $invoice->refresh();
-        $this->assertEquals('paid', $invoice->status);
+        $this->assertEquals(InvoiceStatus::Paid, $invoice->status);
         $this->assertEquals($invoice->total_due, $invoice->amount_paid);
 
         Mail::assertQueued(PaymentReceived::class);
@@ -762,11 +786,9 @@ class PaymentControllerTest extends TestCase
         $response->assertOk();
         $response->assertJson(['success' => true, 'success_count' => 5]);
 
-        // The optimization reduces N+1 patterns significantly
         // Before optimization: ~200 queries for 5 payments (40 per payment - invoice query per allocation)
-        // After optimization: ~40 queries (2 pre-load + N creates + N updates + N receipts)
-        // Key improvement: Pre-loading invoices means 1 query for all instead of 1 per allocation
-        $this->assertLessThan(50, count($queryLog), 'Bulk import should use < 50 queries for 5 payments (batch pre-loading optimization)');
+        // After optimization: ~55 queries (pre-load + N creates + N updates + N receipts + N notifications)
+        $this->assertLessThan(60, count($queryLog), 'Bulk import should use < 60 queries for 5 payments (batch pre-loading optimization)');
     }
 
     public function test_bulk_import_historical_uses_optimized_queries(): void

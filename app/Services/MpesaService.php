@@ -51,6 +51,11 @@ class MpesaService
         $this->consumerKey = $config->mpesa_consumer_key;
         $this->consumerSecret = $config->mpesa_consumer_secret;
 
+        if ($config->mpesa_environment) {
+            $this->environment = $config->mpesa_environment;
+            $this->baseUrl = config("mpesa.endpoints.{$this->environment}") ?? '';
+        }
+
         return $this;
     }
 
