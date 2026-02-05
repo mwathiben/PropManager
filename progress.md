@@ -12912,3 +12912,70 @@ Extracted webhook security from 7 inline controller blocks into dedicated middle
 | Pre-existing: PaystackCredentialMigrationTest.test_webhook_verifies_with_correct_landlord_secret returns 400 | NOT RELATED (handler-level, not middleware) |
 
 **PAY-V2-015 COMPLETE**
+
+---
+
+## PAY-V2-011: Extract ReceiptGenerator Service from PaymentController
+**Status:** PASSED
+**Date:** 2026-02-05
+**Attempts:** 1
+
+### Skills Applied
+- **laravelcontroller-cleanup**: Extract receipt download/email/preview from 3 controllers
+- **laraveltdd-with-pest**: RED-GREEN-REFACTOR cycle (14 tests written before service)
+- **laravelinterfaces-and-di**: Constructor injection of ReceiptService dependency
+- **laravelquality-checks**: Pint + PHPMD on all changed files
+- **laravelcomplexity-guardrails**: All methods under cyclomatic complexity 7
+- **laravelperformance-eager-loading**: Uses loadMissing() to avoid duplicate eager loads
+- **laravelexception-handling-and-logging**: RuntimeException for missing tenant
+- **laravelcontroller-tests**: HTTP assertions for controller endpoints
+- **verification-first**: Full test suite + E2E before marking complete
+- **feature-development**: End-to-end flow from test to verification
+- **ralph-wiggum**: PRD task execution with progress tracking
+- **agent-browser**: Browser automation E2E for receipt download/send/preview
+- **e2e-testing-patterns**: E2E patterns for PDF download verification
+- **senior-security**: No .env violations, no secrets in receipt output
+- **code-reviewer**: Self-review extracted code for quality
+
+### Implementation Summary
+
+Created `ReceiptGenerator` as a thin orchestration layer wrapping the existing `ReceiptService`:
+- `download(Payment)`: Ensures Receipt record exists, delegates to ReceiptService::downloadPdf()
+- `email(Payment)`: Ensures Receipt, sends PaymentReceived mailable, marks receipt as emailed
+- `preview(InvoiceSetting)`: Delegates to new ReceiptService::streamPreviewPdf()
+- `ensureReceipt(Payment)`: Auto-creates Receipt for legacy payments missing one
+
+Fixed legacy template bug in ALL 3 controllers (not just PaymentController):
+- PaymentController, TenantPaymentController, FinanceSettingsController all used `payment-receipt.blade.php` directly
+- Now all use modern `templated-receipt.blade.php` via ReceiptService (with 4 designs, 30+ toggles, QR codes)
+
+### Files Created
+| File | Purpose |
+|------|---------|
+| `app/Services/Payment/ReceiptGenerator.php` | Orchestration service wrapping ReceiptService |
+| `tests/Unit/Services/ReceiptGeneratorTest.php` | 7 unit tests with mocked ReceiptService |
+| `tests/Feature/Services/ReceiptGeneratorTest.php` | 7 feature/integration tests |
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `app/Services/ReceiptService.php` | Added `streamPreviewPdf()`, `buildSamplePreviewData()`, `buildDefaultTemplate()` |
+| `app/Http/Controllers/PaymentController.php` | Replaced downloadReceipt/sendReceipt with ReceiptGenerator delegation, removed Pdf + PaymentReceived imports |
+| `app/Http/Controllers/Api/TenantPaymentController.php` | Replaced receipt() with ReceiptGenerator delegation, removed Pdf + InvoiceSetting imports |
+| `app/Http/Controllers/Finance/FinanceSettingsController.php` | Replaced previewReceipt() with ReceiptGenerator delegation, removed Pdf import |
+
+### Verification Results
+| Check | Result |
+|-------|--------|
+| Unit tests (7) | PASS |
+| Feature tests (7) | PASS |
+| Existing PaymentControllerTest (31 tests) | PASS |
+| Existing TenantPaymentController tests (11 tests) | PASS |
+| Pint (7 files) | PASS (2 unused imports auto-fixed) |
+| PHPMD (2 service files) | PASS (no violations) |
+| E2E: Receipt download | PASS (PDF download confirmed) |
+| E2E: Send receipt | PASS (success response confirmed) |
+| E2E: Preview receipt | PASS (PDF stream confirmed) |
+| E2E: Security check | PASS (no secrets in DOM) |
+
+**PAY-V2-011 COMPLETE**

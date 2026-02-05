@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Invoice;
+use App\Models\InvoiceSetting;
 use App\Models\Payment;
 use App\Models\Receipt;
 use App\Models\ReceiptTemplate;
@@ -177,5 +178,90 @@ class ReceiptService
 
         return Pdf::loadView('receipts.templated-receipt', $data)
             ->download("Receipt-{$receipt->receipt_number}.pdf");
+    }
+
+    public function streamPreviewPdf(InvoiceSetting $settings, ?ReceiptTemplate $template = null)
+    {
+        $template = $template ?? $this->buildDefaultTemplate();
+        $data = $this->buildSamplePreviewData($settings, $template);
+
+        return Pdf::loadView('receipts.templated-receipt', $data)
+            ->stream('receipt-preview.pdf');
+    }
+
+    protected function buildSamplePreviewData(InvoiceSetting $settings, ReceiptTemplate $template): array
+    {
+        $business = (object) [
+            'business_name' => $settings->business_name ?? 'Property Management',
+            'business_address' => $settings->business_address ?? '',
+            'business_phone' => $settings->business_phone ?? '',
+            'logo_path' => $settings->logo_path,
+        ];
+
+        $sampleReceipt = new Receipt([
+            'receipt_number' => 'RCT-PREVIEW-0001',
+            'amount' => 25000,
+            'payment_method' => 'mpesa',
+            'issued_at' => now(),
+        ]);
+
+        $samplePayment = (object) [
+            'reference' => 'PAY-PREVIEW-0001',
+            'payment_date' => now(),
+            'payment_method' => 'mpesa',
+            'amount' => 25000,
+            'notes' => 'Sample payment for preview',
+        ];
+
+        $sampleInvoice = (object) [
+            'invoice_number' => 'INV-PREVIEW-0001',
+            'billing_period_start' => now()->startOfMonth(),
+            'total_due' => 25000,
+            'amount_paid' => 25000,
+            'items' => collect(),
+            'lease' => (object) [
+                'tenant' => (object) ['name' => 'John Doe', 'email' => 'johndoe@example.com', 'phone' => '0712345678'],
+                'unit' => (object) ['unit_number' => 'A101', 'building' => (object) ['name' => 'Sunrise Apartments']],
+            ],
+        ];
+
+        return [
+            'receipt' => $sampleReceipt,
+            'payment' => $samplePayment,
+            'invoice' => $sampleInvoice,
+            'tenant' => $sampleInvoice->lease->tenant,
+            'unit' => $sampleInvoice->lease->unit,
+            'building' => $sampleInvoice->lease->unit->building,
+            'template' => $template,
+            'business' => $business,
+            'qr_code' => null,
+        ];
+    }
+
+    protected function buildDefaultTemplate(): ReceiptTemplate
+    {
+        return new ReceiptTemplate([
+            'design' => ReceiptTemplate::DESIGN_CLASSIC,
+            'show_logo' => true,
+            'show_receipt_number' => true,
+            'show_payment_date' => true,
+            'show_payment_method' => true,
+            'show_transaction_reference' => true,
+            'show_amount_breakdown' => false,
+            'show_tenant_name' => true,
+            'show_tenant_email' => true,
+            'show_tenant_phone' => false,
+            'show_unit_details' => true,
+            'show_building_name' => true,
+            'show_invoice_details' => true,
+            'show_invoice_breakdown' => false,
+            'show_balance_after_payment' => true,
+            'show_thank_you_message' => true,
+            'show_qr_code' => false,
+            'show_footer' => true,
+            'thank_you_message' => 'Thank you for your payment!',
+            'primary_color' => '#059669',
+            'secondary_color' => '#10B981',
+        ]);
     }
 }

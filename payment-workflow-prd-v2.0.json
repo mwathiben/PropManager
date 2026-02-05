@@ -949,11 +949,12 @@
       ],
       "verification": "Generate receipt PDF; email receipt; verify both work.",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": [
         "PAY-V2-010"
-      ]
+      ],
+      "implementation_notes": "Created ReceiptGenerator service wrapping ReceiptService. Updated PaymentController, TenantPaymentController, FinanceSettingsController to delegate. Fixed legacy template bug (all 3 controllers now use modern templated-receipt). Added streamPreviewPdf() to ReceiptService. 7 unit tests + 7 feature tests + 4 E2E tests all pass. No PHPMD violations."
     },
     {
       "id": "PAY-V2-012",

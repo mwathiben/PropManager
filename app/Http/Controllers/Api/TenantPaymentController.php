@@ -10,14 +10,13 @@ use App\Http\Requests\Api\InitiatePaystackPaymentRequest;
 use App\Http\Resources\PaymentResource;
 use App\Models\IntaSendTransaction;
 use App\Models\Invoice;
-use App\Models\InvoiceSetting;
 use App\Models\Payment;
 use App\Models\PaymentConfiguration;
 use App\Services\IntaSendService;
 use App\Services\MpesaService;
+use App\Services\Payment\ReceiptGenerator;
 use App\Services\PaymentGatewayManager;
 use App\Services\PaystackService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -57,26 +56,13 @@ class TenantPaymentController extends Controller
         return new PaymentResource($payment);
     }
 
-    public function receipt(Request $request, Payment $payment)
+    public function receipt(Request $request, Payment $payment, ReceiptGenerator $generator)
     {
-        $user = $request->user();
-
-        if ($payment->lease->tenant_id !== $user->id) {
+        if ($payment->lease->tenant_id !== $request->user()->id) {
             abort(403, 'You do not have access to this receipt.');
         }
 
-        $payment->load(['invoice.lease.tenant', 'invoice.lease.unit.building']);
-
-        $settings = InvoiceSetting::where('landlord_id', $payment->landlord_id)->first()
-            ?? new InvoiceSetting;
-
-        $pdf = Pdf::loadView('receipts.payment-receipt', [
-            'payment' => $payment,
-            'invoice' => $payment->invoice,
-            'settings' => $settings,
-        ]);
-
-        return $pdf->download("receipt-{$payment->reference}.pdf");
+        return $generator->download($payment);
     }
 
     public function initiateMpesa(InitiateMpesaPaymentRequest $request)

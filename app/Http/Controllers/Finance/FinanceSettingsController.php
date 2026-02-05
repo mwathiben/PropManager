@@ -13,7 +13,7 @@ use App\Http\Traits\WithLandlordScope;
 use App\Models\PaymentConfiguration;
 use App\Models\User;
 use App\Services\FinanceSettingsService;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\Payment\ReceiptGenerator;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Response;
 
@@ -75,48 +75,11 @@ class FinanceSettingsController extends Controller
         return back()->with('success', 'Fiscal year settings saved successfully.');
     }
 
-    public function previewReceipt()
+    public function previewReceipt(ReceiptGenerator $generator)
     {
-        $landlordId = $this->getLandlordId();
-        $user = User::find($landlordId);
+        $user = User::find($this->getLandlordId());
         $settings = $user->getOrCreateInvoiceSetting();
 
-        $samplePayment = (object) [
-            'reference' => 'RCT-202601-0001',
-            'payment_date' => now(),
-            'payment_method' => 'mpesa',
-            'amount' => 25000,
-            'notes' => 'Sample payment for preview',
-        ];
-
-        $sampleInvoice = (object) [
-            'invoice_number' => 'INV-202601-0001',
-            'billing_period_start' => now()->startOfMonth(),
-            'total_due' => 25000,
-            'amount_paid' => 25000,
-            'lease' => (object) [
-                'tenant' => (object) [
-                    'name' => 'John Doe',
-                    'email' => 'johndoe@example.com',
-                ],
-                'unit' => (object) [
-                    'unit_number' => 'A101',
-                    'building' => (object) [
-                        'name' => 'Sunrise Apartments',
-                    ],
-                ],
-            ],
-        ];
-
-        $sampleReceipt = (object) [
-            'receipt_number' => 'RCT-202601-0001',
-        ];
-
-        return Pdf::loadView('receipts.payment-receipt', [
-            'payment' => $samplePayment,
-            'invoice' => $sampleInvoice,
-            'receipt' => $sampleReceipt,
-            'settings' => $settings,
-        ])->stream('receipt-preview.pdf');
+        return $generator->preview($settings);
     }
 }

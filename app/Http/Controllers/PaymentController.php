@@ -10,7 +10,6 @@ use App\Http\Requests\Payment\VoidPaymentRequest;
 use App\Http\Requests\StorePaymentRequest;
 use App\Http\Traits\WithLandlordScope;
 use App\Mail\OverpaymentNotification;
-use App\Mail\PaymentReceived;
 use App\Mail\PaymentVerificationApproved;
 use App\Models\Building;
 use App\Models\Invoice;
@@ -25,8 +24,8 @@ use App\Services\Payment\BulkPaymentProcessor;
 use App\Services\Payment\ManualPaymentHandler;
 use App\Services\Payment\PaystackCallbackHandler;
 use App\Services\Payment\PaystackHandlerResult;
+use App\Services\Payment\ReceiptGenerator;
 use App\Services\PaystackService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -376,42 +375,24 @@ class PaymentController extends Controller
         ]);
     }
 
-    /**
-     * Download payment receipt as PDF
-     */
-    public function downloadReceipt(Payment $payment)
+    public function downloadReceipt(Payment $payment, ReceiptGenerator $generator)
     {
         $this->authorize('downloadReceipt', $payment);
 
-        $payment->load(['invoice.lease.tenant', 'invoice.lease.unit.building']);
-
-        $pdf = Pdf::loadView('receipts.payment-receipt', [
-            'payment' => $payment,
-            'invoice' => $payment->invoice,
-        ]);
-
-        $filename = 'receipt-'.$payment->reference.'.pdf';
-
-        return $pdf->download($filename);
+        return $generator->download($payment);
     }
 
-    /**
-     * Send payment receipt via email
-     */
-    public function sendReceipt(Payment $payment)
+    public function sendReceipt(Payment $payment, ReceiptGenerator $generator)
     {
         $this->authorize('downloadReceipt', $payment);
 
-        $payment->load(['invoice.lease.tenant', 'invoice.lease.unit.building']);
-
-        if ($payment->invoice && $payment->invoice->lease && $payment->invoice->lease->tenant) {
-            Mail::to($payment->invoice->lease->tenant->email)
-                ->send(new PaymentReceived($payment, $payment->invoice));
+        try {
+            $generator->email($payment);
 
             return back()->with('success', 'Receipt sent successfully.');
+        } catch (\RuntimeException $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
         }
-
-        return back()->withErrors(['error' => 'Unable to send receipt - tenant not found.']);
     }
 
     /**
