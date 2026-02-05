@@ -773,8 +773,8 @@
       ],
       "verification": "Add mock gateway implementing interface; verify it works without changing existing code.",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "PAY-V2-008",
@@ -818,8 +818,8 @@
       ],
       "verification": "Record manual payment; verify invoice updated, event fired, receipt generated.",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": [
         "PAY-V2-007"
       ]
@@ -1576,7 +1576,7 @@
       "database/migrations/2026_02_02_000012_create_webhook_logs_table.php"
     ],
     "CONTROLLERS": [
-      "app/Http/Controllers/PaymentController.php - MAJOR refactoring (1,276 \u00e2\u2020\u2019 <300 lines)",
+      "app/Http/Controllers/PaymentController.php - MAJOR refactoring (1,276 → <300 lines)",
       "app/Http/Controllers/Api/MpesaWebhookController.php - Security + validation",
       "app/Http/Controllers/Api/IntaSendWebhookController.php - Idempotency improvements"
     ],

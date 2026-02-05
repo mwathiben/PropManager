@@ -12614,3 +12614,88 @@ npm run build: success
 | Blank-preserves pattern for password fields | PASS |
 
 **PAY-V2-006 COMPLETE**
+
+---
+
+## PAY-V2-007: Verify PaymentGatewayInterface and Strategy Pattern Foundation
+**Status:** PASSED (pre-existing under DBP-034)
+**Date:** 2026-02-05
+**Attempts:** 1
+
+Already implemented under DBP-034. Verified 20/20 tests pass in PaymentGatewayManagerTest.
+
+### Existing Implementation
+- `app/Contracts/PaymentGatewayInterface.php` — 8-method interface
+- `app/ValueObjects/Payment/Money.php`, `PaymentRequest.php`, `PaymentResult.php` — Value objects
+- `app/Services/Gateways/PaystackGateway.php`, `MpesaGateway.php` — Adapters
+- `app/Services/PaymentGatewayManager.php` — Strategy pattern manager
+- `docs/adr/004-payment-gateway-interface.md` — ADR
+- `tests/Unit/Services/PaymentGatewayManagerTest.php` — 20 tests, 35 assertions
+
+**PAY-V2-007 COMPLETE**
+
+---
+
+## PAY-V2-008: Extract ManualPaymentHandler Service from PaymentController
+**Status:** PASSED
+**Date:** 2026-02-05
+**Attempts:** 1
+
+### Implementation Summary
+
+Extracted manual payment recording logic from PaymentController::storeManual() (105 lines) into a dedicated ManualPaymentHandler service class. Controller method reduced to 21 lines.
+
+### Skills Applied
+- **laravelcontroller-cleanup**: Controller ≤20 lines, business logic in service
+- **laraveltdd-with-pest**: RED-GREEN-REFACTOR — 12 tests written first, all failed, then implementation
+- **laravelquality-checks**: Pint clean, tests pass, npm build succeeds
+- **laraveltransactions-and-consistency**: DB::transaction() closure wraps all writes
+- **laravelinterfaces-and-di**: ReceiptService injected via constructor DI
+- **laravelcomplexity-guardrails**: record() 27 lines, cyclomatic complexity ~2; resolveInvoiceAndLease() ~4
+- **verification-first**: Full test suite (947 pass), Pint, npm build, agent-browser E2E
+
+### Files Created
+- `app/Services/Payment/ManualPaymentHandler.php` — Business logic (126 lines)
+- `app/Services/Payment/ManualPaymentResult.php` — Value object (47 lines)
+- `tests/Feature/Services/ManualPaymentHandlerTest.php` — 12 tests, 23 assertions
+
+### Files Modified
+- `app/Http/Controllers/PaymentController.php` — storeManual() reduced from 105 → 21 lines
+
+### Architecture Decisions
+- **DB::transaction() closure** (not beginTransaction/commit) for automatic rollback
+- **sendPendingOverpaymentNotifications()** stays in controller — shared by 3 methods (storeManual, handleCallback, processSuccessfulCharge)
+- **ManualPaymentResult** returns overpayment data for controller to dispatch notifications
+- **No Request object leakage** — service accepts (int $landlordId, array $validated)
+
+### Test Results
+
+| Suite | Result |
+|-------|--------|
+| ManualPaymentHandlerTest | 12 passed (23 assertions) |
+| PaymentControllerTest | 31 passed, 1 skipped (pre-existing) |
+| Full suite | 947 passed, 2 failed (pre-existing PaymentIdempotencyTest), 13 skipped |
+
+### Verification Checklist
+
+| Check | Result |
+|-------|--------|
+| ManualPaymentHandler.record() ≤80 lines | PASS (27 lines) |
+| Cyclomatic complexity ≤7 | PASS (~2 for record, ~4 for resolve) |
+| No inline validation in controller | PASS (uses StorePaymentRequest) |
+| DB::transaction() wraps multi-write ops | PASS |
+| Structured logging with context arrays | PASS |
+| All existing feature tests pass | PASS (0 regressions) |
+| PaymentObserver hooks still fire | PASS (tested via PaymentControllerTest) |
+| Overpayment wallet credit works | PASS (test_handles_overpayment_with_wallet_credit) |
+| PaymentReceived email queued | PASS (test_queues_payment_received_email) |
+| PaymentReceivedEvent dispatched | PASS (test_dispatches_payment_received_event) |
+| Receipt created via ReceiptService | PASS (test_creates_receipt_via_receipt_service) |
+| Pint clean | PASS |
+| npm build | PASS |
+| Agent-browser E2E | PASS (page loads, form renders, validation works) |
+
+### Known Issue Discovered
+The `payments.invoice_id` column is NOT NULL in the DB schema, but the controller code supports an "unallocated payment" path where `invoice_id` would be null. This path would fail at the DB level. Pre-existing issue — not introduced or fixed in this extraction.
+
+**PAY-V2-008 COMPLETE**

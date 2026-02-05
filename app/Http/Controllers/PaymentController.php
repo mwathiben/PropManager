@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Enums\InvoiceStatus;
-use App\Events\PaymentReceived as PaymentReceivedEvent;
 use App\Exceptions\EntityNotFoundException;
 use App\Http\Requests\Payment\InitializePaystackRequest;
 use App\Http\Requests\Payment\ProcessBulkImportRequest;
@@ -24,6 +23,7 @@ use App\Models\User;
 use App\Services\BillingModelService;
 use App\Services\BulkImport\BulkImportValidator;
 use App\Services\IdempotencyService;
+use App\Services\Payment\ManualPaymentHandler;
 use App\Services\Payment\PaymentCallbackProcessor;
 use App\Services\PaystackService;
 use App\Services\ReceiptService;
@@ -99,107 +99,23 @@ class PaymentController extends Controller
     /**
      * Store a manually recorded payment.
      */
-    public function storeManual(StorePaymentRequest $request)
+    public function storeManual(StorePaymentRequest $request, ManualPaymentHandler $handler)
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
-        $validated = $request->validated();
-
-        $overpaymentNotification = null;
-
         try {
-            DB::beginTransaction();
-            $pendingOverpayments = [];
+            $result = $handler->record($landlordId, $request->validated());
 
-            $invoice = null;
-            $lease = null;
-            $appliedAmount = $validated['amount'];
-            $overpayment = 0;
-
-            if ($validated['invoice_id'] && ! ($validated['is_unallocated'] ?? false)) {
-                $invoice = Invoice::where('id', $validated['invoice_id'])
-                    ->where('landlord_id', $landlordId)
-                    ->lockForUpdate()
-                    ->firstOrFail();
-
-                $lease = $invoice->lease;
-
-                $remainingBalance = $invoice->total_due - $invoice->amount_paid;
-                $appliedAmount = min($validated['amount'], $remainingBalance);
-                $overpayment = max(0, $validated['amount'] - $remainingBalance);
-            } elseif ($validated['tenant_id']) {
-                $tenant = User::where('id', $validated['tenant_id'])
-                    ->where('landlord_id', $landlordId)
-                    ->firstOrFail();
-
-                $lease = $tenant->leases()->where('is_active', true)->first();
+            if ($result->hasOverpayment()) {
+                $this->sendPendingOverpaymentNotifications([$result->overpaymentNotification()]);
             }
 
-            $payment = Payment::create([
-                'invoice_id' => $invoice?->id,
-                'lease_id' => $lease?->id,
-                'landlord_id' => $landlordId,
-                'amount' => $validated['amount'],
-                'payment_method' => $validated['payment_method'],
-                'payment_date' => $validated['payment_date'],
-                'reference' => $validated['reference'] ?? 'MANUAL-'.strtoupper(uniqid()),
-                'notes' => $validated['notes'] ?? null,
-            ]);
-
-            if ($invoice) {
-                $newAmountPaid = $invoice->amount_paid + $appliedAmount;
-                $newStatus = $newAmountPaid >= $invoice->total_due ? InvoiceStatus::Paid : InvoiceStatus::Partial;
-
-                $invoice->update([
-                    'amount_paid' => $newAmountPaid,
-                    'status' => $newStatus,
-                ]);
-
-                if ($overpayment > 0 && $lease) {
-                    $lease->creditToWallet(
-                        $overpayment,
-                        "Overpayment from manual payment #{$payment->id}",
-                        $payment->id
-                    );
-                    $lease->refresh();
-                    // Defer notification until after transaction commits
-                    $overpaymentNotification = [
-                        'payment_id' => $payment->id,
-                        'lease_id' => $lease->id,
-                        'tenant_id' => $lease->tenant?->id,
-                        'overpayment' => $overpayment,
-                    ];
-                }
-            }
-
-            $this->receiptService->createReceipt($payment, $invoice);
-
-            if ($invoice && $invoice->lease?->tenant) {
-                $invoice->load(['lease.tenant', 'lease.unit.building']);
-                Mail::to($invoice->lease->tenant->email)->queue(new PaymentReceived($payment, $invoice));
-                PaymentReceivedEvent::dispatch($payment, $invoice);
-            }
-
-            DB::commit();
-
-            // Send overpayment notification outside the DB transaction
-            if ($overpaymentNotification) {
-                $this->sendPendingOverpaymentNotifications([$overpaymentNotification]);
-            }
-
-            $message = 'Payment of KES '.number_format($validated['amount'], 2).' recorded successfully!';
-            if ($overpayment > 0) {
-                $message .= ' KES '.number_format($overpayment, 2).' credited to wallet.';
-            }
-
-            return redirect()->route('finances.payments')->with('success', $message);
+            return redirect()->route('finances.payments')->with('success', $result->successMessage());
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Manual payment recording failed', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
             ]);
 
             return back()->withErrors(['error' => 'Failed to record payment. Please try again.']);
