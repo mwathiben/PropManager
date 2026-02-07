@@ -12979,3 +12979,89 @@ Fixed legacy template bug in ALL 3 controllers (not just PaymentController):
 | E2E: Security check | PASS (no secrets in DOM) |
 
 **PAY-V2-011 COMPLETE**
+
+---
+
+## PAY-V2-016: Create Dead Letter Queue Table and Model
+**Status:** PASSED
+**Date:** 2026-02-07
+**Attempts:** 1
+**Story Points:** 3
+
+### Context
+
+Webhook failures from M-Pesa, Paystack, and IntaSend are currently logged via `Log::error()` but payloads are lost permanently. Tracer bullet analysis identified 9-12 catch blocks across MpesaWebhookController, IntaSendWebhookController, and PaystackCallbackHandler that swallow errors without persisting the payload. Only BankWebhookController persists failures (via BankReconciliationQueue). This task creates the unified WebhookDeadLetter model to capture failed webhooks for retry and manual resolution. Unblocks PAY-V2-017 (handler + alerts) → PAY-V2-018 (amount validation) → PAY-V2-021 (Paystack tests).
+
+### Skills Applied (22)
+
+laravelmigrations-and-factories, laraveleloquent-relationships, laraveltdd-with-pest, laravelquality-checks, laravelconstants-and-configuration, laravelcomplexity-guardrails, laravelexception-handling-and-logging, laravelpolicies-and-authorization, laraveltransactions-and-consistency, laravelperformance-eager-loading, sql-optimization-patterns, verification-first, feature-development, ralph-wiggum, agent-browser, e2e-testing-patterns, senior-security, senior-qa, systematic-debugging, code-reviewer, database-migration, code-review-excellence
+
+### Web Search Best Practices Applied
+
+- Error classification (transient/permanent/schema/auth) per DLQ best practices
+- Request headers column for webhook replay (Hookdeck/Uber pattern)
+- Per-record max_retries (industry standard default 5)
+- Exponential backoff via next_retry_at (matching BankReconciliationQueue pattern)
+
+### Files Created
+
+| File | Purpose |
+|---|---|
+| `tests/Unit/Models/WebhookDeadLetterTest.php` | 14 unit tests (TDD RED-GREEN-REFACTOR) |
+| `database/migrations/2026_02_07_000001_create_webhook_dead_letters_table.php` | Migration with 5 indexes |
+| `app/Models/WebhookDeadLetter.php` | Model with TenantScope, Auditable, scopes, state transitions |
+| `database/factories/WebhookDeadLetterFactory.php` | Factory with 8 state modifiers |
+
+### Files Modified
+
+| File | Change |
+|---|---|
+| `config/mpesa.php` | Removed `env('MPESA_ENVIRONMENT')` — hardcoded `'sandbox'` default (PAY-V2-026 .env security fix) |
+| `.env.example` | Removed `MPESA_ENVIRONMENT=sandbox` line |
+| `.env.dusk.local` | Removed `MPESA_ENVIRONMENT=sandbox` line |
+
+### Schema
+
+| Column | Type | Notes |
+|---|---|---|
+| id | bigIncrements | PK |
+| landlord_id | foreignId | FK users, cascade delete |
+| provider | string(20) | mpesa/paystack/intasend/bank |
+| event_type | string(50) nullable | stk_callback, charge.success, etc. |
+| payload | json | Full webhook body for replay |
+| headers | json nullable | Request headers (signature data) |
+| error_reason | text | Human-readable failure description |
+| error_class | string(20) nullable | transient/permanent/schema/auth |
+| attempts | unsignedInteger default 1 | Processing attempt count |
+| max_retries | unsignedInteger default 5 | Per-record retry limit |
+| next_retry_at | timestamp nullable | Backoff scheduling |
+| resolved_at | timestamp nullable | When manually resolved |
+| resolved_by | foreignId nullable | FK users, null on delete |
+| resolution_notes | text nullable | Free-text explanation |
+| timestamps | | created_at + updated_at |
+
+Indexes: (landlord_id, provider), (provider, resolved_at), (error_class, resolved_at), (next_retry_at), (resolved_at)
+
+### Model Features
+
+- **Traits**: Auditable, HasFactory, TenantScope
+- **Constants**: PROVIDER_MPESA/PAYSTACK/INTASEND/BANK, ERROR_TRANSIENT/PERMANENT/SCHEMA/AUTH
+- **Scopes**: unresolved(), resolved(), byProvider(), recentFirst(), retryable()
+- **Helpers**: isResolved(), isUnresolved(), isRetryable()
+- **State transitions**: markResolved(User, string), incrementAttempts() with exponential backoff
+
+### Verification Results
+
+| Check | Result |
+|---|---|
+| Unit tests (14) | PASS |
+| Pint | PASS (clean) |
+| PHPMD | PASS (no violations) |
+| Full test suite (1028 tests) | PASS (3 pre-existing BulkPaymentProcessorTest failures unrelated) |
+| npm build | PASS |
+| E2E: Login page renders | PASS |
+| E2E: Dashboard accessible | PASS |
+| E2E: Payment settings page loads | PASS |
+| E2E: Payment Methods tab renders | PASS (M-Pesa config fields visible, .env fix didn't break config) |
+
+**PAY-V2-016 COMPLETE**

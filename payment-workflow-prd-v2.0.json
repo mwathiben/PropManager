@@ -1174,8 +1174,8 @@
         "sql": "DROP TABLE webhook_dead_letters"
       },
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "PAY-V2-017",

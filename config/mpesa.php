@@ -4,14 +4,16 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | M-Pesa Environment
+    | M-Pesa Default Environment
     |--------------------------------------------------------------------------
     |
-    | Set to 'sandbox' for testing or 'production' for live transactions.
+    | Per-landlord environment is stored in payment_configurations.mpesa_environment.
+    | MpesaService::withConfig() overrides this per-landlord at runtime.
+    | This default only applies when no PaymentConfiguration is loaded.
     |
     */
 
-    'environment' => env('MPESA_ENVIRONMENT', 'sandbox'),
+    'environment' => 'sandbox',
 
     /*
     |--------------------------------------------------------------------------
