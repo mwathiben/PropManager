@@ -23,6 +23,8 @@ use Illuminate\Support\Facades\Mail;
 
 class MpesaWebhookController extends Controller
 {
+    private const AMOUNT_TOLERANCE_KES = 1.00;
+
     public function __construct(
         protected BillingModelService $billingService,
         protected ReceiptService $receiptService,
@@ -203,6 +205,23 @@ class MpesaWebhookController extends Controller
             $invoice = Invoice::where('id', $invoice->id)->lockForUpdate()->first();
             $amount = (float) $data['amount'];
 
+            if (! empty($data['checkout_request_id'])) {
+                $expectedAmount = (float) $invoice->total_due;
+                $difference = abs($amount - $expectedAmount);
+
+                if ($difference > self::AMOUNT_TOLERANCE_KES) {
+                    DB::rollBack();
+
+                    $this->captureAmountMismatch($amount, $expectedAmount, $invoice, $data);
+                    $this->idempotencyService->fail(
+                        $idempotencyKey,
+                        "Amount mismatch: expected {$expectedAmount}, received {$amount}"
+                    );
+
+                    return;
+                }
+            }
+
             $payment = $invoice->payments()->create([
                 'landlord_id' => $invoice->landlord_id,
                 'lease_id' => $invoice->lease_id,
@@ -363,6 +382,26 @@ class MpesaWebhookController extends Controller
         $payment = Payment::where('mpesa_checkout_request_id', $checkoutRequestId)->first();
 
         return $payment?->invoice;
+    }
+
+    private function captureAmountMismatch(float $received, float $expected, Invoice $invoice, array $callbackData): void
+    {
+        Log::warning('M-Pesa STK amount mismatch', [
+            'expected' => $expected,
+            'received' => $received,
+            'difference' => abs($received - $expected),
+            'invoice_id' => $invoice->id,
+            'checkout_request_id' => $callbackData['checkout_request_id'] ?? 'unknown',
+        ]);
+
+        $this->deadLetterService->capture(
+            WebhookDeadLetter::PROVIDER_MPESA,
+            'stk_callback',
+            $callbackData,
+            "Amount mismatch: expected {$expected}, received {$received}",
+            WebhookDeadLetter::ERROR_SCHEMA,
+            $invoice->landlord_id
+        );
     }
 
     public function tillValidation(Request $request)

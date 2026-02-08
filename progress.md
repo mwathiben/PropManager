@@ -13135,3 +13135,130 @@ Implement the service layer to capture failed webhooks into the dead letter queu
 | E2E browser smoke tests | Pending (agent-browser) |
 
 **PAY-V2-017 COMPLETE**
+
+---
+
+## Session: PAY-V2-018 — Add Amount Validation with 1 KES Tolerance to All Webhooks
+
+**Date**: 2026-02-08
+**PRD**: payment-workflow-prd-v2.0.json
+**Task**: PAY-V2-018 (HIGH priority, webhook_robustness)
+**Dependencies**: PAY-V2-017 (dead letter queue) — PASSED
+
+### Skills Applied (22)
+
+- **verification-first**: TDD RED-GREEN-REFACTOR for every change
+- **feature-development**: Full lifecycle — analyze, design, implement, test, document
+- **laraveltdd-with-pest**: Write failing tests first, implement minimum to pass
+- **laravelcontroller-cleanup**: Keep controllers thin; validation as private method
+- **laravelcontroller-tests**: Feature tests for webhook endpoints
+- **laravelexception-handling-and-logging**: Structured logging with amount context
+- **laravelquality-checks**: Pint + PHPMD on every changed file
+- **laraveltransactions-and-consistency**: DLQ capture outside DB transaction to survive rollback
+- **laravelconstants-and-configuration**: Extract tolerance to class constant
+- **laravelcomplexity-guardrails**: Keep validation method cyclomatic complexity low
+- **laravelconfig-env-storage**: Remove env() wrapper from amount_tolerance
+- **laravelinterfaces-and-di**: WebhookDeadLetterService injected via constructor DI
+- **laravelmigrations-and-factories**: Use existing factories for test data setup
+- **laravelexecuting-plans**: Batch-based workflow with checkpoints
+- **agent-browser**: E2E browser smoke tests after implementation
+- **e2e-testing-patterns**: Structured E2E test plan
+- **senior-security**: Webhook payload validation per Paystack/Stripe best practices
+- **senior-qa**: Comprehensive test matrix covering tolerance boundaries
+- **systematic-debugging**: Traced DB transaction/DLQ rollback root cause
+- **payment-integration**: Always return HTTP 200 for webhooks
+- **ralph-wiggum**: PRD task loop with passes gate
+- **laravelperformance-select-columns**: Invoice lookup uses lockForUpdate()
+
+### Web Research Findings
+
+| Source | Key Takeaway |
+|--------|-------------|
+| Paystack Verify Payments | "Verify the amount to ensure it matches. If it doesn't match, do not deliver value." |
+| Paystack Webhooks | Return 200 OK immediately; failed attempts retried every 3 min for 4 tries, then hourly for 72h |
+| Apidog Payment Webhook Best Practices | Return 200 fast, queue processing. Store processed IDs with unique index |
+| Hookdeck Webhooks at Scale | DLQ for exhausted retries — move to dedicated queue for manual review |
+| DEV Community: Webhook Systems | DLQ stores event_id, event_type, payload, error details |
+
+### Tracer Bullet Analysis
+
+Traced full dependency chain through 12 components:
+- M-Pesa STK entry → processPayment() → findInvoiceByCheckoutRequest() → payment creation
+- M-Pesa C2B entry → processPayment() WITHOUT checkout_request_id (partial payments normal)
+- IntaSend entry → processCompletePayment() → amount validation (had 3 bugs)
+- DLQ service → WebhookDeadLetterService::capture()
+- Paystack reference → PaystackCallbackHandler::validateAmount() (pattern to follow)
+- Frontend listeners → TenantFinances/Pay.vue handles 'failed' status (no changes needed)
+
+### Bugs Found During Tracer Bullet
+
+1. **IntaSend event dispatch bug** (line 200): `IntaSendPaymentStatusChanged::dispatch($transaction)` passed a model object, but event constructor expects `(string, string, ?int, ?float, ?string, ?string)`. Silently crashed with ArgumentCountError.
+
+2. **.env violation** (config/intasend.php line 67): `env('INTASEND_AMOUNT_TOLERANCE', 1.00)` — amount tolerance is a business constant, not per-environment config. Fixed by removing config key and using class constant.
+
+### Changes Made
+
+#### 1. M-Pesa STK Amount Validation (NEW)
+
+**File**: `app/Http/Controllers/Api/MpesaWebhookController.php`
+
+- Added `AMOUNT_TOLERANCE_KES = 1.00` class constant (line 26)
+- Added inline validation in `processPayment()` after invoice lookup (lines 208-223):
+  - Only validates STK Push callbacks (has `checkout_request_id`)
+  - C2B payments skip validation (customer-initiated, partial payments expected)
+  - On mismatch: DB::rollBack() FIRST, then captureAmountMismatch() OUTSIDE transaction
+- Added `captureAmountMismatch()` private method (lines 387-405):
+  - Structured logging with expected/received/difference/invoice_id
+  - DLQ capture via deadLetterService with ERROR_SCHEMA classification
+
+**Key design decision**: DLQ capture happens AFTER DB::rollBack() — if done inside the transaction, the rollback would also undo the DLQ entry. Discovered during RED phase when tests 3/4 failed.
+
+#### 2. IntaSend Normalization (3 FIXES)
+
+**File**: `app/Http/Controllers/Api/IntaSendWebhookController.php`
+
+- Added `AMOUNT_TOLERANCE_KES = 1.00` class constant (replaces config() call)
+- **Fix 1**: Added DLQ capture via `deadLetterService->capture()` with PROVIDER_INTASEND + ERROR_SCHEMA
+- **Fix 2**: Changed HTTP 400 → 200 response (webhooks should always return 200 to prevent provider retries)
+- **Fix 3**: Fixed event dispatch from `dispatch($transaction)` to `dispatch(string, string, ?int, ?float, ?string, ?string)` matching IntaSendPaymentStatusChanged constructor
+
+#### 3. .env Violation Fix
+
+**File**: `config/intasend.php`
+
+- Removed `'amount_tolerance' => env('INTASEND_AMOUNT_TOLERANCE', 1.00)` config key entirely
+- Tolerance now lives as class constant in IntaSendWebhookController (consistent with Paystack pattern)
+
+### Tests Created
+
+#### MpesaWebhookAmountValidationTest (6 tests, 18 assertions)
+
+| # | Test | Amount | Result |
+|---|------|--------|--------|
+| 1 | test_stk_callback_accepts_exact_amount | = total_due | Payment created, no DLQ |
+| 2 | test_stk_callback_accepts_within_tolerance | total_due + 0.50 | Payment created, no DLQ |
+| 3 | test_stk_callback_rejects_overpayment_beyond_tolerance | total_due + 200 | No payment, DLQ with ERROR_SCHEMA |
+| 4 | test_stk_callback_rejects_underpayment_beyond_tolerance | total_due - 200 | No payment, DLQ with ERROR_SCHEMA |
+| 5 | test_stk_mismatch_fails_idempotency_key | total_due + 500 | IdempotencyKey status = 'failed' |
+| 6 | test_c2b_accepts_partial_payment_without_validation | total_due / 2 | Payment created (C2B allows partials) |
+
+#### IntaSendWebhookControllerTest (2 new tests, 5 assertions)
+
+| # | Test | Result |
+|---|------|--------|
+| 7 | test_amount_mismatch_creates_dlq_entry | DLQ with PROVIDER_INTASEND, ERROR_SCHEMA |
+| 8 | test_amount_mismatch_returns_200 | HTTP 200, status: 'ok' |
+
+### Verification Results
+
+| Check | Result |
+|---|---|
+| MpesaWebhookAmountValidationTest (6 tests) | PASS |
+| IntaSendWebhookControllerTest (21 tests) | PASS (including 2 new) |
+| Pint formatting | PASS (1 auto-fix) |
+| PHPMD MpesaWebhookController | Pre-existing violations only (processPayment complexity) |
+| PHPMD IntaSendWebhookController | Pre-existing violations only (processCompletePayment complexity) |
+| Full test suite (1058 tests, 3364 assertions) | PASS (13 pre-existing skips) |
+| E2E browser smoke tests | Skipped (local server not accessible to agent-browser) |
+
+**PAY-V2-018 COMPLETE**

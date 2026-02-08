@@ -5,11 +5,13 @@ namespace Tests\Feature\Controllers;
 use App\Enums\InvoiceStatus;
 use App\Events\IntaSendPaymentStatusChanged;
 use App\Events\PaymentReceived as PaymentReceivedEvent;
+use App\Mail\OverpaymentNotification;
 use App\Mail\PaymentReceived;
 use App\Models\IntaSendTransaction;
 use App\Models\Payment;
 use App\Models\PaymentConfiguration;
 use App\Models\User;
+use App\Models\WebhookDeadLetter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
@@ -479,5 +481,115 @@ class IntaSendWebhookControllerTest extends TestCase
                 && $event->status === 'processing'
                 && $event->amount === 15000.0;
         });
+    }
+
+    public function test_overpayment_notification_shows_correct_wallet_balance(): void
+    {
+        $unit = $this->setupData['units']->first();
+        ['lease' => $lease] = $this->createTenantWithActiveLease($this->landlord, $unit);
+        $invoice = $this->createInvoiceForLease($lease, 'sent');
+
+        $initialBalance = 1000.00;
+        $lease->update(['wallet_balance' => $initialBalance]);
+
+        $overpaymentAmount = 500.00;
+        $paymentAmount = $invoice->total_due + $overpaymentAmount;
+
+        $transaction = IntaSendTransaction::factory()->forInvoice($invoice)->create([
+            'amount' => $paymentAmount,
+            'state' => IntaSendTransaction::STATE_PENDING,
+        ]);
+
+        $payload = $this->createWebhookPayload($transaction, 'COMPLETE');
+        $payload['value'] = (string) $paymentAmount;
+        $payload['net_amount'] = (string) $paymentAmount;
+
+        $this->postJson('/api/webhooks/intasend/mpesa', $payload);
+
+        $expectedBalance = $initialBalance + $overpaymentAmount;
+
+        Mail::assertQueued(OverpaymentNotification::class, function ($mail) use ($expectedBalance) {
+            return $mail->newWalletBalance === $expectedBalance;
+        });
+
+        $lease->refresh();
+        $this->assertEquals($expectedBalance, $lease->wallet_balance);
+    }
+
+    public function test_overpayment_notification_not_sent_with_invalid_landlord_email(): void
+    {
+        $this->landlord->update(['email' => 'invalid-email']);
+
+        $unit = $this->setupData['units']->first();
+        ['lease' => $lease] = $this->createTenantWithActiveLease($this->landlord, $unit);
+        $invoice = $this->createInvoiceForLease($lease, 'sent');
+
+        $overpaymentAmount = 500.00;
+        $paymentAmount = $invoice->total_due + $overpaymentAmount;
+
+        $transaction = IntaSendTransaction::factory()->forInvoice($invoice)->create([
+            'amount' => $paymentAmount,
+            'state' => IntaSendTransaction::STATE_PENDING,
+        ]);
+
+        $payload = $this->createWebhookPayload($transaction, 'COMPLETE');
+        $payload['value'] = (string) $paymentAmount;
+        $payload['net_amount'] = (string) $paymentAmount;
+
+        $this->postJson('/api/webhooks/intasend/mpesa', $payload);
+
+        Mail::assertNotQueued(OverpaymentNotification::class);
+
+        $lease->refresh();
+        $this->assertEquals($overpaymentAmount, $lease->wallet_balance);
+    }
+
+    public function test_amount_mismatch_creates_dlq_entry(): void
+    {
+        $unit = $this->setupData['units']->first();
+        ['lease' => $lease] = $this->createTenantWithActiveLease($this->landlord, $unit);
+        $invoice = $this->createInvoiceForLease($lease, 'sent');
+
+        $transaction = IntaSendTransaction::factory()->forInvoice($invoice)->create([
+            'amount' => 15000,
+            'state' => IntaSendTransaction::STATE_PENDING,
+        ]);
+
+        $payload = $this->createWebhookPayload($transaction, 'COMPLETE');
+        $payload['value'] = '20000';
+
+        $response = $this->postJson('/api/webhooks/intasend/mpesa', $payload);
+
+        $response->assertOk();
+
+        $this->assertDatabaseHas('webhook_dead_letters', [
+            'provider' => WebhookDeadLetter::PROVIDER_INTASEND,
+            'error_class' => WebhookDeadLetter::ERROR_SCHEMA,
+            'landlord_id' => $this->landlord->id,
+        ]);
+
+        $this->assertDatabaseMissing('payments', [
+            'invoice_id' => $invoice->id,
+        ]);
+    }
+
+    public function test_amount_mismatch_returns_200(): void
+    {
+        $unit = $this->setupData['units']->first();
+        ['lease' => $lease] = $this->createTenantWithActiveLease($this->landlord, $unit);
+        $invoice = $this->createInvoiceForLease($lease, 'sent');
+
+        $transaction = IntaSendTransaction::factory()->forInvoice($invoice)->create([
+            'amount' => 15000,
+            'state' => IntaSendTransaction::STATE_PENDING,
+        ]);
+
+        $payload = $this->createWebhookPayload($transaction, 'COMPLETE');
+        $payload['value'] = '20000';
+
+        $response = $this->postJson('/api/webhooks/intasend/mpesa', $payload);
+
+        $response->assertOk();
+        $response->assertJsonFragment(['status' => 'ok']);
     }
 }

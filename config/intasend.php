@@ -57,17 +57,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Webhook Validation Settings
-    |--------------------------------------------------------------------------
-    |
-    | Amount tolerance for webhook validation (in currency units, e.g., KES).
-    | If webhook amount differs from expected by more than this, reject the payment.
-    |
-    */
-    'amount_tolerance' => env('INTASEND_AMOUNT_TOLERANCE', 1.00),
-
-    /*
-    |--------------------------------------------------------------------------
     | Transaction States
     |--------------------------------------------------------------------------
     |

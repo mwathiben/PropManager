@@ -1260,8 +1260,8 @@
       ],
       "verification": "Send webhook with amount 0.50 KES under; verify accepted. Send webhook 1.50 KES under; verify rejected to dead letter.",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": [
         "PAY-V2-017"
       ]

@@ -26,6 +26,8 @@ use Illuminate\Support\Facades\Mail;
 
 class IntaSendWebhookController extends Controller
 {
+    private const AMOUNT_TOLERANCE_KES = 1.00;
+
     public function __construct(
         protected BillingModelService $billingService,
         protected ReceiptService $receiptService,
@@ -174,13 +176,14 @@ class IntaSendWebhookController extends Controller
         $mpesaReceipt = $payload['mpesa_reference'] ?? $payload['invoice_id'] ?? '';
         $webhookAmount = (float) ($payload['value'] ?? $transaction->amount);
 
-        // Validate webhook amount against expected transaction amount
-        $tolerance = (float) config('intasend.amount_tolerance', 1.00); // Configurable tolerance in currency units
+        $tolerance = self::AMOUNT_TOLERANCE_KES;
         $expectedAmount = (float) $transaction->amount;
         $amountDifference = abs($webhookAmount - $expectedAmount);
 
         if ($amountDifference > $tolerance) {
-            $this->idempotencyService->fail($idempotencyKey, "Amount mismatch: expected {$expectedAmount}, received {$webhookAmount}");
+            $mismatchReason = "Amount mismatch: expected {$expectedAmount}, received {$webhookAmount}";
+
+            $this->idempotencyService->fail($idempotencyKey, $mismatchReason);
             Log::error('IntaSend webhook: Amount mismatch exceeds tolerance', [
                 'api_ref' => $transaction->api_ref,
                 'mpesa_receipt' => $mpesaReceipt,
@@ -193,16 +196,31 @@ class IntaSendWebhookController extends Controller
 
             $transaction->update([
                 'state' => IntaSendTransaction::STATE_FAILED,
-                'failure_reason' => "Amount mismatch: expected {$expectedAmount}, received {$webhookAmount}",
+                'failure_reason' => $mismatchReason,
             ]);
 
-            // Notify frontend of the failed status
-            IntaSendPaymentStatusChanged::dispatch($transaction);
+            $this->deadLetterService->capture(
+                WebhookDeadLetter::PROVIDER_INTASEND,
+                'payment.complete',
+                $payload,
+                $mismatchReason,
+                WebhookDeadLetter::ERROR_SCHEMA,
+                $transaction->landlord_id
+            );
+
+            IntaSendPaymentStatusChanged::dispatch(
+                $transaction->intasend_invoice_id,
+                'failed',
+                null,
+                (float) $transaction->amount,
+                null,
+                $mismatchReason
+            );
 
             return response()->json([
-                'status' => 'error',
+                'status' => 'ok',
                 'message' => 'Amount mismatch - flagged for manual review',
-            ], 400);
+            ]);
         }
 
         // Use the validated expected amount, not the webhook amount
