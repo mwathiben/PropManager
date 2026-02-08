@@ -44,7 +44,7 @@ class PaymentProcessResult
         );
     }
 
-    public static function alreadyProcessed(Payment $existingPayment): self
+    public static function alreadyProcessed(?Payment $existingPayment): self
     {
         return new self(
             status: self::STATUS_ALREADY_PROCESSED,
@@ -98,9 +98,13 @@ class PaymentProcessResult
      */
     public function getSuccessMessage(): string
     {
+        if (! $this->payment instanceof Payment) {
+            return '';
+        }
+
         $message = 'Payment of KES '.number_format($this->payment->amount, 2).' successful!';
 
-        if ($this->hasOverpayment()) {
+        if ($this->hasOverpayment() && $this->overpayment > 0) {
             $message .= ' KES '.number_format($this->overpayment, 2).' credited to wallet.';
         }
 

@@ -1380,8 +1380,8 @@
       ],
       "verification": "php artisan test --filter=PaystackWebhookControllerTest; all pass.",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": [
         "PAY-V2-018"
       ]

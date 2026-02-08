@@ -13262,3 +13262,112 @@ Traced full dependency chain through 12 components:
 | E2E browser smoke tests | Skipped (local server not accessible to agent-browser) |
 
 **PAY-V2-018 COMPLETE**
+
+---
+
+## Session: PAY-V2-021 — Create Paystack Webhook Controller Tests
+
+**Date**: 2026-02-08
+**PRD**: payment-workflow-prd-v2.0.json
+**Task**: PAY-V2-021 (HIGH priority, test_coverage)
+**Dependency**: PAY-V2-018 (PASSED)
+
+### Skills Applied (22)
+
+- **verification-first**: Verify every change before claiming success
+- **laraveltdd-with-pest**: RED-GREEN-REFACTOR with factories
+- **laravelcontroller-tests**: HTTP assertions with postJson(), database state, events, mail
+- **feature-development**: Full lifecycle requirements → design → implement → test → commit
+- **laraveltransactions-and-consistency**: Test idempotency with pessimistic locking, $afterCommit email
+- **laravelexception-handling-and-logging**: Verified structured logging, secret redaction
+- **laravelquality-checks**: Pint formatting, full suite regression check
+- **laravelperformance-eager-loading**: Verified eager loading in sendNotifications()
+- **laravelpolicies-and-authorization**: Invalid signature=401, unknown IP=403
+- **laravele2e-playwright**: E2E browser verification of webhook effects
+- **laravelcontroller-cleanup**: Controller stays thin, service does the work
+- **laravelmigrations-and-factories**: Used existing factories via CreatesTestData
+- **laravelinterfaces-and-di**: PaystackCallbackHandler injected via DI, tested via HTTP
+- **laravelcomplexity-guardrails**: Test file well-organized with 3 helper methods
+- **laravelconstants-and-configuration**: Flagged 4 env() violations for follow-up
+- **laravelhttp-client-resilience**: Confirmed no external API calls during webhook processing
+- **laravelrate-limiting**: No rate limiting on webhook endpoint (providers retry)
+- **propmanager-verification**: Full DBP pattern checks (9/9 PASS)
+- **agent-browser**: E2E browser tests verified payment + invoice pages
+- **ralph-wiggum**: PRD task loop: implement → verify → mark passes → commit
+- **payment-integration**: Return 200 to webhooks, test DLQ captures
+- **senior-security**: HMAC-SHA512, IP whitelisting, timing-safe comparison
+
+### Web Research
+
+| Source | Key Takeaway |
+|---|---|
+| Paystack Official Webhook Docs | HMAC-SHA512 with secret key. IPs: 52.31.139.75, 52.49.173.169, 52.214.14.220. Must return 200 immediately. |
+| Laravel Webhook Best Practices (Medium) | Verify signature, process idempotently, respond quickly, use Event::fake/Mail::fake in tests |
+| spatie/laravel-webhook-client Testing | Test signature separately, test full flow with postJson(), mock external services |
+
+### Tracer Bullet Analysis — Full Blast Radius
+
+When POST /webhooks/paystack succeeds, these side effects occur:
+
+**Database Writes (8 tables)**: payments (INSERT), invoices (UPDATE), leases (UPDATE, overpayment only), lease_wallet_transactions (INSERT, overpayment only), receipts (INSERT), platform_fees (INSERT), idempotency_keys (INSERT/UPDATE), webhook_dead_letters (INSERT, errors only)
+
+**Observer Triggers**: PaymentObserver::created() → FinanceCacheService::invalidateForLandlord() (7+ cache keys) + PaymentLinkService::revokeForInvoice()
+
+**Events**: PaymentReceivedEvent (broadcast), PaymentReceived email ($afterCommit=true), FailedWebhookAlert (throttled 15 min, DLQ only)
+
+**Cache Invalidated**: finance:hub:{id}, finance:overview:{id}:{YYYY-MM}, finance:trend:{id}, finance:arrears:{id}, finance:deposits:{id}, finance:latefees:{id}, finance:expenses:{id}, finance:report:*:{id}:*
+
+### Implementation
+
+**File created**: tests/Feature/Controllers/PaystackWebhookControllerTest.php (16 tests)
+
+| Group | # | Test | Key Assertions |
+|---|---|---|---|
+| Happy Path | 1 | test_valid_webhook_creates_payment | 200, JSON status=success, payment in DB |
+| | 2 | test_full_payment_sets_invoice_to_paid | Invoice: status=Paid, amount_paid=total_due |
+| | 3 | test_creates_receipt_for_payment | Receipt record linked to payment+invoice |
+| | 4 | test_overpayment_credits_to_lease_wallet | Invoice: Paid, wallet_balance=excess |
+| | 5 | test_dispatches_payment_received_event | Event::assertDispatched |
+| | 6 | test_sends_payment_received_email | Mail::assertQueued |
+| Security | 7 | test_invalid_signature_returns_401 | 401, no payment created |
+| | 8 | test_missing_signature_returns_401 | 401 |
+| | 9 | test_missing_landlord_id_returns_400 | 400 |
+| | 10 | test_unconfigured_landlord_returns_400 | 400 |
+| | 11 | test_malformed_json_returns_400 | 400 (raw non-JSON body) |
+| Idempotency | 12 | test_duplicate_webhook_is_idempotent | 2nd call: 200, still 1 payment |
+| Edge Cases | 13 | test_non_charge_success_event_returns_ignored | 200, status=ignored |
+| | 14 | test_amount_mismatch_creates_dlq_entry | 400, DLQ entry, no payment |
+| | 15 | test_amount_within_tolerance_processes_normally | 200, payment created |
+| | 16 | test_missing_invoice_id_returns_ignored | 200, status=ignored |
+
+### Bug Fix Discovered
+
+**PaymentProcessResult::alreadyProcessed()** had a non-nullable `Payment` parameter but was called with `null` from the idempotency early-return path in PaymentCallbackProcessor (line 120). Fixed: `Payment` → `?Payment`.
+
+### .env Security Violations Flagged (Follow-up)
+
+| File | Line | Violation | Recommended Fix |
+|---|---|---|---|
+| config/mpesa.php | 119 | MPESA_ALLOWED_IPS from env() | Hardcode array (like Paystack IPs in config/payments.php) |
+| config/intasend.php | 55 | INTASEND_PLATFORM_FEE_PERCENTAGE from env() | Hardcode 2.5 |
+| config/mpesa.php | 54 | MPESA_STK_TRANSACTION_TYPE from env() | Hardcode 'CustomerPayBillOnline' |
+| config/mpesa.php | 131 | MPESA_ACCOUNT_PREFIX from env() | Hardcode 'PROP' |
+
+### Verification Results
+
+| Check | Result |
+|---|---|
+| PaystackWebhookControllerTest (16 tests, 30 assertions) | PASS |
+| Pint formatting | PASS |
+| Full test suite (1087 tests, 3392 assertions) | 3 pre-existing failures (MpesaWebhookAmountValidationTest), 13 pre-existing skips |
+| E2E browser verification | PASS — Paystack payment visible in Finances, invoice shows Paid (7 screenshots) |
+| PropManager verification (9 checks) | 9/9 PASS |
+
+### Pre-existing Failures (NOT caused by this session)
+
+3 failures in MpesaWebhookAmountValidationTest (confirmed pre-existing by reverting changes and re-running):
+- test_stk_callback_rejects_overpayment_beyond_tolerance
+- test_stk_callback_rejects_underpayment_beyond_tolerance
+- test_stk_mismatch_fails_idempotency_key
+
+**PAY-V2-021 COMPLETE**
