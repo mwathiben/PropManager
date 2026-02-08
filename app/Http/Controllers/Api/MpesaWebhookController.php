@@ -11,8 +11,10 @@ use App\Mail\PaymentReceived;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\User;
+use App\Models\WebhookDeadLetter;
 use App\Services\BillingModelService;
 use App\Services\IdempotencyService;
+use App\Services\Payment\WebhookDeadLetterService;
 use App\Services\ReceiptService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,7 +26,8 @@ class MpesaWebhookController extends Controller
     public function __construct(
         protected BillingModelService $billingService,
         protected ReceiptService $receiptService,
-        protected IdempotencyService $idempotencyService
+        protected IdempotencyService $idempotencyService,
+        protected WebhookDeadLetterService $deadLetterService
     ) {}
 
     public function stkCallback(Request $request)
@@ -313,6 +316,15 @@ class MpesaWebhookController extends Controller
                 'receipt' => $receiptNumber,
                 'error' => $e->getMessage(),
             ]);
+
+            $this->deadLetterService->capture(
+                WebhookDeadLetter::PROVIDER_MPESA,
+                'stk_callback',
+                $data,
+                $e->getMessage(),
+                WebhookDeadLetter::ERROR_TRANSIENT,
+                $invoice?->landlord_id
+            );
         } catch (\Exception $e) {
             DB::rollBack();
             $this->idempotencyService->fail($idempotencyKey, $e->getMessage());
@@ -321,6 +333,15 @@ class MpesaWebhookController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
+
+            $this->deadLetterService->capture(
+                WebhookDeadLetter::PROVIDER_MPESA,
+                'stk_callback',
+                $data,
+                $e->getMessage(),
+                WebhookDeadLetter::ERROR_PERMANENT,
+                $invoice?->landlord_id
+            );
         }
     }
 
@@ -463,6 +484,15 @@ class MpesaWebhookController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
+            $this->deadLetterService->capture(
+                WebhookDeadLetter::PROVIDER_MPESA,
+                'till_confirmation',
+                $request->all(),
+                $e->getMessage(),
+                WebhookDeadLetter::ERROR_TRANSIENT,
+                $invoice?->landlord_id
+            );
+
             return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Error - will retry']);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -471,6 +501,15 @@ class MpesaWebhookController extends Controller
                 'receipt' => $transId,
                 'error' => $e->getMessage(),
             ]);
+
+            $this->deadLetterService->capture(
+                WebhookDeadLetter::PROVIDER_MPESA,
+                'till_confirmation',
+                $request->all(),
+                $e->getMessage(),
+                WebhookDeadLetter::ERROR_PERMANENT,
+                $invoice?->landlord_id
+            );
 
             return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Error - will retry']);
         }

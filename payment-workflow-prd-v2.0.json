@@ -1218,8 +1218,8 @@
       ],
       "verification": "Trigger webhook failure; verify dead letter created and email sent.",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": [
         "PAY-V2-016"
       ]

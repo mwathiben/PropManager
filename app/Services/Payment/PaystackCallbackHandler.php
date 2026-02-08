@@ -7,6 +7,7 @@ namespace App\Services\Payment;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PaymentConfiguration;
+use App\Models\WebhookDeadLetter;
 use App\Services\BillingModelService;
 use App\Services\IdempotencyService;
 use App\Services\PaystackService;
@@ -23,7 +24,8 @@ class PaystackCallbackHandler
     public function __construct(
         protected BillingModelService $billingService,
         protected ReceiptService $receiptService,
-        protected IdempotencyService $idempotencyService
+        protected IdempotencyService $idempotencyService,
+        protected WebhookDeadLetterService $deadLetterService
     ) {}
 
     public function processCallback(
@@ -62,6 +64,13 @@ class PaystackCallbackHandler
         }
 
         $decoded = json_decode($payload, true);
+        if (! is_array($decoded)) {
+            Log::error('Paystack webhook payload is not valid JSON', [
+                'payload_preview' => substr($payload, 0, 200),
+            ]);
+
+            return PaystackHandlerResult::badRequest('Invalid JSON payload');
+        }
         $data = $decoded['data'] ?? [];
         $metadata = $data['metadata'] ?? [];
         $landlordId = $metadata['landlord_id'] ?? null;
@@ -171,7 +180,8 @@ class PaystackCallbackHandler
         $processor = PaymentCallbackProcessor::make(
             $this->billingService,
             $this->receiptService,
-            $this->idempotencyService
+            $this->idempotencyService,
+            $this->deadLetterService
         )
             ->forReference($reference)
             ->forInvoice($invoiceId)
@@ -243,6 +253,15 @@ class PaystackCallbackHandler
                 'invoice_id' => $invoiceId,
                 'reference' => $data['reference'] ?? 'unknown',
             ]);
+
+            $this->deadLetterService->capture(
+                WebhookDeadLetter::PROVIDER_PAYSTACK,
+                'charge.success',
+                $data,
+                "Amount mismatch: expected {$expectedAmount}, received {$paystackAmountKes}",
+                WebhookDeadLetter::ERROR_SCHEMA,
+                $invoice->landlord_id
+            );
 
             return PaystackHandlerResult::amountMismatch($expectedAmount, $paystackAmountKes);
         }

@@ -11,7 +11,9 @@ use App\Models\Invoice;
 use App\Models\LandlordPayoutAccount;
 use App\Models\Payment;
 use App\Models\User;
+use App\Models\WebhookDeadLetter;
 use App\Services\BillingModelService;
+use App\Services\IdempotencyService;
 use App\Services\ReceiptService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -22,6 +24,10 @@ use Illuminate\Support\Facades\Mail;
  *
  * Consolidates the shared logic between handleCallback (browser redirect)
  * and processSuccessfulCharge (server-to-server webhook).
+ *
+ * Uses two-layer idempotency:
+ * 1. Application layer: IdempotencyService.acquire() - early detection
+ * 2. Database layer: UNIQUE constraint on paystack_reference - safety net
  */
 class PaymentCallbackProcessor
 {
@@ -36,17 +42,25 @@ class PaymentCallbackProcessor
     /** @var callable|null */
     private $overpaymentHandler = null;
 
+    private ?string $idempotencyKey = null;
+
     public function __construct(
         private BillingModelService $billingService,
-        private ReceiptService $receiptService
+        private ReceiptService $receiptService,
+        private IdempotencyService $idempotencyService,
+        private WebhookDeadLetterService $deadLetterService
     ) {}
 
     /**
      * Start building a payment processing request.
      */
-    public static function make(BillingModelService $billingService, ReceiptService $receiptService): self
-    {
-        return new self($billingService, $receiptService);
+    public static function make(
+        BillingModelService $billingService,
+        ReceiptService $receiptService,
+        IdempotencyService $idempotencyService,
+        WebhookDeadLetterService $deadLetterService
+    ): self {
+        return new self($billingService, $receiptService, $idempotencyService, $deadLetterService);
     }
 
     public function forReference(string $reference): self
@@ -86,11 +100,28 @@ class PaymentCallbackProcessor
 
     /**
      * Process the payment.
+     *
+     * Uses two-layer idempotency:
+     * 1. IdempotencyService.acquire() FIRST - early detection before any processing
+     * 2. UNIQUE constraint on paystack_reference - database safety net
      */
     public function process(): PaymentProcessResult
     {
+        $this->idempotencyKey = "paystack:{$this->reference}";
+
+        $idempotencyResult = $this->idempotencyService->acquire($this->idempotencyKey);
+
+        if (! $idempotencyResult['acquired']) {
+            Log::info('Paystack payment already handled (idempotency)', [
+                'key' => $this->idempotencyKey,
+                'cached' => $idempotencyResult['response'] !== null,
+            ]);
+
+            return PaymentProcessResult::alreadyProcessed(null);
+        }
+
         try {
-            return DB::transaction(function () {
+            $result = DB::transaction(function () {
                 $pendingOverpayments = [];
 
                 $existingPayment = Payment::where('paystack_reference', $this->reference)
@@ -124,12 +155,55 @@ class PaymentCallbackProcessor
                     pendingOverpayments: $pendingOverpayments
                 );
             });
+
+            $this->idempotencyService->release($this->idempotencyKey, [
+                'status' => $result->isSuccess() ? 'success' : ($result->isAlreadyProcessed() ? 'duplicate' : 'error'),
+                'payment_id' => $result->payment?->id,
+            ]);
+
+            return $result;
+        } catch (\Illuminate\Database\QueryException $e) {
+            if ($e->errorInfo[1] === 1062) {
+                $this->idempotencyService->release($this->idempotencyKey, ['status' => 'duplicate']);
+                Log::info('Paystack duplicate payment ignored (idempotent)', [
+                    'paystack_reference' => $this->reference,
+                ]);
+
+                return PaymentProcessResult::alreadyProcessed(null);
+            }
+
+            $this->idempotencyService->fail($this->idempotencyKey, $e->getMessage());
+            Log::error('Payment processing database error', [
+                'reference' => $this->reference,
+                'error' => $e->getMessage(),
+            ]);
+
+            $this->deadLetterService->capture(
+                WebhookDeadLetter::PROVIDER_PAYSTACK,
+                'charge.success',
+                $this->paymentData,
+                $e->getMessage(),
+                WebhookDeadLetter::ERROR_TRANSIENT,
+                $this->resolvePaymentLandlordId()
+            );
+
+            return PaymentProcessResult::error($e->getMessage());
         } catch (\Exception $e) {
+            $this->idempotencyService->fail($this->idempotencyKey, $e->getMessage());
             Log::error('Payment processing failed', [
                 'reference' => $this->reference,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
+
+            $this->deadLetterService->capture(
+                WebhookDeadLetter::PROVIDER_PAYSTACK,
+                'charge.success',
+                $this->paymentData,
+                $e->getMessage(),
+                WebhookDeadLetter::ERROR_PERMANENT,
+                $this->resolvePaymentLandlordId()
+            );
 
             return PaymentProcessResult::error($e->getMessage());
         }
@@ -245,6 +319,11 @@ class PaymentCallbackProcessor
         }
 
         return $overpayment;
+    }
+
+    private function resolvePaymentLandlordId(): ?int
+    {
+        return Invoice::find($this->invoiceId)?->landlord_id;
     }
 
     /**

@@ -31,4 +31,21 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Dead Letter Queue Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Settings for persisting and alerting on failed webhook payloads.
+    | Alert recipients are resolved from the database (super_admin users).
+    |
+    */
+
+    'dead_letter' => [
+        'alert_throttle_minutes' => 15,
+        'max_retries' => 5,
+        'retention_days' => 28,
+        'sanitize_fields' => ['phone', 'msisdn', 'token', 'authorization', 'secret', 'password', 'api_key'],
+    ],
+
 ];

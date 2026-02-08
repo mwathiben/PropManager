@@ -13,7 +13,10 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PaymentConfiguration;
 use App\Models\User;
+use App\Models\WebhookDeadLetter;
 use App\Services\BillingModelService;
+use App\Services\IdempotencyService;
+use App\Services\Payment\WebhookDeadLetterService;
 use App\Services\ReceiptService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,7 +28,9 @@ class IntaSendWebhookController extends Controller
 {
     public function __construct(
         protected BillingModelService $billingService,
-        protected ReceiptService $receiptService
+        protected ReceiptService $receiptService,
+        protected IdempotencyService $idempotencyService,
+        protected WebhookDeadLetterService $deadLetterService
     ) {}
 
     public function handleMpesaWebhook(Request $request): JsonResponse
@@ -153,6 +158,19 @@ class IntaSendWebhookController extends Controller
 
     protected function processCompletePayment(array $payload, IntaSendTransaction $transaction): JsonResponse
     {
+        $idempotencyKey = "intasend:{$transaction->api_ref}";
+
+        $idempotencyResult = $this->idempotencyService->acquire($idempotencyKey);
+
+        if (! $idempotencyResult['acquired']) {
+            Log::info('IntaSend payment already handled (idempotency)', [
+                'key' => $idempotencyKey,
+                'cached' => $idempotencyResult['response'] !== null,
+            ]);
+
+            return response()->json(['status' => 'success', 'message' => 'Already processed']);
+        }
+
         $mpesaReceipt = $payload['mpesa_reference'] ?? $payload['invoice_id'] ?? '';
         $webhookAmount = (float) ($payload['value'] ?? $transaction->amount);
 
@@ -162,6 +180,7 @@ class IntaSendWebhookController extends Controller
         $amountDifference = abs($webhookAmount - $expectedAmount);
 
         if ($amountDifference > $tolerance) {
+            $this->idempotencyService->fail($idempotencyKey, "Amount mismatch: expected {$expectedAmount}, received {$webhookAmount}");
             Log::error('IntaSend webhook: Amount mismatch exceeds tolerance', [
                 'api_ref' => $transaction->api_ref,
                 'mpesa_receipt' => $mpesaReceipt,
@@ -198,6 +217,10 @@ class IntaSendWebhookController extends Controller
 
             if ($transaction->payment_id !== null) {
                 DB::rollBack();
+                $this->idempotencyService->release($idempotencyKey, [
+                    'status' => 'duplicate',
+                    'payment_id' => $transaction->payment_id,
+                ]);
                 Log::info('IntaSend payment already processed', [
                     'api_ref' => $transaction->api_ref,
                     'payment_id' => $transaction->payment_id,
@@ -212,6 +235,10 @@ class IntaSendWebhookController extends Controller
 
             if ($existingPayment) {
                 DB::rollBack();
+                $this->idempotencyService->release($idempotencyKey, [
+                    'status' => 'duplicate',
+                    'payment_id' => $existingPayment->id,
+                ]);
                 Log::info('IntaSend payment found by reference', [
                     'api_ref' => $transaction->api_ref,
                     'payment_id' => $existingPayment->id,
@@ -226,6 +253,10 @@ class IntaSendWebhookController extends Controller
 
             if (! $invoice) {
                 DB::rollBack();
+                $this->idempotencyService->release($idempotencyKey, [
+                    'status' => 'no_invoice',
+                    'message' => 'Invoice not found',
+                ]);
                 Log::error('IntaSend webhook: Invoice not found', [
                     'api_ref' => $transaction->api_ref,
                     'invoice_id' => $transaction->invoice_id,
@@ -335,12 +366,19 @@ class IntaSendWebhookController extends Controller
                 'overpayment_to_wallet' => $overpayment,
             ]);
 
+            $this->idempotencyService->release($idempotencyKey, [
+                'status' => 'success',
+                'payment_id' => $payment->id,
+                'invoice_id' => $invoice->id,
+            ]);
+
             return response()->json(['status' => 'success', 'message' => 'Payment recorded']);
         } catch (\Illuminate\Database\QueryException $e) {
             DB::rollBack();
 
             // MySQL error 1062 = duplicate entry (unique constraint violation)
             if ($e->errorInfo[1] === 1062) {
+                $this->idempotencyService->release($idempotencyKey, ['status' => 'duplicate']);
                 Log::info('IntaSend duplicate webhook ignored (idempotent)', [
                     'intasend_reference' => $transaction->api_ref,
                     'intasend_invoice_id' => $transaction->intasend_invoice_id,
@@ -349,19 +387,39 @@ class IntaSendWebhookController extends Controller
                 return response()->json(['status' => 'success', 'message' => 'Already processed']);
             }
 
+            $this->idempotencyService->fail($idempotencyKey, $e->getMessage());
             Log::error('IntaSend payment database error', [
                 'api_ref' => $transaction->api_ref,
                 'error' => $e->getMessage(),
             ]);
 
+            $this->deadLetterService->capture(
+                WebhookDeadLetter::PROVIDER_INTASEND,
+                'payment.complete',
+                $payload,
+                $e->getMessage(),
+                WebhookDeadLetter::ERROR_TRANSIENT,
+                $transaction->landlord_id ?? null
+            );
+
             throw $e;
         } catch (\Exception $e) {
             DB::rollBack();
+            $this->idempotencyService->fail($idempotencyKey, $e->getMessage());
             Log::error('IntaSend payment processing failed', [
                 'api_ref' => $transaction->api_ref,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
+
+            $this->deadLetterService->capture(
+                WebhookDeadLetter::PROVIDER_INTASEND,
+                'payment.complete',
+                $payload,
+                $e->getMessage(),
+                WebhookDeadLetter::ERROR_PERMANENT,
+                $transaction->landlord_id ?? null
+            );
 
             return response()->json(['status' => 'error', 'message' => 'Processing failed']);
         }

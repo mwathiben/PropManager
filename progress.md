@@ -13065,3 +13065,73 @@ Indexes: (landlord_id, provider), (provider, resolved_at), (error_class, resolve
 | E2E: Payment Methods tab renders | PASS (M-Pesa config fields visible, .env fix didn't break config) |
 
 **PAY-V2-016 COMPLETE**
+
+---
+
+## Session: PAY-V2-017 — Dead Letter Queue Handler with Email Alerts (2026-02-08)
+
+### Task
+Implement the service layer to capture failed webhooks into the dead letter queue (from PAY-V2-016), integrate it into all webhook controllers, and send throttled email alerts.
+
+### Skills Applied (22)
+- feature-development, verification-first, laraveltdd-with-pest, laravelinterfaces-and-di
+- laravelexception-handling-and-logging, laravelqueues-and-horizon, laraveltransactions-and-consistency
+- laravelcontroller-cleanup, laravelcomplexity-guardrails, laravelcontroller-tests
+- laravelmigrations-and-factories, laravelquality-checks, laravelconstants-and-configuration
+- laravelexecuting-plans, laravelperformance-select-columns, ralph-wiggum
+- agent-browser, e2e-testing-patterns, senior-security, senior-qa
+- systematic-debugging, payment-integration
+
+### Web Research Sources
+- Svix: Webhook retry best practices + DLQ patterns
+- Hookdeck: Webhooks at scale
+- DEV Community: Queue-based exponential backoff
+- Integrate.io: Webhook best practices
+- Laravel News + Medium: Webhook handling in Laravel
+
+### Files Created (6)
+| File | Purpose |
+|---|---|
+| `app/Services/Payment/WebhookDeadLetterService.php` | Core service: capture with payload sanitization, resolve, throttled email alerts |
+| `app/Mail/FailedWebhookAlert.php` | Queued mailable (ShouldQueue + afterCommit) for DLQ alerts |
+| `resources/views/emails/failed-webhook-alert.blade.php` | Markdown email template |
+| `tests/Unit/Services/WebhookDeadLetterServiceTest.php` | 10 unit tests for service |
+| `tests/Unit/Mail/FailedWebhookAlertTest.php` | 4 mailable tests |
+| `tests/Feature/Services/WebhookDeadLetterServiceIntegrationTest.php` | 5 integration tests |
+
+### Files Modified (5)
+| File | Change |
+|---|---|
+| `config/payments.php` | Added `dead_letter` config section (NO .env references) |
+| `app/Services/Payment/PaymentCallbackProcessor.php` | Added WebhookDeadLetterService to constructor + make(), DLQ capture in 2 catch blocks, resolvePaymentLandlordId() helper |
+| `app/Services/Payment/PaystackCallbackHandler.php` | Added WebhookDeadLetterService to constructor, passthrough in delegateToProcessor(), DLQ capture in validateAmount() |
+| `app/Http/Controllers/Api/MpesaWebhookController.php` | Added WebhookDeadLetterService to constructor, DLQ capture in 4 catch blocks (processPayment x2 + tillConfirmation x2) |
+| `app/Http/Controllers/Api/IntaSendWebhookController.php` | Added WebhookDeadLetterService to constructor, DLQ capture in 2 catch blocks |
+
+### Key Implementation Decisions
+- **No .env changes**: Admin alert recipients resolved from `User::where('role', 'super_admin')` database query
+- **Payload sanitization**: Phone numbers masked to last 4 digits, secrets fully redacted before DLQ storage
+- **Alert throttling**: `Cache::add()` atomic check-and-set, per-provider per-landlord, 15-minute window
+- **Error classification**: Transient (retryable with exponential backoff + jitter) vs Permanent (max_retries=0)
+- **withoutGlobalScope('landlord')**: Used for DLQ creation in unauthenticated webhook context
+- **Constructor injection**: All 4 modified classes use Laravel container auto-resolution
+
+### Verification Results
+
+| Check | Result |
+|---|---|
+| Unit tests (10 service + 4 mailable) | PASS |
+| Integration tests (5) | PASS |
+| Pint formatting | PASS (2 auto-fixes) |
+| PHPMD complexity | PASS (only ExcessiveParameterList on capture() - 7 params, under hard limit of 8) |
+| PaystackCallbackHandler regression (16 tests) | PASS |
+| IntaSendWebhookController regression (19 tests) | PASS |
+| MpesaIntegration regression (8 tests) | PASS |
+| PaymentIdempotency regression (7 tests) | PASS |
+| PaystackWebhookSecurity regression (8 tests) | PASS |
+| WebhookDeadLetter model tests (14 tests) | PASS |
+| Full test suite (1063 tests, 3341 assertions) | PASS (13 pre-existing skips) |
+| npm build | PASS |
+| E2E browser smoke tests | Pending (agent-browser) |
+
+**PAY-V2-017 COMPLETE**
