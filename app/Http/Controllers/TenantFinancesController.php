@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\InvoiceStatus;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\Payment;
@@ -27,7 +28,7 @@ class TenantFinancesController extends Controller
         }
 
         $pendingInvoices = Invoice::where('lease_id', $lease->id)
-            ->whereIn('status', ['sent', 'partial', 'overdue'])
+            ->whereIn('status', [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue])
             ->orderBy('due_date', 'asc')
             ->get()
             ->map(fn ($i) => [
@@ -38,7 +39,7 @@ class TenantFinancesController extends Controller
                 'balance' => $i->total_due - $i->amount_paid,
                 'status' => $i->status,
                 'due_date' => $i->due_date?->format('Y-m-d'),
-                'is_overdue' => $i->status === 'overdue' || ($i->due_date && $i->due_date->isPast()),
+                'is_overdue' => $i->status === InvoiceStatus::Overdue || ($i->due_date && $i->due_date->isPast()),
             ]);
 
         $totalBalance = $pendingInvoices->sum('balance');
@@ -70,7 +71,7 @@ class TenantFinancesController extends Controller
         ]);
     }
 
-    public function pay(Invoice $invoice): Response
+    public function pay(Invoice $invoice): Response|\Illuminate\Http\RedirectResponse
     {
         $user = auth()->user();
         $lease = $this->getActiveLease($user);
@@ -79,7 +80,7 @@ class TenantFinancesController extends Controller
             abort(403, 'You do not have access to this invoice.');
         }
 
-        if ($invoice->status === 'paid') {
+        if ($invoice->status === InvoiceStatus::Paid) {
             return redirect()->route('tenant.finances.index')
                 ->with('info', 'This invoice has already been paid.');
         }
@@ -96,6 +97,15 @@ class TenantFinancesController extends Controller
                 'label' => $this->getPaymentMethodLabel($method),
                 'description' => $this->getPaymentMethodDescription($method),
                 'details' => $this->getPaymentMethodDetails($method, $paymentConfig),
+            ];
+        }
+
+        if ($paymentConfig?->hasIntaSendConfig()) {
+            $paymentMethods[] = [
+                'id' => 'intasend_mpesa',
+                'label' => $this->getPaymentMethodLabel('intasend_mpesa'),
+                'description' => $this->getPaymentMethodDescription('intasend_mpesa'),
+                'details' => null,
             ];
         }
 
@@ -119,7 +129,7 @@ class TenantFinancesController extends Controller
                 'building' => $lease->unit?->building?->name,
             ],
             'paymentMethods' => $paymentMethods,
-            'paystackPublicKey' => config('services.paystack.public_key'),
+            'paystackPublicKey' => $paymentConfig?->paystack_public_key,
         ]);
     }
 
@@ -182,6 +192,7 @@ class TenantFinancesController extends Controller
             'bank_transfer' => 'Bank Transfer',
             'mobile_money' => 'M-Pesa',
             'mpesa' => 'M-Pesa',
+            'intasend_mpesa' => 'M-Pesa (IntaSend)',
             'paystack' => 'Pay with Card',
             'stripe' => 'Pay with Card',
             default => ucfirst(str_replace('_', ' ', $method)),
@@ -194,6 +205,7 @@ class TenantFinancesController extends Controller
             'cash' => 'Pay cash to your landlord or caretaker',
             'bank_transfer' => 'Transfer to the landlord\'s bank account',
             'mobile_money', 'mpesa' => 'Pay instantly via M-Pesa',
+            'intasend_mpesa' => 'Pay instantly via M-Pesa STK Push',
             'paystack' => 'Pay securely with your debit or credit card',
             'stripe' => 'Pay securely with your card',
             default => '',

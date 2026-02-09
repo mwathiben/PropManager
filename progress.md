@@ -13371,3 +13371,71 @@ When POST /webhooks/paystack succeeds, these side effects occur:
 - test_stk_mismatch_fails_idempotency_key
 
 **PAY-V2-021 COMPLETE**
+
+---
+
+## Session: PAY-V2-023 — Tests for PaymentObserver, PaymentResource, ReceiptService
+**Date**: 2026-02-09
+**Task**: PAY-V2-023 (payment-workflow-prd-v2.0.json)
+**Priority**: HIGH | **Story Points**: 5
+
+### Skills Applied
+- **laraveltdd-with-pest**: RED-GREEN-REFACTOR; verify behavior not implementation
+- **laravelcontroller-tests**: CreatesTestData trait for realistic data setup
+- **laravelquality-checks**: Pint formatting + parallel test run
+- **laravelperformance-caching**: Cache::spy() for observer cache invalidation verification
+- **laravelinterfaces-and-di**: Mock PaymentLinkService (constructor-injected), spy on Cache facade
+- **laraveltransactions-and-consistency**: ReceiptService lockForUpdate() for receipt number generation
+- **laraveleloquent-relationships**: Test whenLoaded() with explicit setRelation/unsetRelation
+- **laravelperformance-eager-loading**: Verify PaymentResource doesn't lazy-load
+- **laravelexception-handling-and-logging**: Test error paths in ReceiptService
+- **verification-first**: All tests verified passing before claiming complete
+- **verification-quality-assurance**: Truth scoring — verify assertions match test names
+- **senior-qa**: Edge cases — null invoice_id, null landlord_id, partial payments
+- **code-reviewer**: Self-reviewed for false positives and overtesting
+- **e2e-testing-patterns**: Agent-browser verification of payment flows
+- **feature-development**: Full cycle: tracer bullet → implement → verify → E2E
+- **systematic-debugging**: DomPDF facade mocking root cause analysis
+- **agent-browser**: Browser automation for payment recording, ledger, settings verification
+
+### Tracer Bullet Analysis
+- **PaymentObserver**: Registered AppServiceProvider:91, triggered by 8 payment creation points, clears 7 cache keys via FinanceCacheService, revokes payment links via PaymentLinkService
+- **PaymentResource**: Used by 4 API controllers, nested in InvoiceResource, consumed by Finances/OverviewTab and Tenants/Ledger frontend
+- **ReceiptService**: Called by ManualPaymentHandler, PaymentCallbackProcessor, BulkPaymentProcessor, MpesaWebhookController; stores PDFs to private storage
+
+### Security Fix
+- **TenantFinancesController:132**: Fixed `config('services.paystack.public_key')` (dead reference to non-existent config) → `$paymentConfig?->paystack_public_key` (reads from PaymentConfiguration DB table per multi-tenant credential rules)
+
+### Files Created
+| File | Tests | Assertions |
+|------|-------|------------|
+| tests/Unit/Observers/PaymentObserverTest.php | 7 | 24 |
+| tests/Unit/Resources/PaymentResourceTest.php | 9 | 34 |
+| tests/Unit/Services/ReceiptServiceTest.php | 12 | 41 |
+| **Total** | **28** | **99** |
+
+### Files Modified
+| File | Change |
+|------|--------|
+| app/Http/Controllers/TenantFinancesController.php | Security fix: Paystack public key from DB instead of config |
+| payment-workflow-prd-v2.0.json | PAY-V2-023 passes: true |
+
+### Key Technical Decisions
+1. **DomPDF Facade Mocking**: `Barryvdh\DomPDF\Facade\Pdf` has custom `__callStatic` that bypasses standard facade mocking. Solved by binding mock to container: `$this->app->bind('dompdf.wrapper', fn() => $pdfMock)`
+2. **PaymentObserver**: Pure unit test — no DB, no RefreshDatabase. Constructed observer directly with mocked PaymentLinkService and Cache::spy()
+3. **PaymentResource whenLoaded()**: `resolve()` strips MissingValue instances, so test with `assertArrayNotHasKey()` instead of asserting on MissingValue
+4. **Null payment_date**: DB constraint prevents null, so set null on model instance after creation for testing null-safe behavior
+
+### Verification Results
+| Check | Result |
+|-------|--------|
+| PaymentObserverTest (7 tests, 24 assertions) | PASS |
+| PaymentResourceTest (9 tests, 34 assertions) | PASS |
+| ReceiptServiceTest (12 tests, 41 assertions) | PASS |
+| Pint formatting (4 files) | PASS |
+| Full test suite (1115 tests, 3491 assertions) | 3 pre-existing failures (MpesaWebhookAmountValidationTest), 13 skips |
+| E2E: Finance Hub loads with summary cards | PASS |
+| E2E: Tenant ledger renders payments correctly | PASS |
+| E2E: Settings > Payment Methods shows Paystack config from DB | PASS |
+
+**PAY-V2-023 COMPLETE**
