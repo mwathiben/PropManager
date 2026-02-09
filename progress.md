@@ -13510,3 +13510,86 @@ Removed `INTASEND_ENVIRONMENT=sandbox` from `.env.example` (lines 118-120). No c
 | E2E: Database state verified (is_voided, voided_at, void_reason) | PASS |
 
 **PAY-V2-012 COMPLETE**
+
+---
+
+## PAY-V2-024: Add Request Duration Logging for All External Calls
+**Status:** PASSED
+**Date:** 2026-02-09
+**Attempts:** 1
+
+### Implementation Summary
+
+Added duration logging to all 22 external HTTP calls across 4 payment services using a shared `LogsExternalRequests` trait. Every external API call now logs provider, endpoint, duration_ms, and status_code. Slow calls (>5s) are logged at WARNING level for easy grep. Also fixed a security violation in `PaystackSubscriptionService` (dead `config('services.paystack.*')` fallback) and added missing timeout/retry protection.
+
+### Skills Applied
+- **laravelhttp-client-resilience**: Maintain existing timeout(30)/retry(3,100) patterns; add timeout/retry to SubscriptionService
+- **laravelexception-handling-and-logging**: Structured log context arrays; WARNING for slow calls; no secrets in log context
+- **laraveltdd-with-pest**: RED-GREEN-REFACTOR — wrote failing trait test first
+- **verification-first**: Full test suite + lint + E2E before marking complete
+- **feature-development**: End-to-end implementation with acceptance criteria verification
+- **laravelquality-checks**: Pint formatting + test pass gate
+- **laravelconstants-and-configuration**: Class constant SLOW_THRESHOLD_MS = 5000
+- **laravelcomplexity-guardrails**: Keep trait under 40 lines, single responsibility
+- **distributed-tracing**: Duration logging = foundation of distributed tracing
+- **e2e-testing-patterns**: Browser-based smoke test to verify no regression
+- **agent-browser**: E2E browser automation for payment settings, finances hub, invoice flow
+- **secrets-management**: Fixed PaystackSubscriptionService config() fallback
+- **senior-secops**: Removed dead .env credential paths per multi-tenant SaaS rules
+
+### Research (Web Search)
+- Laravel HTTP Client Events (RequestSending/ResponseReceived/ConnectionFailed) — global but lack provider context
+- Trait wrapper chosen over events for explicit provider names and total-wall-time-including-retries
+- Industry standard: OpenTelemetry, Nightwatch for full APM; trait is pragmatic foundation
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Traits/LogsExternalRequests.php` | Shared trait: `timedHttpRequest()` + `logExternalCallDuration()` |
+| `tests/Unit/Traits/LogsExternalRequestsTest.php` | 5 unit tests for trait behavior |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Services/PaystackService.php` | Added trait, wrapped 11 HTTP calls |
+| `app/Services/MpesaService.php` | Added trait, wrapped 6 HTTP calls |
+| `app/Services/IntaSendService.php` | Added trait, wrapped 2 HTTP calls |
+| `app/Services/PaystackSubscriptionService.php` | Removed config() security fallback, added timeout/retry/ConnectionException handling, added trait, wrapped 3 HTTP calls |
+| `tests/Unit/Services/IntaSendServiceTest.php` | Added duration log assertions to 5 HTTP-calling tests |
+
+### Security Fix
+- **PaystackSubscriptionService**: Removed dead `config('services.paystack.secret_key')` and `config('services.paystack.public_key')` fallbacks that violated multi-tenant credential storage rules
+- Added `TIMEOUT_SECONDS = 30`, `RETRY_ATTEMPTS = 3`, `RETRY_DELAY_MS = 100` constants (previously no timeout)
+- Added `ConnectionException` catch blocks (previously only caught generic `\Exception`)
+- Changed error logging from `$response->json()` to `$response->status()` to avoid potential secret exposure
+
+### TDD Workflow
+1. **RED**: Created `LogsExternalRequestsTest` with 5 tests — all failed (trait didn't exist)
+2. **GREEN**: Implemented `LogsExternalRequests` trait — all 5 passed
+3. **REFACTOR**: Wrapped 22 HTTP calls across 4 services, fixed IntaSendServiceTest strict mocks
+
+### Acceptance Criteria Verification
+| Criteria | Status |
+|----------|--------|
+| All external API calls log duration | PASS (22 calls across 4 services) |
+| Log includes provider, endpoint, duration_ms, status_code | PASS |
+| Can grep logs for slow calls (>5s) | PASS (WARNING level for >5s) |
+
+### Verification Results
+| Check | Result |
+|-------|--------|
+| LogsExternalRequestsTest (5 tests, 10 assertions) | PASS |
+| IntaSendServiceTest (29 tests, 50 assertions) | PASS |
+| PaystackServiceTest (11 tests) | PASS |
+| MpesaServiceTest (14 tests) | PASS |
+| Full suite (1114 tests, 3533 assertions, 13 skips) | PASS |
+| Pint code style | PASS |
+| E2E: Login as landlord | PASS |
+| E2E: Settings > Payment Methods (Paystack/M-Pesa config renders) | PASS |
+| E2E: Finances hub (invoice/payment listing) | PASS |
+| E2E: Invoice detail (payment actions render) | PASS |
+| E2E: Subscription page loads | PASS |
+
+**PAY-V2-024 COMPLETE**

@@ -2,15 +2,19 @@
 
 namespace App\Services;
 
+use App\Models\PaymentConfiguration;
+use App\Traits\LogsExternalRequests;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class PaystackService
 {
-    protected $secretKey;
+    use LogsExternalRequests;
 
-    protected $publicKey;
+    protected $secretKey = '';
+
+    protected $publicKey = '';
 
     protected $baseUrl;
 
@@ -20,11 +24,38 @@ class PaystackService
 
     private const RETRY_DELAY_MS = 100;
 
-    public function __construct()
+    public function __construct(?PaymentConfiguration $config = null)
     {
-        $this->secretKey = config('services.paystack.secret_key');
-        $this->publicKey = config('services.paystack.public_key');
         $this->baseUrl = 'https://api.paystack.co';
+
+        if ($config !== null && $config->hasPaystackConfig()) {
+            $this->secretKey = $config->paystack_secret_key;
+            $this->publicKey = $config->paystack_public_key;
+        }
+    }
+
+    public function withConfig(PaymentConfiguration $config): self
+    {
+        if (! $config->hasPaystackConfig()) {
+            throw new \InvalidArgumentException(
+                'PaystackService requires a PaymentConfiguration with Paystack credentials. '
+                    .'Configure in Settings > Payment Methods.'
+            );
+        }
+
+        $this->secretKey = $config->paystack_secret_key;
+        $this->publicKey = $config->paystack_public_key;
+
+        return $this;
+    }
+
+    protected function ensureConfigured(): void
+    {
+        if (empty($this->secretKey) || empty($this->publicKey)) {
+            throw new \InvalidArgumentException(
+                'PaystackService requires Paystack credentials. Call withConfig() first or construct with PaymentConfiguration.'
+            );
+        }
     }
 
     public function isConfigured(): bool
@@ -40,8 +71,10 @@ class PaystackService
      */
     public function initializeTransaction(array $data)
     {
+        $this->ensureConfigured();
+
         try {
-            $response = Http::timeout(self::TIMEOUT_SECONDS)
+            $response = $this->timedHttpRequest('paystack', '/transaction/initialize', fn () => Http::timeout(self::TIMEOUT_SECONDS)
                 ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
@@ -54,7 +87,7 @@ class PaystackService
                     'reference' => $data['reference'],
                     'callback_url' => $data['callback_url'] ?? route('payments.callback'),
                     'metadata' => $data['metadata'] ?? [],
-                ]);
+                ]));
 
             if ($response->successful()) {
                 return $response->json();
@@ -91,14 +124,16 @@ class PaystackService
      */
     public function verifyTransaction(string $reference)
     {
+        $this->ensureConfigured();
+
         try {
-            $response = Http::timeout(self::TIMEOUT_SECONDS)
+            $response = $this->timedHttpRequest('paystack', '/transaction/verify', fn () => Http::timeout(self::TIMEOUT_SECONDS)
                 ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
                     'Authorization' => 'Bearer '.$this->secretKey,
-                ])->get($this->baseUrl.'/transaction/verify/'.$reference);
+                ])->get($this->baseUrl.'/transaction/verify/'.$reference));
 
             if ($response->successful()) {
                 return $response->json();
@@ -155,8 +190,10 @@ class PaystackService
      */
     public function createSubaccount(array $data): ?array
     {
+        $this->ensureConfigured();
+
         try {
-            $response = Http::timeout(self::TIMEOUT_SECONDS)
+            $response = $this->timedHttpRequest('paystack', '/subaccount', fn () => Http::timeout(self::TIMEOUT_SECONDS)
                 ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
@@ -171,7 +208,7 @@ class PaystackService
                     'primary_contact_email' => $data['email'] ?? null,
                     'primary_contact_phone' => $data['phone'] ?? null,
                     'metadata' => $data['metadata'] ?? [],
-                ]);
+                ]));
 
             if ($response->successful()) {
                 return $response->json();
@@ -207,14 +244,14 @@ class PaystackService
     public function updateSubaccount(string $subaccountCode, array $data): ?array
     {
         try {
-            $response = Http::timeout(self::TIMEOUT_SECONDS)
+            $response = $this->timedHttpRequest('paystack', '/subaccount', fn () => Http::timeout(self::TIMEOUT_SECONDS)
                 ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
                     'Authorization' => 'Bearer '.$this->secretKey,
                     'Content-Type' => 'application/json',
-                ])->put($this->baseUrl.'/subaccount/'.$subaccountCode, $data);
+                ])->put($this->baseUrl.'/subaccount/'.$subaccountCode, $data));
 
             if ($response->successful()) {
                 return $response->json();
@@ -250,13 +287,13 @@ class PaystackService
     public function getSubaccount(string $subaccountCode): ?array
     {
         try {
-            $response = Http::timeout(self::TIMEOUT_SECONDS)
+            $response = $this->timedHttpRequest('paystack', '/subaccount', fn () => Http::timeout(self::TIMEOUT_SECONDS)
                 ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
                     'Authorization' => 'Bearer '.$this->secretKey,
-                ])->get($this->baseUrl.'/subaccount/'.$subaccountCode);
+                ])->get($this->baseUrl.'/subaccount/'.$subaccountCode));
 
             if ($response->successful()) {
                 return $response->json();
@@ -292,7 +329,7 @@ class PaystackService
     public function listBanks(string $country = 'kenya'): ?array
     {
         try {
-            $response = Http::timeout(self::TIMEOUT_SECONDS)
+            $response = $this->timedHttpRequest('paystack', '/bank', fn () => Http::timeout(self::TIMEOUT_SECONDS)
                 ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
@@ -300,7 +337,7 @@ class PaystackService
                     'Authorization' => 'Bearer '.$this->secretKey,
                 ])->get($this->baseUrl.'/bank', [
                     'country' => $country,
-                ]);
+                ]));
 
             if ($response->successful()) {
                 return $response->json();
@@ -336,7 +373,7 @@ class PaystackService
     public function resolveAccountNumber(string $accountNumber, string $bankCode): ?array
     {
         try {
-            $response = Http::timeout(self::TIMEOUT_SECONDS)
+            $response = $this->timedHttpRequest('paystack', '/bank/resolve', fn () => Http::timeout(self::TIMEOUT_SECONDS)
                 ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
@@ -345,7 +382,7 @@ class PaystackService
                 ])->get($this->baseUrl.'/bank/resolve', [
                     'account_number' => $accountNumber,
                     'bank_code' => $bankCode,
-                ]);
+                ]));
 
             if ($response->successful()) {
                 return $response->json();
@@ -428,14 +465,14 @@ class PaystackService
                 $payload['split_code'] = $data['split_code'];
             }
 
-            $response = Http::timeout(self::TIMEOUT_SECONDS)
+            $response = $this->timedHttpRequest('paystack', '/transaction/initialize', fn () => Http::timeout(self::TIMEOUT_SECONDS)
                 ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
                     'Authorization' => 'Bearer '.$this->secretKey,
                     'Content-Type' => 'application/json',
-                ])->post($this->baseUrl.'/transaction/initialize', $payload);
+                ])->post($this->baseUrl.'/transaction/initialize', $payload));
 
             if ($response->successful()) {
                 return $response->json();
@@ -478,11 +515,11 @@ class PaystackService
             }
 
             // NO RETRY for refunds - financial operation must not be duplicated
-            $response = Http::timeout(self::TIMEOUT_SECONDS)
+            $response = $this->timedHttpRequest('paystack', '/refund', fn () => Http::timeout(self::TIMEOUT_SECONDS)
                 ->withHeaders([
                     'Authorization' => 'Bearer '.$this->secretKey,
                     'Content-Type' => 'application/json',
-                ])->post($this->baseUrl.'/refund', $data);
+                ])->post($this->baseUrl.'/refund', $data));
 
             if ($response->successful() && $response->json('status')) {
                 return $response->json('data');
@@ -515,13 +552,13 @@ class PaystackService
     public function getRefund(string $refundId): ?array
     {
         try {
-            $response = Http::timeout(self::TIMEOUT_SECONDS)
+            $response = $this->timedHttpRequest('paystack', '/refund', fn () => Http::timeout(self::TIMEOUT_SECONDS)
                 ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
                     'Authorization' => 'Bearer '.$this->secretKey,
-                ])->get($this->baseUrl.'/refund/'.$refundId);
+                ])->get($this->baseUrl.'/refund/'.$refundId));
 
             if ($response->successful()) {
                 return $response->json('data');
@@ -558,13 +595,13 @@ class PaystackService
                 $params['reference'] = $reference;
             }
 
-            $response = Http::timeout(self::TIMEOUT_SECONDS)
+            $response = $this->timedHttpRequest('paystack', '/refund', fn () => Http::timeout(self::TIMEOUT_SECONDS)
                 ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
                     'Authorization' => 'Bearer '.$this->secretKey,
-                ])->get($this->baseUrl.'/refund', $params);
+                ])->get($this->baseUrl.'/refund', $params));
 
             if ($response->successful()) {
                 return $response->json('data');

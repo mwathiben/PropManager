@@ -3,12 +3,16 @@
 namespace App\Services;
 
 use App\Models\PaymentConfiguration;
+use App\Traits\LogsExternalRequests;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class IntaSendService
 {
+    use LogsExternalRequests;
+
     protected PaymentConfiguration $config;
 
     protected string $baseUrl;
@@ -90,8 +94,11 @@ class IntaSendService
 
         $phone = $this->formatPhoneNumber($phone);
 
+        // IntaSend expects amount in whole currency units (e.g., 100 for KES 100)
+        // Using round() to handle decimal amounts properly (99.50 → 100)
+        // instead of (int) which truncates (99.50 → 99)
         $payload = [
-            'amount' => (int) $amount,
+            'amount' => (int) round($amount),
             'phone_number' => $phone,
             'api_ref' => $reference,
         ];
@@ -101,12 +108,13 @@ class IntaSendService
         }
 
         try {
-            $response = Http::timeout(self::TIMEOUT_SECONDS)
+            /** @var Response $response */
+            $response = $this->timedHttpRequest('intasend', '/api/v1/payment/mpesa-stk-push', fn () => Http::timeout(self::TIMEOUT_SECONDS)
                 ->withHeaders([
                     'Authorization' => 'Bearer '.$this->secretKey,
                     'Content-Type' => 'application/json',
                 ])
-                ->post($this->baseUrl.'/api/v1/payment/mpesa-stk-push/', $payload);
+                ->post($this->baseUrl.'/api/v1/payment/mpesa-stk-push/', $payload));
 
             $result = $response->json();
 
@@ -160,7 +168,8 @@ class IntaSendService
         }
 
         try {
-            $response = Http::timeout(self::TIMEOUT_SECONDS)
+            /** @var Response $response */
+            $response = $this->timedHttpRequest('intasend', '/api/v1/payment/status', fn () => Http::timeout(self::TIMEOUT_SECONDS)
                 ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
@@ -170,7 +179,7 @@ class IntaSendService
                 ])
                 ->post($this->baseUrl.'/api/v1/payment/status/', [
                     'invoice_id' => $invoiceId,
-                ]);
+                ]));
 
             $result = $response->json();
 

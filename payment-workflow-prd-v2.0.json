@@ -993,7 +993,9 @@
       "attempt_count": 1,
       "depends_on": [
         "PAY-V2-011"
-      ]
+      ],
+      "completed_date": "2026-02-09",
+      "implementation_notes": "Extracted VoidPaymentHandler service from PaymentController. Includes void reason tracking, invoice recalculation with lockForUpdate, and audit trail via Auditable trait. PaymentController delegates to handler. Unit tests cover void marking, invoice recalculation, status transitions (Sent, Partial, Voided), already-voided rejection, and no-invoice handling."
     },
     {
       "id": "PAY-V2-013",
@@ -1497,8 +1499,8 @@
       ],
       "verification": "Initiate payment; grep logs for 'duration_ms'.",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "PAY-V2-025",

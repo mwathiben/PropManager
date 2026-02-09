@@ -216,6 +216,17 @@ class IntaSendServiceTest extends TestCase
             ], 200),
         ]);
 
+        Log::shouldReceive('info')
+            ->once()
+            ->withArgs(fn ($msg, $ctx) => $msg === 'External API call completed'
+                && $ctx['provider'] === 'intasend'
+                && $ctx['endpoint'] === '/api/v1/payment/mpesa-stk-push'
+                && $ctx['status_code'] === 200);
+
+        Log::shouldReceive('info')
+            ->once()
+            ->withArgs(fn ($msg) => str_contains($msg, 'IntaSend STK Push initiated'));
+
         $service = $this->createConfiguredService();
 
         $result = $service->initializeMpesaStkPush(1000, '0712345678', 'REF-123');
@@ -242,6 +253,16 @@ class IntaSendServiceTest extends TestCase
             ], 200),
         ]);
 
+        Log::shouldReceive('info')
+            ->once()
+            ->withArgs(fn ($msg, $ctx) => $msg === 'External API call completed'
+                && $ctx['provider'] === 'intasend'
+                && $ctx['status_code'] === 200);
+
+        Log::shouldReceive('info')
+            ->once()
+            ->withArgs(fn ($msg) => str_contains($msg, 'IntaSend STK Push initiated'));
+
         $service = $this->createConfiguredService();
 
         $result = $service->initializeMpesaStkPush(
@@ -265,6 +286,12 @@ class IntaSendServiceTest extends TestCase
                 'error' => 'Invalid credentials',
             ], 401),
         ]);
+
+        Log::shouldReceive('info')
+            ->once()
+            ->withArgs(fn ($msg, $ctx) => $msg === 'External API call completed'
+                && $ctx['provider'] === 'intasend'
+                && $ctx['status_code'] === 401);
 
         Log::shouldReceive('error')
             ->once()
@@ -291,6 +318,17 @@ class IntaSendServiceTest extends TestCase
             ], 200),
         ]);
 
+        Log::shouldReceive('info')
+            ->once()
+            ->withArgs(fn ($msg, $ctx) => $msg === 'External API call completed'
+                && $ctx['provider'] === 'intasend'
+                && $ctx['endpoint'] === '/api/v1/payment/status'
+                && $ctx['status_code'] === 200);
+
+        Log::shouldReceive('info')
+            ->once()
+            ->withArgs(fn ($msg) => str_contains($msg, 'IntaSend transaction status retrieved'));
+
         $service = $this->createConfiguredService();
 
         $result = $service->verifyTransaction('INV-TEST-123');
@@ -316,6 +354,12 @@ class IntaSendServiceTest extends TestCase
                 'error' => 'Invoice not found',
             ], 404),
         ]);
+
+        Log::shouldReceive('info')
+            ->once()
+            ->withArgs(fn ($msg, $ctx) => $msg === 'External API call completed'
+                && $ctx['provider'] === 'intasend'
+                && $ctx['status_code'] === 404);
 
         Log::shouldReceive('error')
             ->once()

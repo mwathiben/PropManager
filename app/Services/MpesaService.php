@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\PaymentConfiguration;
+use App\Traits\LogsExternalRequests;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -10,6 +11,8 @@ use Illuminate\Support\Facades\Log;
 
 class MpesaService
 {
+    use LogsExternalRequests;
+
     protected string $consumerKey = '';
 
     protected string $consumerSecret = '';
@@ -78,13 +81,13 @@ class MpesaService
             try {
                 $credentials = base64_encode("{$this->consumerKey}:{$this->consumerSecret}");
 
-                $response = Http::timeout(self::TIMEOUT_SECONDS)
+                $response = $this->timedHttpRequest('mpesa', '/oauth/v1/generate', fn () => Http::timeout(self::TIMEOUT_SECONDS)
                     ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
                         return $exception instanceof ConnectionException;
                     }, throw: false)
                     ->withHeaders([
                         'Authorization' => 'Basic '.$credentials,
-                    ])->get("{$this->baseUrl}/oauth/v1/generate?grant_type=client_credentials");
+                    ])->get("{$this->baseUrl}/oauth/v1/generate?grant_type=client_credentials"));
 
                 if ($response->successful()) {
                     return $response->json('access_token');
@@ -139,7 +142,7 @@ class MpesaService
         $phone = $this->formatPhoneNumber($data['phone']);
 
         try {
-            $response = Http::timeout(self::TIMEOUT_SECONDS)
+            $response = $this->timedHttpRequest('mpesa', '/mpesa/stkpush/v1/processrequest', fn () => Http::timeout(self::TIMEOUT_SECONDS)
                 ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
@@ -158,7 +161,7 @@ class MpesaService
                     'CallBackURL' => $data['callback_url'] ?? config('mpesa.stk.callback_url'),
                     'AccountReference' => $accountRef,
                     'TransactionDesc' => $data['description'] ?? 'Payment',
-                ]);
+                ]));
 
             $result = $response->json();
 
@@ -214,7 +217,7 @@ class MpesaService
         $password = base64_encode($shortcode.$passkey.$timestamp);
 
         try {
-            $response = Http::timeout(self::TIMEOUT_SECONDS)
+            $response = $this->timedHttpRequest('mpesa', '/mpesa/stkpushquery/v1/query', fn () => Http::timeout(self::TIMEOUT_SECONDS)
                 ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
@@ -226,7 +229,7 @@ class MpesaService
                     'Password' => $password,
                     'Timestamp' => $timestamp,
                     'CheckoutRequestID' => $checkoutRequestId,
-                ]);
+                ]));
 
             return $response->json();
         } catch (ConnectionException $e) {
@@ -256,7 +259,7 @@ class MpesaService
         $config = $type === 'till' ? config('mpesa.till') : config('mpesa.c2b');
 
         try {
-            $response = Http::timeout(self::TIMEOUT_SECONDS)
+            $response = $this->timedHttpRequest('mpesa', '/mpesa/c2b/v1/registerurl', fn () => Http::timeout(self::TIMEOUT_SECONDS)
                 ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
@@ -268,7 +271,7 @@ class MpesaService
                     'ResponseType' => 'Completed',
                     'ConfirmationURL' => $config['confirmation_url'],
                     'ValidationURL' => $config['validation_url'],
-                ]);
+                ]));
 
             $result = $response->json();
 
@@ -325,7 +328,7 @@ class MpesaService
 
         try {
             // NO RETRY for B2C - financial operation must not be duplicated
-            $response = Http::timeout(self::TIMEOUT_SECONDS)
+            $response = $this->timedHttpRequest('mpesa', '/mpesa/b2c/v1/paymentrequest', fn () => Http::timeout(self::TIMEOUT_SECONDS)
                 ->withHeaders([
                     'Authorization' => 'Bearer '.$token,
                     'Content-Type' => 'application/json',
@@ -340,7 +343,7 @@ class MpesaService
                     'QueueTimeOutURL' => config('mpesa.b2c.timeout_url'),
                     'ResultURL' => config('mpesa.b2c.result_url'),
                     'Occasion' => $reference,
-                ]);
+                ]));
 
             $result = $response->json();
 
@@ -390,7 +393,7 @@ class MpesaService
         }
 
         try {
-            $response = Http::timeout(self::TIMEOUT_SECONDS)
+            $response = $this->timedHttpRequest('mpesa', '/mpesa/transactionstatus/v1/query', fn () => Http::timeout(self::TIMEOUT_SECONDS)
                 ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
@@ -407,7 +410,7 @@ class MpesaService
                     'ResultURL' => config('mpesa.b2c.result_url'),
                     'QueueTimeOutURL' => config('mpesa.b2c.timeout_url'),
                     'Remarks' => 'Transaction status query',
-                ]);
+                ]));
 
             $result = $response->json();
 
