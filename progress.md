@@ -13593,3 +13593,75 @@ Added duration logging to all 22 external HTTP calls across 4 payment services u
 | E2E: Subscription page loads | PASS |
 
 **PAY-V2-024 COMPLETE**
+
+---
+
+## Session: 2026-02-09
+**Task**: PAY-V2-025 - Create Health Check Endpoints for Payment Gateways
+**PRD**: payment-workflow-prd-v2.0.json
+**Status**: COMPLETED
+**Attempts**: 1
+
+### Skills Applied (15)
+- verification-first, feature-development, laraveltdd-with-pest
+- laravelhttp-client-resilience, laravelperformance-caching, laravelexception-handling-and-logging
+- laravelcontroller-cleanup, laravelcontroller-tests, laravelroutes-best-practices
+- laravelinterfaces-and-di, laravelquality-checks, laravelconstants-and-configuration
+- laravelrate-limiting, laravelconfig-env-storage, laravelperformance-select-columns
+
+### Architecture Decisions
+- **Multi-tenant ping**: Credential-free HTTP GET to gateway root URLs (no per-landlord keys needed)
+- **Environment from DB**: M-Pesa/IntaSend environments read from `PaymentConfiguration.mpesa_environment` / `intasend_environment` in database, NOT from .env
+- **PHP-side config checks**: Encrypted fields can't be inspected in SQL; load all configs, filter with model methods
+- **No secrets exposed**: Response only contains status strings, counts, and response times
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `tests/Feature/Controllers/PaymentHealthCheckTest.php` | 14 test cases covering structure, auth, config detection, ping, caching, security, rate limiting |
+| `app/Services/PaymentHealthService.php` | Health check logic: config counts, environment-aware pings, caching |
+| `app/Http/Controllers/Api/HealthCheckController.php` | Thin controller delegating to service |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `routes/api.php` | Added `GET /api/health/payments` route with `throttle:api` middleware |
+
+### Implementation Details
+
+**PaymentHealthService** methods:
+- `check(bool $ping)` - Main entry point
+- `loadConfigurations()` - Loads all PaymentConfiguration with `withoutGlobalScopes()->select(needed_columns)->get()`
+- `getGatewayStatus()` - Counts configured landlords, optionally pings
+- `filterConfigured()` - Uses `hasPaystackConfig()`, `hasMpesaApiConfig()||hasMpesaSTKConfig()`, `hasIntaSendConfig()`
+- `getGatewayPingUrls()` - Derives URLs from DB environments via `config('mpesa.endpoints.{$env}')`
+- `pingUrl()` - `Cache::remember()` with 5-min TTL, `Http::timeout(5)->get()`, `Log::warning` on failure
+- `aggregateStatus()` - `degraded` if any degraded, `not_configured` if all, `ok` otherwise
+
+**Response format**: `{status, gateways: {paystack: {status, configured_count, response_time_ms?}, ...}, checked_at}`
+
+### Acceptance Criteria Verification
+
+| Criterion | Status |
+|-----------|--------|
+| Endpoint returns status of all payment gateways | PASS |
+| Includes configured/not_configured status | PASS |
+| Optionally pings gateway APIs (cached 5 min) | PASS |
+| Works without authentication | PASS |
+
+### Verification Results
+
+| Check | Result |
+|-------|--------|
+| PaymentHealthCheckTest (14 tests, 48 assertions) | PASS |
+| Pint code style (880 files) | PASS (1 auto-fix) |
+| npm run build | PASS (39.65s) |
+| Full suite (1141 tests, 3581 assertions, 13 skips) | PASS |
+| E2E: GET /api/health/payments (default) | PASS - returns JSON with structure |
+| E2E: GET /api/health/payments?ping=true | PASS - paystack ok, 1204ms response time |
+| E2E: No secrets in response | PASS |
+| Screenshots saved | health-check-default.png, health-check-ping.png |
+
+**PAY-V2-025 COMPLETE**

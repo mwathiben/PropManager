@@ -1537,15 +1537,15 @@
       ],
       "verification": "curl /health/payments; verify JSON response with gateway statuses.",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "PAY-V2-026",
       "category": "security",
       "priority": "HIGH",
       "title": "Fix mpesa_environment .env Security Violation (PAY-V2-005 Regression)",
-      "description": "PAY-V2-005 migrated M-Pesa consumer credentials to database but missed mpesa_environment. The form validates it, but no DB column exists, $fillable doesn't include it, and MpesaService::withConfig() ignores it. ALL landlords share the global MPESA_ENVIRONMENT .env value. This violates multi-tenant SaaS isolation. IntaSend correctly has per-landlord intasend_environment — M-Pesa must match.",
+      "description": "PAY-V2-005 migrated M-Pesa consumer credentials to database but missed mpesa_environment. The form validates it, but no DB column exists, $fillable doesn't include it, and MpesaService::withConfig() ignores it. ALL landlords share the global MPESA_ENVIRONMENT .env value. This violates multi-tenant SaaS isolation. IntaSend correctly has per-landlord intasend_environment \u00e2\u20ac\u201d M-Pesa must match.",
       "story_points": 3,
       "steps": [
         "Create migration: add mpesa_environment column to payment_configurations (nullable, default 'sandbox')",
@@ -1587,7 +1587,9 @@
       "estimated_effort": "small",
       "passes": true,
       "attempt_count": 1,
-      "depends_on": ["PAY-V2-005"]
+      "depends_on": [
+        "PAY-V2-005"
+      ]
     },
     {
       "id": "PAY-V2-027",
@@ -1634,7 +1636,9 @@
       "estimated_effort": "medium",
       "passes": false,
       "attempt_count": 0,
-      "depends_on": ["PAY-V2-010"]
+      "depends_on": [
+        "PAY-V2-010"
+      ]
     }
   ],
   "executionOrder": [
@@ -1690,7 +1694,7 @@
       "database/migrations/2026_02_05_200002_add_mpesa_environment_to_payment_configurations.php"
     ],
     "CONTROLLERS": [
-      "app/Http/Controllers/PaymentController.php - MAJOR refactoring (1,276 → <300 lines)",
+      "app/Http/Controllers/PaymentController.php - MAJOR refactoring (1,276 \u00e2\u2020\u2019 <300 lines)",
       "app/Http/Controllers/Api/MpesaWebhookController.php - Security + validation",
       "app/Http/Controllers/Api/IntaSendWebhookController.php - Idempotency improvements"
     ],

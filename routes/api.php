@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\HealthCheckController;
 use App\Http\Controllers\Api\TenantInvoiceController;
 use App\Http\Controllers\Api\TenantLeaseController;
 use App\Http\Controllers\Api\TenantNotificationController;
@@ -16,8 +17,10 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// Health check
+// Health checks
 Route::get('/health', fn () => response()->json(['status' => 'ok', 'version' => '1.0']));
+Route::get('/health/payments', [HealthCheckController::class, 'payments'])
+    ->middleware('throttle:api');
 
 // API v1 routes
 Route::prefix('v1')->group(function () {
