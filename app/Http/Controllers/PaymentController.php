@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\InvoiceStatus;
+use App\Exceptions\DomainException;
 use App\Http\Requests\Payment\InitializePaystackRequest;
 use App\Http\Requests\Payment\ProcessBulkImportRequest;
 use App\Http\Requests\Payment\ValidateBulkImportRequest;
@@ -25,6 +25,7 @@ use App\Services\Payment\ManualPaymentHandler;
 use App\Services\Payment\PaystackCallbackHandler;
 use App\Services\Payment\PaystackHandlerResult;
 use App\Services\Payment\ReceiptGenerator;
+use App\Services\Payment\VoidPaymentHandler;
 use App\Services\PaystackService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -395,56 +396,19 @@ class PaymentController extends Controller
         }
     }
 
-    /**
-     * Void a payment
-     */
     public function void(VoidPaymentRequest $request, Payment $payment)
     {
-        $this->authorize('downloadReceipt', $payment);
-
-        $validated = $request->validated();
-
-        if ($payment->is_voided) {
-            return back()->withErrors(['error' => 'Payment is already voided.']);
-        }
+        $this->authorize('void', $payment);
 
         try {
-            DB::beginTransaction();
+            $result = app(VoidPaymentHandler::class)->void(
+                $payment,
+                $request->validated()['reason'],
+            );
 
-            $payment->update([
-                'is_voided' => true,
-                'voided_at' => now(),
-                'void_reason' => $validated['reason'],
-            ]);
-
-            if ($payment->invoice_id) {
-                $invoice = Invoice::lockForUpdate()->find($payment->invoice_id);
-                if ($invoice) {
-                    $newAmountPaid = max(0, $invoice->amount_paid - $payment->amount);
-                    $newStatus = $newAmountPaid <= 0 ? InvoiceStatus::Sent : ($newAmountPaid >= $invoice->total_due ? InvoiceStatus::Paid : InvoiceStatus::Partial);
-
-                    if ($invoice->status === InvoiceStatus::Voided) {
-                        $newStatus = InvoiceStatus::Voided;
-                    }
-
-                    $invoice->update([
-                        'amount_paid' => $newAmountPaid,
-                        'status' => $newStatus,
-                    ]);
-                }
-            }
-
-            DB::commit();
-
-            return back()->with('success', 'Payment voided successfully.');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Payment void failed', [
-                'payment_id' => $payment->id,
-                'error' => $e->getMessage(),
-            ]);
-
-            return back()->withErrors(['error' => 'Failed to void payment.']);
+            return back()->with('success', $result->successMessage());
+        } catch (DomainException $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
         }
     }
 

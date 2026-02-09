@@ -989,8 +989,8 @@
       ],
       "verification": "Void a payment; verify invoice recalculated, audit logged.",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": [
         "PAY-V2-011"
       ]

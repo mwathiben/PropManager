@@ -73,6 +73,14 @@ class PaymentPolicy
     }
 
     /**
+     * Determine whether the user can void the payment.
+     */
+    public function void(User $user, Payment $payment): bool
+    {
+        return $user->isLandlord() && $payment->landlord_id === $user->id;
+    }
+
+    /**
      * Determine whether the user can download receipt.
      */
     public function downloadReceipt(User $user, Payment $payment): bool

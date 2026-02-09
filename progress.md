@@ -13439,3 +13439,74 @@ When POST /webhooks/paystack succeeds, these side effects occur:
 | E2E: Settings > Payment Methods shows Paystack config from DB | PASS |
 
 **PAY-V2-023 COMPLETE**
+
+---
+
+## Session: PAY-V2-012 — Extract VoidPaymentHandler Service from PaymentController
+
+**Date:** 2026-02-09
+**Task:** PAY-V2-012 (Phase 3 Architecture, MEDIUM priority)
+**Approach:** TDD RED-GREEN-REFACTOR with tracer bullet analysis
+
+### Skills Applied
+- **laravelcontroller-cleanup**: Extract void logic to service, keep controller thin
+- **laraveltransactions-and-consistency**: Maintain DB::transaction() and lockForUpdate() on invoice
+- **laravelinterfaces-and-di**: Service injected via container, testable in isolation
+- **laravelcomplexity-guardrails**: Service under 30 lines per method
+- **laraveltdd-with-pest**: RED phase first, 7 failing tests before implementation
+- **laravelpolicies-and-authorization**: Added void() method to PaymentPolicy (security fix)
+- **laravelexception-handling-and-logging**: PaymentException for business errors
+- **laravelquality-checks**: Pint + PHPMD verification
+- **verification-first**: Full suite + E2E browser test
+- **payment-integration**: Void must be idempotent, non-destructive
+- **senior-security**: Defense-in-depth (policy + FormRequest)
+- **code-review-excellence**: Self-review, no shortcuts
+
+### Security Fix
+PaymentController::void() was using `$this->authorize('downloadReceipt', $payment)` which delegates to `view()`, allowing tenants and caretakers to void payments. Fixed by adding dedicated `void()` method to PaymentPolicy restricting to landlords only.
+
+### Dead Code Cleanup
+Removed `INTASEND_ENVIRONMENT=sandbox` from `.env.example` (lines 118-120). No config file references this variable — per-landlord `intasend_environment` is stored in the `payment_configurations` database table.
+
+### Files Created
+| File | Purpose |
+|------|---------|
+| `app/Services/Payment/VoidPaymentHandler.php` | Core void service with invoice recalculation |
+| `app/Services/Payment/VoidPaymentResult.php` | Immutable result value object |
+| `tests/Unit/Services/VoidPaymentHandlerTest.php` | 7 unit tests |
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `app/Http/Controllers/PaymentController.php` | Replaced 49-line void() with 12-line delegation (679→643 lines) |
+| `app/Policies/PaymentPolicy.php` | Added void() method (landlords only) |
+| `.env.example` | Removed dead INTASEND_ENVIRONMENT variable |
+| `payment-workflow-prd-v2.0.json` | PAY-V2-012 passes: true, attempt_count: 1 |
+
+### Unit Tests (7 cases)
+1. `test_void_marks_payment_as_voided` — sets is_voided, voided_at, void_reason
+2. `test_void_recalculates_invoice_amount_paid` — amount_paid decremented
+3. `test_void_changes_invoice_status_to_sent_when_fully_reversed` — 0 remaining = Sent
+4. `test_void_changes_invoice_status_to_partial_when_partially_reversed` — partial remaining
+5. `test_void_preserves_voided_invoice_status` — voided invoice stays voided
+6. `test_void_rejects_already_voided_payment` — throws PaymentException
+7. `test_void_handles_payment_without_invoice` — no invoice_id, void succeeds
+
+### Verification Results
+| Check | Result |
+|-------|--------|
+| VoidPaymentHandlerTest (7 tests, 19 assertions) | PASS |
+| PaymentControllerTest (31 tests, 117 assertions, 1 skip) | PASS |
+| Full suite (1122 tests, 3515 assertions, 13 skips) | PASS |
+| Pint code style | PASS |
+| PHPMD VoidPaymentHandler | PASS (no violations) |
+| PHPMD PaymentController | Pre-existing violations only (void no longer flagged) |
+| E2E: Login as landlord | PASS |
+| E2E: Navigate to Finances → Payments | PASS |
+| E2E: Void payment via POST | PASS (200 OK) |
+| E2E: Invoice status changed paid→sent | PASS |
+| E2E: amount_paid reduced 25000→0 | PASS |
+| E2E: Double-void rejected with "already voided" | PASS |
+| E2E: Database state verified (is_voided, voided_at, void_reason) | PASS |
+
+**PAY-V2-012 COMPLETE**
