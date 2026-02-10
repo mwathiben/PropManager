@@ -14,9 +14,11 @@ use App\Models\Payment;
 use App\Models\PaymentConfiguration;
 use App\Models\User;
 use App\Models\WebhookDeadLetter;
+use App\Models\WebhookLog;
 use App\Services\BillingModelService;
 use App\Services\IdempotencyService;
 use App\Services\Payment\WebhookDeadLetterService;
+use App\Services\Payment\WebhookLogService;
 use App\Services\ReceiptService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -32,21 +34,32 @@ class IntaSendWebhookController extends Controller
         protected BillingModelService $billingService,
         protected ReceiptService $receiptService,
         protected IdempotencyService $idempotencyService,
-        protected WebhookDeadLetterService $deadLetterService
+        protected WebhookDeadLetterService $deadLetterService,
+        protected WebhookLogService $webhookLogService
     ) {}
 
     public function handleMpesaWebhook(Request $request): JsonResponse
     {
         $payload = $request->all();
-
-        Log::info('IntaSend webhook received', [
-            'api_ref' => $payload['api_ref'] ?? null,
-            'invoice_id' => $payload['invoice_id'] ?? null,
-            'state' => $payload['state'] ?? null,
-        ]);
-
         $apiRef = $payload['api_ref'] ?? null;
         $intasendInvoiceId = $payload['invoice_id'] ?? null;
+        $eventId = $apiRef ?? $intasendInvoiceId ?? 'intasend-unknown-'.uniqid();
+
+        $webhookLog = $this->webhookLogService->recordHit(
+            WebhookLog::PROVIDER_INTASEND,
+            $eventId,
+            'mpesa_webhook',
+            json_encode($payload),
+            null,
+            $request->ip()
+        );
+        $this->webhookLogService->startTiming($eventId);
+
+        Log::info('IntaSend webhook received', [
+            'api_ref' => $apiRef,
+            'invoice_id' => $intasendInvoiceId,
+            'state' => $payload['state'] ?? null,
+        ]);
 
         $transaction = $this->findTransaction($apiRef, $intasendInvoiceId);
 
@@ -55,6 +68,7 @@ class IntaSendWebhookController extends Controller
                 'api_ref' => $apiRef,
                 'intasend_invoice_id' => $intasendInvoiceId,
             ]);
+            $this->webhookLogService->finishTiming($webhookLog, $eventId, WebhookLog::STATUS_FAILED);
 
             return response()->json(['status' => 'ok', 'message' => 'Transaction not found']);
         }
@@ -64,6 +78,7 @@ class IntaSendWebhookController extends Controller
                 'api_ref' => $apiRef,
                 'landlord_id' => $transaction->landlord_id,
             ]);
+            $this->webhookLogService->finishTiming($webhookLog, $eventId, WebhookLog::STATUS_FAILED);
 
             return response()->json(['status' => 'ok', 'message' => 'Challenge validation failed']);
         }
@@ -72,11 +87,20 @@ class IntaSendWebhookController extends Controller
 
         $transaction->update(['webhook_payload' => $payload]);
 
-        return match ($state) {
-            IntaSendTransaction::STATE_COMPLETE => $this->processCompletePayment($payload, $transaction),
-            IntaSendTransaction::STATE_FAILED => $this->handleFailedPayment($payload, $transaction),
-            default => $this->handlePendingOrProcessing($payload, $transaction, $state),
-        };
+        try {
+            $response = match ($state) {
+                IntaSendTransaction::STATE_COMPLETE => $this->processCompletePayment($payload, $transaction),
+                IntaSendTransaction::STATE_FAILED => $this->handleFailedPayment($payload, $transaction),
+                default => $this->handlePendingOrProcessing($payload, $transaction, $state),
+            };
+            $this->webhookLogService->finishTiming($webhookLog, $eventId, WebhookLog::STATUS_PROCESSED);
+
+            return $response;
+        } catch (\Throwable $e) {
+            $this->webhookLogService->finishTiming($webhookLog, $eventId, WebhookLog::STATUS_FAILED);
+
+            throw $e;
+        }
     }
 
     protected function findTransaction(?string $apiRef, ?string $intasendInvoiceId): ?IntaSendTransaction

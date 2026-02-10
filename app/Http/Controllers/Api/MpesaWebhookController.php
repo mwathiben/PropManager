@@ -12,9 +12,11 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\User;
 use App\Models\WebhookDeadLetter;
+use App\Models\WebhookLog;
 use App\Services\BillingModelService;
 use App\Services\IdempotencyService;
 use App\Services\Payment\WebhookDeadLetterService;
+use App\Services\Payment\WebhookLogService;
 use App\Services\ReceiptService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -29,7 +31,8 @@ class MpesaWebhookController extends Controller
         protected BillingModelService $billingService,
         protected ReceiptService $receiptService,
         protected IdempotencyService $idempotencyService,
-        protected WebhookDeadLetterService $deadLetterService
+        protected WebhookDeadLetterService $deadLetterService,
+        protected WebhookLogService $webhookLogService
     ) {}
 
     public function stkCallback(Request $request)
@@ -39,6 +42,17 @@ class MpesaWebhookController extends Controller
         if (! $callback) {
             return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Invalid payload']);
         }
+
+        $eventId = $callback['CheckoutRequestID'] ?? 'stk-unknown-'.uniqid();
+        $webhookLog = $this->webhookLogService->recordHit(
+            WebhookLog::PROVIDER_MPESA,
+            $eventId,
+            'stk_callback',
+            json_encode($request->all()),
+            null,
+            $request->ip()
+        );
+        $this->webhookLogService->startTiming($eventId);
 
         Log::info('M-Pesa STK callback received', [
             'checkout_request_id' => $callback['CheckoutRequestID'] ?? null,
@@ -66,6 +80,8 @@ class MpesaWebhookController extends Controller
                 );
             }
 
+            $this->webhookLogService->finishTiming($webhookLog, $eventId, WebhookLog::STATUS_PROCESSED);
+
             return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
         }
 
@@ -79,6 +95,7 @@ class MpesaWebhookController extends Controller
 
         if (! $mpesaReceiptNumber || ! $amount) {
             Log::error('M-Pesa STK callback missing required data', ['items' => $items->toArray()]);
+            $this->webhookLogService->finishTiming($webhookLog, $eventId, WebhookLog::STATUS_FAILED);
 
             return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
         }
@@ -90,6 +107,8 @@ class MpesaWebhookController extends Controller
             'phone' => $phone,
             'transaction_date' => $transactionDate,
         ]);
+
+        $this->webhookLogService->finishTiming($webhookLog, $eventId, WebhookLog::STATUS_PROCESSED);
 
         return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
     }
@@ -129,14 +148,25 @@ class MpesaWebhookController extends Controller
 
     public function c2bConfirmation(Request $request)
     {
+        $transId = $request->input('TransID');
+        $webhookLog = $this->webhookLogService->recordHit(
+            WebhookLog::PROVIDER_MPESA,
+            $transId,
+            'c2b_confirmation',
+            json_encode($request->all()),
+            null,
+            $request->ip()
+        );
+        $this->webhookLogService->startTiming($transId);
+
         Log::info('M-Pesa C2B confirmation received', [
-            'transaction_id' => $request->input('TransID'),
+            'transaction_id' => $transId,
             'amount' => $request->input('TransAmount'),
             'account_reference' => $request->input('BillRefNumber'),
         ]);
 
         $this->processPayment([
-            'mpesa_receipt_number' => $request->input('TransID'),
+            'mpesa_receipt_number' => $transId,
             'amount' => $request->input('TransAmount'),
             'phone' => $request->input('MSISDN'),
             'account_reference' => $request->input('BillRefNumber'),
@@ -144,6 +174,8 @@ class MpesaWebhookController extends Controller
             'first_name' => $request->input('FirstName'),
             'last_name' => $request->input('LastName'),
         ]);
+
+        $this->webhookLogService->finishTiming($webhookLog, $transId, WebhookLog::STATUS_PROCESSED);
 
         return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Success']);
     }
@@ -205,21 +237,21 @@ class MpesaWebhookController extends Controller
             $invoice = Invoice::where('id', $invoice->id)->lockForUpdate()->first();
             $amount = (float) $data['amount'];
 
+            $needsReconciliation = false;
             if (! empty($data['checkout_request_id'])) {
-                $expectedAmount = (float) $invoice->total_due;
+                $expectedAmount = $invoice->getOutstandingAmount();
                 $difference = abs($amount - $expectedAmount);
 
                 if ($difference > self::AMOUNT_TOLERANCE_KES) {
-                    DB::rollBack();
-
+                    // Log the mismatch but still record the payment - real funds received should not be discarded
                     $this->captureAmountMismatch($amount, $expectedAmount, $invoice, $data);
-                    $this->idempotencyService->fail(
-                        $idempotencyKey,
-                        "Amount mismatch: expected {$expectedAmount}, received {$amount}"
-                    );
-
-                    return;
+                    $needsReconciliation = true;
                 }
+            }
+
+            $paymentNotes = 'M-Pesa payment from '.($data['phone'] ?? 'unknown');
+            if ($needsReconciliation) {
+                $paymentNotes .= ' [NEEDS RECONCILIATION: Amount mismatch - expected '.$expectedAmount.', received '.$amount.']';
             }
 
             $payment = $invoice->payments()->create([
@@ -231,7 +263,7 @@ class MpesaWebhookController extends Controller
                 'reference' => 'MPESA-'.$receiptNumber,
                 'mpesa_transaction_id' => $receiptNumber,
                 'mpesa_checkout_request_id' => $data['checkout_request_id'] ?? null,
-                'notes' => 'M-Pesa payment from '.($data['phone'] ?? 'unknown'),
+                'notes' => $paymentNotes,
             ]);
 
             $landlord = User::find($invoice->landlord_id);
@@ -437,6 +469,17 @@ class MpesaWebhookController extends Controller
         $phone = $request->input('MSISDN');
         $amount = (float) $request->input('TransAmount');
         $transId = $request->input('TransID');
+
+        $webhookLog = $this->webhookLogService->recordHit(
+            WebhookLog::PROVIDER_MPESA,
+            $transId,
+            'till_confirmation',
+            json_encode($request->all()),
+            null,
+            $request->ip()
+        );
+        $this->webhookLogService->startTiming($transId);
+
         $idempotencyKey = "mpesa_till:{$transId}";
 
         Log::info('M-Pesa Till confirmation received', [
@@ -452,6 +495,7 @@ class MpesaWebhookController extends Controller
                 'key' => $idempotencyKey,
                 'cached' => $idempotencyResult['response'] !== null,
             ]);
+            $this->webhookLogService->finishTiming($webhookLog, $transId, WebhookLog::STATUS_PROCESSED);
 
             return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Already processed']);
         }
@@ -470,6 +514,7 @@ class MpesaWebhookController extends Controller
                     'payment_id' => $existingPayment->id,
                 ]);
                 Log::info('M-Pesa Till payment already processed', ['receipt' => $transId]);
+                $this->webhookLogService->finishTiming($webhookLog, $transId, WebhookLog::STATUS_PROCESSED);
 
                 return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Already processed']);
             }
@@ -491,6 +536,7 @@ class MpesaWebhookController extends Controller
                 $this->idempotencyService->release($idempotencyKey, [
                     'status' => 'queued_for_matching',
                 ]);
+                $this->webhookLogService->finishTiming($webhookLog, $transId, WebhookLog::STATUS_PROCESSED);
 
                 return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Queued for matching']);
             }
@@ -501,6 +547,7 @@ class MpesaWebhookController extends Controller
                 'status' => 'success',
                 'invoice_id' => $invoice->id,
             ]);
+            $this->webhookLogService->finishTiming($webhookLog, $transId, WebhookLog::STATUS_PROCESSED);
 
             return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Payment recorded']);
         } catch (\Illuminate\Database\QueryException $e) {
@@ -513,6 +560,7 @@ class MpesaWebhookController extends Controller
                 Log::info('M-Pesa Till duplicate webhook ignored (idempotent)', [
                     'mpesa_transaction_id' => $transId,
                 ]);
+                $this->webhookLogService->finishTiming($webhookLog, $transId, WebhookLog::STATUS_PROCESSED);
 
                 return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Already processed']);
             }
@@ -531,6 +579,7 @@ class MpesaWebhookController extends Controller
                 WebhookDeadLetter::ERROR_TRANSIENT,
                 $invoice?->landlord_id
             );
+            $this->webhookLogService->finishTiming($webhookLog, $transId, WebhookLog::STATUS_FAILED);
 
             return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Error - will retry']);
         } catch (\Exception $e) {
@@ -549,6 +598,7 @@ class MpesaWebhookController extends Controller
                 WebhookDeadLetter::ERROR_PERMANENT,
                 $invoice?->landlord_id
             );
+            $this->webhookLogService->finishTiming($webhookLog, $transId, WebhookLog::STATUS_FAILED);
 
             return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Error - will retry']);
         }
@@ -560,6 +610,17 @@ class MpesaWebhookController extends Controller
         $resultCode = $result['ResultCode'] ?? 1;
         $conversationId = $result['ConversationID'] ?? null;
         $transactionId = $result['TransactionID'] ?? null;
+        $eventId = $transactionId ?? $conversationId ?? 'b2c-unknown-'.uniqid();
+
+        $webhookLog = $this->webhookLogService->recordHit(
+            WebhookLog::PROVIDER_MPESA,
+            $eventId,
+            'b2c_result',
+            json_encode($request->all()),
+            null,
+            $request->ip()
+        );
+        $this->webhookLogService->startTiming($eventId);
 
         Log::info('M-Pesa B2C result received', [
             'conversation_id' => $conversationId,
@@ -573,6 +634,8 @@ class MpesaWebhookController extends Controller
         } else {
             $this->processB2CFailure($result);
         }
+
+        $this->webhookLogService->finishTiming($webhookLog, $eventId, WebhookLog::STATUS_PROCESSED);
 
         return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
     }

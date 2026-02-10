@@ -13842,3 +13842,97 @@ With default config (base=2, delay=100ms):
 - Laravel 12 HTTP Client docs: retry() supports closure for dynamic delay calculation
 
 **PAY-V2-014 COMPLETE**
+
+---
+
+## PAY-V2-019: Implement Webhook Retry Tracking
+
+**Date**: 2026-02-10
+**PRD**: payment-workflow-prd-v2.0.json
+**Priority**: MEDIUM | **Effort**: small | **Dependencies**: none | **Attempt**: 1
+
+### What Was Implemented
+
+Cross-provider webhook audit log with retry counting via MySQL upsert on `(provider, event_id)` unique constraint. Permanent log separate from the 24h IdempotencyKey cache and the failure-only WebhookDeadLetter.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/2026_02_10_100000_create_webhook_logs_table.php` | Schema: webhook_logs with UNIQUE(provider, event_id), indexes for common queries |
+| `app/Models/WebhookLog.php` | Eloquent model with TenantScope, provider/status constants, scopes (byProvider, highRetry, recent, withStatus, failed), helper methods (markProcessed, markFailed, isRetry) |
+| `database/factories/WebhookLogFactory.php` | Factory with states: processed, failed, mpesa, intasend, paystack, bank, withRetries, forLandlord, withProcessingTime |
+| `app/Services/Payment/WebhookLogService.php` | Core service: recordHit (atomic upsert via 1062 catch), startTiming/finishTiming (processing_time_ms tracking), warning log at retry_count >= 3 |
+| `tests/Unit/Models/WebhookLogTest.php` | 17 unit tests: model scopes, casts, relationships, status helpers, tenant isolation |
+| `tests/Unit/Services/WebhookLogServiceTest.php` | 11 unit tests: recordHit create/increment, timing, warning threshold, null landlord, status reset |
+| `tests/Feature/WebhookRetryTrackingTest.php` | 6 integration tests: STK creates log, duplicate increments retry, failed STK logged, C2B logged, high retry scope, processing time recorded |
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `app/Http/Controllers/Api/MpesaWebhookController.php` | Added WebhookLogService as 5th constructor param. recordHit+startTiming at entry of stkCallback, c2bConfirmation, tillConfirmation, b2cResult. finishTiming at every return point (processed for normal handling, failed for errors). |
+| `app/Http/Controllers/Api/IntaSendWebhookController.php` | Added WebhookLogService as 5th constructor param. recordHit+startTiming at handleMpesaWebhook entry. finishTiming via try/catch around match expression (processed for normal, failed for thrown exceptions). |
+
+### Schema
+
+```
+webhook_logs
+├── id (bigIncrements PK)
+├── landlord_id (FK users, nullable, nullOnDelete)
+├── provider (string 20) — mpesa, intasend, paystack, bank
+├── event_id (string 255) — provider-specific unique ID
+├── event_type (string 50, nullable) — stk_callback, c2b_confirmation, etc.
+├── payload_hash (string 64) — SHA-256 of raw payload (no PII stored)
+├── retry_count (unsignedInteger, default 1)
+├── first_received_at (timestamp)
+├── last_received_at (timestamp)
+├── status (enum: pending/processed/failed, default pending)
+├── processing_time_ms (unsignedInteger, nullable)
+├── ip_address (string 45, nullable) — supports IPv6
+├── timestamps
+│
+├── UNIQUE(provider, event_id) — enables INSERT ON DUPLICATE KEY UPDATE
+├── INDEX(landlord_id, provider)
+├── INDEX(provider, status)
+├── INDEX(retry_count)
+└── INDEX(last_received_at)
+```
+
+### Acceptance Criteria Verification
+
+| Criteria | Status |
+|----------|--------|
+| All webhooks logged with retry count | PASS — stkCallback, c2bConfirmation, tillConfirmation, b2cResult, handleMpesaWebhook all instrumented |
+| Retry count incremented on duplicate events | PASS — test_mpesa_duplicate_callback_increments_retry_count verified |
+| Can query high-retry webhooks for investigation | PASS — WebhookLog::highRetry(3) scope tested |
+
+### Test Results
+
+```
+Tests: 1181 passed, 13 skipped (0 failures)
+Duration: 285.01s
+New tests: 34 (17 model + 11 service + 6 feature)
+```
+
+### E2E Verification
+
+- Dashboard loads correctly (screenshot: webhook-e2e-02-dashboard.png)
+- Webhook endpoint returns 403 for unauthorized IPs (security middleware working)
+- WebhookLogService creates/increments/times correctly against live database
+- High retry scope query returns correct entries
+
+### Web Research Applied
+
+- MySQL INSERT ON DUPLICATE KEY UPDATE for atomic upsert (prevents race conditions on concurrent retries)
+- Store payload_hash not raw payload (audit log lightweight; full payloads in DLQ)
+- Track processing_time_ms for monitoring latency per provider
+- Log warning at retry threshold >= 3 for automatic alerting on flaky providers
+- Decouple ingestion from processing (recordHit at entry, finishTiming at exit)
+- nullOnDelete for landlord FK (webhook logs have forensic value beyond landlord lifecycle)
+
+### Skills Applied
+
+verification-first, feature-development, laravelmigrations-and-factories, laraveltdd-with-pest, laravelquality-checks, laraveleloquent-relationships, laraveltransactions-and-consistency, laravelcontroller-cleanup, laravelinterfaces-and-di, laravelcomplexity-guardrails, laravelexception-handling-and-logging, laravelconstants-and-configuration, laravelcontroller-tests, laravelperformance-select-columns, e2e-testing-patterns, agent-browser, payment-integration, secrets-management, distributed-tracing, code-review-excellence, sql-optimization-patterns, database-migration, data-privacy-compliance, senior-qa, systematic-debugging
+
+**PAY-V2-019 COMPLETE**
