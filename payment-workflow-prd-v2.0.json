@@ -1635,8 +1635,8 @@
       ],
       "verification": "Process initial payment callback; verify verification record updated, auto-approval triggers, email sent.",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": [
         "PAY-V2-010"
       ]

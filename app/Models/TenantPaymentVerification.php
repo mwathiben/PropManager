@@ -132,7 +132,7 @@ class TenantPaymentVerification extends Model
         ]);
     }
 
-    public function approve(int $verifierId): void
+    public function approve(?int $verifierId): void
     {
         $this->update([
             'status' => self::STATUS_PAYMENT_VERIFIED,

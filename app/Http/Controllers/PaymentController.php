@@ -10,17 +10,16 @@ use App\Http\Requests\Payment\VoidPaymentRequest;
 use App\Http\Requests\StorePaymentRequest;
 use App\Http\Traits\WithLandlordScope;
 use App\Mail\OverpaymentNotification;
-use App\Mail\PaymentVerificationApproved;
 use App\Models\Building;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\PaymentConfiguration;
-use App\Models\TenantPaymentVerification;
 use App\Models\User;
 use App\Services\BillingModelService;
 use App\Services\BulkImport\BulkImportValidator;
 use App\Services\Payment\BulkPaymentProcessor;
+use App\Services\Payment\InitialPaymentCallbackHandler;
 use App\Services\Payment\ManualPaymentHandler;
 use App\Services\Payment\PaystackCallbackHandler;
 use App\Services\Payment\PaystackHandlerResult;
@@ -412,92 +411,17 @@ class PaymentController extends Controller
         }
     }
 
-    /**
-     * Handle Paystack callback for initial payment verification
-     */
-    protected function handleInitialPaymentCallback(array $data, array $metadata)
+    protected function handleInitialPaymentCallback(array $data, array $metadata): \Illuminate\Http\RedirectResponse
     {
-        $verificationId = $metadata['verification_id'];
-        $verification = TenantPaymentVerification::find($verificationId);
+        $result = app(InitialPaymentCallbackHandler::class)->process($data, $metadata);
 
-        if (! $verification) {
-            return redirect()->route('tenant.payment-required')
-                ->with('error', 'Payment verification record not found');
-        }
-
-        if ($verification->isVerified()) {
+        if ($result->isSuccess() && $result->isVerified) {
             return redirect()->route('dashboard')
-                ->with('info', 'Payment already verified');
+                ->with('success', $result->successMessage());
         }
 
-        try {
-            DB::beginTransaction();
-
-            // Check for duplicate payment
-            $reference = $data['reference'];
-            $existingPayment = Payment::where('paystack_reference', $reference)
-                ->lockForUpdate()
-                ->first();
-
-            if ($existingPayment) {
-                DB::rollBack();
-
-                return redirect()->route('tenant.payment-required')
-                    ->with('info', 'Payment already recorded');
-            }
-
-            // Convert amount from kobo to KES
-            $amount = $data['amount'] / 100;
-
-            // Record the payment
-            $payment = Payment::create([
-                'landlord_id' => $verification->landlord_id,
-                'lease_id' => $verification->lease_id,
-                'amount' => $amount,
-                'payment_method' => 'paystack',
-                'payment_date' => now(),
-                'reference' => $reference,
-                'paystack_reference' => $reference,
-                'notes' => 'Initial payment verification - '.($data['channel'] ?? 'online'),
-            ]);
-
-            // Update verification record
-            $verification->recordPayment($amount);
-            $verification->refresh();
-
-            // Auto-verify if fully paid
-            if ($verification->isFullyPaid()) {
-                $verification->approve(0); // System auto-approval (no user ID)
-
-                // Send approval email to tenant
-                $tenant = $verification->lease->tenant;
-                if ($tenant) {
-                    Mail::to($tenant)->queue(new PaymentVerificationApproved($verification));
-                }
-            }
-
-            DB::commit();
-
-            $message = 'Payment of KES '.number_format($amount, 2).' successful!';
-            if ($verification->isVerified()) {
-                $message .= ' Your account has been verified. Welcome!';
-
-                return redirect()->route('dashboard')->with('success', $message);
-            }
-
-            return redirect()->route('tenant.payment-required')
-                ->with('success', $message.' Please wait for verification.');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Initial payment recording failed', [
-                'reference' => $data['reference'],
-                'verification_id' => $verificationId,
-                'error' => $e->getMessage(),
-            ]);
-
-            return redirect()->route('tenant.payment-required')
-                ->with('error', 'Failed to record payment. Please contact support.');
-        }
+        return redirect()->route($result->redirectRoute())
+            ->with($result->flashType(), $result->flashMessage());
     }
 
     /**
