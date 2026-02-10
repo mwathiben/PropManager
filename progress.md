@@ -13740,3 +13740,105 @@ Created `tests/Feature/ConcurrentWebhookTest.php`:
 | Screenshots | concurrent-webhook-verification.png, concurrent-webhook-invoice-paid.png |
 
 **PAY-V2-022 COMPLETE**
+
+---
+
+## PAY-V2-014: Implement Per-Gateway Retry Configuration
+
+**Date**: 2026-02-10
+**Status**: PASSED
+**Attempt**: 1
+
+### Skills Applied
+
+- **verification-first**: TDD RED-GREEN-REFACTOR cycle; every change verified before claiming done
+- **feature-development**: Phase-gated lifecycle: requirements → design → TDD → implementation → verification
+- **laravelhttp-client-resilience**: Maintain timeout/retry/ConnectionException patterns; add exponential backoff via closure
+- **laravelconfig-env-storage**: Platform-level retry settings in config files (NOT .env per SaaS credential rules)
+- **laravelconstants-and-configuration**: Replace hardcoded private const with config() calls and sensible fallback defaults
+- **laraveltdd-with-pest**: RED-GREEN-REFACTOR cycle per test step
+- **laravelquality-checks**: Pint formatting + full test suite pass gates
+- **laravelexception-handling-and-logging**: Error handling in retry callbacks preserved
+- **laravelcomplexity-guardrails**: Helper methods stay under 10 lines
+- **laravelperformance-caching**: config() calls cached after config:cache; fallback defaults ensure safety
+- **laravelcontroller-tests**: Existing controller tests remain green
+- **laraveldocumentation-best-practices**: Config section documented with PHPDoc block comments
+- **code-review-excellence**: Self-review; no-retry financial operations preserved
+- **e2e-testing-patterns**: E2E browser verification plan
+- **payment-integration**: Payment gateway idempotency preserved; financial no-retry sacrosanct
+- **secrets-management**: No secrets in config; retry settings are operational tuning knobs
+- **distributed-tracing**: LogsExternalRequests trait preserved intact
+- **agent-browser**: E2E browser automation for post-refactor verification
+- **propmanager-verification**: DBP pattern checks (all Http:: calls have timeouts)
+
+### Tracer Bullet Analysis
+
+| Service | File | Timeout Refs | Retry Refs | Delay Refs | Total | No-Retry Methods |
+|---------|------|-------------|-----------|-----------|-------|-----------------|
+| PaystackService | app/Services/PaystackService.php | 11 | 10 | 10 | 31 | refundTransaction() |
+| MpesaService | app/Services/MpesaService.php | 6 | 5 | 5 | 16 | initiateB2C() |
+| IntaSendService | app/Services/IntaSendService.php | 2 | 1 | 1 | 4 | initializeMpesaStkPush() |
+| PaystackSubscriptionService | app/Services/PaystackSubscriptionService.php | 3 | 3 | 3 | 9 | none |
+| **Total** | | **22** | **19** | **19** | **60** | |
+
+### What Changed
+
+1. **config/payments.php**: Added `gateways` section with per-gateway config (timeout_seconds, retry_attempts, retry_delay_ms, retry_backoff_base). M-Pesa gets 5 retries (Safaricom reliability). All gateways use exponential backoff base of 2.
+
+2. **config/intasend.php**: Removed unused HTTP client settings block (timeout, retry_times, retry_sleep) that IntaSendService never read. Replaced with comment pointing to config/payments.php.
+
+3. **PaystackService**: Removed 3 private const. Added 3 private config helpers with fallback defaults. Replaced 31 self:: references. Upgraded 10 retry sites to exponential backoff. refundTransaction() remains NO RETRY.
+
+4. **MpesaService**: Removed 3 private const. Added 3 private config helpers. Replaced 16 self:: references. Upgraded 5 retry sites to exponential backoff. initiateB2C() remains NO RETRY.
+
+5. **IntaSendService**: Removed 3 private const. Added 3 private config helpers. Replaced 4 self:: references. Upgraded 1 retry site to exponential backoff. initializeMpesaStkPush() remains NO RETRY.
+
+6. **PaystackSubscriptionService**: Removed 3 private const. Added 3 private config helpers (shares `paystack` config key). Replaced 9 self:: references. Upgraded 3 retry sites to exponential backoff.
+
+### Tests Created
+
+| Test File | New Tests | Total |
+|-----------|----------|-------|
+| tests/Unit/Config/PaymentGatewayRetryConfigTest.php | 6 (NEW FILE) | 6 |
+| tests/Unit/Services/PaystackServiceTest.php | +4 | 15 |
+| tests/Unit/Services/MpesaServiceTest.php | +3 | 17 |
+| tests/Unit/Services/IntaSendServiceTest.php | +3 | 32 |
+| **Total new tests** | **16** | |
+
+### Verification Results
+
+| Check | Result |
+|-------|--------|
+| Pint lint | PASS (10 files) |
+| PaymentGatewayRetryConfigTest | PASS (6 tests, 28 assertions) |
+| PaystackServiceTest | PASS (15 tests, 21 assertions) |
+| MpesaServiceTest | PASS (17 tests, 31 assertions) |
+| IntaSendServiceTest | PASS (32 tests, 59 assertions) |
+| LogsExternalRequestsTest | PASS (5 tests, 10 assertions) |
+| Full regression suite | PASS (1147 tests, 0 failures, 13 skipped) |
+| Pattern: All Http:: calls have timeout() | PASS (22/22) |
+| Pattern: No hardcoded constants remain | PASS (0 matches) |
+| Pattern: No-retry financial ops preserved | PASS (3/3 methods verified) |
+| Pattern: Config helpers under 10 lines | PASS (all 4 services) |
+
+### Exponential Backoff Formula
+
+```
+delay = retry_delay_ms * (retry_backoff_base ^ (attempt - 1))
+```
+
+With default config (base=2, delay=100ms):
+- Attempt 1: 100ms
+- Attempt 2: 200ms
+- Attempt 3: 400ms
+- Attempt 4: 800ms (M-Pesa only)
+- Attempt 5: 1600ms (M-Pesa only)
+
+### Web Research Applied
+
+- AWS Retry with Backoff Pattern: exponential backoff prevents thundering herd
+- Flutterwave Fault-Tolerant Payment Retries: payment gateways need exponential backoff
+- Better Stack Exponential Backoff Guide: jitter recommended (deferred to future PRD)
+- Laravel 12 HTTP Client docs: retry() supports closure for dynamic delay calculation
+
+**PAY-V2-014 COMPLETE**

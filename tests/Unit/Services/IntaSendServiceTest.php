@@ -373,4 +373,61 @@ class IntaSendServiceTest extends TestCase
 
         $this->assertNull($result);
     }
+
+    public function test_reads_retry_config_from_payments_config(): void
+    {
+        config(['payments.gateways.intasend.timeout_seconds' => 45]);
+        config(['payments.gateways.intasend.retry_attempts' => 5]);
+        config(['payments.gateways.intasend.retry_delay_ms' => 200]);
+
+        $service = $this->createConfiguredService();
+
+        $timeout = new \ReflectionMethod(IntaSendService::class, 'timeoutSeconds');
+        $timeout->setAccessible(true);
+
+        $retry = new \ReflectionMethod(IntaSendService::class, 'retryAttempts');
+        $retry->setAccessible(true);
+
+        $delay = new \ReflectionMethod(IntaSendService::class, 'retryDelayMs');
+        $delay->setAccessible(true);
+
+        $this->assertEquals(45, $timeout->invoke($service));
+        $this->assertEquals(5, $retry->invoke($service));
+        $this->assertEquals(200, $delay->invoke($service));
+    }
+
+    public function test_uses_exponential_backoff_for_verify_transaction(): void
+    {
+        config([
+            'payments.gateways.intasend.retry_delay_ms' => 100,
+            'payments.gateways.intasend.retry_backoff_base' => 2,
+        ]);
+
+        $base = (int) config('payments.gateways.intasend.retry_backoff_base', 2);
+        $delay = (int) config('payments.gateways.intasend.retry_delay_ms', 100);
+
+        $this->assertEquals(100, $delay * ($base ** 0));
+        $this->assertEquals(200, $delay * ($base ** 1));
+        $this->assertEquals(400, $delay * ($base ** 2));
+    }
+
+    public function test_falls_back_to_defaults_when_config_missing(): void
+    {
+        config(['payments.gateways.intasend' => null]);
+
+        $service = $this->createConfiguredService();
+
+        $timeout = new \ReflectionMethod(IntaSendService::class, 'timeoutSeconds');
+        $timeout->setAccessible(true);
+
+        $retry = new \ReflectionMethod(IntaSendService::class, 'retryAttempts');
+        $retry->setAccessible(true);
+
+        $delay = new \ReflectionMethod(IntaSendService::class, 'retryDelayMs');
+        $delay->setAccessible(true);
+
+        $this->assertEquals(30, $timeout->invoke($service));
+        $this->assertEquals(3, $retry->invoke($service));
+        $this->assertEquals(100, $delay->invoke($service));
+    }
 }

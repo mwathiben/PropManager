@@ -2,17 +2,32 @@
 
 namespace Tests\Unit\Services;
 
+use App\Models\PaymentConfiguration;
+use App\Models\User;
 use App\Services\MpesaService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class MpesaServiceTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected MpesaService $service;
+
+    protected PaymentConfiguration $config;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new MpesaService;
+
+        $landlord = User::factory()->create(['role' => 'landlord']);
+        $this->config = PaymentConfiguration::factory()->forLandlord($landlord)->withMpesa()->create([
+            'mpesa_consumer_key' => 'test_consumer_key',
+            'mpesa_consumer_secret' => 'test_consumer_secret',
+            'mpesa_shortcode' => '174379',
+            'mpesa_passkey' => 'test_passkey',
+        ]);
+        $this->service = new MpesaService($this->config);
     }
 
     public function test_formats_phone_number_with_leading_zero(): void
@@ -87,47 +102,51 @@ class MpesaServiceTest extends TestCase
     {
         config(['mpesa.allowed_ips' => ['196.201.214.200', '196.201.214.206']]);
 
-        $service = new MpesaService;
-
-        $this->assertTrue($service->validateWebhookIP('196.201.214.200'));
-        $this->assertTrue($service->validateWebhookIP('196.201.214.206'));
-        $this->assertFalse($service->validateWebhookIP('192.168.1.1'));
+        $this->assertTrue($this->service->validateWebhookIP('196.201.214.200'));
+        $this->assertTrue($this->service->validateWebhookIP('196.201.214.206'));
+        $this->assertFalse($this->service->validateWebhookIP('192.168.1.1'));
     }
 
     public function test_validates_webhook_ip_empty_whitelist(): void
     {
         config(['mpesa.allowed_ips' => []]);
 
-        $service = new MpesaService;
-
-        $this->assertTrue($service->validateWebhookIP('192.168.1.1'));
-        $this->assertTrue($service->validateWebhookIP('any.ip.address.here'));
+        $this->assertTrue($this->service->validateWebhookIP('192.168.1.1'));
+        $this->assertTrue($this->service->validateWebhookIP('any.ip.address.here'));
     }
 
-    public function test_is_configured_returns_false_without_credentials(): void
+    public function test_can_construct_without_config(): void
     {
-        config([
-            'mpesa.consumer_key' => '',
-            'mpesa.consumer_secret' => '',
-            'mpesa.stk.shortcode' => '',
-        ]);
-
-        $service = new MpesaService;
+        $service = new MpesaService(null);
 
         $this->assertFalse($service->isConfigured());
     }
 
-    public function test_is_configured_returns_true_with_credentials(): void
+    public function test_throws_exception_when_using_service_without_config(): void
     {
-        config([
-            'mpesa.consumer_key' => 'test_consumer_key',
-            'mpesa.consumer_secret' => 'test_consumer_secret',
-            'mpesa.stk.shortcode' => '174379',
-        ]);
+        $service = new MpesaService(null);
 
-        $service = new MpesaService;
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('MpesaService requires M-Pesa credentials');
 
-        $this->assertTrue($service->isConfigured());
+        $service->getAccessToken();
+    }
+
+    public function test_throws_exception_when_with_config_without_api_credentials(): void
+    {
+        $landlord = User::factory()->create(['role' => 'landlord']);
+        $configWithoutCreds = PaymentConfiguration::factory()
+            ->forLandlord($landlord)
+            ->withMpesa()
+            ->create([
+                'mpesa_consumer_key' => null,
+                'mpesa_consumer_secret' => null,
+            ]);
+
+        $service = new MpesaService(null);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $service->withConfig($configWithoutCreds);
     }
 
     public function test_checkout_reference_uniqueness(): void
@@ -138,5 +157,60 @@ class MpesaServiceTest extends TestCase
         }
 
         $this->assertCount(100, array_unique($references));
+    }
+
+    public function test_reads_retry_config_from_payments_config(): void
+    {
+        config(['payments.gateways.mpesa.timeout_seconds' => 60]);
+        config(['payments.gateways.mpesa.retry_attempts' => 10]);
+        config(['payments.gateways.mpesa.retry_delay_ms' => 250]);
+
+        $timeout = new \ReflectionMethod(MpesaService::class, 'timeoutSeconds');
+        $timeout->setAccessible(true);
+
+        $retry = new \ReflectionMethod(MpesaService::class, 'retryAttempts');
+        $retry->setAccessible(true);
+
+        $delay = new \ReflectionMethod(MpesaService::class, 'retryDelayMs');
+        $delay->setAccessible(true);
+
+        $this->assertEquals(60, $timeout->invoke($this->service));
+        $this->assertEquals(10, $retry->invoke($this->service));
+        $this->assertEquals(250, $delay->invoke($this->service));
+    }
+
+    public function test_uses_exponential_backoff(): void
+    {
+        config([
+            'payments.gateways.mpesa.retry_delay_ms' => 100,
+            'payments.gateways.mpesa.retry_backoff_base' => 2,
+        ]);
+
+        $base = (int) config('payments.gateways.mpesa.retry_backoff_base', 2);
+        $delay = (int) config('payments.gateways.mpesa.retry_delay_ms', 100);
+
+        $this->assertEquals(100, $delay * ($base ** 0));
+        $this->assertEquals(200, $delay * ($base ** 1));
+        $this->assertEquals(400, $delay * ($base ** 2));
+        $this->assertEquals(800, $delay * ($base ** 3));
+        $this->assertEquals(1600, $delay * ($base ** 4));
+    }
+
+    public function test_falls_back_to_defaults_when_config_missing(): void
+    {
+        config(['payments.gateways.mpesa' => null]);
+
+        $timeout = new \ReflectionMethod(MpesaService::class, 'timeoutSeconds');
+        $timeout->setAccessible(true);
+
+        $retry = new \ReflectionMethod(MpesaService::class, 'retryAttempts');
+        $retry->setAccessible(true);
+
+        $delay = new \ReflectionMethod(MpesaService::class, 'retryDelayMs');
+        $delay->setAccessible(true);
+
+        $this->assertEquals(30, $timeout->invoke($this->service));
+        $this->assertEquals(3, $retry->invoke($this->service));
+        $this->assertEquals(100, $delay->invoke($this->service));
     }
 }

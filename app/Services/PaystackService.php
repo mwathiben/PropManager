@@ -18,12 +18,6 @@ class PaystackService
 
     protected $baseUrl;
 
-    private const TIMEOUT_SECONDS = 30;
-
-    private const RETRY_ATTEMPTS = 3;
-
-    private const RETRY_DELAY_MS = 100;
-
     public function __construct(?PaymentConfiguration $config = null)
     {
         $this->baseUrl = 'https://api.paystack.co';
@@ -74,8 +68,12 @@ class PaystackService
         $this->ensureConfigured();
 
         try {
-            $response = $this->timedHttpRequest('paystack', '/transaction/initialize', fn () => Http::timeout(self::TIMEOUT_SECONDS)
-                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+            $response = $this->timedHttpRequest('paystack', '/transaction/initialize', fn () => Http::timeout($this->timeoutSeconds())
+                ->retry($this->retryAttempts(), function (int $attempt) {
+                    $base = (int) config('payments.gateways.paystack.retry_backoff_base', 2);
+
+                    return $this->retryDelayMs() * ($base ** ($attempt - 1));
+                }, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
@@ -127,8 +125,12 @@ class PaystackService
         $this->ensureConfigured();
 
         try {
-            $response = $this->timedHttpRequest('paystack', '/transaction/verify', fn () => Http::timeout(self::TIMEOUT_SECONDS)
-                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+            $response = $this->timedHttpRequest('paystack', '/transaction/verify', fn () => Http::timeout($this->timeoutSeconds())
+                ->retry($this->retryAttempts(), function (int $attempt) {
+                    $base = (int) config('payments.gateways.paystack.retry_backoff_base', 2);
+
+                    return $this->retryDelayMs() * ($base ** ($attempt - 1));
+                }, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
@@ -193,8 +195,12 @@ class PaystackService
         $this->ensureConfigured();
 
         try {
-            $response = $this->timedHttpRequest('paystack', '/subaccount', fn () => Http::timeout(self::TIMEOUT_SECONDS)
-                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+            $response = $this->timedHttpRequest('paystack', '/subaccount', fn () => Http::timeout($this->timeoutSeconds())
+                ->retry($this->retryAttempts(), function (int $attempt) {
+                    $base = (int) config('payments.gateways.paystack.retry_backoff_base', 2);
+
+                    return $this->retryDelayMs() * ($base ** ($attempt - 1));
+                }, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
@@ -243,9 +249,15 @@ class PaystackService
      */
     public function updateSubaccount(string $subaccountCode, array $data): ?array
     {
+        $this->ensureConfigured();
+
         try {
-            $response = $this->timedHttpRequest('paystack', '/subaccount', fn () => Http::timeout(self::TIMEOUT_SECONDS)
-                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+            $response = $this->timedHttpRequest('paystack', '/subaccount', fn () => Http::timeout($this->timeoutSeconds())
+                ->retry($this->retryAttempts(), function (int $attempt) {
+                    $base = (int) config('payments.gateways.paystack.retry_backoff_base', 2);
+
+                    return $this->retryDelayMs() * ($base ** ($attempt - 1));
+                }, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
@@ -286,9 +298,15 @@ class PaystackService
      */
     public function getSubaccount(string $subaccountCode): ?array
     {
+        $this->ensureConfigured();
+
         try {
-            $response = $this->timedHttpRequest('paystack', '/subaccount', fn () => Http::timeout(self::TIMEOUT_SECONDS)
-                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+            $response = $this->timedHttpRequest('paystack', '/subaccount', fn () => Http::timeout($this->timeoutSeconds())
+                ->retry($this->retryAttempts(), function (int $attempt) {
+                    $base = (int) config('payments.gateways.paystack.retry_backoff_base', 2);
+
+                    return $this->retryDelayMs() * ($base ** ($attempt - 1));
+                }, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
@@ -329,8 +347,12 @@ class PaystackService
     public function listBanks(string $country = 'kenya'): ?array
     {
         try {
-            $response = $this->timedHttpRequest('paystack', '/bank', fn () => Http::timeout(self::TIMEOUT_SECONDS)
-                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+            $response = $this->timedHttpRequest('paystack', '/bank', fn () => Http::timeout($this->timeoutSeconds())
+                ->retry($this->retryAttempts(), function (int $attempt) {
+                    $base = (int) config('payments.gateways.paystack.retry_backoff_base', 2);
+
+                    return $this->retryDelayMs() * ($base ** ($attempt - 1));
+                }, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
@@ -373,8 +395,12 @@ class PaystackService
     public function resolveAccountNumber(string $accountNumber, string $bankCode): ?array
     {
         try {
-            $response = $this->timedHttpRequest('paystack', '/bank/resolve', fn () => Http::timeout(self::TIMEOUT_SECONDS)
-                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+            $response = $this->timedHttpRequest('paystack', '/bank/resolve', fn () => Http::timeout($this->timeoutSeconds())
+                ->retry($this->retryAttempts(), function (int $attempt) {
+                    $base = (int) config('payments.gateways.paystack.retry_backoff_base', 2);
+
+                    return $this->retryDelayMs() * ($base ** ($attempt - 1));
+                }, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
@@ -465,8 +491,12 @@ class PaystackService
                 $payload['split_code'] = $data['split_code'];
             }
 
-            $response = $this->timedHttpRequest('paystack', '/transaction/initialize', fn () => Http::timeout(self::TIMEOUT_SECONDS)
-                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+            $response = $this->timedHttpRequest('paystack', '/transaction/initialize', fn () => Http::timeout($this->timeoutSeconds())
+                ->retry($this->retryAttempts(), function (int $attempt) {
+                    $base = (int) config('payments.gateways.paystack.retry_backoff_base', 2);
+
+                    return $this->retryDelayMs() * ($base ** ($attempt - 1));
+                }, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
@@ -515,7 +545,7 @@ class PaystackService
             }
 
             // NO RETRY for refunds - financial operation must not be duplicated
-            $response = $this->timedHttpRequest('paystack', '/refund', fn () => Http::timeout(self::TIMEOUT_SECONDS)
+            $response = $this->timedHttpRequest('paystack', '/refund', fn () => Http::timeout($this->timeoutSeconds())
                 ->withHeaders([
                     'Authorization' => 'Bearer '.$this->secretKey,
                     'Content-Type' => 'application/json',
@@ -551,9 +581,15 @@ class PaystackService
 
     public function getRefund(string $refundId): ?array
     {
+        $this->ensureConfigured();
+
         try {
-            $response = $this->timedHttpRequest('paystack', '/refund', fn () => Http::timeout(self::TIMEOUT_SECONDS)
-                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+            $response = $this->timedHttpRequest('paystack', '/refund', fn () => Http::timeout($this->timeoutSeconds())
+                ->retry($this->retryAttempts(), function (int $attempt) {
+                    $base = (int) config('payments.gateways.paystack.retry_backoff_base', 2);
+
+                    return $this->retryDelayMs() * ($base ** ($attempt - 1));
+                }, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
@@ -595,8 +631,12 @@ class PaystackService
                 $params['reference'] = $reference;
             }
 
-            $response = $this->timedHttpRequest('paystack', '/refund', fn () => Http::timeout(self::TIMEOUT_SECONDS)
-                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+            $response = $this->timedHttpRequest('paystack', '/refund', fn () => Http::timeout($this->timeoutSeconds())
+                ->retry($this->retryAttempts(), function (int $attempt) {
+                    $base = (int) config('payments.gateways.paystack.retry_backoff_base', 2);
+
+                    return $this->retryDelayMs() * ($base ** ($attempt - 1));
+                }, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
@@ -630,9 +670,21 @@ class PaystackService
         }
     }
 
-    /**
-     * Redact sensitive data from response body before logging
-     */
+    private function timeoutSeconds(): int
+    {
+        return (int) config('payments.gateways.paystack.timeout_seconds', 30);
+    }
+
+    private function retryAttempts(): int
+    {
+        return (int) config('payments.gateways.paystack.retry_attempts', 3);
+    }
+
+    private function retryDelayMs(): int
+    {
+        return (int) config('payments.gateways.paystack.retry_delay_ms', 100);
+    }
+
     private function redactSecrets(string $body): string
     {
         $truncated = substr($body, 0, 500);

@@ -18,18 +18,7 @@ return [
         'production' => 'https://payment.intasend.com',
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | HTTP Client Settings
-    |--------------------------------------------------------------------------
-    |
-    | Timeout and retry settings for API calls.
-    | Consistent with Paystack/M-Pesa patterns in this codebase.
-    |
-    */
-    'timeout' => 30,
-    'retry_times' => 3,
-    'retry_sleep' => 100,
+    // HTTP retry/timeout: see config/payments.php 'gateways.intasend'
 
     /*
     |--------------------------------------------------------------------------
@@ -52,7 +41,7 @@ return [
     | This is the platform's wallet for collecting fees from all landlords.
     |
     */
-    'platform_fee_percentage' => env('INTASEND_PLATFORM_FEE_PERCENTAGE', 2.5),
+    'platform_fee_percentage' => 2.5,
     'platform_wallet_id' => env('INTASEND_PLATFORM_WALLET_ID'),
 
     /*

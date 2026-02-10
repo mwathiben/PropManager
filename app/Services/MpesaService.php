@@ -23,12 +23,6 @@ class MpesaService
 
     protected ?PaymentConfiguration $config = null;
 
-    private const TIMEOUT_SECONDS = 30;
-
-    private const RETRY_ATTEMPTS = 3;
-
-    private const RETRY_DELAY_MS = 100;
-
     public function __construct(?PaymentConfiguration $config = null)
     {
         $this->environment = config('mpesa.environment', 'sandbox') ?? 'sandbox';
@@ -81,8 +75,12 @@ class MpesaService
             try {
                 $credentials = base64_encode("{$this->consumerKey}:{$this->consumerSecret}");
 
-                $response = $this->timedHttpRequest('mpesa', '/oauth/v1/generate', fn () => Http::timeout(self::TIMEOUT_SECONDS)
-                    ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+                $response = $this->timedHttpRequest('mpesa', '/oauth/v1/generate', fn () => Http::timeout($this->timeoutSeconds())
+                    ->retry($this->retryAttempts(), function (int $attempt) {
+                        $base = (int) config('payments.gateways.mpesa.retry_backoff_base', 2);
+
+                        return $this->retryDelayMs() * ($base ** ($attempt - 1));
+                    }, function ($exception) {
                         return $exception instanceof ConnectionException;
                     }, throw: false)
                     ->withHeaders([
@@ -142,8 +140,12 @@ class MpesaService
         $phone = $this->formatPhoneNumber($data['phone']);
 
         try {
-            $response = $this->timedHttpRequest('mpesa', '/mpesa/stkpush/v1/processrequest', fn () => Http::timeout(self::TIMEOUT_SECONDS)
-                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+            $response = $this->timedHttpRequest('mpesa', '/mpesa/stkpush/v1/processrequest', fn () => Http::timeout($this->timeoutSeconds())
+                ->retry($this->retryAttempts(), function (int $attempt) {
+                    $base = (int) config('payments.gateways.mpesa.retry_backoff_base', 2);
+
+                    return $this->retryDelayMs() * ($base ** ($attempt - 1));
+                }, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
@@ -217,8 +219,12 @@ class MpesaService
         $password = base64_encode($shortcode.$passkey.$timestamp);
 
         try {
-            $response = $this->timedHttpRequest('mpesa', '/mpesa/stkpushquery/v1/query', fn () => Http::timeout(self::TIMEOUT_SECONDS)
-                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+            $response = $this->timedHttpRequest('mpesa', '/mpesa/stkpushquery/v1/query', fn () => Http::timeout($this->timeoutSeconds())
+                ->retry($this->retryAttempts(), function (int $attempt) {
+                    $base = (int) config('payments.gateways.mpesa.retry_backoff_base', 2);
+
+                    return $this->retryDelayMs() * ($base ** ($attempt - 1));
+                }, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
@@ -259,8 +265,12 @@ class MpesaService
         $config = $type === 'till' ? config('mpesa.till') : config('mpesa.c2b');
 
         try {
-            $response = $this->timedHttpRequest('mpesa', '/mpesa/c2b/v1/registerurl', fn () => Http::timeout(self::TIMEOUT_SECONDS)
-                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+            $response = $this->timedHttpRequest('mpesa', '/mpesa/c2b/v1/registerurl', fn () => Http::timeout($this->timeoutSeconds())
+                ->retry($this->retryAttempts(), function (int $attempt) {
+                    $base = (int) config('payments.gateways.mpesa.retry_backoff_base', 2);
+
+                    return $this->retryDelayMs() * ($base ** ($attempt - 1));
+                }, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
@@ -328,7 +338,7 @@ class MpesaService
 
         try {
             // NO RETRY for B2C - financial operation must not be duplicated
-            $response = $this->timedHttpRequest('mpesa', '/mpesa/b2c/v1/paymentrequest', fn () => Http::timeout(self::TIMEOUT_SECONDS)
+            $response = $this->timedHttpRequest('mpesa', '/mpesa/b2c/v1/paymentrequest', fn () => Http::timeout($this->timeoutSeconds())
                 ->withHeaders([
                     'Authorization' => 'Bearer '.$token,
                     'Content-Type' => 'application/json',
@@ -393,8 +403,12 @@ class MpesaService
         }
 
         try {
-            $response = $this->timedHttpRequest('mpesa', '/mpesa/transactionstatus/v1/query', fn () => Http::timeout(self::TIMEOUT_SECONDS)
-                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+            $response = $this->timedHttpRequest('mpesa', '/mpesa/transactionstatus/v1/query', fn () => Http::timeout($this->timeoutSeconds())
+                ->retry($this->retryAttempts(), function (int $attempt) {
+                    $base = (int) config('payments.gateways.mpesa.retry_backoff_base', 2);
+
+                    return $this->retryDelayMs() * ($base ** ($attempt - 1));
+                }, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
@@ -496,6 +510,21 @@ class MpesaService
     /**
      * Redact sensitive data from response body before logging
      */
+    private function timeoutSeconds(): int
+    {
+        return (int) config('payments.gateways.mpesa.timeout_seconds', 30);
+    }
+
+    private function retryAttempts(): int
+    {
+        return (int) config('payments.gateways.mpesa.retry_attempts', 3);
+    }
+
+    private function retryDelayMs(): int
+    {
+        return (int) config('payments.gateways.mpesa.retry_delay_ms', 100);
+    }
+
     private function redactSecrets(string $body): string
     {
         $truncated = substr($body, 0, 500);

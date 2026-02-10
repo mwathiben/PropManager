@@ -48,4 +48,39 @@ return [
         'sanitize_fields' => ['phone', 'msisdn', 'token', 'authorization', 'secret', 'password', 'api_key'],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Per-Gateway HTTP Client Settings
+    |--------------------------------------------------------------------------
+    |
+    | Timeout and retry configuration for each payment gateway.
+    | M-Pesa has higher retry count due to Safaricom API reliability.
+    | retry_backoff_base enables exponential backoff:
+    |   delay = retry_delay_ms * (retry_backoff_base ^ (attempt - 1))
+    |
+    | Example with base=2, delay=100ms: 100ms, 200ms, 400ms, 800ms, 1600ms
+    |
+    */
+
+    'gateways' => [
+        'paystack' => [
+            'timeout_seconds' => 30,
+            'retry_attempts' => 3,
+            'retry_delay_ms' => 100,
+            'retry_backoff_base' => 2,
+        ],
+        'mpesa' => [
+            'timeout_seconds' => 30,
+            'retry_attempts' => 5,
+            'retry_delay_ms' => 100,
+            'retry_backoff_base' => 2,
+        ],
+        'intasend' => [
+            'timeout_seconds' => 30,
+            'retry_attempts' => 3,
+            'retry_delay_ms' => 100,
+            'retry_backoff_base' => 2,
+        ],
+    ],
+
 ];

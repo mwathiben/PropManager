@@ -23,12 +23,6 @@ class IntaSendService
 
     protected string $environment;
 
-    private const TIMEOUT_SECONDS = 30;
-
-    private const RETRY_ATTEMPTS = 3;
-
-    private const RETRY_DELAY_MS = 100;
-
     public function __construct(PaymentConfiguration $config)
     {
         $this->config = $config;
@@ -109,7 +103,7 @@ class IntaSendService
 
         try {
             /** @var Response $response */
-            $response = $this->timedHttpRequest('intasend', '/api/v1/payment/mpesa-stk-push', fn () => Http::timeout(self::TIMEOUT_SECONDS)
+            $response = $this->timedHttpRequest('intasend', '/api/v1/payment/mpesa-stk-push', fn () => Http::timeout($this->timeoutSeconds())
                 ->withHeaders([
                     'Authorization' => 'Bearer '.$this->secretKey,
                     'Content-Type' => 'application/json',
@@ -169,8 +163,12 @@ class IntaSendService
 
         try {
             /** @var Response $response */
-            $response = $this->timedHttpRequest('intasend', '/api/v1/payment/status', fn () => Http::timeout(self::TIMEOUT_SECONDS)
-                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+            $response = $this->timedHttpRequest('intasend', '/api/v1/payment/status', fn () => Http::timeout($this->timeoutSeconds())
+                ->retry($this->retryAttempts(), function (int $attempt) {
+                    $base = (int) config('payments.gateways.intasend.retry_backoff_base', 2);
+
+                    return $this->retryDelayMs() * ($base ** ($attempt - 1));
+                }, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
@@ -280,6 +278,21 @@ class IntaSendService
     public static function isFailed(string $state): bool
     {
         return strtoupper($state) === config('intasend.states.failed', 'FAILED');
+    }
+
+    private function timeoutSeconds(): int
+    {
+        return (int) config('payments.gateways.intasend.timeout_seconds', 30);
+    }
+
+    private function retryAttempts(): int
+    {
+        return (int) config('payments.gateways.intasend.retry_attempts', 3);
+    }
+
+    private function retryDelayMs(): int
+    {
+        return (int) config('payments.gateways.intasend.retry_delay_ms', 100);
     }
 
     private function redactSecrets(string $body): string

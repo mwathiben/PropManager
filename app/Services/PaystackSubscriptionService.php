@@ -21,12 +21,6 @@ class PaystackSubscriptionService
 
     protected string $baseUrl = 'https://api.paystack.co';
 
-    private const TIMEOUT_SECONDS = 30;
-
-    private const RETRY_ATTEMPTS = 3;
-
-    private const RETRY_DELAY_MS = 100;
-
     public function __construct()
     {
         $this->secretKey = Setting::getSystem('paystack_secret_key') ?? '';
@@ -39,8 +33,12 @@ class PaystackSubscriptionService
         $reference = 'SUB-'.time().'-'.strtoupper(Str::random(6));
 
         try {
-            $response = $this->timedHttpRequest('paystack', '/transaction/initialize', fn () => Http::timeout(self::TIMEOUT_SECONDS)
-                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+            $response = $this->timedHttpRequest('paystack', '/transaction/initialize', fn () => Http::timeout($this->timeoutSeconds())
+                ->retry($this->retryAttempts(), function (int $attempt) {
+                    $base = (int) config('payments.gateways.paystack.retry_backoff_base', 2);
+
+                    return $this->retryDelayMs() * ($base ** ($attempt - 1));
+                }, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
@@ -48,7 +46,7 @@ class PaystackSubscriptionService
                     'Content-Type' => 'application/json',
                 ])->post($this->baseUrl.'/transaction/initialize', [
                     'email' => $user->email,
-                    'amount' => (int) ($amount * 100),
+                    'amount' => (int) round($amount * 100),
                     'reference' => $reference,
                     'callback_url' => route('subscription.callback'),
                     'metadata' => [
@@ -107,8 +105,12 @@ class PaystackSubscriptionService
     public function verifyPayment(string $reference): ?array
     {
         try {
-            $response = $this->timedHttpRequest('paystack', '/transaction/verify', fn () => Http::timeout(self::TIMEOUT_SECONDS)
-                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+            $response = $this->timedHttpRequest('paystack', '/transaction/verify', fn () => Http::timeout($this->timeoutSeconds())
+                ->retry($this->retryAttempts(), function (int $attempt) {
+                    $base = (int) config('payments.gateways.paystack.retry_backoff_base', 2);
+
+                    return $this->retryDelayMs() * ($base ** ($attempt - 1));
+                }, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
@@ -147,8 +149,12 @@ class PaystackSubscriptionService
         $amount = $interval === 'annually' ? $plan->price_yearly : $plan->price_monthly;
 
         try {
-            $response = $this->timedHttpRequest('paystack', '/plan', fn () => Http::timeout(self::TIMEOUT_SECONDS)
-                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, function ($exception) {
+            $response = $this->timedHttpRequest('paystack', '/plan', fn () => Http::timeout($this->timeoutSeconds())
+                ->retry($this->retryAttempts(), function (int $attempt) {
+                    $base = (int) config('payments.gateways.paystack.retry_backoff_base', 2);
+
+                    return $this->retryDelayMs() * ($base ** ($attempt - 1));
+                }, function ($exception) {
                     return $exception instanceof ConnectionException;
                 }, throw: false)
                 ->withHeaders([
@@ -156,7 +162,7 @@ class PaystackSubscriptionService
                     'Content-Type' => 'application/json',
                 ])->post($this->baseUrl.'/plan', [
                     'name' => $plan->name.' ('.ucfirst($interval).')',
-                    'amount' => (int) ($amount * 100),
+                    'amount' => (int) round($amount * 100),
                     'interval' => $interval,
                     'currency' => $plan->currency,
                 ]));
@@ -177,6 +183,21 @@ class PaystackSubscriptionService
 
             return null;
         }
+    }
+
+    private function timeoutSeconds(): int
+    {
+        return (int) config('payments.gateways.paystack.timeout_seconds', 30);
+    }
+
+    private function retryAttempts(): int
+    {
+        return (int) config('payments.gateways.paystack.retry_attempts', 3);
+    }
+
+    private function retryDelayMs(): int
+    {
+        return (int) config('payments.gateways.paystack.retry_delay_ms', 100);
     }
 
     public function getPublicKey(): string
