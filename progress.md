@@ -13665,3 +13665,78 @@ Added duration logging to all 22 external HTTP calls across 4 payment services u
 | Screenshots saved | health-check-default.png, health-check-ping.png |
 
 **PAY-V2-025 COMPLETE**
+
+---
+
+## Session: PAY-V2-022 - Create Concurrent Webhook Tests (50+ Requests)
+
+**Date**: 2026-02-10
+**PRD**: payment-workflow-prd-v2.0.json
+**Priority**: HIGH
+**Dependencies**: PAY-V2-001, PAY-V2-002, PAY-V2-003 (all PASSED)
+
+### Skills Applied
+
+- **laraveltdd-with-pest**: Write focused feature tests with factory-based data; test names describe behavior
+- **verification-first**: Tier C verification - 5 consecutive runs, full suite, E2E browser verification
+- **laravelcontroller-tests**: HTTP-level tests via postJson() asserting status codes and database state
+- **laraveltransactions-and-consistency**: Tests validate DB::transaction() + lockForUpdate() + unique constraints
+- **laravelexception-handling-and-logging**: Tests verify QueryException(1062) caught gracefully
+- **laravelquality-checks**: Pint lint, full test suite, parallel execution
+- **e2e-testing-patterns**: E2E browser-based verification of payment flow
+- **feature-development**: Phase-gated: requirements → design → TDD → verification → documentation
+
+### Tracer Bullet Analysis
+
+Three webhook paths traced through full stack:
+
+| Provider | Path | Files Touched |
+|----------|------|---------------|
+| M-Pesa C2B | routes/web.php → ValidateMpesaWebhook → MpesaWebhookController::c2bConfirmation → IdempotencyService::acquire → Payment::create → PaymentObserver → ReceiptService | 8 |
+| IntaSend | routes/api.php → IntaSendWebhookController::handleMpesaWebhook → processCompletePayment → IdempotencyService::acquire → IntaSendTransaction::lockForUpdate → Payment::create → PaymentObserver → ReceiptService | 9 |
+| Paystack | routes/web.php → ValidatePaystackWebhook → PaymentController::handleWebhook → PaystackCallbackHandler → PaymentCallbackProcessor → IdempotencyService::acquire → Payment::create → PaymentObserver → ReceiptService | 10 |
+
+Three-layer idempotency defense validated:
+
+1. IdempotencyService::acquire() - application-level locking
+2. lockForUpdate() - pessimistic row locks
+3. UNIQUE constraints - database-level safety net
+
+### Implementation Details
+
+Created `tests/Feature/ConcurrentWebhookTest.php`:
+
+- 3 test methods, each sending 50 identical webhook requests
+- `test_50_identical_mpesa_webhooks_create_exactly_one_payment()`
+- `test_50_identical_intasend_webhooks_create_exactly_one_payment()`
+- `test_50_identical_paystack_webhooks_create_exactly_one_payment()`
+- 4 private helpers: buildMpesaC2bPayload, buildIntaSendPayload, buildPaystackWebhookData, signAndSendPaystack
+- All credentials stored in PaymentConfiguration (DB), no .env usage
+- Sequential HTTP pattern (pcntl_fork unavailable on Windows)
+- PHPUnit @group tags: idempotency, concurrent
+
+### Acceptance Criteria
+
+| Criterion | Status |
+|-----------|--------|
+| 50+ concurrent requests tested per provider | PASS (50 each) |
+| Exactly 1 payment created per unique transaction | PASS |
+| No race conditions or duplicates | PASS |
+| Tests run 5 times without flakiness | PASS (5/5 green) |
+
+### Verification Results
+
+| Check | Result |
+|-------|--------|
+| Pint lint | PASS (1 auto-fix: unused import) |
+| ConcurrentWebhookTest Run 1 | PASS (3 tests, 166 assertions) |
+| ConcurrentWebhookTest Run 2 | PASS (3 tests, 166 assertions) |
+| ConcurrentWebhookTest Run 3 | PASS (3 tests, 166 assertions) |
+| ConcurrentWebhookTest Run 4 | PASS (3 tests, 166 assertions) |
+| ConcurrentWebhookTest Run 5 | PASS (3 tests, 166 assertions) |
+| Full suite | PASS (1131 tests, 0 failures, 13 skipped) |
+| E2E: Payments page displays records | PASS (3 payments: Paystack, Bank, Mpesa) |
+| E2E: Invoice INV-202602-0001 shows Paid | PASS (100% progress, Ksh 0 remaining) |
+| Screenshots | concurrent-webhook-verification.png, concurrent-webhook-invoice-paid.png |
+
+**PAY-V2-022 COMPLETE**
