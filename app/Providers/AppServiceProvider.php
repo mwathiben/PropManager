@@ -233,16 +233,41 @@ class AppServiceProvider extends ServiceProvider
                 });
         });
 
-        // Payment initiation rate limiter (stricter for financial transactions)
+        // Payment initiation rate limiter: per-user (5/min) + per-invoice (1/min)
         RateLimiter::for('payment', function (Request $request) {
-            return Limit::perMinute(5)
-                ->by($request->user()?->id ?: $request->ip())
-                ->response(function (Request $request, array $headers) {
-                    return response()->json([
-                        'message' => 'Too many payment requests. Please try again later.',
-                        'retry_after' => $headers['Retry-After'] ?? 60,
-                    ], 429, $headers);
-                });
+            $routeInvoice = $request->route('invoice');
+            $invoiceId = is_object($routeInvoice) ? $routeInvoice->id : ($routeInvoice ?? $request->input('invoice_id'));
+
+            $limits = [
+                Limit::perMinute(5)
+                    ->by('user:'.($request->user()?->id ?: $request->ip()))
+                    ->response(function (Request $request, array $headers) {
+                        return response()->json([
+                            'message' => 'Too many payment requests. Please try again later.',
+                            'retry_after' => $headers['Retry-After'] ?? 60,
+                        ], 429, $headers);
+                    }),
+            ];
+
+            if ($invoiceId) {
+                $limits[] = Limit::perMinute(1)
+                    ->by('invoice:'.$invoiceId)
+                    ->response(function (Request $request, array $headers) {
+                        $logInvoice = $request->route('invoice');
+                        Log::channel('security')->info('Payment rate limit hit per invoice', [
+                            'invoice_id' => is_object($logInvoice) ? $logInvoice->id : ($logInvoice ?? $request->input('invoice_id')),
+                            'user_id' => $request->user()?->id,
+                            'ip' => $request->ip(),
+                        ]);
+
+                        return response()->json([
+                            'message' => 'A payment for this invoice is already being processed. Please wait before trying again.',
+                            'retry_after' => $headers['Retry-After'] ?? 60,
+                        ], 429, $headers);
+                    });
+            }
+
+            return $limits;
         });
 
         // Payment link rate limiter - stricter with security logging

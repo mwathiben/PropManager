@@ -14048,3 +14048,98 @@ npm build: SUCCESS
 | Controller method lacks return type | WARNING | Added `\Illuminate\Http\RedirectResponse` return type |
 
 **PAY-V2-027 COMPLETE**
+
+---
+
+## PAY-V2-020: Per-Invoice Payment Rate Limiting
+**Status:** PASSED
+**Date:** 2026-02-10
+**Attempts:** 1
+
+### Implementation Summary
+
+Added per-invoice rate limiting (1 request/minute/invoice) alongside existing per-user limiting (5 requests/minute/user) using Laravel 12's array-of-limits pattern. Zero route file changes — the existing `throttle:payment` middleware on all 6 payment initiation endpoints now enforces both limits simultaneously.
+
+### Key Technical Discovery
+
+`ThrottleRequests` middleware runs BEFORE `SubstituteBindings` in Laravel's middleware priority (index 6 vs 9). This means `$request->route('invoice')` returns a raw string parameter, not the resolved model, when the rate limiter callback executes. Handled with `is_object()` check to support both pre-binding (string) and post-binding (model) states.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Providers/AppServiceProvider.php` | Upgraded `payment` rate limiter from single `Limit` to array-of-limits: per-user (5/min) + per-invoice (1/min). Added security logging for per-invoice rate limit hits. |
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `tests/Feature/PaymentRateLimitingTest.php` | 8 test cases covering all acceptance criteria |
+
+### Test Coverage
+
+| Test | Assertion |
+|------|-----------|
+| First request per invoice succeeds | Status != 429 |
+| Second request same invoice returns 429 | Status 429 + correct message |
+| Different invoices independently limited | Invoice B works after Invoice A blocked |
+| Cross-provider enforcement | IntaSend then Paystack on same invoice = 429 |
+| 429 includes Retry-After header | Header present, 0 < value <= 60 |
+| 429 body includes retry_after | JSON structure verified |
+| Per-user limit enforced alongside per-invoice | 6 different invoices exhaust 5/min user limit |
+| API IntaSend route enforcement | API route correctly rate limited |
+
+### Acceptance Criteria
+
+| Criterion | Status |
+|-----------|--------|
+| Rate limiting applied to all payment initiation endpoints | PASS (6 endpoints via shared `throttle:payment`) |
+| 1 per invoice per 60 seconds enforced | PASS |
+| 429 response with Retry-After header | PASS |
+| Tests verify rate limiting | PASS (8 tests, 17 assertions) |
+| Cross-provider enforcement | PASS (IntaSend blocks Paystack on same invoice) |
+
+### Self-Review Findings
+
+| Finding | Severity | Action |
+|---------|----------|--------|
+| Duplicate test (web route = same as second-request test) | LOW | Removed |
+| Guard assertion missing (per-user test assumes 6 units) | LOW | Added `assertGreaterThanOrEqual(6)` |
+| tearDown `RateLimiter::clear('payment')` does nothing | LOW | Removed (RefreshDatabase handles isolation) |
+
+### Test Results
+
+```
+PaymentRateLimitingTest: 8 passed (17 assertions)
+Full suite: 1201 passed, 1 pre-existing failure, 13 skipped
+Pint: PASS
+npm build: PASS
+```
+
+---
+
+## PAY-V2-013: Remove Deprecated Methods from PaymentController
+**Status:** PASSED (verification only — methods already removed in prior sessions)
+**Date:** 2026-02-10
+**Attempts:** 1
+
+### Verification Summary
+
+Deprecated methods `findOrCreateArchivedTenant()` and `findOrCreateHistoricalLease()` were already removed from PaymentController in prior PAY-V2-008 through PAY-V2-012 extractions. This task required only verification.
+
+### Evidence
+
+| Check | Result |
+|-------|--------|
+| `grep findOrCreateArchivedTenant PaymentController.php` | 0 matches |
+| `grep findOrCreateHistoricalLease PaymentController.php` | 0 matches |
+| Methods exist in `BulkPaymentProcessor.php` | Confirmed (lines 275, 318) |
+| PaymentController line count | 567 lines (> 300 target) |
+| Full test suite passes | 1201 passed |
+
+### Notes
+
+PaymentController is 567 lines vs the 300-line aspirational target. The remaining bulk is legitimate controller code (Paystack initialization, callback handling, bulk import, void, receipt generation) — not deprecated methods. Further reduction would require additional extraction tasks beyond PAY-V2-013's scope.
+
+**PAY-V2-013 COMPLETE**
+**PAY-V2-020 COMPLETE**
