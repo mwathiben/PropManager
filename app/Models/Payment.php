@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Currency;
 use App\Traits\Auditable;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Model;
@@ -16,6 +17,7 @@ class Payment extends Model
         'landlord_id',
         'payout_account_id',
         'amount',
+        'currency',
         'payment_method',
         'payment_date',
         'reference',
@@ -35,6 +37,7 @@ class Payment extends Model
     protected $casts = [
         'payment_date' => 'date',
         'amount' => 'decimal:2',
+        'currency' => Currency::class,
         'is_split_payment' => 'boolean',
         'is_voided' => 'boolean',
         'voided_at' => 'datetime',

@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\Currency;
 use App\Models\Invoice;
 use App\Models\Lease;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -27,6 +28,7 @@ class InvoiceFactory extends Factory
             'wallet_applied' => 0,
             'total_due' => $rentDue + $waterDue + $arrears,
             'amount_paid' => 0,
+            'currency' => 'KES',
             'status' => 'draft',
             'due_date' => now()->addDays(7),
             'billing_period_start' => now()->startOfMonth(),
@@ -74,6 +76,13 @@ class InvoiceFactory extends Factory
             'landlord_id' => $lease->landlord_id,
             'rent_due' => $lease->rent_amount,
             'total_due' => $lease->rent_amount,
+        ]);
+    }
+
+    public function withCurrency(Currency $currency): static
+    {
+        return $this->state([
+            'currency' => $currency->value,
         ]);
     }
 }

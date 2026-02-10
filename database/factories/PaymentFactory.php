@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\Currency;
 use App\Models\Invoice;
 use App\Models\Payment;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -19,6 +20,7 @@ class PaymentFactory extends Factory
             'lease_id' => $invoice->lease_id,
             'landlord_id' => $invoice->landlord_id,
             'amount' => $invoice->total_due,
+            'currency' => 'KES',
             'payment_method' => fake()->randomElement(['cash', 'bank_transfer', 'mobile_money', 'paystack']),
             'payment_date' => now(),
             'reference' => 'PAY-'.strtoupper(fake()->unique()->bothify('??######')),
@@ -74,6 +76,13 @@ class PaymentFactory extends Factory
             'lease_id' => $invoice->lease_id,
             'landlord_id' => $invoice->landlord_id,
             'amount' => $amount ?? $invoice->total_due,
+        ]);
+    }
+
+    public function withCurrency(Currency $currency): static
+    {
+        return $this->state([
+            'currency' => $currency->value,
         ]);
     }
 }

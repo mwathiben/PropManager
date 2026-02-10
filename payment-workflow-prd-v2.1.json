@@ -1,0 +1,620 @@
+{
+  "project": {
+    "name": "PropManager Payment Workflow v2.1 - Enhancements",
+    "description": "Enhancement features after v2.0 critical remediation. Includes multi-currency support, automated reconciliation, tiered billing, offline payment queue, data retention policy, frontend standardization, and cache optimization.",
+    "version": "2.1.0",
+    "created": "2026-02-02",
+    "depends_on": "payment-workflow-prd-v2.0.json (MUST complete first)",
+    "techStack": {
+      "backend": "Laravel 12 (PHP 8.4+)",
+      "frontend": "Inertia.js + Vue 3 + Tailwind CSS v4",
+      "database": "MySQL 9.4",
+      "payments": "Paystack (cards), IntaSend (M-Pesa), Direct M-Pesa (Daraja)",
+      "realtime": "Laravel Reverb (WebSockets)",
+      "sms": "Africa's Talking"
+    }
+  },
+  "userDecisions": {
+    "description": "Enhancement decisions from comprehensive AskUserQuestion sessions",
+    "decisions": [
+      {"topic": "Data retention", "choice": "7-year policy with archival", "rationale": "Financial compliance"},
+      {"topic": "Reconciliation", "choice": "Automated alerts on discrepancies", "rationale": "Prevent lost payments"},
+      {"topic": "Multi-currency", "choice": "Dynamic from gateway support", "rationale": "Diaspora tenants"},
+      {"topic": "Tiered fees", "choice": "Add volume-based tiers", "rationale": "Incentivize high-volume landlords"},
+      {"topic": "Email templates", "choice": "Audit & standardize", "rationale": "Brand consistency"},
+      {"topic": "Real-time", "choice": "Hybrid (WebSocket + polling)", "rationale": "Performance balance"},
+      {"topic": "Offline mode", "choice": "Queue payments + SMS confirmation", "rationale": "Kenya connectivity"},
+      {"topic": "Frontend", "choice": "Standardize Vue components", "rationale": "Code consistency"}
+    ]
+  },
+  "qualityStandards": {
+    "description": "Same standards as v2.0",
+    "principles": [
+      "Write failing test FIRST (RED-GREEN-REFACTOR)",
+      "80% minimum test coverage",
+      "Controllers < 300 lines",
+      "Document architectural decisions in docs/adr/"
+    ],
+    "skills_to_apply": [
+      "laraveltdd-with-pest",
+      "verification-first",
+      "laravelqueues-and-horizon",
+      "laraveldata-chunking-large-datasets"
+    ]
+  },
+  "feedbackLoops": {
+    "commands": {
+      "typecheck": "npm run build -- --mode development",
+      "lint_frontend": "npm run lint",
+      "lint_backend": "vendor/bin/pint --test",
+      "test_backend": "php artisan test --parallel",
+      "test_coverage": "php artisan test --coverage --min=80"
+    }
+  },
+  "categories": {
+    "multi_currency": {
+      "priority": 1,
+      "description": "Support for multiple currencies (KES, USD, EUR, GBP)"
+    },
+    "reconciliation": {
+      "priority": 2,
+      "description": "Automated payment reconciliation with alerts"
+    },
+    "billing": {
+      "priority": 3,
+      "description": "Tiered fee structure for platform fees"
+    },
+    "offline": {
+      "priority": 4,
+      "description": "Offline payment queue for poor connectivity"
+    },
+    "data_management": {
+      "priority": 5,
+      "description": "Data retention and archival policies"
+    },
+    "frontend": {
+      "priority": 6,
+      "description": "Vue component standardization"
+    },
+    "caching": {
+      "priority": 7,
+      "description": "Cache strategy optimization"
+    }
+  },
+  "items": [
+    {
+      "id": "PAY-V2.1-001",
+      "category": "multi_currency",
+      "priority": "HIGH",
+      "title": "Add Currency Support to Payment Model and Migrations",
+      "description": "Add currency field to payments table and related models. Support dynamic currencies from gateway providers.",
+      "story_points": 5,
+      "steps": [
+        "Create migration to add currency column to payments table (default: 'KES')",
+        "Add currency column to invoices table",
+        "Create app/Enums/Currency.php with KES, USD, EUR, GBP",
+        "Update Payment model with currency attribute and cast to enum",
+        "Update Invoice model similarly",
+        "Add exchange rate service integration (optional: Open Exchange Rates API)"
+      ],
+      "files": [
+        "database/migrations/2026_02_11_100001_add_currency_to_payments_table.php",
+        "database/migrations/2026_02_11_100002_add_currency_to_invoices_table.php",
+        "app/Enums/Currency.php",
+        "app/Models/Payment.php",
+        "app/Models/Invoice.php",
+        "database/factories/PaymentFactory.php",
+        "database/factories/InvoiceFactory.php",
+        "app/Http/Resources/PaymentResource.php",
+        "app/Http/Resources/InvoiceResource.php",
+        "tests/Unit/Enums/CurrencyTest.php",
+        "tests/Feature/Models/PaymentCurrencyTest.php",
+        "tests/Feature/Models/InvoiceCurrencyTest.php"
+      ],
+      "acceptance_criteria": [
+        "Currency stored on every payment and invoice",
+        "Enum provides label and symbol for each currency",
+        "Backward compatible (existing records default to KES)"
+      ],
+      "definition_of_done": [
+        "Migrations run",
+        "Enum created",
+        "Models updated",
+        "Tests pass"
+      ],
+      "verification": "Create payment with USD currency; verify stored correctly.",
+      "rollback_plan": {
+        "sql": "ALTER TABLE payments DROP COLUMN currency; ALTER TABLE invoices DROP COLUMN currency"
+      },
+      "estimated_effort": "medium",
+      "passes": true,
+      "attempt_count": 1
+    },
+    {
+      "id": "PAY-V2.1-002",
+      "category": "multi_currency",
+      "priority": "HIGH",
+      "title": "Update Paystack Integration for Multi-Currency",
+      "description": "Paystack supports NGN, GHS, ZAR, USD, KES. Update integration to use invoice currency.",
+      "story_points": 5,
+      "steps": [
+        "Update PaystackService::initializeTransaction() to accept currency parameter",
+        "Convert currency to Paystack format (amount in minor units varies by currency)",
+        "Update frontend to display currency symbol correctly",
+        "Test with sandbox using USD currency"
+      ],
+      "files": [
+        "app/Services/PaystackService.php",
+        "app/Services/Payment/PaystackCallbackHandler.php",
+        "resources/js/Pages/TenantFinances/Pay.vue"
+      ],
+      "acceptance_criteria": [
+        "Paystack transactions use invoice currency",
+        "Amount converted correctly to minor units",
+        "Callback handles multi-currency response"
+      ],
+      "definition_of_done": [
+        "Service updated",
+        "Tests pass for KES and USD",
+        "Sandbox test works"
+      ],
+      "verification": "Create USD invoice; pay via Paystack; verify currency handled correctly.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-V2.1-001"]
+    },
+    {
+      "id": "PAY-V2.1-003",
+      "category": "multi_currency",
+      "priority": "MEDIUM",
+      "title": "Add Currency Selection UI for Landlords",
+      "description": "Allow landlords to set default currency and supported currencies for their buildings.",
+      "story_points": 5,
+      "steps": [
+        "Add default_currency column to payment_configurations",
+        "Add supported_currencies JSON column to buildings",
+        "Create UI in Settings > Payment Methods for currency selection",
+        "Update invoice creation to use building's default currency"
+      ],
+      "files": [
+        "database/migrations/2026_02_XX_add_currency_settings.php",
+        "app/Models/PaymentConfiguration.php",
+        "app/Models/Building.php",
+        "resources/js/Pages/Settings/partials/PaymentMethodsTab.vue"
+      ],
+      "acceptance_criteria": [
+        "Landlords can set default currency",
+        "Buildings can have different currencies",
+        "Invoices use building's currency"
+      ],
+      "definition_of_done": [
+        "Migrations run",
+        "UI implemented",
+        "Invoice creation uses correct currency"
+      ],
+      "verification": "Set building to USD; create invoice; verify USD is used.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-V2.1-001"]
+    },
+    {
+      "id": "PAY-V2.1-004",
+      "category": "reconciliation",
+      "priority": "HIGH",
+      "title": "Create Payment Reconciliation Service",
+      "description": "Service to compare PropManager records with gateway records and identify discrepancies.",
+      "story_points": 8,
+      "steps": [
+        "Create app/Services/Reconciliation/PaymentReconciliationService.php",
+        "Implement reconcilePaystack(landlordId, dateRange): ReconciliationResult",
+        "Fetch transactions from Paystack API",
+        "Compare with local payments by reference",
+        "Identify: missing_locally, missing_remotely, amount_mismatch",
+        "Return structured result"
+      ],
+      "files": [
+        "app/Services/Reconciliation/PaymentReconciliationService.php",
+        "app/ValueObjects/ReconciliationResult.php",
+        "tests/Unit/Services/Reconciliation/PaymentReconciliationServiceTest.php"
+      ],
+      "acceptance_criteria": [
+        "Fetches transactions from Paystack API",
+        "Compares with local database",
+        "Identifies all discrepancy types",
+        "Returns actionable results"
+      ],
+      "definition_of_done": [
+        "Service created",
+        "Tests with mocked Paystack responses",
+        "All discrepancy types detected"
+      ],
+      "verification": "Create local payment not in Paystack; run reconciliation; verify flagged as missing_remotely.",
+      "estimated_effort": "large",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-V2.1-005",
+      "category": "reconciliation",
+      "priority": "HIGH",
+      "title": "Implement Automated Reconciliation Job with Alerts",
+      "description": "Daily scheduled job to run reconciliation and alert on discrepancies >1 KES.",
+      "story_points": 5,
+      "steps": [
+        "Create app/Jobs/DailyPaymentReconciliation.php",
+        "Run reconciliation for all active landlords",
+        "Store results in reconciliation_reports table",
+        "Send email alert if discrepancies found",
+        "Schedule job to run daily at 2am"
+      ],
+      "files": [
+        "app/Jobs/DailyPaymentReconciliation.php",
+        "database/migrations/2026_02_XX_create_reconciliation_reports_table.php",
+        "app/Models/ReconciliationReport.php",
+        "app/Mail/ReconciliationAlert.php",
+        "routes/console.php"
+      ],
+      "acceptance_criteria": [
+        "Job runs daily for all landlords",
+        "Results stored in database",
+        "Email sent on discrepancies >1 KES",
+        "Admin dashboard shows reconciliation status"
+      ],
+      "definition_of_done": [
+        "Job created and scheduled",
+        "Alert email works",
+        "Reports stored"
+      ],
+      "verification": "Manually run job; verify email sent for test discrepancy.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-V2.1-004"]
+    },
+    {
+      "id": "PAY-V2.1-006",
+      "category": "billing",
+      "priority": "HIGH",
+      "title": "Implement Tiered Platform Fee Structure",
+      "description": "Support different fee rates based on monthly volume. Higher volume = lower fees.",
+      "story_points": 8,
+      "steps": [
+        "Create app/Models/PlatformFeeTier.php with volume_min, volume_max, fee_percentage",
+        "Create migration for platform_fee_tiers table",
+        "Seed default tiers: 0-50K (3%), 50K-200K (2.5%), 200K-500K (2%), 500K+ (1.5%)",
+        "Update BillingModelService to calculate fee based on MTD volume",
+        "Add tier display to landlord dashboard"
+      ],
+      "files": [
+        "database/migrations/2026_02_XX_create_platform_fee_tiers_table.php",
+        "app/Models/PlatformFeeTier.php",
+        "database/seeders/PlatformFeeTierSeeder.php",
+        "app/Services/BillingModelService.php",
+        "resources/js/Pages/Landlord/Home.vue"
+      ],
+      "acceptance_criteria": [
+        "Fee percentage varies by monthly volume",
+        "MTD volume calculated correctly",
+        "Landlords see current tier on dashboard",
+        "Fee calculated correctly at tier boundaries"
+      ],
+      "definition_of_done": [
+        "Migration and seeder run",
+        "BillingModelService uses tiers",
+        "Dashboard shows tier",
+        "Tests cover tier boundaries"
+      ],
+      "verification": "Process payments to cross tier threshold; verify fee % changes.",
+      "estimated_effort": "large",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-V2.1-007",
+      "category": "offline",
+      "priority": "MEDIUM",
+      "title": "Create Offline Payment Queue Table and Model",
+      "description": "Store payment intents when tenant is offline. Process when connectivity restored.",
+      "story_points": 5,
+      "steps": [
+        "Create migration for queued_payment_intents table",
+        "Columns: id, tenant_id, invoice_id, landlord_id, amount, currency, payment_method, phone_number, status (pending/processing/completed/failed/expired), attempts, last_attempt_at, expires_at",
+        "Create app/Models/QueuedPaymentIntent.php",
+        "Add scopes: pending(), expired(), byTenant()"
+      ],
+      "files": [
+        "database/migrations/2026_02_XX_create_queued_payment_intents_table.php",
+        "app/Models/QueuedPaymentIntent.php",
+        "database/factories/QueuedPaymentIntentFactory.php"
+      ],
+      "acceptance_criteria": [
+        "Table created with proper indexes",
+        "Model has all required scopes",
+        "Factory exists for testing"
+      ],
+      "definition_of_done": [
+        "Migration runs",
+        "Model created",
+        "Factory created"
+      ],
+      "verification": "Tinker: create queued intent, verify scopes work.",
+      "rollback_plan": {
+        "sql": "DROP TABLE queued_payment_intents"
+      },
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-V2.1-008",
+      "category": "offline",
+      "priority": "MEDIUM",
+      "title": "Implement Offline Payment Queue Processing Job",
+      "description": "Scheduled job to process queued payment intents and send SMS confirmation.",
+      "story_points": 8,
+      "steps": [
+        "Create app/Jobs/ProcessQueuedPaymentIntents.php",
+        "Process pending intents not expired",
+        "Retry up to 3 times with exponential backoff",
+        "Send SMS via Africa's Talking on success/failure",
+        "Mark expired intents (>24 hours old)",
+        "Schedule job to run every minute"
+      ],
+      "files": [
+        "app/Jobs/ProcessQueuedPaymentIntents.php",
+        "app/Services/AfricasTalkingService.php",
+        "routes/console.php"
+      ],
+      "acceptance_criteria": [
+        "Pending intents processed automatically",
+        "Retry logic with backoff",
+        "SMS sent on success and failure",
+        "Expired intents marked correctly"
+      ],
+      "definition_of_done": [
+        "Job created and scheduled",
+        "SMS integration works",
+        "Tests cover all scenarios"
+      ],
+      "verification": "Queue offline payment; wait for job; verify processed and SMS sent.",
+      "estimated_effort": "large",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-V2.1-007"]
+    },
+    {
+      "id": "PAY-V2.1-009",
+      "category": "data_management",
+      "priority": "MEDIUM",
+      "title": "Implement 7-Year Data Retention Policy",
+      "description": "Archive old payment data after 7 years per financial compliance requirements.",
+      "story_points": 8,
+      "steps": [
+        "Create migration for archived_payments table (same structure as payments)",
+        "Create app/Jobs/ArchiveOldPayments.php",
+        "Archive payments older than 7 years (created_at < now - 7 years)",
+        "Keep audit log of archived records",
+        "Schedule job to run monthly",
+        "Add archive query methods to Payment model"
+      ],
+      "files": [
+        "database/migrations/2026_02_XX_create_archived_payments_table.php",
+        "app/Jobs/ArchiveOldPayments.php",
+        "app/Models/ArchivedPayment.php",
+        "routes/console.php"
+      ],
+      "acceptance_criteria": [
+        "Payments >7 years old moved to archive table",
+        "Original records deleted after successful archive",
+        "Audit log maintained",
+        "Archive can be queried if needed"
+      ],
+      "definition_of_done": [
+        "Migration and job created",
+        "Archival works correctly",
+        "Tests verify data integrity"
+      ],
+      "verification": "Create old payment (backdated 8 years); run job; verify archived.",
+      "estimated_effort": "large",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-V2.1-010",
+      "category": "frontend",
+      "priority": "MEDIUM",
+      "title": "Create Shared Payment Form Composable",
+      "description": "Standardize payment form handling across all 10+ Vue payment components.",
+      "story_points": 5,
+      "steps": [
+        "Create resources/js/composables/usePaymentForm.ts",
+        "Include: form state, validation, loading states, error handling",
+        "Standardize payment method selection component",
+        "Create PaymentMethodSelector.vue shared component",
+        "Update existing payment components to use composable"
+      ],
+      "files": [
+        "resources/js/composables/usePaymentForm.ts",
+        "resources/js/Components/Payment/PaymentMethodSelector.vue",
+        "resources/js/Pages/Finances/Payments/Record.vue",
+        "resources/js/Pages/TenantFinances/Pay.vue"
+      ],
+      "acceptance_criteria": [
+        "Composable handles common payment form logic",
+        "All payment components use shared composable",
+        "Consistent loading and error states"
+      ],
+      "definition_of_done": [
+        "Composable created",
+        "Shared component created",
+        "Existing components updated",
+        "Build passes"
+      ],
+      "verification": "Record payment using new composable; verify form behavior consistent.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-V2.1-011",
+      "category": "frontend",
+      "priority": "LOW",
+      "title": "Audit and Standardize Payment Email Templates",
+      "description": "Review all 5 payment email templates for consistent branding, footer, and unsubscribe link.",
+      "story_points": 3,
+      "steps": [
+        "Audit: PaymentReceived, OverpaymentNotification, PaymentVerificationApproved, PaymentVerificationRejected, InvoiceReminder",
+        "Create shared email layout component",
+        "Standardize: header, footer, colors, fonts",
+        "Add unsubscribe link to all emails",
+        "Test all emails render correctly"
+      ],
+      "files": [
+        "resources/views/emails/payment-received.blade.php",
+        "resources/views/emails/overpayment-notification.blade.php",
+        "resources/views/emails/payment-verification-approved.blade.php",
+        "resources/views/emails/payment-verification-rejected.blade.php",
+        "resources/views/emails/invoice-reminder.blade.php",
+        "resources/views/emails/layouts/payment.blade.php"
+      ],
+      "acceptance_criteria": [
+        "All emails use shared layout",
+        "Consistent branding across all",
+        "Unsubscribe link present",
+        "Mobile responsive"
+      ],
+      "definition_of_done": [
+        "Layout created",
+        "All templates updated",
+        "Visual test all emails"
+      ],
+      "verification": "Send each email type; verify consistent appearance.",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-V2.1-012",
+      "category": "caching",
+      "priority": "MEDIUM",
+      "title": "Review and Enhance Payment Cache Strategy",
+      "description": "Audit PaymentObserver cache invalidation. Implement tagged caching and cache warming.",
+      "story_points": 5,
+      "steps": [
+        "Audit current cache keys in PaymentObserver and FinanceCacheService",
+        "Implement tagged caching: Cache::tags(['payments', 'landlord:'.$id])",
+        "Add cache warming after payment to reduce first-hit latency",
+        "Document cache strategy in docs/adr/",
+        "Add cache metrics logging"
+      ],
+      "files": [
+        "app/Observers/PaymentObserver.php",
+        "app/Services/FinanceCacheService.php",
+        "docs/adr/008-payment-cache-strategy.md"
+      ],
+      "acceptance_criteria": [
+        "Cache keys documented",
+        "Tagged caching implemented",
+        "No stale payment data displayed",
+        "Cache warming reduces latency"
+      ],
+      "definition_of_done": [
+        "Cache strategy reviewed",
+        "Tagged caching implemented",
+        "ADR documented",
+        "Tests verify no stale data"
+      ],
+      "verification": "Record payment; immediately view dashboard; verify data fresh.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    },
+    {
+      "id": "PAY-V2.1-013",
+      "category": "caching",
+      "priority": "LOW",
+      "title": "Implement Hybrid Real-Time Updates",
+      "description": "Use WebSocket for recent payments, polling for historical stats. Reduces server load.",
+      "story_points": 5,
+      "steps": [
+        "Keep PaymentReceived WebSocket broadcast for real-time notifications",
+        "Add polling endpoint for dashboard stats (30 second interval)",
+        "Implement smart refresh: WebSocket triggers immediate stat refresh",
+        "Add connection status indicator to dashboard",
+        "Fall back to polling if WebSocket disconnected"
+      ],
+      "files": [
+        "resources/js/Pages/Landlord/Home.vue",
+        "resources/js/composables/useDashboardStats.ts",
+        "app/Http/Controllers/Api/DashboardStatsController.php"
+      ],
+      "acceptance_criteria": [
+        "Recent payments via WebSocket (instant)",
+        "Historical stats via polling (30s)",
+        "Fallback to polling when WebSocket unavailable",
+        "Connection status visible to user"
+      ],
+      "definition_of_done": [
+        "Hybrid approach implemented",
+        "Fallback works",
+        "Status indicator shows connection"
+      ],
+      "verification": "Disconnect WebSocket; verify polling takes over; reconnect; verify WebSocket resumes.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
+    }
+  ],
+  "executionOrder": [
+    "Phase 1: Multi-Currency (Week 5)",
+    "PAY-V2.1-001 - Currency support in models",
+    "PAY-V2.1-002 - Paystack multi-currency",
+    "PAY-V2.1-003 - Currency selection UI",
+    "",
+    "Phase 2: Reconciliation (Week 5-6)",
+    "PAY-V2.1-004 - Reconciliation service",
+    "PAY-V2.1-005 - Automated reconciliation job",
+    "",
+    "Phase 3: Billing (Week 6)",
+    "PAY-V2.1-006 - Tiered platform fees",
+    "",
+    "Phase 4: Offline Mode (Week 6-7)",
+    "PAY-V2.1-007 - Offline payment queue table",
+    "PAY-V2.1-008 - Queue processing job",
+    "",
+    "Phase 5: Data Management (Week 7)",
+    "PAY-V2.1-009 - 7-year retention policy",
+    "",
+    "Phase 6: Frontend & Caching (Week 8)",
+    "PAY-V2.1-010 - Payment form composable",
+    "PAY-V2.1-011 - Email template standardization",
+    "PAY-V2.1-012 - Cache strategy review",
+    "PAY-V2.1-013 - Hybrid real-time updates"
+  ],
+  "totalStoryPoints": 70,
+  "completionCriteria": {
+    "metrics": [
+      "Multi-currency payments work (KES, USD, EUR, GBP)",
+      "Daily reconciliation runs with alerts on discrepancies",
+      "Tiered platform fees applied based on volume",
+      "Offline payments queue and process with SMS confirmation",
+      "Payments >7 years archived automatically",
+      "All payment Vue components use shared composable",
+      "Email templates consistent and branded",
+      "Hybrid real-time updates working"
+    ],
+    "productionChecklist": [
+      "All 13 items marked PASSED",
+      "php artisan test --parallel - all pass",
+      "80% test coverage maintained",
+      "vendor/bin/pint --test - passes",
+      "npm run build - passes",
+      "Manual test: multi-currency payment flow",
+      "Manual test: offline payment queue",
+      "Reconciliation job runs successfully"
+    ],
+    "outputSignal": "<promise>PAYMENT_WORKFLOW_V2_1_COMPLETE</promise>"
+  }
+}

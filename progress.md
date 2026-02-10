@@ -14143,3 +14143,72 @@ PaymentController is 567 lines vs the 300-line aspirational target. The remainin
 
 **PAY-V2-013 COMPLETE**
 **PAY-V2-020 COMPLETE**
+
+---
+
+## PAY-V2.1-001: Add Currency Support to Payment Model and Migrations
+**Status:** PASSED
+**Date:** 2026-02-10
+**Attempts:** 1
+**PRD:** payment-workflow-prd-v2.1.json
+
+### Implementation Summary
+
+Added multi-currency foundation to payments and invoices tables. Created a PHP 8.1+ backed string enum (`Currency`) with ISO 4217 codes (KES, USD, EUR, GBP). Database columns use `string(3)` with `default('KES')` for full backward compatibility — zero behavioral change for existing records or unmodified write paths.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Enums/Currency.php` | Backed string enum with label, symbol, country, locale, minorUnitMultiplier |
+| `database/migrations/2026_02_11_100001_add_currency_to_payments_table.php` | Add currency string(3) column to payments |
+| `database/migrations/2026_02_11_100002_add_currency_to_invoices_table.php` | Add currency string(3) column to invoices |
+| `tests/Unit/Enums/CurrencyTest.php` | 9 unit tests for enum methods |
+| `tests/Feature/Models/PaymentCurrencyTest.php` | 5 feature tests for payment currency |
+| `tests/Feature/Models/InvoiceCurrencyTest.php` | 5 feature tests for invoice currency |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Models/Payment.php` | Added `currency` to `$fillable` and `Currency::class` to `$casts` |
+| `app/Models/Invoice.php` | Added `currency` to `$fillable` and `Currency::class` to `$casts` |
+| `database/factories/PaymentFactory.php` | Added `currency => 'KES'` default + `withCurrency()` state |
+| `database/factories/InvoiceFactory.php` | Added `currency => 'KES'` default + `withCurrency()` state |
+| `app/Http/Resources/PaymentResource.php` | Added `currency` to JSON response |
+| `app/Http/Resources/InvoiceResource.php` | Added `currency` to JSON response |
+
+### Design Decisions
+
+- **string(3) over MySQL ENUM**: Adding new currencies doesn't require a migration; Doctrine DBAL can't introspect MySQL ENUMs; ISO 4217 has 180+ codes
+- **Default 'KES' at DB level**: All existing records and new records from unmodified write paths get KES automatically — zero-regression risk
+- **Indexed currency column**: Enables filtered reporting queries (e.g., revenue by currency)
+- **country() method on enum**: Per user requirement — currencies accompanied by their country
+
+### Acceptance Criteria Verification
+
+| Criteria | Status |
+|----------|--------|
+| Currency stored on every payment and invoice | PASS (default KES via migration) |
+| Enum provides label and symbol for each currency | PASS (label(), symbol(), country()) |
+| Backward compatible (existing records default to KES) | PASS (DB default + tests verify) |
+
+### Test Results
+
+```
+CurrencyTest: 9 passed
+PaymentCurrencyTest: 5 passed
+InvoiceCurrencyTest: 5 passed
+Full suite: 1232 passed, 1 pre-existing failure
+Pint: PASS (900 files clean)
+npm build: PASS (34.42s)
+E2E browser: PASS (dashboard, invoices, payments — all amounts display correctly)
+```
+
+### PRD Update Recommendations (for future tasks)
+
+1. **Exchange rate storage**: Store `exchange_rate` and `exchange_rate_date` per record for audit trails (PAY-V2.1-002)
+2. **Gateway currency validation**: M-Pesa/IntaSend are KES-only; Paystack supports KES/USD/GHS/ZAR/NGN (PAY-V2.1-002)
+3. **Aggregation safety**: `sum('amount')` queries (~40 call sites) need `->where('currency', ...)` grouping once multi-currency records exist
+
+**PAY-V2.1-001 COMPLETE**

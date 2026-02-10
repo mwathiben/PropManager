@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\Currency;
+use App\Enums\InvoiceStatus;
 use App\Traits\Auditable;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Model;
@@ -12,28 +14,14 @@ class Invoice extends Model
 {
     use Auditable, TenantScope;
 
-    public const STATUS_DRAFT = 'draft';
-
-    public const STATUS_SENT = 'sent';
-
-    public const STATUS_VIEWED = 'viewed';
-
-    public const STATUS_PARTIAL = 'partial';
-
-    public const STATUS_PAID = 'paid';
-
-    public const STATUS_OVERDUE = 'overdue';
-
-    public const STATUS_VOID = 'void';
-
     public function scopeOverdue($query)
     {
-        return $query->where('status', self::STATUS_OVERDUE);
+        return $query->where('status', InvoiceStatus::Overdue);
     }
 
     public function scopePending($query)
     {
-        return $query->whereIn('status', [self::STATUS_SENT, self::STATUS_PARTIAL, self::STATUS_OVERDUE]);
+        return $query->whereIn('status', [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue]);
     }
 
     public function scopeOutstanding($query)
@@ -43,7 +31,7 @@ class Invoice extends Model
 
     public function scopePaid($query)
     {
-        return $query->where('status', self::STATUS_PAID);
+        return $query->where('status', InvoiceStatus::Paid);
     }
 
     protected $fillable = [
@@ -63,6 +51,7 @@ class Invoice extends Model
         'wallet_applied',
         'total_due',
         'amount_paid',
+        'currency',
         'status',
         'notes',
         'pdf_path',
@@ -74,6 +63,8 @@ class Invoice extends Model
     ];
 
     protected $casts = [
+        'status' => InvoiceStatus::class,
+        'currency' => Currency::class,
         'due_date' => 'date',
         'billing_period_start' => 'date',
         'pdf_generated_at' => 'datetime',
@@ -167,7 +158,7 @@ class Invoice extends Model
 
     public function isEligibleForLateFee(): bool
     {
-        return in_array($this->status, ['overdue', 'partial', 'sent'])
+        return in_array($this->status, [InvoiceStatus::Overdue, InvoiceStatus::Partial, InvoiceStatus::Sent])
             && $this->due_date
             && $this->due_date->isPast()
             && $this->getOutstandingAmount() > 0;
@@ -180,18 +171,18 @@ class Invoice extends Model
 
     public function isVoid(): bool
     {
-        return $this->status === self::STATUS_VOID || $this->voided_at !== null;
+        return $this->status === InvoiceStatus::Voided || $this->voided_at !== null;
     }
 
     public function isPaid(): bool
     {
-        return $this->status === self::STATUS_PAID;
+        return $this->status === InvoiceStatus::Paid;
     }
 
     public function markAsSent(): void
     {
         $this->update([
-            'status' => self::STATUS_SENT,
+            'status' => InvoiceStatus::Sent,
             'sent_at' => now(),
         ]);
     }
