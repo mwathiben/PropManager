@@ -401,27 +401,27 @@
                 @foreach($items as $item)
                     <tr>
                         <td>{{ $item['description'] }}</td>
-                        <td class="text-right">KES {{ number_format($item['total'], 2) }}</td>
+                        <td class="text-right">{{ $currency_symbol }} {{ number_format($item['total'], 2) }}</td>
                     </tr>
                 @endforeach
                 @if($wallet_applied > 0)
                     <tr>
                         <td>Wallet Credit Applied</td>
-                        <td class="text-right">- KES {{ number_format($wallet_applied, 2) }}</td>
+                        <td class="text-right">- {{ $currency_symbol }} {{ number_format($wallet_applied, 2) }}</td>
                     </tr>
                 @endif
                 <tr class="total-row">
                     <td>Total Due</td>
-                    <td class="text-right total-amount">KES {{ number_format($total_due, 2) }}</td>
+                    <td class="text-right total-amount">{{ $currency_symbol }} {{ number_format($total_due, 2) }}</td>
                 </tr>
                 @if($amount_paid > 0)
                     <tr>
                         <td>Amount Paid</td>
-                        <td class="text-right">- KES {{ number_format($amount_paid, 2) }}</td>
+                        <td class="text-right">- {{ $currency_symbol }} {{ number_format($amount_paid, 2) }}</td>
                     </tr>
                     <tr class="total-row">
                         <td>Balance Due</td>
-                        <td class="text-right total-amount">KES {{ number_format($balance_due, 2) }}</td>
+                        <td class="text-right total-amount">{{ $currency_symbol }} {{ number_format($balance_due, 2) }}</td>
                     </tr>
                 @endif
             </tbody>

@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Enums\Currency;
 use App\Models\Invoice;
 use App\Models\Payment;
 use Illuminate\Bus\Queueable;
@@ -47,6 +48,7 @@ class PaymentReceived extends Mailable implements ShouldQueue
                 'invoice' => $this->invoice,
                 'tenant' => $this->invoice->lease->tenant,
                 'unit' => $this->invoice->lease->unit,
+                'currency_symbol' => ($this->payment->currency ?? Currency::default())->symbol(),
             ],
         );
     }

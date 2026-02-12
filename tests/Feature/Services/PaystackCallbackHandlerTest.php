@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Services;
 
+use App\Enums\Currency;
 use App\Models\Payment;
 use App\Models\PaymentConfiguration;
 use App\Models\User;
@@ -340,7 +341,80 @@ class PaystackCallbackHandlerTest extends TestCase
         $this->assertTrue($result->isIgnored());
     }
 
-    // ── Group 3: Amount Validation ──────────────────────────────────
+    // ── Group 3: Multi-Currency ────────────────────────────────────
+
+    public function test_callback_handles_usd_currency_in_response(): void
+    {
+        $unit = $this->setupData['units']->first();
+        ['lease' => $lease] = $this->createTenantWithActiveLease($this->landlord, $unit);
+        $invoice = $this->createInvoiceForLease($lease, 'sent');
+        $invoice->update(['currency' => 'USD']);
+        $reference = 'PSK_USD_'.uniqid();
+
+        Http::fake([
+            'api.paystack.co/transaction/verify/*' => Http::response([
+                'status' => true,
+                'data' => [
+                    'status' => 'success',
+                    'reference' => $reference,
+                    'amount' => (int) ($invoice->total_due * 100),
+                    'currency' => 'USD',
+                    'channel' => 'card',
+                    'metadata' => [
+                        'invoice_id' => $invoice->id,
+                        'landlord_id' => $this->landlord->id,
+                    ],
+                ],
+            ]),
+        ]);
+
+        $handler = app(PaystackCallbackHandler::class);
+        $result = $handler->processCallback($reference, $this->landlord->id);
+
+        $this->assertTrue($result->isSuccess());
+        $this->assertDatabaseHas('payments', [
+            'paystack_reference' => $reference,
+            'invoice_id' => $invoice->id,
+            'currency' => 'USD',
+        ]);
+
+        $payment = Payment::where('paystack_reference', $reference)->first();
+        $this->assertEquals((float) $invoice->total_due, (float) $payment->amount);
+    }
+
+    public function test_callback_defaults_to_kes_when_no_currency(): void
+    {
+        $unit = $this->setupData['units']->first();
+        ['lease' => $lease] = $this->createTenantWithActiveLease($this->landlord, $unit);
+        $invoice = $this->createInvoiceForLease($lease, 'sent');
+        $reference = 'PSK_NOCRCY_'.uniqid();
+
+        Http::fake([
+            'api.paystack.co/transaction/verify/*' => Http::response([
+                'status' => true,
+                'data' => [
+                    'status' => 'success',
+                    'reference' => $reference,
+                    'amount' => (int) ($invoice->total_due * 100),
+                    'channel' => 'card',
+                    'metadata' => [
+                        'invoice_id' => $invoice->id,
+                        'landlord_id' => $this->landlord->id,
+                    ],
+                ],
+            ]),
+        ]);
+
+        $handler = app(PaystackCallbackHandler::class);
+        $result = $handler->processCallback($reference, $this->landlord->id);
+
+        $this->assertTrue($result->isSuccess());
+
+        $payment = Payment::where('paystack_reference', $reference)->first();
+        $this->assertEquals(Currency::KES, $payment->currency);
+    }
+
+    // ── Group 4: Amount Validation ──────────────────────────────────
 
     public function test_amount_within_tolerance_processes_successfully(): void
     {

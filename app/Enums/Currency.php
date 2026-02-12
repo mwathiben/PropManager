@@ -54,6 +54,16 @@ enum Currency: string
         return 100;
     }
 
+    public function toMinorUnits(float $amount): int
+    {
+        return (int) round($amount * $this->minorUnitMultiplier());
+    }
+
+    public function fromMinorUnits(int $amount): float
+    {
+        return $amount / $this->minorUnitMultiplier();
+    }
+
     public static function values(): array
     {
         return array_column(self::cases(), 'value');

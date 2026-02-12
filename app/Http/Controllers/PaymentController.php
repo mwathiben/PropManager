@@ -244,6 +244,7 @@ class PaymentController extends Controller
         $transactionData = [
             'email' => $tenant->email,
             'amount' => $request->amount,
+            'currency' => $invoice->currency?->value ?? 'KES',
             'reference' => $reference,
             'callback_url' => route('payments.callback'),
             'metadata' => [

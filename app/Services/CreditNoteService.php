@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\Currency;
 use App\Mail\CreditNoteIssued;
 use App\Models\CreditNote;
 use App\Models\User;
@@ -40,11 +41,12 @@ class CreditNoteService
         ]);
 
         $business = $this->getBusinessSettings($creditNote);
+        $currencySymbol = ($creditNote->invoice?->currency ?? Currency::default())->symbol();
 
         $qrData = implode("\n", [
             'CREDIT NOTE',
             'Number: '.$creditNote->credit_number,
-            'Amount: KES '.number_format($creditNote->amount, 2),
+            'Amount: '.$currencySymbol.' '.number_format($creditNote->amount, 2),
             'Date: '.$creditNote->created_at->format('Y-m-d'),
             'Tenant: '.$creditNote->tenant?->name,
             'Status: '.ucfirst($creditNote->status),
@@ -62,6 +64,7 @@ class CreditNoteService
             'approver' => $creditNote->approvedByUser,
             'business' => $business,
             'qr_code' => $qrCode,
+            'currency_symbol' => $currencySymbol,
         ];
     }
 

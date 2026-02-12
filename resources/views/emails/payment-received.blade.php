@@ -7,7 +7,7 @@
 
 ## {{ __('emails.payment.details_title') }}
 
-**{{ __('emails.payment.amount_paid') }}:** KES {{ number_format($payment->amount, 2) }}<br>
+**{{ __('emails.payment.amount_paid') }}:** {{ $currency_symbol }} {{ number_format($payment->amount, 2) }}<br>
 **{{ __('emails.payment.payment_date') }}:** {{ $payment->payment_date->format('F d, Y') }}<br>
 **{{ __('emails.payment.payment_method') }}:** {{ ucwords(str_replace('_', ' ', $payment->payment_method)) }}<br>
 **{{ __('emails.payment.receipt_number') }}:** {{ $payment->reference }}
@@ -20,10 +20,10 @@
 
 ## {{ __('emails.payment.summary_title') }}
 
-**{{ __('emails.payment.total_due') }}:** KES {{ number_format($invoice->total_due, 2) }}<br>
-**{{ __('emails.payment.amount_paid_this') }}:** KES {{ number_format($payment->amount, 2) }}<br>
-**{{ __('emails.payment.total_paid_to_date') }}:** KES {{ number_format($invoice->amount_paid, 2) }}<br>
-**{{ __('emails.payment.balance_remaining') }}:** KES {{ number_format($invoice->total_due - $invoice->amount_paid, 2) }}
+**{{ __('emails.payment.total_due') }}:** {{ $currency_symbol }} {{ number_format($invoice->total_due, 2) }}<br>
+**{{ __('emails.payment.amount_paid_this') }}:** {{ $currency_symbol }} {{ number_format($payment->amount, 2) }}<br>
+**{{ __('emails.payment.total_paid_to_date') }}:** {{ $currency_symbol }} {{ number_format($invoice->amount_paid, 2) }}<br>
+**{{ __('emails.payment.balance_remaining') }}:** {{ $currency_symbol }} {{ number_format($invoice->total_due - $invoice->amount_paid, 2) }}
 
 @if($invoice->status === 'paid')
 <x-mail::panel>

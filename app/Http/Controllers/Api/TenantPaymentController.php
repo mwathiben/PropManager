@@ -198,6 +198,7 @@ class TenantPaymentController extends Controller
         $result = $paystackService->initializeTransaction([
             'email' => $user->email,
             'amount' => $request->amount,
+            'currency' => $invoice->currency?->value ?? 'KES',
             'reference' => $reference,
             'callback_url' => $request->callback_url ?? route('payments.callback'),
             'metadata' => [

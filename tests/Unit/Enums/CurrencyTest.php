@@ -87,4 +87,45 @@ class CurrencyTest extends TestCase
         $this->assertSame('de-DE', Currency::EUR->locale());
         $this->assertSame('en-GB', Currency::GBP->locale());
     }
+
+    #[Test]
+    public function to_minor_units_converts_correctly_for_all_currencies(): void
+    {
+        foreach (Currency::cases() as $currency) {
+            $this->assertSame(10050, $currency->toMinorUnits(100.50), "{$currency->value} failed");
+            $this->assertSame(500000, $currency->toMinorUnits(5000.00), "{$currency->value} failed");
+            $this->assertSame(100, $currency->toMinorUnits(1.00), "{$currency->value} failed");
+            $this->assertSame(0, $currency->toMinorUnits(0.00), "{$currency->value} failed");
+        }
+    }
+
+    #[Test]
+    public function from_minor_units_converts_correctly_for_all_currencies(): void
+    {
+        foreach (Currency::cases() as $currency) {
+            $this->assertSame(100.5, $currency->fromMinorUnits(10050), "{$currency->value} failed");
+            $this->assertSame(5000.0, $currency->fromMinorUnits(500000), "{$currency->value} failed");
+            $this->assertSame(1.0, $currency->fromMinorUnits(100), "{$currency->value} failed");
+            $this->assertSame(0.0, $currency->fromMinorUnits(0), "{$currency->value} failed");
+        }
+    }
+
+    #[Test]
+    public function to_minor_units_rounds_half_cents(): void
+    {
+        $currency = Currency::KES;
+
+        $this->assertSame(10056, $currency->toMinorUnits(100.555));
+        $this->assertSame(10055, $currency->toMinorUnits(100.554));
+        $this->assertSame(10055, $currency->toMinorUnits(100.5549));
+    }
+
+    #[Test]
+    public function from_minor_units_returns_float(): void
+    {
+        $result = Currency::USD->fromMinorUnits(1);
+
+        $this->assertSame(0.01, $result);
+        $this->assertIsFloat($result);
+    }
 }

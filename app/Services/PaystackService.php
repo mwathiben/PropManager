@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\Currency;
 use App\Models\PaymentConfiguration;
 use App\Traits\LogsExternalRequests;
 use Illuminate\Http\Client\ConnectionException;
@@ -68,6 +69,8 @@ class PaystackService
         $this->ensureConfigured();
 
         try {
+            $currency = Currency::tryFrom($data['currency'] ?? '') ?? Currency::default();
+
             $response = $this->timedHttpRequest('paystack', '/transaction/initialize', fn () => Http::timeout($this->timeoutSeconds())
                 ->retry($this->retryAttempts(), function (int $attempt) {
                     $base = (int) config('payments.gateways.paystack.retry_backoff_base', 2);
@@ -79,13 +82,14 @@ class PaystackService
                 ->withHeaders([
                     'Authorization' => 'Bearer '.$this->secretKey,
                     'Content-Type' => 'application/json',
-                ])->post($this->baseUrl.'/transaction/initialize', [
+                ])->post($this->baseUrl.'/transaction/initialize', array_filter([
                     'email' => $data['email'],
-                    'amount' => $data['amount'] * 100, // Convert to kobo
+                    'amount' => $currency->toMinorUnits($data['amount']),
+                    'currency' => $currency->value,
                     'reference' => $data['reference'],
                     'callback_url' => $data['callback_url'] ?? route('payments.callback'),
                     'metadata' => $data['metadata'] ?? [],
-                ]));
+                ])));
 
             if ($response->successful()) {
                 return $response->json();
@@ -470,9 +474,11 @@ class PaystackService
     public function initializeSplitTransaction(array $data): ?array
     {
         try {
+            $currency = Currency::tryFrom($data['currency'] ?? '') ?? Currency::default();
             $payload = [
                 'email' => $data['email'],
-                'amount' => $data['amount'] * 100, // Convert to kobo
+                'amount' => $currency->toMinorUnits($data['amount']),
+                'currency' => $currency->value,
                 'reference' => $data['reference'],
                 'callback_url' => $data['callback_url'] ?? route('payments.callback'),
                 'metadata' => $data['metadata'] ?? [],
@@ -535,13 +541,13 @@ class PaystackService
     /**
      * Refund a transaction (NO RETRY - financial operation)
      */
-    public function refundTransaction(string $reference, ?float $amount = null): ?array
+    public function refundTransaction(string $reference, ?float $amount = null, string $currency = 'KES'): ?array
     {
         try {
             $data = ['transaction' => $reference];
 
             if ($amount !== null) {
-                $data['amount'] = (int) ($amount * 100);
+                $data['amount'] = Currency::from($currency)->toMinorUnits($amount);
             }
 
             // NO RETRY for refunds - financial operation must not be duplicated

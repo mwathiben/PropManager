@@ -529,7 +529,7 @@
                 @endif
                 <div>
                     <p class="payment-label">Payment Received</p>
-                    <p class="payment-amount">KES {{ number_format($payment->amount, 2) }}</p>
+                    <p class="payment-amount">{{ $currency_symbol }} {{ number_format($payment->amount, 2) }}</p>
                 </div>
             </div>
         </div>
@@ -568,8 +568,8 @@
                             @if($template->show_tenant_email)
                                 <p style="font-size: 11px; color: {{ $template->design === 'professional' ? '#374151' : '#6B7280' }}">{{ $tenant->email }}</p>
                             @endif
-                            @if($template->show_tenant_phone && $tenant->phone)
-                                <p style="font-size: 11px; color: {{ $template->design === 'professional' ? '#374151' : '#6B7280' }}">{{ $tenant->phone }}</p>
+                            @if($template->show_tenant_phone && $tenant->mobile_number)
+                                <p style="font-size: 11px; color: {{ $template->design === 'professional' ? '#374151' : '#6B7280' }}">{{ $tenant->mobile_number }}</p>
                             @endif
                         </div>
                     @endif
@@ -595,7 +595,7 @@
                 <p class="section-title">For Invoice</p>
                 <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
                     <span style="color: #6B7280;">Invoice #{{ $invoice->invoice_number }}</span>
-                    <span style="font-weight: 500; color: {{ $template->design === 'professional' ? '#1e3a5f' : '#1F2937' }}">KES {{ number_format($invoice->total_due, 2) }}</span>
+                    <span style="font-weight: 500; color: {{ $template->design === 'professional' ? '#1e3a5f' : '#1F2937' }}">{{ $currency_symbol }} {{ number_format($invoice->total_due, 2) }}</span>
                 </div>
 
                 @if($template->show_invoice_breakdown && $invoice->items && $invoice->items->count() > 0)
@@ -610,7 +610,7 @@
                             @foreach($invoice->items as $item)
                                 <tr>
                                     <td>{{ $item->description }}</td>
-                                    <td style="text-align: right;">KES {{ number_format($item->amount, 2) }}</td>
+                                    <td style="text-align: right;">{{ $currency_symbol }} {{ number_format($item->amount, 2) }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -627,17 +627,17 @@
                         @if($template->show_amount_breakdown && $invoice)
                             <tr>
                                 <td class="label">Previous Balance</td>
-                                <td class="value">KES {{ number_format($invoice->total_due, 2) }}</td>
+                                <td class="value">{{ $currency_symbol }} {{ number_format($invoice->total_due, 2) }}</td>
                             </tr>
                             <tr>
                                 <td class="label">Amount Paid</td>
-                                <td class="value paid">-KES {{ number_format($payment->amount, 2) }}</td>
+                                <td class="value paid">-{{ $currency_symbol }} {{ number_format($payment->amount, 2) }}</td>
                             </tr>
                         @endif
                         @if($template->show_balance_after_payment && $invoice)
                             <tr class="total-row">
                                 <td class="label">Balance Due</td>
-                                <td class="value">KES {{ number_format(max(0, $invoice->total_due - $invoice->amount_paid), 2) }}</td>
+                                <td class="value">{{ $currency_symbol }} {{ number_format(max(0, $invoice->total_due - $invoice->amount_paid), 2) }}</td>
                             </tr>
                         @endif
                     </tbody>

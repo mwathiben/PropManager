@@ -1,8 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { useFormatters, usePayments, useEcho } from '@/composables';
+import { useFormatters, usePayments, useEcho, useErrorHandler } from '@/composables';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import type { TenantFinancesPayPageProps } from '@/types';
 import { AmountDisplay, InvoiceStatusBadge } from '@/Components/Finances';
 import {
     BanknotesIcon,
@@ -15,16 +16,12 @@ import {
     InformationCircleIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    invoice: Object,
-    lease: Object,
-    paymentMethods: Array,
-    paystackPublicKey: String,
-});
+const props = defineProps<TenantFinancesPayPageProps>();
 
-const { formatMoney, formatDate } = useFormatters();
-const { initiatePaystackPayment, initiateMpesaPayment, checkMpesaStatus, isProcessing, error } = usePayments();
+const { formatMoney, formatDate } = useFormatters({ currency: props.invoice.currency || 'KES' });
+const { initiatePaystackPayment, initiateMpesaPayment, checkMpesaStatus, initiateIntaSendPayment, isProcessing, error } = usePayments();
 const { subscribePrivate, unsubscribe, isConnected } = useEcho();
+const { logError } = useErrorHandler();
 
 const selectedMethod = ref(null);
 const phoneNumber = ref('');
@@ -36,11 +33,19 @@ const echoSubscribed = ref(false);
 let pollingInterval = null;
 const FALLBACK_POLLING_INTERVAL = 30000;
 
+const intasendState = ref('idle');
+const intasendMessage = ref('');
+const intasendInvoiceId = ref(null);
+const intasendEchoSubscribed = ref(false);
+let intasendTimeout = null;
+const INTASEND_TIMEOUT = 60000;
+
 const methodIcons = {
     cash: BanknotesIcon,
     bank_transfer: BuildingLibraryIcon,
     mobile_money: DevicePhoneMobileIcon,
     mpesa: DevicePhoneMobileIcon,
+    intasend_mpesa: DevicePhoneMobileIcon,
     paystack: CreditCardIcon,
     stripe: CreditCardIcon,
 };
@@ -51,7 +56,7 @@ const selectedMethodData = computed(() => {
 
 const canProceed = computed(() => {
     if (!selectedMethod.value) return false;
-    if (selectedMethod.value === 'mpesa' || selectedMethod.value === 'mobile_money') {
+    if (selectedMethod.value === 'mpesa' || selectedMethod.value === 'mobile_money' || selectedMethod.value === 'intasend_mpesa') {
         return phoneNumber.value.length >= 10;
     }
     return true;
@@ -140,6 +145,69 @@ const startPolling = () => {
     pollingInterval = setInterval(pollMpesaStatus, isConnected.value ? FALLBACK_POLLING_INTERVAL : 3000);
 };
 
+const unsubscribeIntaSendEcho = () => {
+    if (intasendInvoiceId.value && intasendEchoSubscribed.value) {
+        unsubscribe(`intasend.${intasendInvoiceId.value}`);
+        intasendEchoSubscribed.value = false;
+    }
+};
+
+const stopIntaSendTimeout = () => {
+    if (intasendTimeout) {
+        clearTimeout(intasendTimeout);
+        intasendTimeout = null;
+    }
+};
+
+const handleIntaSendStatusUpdate = (data) => {
+    stopIntaSendTimeout();
+
+    if (data.status === 'success' || data.state === 'COMPLETE') {
+        intasendState.value = 'success';
+        intasendMessage.value = data.message || 'Payment received successfully!';
+        setTimeout(() => {
+            router.visit(route('tenant.finances.index'), {
+                preserveState: false,
+            });
+        }, 2000);
+    } else if (data.status === 'failed' || data.state === 'FAILED') {
+        intasendState.value = 'failed';
+        intasendMessage.value = data.failure_reason || data.message || 'Payment failed';
+    } else if (data.state === 'PROCESSING') {
+        intasendState.value = 'processing';
+        intasendMessage.value = 'Payment is being processed...';
+    }
+};
+
+const subscribeToIntaSendUpdates = () => {
+    if (!intasendInvoiceId.value || intasendEchoSubscribed.value) return;
+
+    subscribePrivate(
+        `intasend.${intasendInvoiceId.value}`,
+        'IntaSendPaymentStatusChanged',
+        handleIntaSendStatusUpdate
+    );
+    intasendEchoSubscribed.value = true;
+};
+
+const startIntaSendTimeout = () => {
+    stopIntaSendTimeout();
+    intasendTimeout = setTimeout(() => {
+        if (intasendState.value === 'waiting' || intasendState.value === 'processing') {
+            intasendState.value = 'failed';
+            intasendMessage.value = 'Payment timed out. Please try again.';
+        }
+    }, INTASEND_TIMEOUT);
+};
+
+const resetIntaSendState = () => {
+    stopIntaSendTimeout();
+    unsubscribeIntaSendEcho();
+    intasendState.value = 'idle';
+    intasendMessage.value = '';
+    intasendInvoiceId.value = null;
+};
+
 const proceedWithPayment = async () => {
     if (!canProceed.value) return;
 
@@ -158,11 +226,29 @@ const proceedWithPayment = async () => {
                 mpesaMessage.value = 'Please enter your M-Pesa PIN on your phone';
                 startPolling();
             }
+        } else if (selectedMethod.value === 'intasend_mpesa') {
+            intasendState.value = 'sending';
+            intasendMessage.value = 'Sending STK push to your phone...';
+
+            const result = await initiateIntaSendPayment(props.invoice.id, props.invoice.balance, phoneNumber.value);
+
+            if (result.success && result.intasend_invoice_id) {
+                intasendInvoiceId.value = result.intasend_invoice_id;
+                intasendState.value = 'waiting';
+                intasendMessage.value = 'Please enter your M-Pesa PIN on your phone';
+                subscribeToIntaSendUpdates();
+                startIntaSendTimeout();
+            }
         }
     } catch (err) {
-        mpesaState.value = 'failed';
-        mpesaMessage.value = err.message || 'Payment failed';
-        console.error('Payment failed:', err);
+        if (selectedMethod.value === 'intasend_mpesa') {
+            intasendState.value = 'failed';
+            intasendMessage.value = err.message || 'Payment failed';
+        } else {
+            mpesaState.value = 'failed';
+            mpesaMessage.value = err.message || 'Payment failed';
+        }
+        logError(err, { component: 'TenantFinancesPay', action: 'processPayment' });
     }
 };
 
@@ -177,6 +263,8 @@ const resetMpesaState = () => {
 onUnmounted(() => {
     stopPolling();
     unsubscribeEcho();
+    stopIntaSendTimeout();
+    unsubscribeIntaSendEcho();
 });
 </script>
 
@@ -346,7 +434,7 @@ onUnmounted(() => {
                         <p v-if="copied" class="text-xs text-emerald-600 mt-2">Copied to clipboard!</p>
                     </div>
 
-                    <div v-if="(selectedMethod === 'mpesa' || selectedMethod === 'mobile_money') && mpesaState === 'idle'" class="mt-4">
+                    <div v-if="(selectedMethod === 'mpesa' || selectedMethod === 'mobile_money' || selectedMethod === 'intasend_mpesa') && mpesaState === 'idle' && intasendState === 'idle'" class="mt-4">
                         <label class="block text-sm font-medium text-gray-700 mb-1">M-Pesa Phone Number</label>
                         <input
                             v-model="phoneNumber"
@@ -397,13 +485,53 @@ onUnmounted(() => {
                         </div>
                     </div>
 
-                    <div v-if="error && mpesaState === 'idle'" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <!-- IntaSend Status -->
+                    <div v-if="intasendState !== 'idle'" class="mt-4">
+                        <div v-if="intasendState === 'sending' || intasendState === 'waiting' || intasendState === 'processing'" class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div class="flex items-center gap-3">
+                                <div class="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent" />
+                                <div>
+                                    <p class="text-sm font-medium text-blue-800">{{ intasendMessage }}</p>
+                                    <p v-if="intasendState === 'waiting'" class="text-xs text-blue-600 mt-1">
+                                        Check your phone for the M-Pesa prompt
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-else-if="intasendState === 'success'" class="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+                            <div class="flex items-center gap-3">
+                                <CheckCircleIcon class="h-5 w-5 text-emerald-500" />
+                                <div>
+                                    <p class="text-sm font-medium text-emerald-800">{{ intasendMessage }}</p>
+                                    <p class="text-xs text-emerald-600 mt-1">Redirecting to your finances...</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-else-if="intasendState === 'failed'" class="p-4 bg-red-50 border border-red-200 rounded-lg">
+                            <div class="flex items-start gap-3">
+                                <InformationCircleIcon class="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-red-800">{{ intasendMessage }}</p>
+                                    <button
+                                        @click="resetIntaSendState"
+                                        class="mt-2 text-sm text-red-700 underline hover:text-red-900"
+                                    >
+                                        Try again
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="error && mpesaState === 'idle' && intasendState === 'idle'" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                         <p class="text-sm text-red-800">{{ error }}</p>
                     </div>
 
-                    <div v-if="mpesaState === 'idle' || mpesaState === 'failed'" class="mt-6 flex flex-col sm:flex-row gap-3">
+                    <div v-if="(mpesaState === 'idle' || mpesaState === 'failed') && (intasendState === 'idle' || intasendState === 'failed')" class="mt-6 flex flex-col sm:flex-row gap-3">
                         <button
-                            v-if="selectedMethod === 'paystack' || selectedMethod === 'stripe' || ((selectedMethod === 'mpesa' || selectedMethod === 'mobile_money') && mpesaState === 'idle')"
+                            v-if="selectedMethod === 'paystack' || selectedMethod === 'stripe' || ((selectedMethod === 'mpesa' || selectedMethod === 'mobile_money') && mpesaState === 'idle') || (selectedMethod === 'intasend_mpesa' && intasendState === 'idle')"
                             @click="proceedWithPayment"
                             :disabled="!canProceed || isProcessing"
                             :class="[

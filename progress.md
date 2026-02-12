@@ -14212,3 +14212,80 @@ E2E browser: PASS (dashboard, invoices, payments — all amounts display correct
 3. **Aggregation safety**: `sum('amount')` queries (~40 call sites) need `->where('currency', ...)` grouping once multi-currency records exist
 
 **PAY-V2.1-001 COMPLETE**
+
+---
+
+## PAY-V2.1-002: Update Paystack Integration for Multi-Currency
+**Status:** PASSED
+**Date:** 2026-02-12
+**Attempts:** 1
+
+### Implementation Summary
+
+Made the entire Paystack payment pipeline currency-aware end-to-end, from frontend initiation through Paystack API, callback processing, payment record creation, and presentation in receipts/emails/PDFs. Followed the tracer bullet approach to touch every layer.
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `app/Enums/Currency.php` | Added `toMinorUnits()` and `fromMinorUnits()` helper methods |
+| `app/Services/PaystackService.php` | Currency-aware amount conversion in `initializeTransaction()`, `initializeSplitTransaction()`, `refundTransaction()` |
+| `app/Services/Gateways/PaystackGateway.php` | Pass currency through gateway adapter (`initializePayment`, `refundPayment`) |
+| `app/Services/Payment/PaystackCallbackHandler.php` | Currency-aware `validateAmount()` using `Currency::fromMinorUnits()` |
+| `app/Services/Payment/PaymentCallbackProcessor.php` | Set `currency` on Payment records, currency-aware conversions in `createPaymentRecord()`, `recordPlatformFee()`, `updateInvoiceAndHandleOverpayment()`, new `resolvePaymentCurrency()` helper |
+| `app/Services/Payment/InitialPaymentCallbackHandler.php` | Set `currency` on Payment records, currency-aware conversion |
+| `app/Http/Controllers/Api/TenantPaymentController.php` | Pass `currency` from invoice to PaystackService |
+| `app/Http/Controllers/PaymentController.php` | Pass `currency` from invoice to PaystackService |
+| `app/Services/ReceiptService.php` | Pass `currency_symbol` to receipt template view |
+| `app/Services/InvoicePdfService.php` | Pass `currency_symbol` to invoice PDF view |
+| `app/Services/CreditNoteService.php` | Pass `currency_symbol` to credit note PDF view |
+| `app/Mail/PaymentReceived.php` | Pass `currency_symbol` to payment email template |
+| `resources/views/receipts/templated-receipt.blade.php` | Replace 6 hardcoded "KES" with `{{ $currency_symbol }}` |
+| `resources/views/invoices/pdf.blade.php` | Replace 5 hardcoded "KES" with `{{ $currency_symbol }}` |
+| `resources/views/emails/payment-received.blade.php` | Replace 5 hardcoded "KES" with `{{ $currency_symbol }}` |
+| `resources/views/credit-notes/pdf.blade.php` | Replace 7 hardcoded "KES" with `{{ $currency_symbol }}` |
+| `app/Events/PaymentReceived.php` | Add `currency` to `broadcastWith()` broadcast payload |
+| `resources/js/Pages/TenantFinances/Pay.vue` | Initialize `useFormatters()` with invoice currency |
+
+### New Test Files
+
+| File | Tests | Description |
+|------|-------|-------------|
+| `tests/Unit/Enums/CurrencyTest.php` | +4 | Minor unit conversion helpers (toMinorUnits, fromMinorUnits, rounding, float return) |
+| `tests/Unit/Services/PaystackServiceCurrencyTest.php` | 5 | Currency in API payloads (initialize, split, refund, defaults) |
+| `tests/Feature/Services/PaystackCallbackHandlerTest.php` | +2 | Multi-currency callback tests (USD response, KES default) |
+| `tests/Browser/PaystackMultiCurrencyE2ETest.php` | 8 | E2E browser tests (currency symbols, callback integration, regression) |
+
+### Acceptance Criteria Verification
+
+| Criteria | Status |
+|----------|--------|
+| Paystack transactions use invoice currency | PASS — `currency` sent in API payload |
+| Amount converted correctly to minor units | PASS — `Currency::toMinorUnits()` / `fromMinorUnits()` |
+| Callback handles multi-currency response | PASS — `Currency::tryFrom($data['currency'])` with KES default |
+
+### Self-Review Findings (deslop)
+
+1. Fixed DRY violation in `PaystackService::initializeTransaction()` — duplicate `Currency::tryFrom()` call extracted to variable
+2. Removed misleading comment in `ReceiptService::generateSampleQrCode()`
+3. No other slop found — all changes are minimal and consistent
+
+### Test Results
+
+```
+CurrencyTest: 13 passed (including 4 new)
+PaystackServiceCurrencyTest: 5 passed
+PaystackCallbackHandlerTest: 18 passed (including 2 new)
+Full suite: 1228 passed, 1 pre-existing failure (InvoiceWorkflowIntegrationTest)
+Pint: PASS
+npm build: PASS
+```
+
+### Out of Scope (Follow-up)
+
+- ~50 other Blade templates still have hardcoded "KES" (exports, reports, ledger, other emails) — outside payment flow tracer bullet
+- Receipt model lacks `currency` column (needs migration)
+- BillingModelService fee calculation doesn't accept currency parameter
+- Currency mismatch validation between payment and invoice (edge case)
+
+**PAY-V2.1-002 COMPLETE**

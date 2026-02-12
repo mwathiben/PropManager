@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Payment;
 
+use App\Enums\Currency;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PaymentConfiguration;
@@ -16,7 +17,7 @@ use Illuminate\Support\Facades\Log;
 
 class PaystackCallbackHandler
 {
-    private const AMOUNT_TOLERANCE_KES = 1.00;
+    private const AMOUNT_TOLERANCE = 1.00;
 
     /** @var callable|null */
     private $overpaymentHandler = null;
@@ -241,15 +242,17 @@ class PaystackCallbackHandler
             return null;
         }
 
-        $paystackAmountKes = ($data['amount'] ?? 0) / 100;
+        $currency = Currency::tryFrom($data['currency'] ?? '') ?? Currency::default();
+        $paystackAmount = $currency->fromMinorUnits($data['amount'] ?? 0);
         $expectedAmount = (float) $invoice->total_due;
-        $difference = abs($paystackAmountKes - $expectedAmount);
+        $difference = abs($paystackAmount - $expectedAmount);
 
-        if ($difference > self::AMOUNT_TOLERANCE_KES) {
+        if ($difference > self::AMOUNT_TOLERANCE) {
             Log::warning('Paystack amount mismatch', [
                 'expected' => $expectedAmount,
-                'received' => $paystackAmountKes,
+                'received' => $paystackAmount,
                 'difference' => $difference,
+                'currency' => $currency->value,
                 'invoice_id' => $invoiceId,
                 'reference' => $data['reference'] ?? 'unknown',
             ]);
@@ -258,12 +261,12 @@ class PaystackCallbackHandler
                 WebhookDeadLetter::PROVIDER_PAYSTACK,
                 'charge.success',
                 $data,
-                "Amount mismatch: expected {$expectedAmount}, received {$paystackAmountKes}",
+                "Amount mismatch: expected {$expectedAmount}, received {$paystackAmount}",
                 WebhookDeadLetter::ERROR_SCHEMA,
                 $invoice->landlord_id
             );
 
-            return PaystackHandlerResult::amountMismatch($expectedAmount, $paystackAmountKes);
+            return PaystackHandlerResult::amountMismatch($expectedAmount, $paystackAmount);
         }
 
         return null;

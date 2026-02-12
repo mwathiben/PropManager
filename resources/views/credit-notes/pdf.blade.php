@@ -441,11 +441,11 @@
         {{-- Credit Amount --}}
         <div class="amount-section">
             <p class="amount-label">Credit Amount</p>
-            <p class="amount-value">KES {{ number_format($creditNote->amount, 2) }}</p>
+            <p class="amount-value">{{ $currency_symbol }} {{ number_format($creditNote->amount, 2) }}</p>
             @if($creditNote->applied_amount > 0)
                 <p class="amount-note">
-                    Applied: KES {{ number_format($creditNote->applied_amount, 2) }} |
-                    Remaining: KES {{ number_format($creditNote->remaining_amount, 2) }}
+                    Applied: {{ $currency_symbol }} {{ number_format($creditNote->applied_amount, 2) }} |
+                    Remaining: {{ $currency_symbol }} {{ number_format($creditNote->remaining_amount, 2) }}
                 </p>
             @endif
         </div>
@@ -459,8 +459,8 @@
                         <h4>Tenant</h4>
                         <p>{{ $tenant->name }}</p>
                         <p class="sub">{{ $tenant->email }}</p>
-                        @if($tenant->phone)
-                            <p class="sub">{{ $tenant->phone }}</p>
+                        @if($tenant->mobile_number)
+                            <p class="sub">{{ $tenant->mobile_number }}</p>
                         @endif
                     </div>
                 @endif
@@ -500,7 +500,7 @@
                 </div>
                 <div class="invoice-row">
                     <span class="label">Invoice Amount</span>
-                    <span class="value">KES {{ number_format($invoice->total_due, 2) }}</span>
+                    <span class="value">{{ $currency_symbol }} {{ number_format($invoice->total_due, 2) }}</span>
                 </div>
             </div>
         @endif
@@ -534,7 +534,7 @@
                 </div>
                 <div class="application-row">
                     <span class="label">Amount Applied</span>
-                    <span class="value">KES {{ number_format($creditNote->applied_amount, 2) }}</span>
+                    <span class="value">{{ $currency_symbol }} {{ number_format($creditNote->applied_amount, 2) }}</span>
                 </div>
                 @if($creditNote->applied_at)
                     <div class="application-row">
@@ -549,17 +549,17 @@
         <div class="balance-summary">
             <div class="balance-row">
                 <span class="label">Credit Note Amount</span>
-                <span class="value">KES {{ number_format($creditNote->amount, 2) }}</span>
+                <span class="value">{{ $currency_symbol }} {{ number_format($creditNote->amount, 2) }}</span>
             </div>
             @if($creditNote->applied_amount > 0)
                 <div class="balance-row">
                     <span class="label">Amount Applied</span>
-                    <span class="value">-KES {{ number_format($creditNote->applied_amount, 2) }}</span>
+                    <span class="value">-{{ $currency_symbol }} {{ number_format($creditNote->applied_amount, 2) }}</span>
                 </div>
             @endif
             <div class="balance-row total">
                 <span class="label">Available Credit</span>
-                <span class="value">KES {{ number_format($creditNote->remaining_amount, 2) }}</span>
+                <span class="value">{{ $currency_symbol }} {{ number_format($creditNote->remaining_amount, 2) }}</span>
             </div>
         </div>
 

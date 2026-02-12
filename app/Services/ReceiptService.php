@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\Currency;
 use App\Models\Invoice;
 use App\Models\InvoiceSetting;
 use App\Models\Payment;
@@ -134,6 +135,8 @@ class ReceiptService
             ]);
         }
 
+        $currencySymbol = ($payment->currency ?? Currency::default())->symbol();
+
         return [
             'receipt' => $receipt,
             'payment' => $payment,
@@ -144,6 +147,7 @@ class ReceiptService
             'template' => $template,
             'business' => $business,
             'qr_code' => $qrCode,
+            'currency_symbol' => $currencySymbol,
         ];
     }
 
@@ -234,8 +238,19 @@ class ReceiptService
             'building' => $sampleInvoice->lease->unit->building,
             'template' => $template,
             'business' => $business,
-            'qr_code' => null,
+            'qr_code' => $template->show_qr_code ? $this->generateSampleQrCode() : null,
+            'currency_symbol' => Currency::default()->symbol(),
         ];
+    }
+
+    protected function generateSampleQrCode(): string
+    {
+        return 'data:image/svg+xml;base64,'.base64_encode(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+            .'<rect width="100" height="100" fill="#f3f4f6"/>'
+            .'<text x="50" y="50" text-anchor="middle" dominant-baseline="middle" font-size="10" fill="#9ca3af">QR Preview</text>'
+            .'</svg>'
+        );
     }
 
     protected function buildDefaultTemplate(): ReceiptTemplate

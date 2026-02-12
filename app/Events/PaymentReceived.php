@@ -62,13 +62,14 @@ class PaymentReceived implements ShouldBroadcast
             'unit_name' => $lease->unit->name,
             'updated_metrics' => $updatedMetrics,
             // Split payment details
-            'platform_fee' => $platformFee?->fee_amount
+            'platform_fee' => $platformFee?->fee_amount !== null
                 ? (float) $platformFee->fee_amount
                 : null,
-            'landlord_amount' => $platformFee?->net_amount
+            'landlord_amount' => $platformFee?->net_amount !== null
                 ? (float) $platformFee->net_amount
                 : (float) $this->payment->amount,
             'split_provider' => $splitProvider,
+            'currency' => $this->payment->currency?->value ?? 'KES',
         ];
     }
 }

@@ -32,6 +32,7 @@ class PaystackGateway implements PaymentGatewayInterface
         $data = [
             'email' => $request->email,
             'amount' => $request->amount->toFloat(),
+            'currency' => $request->amount->currency,
             'reference' => $request->reference,
             'callback_url' => $request->callbackUrl ?? route('payments.callback'),
             'metadata' => $request->metadata,
@@ -99,7 +100,7 @@ class PaystackGateway implements PaymentGatewayInterface
     public function refundPayment(string $reference, ?Money $amount = null): PaymentResult
     {
         $refundAmount = $amount?->toFloat();
-        $response = $this->service->refundTransaction($reference, $refundAmount);
+        $response = $this->service->refundTransaction($reference, $refundAmount, $amount?->currency ?? 'KES');
 
         if ($response === null) {
             return PaymentResult::failed(
@@ -112,7 +113,7 @@ class PaystackGateway implements PaymentGatewayInterface
 
         return PaymentResult::refunded(
             reference: $response['transaction']['reference'] ?? $reference,
-            amount: Money::fromSmallestUnit($refundedAmount),
+            amount: Money::fromSmallestUnit($refundedAmount, $response['currency'] ?? $amount?->currency ?? 'KES'),
             transactionId: isset($response['id']) ? (string) $response['id'] : null,
             rawResponse: $response,
         );

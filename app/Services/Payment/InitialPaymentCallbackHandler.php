@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Payment;
 
+use App\Enums\Currency;
 use App\Mail\PaymentVerificationApproved;
 use App\Models\Payment;
 use App\Models\TenantPaymentVerification;
@@ -20,15 +21,12 @@ class InitialPaymentCallbackHandler
 
     public function process(array $data, array $metadata): InitialPaymentResult
     {
-        $verificationId = $metadata['verification_id'];
-        $verification = TenantPaymentVerification::find($verificationId);
+        $verificationId = $metadata['verification_id'] ?? null;
 
-        if (! $verification) {
-            return InitialPaymentResult::notFound();
-        }
+        if (! $verificationId) {
+            Log::warning('Initial payment callback missing verification_id', ['metadata' => $metadata]);
 
-        if ($verification->isVerified()) {
-            return InitialPaymentResult::alreadyVerified();
+            return InitialPaymentResult::error('Invalid metadata: missing verification_id');
         }
 
         $reference = $data['reference'] ?? null;
@@ -36,8 +34,23 @@ class InitialPaymentCallbackHandler
             return InitialPaymentResult::error('Invalid payment data: missing reference');
         }
 
+        /** @var \App\Models\User|null $tenantToNotify */
+        $tenantToNotify = null;
+        /** @var TenantPaymentVerification|null $verificationForMail */
+        $verificationForMail = null;
+
         try {
-            $result = DB::transaction(function () use ($data, $reference, $verification) {
+            $result = DB::transaction(function () use ($data, $reference, $verificationId, &$tenantToNotify, &$verificationForMail) {
+                $verification = TenantPaymentVerification::lockForUpdate()->find($verificationId);
+
+                if (! $verification) {
+                    return InitialPaymentResult::notFound();
+                }
+
+                if ($verification->isVerified()) {
+                    return InitialPaymentResult::alreadyVerified();
+                }
+
                 $existingPayment = Payment::where('paystack_reference', $reference)
                     ->lockForUpdate()
                     ->first();
@@ -46,12 +59,14 @@ class InitialPaymentCallbackHandler
                     return InitialPaymentResult::duplicate();
                 }
 
-                $amount = $data['amount'] / 100;
+                $currency = Currency::tryFrom($data['currency'] ?? '') ?? Currency::default();
+                $amount = $currency->fromMinorUnits($data['amount']);
 
                 $payment = Payment::create([
                     'landlord_id' => $verification->landlord_id,
                     'lease_id' => $verification->lease_id,
                     'amount' => $amount,
+                    'currency' => $currency->value,
                     'payment_method' => 'paystack',
                     'payment_date' => now(),
                     'reference' => $reference,
@@ -74,12 +89,17 @@ class InitialPaymentCallbackHandler
                     $tenant = $verification->lease?->tenant;
 
                     if ($tenant) {
-                        Mail::to($tenant)->queue(new PaymentVerificationApproved($verification));
+                        $tenantToNotify = $tenant;
+                        $verificationForMail = $verification;
                     }
                 }
 
                 return InitialPaymentResult::success($payment, $verification, $amount, $isVerified);
             });
+
+            if ($tenantToNotify && $verificationForMail) {
+                Mail::to($tenantToNotify)->queue(new PaymentVerificationApproved($verificationForMail));
+            }
 
             return $result;
         } catch (\Exception $e) {

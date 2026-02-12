@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\Currency;
 use App\Models\Invoice;
 use App\Models\InvoiceTemplate;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -82,7 +83,7 @@ class InvoicePdfService
             'tenant' => [
                 'name' => $tenant->name,
                 'email' => $tenant->email,
-                'phone' => $tenant->phone,
+                'phone' => $tenant->mobile_number,
                 'national_id' => $tenant->national_id,
             ],
             'unit' => [
@@ -103,6 +104,7 @@ class InvoicePdfService
             'amount_paid' => $invoice->amount_paid,
             'balance_due' => $invoice->total_due - $invoice->amount_paid,
             'logoUrl' => $settings?->logo_path ? Storage::url($settings->logo_path) : null,
+            'currency_symbol' => ($invoice->currency ?? Currency::default())->symbol(),
         ];
     }
 

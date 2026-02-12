@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Payment;
 
+use App\Enums\Currency;
 use App\Enums\InvoiceStatus;
 use App\Events\PaymentReceived as PaymentReceivedEvent;
 use App\Mail\PaymentReceived;
@@ -117,7 +118,9 @@ class PaymentCallbackProcessor
                 'cached' => $idempotencyResult['response'] !== null,
             ]);
 
-            return PaymentProcessResult::alreadyProcessed(null);
+            $existingPayment = Payment::where('paystack_reference', $this->reference)->first();
+
+            return PaymentProcessResult::alreadyProcessed($existingPayment);
         }
 
         try {
@@ -169,7 +172,9 @@ class PaymentCallbackProcessor
                     'paystack_reference' => $this->reference,
                 ]);
 
-                return PaymentProcessResult::alreadyProcessed(null);
+                $existingPayment = Payment::where('paystack_reference', $this->reference)->first();
+
+                return PaymentProcessResult::alreadyProcessed($existingPayment);
             }
 
             $this->idempotencyService->fail($this->idempotencyKey, $e->getMessage());
@@ -211,7 +216,8 @@ class PaymentCallbackProcessor
 
     private function createPaymentRecord(Invoice $invoice): Payment
     {
-        $amount = $this->paymentData['amount'] / 100;
+        $currency = $this->resolvePaymentCurrency($invoice);
+        $amount = $currency->fromMinorUnits($this->paymentData['amount']);
         $metadata = $this->paymentData['metadata'] ?? [];
         $isSplitPayment = $metadata['is_split_payment'] ?? false;
         $payoutAccountId = $metadata['payout_account_id'] ?? null;
@@ -223,6 +229,7 @@ class PaymentCallbackProcessor
             'lease_id' => $invoice->lease_id,
             'payout_account_id' => $payoutAccountId,
             'amount' => $amount,
+            'currency' => $currency->value,
             'payment_method' => 'paystack',
             'payment_date' => now(),
             'reference' => $this->paymentData['reference'],
@@ -252,7 +259,8 @@ class PaymentCallbackProcessor
             return;
         }
 
-        $amount = $this->paymentData['amount'] / 100;
+        $currency = $this->resolvePaymentCurrency($invoice);
+        $amount = $currency->fromMinorUnits($this->paymentData['amount']);
         $metadata = $this->paymentData['metadata'] ?? [];
         $isSplitPayment = $metadata['is_split_payment'] ?? false;
         $payoutAccountId = $metadata['payout_account_id'] ?? null;
@@ -289,7 +297,8 @@ class PaymentCallbackProcessor
         Payment $payment,
         array &$pendingOverpayments
     ): float {
-        $amount = $this->paymentData['amount'] / 100;
+        $currency = $this->resolvePaymentCurrency($invoice);
+        $amount = $currency->fromMinorUnits($this->paymentData['amount']);
         $remainingBalance = $invoice->total_due - $invoice->amount_paid;
         $appliedAmount = min($amount, $remainingBalance);
         $overpayment = max(0, $amount - $remainingBalance);
@@ -319,6 +328,13 @@ class PaymentCallbackProcessor
         }
 
         return $overpayment;
+    }
+
+    private function resolvePaymentCurrency(Invoice $invoice): Currency
+    {
+        return Currency::tryFrom($this->paymentData['currency'] ?? '')
+            ?? $invoice->currency
+            ?? Currency::default();
     }
 
     private function resolvePaymentLandlordId(): ?int
