@@ -9,6 +9,7 @@ use App\Http\Traits\WithFinanceRendering;
 use App\Http\Traits\WithLandlordScope;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\ReconciliationReport;
 use App\Services\FinanceExportService;
 use App\Services\FinanceFilterService;
 use App\Services\FinanceStatsService;
@@ -96,6 +97,10 @@ class FinancesController extends Controller
         return $this->renderFinances('reconciliation', [
             'unmatchedPayments' => $this->filterService->getUnmatchedPayments($landlordId),
             'pendingReconciliation' => $this->statsService->getPendingReconciliationCount($landlordId),
+            'paystackReport' => ReconciliationReport::where('landlord_id', $landlordId)
+                ->where('provider', 'paystack')
+                ->orderByDesc('reconciled_at')
+                ->first(),
         ]);
     }
 

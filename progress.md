@@ -14420,3 +14420,90 @@ Build: PASS (npm run build)
 
 ### Next Steps
 - Continue with PAY-V2.1-003 or PAY-V2.1-005 (next highest priority unpassed tasks)
+
+---
+
+## PAY-V2.1-005: Implement Automated Reconciliation Job with Alerts
+**Status:** PASSED
+**Date:** 2026-02-12
+**Attempts:** 1
+
+### Implementation Summary
+
+Automated the PaymentReconciliationService (PAY-V2.1-004) with a daily scheduled artisan command that reconciles Paystack payments for all configured landlords, stores results in a new `reconciliation_reports` table, sends queued email alerts on discrepancies, and displays reconciliation status in the Finances Hub.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/2026_02_13_100000_create_reconciliation_reports_table.php` | New table with composite indexes |
+| `app/Models/ReconciliationReport.php` | Eloquent model with static factory methods (no TenantScope — CLI context) |
+| `database/factories/ReconciliationReportFactory.php` | Factory with `completed()`, `failed()`, `withDiscrepancies()` states |
+| `app/Mail/ReconciliationAlert.php` | Queued mailable with `$afterCommit = true` |
+| `resources/views/emails/reconciliation-alert.blade.php` | Markdown email template with discrepancy breakdown |
+| `app/Console/Commands/DailyPaymentReconciliation.php` | Artisan command with `--landlord`, `--days`, `--dry-run` options |
+| `tests/Unit/Models/ReconciliationReportTest.php` | 6 model tests |
+| `tests/Unit/Mail/ReconciliationAlertMailTest.php` | 3 mailable tests |
+| `tests/Feature/Commands/DailyPaymentReconciliationCommandTest.php` | 9 command tests |
+| `tests/Feature/Controllers/ReconciliationReportDisplayTest.php` | 2 controller tests |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/ValueObjects/ReconciliationResult.php` | Added `toArray()` method for JSON serialization |
+| `routes/console.php` | Added `reconciliation:run-daily` schedule at 04:00 daily |
+| `app/Http/Controllers/FinancesController.php` | Added `paystackReport` prop to `reconciliation()` method |
+| `resources/js/Pages/Finances/tabs/ReconciliationTab.vue` | Added Paystack Reconciliation status card with color-coded badges |
+
+### Architecture Decisions
+
+- **Artisan Command (not Job)**: Follows codebase convention (WarmFinanceCache, idempotency:cleanup). Command handles iteration, error isolation, progress output.
+- **No TenantScope on ReconciliationReport**: CLI context has no authenticated user. Explicit `where('landlord_id')` used everywhere. Follows BankReconciliationQueue pattern.
+- **Period as array tuple**: `storeFromResult()` and `storeFailed()` accept `[$from, $to]` array to keep parameter count under PHPMD threshold (5).
+- **Instance properties for command state**: `$isDryRun`, `$from`, `$to` as class properties instead of method parameters to reduce `processLandlord()` signature.
+
+### Acceptance Criteria Verification
+
+1. **Job runs daily for all landlords** — Scheduled at 04:00 via `routes/console.php` with `withoutOverlapping()` and `runInBackground()`
+2. **Results stored in database** — `ReconciliationReport::storeFromResult()` and `::storeFailed()` persist all results
+3. **Email sent on discrepancies >1 KES** — `ReconciliationAlert` queued when `hasDiscrepancies()` returns true (service uses TOLERANCE=0.01)
+4. **Admin dashboard shows reconciliation status** — Paystack status card in ReconciliationTab.vue with green/yellow/red states
+
+### Verification Results
+
+- **Target tests**: 20 passed (71 assertions)
+- **Full suite**: 1274 passed, 13 skipped (pre-existing)
+- **Lint (Pint)**: Clean (915 files)
+- **Build**: Success (44.21s)
+- **PHPMD**: Clean on all new files
+- **Dry run**: `php artisan reconciliation:run-daily --dry-run` — processed 1 landlord, 0 discrepancies
+- **E2E**: agent-browser daemon failed on Windows; verified via feature tests + command dry-run
+
+### Skills Applied
+
+- laraveltdd-with-pest: RED-GREEN-REFACTOR cycle with 20 tests written before implementation
+- laravelqueues-and-horizon: ShouldQueue + afterCommit on ReconciliationAlert mailable
+- laraveltask-scheduling: dailyAt('04:00'), withoutOverlapping(), runInBackground()
+- laravelmigrations-and-factories: New migration + factory with states
+- laravelexception-handling-and-logging: Per-landlord error isolation, structured context arrays
+- laravelcomplexity-guardrails: All methods under cyclomatic complexity 7, parameter lists under 5
+- laravelcontroller-cleanup: Minimal 4-line change to FinancesController
+- laravelcontroller-tests: Inertia prop assertions for paystackReport
+- laraveltransactions-and-consistency: Email queued with afterCommit
+- laravelperformance-select-columns: Landlord query uses pluck()
+- laraveleloquent-relationships: ReconciliationReport -> belongsTo(User)
+- verification-first: Every change verified with actual command output
+- feature-development: Full TDD workflow from tests to commit
+- code-review + deslop: Self-review — no slop, clean PHPMD, no secrets
+
+### Learnings
+
+- PHPMD ExcessiveParameterList threshold is 5 (inclusive) — group related params into arrays or use instance properties
+- BankReconciliationQueue establishes pattern for models without TenantScope in CLI context
+- FailedWebhookAlert is the canonical mailable pattern (ShouldQueue + afterCommit)
+- agent-browser v0.8.0 daemon fails to start on Windows — need alternative E2E approach
+
+### Next Steps
+
+- Continue with next highest priority unpassed task in payment-workflow-prd-v2.1.json

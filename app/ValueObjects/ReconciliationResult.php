@@ -58,4 +58,19 @@ final readonly class ReconciliationResult
     {
         return $this->ofType(ReconciliationDiscrepancy::AMOUNT_MISMATCH);
     }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function toArray(): array
+    {
+        return array_map(fn (ReconciliationDiscrepancy $d) => [
+            'type' => $d->type,
+            'reference' => $d->reference,
+            'local_amount' => $d->localAmount,
+            'remote_amount' => $d->remoteAmount,
+            'currency' => $d->currency,
+            'remote_status' => $d->remoteStatus,
+        ], $this->discrepancies);
+    }
 }

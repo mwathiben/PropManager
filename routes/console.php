@@ -61,3 +61,9 @@ Schedule::command('idempotency:cleanup')
     ->dailyAt('03:00')
     ->withoutOverlapping()
     ->runInBackground();
+
+// Run daily payment reconciliation for all Paystack-configured landlords at 04:00
+Schedule::command('reconciliation:run-daily')
+    ->dailyAt('04:00')
+    ->withoutOverlapping()
+    ->runInBackground();

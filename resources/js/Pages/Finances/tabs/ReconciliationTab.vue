@@ -12,8 +12,26 @@ import {
     DocumentTextIcon,
     PlayIcon,
     ChevronDownIcon,
+    ExclamationTriangleIcon,
+    XCircleIcon,
+    ShieldCheckIcon,
 } from '@heroicons/vue/24/outline';
 import type { Payment } from '@/types/finances';
+
+interface PaystackReport {
+    id: number;
+    provider: string;
+    status: string;
+    period_from: string;
+    period_to: string;
+    local_count: number;
+    remote_count: number;
+    matched_count: number;
+    discrepancy_count: number;
+    error_message: string | null;
+    alert_sent: boolean;
+    reconciled_at: string;
+}
 
 interface UnmatchedPayment extends Payment {
     tenant?: { name: string };
@@ -30,12 +48,59 @@ interface Props {
     pendingReconciliation?: number;
     stats?: ReconciliationStats;
     loading?: boolean;
+    paystackReport?: PaystackReport | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     unmatchedPayments: () => [],
     pendingReconciliation: 0,
     loading: false,
+    paystackReport: null,
+});
+
+const paystackStatusConfig = computed(() => {
+    if (!props.paystackReport) return null;
+
+    const report = props.paystackReport;
+    if (report.status === 'failed') {
+        return {
+            border: 'border-red-200',
+            bg: 'bg-red-50',
+            icon: XCircleIcon,
+            iconColor: 'text-red-600',
+            titleColor: 'text-red-800',
+            textColor: 'text-red-700',
+            badgeBg: 'bg-red-100',
+            badgeText: 'text-red-800',
+            label: 'Failed',
+        };
+    }
+
+    if (report.discrepancy_count > 0) {
+        return {
+            border: 'border-yellow-200',
+            bg: 'bg-yellow-50',
+            icon: ExclamationTriangleIcon,
+            iconColor: 'text-yellow-600',
+            titleColor: 'text-yellow-800',
+            textColor: 'text-yellow-700',
+            badgeBg: 'bg-yellow-100',
+            badgeText: 'text-yellow-800',
+            label: `${report.discrepancy_count} discrepancies`,
+        };
+    }
+
+    return {
+        border: 'border-emerald-200',
+        bg: 'bg-emerald-50',
+        icon: ShieldCheckIcon,
+        iconColor: 'text-emerald-600',
+        titleColor: 'text-emerald-800',
+        textColor: 'text-emerald-700',
+        badgeBg: 'bg-emerald-100',
+        badgeText: 'text-emerald-800',
+        label: 'Clean',
+    };
 });
 
 const store = useFinancesStore();
@@ -144,6 +209,49 @@ const processQueue = () => {
                     <ArrowUpTrayIcon class="h-4 w-4" />
                     Import Statement
                 </button>
+            </div>
+        </div>
+
+        <div v-if="paystackReport && paystackStatusConfig" :class="[paystackStatusConfig.bg, paystackStatusConfig.border]" class="border rounded-xl p-5">
+            <div class="flex items-start justify-between">
+                <div class="flex items-start gap-3">
+                    <component :is="paystackStatusConfig.icon" :class="paystackStatusConfig.iconColor" class="h-5 w-5 mt-0.5" />
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 :class="paystackStatusConfig.titleColor" class="text-sm font-semibold">Paystack Reconciliation</h3>
+                            <span :class="[paystackStatusConfig.badgeBg, paystackStatusConfig.badgeText]" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium">
+                                {{ paystackStatusConfig.label }}
+                            </span>
+                        </div>
+                        <p :class="paystackStatusConfig.textColor" class="mt-1 text-sm">
+                            <template v-if="paystackReport.status === 'failed'">
+                                Last run failed: {{ paystackReport.error_message }}
+                            </template>
+                            <template v-else>
+                                {{ formatDate(paystackReport.period_from) }} &ndash; {{ formatDate(paystackReport.period_to) }}
+                            </template>
+                        </p>
+                    </div>
+                </div>
+                <span class="text-xs text-gray-500 whitespace-nowrap">{{ formatDate(paystackReport.reconciled_at) }}</span>
+            </div>
+            <div v-if="paystackReport.status === 'completed'" class="mt-3 ml-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="text-center">
+                    <p class="text-lg font-semibold text-gray-900">{{ paystackReport.matched_count }}</p>
+                    <p class="text-xs text-gray-500">Matched</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-lg font-semibold text-gray-900">{{ paystackReport.local_count }}</p>
+                    <p class="text-xs text-gray-500">Local</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-lg font-semibold text-gray-900">{{ paystackReport.remote_count }}</p>
+                    <p class="text-xs text-gray-500">Remote</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-lg font-semibold" :class="paystackReport.discrepancy_count > 0 ? 'text-yellow-700' : 'text-gray-900'">{{ paystackReport.discrepancy_count }}</p>
+                    <p class="text-xs text-gray-500">Discrepancies</p>
+                </div>
             </div>
         </div>
 
