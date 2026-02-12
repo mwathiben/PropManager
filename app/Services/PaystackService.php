@@ -473,6 +473,8 @@ class PaystackService
      */
     public function initializeSplitTransaction(array $data): ?array
     {
+        $this->ensureConfigured();
+
         try {
             $currency = Currency::tryFrom($data['currency'] ?? '') ?? Currency::default();
             $payload = [
@@ -543,11 +545,22 @@ class PaystackService
      */
     public function refundTransaction(string $reference, ?float $amount = null, string $currency = 'KES'): ?array
     {
+        $this->ensureConfigured();
+
         try {
             $data = ['transaction' => $reference];
 
             if ($amount !== null) {
-                $data['amount'] = Currency::from($currency)->toMinorUnits($amount);
+                $resolvedCurrency = Currency::tryFrom($currency);
+                if (! $resolvedCurrency) {
+                    Log::error('Paystack refund failed: invalid currency', [
+                        'currency' => $currency,
+                        'reference' => $reference,
+                    ]);
+
+                    return null;
+                }
+                $data['amount'] = $resolvedCurrency->toMinorUnits($amount);
             }
 
             // NO RETRY for refunds - financial operation must not be duplicated
@@ -669,6 +682,48 @@ class PaystackService
         } catch (\Exception $e) {
             Log::error('Paystack list refunds exception', [
                 'reference' => $reference,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    public function listTransactions(array $params = []): ?array
+    {
+        $this->ensureConfigured();
+
+        try {
+            $response = $this->timedHttpRequest('paystack', '/transaction', fn () => Http::timeout($this->timeoutSeconds())
+                ->retry($this->retryAttempts(), function (int $attempt) {
+                    $base = (int) config('payments.gateways.paystack.retry_backoff_base', 2);
+
+                    return $this->retryDelayMs() * ($base ** ($attempt - 1));
+                }, function ($exception) {
+                    return $exception instanceof ConnectionException;
+                }, throw: false)
+                ->withHeaders([
+                    'Authorization' => 'Bearer '.$this->secretKey,
+                ])->get($this->baseUrl.'/transaction', array_filter($params)));
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            Log::warning('Paystack list transactions failed', [
+                'status' => $response->status(),
+                'body' => $this->redactSecrets($response->body()),
+            ]);
+
+            return null;
+        } catch (ConnectionException $e) {
+            Log::error('Paystack list transactions connection failed', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('Paystack list transactions exception', [
                 'error' => $e->getMessage(),
             ]);
 

@@ -232,8 +232,8 @@
       ],
       "verification": "Create local payment not in Paystack; run reconciliation; verify flagged as missing_remotely.",
       "estimated_effort": "large",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "PAY-V2.1-005",
@@ -737,7 +737,12 @@
         "app/Services/PaymentQrCodeService.php",
         "app/Services/RefundService.php",
         "app/Services/BulkOperations/BulkRentAdjuster.php",
-        "app/Services/SubscriptionService.php"
+        "app/Services/SubscriptionService.php",
+        "app/Services/IntaSendService.php",
+        "app/Services/PaystackService.php",
+        "app/Services/WaterRateService.php",
+        "app/Services/Gateways/MpesaGateway.php",
+        "app/Services/Gateways/PaystackGateway.php"
       ],
       "acceptance_criteria": [
         "Zero hardcoded KES/KSh in PHP service files",
@@ -789,7 +794,7 @@
     "PAY-V2.1-016 - Vue frontend KES cleanup",
     "PAY-V2.1-017 - PHP service KES cleanup"
   ],
-  "totalStoryPoints": 90,
+  "totalStoryPoints": 95,
   "completionCriteria": {
     "metrics": [
       "Multi-currency payments work (KES, USD, EUR, GBP)",

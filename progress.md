@@ -14359,3 +14359,64 @@ PRD JSON: Valid
 
 ### Next Steps
 - Continue with PAY-V2.1-003 (Currency Selection UI for Landlords)
+
+---
+
+## Session: 2026-02-12
+**Task**: PAY-V2.1-004 - Create Payment Reconciliation Service
+**Status**: COMPLETED
+
+### Work Done
+- Created `app/ValueObjects/ReconciliationDiscrepancy.php` — readonly DTO with named constructors for 3 discrepancy types (missing_locally, missing_remotely, amount_mismatch)
+- Created `app/ValueObjects/ReconciliationResult.php` — readonly result wrapper with filter methods, TOLERANCE=0.01, MAX_PAGES=50
+- Added `listTransactions()` to `app/Services/PaystackService.php` — follows existing `listRefunds()` pattern with retry/backoff, ConnectionException handling, secret redaction
+- Created `app/Services/Reconciliation/PaymentReconciliationService.php` — two-pass comparison: remote→local then local→remote, paginated Paystack API fetch, Currency::fromMinorUnits() for kobo conversion
+- Created `tests/Unit/Services/PaymentReconciliationServiceTest.php` — 10 tests, 52 assertions covering all discrepancy types, pagination, API failure, voided payment exclusion, kobo conversion
+
+### Files Created
+- `app/ValueObjects/ReconciliationDiscrepancy.php` (71 lines)
+- `app/ValueObjects/ReconciliationResult.php` (61 lines)
+- `app/Services/Reconciliation/PaymentReconciliationService.php` (207 lines)
+- `tests/Unit/Services/PaymentReconciliationServiceTest.php` (370 lines)
+
+### Files Modified
+- `app/Services/PaystackService.php` — added `listTransactions()` method (~40 lines)
+- `payment-workflow-prd-v2.1.json` — PAY-V2.1-004 passes: true
+
+### Architecture Decisions
+- Used `CarbonImmutable` (not `Carbon`) for date range parameters — prevents accidental mutation
+- Used `withoutGlobalScope('landlord')` + explicit `where('landlord_id')` — service runs in CLI/job context without authenticated user
+- Selected only needed columns for local payment query — performance per `laravelperformance-select-columns`
+- Paystack keys from `PaymentConfiguration` model (encrypted DB) — never .env
+- Extracted `indexByReference()` to keep `fetchAllPaystackTransactions()` cyclomatic complexity under threshold
+
+### Verification
+```
+Tests: 10/10 passed (52 assertions) — PaymentReconciliationServiceTest
+Regression: 89 Paystack-related tests passed — no breakage from listTransactions() addition
+Full suite: 1241 passed, 13 skipped, 0 failures (4084 assertions)
+Pint: PASS (906 files clean)
+PHPMD: PASS (no violations)
+Build: PASS (npm run build)
+```
+
+### Skills Applied
+- verification-first: TDD RED-GREEN-REFACTOR cycle, all verification tiers completed
+- laraveltdd-with-pest: Tests written first, behavior-named, model factories used
+- laravelhttp-client-resilience: Http::timeout()->retry() with exponential backoff, ConnectionException handling
+- laravelexception-handling-and-logging: Structured log context, secret redaction via redactSecrets()
+- laravelinterfaces-and-di: Constructor injection of PaystackService for testability
+- laravelcomplexity-guardrails: Cyclomatic complexity kept under 7, extracted indexByReference()
+- laravelperformance-select-columns: Selected only needed columns in local payment query
+- laraveldata-chunking-large-datasets: Paginated Paystack API (100/page, 50 page safety cap)
+- laravelconstants-and-configuration: TOLERANCE=0.01, MAX_PAGES=50, discrepancy type constants
+- code-review + deslop: Post-implementation self-review — no slop, no unused imports, no secrets logged
+
+### Learnings
+- Paystack API returns amounts in kobo (minor units); must use Currency::fromMinorUnits() for conversion
+- Paystack pagination uses `meta.next` URL presence (not page count) to indicate more pages
+- PHPMD threshold is at 7 (not >7), so methods at exactly 7 get flagged — extract small helpers proactively
+- `timedHttpRequest` second param is a label string for logging — not the actual URL
+
+### Next Steps
+- Continue with PAY-V2.1-003 or PAY-V2.1-005 (next highest priority unpassed tasks)
