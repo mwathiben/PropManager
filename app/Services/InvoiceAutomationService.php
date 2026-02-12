@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\InvoiceStatus;
 use App\Mail\InvoiceSent;
 use App\Models\Building;
 use App\Models\Invoice;
@@ -110,7 +111,7 @@ class InvoiceAutomationService
         $existingInvoice = Invoice::where('lease_id', $lease->id)
             ->whereYear('billing_period_start', $billingPeriod->year)
             ->whereMonth('billing_period_start', $billingPeriod->month)
-            ->whereNot('status', Invoice::STATUS_VOID)
+            ->whereNot('status', InvoiceStatus::Voided)
             ->exists();
 
         if ($existingInvoice) {
@@ -210,7 +211,7 @@ class InvoiceAutomationService
             $existingInvoice = Invoice::where('lease_id', $lease->id)
                 ->whereYear('billing_period_start', $billingPeriod->year)
                 ->whereMonth('billing_period_start', $billingPeriod->month)
-                ->whereNot('status', Invoice::STATUS_VOID)
+                ->whereNot('status', InvoiceStatus::Voided)
                 ->first();
 
             $unitInfo = [

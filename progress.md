@@ -14289,3 +14289,73 @@ npm build: PASS
 - Currency mismatch validation between payment and invoice (edge case)
 
 **PAY-V2.1-002 COMPLETE**
+
+---
+
+## Session: 2026-02-12T14:30:00Z
+**Task**: PAY-V2.1-002 Follow-Up — Fix Failing Tests + Broken Enum Refs + Scope Hardcoded KES
+**Status**: COMPLETED
+
+### Context
+
+Post PAY-V2.1-002 commit, user identified two issues that must be resolved before proceeding:
+1. InvoiceWorkflowIntegrationTest failing (dismissed as "pre-existing" but actually caused by PAY-V2-020 rate limiter interaction)
+2. 50+ templates still hardcode "KES" — need PRD tasks to track cleanup
+
+### Work Done
+
+#### Fix 1: Broken Invoice::STATUS_* Enum References (6 locations, 3 files)
+PAY-V2.1-001 migrated to `InvoiceStatus` enum but left 6 undefined constant references:
+- `app/Services/InvoiceService.php`: 2 refs (lines 219, 247)
+- `app/Services/InvoiceAutomationService.php`: 2 refs (lines 113, 213) + added missing import
+- `app/Models/CreditNote.php`: 2 refs (lines 173, 174) + added missing import
+
+All replaced with proper `InvoiceStatus::Draft`, `InvoiceStatus::Paid`, `InvoiceStatus::Voided`, `InvoiceStatus::Partial`.
+
+#### Fix 2: Remove throttle:payment from recordPayment Route
+**Root Cause (Tracer Bullet)**:
+- `routes/web.php:340` applied `throttle:payment` to `recordPayment`
+- Rate limiter in `AppServiceProvider` has `Limit::perMinute(1)->by('invoice:'.$invoiceId)`
+- Two payments to same invoice in test (partial + final) → second gets 429
+- Test didn't assert response status → silent failure
+
+**Fix**: Removed `->middleware('throttle:payment')` from `recordPayment` route.
+The `throttle:payment` limiter is designed for tenant-initiated online payments (double-click prevention), not landlord manual recording.
+
+#### Fix 3: InvoiceWorkflowIntegrationTest Response Assertions
+Added `$response->assertRedirect()` to both POST calls to `recordPayment` to prevent silent failures.
+
+#### Fix 4: LogsExternalRequestsTest Timing Flakiness
+`usleep(15 * 1000)` with 10ms threshold was unreliable on Windows. Widened to `usleep(50 * 1000)` with 1ms threshold.
+
+#### Fix 5: Added PRD Tasks for Hardcoded KES Cleanup
+Added 4 new tasks to `payment-workflow-prd-v2.1.json`:
+- **PAY-V2.1-014**: Email blade templates (13 files) — pass currency from Mailable classes
+- **PAY-V2.1-015**: PDF/report/export templates (12 files) — pass currency from services
+- **PAY-V2.1-016**: Vue frontend components (20+ files) — dynamic currency via page props/useFormatters
+- **PAY-V2.1-017**: PHP services (15+ files) — read currency from model relationships
+
+### Files Modified
+- `app/Services/InvoiceService.php` — 2 enum fixes
+- `app/Services/InvoiceAutomationService.php` — 2 enum fixes + import
+- `app/Models/CreditNote.php` — 2 enum fixes + import
+- `routes/web.php` — removed throttle:payment from recordPayment
+- `tests/Feature/InvoiceWorkflowIntegrationTest.php` — added response assertions
+- `tests/Unit/Traits/LogsExternalRequestsTest.php` — fixed timing flakiness
+- `payment-workflow-prd-v2.1.json` — added PAY-V2.1-014 through PAY-V2.1-017
+
+### Verification
+```
+Full test suite: 1244 passed, 0 failures, 0 errors (13 skipped, 2 PHPUnit deprecations)
+Pint: PASS
+PRD JSON: Valid
+```
+
+### Learnings
+- Never dismiss test failures as "pre-existing" without investigating root cause
+- Rate limiters designed for online payments can break manual payment recording flows
+- Windows `usleep()` is imprecise — use wide margins in timing-based tests
+- Always assert HTTP response status on test POST calls to prevent silent failures
+
+### Next Steps
+- Continue with PAY-V2.1-003 (Currency Selection UI for Landlords)

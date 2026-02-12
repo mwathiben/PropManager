@@ -566,6 +566,196 @@
       "passes": false,
       "attempt_count": 0
     }
+    ,
+    {
+      "id": "PAY-V2.1-014",
+      "category": "multi_currency",
+      "priority": "MEDIUM",
+      "title": "Replace Hardcoded KES in Email Blade Templates",
+      "description": "13 email blade templates hardcode 'KES' or 'KSh' in currency formatting. Update to use dynamic currency from the related model (invoice, payment, lease).",
+      "story_points": 5,
+      "steps": [
+        "Audit all email blade files for hardcoded KES/KSh references",
+        "Update each Mailable class to pass currency_symbol and currency_code from the related model",
+        "Replace hardcoded 'KES'/'KSh' in blade views with {{ $currency_symbol }} / {{ $currency_code }}",
+        "Test each email template renders correctly with KES and USD"
+      ],
+      "files": [
+        "resources/views/emails/tenant-welcome.blade.php",
+        "resources/views/emails/tenant-statement.blade.php",
+        "resources/views/emails/tenant-invitation.blade.php",
+        "resources/views/emails/invoice-sent.blade.php",
+        "resources/views/emails/tenant-credentials.blade.php",
+        "resources/views/emails/invoice-reminder.blade.php",
+        "resources/views/emails/payment-verification-approved.blade.php",
+        "resources/views/emails/payment-verification-rejected.blade.php",
+        "resources/views/emails/credit-note-issued.blade.php",
+        "resources/views/emails/deposit-refund.blade.php",
+        "resources/views/emails/overpayment-notification.blade.php",
+        "resources/views/emails/rent-hike-notice.blade.php",
+        "resources/views/emails/payment-received.blade.php"
+      ],
+      "acceptance_criteria": [
+        "Zero hardcoded KES/KSh in email templates",
+        "Currency symbol passed from Mailable to blade",
+        "Emails render correctly for all 4 supported currencies",
+        "Backward compatible (existing KES emails unaffected)"
+      ],
+      "definition_of_done": [
+        "All 13 email templates updated",
+        "Mailable classes pass currency data",
+        "Tests verify multi-currency rendering"
+      ],
+      "verification": "grep -r 'KES\\|KSh' resources/views/emails/ returns 0 hardcoded hits.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-V2.1-001"]
+    },
+    {
+      "id": "PAY-V2.1-015",
+      "category": "multi_currency",
+      "priority": "MEDIUM",
+      "title": "Replace Hardcoded KES in PDF, Report, and Export Templates",
+      "description": "12 blade templates for PDFs (invoice, receipt, ledger), reports (financial, water, arrears, occupancy), and exports (financial-report, payments, expenses, deposits, invoices) hardcode KES.",
+      "story_points": 5,
+      "steps": [
+        "Audit PDF, report, and export blade files for hardcoded KES/KSh",
+        "Update service classes (ReportService, FinanceExportService, InvoicePdfService, ReceiptService) to pass currency",
+        "Replace hardcoded values in blade templates",
+        "Test PDF and export generation with non-KES currencies"
+      ],
+      "files": [
+        "resources/views/invoices/pdf.blade.php",
+        "resources/views/receipts/templated-receipt.blade.php",
+        "resources/views/receipts/payment-receipt.blade.php",
+        "resources/views/reports/financial.blade.php",
+        "resources/views/reports/water.blade.php",
+        "resources/views/reports/arrears.blade.php",
+        "resources/views/reports/occupancy.blade.php",
+        "resources/views/exports/financial-report.blade.php",
+        "resources/views/exports/payments.blade.php",
+        "resources/views/exports/expenses.blade.php",
+        "resources/views/exports/deposits.blade.php",
+        "resources/views/exports/invoices.blade.php"
+      ],
+      "acceptance_criteria": [
+        "Zero hardcoded KES/KSh in PDF/report/export templates",
+        "Currency passed from service layer to templates",
+        "PDFs render correctly with non-KES currencies",
+        "CSV exports use correct currency headers"
+      ],
+      "definition_of_done": [
+        "All 12 templates updated",
+        "Service classes pass currency",
+        "Tests verify multi-currency rendering"
+      ],
+      "verification": "Generate PDF invoice with USD currency; verify '$' symbol appears instead of 'KSh'.",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-V2.1-001"]
+    },
+    {
+      "id": "PAY-V2.1-016",
+      "category": "multi_currency",
+      "priority": "MEDIUM",
+      "title": "Replace Hardcoded KES in Vue Frontend Components",
+      "description": "20+ Vue files have hardcoded 'KES' or 'KSh' in form labels, input prefixes, and display values. Replace with dynamic currency from page props or useFormatters composable.",
+      "story_points": 5,
+      "steps": [
+        "Audit all Vue files for hardcoded KES/KSh strings",
+        "Ensure useFormatters composable supports currency parameter",
+        "Update form input prefixes: static 'KES' → dynamic {{ currencyCode }}",
+        "Update display labels: '(KES)' → '(' + currencyCode + ')'",
+        "Pass currency from controller page props where not already present"
+      ],
+      "files": [
+        "resources/js/Pages/Buildings/WaterSettings.vue",
+        "resources/js/Pages/Finances/Payments/Record.vue",
+        "resources/js/Pages/Finances/Refunds/Create.vue",
+        "resources/js/Pages/CreditNotes/Create.vue",
+        "resources/js/Pages/MoveOuts/Create.vue",
+        "resources/js/Pages/MoveOuts/Show.vue",
+        "resources/js/Pages/BulkOperations/RentAdjustmentTab.vue",
+        "resources/js/Pages/BulkOperations/TargetRentTab.vue",
+        "resources/js/Pages/Onboarding/Index.vue",
+        "resources/js/Pages/Leases/Create.vue",
+        "resources/js/Pages/Water/tabs/SettingsTab.vue",
+        "resources/js/Pages/Readings/Review.vue",
+        "resources/js/Pages/Notifications/partials/TemplatesTab.vue",
+        "resources/js/Pages/Buildings/Show.vue",
+        "resources/js/Pages/Admin/Settings.vue",
+        "resources/js/Pages/TenantInvitations/Index.vue",
+        "resources/js/composables/useFormatters.ts",
+        "resources/js/Components/Modals/MassHikeModal.vue",
+        "resources/js/Pages/MoveOutCategories/Index.vue",
+        "resources/js/Pages/Invoices/Show.vue"
+      ],
+      "acceptance_criteria": [
+        "Zero hardcoded KES/KSh in Vue components",
+        "useFormatters currency-aware for all formatting calls",
+        "Form labels use dynamic currency code",
+        "Input prefixes use dynamic currency symbol",
+        "npm run build passes"
+      ],
+      "definition_of_done": [
+        "All 20+ Vue files updated",
+        "useFormatters enhanced if needed",
+        "Build passes",
+        "Visual verification on key pages"
+      ],
+      "verification": "grep -r 'KES\\|KSh' resources/js/ returns 0 hardcoded hits (excluding enum definitions).",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-V2.1-001"]
+    },
+    {
+      "id": "PAY-V2.1-017",
+      "category": "multi_currency",
+      "priority": "MEDIUM",
+      "title": "Replace Hardcoded KES in PHP Service Classes",
+      "description": "15+ PHP service files hardcode 'KES' or 'KSh' in notification messages, CSV headers, result messages, and QR codes. Replace with dynamic currency from model relationships.",
+      "story_points": 5,
+      "steps": [
+        "Audit PHP service files for hardcoded KES/KSh strings",
+        "Update NotificationService message templates to read currency from invoice/lease",
+        "Update TemplateService template strings",
+        "Update FinanceExportService CSV headers to accept currency parameter",
+        "Update PaymentResult classes to read currency from payment model",
+        "Update remaining services (SchedulerService, PaymentQrCodeService, RefundService, etc.)"
+      ],
+      "files": [
+        "app/Services/NotificationService.php",
+        "app/Services/TemplateService.php",
+        "app/Services/SchedulerService.php",
+        "app/Services/FinanceExportService.php",
+        "app/Services/Payment/InitialPaymentResult.php",
+        "app/Services/Payment/ManualPaymentResult.php",
+        "app/Services/Payment/PaymentProcessResult.php",
+        "app/Services/PaymentQrCodeService.php",
+        "app/Services/RefundService.php",
+        "app/Services/BulkOperations/BulkRentAdjuster.php",
+        "app/Services/SubscriptionService.php"
+      ],
+      "acceptance_criteria": [
+        "Zero hardcoded KES/KSh in PHP service files",
+        "Currency read from model relationships (invoice->currency, payment->currency, lease->unit->building currency)",
+        "CSV exports use correct currency",
+        "Notification messages use correct currency symbol"
+      ],
+      "definition_of_done": [
+        "All 15+ PHP files updated",
+        "Tests verify multi-currency service output",
+        "Pint passes"
+      ],
+      "verification": "grep -r 'KES\\|KSh' app/Services/ returns 0 hardcoded hits (excluding enum/config definitions).",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": ["PAY-V2.1-001"]
+    }
   ],
   "executionOrder": [
     "Phase 1: Multi-Currency (Week 5)",
@@ -591,9 +781,15 @@
     "PAY-V2.1-010 - Payment form composable",
     "PAY-V2.1-011 - Email template standardization",
     "PAY-V2.1-012 - Cache strategy review",
-    "PAY-V2.1-013 - Hybrid real-time updates"
+    "PAY-V2.1-013 - Hybrid real-time updates",
+    "",
+    "Phase 7: Multi-Currency Hardcoded KES Cleanup (Week 8-9)",
+    "PAY-V2.1-014 - Email template KES cleanup",
+    "PAY-V2.1-015 - PDF/report/export KES cleanup",
+    "PAY-V2.1-016 - Vue frontend KES cleanup",
+    "PAY-V2.1-017 - PHP service KES cleanup"
   ],
-  "totalStoryPoints": 70,
+  "totalStoryPoints": 90,
   "completionCriteria": {
     "metrics": [
       "Multi-currency payments work (KES, USD, EUR, GBP)",
@@ -606,7 +802,7 @@
       "Hybrid real-time updates working"
     ],
     "productionChecklist": [
-      "All 13 items marked PASSED",
+      "All 17 items marked PASSED",
       "php artisan test --parallel - all pass",
       "80% test coverage maintained",
       "vendor/bin/pint --test - passes",

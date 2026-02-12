@@ -337,7 +337,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/invoices/generate', [InvoiceController::class, 'generate'])->name('invoices.generate');
     Route::put('/invoices/{invoice}/status', [InvoiceController::class, 'updateStatus'])->name('invoices.updateStatus');
     Route::post('/invoices/{invoice}/payment', [InvoiceController::class, 'recordPayment'])
-        ->middleware('throttle:payment')
         ->name('invoices.recordPayment');
     Route::delete('/invoices/{invoice}', [InvoiceController::class, 'destroy'])->name('invoices.destroy');
     Route::post('/invoices/{invoice}/send-reminder', [InvoiceController::class, 'sendReminder'])->name('invoices.send-reminder');

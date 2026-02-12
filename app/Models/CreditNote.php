@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\InvoiceStatus;
 use App\Traits\Auditable;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Model;
@@ -170,8 +171,8 @@ class CreditNote extends Model
         $invoice->update([
             'amount_paid' => $invoice->amount_paid + $amountToApply,
             'status' => $invoice->amount_paid + $amountToApply >= $invoice->total_due
-                ? Invoice::STATUS_PAID
-                : Invoice::STATUS_PARTIAL,
+                ? InvoiceStatus::Paid
+                : InvoiceStatus::Partial,
         ]);
 
         return $amountToApply;

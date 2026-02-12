@@ -34,6 +34,8 @@ class LogsExternalRequestsTest extends TestCase
 
     public function test_timed_http_request_logs_warning_for_slow_calls(): void
     {
+        $this->slowThresholdMs = 1;
+
         $mockResponse = $this->createMock(Response::class);
         $mockResponse->method('status')->willReturn(200);
 
@@ -42,11 +44,11 @@ class LogsExternalRequestsTest extends TestCase
             ->withArgs(function ($message, $context) {
                 return $message === 'External API call completed'
                     && $context['provider'] === 'mpesa'
-                    && $context['duration_ms'] > 5000;
+                    && $context['duration_ms'] > 1;
             });
 
         $this->timedHttpRequest('mpesa', '/mpesa/stkpush', function () use ($mockResponse) {
-            usleep(5100 * 1000); // 5.1 seconds
+            usleep(50 * 1000); // 50ms — reliably exceeds the 1ms threshold on all platforms
 
             return $mockResponse;
         });

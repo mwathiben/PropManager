@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\InvoiceStatus;
 use App\Models\Invoice;
 use App\Models\Receipt;
 use App\Models\User;
@@ -38,37 +39,39 @@ class InvoiceWorkflowIntegrationTest extends TestCase
         $invoice = $invoiceService->generateInvoiceForLease($lease, $billingPeriod);
 
         $this->assertNotNull($invoice);
-        $this->assertEquals('draft', $invoice->status);
+        $this->assertEquals(InvoiceStatus::Draft, $invoice->status);
         $this->assertGreaterThan(0, $invoice->total_due);
 
         $this->actingAs($this->landlord)
             ->put(route('invoices.updateStatus', $invoice), ['status' => 'sent']);
 
         $invoice->refresh();
-        $this->assertEquals('sent', $invoice->status);
+        $this->assertEquals(InvoiceStatus::Sent, $invoice->status);
 
         $partialAmount = $invoice->total_due * 0.5;
-        $this->actingAs($this->landlord)
+        $response = $this->actingAs($this->landlord)
             ->post(route('invoices.recordPayment', $invoice), [
                 'amount' => $partialAmount,
                 'payment_method' => 'cash',
                 'reference' => 'PARTIAL-001',
             ]);
+        $response->assertRedirect();
 
         $invoice->refresh();
-        $this->assertEquals('partial', $invoice->status);
+        $this->assertEquals(InvoiceStatus::Partial, $invoice->status);
         $this->assertEquals($partialAmount, $invoice->amount_paid);
 
         $remainingAmount = $invoice->total_due - $invoice->amount_paid;
-        $this->actingAs($this->landlord)
+        $response = $this->actingAs($this->landlord)
             ->post(route('invoices.recordPayment', $invoice), [
                 'amount' => $remainingAmount,
                 'payment_method' => 'bank_transfer',
                 'reference' => 'FINAL-001',
             ]);
+        $response->assertRedirect();
 
         $invoice->refresh();
-        $this->assertEquals('paid', $invoice->status);
+        $this->assertEquals(InvoiceStatus::Paid, $invoice->status);
         $this->assertEquals($invoice->total_due, $invoice->amount_paid);
 
         $receipts = Receipt::where('invoice_id', $invoice->id)->get();
@@ -95,7 +98,7 @@ class InvoiceWorkflowIntegrationTest extends TestCase
             ]);
 
         $invoice->refresh();
-        $this->assertEquals('voided', $invoice->status);
+        $this->assertEquals(InvoiceStatus::Voided, $invoice->status);
         $this->assertNotNull($invoice->voided_at);
         $this->assertEquals('Incorrect amount', $invoice->void_reason);
 
@@ -110,7 +113,7 @@ class InvoiceWorkflowIntegrationTest extends TestCase
             ->first();
 
         $this->assertNotNull($newInvoice);
-        $this->assertEquals('draft', $newInvoice->status);
+        $this->assertEquals(InvoiceStatus::Draft, $newInvoice->status);
         $this->assertNotEquals($invoice->invoice_number, $newInvoice->invoice_number);
         $this->assertEquals(0, $newInvoice->amount_paid);
 
@@ -159,7 +162,7 @@ class InvoiceWorkflowIntegrationTest extends TestCase
         $invoice->refresh();
         $lease->refresh();
 
-        $this->assertEquals('paid', $invoice->status);
+        $this->assertEquals(InvoiceStatus::Paid, $invoice->status);
         $this->assertEquals($overpaymentAmount, $lease->wallet_balance);
     }
 

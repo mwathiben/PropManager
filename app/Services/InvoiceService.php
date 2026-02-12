@@ -216,7 +216,7 @@ class InvoiceService
                 'arrears' => 0,
                 'total_due' => 0,
                 'amount_paid' => 0,
-                'status' => Invoice::STATUS_DRAFT,
+                'status' => InvoiceStatus::Draft,
             ]);
 
             $items = $this->buildFirstInvoiceItems($lease, $settings, $overrides);
@@ -244,7 +244,7 @@ class InvoiceService
 
             $invoice->update([
                 'total_due' => $totalDue,
-                'status' => $totalDue > 0 ? Invoice::STATUS_DRAFT : Invoice::STATUS_PAID,
+                'status' => $totalDue > 0 ? InvoiceStatus::Draft : InvoiceStatus::Paid,
             ]);
 
             GenerateInvoicePdf::dispatch($invoice->id)->afterCommit();
