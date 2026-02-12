@@ -19,6 +19,7 @@ import type {
     FinancialMetrics,
     ArrearsAging,
     LandlordActionItems,
+    PlatformFeeTier,
 } from '@/types';
 import {
     UserGroupIcon,
@@ -229,6 +230,24 @@ const activeWingName = computed(() => {
     if (!activeWingFilter.value) return '';
     const wing = props.wings?.find(w => w.id === activeWingFilter.value);
     return wing?.name || '';
+});
+
+// --- TIER COMPUTED ---
+const nextTier = computed<PlatformFeeTier | null>(() => {
+    if (!props.currentTier || !props.allTiers?.length) return null;
+    const currentIndex = props.allTiers.findIndex(t => t.id === props.currentTier?.id);
+    if (currentIndex < 0 || currentIndex >= props.allTiers.length - 1) return null;
+    return props.allTiers[currentIndex + 1];
+});
+
+const tierProgressPercent = computed(() => {
+    if (!nextTier.value || !props.currentTier) return 100;
+    const rangeStart = props.currentTier.min_volume;
+    const rangeEnd = nextTier.value.min_volume;
+    const range = rangeEnd - rangeStart;
+    if (range <= 0) return 100;
+    const progress = ((props.mtdVolume ?? 0) - rangeStart) / range;
+    return Math.min(Math.round(progress * 100), 100);
 });
 
 // Scroll to occupancy map section
@@ -637,6 +656,58 @@ onUnmounted(() => {
                     color="indigo"
                     :href="route('dashboard', { status: 'vacant' })"
                 />
+            </div>
+
+            <!-- === PLATFORM FEE TIER (conditionally rendered) === -->
+            <div v-if="currentTier" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-800">Your Fee Tier</h3>
+                        <p class="text-sm text-gray-500 mt-1">
+                            Current tier: <span class="font-semibold text-indigo-600">{{ currentTier.name }}</span>
+                            at <span class="font-semibold">{{ currentTier.fee_percentage }}%</span> per transaction
+                        </p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm text-gray-500">MTD Payment Volume</p>
+                        <p class="text-xl font-bold text-gray-900">{{ formatMoney(mtdVolume ?? 0) }}</p>
+                    </div>
+                </div>
+
+                <div v-if="nextTier" class="mt-4">
+                    <div class="flex items-center justify-between text-sm text-gray-500 mb-1">
+                        <span>Progress to {{ nextTier.name }} ({{ nextTier.fee_percentage }}%)</span>
+                        <span>{{ formatMoney(nextTier.min_volume - (mtdVolume ?? 0)) }} remaining</span>
+                    </div>
+                    <div class="w-full bg-gray-100 rounded-full h-2.5">
+                        <div class="bg-indigo-600 h-2.5 rounded-full transition-all duration-500" :style="{ width: tierProgressPercent + '%' }"></div>
+                    </div>
+                </div>
+                <div v-else class="mt-4">
+                    <p class="text-sm text-green-600 font-medium">You're on the highest tier — lowest fee rate!</p>
+                </div>
+
+                <div v-if="allTiers && allTiers.length > 1" class="mt-4 pt-4 border-t border-gray-100">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div v-for="tier in allTiers" :key="tier.id"
+                             :class="[
+                                 'p-3 rounded-lg border text-center',
+                                 tier.id === currentTier.id
+                                     ? 'border-indigo-300 bg-indigo-50'
+                                     : 'border-gray-200 bg-gray-50'
+                             ]">
+                            <p :class="['text-sm font-semibold', tier.id === currentTier.id ? 'text-indigo-700' : 'text-gray-700']">
+                                {{ tier.name }}
+                            </p>
+                            <p :class="['text-lg font-bold', tier.id === currentTier.id ? 'text-indigo-600' : 'text-gray-900']">
+                                {{ tier.fee_percentage }}%
+                            </p>
+                            <p class="text-xs text-gray-500">
+                                {{ tier.max_volume ? formatMoney(tier.min_volume) + ' - ' + formatMoney(tier.max_volume) : formatMoney(tier.min_volume) + '+' }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- === TWO-COLUMN: OCCUPANCY MAP + ARREARS AGING === -->

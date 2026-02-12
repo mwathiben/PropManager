@@ -260,6 +260,16 @@ export interface UnitsByWing {
   units: DashboardUnit[];
 }
 
+// Platform fee tier
+export interface PlatformFeeTier {
+  id: number;
+  name: string;
+  min_volume: number;
+  max_volume: number | null;
+  fee_percentage: number;
+  sort_order: number;
+}
+
 // Landlord Dashboard page props
 export interface DashboardPageProps {
   properties: DashboardProperty[];
@@ -282,6 +292,9 @@ export interface DashboardPageProps {
   recentTickets: DashboardTicket[];
   expiringLeases: ExpiringLease[];
   tenantKycStats?: TenantKycStats;
+  currentTier?: PlatformFeeTier | null;
+  mtdVolume?: number;
+  allTiers?: PlatformFeeTier[];
 }
 
 // ===== BUILDINGS DASHBOARD TYPES =====

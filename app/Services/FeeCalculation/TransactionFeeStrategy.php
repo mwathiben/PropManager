@@ -2,7 +2,9 @@
 
 namespace App\Services\FeeCalculation;
 
+use App\Models\Payment;
 use App\Models\PlatformBillingSetting;
+use App\Models\PlatformFeeTier;
 use App\Models\User;
 
 class TransactionFeeStrategy implements FeeCalculationStrategy
@@ -14,15 +16,12 @@ class TransactionFeeStrategy implements FeeCalculationStrategy
         $this->settings = $settings ?? PlatformBillingSetting::current();
     }
 
-    /**
-     * Calculate the platform fee for a given payment amount
-     */
     public function calculateFee(float $amount, User $landlord): FeeCalculationResult
     {
-        $percentage = $this->settings->transaction_fee_percentage;
+        $rateInfo = $this->resolvePercentage($landlord);
+        $percentage = $rateInfo['percentage'];
         $calculatedFee = ($amount * $percentage) / 100;
 
-        // Apply minimum fee
         $minimumApplied = false;
         if ($calculatedFee < $this->settings->minimum_fee) {
             $fee = $this->settings->minimum_fee;
@@ -31,17 +30,13 @@ class TransactionFeeStrategy implements FeeCalculationStrategy
             $fee = $calculatedFee;
         }
 
-        // Apply maximum fee cap if set
         $maximumApplied = false;
         if ($this->settings->maximum_fee && $fee > $this->settings->maximum_fee) {
             $fee = $this->settings->maximum_fee;
             $maximumApplied = true;
         }
 
-        // Ensure fee doesn't exceed payment amount
         $fee = min($fee, $amount);
-
-        // Round to 2 decimal places
         $fee = round($fee, 2);
         $netAmount = round($amount - $fee, 2);
 
@@ -58,15 +53,51 @@ class TransactionFeeStrategy implements FeeCalculationStrategy
                 'maximum_fee' => $this->settings->maximum_fee,
                 'minimum_applied' => $minimumApplied,
                 'maximum_applied' => $maximumApplied,
+                'rate_source' => $rateInfo['source'],
+                'tier_name' => $rateInfo['tier_name'],
+                'mtd_volume' => $rateInfo['mtd_volume'],
             ],
         );
     }
 
-    /**
-     * Get the strategy identifier
-     */
     public function getIdentifier(): string
     {
         return 'transaction_fee';
+    }
+
+    private function resolvePercentage(User $landlord): array
+    {
+        if (! PlatformFeeTier::active()->exists()) {
+            return [
+                'percentage' => (float) $this->settings->transaction_fee_percentage,
+                'source' => 'flat',
+                'tier_name' => null,
+                'mtd_volume' => 0,
+            ];
+        }
+
+        $mtdVolume = (float) Payment::where('landlord_id', $landlord->id)
+            ->whereMonth('payment_date', now()->month)
+            ->whereYear('payment_date', now()->year)
+            ->where('is_voided', false)
+            ->sum('amount');
+
+        $tier = PlatformFeeTier::forVolume($mtdVolume);
+
+        if (! $tier) {
+            return [
+                'percentage' => (float) $this->settings->transaction_fee_percentage,
+                'source' => 'flat',
+                'tier_name' => null,
+                'mtd_volume' => $mtdVolume,
+            ];
+        }
+
+        return [
+            'percentage' => (float) $tier->fee_percentage,
+            'source' => 'tiered',
+            'tier_name' => $tier->name,
+            'mtd_volume' => $mtdVolume,
+        ];
     }
 }

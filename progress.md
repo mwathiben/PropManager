@@ -472,6 +472,54 @@ Implemented automatic receipt generation when payments are recorded. Receipts ar
 - Receipt model with TenantScope trait
 - Existing download route: `/payments/{payment}/receipt`
 - PaymentController::downloadReceipt() for PDF generation
+
+---
+
+## PAY-V2.1-006: Tiered Platform Fee Structure
+**Status:** PASSED
+**Date:** 2026-02-12
+**Attempts:** 1
+
+### Implementation Summary
+
+Added volume-based tiered pricing to the platform fee system. Landlords with higher month-to-date payment volume get lower fee percentages. Enhanced the existing `TransactionFeeStrategy` with a `resolvePercentage()` method that checks for active tiers before falling back to the flat rate. `HybridFeeStrategy` auto-inherits tier support via delegation.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/2026_02_13_200000_create_platform_fee_tiers_table.php` | Migration for `platform_fee_tiers` table |
+| `app/Models/PlatformFeeTier.php` | Eloquent model with `forVolume()` static, `active()` and `ordered()` scopes |
+| `database/factories/PlatformFeeTierFactory.php` | Factory with `inactive()`, `withRange()`, `withPercentage()` states |
+| `database/seeders/PlatformFeeTierSeeder.php` | Seeds 4 default tiers: Starter (3%), Growth (2.5%), Scale (2%), Enterprise (1.5%) |
+| `tests/Unit/Models/PlatformFeeTierTest.php` | 7 tests for model behavior |
+| `tests/Unit/Services/TransactionFeeStrategyTieredTest.php` | 9 tests for tiered fee calculation |
+| `tests/Feature/Controllers/DashboardTierDisplayTest.php` | 2 tests for dashboard tier props |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Services/FeeCalculation/TransactionFeeStrategy.php` | Added `resolvePercentage()` private method for tier lookup + MTD volume query |
+| `app/Services/DashboardService.php` | Added `currentTier`, `mtdVolume`, `allTiers` to landlord dashboard props |
+| `resources/js/Pages/Dashboard.vue` | Added tier status card with progress bar toward next tier |
+| `resources/js/types/dashboard.d.ts` | Added `PlatformFeeTier` interface, extended `DashboardPageProps` |
+| `database/seeders/DatabaseSeeder.php` | Registered `PlatformFeeTierSeeder` |
+
+### Design Decisions
+
+- **Flat tier determination** (not marginal): landlord's current MTD volume determines rate for next transaction
+- **Enhanced existing strategy** instead of creating new class — HybridFeeStrategy auto-inherits via delegation
+- **Graceful fallback**: if no tiers exist in DB, flat rate from PlatformBillingSetting used (zero-change for existing deployments)
+- **Left-inclusive, right-exclusive boundaries**: min_volume <= volume AND (max_volume IS NULL OR max_volume > volume)
+
+### Verification
+
+- 18 new tests (71 assertions): all pass
+- Full suite: 1279 passed, 0 failures
+- Pint: clean
+- Build: success
+- PHPMD: no new violations (pre-existing DashboardService class-length warnings)
 - Payment receipt email template
 
 ### Acceptance Criteria Verification

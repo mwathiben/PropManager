@@ -6,6 +6,7 @@ use App\Models\Building;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\Payment;
+use App\Models\PlatformFeeTier;
 use App\Models\Property;
 use App\Models\TenantInvitation;
 use App\Models\Ticket;
@@ -155,6 +156,19 @@ class DashboardService
 
         $unitsByWing = $this->organizeUnitsByWing($allUnits, $wings, $hasWings);
 
+        $allTiers = PlatformFeeTier::active()->ordered()->get();
+        $currentTier = null;
+        $mtdVolume = 0;
+
+        if ($allTiers->isNotEmpty()) {
+            $mtdVolume = (float) Payment::where('landlord_id', $landlord->id)
+                ->whereMonth('payment_date', now()->month)
+                ->whereYear('payment_date', now()->year)
+                ->where('is_voided', false)
+                ->sum('amount');
+            $currentTier = PlatformFeeTier::forVolume($mtdVolume);
+        }
+
         return [
             'properties' => $allProperties,
             'property' => $property,
@@ -176,6 +190,9 @@ class DashboardService
             'recentTickets' => $metricsData['recentTickets'],
             'expiringLeases' => $metricsData['expiringLeases'],
             'tenantKycStats' => $metricsData['tenantKycStats'],
+            'currentTier' => $currentTier,
+            'mtdVolume' => $mtdVolume,
+            'allTiers' => $allTiers,
         ];
     }
 
