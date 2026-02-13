@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Enums\Currency;
 use App\Models\Lease;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
@@ -46,6 +47,7 @@ class TenantCredentials extends Mailable implements ShouldQueue
                 'buildingName' => $this->lease->unit->building->name ?? '',
                 'unitNumber' => $this->lease->unit->unit_number,
                 'loginUrl' => route('login'),
+                'currency_symbol' => ($this->lease->unit->building?->getEffectiveCurrency() ?? Currency::default())->symbol(),
             ],
         );
     }

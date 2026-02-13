@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Enums\Currency;
 use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\User;
@@ -46,6 +47,7 @@ class OverpaymentNotification extends Mailable implements ShouldQueue
                 'unit' => $this->lease->unit,
                 'overpaymentAmount' => $this->overpaymentAmount,
                 'newWalletBalance' => $this->newWalletBalance,
+                'currency_symbol' => ($this->payment->currency ?? Currency::default())->symbol(),
             ],
         );
     }

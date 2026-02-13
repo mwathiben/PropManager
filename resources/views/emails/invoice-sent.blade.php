@@ -16,14 +16,14 @@ Your invoice for **{{ $billingPeriod }}** has been generated and is now due.
 <x-mail::table>
 | Description | Amount |
 |:------------|-------:|
-| Rent | KES {{ $rentDue }} |
+| Rent | {{ $currency_symbol }} {{ $rentDue }} |
 @if($invoice->water_due > 0)
-| Water Charges | KES {{ $waterDue }} |
+| Water Charges | {{ $currency_symbol }} {{ $waterDue }} |
 @endif
 @if($invoice->arrears > 0)
-| Previous Arrears | KES {{ $arrears }} |
+| Previous Arrears | {{ $currency_symbol }} {{ $arrears }} |
 @endif
-| **Total Due** | **KES {{ $totalDue }}** |
+| **Total Due** | **{{ $currency_symbol }} {{ $totalDue }}** |
 </x-mail::table>
 
 <x-mail::panel>

@@ -9,7 +9,7 @@ A credit note has been issued to your account. This credit can be applied to you
 
 **Credit Note Number:** {{ $creditNote->credit_number }}<br>
 **Issue Date:** {{ $creditNote->created_at->format('F d, Y') }}<br>
-**Credit Amount:** KES {{ number_format($creditNote->amount, 2) }}
+**Credit Amount:** {{ $currency_symbol }} {{ number_format($creditNote->amount, 2) }}
 
 ## Reason for Credit
 
@@ -31,11 +31,11 @@ A credit note has been issued to your account. This credit can be applied to you
 
 **Invoice Number:** {{ $invoice->invoice_number }}<br>
 **Invoice Date:** {{ $invoice->created_at->format('F d, Y') }}<br>
-**Invoice Amount:** KES {{ number_format($invoice->total_due, 2) }}
+**Invoice Amount:** {{ $currency_symbol }} {{ number_format($invoice->total_due, 2) }}
 @endif
 
 <x-mail::panel>
-**Your Credit Balance:** KES {{ number_format($creditNote->remaining_amount, 2) }}
+**Your Credit Balance:** {{ $currency_symbol }} {{ number_format($creditNote->remaining_amount, 2) }}
 
 This credit will be automatically applied to your next invoice, or you can request its application to a specific outstanding invoice.
 </x-mail::panel>

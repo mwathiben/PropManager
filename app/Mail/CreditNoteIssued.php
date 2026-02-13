@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Enums\Currency;
 use App\Models\CreditNote;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -40,6 +41,7 @@ class CreditNoteIssued extends Mailable implements ShouldQueue
                 'unit' => $this->creditNote->lease?->unit,
                 'building' => $this->creditNote->lease?->unit?->building,
                 'invoice' => $this->creditNote->invoice,
+                'currency_symbol' => ($this->creditNote->invoice?->currency ?? $this->creditNote->lease?->unit?->building?->getEffectiveCurrency() ?? Currency::default())->symbol(),
             ],
         );
     }

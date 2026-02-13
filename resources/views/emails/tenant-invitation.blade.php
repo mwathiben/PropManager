@@ -13,8 +13,8 @@ Hello{{ $invitation->tenant_name ? ' ' . $invitation->tenant_name : '' }},
 
 ## Lease Terms
 
-- **Monthly Rent:** KES {{ $rentAmount }}
-- **Security Deposit:** KES {{ $depositAmount }}
+- **Monthly Rent:** {{ $currency_symbol }} {{ $rentAmount }}
+- **Security Deposit:** {{ $currency_symbol }} {{ $depositAmount }}
 - **Lease Start Date:** {{ $startDate }}
 
 @if($isExistingUser)

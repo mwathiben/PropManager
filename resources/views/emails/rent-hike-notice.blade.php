@@ -16,8 +16,8 @@ This is to inform you of an upcoming change to your monthly rent.
 <x-mail::table>
 | Description | Amount |
 |:------------|-------:|
-| Current Rent | KES {{ $oldAmount }} |
-| New Rent | KES {{ $newAmount }} |
+| Current Rent | {{ $currency_symbol }} {{ $oldAmount }} |
+| New Rent | {{ $currency_symbol }} {{ $newAmount }} |
 </x-mail::table>
 
 <x-mail::panel>

@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Enums\Currency;
 use App\Models\Lease;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -46,6 +47,7 @@ class DepositRefundNotification extends Mailable implements ShouldQueue
                 'refundAmount' => $this->lease->deposit_refund_amount,
                 'deductions' => $this->lease->deposit_deductions,
                 'deductionReason' => $this->lease->deposit_deduction_reason,
+                'currency_symbol' => ($this->lease->unit->building?->getEffectiveCurrency() ?? Currency::default())->symbol(),
             ],
         );
     }

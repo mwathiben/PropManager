@@ -12,12 +12,12 @@ Great news! Your initial payment has been verified, and you now have full access
 
 ## Payment Summary
 
-**Deposit Paid:** KES {{ number_format($verification->deposit_required, 2) }}<br>
-**First Month Rent:** KES {{ number_format($verification->first_rent_required, 2) }}<br>
+**Deposit Paid:** {{ $currency_symbol }} {{ number_format($verification->deposit_required, 2) }}<br>
+**First Month Rent:** {{ $currency_symbol }} {{ number_format($verification->first_rent_required, 2) }}<br>
 @if($verification->other_charges > 0)
-**Other Charges:** KES {{ number_format($verification->other_charges, 2) }}<br>
+**Other Charges:** {{ $currency_symbol }} {{ number_format($verification->other_charges, 2) }}<br>
 @endif
-**Total Verified:** KES {{ number_format($verification->total_required, 2) }}
+**Total Verified:** {{ $currency_symbol }} {{ number_format($verification->total_required, 2) }}
 
 <x-mail::panel>
 You can now access all features of the tenant portal including viewing invoices, making payments, submitting maintenance requests, and more.

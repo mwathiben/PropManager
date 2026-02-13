@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Enums\Currency;
 use App\Models\Invoice;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -60,6 +61,7 @@ class InvoiceReminder extends Mailable implements ShouldQueue
                 'buildingName' => $building->name,
                 'unitNumber' => $unit->unit_number,
                 'invoiceUrl' => route('invoices.show', $this->invoice),
+                'currency_symbol' => ($this->invoice->currency ?? Currency::default())->symbol(),
             ],
         );
     }

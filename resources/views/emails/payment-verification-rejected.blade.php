@@ -13,12 +13,12 @@ Unfortunately, we were unable to verify your payment submission. Please review t
 
 ## Required Payment
 
-**Deposit Required:** KES {{ number_format($verification->deposit_required, 2) }}<br>
-**First Month Rent:** KES {{ number_format($verification->first_rent_required, 2) }}<br>
+**Deposit Required:** {{ $currency_symbol }} {{ number_format($verification->deposit_required, 2) }}<br>
+**First Month Rent:** {{ $currency_symbol }} {{ number_format($verification->first_rent_required, 2) }}<br>
 @if($verification->other_charges > 0)
-**Other Charges:** KES {{ number_format($verification->other_charges, 2) }} ({{ $verification->other_charges_description }})<br>
+**Other Charges:** {{ $currency_symbol }} {{ number_format($verification->other_charges, 2) }} ({{ $verification->other_charges_description }})<br>
 @endif
-**Total Required:** KES {{ number_format($verification->total_required, 2) }}
+**Total Required:** {{ $currency_symbol }} {{ number_format($verification->total_required, 2) }}
 
 ## What to Do Next
 

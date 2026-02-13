@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\Currency;
 use App\Enums\InvoiceStatus;
 use App\Http\Requests\Tenant\StoreEmergencyContactRequest;
 use App\Http\Requests\Tenant\StoreTenantNoteRequest;
@@ -731,6 +732,8 @@ class TenantController extends Controller
             'summary' => $summary,
             'dateFrom' => $dateFrom,
             'dateTo' => $dateTo,
+            'currency_symbol' => $activeLease?->unit?->building?->getEffectiveCurrency()?->symbol()
+                ?? Currency::default()->symbol(),
         ], function ($message) use ($tenant, $pdfContent, $filename, $landlord) {
             $message->to($tenant->email, $tenant->name)
                 ->subject('Your Account Statement')

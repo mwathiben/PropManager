@@ -39,6 +39,7 @@ class PaymentVerificationApproved extends Mailable implements ShouldQueue
                 'unit' => $lease->unit,
                 'building' => $lease->unit->building,
                 'dashboardUrl' => route('dashboard'),
+                'currency_symbol' => $lease->unit->building->getEffectiveCurrency()->symbol(),
             ],
         );
     }

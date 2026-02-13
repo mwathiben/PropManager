@@ -11,13 +11,13 @@ A tenant has made an overpayment that has been credited to their wallet balance.
 
 ## Overpayment Details
 
-**Total Payment Amount:** KES {{ number_format($payment->amount, 2) }}<br>
-**Overpayment Amount:** KES {{ number_format($overpaymentAmount, 2) }}<br>
+**Total Payment Amount:** {{ $currency_symbol }} {{ number_format($payment->amount, 2) }}<br>
+**Overpayment Amount:** {{ $currency_symbol }} {{ number_format($overpaymentAmount, 2) }}<br>
 **Payment Date:** {{ $payment->payment_date->format('F d, Y') }}<br>
 **Payment Method:** {{ ucwords(str_replace('_', ' ', $payment->payment_method)) }}
 
 <x-mail::panel>
-**New Wallet Balance:** KES {{ number_format($newWalletBalance, 2) }}
+**New Wallet Balance:** {{ $currency_symbol }} {{ number_format($newWalletBalance, 2) }}
 
 This credit balance will be automatically applied to the tenant's next invoice.
 </x-mail::panel>

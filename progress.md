@@ -14747,3 +14747,69 @@ Added landlord-level default currency and per-building currency override. Curren
 - Continue with PAY-V2.1-008 (Queue Processing Job) which depends on this task
 
 **PAY-V2.1-007 COMPLETE**
+
+---
+
+## Session: 2026-02-13
+**Task**: PAY-V2.1-014 — Replace Hardcoded KES in Email Blade Templates
+**Status**: COMPLETED
+
+### Work Done
+
+Updated 12 email blade templates and 11 Mailable classes to pass dynamic `currency_symbol` instead of hardcoding `KES`. Follows the existing PaymentReceived pattern. Backward compatible via `Currency::default()`.
+
+**Changes by layer:**
+
+| Layer | Files Changed | Description |
+|-------|--------------|-------------|
+| Mailable classes (11) | InvoiceSent, InvoiceReminder, RentHikeNotice, DepositRefundNotification, TenantWelcome, TenantInvitationMail, OverpaymentNotification, CreditNoteIssued, PaymentVerificationApproved, PaymentVerificationRejected, TenantCredentials | Added `currency_symbol` to `with:` array |
+| Controller (1) | TenantController (line 735) | Added `currency_symbol` to inline Mail::send data |
+| Blade templates (12) | All emails except payment-received (already done) | Replaced `KES` with `{{ $currency_symbol }}` |
+| Test (1) | tests/Unit/Mail/EmailCurrencySymbolTest.php | 13 tests covering all Mailables |
+| Config cleanup (2) | .env.example, config/mpesa.php | Removed phantom env vars and hardcoded KES |
+
+**Currency resolution per Mailable:**
+- Invoice-based: `($invoice->currency ?? Currency::default())->symbol()`
+- Payment-based: `($payment->currency ?? Currency::default())->symbol()`
+- Building-based: `$building->getEffectiveCurrency()->symbol()`
+- CreditNote: cascade through invoice → building → default
+
+### TDD Summary
+- **RED**: 13 tests written, all failed (hardcoded KES in templates)
+- **GREEN**: All 13 pass after implementation
+- **Full suite**: 1330 passed, 0 failures, 13 skipped (pre-existing)
+
+### Verification
+- `grep -r 'KES' resources/views/emails/` → 0 matches
+- Pint: PASS (146 files clean)
+- DBP: 8/8 checks pass
+- Deslop: No AI slop introduced
+
+### Skills Applied
+- laraveltdd-with-pest, verification-first, feature-development
+- laravelconstants-and-configuration, laravelblade-components-and-layouts
+- laravelcontroller-cleanup, laravelcontroller-tests
+- laravelperformance-eager-loading, laraveleloquent-relationships
+- laravelexception-handling-and-logging, laravelcomplexity-guardrails
+- laravelinternationalization-and-translation, laravelquality-checks
+- laravelmigrations-and-factories, laravelcode-review-requests
+- payment-integration, data-privacy-compliance
+- web-design-guidelines, code-review-excellence, deslop, senior-qa
+- propmanager-verification, ralph-wiggum
+
+### Issues Encountered
+- Payment, CreditNote, TenantPaymentVerification models lack HasFactory trait — tests use manual `::create()` instead of `::factory()`
+- `view()->render()` for tenant-statement fails due to missing mail hint path — fixed by wrapping in anonymous Mailable
+- `replace_all` for `KES ` consumed trailing space between symbol and amount — fixed by adding space back
+
+### Learnings
+- Mail component `<x-mail::message>` requires the mail hint path from MailServiceProvider — can't be rendered via `view()->render()` in tests
+- Currency resolution should cascade: model-level → building → PaymentConfiguration → Currency::default()
+- Null-safe operators (`?->`) essential for CreditNote and DepositRefund where relationships might be null
+
+### Next Steps
+- PAY-V2.1-015 (PDF/report/export KES cleanup) — depends on this task
+- PAY-V2.1-016 (Vue frontend KES cleanup)
+- PAY-V2.1-017 (PHP service KES cleanup)
+
+**PAY-V2.1-014 COMPLETE**

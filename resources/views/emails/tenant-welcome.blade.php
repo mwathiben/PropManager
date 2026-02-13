@@ -10,8 +10,8 @@ Your lease is now active! We're excited to have you as a tenant.
 - **Property:** {{ $propertyName }}
 - **Building:** {{ $buildingName }}
 - **Unit:** {{ $unitNumber }}
-- **Monthly Rent:** KES {{ $rentAmount }}
-- **Security Deposit:** KES {{ $depositAmount }}
+- **Monthly Rent:** {{ $currency_symbol }} {{ $rentAmount }}
+- **Security Deposit:** {{ $currency_symbol }} {{ $depositAmount }}
 - **Lease Start Date:** {{ $startDate }}
 
 ## Your Landlord

@@ -61,6 +61,7 @@ class RentHikeNotice extends Mailable implements ShouldQueue
                 'effectiveDate' => $this->effectiveDate,
                 'reason' => $this->reason,
                 'dashboardUrl' => route('dashboard'),
+                'currency_symbol' => $building->getEffectiveCurrency()->symbol(),
             ],
         );
     }

@@ -56,6 +56,7 @@ class TenantInvitationMail extends Mailable implements ShouldQueue
                 'acceptUrl' => route('tenant-invitations.show', $this->invitation->token),
                 'expiresAt' => $this->invitation->expires_at->format('F d, Y'),
                 'isExistingUser' => $this->invitation->isForExistingUser(),
+                'currency_symbol' => $this->invitation->unit->building->getEffectiveCurrency()->symbol(),
             ],
         );
     }

@@ -23,8 +23,8 @@ Log In Now
 - **Building:** {{ $buildingName }}
 @endif
 - **Unit:** {{ $unitNumber }}
-- **Monthly Rent:** KES {{ number_format($lease->rent_amount, 2) }}
-- **Security Deposit:** KES {{ number_format($lease->deposit_amount, 2) }}
+- **Monthly Rent:** {{ $currency_symbol }} {{ number_format($lease->rent_amount, 2) }}
+- **Security Deposit:** {{ $currency_symbol }} {{ number_format($lease->deposit_amount, 2) }}
 - **Lease Start Date:** {{ $lease->start_date->format('F d, Y') }}
 
 ## Your Landlord

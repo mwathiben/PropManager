@@ -13,15 +13,15 @@ Please find attached your account statement{{ $dateFrom || $dateTo ? ' for the r
 **Period:** All transactions
 @endif
 
-**Total Invoiced:** KES {{ number_format($summary['total_invoiced'], 2) }}<br>
-**Total Paid:** KES {{ number_format($summary['total_paid'], 2) }}<br>
-**Refunds:** KES {{ number_format($summary['total_refunds'], 2) }}<br>
+**Total Invoiced:** {{ $currency_symbol }} {{ number_format($summary['total_invoiced'], 2) }}<br>
+**Total Paid:** {{ $currency_symbol }} {{ number_format($summary['total_paid'], 2) }}<br>
+**Refunds:** {{ $currency_symbol }} {{ number_format($summary['total_refunds'], 2) }}<br>
 
 <x-mail::panel>
 @if($summary['current_balance'] > 0)
-**Current Balance Due:** KES {{ number_format($summary['current_balance'], 2) }}
+**Current Balance Due:** {{ $currency_symbol }} {{ number_format($summary['current_balance'], 2) }}
 @elseif($summary['current_balance'] < 0)
-**Account Credit:** KES {{ number_format(abs($summary['current_balance']), 2) }}
+**Account Credit:** {{ $currency_symbol }} {{ number_format(abs($summary['current_balance']), 2) }}
 @else
 **Balance:** Your account is fully paid
 @endif

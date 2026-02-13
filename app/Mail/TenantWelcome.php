@@ -59,6 +59,7 @@ class TenantWelcome extends Mailable implements ShouldQueue
                 'depositAmount' => number_format($this->lease->deposit_amount, 2),
                 'startDate' => $this->lease->start_date->format('F d, Y'),
                 'dashboardUrl' => route('dashboard'),
+                'currency_symbol' => $this->invitation->unit->building->getEffectiveCurrency()->symbol(),
             ],
         );
     }

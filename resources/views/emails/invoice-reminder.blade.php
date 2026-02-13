@@ -24,11 +24,11 @@ This is a friendly reminder that your invoice **{{ $invoiceNumber }}** is due fo
 <x-mail::table>
 | Description | Amount |
 |:------------|-------:|
-| Total Invoice Amount | KES {{ $totalDue }} |
+| Total Invoice Amount | {{ $currency_symbol }} {{ $totalDue }} |
 @if($invoice->amount_paid > 0)
-| Amount Paid | KES {{ $amountPaid }} |
+| Amount Paid | {{ $currency_symbol }} {{ $amountPaid }} |
 @endif
-| **Balance Due** | **KES {{ $balance }}** |
+| **Balance Due** | **{{ $currency_symbol }} {{ $balance }}** |
 </x-mail::table>
 
 <x-mail::panel>

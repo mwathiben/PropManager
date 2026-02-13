@@ -39,6 +39,7 @@ class PaymentVerificationRejected extends Mailable implements ShouldQueue
                 'unit' => $lease->unit,
                 'rejectionReason' => $this->verification->rejection_reason,
                 'resubmitUrl' => route('tenant.payment-required'),
+                'currency_symbol' => $lease->unit->building->getEffectiveCurrency()->symbol(),
             ],
         );
     }
