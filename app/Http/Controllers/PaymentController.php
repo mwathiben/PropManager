@@ -173,7 +173,7 @@ class PaymentController extends Controller
 
         // Calculate stats using DB-agnostic Eloquent queries
         $now = now();
-        $totalReceived = Payment::where('landlord_id', $landlordId)->sum('amount') ?? 0;
+        $totalReceived = Payment::withArchived()->where('landlord_id', $landlordId)->sum('amount') ?? 0;
         $thisMonth = Payment::where('landlord_id', $landlordId)
             ->whereMonth('payment_date', $now->month)
             ->whereYear('payment_date', $now->year)

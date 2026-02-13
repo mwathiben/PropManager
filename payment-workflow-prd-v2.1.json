@@ -418,8 +418,8 @@
       ],
       "verification": "Create old payment (backdated 8 years); run job; verify archived.",
       "estimated_effort": "large",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "PAY-V2.1-010",

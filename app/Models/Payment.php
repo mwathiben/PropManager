@@ -5,7 +5,9 @@ namespace App\Models;
 use App\Enums\Currency;
 use App\Traits\Auditable;
 use App\Traits\TenantScope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class Payment extends Model
 {
@@ -76,5 +78,17 @@ class Payment extends Model
     public function intaSendTransaction()
     {
         return $this->hasOne(IntaSendTransaction::class);
+    }
+
+    public function scopeArchivable(Builder $query): Builder
+    {
+        return $query->where('payment_date', '<', now()->subYears(
+            (int) config('security.compliance.data_retention_years', 7)
+        ));
+    }
+
+    public function scopeWithArchived(Builder $query): Builder
+    {
+        return $query->from(DB::raw('all_payments as payments'));
     }
 }

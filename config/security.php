@@ -26,12 +26,9 @@ return [
         'hsts_preload' => env('SECURITY_HSTS_PRELOAD', false),
 
         // Content Security Policy
-        // Development CSP includes unsafe-eval (needed for Vite dev server)
-        // For production, set SECURITY_CSP in .env to remove unsafe-inline/unsafe-eval
+        // CSP is dynamically built in SecurityHeaders middleware with nonce support
+        // This allows Vite dev server to work alongside CSP in all environments
         'csp_enabled' => env('SECURITY_CSP_ENABLED', true),
-        'csp' => env('SECURITY_CSP', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.paystack.co; style-src 'self' 'unsafe-inline' https://fonts.bunny.net; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.bunny.net; connect-src 'self' ws: wss: https://api.paystack.co; frame-ancestors 'none';"),
-        // Production CSP (set SECURITY_CSP in .env):
-        // "default-src 'self'; script-src 'self' https://js.paystack.co; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.paystack.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
     ],
 
     /*

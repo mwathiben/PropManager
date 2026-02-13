@@ -72,3 +72,9 @@ Schedule::command('reconciliation:run-daily')
     ->dailyAt('04:00')
     ->withoutOverlapping()
     ->runInBackground();
+
+// Archive payments older than retention period (7 years) on 1st of each month at 03:30
+Schedule::job(new \App\Jobs\ArchiveOldPayments)
+    ->monthlyOn(1, '03:30')
+    ->withoutOverlapping()
+    ->onOneServer();

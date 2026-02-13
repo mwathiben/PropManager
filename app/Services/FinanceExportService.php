@@ -216,7 +216,7 @@ class FinanceExportService
 
     protected function buildPaymentQuery(array $filters): Builder
     {
-        $query = Payment::where('landlord_id', $filters['landlord_id'])
+        $query = Payment::withArchived()->where('landlord_id', $filters['landlord_id'])
             ->where('is_voided', false)
             ->with([
                 'invoice:id,invoice_number',

@@ -33,7 +33,7 @@ class DashboardService
                     ->whereMonth('payment_date', now()->month)
                     ->whereYear('payment_date', now()->year)
                     ->sum('amount'),
-                'total_revenue' => Payment::withoutGlobalScope('landlord')->sum('amount'),
+                'total_revenue' => Payment::withoutGlobalScope('landlord')->withArchived()->sum('amount'),
             ];
 
             $actionItems = [
@@ -290,7 +290,7 @@ class DashboardService
         $building = $unit->building;
 
         $totalInvoiced = Invoice::where('lease_id', $lease->id)->sum('total_due');
-        $totalPaid = Payment::where('lease_id', $lease->id)->sum('amount');
+        $totalPaid = Payment::withArchived()->where('lease_id', $lease->id)->sum('amount');
         $balance = $totalPaid - $totalInvoiced;
 
         $actionItems = $this->getTenantActionItems($tenant, $lease);

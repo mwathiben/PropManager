@@ -14856,3 +14856,87 @@ Updated 12 email blade templates and 11 Mailable classes to pass dynamic `curren
 - PAY-V2.1-017 (PHP service KES cleanup)
 
 **PAY-V2.1-015 COMPLETE**
+
+---
+
+## PAY-V2.1-009: Implement 7-Year Data Retention Policy
+**Status:** COMPLETED
+**Date:** 2026-02-14
+**Attempts:** 1
+
+### Implementation Summary
+
+Implemented a compliant 7-year data retention policy that archives old payments from the `payments` table into an `archived_payments` table. A DB VIEW (`all_payments`) provides transparent UNION ALL access for historical queries. The archival scope uses `payment_date` (not `created_at`) for compliance correctness — retention starts from the transaction date, ensuring historically imported data isn't prematurely archived.
+
+### Architecture
+
+- **Archive Table Pattern**: Moves rows from `payments` → `archived_payments` (preferred over soft deletes for compliance)
+- **DB VIEW**: `all_payments` = UNION ALL of active + archived payments
+- **`Payment::withArchived()` scope**: Redirects queries to the view for lifetime aggregations
+- **`Payment::archivable()` scope**: Finds payments with `payment_date < now - 7 years`
+- **Batch processing**: `chunkById(500)` with per-payment `DB::transaction()` for atomicity
+- **FK handling**: Nulls RESTRICT foreign keys (wallet_transactions, bank_reconciliation_queue, bank_webhook_logs) before deletion
+- **Immutable archives**: Related data (platform_fee, receipt, refunds) snapshotted into JSON `related_data` column
+- **Audit trail**: Creates audit_log entry for each archived payment
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Jobs/ArchiveOldPayments.php` | Scheduled monthly job with chunkById processing |
+| `app/Models/ArchivedPayment.php` | Archive model with scopes (forLandlord, archivedBetween, byOriginalId) |
+| `app/Services/Payment/PaymentArchivalService.php` | Core archival logic: snapshot, null FKs, delete, audit |
+| `database/migrations/2026_02_15_100000_create_archived_payments_table.php` | Table + all_payments VIEW |
+| `tests/Feature/Jobs/ArchiveOldPaymentsTest.php` | 13 tests covering all scenarios |
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `app/Models/Payment.php` | Added `scopeArchivable()` and `scopeWithArchived()` |
+| `config/security.php` | Added `data_retention_years` config |
+| `routes/console.php` | Monthly schedule with onOneServer() |
+| `app/Services/DashboardService.php` | Tenant balance uses withArchived() |
+| `app/Services/FinanceExportService.php` | Payment export uses withArchived() |
+| `app/Http/Controllers/PaymentsHubController.php` | 5 queries updated to withArchived() |
+| `app/Http/Controllers/PaymentController.php` | Total received stat uses withArchived() |
+| `app/Http/Controllers/TenantController.php` | 2 tenant payment totals use withArchived() |
+| `app/Http/Controllers/TenantPortalController.php` | Tenant portal total uses withArchived() |
+
+### Key Design Decisions
+
+1. **payment_date over created_at**: Historical data imports would have recent created_at but old payment_date. Using payment_date ensures retention is measured from the actual transaction date (SOX/GDPR compliant).
+2. **DB VIEW over union in code**: The `all_payments` view lets any future query transparently access both tables without code changes.
+3. **onOneServer()**: Prevents duplicate archival in multi-server deployments.
+4. **loadMissing() in snapshot**: Simplified from eager-load-check branching to reduce cyclomatic complexity.
+
+### Verification
+
+- 13/13 archival tests: PASS
+- 1395/1395 full test suite: PASS (13 skipped, 0 failures)
+- Laravel Pint: PASS
+- PHPMD: PASS (snapshotRelatedData refactored below threshold)
+
+### Test Coverage
+
+| Test | Scenario |
+|------|----------|
+| archives payment older than retention period | Core happy path |
+| does not archive within retention period | Negative case |
+| preserves related data in archive | platform_fee + receipt snapshotted |
+| nulls restrict FK references before delete | wallet_transactions nulled |
+| creates audit log for archived payment | Compliance trail |
+| handles empty result set gracefully | No-op scenario |
+| archives voided payments | Voided payments still archived |
+| boundary exactly at retention period not archived | Edge case |
+| processes across multiple landlords | Multi-tenant |
+| continues after single payment error | Error isolation |
+| all payments view includes archived and active | VIEW correctness |
+| with archived scope queries both tables | Scope correctness |
+| archival via chunk surfaces error | Debug harness |
+
+### Next Steps
+- PAY-V2.1-010 (Shared payment form composable)
+- PAY-V2.1-011 (Cache layer optimization)
+
+**PAY-V2.1-009 COMPLETE**

@@ -35,7 +35,7 @@ class TenantPortalController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        $totalPaid = Payment::where('lease_id', $lease->id)->sum('amount');
+        $totalPaid = Payment::withArchived()->where('lease_id', $lease->id)->sum('amount');
         $totalInvoiced = Invoice::where('lease_id', $lease->id)->sum('total_due');
         $balance = $totalPaid - $totalInvoiced;
 

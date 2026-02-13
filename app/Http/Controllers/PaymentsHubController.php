@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\InvoiceStatus;
 use App\Http\Traits\WithLandlordScope;
 use App\Models\Building;
 use App\Models\Invoice;
@@ -419,7 +420,7 @@ class PaymentsHubController extends Controller
     {
         $now = now();
 
-        $totalCollected = Payment::where('landlord_id', $landlordId)->sum('amount');
+        $totalCollected = Payment::withArchived()->where('landlord_id', $landlordId)->sum('amount');
 
         $thisMonth = Payment::where('landlord_id', $landlordId)
             ->whereMonth('payment_date', $now->month)
@@ -427,7 +428,7 @@ class PaymentsHubController extends Controller
             ->sum('amount');
 
         $pendingAmount = Invoice::where('landlord_id', $landlordId)
-            ->whereIn('status', ['sent', 'partial', 'overdue'])
+            ->whereIn('status', [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue])
             ->selectRaw('COALESCE(SUM(total_due - amount_paid), 0) as pending')
             ->value('pending') ?? 0;
 
@@ -504,7 +505,7 @@ class PaymentsHubController extends Controller
     private function getPendingInvoicesCount(int $landlordId): int
     {
         return Invoice::where('landlord_id', $landlordId)
-            ->whereIn('status', ['sent', 'partial', 'overdue'])
+            ->whereIn('status', [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue])
             ->count();
     }
 
@@ -735,7 +736,7 @@ class PaymentsHubController extends Controller
                 $startDate = $now->copy()->startOfMonth();
         }
 
-        $total = Payment::where('landlord_id', $landlordId)
+        $total = Payment::withArchived()->where('landlord_id', $landlordId)
             ->where('payment_date', '>=', $startDate)
             ->sum('amount');
 
@@ -746,7 +747,7 @@ class PaymentsHubController extends Controller
             default => $startDate->copy()->subMonth(),
         };
 
-        $previousTotal = Payment::where('landlord_id', $landlordId)
+        $previousTotal = Payment::withArchived()->where('landlord_id', $landlordId)
             ->whereBetween('payment_date', [$previousPeriodStart, $startDate])
             ->sum('amount');
 
@@ -824,7 +825,7 @@ class PaymentsHubController extends Controller
 
         $dateFormat = $this->getDateFormatSql('payment_date', '%Y-%m');
 
-        $payments = Payment::where('landlord_id', $landlordId)
+        $payments = Payment::withArchived()->where('landlord_id', $landlordId)
             ->where('payment_date', '>=', $startDate)
             ->selectRaw("{$dateFormat} as month_key, SUM(amount) as total")
             ->groupBy('month_key')
@@ -853,7 +854,7 @@ class PaymentsHubController extends Controller
      */
     private function getTopPayingUnits(int $landlordId, int $limit = 5): array
     {
-        return Payment::where('landlord_id', $landlordId)
+        return Payment::withArchived()->where('landlord_id', $landlordId)
             ->with(['lease.unit:id,unit_number,building_id', 'lease.unit.building:id,name'])
             ->selectRaw('lease_id, SUM(amount) as total_paid, COUNT(*) as payment_count')
             ->groupBy('lease_id')

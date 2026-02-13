@@ -112,7 +112,7 @@ class TenantController extends Controller
                 ->limit(20)
                 ->get();
 
-            $totalPaid = Payment::where('lease_id', $activeLease->id)->sum('amount');
+            $totalPaid = Payment::withArchived()->where('lease_id', $activeLease->id)->sum('amount');
             $totalInvoiced = Invoice::where('lease_id', $activeLease->id)->sum('total_due');
 
             $financialSummary = [
@@ -897,7 +897,7 @@ class TenantController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        $totalPaid = Payment::where('lease_id', $lease->id)->sum('amount');
+        $totalPaid = Payment::withArchived()->where('lease_id', $lease->id)->sum('amount');
         $totalInvoiced = Invoice::where('lease_id', $lease->id)->sum('total_due');
         $balance = $totalPaid - $totalInvoiced;
 
