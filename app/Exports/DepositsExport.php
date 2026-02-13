@@ -12,7 +12,8 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 class DepositsExport implements FromCollection, ShouldAutoSize, WithHeadings, WithStyles
 {
     public function __construct(
-        protected Collection $deposits
+        protected Collection $deposits,
+        protected string $currencyCode = 'KES'
     ) {}
 
     public function collection(): Collection
@@ -39,10 +40,10 @@ class DepositsExport implements FromCollection, ShouldAutoSize, WithHeadings, Wi
             'Tenant',
             'Unit',
             'Building',
-            'Deposit Amount (KES)',
+            "Deposit Amount ({$this->currencyCode})",
             'Status',
-            'Refund Amount (KES)',
-            'Deductions (KES)',
+            "Refund Amount ({$this->currencyCode})",
+            "Deductions ({$this->currencyCode})",
             'Deduction Reason',
             'Processed Date',
             'Lease Start',

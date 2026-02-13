@@ -118,11 +118,11 @@
                     <div class="summary-label">Total Expenses</div>
                 </td>
                 <td style="border: none; text-align: center; width: 25%;">
-                    <div class="summary-value">KES {{ number_format($summary['total_amount'], 0) }}</div>
+                    <div class="summary-value">{{ $currency_symbol }} {{ number_format($summary['total_amount'], 0) }}</div>
                     <div class="summary-label">Total Spent</div>
                 </td>
                 <td style="border: none; text-align: center; width: 25%;">
-                    <div class="summary-value">KES {{ number_format($summary['average_expense'], 0) }}</div>
+                    <div class="summary-value">{{ $currency_symbol }} {{ number_format($summary['average_expense'], 0) }}</div>
                     <div class="summary-label">Average Expense</div>
                 </td>
                 <td style="border: none; text-align: center; width: 25%;">
@@ -141,7 +141,7 @@
                 <tr>
                     <th>Category</th>
                     <th class="text-right">Count</th>
-                    <th class="text-right">Amount (KES)</th>
+                    <th class="text-right">Amount ({{ $currency_code }})</th>
                 </tr>
             </thead>
             <tbody>

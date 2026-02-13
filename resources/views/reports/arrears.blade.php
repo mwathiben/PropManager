@@ -87,7 +87,7 @@
     </div>
 
     <div class="alert-box">
-        <strong>Total Arrears:</strong> KES {{ number_format($data['summary']['total_arrears'], 2) }}<br>
+        <strong>Total Arrears:</strong> {{ $currency_symbol }} {{ number_format($data['summary']['total_arrears'], 2) }}<br>
         <strong>Overdue Invoices:</strong> {{ $data['summary']['count'] }} invoice(s)
     </div>
 
@@ -96,7 +96,7 @@
         <table>
             <tr>
                 <th>Aging Period</th>
-                <th class="text-right">Amount (KES)</th>
+                <th class="text-right">Amount ({{ $currency_code }})</th>
                 <th class="text-right">Percentage</th>
             </tr>
             @foreach($data['aging_breakdown'] as $period => $amount)
@@ -118,7 +118,7 @@
                 <th>Tenant</th>
                 <th>Invoice Number</th>
                 <th class="text-center">Days Overdue</th>
-                <th class="text-right">Amount (KES)</th>
+                <th class="text-right">Amount ({{ $currency_code }})</th>
             </tr>
             @foreach($data['details'] as $detail)
             <tr>

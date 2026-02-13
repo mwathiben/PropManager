@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\Currency;
 use App\Enums\InvoiceStatus;
 use App\Http\Requests\GenerateInvoicesRequest;
 use App\Jobs\GenerateInvoicePdf;
@@ -114,6 +115,7 @@ class InvoiceController extends Controller
         $invoice->update(['status' => $request->status]);
 
         if ($request->status === InvoiceStatus::Sent->value && $oldStatus !== InvoiceStatus::Sent) {
+            $invoice->refresh();
             $invoice->load(['lease.tenant', 'lease.unit.building.property']);
             if ($invoice->lease && $invoice->lease->tenant) {
                 Mail::to($invoice->lease->tenant)->send(new InvoiceSent($invoice));
@@ -186,9 +188,10 @@ class InvoiceController extends Controller
             }
         }
 
-        $message = 'Payment of KES '.number_format($paymentAmount, 2).' recorded successfully.';
+        $currencySymbol = ($invoice->currency ?? Currency::default())->symbol();
+        $message = 'Payment of '.$currencySymbol.' '.number_format($paymentAmount, 2).' recorded successfully.';
         if ($overpayment > 0) {
-            $message .= ' KES '.number_format($overpayment, 2).' credited to wallet.';
+            $message .= ' '.$currencySymbol.' '.number_format($overpayment, 2).' credited to wallet.';
         }
 
         return back()->with('success', $message);
@@ -233,12 +236,16 @@ class InvoiceController extends Controller
         $building = $unit->building;
         $property = $building->property;
 
+        $currency = $invoice->currency ?? $building->getEffectiveCurrency() ?? Currency::default();
+
         $pdf = Pdf::loadView('invoices.invoice-pdf', [
             'invoice' => $invoice,
             'tenant' => $tenant,
             'unit' => $unit,
             'building' => $building,
             'property' => $property,
+            'currency_symbol' => $currency->symbol(),
+            'currency_code' => $currency->value,
         ]);
 
         $filename = $invoice->invoice_number.'.pdf';
@@ -254,7 +261,7 @@ class InvoiceController extends Controller
             'reason' => 'required|string|max:500',
         ]);
 
-        if (! in_array($invoice->status, [InvoiceStatus::Draft, InvoiceStatus::Sent])) {
+        if (! in_array($invoice->status, [InvoiceStatus::Draft, InvoiceStatus::Sent], true)) {
             return back()->withErrors(['error' => __('messages.invoice.cannot_void_status')]);
         }
 

@@ -89,7 +89,7 @@
 
     <div class="info-box">
         <strong>Total Consumption:</strong> {{ number_format($data['summary']['total_consumption'], 2) }} cubic meters<br>
-        <strong>Total Cost:</strong> KES {{ number_format($data['summary']['total_cost'], 2) }}<br>
+        <strong>Total Cost:</strong> {{ $currency_symbol }} {{ number_format($data['summary']['total_cost'], 2) }}<br>
         <strong>Average Consumption:</strong> {{ $data['summary']['average_consumption'] }} units per reading
     </div>
 
@@ -106,7 +106,7 @@
             </tr>
             <tr>
                 <td>Total Cost</td>
-                <td class="text-right text-cyan">KES {{ number_format($data['summary']['total_cost'], 2) }}</td>
+                <td class="text-right text-cyan">{{ $currency_symbol }} {{ number_format($data['summary']['total_cost'], 2) }}</td>
             </tr>
             <tr>
                 <td>Number of Readings</td>
@@ -118,7 +118,7 @@
             </tr>
             <tr>
                 <td>Average Cost per Reading</td>
-                <td class="text-right">KES {{ $data['summary']['readings_count'] > 0 ? number_format($data['summary']['total_cost'] / $data['summary']['readings_count'], 2) : 0 }}</td>
+                <td class="text-right">{{ $currency_symbol }} {{ $data['summary']['readings_count'] > 0 ? number_format($data['summary']['total_cost'] / $data['summary']['readings_count'], 2) : 0 }}</td>
             </tr>
         </table>
     </div>
@@ -131,7 +131,7 @@
                 <th>Rank</th>
                 <th>Unit Number</th>
                 <th class="text-right">Consumption (units)</th>
-                <th class="text-right">Cost (KES)</th>
+                <th class="text-right">Cost ({{ $currency_code }})</th>
             </tr>
             @foreach($data['top_consumers'] as $index => $consumer)
             <tr>

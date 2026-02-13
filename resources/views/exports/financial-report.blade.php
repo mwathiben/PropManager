@@ -129,19 +129,19 @@
 
     <div class="summary-grid">
         <div class="summary-item">
-            <div class="summary-value">KES {{ number_format($totalInvoiced, 0) }}</div>
+            <div class="summary-value">{{ $currency_symbol }} {{ number_format($totalInvoiced, 0) }}</div>
             <div class="summary-label">Total Invoiced</div>
         </div>
         <div class="summary-item">
-            <div class="summary-value" style="color: #10B981;">KES {{ number_format($totalCollected, 0) }}</div>
+            <div class="summary-value" style="color: #10B981;">{{ $currency_symbol }} {{ number_format($totalCollected, 0) }}</div>
             <div class="summary-label">Total Collected</div>
         </div>
         <div class="summary-item">
-            <div class="summary-value" style="color: #DC2626;">KES {{ number_format($totalExpenses, 0) }}</div>
+            <div class="summary-value" style="color: #DC2626;">{{ $currency_symbol }} {{ number_format($totalExpenses, 0) }}</div>
             <div class="summary-label">Total Expenses</div>
         </div>
         <div class="summary-item">
-            <div class="summary-value" style="color: {{ $netIncome >= 0 ? '#10B981' : '#DC2626' }};">KES {{ number_format($netIncome, 0) }}</div>
+            <div class="summary-value" style="color: {{ $netIncome >= 0 ? '#10B981' : '#DC2626' }};">{{ $currency_symbol }} {{ number_format($netIncome, 0) }}</div>
             <div class="summary-label">Net Income</div>
         </div>
     </div>

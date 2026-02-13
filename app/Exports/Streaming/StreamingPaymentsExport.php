@@ -17,7 +17,8 @@ class StreamingPaymentsExport implements FromQuery, ShouldAutoSize, ShouldQueue,
     use Exportable;
 
     public function __construct(
-        protected Builder $query
+        protected Builder $query,
+        protected string $currencyCode = 'KES'
     ) {}
 
     public function query(): Builder
@@ -48,7 +49,7 @@ class StreamingPaymentsExport implements FromQuery, ShouldAutoSize, ShouldQueue,
             'Tenant',
             'Unit',
             'Building',
-            'Amount (KES)',
+            "Amount ({$this->currencyCode})",
             'Method',
             'Invoice',
             'Status',

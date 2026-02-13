@@ -17,7 +17,8 @@ class StreamingDepositsExport implements FromQuery, ShouldAutoSize, ShouldQueue,
     use Exportable;
 
     public function __construct(
-        protected Builder $query
+        protected Builder $query,
+        protected string $currencyCode = 'KES'
     ) {}
 
     public function query(): Builder
@@ -49,10 +50,10 @@ class StreamingDepositsExport implements FromQuery, ShouldAutoSize, ShouldQueue,
             'Tenant',
             'Unit',
             'Building',
-            'Deposit Amount (KES)',
+            "Deposit Amount ({$this->currencyCode})",
             'Status',
-            'Refund Amount (KES)',
-            'Deductions (KES)',
+            "Refund Amount ({$this->currencyCode})",
+            "Deductions ({$this->currencyCode})",
             'Deduction Reason',
             'Processed Date',
             'Lease Start',

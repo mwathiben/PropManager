@@ -243,20 +243,20 @@
             <div class="summary-grid">
                 <div class="summary-box">
                     <div class="summary-label">Total Invoiced</div>
-                    <div class="summary-value">KES {{ number_format($summary['total_invoiced'], 2) }}</div>
+                    <div class="summary-value">{{ $currency_symbol }} {{ number_format($summary['total_invoiced'], 2) }}</div>
                 </div>
                 <div class="summary-box">
                     <div class="summary-label">Total Paid</div>
-                    <div class="summary-value credit">KES {{ number_format($summary['total_paid'], 2) }}</div>
+                    <div class="summary-value credit">{{ $currency_symbol }} {{ number_format($summary['total_paid'], 2) }}</div>
                 </div>
                 <div class="summary-box">
                     <div class="summary-label">Refunds</div>
-                    <div class="summary-value debit">KES {{ number_format($summary['total_refunds'], 2) }}</div>
+                    <div class="summary-value debit">{{ $currency_symbol }} {{ number_format($summary['total_refunds'], 2) }}</div>
                 </div>
                 <div class="summary-box">
                     <div class="summary-label">Balance {{ $summary['current_balance'] > 0 ? 'Due' : '' }}</div>
                     <div class="summary-value {{ $summary['current_balance'] > 0 ? 'debit' : 'credit' }}">
-                        KES {{ number_format(abs($summary['current_balance']), 2) }}
+                        {{ $currency_symbol }} {{ number_format(abs($summary['current_balance']), 2) }}
                     </div>
                 </div>
             </div>

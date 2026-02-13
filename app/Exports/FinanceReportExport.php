@@ -13,28 +13,30 @@ class FinanceReportExport implements WithMultipleSheets
 {
     public function __construct(
         protected array $data,
-        protected int $period
+        protected int $period,
+        protected string $currencyCode = 'KES'
     ) {}
 
     public function sheets(): array
     {
         return [
-            new RevenueSheet($this->data['revenue']),
-            new CollectionRateSheet($this->data['collection_rate']),
+            new RevenueSheet($this->data['revenue'], $this->currencyCode),
+            new CollectionRateSheet($this->data['collection_rate'], $this->currencyCode),
             new OccupancySheet($this->data['occupancy']),
-            new ArrearsAgingSheet($this->data['arrears_aging']),
-            new ExpensesByCategorySheet($this->data['expenses_by_category']),
+            new ArrearsAgingSheet($this->data['arrears_aging'], $this->currencyCode),
+            new ExpensesByCategorySheet($this->data['expenses_by_category'], $this->currencyCode),
         ];
     }
 }
 
 class RevenueSheet implements FromArray, ShouldAutoSize, WithStyles, WithTitle
 {
-    public function __construct(protected array $data) {}
+    public function __construct(protected array $data, protected string $currencyCode = 'KES') {}
 
     public function array(): array
     {
-        $rows = [['Month', 'Invoiced (KES)', 'Collected (KES)', 'Expenses (KES)', 'Net Income (KES)']];
+        $c = $this->currencyCode;
+        $rows = [['Month', "Invoiced ({$c})", "Collected ({$c})", "Expenses ({$c})", "Net Income ({$c})"]];
 
         foreach ($this->data as $row) {
             $rows[] = [
@@ -78,11 +80,12 @@ class RevenueSheet implements FromArray, ShouldAutoSize, WithStyles, WithTitle
 
 class CollectionRateSheet implements FromArray, ShouldAutoSize, WithStyles, WithTitle
 {
-    public function __construct(protected array $data) {}
+    public function __construct(protected array $data, protected string $currencyCode = 'KES') {}
 
     public function array(): array
     {
-        $rows = [['Month', 'Invoiced (KES)', 'Collected (KES)', 'Collection Rate (%)']];
+        $c = $this->currencyCode;
+        $rows = [['Month', "Invoiced ({$c})", "Collected ({$c})", 'Collection Rate (%)']];
 
         foreach ($this->data as $row) {
             $rows[] = [
@@ -156,11 +159,11 @@ class OccupancySheet implements FromArray, ShouldAutoSize, WithStyles, WithTitle
 
 class ArrearsAgingSheet implements FromArray, ShouldAutoSize, WithStyles, WithTitle
 {
-    public function __construct(protected array $data) {}
+    public function __construct(protected array $data, protected string $currencyCode = 'KES') {}
 
     public function array(): array
     {
-        $rows = [['Aging Bucket', 'Invoice Count', 'Amount (KES)']];
+        $rows = [['Aging Bucket', 'Invoice Count', "Amount ({$this->currencyCode})"]];
 
         $buckets = [
             'current' => 'Current (Not Overdue)',
@@ -202,11 +205,11 @@ class ArrearsAgingSheet implements FromArray, ShouldAutoSize, WithStyles, WithTi
 
 class ExpensesByCategorySheet implements FromArray, ShouldAutoSize, WithStyles, WithTitle
 {
-    public function __construct(protected array $data) {}
+    public function __construct(protected array $data, protected string $currencyCode = 'KES') {}
 
     public function array(): array
     {
-        $rows = [['Category', 'Expense Count', 'Amount (KES)', 'Percentage (%)']];
+        $rows = [['Category', 'Expense Count', "Amount ({$this->currencyCode})", 'Percentage (%)']];
 
         foreach ($this->data['categories'] ?? [] as $row) {
             $rows[] = [

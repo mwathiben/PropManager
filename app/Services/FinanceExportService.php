@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\Currency;
 use App\Exports\DepositsExport;
 use App\Exports\ExpensesExport;
 use App\Exports\FinanceReportExport;
@@ -16,6 +17,7 @@ use App\Models\Expense;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\Payment;
+use App\Models\PaymentConfiguration;
 use App\Models\Vendor;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -39,20 +41,21 @@ class FinanceExportService
     {
         $query = $this->buildInvoiceQuery($filters);
         $filename = 'invoices_'.now()->format('Y_m_d_His');
+        $currency = $this->getLandlordCurrency();
 
         if ($format === 'xlsx' && $this->shouldStream($query)) {
-            return Excel::download(new StreamingInvoicesExport(clone $query), $filename.'.xlsx');
+            return Excel::download(new StreamingInvoicesExport(clone $query, $currency->value), $filename.'.xlsx');
         }
 
         if ($format === 'csv') {
-            return $this->streamInvoicesToCsv(clone $query, $filename.'.csv');
+            return $this->streamInvoicesToCsv(clone $query, $filename.'.csv', $currency->value);
         }
 
         $invoices = $query->orderBy('created_at', 'desc')->lazy(1000)->collect();
 
         return match ($format) {
             'pdf' => $this->invoicesToPdf($invoices, $filters, $filename),
-            default => Excel::download(new InvoicesExport($invoices), $filename.'.xlsx'),
+            default => Excel::download(new InvoicesExport($invoices, currencyCode: $currency->value), $filename.'.xlsx'),
         };
     }
 
@@ -60,13 +63,14 @@ class FinanceExportService
     {
         $query = $this->buildPaymentQuery($filters);
         $filename = 'payments_'.now()->format('Y_m_d_His');
+        $currency = $this->getLandlordCurrency();
 
         if ($format === 'xlsx' && $this->shouldStream($query)) {
-            return Excel::download(new StreamingPaymentsExport(clone $query), $filename.'.xlsx');
+            return Excel::download(new StreamingPaymentsExport(clone $query, $currency->value), $filename.'.xlsx');
         }
 
         if ($format === 'csv') {
-            return $this->streamPaymentsToCsv(clone $query, $filename.'.csv');
+            return $this->streamPaymentsToCsv(clone $query, $filename.'.csv', $currency->value);
         }
 
         $payments = $query->orderBy('payment_date', 'desc')->lazy(1000)->collect();
@@ -78,7 +82,7 @@ class FinanceExportService
 
         return match ($format) {
             'pdf' => $this->paymentsToPdf($payments, $filters, $filename),
-            default => Excel::download(new PaymentsExport($payments, $dateRange), $filename.'.xlsx'),
+            default => Excel::download(new PaymentsExport($payments, $dateRange, $currency->value), $filename.'.xlsx'),
         };
     }
 
@@ -86,13 +90,14 @@ class FinanceExportService
     {
         $query = $this->buildDepositQuery($filters);
         $filename = 'deposits_report_'.now()->format('Y-m-d');
+        $currency = $this->getLandlordCurrency();
 
         if ($format === 'xlsx' && $this->shouldStream($query)) {
-            return Excel::download(new StreamingDepositsExport(clone $query), $filename.'.xlsx');
+            return Excel::download(new StreamingDepositsExport(clone $query, $currency->value), $filename.'.xlsx');
         }
 
         if ($format === 'csv') {
-            return $this->streamDepositsToCsv(clone $query, $filename.'.csv');
+            return $this->streamDepositsToCsv(clone $query, $filename.'.csv', $currency->value);
         }
 
         $deposits = $query->orderBy('created_at', 'desc')->lazy(1000)->collect();
@@ -100,7 +105,7 @@ class FinanceExportService
 
         return match ($format) {
             'pdf' => $this->depositsToPdf($deposits, $stats, $filters, $filename),
-            default => Excel::download(new DepositsExport($deposits), $filename.'.xlsx'),
+            default => Excel::download(new DepositsExport($deposits, $currency->value), $filename.'.xlsx'),
         };
     }
 
@@ -108,13 +113,14 @@ class FinanceExportService
     {
         $query = $this->buildExpenseQuery($filters);
         $filename = 'expenses_'.now()->format('Y_m_d_His');
+        $currency = $this->getLandlordCurrency();
 
         if ($format === 'xlsx' && $this->shouldStream($query)) {
-            return Excel::download(new StreamingExpensesExport(clone $query), $filename.'.xlsx');
+            return Excel::download(new StreamingExpensesExport(clone $query, $currency->value), $filename.'.xlsx');
         }
 
         if ($format === 'csv') {
-            return $this->streamExpensesToCsv(clone $query, $filename.'.csv');
+            return $this->streamExpensesToCsv(clone $query, $filename.'.csv', $currency->value);
         }
 
         $expenses = $query->orderBy('expense_date', 'desc')->lazy(1000)->collect();
@@ -126,7 +132,7 @@ class FinanceExportService
 
         return match ($format) {
             'pdf' => $this->expensesToPdf($expenses, $filters, $filename),
-            default => Excel::download(new ExpensesExport($expenses, $dateRange), $filename.'.xlsx'),
+            default => Excel::download(new ExpensesExport($expenses, $dateRange, $currency->value), $filename.'.xlsx'),
         };
     }
 
@@ -134,6 +140,7 @@ class FinanceExportService
     {
         $landlordId = $filters['landlord_id'];
         $filename = 'vendors_'.now()->format('Y_m_d_His');
+        $currency = $this->getLandlordCurrency();
 
         $query = Vendor::where('landlord_id', $landlordId)
             ->withSum('expenses', 'amount')
@@ -141,7 +148,7 @@ class FinanceExportService
             ->orderBy('name');
 
         if ($format === 'csv') {
-            return $this->streamVendorsToCsv(clone $query, $filename.'.csv');
+            return $this->streamVendorsToCsv(clone $query, $filename.'.csv', $currency->value);
         }
 
         $vendors = $query->lazy(1000)->collect();
@@ -151,13 +158,14 @@ class FinanceExportService
             'end' => now(),
         ];
 
-        return Excel::download(new VendorExpenseExport($vendors, $dateRange), $filename.'.xlsx');
+        return Excel::download(new VendorExpenseExport($vendors, $dateRange, $currency->value), $filename.'.xlsx');
     }
 
     public function exportReports(array $filters, string $format = 'xlsx'): BinaryFileResponse|StreamedResponse|Response
     {
         $landlordId = $filters['landlord_id'];
         $period = $filters['period'] ?? 12;
+        $currency = $this->getLandlordCurrency();
 
         $data = [
             'revenue' => $this->reportService->getRevenueReport($landlordId, $period),
@@ -174,7 +182,7 @@ class FinanceExportService
         return match ($format) {
             'pdf' => $this->reportsToPdf($data, $period, $filename),
             'csv' => $this->reportsToCsv($data, $filename),
-            default => Excel::download(new FinanceReportExport($data, $period), $filename.'.xlsx'),
+            default => Excel::download(new FinanceReportExport($data, $period, $currency->value), $filename.'.xlsx'),
         };
     }
 
@@ -299,11 +307,11 @@ class FinanceExportService
         ]);
     }
 
-    protected function streamInvoicesToCsv(Builder $query, string $filename): StreamedResponse
+    protected function streamInvoicesToCsv(Builder $query, string $filename, string $currencyCode = 'KES'): StreamedResponse
     {
-        return response()->streamDownload(function () use ($query) {
+        return response()->streamDownload(function () use ($query, $currencyCode) {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, $this->getInvoiceHeadings());
+            fputcsv($handle, $this->getInvoiceHeadings($currencyCode));
 
             foreach ($query->orderBy('created_at', 'desc')->cursor() as $inv) {
                 fputcsv($handle, [
@@ -327,11 +335,11 @@ class FinanceExportService
         }, $filename, ['Content-Type' => 'text/csv; charset=utf-8']);
     }
 
-    protected function streamPaymentsToCsv(Builder $query, string $filename): StreamedResponse
+    protected function streamPaymentsToCsv(Builder $query, string $filename, string $currencyCode = 'KES'): StreamedResponse
     {
-        return response()->streamDownload(function () use ($query) {
+        return response()->streamDownload(function () use ($query, $currencyCode) {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, $this->getPaymentHeadings());
+            fputcsv($handle, $this->getPaymentHeadings($currencyCode));
 
             foreach ($query->orderBy('payment_date', 'desc')->cursor() as $p) {
                 fputcsv($handle, [
@@ -351,11 +359,11 @@ class FinanceExportService
         }, $filename, ['Content-Type' => 'text/csv; charset=utf-8']);
     }
 
-    protected function streamDepositsToCsv(Builder $query, string $filename): StreamedResponse
+    protected function streamDepositsToCsv(Builder $query, string $filename, string $currencyCode = 'KES'): StreamedResponse
     {
-        return response()->streamDownload(function () use ($query) {
+        return response()->streamDownload(function () use ($query, $currencyCode) {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, $this->getDepositHeadings());
+            fputcsv($handle, $this->getDepositHeadings($currencyCode));
 
             foreach ($query->orderBy('created_at', 'desc')->cursor() as $d) {
                 fputcsv($handle, [
@@ -375,11 +383,11 @@ class FinanceExportService
         }, $filename, ['Content-Type' => 'text/csv; charset=utf-8']);
     }
 
-    protected function streamExpensesToCsv(Builder $query, string $filename): StreamedResponse
+    protected function streamExpensesToCsv(Builder $query, string $filename, string $currencyCode = 'KES'): StreamedResponse
     {
-        return response()->streamDownload(function () use ($query) {
+        return response()->streamDownload(function () use ($query, $currencyCode) {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, $this->getExpenseHeadings());
+            fputcsv($handle, $this->getExpenseHeadings($currencyCode));
 
             foreach ($query->orderBy('expense_date', 'desc')->cursor() as $e) {
                 fputcsv($handle, [
@@ -400,11 +408,11 @@ class FinanceExportService
         }, $filename, ['Content-Type' => 'text/csv; charset=utf-8']);
     }
 
-    protected function streamVendorsToCsv(Builder $query, string $filename): StreamedResponse
+    protected function streamVendorsToCsv(Builder $query, string $filename, string $currencyCode = 'KES'): StreamedResponse
     {
-        return response()->streamDownload(function () use ($query) {
+        return response()->streamDownload(function () use ($query, $currencyCode) {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, $this->getVendorHeadings());
+            fputcsv($handle, $this->getVendorHeadings($currencyCode));
 
             foreach ($query->cursor() as $v) {
                 fputcsv($handle, [
@@ -425,6 +433,7 @@ class FinanceExportService
     protected function invoicesToPdf(Collection $invoices, array $filters, string $filename): Response
     {
         $summary = $this->statsService->calculateInvoiceSummary($invoices);
+        $currency = $this->getLandlordCurrency();
 
         $pdf = Pdf::loadView('exports.invoices', [
             'invoices' => $invoices,
@@ -436,6 +445,8 @@ class FinanceExportService
             ]),
             'landlord' => auth()->user(),
             'generated_at' => now()->format('F j, Y g:i A'),
+            'currency_symbol' => $currency->symbol(),
+            'currency_code' => $currency->value,
         ]);
 
         return $pdf->download($filename.'.pdf');
@@ -445,6 +456,7 @@ class FinanceExportService
     {
         $summary = $this->statsService->calculatePaymentSummary($payments);
         $methodBreakdown = $this->statsService->calculateMethodBreakdown($payments);
+        $currency = $this->getLandlordCurrency();
 
         $pdf = Pdf::loadView('exports.payments', [
             'payments' => $payments,
@@ -457,6 +469,8 @@ class FinanceExportService
             ]),
             'landlord' => auth()->user(),
             'generated_at' => now()->format('F j, Y g:i A'),
+            'currency_symbol' => $currency->symbol(),
+            'currency_code' => $currency->value,
         ]);
 
         return $pdf->download($filename.'.pdf');
@@ -464,6 +478,8 @@ class FinanceExportService
 
     protected function depositsToPdf(Collection $deposits, array $stats, array $filters, string $filename): Response
     {
+        $currency = $this->getLandlordCurrency();
+
         $pdf = Pdf::loadView('exports.deposits', [
             'deposits' => $deposits,
             'stats' => $stats,
@@ -473,6 +489,8 @@ class FinanceExportService
                 'status' => $filters['status'] ?? null,
                 'building_id' => $filters['building_id'] ?? null,
             ]),
+            'currency_symbol' => $currency->symbol(),
+            'currency_code' => $currency->value,
         ]);
 
         return $pdf->download($filename.'.pdf');
@@ -482,6 +500,7 @@ class FinanceExportService
     {
         $summary = $this->statsService->calculateExpenseSummary($expenses);
         $categoryBreakdown = $this->statsService->calculateExpenseCategoryBreakdown($expenses);
+        $currency = $this->getLandlordCurrency();
 
         $pdf = Pdf::loadView('exports.expenses', [
             'expenses' => $expenses,
@@ -495,6 +514,8 @@ class FinanceExportService
             ]),
             'landlord' => auth()->user(),
             'generated_at' => now()->format('F j, Y g:i A'),
+            'currency_symbol' => $currency->symbol(),
+            'currency_code' => $currency->value,
         ]);
 
         return $pdf->download($filename.'.pdf');
@@ -502,11 +523,15 @@ class FinanceExportService
 
     protected function reportsToPdf(array $data, int $period, string $filename): Response
     {
+        $currency = $this->getLandlordCurrency();
+
         $pdf = Pdf::loadView('exports.financial-report', [
             'data' => $data,
             'period' => $period,
             'landlord' => auth()->user(),
             'generated_at' => now()->format('M j, Y g:i A'),
+            'currency_symbol' => $currency->symbol(),
+            'currency_code' => $currency->value,
         ]);
 
         return $pdf->download($filename.'.pdf');
@@ -637,49 +662,58 @@ class FinanceExportService
         ]);
     }
 
-    protected function getInvoiceHeadings(): array
+    protected function getInvoiceHeadings(string $currencyCode = 'KES'): array
     {
         return [
             'Invoice Number', 'Date', 'Due Date', 'Tenant', 'Unit', 'Building',
-            'Rent (KES)', 'Water (KES)', 'Arrears (KES)', 'Total Due (KES)',
-            'Amount Paid (KES)', 'Balance (KES)', 'Status',
+            "Rent ({$currencyCode})", "Water ({$currencyCode})", "Arrears ({$currencyCode})", "Total Due ({$currencyCode})",
+            "Amount Paid ({$currencyCode})", "Balance ({$currencyCode})", 'Status',
         ];
     }
 
-    protected function getPaymentHeadings(): array
+    protected function getPaymentHeadings(string $currencyCode = 'KES'): array
     {
         return [
             'Date', 'Reference', 'Tenant', 'Unit', 'Building',
-            'Amount (KES)', 'Method', 'Invoice', 'Status',
+            "Amount ({$currencyCode})", 'Method', 'Invoice', 'Status',
         ];
     }
 
-    protected function getDepositHeadings(): array
+    protected function getDepositHeadings(string $currencyCode = 'KES'): array
     {
         return [
-            'Tenant', 'Unit', 'Building', 'Deposit Amount (KES)', 'Status',
-            'Refund Amount (KES)', 'Deductions (KES)', 'Lease Start', 'Lease End',
+            'Tenant', 'Unit', 'Building', "Deposit Amount ({$currencyCode})", 'Status',
+            "Refund Amount ({$currencyCode})", "Deductions ({$currencyCode})", 'Lease Start', 'Lease End',
         ];
     }
 
-    protected function getExpenseHeadings(): array
+    protected function getExpenseHeadings(string $currencyCode = 'KES'): array
     {
         return [
             'Date', 'Description', 'Category', 'Vendor', 'Property', 'Building',
-            'Amount (KES)', 'Payment Method', 'Reference', 'Recurring',
+            "Amount ({$currencyCode})", 'Payment Method', 'Reference', 'Recurring',
         ];
     }
 
-    protected function getVendorHeadings(): array
+    protected function getVendorHeadings(string $currencyCode = 'KES'): array
     {
         return [
             'Name', 'Contact Person', 'Email', 'Phone',
-            'Total Expenses (KES)', 'Expense Count', 'Status',
+            "Total Expenses ({$currencyCode})", 'Expense Count', 'Status',
         ];
     }
 
     public function shouldStream(Builder $query): bool
     {
         return $query->count() > self::STREAM_THRESHOLD;
+    }
+
+    protected function getLandlordCurrency(): Currency
+    {
+        $user = auth()->user();
+        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $config = PaymentConfiguration::where('landlord_id', $landlordId)->first();
+
+        return $config?->default_currency ?? Currency::default();
     }
 }

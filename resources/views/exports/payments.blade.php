@@ -108,11 +108,11 @@
                     <div class="summary-label">Total Payments</div>
                 </td>
                 <td style="border: none; text-align: center; width: 34%;">
-                    <div class="summary-value">KES {{ number_format($summary['total_amount'], 0) }}</div>
+                    <div class="summary-value">{{ $currency_symbol }} {{ number_format($summary['total_amount'], 0) }}</div>
                     <div class="summary-label">Total Collected</div>
                 </td>
                 <td style="border: none; text-align: center; width: 33%;">
-                    <div class="summary-value">KES {{ number_format($summary['average_payment'], 0) }}</div>
+                    <div class="summary-value">{{ $currency_symbol }} {{ number_format($summary['average_payment'], 0) }}</div>
                     <div class="summary-label">Average Payment</div>
                 </td>
             </tr>
@@ -127,7 +127,7 @@
                 <tr>
                     <th>Method</th>
                     <th class="text-right">Count</th>
-                    <th class="text-right">Amount (KES)</th>
+                    <th class="text-right">Amount ({{ $currency_code }})</th>
                 </tr>
             </thead>
             <tbody>

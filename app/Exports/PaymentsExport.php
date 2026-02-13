@@ -13,7 +13,8 @@ class PaymentsExport implements FromCollection, ShouldAutoSize, WithHeadings, Wi
 {
     public function __construct(
         protected Collection $payments,
-        protected array $dateRange
+        protected array $dateRange,
+        protected string $currencyCode = 'KES'
     ) {}
 
     public function collection(): Collection
@@ -33,7 +34,7 @@ class PaymentsExport implements FromCollection, ShouldAutoSize, WithHeadings, Wi
 
     public function headings(): array
     {
-        return ['Date', 'Reference', 'Tenant', 'Unit', 'Building', 'Amount (KES)', 'Method', 'Invoice', 'Status'];
+        return ['Date', 'Reference', 'Tenant', 'Unit', 'Building', "Amount ({$this->currencyCode})", 'Method', 'Invoice', 'Status'];
     }
 
     public function styles(Worksheet $sheet): array

@@ -102,15 +102,15 @@
         <table style="width: 100%; border: none;">
             <tr>
                 <td style="border: none; text-align: center; width: 33%;">
-                    <div class="summary-value">KES {{ number_format($stats['total_held'], 0) }}</div>
+                    <div class="summary-value">{{ $currency_symbol }} {{ number_format($stats['total_held'], 0) }}</div>
                     <div class="summary-label">Total Held ({{ $stats['count_held'] }})</div>
                 </td>
                 <td style="border: none; text-align: center; width: 33%;">
-                    <div class="summary-value" style="color: #059669;">KES {{ number_format($stats['total_refunded'], 0) }}</div>
+                    <div class="summary-value" style="color: #059669;">{{ $currency_symbol }} {{ number_format($stats['total_refunded'], 0) }}</div>
                     <div class="summary-label">Total Refunded ({{ $stats['count_refunded'] }})</div>
                 </td>
                 <td style="border: none; text-align: center; width: 34%;">
-                    <div class="summary-value" style="color: #DC2626;">KES {{ number_format($stats['total_forfeited'], 0) }}</div>
+                    <div class="summary-value" style="color: #DC2626;">{{ $currency_symbol }} {{ number_format($stats['total_forfeited'], 0) }}</div>
                     <div class="summary-label">Total Forfeited ({{ $stats['count_forfeited'] }})</div>
                 </td>
             </tr>

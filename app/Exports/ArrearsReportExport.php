@@ -14,7 +14,8 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 class ArrearsReportExport implements FromCollection, ShouldAutoSize, WithHeadings, WithStyles, WithTitle
 {
     public function __construct(
-        protected int $landlordId
+        protected int $landlordId,
+        protected string $currencyCode = 'KES'
     ) {}
 
     public function collection(): Collection
@@ -50,11 +51,11 @@ class ArrearsReportExport implements FromCollection, ShouldAutoSize, WithHeading
             'Phone',
             'Unit',
             'Building',
-            'Monthly Rent (KES)',
-            'Arrears (KES)',
+            "Monthly Rent ({$this->currencyCode})",
+            "Arrears ({$this->currencyCode})",
             'Months Overdue',
             'Lease Start',
-            'Wallet Balance (KES)',
+            "Wallet Balance ({$this->currencyCode})",
         ];
     }
 

@@ -14813,3 +14813,46 @@ Updated 12 email blade templates and 11 Mailable classes to pass dynamic `curren
 - PAY-V2.1-017 (PHP service KES cleanup)
 
 **PAY-V2.1-014 COMPLETE**
+
+---
+
+## Session: 2026-02-13
+**Task**: PAY-V2.1-015 - Replace Hardcoded KES in PDF, Report, and Export Templates
+**Status**: COMPLETED
+
+### Work Done
+- Updated 11 blade templates: replaced all `KES {{ number_format(` with `{{ $currency_symbol }} {{ number_format(` and `Amount (KES)` with `Amount ({{ $currency_code }})`
+- Updated 13 Maatwebsite Excel export classes: added `protected string $currencyCode = 'KES'` constructor param, headings use `({$this->currencyCode})`
+- Added `getLandlordCurrency()` helper to FinanceExportService resolving currency from PaymentConfiguration
+- Updated FinanceExportService: 5 PDF methods, 6 export methods, 5 CSV streaming methods, 5 heading methods
+- Updated ReportsController: exportPdf, exportExcel, getExportClass, convertToCSV — all resolve and pass dynamic currency
+- Updated InvoiceController: download() passes currency to PDF view, recordPayment() flash uses dynamic symbol
+- Updated TenantController: ledgerPdf() and ledgerEmail() resolve currency from building
+- Updated TenantInvoiceController: download() passes currency to PDF view
+- Created 29 tests in tests/Unit/Templates/PdfExportCurrencyTest.php covering all blades, exports, streaming, controllers, CSV headings, and KES fallback
+
+### Files Changed (37)
+- 11 blade templates (resources/views/invoices/, reports/, exports/, tenants/, receipts/)
+- 13 Maatwebsite exports (app/Exports/ and app/Exports/Streaming/)
+- 5 service/controller files (FinanceExportService, ReportsController, InvoiceController, TenantController, TenantInvoiceController)
+- 1 test file (tests/Unit/Templates/PdfExportCurrencyTest.php)
+- 1 PRD file (payment-workflow-prd-v2.1.json)
+
+### Verification
+- 29/29 targeted PdfExportCurrencyTest tests: PASS
+- 1395/1395 full test suite: PASS (13 skipped, 0 failures)
+- Laravel Pint: PASS
+- npm run build: PASS
+- grep KES in blade templates: 0 matches
+- grep KES in export classes: only default parameter values (correct)
+
+### Learnings
+- Blade templates require complete view data for rendering tests — iteratively discovered missing keys
+- Currency resolution pattern: invoice->currency ?? building->getEffectiveCurrency() ?? Currency::default()
+- Default parameter values (`= 'KES'`) provide backward compatibility while allowing dynamic override
+
+### Next Steps
+- PAY-V2.1-016 (Vue frontend KES cleanup)
+- PAY-V2.1-017 (PHP service KES cleanup)
+
+**PAY-V2.1-015 COMPLETE**

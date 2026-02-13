@@ -131,15 +131,15 @@
                     <div class="summary-label">Total Invoices</div>
                 </td>
                 <td style="border: none; text-align: center; width: 20%;">
-                    <div class="summary-value">KES {{ number_format($summary['total_due'], 0) }}</div>
+                    <div class="summary-value">{{ $currency_symbol }} {{ number_format($summary['total_due'], 0) }}</div>
                     <div class="summary-label">Total Due</div>
                 </td>
                 <td style="border: none; text-align: center; width: 20%;">
-                    <div class="summary-value">KES {{ number_format($summary['total_paid'], 0) }}</div>
+                    <div class="summary-value">{{ $currency_symbol }} {{ number_format($summary['total_paid'], 0) }}</div>
                     <div class="summary-label">Total Paid</div>
                 </td>
                 <td style="border: none; text-align: center; width: 20%;">
-                    <div class="summary-value">KES {{ number_format($summary['total_balance'], 0) }}</div>
+                    <div class="summary-value">{{ $currency_symbol }} {{ number_format($summary['total_balance'], 0) }}</div>
                     <div class="summary-label">Outstanding</div>
                 </td>
                 <td style="border: none; text-align: center; width: 20%;">

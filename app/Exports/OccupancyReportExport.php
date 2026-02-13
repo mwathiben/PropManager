@@ -14,7 +14,8 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 class OccupancyReportExport implements FromCollection, ShouldAutoSize, WithHeadings, WithStyles, WithTitle
 {
     public function __construct(
-        protected int $landlordId
+        protected int $landlordId,
+        protected string $currencyCode = 'KES'
     ) {}
 
     public function collection(): Collection
@@ -45,12 +46,12 @@ class OccupancyReportExport implements FromCollection, ShouldAutoSize, WithHeadi
             'Building',
             'Unit',
             'Status',
-            'Target Rent (KES)',
-            'Current Rent (KES)',
+            "Target Rent ({$this->currencyCode})",
+            "Current Rent ({$this->currencyCode})",
             'Tenant',
             'Lease Start',
             'Lease End',
-            'Arrears (KES)',
+            "Arrears ({$this->currencyCode})",
         ];
     }
 

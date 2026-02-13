@@ -661,6 +661,8 @@ class TenantController extends Controller
         $landlord = User::find($landlordId);
         $invoiceSetting = $landlord->getOrCreateInvoiceSetting();
 
+        $currency = $activeLease?->unit?->building?->getEffectiveCurrency() ?? Currency::default();
+
         $pdf = Pdf::loadView('tenants.ledger-pdf', [
             'tenant' => $tenant,
             'activeLease' => $activeLease,
@@ -671,6 +673,8 @@ class TenantController extends Controller
             'landlord' => $landlord,
             'invoiceSetting' => $invoiceSetting,
             'generatedAt' => now(),
+            'currency_symbol' => $currency->symbol(),
+            'currency_code' => $currency->value,
         ]);
 
         $filename = "statement-{$tenant->name}-".now()->format('Y-m-d').'.pdf';
@@ -710,6 +714,7 @@ class TenantController extends Controller
 
         $landlord = User::find($landlordId);
         $invoiceSetting = $landlord->getOrCreateInvoiceSetting();
+        $currency = $activeLease?->unit?->building?->getEffectiveCurrency() ?? Currency::default();
 
         $pdf = Pdf::loadView('tenants.ledger-pdf', [
             'tenant' => $tenant,
@@ -721,6 +726,8 @@ class TenantController extends Controller
             'landlord' => $landlord,
             'invoiceSetting' => $invoiceSetting,
             'generatedAt' => now(),
+            'currency_symbol' => $currency->symbol(),
+            'currency_code' => $currency->value,
         ]);
 
         $filename = "statement-{$tenant->name}-".now()->format('Y-m-d').'.pdf';

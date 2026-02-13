@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\Currency;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\InvoiceResource;
 use App\Models\Invoice;
@@ -52,12 +53,16 @@ class TenantInvoiceController extends Controller
         $building = $unit->building;
         $property = $building->property;
 
+        $currency = $invoice->currency ?? $building->getEffectiveCurrency() ?? Currency::default();
+
         $pdf = Pdf::loadView('invoices.invoice-pdf', [
             'invoice' => $invoice,
             'tenant' => $tenant,
             'unit' => $unit,
             'building' => $building,
             'property' => $property,
+            'currency_symbol' => $currency->symbol(),
+            'currency_code' => $currency->value,
         ]);
 
         return $pdf->download("invoice-{$invoice->invoice_number}.pdf");

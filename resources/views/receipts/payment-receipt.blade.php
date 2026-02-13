@@ -142,7 +142,7 @@
 
         <div class="amount-box">
             <div class="label">Amount Paid</div>
-            <div class="amount">KES {{ number_format($payment->amount, 2) }}</div>
+            <div class="amount">{{ $currency_symbol }} {{ number_format($payment->amount, 2) }}</div>
         </div>
 
         @if(($settings->receipt_show_tenant_details ?? true) && $invoice)
@@ -180,9 +180,9 @@
                     <tr>
                         <td>{{ $invoice->invoice_number }}</td>
                         <td>{{ $invoice->billing_period_start->format('M Y') }}</td>
-                        <td>KES {{ number_format($invoice->total_due, 2) }}</td>
-                        <td>KES {{ number_format($invoice->amount_paid, 2) }}</td>
-                        <td>KES {{ number_format($invoice->total_due - $invoice->amount_paid, 2) }}</td>
+                        <td>{{ $currency_symbol }} {{ number_format($invoice->total_due, 2) }}</td>
+                        <td>{{ $currency_symbol }} {{ number_format($invoice->amount_paid, 2) }}</td>
+                        <td>{{ $currency_symbol }} {{ number_format($invoice->total_due - $invoice->amount_paid, 2) }}</td>
                     </tr>
                 </tbody>
             </table>

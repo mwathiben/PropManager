@@ -15,7 +15,8 @@ class FinancialReportExport implements FromCollection, ShouldAutoSize, WithHeadi
 {
     public function __construct(
         protected int $landlordId,
-        protected array $dateRange
+        protected array $dateRange,
+        protected string $currencyCode = 'KES'
     ) {}
 
     public function collection(): Collection
@@ -50,13 +51,13 @@ class FinancialReportExport implements FromCollection, ShouldAutoSize, WithHeadi
             'Tenant',
             'Unit',
             'Building',
-            'Rent Due (KES)',
-            'Water Due (KES)',
-            'Arrears (KES)',
-            'Wallet Applied (KES)',
-            'Total Due (KES)',
-            'Amount Paid (KES)',
-            'Balance (KES)',
+            "Rent Due ({$this->currencyCode})",
+            "Water Due ({$this->currencyCode})",
+            "Arrears ({$this->currencyCode})",
+            "Wallet Applied ({$this->currencyCode})",
+            "Total Due ({$this->currencyCode})",
+            "Amount Paid ({$this->currencyCode})",
+            "Balance ({$this->currencyCode})",
             'Status',
         ];
     }

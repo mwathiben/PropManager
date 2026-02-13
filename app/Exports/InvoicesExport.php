@@ -13,7 +13,8 @@ class InvoicesExport implements FromCollection, ShouldAutoSize, WithHeadings, Wi
 {
     public function __construct(
         protected Collection $invoices,
-        protected array $dateRange = []
+        protected array $dateRange = [],
+        protected string $currencyCode = 'KES'
     ) {}
 
     public function collection(): Collection
@@ -44,12 +45,12 @@ class InvoicesExport implements FromCollection, ShouldAutoSize, WithHeadings, Wi
             'Tenant',
             'Unit',
             'Building',
-            'Rent (KES)',
-            'Water (KES)',
-            'Arrears (KES)',
-            'Total Due (KES)',
-            'Amount Paid (KES)',
-            'Balance (KES)',
+            "Rent ({$this->currencyCode})",
+            "Water ({$this->currencyCode})",
+            "Arrears ({$this->currencyCode})",
+            "Total Due ({$this->currencyCode})",
+            "Amount Paid ({$this->currencyCode})",
+            "Balance ({$this->currencyCode})",
             'Status',
         ];
     }

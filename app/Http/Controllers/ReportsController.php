@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\Currency;
 use App\Exports\ArrearsReportExport;
 use App\Exports\FinancialReportExport;
 use App\Exports\OccupancyReportExport;
 use App\Exports\PaymentsExport;
 use App\Models\Payment;
+use App\Models\PaymentConfiguration;
 use App\Services\ReportService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -61,11 +63,14 @@ class ReportsController extends Controller
         $period = $validated['period'] ?? 'month';
 
         $data = $this->reportService->exportData($landlordId, $validated['report_type'], $period);
+        $currency = PaymentConfiguration::where('landlord_id', $landlordId)->first()?->default_currency ?? Currency::default();
 
         $pdf = Pdf::loadView('reports.'.$validated['report_type'], [
             'data' => $data,
             'landlord' => $user->role === 'landlord' ? $user : $user->landlord,
             'generated_at' => now()->format('F j, Y g:i A'),
+            'currency_symbol' => $currency->symbol(),
+            'currency_code' => $currency->value,
         ]);
 
         $filename = $validated['report_type'].'_report_'.now()->format('Y_m_d').'.pdf';
@@ -93,9 +98,10 @@ class ReportsController extends Controller
 
         $dateRange = $this->getDateRange($request, $period);
         $filename = $validated['report_type'].'_report_'.$dateRange['start']->format('Y_m_d').'.'.$format;
+        $currency = PaymentConfiguration::where('landlord_id', $landlordId)->first()?->default_currency ?? Currency::default();
 
         if ($format === 'xlsx') {
-            $export = $this->getExportClass($validated['report_type'], $landlordId, $dateRange);
+            $export = $this->getExportClass($validated['report_type'], $landlordId, $dateRange, $currency->value);
 
             if ($export) {
                 return Excel::download($export, $filename);
@@ -103,7 +109,7 @@ class ReportsController extends Controller
         }
 
         $data = $this->reportService->exportData($landlordId, $validated['report_type'], $period);
-        $csvData = $this->convertToCSV($data, $validated['report_type']);
+        $csvData = $this->convertToCSV($data, $validated['report_type'], $currency->symbol());
 
         return Response::make($csvData, 200, [
             'Content-Type' => 'text/csv',
@@ -134,18 +140,19 @@ class ReportsController extends Controller
     /**
      * Get export class based on report type
      */
-    private function getExportClass(string $reportType, int $landlordId, array $dateRange)
+    private function getExportClass(string $reportType, int $landlordId, array $dateRange, string $currencyCode = 'KES')
     {
         return match ($reportType) {
-            'financial' => new FinancialReportExport($landlordId, $dateRange),
-            'occupancy' => new OccupancyReportExport($landlordId),
-            'arrears' => new ArrearsReportExport($landlordId),
+            'financial' => new FinancialReportExport($landlordId, $dateRange, $currencyCode),
+            'occupancy' => new OccupancyReportExport($landlordId, $currencyCode),
+            'arrears' => new ArrearsReportExport($landlordId, $currencyCode),
             'payments' => new PaymentsExport(
                 Payment::where('landlord_id', $landlordId)
                     ->whereBetween('payment_date', [$dateRange['start'], $dateRange['end']])
                     ->with(['lease.tenant', 'lease.unit.building', 'invoice'])
                     ->get(),
-                $dateRange
+                $dateRange,
+                $currencyCode
             ),
             default => null,
         };
@@ -154,7 +161,7 @@ class ReportsController extends Controller
     /**
      * Convert report data to CSV format
      */
-    private function convertToCSV(array $data, string $reportType): string
+    private function convertToCSV(array $data, string $reportType, string $currencySymbol = 'KSh'): string
     {
         $output = fopen('php://temp', 'r+');
 
@@ -167,17 +174,17 @@ class ReportsController extends Controller
         if ($reportType === 'financial') {
             fputcsv($output, ['Financial Summary']);
             fputcsv($output, ['Metric', 'Value']);
-            fputcsv($output, ['Expected Rent', 'KES '.number_format($data['summary']['expected_rent'], 2)]);
-            fputcsv($output, ['Collected Rent', 'KES '.number_format($data['summary']['collected_rent'], 2)]);
-            fputcsv($output, ['Water Charges', 'KES '.number_format($data['summary']['water_charges'], 2)]);
-            fputcsv($output, ['Outstanding', 'KES '.number_format($data['summary']['outstanding'], 2)]);
+            fputcsv($output, ['Expected Rent', $currencySymbol.' '.number_format($data['summary']['expected_rent'], 2)]);
+            fputcsv($output, ['Collected Rent', $currencySymbol.' '.number_format($data['summary']['collected_rent'], 2)]);
+            fputcsv($output, ['Water Charges', $currencySymbol.' '.number_format($data['summary']['water_charges'], 2)]);
+            fputcsv($output, ['Outstanding', $currencySymbol.' '.number_format($data['summary']['outstanding'], 2)]);
             fputcsv($output, ['Collection Rate', $data['summary']['collection_percentage'].'%']);
             fputcsv($output, []);
 
             fputcsv($output, ['Revenue Breakdown']);
             fputcsv($output, ['Category', 'Amount']);
             foreach ($data['summary']['revenue_breakdown'] as $category => $amount) {
-                fputcsv($output, [ucfirst($category), 'KES '.number_format($amount, 2)]);
+                fputcsv($output, [ucfirst($category), $currencySymbol.' '.number_format($amount, 2)]);
             }
         } elseif ($reportType === 'occupancy') {
             fputcsv($output, ['Occupancy Summary']);
@@ -202,14 +209,14 @@ class ReportsController extends Controller
             }
         } elseif ($reportType === 'arrears') {
             fputcsv($output, ['Arrears Summary']);
-            fputcsv($output, ['Total Arrears', 'KES '.number_format($data['summary']['total_arrears'], 2)]);
+            fputcsv($output, ['Total Arrears', $currencySymbol.' '.number_format($data['summary']['total_arrears'], 2)]);
             fputcsv($output, ['Number of Overdue Invoices', $data['summary']['count']]);
             fputcsv($output, []);
 
             fputcsv($output, ['Aging Analysis']);
             fputcsv($output, ['Period', 'Amount']);
             foreach ($data['aging_breakdown'] as $period => $amount) {
-                fputcsv($output, [$period.' days', 'KES '.number_format($amount, 2)]);
+                fputcsv($output, [$period.' days', $currencySymbol.' '.number_format($amount, 2)]);
             }
             fputcsv($output, []);
 
@@ -219,7 +226,7 @@ class ReportsController extends Controller
                 fputcsv($output, [
                     $detail['unit'],
                     $detail['tenant'],
-                    'KES '.number_format($detail['amount'], 2),
+                    $currencySymbol.' '.number_format($detail['amount'], 2),
                     $detail['days_overdue'],
                     $detail['invoice_number'],
                 ]);
@@ -228,7 +235,7 @@ class ReportsController extends Controller
             fputcsv($output, ['Water Consumption Summary']);
             fputcsv($output, ['Metric', 'Value']);
             fputcsv($output, ['Total Consumption', $data['summary']['total_consumption'].' units']);
-            fputcsv($output, ['Total Cost', 'KES '.number_format($data['summary']['total_cost'], 2)]);
+            fputcsv($output, ['Total Cost', $currencySymbol.' '.number_format($data['summary']['total_cost'], 2)]);
             fputcsv($output, ['Average Consumption', $data['summary']['average_consumption'].' units']);
             fputcsv($output, ['Readings Count', $data['summary']['readings_count']]);
             fputcsv($output, []);
@@ -239,7 +246,7 @@ class ReportsController extends Controller
                 fputcsv($output, [
                     $consumer['unit'],
                     $consumer['consumption'].' units',
-                    'KES '.number_format($consumer['cost'], 2),
+                    $currencySymbol.' '.number_format($consumer['cost'], 2),
                 ]);
             }
         }

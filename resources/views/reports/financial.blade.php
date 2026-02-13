@@ -90,7 +90,7 @@
         <table>
             <tr>
                 <th>Metric</th>
-                <th class="text-right">Amount (KES)</th>
+                <th class="text-right">Amount ({{ $currency_code }})</th>
             </tr>
             <tr>
                 <td>Expected Rent</td>
@@ -122,7 +122,7 @@
         <table>
             <tr>
                 <th>Category</th>
-                <th class="text-right">Amount (KES)</th>
+                <th class="text-right">Amount ({{ $currency_code }})</th>
                 <th class="text-right">Percentage</th>
             </tr>
             @foreach($data['summary']['revenue_breakdown'] as $category => $amount)
@@ -141,7 +141,7 @@
         <table>
             <tr>
                 <th>Date</th>
-                <th class="text-right">Amount (KES)</th>
+                <th class="text-right">Amount ({{ $currency_code }})</th>
                 <th class="text-right">Transactions</th>
             </tr>
             @foreach($data['revenue_trend'] as $trend)
@@ -164,11 +164,11 @@
             </tr>
             <tr>
                 <td>Total Billed</td>
-                <td class="text-right">KES {{ number_format($data['collection_rate']['total_billed'], 2) }}</td>
+                <td class="text-right">{{ $currency_symbol }} {{ number_format($data['collection_rate']['total_billed'], 2) }}</td>
             </tr>
             <tr>
                 <td>Total Collected</td>
-                <td class="text-right text-green">KES {{ number_format($data['collection_rate']['total_collected'], 2) }}</td>
+                <td class="text-right text-green">{{ $currency_symbol }} {{ number_format($data['collection_rate']['total_collected'], 2) }}</td>
             </tr>
             <tr>
                 <td>Collection Rate</td>

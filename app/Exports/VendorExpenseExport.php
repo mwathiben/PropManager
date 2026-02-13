@@ -13,7 +13,8 @@ class VendorExpenseExport implements FromCollection, ShouldAutoSize, WithHeading
 {
     public function __construct(
         protected Collection $vendors,
-        protected array $dateRange
+        protected array $dateRange,
+        protected string $currencyCode = 'KES'
     ) {}
 
     public function collection(): Collection
@@ -36,7 +37,7 @@ class VendorExpenseExport implements FromCollection, ShouldAutoSize, WithHeading
             'Contact Person',
             'Email',
             'Phone',
-            'Total Expenses (KES)',
+            "Total Expenses ({$this->currencyCode})",
             'Expense Count',
             'Status',
         ];

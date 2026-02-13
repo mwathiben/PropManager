@@ -275,24 +275,24 @@
         <div class="totals-section">
             <div class="totals-row">
                 <span class="totals-label">{{ __('pdfs.invoice.subtotal') }}</span>
-                <span class="totals-value">KES {{ number_format($invoice->total_due, 2) }}</span>
+                <span class="totals-value">{{ $currency_symbol }} {{ number_format($invoice->total_due, 2) }}</span>
             </div>
             @if($invoice->amount_paid > 0)
             <div class="totals-row">
                 <span class="totals-label">{{ __('pdfs.invoice.amount_paid') }}</span>
-                <span class="totals-value" style="color: #059669;">- KES {{ number_format($invoice->amount_paid, 2) }}</span>
+                <span class="totals-value" style="color: #059669;">- {{ $currency_symbol }} {{ number_format($invoice->amount_paid, 2) }}</span>
             </div>
             @endif
             <div class="totals-row grand-total">
                 <span class="totals-label">{{ __('pdfs.invoice.balance_due') }}</span>
-                <span class="totals-value">KES {{ number_format($invoice->total_due - $invoice->amount_paid, 2) }}</span>
+                <span class="totals-value">{{ $currency_symbol }} {{ number_format($invoice->total_due - $invoice->amount_paid, 2) }}</span>
             </div>
         </div>
 
         @if($invoice->total_due - $invoice->amount_paid > 0)
         <div class="amount-due-box">
             <div class="label">{{ __('pdfs.invoice.amount_due') }}</div>
-            <div class="amount">KES {{ number_format($invoice->total_due - $invoice->amount_paid, 2) }}</div>
+            <div class="amount">{{ $currency_symbol }} {{ number_format($invoice->total_due - $invoice->amount_paid, 2) }}</div>
         </div>
 
         <div class="payment-instructions">

@@ -13,7 +13,8 @@ class ExpensesExport implements FromCollection, ShouldAutoSize, WithHeadings, Wi
 {
     public function __construct(
         protected Collection $expenses,
-        protected array $dateRange
+        protected array $dateRange,
+        protected string $currencyCode = 'KES'
     ) {}
 
     public function collection(): Collection
@@ -40,7 +41,7 @@ class ExpensesExport implements FromCollection, ShouldAutoSize, WithHeadings, Wi
             'Category',
             'Vendor',
             'Location',
-            'Amount (KES)',
+            "Amount ({$this->currencyCode})",
             'Payment Method',
             'Reference',
             'Recurring',
