@@ -41,6 +41,7 @@ export interface PaymentConfiguration extends BaseEntity {
   flat_water_rate?: number;
   water_unit_rate?: number;
   accepted_payment_methods: string[];
+  default_currency?: string;
   bank_name?: string;
   bank_account_name?: string;
   bank_account_number?: string;

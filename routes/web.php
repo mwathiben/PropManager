@@ -571,6 +571,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/settings/reminder', [FinanceSettingsController::class, 'updateReminderSettings'])->name('settings.reminder');
         Route::post('/settings/receipt', [FinanceSettingsController::class, 'updateReceiptSettings'])->name('settings.receipt');
         Route::get('/settings/receipt/preview', [FinanceSettingsController::class, 'previewReceipt'])->name('settings.receipt.preview');
+        Route::post('/settings/default-currency', [FinanceSettingsController::class, 'updateDefaultCurrency'])->name('settings.default-currency');
         Route::post('/settings/fiscal-year', [FinanceSettingsController::class, 'updateFiscalYearSettings'])->name('settings.fiscal-year');
 
         // Reports

@@ -32,6 +32,7 @@ export interface Building extends BaseEntity {
   property?: Property;
   floors?: number;
   units_per_floor?: number;
+  currency?: string;
 }
 
 // Property

@@ -81,9 +81,11 @@ class InvoiceService
                 $totalDue = max(0, $totalDue - $walletApplied);
             }
 
+            $building = $lease->unit->building;
+
             $invoice = Invoice::create([
                 'lease_id' => $lease->id,
-                'landlord_id' => $lease->unit->building->property->landlord_id,
+                'landlord_id' => $building->property->landlord_id,
                 'invoice_number' => $this->generateInvoiceNumber(),
                 'due_date' => $dueDate,
                 'billing_period_start' => $billingPeriod,
@@ -93,6 +95,7 @@ class InvoiceService
                 'wallet_applied' => $walletApplied,
                 'total_due' => $totalDue,
                 'amount_paid' => 0,
+                'currency' => $building->getEffectiveCurrency(),
                 // Auto-set to Paid if wallet fully covered bill (no payment action needed)
                 'status' => $totalDue == 0 ? InvoiceStatus::Paid : InvoiceStatus::Draft,
             ]);
@@ -104,10 +107,6 @@ class InvoiceService
                 }
             }
 
-            // Only mark readings as invoiced for consumption-based billing.
-            // Flat-rate buildings charge fixed amounts, so readings are informational
-            // only - marking them invoiced would falsely imply consumption was billed.
-            $building = $lease->unit->building;
             if ($waterDue > 0 && $building->usesConsumptionBilling()) {
                 $this->markWaterReadingsAsInvoiced($lease, $billingPeriod);
             }
@@ -196,7 +195,8 @@ class InvoiceService
     public function generateFirstInvoiceForLease(Lease $lease, array $overrides = []): Invoice
     {
         return DB::transaction(function () use ($lease, $overrides) {
-            $landlord = $lease->unit->building->property->landlord;
+            $building = $lease->unit->building;
+            $landlord = $building->property->landlord;
             $settings = $landlord->getOrCreateInvoiceSetting();
 
             $dueDays = $overrides['due_days'] ?? $settings->first_invoice_due_days ?? 0;
@@ -216,6 +216,7 @@ class InvoiceService
                 'arrears' => 0,
                 'total_due' => 0,
                 'amount_paid' => 0,
+                'currency' => $building->getEffectiveCurrency(),
                 'status' => InvoiceStatus::Draft,
             ]);
 

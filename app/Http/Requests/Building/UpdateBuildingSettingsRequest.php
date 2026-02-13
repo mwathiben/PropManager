@@ -2,8 +2,11 @@
 
 namespace App\Http\Requests\Building;
 
+use App\Enums\Currency;
 use App\Models\Building;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class UpdateBuildingSettingsRequest extends FormRequest
 {
@@ -11,7 +14,7 @@ class UpdateBuildingSettingsRequest extends FormRequest
     {
         $building = $this->route('building');
 
-        return $building && $building->landlord_id === auth()->id();
+        return $building && (int) $building->landlord_id === (int) Auth::id();
     }
 
     public function rules(): array
@@ -28,6 +31,7 @@ class UpdateBuildingSettingsRequest extends FormRequest
             'coordinates.lat' => 'nullable|numeric|between:-90,90',
             'coordinates.lng' => 'nullable|numeric|between:-180,180',
             'photos' => 'nullable|array',
+            'currency' => ['nullable', 'string', Rule::in(Currency::values())],
         ];
     }
 }

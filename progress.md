@@ -520,7 +520,6 @@ Added volume-based tiered pricing to the platform fee system. Landlords with hig
 - Pint: clean
 - Build: success
 - PHPMD: no new violations (pre-existing DashboardService class-length warnings)
-- Payment receipt email template
 
 ### Acceptance Criteria Verification
 
@@ -14555,3 +14554,94 @@ Automated the PaymentReconciliationService (PAY-V2.1-004) with a daily scheduled
 ### Next Steps
 
 - Continue with next highest priority unpassed task in payment-workflow-prd-v2.1.json
+
+---
+
+## PAY-V2.1-003: Add Currency Selection UI for Landlords
+**Status:** PASSED
+**Date:** 2026-02-13
+**Attempts:** 1
+
+### Implementation Summary
+
+Added landlord-level default currency and per-building currency override. Currency cascades: Building.currency → PaymentConfiguration.default_currency → KES fallback. InvoiceService now assigns effective currency on all invoice creation paths. Settings UI provides currency dropdown; buildings support per-building override with "Inherit from default" option.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `database/migrations/2026_02_13_100000_add_currency_settings.php` | Adds `default_currency` to payment_configurations, `currency` to buildings |
+| `app/Http/Requests/UpdateDefaultCurrencyRequest.php` | FormRequest with Currency enum validation |
+| `tests/Feature/CurrencySettings/CurrencySettingsTest.php` | 12 tests covering cascade, endpoints, invoice wiring |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Models/PaymentConfiguration.php` | Added `default_currency` to fillable + `Currency::class` cast |
+| `app/Models/Building.php` | Added `currency` to fillable + cast + `getEffectiveCurrency()` method |
+| `database/factories/BuildingFactory.php` | Added `withCurrency(Currency)` state method |
+| `app/Http/Requests/Building/UpdateBuildingSettingsRequest.php` | Added nullable currency validation rule |
+| `app/Http/Requests/Building/StorePropertyBuildingRequest.php` | Added nullable currency validation rule |
+| `app/Services/FinanceSettingsService.php` | Added `default_currency` to getPaymentConfig return + `updateDefaultCurrency()` method |
+| `app/Http/Controllers/Finance/FinanceSettingsController.php` | Added `updateDefaultCurrency()` action + `currencyOptions` Inertia prop |
+| `routes/web.php` | Added `settings.default-currency` POST route |
+| `app/Services/InvoiceService.php` | Wired `getEffectiveCurrency()` into both `generateInvoiceForLease()` and `generateFirstInvoiceForLease()` |
+| `resources/js/types/finances.d.ts` | Added `currency` to Building interface |
+| `resources/js/types/settings.d.ts` | Added `default_currency` to PaymentConfiguration interface |
+| `resources/js/types/onboarding.d.ts` | Added `default_currency` to OnboardingPaymentConfig interface |
+| `resources/js/Pages/Finances/tabs/SettingsTab.vue` | Added currency section with dropdown and save |
+| `resources/js/Pages/Buildings/Show.vue` | Added currency dropdown to building settings form |
+| `resources/js/Pages/Buildings/Edit.vue` | Added currency dropdown to settings form |
+
+### Architecture Decisions
+
+- **Cascade pattern**: Building.getEffectiveCurrency() checks building.currency first, then PaymentConfiguration.default_currency, then Currency::default() (KES). Direct query avoids N+1.
+- **Nullable building currency**: Empty string = inherit from landlord default. Only non-null values override.
+- **Eloquent value() gotcha**: `->value('column')` returns already-cast enum when model has casts. Used `->first()` + property access instead of `->value()` + `Currency::tryFrom()`.
+- **Route placement**: Inside existing `finances.` route group to inherit middleware and name prefix.
+
+### Acceptance Criteria Verification
+
+1. **Landlords can set default currency** — POST to `settings.default-currency` with enum validation; test_landlord_can_update_default_currency_via_settings passes
+2. **Buildings can have different currencies** — Building.currency nullable field with per-building dropdown; test_building_overrides_landlord_currency_when_set passes
+3. **Invoices use building's currency** — Both InvoiceService creation methods call getEffectiveCurrency(); test_invoice_generation_uses_building_effective_currency and test_first_invoice_generation_uses_building_effective_currency pass
+
+### Verification Results
+
+- **Target tests**: 12/12 passed
+- **Full suite**: All passed
+- **Lint (Pint)**: Clean (925 files)
+- **Build**: Success
+- **E2E**: agent-browser daemon fails on Windows (known issue); verified via feature tests
+
+### Skills Applied
+
+- laravelmigrations-and-factories: Migration with defaults + BuildingFactory withCurrency state
+- laravelform-requests: UpdateDefaultCurrencyRequest with Currency enum Rule::in validation
+- laraveltdd-with-pest: RED-GREEN-REFACTOR with 12 tests written before production code
+- laraveleloquent-relationships: getEffectiveCurrency() with PaymentConfiguration lookup
+- laraveltransactions-and-consistency: Currency assignment inside InvoiceService DB::transaction
+- laravelcontroller-cleanup: Thin controller delegating to FinanceSettingsService
+- laravelcontroller-tests: Inertia prop assertions for currencyOptions
+- laravelquality-checks: Pint + build + full test suite
+- laravelconstants-and-configuration: Currency as PHP 8.1 backed enum
+- laravelperformance-eager-loading: Direct query in getEffectiveCurrency avoids N+1
+- laravelcomplexity-guardrails: getEffectiveCurrency is 5 lines
+- laravelroutes-best-practices: Route follows finances.settings.* naming convention
+- verification-first: Tests written and run before any production code
+- feature-development: End-to-end TDD from migration to frontend
+- web-design-guidelines: Currency dropdown follows existing SettingsTab section patterns
+- laravelexception-handling-and-logging: Auditable trait auto-logs Building currency changes
+
+### Learnings
+
+- Eloquent `->value('column')` returns the cast value when the model defines casts, not the raw DB string. Use `->first()` + property access when you need the cast value directly.
+- Currency cascade (building → config → default) is clean with null coalescing: `$config?->default_currency ?? Currency::default()`
+- Inertia prop testing with `assertInertia(fn ($page) => $page->where('prop', $expected))` works well for enum options
+
+### Next Steps
+
+- Continue with next highest priority unpassed task in payment-workflow-prd-v2.1.json
+
+**PAY-V2.1-003 COMPLETE**

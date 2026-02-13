@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Finance;
 
+use App\Enums\Currency;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UpdateDefaultCurrencyRequest;
 use App\Http\Requests\UpdateFiscalYearSettingsRequest;
 use App\Http\Requests\UpdateInvoiceSettingsRequest;
 use App\Http\Requests\UpdatePaymentMethodsRequest;
@@ -37,7 +39,15 @@ class FinanceSettingsController extends Controller
             'reminderSettings' => $this->settingsService->getReminderSettings($landlordId),
             'receiptSettings' => $this->settingsService->getReceiptSettings($landlordId),
             'fiscalYearSettings' => $this->settingsService->getFiscalYearSettings($landlordId),
+            'currencyOptions' => Currency::options(),
         ]);
+    }
+
+    public function updateDefaultCurrency(UpdateDefaultCurrencyRequest $request): RedirectResponse
+    {
+        $this->settingsService->updateDefaultCurrency($this->getLandlordId(), $request);
+
+        return back()->with('success', 'Default currency updated successfully.');
     }
 
     public function updatePaymentMethods(UpdatePaymentMethodsRequest $request): RedirectResponse
@@ -77,7 +87,7 @@ class FinanceSettingsController extends Controller
 
     public function previewReceipt(ReceiptGenerator $generator)
     {
-        $user = User::find($this->getLandlordId());
+        $user = User::findOrFail($this->getLandlordId());
         $settings = $user->getOrCreateInvoiceSetting();
 
         return $generator->preview($settings);

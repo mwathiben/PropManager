@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\Currency;
 use App\Models\Building;
 use App\Models\Property;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -28,6 +29,11 @@ class BuildingFactory extends Factory
             'water_billing_type' => $type,
             'water_flat_rate' => $type === 'flat_rate' ? ($flatRate ?? 500) : null,
         ]);
+    }
+
+    public function withCurrency(Currency $currency): static
+    {
+        return $this->state(['currency' => $currency->value]);
     }
 
     public function forProperty(Property $property): static

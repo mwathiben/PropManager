@@ -195,8 +195,8 @@
       ],
       "verification": "Set building to USD; create invoice; verify USD is used.",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["PAY-V2.1-001"]
     },
     {

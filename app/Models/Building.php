@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Currency;
 use App\Traits\Auditable;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -32,6 +33,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property bool $auto_generate_invoices
  * @property int|null $invoice_generation_day
  * @property bool $auto_send_invoices
+ * @property Currency|null $currency
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
  * @property-read Property $property
@@ -68,6 +70,7 @@ class Building extends Model
         'auto_generate_invoices',
         'invoice_generation_day',
         'auto_send_invoices',
+        'currency',
     ];
 
     protected $casts = [
@@ -80,6 +83,7 @@ class Building extends Model
         'auto_generate_invoices' => 'boolean',
         'auto_send_invoices' => 'boolean',
         'invoice_generation_day' => 'integer',
+        'currency' => Currency::class,
     ];
 
     /**
@@ -252,6 +256,19 @@ class Building extends Model
             ->orderBy('floor_number', 'desc')
             ->pluck('floor_number')
             ->toArray();
+    }
+
+    // --- CURRENCY HELPERS ---
+
+    public function getEffectiveCurrency(): Currency
+    {
+        if ($this->currency !== null) {
+            return $this->currency;
+        }
+
+        $config = PaymentConfiguration::where('landlord_id', $this->landlord_id)->first();
+
+        return $config?->default_currency ?? Currency::default();
     }
 
     // --- WATER BILLING HELPERS ---

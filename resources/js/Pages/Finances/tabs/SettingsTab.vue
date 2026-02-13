@@ -12,10 +12,17 @@ import {
     ReceiptPercentIcon,
     EyeIcon,
     CalendarDaysIcon,
+    CurrencyDollarIcon,
 } from '@heroicons/vue/24/outline';
+
+interface CurrencyOption {
+    value: string;
+    label: string;
+}
 
 interface PaymentConfig {
     accepted_payment_methods?: string[];
+    default_currency?: string;
     bank_name?: string;
     bank_account_name?: string;
     bank_account_number?: string;
@@ -56,6 +63,7 @@ interface FiscalYearSettings {
 interface Props {
     paymentConfig?: PaymentConfig;
     paymentMethods?: Record<string, boolean>;
+    currencyOptions?: CurrencyOption[];
     invoiceSettings?: InvoiceSettings;
     reminderSettings?: ReminderSettings;
     receiptSettings?: ReceiptSettings;
@@ -65,6 +73,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
     paymentConfig: () => ({}),
     paymentMethods: () => ({}),
+    currencyOptions: () => [],
     invoiceSettings: () => ({}),
     reminderSettings: () => ({}),
     receiptSettings: () => ({}),
@@ -113,6 +122,10 @@ const fiscalYearForm = useForm({
     fiscal_year_start_month: props.fiscalYearSettings?.fiscal_year_start_month || 1,
 });
 
+const currencyForm = useForm({
+    default_currency: props.paymentConfig?.default_currency || 'KES',
+});
+
 const monthOptions = [
     { value: 1, label: 'January' },
     { value: 2, label: 'February' },
@@ -139,6 +152,12 @@ const togglePaymentMethod = (method) => {
 
 const isMethodEnabled = (method) => {
     return paymentMethodsForm.accepted_payment_methods.includes(method);
+};
+
+const saveCurrencySettings = () => {
+    currencyForm.post(route('finances.settings.default-currency'), {
+        preserveScroll: true,
+    });
 };
 
 const savePaymentMethods = () => {
@@ -197,6 +216,7 @@ const methodIcons = {
 
 const sections = [
     { id: 'payment-methods', name: 'Payment Methods', icon: CreditCardIcon },
+    { id: 'currency', name: 'Currency', icon: CurrencyDollarIcon },
     { id: 'invoice-settings', name: 'Invoice Settings', icon: DocumentTextIcon },
     { id: 'receipt-settings', name: 'Receipt Settings', icon: ReceiptPercentIcon },
     { id: 'fiscal-year', name: 'Fiscal Year', icon: CalendarDaysIcon },
@@ -362,6 +382,36 @@ const sections = [
                         class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
                     >
                         {{ paymentMethodsForm.processing ? 'Saving...' : 'Save Payment Methods' }}
+                    </button>
+                </div>
+            </div>
+
+            <div v-if="activeSection === 'currency'" class="space-y-6">
+                <div class="bg-white rounded-xl border border-gray-200 p-6">
+                    <h3 class="text-sm font-semibold text-gray-900 mb-4">Default Currency</h3>
+                    <p class="text-sm text-gray-600 mb-4">
+                        Set the default currency for invoices and payments across all your buildings. Individual buildings can override this in their settings.
+                    </p>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Currency</label>
+                        <select
+                            v-model="currencyForm.default_currency"
+                            class="w-64 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                        >
+                            <option v-for="option in currencyOptions" :key="option.value" :value="option.value">
+                                {{ option.label }}
+                            </option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex justify-end">
+                    <button
+                        @click="saveCurrencySettings"
+                        :disabled="currencyForm.processing"
+                        class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                    >
+                        {{ currencyForm.processing ? 'Saving...' : 'Save Currency Settings' }}
                     </button>
                 </div>
             </div>
@@ -600,7 +650,7 @@ const sections = [
 
                 <div class="bg-blue-50 rounded-xl border border-blue-200 p-4">
                     <div class="flex gap-3">
-                        <CalendarDaysIcon class="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <CalendarDaysIcon class="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
                         <div>
                             <h4 class="text-sm font-medium text-blue-900">How this affects your reports</h4>
                             <p class="text-sm text-blue-700 mt-1">

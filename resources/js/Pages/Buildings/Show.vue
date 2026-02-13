@@ -1,9 +1,10 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, computed, onMounted } from 'vue';
 import Modal from '@/Components/Modal.vue';
 import BuildingMap from '@/Components/BuildingMap.vue';
+import type { BuildingsShowPageProps } from '@/types/water';
 import {
     BuildingOfficeIcon,
     MapPinIcon,
@@ -23,15 +24,7 @@ import {
     GlobeAltIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    building: Object,
-    property: Object,
-    siblingBuildings: Array,
-    unitStats: Object,
-    buildingTypes: Object,
-    amenityOptions: Object,
-    activeAmenities: Array,
-});
+const props = defineProps<BuildingsShowPageProps>();
 
 // Edit mode state
 const isEditing = ref(false);
@@ -43,6 +36,7 @@ const form = useForm({
     building_type: props.building.building_type || 'residential_apartment',
     address: props.building.address || '',
     description: props.building.description || '',
+    currency: props.building.currency || '',
     amenities: {
         selected: props.building.amenities?.selected || [],
         custom: props.building.amenities?.custom || [],
@@ -95,6 +89,7 @@ const cancelEdit = () => {
     form.building_type = props.building.building_type || 'residential_apartment';
     form.address = props.building.address || '';
     form.description = props.building.description || '';
+    form.currency = props.building.currency || '';
     form.amenities = {
         selected: props.building.amenities?.selected || [],
         custom: props.building.amenities?.custom || [],
@@ -240,6 +235,27 @@ const occupancyColor = computed(() => {
                                             </span>
                                         </p>
                                     </div>
+                                </div>
+
+                                <!-- Currency Override -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-500 mb-1">Currency</label>
+                                    <select
+                                        v-if="isEditing"
+                                        v-model="form.currency"
+                                        class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                                    >
+                                        <option value="">Inherit from default</option>
+                                        <option value="KES">Kenyan Shilling (KES)</option>
+                                        <option value="USD">US Dollar (USD)</option>
+                                        <option value="EUR">Euro (EUR)</option>
+                                        <option value="GBP">British Pound (GBP)</option>
+                                    </select>
+                                    <p v-else class="text-gray-900">
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium bg-emerald-50 text-emerald-700">
+                                            {{ building.currency || 'Inherited from default' }}
+                                        </span>
+                                    </p>
                                 </div>
 
                                 <!-- Address -->

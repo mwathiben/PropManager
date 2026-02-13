@@ -28,6 +28,7 @@ class FinanceSettingsService
             'mpesa_account_name' => $config->mpesa_account_name,
             'has_mpesa_passkey' => ! empty($config->mpesa_passkey),
             'paystack_enabled' => $config->paystack_enabled,
+            'default_currency' => $config->default_currency?->value ?? 'KES',
         ];
     }
 
@@ -86,6 +87,14 @@ class FinanceSettingsService
             'fiscal_year_type' => $settings?->fiscal_year_type ?? 'calendar',
             'fiscal_year_start_month' => $settings?->fiscal_year_start_month ?? 1,
         ];
+    }
+
+    public function updateDefaultCurrency(int $landlordId, Request $request): void
+    {
+        PaymentConfiguration::updateOrCreate(
+            ['landlord_id' => $landlordId],
+            ['default_currency' => $request->default_currency]
+        );
     }
 
     public function updatePaymentMethods(int $landlordId, Request $request): void

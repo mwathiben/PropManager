@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Currency;
 use App\Enums\PaymentMethod;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -19,6 +20,7 @@ class PaymentConfiguration extends Model
         'flat_water_rate',
         'water_unit_rate',
         'accepted_payment_methods',
+        'default_currency',
         'bank_name',
         'bank_account_name',
         'bank_account_number',
@@ -49,6 +51,7 @@ class PaymentConfiguration extends Model
         'flat_water_rate' => 'decimal:2',
         'water_unit_rate' => 'decimal:2',
         'accepted_payment_methods' => 'array',
+        'default_currency' => Currency::class,
         'paystack_enabled' => 'boolean',
         'paystack_secret_key' => 'encrypted',
         'mpesa_passkey' => 'encrypted',
@@ -89,7 +92,7 @@ class PaymentConfiguration extends Model
     ];
 
     /**
-     * IntaSend environment options
+     * M-Pesa environment options
      */
     const MPESA_ENVIRONMENTS = [
         'sandbox' => 'Sandbox (Testing)',

@@ -153,6 +153,7 @@ const amenityIcons = {
 const settingsForm = useForm({
     name: props.building.name,
     building_type: props.building.building_type || 'residential',
+    currency: props.building.currency || '',
     amenities: props.building.amenities || { selected: [], custom: [] },
     coordinates: props.building.coordinates || null
 });
@@ -702,6 +703,21 @@ const updateCoordinates = (coords) => {
                                                 class="w-5 h-5 text-indigo-500 ml-auto" />
                                         </label>
                                     </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Currency Override</label>
+                                    <select
+                                        v-model="settingsForm.currency"
+                                        class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                                    >
+                                        <option value="">Inherit from default</option>
+                                        <option value="KES">Kenyan Shilling (KES)</option>
+                                        <option value="USD">US Dollar (USD)</option>
+                                        <option value="EUR">Euro (EUR)</option>
+                                        <option value="GBP">British Pound (GBP)</option>
+                                    </select>
+                                    <p class="mt-1 text-xs text-gray-500">Leave as "Inherit" to use your default currency setting.</p>
                                 </div>
                             </div>
                         </div>
