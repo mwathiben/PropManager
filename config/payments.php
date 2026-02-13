@@ -62,6 +62,25 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Queued Payment Intents (Offline Mode)
+    |--------------------------------------------------------------------------
+    |
+    | When a tenant has poor connectivity, payment intents are queued locally
+    | and retried with exponential backoff until processed or expired.
+    |
+    | backoff: Array of delays in seconds between retry attempts.
+    | expiry_hours: Intents older than this are marked expired.
+    |
+    */
+
+    'queued_intents' => [
+        'max_attempts' => 3,
+        'backoff' => [10, 30, 60, 120, 300],
+        'expiry_hours' => 24,
+    ],
+
     'gateways' => [
         'paystack' => [
             'timeout_seconds' => 30,

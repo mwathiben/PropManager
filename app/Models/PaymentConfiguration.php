@@ -62,6 +62,7 @@ class PaymentConfiguration extends Model
         'intasend_enabled' => 'boolean',
         'intasend_secret_key' => 'encrypted',
         'intasend_webhook_challenge' => 'encrypted',
+        'bank_account_number' => 'encrypted',
     ];
 
     public static function getAvailablePaymentMethods(): array

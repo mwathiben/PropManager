@@ -344,8 +344,8 @@
         "sql": "DROP TABLE queued_payment_intents"
       },
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "PAY-V2.1-008",
