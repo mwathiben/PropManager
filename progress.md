@@ -14760,13 +14760,13 @@ Updated 12 email blade templates and 11 Mailable classes to pass dynamic `curren
 
 **Changes by layer:**
 
-| Layer | Files Changed | Description |
-|-------|--------------|-------------|
-| Mailable classes (11) | InvoiceSent, InvoiceReminder, RentHikeNotice, DepositRefundNotification, TenantWelcome, TenantInvitationMail, OverpaymentNotification, CreditNoteIssued, PaymentVerificationApproved, PaymentVerificationRejected, TenantCredentials | Added `currency_symbol` to `with:` array |
-| Controller (1) | TenantController (line 735) | Added `currency_symbol` to inline Mail::send data |
-| Blade templates (12) | All emails except payment-received (already done) | Replaced `KES` with `{{ $currency_symbol }}` |
-| Test (1) | tests/Unit/Mail/EmailCurrencySymbolTest.php | 13 tests covering all Mailables |
-| Config cleanup (2) | .env.example, config/mpesa.php | Removed phantom env vars and hardcoded KES |
+| Layer | Files Changed | Included in this PR | Description |
+|-------|--------------|---------------------|-------------|
+| Mailable classes (11) | InvoiceSent, InvoiceReminder, RentHikeNotice, DepositRefundNotification, TenantWelcome, TenantInvitationMail, OverpaymentNotification, CreditNoteIssued, PaymentVerificationApproved, PaymentVerificationRejected, TenantCredentials | Yes (all 11) | Added `currency_symbol` to `with:` array |
+| Controller (1) | TenantController (line 735) | External — see prior session commits | Added `currency_symbol` to inline Mail::send data |
+| Blade templates (12) | All emails except payment-received (already done) | Yes (all 12) | Replaced `KES` with `{{ $currency_symbol }}` |
+| Test (1) | tests/Unit/Mail/EmailCurrencySymbolTest.php | Yes | 13 tests covering all Mailables |
+| Config cleanup (2) | .env.example, config/mpesa.php | External — see prior session commits | Removed phantom env vars and hardcoded KES |
 
 **Currency resolution per Mailable:**
 - Invoice-based: `($invoice->currency ?? Currency::default())->symbol()`

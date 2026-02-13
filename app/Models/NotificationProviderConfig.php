@@ -3,12 +3,13 @@
 namespace App\Models;
 
 use App\Traits\TenantScope;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Crypt;
 
 class NotificationProviderConfig extends Model
 {
-    use TenantScope;
+    use HasFactory, TenantScope;
 
     public const TYPE_EMAIL = 'email';
 

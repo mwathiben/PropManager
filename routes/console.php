@@ -62,6 +62,11 @@ Schedule::command('idempotency:cleanup')
     ->withoutOverlapping()
     ->runInBackground();
 
+// Process queued offline payment intents every minute
+Schedule::job(new \App\Jobs\ProcessQueuedPaymentIntents)
+    ->everyMinute()
+    ->withoutOverlapping();
+
 // Run daily payment reconciliation for all Paystack-configured landlords at 04:00
 Schedule::command('reconciliation:run-daily')
     ->dailyAt('04:00')

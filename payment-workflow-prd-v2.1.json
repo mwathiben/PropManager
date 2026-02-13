@@ -380,8 +380,8 @@
       ],
       "verification": "Queue offline payment; wait for job; verify processed and SMS sent.",
       "estimated_effort": "large",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["PAY-V2.1-007"]
     },
     {

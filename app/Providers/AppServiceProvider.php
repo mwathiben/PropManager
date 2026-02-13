@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Contracts\PaymentGatewayInterface;
+use App\Contracts\SmsServiceInterface;
 use App\Models\Building;
 use App\Models\Expense;
 use App\Models\Invoice;
@@ -31,6 +32,7 @@ use App\Repositories\Contracts\NotificationConfigRepositoryInterface;
 use App\Repositories\Contracts\NotificationDefaultsRepositoryInterface;
 use App\Repositories\NotificationConfigRepository;
 use App\Repositories\NotificationDefaultsRepository;
+use App\Services\AfricasTalkingService;
 use App\Services\PaymentGatewayManager;
 use App\Services\SecurityLogger;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -64,6 +66,9 @@ class AppServiceProvider extends ServiceProvider
             NotificationDefaultsRepositoryInterface::class,
             NotificationDefaultsRepository::class
         );
+
+        // Register SMS service (Africa's Talking adapter)
+        $this->app->bind(SmsServiceInterface::class, AfricasTalkingService::class);
 
         // Register payment gateway manager as singleton
         $this->app->singleton(PaymentGatewayManager::class);
