@@ -617,7 +617,7 @@
       "category": "multi_currency",
       "priority": "MEDIUM",
       "title": "Replace Hardcoded KES in PDF, Report, and Export Templates",
-      "description": "Tracer bullet audit found 57+ hardcoded KES instances across 37 files: 11 blade templates (PDF/report/export), 13 Maatwebsite Excel export classes, 5 CSV heading methods, ReportsController CSV generator, and InvoiceController flash messages. All must use dynamic currency from Currency enum.",
+      "description": "Tracer bullet audit found 57+ hardcoded KES instances across 30 files: 11 blade templates (PDF/report/export), 13 Maatwebsite Excel export classes, 5 CSV heading methods, ReportsController CSV generator, and InvoiceController flash messages. All must use dynamic currency from Currency enum.",
       "story_points": 8,
       "steps": [
         "Audit PDF, report, export blade files AND Maatwebsite Excel export classes for hardcoded KES/KSh",
@@ -783,8 +783,8 @@
       ],
       "verification": "grep -r 'KES\\|KSh' app/Services/ returns 0 hardcoded hits (excluding enum/config definitions).",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["PAY-V2.1-001"]
     }
   ],

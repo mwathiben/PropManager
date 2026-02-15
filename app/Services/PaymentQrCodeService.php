@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\Currency;
 use App\Models\Invoice;
 use App\Models\Payment;
 use BaconQrCode\Renderer\Color\Rgb;
@@ -41,7 +42,7 @@ class PaymentQrCodeService
         $lines = [
             'PAYMENT RECEIPT',
             'Receipt: '.($receipt?->receipt_number ?? $payment->reference),
-            'Amount: KES '.number_format($payment->amount, 2),
+            'Amount: '.($payment->currency ?? Currency::default())->symbol().' '.number_format($payment->amount, 2),
             'Date: '.$payment->payment_date?->format('Y-m-d'),
             'Method: '.ucfirst(str_replace('_', ' ', $payment->payment_method ?? 'N/A')),
         ];
@@ -69,9 +70,9 @@ class PaymentQrCodeService
         $lines = [
             'INVOICE',
             'No: '.$invoice->invoice_number,
-            'Amount: KES '.number_format($invoice->total_due, 2),
+            'Amount: '.($invoice->currency ?? Currency::default())->symbol().' '.number_format($invoice->total_due, 2),
             'Due: '.$invoice->due_date?->format('Y-m-d'),
-            'Status: '.ucfirst($invoice->status),
+            'Status: '.$invoice->status->label(),
         ];
 
         if ($tenant) {

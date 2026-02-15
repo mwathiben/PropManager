@@ -103,7 +103,7 @@ class SchedulerService
 
             // Get subject and message
             $subject = 'Rent Reminder';
-            $message = "Your rent of KES {$context['rent_amount']} is due in {$schedule->days_offset} days.";
+            $message = "Your rent of {$context['currency_symbol']} {$context['rent_amount']} is due in {$schedule->days_offset} days.";
 
             if ($schedule->template) {
                 $rendered = $schedule->template->render($context);
@@ -157,7 +157,7 @@ class SchedulerService
             ]);
 
             $subject = 'Payment Overdue - Arrears Notice';
-            $message = "You have an outstanding balance of KES {$context['arrears_amount']} which is {$daysOverdue} days overdue.";
+            $message = "You have an outstanding balance of {$context['currency_symbol']} {$context['arrears_amount']} which is {$daysOverdue} days overdue.";
 
             if ($schedule->template) {
                 $rendered = $schedule->template->render($context);

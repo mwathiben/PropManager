@@ -15027,3 +15027,83 @@ PaymentLinkController → passes currency explicitly for public (no-auth) page
 - PAY-V2.1-017 (PHP service KES cleanup)
 
 **PAY-V2.1-016 COMPLETE**
+
+---
+
+## PAY-V2.1-017: Replace Hardcoded KES in PHP Service Classes
+**Status:** PASSED
+**Date:** 2026-02-15
+**Attempts:** 1
+
+### Implementation Summary
+
+Replaced all hardcoded `KES`/`KSh` currency references in 8 PHP service files with dynamic currency resolution using model relationships and the `Currency` enum.
+
+### Currency Resolution Strategies Used
+
+| Strategy | Files | How |
+|----------|-------|-----|
+| Payment model | InitialPaymentResult, ManualPaymentResult, PaymentProcessResult, PaymentQrCodeService, RefundService | `$payment->currency ?? Currency::default()` |
+| Building cascade | SchedulerService, TemplateService | `$lease->unit->building->getEffectiveCurrency()` via `buildTenantContext()` |
+| DB fallback helper | NotificationService | `resolveCurrencySymbol()`: checks `$data['currency_symbol']` → `PaymentConfiguration.default_currency` → `Currency::default()` |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/Services/Payment/InitialPaymentResult.php` | 1 hardcoded KES replaced with `$payment->currency->symbol()` |
+| `app/Services/Payment/ManualPaymentResult.php` | 2 instances (main message + overpayment) |
+| `app/Services/Payment/PaymentProcessResult.php` | 2 instances + `(float)` cast on amount + simplified redundant `hasOverpayment()` check |
+| `app/Services/PaymentQrCodeService.php` | 2 instances (receipt QR + invoice QR) + fixed pre-existing `ucfirst()` on InvoiceStatus enum → `$invoice->status->label()` |
+| `app/Services/RefundService.php` | 1 instance in validation error message |
+| `app/Services/SchedulerService.php` | 2 instances via `$context['currency_symbol']` from `buildTenantContext()` |
+| `app/Services/TemplateService.php` | Added `currency_symbol` to `buildTenantContext()` + replaced 8 template body `KES` with `{{currency_symbol}}` |
+| `app/Services/NotificationService.php` | Added `resolveCurrencySymbol()` helper + updated 7 methods (rent reminder, arrears, invoice, receipt, rent hike, eviction, tenant invitation) |
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `tests/Unit/Services/ServiceCurrencyHardcodeTest.php` | 16 tests (48 assertions) covering all 8 service files |
+
+### Bugs Fixed (Pre-existing)
+
+| File | Bug | Fix |
+|------|-----|-----|
+| `PaymentQrCodeService.php` | `ucfirst($invoice->status)` throws TypeError on `InvoiceStatus` enum | Changed to `$invoice->status->label()` |
+| `PaymentProcessResult.php` | `number_format()` TypeError when amount is string | Added `(float)` cast |
+
+### Self-Review Fixes Applied
+
+| Issue | Fix |
+|-------|-----|
+| SchedulerService duplicate currency resolution | Removed re-resolution, uses `$context['currency_symbol']` from `buildTenantContext()` |
+| PaymentProcessResult redundant check | Simplified `hasOverpayment() && $this->overpayment > 0` to `hasOverpayment()` |
+| NotificationService DB fallback untested | Added `test_notification_resolves_currency_from_payment_config_when_not_supplied` test |
+
+### Pre-existing Issues Documented (NOT Fixed — Out of Scope)
+
+- SchedulerService: N+1 query storm, typo `getTenatsWithArrears`, stub `$daysOverdue = now()->day`
+- TemplateService: untyped params, `User::find()` in loop
+- NotificationService: excessive class length (phpmd violation)
+
+### Remaining Acceptable KES References in app/Services/
+
+| Pattern | Count | Reason |
+|---------|-------|--------|
+| `string $currencyCode = 'KES'` | ~5 | Default parameters |
+| `?? 'KES'` | ~3 | Config/API fallbacks |
+| Comments/docs | ~2 | Documentation |
+| Enum definitions | ~1 | Currency enum |
+
+### Verification
+
+| Check | Result |
+|-------|--------|
+| `php artisan test --filter=ServiceCurrencyHardcodeTest` | 16/16 PASS (48 assertions) |
+| `./vendor/bin/pint` (changed files) | PASS |
+| `./vendor/bin/phpmd` | Only pre-existing violations |
+| `npm run build` | PASS |
+| Grep: user-facing hardcoded KES in app/Services/ | 0 hits |
+
+**PAY-V2.1-017 COMPLETE**

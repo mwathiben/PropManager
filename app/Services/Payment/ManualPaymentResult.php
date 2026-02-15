@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Payment;
 
+use App\Enums\Currency;
 use App\Models\Invoice;
 use App\Models\Payment;
 
@@ -36,10 +37,11 @@ class ManualPaymentResult
 
     public function successMessage(): string
     {
-        $msg = 'Payment of KES '.number_format((float) $this->payment->amount, 2).' recorded successfully!';
+        $symbol = ($this->payment->currency ?? Currency::default())->symbol();
+        $msg = 'Payment of '.$symbol.' '.number_format((float) $this->payment->amount, 2).' recorded successfully!';
 
         if ($this->hasOverpayment()) {
-            $msg .= ' KES '.number_format($this->overpayment, 2).' credited to wallet.';
+            $msg .= ' '.$symbol.' '.number_format($this->overpayment, 2).' credited to wallet.';
         }
 
         return $msg;

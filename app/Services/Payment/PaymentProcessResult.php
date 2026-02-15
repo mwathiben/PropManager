@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Payment;
 
+use App\Enums\Currency;
 use App\Models\Invoice;
 use App\Models\Payment;
 
@@ -102,10 +103,11 @@ class PaymentProcessResult
             return '';
         }
 
-        $message = 'Payment of KES '.number_format($this->payment->amount, 2).' successful!';
+        $symbol = ($this->payment->currency ?? Currency::default())->symbol();
+        $message = 'Payment of '.$symbol.' '.number_format((float) $this->payment->amount, 2).' successful!';
 
-        if ($this->hasOverpayment() && $this->overpayment > 0) {
-            $message .= ' KES '.number_format($this->overpayment, 2).' credited to wallet.';
+        if ($this->hasOverpayment()) {
+            $message .= ' '.$symbol.' '.number_format($this->overpayment, 2).' credited to wallet.';
         }
 
         return $message;

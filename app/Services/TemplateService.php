@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\Currency;
 use App\Models\NotificationTemplate;
 use Illuminate\Support\Collection;
 
@@ -91,6 +92,8 @@ class TemplateService
         ];
 
         if ($lease) {
+            $currency = $lease->unit?->building?->getEffectiveCurrency() ?? Currency::default();
+            $context['currency_symbol'] = $currency->symbol();
             $context['unit_number'] = $lease->unit?->unit_number ?? 'N/A';
             $context['building_name'] = $lease->unit?->building?->name ?? 'N/A';
             $context['property_name'] = $lease->unit?->building?->property?->name ?? 'N/A';
@@ -119,35 +122,35 @@ class TemplateService
                 'slug' => 'default-rent-reminder',
                 'type' => 'rent_reminder',
                 'subject' => 'Rent Reminder - Due {{due_date}}',
-                'body' => "Hello {{tenant_name}},\n\nThis is a friendly reminder that your rent of KES {{rent_amount}} is due on {{due_date}}.\n\nPlease ensure payment is made on time to avoid late fees.\n\nIf you have already made this payment, please disregard this notice.\n\nThank you,\n{{landlord_name}}",
+                'body' => "Hello {{tenant_name}},\n\nThis is a friendly reminder that your rent of {{currency_symbol}} {{rent_amount}} is due on {{due_date}}.\n\nPlease ensure payment is made on time to avoid late fees.\n\nIf you have already made this payment, please disregard this notice.\n\nThank you,\n{{landlord_name}}",
             ],
             [
                 'name' => 'Default Arrears Notice',
                 'slug' => 'default-arrears-notice',
                 'type' => 'arrears_notice',
                 'subject' => 'Payment Overdue - Outstanding Balance Notice',
-                'body' => "Hello {{tenant_name}},\n\nOur records indicate that you have an outstanding balance of KES {{arrears_amount}} which is {{days_overdue}} days overdue.\n\nPlease clear your arrears as soon as possible to avoid any inconvenience.\n\nFor payment options or to discuss a payment plan, please contact us.\n\nThank you,\n{{landlord_name}}",
+                'body' => "Hello {{tenant_name}},\n\nOur records indicate that you have an outstanding balance of {{currency_symbol}} {{arrears_amount}} which is {{days_overdue}} days overdue.\n\nPlease clear your arrears as soon as possible to avoid any inconvenience.\n\nFor payment options or to discuss a payment plan, please contact us.\n\nThank you,\n{{landlord_name}}",
             ],
             [
                 'name' => 'Default Invoice Notification',
                 'slug' => 'default-invoice',
                 'type' => 'invoice',
                 'subject' => 'New Invoice - {{invoice_number}}',
-                'body' => "Hello {{tenant_name}},\n\nYour invoice {{invoice_number}} for KES {{total_amount}} has been generated.\n\nDue Date: {{due_date}}\n\nYou can view and pay your invoice online.\n\nThank you,\n{{landlord_name}}",
+                'body' => "Hello {{tenant_name}},\n\nYour invoice {{invoice_number}} for {{currency_symbol}} {{total_amount}} has been generated.\n\nDue Date: {{due_date}}\n\nYou can view and pay your invoice online.\n\nThank you,\n{{landlord_name}}",
             ],
             [
                 'name' => 'Default Payment Receipt',
                 'slug' => 'default-receipt',
                 'type' => 'receipt',
                 'subject' => 'Payment Receipt - {{receipt_number}}',
-                'body' => "Hello {{tenant_name}},\n\nThank you for your payment of KES {{payment_amount}}.\n\nReceipt Number: {{receipt_number}}\nPayment Date: {{payment_date}}\nPayment Method: {{payment_method}}\n\nThank you for your prompt payment.\n\n{{landlord_name}}",
+                'body' => "Hello {{tenant_name}},\n\nThank you for your payment of {{currency_symbol}} {{payment_amount}}.\n\nReceipt Number: {{receipt_number}}\nPayment Date: {{payment_date}}\nPayment Method: {{payment_method}}\n\nThank you for your prompt payment.\n\n{{landlord_name}}",
             ],
             [
                 'name' => 'Default Rent Adjustment Notice',
                 'slug' => 'default-rent-hike',
                 'type' => 'rent_hike',
                 'subject' => 'Rent Adjustment Notice',
-                'body' => "Hello {{tenant_name}},\n\nThis is to inform you that your monthly rent will be adjusted from KES {{old_rent}} to KES {{new_rent}}, effective {{effective_date}}.\n\nThis represents an increase of {{percentage_increase}}%.\n\nIf you have any questions, please don't hesitate to contact us.\n\nThank you for your understanding,\n{{landlord_name}}",
+                'body' => "Hello {{tenant_name}},\n\nThis is to inform you that your monthly rent will be adjusted from {{currency_symbol}} {{old_rent}} to {{currency_symbol}} {{new_rent}}, effective {{effective_date}}.\n\nThis represents an increase of {{percentage_increase}}%.\n\nIf you have any questions, please don't hesitate to contact us.\n\nThank you for your understanding,\n{{landlord_name}}",
             ],
             [
                 'name' => 'Default Lease Expiry Reminder',
@@ -161,14 +164,14 @@ class TemplateService
                 'slug' => 'default-lease-renewal',
                 'type' => 'lease_renewal',
                 'subject' => 'Lease Renewal Confirmation',
-                'body' => "Hello {{tenant_name}},\n\nWe are pleased to confirm the renewal of your lease for Unit {{unit_number}} at {{building_name}}.\n\nYour new lease begins on {{renewal_date}}.\nNew Monthly Rent: KES {{new_rent}}\n\nThank you for continuing to be our valued tenant.\n\n{{landlord_name}}",
+                'body' => "Hello {{tenant_name}},\n\nWe are pleased to confirm the renewal of your lease for Unit {{unit_number}} at {{building_name}}.\n\nYour new lease begins on {{renewal_date}}.\nNew Monthly Rent: {{currency_symbol}} {{new_rent}}\n\nThank you for continuing to be our valued tenant.\n\n{{landlord_name}}",
             ],
             [
                 'name' => 'Default Eviction Notice',
                 'slug' => 'default-eviction-notice',
                 'type' => 'eviction_notice',
                 'subject' => 'IMPORTANT: Eviction Notice',
-                'body' => "Hello {{tenant_name}},\n\nThis is a formal notice of eviction for Unit {{unit_number}} at {{building_name}}.\n\nDue to non-payment of rent, you are required to vacate the premises by {{vacate_date}}.\n\nOutstanding Balance: KES {{arrears_amount}}\n\nThis notice gives you {{notice_period}} days to either:\n1. Clear your outstanding balance in full, OR\n2. Vacate the premises\n\nPlease contact us immediately to discuss this matter.\n\n{{landlord_name}}",
+                'body' => "Hello {{tenant_name}},\n\nThis is a formal notice of eviction for Unit {{unit_number}} at {{building_name}}.\n\nDue to non-payment of rent, you are required to vacate the premises by {{vacate_date}}.\n\nOutstanding Balance: {{currency_symbol}} {{arrears_amount}}\n\nThis notice gives you {{notice_period}} days to either:\n1. Clear your outstanding balance in full, OR\n2. Vacate the premises\n\nPlease contact us immediately to discuss this matter.\n\n{{landlord_name}}",
             ],
             [
                 'name' => 'Default Maintenance Notice',

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Payment;
 
+use App\Enums\Currency;
 use App\Models\Payment;
 use App\Models\TenantPaymentVerification;
 
@@ -129,7 +130,8 @@ readonly class InitialPaymentResult
 
     public function successMessage(): string
     {
-        $message = 'Payment of KES '.number_format($this->amount, 2).' successful!';
+        $symbol = ($this->payment?->currency ?? Currency::default())->symbol();
+        $message = 'Payment of '.$symbol.' '.number_format($this->amount, 2).' successful!';
 
         if ($this->isVerified) {
             $message .= ' Your account has been verified. Welcome!';

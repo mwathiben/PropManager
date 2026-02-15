@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\Currency;
 use App\Enums\InvoiceStatus;
 use App\Exceptions\Payment\MissingMobileNumberException;
 use App\Exceptions\Payment\UnsupportedPaymentMethodException;
@@ -186,8 +187,10 @@ class RefundService
         }
 
         if ($amount > $maxRefundable) {
+            $symbol = ($payment->currency ?? Currency::default())->symbol();
+
             throw new \InvalidArgumentException(
-                'Refund amount exceeds available balance. Maximum refundable: KES '.number_format($maxRefundable, 2)
+                'Refund amount exceeds available balance. Maximum refundable: '.$symbol.' '.number_format($maxRefundable, 2)
             );
         }
     }

@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Enums\Currency;
 use App\Jobs\SendNotificationJob;
 use App\Models\Notification;
 use App\Models\NotificationPreference;
+use App\Models\PaymentConfiguration;
 use App\Models\User;
 use App\Repositories\Contracts\NotificationConfigRepositoryInterface;
 use App\Services\Notification\ChannelSelector;
@@ -115,6 +117,17 @@ class NotificationService
     private function resolveLandlordId(User $recipient): int
     {
         return $recipient->role === 'tenant' ? $recipient->landlord_id : $recipient->id;
+    }
+
+    private function resolveCurrencySymbol(array $data, int $landlordId): string
+    {
+        if (isset($data['currency_symbol'])) {
+            return $data['currency_symbol'];
+        }
+
+        $config = PaymentConfiguration::where('landlord_id', $landlordId)->first();
+
+        return ($config?->default_currency ?? Currency::default())->symbol();
     }
 
     private function shouldDeferForQuietHours(string $urgency, User $recipient, int $landlordId): bool
@@ -664,14 +677,16 @@ class NotificationService
     public function sendRentReminder(int $tenantId, array $data, int $landlordId): array
     {
         $tenant = User::findOrFail($tenantId);
+        $symbol = $this->resolveCurrencySymbol($data, $landlordId);
 
         $paymentLink = isset($data['invoice_id'])
             ? $this->paymentLinkService->generateUrl($data['invoice_id'], 'rent_reminder')
             : route('tenant.finances.index');
 
         $message = sprintf(
-            "Hello %s,\n\nThis is a friendly reminder that your rent of KES %s is due on %s.\n\nPay now: %s\n\nThank you.",
+            "Hello %s,\n\nThis is a friendly reminder that your rent of %s %s is due on %s.\n\nPay now: %s\n\nThank you.",
             $tenant->name,
+            $symbol,
             number_format($data['amount'], 2),
             $data['due_date'],
             $paymentLink
@@ -705,14 +720,16 @@ class NotificationService
     public function sendArrearsNotice(int $tenantId, array $data, int $landlordId): array
     {
         $tenant = User::findOrFail($tenantId);
+        $symbol = $this->resolveCurrencySymbol($data, $landlordId);
 
         $paymentLink = isset($data['invoice_id'])
             ? $this->paymentLinkService->generateUrl($data['invoice_id'], 'arrears_notice')
             : route('tenant.finances.index');
 
         $message = sprintf(
-            "Hello %s,\n\nYou have an outstanding balance of KES %s. Please clear your arrears as soon as possible.\n\nPay now: %s\n\nThank you.",
+            "Hello %s,\n\nYou have an outstanding balance of %s %s. Please clear your arrears as soon as possible.\n\nPay now: %s\n\nThank you.",
             $tenant->name,
+            $symbol,
             number_format($data['arrears_amount'], 2),
             $paymentLink
         );
@@ -744,11 +761,13 @@ class NotificationService
     public function sendInvoice(int $tenantId, array $invoiceData, int $landlordId): array
     {
         $tenant = User::findOrFail($tenantId);
+        $symbol = $this->resolveCurrencySymbol($invoiceData, $landlordId);
 
         $message = sprintf(
-            "Hello %s,\n\nYour invoice #%s for KES %s has been generated. Due date: %s.\n\nPlease login to view and pay.",
+            "Hello %s,\n\nYour invoice #%s for %s %s has been generated. Due date: %s.\n\nPlease login to view and pay.",
             $tenant->name,
             $invoiceData['invoice_number'],
+            $symbol,
             number_format($invoiceData['total_amount'], 2),
             $invoiceData['due_date']
         );
@@ -777,10 +796,12 @@ class NotificationService
     public function sendReceipt(int $tenantId, array $receiptData, int $landlordId): array
     {
         $tenant = User::findOrFail($tenantId);
+        $symbol = $this->resolveCurrencySymbol($receiptData, $landlordId);
 
         $message = sprintf(
-            "Hello %s,\n\nPayment of KES %s received successfully. Receipt #%s.\n\nThank you for your payment.",
+            "Hello %s,\n\nPayment of %s %s received successfully. Receipt #%s.\n\nThank you for your payment.",
             $tenant->name,
+            $symbol,
             number_format($receiptData['amount'], 2),
             $receiptData['receipt_number']
         );
@@ -808,11 +829,14 @@ class NotificationService
     public function sendRentHike(int $tenantId, array $data, int $landlordId): array
     {
         $tenant = User::findOrFail($tenantId);
+        $symbol = $this->resolveCurrencySymbol($data, $landlordId);
 
         $message = sprintf(
-            "Hello %s,\n\nThis is to inform you that your rent will be adjusted from KES %s to KES %s effective %s.\n\nThank you for your understanding.",
+            "Hello %s,\n\nThis is to inform you that your rent will be adjusted from %s %s to %s %s effective %s.\n\nThank you for your understanding.",
             $tenant->name,
+            $symbol,
             number_format($data['old_rent'], 2),
+            $symbol,
             number_format($data['new_rent'], 2),
             $data['effective_date']
         );
@@ -833,10 +857,12 @@ class NotificationService
     public function sendEvictionNotice(int $tenantId, array $data, int $landlordId): array
     {
         $tenant = User::findOrFail($tenantId);
+        $symbol = $this->resolveCurrencySymbol($data, $landlordId);
 
         $message = sprintf(
-            "Hello %s,\n\nThis is a formal notice of eviction. Due to non-payment of rent, you are required to vacate the premises within the specified period.\n\nOutstanding Balance: KES %s\n\nPlease contact your landlord immediately to discuss this matter.\n\nRegards",
+            "Hello %s,\n\nThis is a formal notice of eviction. Due to non-payment of rent, you are required to vacate the premises within the specified period.\n\nOutstanding Balance: %s %s\n\nPlease contact your landlord immediately to discuss this matter.\n\nRegards",
             $tenant->name,
+            $symbol,
             number_format($data['arrears_amount'] ?? 0, 2)
         );
 
@@ -881,14 +907,17 @@ class NotificationService
     public function sendTenantInvitation(int $targetUserId, array $data, int $landlordId): array
     {
         $targetUser = User::findOrFail($targetUserId);
+        $symbol = $this->resolveCurrencySymbol($data, $landlordId);
 
         $message = sprintf(
-            "Hello %s,\n\nYou've been invited by %s to lease Unit %s at %s.\n\nMonthly Rent: KES %s\nDeposit: KES %s\n\nPlease log in to your account to accept or decline this invitation.\n\nThis invitation expires on %s.",
+            "Hello %s,\n\nYou've been invited by %s to lease Unit %s at %s.\n\nMonthly Rent: %s %s\nDeposit: %s %s\n\nPlease log in to your account to accept or decline this invitation.\n\nThis invitation expires on %s.",
             $targetUser->name,
             $data['landlord_name'],
             $data['unit_number'],
             $data['property_name'],
+            $symbol,
             number_format($data['rent_amount'] ?? 0, 2),
+            $symbol,
             number_format($data['deposit_amount'] ?? 0, 2),
             $data['expires_at'] ?? 'in 30 days'
         );
