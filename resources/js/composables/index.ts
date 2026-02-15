@@ -62,3 +62,6 @@ export type { UseCurrencyReturn } from './useCurrency';
 
 export { usePaymentForm } from './usePaymentForm';
 export type { UsePaymentFormReturn } from './usePaymentForm';
+
+export { useDashboardStats } from './useDashboardStats';
+export type { UseDashboardStatsReturn, DashboardStatsData } from './useDashboardStats';

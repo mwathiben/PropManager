@@ -14,6 +14,8 @@ class FinanceCacheService
 
     private const REPORTS_TTL = 600;
 
+    private const SUPER_ADMIN_TYPES = ['metrics'];
+
     public static function statsKey(string $type, int $landlordId, ?string $suffix = null): string
     {
         $key = self::CACHE_PREFIX.":{$type}:{$landlordId}";
@@ -70,6 +72,7 @@ class FinanceCacheService
             self::statsKey('deposits', $landlordId),
             self::statsKey('latefees', $landlordId),
             self::statsKey('expenses', $landlordId),
+            self::statsKey('dashboard_quick', $landlordId),
         ];
 
         foreach ($keys as $key) {
@@ -132,12 +135,16 @@ class FinanceCacheService
     private static function registerReportKey(int $landlordId, string $key): void
     {
         $registryKey = self::reportRegistryKey($landlordId);
-        $keys = Cache::get($registryKey, []);
+        $lock = Cache::lock("lock:{$registryKey}", 5);
 
-        if (! in_array($key, $keys, true)) {
-            $keys[] = $key;
-            Cache::put($registryKey, $keys, self::REPORTS_TTL + 60);
-        }
+        $lock->block(3, function () use ($registryKey, $key) {
+            $keys = Cache::get($registryKey, []);
+
+            if (! in_array($key, $keys, true)) {
+                $keys[] = $key;
+                Cache::put($registryKey, $keys, self::REPORTS_TTL + 60);
+            }
+        });
     }
 
     public static function superAdminKey(string $type): string
@@ -152,8 +159,16 @@ class FinanceCacheService
         return Cache::remember($key, self::STATS_TTL, $callback);
     }
 
-    public static function invalidateSuperAdminStats(): void
+    public static function invalidateSuperAdminStats(?string $type = null): void
     {
-        Cache::forget(self::superAdminKey('metrics'));
+        if ($type !== null) {
+            Cache::forget(self::superAdminKey($type));
+
+            return;
+        }
+
+        foreach (self::SUPER_ADMIN_TYPES as $knownType) {
+            Cache::forget(self::superAdminKey($knownType));
+        }
     }
 }

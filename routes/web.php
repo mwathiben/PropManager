@@ -118,6 +118,11 @@ Route::get('/units/{unit}/detail', [DashboardController::class, 'unitDetail'])
     ->middleware(['auth'])
     ->name('units.detail');
 
+Route::get('/dashboard/stats', \App\Http\Controllers\DashboardStatsController::class)
+    ->middleware(['auth', 'role:landlord,caretaker', 'throttle:30,1'])
+    ->withoutMiddleware([\App\Http\Middleware\HandleInertiaRequests::class])
+    ->name('dashboard.stats');
+
 // --- SIGNED EMAIL ROUTES (no auth required) ---
 Route::get('/email/preferences', [\App\Http\Controllers\NotificationsController::class, 'emailPreferences'])
     ->name('email.preferences')

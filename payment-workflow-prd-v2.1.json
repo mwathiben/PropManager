@@ -586,9 +586,13 @@
         "Fall back to polling if WebSocket disconnected"
       ],
       "files": [
-        "resources/js/Pages/Landlord/Home.vue",
+        "resources/js/Pages/Dashboard.vue",
         "resources/js/composables/useDashboardStats.ts",
-        "app/Http/Controllers/Api/DashboardStatsController.php"
+        "resources/js/composables/index.ts",
+        "app/Http/Controllers/DashboardStatsController.php",
+        "app/Services/FinanceCacheService.php",
+        "routes/web.php",
+        "tests/Feature/Controllers/DashboardStatsControllerTest.php"
       ],
       "acceptance_criteria": [
         "Recent payments via WebSocket (instant)",
@@ -603,8 +607,8 @@
       ],
       "verification": "Disconnect WebSocket; verify polling takes over; reconnect; verify WebSocket resumes.",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "PAY-V2.1-014",
@@ -892,7 +896,7 @@
     "outputSignal": "<promise>PAYMENT_WORKFLOW_V2_1_COMPLETE</promise>"
   },
   "metadata": {
-    "passing_items": 15,
+    "passing_items": 17,
     "total_items": 17
   }
 }

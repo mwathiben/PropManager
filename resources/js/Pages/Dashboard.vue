@@ -2,7 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
-import { useEcho, useErrorHandler } from '@/composables';
+import { useEcho, useErrorHandler, useDashboardStats } from '@/composables';
 import TenantProfileModal from '@/Components/Modals/TenantProfileModal.vue';
 import SlideOutPanel from '@/Components/SlideOutPanel.vue';
 import AddWingModal from '@/Components/Modals/AddWingModal.vue';
@@ -246,8 +246,8 @@ const tierProgressPercent = computed(() => {
     const rangeEnd = nextTier.value.min_volume;
     const range = rangeEnd - rangeStart;
     if (range <= 0) return 100;
-    const progress = ((props.mtdVolume ?? 0) - rangeStart) / range;
-    return Math.min(Math.round(progress * 100), 100);
+    const progress = Math.max(0, Math.min(((props.mtdVolume ?? 0) - rangeStart) / range, 1));
+    return Math.round(progress * 100);
 });
 
 // Scroll to occupancy map section
@@ -268,7 +268,8 @@ const selectUnitById = (unitId) => {
 };
 
 // --- REAL-TIME UPDATES ---
-const { subscribePrivate, unsubscribe } = useEcho();
+const { subscribePrivate, unsubscribe, shouldUseFallback, isConnected } = useEcho();
+const { latestStats, pollNow } = useDashboardStats({ shouldUseFallback, isConnected });
 
 // Sync local state with props on navigation
 watch(() => props.financialMetrics, (newVal) => {
@@ -286,6 +287,15 @@ watch(() => props.recentTickets, (newVal) => {
 watch(() => props.actionItems, (newVal) => {
     if (newVal) Object.assign(localActionItems.value, newVal);
 }, { deep: true });
+
+watch(latestStats, (stats) => {
+    if (!stats) return;
+    Object.assign(localFinancialMetrics.value, stats.financial);
+    Object.assign(localArrearsAging.value, stats.arrears_aging);
+    localActionItems.value.overdue_invoices = stats.action_items.overdue_invoices;
+    localActionItems.value.overdue_amount = stats.action_items.overdue_amount;
+    localActionItems.value.open_tickets = stats.action_items.open_tickets;
+});
 
 // Get user ID for landlord channel subscription
 const userId = computed(() => {
@@ -327,6 +337,7 @@ onMounted(() => {
                 Object.assign(localArrearsAging.value, data.updated_metrics.arrears_aging);
                 setTimeout(() => metricsUpdating.value = false, 2000);
             }
+            pollNow();
         });
 
         // Listen for ticket status changes
@@ -677,7 +688,7 @@ onUnmounted(() => {
                 <div v-if="nextTier" class="mt-4">
                     <div class="flex items-center justify-between text-sm text-gray-500 mb-1">
                         <span>Progress to {{ nextTier.name }} ({{ nextTier.fee_percentage }}%)</span>
-                        <span>{{ formatMoney(nextTier.min_volume - (mtdVolume ?? 0)) }} remaining</span>
+                        <span>{{ formatMoney(Math.max(0, nextTier.min_volume - (mtdVolume ?? 0))) }} remaining</span>
                     </div>
                     <div class="w-full bg-gray-100 rounded-full h-2.5">
                         <div class="bg-indigo-600 h-2.5 rounded-full transition-all duration-500" :style="{ width: tierProgressPercent + '%' }"></div>

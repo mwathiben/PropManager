@@ -15363,3 +15363,67 @@ Published Laravel vendor mail views and customized the shared email layout to su
 
 ### Next Steps
 - PAY-V2.1-013 (Implement Hybrid Real-Time Updates) — last remaining task
+
+---
+
+## Session: 2026-02-15T14:00:00Z
+**Task**: PAY-V2.1-013 — Implement Hybrid Real-Time Updates
+**Status**: COMPLETED
+
+### Work Done
+
+Implemented WebSocket-primary/polling-fallback hybrid updates for the landlord dashboard. This is the LAST task (17/17) in the v2.1 PRD.
+
+**Backend**:
+- Created invokable `DashboardStatsController` — returns cached JSON with `financial`, `arrears_aging`, and `action_items`
+- Reuses `DashboardService::calculateQuickMetrics()` and `FinanceCacheService::rememberStats()` (300s TTL)
+- Route: `GET /dashboard/stats` with `role:landlord,caretaker`, `throttle:30,1`, `withoutMiddleware(HandleInertiaRequests)` to skip 6+ navBadge queries
+- Super admin explicitly blocked (403) — they use Admin/Dashboard
+- Added `dashboard_quick` key to `FinanceCacheService::invalidateStats()` so all 7 observers auto-invalidate
+
+**Frontend**:
+- Created `useDashboardStats.ts` composable — accepts `shouldUseFallback` and `isConnected` from the same `useEcho()` instance
+- Polling: 30s interval when WebSocket disconnected >30s; stops and fires final fetch on reconnect
+- Smart refresh: `pollNow()` triggers delayed (1.5s) stats fetch after WebSocket payment events
+- Error handling: 429 (pause via Retry-After), 401/419 (stop + router.reload), network errors (log + continue)
+- Integrated into `Dashboard.vue` — watcher on `latestStats` silently updates local state (no green ring flash for polls)
+- Barrel-exported from `composables/index.ts`
+
+**Files Created**:
+- `tests/Feature/Controllers/DashboardStatsControllerTest.php` (7 tests, 30 assertions)
+- `app/Http/Controllers/DashboardStatsController.php` (70 lines)
+- `resources/js/composables/useDashboardStats.ts` (129 lines)
+
+**Files Modified**:
+- `routes/web.php` (+4 lines — route declaration)
+- `app/Services/FinanceCacheService.php` (+1 line — dashboard_quick key)
+- `resources/js/composables/index.ts` (+3 lines — barrel export)
+- `resources/js/Pages/Dashboard.vue` (~15 lines — composable integration)
+
+### Verification
+
+| Check | Result |
+|-------|--------|
+| `php artisan test --filter=DashboardStatsControllerTest` | 7 passed (30 assertions) |
+| `php artisan test --parallel` (full suite) | 1477 passed, 0 failed, 13 skipped |
+| `./vendor/bin/pint --test` | PASS (1 unused import fixed) |
+| `npm run build` | PASS (built in 36s) |
+| `phpmd` on controller | No violations |
+| Self-review (deslop + code-review) | No slop, no issues |
+
+### Key Design Decisions
+- Used `withoutMiddleware(HandleInertiaRequests)` to avoid 6+ DB queries per poll
+- Used `axios` (not native fetch) for consistency with codebase bootstrap.js config
+- Composable accepts `shouldUseFallback`/`isConnected` from the SAME useEcho instance
+- `pollNow()` debounces via setTimeout — rapid WebSocket events only trigger one refresh
+- No `metricsUpdating` flag for polled updates — silent background sync
+- Super admin handled in controller because EnsureRole lets super_admin bypass role checks
+
+### Learnings
+- HandleInertiaRequests middleware is expensive (6+ queries) — always exclude from JSON-only endpoints
+- EnsureRole middleware lets super_admin bypass ALL role checks — controllers must handle explicitly
+- Vue `readonly()` is the correct way to create read-only refs from mutable refs
+- 419 (CSRF token mismatch) should be handled alongside 401 for session expiry
+
+### Next Steps
+- ALL 17/17 tasks in payment-workflow-prd-v2.1.json now PASS
