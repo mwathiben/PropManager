@@ -14,7 +14,7 @@ class PaymentObserver
 
     public function created(Payment $payment): void
     {
-        $this->invalidateCache($payment);
+        $this->invalidateAndWarmCache($payment);
         $this->revokePaymentLinks($payment);
     }
 
@@ -26,6 +26,13 @@ class PaymentObserver
     public function deleted(Payment $payment): void
     {
         $this->invalidateCache($payment);
+    }
+
+    private function invalidateAndWarmCache(Payment $payment): void
+    {
+        if ($payment->landlord_id) {
+            FinanceCacheService::invalidateAndWarm($payment->landlord_id);
+        }
     }
 
     private function invalidateCache(Payment $payment): void

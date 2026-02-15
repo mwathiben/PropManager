@@ -283,6 +283,6 @@ class InitialPaymentCallbackHandlerTest extends TestCase
         );
 
         $this->assertStringContainsString('50,000.00', $result->successMessage());
-        $this->assertStringContainsString('KES', $result->successMessage());
+        $this->assertStringContainsString('KSh', $result->successMessage());
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\WarmFinanceCacheJob;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\LateFee;
@@ -12,6 +13,7 @@ use App\Services\FinanceCacheService;
 use App\Services\FinanceStatsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestData;
 
@@ -46,6 +48,8 @@ class FinanceCacheTest extends TestCase
 
     public function test_expense_creation_invalidates_cache(): void
     {
+        Queue::fake();
+
         $service = app(FinanceStatsService::class);
 
         $service->getExpenseStats($this->landlord->id);
@@ -129,6 +133,8 @@ class FinanceCacheTest extends TestCase
 
     public function test_refund_creation_invalidates_cache(): void
     {
+        Queue::fake();
+
         $service = app(FinanceStatsService::class);
 
         $unit = $this->setupData['units']->first();
@@ -227,5 +233,34 @@ class FinanceCacheTest extends TestCase
         $this->assertLessThan($firstCallMs, $cachedCallMs);
 
         $this->assertLessThan(50, $cachedCallMs, 'Cached call should complete in under 50ms');
+    }
+
+    public function test_report_cache_invalidated_on_payment_creation(): void
+    {
+        Queue::fake();
+
+        FinanceCacheService::rememberReport('occupancy', $this->landlord->id, ['month' => '2026-02'], fn () => ['stale']);
+
+        $reportKey = FinanceCacheService::reportKey('occupancy', $this->landlord->id, ['month' => '2026-02']);
+        $this->assertTrue(Cache::has($reportKey));
+
+        $unit = $this->setupData['units']->first();
+        ['lease' => $lease] = $this->createTenantWithActiveLease($this->landlord, $unit);
+        $this->createPaymentWithInvoice($lease, 5000);
+
+        $this->assertFalse(Cache::has($reportKey));
+    }
+
+    public function test_payment_creation_dispatches_cache_warming_job(): void
+    {
+        Queue::fake();
+
+        $unit = $this->setupData['units']->first();
+        ['lease' => $lease] = $this->createTenantWithActiveLease($this->landlord, $unit);
+        $this->createPaymentWithInvoice($lease, 5000);
+
+        Queue::assertPushed(WarmFinanceCacheJob::class, function ($job) {
+            return $job->landlordId === $this->landlord->id;
+        });
     }
 }

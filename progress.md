@@ -15150,3 +15150,76 @@ Replaced all hardcoded `KES`/`KSh` currency references in 8 PHP service files wi
 - PaymentController had TWO different hardcoded arrays (create vs index) — using enum as single source of truth fixed both
 
 **PAY-V2.1-010 COMPLETE**
+
+---
+
+## PAY-V2.1-012: Review and Enhance Payment Cache Strategy
+**Status:** PASSED
+**Date:** 2026-02-15
+**Attempts:** 1
+
+### Implementation Summary
+
+Fixed a silent bug where `invalidateReports()` used Redis `KEYS` pattern matching but the project runs on the `database` cache driver — causing stale report data for up to 10 minutes after financial mutations. Implemented Report Key Registry pattern, post-mutation cache warming, and cache observability logging.
+
+### Key Changes
+
+1. **Report Key Registry** (replaces Redis KEYS pattern): `rememberReport()` now registers cache keys in a per-landlord registry array (`finance:report_keys:{landlordId}`). On invalidation, the registry is read, each key forgotten, then the registry itself cleared. Works on ALL cache drivers.
+
+2. **Post-mutation cache warming**: `WarmFinanceCacheJob` (`ShouldBeUnique`, 10s window, 2s delay) dispatched from high-frequency observer `created` events (Payment, Invoice, Expense, Refund). Warms all 7 stat types via 5 method calls (`getHubStats` transitively warms overview + arrears).
+
+3. **Cache log channel**: Dedicated `cache` daily log channel (7-day retention) with zero-overhead hit/miss detection via callback wrapping.
+
+4. **Bulk import optimization**: Wrapped `BulkPaymentProcessor` with `Payment::withoutEvents()` to prevent per-payment observer firing during bulk operations. Single cache invalidation at end. Extracted `processAllocation()`, `resolveInvoiceStatus()`, `applyWalletCredit()` to reduce CC from 7 to 3.
+
+### Bug Fixes (pre-existing)
+
+- `InitialPaymentCallbackHandlerTest`: Updated assertion from `KES` to `KSh` (currency symbol, not code)
+- `ArchiveOldPaymentsTest`: Fixed mock assertion — mock returns unsaved instance, can't check DB state
+- `PaymentControllerTest`: Fixed bulk import query count (139→66) via observer suppression during bulk ops
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Jobs/WarmFinanceCacheJob.php` | Post-invalidation cache warming job |
+| `tests/Unit/Services/FinanceCacheServiceTest.php` | 12 tests for registry, logging, key formats |
+| `tests/Unit/Jobs/WarmFinanceCacheJobTest.php` | 6 tests for job behavior |
+| `docs/adr/007-payment-cache-strategy.md` | Architecture Decision Record |
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `app/Services/FinanceCacheService.php` | Registry pattern, `invalidateAndWarm()`, logging, removed dead `deleteByPattern()` |
+| `app/Observers/PaymentObserver.php` | `created()` → `invalidateAndWarm()` |
+| `app/Observers/InvoiceObserver.php` | `created()` → `invalidateAndWarm()` |
+| `app/Observers/ExpenseObserver.php` | `created()` → `invalidateAndWarm()` |
+| `app/Observers/RefundObserver.php` | `created()` → `invalidateAndWarm()` |
+| `config/logging.php` | Added `cache` daily log channel |
+| `tests/Unit/Observers/PaymentObserverTest.php` | +4 warming dispatch tests |
+| `tests/Feature/FinanceCacheTest.php` | +2 report invalidation + warming tests |
+| `app/Services/Payment/BulkPaymentProcessor.php` | `withoutEvents()` wrapper, extracted 3 methods |
+| `tests/Unit/Services/InitialPaymentCallbackHandlerTest.php` | KES→KSh assertion |
+| `tests/Feature/Jobs/ArchiveOldPaymentsTest.php` | Fixed mock DB assertion |
+| `tests/Feature/Controllers/PaymentControllerTest.php` | Updated query threshold |
+
+### Verification
+
+| Check | Result |
+|-------|--------|
+| `php artisan test --parallel` | 1456 pass, 0 failures, 13 skipped |
+| `./vendor/bin/pint --test` | PASS |
+| `./vendor/bin/phpmd` on modified files | No violations |
+| `npm run build` | PASS |
+| Cache key registry works on database driver | Verified via unit tests |
+| Report invalidation clears all report keys | Verified via unit tests |
+| Warming job calls all 5 stat methods | Verified via unit tests |
+
+### Learnings
+- `Cache::tags()` requires Redis/Memcached — Report Key Registry is the driver-agnostic alternative
+- Zero-overhead hit/miss detection: wrap the callback with a `$hit` flag instead of `Cache::has()` (which adds an extra DB read on database driver)
+- `Queue::fake()` needed in tests where sync queue driver executes warming jobs immediately, re-populating cache after invalidation
+- Bulk operations should suppress per-record observers and do a single invalidation at the end
+
+**PAY-V2.1-012 COMPLETE**

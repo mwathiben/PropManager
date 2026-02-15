@@ -9,20 +9,19 @@ class InvoiceObserver
 {
     public function created(Invoice $invoice): void
     {
-        $this->invalidateCache($invoice);
+        if ($invoice->landlord_id) {
+            FinanceCacheService::invalidateAndWarm($invoice->landlord_id);
+        }
     }
 
     public function updated(Invoice $invoice): void
     {
-        $this->invalidateCache($invoice);
+        if ($invoice->landlord_id) {
+            FinanceCacheService::invalidateForLandlord($invoice->landlord_id);
+        }
     }
 
     public function deleted(Invoice $invoice): void
-    {
-        $this->invalidateCache($invoice);
-    }
-
-    private function invalidateCache(Invoice $invoice): void
     {
         if ($invoice->landlord_id) {
             FinanceCacheService::invalidateForLandlord($invoice->landlord_id);

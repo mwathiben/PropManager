@@ -10,6 +10,7 @@ use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\User;
+use App\Services\FinanceCacheService;
 use App\Services\ReceiptService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -62,22 +63,28 @@ class BulkPaymentProcessor
             $invoicesMap = $this->preloadInvoices($landlordId, $validated['payments']);
             $leasesMap = $this->preloadLeasesForWalletCredit($landlordId, $validated['payments']);
 
-            foreach ($validated['payments'] as $index => $paymentData) {
-                try {
-                    $this->processCurrentPayment($landlordId, $paymentData, $invoicesMap, $leasesMap);
-                    $successCount++;
-                    $totalAmount += (float) $paymentData['amount'];
-                } catch (\Exception $e) {
-                    $failedCount++;
-                    $errors[] = ['row' => $index + 1, 'error' => $e->getMessage()];
+            Payment::withoutEvents(function () use ($landlordId, $validated, $invoicesMap, $leasesMap, &$successCount, &$failedCount, &$totalAmount, &$errors) {
+                foreach ($validated['payments'] as $index => $paymentData) {
+                    try {
+                        $this->processCurrentPayment($landlordId, $paymentData, $invoicesMap, $leasesMap);
+                        $successCount++;
+                        $totalAmount += (float) $paymentData['amount'];
+                    } catch (\Exception $e) {
+                        $failedCount++;
+                        $errors[] = ['row' => $index + 1, 'error' => $e->getMessage()];
+                    }
                 }
-            }
+            });
 
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
 
             return BulkPaymentResult::failed(count($validated['payments']), $e->getMessage());
+        }
+
+        if ($successCount > 0) {
+            FinanceCacheService::invalidateAndWarm($landlordId);
         }
 
         if ($failedCount > 0) {
@@ -102,29 +109,35 @@ class BulkPaymentProcessor
                 ->where('role', 'tenant')
                 ->where('is_archived', true)
                 ->get()
-                ->keyBy(fn ($t) => strtolower($t->name));
+                ->keyBy(fn ($t) => strtolower($t->name).'|'.strtolower($t->email));
 
             $this->historicalLeasesMap = Lease::where('landlord_id', $landlordId)
                 ->where('is_active', false)
                 ->get()
                 ->keyBy(fn ($l) => "{$l->unit_id}|{$l->tenant_id}");
 
-            foreach ($validated['payments'] as $index => $paymentData) {
-                try {
-                    $this->processHistoricalPayment($landlordId, $paymentData);
-                    $successCount++;
-                    $totalAmount += (float) $paymentData['amount'];
-                } catch (\Exception $e) {
-                    $failedCount++;
-                    $errors[] = ['row' => $index + 1, 'error' => $e->getMessage()];
+            Payment::withoutEvents(function () use ($landlordId, $validated, &$successCount, &$failedCount, &$totalAmount, &$errors) {
+                foreach ($validated['payments'] as $index => $paymentData) {
+                    try {
+                        $this->processHistoricalPayment($landlordId, $paymentData);
+                        $successCount++;
+                        $totalAmount += (float) $paymentData['amount'];
+                    } catch (\Exception $e) {
+                        $failedCount++;
+                        $errors[] = ['row' => $index + 1, 'error' => $e->getMessage()];
+                    }
                 }
-            }
+            });
 
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
 
             return BulkPaymentResult::failed(count($validated['payments']), $e->getMessage());
+        }
+
+        if ($successCount > 0) {
+            FinanceCacheService::invalidateAndWarm($landlordId);
         }
 
         if ($failedCount > 0) {
@@ -169,7 +182,10 @@ class BulkPaymentProcessor
 
         return Lease::where('landlord_id', $landlordId)
             ->whereIn('tenant_id', $tenantIdsWithWalletCredit)
+            ->where('is_active', true)
+            ->orderByDesc('updated_at')
             ->get()
+            ->unique('tenant_id')
             ->keyBy('tenant_id');
     }
 
@@ -180,44 +196,79 @@ class BulkPaymentProcessor
         Collection $leasesMap,
     ): void {
         foreach ($paymentData['allocations'] as $allocation) {
-            $invoice = $invoicesMap->get($allocation['invoice_id']);
-
-            if (! $invoice) {
-                throw new EntityNotFoundException('Invoice', $allocation['invoice_id']);
-            }
-
-            $payment = Payment::create([
-                'invoice_id' => $invoice->id,
-                'lease_id' => $invoice->lease_id,
-                'landlord_id' => $landlordId,
-                'amount' => $allocation['amount'],
-                'payment_method' => $paymentData['payment_method'],
-                'payment_date' => $paymentData['payment_date'],
-                'reference' => $paymentData['reference'] ?? null,
-                'notes' => 'Bulk import',
-            ]);
-
-            $paidStatus = InvoiceStatus::Paid->value;
-            $partialStatus = InvoiceStatus::Partial->value;
-            Invoice::where('id', $invoice->id)->update([
-                'amount_paid' => DB::raw("amount_paid + {$allocation['amount']}"),
-                'status' => DB::raw(
-                    "CASE WHEN amount_paid >= total_due THEN '{$paidStatus}' "
-                    ."WHEN amount_paid > 0 THEN '{$partialStatus}' "
-                    .'ELSE status END'
-                ),
-            ]);
-            $invoice->refresh();
-
-            $this->receiptService->createReceipt($payment, $invoice);
+            $this->processAllocation($landlordId, $paymentData, $allocation, $invoicesMap);
         }
 
-        if (($paymentData['wallet_credit'] ?? 0) > 0) {
-            $lease = $this->resolveLeaseForWalletCredit($paymentData, $invoicesMap, $leasesMap);
-            if ($lease) {
-                $lease->creditToWallet($paymentData['wallet_credit'], 'Bulk import wallet credit');
-            }
+        $this->applyWalletCredit($paymentData, $invoicesMap, $leasesMap);
+    }
+
+    private function processAllocation(
+        int $landlordId,
+        array $paymentData,
+        array $allocation,
+        Collection $invoicesMap,
+    ): void {
+        $invoice = $invoicesMap->get($allocation['invoice_id']);
+
+        if (! $invoice) {
+            throw new EntityNotFoundException('Invoice', $allocation['invoice_id']);
         }
+
+        $payment = Payment::create([
+            'invoice_id' => $invoice->id,
+            'lease_id' => $invoice->lease_id,
+            'landlord_id' => $landlordId,
+            'amount' => $allocation['amount'],
+            'payment_method' => $paymentData['payment_method'],
+            'payment_date' => $paymentData['payment_date'],
+            'reference' => $paymentData['reference'] ?? null,
+            'notes' => 'Bulk import',
+        ]);
+
+        $invoice->increment('amount_paid', $allocation['amount']);
+        $invoice->refresh();
+
+        $newStatus = $this->resolveInvoiceStatus($invoice);
+        $invoice->update(['status' => $newStatus]);
+
+        $this->receiptService->createReceipt($payment, $invoice);
+    }
+
+    private function resolveInvoiceStatus(Invoice $invoice): string
+    {
+        if ($invoice->amount_paid >= $invoice->total_due) {
+            return InvoiceStatus::Paid->value;
+        }
+
+        return $invoice->amount_paid > 0
+            ? InvoiceStatus::Partial->value
+            : $invoice->status;
+    }
+
+    private function applyWalletCredit(
+        array $paymentData,
+        Collection $invoicesMap,
+        Collection $leasesMap,
+    ): void {
+        $walletCredit = $paymentData['wallet_credit'] ?? 0;
+
+        if ($walletCredit <= 0) {
+            return;
+        }
+
+        $lease = $this->resolveLeaseForWalletCredit($paymentData, $invoicesMap, $leasesMap);
+
+        if ($lease) {
+            $lease->creditToWallet($walletCredit, 'Bulk import wallet credit');
+
+            return;
+        }
+
+        Log::warning('Wallet credit could not be applied: no lease found', [
+            'tenant_id' => $paymentData['tenant_id'] ?? null,
+            'reference' => $paymentData['reference'] ?? null,
+            'wallet_credit' => $walletCredit,
+        ]);
     }
 
     private function resolveLeaseForWalletCredit(
@@ -236,6 +287,10 @@ class BulkPaymentProcessor
 
     private function processHistoricalPayment(int $landlordId, array $paymentData): void
     {
+        if ($paymentData['amount'] <= 0) {
+            throw new \InvalidArgumentException('Payment amount must be greater than zero.');
+        }
+
         $archivedTenant = $this->findOrCreateArchivedTenant(
             $landlordId,
             $paymentData['unit_id'],
@@ -268,14 +323,26 @@ class BulkPaymentProcessor
         string $tenantName,
         ?string $tenantEmail,
     ): User {
-        $key = strtolower($tenantName);
+        if ($tenantEmail === null) {
+            $existingTenant = $this->archivedTenantsMap->first(
+                fn ($t) => strtolower($t->name) === strtolower($tenantName)
+            );
+
+            if ($existingTenant) {
+                return $existingTenant;
+            }
+
+            $email = 'archived_'.Str::slug($tenantName).'_'.$unitId.'_'.time().'@placeholder.local';
+        } else {
+            $email = $tenantEmail;
+        }
+
+        $key = strtolower($tenantName).'|'.strtolower($email);
         $existingTenant = $this->archivedTenantsMap->get($key);
 
         if ($existingTenant) {
             return $existingTenant;
         }
-
-        $email = $tenantEmail ?: 'archived_'.Str::slug($tenantName).'_'.$unitId.'_'.time().'@placeholder.local';
 
         $tenant = User::create([
             'name' => $tenantName,

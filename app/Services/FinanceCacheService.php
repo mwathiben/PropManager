@@ -2,16 +2,17 @@
 
 namespace App\Services;
 
+use App\Jobs\WarmFinanceCacheJob;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Redis;
+use Illuminate\Support\Facades\Log;
 
 class FinanceCacheService
 {
     private const CACHE_PREFIX = 'finance';
 
-    private const STATS_TTL = 300; // 5 minutes
+    private const STATS_TTL = 300;
 
-    private const REPORTS_TTL = 600; // 10 minutes
+    private const REPORTS_TTL = 600;
 
     public static function statsKey(string $type, int $landlordId, ?string $suffix = null): string
     {
@@ -25,6 +26,11 @@ class FinanceCacheService
         $filtersHash = md5(json_encode($filters));
 
         return self::CACHE_PREFIX.":report:{$type}:{$landlordId}:{$filtersHash}";
+    }
+
+    public static function reportRegistryKey(int $landlordId): string
+    {
+        return self::CACHE_PREFIX.":report_keys:{$landlordId}";
     }
 
     public static function getStatsTtl(): int
@@ -41,6 +47,17 @@ class FinanceCacheService
     {
         self::invalidateStats($landlordId);
         self::invalidateReports($landlordId);
+
+        Log::channel('cache')->info('Cache invalidated', [
+            'landlord_id' => $landlordId,
+            'scope' => 'all',
+        ]);
+    }
+
+    public static function invalidateAndWarm(int $landlordId): void
+    {
+        self::invalidateForLandlord($landlordId);
+        WarmFinanceCacheJob::dispatch($landlordId)->delay(2);
     }
 
     public static function invalidateStats(int $landlordId): void
@@ -62,45 +79,65 @@ class FinanceCacheService
 
     public static function invalidateReports(int $landlordId): void
     {
-        $pattern = self::CACHE_PREFIX.":report:*:{$landlordId}:*";
-        self::deleteByPattern($pattern);
-    }
+        $registryKey = self::reportRegistryKey($landlordId);
+        $keys = Cache::get($registryKey, []);
 
-    private static function deleteByPattern(string $pattern): void
-    {
-        if (config('cache.default') !== 'redis') {
-            return;
+        foreach ($keys as $key) {
+            Cache::forget($key);
         }
 
-        try {
-            $redis = Redis::connection('cache');
-
-            if (method_exists($redis, 'keys')) {
-                $prefix = config('cache.prefix', '');
-                $keys = $redis->keys($prefix.$pattern);
-
-                foreach ($keys as $key) {
-                    $keyWithoutPrefix = str_replace($prefix, '', $key);
-                    Cache::forget($keyWithoutPrefix);
-                }
-            }
-        } catch (\Exception $e) {
-            // Redis not available, skip pattern deletion
-        }
+        Cache::forget($registryKey);
     }
 
     public static function rememberStats(string $type, int $landlordId, callable $callback, ?string $suffix = null): mixed
     {
         $key = self::statsKey($type, $landlordId, $suffix);
+        $hit = true;
 
-        return Cache::remember($key, self::STATS_TTL, $callback);
+        $result = Cache::remember($key, self::STATS_TTL, function () use ($callback, &$hit) {
+            $hit = false;
+
+            return $callback();
+        });
+
+        Log::channel('cache')->debug($hit ? 'Cache hit' : 'Cache miss', [
+            'key' => $key,
+            'type' => 'stats',
+        ]);
+
+        return $result;
     }
 
     public static function rememberReport(string $type, int $landlordId, array $filters, callable $callback): mixed
     {
         $key = self::reportKey($type, $landlordId, $filters);
+        $hit = true;
 
-        return Cache::remember($key, self::REPORTS_TTL, $callback);
+        $result = Cache::remember($key, self::REPORTS_TTL, function () use ($callback, &$hit) {
+            $hit = false;
+
+            return $callback();
+        });
+
+        Log::channel('cache')->debug($hit ? 'Cache hit' : 'Cache miss', [
+            'key' => $key,
+            'type' => 'report',
+        ]);
+
+        self::registerReportKey($landlordId, $key);
+
+        return $result;
+    }
+
+    private static function registerReportKey(int $landlordId, string $key): void
+    {
+        $registryKey = self::reportRegistryKey($landlordId);
+        $keys = Cache::get($registryKey, []);
+
+        if (! in_array($key, $keys, true)) {
+            $keys[] = $key;
+            Cache::put($registryKey, $keys, self::REPORTS_TTL + 60);
+        }
     }
 
     public static function superAdminKey(string $type): string

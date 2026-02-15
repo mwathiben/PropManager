@@ -163,6 +163,14 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'cache' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/cache.log'),
+            'level' => env('CACHE_LOG_LEVEL', 'debug'),
+            'days' => 7,
+            'replace_placeholders' => true,
+        ],
+
     ],
 
 ];

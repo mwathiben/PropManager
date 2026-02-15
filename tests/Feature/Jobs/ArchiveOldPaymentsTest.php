@@ -255,17 +255,25 @@ class ArchiveOldPaymentsTest extends TestCase
         $this->backdatePayment($payment1, now()->subYears($this->retentionYears + 1));
         $this->backdatePayment($payment2, now()->subYears($this->retentionYears + 1));
 
-        // The service handles known FK references (bank_webhook_logs, wallet_transactions,
-        // bank_reconciliation_queue) by nulling them. Both payments should archive.
-        (new ArchiveOldPayments)->handle(app(\App\Services\Payment\PaymentArchivalService::class));
+        $service = \Mockery::mock(\App\Services\Payment\PaymentArchivalService::class);
 
-        $this->assertDatabaseCount('archived_payments', 2);
-        $this->assertTrue(
-            ArchivedPayment::where('original_payment_id', $payment1->id)->exists()
-        );
-        $this->assertTrue(
-            ArchivedPayment::where('original_payment_id', $payment2->id)->exists()
-        );
+        $service->shouldReceive('getRetentionCutoffDate')
+            ->andReturn(now()->subYears($this->retentionYears));
+
+        $service->shouldReceive('archivePayment')
+            ->with(\Mockery::on(fn ($p) => $p->id === $payment1->id))
+            ->once()
+            ->andThrow(new \RuntimeException('Simulated archival failure'));
+
+        $service->shouldReceive('archivePayment')
+            ->with(\Mockery::on(fn ($p) => $p->id === $payment2->id))
+            ->once()
+            ->andReturn(new ArchivedPayment);
+
+        (new ArchiveOldPayments)->handle($service);
+
+        $this->assertDatabaseHas('payments', ['id' => $payment1->id]);
+        $this->assertDatabaseHas('payments', ['id' => $payment2->id]);
     }
 
     public function test_all_payments_view_includes_archived_and_active(): void

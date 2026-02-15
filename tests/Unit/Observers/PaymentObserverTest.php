@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Observers;
 
+use App\Jobs\WarmFinanceCacheJob;
 use App\Models\Payment;
 use App\Observers\PaymentObserver;
 use App\Services\FinanceCacheService;
 use App\Services\PaymentLinkService;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Queue;
 use Mockery;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\Test;
@@ -149,5 +151,63 @@ class PaymentObserverTest extends TestCase
         foreach ($expectedKeys as $key) {
             Cache::shouldHaveReceived('forget')->with($key);
         }
+    }
+
+    #[Test]
+    public function created_dispatches_cache_warming_job(): void
+    {
+        Queue::fake();
+        Cache::spy();
+
+        $payment = new Payment(['landlord_id' => 42, 'invoice_id' => null]);
+        $this->paymentLinkService->shouldNotReceive('revokeForInvoice');
+
+        $this->observer->created($payment);
+
+        Queue::assertPushed(WarmFinanceCacheJob::class, function ($job) {
+            return $job->landlordId === 42;
+        });
+    }
+
+    #[Test]
+    public function created_does_not_dispatch_warming_without_landlord(): void
+    {
+        Queue::fake();
+        Cache::spy();
+
+        $payment = new Payment(['landlord_id' => null, 'invoice_id' => null]);
+        $this->paymentLinkService->shouldNotReceive('revokeForInvoice');
+
+        $this->observer->created($payment);
+
+        Queue::assertNotPushed(WarmFinanceCacheJob::class);
+    }
+
+    #[Test]
+    public function updated_does_not_dispatch_warming_job(): void
+    {
+        Queue::fake();
+        Cache::spy();
+
+        $payment = new Payment(['landlord_id' => 7, 'invoice_id' => 55]);
+        $this->paymentLinkService->shouldNotReceive('revokeForInvoice');
+
+        $this->observer->updated($payment);
+
+        Queue::assertNotPushed(WarmFinanceCacheJob::class);
+    }
+
+    #[Test]
+    public function deleted_does_not_dispatch_warming_job(): void
+    {
+        Queue::fake();
+        Cache::spy();
+
+        $payment = new Payment(['landlord_id' => 7, 'invoice_id' => 55]);
+        $this->paymentLinkService->shouldNotReceive('revokeForInvoice');
+
+        $this->observer->deleted($payment);
+
+        Queue::assertNotPushed(WarmFinanceCacheJob::class);
     }
 }

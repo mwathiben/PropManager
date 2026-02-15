@@ -17,14 +17,46 @@
   "userDecisions": {
     "description": "Enhancement decisions from comprehensive AskUserQuestion sessions",
     "decisions": [
-      {"topic": "Data retention", "choice": "7-year policy with archival", "rationale": "Financial compliance"},
-      {"topic": "Reconciliation", "choice": "Automated alerts on discrepancies", "rationale": "Prevent lost payments"},
-      {"topic": "Multi-currency", "choice": "Dynamic from gateway support", "rationale": "Diaspora tenants"},
-      {"topic": "Tiered fees", "choice": "Add volume-based tiers", "rationale": "Incentivize high-volume landlords"},
-      {"topic": "Email templates", "choice": "Audit & standardize", "rationale": "Brand consistency"},
-      {"topic": "Real-time", "choice": "Hybrid (WebSocket + polling)", "rationale": "Performance balance"},
-      {"topic": "Offline mode", "choice": "Queue payments + SMS confirmation", "rationale": "Kenya connectivity"},
-      {"topic": "Frontend", "choice": "Standardize Vue components", "rationale": "Code consistency"}
+      {
+        "topic": "Data retention",
+        "choice": "7-year policy with archival",
+        "rationale": "Financial compliance"
+      },
+      {
+        "topic": "Reconciliation",
+        "choice": "Automated alerts on discrepancies",
+        "rationale": "Prevent lost payments"
+      },
+      {
+        "topic": "Multi-currency",
+        "choice": "Dynamic from gateway support",
+        "rationale": "Diaspora tenants"
+      },
+      {
+        "topic": "Tiered fees",
+        "choice": "Add volume-based tiers",
+        "rationale": "Incentivize high-volume landlords"
+      },
+      {
+        "topic": "Email templates",
+        "choice": "Audit & standardize",
+        "rationale": "Brand consistency"
+      },
+      {
+        "topic": "Real-time",
+        "choice": "Hybrid (WebSocket + polling)",
+        "rationale": "Performance balance"
+      },
+      {
+        "topic": "Offline mode",
+        "choice": "Queue payments + SMS confirmation",
+        "rationale": "Kenya connectivity"
+      },
+      {
+        "topic": "Frontend",
+        "choice": "Standardize Vue components",
+        "rationale": "Code consistency"
+      }
     ]
   },
   "qualityStandards": {
@@ -162,7 +194,9 @@
       "estimated_effort": "medium",
       "passes": true,
       "attempt_count": 1,
-      "depends_on": ["PAY-V2.1-001"]
+      "depends_on": [
+        "PAY-V2.1-001"
+      ]
     },
     {
       "id": "PAY-V2.1-003",
@@ -197,7 +231,9 @@
       "estimated_effort": "medium",
       "passes": true,
       "attempt_count": 1,
-      "depends_on": ["PAY-V2.1-001"]
+      "depends_on": [
+        "PAY-V2.1-001"
+      ]
     },
     {
       "id": "PAY-V2.1-004",
@@ -271,7 +307,9 @@
       "estimated_effort": "medium",
       "passes": true,
       "attempt_count": 1,
-      "depends_on": ["PAY-V2.1-004"]
+      "depends_on": [
+        "PAY-V2.1-004"
+      ]
     },
     {
       "id": "PAY-V2.1-006",
@@ -382,7 +420,9 @@
       "estimated_effort": "large",
       "passes": true,
       "attempt_count": 1,
-      "depends_on": ["PAY-V2.1-007"]
+      "depends_on": [
+        "PAY-V2.1-007"
+      ]
     },
     {
       "id": "PAY-V2.1-009",
@@ -528,8 +568,8 @@
       ],
       "verification": "Record payment; immediately view dashboard; verify data fresh.",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0
+      "passes": true,
+      "attempt_count": 1
     },
     {
       "id": "PAY-V2.1-013",
@@ -565,8 +605,7 @@
       "estimated_effort": "medium",
       "passes": false,
       "attempt_count": 0
-    }
-    ,
+    },
     {
       "id": "PAY-V2.1-014",
       "category": "multi_currency",
@@ -610,7 +649,9 @@
       "estimated_effort": "medium",
       "passes": true,
       "attempt_count": 1,
-      "depends_on": ["PAY-V2.1-001"]
+      "depends_on": [
+        "PAY-V2.1-001"
+      ]
     },
     {
       "id": "PAY-V2.1-015",
@@ -680,7 +721,9 @@
       "estimated_effort": "large",
       "passes": true,
       "attempt_count": 1,
-      "depends_on": ["PAY-V2.1-001"]
+      "depends_on": [
+        "PAY-V2.1-001"
+      ]
     },
     {
       "id": "PAY-V2.1-016",
@@ -692,8 +735,8 @@
       "steps": [
         "Audit all Vue files for hardcoded KES/KSh strings",
         "Ensure useFormatters composable supports currency parameter",
-        "Update form input prefixes: static 'KES' → dynamic {{ currencyCode }}",
-        "Update display labels: '(KES)' → '(' + currencyCode + ')'",
+        "Update form input prefixes: static 'KES' \u00e2\u2020\u2019 dynamic {{ currencyCode }}",
+        "Update display labels: '(KES)' \u00e2\u2020\u2019 '(' + currencyCode + ')'",
         "Pass currency from controller page props where not already present"
       ],
       "files": [
@@ -735,7 +778,9 @@
       "estimated_effort": "medium",
       "passes": true,
       "attempt_count": 1,
-      "depends_on": ["PAY-V2.1-001"]
+      "depends_on": [
+        "PAY-V2.1-001"
+      ]
     },
     {
       "id": "PAY-V2.1-017",
@@ -785,7 +830,9 @@
       "estimated_effort": "medium",
       "passes": true,
       "attempt_count": 1,
-      "depends_on": ["PAY-V2.1-001"]
+      "depends_on": [
+        "PAY-V2.1-001"
+      ]
     }
   ],
   "executionOrder": [
@@ -843,5 +890,9 @@
       "Reconciliation job runs successfully"
     ],
     "outputSignal": "<promise>PAYMENT_WORKFLOW_V2_1_COMPLETE</promise>"
+  },
+  "metadata": {
+    "passing_items": 15,
+    "total_items": 17
   }
 }

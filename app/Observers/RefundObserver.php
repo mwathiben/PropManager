@@ -9,20 +9,19 @@ class RefundObserver
 {
     public function created(Refund $refund): void
     {
-        $this->invalidateCache($refund);
+        if ($refund->landlord_id) {
+            FinanceCacheService::invalidateAndWarm($refund->landlord_id);
+        }
     }
 
     public function updated(Refund $refund): void
     {
-        $this->invalidateCache($refund);
+        if ($refund->landlord_id) {
+            FinanceCacheService::invalidateForLandlord($refund->landlord_id);
+        }
     }
 
     public function deleted(Refund $refund): void
-    {
-        $this->invalidateCache($refund);
-    }
-
-    private function invalidateCache(Refund $refund): void
     {
         if ($refund->landlord_id) {
             FinanceCacheService::invalidateForLandlord($refund->landlord_id);
