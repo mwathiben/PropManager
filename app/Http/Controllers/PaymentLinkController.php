@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\Currency;
+use App\Enums\InvoiceStatus;
 use App\Services\PaymentLinkService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -60,9 +62,9 @@ class PaymentLinkController extends Controller
 
         $invoice = $link->invoice;
 
-        if (! $invoice || in_array($invoice->status, ['paid', 'cancelled', 'voided'])) {
-            $reason = $invoice?->status === 'paid' ? 'paid' : 'unavailable';
-            $message = $invoice?->status === 'paid'
+        if (! $invoice || in_array($invoice->status, [InvoiceStatus::Paid, InvoiceStatus::Cancelled, InvoiceStatus::Voided])) {
+            $reason = $invoice?->status === InvoiceStatus::Paid ? 'paid' : 'unavailable';
+            $message = $invoice?->status === InvoiceStatus::Paid
                 ? 'This invoice has already been paid. Thank you!'
                 : 'This invoice is no longer available.';
 
@@ -88,6 +90,8 @@ class PaymentLinkController extends Controller
 
         session(['intended_payment_invoice' => $invoice->id]);
 
+        $currency = $invoice->currency ?? Currency::default();
+
         return Inertia::render('PaymentLink/Show', [
             'invoice' => [
                 'id' => $invoice->id,
@@ -97,6 +101,8 @@ class PaymentLinkController extends Controller
                 'balance' => $invoice->total_due - $invoice->amount_paid,
                 'status' => $invoice->status,
                 'due_date' => $invoice->due_date?->format('Y-m-d'),
+                'currency' => $currency->value,
+                'currency_symbol' => $currency->symbol(),
             ],
             'tenant' => [
                 'name' => $invoice->lease?->tenant?->name,

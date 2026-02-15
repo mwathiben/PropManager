@@ -1,8 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
-import { useFormatters } from '@/composables';
+import { useFormatters, useCurrency } from '@/composables';
+import type { WaterSettingsPageProps } from '@/types/water';
 import {
     Cog6ToothIcon,
     BeakerIcon,
@@ -11,12 +12,10 @@ import {
 } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
 
-const props = defineProps({
-    buildings: Array,
-    globalSettings: Object,
-});
+const props = defineProps<WaterSettingsPageProps>();
 
 const { formatCurrency } = useFormatters();
+const { currencyCode, currencySymbol } = useCurrency();
 
 // Form for global settings
 const form = useForm({
@@ -160,7 +159,7 @@ const getBuildingOverrideIndex = (buildingId) => {
 
                             <!-- Rate per Unit (for consumption billing) -->
                             <div v-if="form.water_billing_type === 'consumption'">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Rate per Unit (KES)</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Rate per Unit ({{ currencyCode }})</label>
                                 <input
                                     v-model="form.water_unit_rate"
                                     type="number"
@@ -174,7 +173,7 @@ const getBuildingOverrideIndex = (buildingId) => {
 
                             <!-- Flat Rate Amount (for flat rate billing) -->
                             <div v-if="form.water_billing_type === 'flat_rate'">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Monthly Flat Rate (KES)</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Monthly Flat Rate ({{ currencyCode }})</label>
                                 <input
                                     v-model="form.flat_water_rate"
                                     type="number"
@@ -229,7 +228,7 @@ const getBuildingOverrideIndex = (buildingId) => {
                                     v-if="form.building_overrides[getBuildingOverrideIndex(building.id)].water_billing_type === 'consumption'"
                                     class="mt-3 pl-4 border-l-2 border-indigo-200"
                                 >
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Rate per Unit (KES)</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Rate per Unit ({{ currencyCode }})</label>
                                     <input
                                         v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_unit_rate"
                                         type="number"
@@ -244,7 +243,7 @@ const getBuildingOverrideIndex = (buildingId) => {
                                     v-if="form.building_overrides[getBuildingOverrideIndex(building.id)].water_billing_type === 'flat_rate'"
                                     class="mt-3 pl-4 border-l-2 border-indigo-200"
                                 >
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Monthly Flat Rate (KES)</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Monthly Flat Rate ({{ currencyCode }})</label>
                                     <input
                                         v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_flat_rate"
                                         type="number"

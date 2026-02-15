@@ -1,7 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
+import { useFormatters, useCurrency } from '@/composables';
+import type { TenantShowPageProps } from '@/types/finances';
 import ArrowLeftIcon from '@heroicons/vue/24/outline/ArrowLeftIcon';
 import UserCircleIcon from '@heroicons/vue/24/outline/UserCircleIcon';
 import PhoneIcon from '@heroicons/vue/24/outline/PhoneIcon';
@@ -27,14 +29,10 @@ import DocumentIcon from '@heroicons/vue/24/outline/DocumentIcon';
 import EyeIcon from '@heroicons/vue/24/outline/EyeIcon';
 import StarIconSolid from '@heroicons/vue/24/solid/StarIcon';
 
-const props = defineProps({
-    tenant: Object,
-    activeLease: Object,
-    payments: Array,
-    invoices: Array,
-    verificationTemplates: Array,
-    documents: Array,
-});
+const props = defineProps<TenantShowPageProps>();
+
+const { formatMoney: formatCurrency, formatDate, formatDateTime } = useFormatters();
+const { currencyCode } = useCurrency();
 
 // UI State
 const activeSection = ref('overview');
@@ -87,34 +85,6 @@ const sections = [
 const pastLeases = computed(() => props.tenant.leases?.filter(l => !l.is_active) ?? []);
 
 // Helpers
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-    }).format(amount || 0);
-};
-
-const formatDate = (date) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString('en-KE', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-    });
-};
-
-const formatDateTime = (date) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleString('en-KE', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
-};
-
 const getInitials = (name) => {
     return name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
 };
@@ -804,8 +774,8 @@ const getActivityIcon = (action) => {
         <!-- EDIT TENANT MODAL -->
         <div v-if="showEditModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-black/50" @click="showEditModal = false"></div>
-                <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showEditModal = false"></div>
+                <div class="relative z-50 bg-white rounded-xl shadow-xl max-w-md w-full p-6">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold text-gray-900">Edit Tenant Profile</h3>
                         <button @click="showEditModal = false" class="text-gray-400 hover:text-gray-600">
@@ -841,8 +811,8 @@ const getActivityIcon = (action) => {
         <!-- NOTE MODAL -->
         <div v-if="showNoteModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-black/50" @click="showNoteModal = false"></div>
-                <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showNoteModal = false"></div>
+                <div class="relative z-50 bg-white rounded-xl shadow-xl max-w-md w-full p-6">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold text-gray-900">{{ editingNote ? 'Edit Note' : 'Add Note' }}</h3>
                         <button @click="showNoteModal = false" class="text-gray-400 hover:text-gray-600">
@@ -872,8 +842,8 @@ const getActivityIcon = (action) => {
         <!-- EMERGENCY CONTACT MODAL -->
         <div v-if="showContactModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-black/50" @click="showContactModal = false"></div>
-                <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showContactModal = false"></div>
+                <div class="relative z-50 bg-white rounded-xl shadow-xl max-w-md w-full p-6">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold text-gray-900">{{ editingContact ? 'Edit Contact' : 'Add Emergency Contact' }}</h3>
                         <button @click="showContactModal = false" class="text-gray-400 hover:text-gray-600">
@@ -915,8 +885,8 @@ const getActivityIcon = (action) => {
         <!-- WALLET ADJUSTMENT MODAL -->
         <div v-if="showWalletModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-black/50" @click="showWalletModal = false"></div>
-                <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showWalletModal = false"></div>
+                <div class="relative z-50 bg-white rounded-xl shadow-xl max-w-md w-full p-6">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold text-gray-900">Adjust Wallet Balance</h3>
                         <button @click="showWalletModal = false" class="text-gray-400 hover:text-gray-600">
@@ -954,7 +924,7 @@ const getActivityIcon = (action) => {
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Amount (KES)</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Amount ({{ currencyCode }})</label>
                             <input
                                 v-model="walletForm.amount"
                                 type="number"

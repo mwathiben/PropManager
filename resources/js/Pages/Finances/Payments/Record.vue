@@ -1,7 +1,7 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { router, Head, Link } from '@inertiajs/vue3';
-import { useFormatters } from '@/composables';
+import { useFormatters, useErrorHandler, useCurrency } from '@/composables';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import {
     BanknotesIcon,
@@ -12,26 +12,23 @@ import {
     ExclamationTriangleIcon,
     ArrowLeftIcon,
 } from '@heroicons/vue/24/outline';
+import type { PaymentsRecordPageProps } from '@/types';
 
-const props = defineProps({
-    paymentMethods: {
-        type: Array,
-        default: () => [],
-    },
-    buildings: {
-        type: Array,
-        default: () => [],
-    },
+const props = withDefaults(defineProps<PaymentsRecordPageProps>(), {
+    paymentMethods: () => [],
+    buildings: () => [],
 });
 
-const { formatMoney } = useFormatters();
+const { formatMoney, todayAsISODate } = useFormatters();
+const { logError } = useErrorHandler();
+const { currencySymbol } = useCurrency();
 
 const form = ref({
     tenant_id: null,
     invoice_id: null,
     amount: '',
     payment_method: 'cash',
-    payment_date: new Date().toISOString().split('T')[0],
+    payment_date: todayAsISODate(),
     reference: '',
     notes: '',
     is_unallocated: false,
@@ -70,7 +67,7 @@ watch(searchQuery, (newVal) => {
             searchResults.value = data.data || [];
             showSearchResults.value = true;
         } catch (err) {
-            console.error('Search failed:', err);
+            logError(err, { component: 'PaymentsRecord', action: 'searchTenants' });
             searchResults.value = [];
         } finally {
             isSearching.value = false;
@@ -98,7 +95,7 @@ const selectTenant = async (tenant) => {
             form.value.amount = tenantInvoices.value[0].balance;
         }
     } catch (err) {
-        console.error('Failed to load invoices:', err);
+        logError(err, { component: 'PaymentsRecord', action: 'loadInvoices' });
         tenantInvoices.value = [];
         totalOutstanding.value = 0;
     } finally {
@@ -406,7 +403,7 @@ const handleSubmit = () => {
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Amount *</label>
                                     <div class="relative">
-                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">KES</span>
+                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">{{ currencySymbol }}</span>
                                         <input
                                             v-model.number="form.amount"
                                             type="number"
@@ -455,7 +452,7 @@ const handleSubmit = () => {
                                     <input
                                         v-model="form.payment_date"
                                         type="date"
-                                        :max="new Date().toISOString().split('T')[0]"
+                                        :max="todayAsISODate()"
                                         :class="[
                                             'w-full px-3 py-2.5 text-sm border rounded-lg transition-colors',
                                             errors.payment_date
@@ -488,7 +485,7 @@ const handleSubmit = () => {
                             </div>
 
                             <div v-if="isOverpayment" class="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
-                                <ExclamationTriangleIcon class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                <ExclamationTriangleIcon class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                                 <div>
                                     <p class="text-sm font-medium text-amber-800">Overpayment detected</p>
                                     <p class="text-sm text-amber-700">

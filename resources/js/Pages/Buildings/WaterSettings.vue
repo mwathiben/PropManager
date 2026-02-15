@@ -1,11 +1,13 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useForm, Head, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { useCurrency } from '@/composables';
+import type { BuildingsWaterSettingsPageProps } from '@/types/water';
 
-const props = defineProps({
-    building: Object,
-});
+const props = defineProps<BuildingsWaterSettingsPageProps>();
+
+const { currencyCode, currencySymbol } = useCurrency();
 
 const form = useForm({
     water_billing_type: props.building.water_billing_type || null,
@@ -95,11 +97,11 @@ const submit = () => {
                             <!-- Flat Rate Input -->
                             <div v-if="showFlatRateInput" class="transition-all">
                                 <label for="water_flat_rate" class="block text-sm font-medium text-gray-700">
-                                    Monthly Flat Rate (KES)
+                                    Monthly Flat Rate ({{ currencyCode }})
                                 </label>
                                 <div class="mt-1 relative rounded-md shadow-sm">
                                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <span class="text-gray-500 sm:text-sm">KES</span>
+                                        <span class="text-gray-500 sm:text-sm">{{ currencySymbol }}</span>
                                     </div>
                                     <input
                                         type="number"
@@ -122,11 +124,11 @@ const submit = () => {
                             <!-- Unit Rate Override Input -->
                             <div v-if="showUnitRateInput" class="transition-all">
                                 <label for="water_unit_rate" class="block text-sm font-medium text-gray-700">
-                                    Rate per Unit (KES/m³) - Optional Override
+                                    Rate per Unit ({{ currencyCode }}/m³) - Optional Override
                                 </label>
                                 <div class="mt-1 relative rounded-md shadow-sm">
                                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <span class="text-gray-500 sm:text-sm">KES</span>
+                                        <span class="text-gray-500 sm:text-sm">{{ currencySymbol }}</span>
                                     </div>
                                     <input
                                         type="number"

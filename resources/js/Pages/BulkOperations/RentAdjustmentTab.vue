@@ -1,23 +1,16 @@
-<script setup>
+<script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import { useFormatters, useCurrency } from '@/composables';
+import type { RentAdjustmentTabProps } from '@/types';
 
-const props = defineProps({
-    unitsWithLeases: {
-        type: Array,
-        default: () => []
-    },
-    selectedLeaseIds: {
-        type: Array,
-        default: () => []
-    },
-    buildingId: {
-        type: [Number, null],
-        default: null
-    },
-    wingId: {
-        type: [Number, null],
-        default: null
-    }
+const { formatMoney, todayAsISODate } = useFormatters();
+const { currencyCode } = useCurrency();
+
+const props = withDefaults(defineProps<RentAdjustmentTabProps>(), {
+    unitsWithLeases: () => [],
+    selectedLeaseIds: () => [],
+    buildingId: null,
+    wingId: null,
 });
 
 const emit = defineEmits(['update:selectedLeaseIds', 'success']);
@@ -26,7 +19,7 @@ const form = useForm({
     lease_ids: [],
     adjustment_type: 'percentage',
     adjustment_value: 0,
-    effective_date: new Date().toISOString().split('T')[0],
+    effective_date: todayAsISODate(),
     notify_tenants: true,
     reason: '',
     building_id: null,
@@ -112,7 +105,7 @@ const getStatusColor = (status) => {
                                 {{ unit.active_lease.tenant?.name || 'Unknown Tenant' }}
                             </div>
                             <div class="text-sm text-gray-500">
-                                Current Rent: KES {{ Number(unit.active_lease.rent_amount).toLocaleString() }}
+                                Current Rent: {{ formatMoney(unit.active_lease.rent_amount) }}
                             </div>
                         </div>
                         <span :class="['px-2 py-1 text-xs rounded-full', getStatusColor(unit.status)]">
@@ -134,7 +127,7 @@ const getStatusColor = (status) => {
                     <label class="block text-sm font-medium text-gray-700 mb-1">Adjustment Type</label>
                     <select v-model="form.adjustment_type" class="w-full border-gray-300 rounded-md">
                         <option value="percentage">Percentage (%)</option>
-                        <option value="fixed">Fixed Amount (KES)</option>
+                        <option value="fixed">Fixed Amount ({{ currencyCode }})</option>
                     </select>
                 </div>
 

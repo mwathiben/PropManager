@@ -1,8 +1,10 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Breadcrumb from '@/Components/Breadcrumb.vue';
+import { useErrorHandler, useFormatters, useCurrency } from '@/composables';
+import type { CreditNoteCreatePageProps } from '@/types/templates';
 import {
     DocumentPlusIcon,
     MagnifyingGlassIcon,
@@ -10,10 +12,7 @@ import {
     CheckCircleIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    reasonOptions: Object,
-    tenantId: [String, Number],
-});
+const props = defineProps<CreditNoteCreatePageProps>();
 
 const breadcrumbItems = [
     { label: 'Finance Hub', href: route('finances.index') },
@@ -21,6 +20,9 @@ const breadcrumbItems = [
     { label: 'Issue Credit Note' },
 ];
 
+const { logError } = useErrorHandler();
+const { formatMoney } = useFormatters();
+const { currencySymbol } = useCurrency();
 const searchQuery = ref('');
 const searchResults = ref([]);
 const isSearching = ref(false);
@@ -48,7 +50,7 @@ const searchTenants = async (query) => {
         const data = await response.json();
         searchResults.value = data.data || data;
     } catch (error) {
-        console.error('Search failed:', error);
+        logError(error, { component: 'CreditNotesCreate', action: 'searchTenants' });
         searchResults.value = [];
     } finally {
         isSearching.value = false;
@@ -80,14 +82,6 @@ const submit = () => {
     });
 };
 
-const formatMoney = (amount) => {
-    if (!amount) return '';
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-    }).format(amount);
-};
 </script>
 
 <template>
@@ -201,7 +195,7 @@ const formatMoney = (amount) => {
                                 Credit Amount <span class="text-red-500">*</span>
                             </label>
                             <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">KES</span>
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">{{ currencySymbol }}</span>
                                 <input
                                     id="amount"
                                     v-model="form.amount"

@@ -14940,3 +14940,90 @@ Implemented a compliant 7-year data retention policy that archives old payments 
 - PAY-V2.1-011 (Cache layer optimization)
 
 **PAY-V2.1-009 COMPLETE**
+
+---
+
+## PAY-V2.1-016: Replace Hardcoded KES in Vue Frontend Components
+**Status:** PASSED
+**Date:** 2026-02-15
+**Attempts:** 1
+
+### Implementation Summary
+
+Replaced 40+ hardcoded 'KES'/'KSh' strings across 18 Vue files with dynamic currency values from Inertia shared data. Created `useCurrency` composable and enhanced `useFormatters` to read currency from shared props automatically.
+
+### Architecture
+
+```
+HandleInertiaRequests.share() → { currency: { code, symbol } }
+    ↓
+useCurrency.ts → { currencyCode, currencySymbol } (reactive computed refs)
+    ↓
+useFormatters.ts → reads shared currency as default for formatMoney()
+    ↓
+18 Vue files → replaced hardcoded strings with composable values
+    ↓
+PaymentLinkController → passes currency explicitly for public (no-auth) page
+```
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `resources/js/composables/useCurrency.ts` | Composable for template access to currency code/symbol |
+| `tests/Feature/Middleware/HandleInertiaRequestsCurrencyTest.php` | 6 tests for shared currency data |
+| `tests/Feature/Controllers/PaymentLinkCurrencyTest.php` | 2 tests for payment link currency |
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `app/Http/Middleware/HandleInertiaRequests.php` | Added `currency` lazy closure to `share()` |
+| `app/Http/Controllers/PaymentLinkController.php` | Pass currency from invoice for public page |
+| `resources/js/composables/useFormatters.ts` | Read shared currency as default |
+| `resources/js/composables/index.ts` | Barrel export for useCurrency |
+| `resources/js/Pages/PaymentLink/Show.vue` | Use invoice currency prop |
+| `resources/js/Pages/Buildings/Edit.vue` | Dynamic labels + input prefixes |
+| `resources/js/Pages/Buildings/WaterSettings.vue` | Dynamic labels + input prefixes |
+| `resources/js/Pages/Water/Settings.vue` | Dynamic labels |
+| `resources/js/Pages/Water/tabs/SettingsTab.vue` | Dynamic input prefix |
+| `resources/js/Pages/Admin/BillingSettings.vue` | Dynamic labels |
+| `resources/js/Pages/CreditNotes/Create.vue` | Dynamic input prefix |
+| `resources/js/Pages/CreditNotes/Show.vue` | Dynamic input prefix |
+| `resources/js/Pages/Finances/Payments/Record.vue` | Dynamic input prefix |
+| `resources/js/Pages/Finances/Refunds/Create.vue` | Dynamic input prefix |
+| `resources/js/Pages/InvoiceSettings/Edit.vue` | Dynamic input prefix |
+| `resources/js/Pages/Onboarding/Index.vue` | Dynamic labels + input prefix |
+| `resources/js/Pages/MoveOuts/Show.vue` | Dynamic label |
+| `resources/js/Pages/MoveOutCategories/Index.vue` | Dynamic label |
+| `resources/js/Pages/Tenants/Show.vue` | Dynamic label |
+| `resources/js/Pages/TenantInvitations/Index.vue` | Dynamic labels |
+| `resources/js/Pages/BulkOperations/RentAdjustmentTab.vue` | Dynamic label |
+| `resources/js/Pages/Readings/Review.vue` | formatMoney() for display values |
+| `resources/js/Pages/Notifications/partials/TemplatesTab.vue` | formatMoney() for mock data |
+
+### Verification
+
+| Check | Result |
+|-------|--------|
+| `npm run build` | PASS |
+| `./vendor/bin/pint` (changed files) | PASS |
+| `php artisan test` (8 new tests) | 8/8 PASS |
+| Grep: hardcoded KES in Vue display strings | 0 hits (6 acceptable: enum options, fallback defaults) |
+| E2E browser: dashboard currency formatting | PASS (screenshot verified) |
+
+### Remaining Acceptable KES References (6)
+
+| File | Line | Reason |
+|------|------|--------|
+| `Buildings/Edit.vue:716` | `<option value="KES">` | Enum option |
+| `Buildings/Show.vue:249` | `<option value="KES">` | Enum option |
+| `Finances/tabs/SettingsTab.vue:126` | `\|\| 'KES'` | Form default |
+| `TenantFinances/Pay.vue:21` | `\|\| 'KES'` | Prop fallback |
+| `Components/Finances/AmountDisplay.vue:19` | `currency: 'KES'` | Prop default |
+| `PaymentLink/Show.vue:32` | `?? 'KES'` | Prop fallback |
+
+### Next Steps
+- PAY-V2.1-017 (PHP service KES cleanup)
+
+**PAY-V2.1-016 COMPLETE**

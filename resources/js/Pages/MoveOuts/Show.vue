@@ -2,7 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, router, Link } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
-import { useFormatters } from '@/composables';
+import { useFormatters, useCurrency } from '@/composables';
 import type { MoveOutShowPageProps } from '@/types/finances';
 import {
     ArrowLeftIcon,
@@ -23,6 +23,7 @@ import {
 
 const props = defineProps<MoveOutShowPageProps>();
 const { formatMoney: formatCurrency, formatDate, todayAsISODate } = useFormatters();
+const { currencyCode } = useCurrency();
 
 const lease = props.moveOut.lease;
 const tenant = lease.tenant;
@@ -446,7 +447,7 @@ const statusInfo = computed(() => getStatusInfo());
                     </div>
 
                     <form @submit.prevent="saveDeduction" class="p-6 space-y-4">
-                        <div v-if="categories.length > 0">
+                        <div v-if="categories?.length > 0">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Category (Optional)</label>
                             <select
                                 v-model="deductionForm.category_id"
@@ -454,12 +455,12 @@ const statusInfo = computed(() => getStatusInfo());
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                             >
                                 <option value="">Custom Deduction</option>
-                                <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                                <option v-for="cat in (categories ?? [])" :key="cat.id" :value="cat.id">
                                     {{ cat.name }} ({{ formatCurrency(cat.default_amount) }})
                                 </option>
                             </select>
                             <p v-if="deductionForm.category_id" class="mt-1 text-xs text-gray-500">
-                                {{ categories.find(c => c.id === deductionForm.category_id)?.description }}
+                                {{ categories?.find(c => c.id === deductionForm.category_id)?.description }}
                             </p>
                         </div>
                         <div>
@@ -473,7 +474,7 @@ const statusInfo = computed(() => getStatusInfo());
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Amount (KES) *</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Amount ({{ currencyCode }}) *</label>
                             <input
                                 v-model="deductionForm.amount"
                                 type="number"

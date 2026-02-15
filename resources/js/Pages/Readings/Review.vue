@@ -1,13 +1,13 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
+import { useFormatters } from '@/composables';
+import type { ReadingsReviewPageProps, WaterReading } from '@/types';
 
-const props = defineProps({
-    pendingReadings: Object,
-    buildings: Array,
-    filters: Object
-});
+const props = defineProps<ReadingsReviewPageProps>();
+
+const { formatMoney } = useFormatters();
 
 const filterForm = useForm({
     building_id: props.filters.building_id || '',
@@ -224,7 +224,7 @@ const getPhotoUrl = (reading) => {
                                             </div>
                                             <div class="flex justify-between">
                                                 <span class="text-sm text-gray-600">Cost:</span>
-                                                <span class="text-sm font-bold text-green-600">KES {{ reading.cost }}</span>
+                                                <span class="text-sm font-bold text-green-600">{{ formatMoney(reading.cost) }}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -272,8 +272,10 @@ const getPhotoUrl = (reading) => {
         </div>
 
         <!-- Approve Modal -->
-        <div v-if="showApproveModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click.self="closeModals">
-            <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <div v-if="showApproveModal" class="fixed inset-0 z-50 overflow-y-auto">
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="closeModals"></div>
+                <div class="relative z-50 bg-white rounded-lg p-6 max-w-md w-full mx-4">
                 <h3 class="text-lg font-bold text-gray-900 mb-4">Approve Water Reading</h3>
 
                 <div class="mb-4">
@@ -284,7 +286,7 @@ const getPhotoUrl = (reading) => {
                         Reading: <span class="font-semibold">{{ selectedReading?.current_reading }}</span>
                     </p>
                     <p class="text-sm text-gray-600">
-                        Cost: <span class="font-semibold text-green-600">KES {{ selectedReading?.cost }}</span>
+                        Cost: <span class="font-semibold text-green-600">{{ formatMoney(selectedReading?.cost) }}</span>
                     </p>
                 </div>
 
@@ -314,12 +316,15 @@ const getPhotoUrl = (reading) => {
                         Cancel
                     </button>
                 </div>
+                </div>
             </div>
         </div>
 
         <!-- Reject Modal -->
-        <div v-if="showRejectModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click.self="closeModals">
-            <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <div v-if="showRejectModal" class="fixed inset-0 z-50 overflow-y-auto">
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="closeModals"></div>
+                <div class="relative z-50 bg-white rounded-lg p-6 max-w-md w-full mx-4">
                 <h3 class="text-lg font-bold text-gray-900 mb-4">Reject Water Reading</h3>
 
                 <div class="mb-4">
@@ -357,6 +362,7 @@ const getPhotoUrl = (reading) => {
                         class="flex-1 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors disabled:opacity-50">
                         Cancel
                     </button>
+                </div>
                 </div>
             </div>
         </div>

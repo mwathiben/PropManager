@@ -1,7 +1,7 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { router, Head, Link } from '@inertiajs/vue3';
-import { useFormatters, useErrorHandler } from '@/composables';
+import { useFormatters, useErrorHandler, useCurrency } from '@/composables';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import {
     ArrowUturnLeftIcon,
@@ -11,20 +11,16 @@ import {
     CheckIcon,
     ArrowLeftIcon,
 } from '@heroicons/vue/24/outline';
+import type { RefundsCreatePageProps } from '@/types';
 
-const props = defineProps({
-    refundMethods: {
-        type: Array,
-        default: () => [],
-    },
-    refundReasons: {
-        type: Array,
-        default: () => [],
-    },
+const props = withDefaults(defineProps<RefundsCreatePageProps>(), {
+    refundMethods: () => [],
+    refundReasons: () => [],
 });
 
 const { formatMoney, formatDate } = useFormatters();
 const { logError } = useErrorHandler();
+const { currencySymbol } = useCurrency();
 
 const form = ref({
     tenant_id: null,
@@ -386,7 +382,7 @@ const paymentMethodLabels = {
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Amount *</label>
                                     <div class="relative">
-                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">KES</span>
+                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">{{ currencySymbol }}</span>
                                         <input
                                             v-model.number="form.amount"
                                             type="number"

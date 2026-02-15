@@ -13,6 +13,7 @@ import {
     XCircleIcon,
 } from '@heroicons/vue/24/outline';
 import { useFormatters } from '@/composables/useFormatters';
+import { useCurrency } from '@/composables';
 
 interface Building {
     id: number;
@@ -47,6 +48,7 @@ const props = defineProps<{
 }>();
 
 const { formatCurrency } = useFormatters();
+const { currencyCode } = useCurrency();
 
 const showModal = ref(false);
 const editingCategory = ref<Category | null>(null);
@@ -147,6 +149,7 @@ const toggleActive = (category: Category) => {
                 <button
                     v-if="canCreate"
                     type="button"
+                    data-testid="add-category-button"
                     class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
                     @click="openCreateModal"
                 >
@@ -193,6 +196,7 @@ const toggleActive = (category: Category) => {
                                     <tr
                                         v-for="category in categories.data"
                                         :key="category.id"
+                                        data-testid="category-row"
                                         class="hover:bg-gray-50"
                                         :class="{ 'opacity-50': !category.is_active }"
                                     >
@@ -348,7 +352,7 @@ const toggleActive = (category: Category) => {
 
                                 <div>
                                     <label for="default_amount" class="block text-sm font-medium text-gray-700">
-                                        Default Amount (KES)
+                                        Default Amount ({{ currencyCode }})
                                     </label>
                                     <input
                                         id="default_amount"

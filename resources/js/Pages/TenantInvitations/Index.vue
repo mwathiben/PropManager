@@ -1,7 +1,8 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, router, Link } from '@inertiajs/vue3';
 import { ref, computed, watch, onMounted } from 'vue';
+import { useFormatters, useCurrency } from '@/composables';
 import {
     UserPlusIcon,
     PaperAirplaneIcon,
@@ -21,14 +22,18 @@ import {
     EyeIcon,
 } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
+import type { TenantInvitationsIndexPageProps, TenantInvitation } from '@/types';
 
-const props = defineProps({
-    invitations: Array,
-    vacantUnits: Array,
-    editInvitation: Object,
-    smsConfigured: Boolean,
-    whatsappConfigured: Boolean,
+const props = withDefaults(defineProps<TenantInvitationsIndexPageProps>(), {
+    invitations: () => [],
+    vacantUnits: () => [],
+    editInvitation: null,
+    smsConfigured: false,
+    whatsappConfigured: false,
 });
+
+const { formatMoney: formatCurrency, todayAsISODate } = useFormatters();
+const { currencyCode } = useCurrency();
 
 // Modal states
 const showCreateModal = ref(false);
@@ -44,7 +49,7 @@ const createForm = useForm({
     rent_amount: '',
     service_charge: 0,
     deposit_amount: '',
-    start_date: new Date().toISOString().split('T')[0],
+    start_date: todayAsISODate(),
     end_date: '',
     notification_channels: ['email'],
 });
@@ -107,15 +112,6 @@ const filteredInvitations = computed(() => {
 const pendingCount = computed(() => props.invitations.filter(i => i.status === 'pending').length);
 const acceptedCount = computed(() => props.invitations.filter(i => i.status === 'accepted').length);
 const expiredCount = computed(() => props.invitations.filter(i => i.status === 'expired').length);
-
-// Helpers
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-    }).format(amount || 0);
-};
 
 const getStatusBadge = (status) => {
     switch (status) {
@@ -404,9 +400,9 @@ const closeEditModal = () => {
         <!-- Create Modal -->
         <div v-if="showCreateModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-                <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showCreateModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="showCreateModal = false"></div>
 
-                <div class="relative inline-block w-full max-w-2xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-xl shadow-xl">
+                <div class="relative z-50 inline-block w-full max-w-2xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <!-- Header -->
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
                         <h3 class="text-lg font-semibold text-gray-900">Send Tenant Invitation</h3>
@@ -472,7 +468,7 @@ const closeEditModal = () => {
                             <h4 class="text-sm font-medium text-gray-900 mb-3">Lease Terms</h4>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Monthly Rent (KES) *</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Monthly Rent ({{ currencyCode }}) *</label>
                                     <input
                                         v-model="createForm.rent_amount"
                                         type="number"
@@ -491,7 +487,7 @@ const closeEditModal = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Deposit (KES) *</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Deposit ({{ currencyCode }}) *</label>
                                     <input
                                         v-model="createForm.deposit_amount"
                                         type="number"
@@ -596,9 +592,9 @@ const closeEditModal = () => {
         <!-- Edit Modal -->
         <div v-if="showEditModal && editingInvitation" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-                <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="closeEditModal"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="closeEditModal"></div>
 
-                <div class="relative inline-block w-full max-w-2xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-xl shadow-xl">
+                <div class="relative z-50 inline-block w-full max-w-2xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <!-- Header -->
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
                         <div>
@@ -648,7 +644,7 @@ const closeEditModal = () => {
                             <h4 class="text-sm font-medium text-gray-900 mb-3">Lease Terms</h4>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Monthly Rent (KES) *</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Monthly Rent ({{ currencyCode }}) *</label>
                                     <input
                                         v-model="editForm.rent_amount"
                                         type="number"
@@ -667,7 +663,7 @@ const closeEditModal = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Deposit (KES) *</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Deposit ({{ currencyCode }}) *</label>
                                     <input
                                         v-model="editForm.deposit_amount"
                                         type="number"

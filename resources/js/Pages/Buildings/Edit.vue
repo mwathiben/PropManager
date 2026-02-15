@@ -3,10 +3,11 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import BuildingMap from '@/Components/BuildingMap.vue';
 import { Head, useForm, Link, router, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
-import { useFormatters } from '@/composables';
+import { useFormatters, useCurrency } from '@/composables';
 import type { BuildingsEditPageProps, BuildingEditUnit } from '@/types/finances';
 
 const { formatMoney } = useFormatters();
+const { currencyCode, currencySymbol } = useCurrency();
 import HomeIcon from '@heroicons/vue/24/outline/HomeIcon';
 import BuildingOfficeIcon from '@heroicons/vue/24/outline/BuildingOfficeIcon';
 import Cog6ToothIcon from '@heroicons/vue/24/outline/Cog6ToothIcon';
@@ -1123,10 +1124,10 @@ const updateCoordinates = (coords) => {
                                 <!-- Content -->
                                 <div class="p-6">
                                     <div v-if="modalType === 'update_rent'">
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">New Rent Amount (KES)</label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">New Rent Amount ({{ currencyCode }})</label>
                                         <div class="relative">
                                             <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                                <span class="text-gray-400 font-medium">KES</span>
+                                                <span class="text-gray-400 font-medium">{{ currencySymbol }}</span>
                                             </div>
                                             <input v-model="actionForm.value" type="number"
                                                 class="w-full pl-14 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-lg font-semibold"
@@ -1285,10 +1286,10 @@ const updateCoordinates = (coords) => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Target Rent (KES)</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Target Rent ({{ currencyCode }})</label>
                                     <div class="relative">
                                         <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                            <span class="text-gray-400 font-medium">KES</span>
+                                            <span class="text-gray-400 font-medium">{{ currencySymbol }}</span>
                                         </div>
                                         <input v-model="addUnitForm.target_rent" type="number"
                                             class="w-full pl-14 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"

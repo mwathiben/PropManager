@@ -1,8 +1,11 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Breadcrumb from '@/Components/Breadcrumb.vue';
+import { useFormatters, useCurrency } from '@/composables';
+import type { CreditNoteShowPageProps } from '@/types/templates';
+
 import {
     DocumentTextIcon,
     CheckCircleIcon,
@@ -14,11 +17,9 @@ import {
     BanknotesIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    creditNote: Object,
-    reasonOptions: Object,
-    outstandingInvoices: Array,
-});
+const props = defineProps<CreditNoteShowPageProps>();
+const { formatMoney, formatDateTime } = useFormatters();
+const { currencySymbol } = useCurrency();
 
 const breadcrumbItems = [
     { label: 'Finance Hub', href: route('finances.index') },
@@ -34,26 +35,6 @@ const applyForm = useForm({
     invoice_id: null,
     amount: null,
 });
-
-const formatMoney = (amount) => {
-    if (amount === null || amount === undefined) return '-';
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-    }).format(amount);
-};
-
-const formatDate = (date) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString('en-KE', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
-};
 
 const statusBadgeClass = computed(() => {
     const classes = {
@@ -214,7 +195,7 @@ const voidCredit = () => {
                                             Invoice {{ creditNote.applied_to_invoice.invoice_number }}
                                         </p>
                                         <p class="text-sm text-gray-500">
-                                            Applied {{ formatDate(creditNote.applied_at) }}
+                                            Applied {{ formatDateTime(creditNote.applied_at) }}
                                         </p>
                                     </div>
                                 </div>
@@ -272,14 +253,14 @@ const voidCredit = () => {
                                     <div class="w-2 h-2 mt-2 rounded-full bg-gray-400"></div>
                                     <div>
                                         <p class="text-sm text-gray-900">Created</p>
-                                        <p class="text-xs text-gray-500">{{ formatDate(creditNote.created_at) }}</p>
+                                        <p class="text-xs text-gray-500">{{ formatDateTime(creditNote.created_at) }}</p>
                                     </div>
                                 </div>
                                 <div v-if="creditNote.approved_at" class="flex gap-3">
                                     <div class="w-2 h-2 mt-2 rounded-full bg-blue-500"></div>
                                     <div>
                                         <p class="text-sm text-gray-900">Approved</p>
-                                        <p class="text-xs text-gray-500">{{ formatDate(creditNote.approved_at) }}</p>
+                                        <p class="text-xs text-gray-500">{{ formatDateTime(creditNote.approved_at) }}</p>
                                         <p v-if="creditNote.approved_by_user" class="text-xs text-gray-400">
                                             by {{ creditNote.approved_by_user.name }}
                                         </p>
@@ -289,14 +270,14 @@ const voidCredit = () => {
                                     <div class="w-2 h-2 mt-2 rounded-full bg-green-500"></div>
                                     <div>
                                         <p class="text-sm text-gray-900">Applied</p>
-                                        <p class="text-xs text-gray-500">{{ formatDate(creditNote.applied_at) }}</p>
+                                        <p class="text-xs text-gray-500">{{ formatDateTime(creditNote.applied_at) }}</p>
                                     </div>
                                 </div>
                                 <div v-if="creditNote.voided_at" class="flex gap-3">
                                     <div class="w-2 h-2 mt-2 rounded-full bg-red-500"></div>
                                     <div>
                                         <p class="text-sm text-gray-900">Voided</p>
-                                        <p class="text-xs text-gray-500">{{ formatDate(creditNote.voided_at) }}</p>
+                                        <p class="text-xs text-gray-500">{{ formatDateTime(creditNote.voided_at) }}</p>
                                     </div>
                                 </div>
                             </div>
@@ -310,9 +291,9 @@ const voidCredit = () => {
         <Teleport to="body">
             <div v-if="showApplyModal" class="fixed inset-0 z-50 overflow-y-auto">
                 <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-                    <div class="fixed inset-0 bg-gray-500/75 transition-opacity" @click="showApplyModal = false"></div>
+                    <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="showApplyModal = false"></div>
 
-                    <div class="relative transform overflow-hidden rounded-xl bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+                    <div class="relative z-50 transform overflow-hidden rounded-xl bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
                         <div class="bg-white px-6 py-4 border-b border-gray-200">
                             <h3 class="text-lg font-medium text-gray-900">Apply Credit to Invoice</h3>
                         </div>
@@ -354,7 +335,7 @@ const voidCredit = () => {
                                     Amount to Apply
                                 </label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">KES</span>
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">{{ currencySymbol }}</span>
                                     <input
                                         v-model="applyAmount"
                                         type="number"

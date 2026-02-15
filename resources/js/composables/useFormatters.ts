@@ -1,6 +1,25 @@
+import { usePage } from '@inertiajs/vue3';
+
 /**
- * Composable for formatting currencies, dates, and numbers
- * Replaces 137+ duplicate formatting functions across the codebase
+ * Centralized composable for formatting currencies, dates, and numbers.
+ * All date/currency/number formatting in Vue components MUST use this composable.
+ *
+ * ESLint rules (no-restricted-syntax) enforce usage and prevent inline formatting:
+ * - toLocaleDateString() → Use formatDate() instead
+ * - toLocaleString() with args → Use formatMoney() or formatNumber() instead
+ * - new Intl.NumberFormat() → Use formatMoney() or formatNumber() instead
+ *
+ * Available functions:
+ * - formatMoney(value, opts?) - Format as KES currency
+ * - formatCurrency(value, opts?) - Alias for formatMoney
+ * - formatDate(date, format?) - Format date (short/long/numeric)
+ * - formatDateTime(date) - Format date with time
+ * - formatRelativeDate(date) - "2 days ago", "Tomorrow", etc.
+ * - formatRelativeTime(date) - "5 minutes ago", etc.
+ * - formatPercent(value, decimals?) - Format as percentage
+ * - formatNumber(value) - Format with thousands separator
+ * - formatFileSize(bytes) - "1.2 MB", etc.
+ * - todayAsISODate() - Returns "YYYY-MM-DD" for form defaults
  */
 
 export interface FormattersOptions {
@@ -26,12 +45,24 @@ export interface UseFormattersReturn {
     formatPercent: (value: number | null | undefined, decimals?: number) => string;
     formatNumber: (value: number | null | undefined) => string;
     formatFileSize: (bytes: number | null | undefined) => string;
+    todayAsISODate: () => string;
 }
 
 export function useFormatters(options: FormattersOptions = {}): UseFormattersReturn {
+    let sharedCurrencyCode: string | undefined;
+    try {
+        const page = usePage();
+        const shared = page.props.currency as { code: string; symbol: string } | null | undefined;
+        if (shared?.code) {
+            sharedCurrencyCode = shared.code;
+        }
+    } catch {
+        // Outside Vue component context — use default
+    }
+
     const config = {
         locale: options.locale || 'en-KE',
-        currency: options.currency || 'KES',
+        currency: options.currency || sharedCurrencyCode || 'KES',
         dateLocale: options.dateLocale || 'en-GB',
         ...options
     };
@@ -111,7 +142,7 @@ export function useFormatters(options: FormattersOptions = {}): UseFormattersRet
      * Format a number as percentage
      */
     const formatPercent = (value: number | null | undefined, decimals: number = 0): string => {
-        if (value === null || value === undefined || Number.isNaN(value)) return '-';
+        if (value === null || value === undefined || !Number.isFinite(value)) return '-';
         return `${value.toFixed(decimals)}%`;
     };
 
@@ -119,7 +150,7 @@ export function useFormatters(options: FormattersOptions = {}): UseFormattersRet
      * Format a number with thousands separator
      */
     const formatNumber = (value: number | null | undefined): string => {
-        if (value === null || value === undefined || Number.isNaN(value)) return '-';
+        if (value === null || value === undefined || !Number.isFinite(value)) return '-';
         return new Intl.NumberFormat(config.locale).format(value);
     };
 
@@ -127,11 +158,20 @@ export function useFormatters(options: FormattersOptions = {}): UseFormattersRet
      * Format file size in human-readable format
      */
     const formatFileSize = (bytes: number | null | undefined): string => {
-        if (bytes === null || bytes === undefined || bytes <= 0) return '0 B';
+        // Handle null, undefined, non-finite, zero, and negative values
+        if (bytes === null || bytes === undefined || !Number.isFinite(bytes) || bytes <= 0) {
+            return '0 B';
+        }
+
         const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
-        const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
-        return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
+
+        // Calculate the appropriate unit index and clamp to valid range
+        const rawIndex = Math.floor(Math.log(bytes) / Math.log(k));
+        const i = Math.max(0, Math.min(rawIndex, sizes.length - 1));
+
+        const value = bytes / Math.pow(k, i);
+        return `${parseFloat(value.toFixed(1))} ${sizes[i]}`;
     };
 
     /**
@@ -158,6 +198,13 @@ export function useFormatters(options: FormattersOptions = {}): UseFormattersRet
         return formatDate(date, 'short');
     };
 
+    /**
+     * Get today's date as ISO string (YYYY-MM-DD) for form defaults
+     */
+    const todayAsISODate = (): string => {
+        return new Date().toISOString().split('T')[0];
+    };
+
     return {
         formatMoney,
         formatCurrency,
@@ -167,6 +214,7 @@ export function useFormatters(options: FormattersOptions = {}): UseFormattersRet
         formatRelativeTime,
         formatPercent,
         formatNumber,
-        formatFileSize
+        formatFileSize,
+        todayAsISODate
     };
 }

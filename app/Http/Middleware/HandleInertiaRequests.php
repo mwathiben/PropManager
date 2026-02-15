@@ -2,10 +2,12 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\Currency;
 use App\Models\Invitation;
 use App\Models\Invoice;
 use App\Models\MoveOut;
 use App\Models\Notification;
+use App\Models\PaymentConfiguration;
 use App\Models\TenantInvitation;
 use App\Models\TenantMessage;
 use App\Models\TenantPaymentVerification;
@@ -49,10 +51,37 @@ class HandleInertiaRequests extends Middleware
             ],
             'impersonating' => session('impersonating') !== null,
             'impersonating_name' => session('impersonating_name'),
+            'currency' => fn () => $this->getEffectiveCurrency($request),
             'navBadges' => fn () => $this->getNavBadges($request),
             'featureAccess' => $this->getFeatureAccess($request),
             'pendingInvitations' => Inertia::defer(fn () => $this->getPendingInvitations($request)),
         ];
+    }
+
+    protected function getEffectiveCurrency(Request $request): ?array
+    {
+        $user = $request->user();
+
+        if (! $user) {
+            return null;
+        }
+
+        $landlordId = match (true) {
+            $user->isLandlord() => $user->id,
+            $user->isCaretaker(), $user->isTenant() => $user->landlord_id,
+            default => null,
+        };
+
+        if (! $landlordId) {
+            $default = Currency::default();
+
+            return ['code' => $default->value, 'symbol' => $default->symbol()];
+        }
+
+        $config = PaymentConfiguration::where('landlord_id', $landlordId)->first();
+        $currency = $config?->default_currency ?? Currency::default();
+
+        return ['code' => $currency->value, 'symbol' => $currency->symbol()];
     }
 
     /**

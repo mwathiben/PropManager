@@ -1,7 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { useErrorHandler, useFormatters, useCurrency } from '@/composables';
+import type { AdminBillingSettingsPageProps } from '@/types';
 import {
     CurrencyDollarIcon,
     Cog6ToothIcon,
@@ -11,14 +13,11 @@ import {
     CalculatorIcon
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    settings: Object,
-    billingModels: Object,
-    feeBearers: Object,
-    recentChanges: Array,
-    monthlyAnalytics: Object,
-});
+const props = defineProps<AdminBillingSettingsPageProps>();
 
+const { logError } = useErrorHandler();
+const { formatMoney: formatCurrency } = useFormatters();
+const { currencyCode } = useCurrency();
 const activeTab = ref('settings');
 
 const modelForm = useForm({
@@ -71,18 +70,12 @@ const calculatePreview = async () => {
         const data = await response.json();
         feePreview.value = data.preview;
     } catch (error) {
-        console.error('Preview calculation failed:', error);
+        logError(error, { component: 'BillingSettings', action: 'previewCalculation' });
     } finally {
         calculatingPreview.value = false;
     }
 };
 
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-    }).format(amount);
-};
 </script>
 
 <template>
@@ -272,7 +265,7 @@ const formatCurrency = (amount) => {
 
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700">Minimum Fee (KES)</label>
+                                            <label class="block text-sm font-medium text-gray-700">Minimum Fee ({{ currencyCode }})</label>
                                             <input
                                                 v-model="feeForm.minimum_fee"
                                                 type="number"
@@ -282,7 +275,7 @@ const formatCurrency = (amount) => {
                                             />
                                         </div>
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700">Maximum Fee (KES)</label>
+                                            <label class="block text-sm font-medium text-gray-700">Maximum Fee ({{ currencyCode }})</label>
                                             <input
                                                 v-model="feeForm.maximum_fee"
                                                 type="number"

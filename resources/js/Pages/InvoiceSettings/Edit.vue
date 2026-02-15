@@ -1,7 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { useCurrency } from '@/composables';
+import type { InvoiceSettingsEditPageProps } from '@/types/templates';
 import {
     Cog6ToothIcon,
     BuildingOfficeIcon,
@@ -15,9 +17,9 @@ import {
     DocumentDuplicateIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    settings: Object,
-});
+const props = defineProps<InvoiceSettingsEditPageProps>();
+
+const { currencySymbol } = useCurrency();
 
 const activeSection = ref('business');
 
@@ -138,7 +140,7 @@ const getLogoUrl = () => {
             <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     <div class="flex">
-                        <nav class="w-64 border-r border-gray-200 bg-gray-50 flex-shrink-0">
+                        <nav class="w-64 border-r border-gray-200 bg-gray-50 shrink-0">
                             <div class="p-4 space-y-1">
                                 <button
                                     v-for="section in sections"
@@ -511,7 +513,7 @@ const getLogoUrl = () => {
                                             <div>
                                                 <label class="block text-sm font-medium text-gray-700 mb-1">Admin/Processing Fee</label>
                                                 <div class="relative">
-                                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">KES</span>
+                                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">{{ currencySymbol }}</span>
                                                     <input
                                                         v-model="form.admin_fee_amount"
                                                         type="number"
@@ -526,7 +528,7 @@ const getLogoUrl = () => {
                                             <div>
                                                 <label class="block text-sm font-medium text-gray-700 mb-1">Key Deposit</label>
                                                 <div class="relative">
-                                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">KES</span>
+                                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">{{ currencySymbol }}</span>
                                                     <input
                                                         v-model="form.key_deposit_amount"
                                                         type="number"

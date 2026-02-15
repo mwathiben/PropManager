@@ -733,8 +733,8 @@
       ],
       "verification": "grep -r 'KES\\|KSh' resources/js/ returns 0 hardcoded hits (excluding enum definitions).",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["PAY-V2.1-001"]
     },
     {

@@ -53,3 +53,9 @@ export type {
     UseEchoOptions,
     UseEchoReturn
 } from './useEcho';
+
+export { useErrorHandler } from './useErrorHandler';
+export type { UseErrorHandlerReturn, ErrorContext } from './useErrorHandler';
+
+export { useCurrency } from './useCurrency';
+export type { UseCurrencyReturn } from './useCurrency';

@@ -1,18 +1,17 @@
-<script setup>
+<script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
-import { useFormatters } from '@/composables';
+import { useFormatters, useCurrency } from '@/composables';
+import type { WaterSettingsTabProps } from '@/types';
 import {
     Cog6ToothIcon,
     CurrencyDollarIcon,
     ClockIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    settings: Object,
-    rateHistory: Array,
-});
+const props = defineProps<WaterSettingsTabProps>();
 
 const { formatDate, formatCurrency } = useFormatters();
+const { currencySymbol } = useCurrency();
 
 const form = useForm({
     water_rate: props.settings?.water_rate || '',
@@ -41,7 +40,7 @@ const submit = () => {
                         <p class="text-sm text-gray-500 mb-4">Set the cost per unit of water consumed</p>
 
                         <div class="flex items-center gap-2">
-                            <span class="text-gray-500">KES</span>
+                            <span class="text-gray-500">{{ currencySymbol }}</span>
                             <input
                                 v-model.number="form.water_rate"
                                 type="number"

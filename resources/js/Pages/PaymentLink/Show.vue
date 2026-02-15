@@ -2,6 +2,7 @@
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import { useFormatters } from '@/composables';
 
 const props = defineProps<{
     invoice: {
@@ -12,6 +13,8 @@ const props = defineProps<{
         balance: number;
         status: string;
         due_date: string | null;
+        currency?: string;
+        currency_symbol?: string;
     };
     tenant: {
         name: string | null;
@@ -26,27 +29,17 @@ const props = defineProps<{
     loginUrl: string;
 }>();
 
-const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-    }).format(amount);
-};
-
-const formatDate = (dateString: string | null): string => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-KE', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-    });
-};
+const { formatMoney: formatCurrency, formatDate } = useFormatters({ currency: props.invoice.currency ?? 'KES' });
 
 const isOverdue = computed(() => {
     if (!props.invoice.due_date) return false;
-    return new Date(props.invoice.due_date) < new Date();
+    const dueDate = new Date(props.invoice.due_date);
+    const today = new Date();
+    // Normalize both dates to start of day for date-only comparison
+    dueDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    // Overdue only when today is strictly after the due date
+    return today > dueDate;
 });
 
 const landlordDisplay = computed(() => {
@@ -60,7 +53,7 @@ const landlordDisplay = computed(() => {
 
         <div class="max-w-lg mx-auto">
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div class="bg-gradient-to-r from-emerald-600 to-emerald-700 px-6 py-8 text-center text-white">
+                <div class="bg-linear-to-r from-emerald-600 to-emerald-700 px-6 py-8 text-center text-white">
                     <h1 class="text-lg font-medium opacity-90 mb-1">Amount Due</h1>
                     <p class="text-4xl font-bold">{{ formatCurrency(invoice.balance) }}</p>
                     <p class="mt-2 text-sm opacity-80">

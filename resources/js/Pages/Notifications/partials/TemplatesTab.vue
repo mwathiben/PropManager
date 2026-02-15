@@ -1,6 +1,7 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
+import { useFormatters } from '@/composables';
 import {
     PlusIcon,
     PencilSquareIcon,
@@ -11,9 +12,12 @@ import {
     CheckIcon,
     InformationCircleIcon
 } from '@heroicons/vue/24/outline';
+import type { NotificationsTemplatesTabProps } from '@/types';
 
-const props = defineProps({
-    templates: { type: Array, default: () => [] },
+const { formatDate, formatMoney } = useFormatters();
+
+const props = withDefaults(defineProps<NotificationsTemplatesTabProps>(), {
+    templates: () => [],
 });
 
 const showCreateModal = ref(false);
@@ -114,23 +118,23 @@ const openPreview = (template) => {
     previewData.value = {
         tenant_name: 'John Doe',
         unit_name: 'Unit A1',
-        rent_amount: 'KES 25,000',
+        rent_amount: formatMoney(25000),
         due_date: '5th January 2025',
-        arrears_amount: 'KES 50,000',
+        arrears_amount: formatMoney(50000),
         days_overdue: '15',
         invoice_number: 'INV-202501-0001',
-        total_amount: 'KES 27,500',
-        payment_amount: 'KES 25,000',
+        total_amount: formatMoney(27500),
+        payment_amount: formatMoney(25000),
         payment_date: '3rd January 2025',
         payment_method: 'M-Pesa',
-        old_rent: 'KES 23,000',
-        new_rent: 'KES 25,000',
+        old_rent: formatMoney(23000),
+        new_rent: formatMoney(25000),
         effective_date: '1st February 2025',
         expiry_date: '31st March 2025',
         days_remaining: '90',
         landlord_name: 'Property Manager',
         property_name: 'Sunrise Apartments',
-        current_date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+        current_date: formatDate(new Date(), 'long'),
     };
     showPreviewModal.value = true;
 };
@@ -267,9 +271,9 @@ const getTypeColor = (type) => {
         <Teleport to="body">
             <div v-if="showCreateModal" class="fixed inset-0 z-50 overflow-y-auto">
                 <div class="flex min-h-full items-center justify-center p-4">
-                    <div class="fixed inset-0 bg-gray-500/75 transition-opacity" @click="closeModal"></div>
+                    <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="closeModal"></div>
 
-                    <div class="relative bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div class="relative z-50 bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                         <div class="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 rounded-t-2xl">
                             <div class="flex items-center justify-between">
                                 <h3 class="text-lg font-semibold text-gray-900">
@@ -311,7 +315,7 @@ const getTypeColor = (type) => {
                             <!-- Placeholders Help -->
                             <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
                                 <div class="flex items-start gap-3">
-                                    <InformationCircleIcon class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                    <InformationCircleIcon class="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
                                     <div>
                                         <p class="text-sm font-medium text-blue-900">Available Placeholders</p>
                                         <p class="text-xs text-blue-700 mt-1">Click to insert into subject or body</p>
@@ -389,9 +393,9 @@ const getTypeColor = (type) => {
         <Teleport to="body">
             <div v-if="showPreviewModal && previewTemplate" class="fixed inset-0 z-50 overflow-y-auto">
                 <div class="flex min-h-full items-center justify-center p-4">
-                    <div class="fixed inset-0 bg-gray-500/75 transition-opacity" @click="showPreviewModal = false"></div>
+                    <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="showPreviewModal = false"></div>
 
-                    <div class="relative bg-white rounded-2xl shadow-xl max-w-lg w-full">
+                    <div class="relative z-50 bg-white rounded-2xl shadow-xl max-w-lg w-full">
                         <div class="border-b border-gray-100 px-6 py-4 rounded-t-2xl">
                             <div class="flex items-center justify-between">
                                 <h3 class="text-lg font-semibold text-gray-900">Template Preview</h3>

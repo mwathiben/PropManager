@@ -1,6 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
+import { useFormatters, useCurrency } from '@/composables';
+const { formatMoney: formatCurrency, todayAsISODate } = useFormatters();
+const { currencyCode, currencySymbol } = useCurrency();
 import CheckCircleIcon from '@heroicons/vue/24/outline/CheckCircleIcon';
 import BuildingOffice2Icon from '@heroicons/vue/24/outline/BuildingOffice2Icon';
 import HomeModernIcon from '@heroicons/vue/24/outline/HomeModernIcon';
@@ -30,23 +33,44 @@ import XMarkIcon from '@heroicons/vue/24/outline/XMarkIcon';
 import CalendarIcon from '@heroicons/vue/24/outline/CalendarIcon';
 import ClockIcon from '@heroicons/vue/24/outline/ClockIcon';
 import CheckCircleSolidIcon from '@heroicons/vue/24/solid/CheckCircleIcon';
+import type {
+    OnboardingProfile,
+    OnboardingUser,
+    OnboardingProperty,
+    OnboardingPaymentConfig,
+    OnboardingInvitation,
+    OnboardingVacantUnit,
+    OnboardingSummary,
+    OnboardingStepData
+} from '@/types';
 
-const props = defineProps({
-    currentStep: { type: Number, required: true },
-    totalSteps: { type: Number, required: true },
-    completedSteps: { type: Array, default: () => [] },
-    stepData: { type: Object, default: () => ({}) },
-    stepName: { type: String, required: true },
-    isOptionalStep: { type: Boolean, default: false },
-    // Step-specific props
-    profile: Object,
-    user: Object,
-    existingProperty: Object,
-    property: Object,
-    paymentConfig: Object,
-    existingInvitations: Array,
-    vacantUnits: Array,
-    summary: Object,
+const props = withDefaults(defineProps<{
+    currentStep: number;
+    totalSteps: number;
+    completedSteps?: number[];
+    stepData?: OnboardingStepData;
+    stepName: string;
+    isOptionalStep?: boolean;
+    profile?: OnboardingProfile;
+    user?: OnboardingUser;
+    existingProperty?: OnboardingProperty;
+    property?: OnboardingProperty;
+    paymentConfig?: OnboardingPaymentConfig;
+    existingInvitations?: OnboardingInvitation[];
+    vacantUnits?: OnboardingVacantUnit[];
+    summary?: OnboardingSummary;
+}>(), {
+    completedSteps: () => [],
+    stepData: () => ({}),
+    isOptionalStep: false,
+    profile: undefined,
+    user: undefined,
+    existingProperty: undefined,
+    property: undefined,
+    paymentConfig: undefined,
+    existingInvitations: () => [],
+    vacantUnits: () => [],
+    summary: undefined,
 });
 
 // Step definitions with icons and descriptions
@@ -101,7 +125,7 @@ const form = useForm({
     tenant_phone: '',
     rent_amount: props.paymentConfig?.default_rent || 20000,
     deposit_amount: props.paymentConfig?.default_rent || 20000,
-    start_date: new Date().toISOString().split('T')[0],
+    start_date: todayAsISODate(),
 });
 
 // Initialize wings on load
@@ -247,14 +271,6 @@ function completeOnboarding() {
     router.post(route('onboarding.complete'));
 }
 
-// Format currency
-function formatCurrency(amount) {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-    }).format(amount || 0);
-}
 </script>
 
 <template>
@@ -779,7 +795,7 @@ function formatCurrency(amount) {
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Default Monthly Rent *</label>
                             <div class="relative">
                                 <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                    <span class="text-gray-500 font-bold">KES</span>
+                                    <span class="text-gray-500 font-bold">{{ currencySymbol }}</span>
                                 </div>
                                 <input
                                     v-model="form.default_rent"
@@ -828,7 +844,7 @@ function formatCurrency(amount) {
 
                             <!-- Water Rate Input -->
                             <div v-if="form.water_billing_type === 'consumption'" class="mt-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Rate per Unit (KES)</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Rate per Unit ({{ currencyCode }})</label>
                                 <input
                                     v-model="form.water_unit_rate"
                                     type="number"
@@ -837,7 +853,7 @@ function formatCurrency(amount) {
                                 />
                             </div>
                             <div v-else-if="form.water_billing_type === 'flat_rate'" class="mt-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Monthly Flat Rate (KES)</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Monthly Flat Rate ({{ currencyCode }})</label>
                                 <input
                                     v-model="form.flat_water_rate"
                                     type="number"
