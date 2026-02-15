@@ -11,6 +11,7 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\URL;
 
 class PaymentReceived extends Mailable implements ShouldQueue
 {
@@ -49,6 +50,11 @@ class PaymentReceived extends Mailable implements ShouldQueue
                 'tenant' => $this->invoice->lease->tenant,
                 'unit' => $this->invoice->lease->unit,
                 'currency_symbol' => ($this->payment->currency ?? Currency::default())->symbol(),
+                'unsubscribeUrl' => URL::temporarySignedRoute(
+                    'email.preferences',
+                    now()->addDays(30),
+                    ['user' => $this->invoice->lease->tenant_id]
+                ),
             ],
         );
     }

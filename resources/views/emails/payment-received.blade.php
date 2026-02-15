@@ -1,4 +1,4 @@
-<x-mail::message>
+<x-mail::message :unsubscribeUrl="$unsubscribeUrl ?? null">
 # {{ __('emails.payment.title') }}
 
 {{ __('emails.payment.greeting', ['name' => $tenant->name]) }},

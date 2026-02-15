@@ -48,6 +48,7 @@ class OverpaymentNotification extends Mailable implements ShouldQueue
                 'overpaymentAmount' => $this->overpaymentAmount,
                 'newWalletBalance' => $this->newWalletBalance,
                 'currency_symbol' => ($this->payment->currency ?? Currency::default())->symbol(),
+                'unsubscribeUrl' => route('notifications.preferences'),
             ],
         );
     }

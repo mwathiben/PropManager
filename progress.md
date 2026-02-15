@@ -15223,3 +15223,85 @@ Fixed a silent bug where `invalidateReports()` used Redis `KEYS` pattern matchin
 - Bulk operations should suppress per-record observers and do a single invalidation at the end
 
 **PAY-V2.1-012 COMPLETE**
+
+---
+
+## Session: 2026-02-15
+**Task**: PAY-V2.1-011 — Audit and Standardize Payment Email Templates
+**Status**: COMPLETED
+
+### Work Done
+
+Published Laravel vendor mail views and customized the shared email layout to support an unsubscribe link via `@props`. Updated 5 payment Mailable classes to pass `unsubscribeUrl`. Standardized footer text across 8 templates (added ` Team` suffix). Created signed route for unauthenticated email preferences access.
+
+**Changes by layer:**
+
+**Infrastructure (shared layout):**
+- Published `resources/views/vendor/mail/` (Laravel mail theme)
+- Modified `html/message.blade.php` — added `@props(['unsubscribeUrl' => null])` and conditional unsubscribe link in footer
+- Modified `text/message.blade.php` — same unsubscribe support for plain-text variant
+
+**Signed Route:**
+- `routes/web.php` — added `GET /email/preferences` with `signed` middleware
+- `app/Http/Controllers/NotificationsController.php` — added `emailPreferences()` method (authenticates user via signed URL, redirects to preferences)
+
+**Mailable classes (unsubscribeUrl added):**
+| File | Type |
+|------|------|
+| `app/Mail/PaymentReceived.php` | Signed URL (tenant-facing) |
+| `app/Mail/InvoiceReminder.php` | Signed URL (tenant-facing) |
+| `app/Mail/PaymentVerificationApproved.php` | Signed URL (tenant-facing) |
+| `app/Mail/PaymentVerificationRejected.php` | Signed URL (tenant-facing) |
+| `app/Mail/OverpaymentNotification.php` | Plain route (landlord-facing) |
+
+**Blade templates (`:unsubscribeUrl` prop added):**
+- `resources/views/emails/payment-received.blade.php`
+- `resources/views/emails/invoice-reminder.blade.php`
+- `resources/views/emails/payment-verification-approved.blade.php`
+- `resources/views/emails/payment-verification-rejected.blade.php`
+- `resources/views/emails/overpayment-notification.blade.php`
+
+**Footer standardization (added ` Team` suffix):**
+- `resources/views/emails/deposit-refund.blade.php`
+- `resources/views/emails/invoice-sent.blade.php`
+- `resources/views/emails/rent-hike-notice.blade.php`
+- `resources/views/emails/data-export-ready.blade.php`
+- `resources/views/emails/failed-webhook-alert.blade.php`
+- `resources/views/emails/reconciliation-alert.blade.php`
+- `resources/views/emails/invoice-reminder.blade.php` (also fixed)
+- `resources/views/emails/payment-verification-approved.blade.php` (changed "Welcome home!" to "Thanks,")
+
+### Tests Created
+
+| File | Tests |
+|------|-------|
+| `tests/Unit/Mail/EmailFooterConsistencyTest.php` | 7 tests: unsubscribe link in 5 payment emails, consistent Team footer, signed URL verification |
+| `tests/Feature/Controllers/EmailPreferencesSignedRouteTest.php` | 3 tests: signed redirect, unsigned 403, expired 403 |
+
+### Verification Results
+
+| Check | Result |
+|-------|--------|
+| `php artisan test --filter=EmailFooterConsistencyTest` | 7 passed |
+| `php artisan test --filter=EmailPreferencesSignedRouteTest` | 3 passed |
+| `php artisan test --filter=EmailCurrencySymbolTest` | 13 passed (no regressions) |
+| `php artisan test --filter="Mail\|EmailPreferences"` | 56 passed, 1 skipped (pre-existing) |
+| `./vendor/bin/pint` on changed files | PASS |
+| `npm run build` | PASS |
+
+### Acceptance Criteria Verification
+
+1. **All emails use shared layout** — All 18 markdown templates use `<x-mail::message>`, which renders through the now-customized `vendor/mail/html/message.blade.php`
+2. **Consistent branding across all** — Footer text standardized to `Thanks,\n{{ config('app.name') }} Team` across all templates (except tenant-statement which intentionally uses landlord name)
+3. **Unsubscribe link present** — 5 payment emails pass `unsubscribeUrl` prop; vendor footer conditionally renders "Manage email preferences" link
+4. **Mobile responsive** — All templates use Laravel's `<x-mail::message>` which auto-generates responsive HTML
+
+### Learnings
+- Laravel anonymous Blade components support `@props` for default values — adding `@props(['unsubscribeUrl' => null])` to the vendor message template lets individual templates opt-in by passing the prop
+- Signed URLs with `URL::temporarySignedRoute()` provide secure unauthenticated email access without exposing user tokens
+- The vendor mail theme affects ALL `<x-mail::message>` emails — one change standardizes the layout globally
+
+### Next Steps
+- PAY-V2.1-013 (Implement Hybrid Real-Time Updates) — last remaining task
+
+**PAY-V2.1-011 COMPLETE**

@@ -39,5 +39,5 @@ View Lease Details
 If you have any questions or concerns about this adjustment, please don't hesitate to contact your landlord.
 
 Thanks,<br>
-{{ config('app.name') }}
+{{ config('app.name') }} Team
 </x-mail::message>

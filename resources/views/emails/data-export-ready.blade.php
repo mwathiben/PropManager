@@ -22,7 +22,7 @@ This export is provided in compliance with:
 If you did not request this export or have any questions, please contact us immediately.
 
 Thanks,<br>
-{{ config('app.name') }}
+{{ config('app.name') }} Team
 
 <x-mail::subcopy>
 For security reasons, we recommend downloading your data promptly and then deleting the export from our servers by not accessing the link after you have your copy.

@@ -38,5 +38,5 @@ View Reconciliation
 </x-mail::button>
 
 Thanks,<br>
-{{ config('app.name') }}
+{{ config('app.name') }} Team
 </x-mail::message>

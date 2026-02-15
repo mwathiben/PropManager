@@ -1,4 +1,4 @@
-<x-mail::message>
+<x-mail::message :unsubscribeUrl="$unsubscribeUrl ?? null">
 # Payment Verification Issue
 
 Dear {{ $tenant->name }},

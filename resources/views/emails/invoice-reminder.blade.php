@@ -1,4 +1,4 @@
-<x-mail::message>
+<x-mail::message :unsubscribeUrl="$unsubscribeUrl ?? null">
 @if($isOverdue)
 # Payment Overdue
 @else
@@ -52,5 +52,5 @@ If you have already made this payment, please disregard this notice.
 If you have any questions, please contact your landlord.
 
 Thanks,<br>
-{{ config('app.name') }}
+{{ config('app.name') }} Team
 </x-mail::message>

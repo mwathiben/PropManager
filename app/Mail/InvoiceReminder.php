@@ -10,6 +10,7 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\URL;
 
 class InvoiceReminder extends Mailable implements ShouldQueue
 {
@@ -62,6 +63,11 @@ class InvoiceReminder extends Mailable implements ShouldQueue
                 'unitNumber' => $unit->unit_number,
                 'invoiceUrl' => route('invoices.show', $this->invoice),
                 'currency_symbol' => ($this->invoice->currency ?? Currency::default())->symbol(),
+                'unsubscribeUrl' => URL::temporarySignedRoute(
+                    'email.preferences',
+                    now()->addDays(30),
+                    ['user' => $tenant->id]
+                ),
             ],
         );
     }

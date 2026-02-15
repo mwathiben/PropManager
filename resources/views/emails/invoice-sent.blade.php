@@ -49,5 +49,5 @@ If you have already made this payment, please disregard this notice.
 If you have any questions about this invoice, please contact your landlord.
 
 Thanks,<br>
-{{ config('app.name') }}
+{{ config('app.name') }} Team
 </x-mail::message>

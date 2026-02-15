@@ -1,4 +1,4 @@
-<x-mail::message>
+<x-mail::message :unsubscribeUrl="$unsubscribeUrl ?? null">
 # Welcome to Your New Home!
 
 Dear {{ $tenant->name }},
@@ -29,6 +29,6 @@ Go to Dashboard
 
 If you have any questions, please contact your property manager.
 
-Welcome home!<br>
+Thanks,<br>
 {{ config('app.name') }} Team
 </x-mail::message>

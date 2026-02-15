@@ -1,4 +1,4 @@
-<x-mail::message>
+<x-mail::message :unsubscribeUrl="$unsubscribeUrl ?? null">
 # Tenant Overpayment Notice
 
 A tenant has made an overpayment that has been credited to their wallet balance.

@@ -9,6 +9,7 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\URL;
 
 class PaymentVerificationRejected extends Mailable implements ShouldQueue
 {
@@ -40,6 +41,11 @@ class PaymentVerificationRejected extends Mailable implements ShouldQueue
                 'rejectionReason' => $this->verification->rejection_reason,
                 'resubmitUrl' => route('tenant.payment-required'),
                 'currency_symbol' => $lease->unit->building->getEffectiveCurrency()->symbol(),
+                'unsubscribeUrl' => URL::temporarySignedRoute(
+                    'email.preferences',
+                    now()->addDays(30),
+                    ['user' => $lease->tenant_id]
+                ),
             ],
         );
     }

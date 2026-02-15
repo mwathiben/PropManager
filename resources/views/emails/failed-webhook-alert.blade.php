@@ -22,5 +22,5 @@ This error is classified as **{{ $errorClass }}** and requires manual review.
 @endif
 
 Thanks,<br>
-{{ config('app.name') }}
+{{ config('app.name') }} Team
 </x-mail::message>

@@ -40,5 +40,5 @@ Your refund will be processed within 7-14 business days.
 If you have any questions, please don't hesitate to contact us.
 
 Thanks,<br>
-{{ config('app.name') }}
+{{ config('app.name') }} Team
 </x-mail::message>
