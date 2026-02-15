@@ -37,6 +37,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -301,9 +302,19 @@ class NotificationsController extends Controller
     public function emailPreferences(Request $request): RedirectResponse
     {
         $user = User::findOrFail($request->query('user'));
+
+        if ($user->role !== 'tenant') {
+            Log::channel('security')->warning('Email preferences: non-tenant user ID in signed URL', [
+                'user_id' => $user->id,
+                'role' => $user->role,
+                'ip' => $request->ip(),
+            ]);
+            abort(403, 'Invalid email preferences link.');
+        }
+
         Auth::login($user);
 
-        return redirect()->route('notifications.preferences');
+        return redirect()->route('profile.edit', ['tab' => 'notifications']);
     }
 
     public function getPreferences(): JsonResponse

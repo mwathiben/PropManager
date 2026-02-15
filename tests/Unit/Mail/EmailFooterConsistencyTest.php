@@ -45,6 +45,32 @@ class EmailFooterConsistencyTest extends TestCase
         return [$lease, $tenant, $unit];
     }
 
+    private function createPaymentVerification(Building $building, string $status): TenantPaymentVerification
+    {
+        [$lease] = $this->createLeaseWithTenant($building);
+
+        $attributes = [
+            'lease_id' => $lease->id,
+            'landlord_id' => $building->landlord_id,
+            'status' => $status,
+            'deposit_required' => 25000,
+            'first_rent_required' => 25000,
+            'other_charges' => 0,
+            'total_required' => 50000,
+        ];
+
+        if ($status === TenantPaymentVerification::STATUS_PAYMENT_VERIFIED) {
+            $attributes['amount_paid'] = 50000;
+            $attributes['verified_at'] = now();
+        }
+
+        if ($status === TenantPaymentVerification::STATUS_REJECTED) {
+            $attributes['rejection_reason'] = 'Invalid payment proof';
+        }
+
+        return TenantPaymentVerification::create($attributes);
+    }
+
     public function test_payment_received_contains_unsubscribe_link(): void
     {
         $building = $this->createBuilding();
@@ -87,18 +113,7 @@ class EmailFooterConsistencyTest extends TestCase
     public function test_payment_verification_approved_contains_unsubscribe_link(): void
     {
         $building = $this->createBuilding();
-        [$lease] = $this->createLeaseWithTenant($building);
-        $verification = TenantPaymentVerification::create([
-            'lease_id' => $lease->id,
-            'landlord_id' => $building->landlord_id,
-            'status' => TenantPaymentVerification::STATUS_PAYMENT_VERIFIED,
-            'deposit_required' => 25000,
-            'first_rent_required' => 25000,
-            'other_charges' => 0,
-            'total_required' => 50000,
-            'amount_paid' => 50000,
-            'verified_at' => now(),
-        ]);
+        $verification = $this->createPaymentVerification($building, TenantPaymentVerification::STATUS_PAYMENT_VERIFIED);
 
         $mailable = new PaymentVerificationApproved($verification);
 
@@ -108,24 +123,14 @@ class EmailFooterConsistencyTest extends TestCase
     public function test_payment_verification_rejected_contains_unsubscribe_link(): void
     {
         $building = $this->createBuilding();
-        [$lease] = $this->createLeaseWithTenant($building);
-        $verification = TenantPaymentVerification::create([
-            'lease_id' => $lease->id,
-            'landlord_id' => $building->landlord_id,
-            'status' => TenantPaymentVerification::STATUS_REJECTED,
-            'deposit_required' => 25000,
-            'first_rent_required' => 25000,
-            'other_charges' => 0,
-            'total_required' => 50000,
-            'rejection_reason' => 'Invalid payment proof',
-        ]);
+        $verification = $this->createPaymentVerification($building, TenantPaymentVerification::STATUS_REJECTED);
 
         $mailable = new PaymentVerificationRejected($verification);
 
         $mailable->assertSeeInHtml('Manage email preferences');
     }
 
-    public function test_overpayment_notification_contains_preferences_link(): void
+    public function test_overpayment_notification_contains_settings_link(): void
     {
         $building = $this->createBuilding();
         [$lease, $tenant, $unit] = $this->createLeaseWithTenant($building);
@@ -147,6 +152,7 @@ class EmailFooterConsistencyTest extends TestCase
         $mailable = new OverpaymentNotification($payment, $lease, $tenant, 5000, 5000);
 
         $mailable->assertSeeInHtml('Manage email preferences');
+        $mailable->assertSeeInHtml('notifications/settings');
     }
 
     public function test_all_payment_emails_have_consistent_team_footer(): void
@@ -170,10 +176,15 @@ class EmailFooterConsistencyTest extends TestCase
 
         $appName = config('app.name');
 
+        $approvedVerification = $this->createPaymentVerification($building, TenantPaymentVerification::STATUS_PAYMENT_VERIFIED);
+        $rejectedVerification = $this->createPaymentVerification($building, TenantPaymentVerification::STATUS_REJECTED);
+
         $mailables = [
             new PaymentReceived($payment, $invoice),
             new InvoiceReminder($invoice),
             new OverpaymentNotification($payment, $lease, $tenant, 500, 500),
+            new PaymentVerificationApproved($approvedVerification),
+            new PaymentVerificationRejected($rejectedVerification),
         ];
 
         foreach ($mailables as $mailable) {

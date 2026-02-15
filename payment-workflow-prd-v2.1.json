@@ -533,7 +533,7 @@
       "verification": "Send each email type; verify consistent appearance.",
       "estimated_effort": "small",
       "passes": true,
-      "attempt_count": 1
+      "attempt_count": 2
     },
     {
       "id": "PAY-V2.1-012",

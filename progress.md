@@ -15305,3 +15305,61 @@ Published Laravel vendor mail views and customized the shared email layout to su
 - PAY-V2.1-013 (Implement Hybrid Real-Time Updates) — last remaining task
 
 **PAY-V2.1-011 COMPLETE**
+
+---
+
+## Session: 2026-02-15 — PAY-V2.1-011 Security Remediation
+**Task**: PAY-V2.1-011 - Security hardening of email template implementation
+**Status**: COMPLETED
+**Attempts**: 2 (remediation of attempt 1)
+
+### Issues Found (Tracer Bullet Audit)
+
+| Issue | Severity | Description |
+|-------|----------|-------------|
+| Privilege escalation | CRITICAL | `emailPreferences()` called `Auth::login()` with no role validation — any user ID in signed URL got full session |
+| No rate limiting | HIGH | Signed email route had no throttle middleware, unlike all other public routes |
+| Bad redirect | MEDIUM | Redirected to `notifications.preferences` which returns JSON, not an Inertia page |
+| OverpaymentNotification URL | MEDIUM | Used `route('notifications.preferences')` (JSON endpoint) instead of settings page |
+| BulkPaymentProcessor bug | HIGH | `findOrCreateArchivedTenant` checked `$t->unit_id` on User model (field doesn't exist), breaking name-only tenant matching |
+
+### Work Done
+
+1. **Security fix**: Added role guard (`$user->role !== 'tenant'`), security logging to `security` channel, correct redirect to `profile.edit`
+2. **Rate limiting**: Added `throttle:invitation` (5/min by IP) middleware to signed route
+3. **OverpaymentNotification**: Changed `unsubscribeUrl` from `route('notifications.preferences')` to `route('notifications.settings')`
+4. **BulkPaymentProcessor fix**: Removed bogus `($t->unit_id ?? null) === $unitId` check — User model has no `unit_id` field
+5. **Tests**: Added 4 security tests (landlord 403, admin 403, caretaker 403, nonexistent user 404), updated redirect assertion, updated footer consistency test
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `app/Http/Controllers/NotificationsController.php` | Role guard, security logging, redirect fix |
+| `app/Mail/OverpaymentNotification.php` | Fixed `unsubscribeUrl` to settings page |
+| `app/Services/Payment/BulkPaymentProcessor.php` | Removed broken `unit_id` check on User model |
+| `routes/web.php` | Added `throttle:invitation` to signed route |
+| `tests/Feature/Controllers/EmailPreferencesSignedRouteTest.php` | Updated redirect, added 4 security tests |
+| `tests/Unit/Mail/EmailFooterConsistencyTest.php` | Updated overpayment assertion |
+
+### Verification Results
+
+| Check | Result |
+|-------|--------|
+| `php artisan test --filter=EmailPreferencesSignedRouteTest` | 7 passed (14 assertions) |
+| `php artisan test --filter=EmailFooterConsistencyTest` | 7 passed (12 assertions) |
+| `php artisan test --filter=BulkPaymentProcessorTest` | 16 passed (48 assertions) |
+| `php artisan test` (full suite) | 1457 passed, 0 failed, 13 skipped |
+| `./vendor/bin/pint --test` | PASS |
+| `npm run build` | PASS |
+| `phpmd` on changed files | No violations |
+| Deslop review | No AI slop detected |
+
+### Learnings
+- Tracer bullet audits catch critical security issues that unit tests alone miss
+- Signed URL routes need the same security discipline as other public routes (rate limiting, role validation)
+- User model attributes should never be assumed — always verify the schema
+- Bug cascades: one broken check (unit_id on User) caused two test failures (tenant reuse + lease expansion)
+
+### Next Steps
+- PAY-V2.1-013 (Implement Hybrid Real-Time Updates) — last remaining task

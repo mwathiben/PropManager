@@ -121,7 +121,7 @@ Route::get('/units/{unit}/detail', [DashboardController::class, 'unitDetail'])
 // --- SIGNED EMAIL ROUTES (no auth required) ---
 Route::get('/email/preferences', [\App\Http\Controllers\NotificationsController::class, 'emailPreferences'])
     ->name('email.preferences')
-    ->middleware('signed');
+    ->middleware(['signed', 'throttle:invitation']);
 
 // --- AUTHENTICATED ROUTES GROUP ---
 Route::middleware('auth')->group(function () {

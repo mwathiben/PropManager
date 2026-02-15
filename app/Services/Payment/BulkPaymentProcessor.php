@@ -264,11 +264,12 @@ class BulkPaymentProcessor
             return;
         }
 
-        Log::warning('Wallet credit could not be applied: no lease found', [
-            'tenant_id' => $paymentData['tenant_id'] ?? null,
-            'reference' => $paymentData['reference'] ?? null,
-            'wallet_credit' => $walletCredit,
-        ]);
+        throw new \RuntimeException(sprintf(
+            'Wallet credit could not be applied: no lease found (tenant_id: %s, reference: %s, wallet_credit: %s)',
+            $paymentData['tenant_id'] ?? 'null',
+            $paymentData['reference'] ?? 'null',
+            $walletCredit,
+        ));
     }
 
     private function resolveLeaseForWalletCredit(

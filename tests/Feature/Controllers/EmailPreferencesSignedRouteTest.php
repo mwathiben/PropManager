@@ -13,7 +13,7 @@ class EmailPreferencesSignedRouteTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_signed_url_redirects_to_preferences(): void
+    public function test_signed_url_redirects_to_profile_notifications(): void
     {
         $user = User::factory()->create(['role' => 'tenant']);
 
@@ -25,7 +25,7 @@ class EmailPreferencesSignedRouteTest extends TestCase
 
         $response = $this->get($signedUrl);
 
-        $response->assertRedirect(route('notifications.preferences'));
+        $response->assertRedirect(route('profile.edit', ['tab' => 'notifications']));
         $this->assertAuthenticatedAs($user);
     }
 
@@ -51,5 +51,70 @@ class EmailPreferencesSignedRouteTest extends TestCase
         $response = $this->get($signedUrl);
 
         $response->assertForbidden();
+    }
+
+    public function test_signed_url_with_landlord_user_returns_403(): void
+    {
+        $landlord = User::factory()->create(['role' => 'landlord']);
+
+        $signedUrl = URL::temporarySignedRoute(
+            'email.preferences',
+            now()->addDays(30),
+            ['user' => $landlord->id]
+        );
+
+        $response = $this->get($signedUrl);
+
+        $response->assertForbidden();
+        $this->assertGuest();
+    }
+
+    public function test_signed_url_with_admin_user_returns_403(): void
+    {
+        $admin = User::factory()->create(['role' => 'super_admin']);
+
+        $signedUrl = URL::temporarySignedRoute(
+            'email.preferences',
+            now()->addDays(30),
+            ['user' => $admin->id]
+        );
+
+        $response = $this->get($signedUrl);
+
+        $response->assertForbidden();
+        $this->assertGuest();
+    }
+
+    public function test_signed_url_with_caretaker_user_returns_403(): void
+    {
+        $landlord = User::factory()->create(['role' => 'landlord']);
+        $caretaker = User::factory()->create([
+            'role' => 'caretaker',
+            'landlord_id' => $landlord->id,
+        ]);
+
+        $signedUrl = URL::temporarySignedRoute(
+            'email.preferences',
+            now()->addDays(30),
+            ['user' => $caretaker->id]
+        );
+
+        $response = $this->get($signedUrl);
+
+        $response->assertForbidden();
+        $this->assertGuest();
+    }
+
+    public function test_signed_url_with_nonexistent_user_returns_404(): void
+    {
+        $signedUrl = URL::temporarySignedRoute(
+            'email.preferences',
+            now()->addDays(30),
+            ['user' => 999999]
+        );
+
+        $response = $this->get($signedUrl);
+
+        $response->assertNotFound();
     }
 }
