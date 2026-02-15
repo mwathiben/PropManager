@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useForm, router } from '@inertiajs/vue3';
-import { useTabFilters } from '@/composables';
+import { useTabFilters, useFormatters, useCurrency } from '@/composables';
 import { Pagination, ExportDropdown } from '@/Components/Finances';
 import {
     PlusIcon,
@@ -65,6 +65,9 @@ const props = withDefaults(defineProps<Props>(), {
     stats: () => ({}),
 });
 
+const { formatMoney: formatCurrency, formatDate, todayAsISODate } = useFormatters();
+const { currencySymbol } = useCurrency();
+
 const activeTab = ref('expenses');
 const showExpenseForm = ref(false);
 const editingExpense = ref(null);
@@ -103,7 +106,7 @@ const expenseForm = useForm({
     unit_id: null,
     description: '',
     amount: '',
-    expense_date: new Date().toISOString().split('T')[0],
+    expense_date: todayAsISODate(),
     payment_method: '',
     reference: '',
     notes: '',
@@ -148,24 +151,6 @@ const categoryColors = [
     '#EC4899', '#6B7280', '#14B8A6', '#F97316', '#6366F1',
 ];
 
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-    }).format(amount || 0);
-};
-
-const formatDate = (date) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString('en-KE', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-    });
-};
-
-
 const openExpenseForm = (expense = null) => {
     editingExpense.value = expense;
     if (expense) {
@@ -184,7 +169,7 @@ const openExpenseForm = (expense = null) => {
         expenseForm.recurring_frequency = expense.recurring_frequency;
     } else {
         expenseForm.reset();
-        expenseForm.expense_date = new Date().toISOString().split('T')[0];
+        expenseForm.expense_date = todayAsISODate();
     }
     showExpenseForm.value = true;
 };
@@ -492,7 +477,7 @@ const executeDelete = () => {
                             <div>
                                 <label class="block text-xs font-medium text-gray-700 mb-1">Amount *</label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-2 text-gray-400">Ksh</span>
+                                    <span class="absolute left-3 top-2 text-gray-400">{{ currencySymbol }}</span>
                                     <input
                                         v-model.number="expenseForm.amount"
                                         type="number"
@@ -953,8 +938,8 @@ const executeDelete = () => {
 
         <div v-if="showDeleteConfirm" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex min-h-screen items-center justify-center px-4">
-                <div class="fixed inset-0 bg-black/50" @click="showDeleteConfirm = false"></div>
-                <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showDeleteConfirm = false"></div>
+                <div class="relative z-50 bg-white rounded-xl shadow-xl max-w-md w-full p-6">
                     <h3 class="text-lg font-semibold text-gray-900">Delete {{ deleteType }}</h3>
                     <p class="mt-2 text-sm text-gray-500">
                         Are you sure you want to delete this {{ deleteType }}? This action cannot be undone.

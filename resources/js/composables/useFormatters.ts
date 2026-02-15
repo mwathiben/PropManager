@@ -10,7 +10,7 @@ import { usePage } from '@inertiajs/vue3';
  * - new Intl.NumberFormat() → Use formatMoney() or formatNumber() instead
  *
  * Available functions:
- * - formatMoney(value, opts?) - Format as KES currency
+ * - formatMoney(value, opts?) - Format as currency (uses shared currency or KES default)
  * - formatCurrency(value, opts?) - Alias for formatMoney
  * - formatDate(date, format?) - Format date (short/long/numeric)
  * - formatDateTime(date) - Format date with time
@@ -68,7 +68,7 @@ export function useFormatters(options: FormattersOptions = {}): UseFormattersRet
     };
 
     /**
-     * Format a value as currency (KES by default)
+     * Format a value as currency (uses shared currency or KES default)
      */
     const formatMoney = (value: number | null | undefined, opts: FormatMoneyOptions = {}): string => {
         if (value === null || value === undefined || Number.isNaN(value)) return '-';

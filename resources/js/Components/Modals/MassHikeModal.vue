@@ -1,15 +1,14 @@
-<script setup>
+<script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import { useFormatters, useCurrency } from '@/composables';
 import Modal from '@/Components/Modal.vue';
+import type { MassHikeModalProps } from '@/types';
 
-const props = defineProps({
-    show: Boolean,
-    buildingName: String,
-    occupiedUnits: Number,
-    unitIds: {
-        type: Array,
-        default: () => []
-    }
+const { todayAsISODate } = useFormatters();
+const { currencySymbol } = useCurrency();
+
+const props = withDefaults(defineProps<MassHikeModalProps>(), {
+    unitIds: () => [],
 });
 
 const emit = defineEmits(['close']);
@@ -18,7 +17,7 @@ const form = useForm({
     unit_ids: [],
     adjustment_type: 'percentage',
     value: 10,
-    effective_date: new Date().toISOString().substr(0, 10),
+    effective_date: todayAsISODate(),
     reason: 'Annual Review'
 });
 
@@ -50,7 +49,7 @@ const close = () => {
                     <label class="block text-sm font-medium text-gray-700">Adjustment Type</label>
                     <select v-model="form.adjustment_type" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
                         <option value="percentage">Percentage Increase (%)</option>
-                        <option value="fixed">Fixed Amount (Ksh)</option>
+                        <option value="fixed">Fixed Amount ({{ currencySymbol }})</option>
                     </select>
                 </div>
 

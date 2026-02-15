@@ -1,7 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import { useFormatters, useCurrency } from '@/composables';
+import type { LeasesCreatePageProps } from '@/types/finances';
 import {
     EnvelopeIcon,
     CheckCircleIcon,
@@ -9,16 +11,12 @@ import {
     ChatBubbleLeftRightIcon
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    unit: Object,
-    smsConfigured: {
-        type: Boolean,
-        default: false
-    },
-    whatsappConfigured: {
-        type: Boolean,
-        default: false
-    }
+const { formatMoney, todayAsISODate } = useFormatters();
+const { currencySymbol } = useCurrency();
+
+const props = withDefaults(defineProps<LeasesCreatePageProps>(), {
+    smsConfigured: false,
+    whatsappConfigured: false,
 });
 
 // Form for sending tenant invitation
@@ -31,7 +29,7 @@ const form = useForm({
     rent_amount: props.unit.target_rent || 0,
     service_charge: 0,
     deposit_amount: props.unit.target_rent || 0,
-    start_date: new Date().toISOString().substr(0, 10),
+    start_date: todayAsISODate(),
     end_date: ''
 });
 
@@ -94,7 +92,7 @@ const getChannelLabel = (channel) => {
                 <!-- Success Message -->
                 <div v-if="invitationSent" class="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
                     <div class="flex items-start gap-3">
-                        <CheckCircleIcon class="w-6 h-6 text-green-500 flex-shrink-0" />
+                        <CheckCircleIcon class="w-6 h-6 text-green-500 shrink-0" />
                         <div>
                             <h3 class="text-sm font-medium text-green-800">Invitation Sent!</h3>
                             <p class="mt-1 text-sm text-green-700">
@@ -202,7 +200,7 @@ const getChannelLabel = (channel) => {
 
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700">
-                                        Monthly Rent (Ksh) <span class="text-red-500">*</span>
+                                        Monthly Rent ({{ currencySymbol }}) <span class="text-red-500">*</span>
                                     </label>
                                     <div class="mt-1 relative rounded-md shadow-sm">
                                         <input
@@ -218,7 +216,7 @@ const getChannelLabel = (channel) => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">Service Charge (Ksh)</label>
+                                    <label class="block text-sm font-medium text-gray-700">Service Charge ({{ currencySymbol }})</label>
                                     <div class="mt-1 relative rounded-md shadow-sm">
                                         <input
                                             v-model="form.service_charge"
@@ -234,7 +232,7 @@ const getChannelLabel = (channel) => {
 
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700">
-                                        Security Deposit (Ksh) <span class="text-red-500">*</span>
+                                        Security Deposit ({{ currencySymbol }}) <span class="text-red-500">*</span>
                                     </label>
                                     <div class="mt-1 relative rounded-md shadow-sm">
                                         <input
@@ -254,7 +252,7 @@ const getChannelLabel = (channel) => {
                             <!-- TOTALS PREVIEW -->
                             <div class="bg-gray-50 rounded-lg p-4 flex justify-between items-center border border-gray-200">
                                 <span class="text-sm font-medium text-gray-500">Total Due for Move-In:</span>
-                                <span class="text-xl font-bold text-gray-900">Ksh {{ totalMoveInCost.toLocaleString() }}</span>
+                                <span class="text-xl font-bold text-gray-900">{{ formatMoney(totalMoveInCost) }}</span>
                             </div>
                         </div>
 

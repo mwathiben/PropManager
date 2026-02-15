@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
@@ -8,7 +8,14 @@ import SlideOutPanel from '@/Components/SlideOutPanel.vue';
 import ActionItemCard from '@/Components/ActionItemCard.vue';
 import MetricCard from '@/Components/MetricCard.vue';
 import Dropdown from '@/Components/Dropdown.vue';
-import { useFormatters } from '@/composables';
+import { useFormatters, useCurrency } from '@/composables';
+const { todayAsISODate } = useFormatters();
+const { currencySymbol } = useCurrency();
+import type {
+    BuildingsDashboardPageProps,
+    DashboardUnit,
+    DashboardPayment,
+} from '@/types';
 import {
     UserGroupIcon,
     WrenchScrewdriverIcon,
@@ -39,32 +46,16 @@ import {
     XMarkIcon
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    property: Object,
-    buildings: Array,
-    activeBuilding: Object,
-    units: Array,
-    actionItems: Object,
-    financialMetrics: Object,
-    periodComparison: Object,
-    arrearsAging: Object,
-    stats: Object,
-    recentPayments: Array,
-    recentTickets: Array,
-    expiringLeases: Array,
-    filters: Object,
-    availableFloors: Array,
-    availableUnitTypes: Array,
-});
+const props = defineProps<BuildingsDashboardPageProps>();
 
 // --- STATE ---
-const selectedUnit = ref(null);
+const selectedUnit = ref<DashboardUnit | null>(null);
 const showAddWingModal = ref(false);
 const showProfileModal = ref(false);
 const showMassHikeModal = ref(false);
 const showPaymentPanel = ref(false);
-const selectedPayment = ref(null);
-const viewMode = ref('grid'); // 'grid' or 'list'
+const selectedPayment = ref<DashboardPayment | null>(null);
+const viewMode = ref<'grid' | 'list'>('grid');
 
 // --- FORMS ---
 const wingForm = useForm({
@@ -77,7 +68,7 @@ const massHikeForm = useForm({
     unit_ids: [],
     adjustment_type: 'percentage',
     value: 10,
-    effective_date: new Date().toISOString().substr(0, 10),
+    effective_date: todayAsISODate(),
     reason: 'Annual Review'
 });
 
@@ -888,9 +879,9 @@ const clearAllFilters = () => {
         <!-- ADD WING MODAL -->
         <div v-if="showAddWingModal" class="fixed inset-0 z-50 overflow-y-auto">
              <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                <div class="fixed inset-0 bg-gray-900 bg-opacity-50 transition-opacity backdrop-blur-sm" @click="showAddWingModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity backdrop-blur-sm" @click="showAddWingModal = false"></div>
                 <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-                <div class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-gray-100">
+                <div class="relative z-50 inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-gray-100">
                     <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                         <h3 class="text-lg font-bold text-gray-900 mb-4">Add New Wing / Block</h3>
                         <form @submit.prevent="submitWing" class="space-y-4">
@@ -931,7 +922,7 @@ const clearAllFilters = () => {
                         <label class="block text-sm font-medium text-gray-700">Adjustment Type</label>
                         <select v-model="massHikeForm.adjustment_type" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
                             <option value="percentage">Percentage Increase (%)</option>
-                            <option value="fixed">Fixed Amount (Ksh)</option>
+                            <option value="fixed">Fixed Amount ({{ currencySymbol }})</option>
                         </select>
                     </div>
 

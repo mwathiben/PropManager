@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useForm, router } from '@inertiajs/vue3';
+import { useFormatters, useCurrency } from '@/composables';
 import {
     PlusIcon,
     PencilSquareIcon,
@@ -48,6 +49,9 @@ const props = withDefaults(defineProps<Props>(), {
     buildings: () => [],
     stats: () => ({}),
 });
+
+const { formatMoney: formatCurrency } = useFormatters();
+const { currencySymbol } = useCurrency();
 
 const showForm = ref(false);
 const editingPolicy = ref(null);
@@ -172,13 +176,6 @@ const deletePolicy = () => {
     });
 };
 
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-    }).format(amount || 0);
-};
 </script>
 
 <template>
@@ -307,7 +304,7 @@ const formatCurrency = (amount) => {
                                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                             >
                                 <option value="percentage">Percentage (%)</option>
-                                <option value="flat_amount">Flat Amount (Ksh)</option>
+                                <option value="flat_amount">Flat Amount ({{ currencySymbol }})</option>
                             </select>
                         </div>
                         <div v-if="form.fee_type === 'percentage'">
@@ -328,7 +325,7 @@ const formatCurrency = (amount) => {
                         <div v-else>
                             <label class="block text-xs font-medium text-gray-700 mb-1">Fee Amount *</label>
                             <div class="relative">
-                                <span class="absolute left-3 top-2 text-gray-400">Ksh</span>
+                                <span class="absolute left-3 top-2 text-gray-400">{{ currencySymbol }}</span>
                                 <input
                                     v-model.number="form.fee_amount"
                                     type="number"
@@ -342,7 +339,7 @@ const formatCurrency = (amount) => {
                         <div>
                             <label class="block text-xs font-medium text-gray-700 mb-1">Max Fee Cap (Optional)</label>
                             <div class="relative">
-                                <span class="absolute left-3 top-2 text-gray-400">Ksh</span>
+                                <span class="absolute left-3 top-2 text-gray-400">{{ currencySymbol }}</span>
                                 <input
                                     v-model.number="form.max_fee_cap"
                                     type="number"
@@ -483,8 +480,8 @@ const formatCurrency = (amount) => {
 
         <div v-if="showDeleteConfirm" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex min-h-screen items-center justify-center px-4">
-                <div class="fixed inset-0 bg-black/50" @click="showDeleteConfirm = false"></div>
-                <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showDeleteConfirm = false"></div>
+                <div class="relative z-50 bg-white rounded-xl shadow-xl max-w-md w-full p-6">
                     <h3 class="text-lg font-semibold text-gray-900">Delete Policy</h3>
                     <p class="mt-2 text-sm text-gray-500">
                         Are you sure you want to delete "{{ policyToDelete?.name }}"? This action cannot be undone.
