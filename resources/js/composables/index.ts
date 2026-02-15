@@ -59,3 +59,6 @@ export type { UseErrorHandlerReturn, ErrorContext } from './useErrorHandler';
 
 export { useCurrency } from './useCurrency';
 export type { UseCurrencyReturn } from './useCurrency';
+
+export { usePaymentForm } from './usePaymentForm';
+export type { UsePaymentFormReturn } from './usePaymentForm';

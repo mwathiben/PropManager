@@ -8,6 +8,7 @@ enum PaymentMethod: string
     case BankTransfer = 'bank_transfer';
     case MobileMoney = 'mobile_money';
     case Paystack = 'paystack';
+    case IntaSendMpesa = 'intasend_mpesa';
 
     public function label(): string
     {
@@ -16,6 +17,7 @@ enum PaymentMethod: string
             self::BankTransfer => 'Bank Transfer',
             self::MobileMoney => 'M-Pesa',
             self::Paystack => 'Paystack (Online)',
+            self::IntaSendMpesa => 'M-Pesa (IntaSend)',
         };
     }
 

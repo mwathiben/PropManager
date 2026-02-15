@@ -15,3 +15,4 @@ export { default as Pagination } from '@/Components/Pagination.vue';
 export { default as ExportDropdown } from './ExportDropdown.vue';
 export { default as ModalLoadingPlaceholder } from './ModalLoadingPlaceholder.vue';
 export { default as TabLoadingPlaceholder } from './TabLoadingPlaceholder.vue';
+export { default as PaymentMethodSelector } from './PaymentMethodSelector.vue';

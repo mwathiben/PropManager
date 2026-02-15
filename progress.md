@@ -15107,3 +15107,46 @@ Replaced all hardcoded `KES`/`KSh` currency references in 8 PHP service files wi
 | Grep: user-facing hardcoded KES in app/Services/ | 0 hits |
 
 **PAY-V2.1-017 COMPLETE**
+
+---
+
+## Session: 2026-02-15
+**Task**: PAY-V2.1-010 — Create Shared Payment Form Composable
+**Status**: COMPLETED
+
+### Work Done
+
+**Root cause**: `intasend_mpesa` was missing from both the PHP `PaymentMethod` enum and TypeScript `PaymentMethod` type, causing inconsistent payment method lists across 3+ Vue components and 2 controller methods with hardcoded arrays.
+
+**Created (2 files):**
+- `resources/js/composables/usePaymentForm.ts` — Factory composable returning independent form state, validation, reset, setFullAmount. Uses `todayAsISODate()` from `useFormatters`.
+- `resources/js/Components/Finances/PaymentMethodSelector.vue` — Dual-mode (dropdown/card) payment method selector with v-model, internal icon map, error states.
+
+**Modified (9 files):**
+- `app/Enums/PaymentMethod.php` — Added `IntaSendMpesa = 'intasend_mpesa'` case + label
+- `app/Http/Controllers/PaymentController.php` — Replaced 2 inconsistent hardcoded arrays with `PaymentMethod::options()`
+- `resources/js/types/finances.d.ts` — Added `intasend_mpesa` to union type + `PaymentMethodOption` interface
+- `resources/js/composables/index.ts` — Barrel export for `usePaymentForm`
+- `resources/js/Components/Finances/index.ts` — Barrel export for `PaymentMethodSelector`
+- `resources/js/Pages/Finances/modals/RecordPaymentModal.vue` — Adopted composable + selector, removed hardcoded 4-method array
+- `resources/js/Pages/Finances/Payments/Record.vue` — Adopted composable + selector, extracted `isUnallocated` to separate ref
+- `resources/js/Pages/TenantFinances/Pay.vue` — Adopted card-mode selector, removed local `methodIcons` + `selectMethod`
+- `resources/js/Components/Finances/PaymentMethodBadge.vue` — Added `intasend_mpesa` icon mapping
+
+### Verification
+
+| Check | Result |
+|-------|--------|
+| `./vendor/bin/pint --dirty` | PASS (144 files) |
+| `npm run build` | PASS |
+| `php artisan test --filter=Payment` | 373 pass, 2 pre-existing failures (unrelated) |
+| Grep: `form.is_unallocated` in Record.vue | 0 hits |
+| Grep: `form.tenant_id` in Record.vue | 0 hits |
+| Code review (slop check) | No AI slop, no dead code, no type suppressions |
+
+### Learnings
+- Vue 3 composable factory pattern: each call returns independent refs — no shared singletons
+- Splitting page-specific state (isUnallocated) from shared form state keeps composable focused
+- PaymentController had TWO different hardcoded arrays (create vs index) — using enum as single source of truth fixed both
+
+**PAY-V2.1-010 COMPLETE**

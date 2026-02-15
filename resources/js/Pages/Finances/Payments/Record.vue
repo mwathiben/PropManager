@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { router, Head, Link } from '@inertiajs/vue3';
-import { useFormatters, useErrorHandler, useCurrency } from '@/composables';
+import { useFormatters, useErrorHandler, useCurrency, usePaymentForm } from '@/composables';
+import { PaymentMethodSelector } from '@/Components/Finances';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import {
     BanknotesIcon,
@@ -13,6 +14,7 @@ import {
     ArrowLeftIcon,
 } from '@heroicons/vue/24/outline';
 import type { PaymentsRecordPageProps } from '@/types';
+import type { PaymentMethodOption } from '@/types/finances';
 
 const props = withDefaults(defineProps<PaymentsRecordPageProps>(), {
     paymentMethods: () => [],
@@ -22,21 +24,13 @@ const props = withDefaults(defineProps<PaymentsRecordPageProps>(), {
 const { formatMoney, todayAsISODate } = useFormatters();
 const { logError } = useErrorHandler();
 const { currencySymbol } = useCurrency();
+const { form, errors, isSubmitting, isSuccess: success, validate } = usePaymentForm();
 
-const form = ref({
-    tenant_id: null,
-    invoice_id: null,
-    amount: '',
-    payment_method: 'cash',
-    payment_date: todayAsISODate(),
-    reference: '',
-    notes: '',
-    is_unallocated: false,
-});
+const isUnallocated = ref(false);
 
-const errors = ref({});
-const isSubmitting = ref(false);
-const success = ref(false);
+const normalizedMethods = computed<PaymentMethodOption[]>(() =>
+    props.paymentMethods.map(m => ({ id: m.value, label: m.label }))
+);
 
 const searchQuery = ref('');
 const searchResults = ref([]);
@@ -77,9 +71,8 @@ watch(searchQuery, (newVal) => {
 
 const selectTenant = async (tenant) => {
     selectedTenant.value = tenant;
-    form.value.tenant_id = tenant.id;
     form.value.invoice_id = null;
-    form.value.is_unallocated = false;
+    isUnallocated.value = false;
     searchQuery.value = '';
     showSearchResults.value = false;
 
@@ -105,7 +98,6 @@ const selectTenant = async (tenant) => {
 
 const clearTenant = () => {
     selectedTenant.value = null;
-    form.value.tenant_id = null;
     form.value.invoice_id = null;
     form.value.amount = '';
     tenantInvoices.value = [];
@@ -117,7 +109,7 @@ const selectedInvoice = computed(() => {
 });
 
 const maxAmount = computed(() => {
-    if (form.value.is_unallocated) return null;
+    if (isUnallocated.value) return null;
     return selectedInvoice.value?.balance || 0;
 });
 
@@ -127,12 +119,12 @@ const remainingAfterPayment = computed(() => {
 });
 
 const isOverpayment = computed(() => {
-    if (form.value.is_unallocated || !selectedInvoice.value) return false;
+    if (isUnallocated.value || !selectedInvoice.value) return false;
     return Number(form.value.amount) > selectedInvoice.value.balance;
 });
 
 watch(() => form.value.invoice_id, (newVal) => {
-    if (newVal && !form.value.is_unallocated) {
+    if (newVal && !isUnallocated.value) {
         const invoice = tenantInvoices.value.find(i => i.id === newVal);
         if (invoice) {
             form.value.amount = invoice.balance;
@@ -140,7 +132,7 @@ watch(() => form.value.invoice_id, (newVal) => {
     }
 });
 
-watch(() => form.value.is_unallocated, (newVal) => {
+watch(isUnallocated, (newVal) => {
     if (newVal) {
         form.value.invoice_id = null;
     }
@@ -152,46 +144,33 @@ const setFullAmount = () => {
     }
 };
 
-const validate = () => {
-    errors.value = {};
-
-    if (!selectedTenant.value && !form.value.invoice_id) {
-        errors.value.tenant = 'Please select a tenant';
-    }
-
-    if (!form.value.is_unallocated && !form.value.invoice_id && tenantInvoices.value.length > 0) {
-        errors.value.invoice = 'Please select an invoice or mark as unallocated';
-    }
-
-    if (!form.value.amount || Number(form.value.amount) <= 0) {
-        errors.value.amount = 'Please enter a valid amount';
-    }
-
-    if (!form.value.payment_method) {
-        errors.value.payment_method = 'Please select a payment method';
-    }
-
-    if (!form.value.payment_date) {
-        errors.value.payment_date = 'Please select a payment date';
-    }
-
-    return Object.keys(errors.value).length === 0;
+const handleValidate = () => {
+    return validate(() => {
+        const extra: Record<string, string> = {};
+        if (!selectedTenant.value && !form.value.invoice_id) {
+            extra.tenant = 'Please select a tenant';
+        }
+        if (!isUnallocated.value && !form.value.invoice_id && tenantInvoices.value.length > 0) {
+            extra.invoice = 'Please select an invoice or mark as unallocated';
+        }
+        return extra;
+    });
 };
 
 const handleSubmit = () => {
-    if (!validate()) return;
+    if (!handleValidate()) return;
 
     isSubmitting.value = true;
 
     router.post(route('finances.payments.store-manual'), {
-        tenant_id: form.value.tenant_id,
-        invoice_id: form.value.is_unallocated ? null : form.value.invoice_id,
+        tenant_id: selectedTenant.value?.id,
+        invoice_id: isUnallocated.value ? null : form.value.invoice_id,
         amount: form.value.amount,
         payment_method: form.value.payment_method,
         payment_date: form.value.payment_date,
         reference: form.value.reference,
         notes: form.value.notes,
-        is_unallocated: form.value.is_unallocated,
+        is_unallocated: isUnallocated.value,
     }, {
         onSuccess: () => {
             success.value = true;
@@ -342,7 +321,7 @@ const handleSubmit = () => {
                             <template v-else>
                                 <div class="flex items-center gap-2 mb-3">
                                     <input
-                                        v-model="form.is_unallocated"
+                                        v-model="isUnallocated"
                                         type="checkbox"
                                         id="is_unallocated"
                                         class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
@@ -352,7 +331,7 @@ const handleSubmit = () => {
                                     </label>
                                 </div>
 
-                                <div v-if="!form.is_unallocated">
+                                <div v-if="!isUnallocated">
                                     <div v-if="tenantInvoices.length === 0" class="p-4 bg-gray-50 rounded-lg text-center">
                                         <p class="text-sm text-gray-500">No outstanding invoices for this tenant</p>
                                     </div>
@@ -418,7 +397,7 @@ const handleSubmit = () => {
                                             placeholder="0.00"
                                         />
                                         <button
-                                            v-if="selectedInvoice && !form.is_unallocated"
+                                            v-if="selectedInvoice && !isUnallocated"
                                             type="button"
                                             @click="setFullAmount"
                                             class="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
@@ -431,20 +410,11 @@ const handleSubmit = () => {
 
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Payment Method *</label>
-                                    <select
+                                    <PaymentMethodSelector
                                         v-model="form.payment_method"
-                                        :class="[
-                                            'w-full px-3 py-2.5 text-sm border rounded-lg transition-colors',
-                                            errors.payment_method
-                                                ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                                : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500'
-                                        ]"
-                                    >
-                                        <option v-for="method in paymentMethods" :key="method.value" :value="method.value">
-                                            {{ method.label }}
-                                        </option>
-                                    </select>
-                                    <p v-if="errors.payment_method" class="mt-1 text-sm text-red-600">{{ errors.payment_method }}</p>
+                                        :methods="normalizedMethods"
+                                        :error="errors.payment_method"
+                                    />
                                 </div>
 
                                 <div>
@@ -495,7 +465,7 @@ const handleSubmit = () => {
                                 </div>
                             </div>
 
-                            <div v-if="selectedInvoice && remainingAfterPayment !== null && !form.is_unallocated" class="p-3 bg-gray-50 rounded-lg">
+                            <div v-if="selectedInvoice && remainingAfterPayment !== null && !isUnallocated" class="p-3 bg-gray-50 rounded-lg">
                                 <div class="flex justify-between text-sm">
                                     <span class="text-gray-600">Invoice Balance</span>
                                     <span class="font-medium">{{ formatMoney(selectedInvoice.balance) }}</span>

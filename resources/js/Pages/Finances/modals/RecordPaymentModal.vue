@@ -1,33 +1,20 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { computed, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import Modal from '@/Components/Modal.vue';
-import { useFormatters, usePayments } from '@/composables';
+import { useFormatters, usePayments, usePaymentForm } from '@/composables';
+import { PaymentMethodSelector } from '@/Components/Finances';
 import { useFinancesStore } from '@/stores/finances';
 import {
     XMarkIcon,
     BanknotesIcon,
     CheckIcon,
 } from '@heroicons/vue/24/outline';
-import type { Invoice } from '@/types/finances';
+import type { Invoice, PaymentMethodOption } from '@/types/finances';
 
 interface InvoiceWithBalance extends Invoice {
     balance: number;
     tenant_name?: string;
-}
-
-interface PaymentMethod {
-    id: string;
-    label: string;
-}
-
-interface PaymentForm {
-    invoice_id: number | null;
-    amount: string | number;
-    payment_method: string;
-    payment_date: string;
-    reference: string;
-    notes: string;
 }
 
 interface Props {
@@ -41,29 +28,16 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits(['close', 'success']);
 
 const store = useFinancesStore();
-const { formatMoney, formatDate, todayAsISODate } = useFormatters();
-const { recordManualPayment, isProcessing, error: paymentError } = usePayments();
+const { formatMoney } = useFormatters();
+const { recordManualPayment, isProcessing, error: paymentError, paymentMethods: methodsRecord } = usePayments();
+const { form, errors, isSuccess, resetForm, validate } = usePaymentForm();
 
 const modalData = computed(() => store.modals.recordPayment);
 
-const form = ref({
-    invoice_id: null,
-    amount: '',
-    payment_method: 'cash',
-    payment_date: todayAsISODate(),
-    reference: '',
-    notes: '',
-});
-
-const errors = ref({});
-const success = ref(false);
-
-const paymentMethods = [
-    { id: 'cash', label: 'Cash' },
-    { id: 'bank_transfer', label: 'Bank Transfer' },
-    { id: 'mobile_money', label: 'M-Pesa' },
-    { id: 'paystack', label: 'Paystack (Online)' },
-];
+const paymentMethodOptions: PaymentMethodOption[] = Object.entries(methodsRecord).map(([id, info]) => ({
+    id,
+    label: info.label,
+}));
 
 watch(() => modalData.value.show, (newVal) => {
     if (newVal) {
@@ -86,53 +60,29 @@ const maxAmount = computed(() => {
     return selectedInvoice.value?.balance || 0;
 });
 
-const resetForm = () => {
-    form.value = {
-        invoice_id: null,
-        amount: '',
-        payment_method: 'cash',
-        payment_date: todayAsISODate(),
-        reference: '',
-        notes: '',
-    };
-    errors.value = {};
-    success.value = false;
-};
-
 const close = () => {
     store.closeModal('recordPayment');
     emit('close');
 };
 
-const validate = () => {
-    errors.value = {};
-
-    if (!form.value.invoice_id) {
-        errors.value.invoice_id = 'Please select an invoice';
-    }
-
-    if (!form.value.amount || form.value.amount <= 0) {
-        errors.value.amount = 'Please enter a valid amount';
-    } else if (form.value.amount > maxAmount.value) {
-        errors.value.amount = `Amount cannot exceed ${formatMoney(maxAmount.value)}`;
-    }
-
-    if (!form.value.payment_method) {
-        errors.value.payment_method = 'Please select a payment method';
-    }
-
-    if (!form.value.payment_date) {
-        errors.value.payment_date = 'Please select a payment date';
-    }
-
-    return Object.keys(errors.value).length === 0;
+const handleValidate = () => {
+    return validate(() => {
+        const extra: Record<string, string> = {};
+        if (!form.value.invoice_id) {
+            extra.invoice_id = 'Please select an invoice';
+        }
+        if (form.value.amount && Number(form.value.amount) > maxAmount.value && maxAmount.value > 0) {
+            extra.amount = `Amount cannot exceed ${formatMoney(maxAmount.value)}`;
+        }
+        return extra;
+    });
 };
 
 const handleSubmit = async () => {
-    if (!validate()) return;
+    if (!handleValidate()) return;
 
     try {
-        await recordManualPayment(form.value.invoice_id, {
+        await recordManualPayment(form.value.invoice_id!, {
             amount: form.value.amount,
             payment_method: form.value.payment_method,
             payment_date: form.value.payment_date,
@@ -140,7 +90,7 @@ const handleSubmit = async () => {
             notes: form.value.notes,
         });
 
-        success.value = true;
+        isSuccess.value = true;
         emit('success');
 
         setTimeout(() => {
@@ -148,7 +98,7 @@ const handleSubmit = async () => {
             router.reload({ only: ['invoices', 'payments', 'stats'] });
         }, 1500);
     } catch (err) {
-        errors.value.general = paymentError.value || 'Failed to record payment';
+        errors.value = { ...errors.value, general: paymentError.value || 'Failed to record payment' };
     }
 };
 
@@ -161,7 +111,7 @@ const setFullAmount = () => {
 
 <template>
     <Modal :show="modalData.show" max-width="md" @close="close">
-                        <div v-if="success" class="p-8 text-center">
+                        <div v-if="isSuccess" class="p-8 text-center">
                             <div class="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 rounded-full mb-4">
                                 <CheckIcon class="w-8 h-8 text-emerald-600" />
                             </div>
@@ -243,20 +193,11 @@ const setFullAmount = () => {
 
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
-                                    <select
+                                    <PaymentMethodSelector
                                         v-model="form.payment_method"
-                                        :class="[
-                                            'w-full px-3 py-2.5 text-sm border rounded-lg transition-colors',
-                                            errors.payment_method
-                                                ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                                : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500'
-                                        ]"
-                                    >
-                                        <option v-for="method in paymentMethods" :key="method.id" :value="method.id">
-                                            {{ method.label }}
-                                        </option>
-                                    </select>
-                                    <p v-if="errors.payment_method" class="mt-1 text-sm text-red-600">{{ errors.payment_method }}</p>
+                                        :methods="paymentMethodOptions"
+                                        :error="errors.payment_method"
+                                    />
                                 </div>
 
                                 <div>

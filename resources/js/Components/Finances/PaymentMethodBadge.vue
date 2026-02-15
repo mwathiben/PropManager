@@ -34,6 +34,7 @@ const iconComponent = computed(() => {
         cash: BanknotesIcon,
         bank_transfer: BuildingLibraryIcon,
         mobile_money: DevicePhoneMobileIcon,
+        intasend_mpesa: DevicePhoneMobileIcon,
         paystack: CreditCardIcon,
     };
     return icons[props.method] || CreditCardIcon;

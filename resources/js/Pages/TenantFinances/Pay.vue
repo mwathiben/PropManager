@@ -4,11 +4,8 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { useFormatters, usePayments, useEcho, useErrorHandler } from '@/composables';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import type { TenantFinancesPayPageProps } from '@/types';
-import { AmountDisplay, InvoiceStatusBadge } from '@/Components/Finances';
+import { AmountDisplay, InvoiceStatusBadge, PaymentMethodSelector } from '@/Components/Finances';
 import {
-    BanknotesIcon,
-    BuildingLibraryIcon,
-    DevicePhoneMobileIcon,
     CreditCardIcon,
     ChevronLeftIcon,
     CheckCircleIcon,
@@ -40,16 +37,6 @@ const intasendEchoSubscribed = ref(false);
 let intasendTimeout = null;
 const INTASEND_TIMEOUT = 60000;
 
-const methodIcons = {
-    cash: BanknotesIcon,
-    bank_transfer: BuildingLibraryIcon,
-    mobile_money: DevicePhoneMobileIcon,
-    mpesa: DevicePhoneMobileIcon,
-    intasend_mpesa: DevicePhoneMobileIcon,
-    paystack: CreditCardIcon,
-    stripe: CreditCardIcon,
-};
-
 const selectedMethodData = computed(() => {
     return props.paymentMethods?.find(m => m.id === selectedMethod.value);
 });
@@ -61,10 +48,6 @@ const canProceed = computed(() => {
     }
     return true;
 });
-
-const selectMethod = (method) => {
-    selectedMethod.value = method.id;
-};
 
 const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
@@ -163,6 +146,7 @@ const handleIntaSendStatusUpdate = (data) => {
     stopIntaSendTimeout();
 
     if (data.status === 'success' || data.state === 'COMPLETE') {
+        unsubscribeIntaSendEcho();
         intasendState.value = 'success';
         intasendMessage.value = data.message || 'Payment received successfully!';
         setTimeout(() => {
@@ -171,6 +155,7 @@ const handleIntaSendStatusUpdate = (data) => {
             });
         }, 2000);
     } else if (data.status === 'failed' || data.state === 'FAILED') {
+        unsubscribeIntaSendEcho();
         intasendState.value = 'failed';
         intasendMessage.value = data.failure_reason || data.message || 'Payment failed';
     } else if (data.state === 'PROCESSING') {
@@ -238,6 +223,11 @@ const proceedWithPayment = async () => {
                 intasendMessage.value = 'Please enter your M-Pesa PIN on your phone';
                 subscribeToIntaSendUpdates();
                 startIntaSendTimeout();
+            } else if (result.success && !result.intasend_invoice_id) {
+                console.warn('IntaSend returned success but no intasend_invoice_id', result);
+                intasendState.value = 'failed';
+                intasendMessage.value = 'Failed to initiate M-Pesa request — please try again';
+                intasendInvoiceId.value = null;
             }
         }
     } catch (err) {
@@ -339,44 +329,11 @@ onUnmounted(() => {
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     <h2 class="text-sm font-semibold text-gray-900 mb-4">Select Payment Method</h2>
 
-                    <div class="space-y-3">
-                        <button
-                            v-for="method in paymentMethods"
-                            :key="method.id"
-                            @click="selectMethod(method)"
-                            :class="[
-                                'w-full flex items-start gap-4 p-4 rounded-xl border-2 transition-all text-left',
-                                selectedMethod === method.id
-                                    ? 'border-emerald-500 bg-emerald-50'
-                                    : 'border-gray-200 hover:border-gray-300'
-                            ]"
-                        >
-                            <div :class="[
-                                'p-2.5 rounded-lg',
-                                selectedMethod === method.id ? 'bg-emerald-100' : 'bg-gray-100'
-                            ]">
-                                <component
-                                    :is="methodIcons[method.id] || CreditCardIcon"
-                                    :class="[
-                                        'h-5 w-5',
-                                        selectedMethod === method.id ? 'text-emerald-600' : 'text-gray-500'
-                                    ]"
-                                />
-                            </div>
-                            <div class="flex-1">
-                                <p :class="[
-                                    'font-medium',
-                                    selectedMethod === method.id ? 'text-emerald-900' : 'text-gray-900'
-                                ]">
-                                    {{ method.label }}
-                                </p>
-                                <p class="text-sm text-gray-500 mt-0.5">{{ method.description }}</p>
-                            </div>
-                            <div v-if="selectedMethod === method.id" class="shrink-0">
-                                <CheckCircleIcon class="h-6 w-6 text-emerald-500" />
-                            </div>
-                        </button>
-                    </div>
+                    <PaymentMethodSelector
+                        v-model="selectedMethod"
+                        :methods="paymentMethods"
+                        mode="card"
+                    />
 
                     <div v-if="selectedMethodData?.details" class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                         <div class="flex items-start gap-2">

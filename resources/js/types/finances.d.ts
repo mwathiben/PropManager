@@ -13,8 +13,16 @@ export interface BaseEntity {
 // Invoice Status (matches App\Enums\InvoiceStatus)
 export type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'partial' | 'paid' | 'overdue' | 'voided' | 'cancelled';
 
-// Payment Method (canonical 4 methods - matches App\Enums\PaymentMethod)
-export type PaymentMethod = 'cash' | 'bank_transfer' | 'mobile_money' | 'paystack';
+// Payment Method (matches App\Enums\PaymentMethod)
+export type PaymentMethod = 'cash' | 'bank_transfer' | 'mobile_money' | 'paystack' | 'intasend_mpesa';
+
+// Payment Method Option (for PaymentMethodSelector component)
+export interface PaymentMethodOption {
+    id: string;
+    label: string;
+    description?: string;
+    details?: Record<string, unknown>;
+}
 
 // Refund Status
 export type RefundStatus = 'pending' | 'approved' | 'processing' | 'completed' | 'failed' | 'cancelled';

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PaymentMethod;
 use App\Exceptions\DomainException;
 use App\Http\Requests\Payment\InitializePaystackRequest;
 use App\Http\Requests\Payment\ProcessBulkImportRequest;
@@ -66,13 +67,9 @@ class PaymentController extends Controller
 
         $enabledMethods = $settings ? json_decode($settings->value, true) : ['cash', 'bank_transfer', 'mobile_money'];
 
-        $paymentMethods = collect([
-            ['value' => 'cash', 'label' => 'Cash'],
-            ['value' => 'bank_transfer', 'label' => 'Bank Transfer'],
-            ['value' => 'mobile_money', 'label' => 'Mobile Money'],
-            ['value' => 'mpesa', 'label' => 'M-Pesa'],
-            ['value' => 'cheque', 'label' => 'Cheque'],
-        ])->filter(fn ($m) => in_array($m['value'], $enabledMethods) || empty($enabledMethods))->values();
+        $paymentMethods = collect(PaymentMethod::options())
+            ->filter(fn ($m) => in_array($m['value'], $enabledMethods) || empty($enabledMethods))
+            ->values();
 
         return Inertia::render('Finances/Payments/Record', [
             'paymentMethods' => $paymentMethods,
@@ -186,14 +183,7 @@ class PaymentController extends Controller
             'payment_count' => (int) $paymentCount,
         ];
 
-        // Get payment methods for filter
-        $paymentMethods = [
-            ['value' => 'cash', 'label' => 'Cash'],
-            ['value' => 'bank_transfer', 'label' => 'Bank Transfer'],
-            ['value' => 'mobile_money', 'label' => 'Mobile Money'],
-            ['value' => 'paystack', 'label' => 'Paystack'],
-            ['value' => 'stripe', 'label' => 'Stripe'],
-        ];
+        $paymentMethods = PaymentMethod::options();
 
         return Inertia::render('Payments/Index', [
             'payments' => $payments,
