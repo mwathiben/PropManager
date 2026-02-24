@@ -15463,3 +15463,52 @@ Created a focused service that resolves unsubscribe URLs based on recipient role
 
 ### Next Steps
 - NOTIF-TPL-002: Create NotificationMail Mailable class (depends on this task)
+
+---
+
+## NOTIF-TPL-002: Create NotificationMail Mailable class
+**Status:** PASSED
+**Date:** 2026-02-24
+**Attempts:** 1
+
+### Implementation Summary
+
+Created a Mailable class that wraps notification data and uses the existing email template with role-based unsubscribe URLs via UnsubscribeUrlResolver. Intentionally does NOT implement ShouldQueue — queuing is handled at the job level (SendNotificationJob).
+
+Key design decisions:
+- Used `view:` not `markdown:` since the current template is standalone HTML (NOTIF-TPL-003 migrates to `<x-mail::message>`)
+- Renamed template variable from `$message` to `$notificationBody` to avoid collision with Laravel's injected `Illuminate\Mail\Message` instance
+- Constructor uses `$notificationSubject`/`$notificationMessage` to avoid collision with Mailable's internal `$subject` property
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Mail/NotificationMail.php` | Mailable class wrapping notification data with unsubscribe URL resolution |
+| `tests/Unit/Mail/NotificationMailTest.php` | 6 unit tests covering subject, data passing, unsubscribe URLs, ShouldQueue absence, rendering |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `resources/views/emails/notification.blade.php` | Renamed `$message` to `$notificationBody` (line 105); added conditional unsubscribe URL to footer (lines 152-154); removed hardcoded Manage Preferences link |
+| `app/Services/NotificationService.php` | Updated sendEmail() view data key from `'message'` to `'notificationBody'` (line 419) |
+
+### Acceptance Criteria Verification
+
+1. **Mailable renders without errors** - test_renders_without_errors passes
+2. **Subject line matches** - test_envelope_has_correct_subject passes with assertHasSubject
+3. **Template receives all variables** - test_passes_message_data_and_recipient_to_template verifies name, body, data values in HTML
+4. **Does NOT implement ShouldQueue** - test_does_not_implement_should_queue explicitly asserts
+5. **Tenant signed unsubscribe URL** - test_tenant_recipient_gets_signed_unsubscribe_url checks for email/preferences and signature=
+6. **Landlord notifications.settings URL** - test_landlord_recipient_gets_notifications_settings_url checks for route URL
+
+### Verification Results
+
+- Unit tests: 6 passed (11 assertions)
+- Full mail test suite: 33 passed, 0 failed (no regressions)
+- Pint: Clean (1 auto-fix: single_line_empty_body)
+- phpmd: No violations
+
+### Next Steps
+- NOTIF-TPL-003: Migrate notification.blade.php to x-mail::message markdown (depends on this task)

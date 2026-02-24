@@ -416,7 +416,7 @@ class NotificationService
         try {
             Mail::send('emails.notification', [
                 'subject' => $notification->subject,
-                'message' => $notification->message,
+                'notificationBody' => $notification->message,
                 'data' => $notification->data,
                 'recipient' => $recipient,
             ], function ($mail) use ($recipient, $notification) {

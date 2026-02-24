@@ -102,7 +102,7 @@
             <p>Hello {{ $recipient->name }},</p>
 
             <div class="message-box">
-                {!! nl2br(e($message)) !!}
+                {!! nl2br(e($notificationBody)) !!}
             </div>
 
             @if(isset($data) && is_array($data) && count($data) > 0)
@@ -148,8 +148,10 @@
                 Please do not reply to this email.
             </p>
             <p>
-                <a href="{{ config('app.url') }}">Visit Dashboard</a> |
-                <a href="{{ config('app.url') }}/profile">Manage Preferences</a>
+                <a href="{{ config('app.url') }}">Visit Dashboard</a>
+                @if(isset($unsubscribeUrl))
+                    | <a href="{{ $unsubscribeUrl }}">Manage Email Preferences</a>
+                @endif
             </p>
         </div>
     </div>
