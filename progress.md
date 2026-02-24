@@ -15657,4 +15657,69 @@ The vendor `panel.blade.php` uses `{{ Markdown::parse($slot) }}` which double-es
 
 ### Next Steps
 - NOTIF-TPL-005: Content safety tests for user-configured notification templates
+
+---
+
+## Session: 2026-02-24T18:00:00Z
+**Task**: NOTIF-TPL-005 — Content safety tests for user-configured notification templates
+**Status**: COMPLETED
+**Attempts**: 1
+
+### Work Done
+
+Created `tests/Unit/Mail/NotificationMailContentSafetyTest.php` with 7 test methods (23 test cases via data providers, 56 assertions) proving the notification email escaping pipeline is robust against XSS, edge-case inputs, and the full template-render-to-email pipeline.
+
+**Test coverage:**
+
+| Test Method | Cases | What it proves |
+|-------------|-------|----------------|
+| `test_xss_payload_in_message_body_is_escaped` | 9 (data provider) | All OWASP XSS vectors in `$message` are entity-escaped by `e()` |
+| `test_xss_payload_in_data_table_values_is_escaped` | 9 (data provider) | Same 9 vectors injected via `$data` array are escaped in table cells |
+| `test_empty_message_renders_without_error` | 1 | Empty string body renders panel + greeting without crash |
+| `test_whitespace_and_newlines_only_message_renders` | 1 | Whitespace/newline-only body produces `<br>` tags correctly |
+| `test_data_with_null_and_empty_values_handles_gracefully` | 1 | Empty string (scalar) renders, null (non-scalar) is filtered out |
+| `test_data_with_nested_arrays_does_not_render_nested_values` | 1 | Arrays/objects in `$data` are silently excluded from data table |
+| `test_template_rendered_html_placeholders_are_escaped_in_email` | 1 | Full pipeline: `NotificationTemplate::render()` → raw HTML → `NotificationMail` → `e()` escapes in final output |
+
+**XSS vectors tested (OWASP/PortSwigger 2026):**
+1. `<script>alert('xss')</script>` — Classic script injection
+2. `<img onerror=alert(1) src=x>` — Image error handler
+3. `<svg onload=alert(1)>` — SVG onload event
+4. `<div onmouseover=alert(1)>` — Event handler on div
+5. `<a href="data:text/html;base64,...">` — Base64 data URI
+6. `<meta http-equiv="refresh" content="0;url=javascript:alert(1)">` — Meta refresh
+7. `<iframe srcdoc="<script>alert(1)</script>">` — Iframe srcdoc
+8. `<div style="background:expression(alert(1))">` — CSS expression
+9. `<img src="x" onerror="alert(1)"` — Malformed unclosed tag
+
+**Dual-assertion pattern:** Each XSS test asserts BOTH:
+- Negative: raw payload absent from rendered HTML (proves escaping)
+- Positive: escaped fragment (e.g., `&lt;script&gt;`) present (proves data flowed through)
+
+**Key discovery:** Laravel's markdown-to-HTML renderer decodes `&#039;` → `'` and `&quot;` → `"`, but preserves `&lt;` and `&gt;`. This means `assertStringContainsString(e($payload), $html)` fails for payloads with quotes. Solution: use escaped tag prefix fragments (e.g., `&lt;script&gt;`) instead of full `e()` output.
+
+### Files Created
+| File | Purpose |
+|------|---------|
+| `tests/Unit/Mail/NotificationMailContentSafetyTest.php` | 23 content safety test cases with OWASP XSS vectors |
+
+### Verification Results
+- NotificationMailContentSafetyTest: **23/23 passed** (56 assertions)
+- All NotificationMail tests: **45/45 passed** (101 assertions)
+- Full suite: All tests passed, 0 failures
+- Pint: Clean (1 auto-fix applied: single_quote)
+- phpmd: No violations on test file
+- Agent-browser: Visual verification screenshot captured (`e2e-screenshots/notif-tpl-005-xss-safety.png`) — XSS payloads render as escaped text, no JavaScript execution
+- Self-review: code-review and deslop skills confirmed — no issues found
+
+### Issues Encountered
+- Markdown renderer entity decoding required changing assertion strategy from full `e()` comparison to escaped tag fragment comparison (see Key Discovery above)
+
+### Learnings
+- Laravel's CommonMark renderer decodes HTML entities for quotes (`&#039;`, `&quot;`) but preserves angle bracket entities (`&lt;`, `&gt;`). This is correct behavior — angle brackets are the dangerous characters for XSS.
+- PHPUnit data providers with a second "expected fragment" column create robust, maintainable XSS tests that survive rendering pipeline transformations.
+- `is_scalar()` in PHP returns `false` for `null`, so null values in `$data` arrays are correctly filtered out by the template's scalar filter. Empty strings pass through since they are scalar.
+
+### Next Steps
+- NOTIF-TPL-006: End-to-end integration tests for notification email delivery
 - NOTIF-TPL-006: End-to-end integration tests for notification email delivery
