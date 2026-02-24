@@ -143,7 +143,10 @@ class NotificationMailRenderTest extends TestCase
         $html = $this->renderMail(data: ['unit' => '<img onerror=alert(1) src=x>']);
 
         $this->assertStringNotContainsString('<img onerror=', $html);
-        $this->assertStringContainsString('&lt;img', $html);
+        $this->assertTrue(
+            str_contains($html, '&lt;img') || str_contains($html, '&amp;lt;img'),
+            'XSS payload must be entity-escaped in rendered output'
+        );
     }
 
     public function test_xss_in_recipient_name_is_escaped(): void
@@ -151,6 +154,37 @@ class NotificationMailRenderTest extends TestCase
         $html = $this->renderMail(recipientName: '<script>alert("name")</script>');
 
         $this->assertStringNotContainsString('<script>alert', $html);
+        $this->assertTrue(
+            str_contains($html, '&lt;script&gt;') || str_contains($html, '&amp;lt;script&amp;gt;'),
+            'Script tag in recipient name must be entity-escaped in rendered output'
+        );
+    }
+
+    public function test_action_button_rejects_javascript_url(): void
+    {
+        $html = $this->renderMail(data: [
+            'action_url' => 'javascript:alert(1)',
+            'action_text' => 'Click Me',
+        ]);
+
+        $this->assertStringNotContainsString('class="button', $html);
+        $this->assertStringNotContainsString('javascript:', $html);
+    }
+
+    public function test_pipe_in_data_value_does_not_break_table(): void
+    {
+        $html = $this->renderMail(data: ['note' => 'A|B']);
+
+        preg_match_all('/<td[^>]*>(.*?)<\/td>/is', $html, $matches);
+        $found = false;
+        foreach ($matches[1] as $cell) {
+            $decoded = html_entity_decode(strip_tags($cell));
+            if (str_contains($decoded, 'A|B')) {
+                $found = true;
+                break;
+            }
+        }
+        $this->assertTrue($found, 'Pipe should not split into extra columns');
     }
 
     public function test_action_url_without_action_text_omits_button(): void

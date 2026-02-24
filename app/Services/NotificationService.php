@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\Currency;
 use App\Jobs\SendNotificationJob;
+use App\Mail\NotificationMail;
 use App\Models\Notification;
 use App\Models\NotificationPreference;
 use App\Models\PaymentConfiguration;
@@ -414,15 +415,12 @@ class NotificationService
     private function sendEmail(Notification $notification, User $recipient): bool
     {
         try {
-            Mail::send('emails.notification', [
-                'subject' => $notification->subject,
-                'notificationBody' => $notification->message,
-                'data' => $notification->data,
-                'recipient' => $recipient,
-            ], function ($mail) use ($recipient, $notification) {
-                $mail->to($recipient->email)
-                    ->subject($notification->subject);
-            });
+            Mail::to($recipient->email)->send(new NotificationMail(
+                $notification->subject,
+                $notification->message,
+                $notification->data,
+                $recipient
+            ));
 
             $notification->markAsSent();
 
