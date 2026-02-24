@@ -1,0 +1,325 @@
+{
+  "project": {
+    "name": "Notification Email Template Standardization",
+    "description": "Migrate the standalone notification.blade.php email template to use the standardized <x-mail::message> component system with proper Mailable class, role-based unsubscribe URLs, and consistent branding across all notification emails.",
+    "version": "1.0.0",
+    "created": "2026-02-24"
+  },
+  "user_stories": [
+    {
+      "id": "NOTIF-TPL-001",
+      "category": "backend",
+      "priority": "HIGH",
+      "title": "Create UnsubscribeUrlResolver service",
+      "description": "Extract unsubscribe URL resolution logic into a dedicated service that returns the correct URL based on recipient role. Tenants get a 30-day temporary signed route to email.preferences. Landlords get the authenticated notifications.settings route. Unknown roles get null (omits link from footer).",
+      "story_points": 3,
+      "steps": [
+        "Write failing test: tenant user returns a signed URL containing 'email/preferences' with 'signature' query param",
+        "Write failing test: landlord user returns the notifications.settings route URL",
+        "Write failing test: caretaker user returns the notifications.settings route URL",
+        "Write failing test: user with unknown role returns null",
+        "Create app/Services/Notification/UnsubscribeUrlResolver.php with resolve(User $recipient): ?string method",
+        "For tenants: return URL::temporarySignedRoute('email.preferences', now()->addDays(30), ['user' => $recipient->id])",
+        "For landlords/caretakers: return route('notifications.settings')",
+        "For other roles: return null",
+        "Run tests green, run Pint"
+      ],
+      "files": [
+        "app/Services/Notification/UnsubscribeUrlResolver.php",
+        "tests/Unit/Services/UnsubscribeUrlResolverTest.php"
+      ],
+      "acceptance_criteria": [
+        "Tenant user receives a valid signed URL pointing to email.preferences route",
+        "Landlord user receives the notifications.settings route URL (not signed)",
+        "Caretaker user receives the notifications.settings route URL",
+        "Unknown or missing role returns null",
+        "Signed URL expires in 30 days"
+      ],
+      "definition_of_done": [
+        "Unit tests pass",
+        "Pint passes",
+        "No new phpmd violations"
+      ],
+      "verification": "php artisan test --filter=UnsubscribeUrlResolverTest",
+      "estimated_effort": "small",
+      "passes": true,
+      "attempt_count": 1,
+      "depends_on": []
+    },
+    {
+      "id": "NOTIF-TPL-002",
+      "category": "backend",
+      "priority": "CRITICAL",
+      "title": "Create NotificationMail Mailable class",
+      "description": "Create a proper Mailable class that wraps notification data (subject, message, data array, recipient) and uses a markdown template. Does NOT implement ShouldQueue since queuing is handled at the job level (SendNotificationJob, SendBulkNotificationsJob). Uses UnsubscribeUrlResolver for the unsubscribe URL.",
+      "story_points": 3,
+      "steps": [
+        "Write failing test: NotificationMail renders with correct subject in envelope",
+        "Write failing test: NotificationMail passes message, data, and recipient to template",
+        "Write failing test: NotificationMail resolves unsubscribe URL via UnsubscribeUrlResolver for tenant",
+        "Write failing test: NotificationMail resolves unsubscribe URL via UnsubscribeUrlResolver for landlord",
+        "Create app/Mail/NotificationMail.php extending Mailable (NOT ShouldQueue)",
+        "Constructor accepts: string $notificationSubject, string $notificationMessage, ?array $data, User $recipient",
+        "Envelope returns $notificationSubject",
+        "Content uses markdown: 'emails.notification' with unsubscribeUrl from UnsubscribeUrlResolver",
+        "Inject UnsubscribeUrlResolver in content() via app() helper",
+        "Run tests green, run Pint"
+      ],
+      "files": [
+        "app/Mail/NotificationMail.php",
+        "tests/Unit/Mail/NotificationMailTest.php"
+      ],
+      "acceptance_criteria": [
+        "Mailable renders without errors",
+        "Subject line matches notification subject",
+        "Template receives all required variables (subject, message, data, recipient, unsubscribeUrl)",
+        "Does NOT implement ShouldQueue",
+        "Tenant recipient gets signed unsubscribe URL in rendered HTML",
+        "Landlord recipient gets notifications.settings URL in rendered HTML"
+      ],
+      "definition_of_done": [
+        "Unit tests pass",
+        "Pint passes",
+        "Mailable can be instantiated and rendered without errors"
+      ],
+      "verification": "php artisan test --filter=NotificationMailTest",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": [
+        "NOTIF-TPL-001"
+      ]
+    },
+    {
+      "id": "NOTIF-TPL-003",
+      "category": "backend",
+      "priority": "CRITICAL",
+      "title": "Migrate notification.blade.php to x-mail::message markdown",
+      "description": "Rewrite the standalone HTML notification template to use the standardized <x-mail::message> component system. Preserve all dynamic features: greeting, message body, data key-value table, action button. Replace hardcoded 'PropManager Team' with config('app.name'). The data table renders arbitrary key-value pairs from the $data array, filtering out non-scalar values and internal keys (action_url, action_text). The action button uses x-mail::button when action_url is present.",
+      "story_points": 5,
+      "steps": [
+        "Write failing test: rendered HTML contains x-mail layout structure (check for vendor layout CSS classes)",
+        "Write failing test: rendered HTML contains recipient greeting with name",
+        "Write failing test: rendered HTML contains escaped message body with line breaks preserved",
+        "Write failing test: rendered HTML contains data table when $data has scalar key-value pairs",
+        "Write failing test: rendered HTML does NOT render array/object values in data table",
+        "Write failing test: rendered HTML contains action button when data has action_url and action_text",
+        "Write failing test: rendered HTML omits action button when data lacks action_url",
+        "Write failing test: footer shows config('app.name') Team, NOT hardcoded 'PropManager Team'",
+        "Write failing test: rendered HTML contains unsubscribe link when unsubscribeUrl is provided",
+        "Write failing test: HTML entities in $message are escaped (XSS prevention)",
+        "Rewrite resources/views/emails/notification.blade.php using <x-mail::message :unsubscribeUrl=\"$unsubscribeUrl ?? null\">",
+        "Use markdown heading for subject, paragraph for greeting",
+        "Wrap message body in <x-mail::panel> with {!! nl2br(e($message)) !!}",
+        "Render data table: filter $data to exclude action_url, action_text, and non-scalar values; render as HTML table within markdown",
+        "Add <x-mail::button :url=\"$data['action_url']\"> when action_url present",
+        "Footer: {{ config('app.name') }} Team",
+        "Run all tests green, verify visual output via assertSeeInHtml/assertDontSeeInHtml",
+        "Run Pint"
+      ],
+      "files": [
+        "resources/views/emails/notification.blade.php",
+        "tests/Unit/Mail/NotificationMailRenderTest.php"
+      ],
+      "acceptance_criteria": [
+        "Template uses <x-mail::message> wrapper with unsubscribeUrl prop",
+        "Greeting shows recipient name",
+        "Message body is escaped (e()) with newlines converted to <br>",
+        "Data table renders only scalar key-value pairs from $data",
+        "Internal keys (action_url, action_text) excluded from data table",
+        "Action button renders as <x-mail::button> when action_url present",
+        "Footer uses config('app.name') not hardcoded string",
+        "Unsubscribe link appears in footer when URL provided",
+        "No standalone <style> or <html> tags remain (uses vendor layout)",
+        "HTML injection in $message is neutralized by e()"
+      ],
+      "definition_of_done": [
+        "All render tests pass",
+        "Pint passes",
+        "Visual consistency with other email templates (uses same CSS theme)"
+      ],
+      "verification": "php artisan test --filter=NotificationMailRenderTest",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": [
+        "NOTIF-TPL-002"
+      ]
+    },
+    {
+      "id": "NOTIF-TPL-004",
+      "category": "backend",
+      "priority": "CRITICAL",
+      "title": "Update NotificationService::sendEmail() to use NotificationMail",
+      "description": "Replace the closure-based Mail::send() in NotificationService::sendEmail() (line 414-435) with the new NotificationMail Mailable. Keep synchronous sending (Mail::to()->send(), NOT queue()). Preserve the try/catch with markAsSent/markAsFailed. The Mailable handles template rendering and unsubscribe URL resolution internally.",
+      "story_points": 3,
+      "steps": [
+        "Write failing test: sendEmail() dispatches a NotificationMail instance (use Mail::fake())",
+        "Write failing test: NotificationMail receives correct subject, message, data, and recipient",
+        "Write failing test: notification is marked as sent after successful email dispatch",
+        "Write failing test: notification is marked as failed when Mail throws exception",
+        "Update sendEmail() to: Mail::to($recipient->email)->send(new NotificationMail(...))",
+        "Pass $notification->subject, $notification->message, $notification->data, $recipient to Mailable constructor",
+        "Keep existing try/catch with markAsSent() and markAsFailed()",
+        "Run existing NotificationServiceTest suite to verify no regressions",
+        "Run Pint"
+      ],
+      "files": [
+        "app/Services/NotificationService.php"
+      ],
+      "acceptance_criteria": [
+        "sendEmail() uses NotificationMail Mailable instead of closure-based Mail::send()",
+        "Email is sent synchronously (Mail::send, not Mail::queue)",
+        "markAsSent() called on success",
+        "markAsFailed() called on exception with error message",
+        "All existing NotificationServiceTest tests still pass",
+        "Notification type (rent_reminder, arrears_notice, etc.) does not affect email rendering — all use same template"
+      ],
+      "definition_of_done": [
+        "All notification service tests pass",
+        "Pint passes",
+        "phpmd clean on NotificationService.php"
+      ],
+      "verification": "php artisan test --filter=NotificationServiceTest && php artisan test --filter=NotificationMailTest",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": [
+        "NOTIF-TPL-002",
+        "NOTIF-TPL-003"
+      ]
+    },
+    {
+      "id": "NOTIF-TPL-005",
+      "category": "testing",
+      "priority": "HIGH",
+      "title": "Content safety tests for user-configured notification templates",
+      "description": "Verify that user-configured notification body content (from NotificationTemplate::render()) is safe when rendered in the migrated email template. Test HTML injection, XSS attempts, and edge cases like empty body, very long body, and special characters. The template uses e() for escaping which should handle all cases.",
+      "story_points": 2,
+      "steps": [
+        "Write test: template body with <script>alert('xss')</script> renders as escaped text, not executable script",
+        "Write test: template body with <img onerror=alert(1) src=x> renders as escaped text",
+        "Write test: empty $message renders email without error",
+        "Write test: $message with only whitespace/newlines renders correctly",
+        "Write test: $data array with null/empty values handles gracefully",
+        "Write test: $data with nested arrays does not render nested values in table",
+        "Write test: placeholder values containing HTML in NotificationTemplate::render() output are escaped by email template",
+        "Run all content safety tests green"
+      ],
+      "files": [
+        "tests/Unit/Mail/NotificationMailContentSafetyTest.php"
+      ],
+      "acceptance_criteria": [
+        "HTML tags in $message are entity-escaped in rendered output",
+        "Script tags never appear unescaped in rendered HTML",
+        "Empty/null message does not crash rendering",
+        "Data array edge cases handled (null values, nested arrays, empty array)",
+        "Placeholder-injected HTML in template render output is escaped"
+      ],
+      "definition_of_done": [
+        "All safety tests pass",
+        "No XSS vectors found in rendered output"
+      ],
+      "verification": "php artisan test --filter=NotificationMailContentSafetyTest",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": [
+        "NOTIF-TPL-003"
+      ]
+    },
+    {
+      "id": "NOTIF-TPL-006",
+      "category": "testing",
+      "priority": "HIGH",
+      "title": "End-to-end integration tests for notification email delivery",
+      "description": "Feature tests that exercise the full notification email flow: NotificationService::send() -> channel selection -> sendEmail() -> NotificationMail -> template rendering. Test both tenant and landlord recipients. Test bulk notifications to verify per-recipient unsubscribe URLs. Verify backward compatibility with DB-stored NotificationTemplate rendering.",
+      "story_points": 5,
+      "steps": [
+        "Write feature test: sendRentReminder() to tenant produces email with standardized layout and signed unsubscribe URL",
+        "Write feature test: sendArrearsNotice() to tenant produces email with data table showing arrears details",
+        "Write feature test: send() to landlord recipient produces email with notifications.settings unsubscribe URL",
+        "Write feature test: sendBulk() to multiple tenants generates unique signed URLs per recipient",
+        "Write feature test: notification with action_url in data renders clickable button",
+        "Write feature test: notification without data array renders email without table section",
+        "Write feature test: email uses config('app.name') not hardcoded 'PropManager'",
+        "Write feature test: NotificationTemplate::render() output is correctly passed through to email body",
+        "Verify all tests run against existing test database with RefreshDatabase",
+        "Run full test suite to confirm no regressions"
+      ],
+      "files": [
+        "tests/Feature/NotificationEmailStandardizationTest.php"
+      ],
+      "acceptance_criteria": [
+        "Rent reminder email to tenant uses standardized layout",
+        "Arrears notice email to tenant shows data table",
+        "Landlord email has different unsubscribe URL than tenant email",
+        "Bulk send creates per-recipient signed URLs (not shared)",
+        "Action button renders when action_url present in data",
+        "App name from config used in footer",
+        "DB-stored template body renders correctly in new layout",
+        "No existing tests broken"
+      ],
+      "definition_of_done": [
+        "All integration tests pass",
+        "Full test suite passes (php artisan test)",
+        "No new phpmd violations"
+      ],
+      "verification": "php artisan test --filter=NotificationEmailStandardizationTest && php artisan test",
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": [
+        "NOTIF-TPL-004"
+      ]
+    },
+    {
+      "id": "NOTIF-TPL-007",
+      "category": "backend",
+      "priority": "MEDIUM",
+      "title": "Cleanup: remove legacy standalone HTML and verify no dangling references",
+      "description": "After migration is verified, ensure the old standalone HTML structure is fully removed from notification.blade.php (should already be replaced by NOTIF-TPL-003). Grep for any remaining references to the old template pattern. Verify the notification history/log UI still displays correctly since it shows notification content from the DB, not the email HTML.",
+      "story_points": 2,
+      "steps": [
+        "Grep codebase for 'emails.notification' to confirm only NotificationMail references it",
+        "Grep for any hardcoded 'PropManager Team' remaining in email templates",
+        "Grep for any remaining inline <style> tags in email blade files",
+        "Verify notification history UI (Notifications/partials/HistoryTab.vue) still renders correctly — it shows sent notification content from DB, not email HTML",
+        "Verify notification preview in template editor (if exists) still works",
+        "Run full test suite one final time",
+        "Run Pint on all modified files"
+      ],
+      "files": [
+        "resources/views/emails/notification.blade.php",
+        "app/Mail/NotificationMail.php",
+        "app/Services/NotificationService.php"
+      ],
+      "acceptance_criteria": [
+        "No references to old standalone HTML pattern remain",
+        "No hardcoded 'PropManager Team' in any email template",
+        "Notification history UI unaffected (displays from DB, not email HTML)",
+        "All tests pass",
+        "Pint clean"
+      ],
+      "definition_of_done": [
+        "Full test suite passes",
+        "Pint passes on all modified files",
+        "phpmd clean on modified services"
+      ],
+      "verification": "php artisan test && ./vendor/bin/pint --test",
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0,
+      "depends_on": [
+        "NOTIF-TPL-006"
+      ]
+    }
+  ],
+  "metadata": {
+    "total_stories": 7,
+    "passing_stories": 1,
+    "total_story_points": 23,
+    "estimated_effort": "medium",
+    "critical_path": "NOTIF-TPL-001 -> NOTIF-TPL-002 -> NOTIF-TPL-003 -> NOTIF-TPL-004 -> NOTIF-TPL-006 -> NOTIF-TPL-007"
+  }
+}

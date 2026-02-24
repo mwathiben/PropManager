@@ -15427,3 +15427,39 @@ Implemented WebSocket-primary/polling-fallback hybrid updates for the landlord d
 
 ### Next Steps
 - ALL 17/17 tasks in payment-workflow-prd-v2.1.json now PASS
+
+---
+
+## NOTIF-TPL-001: Create UnsubscribeUrlResolver service
+**Status:** PASSED
+**Date:** 2026-02-24
+**Attempts:** 1
+
+### Implementation Summary
+
+Created a focused service that resolves unsubscribe URLs based on recipient role. Tenants get a 30-day signed URL to the email.preferences route. Landlords/caretakers get the authenticated notifications.settings route. Unknown roles get null.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `app/Services/Notification/UnsubscribeUrlResolver.php` | Role-based unsubscribe URL resolution service |
+| `tests/Unit/Services/UnsubscribeUrlResolverTest.php` | 5 unit tests covering all role branches |
+
+### Acceptance Criteria Verification
+
+1. **Tenant signed URL** - Returns URL containing `email/preferences` and `signature=` query param
+2. **Landlord URL** - Returns exact `route('notifications.settings')` match
+3. **Caretaker URL** - Returns same notifications.settings URL as landlord
+4. **Super admin** - Returns null
+5. **Unknown role** - Returns null
+
+### Verification Results
+
+- Unit tests: 5 passed (9 assertions)
+- Pint: Clean
+- phpmd: No violations
+- Full suite: 1473 passed, 0 failed, 13 skipped (pre-existing)
+
+### Next Steps
+- NOTIF-TPL-002: Create NotificationMail Mailable class (depends on this task)
