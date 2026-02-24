@@ -15512,3 +15512,78 @@ Key design decisions:
 
 ### Next Steps
 - NOTIF-TPL-003: Migrate notification.blade.php to x-mail::message markdown (depends on this task)
+
+---
+
+## NOTIF-TPL-003: Migrate notification.blade.php to x-mail::message markdown
+**Status:** PASSED
+**Date:** 2026-02-24
+**Attempts:** 1
+
+### Implementation Summary
+
+Rewrote the standalone 159-line HTML notification template to a 36-line `<x-mail::message>` markdown template. Changed NotificationMail from `view:` to `markdown:` rendering. This eliminates the visual inconsistency where notification emails looked completely different from the 17+ other templates already using the vendor layout.
+
+### TDD Cycle
+
+**RED phase**: Created 10 failing tests targeting vendor layout structure, greeting, panel rendering, data table filtering, action button, footer config, and XSS neutralization. 4 tests failed for correct reasons (verifying new behavior), 6 passed against old template (features that already existed).
+
+**GREEN phase**: Rewrote template and switched Mailable to markdown. Two test adjustments needed:
+- Vendor layout legitimately contains `<style>` for responsive media queries — changed assertion to check for absence of OLD template markers (`class="message-box"`, `linear-gradient`)
+- `<br>` format varies (`<br>` vs `<br />`) — used regex `assertMatchesRegularExpression`
+
+**REFACTOR phase**: Self-review with code-review and deslop skills identified 19 items. Key actions:
+- Reverted a global `panel.blade.php` vendor override (too risky — affects all 12 panel-using templates)
+- Standardized footer wording from "Best regards" to "Thanks" (matches all other templates)
+- Fixed footer test to use explicit `config(['app.name' => 'TestAppName'])` for isolation
+- Added 4 edge case tests: empty data array, XSS in data values, XSS in recipient name, action_url without action_text
+
+### Key Design Decisions
+
+1. **Markdown left-margin alignment**: All template content sits at column 0 — indented content renders as code blocks in markdown
+2. **`nl2br(e($notificationBody))`**: `e()` escapes HTML entities first, then `nl2br()` adds `<br>` tags — safe order prevents XSS
+3. **Data table as markdown table**: `| key | value |` syntax parsed by `Markdown::parse()` into proper HTML tables
+4. **Collect pipeline for data filtering**: `collect($data)->reject(...)` cleanly filters non-scalar and internal keys
+
+### Pre-existing Issue Noted
+
+The vendor `panel.blade.php` uses `{{ Markdown::parse($slot) }}` which double-escapes HTML output, causing `<pre>` tag artifacts around panel content. This is a pre-existing issue affecting all panel-using templates, not introduced by this task. A fix was attempted but reverted as too risky for a global vendor override.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `resources/views/emails/notification.blade.php` | Complete rewrite: 159-line standalone HTML → 36-line x-mail::message markdown |
+| `app/Mail/NotificationMail.php` | Line 32: `view:` → `markdown:` in Content |
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `tests/Unit/Mail/NotificationMailRenderTest.php` | 14 unit tests covering layout structure, greeting, panel, data table, action button, footer, XSS prevention, edge cases |
+
+### Acceptance Criteria Verification
+
+1. **Uses x-mail::message wrapper** — `class="wrapper"` and `class="content-cell"` present in rendered HTML
+2. **Greeting shows recipient name** — verified with custom name "Alice Wanjiku"
+3. **Message body escaped with line breaks** — `e()` + `nl2br()`, verified via regex
+4. **Data table renders scalar pairs** — ucwords + str_replace formatting verified
+5. **Non-scalar values excluded** — nested arrays rejected by `is_scalar()` check
+6. **Internal keys excluded** — `action_url`, `action_text` rejected by explicit filter
+7. **Action button renders** — `class="button"` with correct href and text
+8. **Footer uses config()** — verified with `TestAppName` override, not hardcoded
+9. **No standalone HTML** — old `.message-box` and `linear-gradient` markers absent
+10. **XSS neutralized** — `<script>`, `<img onerror=...>` rendered as entity-escaped text
+
+### Verification Results
+
+- Render tests: 14 passed (28 assertions)
+- Existing NotificationMailTest: 6 passed (no regressions)
+- NotificationServiceTest: 15 passed (no regressions)
+- Full suite: 1493 passed, 0 failures, 13 skipped (pre-existing)
+- Pint: Clean (957 files)
+- phpmd: No violations on NotificationMail.php
+- Browser visual verification: 9/9 checks passed (header, greeting, panel, table, button, footer, layout, styling)
+
+### Next Steps
+- NOTIF-TPL-004: Update NotificationService::sendEmail() to use NotificationMail Mailable (depends on this task)

@@ -29,7 +29,7 @@ class NotificationMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.notification',
+            markdown: 'emails.notification',
             with: [
                 'subject' => $this->notificationSubject,
                 'notificationBody' => $this->notificationMessage,
