@@ -16066,3 +16066,48 @@ No production code changed.
 
 ### Next Steps
 - E2E-MAIL-003: InteractsWithMailpit trait for Dusk + Feature tests
+
+---
+
+## Session: 2026-02-26T17:45Z
+**Task**: E2E-MAIL-003 — InteractsWithMailpit trait for Dusk + Feature tests
+**Status**: COMPLETED
+
+### Work Done
+- Created `tests/Traits/InteractsWithMailpit.php` (105 lines, 6 public + 1 private method)
+  - `setUpMailpit()`: MailpitClient instantiation, inbox clear, OverridesMailConfig composition
+  - `assertEmailSentTo()`, `assertEmailCount()`: PHPUnit assertion wrappers
+  - `getLatestEmailHtml()`, `getLatestEmailLinks()`: Data extraction helpers
+  - `screenshotEmail()`, `screenshotMailableRender()`: Browser screenshot capture via data URI
+- Created `tests/Browser/EmailTestSmokeTest.php` (79 lines, 3 test methods)
+  - `test_mailpit_captures_email_sent_via_smtp`: Mail::raw() → assertEmailSentTo + assertEmailCount
+  - `test_screenshot_email_captures_to_file`: SmokeTestMailable → screenshotEmail → assertFileExists
+  - `test_get_latest_email_links_extracts_hrefs`: SmokeTestMailable → getLatestEmailLinks → assertContains
+- Fixed `tests/DuskTestCase.php`: Added missing `prepare()` with `#[BeforeClass]` for ChromeDriver auto-start
+- Updated `.env.dusk.local.example`: MAIL_MAILER=smtp + Mailpit settings, DB_CONNECTION=mysql
+- Updated ChromeDriver to v145 to match installed Chrome 145
+
+### Issues Encountered & Resolved
+1. **ChromeDriver not auto-starting**: DuskTestCase was missing `prepare()` method with `static::startChromeDriver()`. Fixed by adding it per Laravel Dusk stub.
+2. **ChromeDriver version mismatch**: Had v144, Chrome is v145. Fixed with `php artisan dusk:chrome-driver --detect`.
+3. **SQLite migration failure**: `.env.dusk.local` had `DB_CONNECTION=sqlite` but migrations use MySQL-specific `information_schema.statistics`. Fixed by switching to `DB_CONNECTION=mysql`.
+4. **Mail::raw() produces empty HTML**: Mailpit stores plain text in `Text` field, `HTML` is empty. Fixed `getLatestEmailHtml()` to fall back to `Snippet`. Rewrote tests 2+3 to use proper `SmokeTestMailable` with `Content(htmlString:)`.
+5. **DatabaseMigrations rollback failure**: Pre-existing bug in migration `2026_01_15_000001_add_finance_hub_indexes.php` — FK constraint prevents index drop during rollback. Fixed by removing `DatabaseMigrations` from smoke test (not needed for email-only tests).
+6. **Dusk Browser::visit() prepends baseUrl to non-http URLs**: `file://` and `data:` URIs get mangled. Fixed by using `$browser->driver->navigate()->to($dataUri)` directly.
+7. **Dusk Browser::screenshot() path construction**: Prepends `storeScreenshotsAt` to name. Fixed by using `$browser->driver->takeScreenshot()` directly with absolute path.
+
+### Verification Evidence
+- `php artisan dusk --filter=EmailTestSmokeTest`: 3 passed, 12 assertions (2.97s)
+- `php artisan test --parallel`: 1570 tests, 5150 assertions, 0 failures (7:58)
+- `php vendor/bin/pint --test`: clean
+- `php vendor/bin/phpmd tests/Traits/InteractsWithMailpit.php text phpmd.xml`: no violations
+- Screenshot exists: `e2e-screenshots/emails/smoke-test-email.png` (13KB)
+- Agent-browser: Mailpit UI verified, security evals passed (no secret_key, no APP_KEY leaked)
+
+### Key Learnings
+- DuskTestCase MUST have `prepare()` with `#[BeforeClass]` calling `static::startChromeDriver()` — without it, ChromeDriver doesn't auto-start
+- ChromeDriver binary is at `vendor/laravel/dusk/bin/chromedriver-win.exe` — auto-installed by `php artisan dusk:chrome-driver --detect`
+- Dusk `Browser::visit()` only preserves http/https URLs; file:// and data: need `$browser->driver->navigate()->to()`
+- Dusk `Browser::screenshot()` prepends `storeScreenshotsAt`; use `$browser->driver->takeScreenshot()` for custom paths
+- `DatabaseMigrations` runs `migrate:rollback` in teardown which can fail on FK constraints; use `RefreshDatabase` or skip migrations for non-DB tests
+- `data:text/html;base64,` URI works reliably in headless Chrome for rendering HTML without file system access

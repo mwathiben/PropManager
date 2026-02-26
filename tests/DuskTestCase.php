@@ -11,9 +11,18 @@ use Facebook\WebDriver\Remote\DesiredCapabilities;
 use Facebook\WebDriver\Remote\RemoteWebDriver;
 use Illuminate\Support\Collection;
 use Laravel\Dusk\TestCase as BaseTestCase;
+use PHPUnit\Framework\Attributes\BeforeClass;
 
 abstract class DuskTestCase extends BaseTestCase
 {
+    #[BeforeClass]
+    public static function prepare(): void
+    {
+        if (! static::runningInSail()) {
+            static::startChromeDriver(['--port=9515']);
+        }
+    }
+
     protected function driver(): RemoteWebDriver
     {
         $userDataDir = sys_get_temp_dir().'/dusk-chrome-'.getmypid();
