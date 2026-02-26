@@ -79,8 +79,8 @@
       ],
       "verification": "curl -s http://localhost:8025/api/v1/messages | head -1",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["E2E-MAIL-015"]
     },
     {
@@ -407,7 +407,7 @@
       "estimated_effort": "small",
       "passes": false,
       "attempt_count": 0,
-      "depends_on": ["E2E-MAIL-002"]
+      "depends_on": ["E2E-MAIL-002", "E2E-MAIL-003"]
     },
     {
       "id": "E2E-MAIL-010",
@@ -448,7 +448,7 @@
       "estimated_effort": "small",
       "passes": false,
       "attempt_count": 0,
-      "depends_on": ["E2E-MAIL-002"]
+      "depends_on": ["E2E-MAIL-002", "E2E-MAIL-003"]
     },
     {
       "id": "E2E-MAIL-011",

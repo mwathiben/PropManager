@@ -15943,3 +15943,72 @@ Original PRD only specified `.env.dusk.local`. Expanded to include `.env.testing
 ### Next Steps
 
 - E2E-MAIL-001: Install Mailpit and configure test environment
+
+---
+
+## E2E-MAIL-001: Install Mailpit and configure test environment
+**Status:** PASSED
+**Date:** 2026-02-26
+**Attempts:** 1
+**PRD:** e2e-email-testing-prd.json
+
+### Implementation Summary
+
+Created `tools/mailpit/` directory with comprehensive README documentation. Discovered Mailpit v1.22.3 already installed at `C:\laragon\bin\mailpit\1.22.3\` and running (SMTP:1025, HTTP:8025). Verified full SMTP pipeline: sent test email via `config()` override → captured by Mailpit → visible in API. Agent-browser verified Mailpit web UI with security assertions.
+
+### Discovery: PRD Inaccuracy
+
+PRD specified "Scoop: `scoop install mailpit`" — no Scoop package exists for Mailpit on Windows. README documents actual method: binary download from GitHub releases. Also documented existing Laragon integration.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `tools/mailpit/.gitkeep` | Preserve directory in git |
+| `tools/mailpit/README.md` | Installation, usage, API reference, test integration, troubleshooting, security |
+
+### Files Modified
+
+None. `.gitignore` already had `tools/mailpit/mailpit*` (added in E2E-MAIL-015).
+
+### Tracer Bullet Findings
+
+- Mailpit v1.22.3 pre-installed at `C:\laragon\bin\mailpit\1.22.3\`, auto-starts with Laragon
+- API at `http://localhost:8025/api/v1/messages` responds with valid JSON
+- `config/mail.php` default SMTP port is 2525 (Mailtrap legacy) — tests override to 1025 via `OverridesMailConfig` trait
+- `phpunit.xml` sets `MAIL_MAILER=array` — Unit/Feature tests unaffected by Mailpit
+- 42+ test files use `Mail::fake()` — zero impact from this change
+- No port conflicts: 1025 and 8025 are free on the system
+- `artisan tinker --execute` has shell escaping issues with `$m` on Windows bash — README uses `php -r` instead
+
+### Verification Results
+
+- `curl -s http://localhost:8025/api/v1/messages`: JSON response (PASS)
+- Test email sent via `config()` override: captured in Mailpit inbox (PASS)
+- Agent-browser: Mailpit web UI loads, title "Mailpit - localhost" (PASS)
+- Agent-browser security: no secret_key, APP_KEY, or base64: in page (PASS)
+- Screenshot: `e2e-screenshots/emails/mailpit-web-ui.png` (18KB)
+- `php vendor/bin/pint --test`: PASS (960 files)
+- `php artisan test`: 1540 passed, 13 skipped, 0 failures
+- `git ls-files tools/mailpit/mailpit*`: empty (binary not tracked)
+
+### Skills Applied
+
+- **verification-first**, **feature-development**, **ralph-wiggum**, **planning-with-files**
+- **laravelquality-checks**, **laravelconfig-env-storage**, **laraveldocumentation-best-practices**
+- **laravelexception-handling-and-logging**, **laravele2e-playwright**, **agent-browser**
+- **laravelbootstrap-check**, **bash-defensive-patterns**, **secrets-management**
+- **senior-security**, **senior-secops**, **code-review**, **deslop**
+
+### Learnings
+
+- No Scoop/Chocolatey/winget package for Mailpit on Windows — binary download only
+- Mailpit v1.22.3 already bundled with Laragon at `C:\laragon\bin\mailpit\`
+- `artisan tinker --execute` on Windows bash has `$m` variable escaping issues — use `php -r` with `require vendor/autoload.php` instead
+- Mailpit API: `DELETE /api/v1/messages` with empty body clears all, returns `ok` (plain text)
+- Mailpit API: search syntax supports `to:`, `from:`, `subject:`, `body:`, `tag:` operators
+- ALL user instructions are MANDATORY — thorough skill scan, tracer bullet, agent-browser verification, web research all required before implementation
+
+### Next Steps
+
+- E2E-MAIL-002: MailCapturePort interface + MailpitClient adapter + FakeMailCapture
