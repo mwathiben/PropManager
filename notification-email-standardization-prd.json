@@ -268,8 +268,8 @@
       ],
       "verification": "php artisan test --filter=NotificationEmailStandardizationTest && php artisan test",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": [
         "NOTIF-TPL-004"
       ]
@@ -318,7 +318,7 @@
   ],
   "metadata": {
     "total_stories": 7,
-    "passing_stories": 5,
+    "passing_stories": 6,
     "total_story_points": 23,
     "estimated_effort": "medium",
     "critical_path": "NOTIF-TPL-001 -> NOTIF-TPL-002 -> NOTIF-TPL-003 -> NOTIF-TPL-004 -> NOTIF-TPL-006 -> NOTIF-TPL-007"

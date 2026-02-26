@@ -15722,4 +15722,60 @@ Created `tests/Unit/Mail/NotificationMailContentSafetyTest.php` with 7 test meth
 
 ### Next Steps
 - NOTIF-TPL-006: End-to-end integration tests for notification email delivery
-- NOTIF-TPL-006: End-to-end integration tests for notification email delivery
+
+---
+
+## Session: 2026-02-26
+**Task**: NOTIF-TPL-006 — End-to-end integration tests for notification email delivery
+**Status**: COMPLETED
+
+### Work Done
+- Created `tests/Feature/NotificationEmailStandardizationTest.php` with 8 feature tests covering the full NotificationService → email rendering pipeline
+- Added `HasFactory` trait to `app/Models/NotificationTemplate.php` — the factory file existed but the model was missing the trait, preventing `NotificationTemplate::factory()` usage
+- Visual E2E verification via Playwright screenshot (`e2e-screenshots/notif-tpl-006-email-layout.png`)
+
+### Test Coverage (8 tests, 47 assertions)
+1. `test_rent_reminder_to_tenant_uses_standardized_layout` — Full pipeline: sendRentReminder → email → standardized layout with signed unsubscribe URL
+2. `test_arrears_data_table_renders_in_email` — Data table renders scalar key-value pairs, filters internal keys (action_url, action_text)
+3. `test_notification_to_landlord_has_settings_unsubscribe_url` — Landlord gets notifications/settings URL, NOT signed email/preferences URL
+4. `test_bulk_send_creates_unique_signed_urls_per_recipient` — Each tenant gets unique signed URL with their user ID
+5. `test_notification_with_action_url_renders_button` — Action button renders, internal keys excluded from data table
+6. `test_notification_without_data_renders_without_table` — No `<th` tags when data is null
+7. `test_email_footer_uses_config_app_name` — Footer uses config('app.name'), not hardcoded
+8. `test_notification_template_render_output_passed_to_email` — Template placeholders replaced, XSS in body escaped by e()
+
+### Key Discovery: NotificationTemplate Missing HasFactory
+- `NotificationTemplate` model had a factory file (`NotificationTemplateFactory.php`) with `rentReminder()`, `forLandlord()`, and other state methods
+- The model itself was missing `use HasFactory` trait — a pre-existing bug
+- Fixed by adding the trait rather than downgrading to `NotificationTemplate::create()` — proper fix over workaround
+
+### Channel Selection Truth Table (Critical for Test Design)
+| Type | Urgency | Email Included? | Test Strategy |
+|------|---------|-----------------|---------------|
+| rent_reminder | important | YES | Test through sendRentReminder() with Mail::fake() |
+| arrears_notice | urgent | NO | Direct NotificationMail render (bypasses channel selection) |
+| general | informational | YES | Test through send() with Mail::fake() |
+
+### Files Created/Modified
+| File | Purpose |
+|------|---------|
+| `tests/Feature/NotificationEmailStandardizationTest.php` | 8 end-to-end integration tests |
+| `app/Models/NotificationTemplate.php` | Added HasFactory trait (bug fix) |
+| `e2e-screenshots/notif-tpl-006-email-layout.png` | Visual verification screenshot |
+
+### Verification Results
+- NotificationEmailStandardizationTest: **8/8 passed** (47 assertions)
+- Full suite: **1530 passed**, 13 skipped, 0 failures
+- Pint: Clean on both files
+- phpmd: No violations on test file or model file
+- Visual E2E: Screenshot confirms correct layout — header, greeting, panel with body, data table, Pay Now button, footer with app name + manage email preferences link
+- Self-review: code-review and deslop skills confirmed clean
+
+### Learnings
+- Mail::fake() captures mailables but doesn't render HTML — must call $mailable->render() separately for content assertions
+- Channel selection urgency determines whether email is even sent — arrears_notice (URGENT) has NO email channel, so testing email rendering for arrears requires direct NotificationMail instantiation
+- NotificationTemplate::render() does simple str_replace of {{placeholder}} patterns — does NOT escape HTML; escaping happens in the blade template via e()
+- Pre-existing model bugs (missing HasFactory) should be fixed properly, not worked around
+
+### Next Steps
+- NOTIF-TPL-007: Cleanup — remove legacy standalone HTML and verify no dangling references
