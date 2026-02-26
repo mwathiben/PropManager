@@ -361,8 +361,8 @@
       ],
       "verification": "php artisan test && ./vendor/bin/pint --test",
       "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": [
         "NOTIF-TPL-007"
       ]
@@ -370,7 +370,7 @@
   ],
   "metadata": {
     "total_stories": 8,
-    "passing_stories": 7,
+    "passing_stories": 8,
     "total_story_points": 28,
     "estimated_effort": "medium",
     "critical_path": "NOTIF-TPL-001 -> NOTIF-TPL-002 -> NOTIF-TPL-003 -> NOTIF-TPL-004 -> NOTIF-TPL-006 -> NOTIF-TPL-007 -> NOTIF-TPL-008"

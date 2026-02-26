@@ -100,7 +100,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>PropManager</h1>
+        <h1>{{ config('app.name') }}</h1>
         <p>Property Management Made Simple</p>
     </div>
 

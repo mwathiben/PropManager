@@ -15829,3 +15829,45 @@ Created `tests/Unit/Mail/NotificationMailContentSafetyTest.php` with 7 test meth
 
 ### Next Steps
 - NOTIF-TPL-008: Cleanup — fix 12 hardcoded PropManager in blade files, E2E browser verification
+
+---
+
+## Session: 2026-02-26T13:00:00Z
+**Task**: NOTIF-TPL-008 - Cleanup: remove hardcoded branding, verify no dangling references, E2E
+**Status**: COMPLETED
+
+### Work Done
+- Grepped all blade files for hardcoded "PropManager" — found 12 occurrences across 12 files
+- Replaced all 12 with `{{ config('app.name') }}` for dynamic branding
+- Verified `emails.notification` template only referenced by `NotificationMail.php` — clean
+- Verified no inline `<style>` tags remaining in email blades — clean
+- Verified no hardcoded "PropManager" in PHP code that needs changing (remaining are API identifiers or env fallbacks)
+- Full test suite: 1539 passed, 0 failures, 13 skipped
+- E2E browser verification: notifications page renders correctly, all tabs visible, no secrets in DOM
+
+### Files Changed
+- `resources/views/exports/payments.blade.php` — footer branding
+- `resources/views/exports/deposits.blade.php` — footer branding
+- `resources/views/exports/invoices.blade.php` — footer branding
+- `resources/views/exports/financial-report.blade.php` — footer branding
+- `resources/views/exports/expenses.blade.php` — footer branding
+- `resources/views/receipts/payment-receipt.blade.php` — receipt footer
+- `resources/views/receipts/subscription-receipt.blade.php` — header branding
+- `resources/views/reports/arrears.blade.php` — footer branding
+- `resources/views/reports/financial.blade.php` — footer branding
+- `resources/views/reports/water.blade.php` — footer branding
+- `resources/views/reports/occupancy.blade.php` — footer branding
+- `resources/views/emails/data-export-ready.blade.php` — body text
+
+### Verification Results
+- `php artisan test`: 1539 passed, 0 failures
+- `grep PropManager **/*.blade.php`: 0 matches
+- E2E: notifications page renders, no hardcoded branding visible, no secrets exposed
+
+### Learnings
+- agent-browser daemon port is hashed from session name; default session hashes to port in Hyper-V excluded range on Windows
+- Use `--session e2e` to get a different port that's not excluded
+- Laragon serves on `propmanager.test` (port 80), not localhost:8000
+
+### Next Steps
+- ALL TASKS COMPLETE — notification-email-standardization-prd.json: 8/8 stories passing

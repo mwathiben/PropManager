@@ -3,7 +3,7 @@
 
 Hello {{ $userName }},
 
-Your personal data export request has been processed. You can now download a copy of all your data stored in PropManager.
+Your personal data export request has been processed. You can now download a copy of all your data stored in {{ config('app.name') }}.
 
 <x-mail::button :url="$downloadUrl">
 Download Your Data
