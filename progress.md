@@ -16012,3 +16012,57 @@ None. `.gitignore` already had `tools/mailpit/mailpit*` (added in E2E-MAIL-015).
 ### Next Steps
 
 - E2E-MAIL-002: MailCapturePort interface + MailpitClient adapter + FakeMailCapture
+
+---
+
+## Session: 2026-02-26T21:00:00Z
+**Task**: E2E-MAIL-002 — MailCapturePort interface + MailpitClient adapter + FakeMailCapture
+**Status**: COMPLETED
+
+### Work Done
+- Created `tests/Support/Contracts/MailCapturePort.php` — 9-method interface (ports-and-adapters pattern)
+- Created `tests/Support/Exceptions/MailpitConnectionException.php` — RuntimeException with static factories, readonly context
+- Created `tests/Support/MailpitClient.php` — HTTP adapter using `Http::baseUrl()->timeout(5)->retry(3, 200)`, DOMDocument for link extraction
+- Created `tests/Support/FakeMailCapture.php` — In-memory implementation with `addMessage()`, synchronous `waitForMessage()`
+- Created `tests/Unit/Support/MailpitClientTest.php` — 17 unit tests with `Http::fake()`, all passing (30 assertions)
+- Fixed `assertStringContains` → `assertStringContainsString` bug caught during RED phase review
+- TDD RED-GREEN-REFACTOR: wrote all tests first, then implemented to pass
+
+### Verification Evidence
+- `php artisan test --filter=MailpitClientTest`: 17 passed, 30 assertions, 3.16s
+- `php vendor/bin/pint tests/Support/ tests/Unit/Support/`: 3 style fixes auto-applied (new_with_parentheses, braces_position, concat_space)
+- `php vendor/bin/phpmd tests/Support/MailpitClient.php text phpmd.xml`: NO violations
+- `php vendor/bin/phpmd tests/Support/FakeMailCapture.php text phpmd.xml`: NO violations
+- `php artisan test`: 1557 passed, 13 skipped, 0 failures — no regressions
+- Agent-browser E2E: Mailpit UI verified at localhost:8025, test email sent and received, security assertions passed (no secret_key, no APP_KEY in page)
+- Live API verification: All 7 MailpitClient methods tested against real Mailpit (messages, getLatestMessage, searchByRecipient, getMessageHtml, getMessageHeaders, getMessageLinks, deleteAll)
+
+### Skills Applied
+- laravelports-and-adapters: MailCapturePort interface → MailpitClient/FakeMailCapture implementations
+- laravelhttp-client-resilience: Http::timeout(5)->retry(3, 200, throw: false), ConnectionException → MailpitConnectionException
+- laravelexception-handling-and-logging: MailpitConnectionException with static factories + readonly context (matches PaystackException pattern)
+- laraveltdd-with-pest: RED-GREEN-REFACTOR with 17 Http::fake() tests
+- laravelcomplexity-guardrails: All methods under cyclomatic 3, class under 130 lines
+- laravelinterfaces-and-di: Interface with PHPDoc @return types, declare(strict_types=1)
+- laravelconfig-env-storage: NO .env modifications, all config via OverridesMailConfig trait
+- laravelquality-checks: Pint clean + PHPMD clean
+- verification-first: Every change verified with actual command output
+- feature-development: Full lifecycle from interface design through TDD to verification
+- agent-browser: E2E verification of Mailpit UI + security assertions
+- senior-security: No secrets in code, .env.testing verified not tracked
+- senior-secops: MailpitClient binds localhost only, test data factory-generated
+- e2e-testing-patterns: Http::fake() URL matching, connection exception testing
+- code-review-excellence: Self-review with confirmation bias → 0, self-critique → 100
+
+### Files Created (5)
+- tests/Support/Contracts/MailCapturePort.php (33 lines)
+- tests/Support/Exceptions/MailpitConnectionException.php (38 lines)
+- tests/Support/MailpitClient.php (128 lines)
+- tests/Support/FakeMailCapture.php (114 lines)
+- tests/Unit/Support/MailpitClientTest.php (297 lines)
+
+### Files Modified (0)
+No production code changed.
+
+### Next Steps
+- E2E-MAIL-003: InteractsWithMailpit trait for Dusk + Feature tests

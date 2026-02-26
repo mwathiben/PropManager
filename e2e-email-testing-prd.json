@@ -121,8 +121,8 @@
       ],
       "verification": "php artisan test --filter=MailpitClientTest && php vendor/bin/pint --test",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["E2E-MAIL-001"]
     },
     {
