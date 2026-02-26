@@ -2,7 +2,9 @@
 .DS_Store
 .env
 .env.backup
+.env.dusk.local
 .env.production
+.env.testing
 .phpactor.json
 .phpunit.result.cache
 /.fleet
@@ -23,3 +25,7 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 tmpclaude-*
+_ide_helper.php
+_ide_helper_models.php
+.phpstorm.meta.php
+tools/mailpit/mailpit*
