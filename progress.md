@@ -16111,3 +16111,41 @@ No production code changed.
 - Dusk `Browser::screenshot()` prepends `storeScreenshotsAt`; use `$browser->driver->takeScreenshot()` for custom paths
 - `DatabaseMigrations` runs `migrate:rollback` in teardown which can fail on FK constraints; use `RefreshDatabase` or skip migrations for non-DB tests
 - `data:text/html;base64,` URI works reliably in headless Chrome for rendering HTML without file system access
+
+---
+
+## E2E-MAIL-004: Static render tests for all 18 Mailables (screenshot baselines)
+**Status:** PASSED
+**Date:** 2026-02-26
+**Attempts:** 1
+
+### Work Done
+- Created `tests/Browser/EmailRenderBaselineTest.php` with 18 test methods (one per Mailable)
+- Each test: factory data → Mailable instantiation → render() → assert 'wrapper' class + config('app.name') → screenshotMailableRender() → assertFileExists
+- Shared helpers: createBuilding(), createLeaseWithTenant(), createPaymentVerification(), assertRendersAndScreenshot()
+- Fixed pre-existing bug: added HasFactory trait to Invitation model (was missing)
+- Fixed WebhookDeadLetter factory usage (landlord_id was null for non-null column)
+- Used RefreshDatabase instead of DatabaseMigrations (avoids FK constraint issues in teardown, works because browser only renders data URIs)
+
+### Files Changed
+- `tests/Browser/EmailRenderBaselineTest.php` (NEW — 397 lines, 18 tests)
+- `app/Models/Invitation.php` (added HasFactory trait)
+
+### Verification Results
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Dusk tests | PASS | 18 tests, 54 assertions |
+| Screenshots | PASS | 25 PNGs in e2e-screenshots/emails/ (6 pre-existing + 18 new + 1 agent-browser) |
+| Full test suite | PASS | 1557 passed, 13 skipped, 0 failed |
+| Pint | PASS | 968 files clean |
+| phpmd | PASS | No violations |
+| Agent-browser | PASS | Mailpit clean, no secret_key/APP_KEY leaks, all screenshots valid (13-57KB) |
+
+### Learnings
+- Invitation model was missing HasFactory — pre-existing bug fixed
+- WebhookDeadLetter factory sets landlord_id => null by default; must use forLandlord() for non-null columns
+- RefreshDatabase works for Dusk tests that only use the browser as a rendering engine (data: URIs), not for tests that navigate to app routes
+- First Dusk test (caretaker-invitation) takes ~80s due to ChromeDriver startup + DB setup; subsequent tests take ~1.5s each
+
+### Next Steps
+- E2E-MAIL-005: PaymentReceived flow test (trigger → Mailpit → agent-browser verify)
