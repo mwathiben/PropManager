@@ -64,4 +64,35 @@ class UnsubscribeUrlResolverTest extends TestCase
 
         $this->assertNull($url);
     }
+
+    public function test_resolve_for_header_returns_signed_post_url_for_tenant(): void
+    {
+        $tenant = User::factory()->make(['role' => 'tenant', 'id' => 99]);
+
+        $url = $this->resolver->resolveForHeader($tenant);
+
+        $this->assertNotNull($url);
+        $this->assertStringContainsString('email/unsubscribe', $url);
+        $this->assertStringContainsString('signature=', $url);
+        $this->assertStringContainsString('user=99', $url);
+    }
+
+    public function test_resolve_for_header_returns_notifications_settings_for_landlord(): void
+    {
+        $landlord = User::factory()->make(['role' => 'landlord']);
+
+        $url = $this->resolver->resolveForHeader($landlord);
+
+        $this->assertNotNull($url);
+        $this->assertEquals(route('notifications.settings'), $url);
+    }
+
+    public function test_resolve_for_header_returns_null_for_unknown_role(): void
+    {
+        $user = User::factory()->make(['role' => 'unknown']);
+
+        $url = $this->resolver->resolveForHeader($user);
+
+        $this->assertNull($url);
+    }
 }

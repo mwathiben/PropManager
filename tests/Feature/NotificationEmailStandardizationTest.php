@@ -9,6 +9,7 @@ use App\Services\NotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestData;
 use Tests\Traits\MocksExternalServices;
@@ -39,8 +40,10 @@ class NotificationEmailStandardizationTest extends TestCase
 
     protected function tearDown(): void
     {
-        RateLimiter::clear("notifications:{$this->landlord->id}:email:hourly");
-        RateLimiter::clear("notifications:{$this->landlord->id}:email:daily");
+        if (isset($this->landlord)) {
+            RateLimiter::clear("notifications:{$this->landlord->id}:email:hourly");
+            RateLimiter::clear("notifications:{$this->landlord->id}:email:daily");
+        }
 
         parent::tearDown();
     }
@@ -288,6 +291,9 @@ class NotificationEmailStandardizationTest extends TestCase
         $xssTemplate = NotificationTemplate::factory()
             ->forLandlord($this->landlord)
             ->create([
+                'name' => 'XSS Test Template',
+                'slug' => 'xss-test-template',
+                'type' => 'general',
                 'subject' => 'Test XSS',
                 'body' => 'Hello {{tenant_name}}, <script>alert("xss")</script>',
             ]);
@@ -303,5 +309,49 @@ class NotificationEmailStandardizationTest extends TestCase
 
         $this->assertStringContainsString('&lt;script&gt;', $xssHtml);
         $this->assertStringNotContainsString('<script>alert', $xssHtml);
+    }
+
+    public function test_one_click_unsubscribe_disables_email_for_tenant(): void
+    {
+        $this->createNotificationPreference($this->tenant, $this->landlord, [
+            'email_enabled' => true,
+        ]);
+
+        $url = URL::temporarySignedRoute(
+            'email.unsubscribe',
+            now()->addDays(30),
+            ['user' => $this->tenant->id]
+        );
+
+        $response = $this->post($url);
+
+        $response->assertOk();
+        $response->assertJson(['status' => 'unsubscribed']);
+
+        $this->assertDatabaseHas('notification_preferences', [
+            'user_id' => $this->tenant->id,
+            'landlord_id' => $this->landlord->id,
+            'email_enabled' => false,
+        ]);
+    }
+
+    public function test_one_click_unsubscribe_rejects_unsigned_request(): void
+    {
+        $response = $this->post(route('email.unsubscribe', ['user' => $this->tenant->id]));
+
+        $response->assertStatus(403);
+    }
+
+    public function test_one_click_unsubscribe_rejects_non_tenant(): void
+    {
+        $url = URL::temporarySignedRoute(
+            'email.unsubscribe',
+            now()->addDays(30),
+            ['user' => $this->landlord->id]
+        );
+
+        $response = $this->post($url);
+
+        $response->assertStatus(403);
     }
 }

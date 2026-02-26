@@ -23,4 +23,21 @@ class UnsubscribeUrlResolver
 
         return null;
     }
+
+    public function resolveForHeader(User $recipient): ?string
+    {
+        if ($recipient->isTenant()) {
+            return URL::temporarySignedRoute(
+                'email.unsubscribe',
+                now()->addDays(30),
+                ['user' => $recipient->id]
+            );
+        }
+
+        if ($recipient->isLandlord() || $recipient->isCaretaker()) {
+            return route('notifications.settings');
+        }
+
+        return null;
+    }
 }

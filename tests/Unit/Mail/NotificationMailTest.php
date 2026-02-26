@@ -7,6 +7,7 @@ namespace Tests\Unit\Mail;
 use App\Mail\NotificationMail;
 use App\Models\User;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Mail\Mailables\Headers;
 use Tests\TestCase;
 
 class NotificationMailTest extends TestCase
@@ -102,5 +103,59 @@ class NotificationMailTest extends TestCase
 
         $this->assertNotEmpty($rendered);
         $this->assertStringContainsString('Test Subject', $rendered);
+    }
+
+    public function test_tenant_recipient_has_list_unsubscribe_header(): void
+    {
+        $recipient = User::factory()->make(['role' => 'tenant', 'id' => 99]);
+
+        $mailable = new NotificationMail(
+            notificationSubject: 'Notice',
+            notificationMessage: 'Test.',
+            data: null,
+            recipient: $recipient
+        );
+
+        $headers = $mailable->headers();
+
+        $this->assertInstanceOf(Headers::class, $headers);
+        $this->assertArrayHasKey('List-Unsubscribe', $headers->text);
+        $this->assertStringContainsString('email/unsubscribe', $headers->text['List-Unsubscribe']);
+        $this->assertStringStartsWith('<', $headers->text['List-Unsubscribe']);
+        $this->assertStringEndsWith('>', $headers->text['List-Unsubscribe']);
+    }
+
+    public function test_tenant_recipient_has_list_unsubscribe_post_header(): void
+    {
+        $recipient = User::factory()->make(['role' => 'tenant', 'id' => 99]);
+
+        $mailable = new NotificationMail(
+            notificationSubject: 'Notice',
+            notificationMessage: 'Test.',
+            data: null,
+            recipient: $recipient
+        );
+
+        $headers = $mailable->headers();
+
+        $this->assertArrayHasKey('List-Unsubscribe-Post', $headers->text);
+        $this->assertEquals('List-Unsubscribe=One-Click', $headers->text['List-Unsubscribe-Post']);
+    }
+
+    public function test_unknown_role_recipient_omits_list_unsubscribe_headers(): void
+    {
+        $recipient = User::factory()->make(['role' => 'super_admin', 'id' => 1]);
+
+        $mailable = new NotificationMail(
+            notificationSubject: 'Admin Notice',
+            notificationMessage: 'Test.',
+            data: null,
+            recipient: $recipient
+        );
+
+        $headers = $mailable->headers();
+
+        $this->assertInstanceOf(Headers::class, $headers);
+        $this->assertEmpty($headers->text);
     }
 }

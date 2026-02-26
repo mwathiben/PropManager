@@ -277,50 +277,102 @@
     {
       "id": "NOTIF-TPL-007",
       "category": "backend",
+      "priority": "HIGH",
+      "title": "RFC 8058 List-Unsubscribe headers and one-click unsubscribe endpoint",
+      "description": "Add RFC 8058 compliant List-Unsubscribe and List-Unsubscribe-Post email headers to NotificationMail. Since June 2024, Google and Yahoo require these headers for bulk senders. Add a POST /email/unsubscribe endpoint for machine one-click unsubscribe that disables email_enabled on NotificationPreference. The existing GET /email/preferences body link is unchanged.",
+      "story_points": 5,
+      "steps": [
+        "Write failing tests for UnsubscribeUrlResolver::resolveForHeader() (RED)",
+        "Implement resolveForHeader() returning signed POST URL for tenants (GREEN)",
+        "Write failing tests for NotificationMail::headers() with List-Unsubscribe (RED)",
+        "Implement headers() method on NotificationMail (GREEN)",
+        "Add POST /email/unsubscribe route with signed+throttle middleware",
+        "Write failing tests for oneClickUnsubscribe endpoint (RED)",
+        "Implement NotificationsController::oneClickUnsubscribe() (GREEN)",
+        "Run Pint and phpmd, run full test suite"
+      ],
+      "files": [
+        "app/Mail/NotificationMail.php",
+        "app/Services/Notification/UnsubscribeUrlResolver.php",
+        "routes/web.php",
+        "app/Http/Controllers/NotificationsController.php",
+        "tests/Unit/Mail/NotificationMailTest.php",
+        "tests/Unit/Services/UnsubscribeUrlResolverTest.php",
+        "tests/Feature/NotificationEmailStandardizationTest.php"
+      ],
+      "acceptance_criteria": [
+        "Tenant emails include List-Unsubscribe header with angle-bracketed signed URL",
+        "Tenant emails include List-Unsubscribe-Post: List-Unsubscribe=One-Click header",
+        "Super admin/unknown role emails omit List-Unsubscribe headers",
+        "POST /email/unsubscribe with valid signed URL returns 200 and disables email",
+        "POST /email/unsubscribe without signature returns 403",
+        "POST /email/unsubscribe for non-tenant returns 403",
+        "Existing GET /email/preferences body link unchanged",
+        "Security log records unsubscribe events"
+      ],
+      "definition_of_done": [
+        "All unit and feature tests pass",
+        "Pint clean",
+        "phpmd clean on modified files (no new violations)",
+        "Full test suite passes"
+      ],
+      "verification": "php artisan test --filter=UnsubscribeUrlResolverTest && php artisan test --filter=NotificationMailTest && php artisan test --filter=NotificationEmailStandardizationTest",
+      "estimated_effort": "medium",
+      "passes": true,
+      "attempt_count": 1,
+      "depends_on": [
+        "NOTIF-TPL-006"
+      ]
+    },
+    {
+      "id": "NOTIF-TPL-008",
+      "category": "backend",
       "priority": "MEDIUM",
-      "title": "Cleanup: remove legacy standalone HTML and verify no dangling references",
-      "description": "After migration is verified, ensure the old standalone HTML structure is fully removed from notification.blade.php (should already be replaced by NOTIF-TPL-003). Grep for any remaining references to the old template pattern. Verify the notification history/log UI still displays correctly since it shows notification content from the DB, not the email HTML.",
-      "story_points": 2,
+      "title": "Cleanup: remove hardcoded branding, verify no dangling references, E2E",
+      "description": "Fix 12 blade files with hardcoded 'PropManager' branding. Grep for any remaining references to old template patterns. Verify notification history UI renders correctly. Run E2E browser tests for notification flow verification.",
+      "story_points": 3,
       "steps": [
         "Grep codebase for 'emails.notification' to confirm only NotificationMail references it",
-        "Grep for any hardcoded 'PropManager Team' remaining in email templates",
+        "Fix 12 blade files with hardcoded 'PropManager' to use config('app.name')",
         "Grep for any remaining inline <style> tags in email blade files",
-        "Verify notification history UI (Notifications/partials/HistoryTab.vue) still renders correctly — it shows sent notification content from DB, not email HTML",
-        "Verify notification preview in template editor (if exists) still works",
-        "Run full test suite one final time",
+        "Verify notification history UI still renders correctly",
+        "Run E2E browser verification for notification pages",
+        "Run full test suite",
         "Run Pint on all modified files"
       ],
       "files": [
-        "resources/views/emails/notification.blade.php",
-        "app/Mail/NotificationMail.php",
-        "app/Services/NotificationService.php"
+        "resources/views/emails/data-export-ready.blade.php",
+        "resources/views/receipts/payment-receipt.blade.php",
+        "resources/views/receipts/subscription-receipt.blade.php",
+        "resources/views/exports/*.blade.php",
+        "resources/views/reports/*.blade.php"
       ],
       "acceptance_criteria": [
-        "No references to old standalone HTML pattern remain",
-        "No hardcoded 'PropManager Team' in any email template",
-        "Notification history UI unaffected (displays from DB, not email HTML)",
+        "No hardcoded 'PropManager' in any blade template",
+        "All templates use config('app.name')",
+        "Notification history UI unaffected",
         "All tests pass",
         "Pint clean"
       ],
       "definition_of_done": [
         "Full test suite passes",
         "Pint passes on all modified files",
-        "phpmd clean on modified services"
+        "E2E browser verification complete"
       ],
       "verification": "php artisan test && ./vendor/bin/pint --test",
       "estimated_effort": "small",
       "passes": false,
       "attempt_count": 0,
       "depends_on": [
-        "NOTIF-TPL-006"
+        "NOTIF-TPL-007"
       ]
     }
   ],
   "metadata": {
-    "total_stories": 7,
-    "passing_stories": 6,
-    "total_story_points": 23,
+    "total_stories": 8,
+    "passing_stories": 7,
+    "total_story_points": 28,
     "estimated_effort": "medium",
-    "critical_path": "NOTIF-TPL-001 -> NOTIF-TPL-002 -> NOTIF-TPL-003 -> NOTIF-TPL-004 -> NOTIF-TPL-006 -> NOTIF-TPL-007"
+    "critical_path": "NOTIF-TPL-001 -> NOTIF-TPL-002 -> NOTIF-TPL-003 -> NOTIF-TPL-004 -> NOTIF-TPL-006 -> NOTIF-TPL-007 -> NOTIF-TPL-008"
   }
 }

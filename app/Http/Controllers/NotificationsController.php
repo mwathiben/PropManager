@@ -317,6 +317,30 @@ class NotificationsController extends Controller
         return redirect()->route('profile.edit', ['tab' => 'notifications']);
     }
 
+    public function oneClickUnsubscribe(Request $request): JsonResponse
+    {
+        $user = User::findOrFail($request->query('user'));
+
+        if ($user->role !== 'tenant') {
+            Log::channel('security')->warning('One-click unsubscribe: non-tenant user ID in signed URL', [
+                'user_id' => $user->id,
+                'role' => $user->role,
+                'ip' => $request->ip(),
+            ]);
+            abort(403, 'Invalid unsubscribe link.');
+        }
+
+        NotificationPreference::getOrCreate($user->id, $user->landlord_id)
+            ->update(['email_enabled' => false]);
+
+        Log::channel('security')->info('One-click email unsubscribe', [
+            'user_id' => $user->id,
+            'landlord_id' => $user->landlord_id,
+        ]);
+
+        return response()->json(['status' => 'unsubscribed']);
+    }
+
     public function getPreferences(): JsonResponse
     {
         $user = auth()->user();

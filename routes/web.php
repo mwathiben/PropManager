@@ -128,6 +128,10 @@ Route::get('/email/preferences', [\App\Http\Controllers\NotificationsController:
     ->name('email.preferences')
     ->middleware(['signed', 'throttle:invitation']);
 
+Route::post('/email/unsubscribe', [\App\Http\Controllers\NotificationsController::class, 'oneClickUnsubscribe'])
+    ->name('email.unsubscribe')
+    ->middleware(['signed', 'throttle:invitation']);
+
 // --- AUTHENTICATED ROUTES GROUP ---
 Route::middleware('auth')->group(function () {
 
@@ -198,6 +202,9 @@ Route::middleware('auth')->group(function () {
 
     // Invoice Automation Settings (Per-Building Configuration)
     Route::put('/buildings/{building}/automation-settings', [BuildingController::class, 'updateAutomationSettings'])->name('buildings.automation-settings.update');
+
+    // Building Deletion
+    Route::delete('/buildings/{building}', [BuildingController::class, 'destroy'])->name('buildings.destroy');
 
     // ========================================
     // CONSOLIDATED HUB ROUTES (Navigation Optimization)

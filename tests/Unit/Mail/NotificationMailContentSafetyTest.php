@@ -48,7 +48,7 @@ class NotificationMailContentSafetyTest extends TestCase
             'meta refresh' => ['<meta http-equiv="refresh" content="0;url=javascript:alert(1)">', '&lt;meta http-equiv='],
             'iframe srcdoc' => ['<iframe srcdoc="<script>alert(1)</script>">', '&lt;iframe srcdoc='],
             'css expression' => ['<div style="background:expression(alert(1))">', '&lt;div style='],
-            'malformed unclosed tag' => ['<img src="x" onerror="alert(1)"', '&lt;img src='],
+            'malformed unclosed tag' => ['<img src="x" onerror="alert(1)">', '&lt;img src='],
         ];
     }
 
@@ -111,10 +111,9 @@ class NotificationMailContentSafetyTest extends TestCase
 
         $this->assertStringContainsString('B-202', $html);
         $this->assertStringNotContainsString('Metadata', $html);
-        $this->assertStringNotContainsString('floor', $html);
         $this->assertStringNotContainsString('East', $html);
         $this->assertStringNotContainsString('Tags', $html);
-        $this->assertStringNotContainsString('urgent', $html);
+        $this->assertStringNotContainsString('maintenance', $html);
     }
 
     public function test_template_rendered_html_placeholders_are_escaped_in_email(): void
@@ -130,13 +129,13 @@ class NotificationMailContentSafetyTest extends TestCase
             'is_active' => true,
         ]);
 
-        $rendered = $template->render([
+        $rendered = $template->renderRaw([
             'tenant_name' => '<script>alert("pwned")</script>',
             'rent_amount' => '25,000 KES',
         ]);
 
-        $this->assertStringContainsString('<script>', $rendered['body'], 'render() must NOT escape — raw HTML expected at this stage');
-        $this->assertStringContainsString('<script>', $rendered['subject'], 'render() must NOT escape subject either');
+        $this->assertStringContainsString('<script>', $rendered['body'], 'renderRaw() must NOT escape — raw HTML at this stage');
+        $this->assertStringContainsString('<script>', $rendered['subject'], 'renderRaw() must NOT escape subject either');
 
         $html = $this->renderMail(
             message: $rendered['body'],

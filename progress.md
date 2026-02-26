@@ -15778,4 +15778,54 @@ Created `tests/Unit/Mail/NotificationMailContentSafetyTest.php` with 7 test meth
 - Pre-existing model bugs (missing HasFactory) should be fixed properly, not worked around
 
 ### Next Steps
-- NOTIF-TPL-007: Cleanup — remove legacy standalone HTML and verify no dangling references
+- NOTIF-TPL-007: RFC 8058 List-Unsubscribe compliance
+
+---
+
+## Session: 2026-02-26T10:00:00Z
+**Task**: NOTIF-TPL-007 — RFC 8058 List-Unsubscribe headers and one-click unsubscribe endpoint
+**Status**: COMPLETED
+
+### Work Done
+- Added `resolveForHeader()` to UnsubscribeUrlResolver — generates signed POST URL to `/email/unsubscribe` for tenants
+- Added `headers()` method to NotificationMail — returns `List-Unsubscribe` and `List-Unsubscribe-Post` headers per RFC 8058
+- Added `POST /email/unsubscribe` route with `signed` + `throttle:invitation` middleware
+- Added `oneClickUnsubscribe()` to NotificationsController — validates tenant, disables email via NotificationPreference::getOrCreate(), logs to security channel
+- Added 3 unit tests for resolveForHeader() (tenant POST URL, landlord settings URL, unknown null)
+- Added 3 unit tests for headers() (List-Unsubscribe, List-Unsubscribe-Post, omit for unknown role)
+- Added 3 feature tests for POST endpoint (200 + email disabled, 403 unsigned, 403 non-tenant)
+- Fixed pre-existing test bug: NotificationEmailStandardizationTest::test_notification_template_render slug collision (added explicit slug/type to XSS template factory)
+- Fixed pre-existing test bug: NotificationMailContentSafetyTest used render() instead of renderRaw() for Blade escaping flow test
+- Restructured PRD: original NOTIF-TPL-007 (cleanup) → NOTIF-TPL-008, new NOTIF-TPL-007 for RFC 8058
+
+### Files Changed
+- `app/Mail/NotificationMail.php` — added `headers()` method (6 lines)
+- `app/Services/Notification/UnsubscribeUrlResolver.php` — added `resolveForHeader()` (~15 lines)
+- `routes/web.php` — added POST `/email/unsubscribe` route (3 lines)
+- `app/Http/Controllers/NotificationsController.php` — added `oneClickUnsubscribe()` (~20 lines)
+- `tests/Unit/Mail/NotificationMailTest.php` — added 3 header tests
+- `tests/Unit/Services/UnsubscribeUrlResolverTest.php` — added 3 resolveForHeader tests
+- `tests/Feature/NotificationEmailStandardizationTest.php` — added 3 endpoint tests, fixed slug collision
+- `tests/Unit/Mail/NotificationMailContentSafetyTest.php` — fixed render→renderRaw
+- `notification-email-standardization-prd.json` — restructured 007/008
+
+### Verification Results
+- UnsubscribeUrlResolverTest: 8/8 pass
+- NotificationMailTest: 9/9 pass
+- NotificationMailRenderTest: 16/16 pass
+- NotificationMailContentSafetyTest: 23/23 pass
+- NotificationEmailStandardizationTest: 11/11 pass
+- Full suite: 1536 pass, 1 flake (FinanceCacheTest timing), 13 skipped
+- Pint: clean
+- phpmd: no new violations (pre-existing NotificationsController ExcessiveClassLength)
+
+### Learnings
+- RFC 8058 requires `List-Unsubscribe: <url>` (angle brackets) and `List-Unsubscribe-Post: List-Unsubscribe=One-Click`
+- Laravel 12 `Illuminate\Mail\Mailables\Headers` uses `text` param for custom headers
+- Dual-URL pattern: `resolve()` for body links (GET), `resolveForHeader()` for email headers (POST)
+- POST endpoint must return 200 with no redirect — ISPs expect machine-to-machine response
+- NotificationTemplate::render() now escapes by default — tests that assume raw HTML must use renderRaw()
+- Factory slug collisions in parallel test runs: always specify explicit slug when creating multiple templates for same landlord
+
+### Next Steps
+- NOTIF-TPL-008: Cleanup — fix 12 hardcoded PropManager in blade files, E2E browser verification

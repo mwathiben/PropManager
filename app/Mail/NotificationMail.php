@@ -9,6 +9,7 @@ use App\Services\Notification\UnsubscribeUrlResolver;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
+use Illuminate\Mail\Mailables\Headers;
 
 class NotificationMail extends Mailable
 {
@@ -18,6 +19,18 @@ class NotificationMail extends Mailable
         public ?array $data,
         public User $recipient
     ) {}
+
+    public function headers(): Headers
+    {
+        $url = app(UnsubscribeUrlResolver::class)->resolveForHeader($this->recipient);
+
+        return new Headers(
+            text: $url ? [
+                'List-Unsubscribe' => '<'.$url.'>',
+                'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
+            ] : [],
+        );
+    }
 
     public function envelope(): Envelope
     {
