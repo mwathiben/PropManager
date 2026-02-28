@@ -9,6 +9,7 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\URL;
 
 class RentHikeNotice extends Mailable implements ShouldQueue
 {
@@ -62,6 +63,11 @@ class RentHikeNotice extends Mailable implements ShouldQueue
                 'reason' => $this->reason,
                 'dashboardUrl' => route('dashboard'),
                 'currency_symbol' => $building->getEffectiveCurrency()->symbol(),
+                'unsubscribeUrl' => URL::temporarySignedRoute(
+                    'email.preferences',
+                    now()->addDays(30),
+                    ['user' => $tenant->id]
+                ),
             ],
         );
     }

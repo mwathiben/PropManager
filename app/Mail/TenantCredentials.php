@@ -11,6 +11,7 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\URL;
 
 class TenantCredentials extends Mailable implements ShouldQueue
 {
@@ -27,7 +28,7 @@ class TenantCredentials extends Mailable implements ShouldQueue
 
     public function envelope(): Envelope
     {
-        $propertyName = $this->lease->unit->building->property->name ?? 'Your New Home';
+        $propertyName = $this->lease->unit->building?->property->name ?? 'Your New Home';
 
         return new Envelope(
             subject: "Welcome to {$propertyName} - Your Account Details",
@@ -43,11 +44,16 @@ class TenantCredentials extends Mailable implements ShouldQueue
                 'lease' => $this->lease,
                 'temporaryPassword' => $this->temporaryPassword,
                 'landlord' => $this->landlord,
-                'propertyName' => $this->lease->unit->building->property->name ?? 'Property',
-                'buildingName' => $this->lease->unit->building->name ?? '',
+                'propertyName' => $this->lease->unit->building?->property->name ?? 'Property',
+                'buildingName' => $this->lease->unit->building?->name ?? '',
                 'unitNumber' => $this->lease->unit->unit_number,
                 'loginUrl' => route('login'),
-                'currency_symbol' => ($this->lease->unit->building?->getEffectiveCurrency() ?? Currency::default())->symbol(),
+                'currencySymbol' => ($this->lease->unit->building?->getEffectiveCurrency() ?? Currency::default())->symbol(),
+                'unsubscribeUrl' => URL::temporarySignedRoute(
+                    'email.preferences',
+                    now()->addDays(30),
+                    ['user' => $this->tenant->id]
+                ),
             ],
         );
     }

@@ -1,44 +1,44 @@
-<x-mail::message>
-# Welcome to {{ $propertyName }}!
+<x-mail::message :unsubscribeUrl="$unsubscribeUrl ?? null">
+    # Welcome to {{ $propertyName }}!
 
-Hello {{ $tenant->name }},
+    Hello {{ $tenant->name }},
 
-Your tenant account has been created. Below are your login credentials.
+    Your tenant account has been created. Below are your login credentials.
 
-## Your Login Details
+    ## Your Login Details
 
-- **Email:** {{ $tenant->email }}
-- **Temporary Password:** {{ $temporaryPassword }}
+    - **Email:** {{ $tenant->email }}
+    - **Temporary Password:** {{ $temporaryPassword }}
 
-<x-mail::button :url="$loginUrl">
-Log In Now
-</x-mail::button>
+    <x-mail::button :url="$loginUrl">
+        Log In Now
+    </x-mail::button>
 
-**Important:** Please change your password immediately after logging in for security.
+    **Important:** Please change your password immediately after logging in for security.
 
-## Your Lease Details
+    ## Your Lease Details
 
-- **Property:** {{ $propertyName }}
-@if($buildingName)
-- **Building:** {{ $buildingName }}
-@endif
-- **Unit:** {{ $unitNumber }}
-- **Monthly Rent:** {{ $currency_symbol }} {{ number_format($lease->rent_amount, 2) }}
-- **Security Deposit:** {{ $currency_symbol }} {{ number_format($lease->deposit_amount, 2) }}
-- **Lease Start Date:** {{ $lease->start_date->format('F d, Y') }}
+    - **Property:** {{ $propertyName }}
+    @if ($buildingName)
+        - **Building:** {{ $buildingName }}
+    @endif
+    - **Unit:** {{ $unitNumber }}
+    - **Monthly Rent:** {{ $currencySymbol }} {{ number_format($lease->rent_amount, 2) }}
+    - **Security Deposit:** {{ $currencySymbol }} {{ number_format($lease->deposit_amount, 2) }}
+    - **Lease Start Date:** {{ $lease->start_date->format('F d, Y') }}
 
-## Your Landlord
+    ## Your Landlord
 
-- **Name:** {{ $landlord->name }}
-@if($landlord->email)
-- **Email:** {{ $landlord->email }}
-@endif
-@if($landlord->mobile_number)
-- **Phone:** {{ $landlord->mobile_number }}
-@endif
+    - **Name:** {{ $landlord->name }}
+    @if ($landlord->email)
+        - **Email:** {{ $landlord->email }}
+    @endif
+    @if ($landlord->mobile_number)
+        - **Phone:** {{ $landlord->mobile_number }}
+    @endif
 
-If you have any questions, please contact your landlord.
+    If you have any questions, please contact your landlord.
 
-Thanks,<br>
-{{ config('app.name') }} Team
+    Thanks,<br>
+    {{ config('app.name') }} Team
 </x-mail::message>

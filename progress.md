@@ -16247,3 +16247,65 @@ No production code changed.
 - Pint: clean on all modified files
 - phpmd: clean on all modified files
 - agent-browser: email rendered, security checks passed, screenshot captured
+
+---
+
+## Session: 2026-02-28T15:00:00Z
+**Task**: E2E-MAIL-007 - E2E flow: TenantCredentials (with agent-browser login test)
+**Status**: COMPLETED
+
+### Work Done
+
+#### Phase 1: Security/Consistency Fixes
+- Added `'temporary_password'` to `DomainException::SENSITIVE_KEYS` for defense-in-depth (substring match via `'password'` already covers it, but explicit entry prevents regression)
+- Added unsubscribe URL to `TenantCredentials` mailable and template (was missing)
+- Added unsubscribe URL to `TenantWelcome` mailable and template (was missing)
+- Added unsubscribe URL to `RentHikeNotice` mailable and template (was missing)
+- All 3 use consistent pattern: `URL::temporarySignedRoute('email.preferences', now()->addDays(30), ['user' => $tenant->id])`
+- Templates use `<x-mail::message :unsubscribeUrl="$unsubscribeUrl ?? null">` for backward compatibility
+
+#### Phase 2: Tests
+- Created `tests/Unit/Exceptions/DomainExceptionSanitizationTest.php` (4 tests, 7 assertions)
+  - Verifies password, temporaryPassword (camelCase), temporary_password (snake_case) all get [REDACTED]
+  - Verifies password variants stripped from public context
+- Created `tests/Browser/EmailFlows/TenantCredentialsFlowTest.php` (1 test, 25 assertions)
+  - Creates landlord + property + building(KES) + unit(vacant) via factories
+  - POSTs to `leases.store` route with form data
+  - Asserts Mailpit captures email with correct content (tenant name, email, property, building, unit, amounts, currency, temporary password text, login button, landlord name, app name)
+  - Asserts login link and signed unsubscribe link present
+  - Security assertions: no secret_key, APP_KEY, or config('app.key') in HTML
+  - Screenshot via Dusk browser
+
+#### Phase 3: Verification
+- Pint: PASS (6 files)
+- phpmd: Only pre-existing violations (DomainException CC=7/ExcessiveParams, RentHikeNotice ExcessiveParams)
+- DomainExceptionSanitizationTest: 4 passed (7 assertions)
+- TenantCredentialsFlowTest: 1 passed (25 assertions) — initial failure due to HTML entity encoding of apostrophes in factory names, fixed with `html_entity_decode()`
+- EmailFooterConsistencyTest: 7 passed (no regressions from unsubscribe additions)
+- Full test suite: 1585 passed, 0 failed, 13 skipped
+
+#### Phase 4: Agent-browser Verification
+- Opened TenantCredentials email in Mailpit via `--session mailtest`
+- Screenshot saved to `e2e-screenshots/emails/agent-browser-tenant-credentials.png`
+- Security eval: `secret_key` absent (true), `APP_KEY` absent (true)
+- Content eval: `email/preferences` present (true), `Welcome to` present (true)
+- All 9 Mailpit API content/security checks passed
+
+### Files Created
+- `tests/Unit/Exceptions/DomainExceptionSanitizationTest.php`
+- `tests/Browser/EmailFlows/TenantCredentialsFlowTest.php`
+
+### Files Modified
+- `app/Exceptions/DomainException.php` — Added 'temporary_password' to SENSITIVE_KEYS
+- `app/Mail/TenantCredentials.php` — Added URL import + unsubscribeUrl
+- `resources/views/emails/tenant-credentials.blade.php` — Added :unsubscribeUrl prop
+- `app/Mail/TenantWelcome.php` — Added URL import + unsubscribeUrl
+- `resources/views/emails/tenant-welcome.blade.php` — Added :unsubscribeUrl prop
+- `app/Mail/RentHikeNotice.php` — Added URL import + unsubscribeUrl
+- `resources/views/emails/rent-hike-notice.blade.php` — Added :unsubscribeUrl prop
+
+### Learnings
+- Factory-generated names with apostrophes (O'Connell) get HTML-encoded in email HTML — use `html_entity_decode()` before asserting dynamic content
+- `!==` in agent-browser eval on Windows gets mangled by shell — use `> -1` instead
+- Unsubscribe consistency: 3 tenant-facing mailables were missing unsubscribe links (TenantCredentials, TenantWelcome, RentHikeNotice)
+- OverpaymentNotification correctly uses landlord route (not tenant unsubscribe)

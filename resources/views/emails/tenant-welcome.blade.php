@@ -1,4 +1,4 @@
-<x-mail::message>
+<x-mail::message :unsubscribeUrl="$unsubscribeUrl ?? null">
 # Welcome to {{ $propertyName }}!
 
 Hello {{ $tenant->name }},

@@ -11,6 +11,7 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\URL;
 
 class TenantWelcome extends Mailable implements ShouldQueue
 {
@@ -60,6 +61,11 @@ class TenantWelcome extends Mailable implements ShouldQueue
                 'startDate' => $this->lease->start_date->format('F d, Y'),
                 'dashboardUrl' => route('dashboard'),
                 'currency_symbol' => $this->invitation->unit->building->getEffectiveCurrency()->symbol(),
+                'unsubscribeUrl' => URL::temporarySignedRoute(
+                    'email.preferences',
+                    now()->addDays(30),
+                    ['user' => $this->tenant->id]
+                ),
             ],
         );
     }
