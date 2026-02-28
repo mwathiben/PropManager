@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Controllers;
 
+use App\Enums\InvoiceStatus;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -129,7 +130,7 @@ class InvoiceControllerTest extends TestCase
             ]);
 
         $response->assertRedirect();
-        $this->assertEquals('sent', $invoice->fresh()->status);
+        $this->assertEquals(InvoiceStatus::Sent, $invoice->fresh()->status);
     }
 
     public function test_landlord_can_record_manual_payment(): void
@@ -146,7 +147,7 @@ class InvoiceControllerTest extends TestCase
             ]);
 
         $response->assertRedirect();
-        $this->assertEquals('paid', $invoice->fresh()->status);
+        $this->assertEquals(InvoiceStatus::Paid, $invoice->fresh()->status);
         $this->assertDatabaseHas('payments', [
             'invoice_id' => $invoice->id,
             'amount' => 25000,
@@ -166,7 +167,7 @@ class InvoiceControllerTest extends TestCase
                 'payment_method' => 'bank_transfer',
             ]);
 
-        $this->assertEquals('partial', $invoice->fresh()->status);
+        $this->assertEquals(InvoiceStatus::Partial, $invoice->fresh()->status);
         $this->assertEquals(10000, $invoice->fresh()->amount_paid);
     }
 
@@ -211,7 +212,7 @@ class InvoiceControllerTest extends TestCase
         $response = $this->actingAs($this->landlord)
             ->delete(route('invoices.destroy', $invoice));
 
-        $response->assertRedirect();
+        $response->assertForbidden();
         $this->assertDatabaseHas('invoices', ['id' => $invoice->id]);
     }
 
@@ -282,7 +283,7 @@ class InvoiceControllerTest extends TestCase
 
         $response->assertRedirect();
         $invoice->refresh();
-        $this->assertEquals('voided', $invoice->status);
+        $this->assertEquals(InvoiceStatus::Voided, $invoice->status);
         $this->assertNotNull($invoice->voided_at);
         $this->assertEquals('Test void reason', $invoice->void_reason);
     }
@@ -301,7 +302,7 @@ class InvoiceControllerTest extends TestCase
         $response->assertRedirect();
         $response->assertSessionHasErrors('error');
         $invoice->refresh();
-        $this->assertEquals('paid', $invoice->status);
+        $this->assertEquals(InvoiceStatus::Paid, $invoice->status);
     }
 
     public function test_landlord_can_reissue_voided_invoice(): void
@@ -337,5 +338,19 @@ class InvoiceControllerTest extends TestCase
 
         $response->assertRedirect();
         $response->assertSessionHasErrors('error');
+    }
+
+    public function test_tenant_cannot_update_invoice_status(): void
+    {
+        $unit = $this->setupData['units']->first();
+        ['lease' => $lease, 'tenant' => $tenant] = $this->createTenantWithActiveLease($this->landlord, $unit);
+        $invoice = $this->createInvoiceForLease($lease, 'draft');
+
+        $response = $this->actingAs($tenant)
+            ->put(route('invoices.updateStatus', $invoice), [
+                'status' => 'sent',
+            ]);
+
+        $response->assertForbidden();
     }
 }

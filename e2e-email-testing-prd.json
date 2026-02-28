@@ -51,7 +51,7 @@
       "category": "infrastructure",
       "priority": "CRITICAL",
       "title": "Install Mailpit and configure test environment",
-      "description": "Set up Mailpit SMTP capture server for local development and testing. Create tools/mailpit/ directory with README installation instructions. Add binary patterns to .gitignore. Do NOT modify any .env file — all SMTP config is handled via config() overrides in test setUp().",
+      "description": "Set up Mailpit SMTP capture server for local development and testing. Create tools/mailpit/ directory with README installation instructions. Add binary patterns to .gitignore. Do NOT modify any .env file \u00e2\u20ac\u201d all SMTP config is handled via config() overrides in test setUp().",
       "story_points": 3,
       "steps": [
         "Create tools/mailpit/README.md with installation instructions (Scoop: scoop install mailpit, or manual Go binary download)",
@@ -81,7 +81,9 @@
       "estimated_effort": "small",
       "passes": true,
       "attempt_count": 1,
-      "depends_on": ["E2E-MAIL-015"]
+      "depends_on": [
+        "E2E-MAIL-015"
+      ]
     },
     {
       "id": "E2E-MAIL-002",
@@ -123,7 +125,9 @@
       "estimated_effort": "medium",
       "passes": true,
       "attempt_count": 1,
-      "depends_on": ["E2E-MAIL-001"]
+      "depends_on": [
+        "E2E-MAIL-001"
+      ]
     },
     {
       "id": "E2E-MAIL-003",
@@ -163,7 +167,9 @@
       "estimated_effort": "medium",
       "passes": true,
       "attempt_count": 1,
-      "depends_on": ["E2E-MAIL-002"]
+      "depends_on": [
+        "E2E-MAIL-002"
+      ]
     },
     {
       "id": "E2E-MAIL-004",
@@ -201,7 +207,9 @@
       "estimated_effort": "medium",
       "passes": true,
       "attempt_count": 1,
-      "depends_on": ["E2E-MAIL-003"]
+      "depends_on": [
+        "E2E-MAIL-003"
+      ]
     },
     {
       "id": "E2E-MAIL-005",
@@ -245,7 +253,9 @@
       "estimated_effort": "medium",
       "passes": true,
       "attempt_count": 1,
-      "depends_on": ["E2E-MAIL-003"]
+      "depends_on": [
+        "E2E-MAIL-003"
+      ]
     },
     {
       "id": "E2E-MAIL-006",
@@ -285,9 +295,11 @@
       ],
       "verification": "php artisan dusk --filter=InvoiceNotificationFlowTest",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
-      "depends_on": ["E2E-MAIL-003"]
+      "passes": true,
+      "attempt_count": 1,
+      "depends_on": [
+        "E2E-MAIL-003"
+      ]
     },
     {
       "id": "E2E-MAIL-007",
@@ -328,7 +340,9 @@
       "estimated_effort": "medium",
       "passes": false,
       "attempt_count": 0,
-      "depends_on": ["E2E-MAIL-003"]
+      "depends_on": [
+        "E2E-MAIL-003"
+      ]
     },
     {
       "id": "E2E-MAIL-008",
@@ -368,7 +382,9 @@
       "estimated_effort": "medium",
       "passes": false,
       "attempt_count": 0,
-      "depends_on": ["E2E-MAIL-003"]
+      "depends_on": [
+        "E2E-MAIL-003"
+      ]
     },
     {
       "id": "E2E-MAIL-009",
@@ -407,7 +423,10 @@
       "estimated_effort": "small",
       "passes": false,
       "attempt_count": 0,
-      "depends_on": ["E2E-MAIL-002", "E2E-MAIL-003"]
+      "depends_on": [
+        "E2E-MAIL-002",
+        "E2E-MAIL-003"
+      ]
     },
     {
       "id": "E2E-MAIL-010",
@@ -448,7 +467,10 @@
       "estimated_effort": "small",
       "passes": false,
       "attempt_count": 0,
-      "depends_on": ["E2E-MAIL-002", "E2E-MAIL-003"]
+      "depends_on": [
+        "E2E-MAIL-002",
+        "E2E-MAIL-003"
+      ]
     },
     {
       "id": "E2E-MAIL-011",
@@ -527,7 +549,9 @@
       "estimated_effort": "small",
       "passes": false,
       "attempt_count": 0,
-      "depends_on": ["E2E-MAIL-004"]
+      "depends_on": [
+        "E2E-MAIL-004"
+      ]
     },
     {
       "id": "E2E-MAIL-013",
@@ -564,7 +588,10 @@
       "estimated_effort": "medium",
       "passes": false,
       "attempt_count": 0,
-      "depends_on": ["E2E-MAIL-004", "E2E-MAIL-012"]
+      "depends_on": [
+        "E2E-MAIL-004",
+        "E2E-MAIL-012"
+      ]
     },
     {
       "id": "E2E-MAIL-014",
@@ -600,7 +627,9 @@
       "estimated_effort": "small",
       "passes": false,
       "attempt_count": 0,
-      "depends_on": ["E2E-MAIL-004"]
+      "depends_on": [
+        "E2E-MAIL-004"
+      ]
     }
   ],
   "pre_existing_issues": [

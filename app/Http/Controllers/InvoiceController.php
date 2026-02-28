@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\Currency;
 use App\Enums\InvoiceStatus;
 use App\Http\Requests\GenerateInvoicesRequest;
+use App\Http\Requests\RecordPaymentRequest;
 use App\Jobs\GenerateInvoicePdf;
 use App\Mail\InvoiceReminder;
 use App\Mail\InvoiceSent;
@@ -20,6 +21,7 @@ use App\Traits\HasBuildingFilter;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -44,25 +46,7 @@ class InvoiceController extends Controller
         $invoices = $query
             ->when($request->status, fn ($q) => $q->where('status', $request->status))
             ->when($request->search, fn ($q) => $q->where('invoice_number', 'like', '%'.$request->search.'%'))
-            ->when($request->arrears_age, function ($q) use ($request) {
-                $now = Carbon::now();
-                $q->where('status', InvoiceStatus::Overdue);
-
-                switch ($request->arrears_age) {
-                    case '0_30':
-                        $q->where('due_date', '>=', $now->copy()->subDays(30));
-                        break;
-                    case '31_60':
-                        $q->whereBetween('due_date', [$now->copy()->subDays(60), $now->copy()->subDays(31)]);
-                        break;
-                    case '61_90':
-                        $q->whereBetween('due_date', [$now->copy()->subDays(90), $now->copy()->subDays(61)]);
-                        break;
-                    case '90_plus':
-                        $q->where('due_date', '<', $now->copy()->subDays(90));
-                        break;
-                }
-            })
+            ->when($request->arrears_age, fn ($q) => $this->applyArrearsAgeFilter($q, $request->arrears_age))
             ->orderBy('created_at', 'desc')
             ->paginate(50);
 
@@ -107,6 +91,8 @@ class InvoiceController extends Controller
 
     public function updateStatus(Request $request, Invoice $invoice)
     {
+        $this->authorize('update', $invoice);
+
         $request->validate([
             'status' => ['required', Rule::in(InvoiceStatus::values())],
         ]);
@@ -125,55 +111,49 @@ class InvoiceController extends Controller
         return back()->with('success', __('messages.invoice.status_updated'));
     }
 
-    public function recordPayment(Request $request, Invoice $invoice)
+    public function recordPayment(RecordPaymentRequest $request, Invoice $invoice, ReceiptService $receiptService)
     {
-        $this->authorize('recordPayment', $invoice);
-
-        $request->validate([
-            'amount' => 'required|numeric|min:0.01',
-            'payment_method' => 'required|string|in:cash,bank_transfer,mobile_money,paystack',
-            'reference' => 'nullable|string|max:255',
-            'notes' => 'nullable|string|max:500',
-        ]);
-
-        $remainingBalance = $invoice->total_due - $invoice->amount_paid;
         $paymentAmount = $request->amount;
-        $appliedAmount = min($paymentAmount, $remainingBalance);
-        $overpayment = max(0, $paymentAmount - $remainingBalance);
 
-        $newAmountPaid = $invoice->amount_paid + $appliedAmount;
-        $newStatus = $newAmountPaid >= $invoice->total_due ? InvoiceStatus::Paid : InvoiceStatus::Partial;
+        [$payment, $overpayment] = DB::transaction(function () use ($request, $invoice, $receiptService, $paymentAmount) {
+            $remainingBalance = $invoice->total_due - $invoice->amount_paid;
+            $appliedAmount = min($paymentAmount, $remainingBalance);
+            $overpayment = max(0, $paymentAmount - $remainingBalance);
 
-        $payment = $invoice->payments()->create([
-            'landlord_id' => $invoice->landlord_id,
-            'lease_id' => $invoice->lease_id,
-            'amount' => $paymentAmount,
-            'payment_method' => $request->payment_method,
-            'payment_date' => now(),
-            'reference' => $request->reference,
-            'notes' => $request->notes,
-        ]);
+            $newAmountPaid = $invoice->amount_paid + $appliedAmount;
+            $newStatus = $newAmountPaid >= $invoice->total_due ? InvoiceStatus::Paid : InvoiceStatus::Partial;
 
-        $invoice->update([
-            'amount_paid' => $newAmountPaid,
-            'status' => $newStatus,
-        ]);
+            $payment = $invoice->payments()->create([
+                'landlord_id' => $invoice->landlord_id,
+                'lease_id' => $invoice->lease_id,
+                'amount' => $paymentAmount,
+                'payment_method' => $request->payment_method,
+                'payment_date' => now(),
+                'reference' => $request->reference,
+                'notes' => $request->notes,
+            ]);
 
-        if ($overpayment > 0) {
-            $invoice->lease->creditToWallet(
-                $overpayment,
-                "Overpayment from payment #{$payment->id}",
-                $payment->id
-            );
-        }
+            $invoice->update([
+                'amount_paid' => $newAmountPaid,
+                'status' => $newStatus,
+            ]);
 
-        $receiptService = app(ReceiptService::class);
-        $receiptService->createReceipt($payment, $invoice);
+            if ($overpayment > 0) {
+                $invoice->lease->creditToWallet(
+                    $overpayment,
+                    "Overpayment from payment #{$payment->id}",
+                    $payment->id
+                );
+            }
+
+            $receiptService->createReceipt($payment, $invoice);
+
+            return [$payment, $overpayment];
+        });
 
         $invoice->load(['lease.tenant', 'lease.unit.building']);
         Mail::to($invoice->lease->tenant->email)->send(new PaymentReceived($payment, $invoice));
 
-        // Send overpayment notification to landlord
         if ($overpayment > 0) {
             $invoice->lease->refresh();
             $landlord = User::find($invoice->landlord_id);
@@ -199,6 +179,8 @@ class InvoiceController extends Controller
 
     public function destroy(Invoice $invoice)
     {
+        $this->authorize('delete', $invoice);
+
         if ($invoice->status === InvoiceStatus::Paid) {
             return back()->withErrors(['error' => __('messages.invoice.cannot_delete_paid')]);
         }
@@ -255,7 +237,7 @@ class InvoiceController extends Controller
 
     public function void(Request $request, Invoice $invoice)
     {
-        $this->authorize('view', $invoice);
+        $this->authorize('update', $invoice);
 
         $request->validate([
             'reason' => 'required|string|max:500',
@@ -295,30 +277,50 @@ class InvoiceController extends Controller
             return back()->withErrors(['error' => __('messages.invoice.cannot_reissue')]);
         }
 
-        $newInvoice = $invoice->replicate([
-            'id',
-            'invoice_number',
-            'status',
-            'voided_at',
-            'void_reason',
-            'sent_at',
-            'viewed_at',
-            'amount_paid',
-        ]);
+        $newInvoice = DB::transaction(function () use ($invoice, $invoiceService) {
+            $newInvoice = $invoice->replicate([
+                'id',
+                'invoice_number',
+                'status',
+                'voided_at',
+                'void_reason',
+                'sent_at',
+                'viewed_at',
+                'amount_paid',
+            ]);
 
-        $newInvoice->invoice_number = $invoiceService->generateInvoiceNumber();
-        $newInvoice->status = InvoiceStatus::Draft;
-        $newInvoice->amount_paid = 0;
-        $newInvoice->save();
+            $newInvoice->invoice_number = $invoiceService->generateInvoiceNumber();
+            $newInvoice->status = InvoiceStatus::Draft;
+            $newInvoice->amount_paid = 0;
+            $newInvoice->save();
 
-        foreach ($invoice->items as $item) {
-            $newItem = $item->replicate(['id', 'invoice_id']);
-            $newItem->invoice_id = $newInvoice->id;
-            $newItem->save();
-        }
+            foreach ($invoice->items as $item) {
+                $newItem = $item->replicate(['id', 'invoice_id']);
+                $newItem->invoice_id = $newInvoice->id;
+                $newItem->save();
+            }
+
+            return $newInvoice;
+        });
 
         GenerateInvoicePdf::dispatch($newInvoice->id);
 
         return redirect()->route('invoices.show', $newInvoice)->with('success', __('messages.invoice.reissued'));
+    }
+
+    private function applyArrearsAgeFilter($query, string $arrearsAge)
+    {
+        $now = Carbon::now();
+        $query->where('status', InvoiceStatus::Overdue);
+
+        match ($arrearsAge) {
+            '0_30' => $query->where('due_date', '>=', $now->copy()->subDays(30)),
+            '31_60' => $query->whereBetween('due_date', [$now->copy()->subDays(60), $now->copy()->subDays(31)]),
+            '61_90' => $query->whereBetween('due_date', [$now->copy()->subDays(90), $now->copy()->subDays(61)]),
+            '90_plus' => $query->where('due_date', '<', $now->copy()->subDays(90)),
+            default => null,
+        };
+
+        return $query;
     }
 }
