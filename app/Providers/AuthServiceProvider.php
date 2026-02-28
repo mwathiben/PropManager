@@ -18,6 +18,7 @@ use App\Models\Payment;
 use App\Models\Property;
 use App\Models\ReceiptTemplate;
 use App\Models\TenantKycSubmission;
+use App\Models\TenantPaymentVerification;
 use App\Models\Ticket;
 use App\Models\Unit;
 use App\Models\Vendor;
@@ -39,6 +40,7 @@ use App\Policies\PaymentPolicy;
 use App\Policies\PropertyPolicy;
 use App\Policies\ReceiptTemplatePolicy;
 use App\Policies\TenantKycSubmissionPolicy;
+use App\Policies\TenantPaymentVerificationPolicy;
 use App\Policies\TicketPolicy;
 use App\Policies\UnitPolicy;
 use App\Policies\VendorPolicy;
@@ -75,6 +77,7 @@ class AuthServiceProvider extends ServiceProvider
         MoveOutDeductionCategory::class => MoveOutDeductionCategoryPolicy::class,
         WaterSetting::class => WaterSettingPolicy::class,
         TenantKycSubmission::class => TenantKycSubmissionPolicy::class,
+        TenantPaymentVerification::class => TenantPaymentVerificationPolicy::class,
         KycRequirement::class => KycRequirementPolicy::class,
     ];
 

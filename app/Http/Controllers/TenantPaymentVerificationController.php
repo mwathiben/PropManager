@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\RejectPaymentVerificationRequest;
 use App\Mail\PaymentVerificationApproved;
 use App\Mail\PaymentVerificationRejected;
 use App\Models\Document;
@@ -10,6 +11,8 @@ use App\Services\PaystackService;
 use App\Traits\HasBuildingFilter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 
@@ -131,21 +134,12 @@ class TenantPaymentVerificationController extends Controller
 
     public function index(Request $request)
     {
-        $buildingId = $request->filled('building_id') ? (int) $request->building_id : null;
-        $wingId = $request->filled('wing_id') ? (int) $request->wing_id : null;
+        $this->authorize('viewAny', TenantPaymentVerification::class);
 
         $query = TenantPaymentVerification::query()
             ->with(['lease.unit.building', 'lease.tenant', 'documents']);
 
-        if ($buildingId || $wingId) {
-            $query->whereHas('lease.unit', function ($q) use ($buildingId, $wingId) {
-                if ($wingId) {
-                    $q->where('building_id', $wingId);
-                } elseif ($buildingId) {
-                    $q->whereHas('building', fn ($b) => $b->where('property_id', $buildingId));
-                }
-            });
-        }
+        $this->applyBuildingScope($query, $request);
 
         $verifications = $query
             ->when($request->status, fn ($q) => $q->where('status', $request->status))
@@ -170,6 +164,8 @@ class TenantPaymentVerificationController extends Controller
 
     public function show(TenantPaymentVerification $verification)
     {
+        $this->authorize('view', $verification);
+
         $verification->load([
             'lease.unit.building',
             'lease.tenant',
@@ -184,11 +180,20 @@ class TenantPaymentVerificationController extends Controller
 
     public function approve(TenantPaymentVerification $verification)
     {
-        if ($verification->isVerified()) {
-            return back()->with('error', 'This verification has already been approved.');
-        }
+        $this->authorize('approve', $verification);
 
-        $verification->approve(Auth::id());
+        $verification->load('lease.tenant');
+
+        try {
+            DB::transaction(fn () => $verification->approve(Auth::id()));
+        } catch (\Exception $e) {
+            Log::error('Payment verification approval failed', [
+                'verification_id' => $verification->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->with('error', 'Failed to approve verification. Please try again.');
+        }
 
         $tenant = $verification->lease->tenant;
         if ($tenant) {
@@ -199,17 +204,20 @@ class TenantPaymentVerificationController extends Controller
             ->with('success', 'Payment verification approved. Tenant can now access the portal.');
     }
 
-    public function reject(Request $request, TenantPaymentVerification $verification)
+    public function reject(RejectPaymentVerificationRequest $request, TenantPaymentVerification $verification)
     {
-        $request->validate([
-            'reason' => 'required|string|max:1000',
-        ]);
+        $verification->load('lease.tenant');
 
-        if ($verification->isVerified()) {
-            return back()->with('error', 'Cannot reject an approved verification.');
+        try {
+            DB::transaction(fn () => $verification->reject($request->validated('reason'), Auth::id()));
+        } catch (\Exception $e) {
+            Log::error('Payment verification rejection failed', [
+                'verification_id' => $verification->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->with('error', 'Failed to reject verification. Please try again.');
         }
-
-        $verification->reject($request->reason, Auth::id());
 
         $tenant = $verification->lease->tenant;
         if ($tenant) {
@@ -218,5 +226,22 @@ class TenantPaymentVerificationController extends Controller
 
         return redirect()->route('payment-verifications.index')
             ->with('success', 'Verification rejected. Tenant has been notified.');
+    }
+
+    private function applyBuildingScope($query, Request $request): void
+    {
+        $wingId = $request->filled('wing_id') ? (int) $request->wing_id : null;
+
+        if ($wingId) {
+            $query->whereHas('lease.unit', fn ($q) => $q->where('building_id', $wingId));
+
+            return;
+        }
+
+        $buildingId = $request->filled('building_id') ? (int) $request->building_id : null;
+
+        if ($buildingId) {
+            $query->whereHas('lease.unit.building', fn ($b) => $b->where('property_id', $buildingId));
+        }
     }
 }

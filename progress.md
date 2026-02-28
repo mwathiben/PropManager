@@ -16367,3 +16367,54 @@ No production code changed.
 - For agent-browser Mailpit verification, navigate directly to `http://localhost:8025/view/{messageId}` — clicking list items is unreliable
 - Windows shell escaping: `!` in node -e gets mangled — use `indexOf() === -1` instead of `!includes()`
 - propmanager_test database is empty after RefreshDatabase — use main `propmanager` database with `withoutGlobalScopes()` for CLI-triggered emails
+
+---
+
+## Session: 2026-02-28T14:00:00Z
+**Task**: E2E-MAIL-009 - PaymentVerification approved/rejected email flow + controller remediation
+**Status**: COMPLETED
+
+### Work Done
+- Created `app/Policies/TenantPaymentVerificationPolicy.php` with viewAny/view/approve/reject methods + ownership check
+- Registered policy in `AuthServiceProvider.php`
+- Created `app/Http/Requests/RejectPaymentVerificationRequest.php` replacing inline validate()
+- Fixed 4 pre-existing violations in `TenantPaymentVerificationController.php`:
+  - V1 (CRITICAL): Added authorization via policy (authorize() calls in index/show/approve/reject)
+  - V2 (HIGH): Wrapped approve/reject in DB::transaction()
+  - V3 (HIGH): Replaced inline $request->validate() with RejectPaymentVerificationRequest FormRequest
+  - V4 (MEDIUM): Added $verification->load('lease.tenant') to prevent N+1 queries
+- Fixed PHPMD CC=7 in index() by extracting applyBuildingScope() private method
+- Fixed pre-existing bug: TenantPaymentVerification model missing HasFactory trait
+- Wrote `tests/Feature/EmailFlows/PaymentVerificationEmailFlowTest.php` with 5 tests (48 assertions)
+- Fixed Pint unused import issues in 4 pre-existing test files
+- Agent-browser E2E: screenshots captured for both approval and rejection emails
+- Security verified: no secrets in email HTML
+
+### Files Changed
+- app/Policies/TenantPaymentVerificationPolicy.php (NEW)
+- app/Http/Requests/RejectPaymentVerificationRequest.php (NEW)
+- app/Http/Controllers/TenantPaymentVerificationController.php (MODIFIED)
+- app/Providers/AuthServiceProvider.php (MODIFIED)
+- app/Models/TenantPaymentVerification.php (MODIFIED - added HasFactory)
+- tests/Feature/EmailFlows/PaymentVerificationEmailFlowTest.php (NEW)
+- tests/Feature/Api/PaymentInitiationEnumTest.php (Pint fix)
+- tests/Feature/Controllers/InvoicePolicyEnumTest.php (Pint fix)
+- tests/Feature/Controllers/RecordPaymentTransactionTest.php (Pint fix)
+- tests/Unit/Models/PaymentLinkEnumTest.php (Pint fix)
+- e2e-screenshots/emails/payment-verification-approved.png (NEW)
+- e2e-screenshots/emails/payment-verification-rejected.png (NEW)
+
+### Verification Results
+- PaymentVerificationEmailFlowTest: 5 passed (48 assertions)
+- Full suite: 1589 passed, 13 skipped, 1 failed (pre-existing flaky FinanceCacheTest timing issue)
+- Pint: clean (983 files)
+- PHPMD: clean on all changed files
+- Agent-browser: screenshots captured, security assertions passed
+
+### Learnings
+- TenantPaymentVerification model was missing HasFactory trait (same bug pattern as Invitation model from E2E-MAIL-004)
+- Extracting early-return pattern in applyBuildingScope() flattens CC by avoiding nested if/elseif inside whereHas closure
+- Mail dispatch outside DB::transaction() is correct pattern since Mailables have $afterCommit = true
+
+### Next Steps
+- E2E-MAIL-010 or next highest priority unpassed task
