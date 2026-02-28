@@ -3,24 +3,26 @@
 namespace App\Http\Controllers;
 
 use App\Events\InvitationAccepted;
+use App\Http\Requests\AcceptInvitationRequest;
+use App\Http\Requests\StoreInvitationRequest;
 use App\Mail\CaretakerInvitation;
 use App\Models\Invitation;
 use App\Models\Notification;
 use App\Models\Property;
 use App\Models\User;
 use App\Services\NotificationService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class InvitationController extends Controller
 {
-    /**
-     * Display a listing of invitations for the authenticated landlord
-     */
-    public function index()
+    public function index(): Response
     {
         $invitations = Invitation::where('landlord_id', auth()->id())
             ->with('property')
@@ -50,17 +52,8 @@ class InvitationController extends Controller
         ]);
     }
 
-    /**
-     * Store a newly created invitation and send email
-     */
-    public function store(Request $request)
+    public function store(StoreInvitationRequest $request): RedirectResponse
     {
-        $request->validate([
-            'email' => 'required|email',
-            'property_id' => 'required|exists:properties,id',
-        ]);
-
-        // Check if user already exists as a caretaker for this landlord
         $existingCaretaker = User::where('email', $request->email)
             ->where('role', 'caretaker')
             ->where('landlord_id', auth()->id())
@@ -70,7 +63,6 @@ class InvitationController extends Controller
             return back()->with('error', 'This email is already registered as a caretaker for your properties.');
         }
 
-        // Check if pending invitation already exists
         $existingInvitation = Invitation::where('email', $request->email)
             ->where('landlord_id', auth()->id())
             ->where('property_id', $request->property_id)
@@ -81,33 +73,31 @@ class InvitationController extends Controller
             return back()->with('error', 'A pending invitation already exists for this email and property.');
         }
 
-        // Verify landlord owns the property
         $property = Property::where('id', $request->property_id)
             ->where('landlord_id', auth()->id())
             ->firstOrFail();
 
-        // Check if the email belongs to an existing user in the system
         $existingUser = User::where('email', $request->email)->first();
 
         try {
-            // Create invitation with target_user_id if user exists
-            $invitation = Invitation::create([
-                'landlord_id' => auth()->id(),
-                'email' => $request->email,
-                'target_user_id' => $existingUser?->id,
-                'property_id' => $request->property_id,
-                'token' => Invitation::generateToken(),
-            ]);
+            $invitation = DB::transaction(function () use ($request, $existingUser) {
+                $invitation = Invitation::create([
+                    'landlord_id' => auth()->id(),
+                    'email' => $request->email,
+                    'target_user_id' => $existingUser?->id,
+                    'property_id' => $request->property_id,
+                    'token' => Invitation::generateToken(),
+                ]);
 
-            $invitation->load('property', 'landlord');
+                $invitation->load('property', 'landlord');
 
-            // Send invitation email
+                return $invitation;
+            });
+
             Mail::to($request->email)->send(new CaretakerInvitation($invitation));
 
-            // If existing user, also create in-app notification
             if ($existingUser) {
-                $notificationService = app(NotificationService::class);
-                $notificationService->sendCaretakerInvitation(
+                app(NotificationService::class)->sendCaretakerInvitation(
                     $existingUser->id,
                     [
                         'invitation_id' => $invitation->id,
@@ -122,92 +112,41 @@ class InvitationController extends Controller
 
             return back()->with('success', 'Invitation sent successfully to '.$request->email);
         } catch (\Exception $e) {
+            Log::error('Failed to send caretaker invitation', [
+                'email' => $request->email,
+                'property_id' => $request->property_id,
+                'error' => $e->getMessage(),
+            ]);
+
             return back()->with('error', 'Failed to send invitation. Please try again.');
         }
     }
 
-    /**
-     * Show the invitation acceptance page (public route)
-     */
-    public function show($token)
+    public function show(string $token): Response|RedirectResponse
     {
         $invitation = Invitation::where('token', $token)
             ->with(['landlord', 'property'])
             ->firstOrFail();
 
-        // Check if already accepted
         if ($invitation->isAccepted()) {
-            return Inertia::render('Invitations/Accept', [
-                'invitation' => null,
-                'error' => 'This invitation has already been accepted.',
-            ]);
+            return $this->renderInvitationError('This invitation has already been accepted.');
         }
 
-        // Check if expired
         if ($invitation->isExpired()) {
-            return Inertia::render('Invitations/Accept', [
-                'invitation' => null,
-                'error' => 'This invitation has expired. Please contact the property owner for a new invitation.',
-            ]);
+            return $this->renderInvitationError('This invitation has expired. Please contact the property owner for a new invitation.');
         }
 
-        // Check if this invitation targets an existing user
         if ($invitation->isForExistingUser()) {
-            // If user is not logged in, redirect to login
-            if (! auth()->check()) {
-                session(['url.intended' => route('invitations.show', $token)]);
-
-                return redirect()->route('login')
-                    ->with('message', 'Please log in to accept this caretaker invitation.');
-            }
-
-            // If logged in as the target user, show simplified acceptance page
-            if (auth()->id() === $invitation->target_user_id) {
-                return Inertia::render('Invitations/AcceptExisting', [
-                    'invitation' => [
-                        'id' => $invitation->id,
-                        'landlord_name' => $invitation->landlord->name,
-                        'property_name' => $invitation->property->name,
-                        'expires_at' => $invitation->getExpiresAt()->format('F d, Y'),
-                    ],
-                ]);
-            }
-
-            // Logged in as a different user
-            return Inertia::render('Invitations/Accept', [
-                'invitation' => null,
-                'error' => 'This invitation is for a different account. Please log in with the correct email address.',
-            ]);
+            return $this->handleExistingUserFlow($invitation, $token);
         }
 
-        // New user flow - show registration form
-        return Inertia::render('Invitations/Accept', [
-            'invitation' => [
-                'id' => $invitation->id,
-                'email' => $invitation->email,
-                'token' => $invitation->token,
-                'landlord_name' => $invitation->landlord->name,
-                'property_name' => $invitation->property->name,
-                'expires_at' => $invitation->getExpiresAt()->format('F d, Y'),
-            ],
-            'error' => null,
-        ]);
+        return $this->renderNewUserFlow($invitation);
     }
 
-    /**
-     * Accept the invitation and create caretaker account
-     */
-    public function accept(Request $request, $token)
+    public function accept(AcceptInvitationRequest $request, string $token): RedirectResponse
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'password' => 'required|string|min:8|confirmed',
-            'mobile_number' => 'nullable|string|max:20',
-        ]);
-
         $invitation = Invitation::where('token', $token)->firstOrFail();
 
-        // Validate invitation
         if ($invitation->isAccepted()) {
             return back()->with('error', 'This invitation has already been accepted.');
         }
@@ -216,7 +155,6 @@ class InvitationController extends Controller
             return back()->with('error', 'This invitation has expired.');
         }
 
-        // Check if user already exists
         $existingUser = User::where('email', $invitation->email)->first();
 
         if ($existingUser) {
@@ -224,51 +162,40 @@ class InvitationController extends Controller
         }
 
         try {
-            DB::beginTransaction();
+            [$user, $invitation] = DB::transaction(function () use ($request, $invitation) {
+                $user = User::create([
+                    'name' => $request->name,
+                    'email' => $invitation->email,
+                    'password' => Hash::make($request->password),
+                    'role' => 'caretaker',
+                    'landlord_id' => $invitation->landlord_id,
+                    'mobile_number' => $request->mobile_number,
+                ]);
 
-            // Create caretaker user
-            $user = User::create([
-                'name' => $request->name,
-                'email' => $invitation->email,
-                'password' => Hash::make($request->password),
-                'role' => 'caretaker',
-                'landlord_id' => $invitation->landlord_id,
-                'mobile_number' => $request->mobile_number,
-            ]);
+                $invitation->markAsAccepted();
 
-            // Mark invitation as accepted
-            $invitation->markAsAccepted();
+                return [$user, $invitation];
+            });
 
-            DB::commit();
-
-            // Broadcast to landlord dashboard
             event(new InvitationAccepted($invitation, $user));
 
-            // Log the user in
             auth()->login($user);
 
             return redirect()->route('dashboard')->with('success', 'Welcome! Your caretaker account has been created successfully.');
         } catch (\Exception $e) {
-            DB::rollBack();
+            Log::error('Failed to accept caretaker invitation', [
+                'token' => $token,
+                'email' => $invitation->email,
+                'error' => $e->getMessage(),
+            ]);
 
             return back()->with('error', 'Failed to create account. Please try again.');
         }
     }
 
-    /**
-     * Resend an invitation email
-     */
-    public function resend(Invitation $invitation)
+    public function resend(Invitation $invitation): RedirectResponse
     {
-        // Verify ownership
-        if ($invitation->landlord_id !== auth()->id()) {
-            abort(403, 'Unauthorized');
-        }
-
-        // Can't resend accepted invitations
-        if ($invitation->isAccepted()) {
-            return back()->with('error', 'Cannot resend an accepted invitation.');
-        }
+        $this->authorize('resend', $invitation);
 
         try {
             $invitation->load('property', 'landlord');
@@ -276,21 +203,20 @@ class InvitationController extends Controller
 
             return back()->with('success', 'Invitation resent successfully.');
         } catch (\Exception $e) {
+            Log::error('Failed to resend caretaker invitation', [
+                'invitation_id' => $invitation->id,
+                'email' => $invitation->email,
+                'error' => $e->getMessage(),
+            ]);
+
             return back()->with('error', 'Failed to resend invitation.');
         }
     }
 
-    /**
-     * Cancel/delete an invitation
-     */
-    public function destroy(Invitation $invitation)
+    public function destroy(Invitation $invitation): RedirectResponse
     {
-        // Verify ownership
-        if ($invitation->landlord_id !== auth()->id()) {
-            abort(403, 'Unauthorized');
-        }
+        $this->authorize('delete', $invitation);
 
-        // Can't delete accepted invitations
         if ($invitation->isAccepted()) {
             return back()->with('error', 'Cannot delete an accepted invitation.');
         }
@@ -300,14 +226,10 @@ class InvitationController extends Controller
         return back()->with('success', 'Invitation cancelled successfully.');
     }
 
-    /**
-     * Accept invitation for an existing authenticated user
-     */
-    public function acceptAuthenticated(Request $request, Invitation $invitation)
+    public function acceptAuthenticated(Request $request, Invitation $invitation): RedirectResponse
     {
         $user = auth()->user();
 
-        // Verify this invitation is for the authenticated user
         if ($invitation->target_user_id !== $user->id) {
             abort(403, 'This invitation is not for you.');
         }
@@ -321,48 +243,36 @@ class InvitationController extends Controller
         }
 
         try {
-            DB::beginTransaction();
+            DB::transaction(function () use ($user, $invitation) {
+                $user->update([
+                    'role' => 'caretaker',
+                    'landlord_id' => $invitation->landlord_id,
+                ]);
 
-            // Update user to caretaker role
-            $user->update([
-                'role' => 'caretaker',
-                'landlord_id' => $invitation->landlord_id,
-            ]);
+                $invitation->markAsAccepted();
 
-            // Mark invitation as accepted
-            $invitation->markAsAccepted();
+                $this->markRelatedNotificationAsRead($user->id, $invitation->id);
+            });
 
-            // Mark related in-app notification as read
-            Notification::withoutGlobalScope('landlord')
-                ->where('recipient_id', $user->id)
-                ->where('type', Notification::TYPE_CARETAKER_INVITATION)
-                ->where('channel', 'in_app')
-                ->whereNull('read_at')
-                ->whereJsonContains('data->invitation_id', $invitation->id)
-                ->update(['read_at' => now(), 'status' => 'read']);
-
-            DB::commit();
-
-            // Broadcast to landlord dashboard
             event(new InvitationAccepted($invitation, $user));
 
             return redirect()->route('dashboard')
                 ->with('success', 'Welcome! You are now a caretaker for '.$invitation->property->name.'.');
         } catch (\Exception $e) {
-            DB::rollBack();
+            Log::error('Failed to accept authenticated caretaker invitation', [
+                'invitation_id' => $invitation->id,
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
 
             return back()->withErrors(['invitation' => 'Failed to accept invitation. Please try again.']);
         }
     }
 
-    /**
-     * Decline invitation for an existing authenticated user
-     */
-    public function declineAuthenticated(Request $request, Invitation $invitation)
+    public function declineAuthenticated(Request $request, Invitation $invitation): RedirectResponse
     {
         $user = auth()->user();
 
-        // Verify this invitation is for the authenticated user
         if ($invitation->target_user_id !== $user->id) {
             abort(403, 'This invitation is not for you.');
         }
@@ -372,27 +282,78 @@ class InvitationController extends Controller
         }
 
         try {
-            DB::beginTransaction();
+            DB::transaction(function () use ($user, $invitation) {
+                $invitation->delete();
 
-            // Delete the invitation
-            $invitation->delete();
-
-            // Mark related in-app notification as read
-            Notification::withoutGlobalScope('landlord')
-                ->where('recipient_id', $user->id)
-                ->where('type', Notification::TYPE_CARETAKER_INVITATION)
-                ->where('channel', 'in_app')
-                ->whereNull('read_at')
-                ->whereJsonContains('data->invitation_id', $invitation->id)
-                ->update(['read_at' => now(), 'status' => 'read']);
-
-            DB::commit();
+                $this->markRelatedNotificationAsRead($user->id, $invitation->id);
+            });
 
             return back()->with('success', 'Invitation declined successfully.');
         } catch (\Exception $e) {
-            DB::rollBack();
+            Log::error('Failed to decline caretaker invitation', [
+                'invitation_id' => $invitation->id,
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
 
             return back()->withErrors(['invitation' => 'Failed to decline invitation. Please try again.']);
         }
+    }
+
+    private function renderInvitationError(string $message): Response
+    {
+        return Inertia::render('Invitations/Accept', [
+            'invitation' => null,
+            'error' => $message,
+        ]);
+    }
+
+    private function handleExistingUserFlow(Invitation $invitation, string $token): Response|RedirectResponse
+    {
+        if (! auth()->check()) {
+            session(['url.intended' => route('invitations.show', $token)]);
+
+            return redirect()->route('login')
+                ->with('message', 'Please log in to accept this caretaker invitation.');
+        }
+
+        if (auth()->id() === $invitation->target_user_id) {
+            return Inertia::render('Invitations/AcceptExisting', [
+                'invitation' => [
+                    'id' => $invitation->id,
+                    'landlord_name' => $invitation->landlord->name,
+                    'property_name' => $invitation->property->name,
+                    'expires_at' => $invitation->getExpiresAt()->format('F d, Y'),
+                ],
+            ]);
+        }
+
+        return $this->renderInvitationError('This invitation is for a different account. Please log in with the correct email address.');
+    }
+
+    private function renderNewUserFlow(Invitation $invitation): Response
+    {
+        return Inertia::render('Invitations/Accept', [
+            'invitation' => [
+                'id' => $invitation->id,
+                'email' => $invitation->email,
+                'token' => $invitation->token,
+                'landlord_name' => $invitation->landlord->name,
+                'property_name' => $invitation->property->name,
+                'expires_at' => $invitation->getExpiresAt()->format('F d, Y'),
+            ],
+            'error' => null,
+        ]);
+    }
+
+    private function markRelatedNotificationAsRead(int $userId, int $invitationId): void
+    {
+        Notification::withoutGlobalScope('landlord')
+            ->where('recipient_id', $userId)
+            ->where('type', Notification::TYPE_CARETAKER_INVITATION)
+            ->where('channel', 'in_app')
+            ->whereNull('read_at')
+            ->whereJsonContains('data->invitation_id', $invitationId)
+            ->update(['read_at' => now(), 'status' => 'read']);
     }
 }

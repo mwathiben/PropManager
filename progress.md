@@ -16309,3 +16309,61 @@ No production code changed.
 - `!==` in agent-browser eval on Windows gets mangled by shell — use `> -1` instead
 - Unsubscribe consistency: 3 tenant-facing mailables were missing unsubscribe links (TenantCredentials, TenantWelcome, RentHikeNotice)
 - OverpaymentNotification correctly uses landlord route (not tenant unsubscribe)
+
+---
+
+## Session: 2026-02-28T19:40:00Z
+**Task**: E2E-MAIL-008 — CaretakerInvitation E2E flow test + InvitationController remediation
+**Status**: COMPLETED
+
+### Work Done
+
+**Phase 1: InvitationController Remediation (7 violations fixed)**
+1. Created `app/Http/Requests/StoreInvitationRequest.php` — FormRequest with `authorize()` delegating to InvitationPolicy::create()
+2. Created `app/Http/Requests/AcceptInvitationRequest.php` — FormRequest for public token-based invitation acceptance
+3. Refactored `app/Http/Controllers/InvitationController.php`:
+   - `store()`: StoreInvitationRequest replaces inline validation; DB::transaction() closure wraps create; Mail::send() outside transaction; Log::error in catch
+   - `accept()`: AcceptInvitationRequest replaces Request; DB::transaction() closure replaces manual begin/commit/rollback
+   - `resend()`: `$this->authorize('resend', $invitation)` replaces manual ownership check
+   - `destroy()`: `$this->authorize('delete', $invitation)` replaces manual ownership check
+   - `acceptAuthenticated()` + `declineAuthenticated()`: DB::transaction() closure replaces manual pattern
+   - All 5 catch blocks now have structured Log::error() with context arrays
+   - `show()` complexity reduced from CC~8 to CC~4 via extracted private helpers
+   - Extracted `markRelatedNotificationAsRead()` to eliminate code duplication
+
+**Phase 2: E2E Flow Test**
+4. Created `tests/Browser/EmailFlows/CaretakerInvitationFlowTest.php` with 2 tests (41 assertions):
+   - `test_sending_caretaker_invitation_dispatches_email`: POST store → Mailpit capture → content (You're Invited!, landlord name, property name, Accept Invitation, caretaker, expire, PropManager) → link (accept URL) → security (no secret_key, APP_KEY, app.key) → screenshot
+   - `test_accept_link_in_email_loads_registration_page`: POST store → extract accept URL → logout → GET accept URL → Inertia assertions (component, email, landlord_name, property_name, error=null)
+
+**Phase 3: Agent-browser E2E Verification**
+5. Triggered fresh invitation email via PHP CLI to Mailpit
+6. Opened email in Mailpit via `agent-browser --session mailtest`
+7. Screenshot saved to `e2e-screenshots/emails/agent-browser-caretaker-invitation.png`
+8. Security checks via Mailpit API: secret_key absent ✓, APP_KEY absent ✓, api_key absent ✓, password absent ✓
+9. Content checks: Invited ✓, Accept Invitation ✓, caretaker ✓, landlord name ✓, property name ✓, PropManager ✓, expire ✓, /invitations/ link ✓
+
+### Verification Results
+- **Pint**: Clean (3 files, 1 style fix applied)
+- **PHPMD**: Clean (no violations)
+- **Dusk test**: 2 passed, 41 assertions
+- **Invitation tests**: 19 passed, 50 assertions (no regressions)
+- **Full test suite**: 1585 passed, 13 skipped, 0 failures (5197 assertions)
+- **Agent-browser**: Screenshots + security eval all pass
+- **Screenshot exists**: `e2e-screenshots/emails/caretaker-invitation-flow.png` (44KB)
+
+### Files Created/Modified
+- `app/Http/Requests/StoreInvitationRequest.php` (CREATED)
+- `app/Http/Requests/AcceptInvitationRequest.php` (CREATED)
+- `app/Http/Controllers/InvitationController.php` (MODIFIED — 7 violations fixed)
+- `tests/Browser/EmailFlows/CaretakerInvitationFlowTest.php` (CREATED)
+- `e2e-screenshots/emails/caretaker-invitation-flow.png` (CREATED — Dusk screenshot)
+- `e2e-screenshots/emails/agent-browser-caretaker-invitation.png` (CREATED — agent-browser screenshot)
+- `e2e-email-testing-prd.json` (UPDATED — E2E-MAIL-008 passes:true)
+
+### Learnings
+- InvitationPolicy existed but was completely unused by InvitationController — always check if policies exist before assuming manual auth checks are needed
+- Mail::send() on ShouldQueue mailable auto-queues in Laravel 12 — confirmed again. NOT a violation. The real issue was missing DB::transaction() wrapper making $afterCommit a no-op.
+- For agent-browser Mailpit verification, navigate directly to `http://localhost:8025/view/{messageId}` — clicking list items is unreliable
+- Windows shell escaping: `!` in node -e gets mangled — use `indexOf() === -1` instead of `!includes()`
+- propmanager_test database is empty after RefreshDatabase — use main `propmanager` database with `withoutGlobalScopes()` for CLI-triggered emails
