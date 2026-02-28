@@ -243,8 +243,8 @@
       ],
       "verification": "php artisan dusk --filter=PaymentReceivedFlowTest && agent-browser --session e2e open http://localhost:8025",
       "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
+      "passes": true,
+      "attempt_count": 1,
       "depends_on": ["E2E-MAIL-003"]
     },
     {

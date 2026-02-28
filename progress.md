@@ -16149,3 +16149,46 @@ No production code changed.
 
 ### Next Steps
 - E2E-MAIL-005: PaymentReceived flow test (trigger → Mailpit → agent-browser verify)
+
+---
+
+## Session: 2026-02-28T14:30:00Z
+**Task**: E2E-MAIL-005 - E2E flow: PaymentReceived (trigger → Mailpit → agent-browser verify)
+**Status**: COMPLETED
+
+### Work Done
+- Created `tests/Browser/EmailFlows/PaymentReceivedFlowTest.php` (first flow test in new directory)
+- Test triggers real payment recording via `$this->actingAs($landlord)->post(route('invoices.recordPayment', $invoice))` 
+- Asserts Mailpit captured 1 email to tenant with "Payment Received" subject
+- Content assertions: payment amount, reference, invoice number, unit/building, KSh currency, PropManager app name
+- Link assertions: Download Receipt link (`/payments/*/receipt`), signed unsubscribe URL (`signature=`)
+- Security assertions: no secret_key, no APP_KEY, no raw encryption key in email body
+- Screenshot via Dusk data: URI → `e2e-screenshots/emails/payment-received-flow.png`
+- Agent-browser E2E verification via Mailpit UI → `e2e-screenshots/emails/agent-browser-payment-received.png`
+
+### Verification Results
+- `php artisan dusk --filter=PaymentReceivedFlowTest`: PASS (1 test, 21 assertions, 60s)
+- `php vendor/bin/pint --test`: PASS
+- `phpmd`: No violations (only vendor deprecation warnings)
+- `php artisan test`: 1557 passed, 13 skipped, 0 failures (no regressions)
+- 8-check DBP gate: ALL PASS (6 N/A for test-only, 2 verified)
+- Agent-browser E2E: 9/9 assertions pass (3 security, 6 content)
+- Screenshots: Both exist (49KB Dusk, 54KB agent-browser)
+
+### Key Decisions
+- Hybrid Dusk + Feature test: in-process HTTP POST (works with RefreshDatabase) + Dusk only for screenshots via data: URI
+- `config(['app.name' => 'PropManager'])` override in setUp() to fix .env.testing APP_NAME=Laravel
+- Payment amount set to exact total_due to avoid overpayment notification (keeps email count at 1)
+- Agent-browser session `mailtest` works (not `e2e` — port conflict on this Windows machine)
+
+### Learnings
+- agent-browser `--session e2e` can still fail on some Windows machines; try alternative session names
+- Mailpit retains emails across RefreshDatabase resets (SMTP is external to DB transaction)
+- Dusk test passed GREEN on first run — infrastructure from E2E-MAIL-001 through 004 is solid
+- agent-browser `eval` has Windows shell quote escaping issues; use Mailpit API for security assertions instead
+- Flow test pattern: factory setup → HTTP trigger → Mailpit assertion → content verification → link verification → security check → screenshot
+
+### Next Steps
+- E2E-MAIL-006: InvoiceSent + InvoiceReminder flow test
+- E2E-MAIL-007: TenantInvitation + TenantWelcome flow test
+- E2E-MAIL-008: OverpaymentNotification flow test
