@@ -1,675 +1,678 @@
 {
-  "project": {
-    "name": "E2E Email Rendering & Browser Tests",
-    "description": "Introduce Mailpit as an SMTP capture server, build MailCapturePort interface with MailpitClient adapter, verify all 18 Mailables render correctly with screenshot baselines, test 6 critical email dispatch flows end-to-end via Dusk and Feature tests, validate email links for XSS safety, implement visual regression with GD pixel diff, and add CI workflow. Agent-browser verification is embedded in each flow test story.",
-    "version": "1.0.0",
-    "created": "2026-02-26"
-  },
-  "user_stories": [
-    {
-      "id": "E2E-MAIL-015",
-      "category": "security",
-      "priority": "CRITICAL",
-      "title": "Security: gitignore .env.dusk.local + config() override trait",
-      "description": ".env.dusk.local is committed to git with APP_KEY=base64:kICJ... in plain text. Not in .gitignore. This is a security violation. Fix by gitignoring the file, removing from tracking, creating .env.dusk.local.example with placeholder values, and creating OverridesMailConfig trait for test SMTP config via config() overrides instead of .env.",
-      "story_points": 3,
-      "steps": [
-        "RED: Write a test that asserts .env.dusk.local is listed in .gitignore",
-        "GREEN: Add .env.dusk.local to .gitignore",
-        "Remove .env.dusk.local from git tracking: git rm --cached .env.dusk.local",
-        "Create .env.dusk.local.example (tracked) with placeholder values and NO secrets",
-        "Create tests/Traits/OverridesMailConfig.php with setUpMailConfig() that sets Mailpit SMTP config via config() calls",
-        "Run Pint, run full test suite to verify no regressions"
-      ],
-      "files": [
-        ".gitignore",
-        ".env.dusk.local.example",
-        "tests/Traits/OverridesMailConfig.php"
-      ],
-      "acceptance_criteria": [
-        ".env.dusk.local is NOT tracked in git",
-        ".gitignore contains .env.dusk.local entry",
-        ".env.dusk.local.example exists with placeholder APP_KEY and NO real secrets",
-        "OverridesMailConfig trait sets SMTP host to 127.0.0.1:1025 via config()",
-        "Full test suite passes without .env.dusk.local being tracked"
-      ],
-      "definition_of_done": [
-        "git status shows .env.dusk.local as untracked (not staged/modified)",
-        ".env.dusk.local.example committed with placeholder values",
-        "OverridesMailConfig trait created and Pint clean",
-        "php artisan test passes (full suite, no regressions)",
-        "propmanager-verification 8-check gate passes"
-      ],
-      "verification": "git ls-files .env.dusk.local (should return empty) && php artisan test && php vendor/bin/pint --test",
-      "estimated_effort": "small",
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": []
+    "project": {
+        "name": "E2E Email Rendering & Browser Tests",
+        "description": "Introduce Mailpit as an SMTP capture server, build MailCapturePort interface with MailpitClient adapter, verify all 18 Mailables render correctly with screenshot baselines, test 6 critical email dispatch flows end-to-end via Dusk and Feature tests, validate email links for XSS safety, implement visual regression with GD pixel diff, and add CI workflow. Agent-browser verification is embedded in each flow test story.",
+        "version": "1.0.0",
+        "created": "2026-02-26"
     },
-    {
-      "id": "E2E-MAIL-001",
-      "category": "infrastructure",
-      "priority": "CRITICAL",
-      "title": "Install Mailpit and configure test environment",
-      "description": "Set up Mailpit SMTP capture server for local development and testing. Create tools/mailpit/ directory with README installation instructions. Add binary patterns to .gitignore. Do NOT modify any .env file \u00e2\u20ac\u201d all SMTP config is handled via config() overrides in test setUp().",
-      "story_points": 3,
-      "steps": [
-        "Create tools/mailpit/README.md with installation instructions (Scoop: scoop install mailpit, or manual Go binary download)",
-        "Add tools/mailpit/mailpit* to .gitignore (binary exclusion)",
-        "Add tools/mailpit/.gitkeep",
-        "Manual verification: start Mailpit, send test email via php artisan tinker, confirm at http://localhost:8025/api/v1/messages"
-      ],
-      "files": [
-        "tools/mailpit/README.md",
-        "tools/mailpit/.gitkeep",
-        ".gitignore"
-      ],
-      "acceptance_criteria": [
-        "tools/mailpit/README.md contains installation instructions for Windows (Scoop) and manual download",
-        "tools/mailpit/mailpit* is in .gitignore",
-        "Mailpit binary NOT committed to git",
-        "Mailpit starts on SMTP:1025, HTTP:8025 when launched"
-      ],
-      "definition_of_done": [
-        "README.md with clear installation steps",
-        ".gitignore updated",
-        "Mailpit starts and serves API at http://localhost:8025/api/v1/messages",
-        "Pint clean",
-        "propmanager-verification 8-check gate passes"
-      ],
-      "verification": "curl -s http://localhost:8025/api/v1/messages | head -1",
-      "estimated_effort": "small",
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": [
-        "E2E-MAIL-015"
-      ]
-    },
-    {
-      "id": "E2E-MAIL-002",
-      "category": "infrastructure",
-      "priority": "CRITICAL",
-      "title": "MailCapturePort interface + MailpitClient adapter + FakeMailCapture",
-      "description": "Create MailCapturePort interface (ports-and-adapters pattern) with 9 methods. Implement MailpitClient adapter using Http::timeout(5)->retry(3, 200). Implement FakeMailCapture in-memory fake for unit tests. Create MailpitConnectionException for structured error handling. Unit test MailpitClient with Http::fake().",
-      "story_points": 5,
-      "steps": [
-        "RED: Write tests/Unit/Support/MailpitClientTest.php with Http::fake() for messages(), getLatestMessage(), getMessageHtml(), getMessageHeaders(), searchByRecipient(), searchBySubject(), deleteAll(), getMessageLinks(), waitForMessage()",
-        "GREEN: Create tests/Support/Contracts/MailCapturePort.php interface",
-        "GREEN: Create tests/Support/MailpitClient.php implementing MailCapturePort with Http::baseUrl()->timeout(5)->retry(3, 200)",
-        "GREEN: Create tests/Support/FakeMailCapture.php in-memory implementation",
-        "Create tests/Support/Exceptions/MailpitConnectionException.php extending RuntimeException",
-        "Run Pint, complexity check (cyclomatic <= 7 per method)"
-      ],
-      "files": [
-        "tests/Support/Contracts/MailCapturePort.php",
-        "tests/Support/MailpitClient.php",
-        "tests/Support/FakeMailCapture.php",
-        "tests/Support/Exceptions/MailpitConnectionException.php",
-        "tests/Unit/Support/MailpitClientTest.php"
-      ],
-      "acceptance_criteria": [
-        "MailCapturePort interface has 9 methods: messages(), getLatestMessage(), getMessageHtml(), getMessageHeaders(), searchByRecipient(), searchBySubject(), deleteAll(), getMessageLinks(), waitForMessage()",
-        "MailpitClient implements all 9 methods with Http::timeout(5)->retry(3, 200)",
-        "FakeMailCapture implements all 9 methods with in-memory storage",
-        "MailpitConnectionException thrown on connection failure with structured context",
-        "All unit tests pass with Http::fake()"
-      ],
-      "definition_of_done": [
-        "php artisan test --filter=MailpitClientTest passes",
-        "php artisan test passes (full suite, no regressions)",
-        "Pint clean",
-        "Cyclomatic complexity <= 7 per method",
-        "propmanager-verification 8-check gate passes"
-      ],
-      "verification": "php artisan test --filter=MailpitClientTest && php vendor/bin/pint --test",
-      "estimated_effort": "medium",
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": [
-        "E2E-MAIL-001"
-      ]
-    },
-    {
-      "id": "E2E-MAIL-003",
-      "category": "infrastructure",
-      "priority": "CRITICAL",
-      "title": "InteractsWithMailpit trait for Dusk + Feature tests",
-      "description": "Create test trait that integrates MailpitClient with Dusk and Feature tests. Provides assertEmailSentTo(), assertEmailCount(), getLatestEmailHtml(), getLatestEmailLinks(), screenshotEmail(), screenshotMailableRender(). Uses OverridesMailConfig for SMTP config. Includes smoke test.",
-      "story_points": 5,
-      "steps": [
-        "Create tests/Traits/InteractsWithMailpit.php with $mailpit property of type MailCapturePort",
-        "Implement setUpMailpit(): instantiate MailpitClient, call deleteAll(), configure mail via OverridesMailConfig",
-        "Implement assertEmailSentTo(string $email, ?string $subjectContains = null)",
-        "Implement assertEmailCount(int $expected)",
-        "Implement getLatestEmailHtml(): string and getLatestEmailLinks(): array",
-        "Implement screenshotEmail(Browser $browser, string $name) and screenshotMailableRender(Browser $browser, Mailable $mailable, string $name)",
-        "RED: Write tests/Browser/EmailTestSmokeTest.php that sends a test email and asserts Mailpit captures it",
-        "GREEN: Smoke test passes with Mailpit running",
-        "Run Pint"
-      ],
-      "files": [
-        "tests/Traits/InteractsWithMailpit.php",
-        "tests/Browser/EmailTestSmokeTest.php"
-      ],
-      "acceptance_criteria": [
-        "InteractsWithMailpit trait provides 6 assertion/helper methods",
-        "setUpMailpit() clears Mailpit inbox and configures SMTP via config() (not .env)",
-        "screenshotEmail() saves captured email HTML to temp file, opens in browser, screenshots to e2e-screenshots/emails/",
-        "Smoke test sends email via Mail::raw(), asserts Mailpit captured it"
-      ],
-      "definition_of_done": [
-        "php artisan dusk --filter=EmailTestSmokeTest passes (Mailpit running)",
-        "php artisan test passes (full suite, no regressions)",
-        "Pint clean",
-        "propmanager-verification 8-check gate passes"
-      ],
-      "verification": "php artisan dusk --filter=EmailTestSmokeTest",
-      "estimated_effort": "medium",
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": [
-        "E2E-MAIL-002"
-      ]
-    },
-    {
-      "id": "E2E-MAIL-004",
-      "category": "testing",
-      "priority": "HIGH",
-      "title": "Static render tests for all 18 Mailables (screenshot baselines)",
-      "description": "Render all 18 Mailable classes with factory data, assert they contain vendor layout wrapper and config('app.name'), and screenshot each to e2e-screenshots/emails/. Reuse factory patterns from EmailFooterConsistencyTest and EmailCurrencySymbolTest.",
-      "story_points": 5,
-      "steps": [
-        "RED: Write tests/Browser/EmailRenderBaselineTest.php with 18 test methods, one per Mailable",
-        "Each test: instantiate Mailable with factory data, render, assert HTML contains 'wrapper' class and config('app.name')",
-        "Each test: save rendered HTML to temp file, open in headless Chrome via Dusk, screenshot to e2e-screenshots/emails/{MailableName}.png",
-        "Create e2e-screenshots/emails/.gitkeep",
-        "GREEN: Fix any render failures (may surface pre-existing bugs like PaymentReceived string-vs-enum comparison)",
-        "REFACTOR: Extract shared factory helpers to avoid duplication across 18 tests"
-      ],
-      "files": [
-        "tests/Browser/EmailRenderBaselineTest.php",
-        "e2e-screenshots/emails/.gitkeep"
-      ],
-      "acceptance_criteria": [
-        "All 18 Mailables render without exceptions",
-        "All 18 rendered HTML strings contain the vendor layout wrapper class",
-        "All 18 rendered HTML strings contain config('app.name')",
-        "18 screenshot PNGs saved to e2e-screenshots/emails/"
-      ],
-      "definition_of_done": [
-        "php artisan dusk --filter=EmailRenderBaselineTest passes",
-        "18 screenshot files exist in e2e-screenshots/emails/",
-        "php artisan test passes (full suite, no regressions)",
-        "Pint clean",
-        "propmanager-verification 8-check gate passes"
-      ],
-      "verification": "php artisan dusk --filter=EmailRenderBaselineTest && ls e2e-screenshots/emails/*.png | wc -l",
-      "estimated_effort": "medium",
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": [
-        "E2E-MAIL-003"
-      ]
-    },
-    {
-      "id": "E2E-MAIL-005",
-      "category": "testing",
-      "priority": "HIGH",
-      "title": "E2E flow: PaymentReceived (trigger -> Mailpit -> agent-browser verify)",
-      "description": "Dusk test: login as landlord, navigate to invoice, record payment, assert Mailpit captures PaymentReceived email with correct recipient, subject, amount, receipt link, and signed unsubscribe URL. Agent-browser verification opens Mailpit UI, inspects email, screenshots, and asserts no secrets leaked.",
-      "story_points": 5,
-      "steps": [
-        "RED: Write tests/Browser/EmailFlows/PaymentReceivedFlowTest.php",
-        "test_recording_payment_sends_email_to_tenant_via_mailpit: Dusk login -> invoice -> record payment -> assert Mailpit captured email",
-        "Assert: recipient matches tenant email, subject contains 'Payment Received'",
-        "Assert: body contains payment amount, reference, invoice number, Download Receipt link, signed unsubscribe URL (signature=)",
-        "Screenshot captured email via screenshotEmail()",
-        "GREEN: Mailpit infrastructure from 001-003 makes this pass (no new production code)",
-        "REFACTOR: Extract shared login/navigate helpers if duplicated across flow tests",
-        "Agent-browser verification: login -> record payment -> Mailpit UI -> click email -> screenshot -> security assertions"
-      ],
-      "files": [
-        "tests/Browser/EmailFlows/PaymentReceivedFlowTest.php"
-      ],
-      "acceptance_criteria": [
-        "Mailpit captures PaymentReceived email after payment recording",
-        "Email recipient matches the tenant's email",
-        "Email subject contains 'Payment Received'",
-        "Email body contains payment amount, reference, invoice number",
-        "Email body contains Download Receipt link with valid route",
-        "Email body contains signed unsubscribe URL with signature= param",
-        "Agent-browser screenshot captured in e2e-screenshots/emails/agent-browser-payment-received.png",
-        "No secret_key or APP_KEY present in email body"
-      ],
-      "definition_of_done": [
-        "php artisan dusk --filter=PaymentReceivedFlowTest passes",
-        "Agent-browser verification passes with screenshots",
-        "No secrets in email body (verified by eval assertions)",
-        "php artisan test passes (full suite, no regressions)",
-        "Pint clean",
-        "propmanager-verification 8-check gate passes"
-      ],
-      "verification": "php artisan dusk --filter=PaymentReceivedFlowTest && agent-browser --session e2e open http://localhost:8025",
-      "estimated_effort": "medium",
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": [
-        "E2E-MAIL-003"
-      ]
-    },
-    {
-      "id": "E2E-MAIL-006",
-      "category": "testing",
-      "priority": "HIGH",
-      "title": "E2E flow: InvoiceSent + InvoiceReminder (with agent-browser verify)",
-      "description": "Dusk test: trigger invoice send via UI, assert Mailpit captures InvoiceSent email. Feature test: trigger InvoiceReminder directly. Assert recipient, subject with invoice number, body with due date/total/pay button, signed unsubscribe. Agent-browser verification included.",
-      "story_points": 5,
-      "steps": [
-        "RED: Write tests/Browser/EmailFlows/InvoiceNotificationFlowTest.php",
-        "test_sending_invoice_dispatches_email_captured_by_mailpit: trigger invoice send via Dusk UI",
-        "test_invoice_reminder_email_captured_by_mailpit: trigger via direct Mail::send(new InvoiceReminder($invoice))",
-        "Assert: recipient is tenant, subject contains invoice number, body contains due date/total/pay button/unsubscribe",
-        "Screenshot both email types",
-        "GREEN: No new production code needed",
-        "REFACTOR: Shared assertions for common email elements (unsubscribe, footer, app name)",
-        "Agent-browser verification: login -> invoices -> send -> Mailpit UI -> screenshot -> security assertions"
-      ],
-      "files": [
-        "tests/Browser/EmailFlows/InvoiceNotificationFlowTest.php"
-      ],
-      "acceptance_criteria": [
-        "Mailpit captures InvoiceSent email after invoice send action",
-        "Mailpit captures InvoiceReminder email after direct trigger",
-        "Both emails have correct recipient (tenant)",
-        "Both email subjects contain invoice number",
-        "Both email bodies contain due date, total amount, pay button URL",
-        "Both emails contain signed unsubscribe URL",
-        "Agent-browser screenshot captured"
-      ],
-      "definition_of_done": [
-        "php artisan dusk --filter=InvoiceNotificationFlowTest passes",
-        "Agent-browser verification passes with screenshots",
-        "php artisan test passes (full suite, no regressions)",
-        "Pint clean",
-        "propmanager-verification 8-check gate passes"
-      ],
-      "verification": "php artisan dusk --filter=InvoiceNotificationFlowTest",
-      "estimated_effort": "medium",
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": [
-        "E2E-MAIL-003"
-      ]
-    },
-    {
-      "id": "E2E-MAIL-007",
-      "category": "testing",
-      "priority": "HIGH",
-      "title": "E2E flow: TenantCredentials (with agent-browser login test)",
-      "description": "Dusk test: login as landlord, create lease for vacant unit, assert Mailpit captures TenantCredentials email with login URL, property name (deep model chain), and no leaked APP_KEY. Agent-browser verification verifies login URL present and no secrets.",
-      "story_points": 5,
-      "steps": [
-        "RED: Write tests/Browser/EmailFlows/TenantCredentialsFlowTest.php",
-        "test_creating_lease_sends_tenant_credentials_email: Dusk login -> unit -> create lease -> assert Mailpit captured",
-        "Assert: recipient is new tenant, subject contains Welcome/credentials text",
-        "Assert: body contains login URL (route('login')), property name (deep chain)",
-        "Assert: body does NOT contain raw APP_KEY or base64: key material",
-        "GREEN: No new production code; Mailpit captures queued email (sync queue)",
-        "REFACTOR: Verify deep model chain doesn't cause N+1 in email render",
-        "Agent-browser verification: login -> create lease -> Mailpit UI -> screenshot -> security assertions"
-      ],
-      "files": [
-        "tests/Browser/EmailFlows/TenantCredentialsFlowTest.php"
-      ],
-      "acceptance_criteria": [
-        "Mailpit captures TenantCredentials email after lease creation",
-        "Email recipient is the newly created tenant",
-        "Email body contains login URL",
-        "Email body contains property name from deep model chain",
-        "Email body does NOT contain APP_KEY or base64: encryption key",
-        "Agent-browser screenshot captured"
-      ],
-      "definition_of_done": [
-        "php artisan dusk --filter=TenantCredentialsFlowTest passes",
-        "Agent-browser verification shows login URL present and no secrets leaked",
-        "php artisan test passes (full suite, no regressions)",
-        "Pint clean",
-        "propmanager-verification 8-check gate passes"
-      ],
-      "verification": "php artisan dusk --filter=TenantCredentialsFlowTest",
-      "estimated_effort": "medium",
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": [
-        "E2E-MAIL-003"
-      ]
-    },
-    {
-      "id": "E2E-MAIL-008",
-      "category": "testing",
-      "priority": "HIGH",
-      "title": "E2E flow: CaretakerInvitation (agent-browser accept link click-through)",
-      "description": "Dusk test: login as landlord, send caretaker invitation, assert Mailpit captures CaretakerInvitation email with accept link. Extract accept URL from email, browse to it, assert public registration page loads. Agent-browser click-through verification.",
-      "story_points": 5,
-      "steps": [
-        "RED: Write tests/Browser/EmailFlows/CaretakerInvitationFlowTest.php",
-        "test_sending_caretaker_invitation_dispatches_email: Dusk login -> invitations -> send -> assert Mailpit captured",
-        "Assert: recipient, subject, body contains landlord name/property name/accept link",
-        "test_accept_link_in_email_loads_registration_page: extract accept URL from Mailpit -> Dusk browse to URL -> assert registration page loads (public, no auth)",
-        "Screenshot both email and accept page",
-        "GREEN: No new production code",
-        "Agent-browser verification: login -> send invitation -> Mailpit UI -> click email -> screenshot -> click accept link -> screenshot accept page"
-      ],
-      "files": [
-        "tests/Browser/EmailFlows/CaretakerInvitationFlowTest.php"
-      ],
-      "acceptance_criteria": [
-        "Mailpit captures CaretakerInvitation email after invitation send",
-        "Email contains landlord name and property name",
-        "Email contains valid accept link (route('invitations.show', $token))",
-        "Browsing to accept link loads registration page (public, no auth required)",
-        "Agent-browser screenshots of email and accept page captured",
-        "No secret_key in email body"
-      ],
-      "definition_of_done": [
-        "php artisan dusk --filter=CaretakerInvitationFlowTest passes",
-        "Agent-browser verification passes with email + accept page screenshots",
-        "php artisan test passes (full suite, no regressions)",
-        "Pint clean",
-        "propmanager-verification 8-check gate passes"
-      ],
-      "verification": "php artisan dusk --filter=CaretakerInvitationFlowTest",
-      "estimated_effort": "medium",
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": [
-        "E2E-MAIL-003"
-      ]
-    },
-    {
-      "id": "E2E-MAIL-009",
-      "category": "testing",
-      "priority": "MEDIUM",
-      "title": "E2E flow: PaymentVerification approved/rejected (with agent-browser)",
-      "description": "Feature test: HTTP POST as landlord to approve/reject verification, assert Mailpit captures PaymentVerificationApproved/Rejected email with correct amounts, status, and unsubscribe link. Reuse createPaymentVerification() helper from EmailFooterConsistencyTest.",
-      "story_points": 3,
-      "steps": [
-        "RED: Write tests/Feature/EmailFlows/PaymentVerificationEmailFlowTest.php",
-        "test_approving_verification_sends_email_via_mailpit: HTTP POST -> assert Mailpit captured PaymentVerificationApproved",
-        "test_rejecting_verification_sends_email_via_mailpit: HTTP POST -> assert Mailpit captured PaymentVerificationRejected with rejection reason",
-        "Assert: recipient, subject, body content (amounts, status), unsubscribe link",
-        "Uses InteractsWithMailpit + OverridesMailConfig traits",
-        "Reuse createPaymentVerification() helper from EmailFooterConsistencyTest",
-        "GREEN: No new production code",
-        "Agent-browser verification: Mailpit UI -> click email -> screenshot -> security assertions"
-      ],
-      "files": [
-        "tests/Feature/EmailFlows/PaymentVerificationEmailFlowTest.php"
-      ],
-      "acceptance_criteria": [
-        "Mailpit captures PaymentVerificationApproved email after approval POST",
-        "Mailpit captures PaymentVerificationRejected email after rejection POST with rejection reason",
-        "Both emails have correct recipient, amounts, and unsubscribe link",
-        "Agent-browser screenshot captured"
-      ],
-      "definition_of_done": [
-        "php artisan test --filter=PaymentVerificationEmailFlowTest passes",
-        "Agent-browser verification passes with screenshots",
-        "php artisan test passes (full suite, no regressions)",
-        "Pint clean",
-        "propmanager-verification 8-check gate passes"
-      ],
-      "verification": "php artisan test --filter=PaymentVerificationEmailFlowTest",
-      "estimated_effort": "small",
-      "passes": true,
-      "attempt_count": 1,
-      "depends_on": [
-        "E2E-MAIL-002",
-        "E2E-MAIL-003"
-      ]
-    },
-    {
-      "id": "E2E-MAIL-010",
-      "category": "testing",
-      "priority": "MEDIUM",
-      "title": "E2E flow: NotificationMail RFC 8058 headers (with agent-browser)",
-      "description": "Feature test: call NotificationService::sendEmail() with SMTP pointed at Mailpit, assert Mailpit captures email with RFC 8058 List-Unsubscribe and List-Unsubscribe-Post headers, role-based unsubscribe body link, data table rendering, action button scheme validation, and XSS safety.",
-      "story_points": 3,
-      "steps": [
-        "RED: Write tests/Feature/EmailFlows/NotificationMailFlowTest.php",
-        "test_notification_email_captured_by_mailpit_with_rfc8058_headers: call NotificationService::sendEmail() -> assert List-Unsubscribe + List-Unsubscribe-Post headers via getMessageHeaders()",
-        "Assert: body contains data table with filtered keys, role-based unsubscribe link",
-        "test_notification_email_action_button_scheme_validation: javascript: URL excluded",
-        "test_notification_email_xss_safe: HTML in message escaped via nl2br(e())",
-        "GREEN: No new production code",
-        "Agent-browser verification: Mailpit UI -> click email -> screenshot -> verify unsubscribe link + data table"
-      ],
-      "files": [
-        "tests/Feature/EmailFlows/NotificationMailFlowTest.php"
-      ],
-      "acceptance_criteria": [
-        "Mailpit captures NotificationMail with List-Unsubscribe header",
-        "List-Unsubscribe-Post header contains List-Unsubscribe=One-Click (RFC 8058)",
-        "Body contains data table with filtered keys (no action_url, no non-scalar)",
-        "Tenant recipients get signed unsubscribe URL, landlords get /notifications/settings",
-        "javascript: URLs excluded from action button",
-        "HTML in message body is escaped (XSS safe)",
-        "Agent-browser screenshot captured"
-      ],
-      "definition_of_done": [
-        "php artisan test --filter=NotificationMailFlowTest passes",
-        "Agent-browser verification passes with screenshots",
-        "php artisan test passes (full suite, no regressions)",
-        "Pint clean",
-        "propmanager-verification 8-check gate passes"
-      ],
-      "verification": "php artisan test --filter=NotificationMailFlowTest",
-      "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0,
-      "depends_on": [
-        "E2E-MAIL-002",
-        "E2E-MAIL-003"
-      ]
-    },
-    {
-      "id": "E2E-MAIL-011",
-      "category": "testing",
-      "priority": "MEDIUM",
-      "title": "Email link validation across all 18 Mailables",
-      "description": "Pure PHPUnit test (no Mailpit, no Dusk). Render all 18 Mailables, extract every href, validate URL schemes (no javascript:/data: XSS), resolve internal routes, verify no localhost in production config, and assert signed URLs contain signature= parameter.",
-      "story_points": 3,
-      "steps": [
-        "RED: Write tests/Feature/EmailLinkValidationTest.php",
-        "test_all_mailables_have_valid_url_schemes: render all 18, regex extract hrefs, assert https?:// or mailto: only",
-        "test_all_mailables_internal_routes_resolve: extract internal URLs, validate via Route::getRoutes()->match()",
-        "test_no_localhost_urls_in_production_config: set APP_URL to production URL, render, assert zero localhost references",
-        "test_signed_urls_contain_signature_parameter: for PaymentReceived/NotificationMail, assert signature= present",
-        "Reuse Mailable construction patterns from EmailFooterConsistencyTest and EmailCurrencySymbolTest",
-        "GREEN: No new production code",
-        "REFACTOR: Extract renderAllMailables(): array helper if reused"
-      ],
-      "files": [
-        "tests/Feature/EmailLinkValidationTest.php"
-      ],
-      "acceptance_criteria": [
-        "Zero javascript: or data: protocol links across all 18 Mailables",
-        "All internal route URLs resolve via Route::getRoutes()->match()",
-        "Zero localhost references when APP_URL is set to production URL",
-        "Signed URL Mailables (PaymentReceived, NotificationMail) contain signature= parameter"
-      ],
-      "definition_of_done": [
-        "php artisan test --filter=EmailLinkValidationTest passes",
-        "php artisan test passes (full suite, no regressions)",
-        "Pint clean",
-        "propmanager-verification 8-check gate passes"
-      ],
-      "verification": "php artisan test --filter=EmailLinkValidationTest",
-      "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0,
-      "depends_on": []
-    },
-    {
-      "id": "E2E-MAIL-012",
-      "category": "tooling",
-      "priority": "LOW",
-      "title": "Visual regression comparison utility (GD pixel diff)",
-      "description": "GD-based visual diff comparer with configurable threshold. Compares baseline and current screenshots pixel-by-pixel, generates diff image highlighting changes in red. Artisan command scans e2e-screenshots/emails/ for pairs and reports pass/fail.",
-      "story_points": 3,
-      "steps": [
-        "RED: Write tests/Unit/Support/VisualDiffComparerTest.php with 5 tests (identical, completely different, threshold pass, threshold fail, dimension mismatch)",
-        "GREEN: Create tests/Support/VisualDiffComparer.php with GD-based pixel comparison, +-5 per channel antialiasing tolerance",
-        "GREEN: Create tests/Support/VisualDiffResult.php value object with percentage, passed, diffImagePath",
-        "Create app/Console/Commands/CompareEmailScreenshots.php artisan command: email:compare-screenshots",
-        "REFACTOR: Extract pixel comparison to separate method for complexity (cyclomatic <= 7)"
-      ],
-      "files": [
-        "tests/Support/VisualDiffComparer.php",
-        "tests/Support/VisualDiffResult.php",
-        "app/Console/Commands/CompareEmailScreenshots.php",
-        "tests/Unit/Support/VisualDiffComparerTest.php"
-      ],
-      "acceptance_criteria": [
-        "Identical images return 0% diff",
-        "Completely different images return >90% diff",
-        "Threshold comparison works (2% diff with 5% threshold passes, 10% fails)",
-        "Different dimensions throw exception",
-        "Artisan command scans directory and reports per-image pass/fail"
-      ],
-      "definition_of_done": [
-        "php artisan test --filter=VisualDiffComparerTest passes",
-        "php artisan email:compare-screenshots runs without errors",
-        "Cyclomatic complexity <= 7 per method",
-        "php artisan test passes (full suite, no regressions)",
-        "Pint clean",
-        "propmanager-verification 8-check gate passes"
-      ],
-      "verification": "php artisan test --filter=VisualDiffComparerTest && php artisan email:compare-screenshots",
-      "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0,
-      "depends_on": [
-        "E2E-MAIL-004"
-      ]
-    },
-    {
-      "id": "E2E-MAIL-013",
-      "category": "ci",
-      "priority": "MEDIUM",
-      "title": "GitHub Actions CI workflow for email E2E tests",
-      "description": "GitHub Actions workflow triggered on changes to app/Mail/**, email templates, and email test files. Four jobs: email-render-tests, email-flow-tests, email-link-validation, visual-regression. Installs Mailpit binary, runs tests, uploads screenshots as artifacts.",
-      "story_points": 5,
-      "steps": [
-        "Create .github/workflows/email-e2e.yml with path filters for app/Mail/**, resources/views/emails/**, resources/views/vendor/mail/**, tests/Browser/Email*, tests/Feature/Email*",
-        "Job email-render-tests: MySQL service, PHP 8.4, Composer, Mailpit binary download, Dusk EmailRenderBaselineTest, upload screenshots",
-        "Job email-flow-tests: Same setup + Mailpit, Dusk EmailFlows, Feature test --group=mailpit, upload screenshots",
-        "Job email-link-validation: No Mailpit, php artisan test --filter=EmailLinkValidationTest",
-        "Job visual-regression (depends on email-render-tests): Download baseline artifact, run email:compare-screenshots, fail if >5% diff",
-        "Test locally via act or manual push to feature branch"
-      ],
-      "files": [
-        ".github/workflows/email-e2e.yml"
-      ],
-      "acceptance_criteria": [
-        "Workflow triggers on push/PR with correct path filters",
-        "All 4 jobs defined with correct dependencies",
-        "Mailpit binary downloaded and started in background for render/flow jobs",
-        "Screenshots uploaded as artifacts with 14-day retention",
-        "Visual regression job fails pipeline if any diff >5%"
-      ],
-      "definition_of_done": [
-        "Workflow YAML valid (actionlint or act --dryrun)",
-        "All 4 jobs defined with correct setup",
-        "Path filters cover all email-related file paths",
-        "propmanager-verification 8-check gate passes"
-      ],
-      "verification": "actionlint .github/workflows/email-e2e.yml || act --dryrun -j email-link-validation",
-      "estimated_effort": "medium",
-      "passes": false,
-      "attempt_count": 0,
-      "depends_on": [
-        "E2E-MAIL-004",
-        "E2E-MAIL-012"
-      ]
-    },
-    {
-      "id": "E2E-MAIL-014",
-      "category": "testing",
-      "priority": "LOW",
-      "title": "Mobile viewport render tests (375px, 6 tenant-facing emails)",
-      "description": "Render 6 most common tenant-facing emails at iPhone dimensions (375x812). Assert no horizontal overflow. Screenshot with -mobile suffix. Extract viewport helper for reuse.",
-      "story_points": 2,
-      "steps": [
-        "RED: Write tests/Browser/EmailRenderMobileTest.php with 6 tests (PaymentReceived, InvoiceReminder, InvoiceSent, TenantCredentials, PaymentVerificationApproved, NotificationMail)",
-        "Each: render Mailable -> save HTML -> Dusk resize(375, 812) -> open -> screenshot to e2e-screenshots/emails/{name}-mobile.png",
-        "Assert: no horizontal overflow (content width <= 375px)",
-        "GREEN: Existing responsive CSS should handle this (vendor layout uses max-width: 600px)",
-        "REFACTOR: Extract screenshotAtViewport(Browser, html, width, height, name) helper"
-      ],
-      "files": [
-        "tests/Browser/EmailRenderMobileTest.php"
-      ],
-      "acceptance_criteria": [
-        "6 mobile screenshots captured at 375px width",
-        "No horizontal overflow in any email",
-        "Button/CTA touch targets visible at mobile dimensions",
-        "Screenshots saved with -mobile suffix"
-      ],
-      "definition_of_done": [
-        "php artisan dusk --filter=EmailRenderMobileTest passes",
-        "6 mobile screenshot files exist in e2e-screenshots/emails/",
-        "php artisan test passes (full suite, no regressions)",
-        "Pint clean",
-        "propmanager-verification 8-check gate passes"
-      ],
-      "verification": "php artisan dusk --filter=EmailRenderMobileTest && ls e2e-screenshots/emails/*-mobile.png | wc -l",
-      "estimated_effort": "small",
-      "passes": false,
-      "attempt_count": 0,
-      "depends_on": [
-        "E2E-MAIL-004"
-      ]
+    "user_stories": [
+        {
+            "id": "E2E-MAIL-015",
+            "category": "security",
+            "priority": "CRITICAL",
+            "title": "Security: gitignore .env.dusk.local + config() override trait",
+            "description": ".env.dusk.local is committed to git with APP_KEY=base64:kICJ... in plain text. Not in .gitignore. This is a security violation. Fix by gitignoring the file, removing from tracking, creating .env.dusk.local.example with placeholder values, and creating OverridesMailConfig trait for test SMTP config via config() overrides instead of .env.",
+            "story_points": 3,
+            "steps": [
+                "RED: Write a test that asserts .env.dusk.local is listed in .gitignore",
+                "GREEN: Add .env.dusk.local to .gitignore",
+                "Remove .env.dusk.local from git tracking: git rm --cached .env.dusk.local",
+                "Create .env.dusk.local.example (tracked) with placeholder values and NO secrets",
+                "Create tests/Traits/OverridesMailConfig.php with setUpMailConfig() that sets Mailpit SMTP config via config() calls",
+                "Run Pint, run full test suite to verify no regressions"
+            ],
+            "files": [
+                ".gitignore",
+                ".env.dusk.local.example",
+                "tests/Traits/OverridesMailConfig.php"
+            ],
+            "acceptance_criteria": [
+                ".env.dusk.local is NOT tracked in git",
+                ".gitignore contains .env.dusk.local entry",
+                ".env.dusk.local.example exists with placeholder APP_KEY and NO real secrets",
+                "OverridesMailConfig trait sets SMTP host to 127.0.0.1:1025 via config()",
+                "Full test suite passes without .env.dusk.local being tracked"
+            ],
+            "definition_of_done": [
+                "git status shows .env.dusk.local as untracked (not staged/modified)",
+                ".env.dusk.local.example committed with placeholder values",
+                "OverridesMailConfig trait created and Pint clean",
+                "php artisan test passes (full suite, no regressions)",
+                "propmanager-verification 8-check gate passes"
+            ],
+            "verification": "git ls-files .env.dusk.local (should return empty) && php artisan test && php vendor/bin/pint --test",
+            "estimated_effort": "small",
+            "passes": true,
+            "attempt_count": 1,
+            "depends_on": []
+        },
+        {
+            "id": "E2E-MAIL-001",
+            "category": "infrastructure",
+            "priority": "CRITICAL",
+            "title": "Install Mailpit and configure test environment",
+            "description": "Set up Mailpit SMTP capture server for local development and testing. Create tools/mailpit/ directory with README installation instructions. Add binary patterns to .gitignore. Do NOT modify any .env file \u00e2\u20ac\u201d all SMTP config is handled via config() overrides in test setUp().",
+            "story_points": 3,
+            "steps": [
+                "Create tools/mailpit/README.md with installation instructions (Scoop: scoop install mailpit, or manual Go binary download)",
+                "Add tools/mailpit/mailpit* to .gitignore (binary exclusion)",
+                "Add tools/mailpit/.gitkeep",
+                "Manual verification: start Mailpit, send test email via php artisan tinker, confirm at http://localhost:8025/api/v1/messages"
+            ],
+            "files": [
+                "tools/mailpit/README.md",
+                "tools/mailpit/.gitkeep",
+                ".gitignore"
+            ],
+            "acceptance_criteria": [
+                "tools/mailpit/README.md contains installation instructions for Windows (Scoop) and manual download",
+                "tools/mailpit/mailpit* is in .gitignore",
+                "Mailpit binary NOT committed to git",
+                "Mailpit starts on SMTP:1025, HTTP:8025 when launched"
+            ],
+            "definition_of_done": [
+                "README.md with clear installation steps",
+                ".gitignore updated",
+                "Mailpit starts and serves API at http://localhost:8025/api/v1/messages",
+                "Pint clean",
+                "propmanager-verification 8-check gate passes"
+            ],
+            "verification": "curl -s http://localhost:8025/api/v1/messages | head -1",
+            "estimated_effort": "small",
+            "passes": true,
+            "attempt_count": 1,
+            "depends_on": [
+                "E2E-MAIL-015"
+            ]
+        },
+        {
+            "id": "E2E-MAIL-002",
+            "category": "infrastructure",
+            "priority": "CRITICAL",
+            "title": "MailCapturePort interface + MailpitClient adapter + FakeMailCapture",
+            "description": "Create MailCapturePort interface (ports-and-adapters pattern) with 9 methods. Implement MailpitClient adapter using Http::timeout(5)->retry(3, 200). Implement FakeMailCapture in-memory fake for unit tests. Create MailpitConnectionException for structured error handling. Unit test MailpitClient with Http::fake().",
+            "story_points": 5,
+            "steps": [
+                "RED: Write tests/Unit/Support/MailpitClientTest.php with Http::fake() for messages(), getLatestMessage(), getMessageHtml(), getMessageHeaders(), searchByRecipient(), searchBySubject(), deleteAll(), getMessageLinks(), waitForMessage()",
+                "GREEN: Create tests/Support/Contracts/MailCapturePort.php interface",
+                "GREEN: Create tests/Support/MailpitClient.php implementing MailCapturePort with Http::baseUrl()->timeout(5)->retry(3, 200)",
+                "GREEN: Create tests/Support/FakeMailCapture.php in-memory implementation",
+                "Create tests/Support/Exceptions/MailpitConnectionException.php extending RuntimeException",
+                "Run Pint, complexity check (cyclomatic <= 7 per method)"
+            ],
+            "files": [
+                "tests/Support/Contracts/MailCapturePort.php",
+                "tests/Support/MailpitClient.php",
+                "tests/Support/FakeMailCapture.php",
+                "tests/Support/Exceptions/MailpitConnectionException.php",
+                "tests/Unit/Support/MailpitClientTest.php"
+            ],
+            "acceptance_criteria": [
+                "MailCapturePort interface has 9 methods: messages(), getLatestMessage(), getMessageHtml(), getMessageHeaders(), searchByRecipient(), searchBySubject(), deleteAll(), getMessageLinks(), waitForMessage()",
+                "MailpitClient implements all 9 methods with Http::timeout(5)->retry(3, 200)",
+                "FakeMailCapture implements all 9 methods with in-memory storage",
+                "MailpitConnectionException thrown on connection failure with structured context",
+                "All unit tests pass with Http::fake()"
+            ],
+            "definition_of_done": [
+                "php artisan test --filter=MailpitClientTest passes",
+                "php artisan test passes (full suite, no regressions)",
+                "Pint clean",
+                "Cyclomatic complexity <= 7 per method",
+                "propmanager-verification 8-check gate passes"
+            ],
+            "verification": "php artisan test --filter=MailpitClientTest && php vendor/bin/pint --test",
+            "estimated_effort": "medium",
+            "passes": true,
+            "attempt_count": 1,
+            "depends_on": [
+                "E2E-MAIL-001"
+            ]
+        },
+        {
+            "id": "E2E-MAIL-003",
+            "category": "infrastructure",
+            "priority": "CRITICAL",
+            "title": "InteractsWithMailpit trait for Dusk + Feature tests",
+            "description": "Create test trait that integrates MailpitClient with Dusk and Feature tests. Provides assertEmailSentTo(), assertEmailCount(), getLatestEmailHtml(), getLatestEmailLinks(), screenshotEmail(), screenshotMailableRender(). Uses OverridesMailConfig for SMTP config. Includes smoke test.",
+            "story_points": 5,
+            "steps": [
+                "Create tests/Traits/InteractsWithMailpit.php with $mailpit property of type MailCapturePort",
+                "Implement setUpMailpit(): instantiate MailpitClient, call deleteAll(), configure mail via OverridesMailConfig",
+                "Implement assertEmailSentTo(string $email, ?string $subjectContains = null)",
+                "Implement assertEmailCount(int $expected)",
+                "Implement getLatestEmailHtml(): string and getLatestEmailLinks(): array",
+                "Implement screenshotEmail(Browser $browser, string $name) and screenshotMailableRender(Browser $browser, Mailable $mailable, string $name)",
+                "RED: Write tests/Browser/EmailTestSmokeTest.php that sends a test email and asserts Mailpit captures it",
+                "GREEN: Smoke test passes with Mailpit running",
+                "Run Pint"
+            ],
+            "files": [
+                "tests/Traits/InteractsWithMailpit.php",
+                "tests/Browser/EmailTestSmokeTest.php"
+            ],
+            "acceptance_criteria": [
+                "InteractsWithMailpit trait provides 6 assertion/helper methods",
+                "setUpMailpit() clears Mailpit inbox and configures SMTP via config() (not .env)",
+                "screenshotEmail() saves captured email HTML to temp file, opens in browser, screenshots to e2e-screenshots/emails/",
+                "Smoke test sends email via Mail::raw(), asserts Mailpit captured it"
+            ],
+            "definition_of_done": [
+                "php artisan dusk --filter=EmailTestSmokeTest passes (Mailpit running)",
+                "php artisan test passes (full suite, no regressions)",
+                "Pint clean",
+                "propmanager-verification 8-check gate passes"
+            ],
+            "verification": "php artisan dusk --filter=EmailTestSmokeTest",
+            "estimated_effort": "medium",
+            "passes": true,
+            "attempt_count": 1,
+            "depends_on": [
+                "E2E-MAIL-002"
+            ]
+        },
+        {
+            "id": "E2E-MAIL-004",
+            "category": "testing",
+            "priority": "HIGH",
+            "title": "Static render tests for all 18 Mailables (screenshot baselines)",
+            "description": "Render all 18 Mailable classes with factory data, assert they contain vendor layout wrapper and config('app.name'), and screenshot each to e2e-screenshots/emails/. Reuse factory patterns from EmailFooterConsistencyTest and EmailCurrencySymbolTest.",
+            "story_points": 5,
+            "steps": [
+                "RED: Write tests/Browser/EmailRenderBaselineTest.php with 18 test methods, one per Mailable",
+                "Each test: instantiate Mailable with factory data, render, assert HTML contains 'wrapper' class and config('app.name')",
+                "Each test: save rendered HTML to temp file, open in headless Chrome via Dusk, screenshot to e2e-screenshots/emails/{MailableName}.png",
+                "Create e2e-screenshots/emails/.gitkeep",
+                "GREEN: Fix any render failures (may surface pre-existing bugs like PaymentReceived string-vs-enum comparison)",
+                "REFACTOR: Extract shared factory helpers to avoid duplication across 18 tests"
+            ],
+            "files": [
+                "tests/Browser/EmailRenderBaselineTest.php",
+                "e2e-screenshots/emails/.gitkeep"
+            ],
+            "acceptance_criteria": [
+                "All 18 Mailables render without exceptions",
+                "All 18 rendered HTML strings contain the vendor layout wrapper class",
+                "All 18 rendered HTML strings contain config('app.name')",
+                "18 screenshot PNGs saved to e2e-screenshots/emails/"
+            ],
+            "definition_of_done": [
+                "php artisan dusk --filter=EmailRenderBaselineTest passes",
+                "18 screenshot files exist in e2e-screenshots/emails/",
+                "php artisan test passes (full suite, no regressions)",
+                "Pint clean",
+                "propmanager-verification 8-check gate passes"
+            ],
+            "verification": "php artisan dusk --filter=EmailRenderBaselineTest && ls e2e-screenshots/emails/*.png | wc -l",
+            "estimated_effort": "medium",
+            "passes": true,
+            "attempt_count": 1,
+            "depends_on": [
+                "E2E-MAIL-003"
+            ]
+        },
+        {
+            "id": "E2E-MAIL-005",
+            "category": "testing",
+            "priority": "HIGH",
+            "title": "E2E flow: PaymentReceived (trigger -> Mailpit -> agent-browser verify)",
+            "description": "Dusk test: login as landlord, navigate to invoice, record payment, assert Mailpit captures PaymentReceived email with correct recipient, subject, amount, receipt link, and signed unsubscribe URL. Agent-browser verification opens Mailpit UI, inspects email, screenshots, and asserts no secrets leaked.",
+            "story_points": 5,
+            "steps": [
+                "RED: Write tests/Browser/EmailFlows/PaymentReceivedFlowTest.php",
+                "test_recording_payment_sends_email_to_tenant_via_mailpit: Dusk login -> invoice -> record payment -> assert Mailpit captured email",
+                "Assert: recipient matches tenant email, subject contains 'Payment Received'",
+                "Assert: body contains payment amount, reference, invoice number, Download Receipt link, signed unsubscribe URL (signature=)",
+                "Screenshot captured email via screenshotEmail()",
+                "GREEN: Mailpit infrastructure from 001-003 makes this pass (no new production code)",
+                "REFACTOR: Extract shared login/navigate helpers if duplicated across flow tests",
+                "Agent-browser verification: login -> record payment -> Mailpit UI -> click email -> screenshot -> security assertions"
+            ],
+            "files": [
+                "tests/Browser/EmailFlows/PaymentReceivedFlowTest.php"
+            ],
+            "acceptance_criteria": [
+                "Mailpit captures PaymentReceived email after payment recording",
+                "Email recipient matches the tenant's email",
+                "Email subject contains 'Payment Received'",
+                "Email body contains payment amount, reference, invoice number",
+                "Email body contains Download Receipt link with valid route",
+                "Email body contains signed unsubscribe URL with signature= param",
+                "Agent-browser screenshot captured in e2e-screenshots/emails/agent-browser-payment-received.png",
+                "No secret_key or APP_KEY present in email body"
+            ],
+            "definition_of_done": [
+                "php artisan dusk --filter=PaymentReceivedFlowTest passes",
+                "Agent-browser verification passes with screenshots",
+                "No secrets in email body (verified by eval assertions)",
+                "php artisan test passes (full suite, no regressions)",
+                "Pint clean",
+                "propmanager-verification 8-check gate passes"
+            ],
+            "verification": "php artisan dusk --filter=PaymentReceivedFlowTest && agent-browser --session e2e open http://localhost:8025",
+            "estimated_effort": "medium",
+            "passes": true,
+            "attempt_count": 1,
+            "depends_on": [
+                "E2E-MAIL-003"
+            ]
+        },
+        {
+            "id": "E2E-MAIL-006",
+            "category": "testing",
+            "priority": "HIGH",
+            "title": "E2E flow: InvoiceSent + InvoiceReminder (with agent-browser verify)",
+            "description": "Dusk test: trigger invoice send via UI, assert Mailpit captures InvoiceSent email. Feature test: trigger InvoiceReminder directly. Assert recipient, subject with invoice number, body with due date/total/pay button, signed unsubscribe. Agent-browser verification included.",
+            "story_points": 5,
+            "steps": [
+                "RED: Write tests/Browser/EmailFlows/InvoiceNotificationFlowTest.php",
+                "test_sending_invoice_dispatches_email_captured_by_mailpit: trigger invoice send via Dusk UI",
+                "test_invoice_reminder_email_captured_by_mailpit: trigger via direct Mail::send(new InvoiceReminder($invoice))",
+                "Assert: recipient is tenant, subject contains invoice number, body contains due date/total/pay button/unsubscribe",
+                "Screenshot both email types",
+                "GREEN: No new production code needed",
+                "REFACTOR: Shared assertions for common email elements (unsubscribe, footer, app name)",
+                "Agent-browser verification: login -> invoices -> send -> Mailpit UI -> screenshot -> security assertions"
+            ],
+            "files": [
+                "tests/Browser/EmailFlows/InvoiceNotificationFlowTest.php"
+            ],
+            "acceptance_criteria": [
+                "Mailpit captures InvoiceSent email after invoice send action",
+                "Mailpit captures InvoiceReminder email after direct trigger",
+                "Both emails have correct recipient (tenant)",
+                "Both email subjects contain invoice number",
+                "Both email bodies contain due date, total amount, pay button URL",
+                "Both emails contain signed unsubscribe URL",
+                "Agent-browser screenshot captured"
+            ],
+            "definition_of_done": [
+                "php artisan dusk --filter=InvoiceNotificationFlowTest passes",
+                "Agent-browser verification passes with screenshots",
+                "php artisan test passes (full suite, no regressions)",
+                "Pint clean",
+                "propmanager-verification 8-check gate passes"
+            ],
+            "verification": "php artisan dusk --filter=InvoiceNotificationFlowTest",
+            "estimated_effort": "medium",
+            "passes": true,
+            "attempt_count": 1,
+            "depends_on": [
+                "E2E-MAIL-003"
+            ]
+        },
+        {
+            "id": "E2E-MAIL-007",
+            "category": "testing",
+            "priority": "HIGH",
+            "title": "E2E flow: TenantCredentials (with agent-browser login test)",
+            "description": "Dusk test: login as landlord, create lease for vacant unit, assert Mailpit captures TenantCredentials email with login URL, property name (deep model chain), and no leaked APP_KEY. Agent-browser verification verifies login URL present and no secrets.",
+            "story_points": 5,
+            "steps": [
+                "RED: Write tests/Browser/EmailFlows/TenantCredentialsFlowTest.php",
+                "test_creating_lease_sends_tenant_credentials_email: Dusk login -> unit -> create lease -> assert Mailpit captured",
+                "Assert: recipient is new tenant, subject contains Welcome/credentials text",
+                "Assert: body contains login URL (route('login')), property name (deep chain)",
+                "Assert: body does NOT contain raw APP_KEY or base64: key material",
+                "GREEN: No new production code; Mailpit captures queued email (sync queue)",
+                "REFACTOR: Verify deep model chain doesn't cause N+1 in email render",
+                "Agent-browser verification: login -> create lease -> Mailpit UI -> screenshot -> security assertions"
+            ],
+            "files": [
+                "tests/Browser/EmailFlows/TenantCredentialsFlowTest.php"
+            ],
+            "acceptance_criteria": [
+                "Mailpit captures TenantCredentials email after lease creation",
+                "Email recipient is the newly created tenant",
+                "Email body contains login URL",
+                "Email body contains property name from deep model chain",
+                "Email body does NOT contain APP_KEY or base64: encryption key",
+                "Agent-browser screenshot captured"
+            ],
+            "definition_of_done": [
+                "php artisan dusk --filter=TenantCredentialsFlowTest passes",
+                "Agent-browser verification shows login URL present and no secrets leaked",
+                "php artisan test passes (full suite, no regressions)",
+                "Pint clean",
+                "propmanager-verification 8-check gate passes"
+            ],
+            "verification": "php artisan dusk --filter=TenantCredentialsFlowTest",
+            "estimated_effort": "medium",
+            "passes": true,
+            "attempt_count": 1,
+            "depends_on": [
+                "E2E-MAIL-003"
+            ]
+        },
+        {
+            "id": "E2E-MAIL-008",
+            "category": "testing",
+            "priority": "HIGH",
+            "title": "E2E flow: CaretakerInvitation (agent-browser accept link click-through)",
+            "description": "Dusk test: login as landlord, send caretaker invitation, assert Mailpit captures CaretakerInvitation email with accept link. Extract accept URL from email, browse to it, assert public registration page loads. Agent-browser click-through verification.",
+            "story_points": 5,
+            "steps": [
+                "RED: Write tests/Browser/EmailFlows/CaretakerInvitationFlowTest.php",
+                "test_sending_caretaker_invitation_dispatches_email: Dusk login -> invitations -> send -> assert Mailpit captured",
+                "Assert: recipient, subject, body contains landlord name/property name/accept link",
+                "test_accept_link_in_email_loads_registration_page: extract accept URL from Mailpit -> Dusk browse to URL -> assert registration page loads (public, no auth)",
+                "Screenshot both email and accept page",
+                "GREEN: No new production code",
+                "Agent-browser verification: login -> send invitation -> Mailpit UI -> click email -> screenshot -> click accept link -> screenshot accept page"
+            ],
+            "files": [
+                "tests/Browser/EmailFlows/CaretakerInvitationFlowTest.php"
+            ],
+            "acceptance_criteria": [
+                "Mailpit captures CaretakerInvitation email after invitation send",
+                "Email contains landlord name and property name",
+                "Email contains valid accept link (route('invitations.show', $token))",
+                "Browsing to accept link loads registration page (public, no auth required)",
+                "Agent-browser screenshots of email and accept page captured",
+                "No secret_key in email body"
+            ],
+            "definition_of_done": [
+                "php artisan dusk --filter=CaretakerInvitationFlowTest passes",
+                "Agent-browser verification passes with email + accept page screenshots",
+                "php artisan test passes (full suite, no regressions)",
+                "Pint clean",
+                "propmanager-verification 8-check gate passes"
+            ],
+            "verification": "php artisan dusk --filter=CaretakerInvitationFlowTest",
+            "estimated_effort": "medium",
+            "passes": true,
+            "attempt_count": 1,
+            "depends_on": [
+                "E2E-MAIL-003"
+            ]
+        },
+        {
+            "id": "E2E-MAIL-009",
+            "category": "testing",
+            "priority": "MEDIUM",
+            "title": "E2E flow: PaymentVerification approved/rejected (with agent-browser)",
+            "description": "Feature test: HTTP POST as landlord to approve/reject verification, assert Mailpit captures PaymentVerificationApproved/Rejected email with correct amounts, status, and unsubscribe link. Reuse createPaymentVerification() helper from EmailFooterConsistencyTest.",
+            "story_points": 3,
+            "steps": [
+                "RED: Write tests/Feature/EmailFlows/PaymentVerificationEmailFlowTest.php",
+                "test_approving_verification_sends_email_via_mailpit: HTTP POST -> assert Mailpit captured PaymentVerificationApproved",
+                "test_rejecting_verification_sends_email_via_mailpit: HTTP POST -> assert Mailpit captured PaymentVerificationRejected with rejection reason",
+                "Assert: recipient, subject, body content (amounts, status), unsubscribe link",
+                "Uses InteractsWithMailpit + OverridesMailConfig traits",
+                "Reuse createPaymentVerification() helper from EmailFooterConsistencyTest",
+                "GREEN: No new production code",
+                "Agent-browser verification: Mailpit UI -> click email -> screenshot -> security assertions"
+            ],
+            "files": [
+                "tests/Feature/EmailFlows/PaymentVerificationEmailFlowTest.php"
+            ],
+            "acceptance_criteria": [
+                "Mailpit captures PaymentVerificationApproved email after approval POST",
+                "Mailpit captures PaymentVerificationRejected email after rejection POST with rejection reason",
+                "Both emails have correct recipient, amounts, and unsubscribe link",
+                "Agent-browser screenshot captured"
+            ],
+            "definition_of_done": [
+                "php artisan test --filter=PaymentVerificationEmailFlowTest passes",
+                "Agent-browser verification passes with screenshots",
+                "php artisan test passes (full suite, no regressions)",
+                "Pint clean",
+                "propmanager-verification 8-check gate passes"
+            ],
+            "verification": "php artisan test --filter=PaymentVerificationEmailFlowTest",
+            "estimated_effort": "small",
+            "passes": true,
+            "attempt_count": 1,
+            "depends_on": [
+                "E2E-MAIL-002",
+                "E2E-MAIL-003"
+            ]
+        },
+        {
+            "id": "E2E-MAIL-010",
+            "category": "testing",
+            "priority": "MEDIUM",
+            "title": "E2E flow: NotificationMail RFC 8058 headers (with agent-browser)",
+            "description": "Feature test: call NotificationService::sendEmail() with SMTP pointed at Mailpit, assert Mailpit captures email with RFC 8058 List-Unsubscribe and List-Unsubscribe-Post headers, role-based unsubscribe body link, data table rendering, action button scheme validation, and XSS safety.",
+            "story_points": 3,
+            "steps": [
+                "RED: Write tests/Feature/EmailFlows/NotificationMailFlowTest.php",
+                "test_notification_email_captured_by_mailpit_with_rfc8058_headers: call NotificationService::sendEmail() -> assert List-Unsubscribe + List-Unsubscribe-Post headers via getMessageHeaders()",
+                "Assert: body contains data table with filtered keys, role-based unsubscribe link",
+                "test_notification_email_action_button_scheme_validation: javascript: URL excluded",
+                "test_notification_email_xss_safe: HTML in message escaped via nl2br(e())",
+                "GREEN: No new production code",
+                "Agent-browser verification: Mailpit UI -> click email -> screenshot -> verify unsubscribe link + data table"
+            ],
+            "files": [
+                "tests/Feature/EmailFlows/NotificationMailFlowTest.php"
+            ],
+            "acceptance_criteria": [
+                "Mailpit captures NotificationMail with List-Unsubscribe header",
+                "List-Unsubscribe-Post header contains List-Unsubscribe=One-Click (RFC 8058)",
+                "Body contains data table with filtered keys (no action_url, no non-scalar)",
+                "Tenant recipients get signed unsubscribe URL, landlords get /notifications/settings",
+                "javascript: URLs excluded from action button",
+                "HTML in message body is escaped (XSS safe)",
+                "Agent-browser screenshot captured"
+            ],
+            "definition_of_done": [
+                "php artisan test --filter=NotificationMailFlowTest passes",
+                "Agent-browser verification passes with screenshots",
+                "php artisan test passes (full suite, no regressions)",
+                "Pint clean",
+                "propmanager-verification 8-check gate passes"
+            ],
+            "verification": "php artisan test --filter=NotificationMailFlowTest",
+            "estimated_effort": "small",
+            "passes": true,
+            "attempt_count": 1,
+            "depends_on": [
+                "E2E-MAIL-002",
+                "E2E-MAIL-003"
+            ]
+        },
+        {
+            "id": "E2E-MAIL-011",
+            "category": "testing",
+            "priority": "MEDIUM",
+            "title": "Email link validation across all 18 Mailables",
+            "description": "Pure PHPUnit test (no Mailpit, no Dusk). Render all 18 Mailables, extract every href, validate URL schemes (no javascript:/data: XSS), resolve internal routes, verify no localhost in production config, and assert signed URLs contain signature= parameter.",
+            "story_points": 3,
+            "steps": [
+                "RED: Write tests/Feature/EmailLinkValidationTest.php",
+                "test_all_mailables_have_valid_url_schemes: render all 18, regex extract hrefs, assert https?:// or mailto: only",
+                "test_all_mailables_internal_routes_resolve: extract internal URLs, validate via Route::getRoutes()->match()",
+                "test_no_localhost_urls_in_production_config: set APP_URL to production URL, render, assert zero localhost references",
+                "test_signed_urls_contain_signature_parameter: for PaymentReceived/NotificationMail, assert signature= present",
+                "Reuse Mailable construction patterns from EmailFooterConsistencyTest and EmailCurrencySymbolTest",
+                "GREEN: No new production code",
+                "REFACTOR: Extract renderAllMailables(): array helper if reused"
+            ],
+            "files": [
+                "tests/Feature/EmailLinkValidationTest.php"
+            ],
+            "acceptance_criteria": [
+                "Zero javascript: or data: protocol links across all 18 Mailables",
+                "All internal route URLs resolve via Route::getRoutes()->match()",
+                "Zero localhost references when APP_URL is set to production URL",
+                "Signed URL Mailables (PaymentReceived, NotificationMail) contain signature= parameter"
+            ],
+            "definition_of_done": [
+                "php artisan test --filter=EmailLinkValidationTest passes",
+                "php artisan test passes (full suite, no regressions)",
+                "Pint clean",
+                "propmanager-verification 8-check gate passes"
+            ],
+            "verification": "php artisan test --filter=EmailLinkValidationTest",
+            "estimated_effort": "small",
+            "passes": false,
+            "attempt_count": 0,
+            "depends_on": []
+        },
+        {
+            "id": "E2E-MAIL-012",
+            "category": "tooling",
+            "priority": "LOW",
+            "title": "Visual regression comparison utility (GD pixel diff)",
+            "description": "GD-based visual diff comparer with configurable threshold. Compares baseline and current screenshots pixel-by-pixel, generates diff image highlighting changes in red. Artisan command scans e2e-screenshots/emails/ for pairs and reports pass/fail.",
+            "story_points": 3,
+            "steps": [
+                "RED: Write tests/Unit/Support/VisualDiffComparerTest.php with 5 tests (identical, completely different, threshold pass, threshold fail, dimension mismatch)",
+                "GREEN: Create tests/Support/VisualDiffComparer.php with GD-based pixel comparison, +-5 per channel antialiasing tolerance",
+                "GREEN: Create tests/Support/VisualDiffResult.php value object with percentage, passed, diffImagePath",
+                "Create app/Console/Commands/CompareEmailScreenshots.php artisan command: email:compare-screenshots",
+                "REFACTOR: Extract pixel comparison to separate method for complexity (cyclomatic <= 7)"
+            ],
+            "files": [
+                "tests/Support/VisualDiffComparer.php",
+                "tests/Support/VisualDiffResult.php",
+                "app/Console/Commands/CompareEmailScreenshots.php",
+                "tests/Unit/Support/VisualDiffComparerTest.php"
+            ],
+            "acceptance_criteria": [
+                "Identical images return 0% diff",
+                "Completely different images return >90% diff",
+                "Threshold comparison works (2% diff with 5% threshold passes, 10% fails)",
+                "Different dimensions throw exception",
+                "Artisan command scans directory and reports per-image pass/fail"
+            ],
+            "definition_of_done": [
+                "php artisan test --filter=VisualDiffComparerTest passes",
+                "php artisan email:compare-screenshots runs without errors",
+                "Cyclomatic complexity <= 7 per method",
+                "php artisan test passes (full suite, no regressions)",
+                "Pint clean",
+                "propmanager-verification 8-check gate passes"
+            ],
+            "verification": "php artisan test --filter=VisualDiffComparerTest && php artisan email:compare-screenshots",
+            "estimated_effort": "small",
+            "passes": false,
+            "attempt_count": 0,
+            "depends_on": [
+                "E2E-MAIL-004"
+            ]
+        },
+        {
+            "id": "E2E-MAIL-013",
+            "category": "ci",
+            "priority": "MEDIUM",
+            "title": "GitHub Actions CI workflow for email E2E tests",
+            "description": "GitHub Actions workflow triggered on changes to app/Mail/**, email templates, and email test files. Four jobs: email-render-tests, email-flow-tests, email-link-validation, visual-regression. Installs Mailpit binary, runs tests, uploads screenshots as artifacts.",
+            "story_points": 5,
+            "steps": [
+                "Create .github/workflows/email-e2e.yml with path filters for app/Mail/**, resources/views/emails/**, resources/views/vendor/mail/**, tests/Browser/Email*, tests/Feature/Email*",
+                "Job email-render-tests: MySQL service, PHP 8.4, Composer, Mailpit binary download, Dusk EmailRenderBaselineTest, upload screenshots",
+                "Job email-flow-tests: Same setup + Mailpit, Dusk EmailFlows, Feature test --group=mailpit, upload screenshots",
+                "Job email-link-validation: No Mailpit, php artisan test --filter=EmailLinkValidationTest",
+                "Job visual-regression (depends on email-render-tests): Download baseline artifact, run email:compare-screenshots, fail if >5% diff",
+                "Test locally via act or manual push to feature branch"
+            ],
+            "files": [
+                ".github/workflows/email-e2e.yml"
+            ],
+            "acceptance_criteria": [
+                "Workflow triggers on push/PR with correct path filters",
+                "All 4 jobs defined with correct dependencies",
+                "Mailpit binary downloaded and started in background for render/flow jobs",
+                "Screenshots uploaded as artifacts with 14-day retention",
+                "Visual regression job fails pipeline if any diff >5%"
+            ],
+            "definition_of_done": [
+                "Workflow YAML valid (actionlint or act --dryrun)",
+                "All 4 jobs defined with correct setup",
+                "Path filters cover all email-related file paths",
+                "propmanager-verification 8-check gate passes"
+            ],
+            "verification": "actionlint .github/workflows/email-e2e.yml || act --dryrun -j email-link-validation",
+            "estimated_effort": "medium",
+            "passes": false,
+            "attempt_count": 0,
+            "depends_on": [
+                "E2E-MAIL-004",
+                "E2E-MAIL-012"
+            ]
+        },
+        {
+            "id": "E2E-MAIL-014",
+            "category": "testing",
+            "priority": "LOW",
+            "title": "Mobile viewport render tests (375px, 6 tenant-facing emails)",
+            "description": "Render 6 most common tenant-facing emails at iPhone dimensions (375x812). Assert no horizontal overflow. Screenshot with -mobile suffix. Extract viewport helper for reuse.",
+            "story_points": 2,
+            "steps": [
+                "RED: Write tests/Browser/EmailRenderMobileTest.php with 6 tests (PaymentReceived, InvoiceReminder, InvoiceSent, TenantCredentials, PaymentVerificationApproved, NotificationMail)",
+                "Each: render Mailable -> save HTML -> Dusk resize(375, 812) -> open -> screenshot to e2e-screenshots/emails/{name}-mobile.png",
+                "Assert: no horizontal overflow (content width <= 375px)",
+                "GREEN: Existing responsive CSS should handle this (vendor layout uses max-width: 600px)",
+                "REFACTOR: Extract screenshotAtViewport(Browser, html, width, height, name) helper"
+            ],
+            "files": [
+                "tests/Browser/EmailRenderMobileTest.php"
+            ],
+            "acceptance_criteria": [
+                "6 mobile screenshots captured at 375px width",
+                "No horizontal overflow in any email",
+                "Button/CTA touch targets visible at mobile dimensions",
+                "Screenshots saved with -mobile suffix"
+            ],
+            "definition_of_done": [
+                "php artisan dusk --filter=EmailRenderMobileTest passes",
+                "6 mobile screenshot files exist in e2e-screenshots/emails/",
+                "php artisan test passes (full suite, no regressions)",
+                "Pint clean",
+                "propmanager-verification 8-check gate passes"
+            ],
+            "verification": "php artisan dusk --filter=EmailRenderMobileTest && ls e2e-screenshots/emails/*-mobile.png | wc -l",
+            "estimated_effort": "small",
+            "passes": false,
+            "attempt_count": 0,
+            "depends_on": [
+                "E2E-MAIL-004"
+            ]
+        }
+    ],
+    "pre_existing_issues": [
+        {
+            "issue": ".env.dusk.local tracked in git with APP_KEY",
+            "severity": "HIGH",
+            "action": "Fix in E2E-MAIL-015"
+        },
+        {
+            "issue": "DataExportReady subject has hardcoded '- PropManager'",
+            "severity": "LOW",
+            "action": "Render baseline test (004) will catch; fix as separate PR"
+        },
+        {
+            "issue": "OverpaymentNotification uses non-signed route('notifications.settings') unsubscribe (inconsistent with tenant mailables)",
+            "severity": "MEDIUM",
+            "action": "Document; not blocking for this PRD"
+        },
+        {
+            "issue": "CaretakerInvitation implements ShouldQueue but called with Mail::send() not queue()",
+            "severity": "LOW",
+            "action": "Pre-existing inconsistency; document"
+        },
+        {
+            "issue": "InvoiceController::recordPayment() uses inline $request->validate() (no FormRequest)",
+            "severity": "LOW",
+            "action": "Pre-existing DBP violation; out of scope"
+        },
+        {
+            "issue": "tenant-statement.blade.php has no Mailable class (uses raw Mail::send() closure)",
+            "severity": "LOW",
+            "action": "Not covered by Mailable-based tests; document"
+        },
+        {
+            "issue": "PaymentReceived template compares $invoice->status === 'paid' (string vs InvoiceStatus enum)",
+            "severity": "MEDIUM",
+            "action": "Pre-existing bug; render test may expose"
+        }
+    ],
+    "critical_path": "015 -> 001 -> 002 -> 003 -> 004/005/006/007/008 -> 012 -> 013",
+    "total_story_points": 60,
+    "total_stories": 15,
+    "metadata": {
+        "passing_stories": 11
     }
-  ],
-  "pre_existing_issues": [
-    {
-      "issue": ".env.dusk.local tracked in git with APP_KEY",
-      "severity": "HIGH",
-      "action": "Fix in E2E-MAIL-015"
-    },
-    {
-      "issue": "DataExportReady subject has hardcoded '- PropManager'",
-      "severity": "LOW",
-      "action": "Render baseline test (004) will catch; fix as separate PR"
-    },
-    {
-      "issue": "OverpaymentNotification uses non-signed route('notifications.settings') unsubscribe (inconsistent with tenant mailables)",
-      "severity": "MEDIUM",
-      "action": "Document; not blocking for this PRD"
-    },
-    {
-      "issue": "CaretakerInvitation implements ShouldQueue but called with Mail::send() not queue()",
-      "severity": "LOW",
-      "action": "Pre-existing inconsistency; document"
-    },
-    {
-      "issue": "InvoiceController::recordPayment() uses inline $request->validate() (no FormRequest)",
-      "severity": "LOW",
-      "action": "Pre-existing DBP violation; out of scope"
-    },
-    {
-      "issue": "tenant-statement.blade.php has no Mailable class (uses raw Mail::send() closure)",
-      "severity": "LOW",
-      "action": "Not covered by Mailable-based tests; document"
-    },
-    {
-      "issue": "PaymentReceived template compares $invoice->status === 'paid' (string vs InvoiceStatus enum)",
-      "severity": "MEDIUM",
-      "action": "Pre-existing bug; render test may expose"
-    }
-  ],
-  "critical_path": "015 -> 001 -> 002 -> 003 -> 004/005/006/007/008 -> 012 -> 013",
-  "total_story_points": 60,
-  "total_stories": 15
 }

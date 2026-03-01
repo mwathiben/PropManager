@@ -414,6 +414,16 @@ class NotificationService
      */
     private function sendEmail(Notification $notification, User $recipient): bool
     {
+        if (empty($recipient->email)) {
+            $notification->markAsFailed('Recipient has no email address');
+            Log::warning('Notification email skipped: no email address', [
+                'notification_id' => $notification->id,
+                'recipient_id' => $recipient->id,
+            ]);
+
+            return false;
+        }
+
         try {
             Mail::to($recipient->email)->send(new NotificationMail(
                 $notification->subject,
@@ -426,6 +436,12 @@ class NotificationService
 
             return true;
         } catch (\Exception $e) {
+            Log::error('Notification email failed', [
+                'notification_id' => $notification->id,
+                'recipient_id' => $recipient->id,
+                'subject' => $notification->subject,
+                'error' => $e->getMessage(),
+            ]);
             $notification->markAsFailed($e->getMessage());
 
             return false;

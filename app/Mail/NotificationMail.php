@@ -13,6 +13,8 @@ use Illuminate\Mail\Mailables\Headers;
 
 class NotificationMail extends Mailable
 {
+    private ?UnsubscribeUrlResolver $resolverInstance = null;
+
     public function __construct(
         public string $notificationSubject,
         public string $notificationMessage,
@@ -22,14 +24,19 @@ class NotificationMail extends Mailable
 
     public function headers(): Headers
     {
-        $url = app(UnsubscribeUrlResolver::class)->resolveForHeader($this->recipient);
+        $url = $this->resolver()->resolveForHeader($this->recipient);
 
-        return new Headers(
-            text: $url ? [
-                'List-Unsubscribe' => '<'.$url.'>',
-                'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
-            ] : [],
-        );
+        if (! $url) {
+            return new Headers(text: []);
+        }
+
+        $headers = ['List-Unsubscribe' => '<'.$url.'>'];
+
+        if ($this->recipient->isTenant()) {
+            $headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
+        }
+
+        return new Headers(text: $headers);
     }
 
     public function envelope(): Envelope
@@ -48,13 +55,13 @@ class NotificationMail extends Mailable
                 'notificationBody' => $this->notificationMessage,
                 'data' => $this->data,
                 'recipient' => $this->recipient,
-                'unsubscribeUrl' => app(UnsubscribeUrlResolver::class)->resolve($this->recipient),
+                'unsubscribeUrl' => $this->resolver()->resolve($this->recipient),
             ],
         );
     }
 
-    public function attachments(): array
+    private function resolver(): UnsubscribeUrlResolver
     {
-        return [];
+        return $this->resolverInstance ??= app(UnsubscribeUrlResolver::class);
     }
 }
