@@ -506,8 +506,8 @@
             ],
             "verification": "php artisan test --filter=EmailLinkValidationTest",
             "estimated_effort": "small",
-            "passes": false,
-            "attempt_count": 0,
+            "passes": true,
+            "attempt_count": 1,
             "depends_on": []
         },
         {
@@ -673,6 +673,6 @@
     "total_story_points": 60,
     "total_stories": 15,
     "metadata": {
-        "passing_stories": 11
+        "passing_stories": 12
     }
 }

@@ -16472,3 +16472,55 @@ No production code changed.
 
 ### Next Steps
 - E2E-MAIL-011 (Email link validation) or E2E-MAIL-012 (Visual regression utility)
+
+---
+
+## Session: 2026-03-01T13:00:00Z
+**Task**: E2E-MAIL-011 — Email link validation across all 18 Mailables
+**Status**: COMPLETED
+
+### Skills Applied
+- **verification-first**: TDD RED-GREEN-REFACTOR cycle
+- **feature-development**: Full lifecycle from spec to verification
+- **laraveltdd-with-pest**: Feature test with RefreshDatabase, factory-based setup
+- **laravelquality-checks**: Pint clean, PHPMD complexity ≤ 7
+- **laravelcomplexity-guardrails**: CC ≤ 3 on all methods via builder extraction
+- **laravelcontroller-tests**: Reused factory patterns from existing tests
+- **laravelexception-handling-and-logging**: Assertion messages include mailable name context
+- **laravelconstants-and-configuration**: SIGNED_URL_MAILABLES and UNSAFE_SCHEMES constants
+- **agent-browser**: Post-PHPUnit Mailpit UI verification
+- **code-review**: Self-review for slop, imports, DRY
+- **deslop**: Removed inline FQCN, added proper imports
+- **ralph-wiggum**: PRD tracking, progress logging, git commit
+- **propmanager-verification**: 8-check DBP gate
+- **webapp-testing**: Agent-browser Mailpit verification protocol
+- **e2e-testing-patterns**: Screenshot evidence, security assertions
+
+### Work Done
+- Created `tests/Feature/EmailLinkValidationTest.php` with 4 test methods validating all 18 Mailables
+- Test 1: `test_all_mailables_have_no_dangerous_url_schemes` — DOMDocument href extraction, asserts zero javascript:/data:/vbscript:
+- Test 2: `test_all_mailables_internal_routes_resolve` — extracts internal URLs, validates via Route::getRoutes()->match()
+- Test 3: `test_no_localhost_urls_in_production_config` — uses URL::forceRootUrl() to simulate production, asserts zero localhost
+- Test 4: `test_signed_url_mailables_contain_signature_parameter` — validates 9 Mailables with signed unsubscribe URLs
+- DOMDocument-based href extraction (OWASP best practice over regex)
+- 277 assertions across 18 Mailables
+- Agent-browser Mailpit verification: zero XSS links, signature= present, no secrets leaked
+- Screenshots saved to e2e-screenshots/emails/agent-browser-link-validation.png
+
+### Learnings
+- `URL::forceRootUrl()` needed in addition to `config(['app.url' => ...])` for route generation in tests
+- `Route::getRoutes()->match()` throws `MethodNotAllowedHttpException` for POST-only routes when matched with GET — catch and skip
+- Test with zero assertions is "risky" in PHPUnit — add a minimum assertion count check
+- ReconciliationAlert uses `url()` in Blade template (not in Mailable content()) — still respects URL::forceRootUrl()
+- DOMDocument with `@` error suppression and LIBXML flags handles HTML5 emails cleanly
+
+### Verification
+- [x] EmailLinkValidationTest: 4/4 pass (277 assertions)
+- [x] Full suite: 1599 pass, 13 skipped, 0 failures
+- [x] Pint: clean
+- [x] PHPMD: no violations
+- [x] Agent-browser: zero XSS, signature present, no secrets
+- [x] PRD updated: passes=true, attempt_count=1
+
+### Next Steps
+- E2E-MAIL-012: Visual regression comparison utility (GD pixel diff)
