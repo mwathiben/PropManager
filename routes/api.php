@@ -30,6 +30,8 @@ Route::prefix('v1')->group(function () {
         ->middleware('throttle:login');
     Route::post('/auth/register', [\App\Http\Controllers\Api\AuthController::class, 'register'])
         ->middleware('throttle:register');
+    Route::post('/auth/two-factor-challenge', [\App\Http\Controllers\Api\AuthController::class, 'twoFactorChallenge'])
+        ->middleware('throttle:two_factor');
 
     // Authenticated routes
     Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
@@ -138,8 +140,9 @@ Route::prefix('v2')->group(function () {
 
 Route::prefix('webhooks')->group(function () {
 
-    // IntaSend M-Pesa STK Push callback (challenge-based validation)
-    Route::post('/intasend/mpesa', [\App\Http\Controllers\Api\IntaSendWebhookController::class, 'handleMpesaWebhook']);
+    // IntaSend M-Pesa STK Push callback (challenge + IP validated via middleware)
+    Route::post('/intasend/mpesa', [\App\Http\Controllers\Api\IntaSendWebhookController::class, 'handleMpesaWebhook'])
+        ->middleware('webhook.intasend');
 
     // M-Pesa webhooks (IP + timestamp validated via middleware)
     Route::middleware('webhook.mpesa')->group(function () {

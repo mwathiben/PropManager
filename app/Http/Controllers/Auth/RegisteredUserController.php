@@ -35,16 +35,13 @@ class RegisteredUserController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
-            // NEW: Validate the role
-            'role' => 'required|string|in:landlord,caretaker,tenant',
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
-            // NEW: Save the role
-            'role' => $request->role,
+            'role' => 'tenant',
             'password' => Hash::make($request->password),
         ]);
 

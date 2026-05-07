@@ -225,24 +225,20 @@ class BulkPaymentProcessor
             'notes' => 'Bulk import',
         ]);
 
-        $invoice->increment('amount_paid', $allocation['amount']);
-        $invoice->refresh();
+        $invoice = Invoice::lockForUpdate()->find($invoice->id);
+        $newPaid = (float) $invoice->amount_paid + (float) $allocation['amount'];
+        $newStatus = $newPaid >= $invoice->total_due
+            ? InvoiceStatus::Paid->value
+            : ($newPaid > 0 ? InvoiceStatus::Partial->value : $invoice->status);
 
-        $newStatus = $this->resolveInvoiceStatus($invoice);
-        $invoice->update(['status' => $newStatus]);
+        $invoice->update([
+            'amount_paid' => $newPaid,
+            'status' => $newStatus,
+        ]);
+
+        $invoicesMap->put($invoice->id, $invoice);
 
         $this->receiptService->createReceipt($payment, $invoice);
-    }
-
-    private function resolveInvoiceStatus(Invoice $invoice): string
-    {
-        if ($invoice->amount_paid >= $invoice->total_due) {
-            return InvoiceStatus::Paid->value;
-        }
-
-        return $invoice->amount_paid > 0
-            ? InvoiceStatus::Partial->value
-            : $invoice->status;
     }
 
     private function applyWalletCredit(

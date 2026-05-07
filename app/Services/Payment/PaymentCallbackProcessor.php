@@ -7,6 +7,7 @@ namespace App\Services\Payment;
 use App\Enums\Currency;
 use App\Enums\InvoiceStatus;
 use App\Events\PaymentReceived as PaymentReceivedEvent;
+use App\Exceptions\Payment\CurrencyMismatchException;
 use App\Mail\PaymentReceived;
 use App\Models\Invoice;
 use App\Models\LandlordPayoutAccount;
@@ -297,8 +298,19 @@ class PaymentCallbackProcessor
         Payment $payment,
         array &$pendingOverpayments
     ): float {
-        $currency = $this->resolvePaymentCurrency($invoice);
-        $amount = $currency->fromMinorUnits($this->paymentData['amount']);
+        $paymentCurrency = $this->resolvePaymentCurrency($invoice);
+        $invoiceCurrency = $invoice->currency ?? Currency::default();
+        $rawAmount = $this->paymentData['amount'] ?? 0;
+        $amount = $paymentCurrency->fromMinorUnits($rawAmount);
+
+        if ($paymentCurrency !== $invoiceCurrency) {
+            throw new CurrencyMismatchException(
+                $paymentCurrency->value,
+                $invoiceCurrency->value,
+                $invoice->id
+            );
+        }
+
         $remainingBalance = $invoice->total_due - $invoice->amount_paid;
         $appliedAmount = min($amount, $remainingBalance);
         $overpayment = max(0, $amount - $remainingBalance);

@@ -25,7 +25,9 @@ class ValidatePaystackWebhook
         $allowedIps = config('payments.webhook_security.paystack.allowed_ips', []);
 
         if (empty($allowedIps)) {
-            return ! app()->environment('production');
+            Log::warning('Paystack webhook IP allowlist not configured — rejecting request');
+
+            return false;
         }
 
         return in_array($ip, $allowedIps, true);

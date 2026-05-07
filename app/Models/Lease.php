@@ -117,44 +117,51 @@ class Lease extends Model
 
     public function creditToWallet(float $amount, ?string $reason = null, ?int $paymentId = null): void
     {
-        DB::transaction(function () use ($amount, $reason, $paymentId) {
-            $this->increment('wallet_balance', $amount);
-            $this->refresh();
+        throw_unless(DB::transactionLevel() > 0, \LogicException::class, 'creditToWallet must be called within a transaction');
 
-            WalletTransaction::create([
-                'lease_id' => $this->id,
-                'landlord_id' => $this->landlord_id,
-                'type' => 'credit',
-                'amount' => $amount,
-                'reason' => $reason ?? 'Overpayment credit',
-                'balance_after' => $this->wallet_balance,
-                'payment_id' => $paymentId,
-            ]);
-        });
+        $locked = static::lockForUpdate()->find($this->id);
+        $newBalance = (float) $locked->wallet_balance + $amount;
+
+        $locked->update(['wallet_balance' => $newBalance]);
+
+        WalletTransaction::create([
+            'lease_id' => $this->id,
+            'landlord_id' => $this->landlord_id,
+            'type' => 'credit',
+            'amount' => $amount,
+            'reason' => $reason ?? 'Overpayment credit',
+            'balance_after' => $newBalance,
+            'payment_id' => $paymentId,
+        ]);
+
+        $this->wallet_balance = $newBalance;
     }
 
     public function deductFromWallet(float $amount, ?string $reason = null, ?int $invoiceId = null): float
     {
-        return DB::transaction(function () use ($amount, $reason, $invoiceId) {
-            $deducted = min($amount, $this->wallet_balance);
+        throw_unless(DB::transactionLevel() > 0, \LogicException::class, 'deductFromWallet must be called within a transaction');
 
-            if ($deducted > 0) {
-                $this->decrement('wallet_balance', $deducted);
-                $this->refresh();
+        $locked = static::lockForUpdate()->find($this->id);
+        $deducted = min($amount, (float) $locked->wallet_balance);
 
-                WalletTransaction::create([
-                    'lease_id' => $this->id,
-                    'landlord_id' => $this->landlord_id,
-                    'type' => 'debit',
-                    'amount' => $deducted,
-                    'reason' => $reason ?? 'Applied to invoice',
-                    'balance_after' => $this->wallet_balance,
-                    'invoice_id' => $invoiceId,
-                ]);
-            }
+        if ($deducted > 0) {
+            $newBalance = (float) $locked->wallet_balance - $deducted;
+            $locked->update(['wallet_balance' => $newBalance]);
 
-            return $deducted;
-        });
+            WalletTransaction::create([
+                'lease_id' => $this->id,
+                'landlord_id' => $this->landlord_id,
+                'type' => 'debit',
+                'amount' => $deducted,
+                'reason' => $reason ?? 'Applied to invoice',
+                'balance_after' => $newBalance,
+                'invoice_id' => $invoiceId,
+            ]);
+
+            $this->wallet_balance = $newBalance;
+        }
+
+        return $deducted;
     }
 
     /**

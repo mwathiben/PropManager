@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->web(append: [
+            \App\Http\Middleware\BlockArchivedUsers::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
@@ -43,6 +44,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'abilities' => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
             'webhook.mpesa' => \App\Http\Middleware\ValidateMpesaWebhook::class,
             'webhook.paystack' => \App\Http\Middleware\ValidatePaystackWebhook::class,
+            'webhook.intasend' => \App\Http\Middleware\ValidateIntaSendWebhook::class,
+            'block.archived' => \App\Http\Middleware\BlockArchivedUsers::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

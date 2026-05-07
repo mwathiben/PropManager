@@ -131,12 +131,12 @@ class InvoiceService
             return $building->getWaterChargeForUnit();
         }
 
-        // Consumption-based billing - sum approved, uninvoiced readings
+        // Consumption-based billing - sum approved, uninvoiced readings up to billing period end
+        $billingPeriodEnd = $billingPeriod->copy()->endOfMonth();
         $readings = WaterReading::where('unit_id', $lease->unit_id)
             ->where('status', 'approved')
             ->where('is_invoiced', false)
-            ->whereYear('reading_date', $billingPeriod->year)
-            ->whereMonth('reading_date', $billingPeriod->month)
+            ->where('reading_date', '<=', $billingPeriodEnd)
             ->get();
 
         return $readings->sum('cost');
@@ -144,12 +144,12 @@ class InvoiceService
 
     protected function markWaterReadingsAsInvoiced(Lease $lease, Carbon $billingPeriod)
     {
-        // IMPORTANT: Only mark APPROVED readings as invoiced
+        $billingPeriodEnd = $billingPeriod->copy()->endOfMonth();
+
         WaterReading::where('unit_id', $lease->unit_id)
-            ->where('status', 'approved') // Only approved readings
+            ->where('status', 'approved')
             ->where('is_invoiced', false)
-            ->whereYear('reading_date', $billingPeriod->year)
-            ->whereMonth('reading_date', $billingPeriod->month)
+            ->where('reading_date', '<=', $billingPeriodEnd)
             ->update(['is_invoiced' => true]);
     }
 
@@ -164,7 +164,7 @@ class InvoiceService
     {
         $lastInvoice = Invoice::where('lease_id', $lease->id)
             ->where('status', '!=', InvoiceStatus::Paid)
-            ->orderBy('created_at', 'desc')
+            ->orderBy('billing_period_start', 'desc')
             ->first();
 
         if (! $lastInvoice) {
@@ -291,9 +291,12 @@ class InvoiceService
         }
 
         $daysInMonth = $startDate->daysInMonth;
+        // Inclusive: start_date counts as a billable day
         $daysRemaining = $daysInMonth - $startDate->day + 1;
 
-        return round(($fullRent / $daysInMonth) * $daysRemaining, 2);
+        $proratedAmount = round(($fullRent / $daysInMonth) * $daysRemaining, 2);
+
+        return min($proratedAmount, $fullRent);
     }
 
     protected function getFirstMonthRentDescription(Lease $lease, $settings, array $overrides): string

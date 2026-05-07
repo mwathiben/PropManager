@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\User;
 
@@ -50,9 +51,21 @@ class PaymentPolicy
     /**
      * Determine whether the user can create payments.
      */
-    public function create(User $user): bool
+    public function create(User $user, ?Invoice $invoice = null): bool
     {
-        return $user->isLandlord() || $user->isCaretaker() || $user->isTenant();
+        if ($user->isLandlord()) {
+            return $invoice === null || $invoice->landlord_id === $user->id;
+        }
+
+        if ($user->isCaretaker()) {
+            return $invoice === null || $invoice->landlord_id === $user->landlord_id;
+        }
+
+        if ($user->isTenant()) {
+            return $invoice !== null && $invoice->lease?->tenant_id === $user->id;
+        }
+
+        return false;
     }
 
     /**

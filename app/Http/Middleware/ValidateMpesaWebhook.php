@@ -32,7 +32,9 @@ class ValidateMpesaWebhook
         $allowedIps = config('mpesa.allowed_ips', []);
 
         if (empty($allowedIps)) {
-            return ! app()->environment('production');
+            Log::warning('M-Pesa webhook IP allowlist not configured — rejecting request');
+
+            return false;
         }
 
         return in_array($ip, $allowedIps, true);

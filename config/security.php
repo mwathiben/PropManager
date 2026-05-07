@@ -102,7 +102,7 @@ return [
     'two_factor' => [
         'enabled' => env('TWO_FACTOR_ENABLED', true),
         'method' => 'totp', // TOTP only (Google Authenticator, Authy)
-        'enforced_roles' => ['landlord', 'super_admin'], // Roles that must enable 2FA
+        'enforced_roles' => ['landlord', 'caretaker', 'super_admin'],
         'backup_codes_count' => 8,
         'issuer' => env('TWO_FACTOR_ISSUER', env('APP_NAME', 'PropManager')),
         'window' => 1, // Allow 1 period before/after for clock drift

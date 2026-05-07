@@ -7,6 +7,7 @@ use App\Traits\Auditable;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 
 class CreditNote extends Model
 {
@@ -151,31 +152,41 @@ class CreditNote extends Model
 
     public function applyToInvoice(Invoice $invoice, ?float $amount = null): float
     {
-        $amountToApply = min(
-            $amount ?? $this->remaining_amount,
-            $this->remaining_amount,
-            $invoice->getOutstandingAmount()
-        );
+        return DB::transaction(function () use ($invoice, $amount) {
+            $lockedCredit = static::lockForUpdate()->find($this->id);
+            $lockedInvoice = Invoice::lockForUpdate()->find($invoice->id);
 
-        if ($amountToApply <= 0) {
-            return 0;
-        }
+            $remainingCredit = (float) $lockedCredit->amount - (float) $lockedCredit->applied_amount;
+            $amountToApply = min(
+                $amount ?? $remainingCredit,
+                $remainingCredit,
+                $lockedInvoice->getOutstandingAmount()
+            );
 
-        $this->update([
-            'applied_amount' => $this->applied_amount + $amountToApply,
-            'applied_to_invoice_id' => $invoice->id,
-            'applied_at' => now(),
-            'status' => $this->remaining_amount <= 0 ? self::STATUS_APPLIED : self::STATUS_APPROVED,
-        ]);
+            if ($amountToApply <= 0) {
+                return 0;
+            }
 
-        $invoice->update([
-            'amount_paid' => $invoice->amount_paid + $amountToApply,
-            'status' => $invoice->amount_paid + $amountToApply >= $invoice->total_due
-                ? InvoiceStatus::Paid
-                : InvoiceStatus::Partial,
-        ]);
+            $newApplied = (float) $lockedCredit->applied_amount + $amountToApply;
+            $newRemainingCredit = (float) $lockedCredit->amount - $newApplied;
 
-        return $amountToApply;
+            $lockedCredit->update([
+                'applied_amount' => $newApplied,
+                'applied_to_invoice_id' => $lockedInvoice->id,
+                'applied_at' => now(),
+                'status' => $newRemainingCredit <= 0 ? self::STATUS_APPLIED : self::STATUS_APPROVED,
+            ]);
+
+            $newPaid = (float) $lockedInvoice->amount_paid + $amountToApply;
+            $lockedInvoice->update([
+                'amount_paid' => $newPaid,
+                'status' => $newPaid >= $lockedInvoice->total_due
+                    ? InvoiceStatus::Paid
+                    : ($newPaid > 0 ? InvoiceStatus::Partial : $lockedInvoice->status),
+            ]);
+
+            return $amountToApply;
+        });
     }
 
     public function void(): void

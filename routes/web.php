@@ -747,7 +747,7 @@ Route::middleware('auth')->group(function () {
 });
 
 // --- SUPER ADMIN ROUTES ---
-Route::middleware(['auth', 'role:super_admin'])->prefix('admin')->group(function () {
+Route::middleware(['auth', 'verified', 'role:super_admin'])->prefix('admin')->group(function () {
     Route::get('/landlords', [AdminController::class, 'landlords'])->name('admin.landlords');
     Route::get('/landlords/{user}', [AdminController::class, 'showLandlord'])->name('admin.landlords.show');
     Route::post('/landlords', [AdminController::class, 'createLandlord'])->name('admin.landlords.store');

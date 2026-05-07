@@ -42,12 +42,18 @@ class ProcessQueuedPaymentIntents implements ShouldQueue
 
     private function recoverStaleProcessingIntents(): void
     {
-        QueuedPaymentIntent::where('status', QueuedPaymentIntent::STATUS_PROCESSING)
-            ->where('last_attempt_at', '<', now()->subMinutes(10))
-            ->update([
-                'status' => QueuedPaymentIntent::STATUS_PENDING,
-                'next_retry_at' => now(),
-            ]);
+        DB::transaction(function () {
+            QueuedPaymentIntent::where('status', QueuedPaymentIntent::STATUS_PROCESSING)
+                ->where('last_attempt_at', '<', now()->subMinutes(10))
+                ->lockForUpdate()
+                ->get()
+                ->each(function (QueuedPaymentIntent $intent) {
+                    $intent->update([
+                        'status' => QueuedPaymentIntent::STATUS_PENDING,
+                        'next_retry_at' => now(),
+                    ]);
+                });
+        });
     }
 
     private function markExpiredIntents(SmsServiceInterface $smsService): void
@@ -156,8 +162,14 @@ class ProcessQueuedPaymentIntents implements ShouldQueue
 
     private function calculateNextRetry(int $attempts): \Carbon\Carbon
     {
-        $backoff = config('payments.queued_intents.backoff', [10, 30, 60, 120, 300]);
-        $index = min($attempts - 1, count($backoff) - 1);
+        $defaultBackoff = [10, 30, 60, 120, 300];
+        $backoff = config('payments.queued_intents.backoff', $defaultBackoff);
+
+        if (! is_array($backoff) || empty($backoff)) {
+            $backoff = $defaultBackoff;
+        }
+
+        $index = min(max($attempts - 1, 0), count($backoff) - 1);
 
         return now()->addSeconds($backoff[$index]);
     }

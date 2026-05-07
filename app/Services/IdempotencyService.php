@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\DB;
 
 class IdempotencyService
 {
-    private const DEFAULT_TTL_HOURS = 24;
+    private const DEFAULT_TTL_HOURS = 2160; // 90 days
 
     /**
      * Attempt to acquire an idempotency lock for the given key.
@@ -45,7 +45,7 @@ class IdempotencyService
                 'key' => $key,
                 'request_hash' => $requestHash,
                 'status' => 'processing',
-                'expires_at' => now()->addHours(self::DEFAULT_TTL_HOURS),
+                'expires_at' => now()->addHours((int) config('services.idempotency.ttl_hours', self::DEFAULT_TTL_HOURS)),
             ]);
 
             return ['acquired' => true];

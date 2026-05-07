@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\InvoiceStatus;
 use App\Events\IntaSendPaymentStatusChanged;
+use App\Events\PaymentAmountMismatch;
 use App\Events\PaymentReceived as PaymentReceivedEvent;
 use App\Http\Controllers\Controller;
 use App\Mail\OverpaymentNotification;
@@ -194,6 +195,10 @@ class IntaSendWebhookController extends Controller
                 'cached' => $idempotencyResult['response'] !== null,
             ]);
 
+            if ($idempotencyResult['response'] !== null) {
+                return response()->json($idempotencyResult['response']);
+            }
+
             return response()->json(['status' => 'success', 'message' => 'Already processed']);
         }
 
@@ -239,6 +244,15 @@ class IntaSendWebhookController extends Controller
                 (float) $transaction->amount,
                 null,
                 $mismatchReason
+            );
+
+            PaymentAmountMismatch::dispatch(
+                'intasend',
+                $transaction->api_ref,
+                $expectedAmount,
+                $webhookAmount,
+                $transaction->landlord_id,
+                $transaction->invoice_id
             );
 
             return response()->json([

@@ -92,7 +92,7 @@ class LateFeeService
             return false;
         }
 
-        $daysOverdue = $invoice->due_date->diffInDays(now());
+        $daysOverdue = $invoice->due_date->startOfDay()->diffInDays(now()->startOfDay());
 
         // Grace period: Industry-standard protection before penalties kick in
         if ($daysOverdue <= $policy->grace_period_days) {
@@ -145,14 +145,17 @@ class LateFeeService
             return true;
         }
 
-        $daysSinceLastFee = $lastFee->applied_date->diffInDays(now());
+        $today = now()->startOfDay();
+        $lastApplied = $lastFee->applied_date->startOfDay();
 
-        return match ($policy->compounding_frequency) {
-            'daily' => $daysSinceLastFee >= 1,
-            'weekly' => $daysSinceLastFee >= 7,
-            'monthly' => $daysSinceLastFee >= 30,
-            default => false,
+        $nextDue = match ($policy->compounding_frequency) {
+            'daily' => $lastApplied->copy()->addDay(),
+            'weekly' => $lastApplied->copy()->addWeek(),
+            'monthly' => $lastApplied->copy()->addMonth(),
+            default => null,
         };
+
+        return $nextDue !== null && $today->gte($nextDue);
     }
 
     public function applyLateFee(Invoice $invoice): ?LateFee
@@ -184,7 +187,7 @@ class LateFeeService
                 'fee_amount' => $feeAmount,
                 'cumulative_total' => $existingFees + $feeAmount,
                 'applied_date' => now()->toDateString(),
-                'days_overdue' => $invoice->due_date->diffInDays(now()),
+                'days_overdue' => $invoice->due_date->startOfDay()->diffInDays(now()->startOfDay()),
             ]);
 
             $invoice->recalculateLateFees();

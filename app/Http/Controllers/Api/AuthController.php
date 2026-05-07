@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\TwoFactorService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -26,8 +28,53 @@ class AuthController extends Controller
             ]);
         }
 
-        $abilities = $this->getAbilitiesForUser($user);
+        if ($user->two_factor_secret) {
+            return response()->json([
+                'two_factor_required' => true,
+                'email' => $user->email,
+            ]);
+        }
 
+        $abilities = $this->getAbilitiesForUser($user);
+        $token = $user->createToken($request->device_name, $abilities);
+
+        return response()->json([
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+            ],
+            'token' => $token->plainTextToken,
+            'abilities' => $abilities,
+        ]);
+    }
+
+    public function twoFactorChallenge(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'code' => 'required|string',
+            'device_name' => 'required|string|max:255',
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (! $user || ! $user->two_factor_secret) {
+            throw ValidationException::withMessages([
+                'email' => ['Invalid two-factor authentication request.'],
+            ]);
+        }
+
+        $twoFactorService = app(TwoFactorService::class);
+
+        if (! $twoFactorService->verify($user, $request->code)) {
+            throw ValidationException::withMessages([
+                'code' => ['The provided two-factor code is invalid.'],
+            ]);
+        }
+
+        $abilities = $this->getAbilitiesForUser($user);
         $token = $user->createToken($request->device_name, $abilities);
 
         return response()->json([
@@ -47,7 +94,7 @@ class AuthController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
-            'password' => 'required|string|min:8|confirmed',
+            'password' => ['required', 'string', 'confirmed', Password::min(12)->mixedCase()->numbers()->symbols()],
             'device_name' => 'required|string|max:255',
         ]);
 

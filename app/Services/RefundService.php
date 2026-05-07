@@ -23,17 +23,18 @@ class RefundService
 
     public function initiateRefund(Payment $payment, float $amount, string $reason, int $userId): Refund
     {
-        $this->validateRefundEligibility($payment, $amount);
-
         return DB::transaction(function () use ($payment, $amount, $reason, $userId) {
+            $lockedPayment = Payment::lockForUpdate()->find($payment->id);
+            $this->validateRefundEligibility($lockedPayment, $amount);
+
             return Refund::create([
-                'payment_id' => $payment->id,
-                'invoice_id' => $payment->invoice_id,
-                'landlord_id' => $payment->landlord_id,
+                'payment_id' => $lockedPayment->id,
+                'invoice_id' => $lockedPayment->invoice_id,
+                'landlord_id' => $lockedPayment->landlord_id,
                 'amount' => $amount,
                 'status' => 'pending',
                 'reason' => $reason,
-                'payment_method' => $payment->payment_method,
+                'payment_method' => $lockedPayment->payment_method,
                 'initiated_by' => $userId,
             ]);
         });
@@ -85,11 +86,15 @@ class RefundService
 
     public function getRefundableAmount(Payment $payment): float
     {
-        $existingRefunds = Refund::where('payment_id', $payment->id)
-            ->whereIn('status', ['pending', 'approved', 'processing', 'completed'])
-            ->sum('amount');
+        return DB::transaction(function () use ($payment) {
+            $lockedPayment = Payment::lockForUpdate()->find($payment->id);
 
-        return max(0, $payment->amount - $existingRefunds);
+            $existingRefunds = Refund::where('payment_id', $lockedPayment->id)
+                ->whereIn('status', ['pending', 'approved', 'processing', 'completed'])
+                ->sum('amount');
+
+            return max(0, (float) $lockedPayment->amount - (float) $existingRefunds);
+        });
     }
 
     private function processPaystackRefund(Refund $refund): bool
