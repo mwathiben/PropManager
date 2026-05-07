@@ -91,7 +91,7 @@ class WaterReadingControllerTest extends TestCase
         $unit = $this->setupData['units']->first();
         $reading = $this->createWaterReadingForUnit($unit);
 
-        $this->assertEquals('pending', $reading->status);
+        $this->assertEquals(\App\Enums\WaterReadingStatus::Pending, $reading->status);
 
         $response = $this->actingAs($this->landlord)
             ->post(route('readings.approve', $reading), [
@@ -101,7 +101,7 @@ class WaterReadingControllerTest extends TestCase
         $response->assertRedirect();
 
         $reading->refresh();
-        $this->assertEquals('approved', $reading->status);
+        $this->assertEquals(\App\Enums\WaterReadingStatus::Approved, $reading->status);
     }
 
     public function test_landlord_can_reject_pending_reading(): void
@@ -117,7 +117,7 @@ class WaterReadingControllerTest extends TestCase
         $response->assertRedirect();
 
         $reading->refresh();
-        $this->assertEquals('rejected', $reading->status);
+        $this->assertEquals(\App\Enums\WaterReadingStatus::Rejected, $reading->status);
     }
 
     public function test_can_update_non_invoiced_reading(): void

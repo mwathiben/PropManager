@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Document;
 use App\Models\Lease;
 use App\Models\User;
+use App\Rules\SecureFile;
 use App\Traits\HasBuildingFilter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -105,7 +106,7 @@ class DocumentController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|max:10240', // Max 10MB
+            'file' => ['required', 'file', new SecureFile(10, ['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'], ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'])],
             'title' => 'required|string|max:255',
             'document_type' => 'required|in:lease_agreement,tenant_id,tenant_passport,bank_statement,payslip,reference_letter,utility_bill,other',
             'documentable_type' => 'required|in:Lease,User',

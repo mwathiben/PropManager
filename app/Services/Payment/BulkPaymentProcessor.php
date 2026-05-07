@@ -345,11 +345,12 @@ class BulkPaymentProcessor
             'name' => $tenantName,
             'email' => $email,
             'password' => Hash::make(Str::random(32)),
-            'role' => 'tenant',
-            'landlord_id' => $landlordId,
-            'is_archived' => true,
             'archived_at' => now(),
         ]);
+        $tenant->role = 'tenant';
+        $tenant->landlord_id = $landlordId;
+        $tenant->is_archived = true;
+        $tenant->save();
 
         $this->archivedTenantsMap->put($key, $tenant);
         $this->archivedTenantsCreated++;

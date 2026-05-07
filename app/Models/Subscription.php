@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\SubscriptionStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -26,6 +27,7 @@ class Subscription extends Model
     ];
 
     protected $casts = [
+        'status' => SubscriptionStatus::class,
         'trial_ends_at' => 'datetime',
         'current_period_start' => 'datetime',
         'current_period_end' => 'datetime',
@@ -50,12 +52,12 @@ class Subscription extends Model
 
     public function isActive(): bool
     {
-        return $this->status === 'active' || $this->onTrial();
+        return $this->status === SubscriptionStatus::Active || $this->onTrial();
     }
 
     public function onTrial(): bool
     {
-        return $this->status === 'trialing' && $this->trial_ends_at?->isFuture();
+        return $this->status === SubscriptionStatus::Trialing && $this->trial_ends_at?->isFuture();
     }
 
     public function cancelled(): bool
@@ -91,7 +93,7 @@ class Subscription extends Model
 
     public function isPastDue(): bool
     {
-        return $this->status === 'past_due';
+        return $this->status === SubscriptionStatus::PastDue;
     }
 
     public function needsPayment(): bool
@@ -101,25 +103,11 @@ class Subscription extends Model
 
     public function getStatusLabelAttribute(): string
     {
-        return match ($this->status) {
-            'active' => 'Active',
-            'cancelled' => 'Cancelled',
-            'past_due' => 'Past Due',
-            'trialing' => 'Trial',
-            'paused' => 'Paused',
-            default => ucfirst($this->status),
-        };
+        return $this->status->label();
     }
 
     public function getStatusColorAttribute(): string
     {
-        return match ($this->status) {
-            'active' => 'green',
-            'cancelled' => 'gray',
-            'past_due' => 'red',
-            'trialing' => 'blue',
-            'paused' => 'yellow',
-            default => 'gray',
-        };
+        return $this->status->color();
     }
 }

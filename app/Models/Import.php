@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ImportStatus;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Model;
 
@@ -26,6 +27,7 @@ class Import extends Model
     ];
 
     protected $casts = [
+        'status' => ImportStatus::class,
         'errors' => 'array',
         'summary' => 'array',
         'started_at' => 'datetime',
@@ -53,7 +55,7 @@ class Import extends Model
      */
     public function isCompleted(): bool
     {
-        return $this->status === 'completed';
+        return $this->status === ImportStatus::Completed;
     }
 
     /**
@@ -61,7 +63,7 @@ class Import extends Model
      */
     public function isFailed(): bool
     {
-        return $this->status === 'failed';
+        return $this->status === ImportStatus::Failed;
     }
 
     /**
@@ -69,7 +71,7 @@ class Import extends Model
      */
     public function isProcessing(): bool
     {
-        return $this->status === 'processing';
+        return $this->status === ImportStatus::Processing;
     }
 
     /**

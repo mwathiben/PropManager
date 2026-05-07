@@ -7,6 +7,7 @@ use App\Mail\PaymentVerificationApproved;
 use App\Mail\PaymentVerificationRejected;
 use App\Models\Document;
 use App\Models\TenantPaymentVerification;
+use App\Rules\SecureFile;
 use App\Services\PaystackService;
 use App\Traits\HasBuildingFilter;
 use Illuminate\Http\Request;
@@ -65,7 +66,7 @@ class TenantPaymentVerificationController extends Controller
 
         $request->validate([
             'documents' => 'required|array|min:1',
-            'documents.*' => 'file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'documents.*' => ['file', new SecureFile(10, ['application/pdf', 'image/jpeg', 'image/png'], ['pdf', 'jpg', 'jpeg', 'png'])],
         ]);
 
         foreach ($request->file('documents') as $file) {
@@ -206,6 +207,8 @@ class TenantPaymentVerificationController extends Controller
 
     public function reject(RejectPaymentVerificationRequest $request, TenantPaymentVerification $verification)
     {
+        $this->authorize('reject', $verification);
+
         $verification->load('lease.tenant');
 
         try {

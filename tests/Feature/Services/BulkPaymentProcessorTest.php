@@ -4,6 +4,7 @@ namespace Tests\Feature\Services;
 
 use App\Enums\InvoiceStatus;
 use App\Models\Lease;
+use App\Models\Payment;
 use App\Models\PaymentConfiguration;
 use App\Models\User;
 use App\Services\Payment\BulkPaymentProcessor;
@@ -381,10 +382,9 @@ class BulkPaymentProcessorTest extends TestCase
 
     public function test_reuses_existing_archived_tenant_case_insensitive(): void
     {
-        $existingTenant = User::create([
+        $existingTenant = User::factory()->create([
             'name' => 'John Doe',
             'email' => 'johndoe@archived.local',
-            'password' => bcrypt('test'),
             'role' => 'tenant',
             'landlord_id' => $this->landlord->id,
             'is_archived' => true,
@@ -419,10 +419,9 @@ class BulkPaymentProcessorTest extends TestCase
     {
         $unit = $this->setupData['units']->first();
 
-        User::create([
+        User::factory()->create([
             'name' => 'Test Tenant',
             'email' => 'test-historical@example.com',
-            'password' => bcrypt('test'),
             'role' => 'tenant',
             'landlord_id' => $this->landlord->id,
             'is_archived' => true,
@@ -460,10 +459,9 @@ class BulkPaymentProcessorTest extends TestCase
     {
         $unit = $this->setupData['units']->first();
 
-        $archivedTenant = User::create([
+        $archivedTenant = User::factory()->create([
             'name' => 'Range Tenant',
             'email' => 'range@archived.local',
-            'password' => bcrypt('test'),
             'role' => 'tenant',
             'landlord_id' => $this->landlord->id,
             'is_archived' => true,
@@ -535,6 +533,13 @@ class BulkPaymentProcessorTest extends TestCase
             ->first();
         $this->assertNotNull($lease);
         $this->assertFalse((bool) $lease->is_active);
+
+        $payment = Payment::where('lease_id', $lease->id)->first();
+        $this->assertNotNull($payment, 'Payment record should exist for archived tenant');
+        $this->assertEquals(15000, $payment->amount);
+        $this->assertEquals('mpesa', $payment->payment_method);
+        $this->assertEquals('HIST-REF-001', $payment->reference);
+        $this->assertEquals('2023-03-01', $payment->payment_date->toDateString());
     }
 
     public function test_historical_partial_success_on_error(): void

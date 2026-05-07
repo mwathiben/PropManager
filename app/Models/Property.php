@@ -6,10 +6,11 @@ use App\Traits\Auditable;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Property extends Model
 {
-    use Auditable, HasFactory, TenantScope;
+    use Auditable, HasFactory, SoftDeletes, TenantScope;
 
     protected $fillable = [
         'landlord_id',

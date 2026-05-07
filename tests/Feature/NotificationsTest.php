@@ -371,7 +371,7 @@ class NotificationsTest extends TestCase
 
         $notification->refresh();
         $this->assertNotNull($notification->read_at);
-        $this->assertEquals('read', $notification->status);
+        $this->assertEquals(\App\Enums\NotificationStatus::Read, $notification->status);
     }
 
     public function test_failed_notification_can_be_retried(): void

@@ -381,7 +381,7 @@ class FinanceStatsService
 
             $paymentDateFormatSql = $this->getDateFormatSql('payment_date', '%Y-%m');
 
-            $paymentsGrouped = Payment::where('landlord_id', $landlordId)
+            $paymentsGrouped = Payment::withArchived()->where('landlord_id', $landlordId)
                 ->where('payment_date', '>=', $startDate)
                 ->selectRaw("{$paymentDateFormatSql} as month_key, SUM(amount) as collected")
                 ->groupBy('month_key')

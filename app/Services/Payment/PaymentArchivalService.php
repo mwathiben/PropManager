@@ -13,56 +13,71 @@ use Illuminate\Support\Facades\DB;
 
 class PaymentArchivalService
 {
+    private const SENSITIVE_KEYS = [
+        'bank_account_number',
+        'paystack_reference',
+        'paystack_split_code',
+        'mpesa_checkout_request_id',
+        'intasend_reference',
+        'intasend_transaction_id',
+        'bank_transaction_id',
+        'bank_reference',
+        'bank_code',
+        'notes',
+    ];
+
     public function archivePayment(Payment $payment): ArchivedPayment
     {
-        $relatedData = $this->snapshotRelatedData($payment);
+        return DB::transaction(function () use ($payment) {
+            $relatedData = $this->snapshotRelatedData($payment);
 
-        $archived = ArchivedPayment::create([
-            'original_payment_id' => $payment->id,
-            'invoice_id' => $payment->invoice_id,
-            'lease_id' => $payment->lease_id,
-            'landlord_id' => $payment->landlord_id,
-            'payout_account_id' => $payment->payout_account_id,
-            'amount' => $payment->amount,
-            'currency' => $payment->getRawOriginal('currency'),
-            'payment_method' => $payment->payment_method,
-            'payment_date' => $payment->payment_date,
-            'reference' => $payment->reference,
-            'paystack_reference' => $payment->paystack_reference,
-            'paystack_split_code' => $payment->paystack_split_code,
-            'is_split_payment' => $payment->is_split_payment,
-            'mpesa_transaction_id' => $payment->mpesa_transaction_id,
-            'mpesa_checkout_request_id' => $payment->mpesa_checkout_request_id,
-            'intasend_transaction_id' => $payment->intasend_transaction_id,
-            'intasend_reference' => $payment->intasend_reference,
-            'bank_code' => $payment->bank_code,
-            'bank_account_number' => $payment->bank_account_number,
-            'bank_transaction_id' => $payment->bank_transaction_id,
-            'bank_transaction_date' => $payment->bank_transaction_date,
-            'bank_reference' => $payment->bank_reference,
-            'reconciliation_status' => $payment->reconciliation_status,
-            'reconciliation_matched_at' => $payment->reconciliation_matched_at,
-            'is_voided' => $payment->is_voided,
-            'voided_at' => $payment->voided_at,
-            'void_reason' => $payment->void_reason,
-            'notes' => $payment->notes,
-            'original_created_at' => $payment->created_at,
-            'original_updated_at' => $payment->updated_at,
-            'archived_at' => now(),
-            'related_data' => $relatedData,
-        ]);
+            $archived = ArchivedPayment::create([
+                'original_payment_id' => $payment->id,
+                'invoice_id' => $payment->invoice_id,
+                'lease_id' => $payment->lease_id,
+                'landlord_id' => $payment->landlord_id,
+                'payout_account_id' => $payment->payout_account_id,
+                'amount' => $payment->amount,
+                'currency' => $payment->getRawOriginal('currency'),
+                'payment_method' => $payment->payment_method,
+                'payment_date' => $payment->payment_date,
+                'reference' => $payment->reference,
+                'paystack_reference' => $payment->paystack_reference,
+                'paystack_split_code' => $payment->paystack_split_code,
+                'is_split_payment' => $payment->is_split_payment,
+                'mpesa_transaction_id' => $payment->mpesa_transaction_id,
+                'mpesa_checkout_request_id' => $payment->mpesa_checkout_request_id,
+                'intasend_transaction_id' => $payment->intasend_transaction_id,
+                'intasend_reference' => $payment->intasend_reference,
+                'bank_code' => $payment->bank_code,
+                'bank_account_number' => $payment->bank_account_number,
+                'bank_transaction_id' => $payment->bank_transaction_id,
+                'bank_transaction_date' => $payment->bank_transaction_date,
+                'bank_reference' => $payment->bank_reference,
+                'reconciliation_status' => $payment->reconciliation_status,
+                'reconciliation_matched_at' => $payment->reconciliation_matched_at,
+                'is_voided' => $payment->is_voided,
+                'voided_at' => $payment->voided_at,
+                'void_reason' => $payment->void_reason,
+                'notes' => $payment->notes,
+                'original_created_at' => $payment->created_at,
+                'original_updated_at' => $payment->updated_at,
+                'archived_at' => now(),
+                'related_data' => $relatedData,
+            ]);
 
-        $this->nullRestrictForeignKeys($payment->id);
+            $this->nullRestrictForeignKeys($payment->id);
 
-        $paymentId = $payment->id;
-        $landlordId = $payment->landlord_id;
-        $paymentAttributes = $payment->attributesToArray();
+            $paymentId = $payment->id;
+            $landlordId = $payment->landlord_id;
+            $paymentAttributes = $payment->attributesToArray();
 
-        $payment->delete();
+            $payment->delete();
 
-        $this->createAuditLog($paymentId, $landlordId, $paymentAttributes, $archived->id);
+            $this->createAuditLog($paymentId, $landlordId, $paymentAttributes, $archived->id);
 
-        return $archived;
+            return $archived;
+        });
     }
 
     public function getRetentionCutoffDate(): Carbon
@@ -94,6 +109,10 @@ class PaymentArchivalService
 
     private function nullRestrictForeignKeys(int $paymentId): void
     {
+        DB::table('receipts')->where('payment_id', $paymentId)->delete();
+        DB::table('platform_fees')->where('payment_id', $paymentId)->delete();
+        DB::table('refunds')->where('payment_id', $paymentId)->delete();
+
         DB::table('wallet_transactions')
             ->where('payment_id', $paymentId)
             ->update(['payment_id' => null]);
@@ -109,18 +128,33 @@ class PaymentArchivalService
 
     private function createAuditLog(int $paymentId, int $landlordId, array $oldValues, int $archivedPaymentId): void
     {
+        $sanitized = $this->sanitizeForAudit($oldValues);
+        $retentionYears = (int) config('security.compliance.data_retention_years', 7);
+
         AuditLog::withoutGlobalScope('landlord')->create([
             'user_id' => null,
             'landlord_id' => $landlordId,
             'event_type' => 'archived',
             'auditable_type' => Payment::class,
             'auditable_id' => $paymentId,
-            'old_values' => $oldValues,
+            'old_values' => $sanitized,
             'metadata' => [
                 'archived_payment_id' => $archivedPaymentId,
                 'reason' => 'Data retention policy',
-                'retention_years' => config('security.compliance.data_retention_years', 7),
+                'retention_years' => $retentionYears,
+                'purge_after' => now()->addYears($retentionYears)->toDateString(),
             ],
         ]);
+    }
+
+    private function sanitizeForAudit(array $values): array
+    {
+        foreach (self::SENSITIVE_KEYS as $key) {
+            if (isset($values[$key]) && $values[$key] !== null) {
+                $values[$key] = '[REDACTED]';
+            }
+        }
+
+        return $values;
     }
 }

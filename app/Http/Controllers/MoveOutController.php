@@ -10,6 +10,7 @@ use App\Http\Requests\MoveOut\StoreMoveOutDeductionRequest;
 use App\Http\Requests\MoveOut\StoreMoveOutRequest;
 use App\Http\Requests\MoveOut\UpdateMoveOutDeductionRequest;
 use App\Http\Requests\MoveOut\UpdateMoveOutRequest;
+use App\Enums\MoveOutStatus;
 use App\Models\Lease;
 use App\Models\MoveOut;
 use App\Models\MoveOutDeduction;
@@ -56,8 +57,8 @@ class MoveOutController extends Controller
         // Stats
         $stats = [
             'active' => MoveOut::where('landlord_id', $landlordId)->active()->count(),
-            'inspection_pending' => MoveOut::where('landlord_id', $landlordId)->status('inspection_pending')->count(),
-            'settlement_pending' => MoveOut::where('landlord_id', $landlordId)->status('settlement_pending')->count(),
+            'inspection_pending' => MoveOut::where('landlord_id', $landlordId)->status(MoveOutStatus::InspectionPending)->count(),
+            'settlement_pending' => MoveOut::where('landlord_id', $landlordId)->status(MoveOutStatus::SettlementPending)->count(),
             'completed_this_month' => MoveOut::where('landlord_id', $landlordId)
                 ->completed()
                 ->whereMonth('settled_at', now()->month)
@@ -236,7 +237,7 @@ class MoveOutController extends Controller
                     ->lockForUpdate()
                     ->firstOrFail();
 
-                if ($lockedMoveOut->status !== 'notice_given') {
+                if ($lockedMoveOut->status !== MoveOutStatus::NoticeGiven) {
                     throw new \RuntimeException('Inspection already started or move-out in wrong state.');
                 }
 
@@ -433,7 +434,7 @@ class MoveOutController extends Controller
             abort(403);
         }
 
-        if ($moveOut->status !== 'settlement_pending') {
+        if ($moveOut->status !== MoveOutStatus::SettlementPending) {
             return Redirect::back()->withErrors(['move_out' => 'Inspection must be completed first.']);
         }
 

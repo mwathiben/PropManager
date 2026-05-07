@@ -6,10 +6,11 @@ use App\Traits\Auditable;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Unit extends Model
 {
-    use Auditable, HasFactory, TenantScope;
+    use Auditable, HasFactory, SoftDeletes, TenantScope;
 
     protected $fillable = [
         'building_id',
@@ -19,6 +20,11 @@ class Unit extends Model
         'status',
         'target_rent',
         'meter_number',
+    ];
+
+    protected $casts = [
+        'floor_number' => 'integer',
+        'target_rent' => 'decimal:2',
     ];
 
     // --- RELATIONSHIPS ---

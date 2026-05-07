@@ -73,7 +73,7 @@ class TicketPolicy
         // Tenants can only update their own open tickets
         if ($user->isTenant()) {
             return $ticket->reporter_id === $user->id
-                && in_array($ticket->status, ['open', 'in_progress']);
+                && in_array($ticket->status, [\App\Enums\TicketStatus::Open, \App\Enums\TicketStatus::InProgress]);
         }
 
         return false;
@@ -125,7 +125,7 @@ class TicketPolicy
         }
 
         // Reporter can close their own resolved tickets
-        if ($ticket->reporter_id === $user->id && $ticket->status === 'resolved') {
+        if ($ticket->reporter_id === $user->id && $ticket->status === \App\Enums\TicketStatus::Resolved) {
             return true;
         }
 

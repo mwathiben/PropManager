@@ -2,9 +2,44 @@
 
 namespace App\Models;
 
+use App\Enums\TicketStatus;
 use App\Traits\TenantScope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Facades\Auth;
 
+/**
+ * @property int $id
+ * @property int $landlord_id
+ * @property int $building_id
+ * @property int|null $unit_id
+ * @property int|null $reporter_id
+ * @property int|null $assigned_to
+ * @property string $category
+ * @property string $subcategory
+ * @property string $title
+ * @property string $description
+ * @property string $priority
+ * @property string $status
+ * @property string|null $location
+ * @property string|null $resolution_notes
+ * @property \Carbon\Carbon|null $resolved_at
+ * @property \Carbon\Carbon|null $closed_at
+ * @property \Carbon\Carbon $created_at
+ * @property \Carbon\Carbon $updated_at
+ * @property-read Building $building
+ * @property-read Unit|null $unit
+ * @property-read User|null $reporter
+ * @property-read User|null $assignee
+ * @property-read \Illuminate\Database\Eloquent\Collection<TicketActivity> $activities
+ * @property-read \Illuminate\Database\Eloquent\Collection<TicketComment> $comments
+ * @property-read TicketFeedback|null $feedback
+ * @property-read \Illuminate\Database\Eloquent\Collection<Document> $attachments
+ */
 class Ticket extends Model
 {
     use TenantScope;
@@ -28,119 +63,144 @@ class Ticket extends Model
     ];
 
     protected $casts = [
+        'status' => TicketStatus::class,
         'resolved_at' => 'datetime',
         'closed_at' => 'datetime',
     ];
 
-    // --- RELATIONSHIPS ---
-
-    public function building()
+    public function building(): BelongsTo
     {
         return $this->belongsTo(Building::class);
     }
 
-    public function unit()
+    public function unit(): BelongsTo
     {
         return $this->belongsTo(Unit::class);
     }
 
-    public function reporter()
+    public function reporter(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reporter_id');
     }
 
-    public function assignee()
+    public function assignee(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to');
     }
 
-    public function activities()
+    public function activities(): HasMany
     {
         return $this->hasMany(TicketActivity::class)->orderBy('created_at');
     }
 
-    public function comments()
+    public function comments(): HasMany
     {
         return $this->hasMany(TicketComment::class)->orderBy('created_at');
     }
 
-    public function feedback()
+    public function feedback(): HasOne
     {
         return $this->hasOne(TicketFeedback::class);
     }
 
-    public function attachments()
+    public function attachments(): MorphMany
     {
         return $this->morphMany(Document::class, 'documentable');
     }
 
-    // --- SCOPES ---
-
-    public function scopeIssues($query)
+    /**
+     * @param  Builder<Ticket>  $query
+     */
+    public function scopeIssues(Builder $query): Builder
     {
         return $query->where('category', 'issue');
     }
 
-    public function scopeComplaints($query)
+    /**
+     * @param  Builder<Ticket>  $query
+     */
+    public function scopeComplaints(Builder $query): Builder
     {
         return $query->where('category', 'complaint');
     }
 
-    public function scopeOpen($query)
+    /**
+     * @param  Builder<Ticket>  $query
+     */
+    public function scopeOpen(Builder $query): Builder
     {
-        return $query->whereIn('status', ['open', 'acknowledged', 'in_progress']);
+        return $query->whereIn('status', [TicketStatus::Open, TicketStatus::Acknowledged, TicketStatus::InProgress]);
     }
 
-    public function scopeResolved($query)
+    /**
+     * @param  Builder<Ticket>  $query
+     */
+    public function scopeResolved(Builder $query): Builder
     {
-        return $query->where('status', 'resolved');
+        return $query->where('status', TicketStatus::Resolved);
     }
 
-    public function scopeClosed($query)
+    /**
+     * @param  Builder<Ticket>  $query
+     */
+    public function scopeClosed(Builder $query): Builder
     {
-        return $query->where('status', 'closed');
+        return $query->where('status', TicketStatus::Closed);
     }
 
-    public function scopeForBuilding($query, $buildingId)
+    /**
+     * @param  Builder<Ticket>  $query
+     */
+    public function scopeForBuilding(Builder $query, int $buildingId): Builder
     {
         return $query->where('building_id', $buildingId);
     }
 
-    public function scopeAssignedTo($query, $userId)
+    /**
+     * @param  Builder<Ticket>  $query
+     */
+    public function scopeAssignedTo(Builder $query, int $userId): Builder
     {
         return $query->where('assigned_to', $userId);
     }
 
-    public function scopeUnassigned($query)
+    /**
+     * @param  Builder<Ticket>  $query
+     */
+    public function scopeUnassigned(Builder $query): Builder
     {
         return $query->whereNull('assigned_to');
     }
 
-    public function scopeByPriority($query, $priority)
+    /**
+     * @param  Builder<Ticket>  $query
+     */
+    public function scopeByPriority(Builder $query, string $priority): Builder
     {
         return $query->where('priority', $priority);
     }
 
-    public function scopeUrgent($query)
+    /**
+     * @param  Builder<Ticket>  $query
+     */
+    public function scopeUrgent(Builder $query): Builder
     {
         return $query->where('priority', 'urgent');
     }
 
-    // --- HELPERS ---
-
     public function isOpen(): bool
     {
-        return in_array($this->status, ['open', 'acknowledged', 'in_progress']);
+        return in_array($this->status, [TicketStatus::Open, TicketStatus::Acknowledged, TicketStatus::InProgress]);
     }
 
     public function isResolved(): bool
     {
-        return $this->status === 'resolved';
+        return $this->status === TicketStatus::Resolved;
     }
 
     public function isClosed(): bool
     {
-        return $this->status === 'closed';
+        return $this->status === TicketStatus::Closed;
     }
 
     public function isIssue(): bool
@@ -155,7 +215,7 @@ class Ticket extends Model
 
     public function canBeEdited(): bool
     {
-        return in_array($this->status, ['open', 'acknowledged']);
+        return in_array($this->status, [TicketStatus::Open, TicketStatus::Acknowledged]);
     }
 
     public function hasFeedback(): bool
@@ -167,18 +227,18 @@ class Ticket extends Model
 
     public function acknowledge(): void
     {
-        $this->update(['status' => 'acknowledged']);
+        $this->update(['status' => TicketStatus::Acknowledged]);
     }
 
     public function startWork(): void
     {
-        $this->update(['status' => 'in_progress']);
+        $this->update(['status' => TicketStatus::InProgress]);
     }
 
     public function resolve(?string $notes = null): void
     {
         $this->update([
-            'status' => 'resolved',
+            'status' => TicketStatus::Resolved,
             'resolution_notes' => $notes,
             'resolved_at' => now(),
         ]);
@@ -187,14 +247,14 @@ class Ticket extends Model
     public function close(): void
     {
         $this->update([
-            'status' => 'closed',
+            'status' => TicketStatus::Closed,
             'closed_at' => now(),
         ]);
     }
 
     public function cancel(): void
     {
-        $this->update(['status' => 'cancelled']);
+        $this->update(['status' => TicketStatus::Cancelled]);
     }
 
     // --- ACTIVITY LOGGING ---
@@ -202,7 +262,7 @@ class Ticket extends Model
     public function logActivity(string $action, ?string $oldValue = null, ?string $newValue = null, ?string $description = null, ?int $userId = null): TicketActivity
     {
         return $this->activities()->create([
-            'user_id' => $userId ?? auth()->id(),
+            'user_id' => $userId ?? Auth::id(),
             'action' => $action,
             'old_value' => $oldValue,
             'new_value' => $newValue,
@@ -261,13 +321,6 @@ class Ticket extends Model
 
     public static function statuses(): array
     {
-        return [
-            'open' => 'Open',
-            'acknowledged' => 'Acknowledged',
-            'in_progress' => 'In Progress',
-            'resolved' => 'Resolved',
-            'closed' => 'Closed',
-            'cancelled' => 'Cancelled',
-        ];
+        return TicketStatus::labelsMap();
     }
 }

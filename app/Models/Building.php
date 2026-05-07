@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * @property int $id
@@ -46,7 +47,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Building extends Model
 {
-    use Auditable, HasFactory, TenantScope;
+    use Auditable, HasFactory, SoftDeletes, TenantScope;
 
     protected $fillable = [
         'property_id',
@@ -74,6 +75,8 @@ class Building extends Model
     ];
 
     protected $casts = [
+        'total_floors' => 'integer',
+        'units_per_floor' => 'integer',
         'water_flat_rate' => 'decimal:2',
         'water_unit_rate' => 'decimal:2',
         'coordinates' => 'array',
@@ -205,6 +208,18 @@ class Building extends Model
     }
 
     // --- WING HELPERS ---
+
+    /**
+     * Exclude parent container buildings that have wings.
+     * Keeps: wings + standalone buildings. Excludes: empty parent shells.
+     */
+    public function scopeExcludeParentContainers($query)
+    {
+        return $query->where(function ($q) {
+            $q->where('is_wing', true)
+                ->orWhereDoesntHave('wings');
+        });
+    }
 
     /**
      * Check if this building is a wing (has a parent building).

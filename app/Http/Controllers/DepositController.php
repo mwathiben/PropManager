@@ -44,9 +44,9 @@ class DepositController extends Controller
             });
         }
 
-        // Sorting
-        $sortField = $request->get('sort', 'deposit_amount');
-        $sortDirection = $request->get('direction', 'desc');
+        $allowedSorts = ['deposit_amount', 'deposit_status', 'created_at', 'start_date', 'tenant'];
+        $sortField = in_array($request->get('sort'), $allowedSorts, true) ? $request->get('sort') : 'deposit_amount';
+        $sortDirection = $request->get('direction') === 'desc' ? 'desc' : 'asc';
 
         if ($sortField === 'tenant') {
             $query->join('users', 'leases.tenant_id', '=', 'users.id')

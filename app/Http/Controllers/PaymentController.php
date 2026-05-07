@@ -161,9 +161,9 @@ class PaymentController extends Controller
             });
         }
 
-        // Sorting
-        $sortField = $request->get('sort', 'payment_date');
-        $sortDirection = $request->get('direction', 'desc');
+        $allowedSorts = ['payment_date', 'amount', 'payment_method', 'created_at', 'reference'];
+        $sortField = in_array($request->get('sort'), $allowedSorts, true) ? $request->get('sort') : 'payment_date';
+        $sortDirection = $request->get('direction') === 'desc' ? 'desc' : 'asc';
         $query->orderBy($sortField, $sortDirection);
 
         $payments = $query->paginate(20)->withQueryString();

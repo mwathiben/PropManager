@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\RefundStatus;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -29,6 +30,7 @@ class Refund extends Model
     ];
 
     protected $casts = [
+        'status' => RefundStatus::class,
         'amount' => 'decimal:2',
         'processed_at' => 'datetime',
         'error_details' => 'array',
@@ -61,66 +63,66 @@ class Refund extends Model
 
     public function scopePending($query)
     {
-        return $query->where('status', 'pending');
+        return $query->where('status', RefundStatus::Pending);
     }
 
     public function scopeApproved($query)
     {
-        return $query->where('status', 'approved');
+        return $query->where('status', RefundStatus::Approved);
     }
 
     public function scopeCompleted($query)
     {
-        return $query->where('status', 'completed');
+        return $query->where('status', RefundStatus::Completed);
     }
 
     public function isPending(): bool
     {
-        return $this->status === 'pending';
+        return $this->status === RefundStatus::Pending;
     }
 
     public function isApproved(): bool
     {
-        return $this->status === 'approved';
+        return $this->status === RefundStatus::Approved;
     }
 
     public function isProcessing(): bool
     {
-        return $this->status === 'processing';
+        return $this->status === RefundStatus::Processing;
     }
 
     public function isCompleted(): bool
     {
-        return $this->status === 'completed';
+        return $this->status === RefundStatus::Completed;
     }
 
     public function isFailed(): bool
     {
-        return $this->status === 'failed';
+        return $this->status === RefundStatus::Failed;
     }
 
     public function canProcess(): bool
     {
-        return in_array($this->status, ['pending', 'approved']);
+        return in_array($this->status, [RefundStatus::Pending, RefundStatus::Approved]);
     }
 
     public function approve(int $userId): void
     {
         $this->update([
-            'status' => 'approved',
+            'status' => RefundStatus::Approved,
             'approved_by' => $userId,
         ]);
     }
 
     public function markAsProcessing(): void
     {
-        $this->update(['status' => 'processing']);
+        $this->update(['status' => RefundStatus::Processing]);
     }
 
     public function markAsCompleted(?string $transactionId = null): void
     {
         $data = [
-            'status' => 'completed',
+            'status' => RefundStatus::Completed,
             'processed_at' => now(),
         ];
 
@@ -134,13 +136,13 @@ class Refund extends Model
     public function markAsFailed(array $errorDetails): void
     {
         $this->update([
-            'status' => 'failed',
+            'status' => RefundStatus::Failed,
             'error_details' => $errorDetails,
         ]);
     }
 
     public function cancel(): void
     {
-        $this->update(['status' => 'cancelled']);
+        $this->update(['status' => RefundStatus::Cancelled]);
     }
 }

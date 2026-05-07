@@ -807,9 +807,9 @@ class TenantController extends Controller
             ])->orderBy('end_date', 'desc'),
         ]);
 
-        // Sorting
-        $sortField = $request->get('sort', 'name');
-        $sortDirection = $request->get('direction', 'asc');
+        $allowedSorts = ['name', 'email', 'created_at', 'updated_at'];
+        $sortField = in_array($request->get('sort'), $allowedSorts, true) ? $request->get('sort') : 'name';
+        $sortDirection = $request->get('direction') === 'desc' ? 'desc' : 'asc';
         $query->orderBy($sortField, $sortDirection);
 
         $pastTenants = $query->paginate(20)->withQueryString();

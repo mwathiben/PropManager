@@ -11,6 +11,7 @@ use App\Models\Property;
 use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class MoveOutStartInspectionAutoDeductionTest extends TestCase
@@ -266,5 +267,90 @@ class MoveOutStartInspectionAutoDeductionTest extends TestCase
         $deductions = MoveOutDeduction::where('move_out_id', $this->moveOut->id)->get();
 
         $this->assertCount(0, $deductions);
+    }
+
+    public function test_start_inspection_handles_deleted_category_gracefully(): void
+    {
+        $category = MoveOutDeductionCategory::factory()
+            ->forBuilding($this->building)
+            ->alwaysApply()
+            ->create(['name' => 'Will Be Deleted', 'default_amount' => 1000]);
+
+        $category->delete();
+
+        $response = $this->actingAs($this->landlord)
+            ->post(route('move-outs.start-inspection', $this->moveOut), [
+                'actual_move_out_date' => now()->toDateString(),
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $deductions = MoveOutDeduction::where('move_out_id', $this->moveOut->id)->get();
+        $this->assertCount(0, $deductions);
+    }
+
+    public function test_start_inspection_is_idempotent(): void
+    {
+        MoveOutDeductionCategory::factory()
+            ->forBuilding($this->building)
+            ->alwaysApply()
+            ->create(['name' => 'Auto Deduction', 'default_amount' => 2000]);
+
+        $this->actingAs($this->landlord)
+            ->post(route('move-outs.start-inspection', $this->moveOut), [
+                'actual_move_out_date' => now()->toDateString(),
+            ]);
+
+        $this->moveOut->refresh();
+        $this->assertEquals(\App\Enums\MoveOutStatus::InspectionPending, $this->moveOut->status);
+
+        $response = $this->actingAs($this->landlord)
+            ->post(route('move-outs.start-inspection', $this->moveOut), [
+                'actual_move_out_date' => now()->toDateString(),
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+
+        $deductions = MoveOutDeduction::where('move_out_id', $this->moveOut->id)->get();
+        $this->assertCount(1, $deductions);
+    }
+
+    public function test_start_inspection_logs_auto_applied_deductions(): void
+    {
+        Log::spy();
+
+        MoveOutDeductionCategory::factory()
+            ->forBuilding($this->building)
+            ->alwaysApply()
+            ->create(['name' => 'Logged Category', 'default_amount' => 3000]);
+
+        $this->actingAs($this->landlord)
+            ->post(route('move-outs.start-inspection', $this->moveOut), [
+                'actual_move_out_date' => now()->toDateString(),
+            ]);
+
+        Log::shouldHaveReceived('info')
+            ->withArgs(function ($message, $context) {
+                return $message === 'Auto-applied move-out deductions'
+                    && isset($context['move_out_id'])
+                    && isset($context['count'])
+                    && isset($context['category_ids']);
+            })
+            ->once();
+    }
+
+    public function test_start_inspection_fails_if_status_not_notice_given(): void
+    {
+        $this->moveOut->update(['status' => 'inspection_pending']);
+
+        $response = $this->actingAs($this->landlord)
+            ->post(route('move-outs.start-inspection', $this->moveOut), [
+                'actual_move_out_date' => now()->toDateString(),
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
     }
 }

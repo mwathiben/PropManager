@@ -200,7 +200,7 @@ class InvoiceControllerTest extends TestCase
             ->delete(route('invoices.destroy', $invoice));
 
         $response->assertRedirect(route('invoices.index'));
-        $this->assertDatabaseMissing('invoices', ['id' => $invoice->id]);
+        $this->assertSoftDeleted('invoices', ['id' => $invoice->id]);
     }
 
     public function test_landlord_cannot_delete_paid_invoice(): void

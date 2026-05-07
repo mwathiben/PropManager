@@ -293,7 +293,7 @@ class OnboardingService
             ],
             [
                 'type' => $data['property_type'],
-                'address' => $data['address'] ?? null,
+                'address' => $data['property_address'] ?? null,
             ]
         );
 
@@ -301,7 +301,7 @@ class OnboardingService
             'property_id' => $property->id,
             'property_name' => $data['property_name'],
             'property_type' => $data['property_type'],
-            'address' => $data['address'] ?? null,
+            'address' => $data['property_address'] ?? null,
         ]);
 
         return true;
@@ -322,6 +322,15 @@ class OnboardingService
         }
 
         return DB::transaction(function () use ($data, $user, $property, $progress) {
+            $existingBuildings = Building::where('property_id', $property->id)
+                ->where('landlord_id', $user->id)
+                ->get();
+
+            foreach ($existingBuildings as $building) {
+                $building->units()->forceDelete();
+                $building->forceDelete();
+            }
+
             $hasWings = ($data['has_wings'] ?? false) && ! empty($data['wings']);
             $baseRent = $progress->getStepData(5)['default_rent'] ?? 10000;
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\TicketStatus;
 use App\Events\TicketStatusChanged;
 use App\Http\Requests\Ticket\AddTicketCommentRequest;
 use App\Http\Requests\Ticket\AssignTicketRequest;
@@ -219,7 +220,7 @@ class TicketController extends Controller
             'canAssign' => $user->isLandlord(),
             'canChangeStatus' => ! $user->isTenant(),
             'canAddInternalComment' => ! $user->isTenant(),
-            'canSubmitFeedback' => $user->isTenant() && $ticket->status === 'closed' && ! $ticket->hasFeedback(),
+            'canSubmitFeedback' => $user->isTenant() && $ticket->status === \App\Enums\TicketStatus::Closed && ! $ticket->hasFeedback(),
             'statuses' => Ticket::statuses(),
         ]);
     }
@@ -231,15 +232,16 @@ class TicketController extends Controller
         $oldStatus = $ticket->status;
         $ticket->update($validated);
 
-        if (isset($validated['status']) && $validated['status'] !== $oldStatus) {
-            event(new TicketStatusChanged($ticket->fresh(), $oldStatus, $validated['status']));
+        $newStatus = isset($validated['status']) ? TicketStatus::from($validated['status']) : null;
+        if ($newStatus && $newStatus !== $oldStatus) {
+            event(new TicketStatusChanged($ticket->fresh(), $oldStatus, $newStatus));
 
             if ($ticket->reporter_id) {
                 dispatch(SendNotificationJob::forNew(
                     $ticket->reporter_id,
                     'maintenance_notice',
                     'Ticket Status Update',
-                    "Your ticket \"{$ticket->title}\" has been updated to: {$validated['status']}.",
+                    "Your ticket \"{$ticket->title}\" has been updated to: {$newStatus->value}.",
                     ['ticket_id' => $ticket->id],
                     $ticket->landlord_id
                 ));
@@ -325,7 +327,7 @@ class TicketController extends Controller
         $oldStatus = $ticket->status;
         $ticket->resolve($validated['resolution_notes'] ?? null);
 
-        event(new TicketStatusChanged($ticket->fresh(), $oldStatus, 'resolved'));
+        event(new TicketStatusChanged($ticket->fresh(), $oldStatus, TicketStatus::Resolved));
 
         if ($ticket->reporter_id) {
             dispatch(SendNotificationJob::forNew(
@@ -353,7 +355,7 @@ class TicketController extends Controller
         $oldStatus = $ticket->status;
         $ticket->close();
 
-        event(new TicketStatusChanged($ticket->fresh(), $oldStatus, 'closed'));
+        event(new TicketStatusChanged($ticket->fresh(), $oldStatus, TicketStatus::Closed));
 
         if ($ticket->reporter_id) {
             dispatch(SendNotificationJob::forNew(
@@ -374,7 +376,7 @@ class TicketController extends Controller
         $user = Auth::user();
 
         // Ticket must be closed and not have existing feedback
-        if ($ticket->status !== 'closed') {
+        if ($ticket->status !== \App\Enums\TicketStatus::Closed) {
             return redirect()->back()->with('error', 'Feedback can only be submitted for closed tickets.');
         }
 
@@ -429,7 +431,7 @@ class TicketController extends Controller
         $oldStatus = $ticket->status;
         $ticket->cancel();
 
-        event(new TicketStatusChanged($ticket->fresh(), $oldStatus, 'cancelled'));
+        event(new TicketStatusChanged($ticket->fresh(), $oldStatus, TicketStatus::Cancelled));
 
         return redirect()->route('tickets.index')->with('success', 'Ticket cancelled successfully.');
     }

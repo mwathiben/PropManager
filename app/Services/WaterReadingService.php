@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\WaterReading;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -29,14 +30,21 @@ class WaterReadingService
             $query->orderBy('floor_number', 'asc')->orderBy('unit_number', 'asc');
         }])->get();
 
-        return $buildings->map(function ($building) {
+        $allUnitIds = $buildings->flatMap(fn ($b) => $b->units->pluck('id'));
+
+        $latestReadingIds = WaterReading::select('unit_id', DB::raw('MAX(id) as latest_id'))
+            ->whereIn('unit_id', $allUnitIds)
+            ->groupBy('unit_id')
+            ->pluck('latest_id');
+
+        $latestReadings = WaterReading::findMany($latestReadingIds)->keyBy('unit_id');
+
+        return $buildings->map(function ($building) use ($latestReadings) {
             return [
                 'id' => $building->id,
                 'name' => $building->name,
-                'units' => $building->units->map(function ($unit) {
-                    $lastReading = WaterReading::where('unit_id', $unit->id)
-                        ->orderBy('reading_date', 'desc')
-                        ->first();
+                'units' => $building->units->map(function ($unit) use ($latestReadings) {
+                    $lastReading = $latestReadings->get($unit->id);
 
                     return [
                         'id' => $unit->id,

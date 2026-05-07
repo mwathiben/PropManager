@@ -32,6 +32,8 @@ use Illuminate\Support\Facades\DB;
  */
 class LateFeeService
 {
+    private ?\Illuminate\Support\Collection $policyCache = null;
+
     /**
      * Find the applicable late fee policy using 3-tier hierarchy.
      * Building > Property > Landlord default (most specific wins).
@@ -47,7 +49,14 @@ class LateFeeService
         $property = $building->property;
         $landlordId = $invoice->landlord_id;
 
-        // Check building-specific policy first (most specific)
+        if ($this->policyCache) {
+            $landlordPolicies = $this->policyCache->where('landlord_id', $landlordId);
+
+            return $landlordPolicies->firstWhere('building_id', $building->id)
+                ?? $landlordPolicies->where('property_id', $property->id)->whereNull('building_id')->first()
+                ?? $landlordPolicies->whereNull('property_id')->whereNull('building_id')->first();
+        }
+
         $policy = LateFeePolicy::active()
             ->where('landlord_id', $landlordId)
             ->where('building_id', $building->id)
@@ -57,7 +66,6 @@ class LateFeeService
             return $policy;
         }
 
-        // Fallback to property-level policy
         $policy = LateFeePolicy::active()
             ->where('landlord_id', $landlordId)
             ->where('property_id', $property->id)
@@ -68,7 +76,6 @@ class LateFeeService
             return $policy;
         }
 
-        // Fallback to landlord default policy (least specific)
         return LateFeePolicy::active()
             ->where('landlord_id', $landlordId)
             ->whereNull('property_id')
@@ -205,11 +212,17 @@ class LateFeeService
             'errors' => [],
         ];
 
-        $invoices = Invoice::with(['lease.unit.building.property'])
+        $invoices = Invoice::with(['lease.unit.building.property', 'lateFees'])
             ->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial, InvoiceStatus::Sent])
             ->where('due_date', '<', now())
             ->whereColumn('amount_paid', '<', 'total_due')
             ->get();
+
+        $landlordIds = $invoices->pluck('landlord_id')->unique();
+        $activePolicies = LateFeePolicy::active()
+            ->whereIn('landlord_id', $landlordIds)
+            ->get();
+        $this->policyCache = $activePolicies;
 
         foreach ($invoices as $invoice) {
             $results['processed']++;
@@ -229,6 +242,8 @@ class LateFeeService
                 ];
             }
         }
+
+        $this->policyCache = null;
 
         return $results;
     }

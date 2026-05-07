@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\MoveOutStatus;
 use App\Http\Traits\WithLandlordScope;
 use App\Models\MoveOut;
 use App\Models\TenantInvitation;
@@ -180,8 +181,8 @@ class TenantsHubController extends Controller
 
         $stats = [
             'active' => MoveOut::where('landlord_id', $landlordId)->active()->count(),
-            'inspection_pending' => MoveOut::where('landlord_id', $landlordId)->status('inspection_pending')->count(),
-            'settlement_pending' => MoveOut::where('landlord_id', $landlordId)->status('settlement_pending')->count(),
+            'inspection_pending' => MoveOut::where('landlord_id', $landlordId)->status(MoveOutStatus::InspectionPending)->count(),
+            'settlement_pending' => MoveOut::where('landlord_id', $landlordId)->status(MoveOutStatus::SettlementPending)->count(),
             'completed_this_month' => MoveOut::where('landlord_id', $landlordId)
                 ->completed()
                 ->whereMonth('settled_at', now()->month)

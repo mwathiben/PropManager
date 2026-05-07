@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\InvoiceStatus;
 use App\Models\Invoice;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -23,7 +24,7 @@ class ArrearsController extends Controller
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         $query = Invoice::where('landlord_id', $landlordId)
-            ->whereIn('status', ['overdue', 'partial'])
+            ->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial])
             ->whereRaw('(total_due - amount_paid) > 0')
             ->with([
                 'lease.tenant:id,name,email,mobile_number',
@@ -71,9 +72,9 @@ class ArrearsController extends Controller
             }
         }
 
-        // Sorting
-        $sortField = $request->get('sort', 'due_date');
-        $sortDirection = $request->get('direction', 'asc');
+        $allowedSorts = ['due_date', 'total_due', 'amount_paid', 'created_at', 'invoice_number'];
+        $sortField = in_array($request->get('sort'), $allowedSorts, true) ? $request->get('sort') : 'due_date';
+        $sortDirection = $request->get('direction') === 'desc' ? 'desc' : 'asc';
         $query->orderBy($sortField, $sortDirection);
 
         $invoices = $query->paginate(20)->withQueryString();
@@ -89,16 +90,16 @@ class ArrearsController extends Controller
         // Calculate stats
         $stats = [
             'total_arrears' => Invoice::where('landlord_id', $landlordId)
-                ->whereIn('status', ['overdue', 'partial'])
+                ->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial])
                 ->selectRaw('COALESCE(SUM(total_due - amount_paid), 0) as total')
                 ->value('total') ?? 0,
             'tenants_in_arrears' => Invoice::where('landlord_id', $landlordId)
-                ->whereIn('status', ['overdue', 'partial'])
+                ->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial])
                 ->whereRaw('(total_due - amount_paid) > 0')
                 ->distinct('lease_id')
                 ->count('lease_id'),
             'invoices_overdue' => Invoice::where('landlord_id', $landlordId)
-                ->whereIn('status', ['overdue', 'partial'])
+                ->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial])
                 ->whereRaw('(total_due - amount_paid) > 0')
                 ->count(),
         ];
@@ -107,28 +108,28 @@ class ArrearsController extends Controller
         $today = Carbon::today();
         $aging = [
             '0_30' => Invoice::where('landlord_id', $landlordId)
-                ->whereIn('status', ['overdue', 'partial'])
+                ->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial])
                 ->whereRaw('(total_due - amount_paid) > 0')
                 ->where('due_date', '>=', $today->copy()->subDays(30))
                 ->where('due_date', '<', $today)
                 ->selectRaw('COALESCE(SUM(total_due - amount_paid), 0) as total')
                 ->value('total') ?? 0,
             '31_60' => Invoice::where('landlord_id', $landlordId)
-                ->whereIn('status', ['overdue', 'partial'])
+                ->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial])
                 ->whereRaw('(total_due - amount_paid) > 0')
                 ->where('due_date', '>=', $today->copy()->subDays(60))
                 ->where('due_date', '<', $today->copy()->subDays(30))
                 ->selectRaw('COALESCE(SUM(total_due - amount_paid), 0) as total')
                 ->value('total') ?? 0,
             '61_90' => Invoice::where('landlord_id', $landlordId)
-                ->whereIn('status', ['overdue', 'partial'])
+                ->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial])
                 ->whereRaw('(total_due - amount_paid) > 0')
                 ->where('due_date', '>=', $today->copy()->subDays(90))
                 ->where('due_date', '<', $today->copy()->subDays(60))
                 ->selectRaw('COALESCE(SUM(total_due - amount_paid), 0) as total')
                 ->value('total') ?? 0,
             '90_plus' => Invoice::where('landlord_id', $landlordId)
-                ->whereIn('status', ['overdue', 'partial'])
+                ->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial])
                 ->whereRaw('(total_due - amount_paid) > 0')
                 ->where('due_date', '<', $today->copy()->subDays(90))
                 ->selectRaw('COALESCE(SUM(total_due - amount_paid), 0) as total')

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\NotificationStatus;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Model;
 
@@ -128,6 +129,7 @@ class Notification extends Model
     ];
 
     protected $casts = [
+        'status' => NotificationStatus::class,
         'data' => 'array',
         'retry_count' => 'integer',
         'sent_at' => 'datetime',
@@ -162,7 +164,7 @@ class Notification extends Model
     public function markAsSent(?string $externalId = null): void
     {
         $this->update([
-            'status' => 'sent',
+            'status' => NotificationStatus::Sent,
             'sent_at' => now(),
             'external_id' => $externalId,
         ]);
@@ -174,7 +176,7 @@ class Notification extends Model
     public function markAsDelivered(): void
     {
         $this->update([
-            'status' => 'delivered',
+            'status' => NotificationStatus::Delivered,
             'delivered_at' => now(),
         ]);
     }
@@ -185,7 +187,7 @@ class Notification extends Model
     public function markAsRead(): void
     {
         $this->update([
-            'status' => 'read',
+            'status' => NotificationStatus::Read,
             'read_at' => now(),
         ]);
     }
@@ -196,7 +198,7 @@ class Notification extends Model
     public function markAsFailed(string $errorMessage): void
     {
         $this->update([
-            'status' => 'failed',
+            'status' => NotificationStatus::Failed,
             'error_message' => $errorMessage,
         ]);
     }
@@ -206,13 +208,14 @@ class Notification extends Model
      */
     public function updateFromWebhook(string $status, ?string $errorCode = null, ?string $errorMessage = null): void
     {
-        $data = ['status' => $status];
+        $enumStatus = NotificationStatus::from($status);
+        $data = ['status' => $enumStatus];
 
-        if ($status === 'delivered') {
+        if ($enumStatus === NotificationStatus::Delivered) {
             $data['delivered_at'] = now();
-        } elseif ($status === 'read') {
+        } elseif ($enumStatus === NotificationStatus::Read) {
             $data['read_at'] = now();
-        } elseif ($status === 'failed') {
+        } elseif ($enumStatus === NotificationStatus::Failed) {
             if ($errorCode) {
                 $data['delivery_reason_code'] = $errorCode;
             }
@@ -229,7 +232,7 @@ class Notification extends Model
      */
     public function isPending(): bool
     {
-        return $this->status === 'pending';
+        return $this->status === NotificationStatus::Pending;
     }
 
     /**
@@ -237,7 +240,7 @@ class Notification extends Model
      */
     public function isSent(): bool
     {
-        return in_array($this->status, ['sent', 'delivered', 'read']);
+        return in_array($this->status, [NotificationStatus::Sent, NotificationStatus::Delivered, NotificationStatus::Read]);
     }
 
     /**
@@ -245,7 +248,7 @@ class Notification extends Model
      */
     public function isFailed(): bool
     {
-        return $this->status === 'failed';
+        return $this->status === NotificationStatus::Failed;
     }
 
     /**
@@ -267,7 +270,7 @@ class Notification extends Model
     /**
      * Scope: Filter by status
      */
-    public function scopeByStatus($query, string $status)
+    public function scopeByStatus($query, NotificationStatus $status)
     {
         return $query->where('status', $status);
     }
@@ -277,7 +280,7 @@ class Notification extends Model
      */
     public function scopePending($query)
     {
-        return $query->where('status', 'pending');
+        return $query->where('status', NotificationStatus::Pending);
     }
 
     /**
@@ -285,7 +288,7 @@ class Notification extends Model
      */
     public function scopeFailed($query)
     {
-        return $query->where('status', 'failed');
+        return $query->where('status', NotificationStatus::Failed);
     }
 
     /**
@@ -396,7 +399,7 @@ class Notification extends Model
      */
     public function isStuck(): bool
     {
-        if ($this->status !== 'pending' && $this->status !== 'sent') {
+        if ($this->status !== NotificationStatus::Pending && $this->status !== NotificationStatus::Sent) {
             return false;
         }
 
@@ -412,7 +415,7 @@ class Notification extends Model
      */
     public function shouldFallback(): bool
     {
-        if (! $this->isStuck() && $this->status !== 'failed') {
+        if (! $this->isStuck() && $this->status !== NotificationStatus::Failed) {
             return false;
         }
 
@@ -455,7 +458,7 @@ class Notification extends Model
         $currentChannel = $this->fallback_channel ?? $this->channel;
         $lastChannel = end(self::FALLBACK_CHAIN);
 
-        return $currentChannel === $lastChannel && $this->status === 'failed';
+        return $currentChannel === $lastChannel && $this->status === NotificationStatus::Failed;
     }
 
     /**
@@ -486,7 +489,7 @@ class Notification extends Model
     public function scopeStuck($query)
     {
         return $query
-            ->whereIn('status', ['pending', 'sent'])
+            ->whereIn('status', [NotificationStatus::Pending, NotificationStatus::Sent])
             ->whereNotNull('timeout_at')
             ->where('timeout_at', '<=', now());
     }
@@ -498,9 +501,9 @@ class Notification extends Model
     {
         return $query
             ->where(function ($q) {
-                $q->where('status', 'failed')
+                $q->where('status', NotificationStatus::Failed)
                     ->orWhere(function ($q2) {
-                        $q2->whereIn('status', ['pending', 'sent'])
+                        $q2->whereIn('status', [NotificationStatus::Pending, NotificationStatus::Sent])
                             ->whereNotNull('timeout_at')
                             ->where('timeout_at', '<=', now());
                     });
@@ -528,7 +531,7 @@ class Notification extends Model
         $this->update([
             'fallback_channel' => $channel,
             'fallback_sent_at' => now(),
-            'status' => 'sent',
+            'status' => NotificationStatus::Sent,
             'external_id' => $externalId,
             'timeout_at' => self::calculateTimeoutAt($channel),
             'retry_count' => 0,
@@ -541,7 +544,7 @@ class Notification extends Model
     public function scopeReadyToSend($query)
     {
         return $query
-            ->where('status', 'pending')
+            ->where('status', NotificationStatus::Pending)
             ->whereNotNull('scheduled_for')
             ->where('scheduled_for', '<=', now());
     }

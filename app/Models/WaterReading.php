@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\WaterReadingStatus;
 use App\Traits\Auditable;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Model;
@@ -31,6 +32,7 @@ class WaterReading extends Model
     ];
 
     protected $casts = [
+        'status' => WaterReadingStatus::class,
         'reading_date' => 'date',
         'reviewed_at' => 'datetime',
         'is_invoiced' => 'boolean',
@@ -85,7 +87,7 @@ class WaterReading extends Model
      */
     public function isPending(): bool
     {
-        return $this->status === 'pending';
+        return $this->status === WaterReadingStatus::Pending;
     }
 
     /**
@@ -93,7 +95,7 @@ class WaterReading extends Model
      */
     public function isApproved(): bool
     {
-        return $this->status === 'approved';
+        return $this->status === WaterReadingStatus::Approved;
     }
 
     /**
@@ -101,7 +103,7 @@ class WaterReading extends Model
      */
     public function isRejected(): bool
     {
-        return $this->status === 'rejected';
+        return $this->status === WaterReadingStatus::Rejected;
     }
 
     /**
@@ -110,7 +112,7 @@ class WaterReading extends Model
     public function approve(int $reviewerId, ?string $notes = null): void
     {
         $this->update([
-            'status' => 'approved',
+            'status' => WaterReadingStatus::Approved,
             'reviewed_by' => $reviewerId,
             'reviewed_at' => now(),
             'review_notes' => $notes,
@@ -123,7 +125,7 @@ class WaterReading extends Model
     public function reject(int $reviewerId, string $reason): void
     {
         $this->update([
-            'status' => 'rejected',
+            'status' => WaterReadingStatus::Rejected,
             'reviewed_by' => $reviewerId,
             'reviewed_at' => now(),
             'review_notes' => $reason,
@@ -155,7 +157,7 @@ class WaterReading extends Model
      */
     public function scopePending($query)
     {
-        return $query->where('status', 'pending');
+        return $query->where('status', WaterReadingStatus::Pending);
     }
 
     /**
@@ -163,7 +165,7 @@ class WaterReading extends Model
      */
     public function scopeApproved($query)
     {
-        return $query->where('status', 'approved');
+        return $query->where('status', WaterReadingStatus::Approved);
     }
 
     /**
@@ -171,7 +173,7 @@ class WaterReading extends Model
      */
     public function scopeRejected($query)
     {
-        return $query->where('status', 'rejected');
+        return $query->where('status', WaterReadingStatus::Rejected);
     }
 
     /**
@@ -179,7 +181,7 @@ class WaterReading extends Model
      */
     public function scopeReadyForInvoicing($query)
     {
-        return $query->where('status', 'approved')
+        return $query->where('status', WaterReadingStatus::Approved)
             ->where('is_invoiced', false);
     }
 

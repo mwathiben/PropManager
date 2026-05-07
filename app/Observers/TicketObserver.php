@@ -2,10 +2,13 @@
 
 namespace App\Observers;
 
+use App\Enums\TicketStatus;
 use App\Jobs\SendNotificationJob;
 use App\Models\Ticket;
 use App\Models\TicketActivity;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class TicketObserver
 {
@@ -46,36 +49,36 @@ class TicketObserver
      */
     public function created(Ticket $ticket): void
     {
-        // Log the creation activity
-        $ticket->logActivity(
-            TicketActivity::ACTION_CREATED,
-            null,
-            null,
-            "Ticket created: {$ticket->title}",
-            $ticket->reporter_id
-        );
-
-        // If auto-assigned, log the assignment
-        if ($ticket->assigned_to) {
-            $assignee = $ticket->assignee;
+        DB::transaction(function () use ($ticket) {
             $ticket->logActivity(
-                TicketActivity::ACTION_ASSIGNED,
+                TicketActivity::ACTION_CREATED,
                 null,
-                $assignee?->name,
-                "Auto-assigned to building caretaker: {$assignee?->name}",
-                null // System action
+                null,
+                "Ticket created: {$ticket->title}",
+                $ticket->reporter_id
             );
-        }
 
-        // Notify landlord about new ticket
-        if ($ticket->landlord_id) {
-            $this->notifyNewTicket($ticket, $ticket->landlord_id);
-        }
+            if ($ticket->assigned_to) {
+                $assignee = $ticket->assignee;
+                $ticket->logActivity(
+                    TicketActivity::ACTION_ASSIGNED,
+                    null,
+                    $assignee?->name,
+                    "Auto-assigned to building caretaker: {$assignee?->name}",
+                    null
+                );
+            }
+        });
 
-        // Notify assigned caretaker
-        if ($ticket->assigned_to) {
-            $this->notifyAssignment($ticket, $ticket->assigned_to);
-        }
+        DB::afterCommit(function () use ($ticket) {
+            if ($ticket->landlord_id) {
+                $this->notifyNewTicket($ticket, $ticket->landlord_id);
+            }
+
+            if ($ticket->assigned_to) {
+                $this->notifyAssignment($ticket, $ticket->assigned_to);
+            }
+        });
     }
 
     /**
@@ -100,17 +103,16 @@ class TicketObserver
     /**
      * Handle status change events.
      */
-    protected function handleStatusChange(Ticket $ticket, string $oldStatus, string $newStatus): void
+    protected function handleStatusChange(Ticket $ticket, TicketStatus $oldStatus, TicketStatus $newStatus): void
     {
         $action = match ($newStatus) {
-            'resolved' => TicketActivity::ACTION_RESOLVED,
-            'closed' => TicketActivity::ACTION_CLOSED,
+            TicketStatus::Resolved => TicketActivity::ACTION_RESOLVED,
+            TicketStatus::Closed => TicketActivity::ACTION_CLOSED,
             default => TicketActivity::ACTION_STATUS_CHANGED,
         };
 
-        $statusLabels = Ticket::statuses();
-        $oldLabel = $statusLabels[$oldStatus] ?? $oldStatus;
-        $newLabel = $statusLabels[$newStatus] ?? $newStatus;
+        $oldLabel = $oldStatus->label();
+        $newLabel = $newStatus->label();
 
         $ticket->logActivity(
             $action,
@@ -119,7 +121,6 @@ class TicketObserver
             "Status changed from {$oldLabel} to {$newLabel}"
         );
 
-        // Notify reporter about status change
         if ($ticket->reporter_id) {
             $this->notifyStatusChange($ticket, $ticket->reporter_id, $oldStatus, $newStatus);
         }
@@ -130,8 +131,8 @@ class TicketObserver
      */
     protected function handleAssignmentChange(Ticket $ticket, ?int $oldAssigneeId, ?int $newAssigneeId): void
     {
-        $oldAssignee = $oldAssigneeId ? \App\Models\User::find($oldAssigneeId) : null;
-        $newAssignee = $newAssigneeId ? \App\Models\User::find($newAssigneeId) : null;
+        $oldAssignee = $oldAssigneeId ? User::find($oldAssigneeId) : null;
+        $newAssignee = $newAssigneeId ? User::find($newAssigneeId) : null;
 
         $ticket->logActivity(
             TicketActivity::ACTION_ASSIGNED,
@@ -156,7 +157,7 @@ class TicketObserver
         $categoryLabel = ucfirst($ticket->category);
         $unitInfo = $ticket->unit ? " - Unit {$ticket->unit->unit_number}" : '';
 
-        SendNotificationJob::dispatch(
+        dispatch(SendNotificationJob::forNew(
             $recipientId,
             'maintenance_notice',
             "New {$categoryLabel}: {$ticket->title}",
@@ -167,7 +168,7 @@ class TicketObserver
                 'priority' => $ticket->priority,
             ],
             $ticket->landlord_id
-        );
+        ));
     }
 
     /**
@@ -177,7 +178,7 @@ class TicketObserver
     {
         $unitInfo = $ticket->unit ? " - Unit {$ticket->unit->unit_number}" : '';
 
-        SendNotificationJob::dispatch(
+        dispatch(SendNotificationJob::forNew(
             $assigneeId,
             'maintenance_notice',
             "Ticket Assigned: {$ticket->title}",
@@ -188,43 +189,42 @@ class TicketObserver
                 'priority' => $ticket->priority,
             ],
             $ticket->landlord_id
-        );
+        ));
     }
 
     /**
      * Send notification for status change.
      */
-    protected function notifyStatusChange(Ticket $ticket, int $reporterId, string $oldStatus, string $newStatus): void
+    protected function notifyStatusChange(Ticket $ticket, int $reporterId, TicketStatus $oldStatus, TicketStatus $newStatus): void
     {
-        $statusLabels = Ticket::statuses();
-        $newLabel = $statusLabels[$newStatus] ?? $newStatus;
+        $newLabel = $newStatus->label();
 
         $subject = match ($newStatus) {
-            'acknowledged' => 'Your ticket has been acknowledged',
-            'in_progress' => 'Work has started on your ticket',
-            'resolved' => 'Your ticket has been resolved',
-            'closed' => 'Your ticket has been closed',
-            'cancelled' => 'Your ticket has been cancelled',
+            TicketStatus::Acknowledged => 'Your ticket has been acknowledged',
+            TicketStatus::InProgress => 'Work has started on your ticket',
+            TicketStatus::Resolved => 'Your ticket has been resolved',
+            TicketStatus::Closed => 'Your ticket has been closed',
+            TicketStatus::Cancelled => 'Your ticket has been cancelled',
             default => 'Your ticket status has been updated',
         };
 
         $message = "Your ticket \"{$ticket->title}\" has been updated.\n\nNew Status: {$newLabel}";
 
-        if ($newStatus === 'resolved' && $ticket->resolution_notes) {
+        if ($newStatus === TicketStatus::Resolved && $ticket->resolution_notes) {
             $message .= "\n\nResolution Notes: {$ticket->resolution_notes}";
         }
 
-        SendNotificationJob::dispatch(
+        dispatch(SendNotificationJob::forNew(
             $reporterId,
             'maintenance_notice',
             $subject,
             $message,
             [
                 'ticket_id' => $ticket->id,
-                'old_status' => $oldStatus,
-                'new_status' => $newStatus,
+                'old_status' => $oldStatus->value,
+                'new_status' => $newStatus->value,
             ],
             $ticket->landlord_id
-        );
+        ));
     }
 }

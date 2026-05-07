@@ -48,7 +48,7 @@ class FallbackNotificationJob implements ShouldQueue
             return;
         }
 
-        if ($notification->status === 'delivered' || $notification->status === 'read') {
+        if ($notification->status === \App\Enums\NotificationStatus::Delivered || $notification->status === \App\Enums\NotificationStatus::Read) {
             Log::info('FallbackNotificationJob: Notification already delivered, skipping fallback', [
                 'notification_id' => $this->notificationId,
                 'status' => $notification->status,

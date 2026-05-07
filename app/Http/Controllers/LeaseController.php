@@ -70,9 +70,9 @@ class LeaseController extends Controller
             });
         }
 
-        // Sorting
-        $sortField = $request->get('sort', 'created_at');
-        $sortDirection = $request->get('direction', 'desc');
+        $allowedSorts = ['created_at', 'start_date', 'end_date', 'rent_amount', 'deposit_amount'];
+        $sortField = in_array($request->get('sort'), $allowedSorts, true) ? $request->get('sort') : 'created_at';
+        $sortDirection = $request->get('direction') === 'desc' ? 'desc' : 'asc';
         $query->orderBy($sortField, $sortDirection);
 
         $leases = $query->paginate(20)->withQueryString();
@@ -129,9 +129,10 @@ class LeaseController extends Controller
                     'mobile_number' => $request->phone,
                     'national_id' => $request->id_number,
                     'password' => Hash::make($temporaryPassword),
-                    'role' => 'tenant',
-                    'landlord_id' => $landlord->id,
                 ]);
+                $tenant->role = 'tenant';
+                $tenant->landlord_id = $landlord->id;
+                $tenant->save();
 
                 $lease = Lease::create([
                     'unit_id' => $unit->id,
@@ -282,5 +283,22 @@ class LeaseController extends Controller
             'lease' => $lease->load(['tenant', 'unit.building']),
             'transactions' => $transactions,
         ]);
+    }
+
+    public function show(Lease $lease)
+    {
+        return redirect()->route('tenants.show', $lease->tenant_id);
+    }
+
+    public function download(Lease $lease)
+    {
+        if (! $lease->lease_doc_path || ! Storage::disk('local')->exists($lease->lease_doc_path)) {
+            abort(404, 'Lease document not found.');
+        }
+
+        return Storage::disk('local')->download(
+            $lease->lease_doc_path,
+            'lease-agreement-'.$lease->id.'.pdf'
+        );
     }
 }

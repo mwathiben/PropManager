@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\MoveOutStatus;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -31,6 +32,7 @@ class MoveOut extends Model
     ];
 
     protected $casts = [
+        'status' => MoveOutStatus::class,
         'notice_date' => 'date',
         'intended_move_out_date' => 'date',
         'actual_move_out_date' => 'date',
@@ -106,7 +108,7 @@ class MoveOut extends Model
      */
     public function isCompleted(): bool
     {
-        return $this->status === 'completed';
+        return $this->status === MoveOutStatus::Completed;
     }
 
     /**
@@ -114,7 +116,7 @@ class MoveOut extends Model
      */
     public function isCancelled(): bool
     {
-        return $this->status === 'cancelled';
+        return $this->status === MoveOutStatus::Cancelled;
     }
 
     /**
@@ -122,13 +124,13 @@ class MoveOut extends Model
      */
     public function isInspectionComplete(): bool
     {
-        return in_array($this->status, ['inspection_complete', 'settlement_pending', 'completed']);
+        return in_array($this->status, [MoveOutStatus::InspectionComplete, MoveOutStatus::SettlementPending, MoveOutStatus::Completed]);
     }
 
     /**
      * Scope: Filter by status
      */
-    public function scopeStatus($query, string $status)
+    public function scopeStatus($query, MoveOutStatus $status)
     {
         return $query->where('status', $status);
     }
@@ -138,7 +140,7 @@ class MoveOut extends Model
      */
     public function scopeActive($query)
     {
-        return $query->whereNotIn('status', ['completed', 'cancelled']);
+        return $query->whereNotIn('status', [MoveOutStatus::Completed, MoveOutStatus::Cancelled]);
     }
 
     /**
@@ -146,6 +148,6 @@ class MoveOut extends Model
      */
     public function scopeCompleted($query)
     {
-        return $query->where('status', 'completed');
+        return $query->where('status', MoveOutStatus::Completed);
     }
 }

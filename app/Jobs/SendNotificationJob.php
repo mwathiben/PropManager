@@ -110,7 +110,7 @@ class SendNotificationJob implements ShouldQueue
             return;
         }
 
-        if ($notification->status !== 'pending') {
+        if ($notification->status !== \App\Enums\NotificationStatus::Pending) {
             Log::info('Deferred notification already processed', [
                 'notification_id' => $this->notificationId,
                 'status' => $notification->status,

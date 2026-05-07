@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\SecureFile;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreWaterReadingRequest extends FormRequest
@@ -20,7 +21,7 @@ class StoreWaterReadingRequest extends FormRequest
             'readings.*.unit_id' => 'required|exists:units,id',
             'readings.*.current_reading' => 'required|numeric|min:0',
             'readings.*.reading_date' => 'required|date',
-            'readings.*.photo' => 'required|file|image|max:5120',
+            'readings.*.photo' => ['required', 'file', SecureFile::image(5)],
         ];
     }
 

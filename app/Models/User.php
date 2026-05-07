@@ -7,6 +7,7 @@ use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
@@ -51,17 +52,14 @@ use Laravel\Sanctum\HasApiTokens;
  */
 class User extends Authenticatable
 {
-    use Auditable, HasApiTokens, HasFactory, Notifiable;
+    use Auditable, HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     protected $fillable = [
         'name',
         'email',
         'password',
-        'role',
-        'is_archived',
         'archived_at',
         'mobile_number',
-        'landlord_id',
         'national_id',
         'bank_details',
         'emergency_contact_name',
@@ -74,7 +72,10 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
-        'national_id', // Always hide PII by default in array output
+        'two_factor_secret',
+        'two_factor_recovery_codes',
+        'two_factor_confirmed_at',
+        'national_id',
         'bank_details',
     ];
 

@@ -120,7 +120,7 @@ class WaterReadingController extends Controller
 
     public function approve(ApproveWaterReadingRequest $request, WaterReading $reading)
     {
-        if ($reading->status === 'approved') {
+        if ($reading->status === \App\Enums\WaterReadingStatus::Approved) {
             return redirect()->back()->with('error', 'Reading is already approved.');
         }
 
@@ -136,7 +136,7 @@ class WaterReadingController extends Controller
 
     public function reject(RejectWaterReadingRequest $request, WaterReading $reading)
     {
-        if ($reading->status === 'rejected') {
+        if ($reading->status === \App\Enums\WaterReadingStatus::Rejected) {
             return redirect()->back()->with('error', 'Reading is already rejected.');
         }
 

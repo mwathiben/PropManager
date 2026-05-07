@@ -47,6 +47,8 @@ class NotificationServiceTest extends TestCase
         RateLimiter::clear("notifications:{$this->landlord->id}:whatsapp:daily");
         RateLimiter::clear("notifications:{$this->landlord->id}:sms:hourly");
         RateLimiter::clear("notifications:{$this->landlord->id}:sms:daily");
+        RateLimiter::clear("notifications:{$this->landlord->id}:push:hourly");
+        RateLimiter::clear("notifications:{$this->landlord->id}:push:daily");
 
         parent::tearDown();
     }
@@ -429,7 +431,7 @@ class NotificationServiceTest extends TestCase
             ->first();
 
         $this->assertNotNull($notification);
-        $this->assertEquals('sent', $notification->status);
+        $this->assertEquals(\App\Enums\NotificationStatus::Sent, $notification->status);
         $this->assertNotNull($notification->sent_at);
     }
 
@@ -458,7 +460,7 @@ class NotificationServiceTest extends TestCase
             ->first();
 
         $this->assertNotNull($notification);
-        $this->assertEquals('failed', $notification->status);
+        $this->assertEquals(\App\Enums\NotificationStatus::Failed, $notification->status);
         $this->assertStringContainsString('Connection refused', $notification->error_message);
     }
 }

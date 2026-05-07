@@ -2,6 +2,7 @@
 
 namespace App\Events;
 
+use App\Enums\TicketStatus;
 use App\Models\Ticket;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
@@ -15,8 +16,8 @@ class TicketStatusChanged implements ShouldBroadcast
 
     public function __construct(
         public Ticket $ticket,
-        public string $oldStatus,
-        public string $newStatus
+        public TicketStatus $oldStatus,
+        public TicketStatus $newStatus
     ) {}
 
     public function broadcastOn(): array
@@ -41,8 +42,8 @@ class TicketStatusChanged implements ShouldBroadcast
             'title' => $this->ticket->title,
             'priority' => $this->ticket->priority,
             'category' => $this->ticket->category,
-            'old_status' => $this->oldStatus,
-            'new_status' => $this->newStatus,
+            'old_status' => $this->oldStatus->value,
+            'new_status' => $this->newStatus->value,
             'updated_at' => $this->ticket->updated_at->toISOString(),
             'assigned_to' => $this->ticket->assigned_to,
             'reporter_id' => $this->ticket->reporter_id,

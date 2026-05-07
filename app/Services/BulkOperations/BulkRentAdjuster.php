@@ -113,47 +113,46 @@ class BulkRentAdjuster
 
     private function processLease(int $leaseId): void
     {
-        try {
-            $lease = Lease::where('id', $leaseId)
-                ->where('landlord_id', $this->landlordId)
-                ->where('is_active', true)
-                ->with('tenant:id,name')
-                ->firstOrFail();
+        $lease = Lease::where('id', $leaseId)
+            ->where('landlord_id', $this->landlordId)
+            ->where('is_active', true)
+            ->with('tenant:id,name')
+            ->firstOrFail();
 
-            $oldRent = $lease->rent_amount;
-            $newRent = $this->calculateNewRent($oldRent);
+        $oldRent = $lease->rent_amount;
+        $newRent = $this->calculateNewRent($oldRent);
 
-            $lease->update(['rent_amount' => $newRent]);
+        $lease->update(['rent_amount' => $newRent]);
 
-            $this->recordRentHistory($lease, $oldRent, $newRent);
+        $this->recordRentHistory($lease, $oldRent, $newRent);
 
-            if ($this->notifyTenants) {
-                $this->notifyTenant($lease, $oldRent, $newRent);
-            }
-
-            $this->results['success']++;
-            $this->results['adjustments'][] = [
-                'lease_id' => $lease->id,
-                'tenant' => $lease->tenant->name ?? 'Unknown',
-                'old_rent' => $oldRent,
-                'new_rent' => $newRent,
-            ];
-        } catch (\Exception $e) {
-            $this->results['failed']++;
-            $this->results['errors'][] = [
-                'lease_id' => $leaseId,
-                'error' => $e->getMessage(),
-            ];
+        if ($this->notifyTenants) {
+            $this->notifyTenant($lease, $oldRent, $newRent);
         }
+
+        $this->results['success']++;
+        $this->results['adjustments'][] = [
+            'lease_id' => $lease->id,
+            'tenant' => $lease->tenant->name ?? 'Unknown',
+            'old_rent' => $oldRent,
+            'new_rent' => $newRent,
+        ];
     }
 
     private function calculateNewRent(float $currentRent): float
     {
-        if ($this->adjustmentType === 'percentage') {
-            $newRent = $currentRent * (1 + ($this->adjustmentValue / 100));
-        } else {
-            $newRent = $currentRent + $this->adjustmentValue;
-        }
+        $newRent = match ($this->adjustmentType) {
+            self::ALLOWED_ADJUSTMENT_TYPES[0] => $currentRent * (1 + ($this->adjustmentValue / 100)), // percentage
+            self::ALLOWED_ADJUSTMENT_TYPES[1] => $currentRent + $this->adjustmentValue, // fixed
+            self::ALLOWED_ADJUSTMENT_TYPES[2] => $this->adjustmentValue, // absolute
+            default => throw new \InvalidArgumentException(
+                sprintf(
+                    'Invalid adjustment type "%s". Allowed types are: %s',
+                    $this->adjustmentType,
+                    implode(', ', self::ALLOWED_ADJUSTMENT_TYPES)
+                )
+            ),
+        };
 
         return max(0, round($newRent, 2));
     }

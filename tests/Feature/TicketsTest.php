@@ -512,7 +512,7 @@ class TicketsTest extends TestCase
         $response->assertSessionHas('success');
 
         $ticket->refresh();
-        $this->assertEquals('acknowledged', $ticket->status);
+        $this->assertEquals(\App\Enums\TicketStatus::Acknowledged, $ticket->status);
     }
 
     public function test_caretaker_can_start_work_on_ticket(): void
@@ -536,7 +536,7 @@ class TicketsTest extends TestCase
 
         $response->assertRedirect();
         $ticket->refresh();
-        $this->assertEquals('in_progress', $ticket->status);
+        $this->assertEquals(\App\Enums\TicketStatus::InProgress, $ticket->status);
     }
 
     public function test_caretaker_can_resolve_ticket(): void
@@ -562,7 +562,7 @@ class TicketsTest extends TestCase
         $response->assertSessionHas('success');
 
         $ticket->refresh();
-        $this->assertEquals('resolved', $ticket->status);
+        $this->assertEquals(\App\Enums\TicketStatus::Resolved, $ticket->status);
         $this->assertEquals('Fixed the leaking pipe.', $ticket->resolution_notes);
         $this->assertNotNull($ticket->resolved_at);
     }
@@ -587,7 +587,7 @@ class TicketsTest extends TestCase
         $response->assertSessionHas('success');
 
         $ticket->refresh();
-        $this->assertEquals('closed', $ticket->status);
+        $this->assertEquals(\App\Enums\TicketStatus::Closed, $ticket->status);
         $this->assertNotNull($ticket->closed_at);
     }
 
@@ -871,7 +871,7 @@ class TicketsTest extends TestCase
         $response->assertSessionHas('success');
 
         $ticket->refresh();
-        $this->assertEquals('cancelled', $ticket->status);
+        $this->assertEquals(\App\Enums\TicketStatus::Cancelled, $ticket->status);
     }
 
     public function test_reporter_cannot_cancel_in_progress_ticket(): void
@@ -893,7 +893,7 @@ class TicketsTest extends TestCase
         $response->assertSessionHas('error');
 
         $ticket->refresh();
-        $this->assertEquals('in_progress', $ticket->status);
+        $this->assertEquals(\App\Enums\TicketStatus::InProgress, $ticket->status);
     }
 
     // ==================== MULTI-TENANCY TESTS ====================
