@@ -229,14 +229,15 @@ class IdempotencyServiceTest extends TestCase
         $this->assertEquals(0, $deleted);
     }
 
-    public function test_acquire_sets_expires_at_to_24_hours(): void
+    public function test_acquire_sets_expires_at_to_configured_ttl(): void
     {
         $this->freezeTime();
 
+        $ttlHours = (int) config('services.idempotency.ttl_hours', 2160);
         $result = $this->service->acquire('ttl-key');
 
         $key = IdempotencyKey::where('key', 'ttl-key')->first();
         $this->assertTrue($result['acquired']);
-        $this->assertEquals(now()->addHours(24)->timestamp, $key->expires_at->timestamp);
+        $this->assertEquals(now()->addHours($ttlHours)->timestamp, $key->expires_at->timestamp);
     }
 }

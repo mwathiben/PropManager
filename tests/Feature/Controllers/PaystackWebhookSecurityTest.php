@@ -115,7 +115,7 @@ class PaystackWebhookSecurityTest extends TestCase
         $this->assertNotEquals(403, $response->status());
     }
 
-    public function test_allows_all_in_testing_with_empty_whitelist(): void
+    public function test_rejects_all_when_whitelist_is_empty(): void
     {
         config(['payments.webhook_security.paystack.allowed_ips' => []]);
 
@@ -125,7 +125,7 @@ class PaystackWebhookSecurityTest extends TestCase
             ['REMOTE_ADDR' => $this->unknownIp]
         );
 
-        $this->assertNotEquals(403, $response->status());
+        $response->assertStatus(403);
     }
 
     public function test_rejection_logged_with_structured_context(): void
@@ -155,7 +155,7 @@ class PaystackWebhookSecurityTest extends TestCase
 
     public function test_signature_still_validated_after_ip_check(): void
     {
-        config(['payments.webhook_security.paystack.allowed_ips' => []]);
+        config(['payments.webhook_security.paystack.allowed_ips' => [$this->paystackIp1]]);
 
         $response = $this->postJson(
             $this->webhookRoute,

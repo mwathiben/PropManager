@@ -41,7 +41,7 @@ class PaystackWebhookControllerTest extends TestCase
             'paystack_secret_key' => $this->paystackSecret,
         ]);
 
-        config(['payments.webhook_security.paystack.allowed_ips' => []]);
+        config(['payments.webhook_security.paystack.allowed_ips' => ['127.0.0.1']]);
 
         Mail::fake();
         Event::fake([PaymentReceivedEvent::class]);

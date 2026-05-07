@@ -34,7 +34,7 @@ class MpesaIntegrationTest extends TestCase
     {
         parent::setUp();
 
-        config(['mpesa.allowed_ips' => []]);
+        config(['mpesa.allowed_ips' => ['127.0.0.1']]);
 
         $this->landlord = User::factory()->create(['role' => 'landlord']);
 

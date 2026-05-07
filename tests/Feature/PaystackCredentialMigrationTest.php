@@ -33,7 +33,7 @@ class PaystackCredentialMigrationTest extends TestCase
     {
         parent::setUp();
 
-        config(['payments.webhook_security.paystack.allowed_ips' => []]);
+        config(['payments.webhook_security.paystack.allowed_ips' => ['127.0.0.1']]);
 
         $this->setupData = $this->createLandlordWithFullSetup();
         $this->landlord = $this->setupData['landlord'];

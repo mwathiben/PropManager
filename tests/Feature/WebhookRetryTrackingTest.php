@@ -44,7 +44,7 @@ class WebhookRetryTrackingTest extends TestCase
         $this->lease = $tenantData['lease'];
         $this->invoice = $this->createInvoiceForLease($this->lease);
 
-        config(['mpesa.allowed_ips' => []]);
+        config(['mpesa.allowed_ips' => ['127.0.0.1']]);
         config(['payments.webhook_security.mpesa.timestamp_tolerance_minutes' => 999999]);
 
         Mail::fake();

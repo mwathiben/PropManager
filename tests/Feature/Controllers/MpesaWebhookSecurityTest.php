@@ -156,7 +156,7 @@ class MpesaWebhookSecurityTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_allows_all_ips_in_testing_with_empty_whitelist(): void
+    public function test_rejects_all_when_whitelist_is_empty(): void
     {
         config(['mpesa.allowed_ips' => []]);
 
@@ -166,7 +166,7 @@ class MpesaWebhookSecurityTest extends TestCase
             ['REMOTE_ADDR' => $this->unknownIp]
         );
 
-        $this->assertNotEquals(403, $response->status());
+        $response->assertStatus(403);
     }
 
     public function test_rejects_unknown_ip_in_production_with_empty_whitelist(): void

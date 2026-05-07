@@ -45,7 +45,7 @@ class MpesaWebhookAmountValidationTest extends TestCase
         $this->lease = $tenantData['lease'];
         $this->invoice = $this->createInvoiceForLease($this->lease);
 
-        config(['mpesa.allowed_ips' => []]);
+        config(['mpesa.allowed_ips' => ['127.0.0.1']]);
         config(['payments.webhook_security.mpesa.timestamp_tolerance_minutes' => 999999]);
 
         Mail::fake();
@@ -70,7 +70,8 @@ class MpesaWebhookAmountValidationTest extends TestCase
     {
         $checkoutRequestId = 'ws_CO_'.uniqid();
         $this->createStkPaymentLink($checkoutRequestId);
-        $exactAmount = (int) $this->invoice->total_due;
+        // Use float to preserve cents - M-Pesa amounts may include decimals
+        $exactAmount = round((float) $this->invoice->total_due, 2);
 
         $payload = $this->getMockMpesaStkSuccessCallback(
             $checkoutRequestId,
@@ -94,7 +95,8 @@ class MpesaWebhookAmountValidationTest extends TestCase
     {
         $checkoutRequestId = 'ws_CO_'.uniqid();
         $this->createStkPaymentLink($checkoutRequestId);
-        $withinTolerance = (int) $this->invoice->total_due + 0.50;
+        // Cast to float before adding to preserve cents
+        $withinTolerance = (float) $this->invoice->total_due + 0.50;
 
         $payload = $this->getMockMpesaStkSuccessCallback(
             $checkoutRequestId,
@@ -114,11 +116,11 @@ class MpesaWebhookAmountValidationTest extends TestCase
         ]);
     }
 
-    public function test_stk_callback_rejects_overpayment_beyond_tolerance(): void
+    public function test_stk_callback_flags_overpayment_beyond_tolerance(): void
     {
         $checkoutRequestId = 'ws_CO_'.uniqid();
         $this->createStkPaymentLink($checkoutRequestId);
-        $overTolerance = (int) $this->invoice->total_due + 200;
+        $overTolerance = (float) $this->invoice->total_due + 200;
 
         $payload = $this->getMockMpesaStkSuccessCallback(
             $checkoutRequestId,
@@ -131,20 +133,23 @@ class MpesaWebhookAmountValidationTest extends TestCase
         $response = $this->postJson($this->stkRoute, $payload);
 
         $response->assertOk();
-        $this->assertEquals($initialPaymentCount, Payment::count());
+        $this->assertEquals($initialPaymentCount + 1, Payment::count());
         $this->assertDatabaseHas('webhook_dead_letters', [
             'provider' => WebhookDeadLetter::PROVIDER_MPESA,
             'event_type' => 'stk_callback',
             'error_class' => WebhookDeadLetter::ERROR_SCHEMA,
             'landlord_id' => $this->landlord->id,
         ]);
+
+        $payment = Payment::latest('id')->first();
+        $this->assertStringContainsString('NEEDS RECONCILIATION', $payment->notes);
     }
 
-    public function test_stk_callback_rejects_underpayment_beyond_tolerance(): void
+    public function test_stk_callback_flags_underpayment_beyond_tolerance(): void
     {
         $checkoutRequestId = 'ws_CO_'.uniqid();
         $this->createStkPaymentLink($checkoutRequestId);
-        $underTolerance = (int) $this->invoice->total_due - 200;
+        $underTolerance = (float) $this->invoice->total_due - 200;
 
         $payload = $this->getMockMpesaStkSuccessCallback(
             $checkoutRequestId,
@@ -157,19 +162,22 @@ class MpesaWebhookAmountValidationTest extends TestCase
         $response = $this->postJson($this->stkRoute, $payload);
 
         $response->assertOk();
-        $this->assertEquals($initialPaymentCount, Payment::count());
+        $this->assertEquals($initialPaymentCount + 1, Payment::count());
         $this->assertDatabaseHas('webhook_dead_letters', [
             'provider' => WebhookDeadLetter::PROVIDER_MPESA,
             'event_type' => 'stk_callback',
             'error_class' => WebhookDeadLetter::ERROR_SCHEMA,
         ]);
+
+        $payment = Payment::latest('id')->first();
+        $this->assertStringContainsString('NEEDS RECONCILIATION', $payment->notes);
     }
 
-    public function test_stk_mismatch_fails_idempotency_key(): void
+    public function test_stk_mismatch_records_payment_and_flags_reconciliation(): void
     {
         $checkoutRequestId = 'ws_CO_'.uniqid();
         $this->createStkPaymentLink($checkoutRequestId);
-        $mismatchAmount = (int) $this->invoice->total_due + 500;
+        $mismatchAmount = (float) $this->invoice->total_due + 500;
 
         $payload = $this->getMockMpesaStkSuccessCallback(
             $checkoutRequestId,
@@ -183,7 +191,12 @@ class MpesaWebhookAmountValidationTest extends TestCase
         $idempotencyKey = IdempotencyKey::where('key', "mpesa:{$receiptNumber}")->first();
 
         $this->assertNotNull($idempotencyKey);
-        $this->assertEquals('failed', $idempotencyKey->status);
+        $this->assertEquals('completed', $idempotencyKey->status);
+
+        $this->assertDatabaseHas('webhook_dead_letters', [
+            'provider' => WebhookDeadLetter::PROVIDER_MPESA,
+            'error_class' => WebhookDeadLetter::ERROR_SCHEMA,
+        ]);
     }
 
     public function test_c2b_accepts_partial_payment_without_validation(): void
