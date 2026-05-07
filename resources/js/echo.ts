@@ -15,16 +15,22 @@ declare global {
 
 window.Pusher = Pusher;
 
-const echoConfig = {
-    broadcaster: 'reverb' as const,
-    key: import.meta.env.VITE_REVERB_APP_KEY as string,
-    wsHost: import.meta.env.VITE_REVERB_HOST as string,
-    wsPort: Number(import.meta.env.VITE_REVERB_PORT) || 80,
-    wssPort: Number(import.meta.env.VITE_REVERB_PORT) || 443,
-    forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
-    enabledTransports: ['ws', 'wss'] as ('ws' | 'wss')[],
-};
+const reverbAppKey = import.meta.env.VITE_REVERB_APP_KEY as string | undefined;
 
-window.Echo = new Echo(echoConfig);
+if (reverbAppKey) {
+    const reverbPort = import.meta.env.VITE_REVERB_PORT
+        ? Number(import.meta.env.VITE_REVERB_PORT)
+        : 8080;
+
+    window.Echo = new Echo({
+        broadcaster: 'reverb' as const,
+        key: reverbAppKey,
+        wsHost: import.meta.env.VITE_REVERB_HOST || 'localhost',
+        wsPort: reverbPort,
+        wssPort: reverbPort,
+        forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
+        enabledTransports: ['ws', 'wss'] as ('ws' | 'wss')[],
+    });
+}
 
 export default window.Echo;
