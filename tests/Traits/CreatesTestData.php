@@ -80,7 +80,10 @@ trait CreatesTestData
 
     protected function createInvoiceForLease(Lease $lease, string $status = 'sent'): Invoice
     {
-        $invoiceNumber = 'INV-'.date('Ym').'-'.str_pad(random_int(1, 9999), 4, '0', STR_PAD_LEFT);
+        // uniqid() (13 hex chars) + 6 random digits collides ~never under parallel tests.
+        // random_int(1, 9999) was prone to birthday-paradox collisions on the
+        // invoice_number unique index when ~100+ invoices got created in a run.
+        $invoiceNumber = 'INV-'.date('Ym').'-'.uniqid().'-'.str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
         return Invoice::create([
             'lease_id' => $lease->id,
