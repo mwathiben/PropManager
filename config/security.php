@@ -164,8 +164,8 @@ return [
     'compliance' => [
         'gdpr_enabled' => env('GDPR_ENABLED', true),
         'kenya_dpa_enabled' => env('KENYA_DPA_ENABLED', true),
-        'deletion_grace_days' => env('DELETION_GRACE_DAYS', 30),
-        'data_retention_years' => env('DATA_RETENTION_YEARS', 7),
+        'deletion_grace_days' => (int) env('DELETION_GRACE_DAYS', 30),
+        'data_retention_years' => (int) env('DATA_RETENTION_YEARS', 7),
         'consent_required' => ['terms', 'privacy'],
         'breach_notification_hours' => 72, // GDPR & Kenya DPA requirement
         'log_in_console' => env('AUDIT_LOG_IN_CONSOLE', false), // Log audit events in console/CLI

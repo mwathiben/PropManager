@@ -48,7 +48,7 @@ class NotificationMailContentSafetyTest extends TestCase
             'meta refresh' => ['<meta http-equiv="refresh" content="0;url=javascript:alert(1)">', '&lt;meta http-equiv='],
             'iframe srcdoc' => ['<iframe srcdoc="<script>alert(1)</script>">', '&lt;iframe srcdoc='],
             'css expression' => ['<div style="background:expression(alert(1))">', '&lt;div style='],
-            'malformed unclosed tag' => ['<img src="x" onerror="alert(1)">', '&lt;img src='],
+            'img onerror handler' => ['<img src="x" onerror="alert(1)">', '&lt;img src='],
         ];
     }
 

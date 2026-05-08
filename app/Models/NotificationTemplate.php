@@ -86,9 +86,30 @@ class NotificationTemplate extends Model
     }
 
     /**
-     * Render the template with given context
+     * Render the template with HTML-escaped context values (safe by default).
+     *
+     * Use this for API responses, JSON output, or any non-Blade context.
+     * For Blade templates that already call e(), use renderRaw() instead.
      */
     public function render(array $context): array
+    {
+        $escaped = array_map(fn ($v) => e((string) $v), $context);
+
+        return $this->substituteplaceholders($escaped);
+    }
+
+    /**
+     * UNSAFE: Render without escaping — output may contain raw HTML/JS.
+     *
+     * Only use when the caller guarantees escaping (e.g. Blade's e() helper).
+     * Never pass the return value directly into API responses, logs, or raw HTML.
+     */
+    public function renderRaw(array $context): array
+    {
+        return $this->substitutePlaceholders($context);
+    }
+
+    private function substitutePlaceholders(array $context): array
     {
         $subject = $this->subject;
         $body = $this->body;

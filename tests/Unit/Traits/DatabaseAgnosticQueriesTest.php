@@ -34,7 +34,7 @@ class DatabaseAgnosticQueriesTest extends TestCase
 
         $result = $this->getMonthSql('created_at');
 
-        $this->assertEquals('MONTH(created_at)', $result);
+        $this->assertEquals('CAST(EXTRACT(MONTH FROM created_at) AS INTEGER)', $result);
     }
 
     public function test_get_year_sql_returns_correct_sql_for_sqlite(): void
@@ -53,6 +53,15 @@ class DatabaseAgnosticQueriesTest extends TestCase
         $result = $this->getYearSql('payment_date');
 
         $this->assertEquals('YEAR(payment_date)', $result);
+    }
+
+    public function test_get_year_sql_returns_correct_sql_for_pgsql(): void
+    {
+        DB::shouldReceive('getDriverName')->andReturn('pgsql');
+
+        $result = $this->getYearSql('created_at');
+
+        $this->assertEquals('CAST(EXTRACT(YEAR FROM created_at) AS INTEGER)', $result);
     }
 
     public function test_get_date_format_sql_returns_full_date_for_sqlite(): void
@@ -95,7 +104,7 @@ class DatabaseAgnosticQueriesTest extends TestCase
     {
         DB::shouldReceive('getDriverName')->andReturn('sqlite');
 
-        $result = $this->getDateFormatSql('payment_date', '%Y-%W');
+        $result = $this->getDateFormatSql('payment_date', '%Y-%u');
 
         $this->assertEquals("strftime('%Y-%W', payment_date)", $result);
     }
@@ -104,9 +113,9 @@ class DatabaseAgnosticQueriesTest extends TestCase
     {
         DB::shouldReceive('getDriverName')->andReturn('mysql');
 
-        $result = $this->getDateFormatSql('payment_date', '%Y-%W');
+        $result = $this->getDateFormatSql('payment_date', '%Y-%u');
 
-        $this->assertEquals("DATE_FORMAT(payment_date, '%Y-%W')", $result);
+        $this->assertEquals("DATE_FORMAT(payment_date, '%x-%v')", $result);
     }
 
     public function test_get_date_format_sql_handles_pgsql(): void
@@ -115,7 +124,7 @@ class DatabaseAgnosticQueriesTest extends TestCase
 
         $this->assertEquals("TO_CHAR(payment_date, 'YYYY-MM-DD')", $this->getDateFormatSql('payment_date', '%Y-%m-%d'));
         $this->assertEquals("TO_CHAR(payment_date, 'YYYY-MM')", $this->getDateFormatSql('payment_date', '%Y-%m'));
-        $this->assertEquals("TO_CHAR(payment_date, 'IYYY-IW')", $this->getDateFormatSql('payment_date', '%Y-%W'));
+        $this->assertEquals("TO_CHAR(payment_date, 'IYYY-IW')", $this->getDateFormatSql('payment_date', '%Y-%u'));
     }
 
     public function test_get_date_format_sql_handles_custom_format_for_sqlite(): void

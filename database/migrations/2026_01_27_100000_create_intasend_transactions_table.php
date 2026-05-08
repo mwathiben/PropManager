@@ -15,18 +15,18 @@ return new class extends Migration
             $table->foreignId('landlord_id')->constrained('users')->cascadeOnDelete();
 
             // IntaSend tracking fields
-            $table->string('intasend_invoice_id', 50)->unique();
+            $table->string('intasend_invoice_id', 50)->nullable()->unique();
             $table->string('api_ref', 100)->index();
             $table->string('phone_number', 20);
 
             // Amounts
             $table->decimal('amount', 12, 2);
             $table->decimal('intasend_charges', 12, 2)->default(0);
-            $table->decimal('net_amount', 12, 2);
+            $table->decimal('net_amount', 12, 2)->nullable();
 
             // Split tracking (platform fee)
             $table->decimal('platform_fee', 12, 2)->default(0);
-            $table->decimal('landlord_amount', 12, 2);
+            $table->decimal('landlord_amount', 12, 2)->nullable();
 
             // Status
             $table->string('state', 20)->default('PENDING');
