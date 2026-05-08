@@ -128,15 +128,16 @@ class ImportService
             }
 
             try {
-                User::create([
+                $tenant = User::create([
                     'name' => $row['name'],
                     'email' => $row['email'],
                     'phone' => $row['phone'],
                     'national_id' => $row['national_id'] ?? null,
-                    'role' => 'tenant',
-                    'landlord_id' => $landlordId,
-                    'password' => bcrypt('password123'), // Default password
+                    'password' => bcrypt('password123'),
                 ]);
+                $tenant->role = 'tenant';
+                $tenant->landlord_id = $landlordId;
+                $tenant->save();
 
                 $successful++;
             } catch (\Exception $e) {

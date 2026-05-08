@@ -3,12 +3,15 @@
 namespace App\Http\Requests\BulkOperations;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Auth;
 
 class AdjustDepositsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return auth()->user()->isLandlord() || auth()->user()->isCaretaker();
+        $user = Auth::user();
+
+        return $user && ($user->isLandlord() || $user->isCaretaker());
     }
 
     public function rules(): array
@@ -20,7 +23,7 @@ class AdjustDepositsRequest extends FormRequest
             'adjustment_value' => 'required|numeric',
             'notify_tenants' => 'boolean',
             'building_id' => 'nullable|integer|exists:buildings,id',
-            'wing_id' => 'nullable|integer|exists:buildings,id',
+            'wing_id' => 'nullable|integer|exists:wings,id',
         ];
     }
 }

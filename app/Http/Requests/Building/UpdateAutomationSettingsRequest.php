@@ -8,16 +8,14 @@ class UpdateAutomationSettingsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        $building = $this->route('building');
-
-        return $building && $building->landlord_id === auth()->id();
+        return $this->user()->can('update', $this->route('building'));
     }
 
     public function rules(): array
     {
         return [
             'auto_generate_invoices' => 'boolean',
-            'invoice_generation_day' => 'required_if:auto_generate_invoices,true|integer|min:1|max:28',
+            'invoice_generation_day' => ['required_if:auto_generate_invoices,1', 'required_if:auto_generate_invoices,true', 'nullable', 'integer', 'min:1', 'max:28'],
             'auto_send_invoices' => 'boolean',
         ];
     }

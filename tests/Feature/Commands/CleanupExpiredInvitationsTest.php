@@ -263,8 +263,10 @@ class CleanupExpiredInvitationsTest extends TestCase
         ]);
 
         $setup = $this->createLandlordWithFullSetup();
+        $this->assertGreaterThanOrEqual(2, $setup['units']->count(), 'Test requires at least 2 units from createLandlordWithFullSetup');
         $unit1 = $setup['units']->first();
         $unit2 = $setup['units']->skip(1)->first();
+        $this->assertNotNull($unit2, 'Second unit must not be null');
 
         $user = User::factory()->create([
             'role' => 'tenant',

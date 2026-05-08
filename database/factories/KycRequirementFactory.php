@@ -17,7 +17,7 @@ class KycRequirementFactory extends Factory
     public function definition(): array
     {
         $types = ['selfie', 'national_id', 'signed_lease', 'proof_of_income', 'reference_letter'];
-        $type = fake()->unique()->randomElement($types);
+        $type = fake()->randomElement($types);
 
         return [
             'landlord_id' => User::factory()->state(['role' => 'landlord']),

@@ -27,7 +27,11 @@ class ProviderStatusCollector
             'sms' => [
                 'configured' => $smsProvider !== 'none',
                 'provider' => $smsProvider,
-                'has_credentials' => ! empty($twilioCredentials['account_sid']) || ! empty($atCredentials['api_key']),
+                'has_credentials' => match ($smsProvider) {
+                    'twilio' => ! empty($twilioCredentials['account_sid']) && ! empty($twilioCredentials['auth_token']),
+                    'africas_talking' => ! empty($atCredentials['api_key']) && ! empty($atCredentials['username']),
+                    default => false,
+                },
             ],
             'whatsapp' => [
                 'configured' => ! empty($whatsappNumber),

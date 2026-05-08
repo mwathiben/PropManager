@@ -18,6 +18,7 @@ class BuildingController extends Controller
         $perPage = min($request->integer('per_page', 20), 100);
 
         $buildings = Building::where('landlord_id', $landlordId)
+            ->excludeParentContainers()
             ->with('property:id,name')
             ->withCount('units')
             ->paginate($perPage);

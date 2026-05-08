@@ -32,7 +32,7 @@ trait WithLandlordScope
     {
         return Building::where('landlord_id', $landlordId)
             ->select('id', 'name')
-            ->with(['wings:id,building_id,name'])
+            ->with(['wings:id,parent_building_id,name'])
             ->orderBy('name')
             ->get()
             ->toArray();

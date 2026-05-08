@@ -2,38 +2,43 @@
 
 namespace App\Services;
 
+use App\Enums\InvoiceStatus;
 use App\Models\Invoice;
 use App\Models\PaymentLink;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class PaymentLinkService
 {
     public function generate(Invoice $invoice, array $utm = []): PaymentLink
     {
-        $existingLink = PaymentLink::where('invoice_id', $invoice->id)
-            ->valid()
-            ->first();
+        return DB::transaction(function () use ($invoice, $utm) {
+            $existingLink = PaymentLink::where('invoice_id', $invoice->id)
+                ->valid()
+                ->lockForUpdate()
+                ->first();
 
-        if ($existingLink) {
-            return $existingLink;
-        }
+            if ($existingLink) {
+                return $existingLink;
+            }
 
-        return PaymentLink::create([
-            'token' => PaymentLink::generateToken(),
-            'invoice_id' => $invoice->id,
-            'landlord_id' => $invoice->landlord_id,
-            'expires_at' => now()->addDays(30),
-            'utm_source' => $utm['source'] ?? null,
-            'utm_medium' => $utm['medium'] ?? null,
-            'utm_campaign' => $utm['campaign'] ?? null,
-        ]);
+            return PaymentLink::create([
+                'token' => PaymentLink::generateToken(),
+                'invoice_id' => $invoice->id,
+                'landlord_id' => $invoice->landlord_id,
+                'expires_at' => now()->addDays(30),
+                'utm_source' => $utm['source'] ?? null,
+                'utm_medium' => $utm['medium'] ?? null,
+                'utm_campaign' => $utm['campaign'] ?? null,
+            ]);
+        });
     }
 
     public function generateForNotification(int $invoiceId, string $notificationType): ?string
     {
         $invoice = Invoice::find($invoiceId);
 
-        if (! $invoice || in_array($invoice->status, ['paid', 'cancelled', 'voided'])) {
+        if (! $invoice || in_array($invoice->status, [InvoiceStatus::Paid, InvoiceStatus::Cancelled, InvoiceStatus::Voided])) {
             return null;
         }
 

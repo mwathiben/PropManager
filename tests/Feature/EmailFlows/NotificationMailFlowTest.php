@@ -76,7 +76,10 @@ class NotificationMailFlowTest extends TestCase
 
         $this->assertStringNotContainsString('secret_key', strtolower($decoded));
         $this->assertStringNotContainsString('APP_KEY', $decoded);
-        $this->assertStringNotContainsString(config('app.key'), $decoded);
+
+        $appKey = config('app.key');
+        $this->assertNotEmpty($appKey, 'app.key must be set for this assertion to be meaningful');
+        $this->assertStringNotContainsString($appKey, $decoded);
     }
 
     public function test_data_table_filters_excluded_keys_and_non_scalar(): void
@@ -231,7 +234,10 @@ class NotificationMailFlowTest extends TestCase
 
         $this->assertStringNotContainsString('secret_key', strtolower($decoded));
         $this->assertStringNotContainsString('APP_KEY', $decoded);
-        $this->assertStringNotContainsString(config('app.key'), $decoded);
+
+        $appKey = config('app.key');
+        $this->assertNotEmpty($appKey, 'app.key must be set for this assertion to be meaningful');
+        $this->assertStringNotContainsString($appKey, $decoded);
     }
 
     private function createTenantWithLandlord(): array

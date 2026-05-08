@@ -24,10 +24,10 @@ class BuildingController extends Controller
 
     public function index(Request $request)
     {
-        $buildings = $this->buildingService->getFilteredBuildings(auth()->id(), $request);
+        $buildingGroups = $this->buildingService->getFilteredBuildings(auth()->id(), $request);
 
         return Inertia::render('Buildings/Index', [
-            'buildings' => $buildings,
+            'buildingGroups' => $buildingGroups,
             'buildingTypes' => Building::BUILDING_TYPES,
             'amenityOptions' => Building::AMENITY_OPTIONS,
             'filters' => [
@@ -48,6 +48,13 @@ class BuildingController extends Controller
 
     public function show(Building $building)
     {
+        if ($building->hasWings()) {
+            $firstWing = $building->wings()->orderBy('name')->first();
+            if ($firstWing) {
+                return redirect()->route('buildings.show', $firstWing);
+            }
+        }
+
         $user = auth()->user();
         if ($user->isLandlord() && $building->landlord_id !== $user->id) {
             abort(403);
@@ -63,6 +70,13 @@ class BuildingController extends Controller
 
     public function dashboard(Building $building, Request $request)
     {
+        if ($building->hasWings()) {
+            $firstWing = $building->wings()->orderBy('name')->first();
+            if ($firstWing) {
+                return redirect()->route('buildings.dashboard', $firstWing);
+            }
+        }
+
         $user = auth()->user();
         if ($user->isLandlord() && $building->landlord_id !== $user->id) {
             abort(403);
@@ -79,6 +93,7 @@ class BuildingController extends Controller
     public function updateSettings(UpdateBuildingSettingsRequest $request, Building $building)
     {
         $building->update($request->validated());
+        $this->buildingService->syncSharedSettings($building);
 
         return redirect()->back()->with('success', 'Building settings updated.');
     }
@@ -107,19 +122,38 @@ class BuildingController extends Controller
 
     public function edit(Building $building)
     {
+        if ($building->hasWings()) {
+            $firstWing = $building->wings()->orderBy('name')->first();
+            if ($firstWing) {
+                return redirect()->route('buildings.edit', $firstWing);
+            }
+        }
+
         $units = $building->units()
             ->orderBy('floor_number', 'desc')
             ->orderBy('unit_number', 'asc')
             ->get();
 
-        $siblingBuildings = Building::where('property_id', $building->property_id)->get();
+        $siblingBuildings = Building::where('property_id', $building->property_id)
+            ->where(function ($q) {
+                $q->where('is_wing', true)
+                    ->orWhereDoesntHave('wings');
+            })
+            ->get();
+
         $building->load('property:id,name,address');
+
+        $parentBuilding = $building->isWing() ? $building->parentBuilding : null;
 
         return Inertia::render('Buildings/Edit', [
             'building' => $building,
             'units' => $units,
             'buildings' => $siblingBuildings,
             'amenityOptions' => Building::AMENITY_OPTIONS,
+            'parentBuilding' => $parentBuilding ? [
+                'id' => $parentBuilding->id,
+                'name' => $parentBuilding->name,
+            ] : null,
         ]);
     }
 
@@ -176,13 +210,33 @@ class BuildingController extends Controller
                 : null,
         ]);
 
+        $building->refresh();
+        $this->buildingService->syncSharedSettings($building);
+
         return redirect()->back()->with('success', 'Water settings updated successfully.');
     }
 
     public function updateAutomationSettings(UpdateAutomationSettingsRequest $request, Building $building)
     {
         $building->update($request->validated());
+        $this->buildingService->syncSharedSettings($building);
 
         return redirect()->back()->with('success', 'Invoice automation settings updated.');
+    }
+
+    public function destroy(Building $building)
+    {
+        $this->authorize('delete', $building);
+
+        $buildingName = $building->name;
+
+        try {
+            $this->buildingService->deleteBuilding($building);
+        } catch (\InvalidArgumentException $e) {
+            return redirect()->back()->withErrors(['building' => $e->getMessage()]);
+        }
+
+        return redirect()->route('buildings.index')
+            ->with('success', "Building '{$buildingName}' has been deleted.");
     }
 }

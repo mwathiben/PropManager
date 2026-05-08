@@ -2,10 +2,31 @@
 
 namespace App\Models;
 
+use App\Enums\InvoiceStatus;
 use App\Traits\TenantScope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property string $token
+ * @property int $invoice_id
+ * @property int $landlord_id
+ * @property \Carbon\Carbon $expires_at
+ * @property \Carbon\Carbon|null $clicked_at
+ * @property string|null $clicked_ip
+ * @property string|null $utm_source
+ * @property string|null $utm_medium
+ * @property string|null $utm_campaign
+ * @property bool $is_revoked
+ * @property \Carbon\Carbon $created_at
+ * @property \Carbon\Carbon $updated_at
+ * @property-read string $url
+ * @property-read int $days_until_expiry
+ * @property-read Invoice $invoice
+ * @property-read User $landlord
+ */
 class PaymentLink extends Model
 {
     use TenantScope;
@@ -53,33 +74,46 @@ class PaymentLink extends Model
         return $this->belongsTo(User::class, 'landlord_id');
     }
 
-    // ==================== Scopes ====================
-
-    public function scopeValid($query)
+    /**
+     * @param  Builder<PaymentLink>  $query
+     */
+    public function scopeValid(Builder $query): Builder
     {
         return $query->where('is_revoked', false)
             ->where('expires_at', '>', now())
             ->whereHas('invoice', function ($q) {
-                $q->whereNotIn('status', ['paid', 'cancelled', 'voided']);
+                $q->whereNotIn('status', [InvoiceStatus::Paid, InvoiceStatus::Cancelled, InvoiceStatus::Voided]);
             });
     }
 
-    public function scopeExpired($query)
+    /**
+     * @param  Builder<PaymentLink>  $query
+     */
+    public function scopeExpired(Builder $query): Builder
     {
-        return $query->where('expires_at', '<', now());
+        return $query->where('expires_at', '<=', now());
     }
 
-    public function scopeRevoked($query)
+    /**
+     * @param  Builder<PaymentLink>  $query
+     */
+    public function scopeRevoked(Builder $query): Builder
     {
         return $query->where('is_revoked', true);
     }
 
-    public function scopeUnclicked($query)
+    /**
+     * @param  Builder<PaymentLink>  $query
+     */
+    public function scopeUnclicked(Builder $query): Builder
     {
         return $query->whereNull('clicked_at');
     }
 
-    public function scopeClicked($query)
+    /**
+     * @param  Builder<PaymentLink>  $query
+     */
+    public function scopeClicked(Builder $query): Builder
     {
         return $query->whereNotNull('clicked_at');
     }
@@ -93,7 +127,7 @@ class PaymentLink extends Model
 
     public function isExpired(): bool
     {
-        return $this->expires_at < now();
+        return $this->expires_at <= now();
     }
 
     public function isRevoked(): bool
@@ -114,17 +148,19 @@ class PaymentLink extends Model
 
         $invoice = $this->invoice;
 
-        return $invoice && ! in_array($invoice->status, ['paid', 'cancelled', 'voided']);
+        return $invoice && ! in_array($invoice->status, [InvoiceStatus::Paid, InvoiceStatus::Cancelled, InvoiceStatus::Voided]);
     }
 
     public function markClicked(?string $ip = null): void
     {
-        if (! $this->clicked_at) {
-            $this->update([
+        static::where('id', $this->id)
+            ->whereNull('clicked_at')
+            ->update([
                 'clicked_at' => now(),
                 'clicked_ip' => $ip,
             ]);
-        }
+
+        $this->refresh();
     }
 
     public function revoke(): void

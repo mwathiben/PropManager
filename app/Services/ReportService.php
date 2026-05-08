@@ -46,7 +46,7 @@ class ReportService
             ->sum('rent_amount');
 
         // Total rent collected (payments)
-        $collectedRent = Payment::where('landlord_id', $landlordId)
+        $collectedRent = Payment::withArchived()->where('landlord_id', $landlordId)
             ->whereBetween('payment_date', [$dateRange['start'], $dateRange['end']])
             ->where('is_voided', false)
             ->sum('amount');
@@ -132,7 +132,7 @@ class ReportService
 
         $dateFormatSql = $this->getDateFormatSql('payment_date', $dateFormat);
 
-        $trendData = Payment::where('landlord_id', $landlordId)
+        $trendData = Payment::withArchived()->where('landlord_id', $landlordId)
             ->whereBetween('payment_date', [$dateRange['start'], $dateRange['end']])
             ->where('is_voided', false)
             ->selectRaw("{$dateFormatSql} as date_group, MIN(payment_date) as first_date, SUM(amount) as total_amount, COUNT(*) as payment_count")

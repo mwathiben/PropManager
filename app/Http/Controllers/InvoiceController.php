@@ -22,6 +22,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -152,16 +153,26 @@ class InvoiceController extends Controller
         });
 
         $invoice->load(['lease.tenant', 'lease.unit.building']);
-        Mail::to($invoice->lease->tenant->email)->send(new PaymentReceived($payment, $invoice));
+        $tenant = $invoice->lease?->tenant;
+
+        if ($tenant?->email) {
+            Mail::to($tenant->email)->send(new PaymentReceived($payment, $invoice));
+        } else {
+            Log::warning('Skipping payment receipt email: tenant not found', [
+                'invoice_id' => $invoice->id,
+                'payment_id' => $payment->id,
+            ]);
+        }
 
         if ($overpayment > 0) {
             $invoice->lease->refresh();
+            $tenant = $invoice->lease->tenant;
             $landlord = User::find($invoice->landlord_id);
-            if ($landlord) {
+            if ($landlord && $tenant) {
                 Mail::to($landlord->email)->queue(new OverpaymentNotification(
                     $payment,
                     $invoice->lease,
-                    $invoice->lease->tenant,
+                    $tenant,
                     $overpayment,
                     $invoice->lease->wallet_balance
                 ));

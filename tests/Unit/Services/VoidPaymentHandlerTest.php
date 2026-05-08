@@ -109,6 +109,16 @@ class VoidPaymentHandlerTest extends TestCase
         $invoice = $this->createInvoiceForLease($lease, 'partial');
         $invoice->update(['amount_paid' => 20000]);
 
+        $paymentToKeep = Payment::create([
+            'invoice_id' => $invoice->id,
+            'lease_id' => $lease->id,
+            'landlord_id' => $this->setupData['landlord']->id,
+            'amount' => 10000,
+            'payment_method' => 'cash',
+            'payment_date' => now(),
+            'reference' => 'VOID-UNIT-TEST-4-KEEP',
+        ]);
+
         $payment = Payment::create([
             'invoice_id' => $invoice->id,
             'lease_id' => $lease->id,

@@ -12,10 +12,8 @@ class NotificationDefaultsFactory extends Factory
 
     public function definition(): array
     {
-        $landlord = User::factory()->state(['role' => 'landlord'])->create();
-
         return array_merge(
-            ['landlord_id' => $landlord->id],
+            ['landlord_id' => User::factory()->state(['role' => 'landlord'])],
             NotificationDefaults::getDefaultAttributes()
         );
     }

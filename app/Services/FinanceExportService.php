@@ -711,6 +711,11 @@ class FinanceExportService
     protected function getLandlordCurrency(): Currency
     {
         $user = auth()->user();
+
+        if (! $user) {
+            return Currency::default();
+        }
+
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
         $config = PaymentConfiguration::where('landlord_id', $landlordId)->first();
 

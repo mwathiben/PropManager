@@ -5,6 +5,7 @@ namespace App\Http\Requests\Kyc;
 use App\Models\KycRequirement;
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\File;
 use Illuminate\Validation\Validator;
 
@@ -17,9 +18,20 @@ class SubmitKycDocumentsRequest extends FormRequest
 
     public function rules(): array
     {
+        $user = $this->user();
+        $landlordId = $user?->landlord_id;
+
         return [
             'submissions' => ['required', 'array', 'min:1'],
-            'submissions.*.requirement_id' => ['required', 'integer', 'exists:kyc_requirements,id'],
+            'submissions.*.requirement_id' => [
+                'required',
+                'integer',
+                Rule::exists('kyc_requirements', 'id')->where(function ($query) use ($landlordId) {
+                    // Allow requirements belonging to tenant's landlord OR global (null landlord_id)
+                    $query->where('landlord_id', $landlordId)
+                        ->orWhereNull('landlord_id');
+                }),
+            ],
             'submissions.*.file' => [
                 'nullable',
                 File::types(['pdf', 'jpg', 'jpeg', 'png', 'gif'])
@@ -56,17 +68,33 @@ class SubmitKycDocumentsRequest extends FormRequest
         }
 
         $requiredIds = $this->getRequiredRequirementIds($user);
-        $submittedIds = collect($this->submissions ?? [])
+        $submissions = $this->submissions ?? [];
+        $submittedIds = collect($submissions)
             ->pluck('requirement_id')
             ->map(fn ($id) => (int) $id)
             ->toArray();
 
+        // Build a map of requirement_id => array index for error mapping
+        $reqIdToIndex = [];
+        foreach ($submissions as $index => $submission) {
+            $reqIdToIndex[(int) ($submission['requirement_id'] ?? 0)] = $index;
+        }
+
         foreach ($requiredIds as $reqId) {
             if (! in_array($reqId, $submittedIds)) {
-                $validator->errors()->add(
-                    "submissions.{$reqId}",
-                    'This required document is missing.'
-                );
+                // If there's a submission entry for this requirement, use its index
+                if (isset($reqIdToIndex[$reqId])) {
+                    $validator->errors()->add(
+                        "submissions.{$reqIdToIndex[$reqId]}",
+                        'This required document is missing.'
+                    );
+                } else {
+                    // No submission entry exists - add generic top-level error
+                    $validator->errors()->add(
+                        'submissions',
+                        "Required document (ID: {$reqId}) is missing."
+                    );
+                }
             }
         }
     }

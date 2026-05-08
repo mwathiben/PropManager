@@ -143,10 +143,8 @@ class NotificationMailRenderTest extends TestCase
         $html = $this->renderMail(data: ['unit' => '<img onerror=alert(1) src=x>']);
 
         $this->assertStringNotContainsString('<img onerror=', $html);
-        $this->assertTrue(
-            str_contains($html, '&lt;img') || str_contains($html, '&amp;lt;img'),
-            'XSS payload must be entity-escaped in rendered output'
-        );
+        $this->assertStringContainsString('&lt;img', $html);
+        $this->assertStringNotContainsString('&amp;lt;img', $html);
     }
 
     public function test_xss_in_recipient_name_is_escaped(): void
@@ -154,10 +152,8 @@ class NotificationMailRenderTest extends TestCase
         $html = $this->renderMail(recipientName: '<script>alert("name")</script>');
 
         $this->assertStringNotContainsString('<script>alert', $html);
-        $this->assertTrue(
-            str_contains($html, '&lt;script&gt;') || str_contains($html, '&amp;lt;script&amp;gt;'),
-            'Script tag in recipient name must be entity-escaped in rendered output'
-        );
+        $this->assertStringContainsString('&lt;script&gt;', $html);
+        $this->assertStringNotContainsString('&amp;lt;script&amp;gt;', $html);
     }
 
     public function test_action_button_rejects_javascript_url(): void

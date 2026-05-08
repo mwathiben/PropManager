@@ -84,9 +84,9 @@ class PlatformFeeTierTest extends TestCase
 
     private function seedDefaultTiers(): void
     {
-        PlatformFeeTier::create(['name' => 'Starter', 'min_volume' => 0, 'max_volume' => 50000, 'fee_percentage' => 3.00, 'sort_order' => 0, 'is_active' => true]);
-        PlatformFeeTier::create(['name' => 'Growth', 'min_volume' => 50000, 'max_volume' => 200000, 'fee_percentage' => 2.50, 'sort_order' => 1, 'is_active' => true]);
-        PlatformFeeTier::create(['name' => 'Scale', 'min_volume' => 200000, 'max_volume' => 500000, 'fee_percentage' => 2.00, 'sort_order' => 2, 'is_active' => true]);
+        PlatformFeeTier::create(['name' => 'Starter', 'min_volume' => 0, 'max_volume' => 49999.99, 'fee_percentage' => 3.00, 'sort_order' => 0, 'is_active' => true]);
+        PlatformFeeTier::create(['name' => 'Growth', 'min_volume' => 50000, 'max_volume' => 199999.99, 'fee_percentage' => 2.50, 'sort_order' => 1, 'is_active' => true]);
+        PlatformFeeTier::create(['name' => 'Scale', 'min_volume' => 200000, 'max_volume' => 499999.99, 'fee_percentage' => 2.00, 'sort_order' => 2, 'is_active' => true]);
         PlatformFeeTier::create(['name' => 'Enterprise', 'min_volume' => 500000, 'max_volume' => null, 'fee_percentage' => 1.50, 'sort_order' => 3, 'is_active' => true]);
     }
 }

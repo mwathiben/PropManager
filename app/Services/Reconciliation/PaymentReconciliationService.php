@@ -98,13 +98,26 @@ class PaymentReconciliationService
             ->where('payment_method', 'paystack')
             ->whereNotNull('paystack_reference')
             ->where('is_voided', false)
-            ->whereBetween('payment_date', [$from->toDateString(), $to->toDateString()])
+            ->whereBetween('payment_date', [$from->startOfDay(), $to->endOfDay()])
             ->select(['id', 'paystack_reference', 'amount', 'currency', 'payment_date', 'landlord_id'])
             ->get();
 
         $keyed = [];
         foreach ($payments as $payment) {
-            $keyed[$payment->paystack_reference] = $payment;
+            $ref = $payment->paystack_reference;
+
+            if (isset($keyed[$ref])) {
+                Log::warning('Reconciliation: duplicate paystack_reference in local payments', [
+                    'paystack_reference' => $ref,
+                    'existing_payment_id' => $keyed[$ref]->id,
+                    'duplicate_payment_id' => $payment->id,
+                    'landlord_id' => $landlordId,
+                ]);
+
+                continue;
+            }
+
+            $keyed[$ref] = $payment;
         }
 
         return $keyed;

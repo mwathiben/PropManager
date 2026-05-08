@@ -12,12 +12,9 @@ class NotificationPreferenceFactory extends Factory
 
     public function definition(): array
     {
-        $landlord = User::factory()->state(['role' => 'landlord'])->create();
-        $user = User::factory()->state(['role' => 'tenant'])->create();
-
         return [
-            'user_id' => $user->id,
-            'landlord_id' => $landlord->id,
+            'user_id' => User::factory()->state(['role' => 'tenant']),
+            'landlord_id' => User::factory()->state(['role' => 'landlord']),
             'rent_reminder_enabled' => true,
             'arrears_notice_enabled' => true,
             'invoice_enabled' => true,

@@ -9,12 +9,14 @@ class ValidateBulkImportRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return auth()->user()->isLandlord() || auth()->user()->isCaretaker();
+        $user = $this->user();
+
+        return $user && ($user->isLandlord() || $user->isCaretaker());
     }
 
     public function rules(): array
     {
-        $user = auth()->user();
+        $user = $this->user();
         $landlordId = $user->isLandlord() ? $user->id : $user->landlord_id;
 
         return [

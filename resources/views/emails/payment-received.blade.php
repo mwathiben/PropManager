@@ -25,7 +25,7 @@
 **{{ __('emails.payment.total_paid_to_date') }}:** {{ $currency_symbol }} {{ number_format($invoice->amount_paid, 2) }}<br>
 **{{ __('emails.payment.balance_remaining') }}:** {{ $currency_symbol }} {{ number_format($invoice->total_due - $invoice->amount_paid, 2) }}
 
-@if($invoice->status === 'paid')
+@if($invoice->status === \App\Enums\InvoiceStatus::Paid)
 <x-mail::panel>
 **{{ __('emails.payment.fully_paid') }}**
 </x-mail::panel>

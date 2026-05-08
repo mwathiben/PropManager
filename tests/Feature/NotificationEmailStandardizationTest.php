@@ -7,6 +7,7 @@ use App\Models\NotificationTemplate;
 use App\Models\User;
 use App\Services\NotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
@@ -333,6 +334,36 @@ class NotificationEmailStandardizationTest extends TestCase
             'landlord_id' => $this->landlord->id,
             'email_enabled' => false,
         ]);
+    }
+
+    public function test_one_click_unsubscribe_emits_security_log(): void
+    {
+        $loggedMessages = [];
+        Log::listen(function (\Illuminate\Log\Events\MessageLogged $event) use (&$loggedMessages) {
+            $loggedMessages[] = $event;
+        });
+
+        $this->createNotificationPreference($this->tenant, $this->landlord, [
+            'email_enabled' => true,
+        ]);
+
+        $url = URL::temporarySignedRoute(
+            'email.unsubscribe',
+            now()->addDays(30),
+            ['user' => $this->tenant->id]
+        );
+
+        $this->post($url)->assertOk();
+
+        $securityLog = collect($loggedMessages)->first(fn ($e) => $e->level === 'info'
+            && $e->message === 'One-click email unsubscribe'
+            && ($e->context['action'] ?? null) === 'email_unsubscribe'
+        );
+
+        $this->assertNotNull($securityLog, 'Security log entry for unsubscribe must be created');
+        $this->assertEquals($this->tenant->id, $securityLog->context['user_id']);
+        $this->assertEquals($this->tenant->landlord_id, $securityLog->context['landlord_id']);
+        $this->assertArrayHasKey('ip', $securityLog->context);
     }
 
     public function test_one_click_unsubscribe_rejects_unsigned_request(): void

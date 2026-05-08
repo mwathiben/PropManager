@@ -102,8 +102,9 @@ class AuthController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'role' => 'tenant',
         ]);
+        $user->role = 'tenant';
+        $user->save();
 
         $abilities = $this->getAbilitiesForUser($user);
         $token = $user->createToken($request->device_name, $abilities);

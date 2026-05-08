@@ -39,9 +39,9 @@ return new class extends Migration
             $table->timestamp('voided_at')->nullable();
             $table->text('void_reason')->nullable();
             $table->text('notes')->nullable();
-            $table->timestamp('original_created_at');
-            $table->timestamp('original_updated_at');
-            $table->timestamp('archived_at');
+            $table->timestamp('original_created_at')->nullable();
+            $table->timestamp('original_updated_at')->nullable();
+            $table->timestamp('archived_at')->useCurrent();
             $table->json('related_data')->nullable();
             $table->timestamps();
 

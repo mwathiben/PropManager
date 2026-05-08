@@ -15,7 +15,7 @@ class BankWebhookLogFactory extends Factory
         return [
             'bank_code' => fake()->randomElement(['EQUITY', 'KCB', 'COOP', 'ABSA', 'STANBIC']),
             'event_type' => fake()->randomElement(['payment.received', 'payment.confirmed', 'payment.failed', 'account.credited']),
-            'payload' => [
+            'payload' => fn () => [
                 'transaction_id' => strtoupper(fake()->bothify('TXN########')),
                 'amount' => fake()->numberBetween(1000, 100000),
                 'currency' => 'KES',
@@ -55,7 +55,7 @@ class BankWebhookLogFactory extends Factory
     public function failed(): static
     {
         return $this->state([
-            'status' => 'error',
+            'status' => 'failed',
             'error_details' => fake()->randomElement([
                 'Invalid payload structure',
                 'Duplicate transaction',

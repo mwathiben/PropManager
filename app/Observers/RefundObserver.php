@@ -16,6 +16,12 @@ class RefundObserver
 
     public function updated(Refund $refund): void
     {
+        $originalLandlordId = $refund->getOriginal('landlord_id');
+
+        if ($originalLandlordId && $originalLandlordId !== $refund->landlord_id) {
+            FinanceCacheService::invalidateForLandlord($originalLandlordId);
+        }
+
         if ($refund->landlord_id) {
             FinanceCacheService::invalidateForLandlord($refund->landlord_id);
         }

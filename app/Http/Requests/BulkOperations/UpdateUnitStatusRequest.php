@@ -3,12 +3,15 @@
 namespace App\Http\Requests\BulkOperations;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Auth;
 
 class UpdateUnitStatusRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return auth()->user()->isLandlord() || auth()->user()->isCaretaker();
+        $user = Auth::user();
+
+        return $user && ($user->isLandlord() || $user->isCaretaker());
     }
 
     public function rules(): array
@@ -19,7 +22,7 @@ class UpdateUnitStatusRequest extends FormRequest
             'new_status' => 'required|in:vacant,occupied,maintenance,arrears',
             'notes' => 'nullable|string|max:500',
             'building_id' => 'nullable|integer|exists:buildings,id',
-            'wing_id' => 'nullable|integer|exists:buildings,id',
+            'wing_id' => 'nullable|integer|exists:wings,id',
         ];
     }
 }

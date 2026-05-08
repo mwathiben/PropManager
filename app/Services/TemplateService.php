@@ -17,11 +17,16 @@ class TemplateService
     }
 
     /**
-     * Render a template with context
+     * Render a template with HTML-escaped context (safe by default).
+     *
+     * Pass $escape = false only when the caller guarantees its own escaping
+     * (e.g. Blade templates that call e()).
      */
-    public function render(NotificationTemplate $template, array $context): array
+    public function render(NotificationTemplate $template, array $context, bool $escape = true): array
     {
-        return $template->render($context);
+        return $escape
+            ? $template->render($context)
+            : $template->renderRaw($context);
     }
 
     /**

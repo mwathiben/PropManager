@@ -14,12 +14,9 @@ class TenantMessageFactory extends Factory
 
     public function definition(): array
     {
-        $landlord = User::factory()->state(['role' => 'landlord'])->create();
-        $user = User::factory()->state(['role' => 'tenant'])->create();
-
         return [
-            'landlord_id' => $landlord->id,
-            'user_id' => $user->id,
+            'landlord_id' => User::factory()->state(['role' => 'landlord']),
+            'user_id' => User::factory()->state(['role' => 'tenant']),
             'notification_id' => null,
             'ticket_id' => null,
             'twilio_message_sid' => 'SM'.fake()->regexify('[a-f0-9]{32}'),

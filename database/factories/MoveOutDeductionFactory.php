@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Models\MoveOut;
 use App\Models\MoveOutDeduction;
+use App\Models\MoveOutDeductionCategory;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class MoveOutDeductionFactory extends Factory
@@ -89,6 +90,13 @@ class MoveOutDeductionFactory extends Factory
     {
         return $this->state([
             'move_out_id' => $moveOut->id,
+        ]);
+    }
+
+    public function withCategory(?MoveOutDeductionCategory $category = null): static
+    {
+        return $this->state(fn () => [
+            'category_id' => $category?->id ?? MoveOutDeductionCategory::factory(),
         ]);
     }
 }

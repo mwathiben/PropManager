@@ -61,9 +61,8 @@ class TenantWelcome extends Mailable implements ShouldQueue
                 'startDate' => $this->lease->start_date->format('F d, Y'),
                 'dashboardUrl' => route('dashboard'),
                 'currency_symbol' => $this->invitation->unit->building->getEffectiveCurrency()->symbol(),
-                'unsubscribeUrl' => URL::temporarySignedRoute(
+                'unsubscribeUrl' => URL::signedRoute(
                     'email.preferences',
-                    now()->addDays(30),
                     ['user' => $this->tenant->id]
                 ),
             ],

@@ -3,12 +3,15 @@
 namespace App\Http\Requests\BulkOperations;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Auth;
 
 class AdjustRentRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return auth()->user()->isLandlord() || auth()->user()->isCaretaker();
+        $user = Auth::user();
+
+        return $user && ($user->isLandlord() || $user->isCaretaker());
     }
 
     public function rules(): array
@@ -22,7 +25,7 @@ class AdjustRentRequest extends FormRequest
             'notify_tenants' => 'boolean',
             'reason' => 'nullable|string|max:500',
             'building_id' => 'nullable|integer|exists:buildings,id',
-            'wing_id' => 'nullable|integer|exists:buildings,id',
+            'wing_id' => 'nullable|integer|exists:wings,id',
         ];
     }
 }

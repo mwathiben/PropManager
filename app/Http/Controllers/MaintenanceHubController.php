@@ -26,6 +26,8 @@ class MaintenanceHubController extends Controller
             'counts' => $this->getCounts($landlordId),
         ];
 
+        $user = $request->user();
+
         $tabData = match ($tab) {
             'tickets' => $this->getTicketsData($request, $user, 'issue'),
             'complaints' => $this->getTicketsData($request, $user, 'complaint'),

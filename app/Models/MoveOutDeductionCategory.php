@@ -104,6 +104,12 @@ class MoveOutDeductionCategory extends Model
      */
     public function scopeForBuilding(Builder $query, ?int $buildingId): Builder
     {
+        // If buildingId is null, only return global categories (where building_id IS NULL)
+        if ($buildingId === null) {
+            return $query->whereNull('building_id');
+        }
+
+        // Otherwise, return categories for this specific building OR global categories
         return $query->where(function ($q) use ($buildingId) {
             $q->where('building_id', $buildingId)
                 ->orWhereNull('building_id');

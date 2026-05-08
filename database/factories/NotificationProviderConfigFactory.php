@@ -12,10 +12,8 @@ class NotificationProviderConfigFactory extends Factory
 
     public function definition(): array
     {
-        $landlord = User::factory()->state(['role' => 'landlord'])->create();
-
         return [
-            'landlord_id' => $landlord->id,
+            'landlord_id' => User::factory()->state(['role' => 'landlord']),
             'provider_type' => NotificationProviderConfig::TYPE_EMAIL,
             'provider_name' => 'smtp',
             'credentials' => null,

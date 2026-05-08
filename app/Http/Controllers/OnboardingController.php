@@ -170,7 +170,7 @@ class OnboardingController extends Controller
             3 => [
                 'property_name' => 'required|string|max:255',
                 'property_type' => 'required|in:residential,estate,commercial,mixed',
-                'address' => 'nullable|string|max:500',
+                'property_address' => 'nullable|string|max:500',
             ],
             4 => [
                 'has_wings' => 'boolean',

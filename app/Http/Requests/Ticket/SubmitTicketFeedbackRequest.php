@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Ticket;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Auth;
 
 class SubmitTicketFeedbackRequest extends FormRequest
 {
@@ -10,7 +11,11 @@ class SubmitTicketFeedbackRequest extends FormRequest
     {
         $ticket = $this->route('ticket');
 
-        return $ticket->reporter_id === auth()->id();
+        if (! $ticket || ! is_object($ticket) || ! isset($ticket->reporter_id)) {
+            return false;
+        }
+
+        return (int) $ticket->reporter_id == (int) Auth::id();
     }
 
     public function rules(): array

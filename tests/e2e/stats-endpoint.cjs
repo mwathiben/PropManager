@@ -15,7 +15,11 @@ const { chromium } = require('playwright');
     await page.getByLabel('Email').fill('test@example.com');
     await page.getByLabel('Password').fill('password');
     await page.getByRole('button', { name: 'Log in' }).click();
-    await page.waitForURL('**/dashboard**', { timeout: 15000 }).catch(() => {});
+    try {
+        await page.waitForURL('**/dashboard**', { timeout: 15000 });
+    } catch (err) {
+        console.error('Dashboard navigation timeout:', err.message);
+    }
     await page.waitForLoadState('networkidle');
     console.log('URL after login:', page.url());
     await page.screenshot({ path: 'e2e-screenshots/stats-02-dashboard.png' });
@@ -74,7 +78,9 @@ const { chromium } = require('playwright');
     console.log('Unauthenticated status:', unauthResp.status());
     console.log('Redirected to login:', incogPage.url().includes('login'));
     await incogPage.screenshot({ path: 'e2e-screenshots/stats-04-unauth-redirect.png' });
+    const authProtected = incogPage.url().includes('login');
 
+    await incogContext.close();
     await browser.close();
 
     console.log('\n=== E2E RESULTS ===');
@@ -82,7 +88,7 @@ const { chromium } = require('playwright');
     console.log('Dashboard loads:', onDashboard ? 'PASS' : 'FAIL');
     console.log('Stats endpoint:', response.status === 200 ? 'PASS' : 'FAIL (' + response.status + ')');
     console.log('JSON structure:', (hasFinancial && hasAging && hasActions) ? 'PASS' : 'FAIL');
-    console.log('Auth protection:', incogPage.url().includes('login') ? 'PASS' : 'FAIL');
+    console.log('Auth protection:', authProtected ? 'PASS' : 'FAIL');
 
     process.exit((response.status === 200 && hasFinancial && hasAging && hasActions) ? 0 : 1);
 })();

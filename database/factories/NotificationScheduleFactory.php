@@ -14,11 +14,10 @@ class NotificationScheduleFactory extends Factory
 
     public function definition(): array
     {
-        $landlord = User::factory()->state(['role' => 'landlord'])->create();
         $type = fake()->randomElement(['rent_reminder', 'arrears_notice', 'lease_expiry']);
 
         return [
-            'landlord_id' => $landlord->id,
+            'landlord_id' => User::factory()->state(['role' => 'landlord']),
             'name' => ucfirst(str_replace('_', ' ', $type)).' Schedule',
             'type' => $type,
             'trigger' => $this->getTriggerForType($type),

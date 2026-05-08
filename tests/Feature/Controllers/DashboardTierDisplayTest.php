@@ -17,8 +17,8 @@ class DashboardTierDisplayTest extends TestCase
     {
         $setupData = $this->createLandlordWithFullSetup();
 
-        PlatformFeeTier::create(['name' => 'Starter', 'min_volume' => 0, 'max_volume' => 50000, 'fee_percentage' => 3.00, 'sort_order' => 0, 'is_active' => true]);
-        PlatformFeeTier::create(['name' => 'Growth', 'min_volume' => 50000, 'max_volume' => 200000, 'fee_percentage' => 2.50, 'sort_order' => 1, 'is_active' => true]);
+        PlatformFeeTier::create(['name' => 'Starter', 'min_volume' => 0, 'max_volume' => 49999.99, 'fee_percentage' => 3.00, 'sort_order' => 0, 'is_active' => true]);
+        PlatformFeeTier::create(['name' => 'Growth', 'min_volume' => 50000, 'max_volume' => 199999.99, 'fee_percentage' => 2.50, 'sort_order' => 1, 'is_active' => true]);
 
         $response = $this->actingAs($setupData['landlord'])
             ->get(route('dashboard'));

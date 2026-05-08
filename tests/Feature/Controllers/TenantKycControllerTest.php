@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Controllers;
 
+use App\Enums\KycSubmissionStatus;
 use App\Models\KycRequirement;
 use App\Models\TenantKycSubmission;
 use App\Models\User;
@@ -481,6 +482,7 @@ class TenantKycControllerTest extends TestCase
 
     public function test_landlord_cannot_review_other_landlords_submissions(): void
     {
+        /** @var User $otherLandlord */
         $otherLandlord = User::factory()->create(['role' => 'landlord']);
 
         $requirement = KycRequirement::factory()
@@ -643,7 +645,7 @@ class TenantKycControllerTest extends TestCase
         $this->assertFalse($this->tenant->fresh()->hasCompletedKyc());
     }
 
-    public function test_tenant_redirects_to_dashboard_after_all_approved(): void
+    public function test_tenant_with_completed_kyc_can_access_dashboard(): void
     {
         $requirement = KycRequirement::factory()
             ->forLandlord($this->landlord)
@@ -661,8 +663,25 @@ class TenantKycControllerTest extends TestCase
 
         // Tenant should now have completed KYC
         $this->assertTrue($this->tenant->fresh()->hasCompletedKyc());
+    }
 
-        // Submitting new document when all approved should redirect to dashboard
+    public function test_resubmission_resets_status_to_pending(): void
+    {
+        $requirement = KycRequirement::factory()
+            ->forLandlord($this->landlord)
+            ->nationalId()
+            ->required()
+            ->create();
+
+        // Create approved submission
+        $submission = TenantKycSubmission::factory()
+            ->forTenant($this->tenant)
+            ->forLandlord($this->landlord)
+            ->forRequirement($requirement)
+            ->approved()
+            ->create();
+
+        // Resubmitting should reset status to pending
         $file = UploadedFile::fake()->image('updated.jpg');
         $response = $this->actingAs($this->tenant)
             ->post(route('tenant.kyc.update'), [
@@ -674,8 +693,14 @@ class TenantKycControllerTest extends TestCase
                 ],
             ]);
 
-        // Since all required are already approved, should redirect to dashboard
-        // (Implementation may differ - adjust expectation as needed)
         $response->assertRedirect();
+
+        // Verify the submission is now pending (resubmission resets status)
+        $updatedSubmission = TenantKycSubmission::where('user_id', $this->tenant->id)
+            ->where('requirement_id', $requirement->id)
+            ->first();
+
+        $this->assertEquals(KycSubmissionStatus::Pending, $updatedSubmission->status);
+        $this->assertFalse($this->tenant->fresh()->hasCompletedKyc());
     }
 }

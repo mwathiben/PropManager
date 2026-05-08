@@ -167,10 +167,11 @@ class InvitationController extends Controller
                     'name' => $request->name,
                     'email' => $invitation->email,
                     'password' => Hash::make($request->password),
-                    'role' => 'caretaker',
-                    'landlord_id' => $invitation->landlord_id,
                     'mobile_number' => $request->mobile_number,
                 ]);
+                $user->role = 'caretaker';
+                $user->landlord_id = $invitation->landlord_id;
+                $user->save();
 
                 $invitation->markAsAccepted();
 
@@ -353,7 +354,7 @@ class InvitationController extends Controller
             ->where('type', Notification::TYPE_CARETAKER_INVITATION)
             ->where('channel', 'in_app')
             ->whereNull('read_at')
-            ->whereJsonContains('data->invitation_id', $invitationId)
+            ->where('data->invitation_id', $invitationId)
             ->update(['read_at' => now(), 'status' => 'read']);
     }
 }

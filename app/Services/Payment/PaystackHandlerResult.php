@@ -89,6 +89,7 @@ class PaystackHandlerResult
         return new self(
             status: self::STATUS_VERIFICATION_FAILED,
             errorMessage: 'Payment verification failed',
+            httpStatusCode: 422,
         );
     }
 

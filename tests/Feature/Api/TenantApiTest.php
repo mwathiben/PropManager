@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Payment;
+use App\Models\PaymentConfiguration;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use PHPUnit\Framework\Attributes\Group;
@@ -131,6 +132,14 @@ class TenantApiTest extends TestCase
 
     public function test_tenant_can_initiate_mpesa_payment(): void
     {
+        $landlord = $this->setup['landlord'];
+        PaymentConfiguration::factory()->forLandlord($landlord)->create([
+            'mpesa_consumer_key' => 'test_consumer_key',
+            'mpesa_consumer_secret' => 'test_consumer_secret',
+            'mpesa_shortcode' => '174379',
+            'mpesa_passkey' => 'test_passkey',
+        ]);
+
         $this->mockMpesaService([
             'ResponseCode' => '0',
             'ResponseDescription' => 'Success',
@@ -160,18 +169,29 @@ class TenantApiTest extends TestCase
 
     public function test_tenant_can_initiate_paystack_payment(): void
     {
-        $this->mockPaystackService([
-            'status' => true,
-            'data' => [
-                'authorization_url' => 'https://checkout.paystack.com/test',
-                'reference' => 'PAY_TEST123',
-                'access_code' => 'AC_TEST',
-            ],
+        \Illuminate\Support\Facades\Http::fake([
+            'https://api.paystack.co/*' => \Illuminate\Support\Facades\Http::response([
+                'status' => true,
+                'data' => [
+                    'authorization_url' => 'https://checkout.paystack.com/test',
+                    'reference' => 'PAY_TEST123',
+                    'access_code' => 'AC_TEST',
+                ],
+            ], 200),
         ]);
 
         $tenant = $this->tenantData['tenant'];
         $lease = $this->tenantData['lease'];
         $invoice = $this->createInvoiceForLease($lease, 'sent');
+
+        PaymentConfiguration::updateOrCreate(
+            ['landlord_id' => $invoice->landlord_id],
+            [
+                'paystack_enabled' => true,
+                'paystack_public_key' => 'pk_test_xxx',
+                'paystack_secret_key' => 'sk_test_xxx',
+            ]
+        );
 
         Sanctum::actingAs($tenant, ['tenant:read']);
 

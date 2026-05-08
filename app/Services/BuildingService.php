@@ -18,7 +18,66 @@ use Illuminate\Support\Facades\DB;
 
 class BuildingService
 {
-    public function getFilteredBuildings(int $landlordId, Request $request): Collection
+    public const SHARED_FIELDS = [
+        'building_type', 'address', 'description', 'amenities', 'coordinates', 'currency',
+        'water_billing_type', 'water_flat_rate', 'water_unit_rate',
+        'auto_generate_invoices', 'invoice_generation_day', 'auto_send_invoices',
+    ];
+
+    public function syncSharedSettings(Building $building): void
+    {
+        if (! $building->parent_building_id) {
+            return;
+        }
+
+        $sharedData = collect(self::SHARED_FIELDS)
+            ->mapWithKeys(fn ($field) => [$field => $building->$field])
+            ->toArray();
+
+        Building::where('parent_building_id', $building->parent_building_id)
+            ->where('id', '!=', $building->id)
+            ->update($sharedData);
+    }
+
+    public function deleteBuilding(Building $building): void
+    {
+        if ($building->isWing()) {
+            throw new \InvalidArgumentException(
+                'Individual wings cannot be deleted. Delete the parent building instead.'
+            );
+        }
+
+        $unitIds = $building->units()->pluck('id');
+
+        if ($building->hasWings()) {
+            $wingUnitIds = Unit::whereIn('building_id', $building->wings()->pluck('id'))->pluck('id');
+            $unitIds = $unitIds->merge($wingUnitIds);
+        }
+
+        $activeLeaseCount = $unitIds->isNotEmpty()
+            ? Lease::whereIn('unit_id', $unitIds)->where('is_active', true)->count()
+            : 0;
+
+        if ($activeLeaseCount > 0) {
+            throw new \InvalidArgumentException(
+                "Cannot delete building with {$activeLeaseCount} active lease(s). Terminate or move out all tenants first."
+            );
+        }
+
+        DB::transaction(function () use ($building) {
+            if ($building->hasWings()) {
+                foreach ($building->wings as $wing) {
+                    $wing->units()->delete();
+                    $wing->delete();
+                }
+            }
+
+            $building->units()->delete();
+            $building->delete();
+        });
+    }
+
+    public function getFilteredBuildings(int $landlordId, Request $request): array
     {
         $hasFilters = $request->filled('search') || $request->filled('type');
         $sort = $request->get('sort', 'name_asc');
@@ -30,7 +89,7 @@ class BuildingService
         return $this->queryBuildings($landlordId, $request, $sort);
     }
 
-    private function getCachedBuildings(int $landlordId): Collection
+    private function getCachedBuildings(int $landlordId): array
     {
         $cacheKey = BuildingCacheService::listKey($landlordId);
 
@@ -39,10 +98,11 @@ class BuildingService
         });
     }
 
-    private function queryBuildings(int $landlordId, Request $request, string $sort): Collection
+    private function queryBuildings(int $landlordId, Request $request, string $sort): array
     {
         $query = Building::where('landlord_id', $landlordId)
-            ->with(['property:id,name,address'])
+            ->excludeParentContainers()
+            ->with(['property:id,name,address', 'parentBuilding:id,name,address,building_type'])
             ->withCount('units')
             ->withCount(['units as occupied_units_count' => function ($q) {
                 $q->where('status', 'occupied');
@@ -52,7 +112,10 @@ class BuildingService
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('address', 'like', "%{$search}%");
+                    ->orWhere('address', 'like', "%{$search}%")
+                    ->orWhereHas('parentBuilding', function ($pq) use ($search) {
+                        $pq->where('name', 'like', "%{$search}%");
+                    });
             });
         }
 
@@ -62,13 +125,14 @@ class BuildingService
 
         $this->applySorting($query, $sort);
 
-        return $this->mapBuildingDetails($query->get());
+        return $this->groupBuildingsByParent($this->mapBuildingDetails($query->get()));
     }
 
-    private function fetchBuildingsWithCounts(int $landlordId): Collection
+    private function fetchBuildingsWithCounts(int $landlordId): array
     {
         $buildings = Building::where('landlord_id', $landlordId)
-            ->with(['property:id,name,address'])
+            ->excludeParentContainers()
+            ->with(['property:id,name,address', 'parentBuilding:id,name,address,building_type'])
             ->withCount('units')
             ->withCount(['units as occupied_units_count' => function ($q) {
                 $q->where('status', 'occupied');
@@ -76,7 +140,7 @@ class BuildingService
             ->orderBy('name', 'asc')
             ->get();
 
-        return $this->mapBuildingDetails($buildings);
+        return $this->groupBuildingsByParent($this->mapBuildingDetails($buildings));
     }
 
     private function mapBuildingDetails(Collection $buildings): Collection
@@ -90,6 +154,42 @@ class BuildingService
 
             return $building;
         });
+    }
+
+    private function groupBuildingsByParent(Collection $buildings): array
+    {
+        $grouped = $buildings->groupBy(fn ($b) => $b->parent_building_id ?? 'standalone');
+
+        $groups = [];
+
+        foreach ($grouped as $key => $items) {
+            if ($key === 'standalone') {
+                continue;
+            }
+
+            $parent = $items->first()->parentBuilding;
+            $groups[] = [
+                'parent_name' => $parent?->name,
+                'parent_address' => $parent?->address,
+                'parent_building_type' => $parent?->building_type,
+                'parent_type_label' => $parent ? ($parent->getBuildingTypeLabel()) : null,
+                'buildings' => $items->values()->toArray(),
+            ];
+        }
+
+        usort($groups, fn ($a, $b) => strcasecmp($a['parent_name'] ?? '', $b['parent_name'] ?? ''));
+
+        if ($grouped->has('standalone')) {
+            $groups[] = [
+                'parent_name' => null,
+                'parent_address' => null,
+                'parent_building_type' => null,
+                'parent_type_label' => null,
+                'buildings' => $grouped['standalone']->values()->toArray(),
+            ];
+        }
+
+        return $groups;
     }
 
     public function createStandaloneBuilding(array $data, int $landlordId): Building
@@ -158,6 +258,18 @@ class BuildingService
 
             $this->generateUnits($wing, $data['floors'], $data['units_per_floor'], $landlordId, $prefix);
 
+            $existingSibling = Building::where('parent_building_id', $parentBuilding->id)
+                ->where('id', '!=', $wing->id)
+                ->first();
+
+            if ($existingSibling) {
+                $sharedData = collect(self::SHARED_FIELDS)
+                    ->mapWithKeys(fn ($field) => [$field => $existingSibling->$field])
+                    ->toArray();
+
+                $wing->update($sharedData);
+            }
+
             return $wing;
         });
     }
@@ -191,7 +303,9 @@ class BuildingService
     public function getBuildingDashboardData(Building $building, Request $request): array
     {
         $property = $building->property;
-        $buildings = $property->buildings;
+        $buildings = Building::where('property_id', $property->id)
+            ->excludeParentContainers()
+            ->get();
 
         $period = $request->get('period', 'this_month');
         $startDate = $this->getStartDate($period, $request);
@@ -275,6 +389,7 @@ class BuildingService
             : 0;
 
         $siblingBuildings = Building::where('property_id', $building->property_id)
+            ->excludeParentContainers()
             ->withCount('units')
             ->withCount(['units as occupied_units_count' => function ($q) {
                 $q->where('status', 'occupied');

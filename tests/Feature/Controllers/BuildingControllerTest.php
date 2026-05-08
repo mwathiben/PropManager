@@ -30,7 +30,7 @@ class BuildingControllerTest extends TestCase
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->component('Buildings/Index')
-            ->has('buildings', 1)
+            ->has('buildingGroups', 1)
         );
     }
 

@@ -140,10 +140,8 @@ class BulkPaymentImportTest extends DuskTestCase
         $this->browse(function (Browser $browser) {
             $browser->loginAs($this->landlord)
                 ->visit('/finances/payments/bulk-import')
-                ->waitForText('Bulk Import Payments');
-
-            $validateButton = $browser->element('button[disabled]');
-            $this->assertNotNull($validateButton, 'Validate button should be disabled without file and building');
+                ->waitForText('Bulk Import Payments')
+                ->assertDisabled('@validate-button');
         });
     }
 }

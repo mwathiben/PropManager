@@ -59,6 +59,7 @@ class CaretakerInvitationFlowTest extends DuskTestCase
 
         $this->assertStringNotContainsString('secret_key', strtolower($decodedHtml));
         $this->assertStringNotContainsString('APP_KEY', $decodedHtml);
+        $this->assertNotEmpty(config('app.key'), 'app.key must be set for this assertion to be meaningful');
         $this->assertStringNotContainsString(config('app.key'), $decodedHtml);
 
         $this->browse(function (Browser $browser) {

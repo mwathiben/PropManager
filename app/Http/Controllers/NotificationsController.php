@@ -334,8 +334,10 @@ class NotificationsController extends Controller
             ->update(['email_enabled' => false]);
 
         Log::channel('security')->info('One-click email unsubscribe', [
+            'action' => 'email_unsubscribe',
             'user_id' => $user->id,
             'landlord_id' => $user->landlord_id,
+            'ip' => $request->ip(),
         ]);
 
         return response()->json(['status' => 'unsubscribed']);

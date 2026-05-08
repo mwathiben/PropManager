@@ -12,7 +12,7 @@ class SubscriptionPlanFactory extends Factory
 
     public function definition(): array
     {
-        $name = fake()->unique()->randomElement(['Starter', 'Basic', 'Professional', 'Enterprise', 'Premium']);
+        $name = fake()->randomElement(['Starter', 'Basic', 'Professional', 'Enterprise', 'Premium', 'Standard', 'Advanced', 'Ultimate', 'Essential', 'Business']);
 
         return [
             'name' => $name,

@@ -15,13 +15,15 @@ class VoidPaymentHandler
 {
     public function void(Payment $payment, string $reason): VoidPaymentResult
     {
-        if ($payment->is_voided) {
-            throw new PaymentException('Payment is already voided.', 'PAYMENT_ALREADY_VOIDED', [
-                'payment_id' => $payment->id,
-            ]);
-        }
-
         return DB::transaction(function () use ($payment, $reason) {
+            $payment = Payment::where('id', $payment->id)->lockForUpdate()->first();
+
+            if ($payment->is_voided) {
+                throw new PaymentException('Payment is already voided.', 'PAYMENT_ALREADY_VOIDED', [
+                    'payment_id' => $payment->id,
+                ]);
+            }
+
             $payment->update([
                 'is_voided' => true,
                 'voided_at' => now(),
@@ -46,7 +48,7 @@ class VoidPaymentHandler
             return [null, null, null];
         }
 
-        $invoice = Invoice::lockForUpdate()->find($payment->invoice_id);
+        $invoice = Invoice::where('id', $payment->invoice_id)->lockForUpdate()->first();
 
         if (! $invoice) {
             return [null, null, null];

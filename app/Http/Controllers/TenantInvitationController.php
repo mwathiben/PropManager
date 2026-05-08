@@ -312,10 +312,11 @@ class TenantInvitationController extends Controller
                     'password' => Hash::make($request->password),
                     'mobile_number' => $request->phone ?? $invitation->tenant_phone,
                     'national_id' => $request->id_number ?? $invitation->tenant_id_number,
-                    'role' => 'tenant',
-                    'landlord_id' => $invitation->landlord_id,
-                    'email_verified_at' => now(), // Auto-verify since they clicked the invite link
+                    'email_verified_at' => now(),
                 ]);
+                $tenant->role = 'tenant';
+                $tenant->landlord_id = $invitation->landlord_id;
+                $tenant->save();
             }
 
             // Create the lease

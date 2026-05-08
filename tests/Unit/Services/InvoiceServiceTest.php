@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Services;
 
+use App\Enums\InvoiceStatus;
 use App\Models\Building;
 use App\Models\Invoice;
 use App\Models\Lease;
@@ -240,7 +241,7 @@ class InvoiceServiceTest extends TestCase
         $billingPeriod = Carbon::now()->startOfMonth();
         $invoice = $this->service->generateInvoiceForLease($this->lease, $billingPeriod);
 
-        $this->assertEquals('paid', $invoice->status);
+        $this->assertEquals(InvoiceStatus::Paid, $invoice->status);
         $this->assertEquals(0, $invoice->total_due);
 
         $this->lease->refresh();

@@ -16,6 +16,7 @@ use App\Services\Banking\EquityBankService;
 use App\Services\Banking\KcbBankService;
 use App\Services\Banking\PaymentNotification;
 use App\Services\BillingModelService;
+use App\Services\IdempotencyService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -24,7 +25,8 @@ use Illuminate\Support\Facades\Mail;
 class BankWebhookController extends Controller
 {
     public function __construct(
-        protected BillingModelService $billingService
+        protected BillingModelService $billingService,
+        protected IdempotencyService $idempotencyService
     ) {}
 
     public function equityWebhook(Request $request, EquityBankService $service)
@@ -51,6 +53,8 @@ class BankWebhookController extends Controller
             'ip_address' => $request->ip(),
         ]);
 
+        $idempotencyKey = null;
+
         try {
             $signature = $request->header('X-Signature') ?? $request->header('Authorization') ?? '';
             if (! $service->validateWebhook($signature, $request->getContent())) {
@@ -62,12 +66,55 @@ class BankWebhookController extends Controller
 
             $log->markAsProcessing();
             $notification = $service->parsePaymentNotification($request->all());
+
+            $idempotencyKey = "bank:{$bankCode}:{$notification->transactionId}";
+            $idempotencyResult = $this->idempotencyService->acquire($idempotencyKey);
+
+            if (! $idempotencyResult['acquired']) {
+                Log::info('Bank payment already handled (idempotency)', [
+                    'key' => $idempotencyKey,
+                    'cached' => $idempotencyResult['response'] !== null,
+                ]);
+
+                return response()->json(['status' => 'success']);
+            }
+
             $payment = $this->matchAndRecordPayment($notification);
+
+            $this->idempotencyService->release($idempotencyKey, [
+                'status' => $payment ? 'success' : 'unmatched',
+                'payment_id' => $payment?->id,
+            ]);
 
             $log->markAsSuccess($payment);
 
             return response()->json(['status' => 'success']);
+        } catch (\Illuminate\Database\QueryException $e) {
+            // MySQL error 1062 = duplicate entry (unique constraint violation)
+            if ($e->errorInfo[1] === 1062) {
+                if ($idempotencyKey) {
+                    $this->idempotencyService->release($idempotencyKey, ['status' => 'duplicate']);
+                }
+                Log::info('Bank duplicate webhook ignored (idempotent)', [
+                    'bank_code' => $bankCode,
+                ]);
+
+                return response()->json(['status' => 'success']);
+            }
+
+            if ($idempotencyKey) {
+                $this->idempotencyService->fail($idempotencyKey, $e->getMessage());
+            }
+            $log->markAsError($e->getMessage());
+            Log::error("{$bankCode} webhook database error", [
+                'error' => $e->getMessage(),
+            ]);
+
+            throw $e;
         } catch (\Exception $e) {
+            if ($idempotencyKey) {
+                $this->idempotencyService->fail($idempotencyKey, $e->getMessage());
+            }
             $log->markAsError($e->getMessage());
             Log::error("{$bankCode} webhook processing failed", [
                 'error' => $e->getMessage(),

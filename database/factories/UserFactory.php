@@ -41,4 +41,47 @@ class UserFactory extends Factory
             'email_verified_at' => null,
         ]);
     }
+
+    /**
+     * Configure the model factory.
+     * Handles guarded fields (role, landlord_id, is_archived) via afterCreating.
+     */
+    public function configure(): static
+    {
+        return $this->afterMaking(function (\App\Models\User $user) {
+            // afterMaking allows setting guarded attributes before save
+        });
+    }
+
+    /**
+     * Override create to handle guarded fields that can't go through $fillable.
+     */
+    public function create($attributes = [], ?\Illuminate\Database\Eloquent\Model $parent = null)
+    {
+        $guarded = ['role', 'landlord_id', 'is_archived'];
+        $guardedValues = [];
+
+        if (is_array($attributes)) {
+            foreach ($guarded as $field) {
+                if (array_key_exists($field, $attributes)) {
+                    $guardedValues[$field] = $attributes[$field];
+                    unset($attributes[$field]);
+                }
+            }
+        }
+
+        $result = parent::create($attributes, $parent);
+
+        if (! empty($guardedValues)) {
+            $models = $result instanceof \App\Models\User ? collect([$result]) : $result;
+            foreach ($models as $model) {
+                foreach ($guardedValues as $field => $value) {
+                    $model->{$field} = $value;
+                }
+                $model->save();
+            }
+        }
+
+        return $result;
+    }
 }

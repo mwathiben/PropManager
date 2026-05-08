@@ -7,13 +7,14 @@ use App\Http\Requests\MoveOut\UpdateMoveOutDeductionCategoryRequest;
 use App\Models\Building;
 use App\Models\MoveOutDeductionCategory;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class MoveOutDeductionCategoryController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
         $user = auth()->user();
 
@@ -21,15 +22,30 @@ class MoveOutDeductionCategoryController extends Controller
 
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
-        $categories = MoveOutDeductionCategory::query()
-            ->where(function ($query) use ($landlordId) {
-                $query->where('landlord_id', $landlordId)
+        $query = MoveOutDeductionCategory::query()
+            ->where(function ($q) use ($landlordId) {
+                $q->where('landlord_id', $landlordId)
                     ->orWhereNull('landlord_id');
             })
-            ->with('building')
-            ->ordered()
-            ->paginate(25)
-            ->withQueryString();
+            ->with('building:id,name')
+            ->ordered();
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        $categories = $query->paginate(50)->withQueryString();
+
+        $allCategories = MoveOutDeductionCategory::query()
+            ->where(function ($q) use ($landlordId) {
+                $q->where('landlord_id', $landlordId)
+                    ->orWhereNull('landlord_id');
+            })
+            ->get(['id', 'is_active', 'always_apply', 'landlord_id']);
 
         $buildings = Building::where('landlord_id', $landlordId)
             ->select('id', 'name')
@@ -40,15 +56,26 @@ class MoveOutDeductionCategoryController extends Controller
             'categories' => $categories,
             'buildings' => $buildings,
             'canCreate' => $user->isLandlord(),
+            'stats' => [
+                'total' => $allCategories->count(),
+                'active' => $allCategories->where('is_active', true)->count(),
+                'always_apply' => $allCategories->where('always_apply', true)->count(),
+                'custom' => $allCategories->whereNotNull('landlord_id')->count(),
+            ],
+            'filters' => [
+                'search' => $request->input('search'),
+            ],
         ]);
     }
 
     public function store(StoreMoveOutDeductionCategoryRequest $request): RedirectResponse
     {
+        $this->authorize('create', MoveOutDeductionCategory::class);
+
         $validated = $request->validated();
 
-        $nextSortOrder = MoveOutDeductionCategory::where('landlord_id', $request->user()->id)
-            ->max('sort_order') + 1;
+        $nextSortOrder = (MoveOutDeductionCategory::where('landlord_id', $request->user()->id)
+            ->max('sort_order') ?? 0) + 1;
 
         MoveOutDeductionCategory::create([
             'landlord_id' => $request->user()->id,
@@ -68,6 +95,8 @@ class MoveOutDeductionCategoryController extends Controller
         UpdateMoveOutDeductionCategoryRequest $request,
         MoveOutDeductionCategory $moveOutCategory
     ): RedirectResponse {
+        $this->authorize('update', $moveOutCategory);
+
         $validated = $request->validated();
 
         $moveOutCategory->update($validated);

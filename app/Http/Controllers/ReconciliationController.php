@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\InvoiceStatus;
 use App\Imports\BankStatementImport;
 use App\Models\BankReconciliationQueue;
 use App\Models\Invoice;
@@ -42,7 +43,7 @@ class ReconciliationController extends Controller
         $stats = $this->reconciliationService->getStats($landlordId);
 
         $invoices = Invoice::where('landlord_id', $landlordId)
-            ->whereIn('status', ['sent', 'partial', 'overdue'])
+            ->whereIn('status', [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue])
             ->with(['lease.tenant', 'lease.unit.building'])
             ->orderBy('due_date', 'desc')
             ->limit(100)

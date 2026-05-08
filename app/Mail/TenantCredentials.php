@@ -28,7 +28,7 @@ class TenantCredentials extends Mailable implements ShouldQueue
 
     public function envelope(): Envelope
     {
-        $propertyName = $this->lease->unit->building?->property->name ?? 'Your New Home';
+        $propertyName = $this->lease->unit->building?->property?->name ?? 'Your New Home';
 
         return new Envelope(
             subject: "Welcome to {$propertyName} - Your Account Details",
@@ -44,7 +44,7 @@ class TenantCredentials extends Mailable implements ShouldQueue
                 'lease' => $this->lease,
                 'temporaryPassword' => $this->temporaryPassword,
                 'landlord' => $this->landlord,
-                'propertyName' => $this->lease->unit->building?->property->name ?? 'Property',
+                'propertyName' => $this->lease->unit->building?->property?->name ?? 'Property',
                 'buildingName' => $this->lease->unit->building?->name ?? '',
                 'unitNumber' => $this->lease->unit->unit_number,
                 'loginUrl' => route('login'),

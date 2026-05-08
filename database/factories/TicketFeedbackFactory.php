@@ -13,11 +13,11 @@ class TicketFeedbackFactory extends Factory
 
     public function definition(): array
     {
-        $ticket = Ticket::factory()->resolved()->create();
-
         return [
-            'ticket_id' => $ticket->id,
-            'user_id' => $ticket->reporter_id ?? User::factory()->state(['role' => 'tenant']),
+            'ticket_id' => Ticket::factory()->resolved(),
+            'user_id' => fn (array $attrs) => $attrs['ticket_id'] instanceof Ticket && $attrs['ticket_id']->reporter_id
+                ? $attrs['ticket_id']->reporter_id
+                : User::factory()->state(['role' => 'tenant']),
             'rating' => fake()->numberBetween(1, 5),
             'comments' => fake()->optional(0.7)->sentence(),
         ];

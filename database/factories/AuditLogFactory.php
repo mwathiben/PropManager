@@ -84,18 +84,24 @@ class AuditLogFactory extends Factory
 
     public function imported(): static
     {
-        return $this->state([
-            'event_type' => AuditLog::EVENT_IMPORTED,
-            'old_values' => null,
-            'new_values' => null,
-            'changed_fields' => [],
-            'metadata' => [
-                'import_type' => 'csv',
-                'records_count' => fake()->numberBetween(10, 500),
-                'success_count' => fake()->numberBetween(5, 400),
-                'error_count' => fake()->numberBetween(0, 50),
-            ],
-        ]);
+        return $this->state(function () {
+            $recordsCount = fake()->numberBetween(10, 500);
+            $successCount = fake()->numberBetween(0, $recordsCount);
+            $errorCount = $recordsCount - $successCount;
+
+            return [
+                'event_type' => AuditLog::EVENT_IMPORTED,
+                'old_values' => null,
+                'new_values' => null,
+                'changed_fields' => [],
+                'metadata' => [
+                    'import_type' => 'csv',
+                    'records_count' => $recordsCount,
+                    'success_count' => $successCount,
+                    'error_count' => $errorCount,
+                ],
+            ];
+        });
     }
 
     public function statusChanged(): static

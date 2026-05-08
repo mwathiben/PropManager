@@ -70,7 +70,10 @@ class AfricasTalkingService implements SmsServiceInterface
 
     private function parseResponse(?array $data, int $landlordId, string $phoneNumber): array
     {
-        $recipient = $data['SMSMessageData']['Recipients'][0] ?? null;
+        $recipient = is_array($data)
+            && isset($data['SMSMessageData']['Recipients'][0])
+            ? $data['SMSMessageData']['Recipients'][0]
+            : null;
 
         if ($recipient && ($recipient['status'] ?? '') === 'Success') {
             Log::info('SMS sent via Africa\'s Talking', [

@@ -17,7 +17,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Step 1: Check for existing duplicates (BLOCKING if found)
         $duplicates = DB::table('payments')
             ->select('intasend_reference', DB::raw('COUNT(*) as count'))
             ->whereNotNull('intasend_reference')
@@ -33,22 +32,12 @@ return new class extends Migration
             );
         }
 
-        // Step 2: Drop existing non-unique index (if exists)
-        $indexExists = DB::select("
-            SELECT 1 FROM information_schema.statistics
-            WHERE table_schema = DATABASE()
-            AND table_name = 'payments'
-            AND index_name = 'payments_intasend_ref_idx'
-            LIMIT 1
-        ");
-
-        if (! empty($indexExists)) {
+        if (Schema::hasIndex('payments', 'payments_intasend_ref_idx')) {
             Schema::table('payments', function (Blueprint $table) {
                 $table->dropIndex('payments_intasend_ref_idx');
             });
         }
 
-        // Step 3: Add unique constraint
         Schema::table('payments', function (Blueprint $table) {
             $table->unique('intasend_reference', 'payments_intasend_reference_unique');
         });

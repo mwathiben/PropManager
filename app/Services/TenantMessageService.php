@@ -220,7 +220,7 @@ class TenantMessageService
         $unitName = $ticket->unit?->name ?? 'Unknown unit';
         $previewBody = substr($message->body, 0, 100).(strlen($message->body) > 100 ? '...' : '');
 
-        SendNotificationJob::dispatch(
+        dispatch(SendNotificationJob::forNew(
             $caretaker->id,
             'maintenance_notice',
             "New {$ticket->priority} priority issue from {$tenant->name}",
@@ -236,7 +236,7 @@ class TenantMessageService
                 'priority' => $ticket->priority,
             ],
             $ticket->landlord_id
-        );
+        ));
 
         Log::channel('whatsapp')->info('Caretaker notified of new ticket', [
             'ticket_id' => $ticket->id,
@@ -255,7 +255,7 @@ class TenantMessageService
             $issueSummary .= '...';
         }
 
-        SendNotificationJob::dispatch(
+        dispatch(SendNotificationJob::forNew(
             $tenant->id,
             'general',
             'Your issue has been logged',
@@ -266,7 +266,7 @@ class TenantMessageService
                 'preferred_channel' => $channel,
             ],
             $ticket->landlord_id
-        );
+        ));
 
         Log::channel('whatsapp')->info('Tenant confirmation sent for ticket', [
             'ticket_id' => $ticket->id,
@@ -326,7 +326,7 @@ class TenantMessageService
         $tenantName = $tenant?->name ?? 'Unknown sender';
         $previewBody = substr($message->body, 0, 100).(strlen($message->body) > 100 ? '...' : '');
 
-        SendNotificationJob::dispatch(
+        dispatch(SendNotificationJob::forNew(
             $landlord->id,
             'general',
             "New WhatsApp message from {$tenantName}",
@@ -338,7 +338,7 @@ class TenantMessageService
                 'ticket_id' => $message->ticket_id,
             ],
             $message->landlord_id
-        );
+        ));
     }
 
     protected function normalizePhone(string $phone): string

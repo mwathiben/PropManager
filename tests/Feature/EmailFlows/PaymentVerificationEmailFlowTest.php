@@ -84,7 +84,6 @@ class PaymentVerificationEmailFlowTest extends TestCase
         $landlord = $scenario['landlord'];
         $tenant = $scenario['tenant'];
         $verification = $scenario['verification'];
-        $unit = $scenario['unit'];
 
         $rejectionReason = 'Payment proof is blurry and amount does not match';
 

@@ -2,6 +2,7 @@
 
 namespace App\Services\Banking;
 
+use App\Enums\InvoiceStatus;
 use App\Mail\PaymentReceived;
 use App\Models\BankReconciliationQueue;
 use App\Models\Invoice;
@@ -176,36 +177,43 @@ class BankReconciliationService
             }
         }
 
+        return $this->matchByPhone($item, $payload) ?? $this->matchByAmount($item);
+    }
+
+    private function matchByPhone(BankReconciliationQueue $item, array $payload): ?Invoice
+    {
         $phone = $payload['senderPhone']
             ?? $payload['MSISDN']
             ?? $payload['senderMobile']
             ?? null;
 
-        if ($phone) {
-            $phone = preg_replace('/[^0-9]/', '', $phone);
-            if (str_starts_with($phone, '254')) {
-                $phone = '0'.substr($phone, 3);
-            }
-
-            $tenant = User::where('role', 'tenant')
-                ->where('landlord_id', $item->landlord_id)
-                ->where(function ($query) use ($phone) {
-                    $query->where('mobile_number', $phone)
-                        ->orWhere('mobile_number', '254'.substr($phone, 1));
-                })
-                ->first();
-
-            if ($tenant) {
-                $lease = $tenant->leases()->where('is_active', true)->first();
-
-                return $lease?->invoices()
-                    ->whereIn('status', ['sent', 'partial', 'overdue'])
-                    ->orderBy('due_date', 'asc')
-                    ->first();
-            }
+        if (! $phone) {
+            return null;
         }
 
-        return $this->matchByAmount($item);
+        $phone = preg_replace('/[^0-9]/', '', $phone);
+        if (str_starts_with($phone, '254')) {
+            $phone = '0'.substr($phone, 3);
+        }
+
+        $tenant = User::where('role', 'tenant')
+            ->where('landlord_id', $item->landlord_id)
+            ->where(function ($query) use ($phone) {
+                $query->where('mobile_number', $phone)
+                    ->orWhere('mobile_number', '254'.substr($phone, 1));
+            })
+            ->first();
+
+        if (! $tenant) {
+            return null;
+        }
+
+        $lease = $tenant->leases()->where('is_active', true)->first();
+
+        return $lease?->invoices()
+            ->whereIn('status', [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue])
+            ->orderBy('due_date', 'asc')
+            ->first();
     }
 
     private function matchByAmount(BankReconciliationQueue $item): ?Invoice
@@ -217,9 +225,15 @@ class BankReconciliationService
         }
 
         $candidates = Invoice::where('landlord_id', $item->landlord_id)
-            ->whereIn('status', ['sent', 'partial', 'overdue'])
+            ->whereIn('status', [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue])
             ->get();
 
+        return $this->findByOutstandingBalance($candidates, $amount)
+            ?? $this->findByInvoiceAmounts($candidates, $amount);
+    }
+
+    private function findByOutstandingBalance(Collection $candidates, float $amount): ?Invoice
+    {
         foreach ($candidates as $invoice) {
             $outstanding = $invoice->total_due - $invoice->amount_paid;
             if (abs($outstanding - $amount) < 0.01) {
@@ -227,12 +241,13 @@ class BankReconciliationService
             }
         }
 
-        foreach ($candidates as $invoice) {
-            if (abs($invoice->total_due - $amount) < 0.01) {
-                return $invoice;
-            }
+        return null;
+    }
 
-            if (abs($invoice->rent_due - $amount) < 0.01) {
+    private function findByInvoiceAmounts(Collection $candidates, float $amount): ?Invoice
+    {
+        foreach ($candidates as $invoice) {
+            if (abs($invoice->total_due - $amount) < 0.01 || abs($invoice->rent_due - $amount) < 0.01) {
                 return $invoice;
             }
         }
@@ -269,7 +284,7 @@ class BankReconciliationService
             $overpayment = max(0, $amount - $remainingBalance);
 
             $newAmountPaid = $invoice->amount_paid + $appliedAmount;
-            $newStatus = $newAmountPaid >= $invoice->total_due ? 'paid' : 'partial';
+            $newStatus = $newAmountPaid >= $invoice->total_due ? InvoiceStatus::Paid : InvoiceStatus::Partial;
 
             $invoice->update([
                 'amount_paid' => $newAmountPaid,

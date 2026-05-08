@@ -22,7 +22,6 @@ return new class extends Migration
             $table->boolean('is_revoked')->default(false);
             $table->timestamps();
 
-            $table->index('token');
             $table->index(['invoice_id', 'is_revoked']);
             $table->index(['landlord_id', 'created_at']);
         });

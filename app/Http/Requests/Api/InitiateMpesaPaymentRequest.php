@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Enums\InvoiceStatus;
 use App\Models\Invoice;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -55,7 +56,7 @@ class InitiateMpesaPaymentRequest extends FormRequest
                     );
                 }
 
-                if ($invoice->status === 'paid') {
+                if ($invoice->status === InvoiceStatus::Paid) {
                     $validator->errors()->add('invoice_id', 'This invoice is already fully paid.');
                 }
             }

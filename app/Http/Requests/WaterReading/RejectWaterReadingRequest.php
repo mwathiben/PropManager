@@ -3,12 +3,13 @@
 namespace App\Http\Requests\WaterReading;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Auth;
 
 class RejectWaterReadingRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return auth()->user()->role === 'landlord';
+        return Auth::check() && Auth::user()->role === 'landlord';
     }
 
     public function rules(): array

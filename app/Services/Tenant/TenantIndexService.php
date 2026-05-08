@@ -2,6 +2,8 @@
 
 namespace App\Services\Tenant;
 
+use App\Enums\InvoiceStatus;
+use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\TenantInvitation;
 use App\Models\User;
@@ -47,16 +49,20 @@ class TenantIndexService
             'totalTenants' => $counts['active'] + $counts['past'],
             'activeTenants' => $counts['active'],
             'pendingInvitations' => $counts['pending'],
-            'withArrears' => User::where('role', 'tenant')
-                ->where('landlord_id', $landlordId)
-                ->whereHas('leases', fn ($q) => $q->where('is_active', true)->where('arrears', '>', 0))
-                ->count(),
+            'withArrears' => Invoice::where('landlord_id', $landlordId)
+                ->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial])
+                ->whereRaw('(total_due - amount_paid) > 0')
+                ->whereHas('lease', fn ($q) => $q->where('is_active', true))
+                ->distinct('lease_id')
+                ->count('lease_id'),
             'totalMonthlyRent' => Lease::where('landlord_id', $landlordId)
                 ->where('is_active', true)
                 ->sum('rent_amount'),
-            'totalArrears' => Lease::where('landlord_id', $landlordId)
-                ->where('is_active', true)
-                ->sum('arrears'),
+            'totalArrears' => Invoice::where('landlord_id', $landlordId)
+                ->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial])
+                ->whereHas('lease', fn ($q) => $q->where('is_active', true))
+                ->selectRaw('COALESCE(SUM(total_due - amount_paid), 0) as total')
+                ->value('total') ?? 0,
         ];
     }
 

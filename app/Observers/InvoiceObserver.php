@@ -16,6 +16,12 @@ class InvoiceObserver
 
     public function updated(Invoice $invoice): void
     {
+        $originalLandlordId = $invoice->getOriginal('landlord_id');
+
+        if ($originalLandlordId && $originalLandlordId !== $invoice->landlord_id) {
+            FinanceCacheService::invalidateForLandlord($originalLandlordId);
+        }
+
         if ($invoice->landlord_id) {
             FinanceCacheService::invalidateForLandlord($invoice->landlord_id);
         }

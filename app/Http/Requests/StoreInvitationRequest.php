@@ -3,13 +3,20 @@
 namespace App\Http\Requests;
 
 use App\Models\Invitation;
+use App\Models\Property;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreInvitationRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('create', Invitation::class) ?? false;
+        $property = Property::find($this->input('property_id'));
+
+        if (! $property) {
+            return false;
+        }
+
+        return $this->user()?->can('create', [Invitation::class, $property]) ?? false;
     }
 
     public function rules(): array

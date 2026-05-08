@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\InvoiceStatus;
 use App\Models\Invoice;
 use App\Models\User;
 
@@ -69,7 +70,7 @@ class InvoicePolicy
     public function delete(User $user, Invoice $invoice): bool
     {
         // Only draft invoices can be deleted
-        if ($invoice->status !== 'draft') {
+        if ($invoice->status !== InvoiceStatus::Draft) {
             return false;
         }
 
@@ -89,7 +90,7 @@ class InvoicePolicy
      */
     public function send(User $user, Invoice $invoice): bool
     {
-        return $this->canManage($user, $invoice) && $invoice->status === 'draft';
+        return $this->canManage($user, $invoice) && $invoice->status === InvoiceStatus::Draft;
     }
 
     /**
@@ -102,7 +103,7 @@ class InvoicePolicy
         }
 
         return $invoice->lease?->tenant_id === $user->id
-            && in_array($invoice->status, ['sent', 'partial', 'overdue']);
+            && in_array($invoice->status, [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue]);
     }
 
     /**

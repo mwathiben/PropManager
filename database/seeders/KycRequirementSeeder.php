@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Models\KycRequirement;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 class KycRequirementSeeder extends Seeder
 {
@@ -37,18 +37,13 @@ class KycRequirementSeeder extends Seeder
         ];
 
         foreach ($defaults as $requirement) {
-            DB::table('kyc_requirements')->updateOrInsert(
+            KycRequirement::updateOrCreate(
                 [
                     'landlord_id' => null,
                     'building_id' => null,
                     'requirement_type' => $requirement['requirement_type'],
                 ],
-                array_merge($requirement, [
-                    'landlord_id' => null,
-                    'building_id' => null,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ])
+                $requirement
             );
         }
     }

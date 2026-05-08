@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\InvoiceStatus;
 use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Models\User;
@@ -138,7 +139,7 @@ class CreditNoteController extends Controller
         $outstandingInvoices = [];
         if ($creditNote->canBeApplied()) {
             $outstandingInvoices = Invoice::where('lease_id', $creditNote->lease_id)
-                ->whereIn('status', [Invoice::STATUS_SENT, Invoice::STATUS_PARTIAL, Invoice::STATUS_OVERDUE])
+                ->whereIn('status', [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue])
                 ->orderBy('due_date')
                 ->get()
                 ->map(fn ($inv) => [

@@ -13,14 +13,15 @@ class SubscriptionFactory extends Factory
 
     public function definition(): array
     {
-        $periodStart = now()->startOfMonth();
-        $periodEnd = now()->endOfMonth();
+        $billingCycle = fake()->randomElement(['monthly', 'yearly']);
+        $periodStart = $billingCycle === 'yearly' ? now()->startOfYear() : now()->startOfMonth();
+        $periodEnd = $billingCycle === 'yearly' ? now()->endOfYear() : now()->endOfMonth();
 
         return [
             'user_id' => User::factory()->state(['role' => 'landlord']),
             'plan_id' => SubscriptionPlan::factory(),
             'status' => 'active',
-            'billing_cycle' => fake()->randomElement(['monthly', 'yearly']),
+            'billing_cycle' => $billingCycle,
             'trial_ends_at' => null,
             'current_period_start' => $periodStart,
             'current_period_end' => $periodEnd,

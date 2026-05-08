@@ -42,7 +42,7 @@ trait MocksExternalServices
         $this->app->instance(PaystackService::class, $mock);
     }
 
-    protected function getMockMpesaStkSuccessCallback(string $checkoutRequestId, int $amount, string $phone): array
+    protected function getMockMpesaStkSuccessCallback(string $checkoutRequestId, float $amount, string $phone): array
     {
         return [
             'Body' => [

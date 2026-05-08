@@ -37,10 +37,11 @@ return new class extends Migration
             );
         }
 
-        // Step 2: Drop existing non-unique index
-        Schema::table('payments', function (Blueprint $table) {
-            $table->dropIndex('payments_mpesa_transaction_idx');
-        });
+        if (Schema::hasIndex('payments', 'payments_mpesa_transaction_idx')) {
+            Schema::table('payments', function (Blueprint $table) {
+                $table->dropIndex('payments_mpesa_transaction_idx');
+            });
+        }
 
         // Step 3: Add unique constraint (allows NULL values - MySQL behavior)
         Schema::table('payments', function (Blueprint $table) {

@@ -46,8 +46,12 @@ class DepositTransformer
         ];
     }
 
-    private static function transformTransactions(Collection $transactions): array
+    private static function transformTransactions(?Collection $transactions): array
     {
+        if ($transactions === null) {
+            return [];
+        }
+
         return $transactions->map(fn (DepositTransaction $t) => [
             'id' => $t->id,
             'type' => $t->type,
@@ -58,7 +62,7 @@ class DepositTransformer
             'payment_method' => $t->payment_method,
             'reference' => $t->reference,
             'processed_by' => $t->processedBy?->name,
-            'created_at' => $t->created_at->format('Y-m-d H:i'),
+            'created_at' => $t->created_at?->format('Y-m-d H:i'),
         ])->all();
     }
 }

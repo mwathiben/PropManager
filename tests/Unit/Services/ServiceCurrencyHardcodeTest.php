@@ -375,6 +375,7 @@ class ServiceCurrencyHardcodeTest extends TestCase
 
         $this->assertNotNull($notification);
         $this->assertStringNotContainsString('KES', $notification->message);
+        $this->assertStringContainsString('$', $notification->message);
     }
 
     public function test_notification_resolves_currency_from_payment_config_when_not_supplied(): void
@@ -448,7 +449,6 @@ class ServiceCurrencyHardcodeTest extends TestCase
     private function invokeProtectedMethod(object $object, string $method, array $args = []): mixed
     {
         $reflection = new \ReflectionMethod($object, $method);
-        $reflection->setAccessible(true);
 
         return $reflection->invoke($object, ...$args);
     }

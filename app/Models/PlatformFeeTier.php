@@ -34,7 +34,7 @@ class PlatformFeeTier extends Model
             ->where('min_volume', '<=', $volume)
             ->where(function (Builder $query) use ($volume) {
                 $query->whereNull('max_volume')
-                    ->orWhere('max_volume', '>', $volume);
+                    ->orWhere('max_volume', '>=', $volume);
             })
             ->first();
     }

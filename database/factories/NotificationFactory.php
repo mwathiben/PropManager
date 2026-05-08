@@ -12,8 +12,6 @@ class NotificationFactory extends Factory
 
     public function definition(): array
     {
-        $landlord = User::factory()->state(['role' => 'landlord'])->create();
-        $recipient = User::factory()->state(['role' => 'tenant'])->create();
         $type = fake()->randomElement([
             Notification::TYPE_RENT_REMINDER,
             Notification::TYPE_ARREARS_NOTICE,
@@ -23,8 +21,8 @@ class NotificationFactory extends Factory
         ]);
 
         return [
-            'landlord_id' => $landlord->id,
-            'recipient_id' => $recipient->id,
+            'landlord_id' => User::factory()->state(['role' => 'landlord']),
+            'recipient_id' => User::factory()->state(['role' => 'tenant']),
             'type' => $type,
             'urgency' => Notification::getUrgencyForType($type),
             'channel' => Notification::CHANNEL_EMAIL,
@@ -244,6 +242,12 @@ class NotificationFactory extends Factory
     {
         return $this->state([
             'fallback_channel' => $fallbackChannel,
+        ]);
+    }
+
+    public function markFallbackSent(): static
+    {
+        return $this->state([
             'fallback_sent_at' => now(),
         ]);
     }

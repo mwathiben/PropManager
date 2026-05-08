@@ -94,10 +94,9 @@ class CleanupExpiredInvitations extends Command
                         // Archive only if BOTH incomplete
                         if (! $hasKyc && ! $hasVerifiedPayment) {
                             DB::transaction(function () use ($user, $invitation, &$archivedCount) {
-                                $user->update([
-                                    'is_archived' => true,
-                                    'archived_at' => now(),
-                                ]);
+                                $user->is_archived = true;
+                                $user->archived_at = now();
+                                $user->save();
 
                                 $invitation->markAsExpired();
                                 $archivedCount++;

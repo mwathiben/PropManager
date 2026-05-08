@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Log;
 
 trait LogsExternalRequests
 {
-    private const SLOW_THRESHOLD_MS = 5000;
+    protected int $slowThresholdMs = 5000;
 
     protected function timedHttpRequest(string $provider, string $endpoint, callable $httpCall): Response
     {
@@ -27,7 +27,7 @@ trait LogsExternalRequests
     private function logExternalCallDuration(string $provider, string $endpoint, float $startTime, int $statusCode): void
     {
         $durationMs = (int) round((microtime(true) - $startTime) * 1000);
-        $level = $durationMs > self::SLOW_THRESHOLD_MS ? 'warning' : 'info';
+        $level = $durationMs > $this->slowThresholdMs ? 'warning' : 'info';
 
         Log::$level('External API call completed', [
             'provider' => $provider,

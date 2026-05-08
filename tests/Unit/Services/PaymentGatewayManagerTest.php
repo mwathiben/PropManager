@@ -3,35 +3,48 @@
 namespace Tests\Unit\Services;
 
 use App\Contracts\PaymentGatewayInterface;
+use App\Models\PaymentConfiguration;
+use App\Models\User;
 use App\Services\Gateways\MpesaGateway;
 use App\Services\Gateways\PaystackGateway;
 use App\Services\MpesaService;
 use App\Services\PaymentGatewayManager;
 use App\Services\PaystackService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
 use Tests\TestCase;
 
 class PaymentGatewayManagerTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected PaymentGatewayManager $manager;
+
+    protected PaymentConfiguration $config;
 
     protected function setUp(): void
     {
         parent::setUp();
 
         config([
-            'services.paystack.secret_key' => 'sk_test_xxxxxxxxxxxxx',
-            'services.paystack.public_key' => 'pk_test_xxxxxxxxxxxxx',
-            'mpesa.consumer_key' => 'test_consumer_key',
-            'mpesa.consumer_secret' => 'test_consumer_secret',
-            'mpesa.stk.shortcode' => '174379',
             'mpesa.environment' => 'sandbox',
             'mpesa.endpoints.sandbox' => 'https://sandbox.safaricom.co.ke',
         ]);
 
+        $landlord = User::factory()->create(['role' => 'landlord']);
+        $this->config = PaymentConfiguration::factory()->forLandlord($landlord)->create([
+            'paystack_enabled' => true,
+            'paystack_public_key' => 'pk_test_xxxxxxxxxxxxx',
+            'paystack_secret_key' => 'sk_test_xxxxxxxxxxxxx',
+            'mpesa_consumer_key' => 'test_consumer_key',
+            'mpesa_consumer_secret' => 'test_consumer_secret',
+            'mpesa_shortcode' => '174379',
+            'mpesa_passkey' => 'test_passkey',
+        ]);
+
         $this->manager = new PaymentGatewayManager(
-            new PaystackService,
-            new MpesaService
+            new PaystackService($this->config),
+            new MpesaService($this->config)
         );
     }
 
@@ -128,14 +141,9 @@ class PaymentGatewayManagerTest extends TestCase
 
     public function test_returns_unconfigured_for_empty_credentials(): void
     {
-        config([
-            'services.paystack.secret_key' => null,
-            'services.paystack.public_key' => null,
-        ]);
-
         $manager = new PaymentGatewayManager(
-            new PaystackService,
-            new MpesaService
+            new PaystackService(null),
+            new MpesaService($this->config)
         );
 
         $this->assertFalse($manager->isConfigured('paystack'));
@@ -165,14 +173,9 @@ class PaymentGatewayManagerTest extends TestCase
 
     public function test_excludes_unconfigured_from_available(): void
     {
-        config([
-            'services.paystack.secret_key' => null,
-            'services.paystack.public_key' => null,
-        ]);
-
         $manager = new PaymentGatewayManager(
-            new PaystackService,
-            new MpesaService
+            new PaystackService(null),
+            new MpesaService($this->config)
         );
 
         $available = $manager->available();

@@ -52,7 +52,7 @@ class LedgerTransactionBuilder
 
     private function buildPaymentTransactions(): Collection
     {
-        return Payment::whereIn('lease_id', $this->leaseIds)
+        return Payment::withArchived()->whereIn('lease_id', $this->leaseIds)
             ->when($this->dateFrom, fn ($q) => $q->whereDate('created_at', '>=', $this->dateFrom))
             ->when($this->dateTo, fn ($q) => $q->whereDate('created_at', '<=', $this->dateTo))
             ->with('invoice:id,invoice_number')
@@ -79,7 +79,7 @@ class LedgerTransactionBuilder
                 'id' => $ref->id,
                 'type' => 'refund',
                 'date' => $ref->processed_at ?? $ref->created_at,
-                'description' => "Refund - {$ref->reason}",
+                'description' => $ref->reason ? "Refund - {$ref->reason}" : 'Refund',
                 'reference' => "REF-{$ref->id}",
                 'amount' => $ref->amount,
                 'status' => $ref->status,

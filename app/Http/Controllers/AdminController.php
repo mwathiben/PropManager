@@ -299,8 +299,9 @@ class AdminController extends Controller
             'email' => $validated['email'],
             'password' => bcrypt($validated['password']),
             'mobile_number' => $validated['mobile_number'] ?? null,
-            'role' => 'landlord',
         ]);
+        $user->role = 'landlord';
+        $user->save();
 
         return redirect()->back()
             ->with('success', "Landlord account created for {$user->name}.");

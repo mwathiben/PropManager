@@ -21,11 +21,14 @@ class PaystackException extends DomainException
 
     public static function bankVerificationFailed(?string $accountNumber = null): self
     {
+        // Mask account number to protect PII - show only last 4 digits
+        $maskedAccount = self::maskAccountNumber($accountNumber);
+
         return new self(
             message: 'Could not verify bank account. Please check account details.',
             errorCode: self::BANK_VERIFICATION_FAILED,
             context: array_filter([
-                'account_number' => $accountNumber,
+                'account_number' => $maskedAccount,
             ])
         );
     }

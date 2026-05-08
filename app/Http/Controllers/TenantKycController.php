@@ -10,7 +10,9 @@ use App\Models\KycRequirement;
 use App\Models\TenantKycSubmission;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -22,7 +24,7 @@ class TenantKycController extends Controller
      */
     public function show(): Response
     {
-        $user = auth()->user();
+        $user = Auth::user();
         $requirements = $this->getRequirementsForTenant($user);
         $existingSubmissions = $this->getExistingSubmissions($user);
 
@@ -66,40 +68,52 @@ class TenantKycController extends Controller
      */
     public function update(SubmitKycDocumentsRequest $request): RedirectResponse
     {
-        $user = auth()->user();
+        $user = Auth::user();
         $validated = $request->validated();
+        $storedDocuments = [];
 
-        DB::transaction(function () use ($user, $validated) {
-            foreach ($validated['submissions'] as $submissionData) {
-                $requirementId = $submissionData['requirement_id'];
-                $document = null;
+        try {
+            DB::transaction(function () use ($user, $validated, &$storedDocuments) {
+                foreach ($validated['submissions'] as $submissionData) {
+                    $requirementId = $submissionData['requirement_id'];
+                    $document = null;
 
-                if (! empty($submissionData['file'])) {
-                    $document = $this->storeDocument(
-                        $user,
-                        $submissionData['file'],
-                        $requirementId
+                    if (! empty($submissionData['file'])) {
+                        $document = $this->storeDocument(
+                            $user,
+                            $submissionData['file'],
+                            $requirementId
+                        );
+                        $storedDocuments[] = $document;
+                    }
+
+                    TenantKycSubmission::updateOrCreate(
+                        [
+                            'user_id' => $user->id,
+                            'requirement_id' => $requirementId,
+                        ],
+                        [
+                            'landlord_id' => $user->landlord_id,
+                            'document_id' => $document?->id,
+                            'submission_value' => $submissionData['value'] ?? null,
+                            'status' => KycSubmissionStatus::Pending,
+                            'rejection_reason' => null,
+                            'reviewed_by' => null,
+                            'reviewed_at' => null,
+                            'submitted_at' => now(),
+                        ]
                     );
                 }
-
-                TenantKycSubmission::updateOrCreate(
-                    [
-                        'user_id' => $user->id,
-                        'requirement_id' => $requirementId,
-                    ],
-                    [
-                        'landlord_id' => $user->landlord_id,
-                        'document_id' => $document?->id,
-                        'submission_value' => $submissionData['value'] ?? null,
-                        'status' => KycSubmissionStatus::Pending,
-                        'rejection_reason' => null,
-                        'reviewed_by' => null,
-                        'reviewed_at' => null,
-                        'submitted_at' => now(),
-                    ]
-                );
+            });
+        } catch (\Throwable $e) {
+            // Clean up orphaned files on transaction failure
+            foreach ($storedDocuments as $document) {
+                if ($document->file_path && Storage::disk('local')->exists($document->file_path)) {
+                    Storage::disk('local')->delete($document->file_path);
+                }
             }
-        });
+            throw $e;
+        }
 
         if ($user->fresh()->hasCompletedKyc()) {
             return redirect()->route('dashboard')
@@ -123,7 +137,7 @@ class TenantKycController extends Controller
             'rejection_reason' => $validated['status'] === KycSubmissionStatus::Rejected->value
                 ? $validated['rejection_reason']
                 : null,
-            'reviewed_by' => auth()->id(),
+            'reviewed_by' => Auth::id(),
             'reviewed_at' => now(),
         ]);
 
@@ -137,7 +151,7 @@ class TenantKycController extends Controller
      */
     public function pendingReviews(): Response
     {
-        $user = auth()->user();
+        $user = Auth::user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         $submissions = TenantKycSubmission::with(['tenant', 'requirement', 'document'])

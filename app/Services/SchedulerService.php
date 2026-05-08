@@ -106,7 +106,7 @@ class SchedulerService
             $message = "Your rent of {$context['currency_symbol']} {$context['rent_amount']} is due in {$schedule->days_offset} days.";
 
             if ($schedule->template) {
-                $rendered = $schedule->template->render($context);
+                $rendered = $schedule->template->renderRaw($context);
                 $subject = $rendered['subject'];
                 $message = $rendered['body'];
             }
@@ -160,7 +160,7 @@ class SchedulerService
             $message = "You have an outstanding balance of {$context['currency_symbol']} {$context['arrears_amount']} which is {$daysOverdue} days overdue.";
 
             if ($schedule->template) {
-                $rendered = $schedule->template->render($context);
+                $rendered = $schedule->template->renderRaw($context);
                 $subject = $rendered['subject'];
                 $message = $rendered['body'];
             }
@@ -208,7 +208,7 @@ class SchedulerService
             $message = "Your lease will expire on {$context['expiry_date']} ({$schedule->days_offset} days from now).";
 
             if ($schedule->template) {
-                $rendered = $schedule->template->render($context);
+                $rendered = $schedule->template->renderRaw($context);
                 $subject = $rendered['subject'];
                 $message = $rendered['body'];
             }

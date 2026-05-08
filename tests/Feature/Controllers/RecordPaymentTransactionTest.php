@@ -98,6 +98,8 @@ class RecordPaymentTransactionTest extends TestCase
 
     public function test_reissue_creates_invoice_and_items_atomically(): void
     {
+        Mail::fake();
+
         ['landlord' => $landlord, 'units' => $units] = $this->createLandlordWithFullSetup();
         ['lease' => $lease] = $this->createTenantWithActiveLease($landlord, $units->first());
         $invoice = $this->createInvoiceForLease($lease, 'voided');

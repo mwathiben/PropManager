@@ -36,7 +36,7 @@ class FinanceReportService
 
             $invoiceQuery = Invoice::where('landlord_id', $landlordId)
                 ->whereBetween('created_at', [$monthStart, $monthEnd]);
-            $paymentQuery = Payment::where('landlord_id', $landlordId)
+            $paymentQuery = Payment::withArchived()->where('landlord_id', $landlordId)
                 ->where('is_voided', false)
                 ->whereBetween('payment_date', [$monthStart, $monthEnd]);
             $expenseQuery = Expense::where('landlord_id', $landlordId)
@@ -80,7 +80,7 @@ class FinanceReportService
 
             $invoiceQuery = Invoice::where('landlord_id', $landlordId)
                 ->whereBetween('created_at', [$monthStart, $monthEnd]);
-            $paymentQuery = Payment::where('landlord_id', $landlordId)
+            $paymentQuery = Payment::withArchived()->where('landlord_id', $landlordId)
                 ->where('is_voided', false)
                 ->whereBetween('payment_date', [$monthStart, $monthEnd]);
             $expenseQuery = Expense::where('landlord_id', $landlordId)
@@ -610,7 +610,7 @@ class FinanceReportService
             $invoiceQuery = Invoice::where('landlord_id', $landlordId)
                 ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']]);
 
-            $paymentQuery = Payment::where('landlord_id', $landlordId)
+            $paymentQuery = Payment::withArchived()->where('landlord_id', $landlordId)
                 ->where('is_voided', false)
                 ->whereBetween('payment_date', [$dateRange['start'], $dateRange['end']]);
 

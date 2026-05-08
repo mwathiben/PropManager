@@ -65,6 +65,10 @@ class BuildingPolicy
      */
     public function delete(User $user, Building $building): bool
     {
+        if ($building->isWing()) {
+            return false;
+        }
+
         return $user->isLandlord() && $building->landlord_id === $user->id;
     }
 

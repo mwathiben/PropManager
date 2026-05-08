@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\InvoiceStatus;
 use App\Imports\BankStatementImport;
 use App\Models\BankReconciliationQueue;
 use App\Models\Building;
@@ -178,7 +179,7 @@ class BankStatementImportTest extends TestCase
         $this->assertEquals($this->invoice->id, $queueItem->matched_invoice_id);
 
         $this->invoice->refresh();
-        $this->assertEquals('paid', $this->invoice->status);
+        $this->assertEquals(InvoiceStatus::Paid, $this->invoice->status);
     }
 
     public function test_auto_match_by_amount(): void

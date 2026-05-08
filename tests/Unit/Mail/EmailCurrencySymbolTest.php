@@ -50,7 +50,7 @@ class EmailCurrencySymbolTest extends TestCase
     {
         $unit = Unit::factory()->forBuilding($building)->create();
         $lease = Lease::factory()->forUnit($unit)->active()->create();
-        $tenant = User::find($lease->tenant_id);
+        $tenant = User::findOrFail($lease->tenant_id);
 
         return [$lease, $tenant, $unit];
     }
@@ -118,7 +118,7 @@ class EmailCurrencySymbolTest extends TestCase
         $building = $this->createUsdBuilding();
         $unit = Unit::factory()->forBuilding($building)->create();
         $lease = Lease::factory()->forUnit($unit)->create();
-        $tenant = User::find($lease->tenant_id);
+        $tenant = User::findOrFail($lease->tenant_id);
         $invitation = TenantInvitation::factory()
             ->forUnit($unit)
             ->create(['landlord_id' => $building->landlord_id]);
@@ -208,7 +208,7 @@ class EmailCurrencySymbolTest extends TestCase
         $building = $this->createUsdBuilding();
         $unit = Unit::factory()->forBuilding($building)->create();
         $lease = Lease::factory()->forUnit($unit)->create();
-        $tenant = User::find($lease->tenant_id);
+        $tenant = User::findOrFail($lease->tenant_id);
         $invoice = Invoice::factory()
             ->forLease($lease)
             ->withCurrency(Currency::USD)
@@ -276,7 +276,7 @@ class EmailCurrencySymbolTest extends TestCase
     {
         $building = $this->createUsdBuilding();
         [$lease, $tenant] = $this->createUsdLeaseWithTenant($building);
-        $landlord = User::find($building->landlord_id);
+        $landlord = User::findOrFail($building->landlord_id);
 
         $mailable = new TenantCredentials($tenant, $lease, 'TempPass123!', $landlord);
 

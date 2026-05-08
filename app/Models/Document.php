@@ -4,13 +4,49 @@ namespace App\Models;
 
 use App\Traits\Auditable;
 use App\Traits\TenantScope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * @property int $id
+ * @property int $landlord_id
+ * @property int|null $documentable_id
+ * @property string|null $documentable_type
+ * @property string $title
+ * @property string $file_name
+ * @property string $file_path
+ * @property string $mime_type
+ * @property int $file_size
+ * @property string $document_type
+ * @property string|null $description
+ * @property int $uploaded_by
+ * @property \Carbon\Carbon $created_at
+ * @property \Carbon\Carbon $updated_at
+ * @property \Carbon\Carbon|null $deleted_at
+ * @property-read string $file_size_formatted
+ * @property-read string $file_extension
+ * @property-read User $landlord
+ * @property-read User $uploader
+ * @property-read Model|null $documentable
+ */
 class Document extends Model
 {
     use Auditable, SoftDeletes, TenantScope;
+
+    public const DOCUMENT_TYPES = [
+        'lease_agreement' => 'Lease Agreement',
+        'tenant_id' => 'Tenant ID',
+        'tenant_passport' => 'Tenant Passport',
+        'bank_statement' => 'Bank Statement',
+        'payslip' => 'Payslip',
+        'reference_letter' => 'Reference Letter',
+        'utility_bill' => 'Utility Bill',
+        'other' => 'Other',
+    ];
 
     protected $fillable = [
         'landlord_id',
@@ -32,88 +68,60 @@ class Document extends Model
 
     protected $appends = ['file_size_formatted'];
 
-    /**
-     * Get the owning documentable model (Lease, User, etc.)
-     */
-    public function documentable()
+    public function documentable(): MorphTo
     {
         return $this->morphTo();
     }
 
-    /**
-     * Get the landlord who owns this document
-     */
-    public function landlord()
+    public function landlord(): BelongsTo
     {
         return $this->belongsTo(User::class, 'landlord_id');
     }
 
-    /**
-     * Get the user who uploaded this document
-     */
-    public function uploader()
+    public function uploader(): BelongsTo
     {
         return $this->belongsTo(User::class, 'uploaded_by');
     }
 
-    /**
-     * Get formatted file size (e.g., "2.5 MB")
-     */
     public function getFileSizeFormattedAttribute(): string
     {
         $bytes = $this->file_size;
         $units = ['B', 'KB', 'MB', 'GB'];
+        $i = 0;
 
-        for ($i = 0; $bytes > 1024; $i++) {
+        while ($bytes > 1024 && $i < count($units) - 1) {
             $bytes /= 1024;
+            $i++;
         }
 
         return round($bytes, 2).' '.$units[$i];
     }
 
-    /**
-     * Get the file extension
-     */
     public function getFileExtensionAttribute(): string
     {
         return pathinfo($this->file_name, PATHINFO_EXTENSION);
     }
 
-    /**
-     * Check if file is an image
-     */
     public function isImage(): bool
     {
         return str_starts_with($this->mime_type, 'image/');
     }
 
-    /**
-     * Check if file is a PDF
-     */
     public function isPdf(): bool
     {
         return $this->mime_type === 'application/pdf';
     }
 
-    /**
-     * Get the full storage path
-     */
     public function getFullPath(): string
     {
         return Storage::disk('local')->path($this->file_path);
     }
 
-    /**
-     * Check if file exists in storage
-     */
     public function fileExists(): bool
     {
         return Storage::disk('local')->exists($this->file_path);
     }
 
-    /**
-     * Delete the physical file
-     */
     public function deleteFile(): bool
     {
         if ($this->fileExists()) {
@@ -123,14 +131,10 @@ class Document extends Model
         return false;
     }
 
-    /**
-     * Boot method to handle model events
-     */
-    protected static function boot()
+    protected static function boot(): void
     {
         parent::boot();
 
-        // When deleting a document, also delete the file
         static::deleting(function ($document) {
             if ($document->isForceDeleting()) {
                 $document->deleteFile();
@@ -139,17 +143,17 @@ class Document extends Model
     }
 
     /**
-     * Scope: Filter by document type
+     * @param  Builder<Document>  $query
      */
-    public function scopeOfType($query, string $type)
+    public function scopeOfType(Builder $query, string $type): Builder
     {
         return $query->where('document_type', $type);
     }
 
     /**
-     * Scope: Filter by documentable type (e.g., 'Lease', 'User')
+     * @param  Builder<Document>  $query
      */
-    public function scopeForModel($query, string $modelType)
+    public function scopeForModel(Builder $query, string $modelType): Builder
     {
         return $query->where('documentable_type', 'App\\Models\\'.$modelType);
     }

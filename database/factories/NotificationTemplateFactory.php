@@ -13,7 +13,6 @@ class NotificationTemplateFactory extends Factory
 
     public function definition(): array
     {
-        $landlord = User::factory()->state(['role' => 'landlord'])->create();
         $type = fake()->randomElement([
             'rent_reminder',
             'arrears_notice',
@@ -24,7 +23,7 @@ class NotificationTemplateFactory extends Factory
         $name = ucfirst(str_replace('_', ' ', $type)).' Template';
 
         return [
-            'landlord_id' => $landlord->id,
+            'landlord_id' => User::factory()->state(['role' => 'landlord']),
             'name' => $name,
             'slug' => Str::slug($name),
             'type' => $type,
@@ -58,6 +57,10 @@ class NotificationTemplateFactory extends Factory
             'arrears_notice' => "Dear {{tenant_name}},\n\nYou have an outstanding balance of {{arrears_amount}} which is {{days_overdue}} days overdue.\n\nPlease settle this balance as soon as possible.\n\nBest regards,\n{{landlord_name}}",
             'invoice' => "Dear {{tenant_name}},\n\nPlease find attached invoice {{invoice_number}} for {{total_amount}}.\n\nDue date: {{due_date}}\n\nView invoice: {{invoice_url}}\n\nBest regards,\n{{landlord_name}}",
             'receipt' => "Dear {{tenant_name}},\n\nThank you for your payment of {{payment_amount}} on {{payment_date}}.\n\nReceipt: {{receipt_number}}\nPayment method: {{payment_method}}\n\nBest regards,\n{{landlord_name}}",
+            'rent_hike' => "Dear {{tenant_name}},\n\nThis is to inform you of a rent adjustment for unit {{unit_number}}.\n\nNew rent amount: {{new_rent_amount}}\nEffective date: {{effective_date}}\nIncrease amount: {{hike_amount}}\n\nPlease contact us if you have any questions.\n\nBest regards,\n{{landlord_name}}",
+            'lease_expiry' => "Dear {{tenant_name}},\n\nThis is a reminder that your lease for unit {{unit_number}} is set to expire on {{expiry_date}}.\n\nPlease contact us to discuss renewal options.\n\nBest regards,\n{{landlord_name}}",
+            'lease_renewal' => "Dear {{tenant_name}},\n\nWe are pleased to offer you a lease renewal for unit {{unit_number}}.\n\nNew lease term: {{lease_term}}\nNew rent amount: {{new_rent_amount}}\nEffective date: {{effective_date}}\n\nPlease review and respond at your earliest convenience.\n\nBest regards,\n{{landlord_name}}",
+            'eviction_notice' => "Dear {{tenant_name}},\n\nThis is an important notice regarding your tenancy at unit {{unit_number}}.\n\nDue to {{eviction_reason}}, we regret to inform you that eviction proceedings have been initiated.\n\nVacate by date: {{vacate_date}}\n\nPlease contact us immediately to discuss this matter.\n\nBest regards,\n{{landlord_name}}",
             default => "Dear {{tenant_name}},\n\nThis is a notification from {{landlord_name}}.\n\nBest regards,\n{{landlord_name}}",
         };
     }

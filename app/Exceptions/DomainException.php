@@ -172,9 +172,15 @@ abstract class DomainException extends Exception
                 continue;
             }
 
-            // Recursively sanitize nested arrays
+            // Recursively sanitize nested arrays and objects
             if (is_array($value)) {
                 $sanitized[$key] = $this->sanitizeForLogging($value);
+
+                continue;
+            }
+
+            if (is_object($value)) {
+                $sanitized[$key] = $this->sanitizeForLogging(get_object_vars($value));
 
                 continue;
             }
@@ -211,13 +217,27 @@ abstract class DomainException extends Exception
             }
 
             // Check for internal_* pattern
-            if (str_starts_with($lowerKey, 'internal')) {
+            if (str_starts_with($lowerKey, 'internal_')) {
                 continue;
             }
 
-            // Recursively sanitize nested arrays
+            // Recursively sanitize nested arrays and objects
             if (is_array($value)) {
                 $sanitized[$key] = $this->sanitizeForPublic($value);
+
+                continue;
+            }
+
+            if (is_object($value)) {
+                if ($value instanceof \JsonSerializable) {
+                    $sanitized[$key] = $this->sanitizeForPublic((array) $value->jsonSerialize());
+                } elseif (method_exists($value, 'toArray')) {
+                    $sanitized[$key] = $this->sanitizeForPublic($value->toArray());
+                } elseif (method_exists($value, '__toString')) {
+                    $sanitized[$key] = (string) $value;
+                } else {
+                    $sanitized[$key] = ['__class' => get_class($value)];
+                }
 
                 continue;
             }

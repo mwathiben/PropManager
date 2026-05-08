@@ -3,6 +3,7 @@
 namespace App\Policies;
 
 use App\Models\Invitation;
+use App\Models\Property;
 use App\Models\User;
 
 class InvitationPolicy
@@ -38,9 +39,17 @@ class InvitationPolicy
     /**
      * Determine whether the user can create invitations.
      */
-    public function create(User $user): bool
+    public function create(User $user, ?Property $property = null): bool
     {
-        return $user->isLandlord();
+        if (! $user->isLandlord()) {
+            return false;
+        }
+
+        if ($property) {
+            return $property->landlord_id === $user->id;
+        }
+
+        return true;
     }
 
     /**

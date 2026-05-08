@@ -378,7 +378,7 @@ class KycRequirementControllerTest extends TestCase
         ]);
     }
 
-    public function test_caretaker_can_view_landlords_kyc_requirements(): void
+    public function test_caretaker_cannot_view_landlords_kyc_requirements(): void
     {
         KycRequirement::factory()
             ->forLandlord($this->landlord)

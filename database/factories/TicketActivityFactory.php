@@ -13,11 +13,9 @@ class TicketActivityFactory extends Factory
 
     public function definition(): array
     {
-        $ticket = Ticket::factory()->create();
-
         return [
-            'landlord_id' => $ticket->landlord_id,
-            'ticket_id' => $ticket->id,
+            'ticket_id' => Ticket::factory(),
+            'landlord_id' => fn (array $attrs) => $attrs['ticket_id'] instanceof Ticket ? $attrs['ticket_id']->landlord_id : Ticket::factory()->make()->landlord_id,
             'user_id' => User::factory()->state(['role' => 'landlord']),
             'action' => TicketActivity::ACTION_CREATED,
             'old_value' => null,
@@ -103,15 +101,11 @@ class TicketActivityFactory extends Factory
         return $this->state(['user_id' => $user->id]);
     }
 
-    public function forLandlord(User $landlord): static
+    public function forLandlord(User $landlord, ?Ticket $ticket = null): static
     {
-        return $this->state(function () use ($landlord) {
-            $ticket = Ticket::factory()->forLandlord($landlord)->create();
-
-            return [
-                'landlord_id' => $landlord->id,
-                'ticket_id' => $ticket->id,
-            ];
-        });
+        return $this->state([
+            'landlord_id' => $landlord->id,
+            'ticket_id' => $ticket?->id ?? Ticket::factory()->forLandlord($landlord),
+        ]);
     }
 }

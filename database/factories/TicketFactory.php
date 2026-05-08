@@ -14,15 +14,14 @@ class TicketFactory extends Factory
 
     public function definition(): array
     {
-        $building = Building::factory()->create();
         $category = fake()->randomElement(['issue', 'complaint']);
         $subcategories = $category === 'issue'
             ? array_keys(Ticket::issueSubcategories())
             : array_keys(Ticket::complaintSubcategories());
 
         return [
-            'landlord_id' => $building->landlord_id,
-            'building_id' => $building->id,
+            'building_id' => Building::factory(),
+            'landlord_id' => fn (array $attrs) => $attrs['building_id'] instanceof Building ? $attrs['building_id']->landlord_id : Building::factory()->make()->landlord_id,
             'unit_id' => null,
             'reporter_id' => null,
             'assigned_to' => null,

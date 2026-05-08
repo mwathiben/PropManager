@@ -87,8 +87,12 @@ class Payment extends Model
         ));
     }
 
+    /**
+     * Query both active and archived payments via the all_payments view.
+     * Tenant-scoped: the view includes landlord_id so TenantScope still applies.
+     */
     public function scopeWithArchived(Builder $query): Builder
     {
-        return $query->from(DB::raw('all_payments as payments'));
+        return $query->from(DB::raw('all_payments as '.(new static)->getTable()));
     }
 }

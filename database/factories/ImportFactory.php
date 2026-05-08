@@ -12,20 +12,19 @@ class ImportFactory extends Factory
 
     public function definition(): array
     {
-        $landlord = User::factory()->state(['role' => 'landlord'])->create();
         $totalRows = fake()->numberBetween(10, 500);
         $successfulRows = fake()->numberBetween(0, $totalRows);
 
         return [
-            'landlord_id' => $landlord->id,
-            'imported_by' => $landlord->id,
+            'landlord_id' => User::factory()->state(['role' => 'landlord']),
+            'imported_by' => fn (array $attrs) => $attrs['landlord_id'],
             'type' => fake()->randomElement(['tenants', 'units', 'payments', 'water_readings']),
             'file_name' => fake()->slug(2).'.csv',
             'file_path' => 'imports/'.fake()->uuid().'.csv',
             'status' => 'processing',
             'total_rows' => $totalRows,
-            'successful_rows' => 0,
-            'failed_rows' => 0,
+            'successful_rows' => $successfulRows,
+            'failed_rows' => $totalRows - $successfulRows,
             'errors' => [],
             'summary' => [],
             'started_at' => now(),

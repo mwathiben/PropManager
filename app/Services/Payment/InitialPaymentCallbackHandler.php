@@ -60,7 +60,15 @@ class InitialPaymentCallbackHandler
                 }
 
                 $currency = Currency::tryFrom($data['currency'] ?? '') ?? Currency::default();
-                $amount = $currency->fromMinorUnits($data['amount']);
+                $rawAmount = $data['amount'] ?? 0;
+                if (! is_numeric($rawAmount)) {
+                    Log::warning('Initial payment callback received non-numeric amount', [
+                        'amount' => $rawAmount,
+                        'reference' => $reference,
+                    ]);
+                    $rawAmount = 0;
+                }
+                $amount = $currency->fromMinorUnits($rawAmount);
 
                 $payment = Payment::create([
                     'landlord_id' => $verification->landlord_id,

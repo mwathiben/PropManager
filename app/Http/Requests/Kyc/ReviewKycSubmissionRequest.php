@@ -31,7 +31,7 @@ class ReviewKycSubmissionRequest extends FormRequest
                 ]),
             ],
             'rejection_reason' => [
-                'nullable',
+                'exclude_if:status,'.KycSubmissionStatus::Approved->value,
                 'required_if:status,'.KycSubmissionStatus::Rejected->value,
                 'string',
                 'max:1000',
