@@ -223,6 +223,11 @@ class FinanceCacheTest extends TestCase
             $this->createInvoiceForLease($lease, 'sent');
         }
 
+        // RefreshDatabase rolls back DB changes between tests, but Cache state
+        // persists across tests in the same parallel worker — so this landlord's
+        // hub stats may already be populated from a previous test.
+        Cache::flush();
+
         // First call: cache miss → expect database queries.
         DB::enableQueryLog();
         $service->getHubStats($this->landlord->id);
