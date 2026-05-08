@@ -60,8 +60,9 @@ class ManualPaymentHandler
     {
         $invoice = null;
         $lease = null;
-        $appliedAmount = $validated['amount'];
-        $overpayment = 0;
+        $amount = (float) $validated['amount'];
+        $appliedAmount = $amount;
+        $overpayment = 0.0;
 
         $hasInvoice = ! empty($validated['invoice_id']) && ! ($validated['is_unallocated'] ?? false);
 
@@ -73,9 +74,9 @@ class ManualPaymentHandler
 
             $lease = $invoice->lease;
 
-            $remainingBalance = $invoice->total_due - $invoice->amount_paid;
-            $appliedAmount = min($validated['amount'], $remainingBalance);
-            $overpayment = max(0, $validated['amount'] - $remainingBalance);
+            $remainingBalance = (float) $invoice->total_due - (float) $invoice->amount_paid;
+            $appliedAmount = min($amount, $remainingBalance);
+            $overpayment = max(0.0, $amount - $remainingBalance);
         } elseif (! empty($validated['tenant_id'])) {
             $tenant = User::where('id', $validated['tenant_id'])
                 ->where('landlord_id', $landlordId)
