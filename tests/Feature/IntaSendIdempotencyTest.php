@@ -125,20 +125,16 @@ class IntaSendIdempotencyTest extends TestCase
     /**
      * Test 3: 50 concurrent webhooks create exactly 1 payment
      *
-     * Stress test for race conditions. Uses parallel processes to simulate
-     * truly concurrent identical payment insert attempts - only 1 should succeed.
-     * Falls back to sequential test if pcntl extension is not available.
+     * Validates the intasend_reference unique constraint. Same pcntl_fork
+     * incompatibility as MpesaIdempotencyTest — see that file's note for
+     * why the fork branch was retired in favor of the sequential variant.
      */
     public function test_50_concurrent_intasend_webhooks_create_exactly_one_payment(): void
     {
         $reference = 'ITS-'.time().'-'.uniqid();
         $concurrentCalls = 50;
 
-        if (function_exists('pcntl_fork')) {
-            $this->runConcurrentForkTest($reference, $concurrentCalls);
-        } else {
-            $this->runParallelConnectionTest($reference, $concurrentCalls);
-        }
+        $this->runParallelConnectionTest($reference, $concurrentCalls);
 
         $this->assertEquals(1, Payment::where('intasend_reference', $reference)->count());
     }
