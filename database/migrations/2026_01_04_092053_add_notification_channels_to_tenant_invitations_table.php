@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('tenant_invitations', function (Blueprint $table) {
             // Notification channels (email, sms, whatsapp)
-            $table->json('notification_channels')->default('["email"]')->after('tenant_phone');
+            $table->json('notification_channels')->nullable()->after('tenant_phone');
 
             // Delivery tracking timestamps
             $table->timestamp('email_sent_at')->nullable()->after('notification_channels');
