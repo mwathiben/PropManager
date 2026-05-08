@@ -13,6 +13,7 @@ use App\Services\FinanceCacheService;
 use App\Services\FinanceStatsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestData;
@@ -211,7 +212,7 @@ class FinanceCacheTest extends TestCase
             ->assertSuccessful();
     }
 
-    public function test_cached_response_is_faster_than_uncached(): void
+    public function test_cached_response_avoids_database_queries(): void
     {
         $service = app(FinanceStatsService::class);
 
@@ -222,17 +223,19 @@ class FinanceCacheTest extends TestCase
             $this->createInvoiceForLease($lease, 'sent');
         }
 
-        $start = microtime(true);
+        // First call: cache miss → expect database queries.
+        DB::enableQueryLog();
         $service->getHubStats($this->landlord->id);
-        $firstCallMs = (microtime(true) - $start) * 1000;
+        $firstCallQueries = count(DB::getQueryLog());
 
-        $start = microtime(true);
+        // Second call: cache hit → expect zero database queries.
+        DB::flushQueryLog();
         $service->getHubStats($this->landlord->id);
-        $cachedCallMs = (microtime(true) - $start) * 1000;
+        $cachedCallQueries = count(DB::getQueryLog());
+        DB::disableQueryLog();
 
-        $this->assertLessThan($firstCallMs, $cachedCallMs);
-
-        $this->assertLessThan(50, $cachedCallMs, 'Cached call should complete in under 50ms');
+        $this->assertGreaterThan(0, $firstCallQueries, 'First call should hit the database');
+        $this->assertSame(0, $cachedCallQueries, 'Cached call should not hit the database');
     }
 
     public function test_report_cache_invalidated_on_payment_creation(): void
