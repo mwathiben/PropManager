@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\MoveOutStatus;
 use App\Http\Requests\MoveOut\CancelMoveOutRequest;
 use App\Http\Requests\MoveOut\CompleteMoveOutInspectionRequest;
 use App\Http\Requests\MoveOut\CompleteMoveOutSettlementRequest;
@@ -10,7 +11,6 @@ use App\Http\Requests\MoveOut\StoreMoveOutDeductionRequest;
 use App\Http\Requests\MoveOut\StoreMoveOutRequest;
 use App\Http\Requests\MoveOut\UpdateMoveOutDeductionRequest;
 use App\Http\Requests\MoveOut\UpdateMoveOutRequest;
-use App\Enums\MoveOutStatus;
 use App\Models\Lease;
 use App\Models\MoveOut;
 use App\Models\MoveOutDeduction;

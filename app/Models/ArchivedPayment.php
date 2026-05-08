@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 class ArchivedPayment extends Model
 {
     use TenantScope;
+
     protected $fillable = [
         'original_payment_id',
         'invoice_id',

@@ -50,7 +50,7 @@ return new class extends Migration
             $table->index(['landlord_id', 'payment_date']);
         });
 
-        DB::statement("
+        DB::statement('
             CREATE OR REPLACE VIEW all_payments AS
             SELECT
                 id,
@@ -83,7 +83,7 @@ return new class extends Migration
                 original_updated_at as updated_at,
                 1 as is_archived
             FROM archived_payments
-        ");
+        ');
     }
 
     public function down(): void
