@@ -29,7 +29,12 @@ class GenerateMonthlyInvoices extends Command
 
         $stats = ['generated' => 0, 'skipped' => 0, 'failed' => 0];
 
-        Lease::where('is_active', true)
+        // Cross-tenant by design: a system-wide cron generates monthly
+        // invoices for every active lease across every landlord. Made
+        // explicit so a future TenantScope refactor (e.g., to honor
+        // impersonation in CLI) can't silently scope this away.
+        Lease::withoutGlobalScope('landlord')
+            ->where('is_active', true)
             ->with(['unit', 'tenant'])
             ->chunkById(500, function ($leases) use ($invoiceService, $billingPeriod, &$stats) {
                 foreach ($leases as $lease) {

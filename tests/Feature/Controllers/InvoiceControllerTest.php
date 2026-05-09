@@ -118,6 +118,35 @@ class InvoiceControllerTest extends TestCase
         $response->assertSessionHasErrors(['month', 'year']);
     }
 
+    /**
+     * SCOPE-S1 regression: when a landlord triggers POST /invoices/generate,
+     * only THEIR active leases should produce invoices — not every landlord's.
+     */
+    public function test_invoice_generation_scopes_to_requesting_landlord(): void
+    {
+        $unit = $this->setupData['units']->first();
+        $this->createTenantWithActiveLease($this->landlord, $unit);
+
+        $otherSetup = $this->createLandlordWithFullSetup();
+        $this->createTenantWithActiveLease($otherSetup['landlord'], $otherSetup['units']->first());
+
+        $this->actingAs($this->landlord)
+            ->post(route('invoices.generate'), [
+                'month' => now()->month,
+                'year' => now()->year,
+            ])
+            ->assertRedirect(route('invoices.index'));
+
+        // Only the requesting landlord's lease produced an invoice.
+        $this->assertDatabaseCount('invoices', 1);
+        $this->assertDatabaseHas('invoices', [
+            'landlord_id' => $this->landlord->id,
+        ]);
+        $this->assertDatabaseMissing('invoices', [
+            'landlord_id' => $otherSetup['landlord']->id,
+        ]);
+    }
+
     public function test_landlord_can_update_invoice_status(): void
     {
         $unit = $this->setupData['units']->first();

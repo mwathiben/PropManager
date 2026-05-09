@@ -73,9 +73,20 @@ class InvoiceController extends Controller
     {
         $billingPeriod = Carbon::create($request->year, $request->month, 1);
 
-        $leases = Lease::where('is_active', true)
-            ->with(['unit.building.property', 'tenant'])
-            ->get();
+        $user = auth()->user();
+        $landlordId = $user->isCaretaker() ? (int) $user->landlord_id : (int) $user->id;
+
+        // Explicit landlord_id filter as defense-in-depth alongside TenantScope.
+        // Super admins bypass scope (intentional system-wide generation) — every
+        // other role gets scoped to their own landlord.
+        $leasesQuery = Lease::where('is_active', true)
+            ->with(['unit.building.property', 'tenant']);
+
+        if (! $user->isSuperAdmin()) {
+            $leasesQuery->where('landlord_id', $landlordId);
+        }
+
+        $leases = $leasesQuery->get();
         $successCount = 0;
 
         foreach ($leases as $lease) {
