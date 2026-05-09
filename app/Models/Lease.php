@@ -135,7 +135,14 @@ class Lease extends Model
             'payment_id' => $paymentId,
         ]);
 
-        $this->wallet_balance = $newBalance;
+        // CONC-13: register a post-commit refresh hook so $this gets the
+        // committed balance instead of the optimistic in-flight one. If the
+        // outer transaction rolls back, no setOnModel ever runs and $this
+        // remains aligned with the actual DB state.
+        DB::afterCommit(function () use ($newBalance) {
+            $this->wallet_balance = $newBalance;
+            $this->syncOriginalAttribute('wallet_balance');
+        });
     }
 
     public function deductFromWallet(float $amount, ?string $reason = null, ?int $invoiceId = null): float
@@ -159,7 +166,13 @@ class Lease extends Model
                 'invoice_id' => $invoiceId,
             ]);
 
-            $this->wallet_balance = $newBalance;
+            // CONC-13: only update $this->wallet_balance after the outer
+            // transaction commits — otherwise a later rollback would leave
+            // the in-memory model holding an unpersisted balance.
+            DB::afterCommit(function () use ($newBalance) {
+                $this->wallet_balance = $newBalance;
+                $this->syncOriginalAttribute('wallet_balance');
+            });
         }
 
         return $deducted;

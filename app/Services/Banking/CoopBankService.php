@@ -49,6 +49,8 @@ class CoopBankService implements BankServiceInterface
 
         try {
             $response = Http::withToken($token)
+                ->connectTimeout(3)->timeout(15)
+                ->retry(2, 200, throw: false)
                 ->post("{$this->baseUrl}/Enquiry/MiniStatement/Account/1.0.0", [
                     'MessageReference' => 'STMT_'.bin2hex(random_bytes(8)),
                     'AccountNumber' => $accountNumber,
@@ -77,6 +79,7 @@ class CoopBankService implements BankServiceInterface
 
         try {
             $response = Http::withToken($token)
+                ->connectTimeout(3)->timeout(15)
                 ->post("{$this->baseUrl}/Enquiry/AccountBalance/1.0.0", [
                     'MessageReference' => 'VERIFY_'.bin2hex(random_bytes(8)),
                     'AccountNumber' => $accountNumber,
@@ -103,6 +106,7 @@ class CoopBankService implements BankServiceInterface
 
         try {
             $response = Http::withToken($token)
+                ->connectTimeout(3)->timeout(15)
                 ->post("{$this->baseUrl}/VirtualAccount/1.0.0/CreateVirtualAccount", [
                     // CONC-8: collision-safe random reference.
                     'MessageReference' => 'VA_'.bin2hex(random_bytes(8)),
@@ -127,30 +131,50 @@ class CoopBankService implements BankServiceInterface
 
     private function getAccessToken(): ?string
     {
-        return Cache::remember('coop_access_token', 3500, function () {
-            try {
-                $credentials = base64_encode(
-                    config('services.coop.consumer_key').':'.config('services.coop.consumer_secret')
-                );
+        // CONC-11: derive cache key from the credential pair so a future
+        // per-tenant credential model doesn't leak one tenant's token to
+        // another.
+        $credentialKey = sha1((string) config('services.coop.consumer_key'));
+        $cacheKey = "coop_access_token:{$credentialKey}";
 
-                $response = Http::withHeaders([
-                    'Authorization' => 'Basic '.$credentials,
-                ])->asForm()->post("{$this->baseUrl}/token", [
-                    'grant_type' => 'client_credentials',
-                ]);
+        $cached = Cache::get($cacheKey);
+        if ($cached) {
+            return $cached;
+        }
 
-                if ($response->successful()) {
-                    return $response->json('access_token');
-                }
-
-                Log::error('Co-op Bank auth failed', ['response' => $response->json()]);
-
-                return null;
-            } catch (\Exception $e) {
-                Log::error('Co-op Bank auth exception', ['error' => $e->getMessage()]);
-
-                return null;
+        $lock = Cache::lock("{$cacheKey}:fetch", 10);
+        try {
+            if (! $lock->block(5)) {
+                return Cache::get($cacheKey);
             }
-        });
+
+            return Cache::remember($cacheKey, 3500, function () {
+                try {
+                    $credentials = base64_encode(
+                        config('services.coop.consumer_key').':'.config('services.coop.consumer_secret')
+                    );
+
+                    $response = Http::withHeaders([
+                        'Authorization' => 'Basic '.$credentials,
+                    ])->connectTimeout(3)->timeout(15)->asForm()->post("{$this->baseUrl}/token", [
+                        'grant_type' => 'client_credentials',
+                    ]);
+
+                    if ($response->successful()) {
+                        return $response->json('access_token');
+                    }
+
+                    Log::error('Co-op Bank auth failed', ['response' => $response->json()]);
+
+                    return null;
+                } catch (\Exception $e) {
+                    Log::error('Co-op Bank auth exception', ['error' => $e->getMessage()]);
+
+                    return null;
+                }
+            });
+        } finally {
+            optional($lock)->release();
+        }
     }
 }

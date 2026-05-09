@@ -49,6 +49,8 @@ class EquityBankService implements BankServiceInterface
 
         try {
             $response = Http::withToken($token)
+                ->connectTimeout(3)->timeout(15)
+                ->retry(2, 200, throw: false)
                 ->get("{$this->baseUrl}/account/v2/accounts/{$accountNumber}/statement", [
                     'fromDate' => $from->format('Y-m-d'),
                     'toDate' => $to->format('Y-m-d'),
@@ -77,6 +79,7 @@ class EquityBankService implements BankServiceInterface
 
         try {
             $response = Http::withToken($token)
+                ->connectTimeout(3)->timeout(15)
                 ->get("{$this->baseUrl}/account/v2/accounts/{$accountNumber}");
 
             if ($response->successful()) {
@@ -93,25 +96,45 @@ class EquityBankService implements BankServiceInterface
 
     private function getAccessToken(): ?string
     {
-        return Cache::remember('equity_access_token', 3500, function () {
-            try {
-                $response = Http::asForm()->post("{$this->baseUrl}/authentication/api/v3/authenticate/merchant", [
-                    'merchantCode' => config('services.equity.merchant_code'),
-                    'consumerSecret' => config('services.equity.consumer_secret'),
-                ]);
+        // CONC-11: derive cache key from the credential pair so a future
+        // per-tenant credential model doesn't leak one tenant's token to
+        // another.
+        $credentialKey = sha1((string) config('services.equity.merchant_code'));
+        $cacheKey = "equity_access_token:{$credentialKey}";
 
-                if ($response->successful()) {
-                    return $response->json('accessToken');
-                }
+        $cached = Cache::get($cacheKey);
+        if ($cached) {
+            return $cached;
+        }
 
-                Log::error('Equity Bank auth failed', ['response' => $response->json()]);
-
-                return null;
-            } catch (\Exception $e) {
-                Log::error('Equity Bank auth exception', ['error' => $e->getMessage()]);
-
-                return null;
+        $lock = Cache::lock("{$cacheKey}:fetch", 10);
+        try {
+            if (! $lock->block(5)) {
+                return Cache::get($cacheKey);
             }
-        });
+
+            return Cache::remember($cacheKey, 3500, function () {
+                try {
+                    $response = Http::connectTimeout(3)->timeout(15)->asForm()->post("{$this->baseUrl}/authentication/api/v3/authenticate/merchant", [
+                        'merchantCode' => config('services.equity.merchant_code'),
+                        'consumerSecret' => config('services.equity.consumer_secret'),
+                    ]);
+
+                    if ($response->successful()) {
+                        return $response->json('accessToken');
+                    }
+
+                    Log::error('Equity Bank auth failed', ['response' => $response->json()]);
+
+                    return null;
+                } catch (\Exception $e) {
+                    Log::error('Equity Bank auth exception', ['error' => $e->getMessage()]);
+
+                    return null;
+                }
+            });
+        } finally {
+            optional($lock)->release();
+        }
     }
 }

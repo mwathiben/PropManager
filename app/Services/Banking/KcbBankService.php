@@ -49,6 +49,8 @@ class KcbBankService implements BankServiceInterface
 
         try {
             $response = Http::withToken($token)
+                ->connectTimeout(3)->timeout(15)
+                ->retry(2, 200, throw: false)
                 ->get("{$this->baseUrl}/account/v1/statement", [
                     'accountNumber' => $accountNumber,
                     'startDate' => $from->format('Y-m-d'),
@@ -78,6 +80,7 @@ class KcbBankService implements BankServiceInterface
 
         try {
             $response = Http::withToken($token)
+                ->connectTimeout(3)->timeout(15)
                 ->post("{$this->baseUrl}/account/v1/enquiry", [
                     'accountNumber' => $accountNumber,
                 ]);
@@ -96,26 +99,49 @@ class KcbBankService implements BankServiceInterface
 
     private function getAccessToken(): ?string
     {
-        return Cache::remember('kcb_access_token', 3500, function () {
-            try {
-                $response = Http::asForm()->post("{$this->baseUrl}/oauth/token", [
-                    'grant_type' => 'client_credentials',
-                    'client_id' => config('services.kcb.client_id'),
-                    'client_secret' => config('services.kcb.client_secret'),
-                ]);
+        // CONC-11: derive cache key from the credential pair so a future
+        // per-tenant credential model doesn't leak one tenant's token to
+        // another. Today client_id is global; the suffix still keys cleanly
+        // on whatever the live config returns.
+        $credentialKey = sha1((string) config('services.kcb.client_id'));
+        $cacheKey = "kcb_access_token:{$credentialKey}";
 
-                if ($response->successful()) {
-                    return $response->json('access_token');
-                }
+        $cached = Cache::get($cacheKey);
+        if ($cached) {
+            return $cached;
+        }
 
-                Log::error('KCB Bank auth failed', ['response' => $response->json()]);
-
-                return null;
-            } catch (\Exception $e) {
-                Log::error('KCB Bank auth exception', ['error' => $e->getMessage()]);
-
-                return null;
+        // Serialize the OAuth fetch so a thundering herd of cache misses
+        // doesn't make N concurrent /oauth/token calls.
+        $lock = Cache::lock("{$cacheKey}:fetch", 10);
+        try {
+            if (! $lock->block(5)) {
+                return Cache::get($cacheKey);
             }
-        });
+
+            return Cache::remember($cacheKey, 3500, function () {
+                try {
+                    $response = Http::connectTimeout(3)->timeout(15)->asForm()->post("{$this->baseUrl}/oauth/token", [
+                        'grant_type' => 'client_credentials',
+                        'client_id' => config('services.kcb.client_id'),
+                        'client_secret' => config('services.kcb.client_secret'),
+                    ]);
+
+                    if ($response->successful()) {
+                        return $response->json('access_token');
+                    }
+
+                    Log::error('KCB Bank auth failed', ['response' => $response->json()]);
+
+                    return null;
+                } catch (\Exception $e) {
+                    Log::error('KCB Bank auth exception', ['error' => $e->getMessage()]);
+
+                    return null;
+                }
+            });
+        } finally {
+            optional($lock)->release();
+        }
     }
 }

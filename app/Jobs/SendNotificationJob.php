@@ -4,15 +4,48 @@ namespace App\Jobs;
 
 use App\Models\Notification;
 use App\Services\NotificationService;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
-class SendNotificationJob implements ShouldQueue
+class SendNotificationJob implements ShouldBeUnique, ShouldQueue
 {
     use InteractsWithQueue, Queueable, SerializesModels;
+
+    /**
+     * CONC-10: how long the unique-job lock is held in seconds.
+     *
+     * Bound the dedup window to 5 minutes — long enough to absorb a
+     * duplicate dispatch from the existing app-level dedup window in
+     * handleNewNotification(), short enough that a genuinely lost lock
+     * (e.g. queue worker crash mid-job) doesn't permanently shadow real
+     * traffic.
+     */
+    public int $uniqueFor = 300;
+
+    public function uniqueId(): string
+    {
+        // For deferred notifications, the notification_id is sufficient —
+        // it's already a unique row.
+        if ($this->notificationId) {
+            return 'def:'.$this->notificationId;
+        }
+
+        // For "new" notifications, dedup on the recipient + type + subject +
+        // landlord. This replaces the uncommitted-read scan in
+        // handleNewNotification with a transactional cache lock so two
+        // dispatches of the same logical notification can't both pass the
+        // existence check before either has written its row.
+        return 'new:'.implode(':', [
+            $this->landlordId ?? 0,
+            $this->recipientId ?? 0,
+            $this->type ?? '',
+            sha1((string) $this->subject),
+        ]);
+    }
 
     /**
      * The number of times the job may be attempted.
