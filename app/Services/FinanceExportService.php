@@ -267,8 +267,10 @@ class FinanceExportService
 
     protected function buildExpenseQuery(array $filters): Builder
     {
+        // PERF-R3: column-restrict the category eager-load — the export
+        // breakdown only reads name + color (plus id for the join).
         $query = Expense::where('landlord_id', $filters['landlord_id'])
-            ->with(['category', 'vendor', 'property', 'building', 'unit']);
+            ->with(['category:id,name,color', 'vendor', 'property', 'building', 'unit']);
 
         if (! empty($filters['category_id'])) {
             $query->where('category_id', $filters['category_id']);

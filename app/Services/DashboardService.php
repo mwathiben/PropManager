@@ -23,7 +23,13 @@ class DashboardService
 
     public function getSuperAdminMetrics(): array
     {
-        return FinanceCacheService::rememberSuperAdminStats('metrics', function () {
+        // PERF-R4: include the current month-year in the cache key so the
+        // super-admin dashboard doesn't show last month's revenue for up
+        // to 5 minutes after midnight on the 1st (the queries below are
+        // bound to {now()->month, now()->year}, but the cache key wasn't).
+        $monthSuffix = now()->format('Y-m');
+
+        return FinanceCacheService::rememberSuperAdminStats("metrics:{$monthSuffix}", function () {
             $systemHealth = [
                 'active_landlords' => User::where('role', 'landlord')->count(),
                 'total_properties' => Property::withoutGlobalScope('landlord')->count(),

@@ -167,8 +167,20 @@ class FinanceCacheService
             return;
         }
 
+        // PERF-R4: super-admin metrics cache key includes month-year suffix,
+        // so an exhaustive invalidate sweeps the current and previous month
+        // (covers month-rollover edge where both buckets may still exist).
+        $now = now();
+        $monthSuffixes = [
+            $now->format('Y-m'),
+            $now->copy()->subMonth()->format('Y-m'),
+        ];
+
         foreach (self::SUPER_ADMIN_TYPES as $knownType) {
             Cache::forget(self::superAdminKey($knownType));
+            foreach ($monthSuffixes as $suffix) {
+                Cache::forget(self::superAdminKey("{$knownType}:{$suffix}"));
+            }
         }
     }
 }

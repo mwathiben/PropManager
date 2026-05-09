@@ -376,9 +376,17 @@ class User extends Authenticatable
         return $this->subscription?->plan?->slug === $planSlug;
     }
 
+    /**
+     * PERF-R1: memoize the resolved plan on first access. CheckPlanLimits
+     * middleware reads $user->plan from canAccessFeature(), withinLimit(),
+     * and getLimit() inside a single request — without memoization the
+     * subscription/plan lazy loads fire repeatedly per request.
+     */
+    private ?SubscriptionPlan $resolvedPlan = null;
+
     public function getPlanAttribute(): ?SubscriptionPlan
     {
-        return $this->subscription?->plan ?? SubscriptionPlan::free();
+        return $this->resolvedPlan ??= ($this->subscription?->plan ?? SubscriptionPlan::free());
     }
 
     // Feature access checking

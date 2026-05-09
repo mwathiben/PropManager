@@ -90,12 +90,19 @@ class SecurityLogger
     {
         $isSuspicious = SecurityLog::shouldBlockIp($this->getIpAddress());
 
+        // SCOPE-P5: failed-login events fire pre-auth, so TenantScope's
+        // creating hook (Auth::check()-gated) won't populate landlord_id.
+        // Resolving the target user lets the affected landlord see the
+        // failed-login attempt in their own audit-log review instead of
+        // it being visible only to super admins.
+        $targetUser = User::where('email', $email)->first();
+
         return $this->log(
             SecurityLog::EVENT_LOGIN_FAILED,
             "Failed login attempt for {$email}".($reason ? ": {$reason}" : ''),
             ['email' => $email, 'reason' => $reason],
             SecurityLog::SEVERITY_WARNING,
-            null,
+            $targetUser,
             $isSuspicious
         );
     }

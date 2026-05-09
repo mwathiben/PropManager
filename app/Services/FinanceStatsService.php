@@ -488,6 +488,14 @@ class FinanceStatsService
 
     public function calculateExpenseCategoryBreakdown(Collection $expenses): array
     {
+        // PERF-R3: defense-in-depth eager-load. Callers should pass expenses
+        // with category already loaded; if not, this single loadMissing
+        // collapses M lazy SELECTs (one per distinct category) into one
+        // batched query.
+        if ($expenses->isNotEmpty()) {
+            $expenses->loadMissing('category:id,name,color');
+        }
+
         return $expenses->groupBy('category_id')
             ->map(fn ($group) => [
                 'name' => $group->first()->category?->name ?? 'Uncategorized',

@@ -31,6 +31,12 @@ class CheckPlanLimits
             return $next($request);
         }
 
+        // PERF-R1: eager-load subscription.plan once before the multiple
+        // canAccessFeature/withinLimit/getLimit accesses below. Combined
+        // with the in-model memoization on getPlanAttribute, the plan
+        // resolves to one query at most per request.
+        $user->loadMissing('subscription.plan');
+
         // Check feature access
         if (! $user->canAccessFeature($feature)) {
             $message = $this->getFeatureUpgradeMessage($feature);
