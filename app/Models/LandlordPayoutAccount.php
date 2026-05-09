@@ -51,6 +51,14 @@ class LandlordPayoutAccount extends Model
         'is_primary' => 'boolean',
         'verified_at' => 'datetime',
         'metadata' => 'array',
+        // CRYPTO-4: bank PII at rest. Without these casts the columns sit
+        // plaintext in the DB even though $hidden masks them on serialize.
+        // PaymentConfiguration.bank_account_number already uses 'encrypted';
+        // mirror that convention here. Backfill migration converts existing
+        // rows.
+        'account_number' => 'encrypted',
+        'account_name' => 'encrypted',
+        'mobile_number' => 'encrypted',
     ];
 
     protected $hidden = [

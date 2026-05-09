@@ -130,6 +130,16 @@ class InboxController extends Controller
             'body' => 'required|string|max:1000',
         ]);
 
+        // PRIV-6 + PRIV-11: caretaker reply must use the parent landlord's
+        // id, not auth()->id() (the caretaker user_id) — otherwise the
+        // notification is orphaned in the caretaker's nonexistent scope.
+        // Also defence-in-depth scope-check the route-bound message.
+        $user = auth()->user();
+        $landlordId = $user->isCaretaker() ? (int) $user->landlord_id : (int) $user->id;
+        if ((int) $message->landlord_id !== $landlordId) {
+            abort(403);
+        }
+
         $tenant = $message->user;
 
         if (! $tenant) {
@@ -145,9 +155,9 @@ class InboxController extends Controller
         // back the orphan Notification row instead of leaving it sitting
         // unsent in the table.
         try {
-            DB::transaction(function () use ($request, $message, $tenant, $channel) {
+            DB::transaction(function () use ($request, $message, $tenant, $channel, $landlordId) {
                 $notification = Notification::create([
-                    'landlord_id' => auth()->id(),
+                    'landlord_id' => $landlordId,
                     'recipient_id' => $tenant->id,
                     'type' => Notification::TYPE_GENERAL,
                     'channel' => $channel,

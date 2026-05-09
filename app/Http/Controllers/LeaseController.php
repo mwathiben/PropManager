@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\AdjustRentRequest;
 use App\Http\Requests\BatchAdjustRentRequest;
+use App\Http\Requests\Lease\WalletAdjustmentRequest;
 use App\Http\Requests\StoreLeaseRequest;
 use App\Mail\RentHikeNotice;
 use App\Mail\TenantCredentials;
@@ -118,11 +119,15 @@ class LeaseController extends Controller
             $docPath = $request->file('lease_doc')->store('leases', 'local');
         }
 
-        $landlord = auth()->user();
+        // PRIV-6: when a caretaker creates a lease, the new tenant +
+        // lease must be keyed to the caretaker's LANDLORD, not to the
+        // caretaker's user_id. auth()->user()->id is wrong for caretakers.
+        $actor = auth()->user();
+        $landlordId = $actor->isCaretaker() ? (int) $actor->landlord_id : (int) $actor->id;
         $temporaryPassword = Str::random(12);
 
         try {
-            $result = DB::transaction(function () use ($request, $unit, $landlord, $temporaryPassword, $docPath) {
+            $result = DB::transaction(function () use ($request, $unit, $landlordId, $temporaryPassword, $docPath) {
                 $tenant = User::create([
                     'name' => $request->name,
                     'email' => $request->email,
@@ -131,13 +136,13 @@ class LeaseController extends Controller
                     'password' => Hash::make($temporaryPassword),
                 ]);
                 $tenant->role = 'tenant';
-                $tenant->landlord_id = $landlord->id;
+                $tenant->landlord_id = $landlordId;
                 $tenant->save();
 
                 $lease = Lease::create([
                     'unit_id' => $unit->id,
                     'tenant_id' => $tenant->id,
-                    'landlord_id' => $landlord->id,
+                    'landlord_id' => $landlordId,
                     'start_date' => $request->start_date,
                     'rent_amount' => $request->rent_amount,
                     'service_charge' => $request->service_charge ?? 0,
@@ -153,6 +158,7 @@ class LeaseController extends Controller
             });
 
             $result['lease']->load('unit.building.property');
+            $landlord = User::find($landlordId);
             Mail::to($result['tenant'])->queue(new TenantCredentials(
                 $result['tenant'],
                 $result['lease'],
@@ -250,32 +256,42 @@ class LeaseController extends Controller
         return redirect()->back()->with('success', 'Rent updated for '.count($leases).' units.');
     }
 
-    public function walletAdjustment(Request $request, Lease $lease)
+    public function walletAdjustment(WalletAdjustmentRequest $request, Lease $lease)
     {
-        $request->validate([
-            'type' => 'required|in:credit,debit',
-            'amount' => 'required|numeric|min:0.01',
-            'reason' => 'required|string|max:255',
-        ]);
+        // PRIV-1: WalletAdjustmentRequest::authorize() now scopes by
+        // landlord ownership. The DB::transaction wrap is required because
+        // Lease::creditToWallet/deductFromWallet (CONC-13) throw_unless()
+        // an outer transaction is active.
+        $validated = $request->validated();
+        $amount = (float) $validated['amount'];
 
-        $amount = $request->amount;
-
-        if ($request->type === 'credit') {
-            $lease->creditToWallet($amount, $request->reason);
-            $message = 'KES '.number_format($amount, 2).' credited to wallet.';
-        } else {
-            if ($amount > $lease->wallet_balance) {
-                return back()->withErrors(['amount' => 'Cannot debit more than current wallet balance.']);
-            }
-            $lease->deductFromWallet($amount, $request->reason);
-            $message = 'KES '.number_format($amount, 2).' debited from wallet.';
+        if ($validated['type'] === 'debit' && $amount > $lease->wallet_balance) {
+            return back()->withErrors(['amount' => 'Cannot debit more than current wallet balance.']);
         }
 
-        return back()->with('success', $message);
+        DB::transaction(function () use ($lease, $validated, $amount) {
+            if ($validated['type'] === 'credit') {
+                $lease->creditToWallet($amount, $validated['reason']);
+            } else {
+                $lease->deductFromWallet($amount, $validated['reason']);
+            }
+        });
+
+        $verb = $validated['type'] === 'credit' ? 'credited to' : 'debited from';
+        $currency = $lease->unit?->building?->getEffectiveCurrency()->symbol() ?? 'KES';
+
+        return back()->with('success', "{$currency} ".number_format($amount, 2)." {$verb} wallet.");
     }
 
     public function walletHistory(Lease $lease)
     {
+        // PRIV-1: scope-check the route-bound lease on the read path too.
+        $user = auth()->user();
+        $landlordId = $user->isCaretaker() ? (int) $user->landlord_id : (int) $user->id;
+        if ((int) $lease->landlord_id !== $landlordId) {
+            abort(403);
+        }
+
         $transactions = $lease->walletTransactions()
             ->with(['invoice', 'payment'])
             ->paginate(20);

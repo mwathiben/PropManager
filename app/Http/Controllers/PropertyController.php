@@ -59,10 +59,15 @@ class PropertyController extends Controller
             'units_per_floor' => 'required|integer|min:1',
         ]);
 
-        return DB::transaction(function () use ($request) {
+        // PRIV-6: caretaker creating a property must persist the parent
+        // landlord's id, not auth()->id() (which is the caretaker user_id).
+        $actor = auth()->user();
+        $landlordId = $actor->isCaretaker() ? (int) $actor->landlord_id : (int) $actor->id;
+
+        return DB::transaction(function () use ($request, $landlordId) {
             // 1. Create Property
             $property = Property::create([
-                'landlord_id' => auth()->id(),
+                'landlord_id' => $landlordId,
                 'name' => $request->name,
                 'type' => $request->type,
                 'address' => $request->address,
@@ -71,7 +76,7 @@ class PropertyController extends Controller
             // 2. Create the Main Building
             $building = Building::create([
                 'property_id' => $property->id,
-                'landlord_id' => auth()->id(),
+                'landlord_id' => $landlordId,
                 'name' => $request->building_name,
                 'total_floors' => $request->floors,
                 'units_per_floor' => $request->units_per_floor,
@@ -83,7 +88,7 @@ class PropertyController extends Controller
                 for ($u = 1; $u <= $request->units_per_floor; $u++) {
                     $unitNumber = ($f * 100) + $u;
                     Unit::create([
-                        'landlord_id' => auth()->id(),
+                        'landlord_id' => $landlordId,
                         'building_id' => $building->id,
                         'floor_number' => $f,
                         'unit_number' => (string) $unitNumber,

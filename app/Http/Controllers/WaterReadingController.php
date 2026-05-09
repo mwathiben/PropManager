@@ -72,6 +72,11 @@ class WaterReadingController extends Controller
 
     public function update(UpdateWaterReadingRequest $request, WaterReading $reading)
     {
+        // PRIV-2: WaterReadingPolicy::update exists but was never invoked.
+        // Without this gate a tenant under landlord X could PUT against any
+        // reading bound by TenantScope (anything under the same landlord_id).
+        $this->authorize('update', $reading);
+
         $validated = $request->validated();
 
         $error = $this->waterReadingService->validateReadingUpdate($reading, $validated['current_reading']);
@@ -86,6 +91,9 @@ class WaterReadingController extends Controller
 
     public function destroy(WaterReading $reading)
     {
+        // PRIV-2: same policy gap on delete — symmetric authorize() call.
+        $this->authorize('delete', $reading);
+
         if (! $this->waterReadingService->canDeleteReading($reading)) {
             return redirect()->back()->with('error', 'Cannot delete reading that has been invoiced.');
         }

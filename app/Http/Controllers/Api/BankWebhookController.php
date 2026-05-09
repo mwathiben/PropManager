@@ -223,8 +223,21 @@ class BankWebhookController extends Controller
 
     private function findInvoice(PaymentNotification $notification): ?Invoice
     {
+        // PRIV-5: scope every lookup by the landlord that owns the
+        // receiving bank account. Without this, an invoice_number that
+        // collides across landlords (the default INV-0001 template
+        // collides immediately) gets credited to whichever row sorts
+        // first. If we can't resolve a landlord from the receiving
+        // account, refuse to match — caller queues to DLQ.
+        $landlordId = $this->resolveLandlordFromBankAccount($notification);
+        if (! $landlordId) {
+            return null;
+        }
+
         if ($notification->reference) {
-            $invoice = Invoice::where('invoice_number', $notification->reference)->first();
+            $invoice = Invoice::where('landlord_id', $landlordId)
+                ->where('invoice_number', $notification->reference)
+                ->first();
             if ($invoice) {
                 return $invoice;
             }
@@ -237,6 +250,7 @@ class BankWebhookController extends Controller
             }
 
             $tenant = User::where('role', 'tenant')
+                ->where('landlord_id', $landlordId)
                 ->where(function ($query) use ($phone) {
                     $query->where('mobile_number', $phone)
                         ->orWhere('mobile_number', '254'.substr($phone, 1))
@@ -251,6 +265,33 @@ class BankWebhookController extends Controller
                     ->whereIn('status', [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue])
                     ->orderBy('due_date', 'asc')
                     ->first();
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * PRIV-5: resolve the landlord whose configured bank account is the
+     * receiving account on this webhook. The encrypted column means we
+     * can't index-search; instead iterate landlord configs that have
+     * this bank configured and decrypt-compare. Acceptable cost — bank
+     * webhook volume is low and we cache the small landlord-config set.
+     */
+    private function resolveLandlordFromBankAccount(PaymentNotification $notification): ?int
+    {
+        if (! $notification->accountNumber) {
+            return null;
+        }
+
+        $configs = \App\Models\PaymentConfiguration::query()
+            ->where('bank_name', '!=', null)
+            ->select(['landlord_id', 'bank_account_number'])
+            ->get();
+
+        foreach ($configs as $config) {
+            if ($config->bank_account_number === $notification->accountNumber) {
+                return (int) $config->landlord_id;
             }
         }
 
