@@ -1,0 +1,859 @@
+{
+  "project": {
+    "name": "PropManager Phase 4 Audit",
+    "description": "Defensive code audit covering bug classes that escaped Phases 1–3: race conditions / idempotency (CONC), input validation completeness (VALID), audit-trail gaps (AUDIT), and silent failures / inappropriate fallback behavior (HANDLE). Phase 1 (commit 03e17b7) covered 32 SQLi/auth/serialization/file-upload bugs; Phase 2 (commit 4a305a0) covered 17 data-integrity bugs; Phase 3 (commits 12e204d…c3b89e4) covered 46 tenant-isolation + perf findings. Phase 4 surfaces 55 findings across the residual bug classes — same defensive-audit shape as Phase 3, different bug surface.",
+    "version": "1.0.0",
+    "created": "2026-05-09",
+    "techStack": {
+      "backend": "Laravel 12 (PHP 8.4+)",
+      "frontend": "Inertia.js + Vue 3 + Tailwind CSS v4",
+      "database": "MySQL 8.0+ (production), MySQL 8.0 (CI), SQLite (local dev/test optional)",
+      "testing": "PHPUnit 11.5 via ParaTest 7.8 (--parallel), Dusk for browser E2E"
+    }
+  },
+  "qualityStandards": {
+    "description": "Phase 4 fixes must preserve Phases 1–3 contracts (TenantScope semantics, InvoiceStatus enum migration, encrypted credential casts, audit logging, registered policies).",
+    "principles": [
+      "Every read-then-write inside DB::transaction must lockForUpdate() the row(s) being mutated. Eloquent ->increment() is column-atomic but a read-format-increment sequence is not.",
+      "Every event/job dispatched inside DB::transaction must use ->afterCommit() (or DB::afterCommit) so workers don't read pre-commit state.",
+      "Every exists: validator on a model with landlord_id must be scoped: Rule::exists('table','id')->where('landlord_id', $landlordId).",
+      "Every Form Request authorize() that returns true relies on controller-side authz; treat that as a smell — push the route-model-binding ownership check into authorize() instead.",
+      "Every operation that produces money movement, role change, or PII access must produce an AuditLog row; every pre-auth security event (failed login, password reset, IP change) must produce a SecurityLog row.",
+      "Every catch (\\Exception $e) that returns null/false/[] swallows information; either re-throw a domain exception or log + Result-type return so callers can distinguish outage from misconfig.",
+      "Every Http:: outbound call must set timeout() and connectTimeout(); unbounded calls block PHP-FPM workers.",
+      "Synchronous Mail::to(...)->send() must not run inside DB::transaction (holds row locks for SMTP duration); prefer ->queue() everywhere except admin test-connection actions."
+    ],
+    "skills_to_apply": [
+      "laravelpolicies-and-authorization",
+      "laraveldatabase-transactions-and-locking",
+      "laravelqueues-idempotent-jobs",
+      "laraveleloquent-relationships",
+      "laravelevent-after-commit",
+      "laravelvalidation-form-requests",
+      "laraveltdd-with-pest",
+      "verification-first"
+    ]
+  },
+  "feedbackLoops": {
+    "commands": {
+      "lint_backend": "vendor/bin/pint --test",
+      "test_backend": "php artisan test --parallel",
+      "build_frontend": "npm run build",
+      "find_unbounded_http": "grep -rn 'Http::' app/ | grep -v 'timeout('",
+      "find_sync_mail": "grep -rn 'Mail::to.*->send(' app/Http app/Services",
+      "find_authorize_true": "grep -rn 'public function authorize.*\\n.*return true' app/Http/Requests --include='*.php' -A 1",
+      "find_dispatch_in_tx": "grep -rB 5 'dispatch(' app/Services app/Observers app/Http/Controllers | grep -B 3 -A 5 'DB::transaction\\|DB::beginTransaction'"
+    }
+  },
+  "categories": {
+    "concurrency_critical": {
+      "priority": 1,
+      "description": "Confirmed race conditions, idempotency replay vectors, or transaction-locking gaps with direct money/data-integrity impact."
+    },
+    "validation_critical": {
+      "priority": 1,
+      "description": "Confirmed cross-tenant write IDORs, stored XSS, path traversal, or type-coercion bypasses via missing/weak validation."
+    },
+    "audit_critical": {
+      "priority": 1,
+      "description": "Compliance/forensic gaps on sensitive money-moving, role-changing, or PII-accessing operations."
+    },
+    "error_handling_critical": {
+      "priority": 1,
+      "description": "Silent failures with lost-money or compliance impact (swallowed exceptions, fail-open security checks, sync mail in transactions, unbounded HTTP)."
+    },
+    "concurrency_defense": {
+      "priority": 2,
+      "description": "Race-on-miss or stale-state patterns that aren't actively exploitable but become bugs under load or after refactor."
+    },
+    "validation_defense": {
+      "priority": 2,
+      "description": "Defense-in-depth gaps; the controller catches today, but the validator should also."
+    },
+    "audit_defense": {
+      "priority": 2,
+      "description": "Audit context that's recorded inconsistently — degrades queryability without losing the event entirely."
+    },
+    "error_handling_defense": {
+      "priority": 2,
+      "description": "Recoverable errors that hide from telemetry; debug-time and reliability impact."
+    },
+    "cleanup_consistency": {
+      "priority": 3,
+      "description": "LOW-severity cleanup opportunities — pick up when touching the area."
+    }
+  },
+  "items": [
+    {
+      "id": "CONC-1",
+      "category": "concurrency_critical",
+      "priority": "HIGH",
+      "title": "Race-on-miss in unique invoice/receipt/credit-note number generation (count() + 1)",
+      "files": [
+        "app/Services/InvoiceService.php:177-193",
+        "app/Services/ReceiptService.php:48-66",
+        "app/Models/CreditNote.php:200-214"
+      ],
+      "problem": "Fallback number generation runs `count() + 1` against rows matching the prefix. Even with `lockForUpdate()`, MySQL only locks rows matching the WHERE clause — it does NOT prevent INSERTs of new matching rows by parallel transactions (gap locks require REPEATABLE READ + range scan; READ COMMITTED is Laravel's default in many setups). Two parallel webhook payments both compute count=N and insert receipts numbered identically. There is no UNIQUE index on `invoices.invoice_number`, `receipts.receipt_number`, or `credit_notes.credit_number` (only gateway refs are unique).",
+      "evidence": "InvoiceService.php:186-192 — `$count = Invoice::where('invoice_number', 'like', $pattern)->lockForUpdate()->count(); $nextNumber = $count + 1;` — comment claims atomic but is wrong. ReceiptService.php:61-65 identical bug.",
+      "fix": "Add UNIQUE indices on invoice_number, receipt_number, credit_number. Switch to `InvoiceSetting::lockForUpdate()->find($landlordId)` then `increment()` (the documented path). Backfill missing invoice_settings rows.",
+      "blast_radius": "Concurrent receipts/invoices share the same human-facing number; tenants receive duplicates; financial reports collapse two payments under one identifier; PDF storage paths collide."
+    },
+    {
+      "id": "CONC-2",
+      "category": "concurrency_critical",
+      "priority": "HIGH",
+      "title": "Read-modify-write on InvoiceSetting counter without atomic lock",
+      "files": ["app/Models/InvoiceSetting.php:82-104"],
+      "problem": "`getNextInvoiceNumber/getNextReceiptNumber/getNextCreditNoteNumber` read `$this->invoice_next_number` (in-memory, possibly stale), format the number string, THEN call `$this->increment()`. Two requests holding the same hydrated InvoiceSetting both format `0042`, both call increment().",
+      "evidence": "InvoiceSetting.php:82-87: `$number = str_pad($this->invoice_next_number, 4, '0', STR_PAD_LEFT); $this->increment('invoice_next_number'); return ...;` — no DB transaction, no lockForUpdate.",
+      "fix": "Wrap in transaction with `InvoiceSetting::lockForUpdate()->find($id)`, read fresh, increment, return. The lock guarantees serialization across workers.",
+      "blast_radius": "Duplicate invoice numbers under concurrent generation (scheduled processAutomatedInvoices + manual recordPayment). No DB unique constraint catches it (CONC-1)."
+    },
+    {
+      "id": "CONC-3",
+      "category": "concurrency_critical",
+      "priority": "HIGH",
+      "title": "PaymentReceived event dispatched inside DB::transaction without afterCommit() — broadcast worker reads uncommitted state",
+      "files": [
+        "app/Services/Payment/ManualPaymentHandler.php:30-56",
+        "app/Services/Payment/PaymentCallbackProcessor.php:128-161",
+        "app/Http/Controllers/Api/MpesaWebhookController.php:467-552",
+        "app/Http/Controllers/Api/MpesaWebhookController.php:737",
+        "app/Services/Banking/BankReconciliationService.php:258-307"
+      ],
+      "problem": "`PaymentReceivedEvent::dispatch(...)` and synchronous `Mail::to()->send()` execute inside `DB::transaction(...)` without `->afterCommit()`. PaymentReceived implements ShouldBroadcast, so dispatch enqueues a broadcast job a worker can pick up before the transaction commits — `loadMissing('platformFee')` returns null and getOutstandingAmount() reflects pre-update values. BankReconciliationService:303 uses `Mail::to(...)->send(...)` (sync) inside the lock — every parallel reconciliation serializes on SMTP.",
+      "evidence": "ManualPaymentHandler.php:30 starts DB::transaction; line 53 calls sendNotifications() which dispatches PaymentReceivedEvent at line 125 with no ->afterCommit(). MpesaWebhookController.php:737 dispatches inside DB::beginTransaction (line 504).",
+      "fix": "Append `->afterCommit()` to every event dispatch inside transactions, OR wrap `DB::afterCommit(fn() => Event::dispatch(...))`. Replace sync `Mail::to()->send()` with `->queue()`.",
+      "blast_radius": "Tenant dashboard receives WebSocket updates with stale balance. Rollback after broadcast fired = tenant sees 'paid' notification for never-persisted payment. Sync Mail::send failing rolls back the entire transaction including the payment."
+    },
+    {
+      "id": "CONC-4",
+      "category": "concurrency_critical",
+      "priority": "HIGH",
+      "title": "TicketObserver::updated and TenantMessageService dispatch jobs inside transactions without afterCommit",
+      "files": [
+        "app/Observers/TicketObserver.php:88-101",
+        "app/Observers/TicketObserver.php:177-193",
+        "app/Observers/TicketObserver.php:217-228",
+        "app/Services/TenantMessageService.php:223",
+        "app/Services/TenantMessageService.php:258",
+        "app/Services/TenantMessageService.php:329"
+      ],
+      "problem": "Observer updated() hook fires inside any controller DB::transaction updating a Ticket. notifyAssignment/notifyStatusChange call `dispatch(SendNotificationJob::forNew(...))` directly without ->afterCommit(). TicketObserver::created (line 73) DOES use `DB::afterCommit` correctly — proving the team knows the pattern but missed updated paths.",
+      "evidence": "TicketObserver.php:181 — `dispatch(SendNotificationJob::forNew(...))` bare call inside transaction. Compare to line 73 which correctly uses DB::afterCommit. TenantMessageService.php:223,258,329 same anti-pattern.",
+      "fix": "Append `->afterCommit()` to every dispatch in observers/services that run inside transactions, or wrap with `DB::afterCommit(fn() => dispatch(...))`.",
+      "blast_radius": "Notifications sent for ticket status changes that get rolled back; duplicate notifications when retried jobs fire before the canonical row is visible to dedupe queries."
+    },
+    {
+      "id": "CONC-5",
+      "category": "concurrency_critical",
+      "priority": "HIGH",
+      "title": "InvoiceController::recordPayment updates invoice without lockForUpdate",
+      "files": ["app/Http/Controllers/InvoiceController.php:130-168"],
+      "problem": "Manual payment recording reads $invoice->total_due and $invoice->amount_paid (line 135) WITHOUT lockForUpdate(). Two parallel POSTs (double-click, co-landlord users) both see amount_paid = 0, both compute newAmountPaid = paymentAmount, both write — invoice loses one payment's accumulation. Webhook handlers all use `Invoice::where('id', $id)->lockForUpdate()->first()`; this controller path doesn't.",
+      "evidence": "InvoiceController.php:134-155: `$invoice` is the route-bound model with no lock; reads happen inside DB::transaction but without re-fetch under lock. ManualPaymentHandler.php:70-73 DOES use lockForUpdate — divergent paths.",
+      "fix": "Add `$invoice = Invoice::where('id', $invoice->id)->lockForUpdate()->firstOrFail();` as the first line inside the transaction callback. Consider unifying with ManualPaymentHandler.",
+      "blast_radius": "Invoice.amount_paid undercounts; invoice stays Partial despite full payment, triggering false overdue notices and late fees. Direct money-loss to landlord ledger."
+    },
+    {
+      "id": "CONC-6",
+      "category": "concurrency_critical",
+      "priority": "HIGH",
+      "title": "LateFeeService eligibility check outside transaction allows duplicate late fees",
+      "files": ["app/Services/LateFeeService.php:96-204"],
+      "problem": "applyLateFee() calls isEligibleForLateFeeToday() BEFORE entering DB::transaction. The transaction acquires NO lock on the invoice or late_fees rows. Two parallel scheduler runs (or scheduler + manual apply) both pass eligibility (count=0), both create LateFee rows. No unique constraint on (invoice_id, applied_date).",
+      "evidence": "LateFeeService.php:118-122 eligibility query is at line 176 OUTSIDE the transaction at line 180. Transaction body at lines 180-203 reads $invoice->late_fees_total and creates LateFee without lockForUpdate on the invoice.",
+      "fix": "Move eligibility check INSIDE the transaction AFTER `Invoice::where('id', $id)->lockForUpdate()->first()`. Add unique index on `late_fees(invoice_id, applied_date)` for non-compounding policies.",
+      "blast_radius": "Tenants double-charged late fees; late_fees_total exceeds policy cap; tenants get unlawfully large fees."
+    },
+    {
+      "id": "CONC-7",
+      "category": "concurrency_critical",
+      "priority": "HIGH",
+      "title": "PaymentLink generate + revokeForInvoice race",
+      "files": ["app/Services/PaymentLinkService.php:13-35", "app/Services/PaymentLinkService.php:78-92"],
+      "problem": "generate() checks for existing valid link with lockForUpdate, then generates a new token via PaymentLink::generateToken() and inserts. revokeForInvoice does a bulk update WITHOUT a lock — a generate that just read 'no valid link exists' can race with a concurrent revoke, leaving the new link active even though revocation was requested.",
+      "evidence": "PaymentLinkService.php:25-33 generate inserts new link; line 80-85 revokeForInvoice is bulk update with where('is_revoked', false), does not consider in-flight token generation.",
+      "fix": "Verify payment_links.token has a unique index. Wrap generate and revokeForInvoice to take `Invoice::lockForUpdate()` first so they serialize.",
+      "blast_radius": "Revoked invoice still has a valid payment link; tenant pays through a link the landlord believes was killed."
+    },
+    {
+      "id": "CONC-8",
+      "category": "concurrency_defense",
+      "priority": "MEDIUM",
+      "title": "uniqid() used for fallback event IDs and reference numbers — predictable and collision-prone",
+      "files": [
+        "app/Http/Controllers/Api/MpesaWebhookController.php:46",
+        "app/Http/Controllers/Api/IntaSendWebhookController.php:47",
+        "app/Services/MpesaService.php:497",
+        "app/Services/PaystackService.php:189",
+        "app/Services/IntaSendService.php:63",
+        "app/Services/Payment/ManualPaymentHandler.php:43"
+      ],
+      "problem": "uniqid() is microsecond-based with no entropy beyond timestamp; under load two PHP-FPM workers can produce the same string. Used as fallback event IDs for webhook idempotency and as reference numbers. `substr(uniqid(), -4)` (MpesaService.php:497) yields ~65k space — collision near-certain at scale.",
+      "evidence": "MpesaWebhookController.php:46: `$eventId = $callback['CheckoutRequestID'] ?? 'stk-unknown-'.uniqid();`. MpesaService.php:497: `return strtoupper($prefix).'-'.time().'-'.substr(uniqid(), -4);`",
+      "fix": "Replace with `Str::uuid()` or `bin2hex(random_bytes(16))`. Ensure UNIQUE constraints catch collisions on reference columns.",
+      "blast_radius": "Two unrelated webhooks logged under one event_id; reference number collisions deduplicate two different payments into one webhook log."
+    },
+    {
+      "id": "CONC-9",
+      "category": "concurrency_critical",
+      "priority": "HIGH",
+      "title": "RefundService validateRefundEligibility uses unlocked refunds query — over-refund vector",
+      "files": ["app/Services/RefundService.php:24-41", "app/Services/RefundService.php:87-98"],
+      "problem": "initiateRefund() locks the Payment row but the existingRefunds SUM query is NOT wrapped in lockForUpdate and does NOT lock the refunds table. Two parallel initiateRefund calls on the same payment from different processes both see `existingRefunds = 0`, both create $X refunds, total exceeds payment amount.",
+      "evidence": "RefundService.php:90-96: `$lockedPayment = Payment::lockForUpdate()->find($id); $existingRefunds = Refund::where('payment_id', $id)->whereIn('status', [...])->sum('amount');` — only payment locked, not refunds table.",
+      "fix": "Use `Refund::where(...)->lockForUpdate()->sum('amount')`. Or add CHECK constraint preventing SUM(refunds.amount) > payment.amount.",
+      "blast_radius": "Over-refund: tenant receives more than they paid; landlord wallet debited for the surplus; platform-level chargeback liability."
+    },
+    {
+      "id": "CONC-10",
+      "category": "concurrency_defense",
+      "priority": "MEDIUM",
+      "title": "SendNotificationJob deduplication relies on uncommitted-read window, not idempotency token",
+      "files": ["app/Jobs/SendNotificationJob.php:128-145"],
+      "problem": "Dedupe uses 5-minute similarity-window query. Two CONCURRENT executions of the same job both run the dedupe query before either inserts a Notification, both miss, both insert. No ShouldBeUnique, no idempotency token, no unique DB constraint.",
+      "evidence": "SendNotificationJob.php:130-145 dedupe-by-similarity check; class declaration line 13 does NOT implement ShouldBeUnique. tries=3 retries on failure, partial success on retry creates duplicates.",
+      "fix": "Implement ShouldBeUnique with uniqueId() returning recipient_id + type + sha256(subject) + 5-minute bucket. Or accept a notification_id arg and let caller create the row first.",
+      "blast_radius": "Tenants receive duplicate SMS/email/WhatsApp; SMS credits charged twice; duplicate badges in tenant app."
+    },
+    {
+      "id": "CONC-11",
+      "category": "concurrency_defense",
+      "priority": "MEDIUM",
+      "title": "Bank service token cache uses global key — cross-tenant token leak under multi-config deployments",
+      "files": [
+        "app/Services/Banking/KcbBankService.php:99",
+        "app/Services/Banking/EquityBankService.php:96",
+        "app/Services/Banking/CoopBankService.php:129"
+      ],
+      "problem": "`Cache::remember('kcb_access_token', 3500, ...)` — single global key. If two landlords have different KCB credentials, the cache returns the wrong token. MpesaService.php:72 correctly scopes by config id; bank services do not.",
+      "evidence": "KcbBankService.php:99 single global key. Compare MpesaService.php:72 properly scoped by config id and environment.",
+      "fix": "Scope cache keys by config: `'kcb_access_token_'.$config->id`. Use Cache::lock() to serialize the OAuth fetch on miss.",
+      "blast_radius": "Multi-config deployments authenticate landlord B's webhook with landlord A's bank token; cross-tenant API calls; race-on-miss doubles OAuth calls."
+    },
+    {
+      "id": "CONC-12",
+      "category": "concurrency_critical",
+      "priority": "HIGH",
+      "title": "Idempotency window on TTL-expired keys allows replay of completed webhooks → wallet double-credit",
+      "files": ["app/Services/IdempotencyService.php:20-53"],
+      "problem": "IdempotencyService::acquire treats expired keys as fresh requests (deletes the existing row, creates new). 90-day TTL means a webhook replay for the same `mpesa:RECEIPT123` re-enters processing. Payments table unique constraint catches the duplicate Payment, BUT the wallet credit at MpesaWebhookController.php:289-294 for overpayments has NO idempotency at the DB layer — replay credits the wallet AGAIN.",
+      "evidence": "IdempotencyService.php:27-32: `if ($existing->isExpired()) { $existing->delete(); }` then `IdempotencyKey::create(...)`. No protection on wallet_transactions.",
+      "fix": "Never delete expired idempotency keys for completed-status events; keep indefinitely. Add unique constraint on `wallet_transactions(payment_id, type)` so a payment-overpayment credit can only exist once.",
+      "blast_radius": "Adversary or buggy gateway replays a 91-day-old webhook → wallet double-credited; tenant gets free balance; landlord ledger inconsistent."
+    },
+    {
+      "id": "CONC-13",
+      "category": "concurrency_defense",
+      "priority": "MEDIUM",
+      "title": "Lease.creditToWallet/deductFromWallet mutates $this attribute — stale state on rollback",
+      "files": ["app/Models/Lease.php:119-166"],
+      "problem": "creditToWallet sets `$this->wallet_balance = $newBalance` on the original (un-locked) model. After transaction rollback, the in-memory cached value is wrong. Callers reading `$invoice->lease->wallet_balance` after a rollback (e.g., OverpaymentNotification mail at MpesaWebhookController.php:319) see a never-committed balance.",
+      "evidence": "Lease.php:138 mutates Eloquent attribute on un-locked model. After rollback, value is stale; calling code reads $invoice->lease->wallet_balance and may send notification about credit that was rolled back.",
+      "fix": "After transaction commits, call `$this->refresh()`. Or stop mutating $this; force callers to refresh themselves. Or compute wallet_balance from a sum of wallet_transactions.",
+      "blast_radius": "Tenant emailed about wallet credit that never persisted; tenant disputes."
+    },
+    {
+      "id": "CONC-14",
+      "category": "concurrency_defense",
+      "priority": "MEDIUM",
+      "title": "Scheduler invoice generation has TOCTOU exists() check before transaction",
+      "files": ["app/Services/InvoiceAutomationService.php:109-129"],
+      "problem": "generateInvoiceForLease calls Invoice::where(...)->exists() BEFORE entering transaction (line 111-115). The inner method does use lockForUpdate so the actual race is benign — but the structure is misleading and the cron may not enforce withoutOverlapping/onOneServer.",
+      "evidence": "InvoiceAutomationService.php:111-129 outer existence check is redundant when the inner lock is correct.",
+      "fix": "Remove the outer exists() check (defensive but adds query cost). Verify app/Console/Kernel.php schedules with `->withoutOverlapping()->onOneServer()`.",
+      "blast_radius": "Low — inner lock saves us. Cleanup item only."
+    },
+    {
+      "id": "CONC-15",
+      "category": "concurrency_critical",
+      "priority": "HIGH",
+      "title": "BankReconciliationService::recordPayment uses synchronous Mail::send() inside DB::transaction — holds row locks for SMTP",
+      "files": ["app/Services/Banking/BankReconciliationService.php:258-307"],
+      "problem": "BankReconciliationService::recordPayment calls `Mail::to($invoice->lease->tenant->email)->send(new PaymentReceived(...))` (synchronous) inside DB::transaction at line 260. SMTP timeout → 30 seconds of held row locks → cascade timeouts. BankWebhookController correctly uses `->queue()` — divergent paths.",
+      "evidence": "BankReconciliationService.php:303 synchronous send inside transaction at line 260. Compare BankWebhookController.php:211 which uses queue().",
+      "fix": "Replace `->send(` with `->queue(`. Add `PaymentReceivedEvent::dispatch(...)->afterCommit()` so dashboards update.",
+      "blast_radius": "Bank reconciliation transactions hold Invoice/Payment row locks for SMTP duration. Under load with bulk reconciliation queue, parallel webhooks block each other; queue worker timeout cascades."
+    },
+    {
+      "id": "VALID-1",
+      "category": "validation_critical",
+      "priority": "HIGH",
+      "title": "UploadLogoRequest accepts SVG and GIF — stored XSS via served-as-HTML logo",
+      "files": ["app/Http/Requests/Settings/UploadLogoRequest.php:17"],
+      "problem": "`mimes:jpeg,png,jpg,gif,svg` accepts SVG. SVG files are served as image/svg+xml and execute embedded `<script>`/`onload=` JavaScript when rendered inline in invoice PDFs/web views. Logos render in tenant-facing dashboards and emailed invoices — a malicious landlord can plant stored XSS that fires for every tenant viewing their invoices.",
+      "evidence": "Line 17: `'logo' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048'` — note `svg`. The image rule does not block SVGs because SVG is XML, not a raster format Laravel inspects.",
+      "fix": "Drop svg (and ideally gif): `'logo' => ['required', 'image', 'mimes:jpeg,png,jpg', 'max:2048', 'dimensions:max_width=2000,max_height=2000']`. Use `mimetypes:image/jpeg,image/png` for stronger MIME-sniff. If SVG is required, sanitize via enshrined/svg-sanitize before storage.",
+      "blast_radius": "Stored XSS executes in every tenant browser viewing the landlord's invoices/receipts/dashboards. Session theft, credential harvesting, self-propagation across every tenant under that landlord."
+    },
+    {
+      "id": "VALID-2",
+      "category": "validation_critical",
+      "priority": "HIGH",
+      "title": "StorePaymentRequest accepts cross-tenant tenant_id and invoice_id without landlord scope",
+      "files": ["app/Http/Requests/StorePaymentRequest.php:30-31"],
+      "problem": "tenant_id and invoice_id validate only with `exists:users,id` / `exists:invoices,id` — no landlord_id constraint. A landlord can record a payment against another landlord's invoice or tenant, corrupting the other tenant's balance and fabricating receipts.",
+      "evidence": "Lines 30-31: `'tenant_id' => 'required_without:invoice_id|nullable|exists:users,id', 'invoice_id' => 'nullable|exists:invoices,id'`. No `Rule::exists(...)->where('landlord_id', $landlordId)`.",
+      "fix": "Scope: `'tenant_id' => ['required_without:invoice_id', 'nullable', Rule::exists('users', 'id')->where('landlord_id', $landlordId)->where('role', 'tenant')], 'invoice_id' => ['nullable', Rule::exists('invoices', 'id')->where('landlord_id', $landlordId)]`.",
+      "blast_radius": "Cross-tenant financial corruption: invoices marked paid in wrong tenant's ledger, fake payment trails, double-recording exploits, enumeration of competitor invoice IDs."
+    },
+    {
+      "id": "VALID-3",
+      "category": "validation_critical",
+      "priority": "HIGH",
+      "title": "OnboardingController step 7 attaches tenant to any unit_id, ignoring landlord ownership",
+      "files": ["app/Http/Controllers/OnboardingController.php:200", "app/Http/Controllers/OnboardingController.php:203"],
+      "problem": "`unit_id => required|exists:units,id` validates existence only. During onboarding, a logged-in landlord can submit step 7 with another landlord's unit_id — processStep then creates a lease/invitation pointing into another landlord's property tree. Service receives `$request->all()` (line 51) so injected extras ride along.",
+      "evidence": "Line 203: `'unit_id' => 'required|exists:units,id'` (no scope). Line 200: `'invitations.*.property_id' => 'nullable|exists:properties,id'`.",
+      "fix": "Scope: `'unit_id' => ['required', Rule::exists('units', 'id')->where('landlord_id', auth()->id())]`. Replace `$request->all()` on line 51/153 with `$request->only([...explicit keys])`.",
+      "blast_radius": "Tenant invitation IDOR — onboarding flow attaches victims to attacker-chosen units in other landlords' buildings; hostile landlords plant phantom leases on competitors' units."
+    },
+    {
+      "id": "VALID-4",
+      "category": "validation_critical",
+      "priority": "HIGH",
+      "title": "GdprController::downloadExport path-traversal via str_contains on base64 path → arbitrary file read",
+      "files": ["app/Http/Controllers/GdprController.php:60-78"],
+      "problem": "Validates `path => required|string`, then base64-decodes and only checks `str_contains($path, \"exports/{user_id}/\")`. str_contains is satisfied by any substring, so `../../../../etc/exports/9999/passwd` (where attacker is user 9999) passes the check, then `storage_path(\"app/{$path}\")` resolves to arbitrary path, allowing authenticated arbitrary file read.",
+      "evidence": "Line 62: `'path' => 'required|string'`. Line 65: `$path = base64_decode($request->path);`. Line 68: `str_contains($path, \"exports/{$request->user()->id}/\")`. Line 72: `storage_path(\"app/{$path}\")` then download.",
+      "fix": "Use `str_starts_with($path, \"exports/{$user->id}/\")` and reject `..` and null bytes. Better: store an Export model, accept export_id, resolve path server-side.",
+      "blast_radius": "Authenticated arbitrary file read across `storage/app` filesystem — leaks other tenants' exports, KYC documents, lease PDFs, .env-adjacent secrets."
+    },
+    {
+      "id": "VALID-5",
+      "category": "validation_critical",
+      "priority": "HIGH",
+      "title": "SendNotificationRequest accepts any user as recipient — cross-tenant SMS/WhatsApp/email spam vector",
+      "files": [
+        "app/Http/Requests/Notification/SendNotificationRequest.php:17",
+        "app/Http/Requests/Notification/SendBulkNotificationRequest.php:18",
+        "app/Http/Controllers/NotificationsController.php:155-186"
+      ],
+      "problem": "`authorize() { return true; }` and `recipient_id => exists:users,id` (no landlord scope). Any landlord can send arbitrary SMS/WhatsApp/email to any user on the platform — including tenants of competitors — at the platform's expense and over the platform's verified channels.",
+      "evidence": "SendNotificationRequest.php:17 unscoped exists. NotificationsController.php:158-159 derives landlord_id from auth user but never re-checks recipient ownership. Both Form Requests have authorize() returning true.",
+      "fix": "authorize() requires landlord/caretaker role. rules(): `'recipient_id' => ['required', Rule::exists('users', 'id')->where('landlord_id', $landlordId)]`. Defense-in-depth: controller-side `User::whereIn('id', $ids)->where('landlord_id', $landlordId)->count() === count($ids)`.",
+      "blast_radius": "Cross-tenant phishing/spam at platform expense. Hostile landlord can mass-message every tenant on the platform, damaging deliverability, triggering carrier abuse blocks, enabling targeted social-engineering against competitors' tenants."
+    },
+    {
+      "id": "VALID-6",
+      "category": "validation_critical",
+      "priority": "HIGH",
+      "title": "24+ Form Requests have authorize() returning true unconditionally — relies on controller for IDOR check",
+      "files": [
+        "app/Http/Requests/UpdateTenantRequest.php:9-12",
+        "app/Http/Requests/Notification/*",
+        "app/Http/Requests/MoveOut/*",
+        "app/Http/Requests/Tenant/*"
+      ],
+      "problem": "authorize() returns true, so the Form Request layer permits anyone. The controller does the landlord check, but if route middleware regresses or a developer copies as a template, the bypass becomes silent. 24 Form Requests grep-confirmed with this pattern.",
+      "evidence": "UpdateTenantRequest.php:11 `return true;`. TenantController.php:255 `if ($tenant->landlord_id !== $landlordId) abort(403);` — only protection. Pattern repeats across Notification*/MoveOut*/Tenant*.",
+      "fix": "Move ownership check into Form Request: `authorize(): bool { $tenant = $this->route('tenant'); $u = auth()->user(); $lid = $u->isCaretaker() ? $u->landlord_id : $u->id; return $tenant && $tenant->landlord_id === $lid; }`. Apply to all 24.",
+      "blast_radius": "Single-line route-middleware regression flips entire endpoint open to cross-landlord edits. Pattern repeated across 24 Form Requests amplifies blast radius."
+    },
+    {
+      "id": "VALID-7",
+      "category": "validation_critical",
+      "priority": "HIGH",
+      "title": "Bulk lease/unit endpoints validate exists: without landlord scope, leaking ID existence",
+      "files": [
+        "app/Http/Requests/BulkOperations/AdjustRentRequest.php:21",
+        "app/Http/Requests/BulkOperations/TerminateLeasesRequest.php:21",
+        "app/Http/Requests/BulkOperations/AdjustDepositsRequest.php:21",
+        "app/Http/Requests/BulkOperations/UpdateUnitStatusRequest.php:21",
+        "app/Http/Requests/BulkOperations/ExtendLeasesRequest.php:21"
+      ],
+      "problem": "`lease_ids.* => exists:leases,id` validates global existence with no landlord scope. The controller catches the cross-landlord IDs at iteration time (where('landlord_id', $landlordId)->firstOrFail()), but the Form Request returns 422 vs 404 in different cases — an enumeration oracle.",
+      "evidence": "5 sibling files identical pattern. BulkOperationsController.php:239 then does scoped firstOrFail and swallows in catch (line 186-191).",
+      "fix": "Scope: `'lease_ids.*' => ['integer', Rule::exists('leases', 'id')->where('landlord_id', $landlordId)]`. Same for unit_ids/building_id/wing_id.",
+      "blast_radius": "ID enumeration oracle: hostile landlords probe platform growth, identify competitor lease counts, harvest valid IDs for follow-up attacks. Defense-in-depth eroded."
+    },
+    {
+      "id": "VALID-8",
+      "category": "validation_critical",
+      "priority": "HIGH",
+      "title": "Money fields use numeric without max — scientific notation overflow into DECIMAL columns",
+      "files": [
+        "app/Http/Requests/RecordPaymentRequest.php:17",
+        "app/Http/Requests/RefundRequest.php:35",
+        "app/Http/Requests/StorePaymentRequest.php:32",
+        "app/Http/Controllers/LeaseController.php:257",
+        "app/Http/Requests/StoreLeaseRequest.php:21-23"
+      ],
+      "problem": "`required|numeric|min:0.01` accepts arbitrarily large values including scientific notation like `1e308`. PHP's numeric validator passes \"1e9\". Cast to DECIMAL(12,2) MySQL silently truncates on non-strict mode or throws on strict. CreditNoteController.php:93 DOES have `max:9999999.99` — pattern is known but inconsistent.",
+      "evidence": "RecordPaymentRequest.php:17 `'amount' => 'required|numeric|min:0.01'` — no max. CreditNoteController.php:93 has the correct max for comparison.",
+      "fix": "`'amount' => ['required', 'decimal:0,2', 'min:0.01', 'max:9999999.99']`. decimal:0,2 rejects scientific notation and enforces 2-dp.",
+      "blast_radius": "Wallet/credit-balance corruption: malicious or compromised landlord credits tenant wallet by column max, then withdraws via legitimate refund flows. Also affects rent_amount/deposit_amount — plants absurd values that crash report generators."
+    },
+    {
+      "id": "VALID-9",
+      "category": "validation_defense",
+      "priority": "MEDIUM",
+      "title": "AdminController::createLandlord accepts password without strength rules",
+      "files": ["app/Http/Controllers/AdminController.php:288-307"],
+      "problem": "`'password' => 'required|string|min:8'` is weaker than the rest of the auth flow. Lets super admins create landlord accounts with `12345678`. No confirmed, no Password::defaults(), no force-reset on first login.",
+      "evidence": "Line 293: `'password' => 'required|string|min:8'`. Compare RegisteredUserController which uses Password::defaults().",
+      "fix": "`'password' => ['required', 'confirmed', \\Illuminate\\Validation\\Rules\\Password::defaults()]`. Better: send invitation email with one-time setup link.",
+      "blast_radius": "Super-admin-created landlord accounts weakly protected and likely shared via insecure channels. Compromise exposes that landlord's entire fleet."
+    },
+    {
+      "id": "VALID-10",
+      "category": "validation_defense",
+      "priority": "MEDIUM",
+      "title": "DocumentController dynamic class instantiation uses unvalidated raw input",
+      "files": ["app/Http/Controllers/DocumentController.php:118-145", "app/Http/Controllers/DocumentController.php:280-298"],
+      "problem": "After validation, controller uses `$request->model_type` (raw) to construct class string `'App\\\\Models\\\\'.$request->model_type` then `findOrFail`. Should use validated data. documentable_id has no min:1, accepts negative/zero values. Post-find auth check protects today, but defense-in-depth eroded.",
+      "evidence": "Line 287: `$modelClass = 'App\\\\Models\\\\'.$request->model_type;` — raw input post-validation.",
+      "fix": "Use `$validated['model_type']`. Replace string concat with `match($type) { 'Lease' => Lease::class, 'User' => User::class }`. Add `'documentable_id' => ['required', 'integer', 'min:1']`.",
+      "blast_radius": "Defense-in-depth gap. Future refactor that loosens the in: rule reopens arbitrary model hydration."
+    },
+    {
+      "id": "VALID-11",
+      "category": "validation_defense",
+      "priority": "MEDIUM",
+      "title": "ConsentController::accept silently destructures user input via explode(':')",
+      "files": ["app/Http/Controllers/ConsentController.php:48-63"],
+      "problem": "`'consents.*' => 'required|string'` then `[$type, $version] = explode(':', $consentKey)`. Without a colon, $version is null. With multiple colons, only first segment captured. Consent::record($user, $type, $version) accepts any attacker-supplied $type — could record consent for arbitrary types like 'super_admin_grant:1.0' that future code might match.",
+      "evidence": "Line 50 unbounded string. Lines 55-62 explode-then-record without allowlist.",
+      "fix": "`'consents.*' => ['required', 'string', 'regex:/^(privacy_policy|terms_of_service|marketing|cookies):\\d+\\.\\d+$/']`. Or split into separate validated fields with Rule::in(Consent::TYPES).",
+      "blast_radius": "Attacker plants arbitrary consent records under chosen consent_type. Pollutes audit/compliance trail; may bypass future logic checking Consent::where('consent_type', X)->exists()."
+    },
+    {
+      "id": "VALID-12",
+      "category": "validation_defense",
+      "priority": "MEDIUM",
+      "title": "AuditLogController::forModel accepts free-form model_type used in LIKE clause",
+      "files": ["app/Http/Controllers/AuditLogController.php:172-200"],
+      "problem": "`'model_type' => 'required|string'` no in: allowlist. Controller uses `where('auditable_type', 'like', \"%{$modelType}%\")`. The leading-wildcard prevents index use AND lets crafted patterns (`_`/`%` not escaped) leak audit data across model classes within the landlord's scope.",
+      "evidence": "Line 177 unbounded model_type. Line 196 uses leading-wildcard LIKE without escaping wildcards in user input.",
+      "fix": "`'model_type' => ['required', Rule::in(['Lease','User','Invoice','Payment','Unit','Building','Property'])]`. Drop leading wildcard: `where('auditable_type', \"App\\\\Models\\\\{$validated['model_type']}\")`.",
+      "blast_radius": "Cross-model audit leakage within a landlord's scope; meaningful query-perf regression on hot dashboard."
+    },
+    {
+      "id": "VALID-13",
+      "category": "cleanup_consistency",
+      "priority": "LOW",
+      "title": "InboxController::reply has no Form Request scope check; markAllAsRead is global update",
+      "files": ["app/Http/Controllers/InboxController.php:126-164", "app/Http/Controllers/InboxController.php:175-181"],
+      "problem": "Route signature `reply(Request $request, TenantMessage $message)` route-binds without scope check. Any authenticated user who knows a TenantMessage ID can reply to it; reply gets dispatched as if from the message's owning landlord. markAllAsRead does `TenantMessage::where('status', RECEIVED)->update([...])` — global cross-landlord update.",
+      "evidence": "Lines 126-128 no ownership check. Lines 142-153 create Notification with attacker's landlord_id then send to victim tenant. markAllAsRead at 175-181 unscoped update.",
+      "fix": "Convert to ReplyToInboxMessageRequest with authorize() scoping. markAllAsRead must scope to where('landlord_id', $landlordId).",
+      "blast_radius": "Cross-tenant impersonation in messaging. markAllAsRead is a true cross-tenant write — one user marks every other landlord's inbox read."
+    },
+    {
+      "id": "AUDIT-1",
+      "category": "audit_critical",
+      "priority": "HIGH",
+      "title": "Admin impersonation start/stop emits NO SecurityLog or AuditLog",
+      "files": ["app/Http/Controllers/AdminController.php:140", "app/Http/Controllers/AdminController.php:161"],
+      "problem": "AdminController::impersonate() and stopImpersonating() switch the auth identity (`auth()->login($user)`) without ever calling SecurityLogger::logImpersonationStart/End. The dedicated SecurityLog::EVENT_IMPERSONATION_START/END constants exist and helpers exist, but are never invoked. No record of which admin acted as which user, when, from which IP, or for how long.",
+      "evidence": "AdminController.php:140-156 impersonate() has no logger call. SecurityLogger.php:232 defines logImpersonationStart() but grep shows zero call sites in app/.",
+      "fix": "Inject SecurityLogger; before auth()->login() call logImpersonationStart($admin, $user). In stopImpersonating(), call logImpersonationEnd. Abort if Auth::user() is not super admin (defense-in-depth).",
+      "blast_radius": "Compliance-fatal: super admin can act as any landlord/tenant — sign leases, void payments, change payout accounts — with zero forensic trail. Tenant claims of 'I never did that' cannot be verified."
+    },
+    {
+      "id": "AUDIT-2",
+      "category": "audit_critical",
+      "priority": "HIGH",
+      "title": "Password reset completion does not fire SecurityLog",
+      "files": [
+        "app/Http/Controllers/Auth/NewPasswordController.php:35",
+        "app/Http/Controllers/Auth/PasswordResetLinkController.php:30"
+      ],
+      "problem": "NewPasswordController::store() resets the password but never calls SecurityLogger::logPasswordReset. PasswordResetLinkController never calls logPasswordResetRequest. SecurityLog::EVENT_PASSWORD_RESET/EVENT_PASSWORD_RESET_REQUEST exist as dead constants. Account takeover via stolen reset token is invisible.",
+      "evidence": "NewPasswordController.php:46-56 calls forceFill+save then event(new PasswordReset($user)) — no listener registered for PasswordReset event in app/Providers. No SecurityLogger injected.",
+      "fix": "Inject SecurityLogger; call logPasswordReset($user) in success branch. Register listener for Illuminate\\Auth\\Events\\PasswordReset that calls logPasswordReset. Always log reset request regardless of email existence (don't leak which emails are registered).",
+      "blast_radius": "Account-takeover detection blind spot. Failed-login → reset → login attack chains invisible to intrusion detection."
+    },
+    {
+      "id": "AUDIT-3",
+      "category": "audit_critical",
+      "priority": "HIGH",
+      "title": "Payment void records no audit context (reason, voider) as a status_changed event",
+      "files": ["app/Services/Payment/VoidPaymentHandler.php:18-43"],
+      "problem": "VoidPaymentHandler::void() updates Payment with is_voided/voided_at/void_reason. Auditable trait fires generic EVENT_UPDATED but logStatusChange/logCustomAudit are never called. The void is buried in update diffs rather than as a first-class status change. Recalculated Invoice status change is also a plain update.",
+      "evidence": "VoidPaymentHandler.php:27-31 straight update, followed by Log::info to file logs only. recalculateInvoice does $invoice->update without logStatusChange.",
+      "fix": "After payment update, call $payment->logStatusChange('completed', 'voided', $reason). After invoice recalc, $invoice->logStatusChange($previousStatus, $newStatus, \"Recalculated after void of payment #{$id}\").",
+      "blast_radius": "Forensic reconstruction of disputed payments difficult. Auditors cannot answer 'when was this voided, by whom, why?' from AuditLog without diffing JSON."
+    },
+    {
+      "id": "AUDIT-4",
+      "category": "audit_critical",
+      "priority": "HIGH",
+      "title": "7 sensitive financial models do not use the Auditable trait",
+      "files": [
+        "app/Models/Refund.php:10",
+        "app/Models/Subscription.php:11",
+        "app/Models/MoveOutDeduction.php",
+        "app/Models/PlatformBillingSetting.php",
+        "app/Models/LandlordPayoutAccount.php:11",
+        "app/Models/DepositTransaction.php:9",
+        "app/Models/PlatformFee.php"
+      ],
+      "problem": "These high-value money-moving models have `use TenantScope` but lack `use Auditable`. Creates/updates/deletes produce zero AuditLog rows. Compare to lower-value models like Building/Vendor/ExpenseCategory which DO use Auditable.",
+      "evidence": "grep `use Auditable` app/Models returns 20 files, none of these 7. Refund.php:10-12 only declares TenantScope.",
+      "fix": "Add `use Auditable;` to each. For Refund, override getAuditMetadata() to capture status transitions and approver_id. For LandlordPayoutAccount, set auditExclude=['account_number'].",
+      "blast_radius": "Cross-cutting compliance gap: refund approvals, subscription cancellations, deposit deductions, payout-account changes leave no audit trail. PCI/financial compliance reviews fail."
+    },
+    {
+      "id": "AUDIT-5",
+      "category": "audit_critical",
+      "priority": "HIGH",
+      "title": "Bulk lease termination/rent-adjustment audits per-row but loses operator-intent context",
+      "files": ["app/Http/Controllers/BulkOperationsController.php:113", "app/Http/Controllers/BulkOperationsController.php:148", "app/Http/Controllers/BulkOperationsController.php:211-299"],
+      "problem": "terminateLeases() loops and updates per row. Auditable fires N independent EVENT_UPDATED rows with no link back to the bulk operation that produced them. The reason is sent only to tenant notifications, never persisted to audit metadata. Same in adjustRent and updateUnitStatus.",
+      "evidence": "BulkOperationsController.php:246-249 straight update; $validated['reason'] only used in SMS body. No bulk_operation_id correlation, no logCustomAudit.",
+      "fix": "Generate `$bulkOpId = (string) Str::uuid()` once. Per row, call $lease->logCustomAudit('bulk_terminated', ['bulk_operation_id' => $bulkOpId, 'reason' => $reason, 'total_in_batch' => count($ids)]). Persist termination_reason on the leases table.",
+      "blast_radius": "When landlord disputes a mass termination ('I only meant building A'), no way to determine intent from audit trail. Forensic correlation across batch impossible."
+    },
+    {
+      "id": "AUDIT-6",
+      "category": "audit_critical",
+      "priority": "HIGH",
+      "title": "Deposit refund/forfeit/deduction operations bypass Auditable trail",
+      "files": ["app/Http/Controllers/Finance/DepositController.php:47-130"],
+      "problem": "refund() and forfeit() update lease and create DepositTransaction. DepositTransaction has no Auditable trait (AUDIT-4). Most sensitive money-out events produce only generic Lease update audit; no status_changed event captures held→forfeited transition.",
+      "evidence": "DepositController.php:69-89 refund(); 111-130 forfeit() — neither calls $lease->logStatusChange.",
+      "fix": "Add Auditable to DepositTransaction. After lease update, $lease->logStatusChange($oldStatus, $newStatus, $request->reason). Override DepositTransaction::getAuditMetadata to include {type, amount, balance_after, processed_by}.",
+      "blast_radius": "Tenants disputing deposit deductions cannot be answered with clean audit query. KYS regulations and tenancy boards require reason on every deduction; recorded only on lease.deposit_deduction_reason which can be silently overwritten."
+    },
+    {
+      "id": "AUDIT-7",
+      "category": "audit_critical",
+      "priority": "HIGH",
+      "title": "User account force-deletion produces null-actor audit log",
+      "files": ["app/Http/Controllers/ProfileController.php:143-158"],
+      "problem": "ProfileController::destroy() calls Auth::logout() BEFORE $user->forceDelete(). Auditable.php:65 reads `Auth::user()` at log time — null after logout. The 'who deleted whom' link is broken for self-deletions.",
+      "evidence": "ProfileController.php:151-153 Auth::logout() then forceDelete(). Phase 3 fix to PaymentArchivalService captured landlord_id before deletion explicitly.",
+      "fix": "Reorder: $user->logCustomAudit('account_force_deleted', ['email' => $user->email, 'self_initiated' => true]) BEFORE Auth::logout(). Or capture $userId, then write AuditLog::create explicitly with that id.",
+      "blast_radius": "GDPR/Kenya DPA right-to-be-forgotten records must be auditable. Null actor fails regulatory review. Combined with AUDIT-1, admin via impersonation could delete user with zero trail."
+    },
+    {
+      "id": "AUDIT-8",
+      "category": "audit_defense",
+      "priority": "MEDIUM",
+      "title": "Invoice/CreditNote void records reason but skips status_changed audit event",
+      "files": ["app/Http/Controllers/InvoiceController.php:264-287", "app/Http/Controllers/CreditNoteController.php:162", "app/Http/Controllers/CreditNoteController.php:227"],
+      "problem": "InvoiceController::void() and CreditNote approve/void/apply update status directly; Auditable fires generic EVENT_UPDATED but never EVENT_STATUS_CHANGED. Querying 'all invoices voided in May' requires diffing JSON change_fields rather than event_type filter.",
+      "evidence": "InvoiceController.php:280-284 straight update without logStatusChange; same in CreditNoteController.",
+      "fix": "Capture $previousStatus before update, then $invoice->logStatusChange($previousStatus, 'voided', $reason).",
+      "blast_radius": "Slow forensic reporting; status-change dashboards unreliable. Not a security hole on its own but degrades audit queryability."
+    },
+    {
+      "id": "AUDIT-9",
+      "category": "audit_critical",
+      "priority": "HIGH",
+      "title": "DataDeletionService session purge bypasses session_id-to-user audit linking",
+      "files": ["app/Services/DataDeletionService.php:296"],
+      "problem": "DataDeletionService::performDeletion calls `DB::table('sessions')->where('user_id', $id)->delete()`. The deletion is invisible to AuditLog; combined with the user record being anonymized after, the trail of 'user had N active sessions when account deleted' is lost. PaymentArchivalService had the same pattern but explicitly compensates with manual audit; DataDeletionService doesn't.",
+      "evidence": "DataDeletionService.php:296 raw delete. The class DOES write user_data_deleted event (line 153) but does not capture session count.",
+      "fix": "Before delete, capture $sessionCount = DB::table('sessions')->where('user_id', $id)->count(). Add to existing audit metadata as 'sessions_terminated' => $sessionCount. Same for PasswordController::invalidateOtherSessions.",
+      "blast_radius": "Forensic incomplete: investigating session hijacking can't tell whether sessions were terminated by user, password change, or admin-forced deletion."
+    },
+    {
+      "id": "AUDIT-10",
+      "category": "audit_defense",
+      "priority": "MEDIUM",
+      "title": "Role assignment in invitations not logged via SecurityLogger::logRoleChange",
+      "files": ["app/Http/Controllers/InvitationController.php:249", "app/Http/Controllers/TenantInvitationController.php:783"],
+      "problem": "When invitations accepted, new users get role='caretaker'/'tenant'. Auditable fires created event but SecurityLog::EVENT_ROLE_CHANGE is never used. logRoleChange exists with zero call sites.",
+      "evidence": "grep logRoleChange returns 1 hit (definition only). InvitationController.php:249 and TenantInvitationController.php:783 create users with assigned roles without logging role-assignment.",
+      "fix": "After User::create() with invited role, call `app(SecurityLogger::class)->logRoleChange($newUser, 'none', $newUser->role, $invitingUser)`.",
+      "blast_radius": "Privilege escalation invisible. Attacker exploiting invitation flow to obtain caretaker access leaves no security_logs row showing 'role granted to X by Y at IP Z'."
+    },
+    {
+      "id": "AUDIT-11",
+      "category": "audit_defense",
+      "priority": "MEDIUM",
+      "title": "Refund cancel/process state transitions invisible in audit",
+      "files": ["app/Http/Controllers/RefundController.php:103-135", "app/Services/RefundService.php:43-85"],
+      "problem": "RefundService::processRefund and cancelRefund call internal Refund methods (markAsProcessing, cancel, markAsFailed) which do straight Eloquent updates. Refund lacks Auditable (AUDIT-4) so transitions produce nothing. Even with Auditable, gateway processing details (most common dispute vector) need first-class audit context.",
+      "evidence": "RefundService.php:43-65 calls markAsProcessing, processPaystackRefund, handleSuccessfulRefund — Eloquent updates with no manual audit. markAsFailed stores gateway error on the model but not in audit.",
+      "fix": "After AUDIT-4 (add Auditable to Refund), wrap each transition with $refund->logStatusChange($oldStatus, $newStatus, $context). For failures, $refund->logCustomAudit('refund_failed', ['gateway' => ..., 'error' => ...]).",
+      "blast_radius": "When tenants dispute 'my refund never arrived', audit cannot show whether gateway accepted/rejected — only that a refund row exists."
+    },
+    {
+      "id": "AUDIT-12",
+      "category": "audit_defense",
+      "priority": "MEDIUM",
+      "title": "AuditLog manual writes inconsistently populate fields (replicates Phase-3 PaymentArchivalService bug)",
+      "files": [
+        "app/Jobs/ExportUserData.php:78",
+        "app/Services/DataDeletionService.php:36",
+        "app/Services/DataDeletionService.php:153",
+        "app/Services/KenyaDpaService.php:118",
+        "app/Models/Consent.php:73",
+        "app/Models/Consent.php:117"
+      ],
+      "problem": "Manual AuditLog::create call sites omit ip_address/user_agent/url inconsistently. DataDeletionService.php:153 hard-codes user_id=null even though $user->id is available — same pattern Phase-3 fixed in PaymentArchivalService. Consent.php:73 omits landlord_id entirely so it doesn't show in landlord audit-log views.",
+      "evidence": "DataDeletionService.php:153-160 missing landlord_id, hard null user_id. Consent.php:73-79 missing landlord_id/ip_address/user_agent.",
+      "fix": "Extract `AuditLog::record(string $event, Model $model, array $extras = [])` helper that auto-fills user_id from Auth, landlord_id from $model->landlord_id, ip/UA/url from request(). Replace all manual creates with the helper.",
+      "blast_radius": "Inconsistent rows make scope-by-landlord queries unreliable; Consent and DataDeletion rows missing from landlord audit view; compliance review fails to find deletion records by landlord scope."
+    },
+    {
+      "id": "AUDIT-13",
+      "category": "audit_defense",
+      "priority": "MEDIUM",
+      "title": "DashboardService DB::table reads bypass scope but also bypass sensitive-data-access auditing",
+      "files": ["app/Services/DashboardService.php:744", "app/Services/DashboardService.php:761", "app/Services/DashboardService.php:772"],
+      "problem": "DashboardService uses DB::table for kyc_requirements/tenant_kyc_submissions for performance. Raw queries don't fire Eloquent events — EVENT_ACCESSED / logSensitiveDataAccess hook can't audit KYC viewing. KYC documents are regulated personal data; viewing should produce SecurityLog::EVENT_SENSITIVE_DATA_ACCESS.",
+      "evidence": "DashboardService.php:761-772 raw DB::table queries. logSensitiveDataAccess exists (SecurityLogger.php:298) never called for KYC viewing.",
+      "fix": "When dashboard renders KYC summary, call `app(SecurityLogger::class)->logSensitiveDataAccess($user, 'kyc_dashboard_view', ['landlord_id' => $id, 'submission_count' => $count])` once per render. Throttle to once-per-session.",
+      "blast_radius": "Kenya DPA Section 26 requires logging access to personal data. KYC metadata viewing currently invisible. Landlord could view tenant KYC repeatedly with no trail."
+    },
+    {
+      "id": "AUDIT-14",
+      "category": "cleanup_consistency",
+      "priority": "LOW",
+      "title": "Auditable trait does not log force-deletes distinctly from soft-deletes",
+      "files": ["app/Traits/Auditable.php:37-46"],
+      "problem": "Auditable::bootAuditable hooks `static::deleted`. For SoftDeletes models, this fires for both soft-delete (deleted_at set) and force-delete (row removed). They produce identical EVENT_DELETED rows; auditors can't distinguish 'tenant moved out' from 'admin permanently destroyed record'.",
+      "evidence": "Auditable.php:37-39 — no isForceDeleting() check. AuditLog has only EVENT_DELETED/EVENT_RESTORED constants, no EVENT_FORCE_DELETED.",
+      "fix": "Add `EVENT_FORCE_DELETED` constant. In bootAuditable's deleted hook: `if (method_exists($model, 'isForceDeleting') && $model->isForceDeleting()) { logAudit($model, EVENT_FORCE_DELETED); } else { logAudit($model, EVENT_DELETED); }`.",
+      "blast_radius": "Audit reports cannot distinguish recoverable vs irrecoverable deletions. Low priority — underlying data loss is captured; only categorization is poor."
+    },
+    {
+      "id": "HANDLE-1",
+      "category": "error_handling_critical",
+      "priority": "HIGH",
+      "title": "All payment gateway services swallow exceptions and return null — caller can't distinguish gateway down from bad config",
+      "files": [
+        "app/Services/PaystackService.php:105-119",
+        "app/Services/PaystackService.php:155-169",
+        "app/Services/PaystackService.php:234-248",
+        "app/Services/IntaSendService.php:133-147",
+        "app/Services/IntaSendService.php:200-214",
+        "app/Services/MpesaService.php:100-112"
+      ],
+      "problem": "initializeTransaction(), verifyTransaction(), createSubaccount(), stkPush() all catch ConnectionException and \\Exception, log, return null. Callers only check `if ($response && $response['status'])` — transient gateway outage = same null as 'invalid credentials' or 'account not found'. Users see generic 500 with no actionable signal.",
+      "evidence": "PaystackService.php:105-119 catch-and-return-null. PaymentController.php:291-294 falls through to single 'Failed to initialize payment' 500 regardless of cause.",
+      "fix": "Introduce Result/Either type (PaymentInitResult with success|connectionError|configError|gatewayError) or throw domain exceptions (PaymentGatewayException, PaymentGatewayUnreachable). Controllers map to distinct HTTP codes (502 upstream-down, 422 bad-config). Re-throw on unexpected \\Exception so Sentry sees real bugs.",
+      "blast_radius": "Lost-money: Payment initiations silently degrade — tenants assume system broken and abandon, or staff cannot triage gateway outages from misconfiguration. No alerting differentiation."
+    },
+    {
+      "id": "HANDLE-2",
+      "category": "error_handling_critical",
+      "priority": "HIGH",
+      "title": "M-Pesa STK callback returns ResultCode 0 (Accepted) when callback metadata is missing",
+      "files": ["app/Http/Controllers/Api/MpesaWebhookController.php:96-101"],
+      "problem": "When Safaricom posts an STK callback with ResultCode 0 (success) but MpesaReceiptNumber or Amount is absent in CallbackMetadata, the controller logs and returns Accepted. Safaricom marks delivered, never retries. Money received on M-Pesa side; platform never records Payment row. Webhook log status FAILED but no dead-letter capture.",
+      "evidence": "MpesaWebhookController.php:96-101 missing-metadata branch returns Accepted without dead-letter capture. Compare lines 379-396 catch blocks DO call deadLetterService->capture.",
+      "fix": "Before returning Accepted, capture: `$this->deadLetterService->capture(WebhookDeadLetter::PROVIDER_MPESA, 'stk_callback', $callback, 'Missing MpesaReceiptNumber/Amount', WebhookDeadLetter::ERROR_SCHEMA, null);`. Manual reconciliation via dead-letter is safer than ResultCode 1 retry loops.",
+      "blast_radius": "Lost-money: Real customer payments visible in M-Pesa portal but invisible in platform. Tenant marked unpaid, late fees applied, eviction notices triggered against tenants who already paid."
+    },
+    {
+      "id": "HANDLE-3",
+      "category": "error_handling_critical",
+      "priority": "HIGH",
+      "title": "queueUnmatchedPayment and processB2CSuccess/Failure only log — no DB row written",
+      "files": [
+        "app/Http/Controllers/Api/MpesaWebhookController.php:748-755",
+        "app/Http/Controllers/Api/MpesaWebhookController.php:757-777"
+      ],
+      "problem": "queueUnmatchedPayment is called when a Till payment can't be matched. Method name implies queueing — body is just Log::info. No BankReconciliationQueue row created; unmatched payment invisible to staff. Same for processB2CSuccess/Failure (B2C landlord disbursements) — only log, no Payment/Disbursement record.",
+      "evidence": "MpesaWebhookController.php:748-755 body is just Log::info. Lines 757-777 only Log::info/Log::error.",
+      "fix": "queueUnmatchedPayment must `BankReconciliationQueue::create([...])` (model already used by BankWebhookController:155-161). Add B2CTransaction model or persist to existing PayoutRequest/Disbursement table. Pair with Filament resource for staff review.",
+      "blast_radius": "Compliance + lost-money: Till payments from tenants never appear in arrears reports. B2C landlord payouts cannot be reconciled — disputes have no audit trail."
+    },
+    {
+      "id": "HANDLE-4",
+      "category": "error_handling_critical",
+      "priority": "HIGH",
+      "title": "SendScheduledNotificationsJob catches and swallows — bypasses Laravel retry",
+      "files": ["app/Jobs/SendScheduledNotificationsJob.php:82-88"],
+      "problem": "Job::handle() catches \\Exception, logs, does not re-throw. Queue worker sees clean return, marks successful — no retry, no failed_jobs row, no failed() callback. Sibling SendNotificationJob.php:86-95 and SendBulkNotificationsJob.php:96-106 correctly throw.",
+      "evidence": "SendScheduledNotificationsJob.php:82-88 catch-and-no-throw. No failed() method either.",
+      "fix": "Append `throw $e;` after Log::error. Add `failed(\\Throwable $exception): void` matching SendNotificationJob.php:160-168. Regression test asserting assertFailed when NotificationService throws.",
+      "blast_radius": "Compliance: Scheduled tenant notifications (rent reminders, lease-end notices) silently fail with no retry, no operator alert. notification.sent_at stays null but no one is paged."
+    },
+    {
+      "id": "HANDLE-5",
+      "category": "error_handling_critical",
+      "priority": "HIGH",
+      "title": "Bank statement fetches return [] on any failure + no Http::timeout — silently degrades reconciliation",
+      "files": [
+        "app/Services/Banking/KcbBankService.php:43-69",
+        "app/Services/Banking/KcbBankService.php:97-120",
+        "app/Services/Banking/EquityBankService.php:43-68",
+        "app/Services/Banking/EquityBankService.php:94-115",
+        "app/Services/Banking/CoopBankService.php:44-72"
+      ],
+      "problem": "All three bank adapters' getTransactionHistory() catch \\Exception and return []. Reconciliation cron treats [] as 'no new transactions' — bank API outage looks identical to a quiet Monday. Compounding: no Http::timeout(...) — slow bank API hangs the worker.",
+      "evidence": "KcbBankService.php:65-69 catch-return-[]. Same shape in EquityBankService.php:64-68 and CoopBankService. All Http::get/post calls in app/Services/Banking/* lack timeout().",
+      "fix": "(1) Add `->timeout(15)->retry(2, 200)` to every Http call in Banking. (2) Throw BankApiUnavailableException instead of returning []. (3) DailyPaymentReconciliation catches per-landlord, records failed reconciliation row so staff sees 'KCB unreachable today, retry tomorrow' rather than silence.",
+      "blast_radius": "Lost-money: Bank-paid rents go unreconciled silently when bank APIs hiccup. Tenants who paid by bank transfer remain in arrears in the system; late fees applied unjustly."
+    },
+    {
+      "id": "HANDLE-6",
+      "category": "error_handling_critical",
+      "priority": "HIGH",
+      "title": "14 synchronous Mail::to(...)->send() call sites — request crashes on SMTP hiccup, no try/catch",
+      "files": [
+        "app/Http/Controllers/InvoiceController.php:123",
+        "app/Http/Controllers/InvoiceController.php:174",
+        "app/Http/Controllers/InvoiceController.php:230",
+        "app/Http/Controllers/TenantInvitationController.php:363",
+        "app/Http/Controllers/TenantInvitationController.php:514",
+        "app/Http/Controllers/TenantInvitationController.php:837",
+        "app/Http/Controllers/InvitationController.php:97",
+        "app/Http/Controllers/InvitationController.php:203",
+        "app/Http/Controllers/Auth/RegisteredUserController.php:53",
+        "app/Http/Controllers/Finance/DepositController.php:105",
+        "app/Http/Controllers/Finance/DepositController.php:143",
+        "app/Services/Banking/BankReconciliationService.php:303",
+        "app/Services/Payment/PaymentCallbackProcessor.php:375",
+        "app/Services/Payment/ReceiptGenerator.php:38"
+      ],
+      "problem": "These call sites use ->send() (synchronous) instead of ->queue(), with no try/catch. SMTP timeout/auth failure throws inside the request — 500 to user AFTER the database transaction has already committed, prompting retry → duplicate payments. RegisteredUserController:53 specifically blocks new-landlord signup if SMTP is down.",
+      "evidence": "InvoiceController.php:174 sync send no try/catch no queue. RegisteredUserController.php:53 fires inside a brand-new request after User::create. BankReconciliationService.php:303 sync send INSIDE DB::transaction callback (CONC-15).",
+      "fix": "Replace ->send() with ->queue() everywhere except where genuinely synchronous (none of these qualify). Where sync must remain (admin test-connection), wrap in try/catch with Log::warning. Add CI grep guard: `git grep 'Mail::to.*->send('` should fail in app/Http and app/Services unless allow-listed.",
+      "blast_radius": "Debug-time + lost-money: Slow SMTP turns 'Record Payment' click into 30s wait. SMTP outage blocks tenant invitations entirely. Sync send inside DB::transaction (HANDLE-6 + CONC-15) holds InnoDB locks for SMTP timeout window."
+    },
+    {
+      "id": "HANDLE-7",
+      "category": "error_handling_critical",
+      "priority": "HIGH",
+      "title": "OcrService Http calls have no timeout — meter-reading workflow can hang the request thread",
+      "files": [
+        "app/Services/OcrService.php:56-64",
+        "app/Services/OcrService.php:100-117",
+        "app/Services/OcrService.php:154-168"
+      ],
+      "problem": "OCR.space, Google Vision, Azure Vision Http calls have no ->timeout(). Default Guzzle timeout in Laravel is 0 (infinite). WaterReadingService::processOcr calls these synchronously during tenant photo upload — slow OCR endpoint stalls the FPM worker.",
+      "evidence": "OcrService.php:56-64 no timeout/retry. Lines 100, 154, 166 same. Azure path additionally sleep(2) then second uncapped GET.",
+      "fix": "Add `Http::timeout(8)->connectTimeout(3)` to every external call in OcrService. Move WaterReadingService::processOcr off the request path (queue ExtractMeterReadingJob).",
+      "blast_radius": "Debug-time: PHP-FPM workers exhausted when OCR provider is slow; site becomes unresponsive. Water-reading submissions appear to 'hang' for tenants."
+    },
+    {
+      "id": "HANDLE-8",
+      "category": "error_handling_critical",
+      "priority": "HIGH",
+      "title": "InboxController::reply persists Notification before sending — silent failure on provider misconfig leaves orphan",
+      "files": ["app/Http/Controllers/InboxController.php:142-163"],
+      "problem": "Handler creates Notification row (committed regardless), then sendViaChannel. If sendViaChannel returns false (e.g. SMS provider 'none' or WhatsApp creds missing), controller flashes generic error — but Notification row already persisted, source TenantMessage NOT marked processed. Retry creates duplicate Notification each time. No logging of cause.",
+      "evidence": "InboxController.php:142-153 creates Notification BEFORE attempting send. Failure path returns generic error with no diagnostic, no rollback, no idempotency.",
+      "fix": "Wrap create+send in DB::transaction; if sendViaChannel returns false, throw ChannelDeliveryException so transaction rolls back, controller redirects with precise message. Log underlying provider error with landlord_id. Add idempotency key on (landlord_id, recipient_id, original_message_id).",
+      "blast_radius": "Compliance + debug-time: Audit shows 'reply sent' (Notification row exists) but tenant never received it. Landlords swear they replied; tenants swear they didn't get it; staff can't tell which side is right."
+    },
+    {
+      "id": "HANDLE-9",
+      "category": "error_handling_defense",
+      "priority": "MEDIUM",
+      "title": "BuildingCacheService swallows Redis errors during cache invalidation",
+      "files": ["app/Services/BuildingCacheService.php:118-132"],
+      "problem": "Pattern-based cache deletion is wrapped in `try { ... } catch (\\Exception $e) { /* Redis not available */ }` with no Log call. Redis down or misconfigured → building updates appear successful but stale cached data continues serving for up to BUILDING_TTL.",
+      "evidence": "BuildingCacheService.php:130-132 no Log::warning, no metric, no fallback.",
+      "fix": "At minimum: Log::warning with pattern + error so ops can see Redis health. Better: maintain explicit list of derived cache keys when writing, invalidate by exact key.",
+      "blast_radius": "Debug-time: 'Why is the dashboard showing old data?' tickets with no log evidence pointing at Redis."
+    },
+    {
+      "id": "HANDLE-10",
+      "category": "error_handling_critical",
+      "priority": "HIGH",
+      "title": "AdminController::testPaystackConnection has no Http timeout — admin UI hangs on outage",
+      "files": ["app/Http/Controllers/AdminController.php:262-282"],
+      "problem": "`Http::withHeaders([...])->get('https://api.paystack.co/balance')` lacks ->timeout(). 'Test Paystack Connection' button stalls admin's PHP-FPM worker indefinitely if Paystack hangs. Catch only fires after Guzzle's default infinite wait yields.",
+      "evidence": "AdminController.php:262-264 no timeout/retry/throw.",
+      "fix": "`Http::timeout(8)->connectTimeout(3)->withHeaders([...])->get(...)`. Optionally add ->throw() and reduce catch to ConnectionException only.",
+      "blast_radius": "Debug-time: Admin UI freeze; FPM worker pool exhaustion if multiple admins click Test simultaneously while Paystack is degraded."
+    },
+    {
+      "id": "HANDLE-11",
+      "category": "error_handling_critical",
+      "priority": "HIGH",
+      "title": "PasswordPolicy HIBP check fails-open silently — compromised passwords accepted on API outage",
+      "files": ["app/Rules/PasswordPolicy.php:99-121"],
+      "problem": "isPasswordPwned() calls api.pwnedpasswords.com; on any non-success or exception returns false ('not pwned'). Documented intent is 'don't block the user', but means an attacker disrupting outbound HTTPS to pwnedpasswords.com bypasses the breach check entirely. validate() then accepts known-pwned passwords as if HIBP cleared them.",
+      "evidence": "PasswordPolicy.php:103-106 returns false on !successful. Line 118-121 catch returns false on any error.",
+      "fix": "Treat HIBP unreachability as soft fail with telemetry: (a) cache last-N-minutes HIBP result for the suffix; (b) Log::warning + flag account for re-check at next login; (c) for high-privilege roles require successful HIBP — refuse signup with 'try again' rather than silent pass.",
+      "blast_radius": "Compliance: Documented security control silently bypassed during HIBP outages. No audit trail of when bypass triggered."
+    },
+    {
+      "id": "HANDLE-12",
+      "category": "error_handling_defense",
+      "priority": "MEDIUM",
+      "title": "Setting and NotificationProviderConfig decryption swallows DecryptException, returns null",
+      "files": ["app/Models/Setting.php:32-37", "app/Models/NotificationProviderConfig.php:69-74"],
+      "problem": "Both accessors catch decryption failure and return null. Decryption failures aren't normal — they indicate APP_KEY rotation, DB corruption, or forged ciphertext injection. Returning null means calling code sees 'feature disabled / credential missing' rather than 'someone tampered'.",
+      "evidence": "Setting.php:32-37 catch \\Exception return null. NotificationProviderConfig.php:69-74 same pattern, no Log either.",
+      "fix": "Log at error level with model id (NEVER value) and exception class. Optionally rethrow as CredentialDecryptionException so upstream short-circuits with 'credentials unreadable — please re-enter' UI.",
+      "blast_radius": "Compliance + debug-time: APP_KEY misconfiguration manifests as 'M-Pesa stopped working for everyone' with no log breadcrumb pointing at cause."
+    },
+    {
+      "id": "HANDLE-13",
+      "category": "cleanup_consistency",
+      "priority": "LOW",
+      "title": "WaterReadingService::processOcr swallows OCR exception with only Log::warning",
+      "files": ["app/Services/WaterReadingService.php:182-184"],
+      "problem": "On exception inside processOcr, function logs and falls through to return null/false — identical to 'OCR not configured' branch. Operators can't answer 'is OCR working?' from data.",
+      "evidence": "WaterReadingService.php:182-184 catch + Log::warning, fall-through return at 186 yields same shape as disabled branch.",
+      "fix": "Return third state: `['reading' => null, 'verified' => false, 'ocr_status' => 'errored', 'ocr_error' => $e->getMessage()]`. Persist ocr_status on WaterReading row.",
+      "blast_radius": "Debug-time: OCR provider degradation invisible to landlords until manual verify-rate comparison."
+    }
+  ],
+  "phases": {
+    "phase_1": {
+      "title": "Critical Concurrency + Money-Loss Bugs",
+      "scope": "CONC-1, CONC-2, CONC-3, CONC-4, CONC-5, CONC-6, CONC-7, CONC-9, CONC-12, CONC-15",
+      "rationale": "Direct money-loss vectors: invoice number collisions, lost-update on payment recording, double-charge late fees, over-refund, idempotency-replay wallet credit. Every fix is a few lines + a regression test. Land before any other phase.",
+      "estimated_effort": "2-3 days; mostly adding lockForUpdate, ->afterCommit, and unique indexes + backfilling the InvoiceSetting fallback path."
+    },
+    "phase_2": {
+      "title": "Critical Validation + Cross-Tenant IDORs",
+      "scope": "VALID-1, VALID-2, VALID-3, VALID-4, VALID-5, VALID-6, VALID-7, VALID-8",
+      "rationale": "Includes one confirmed authenticated arbitrary-file-read (VALID-4 GdprController path-traversal), one stored-XSS (VALID-1 SVG logo), one cross-tenant write IDOR (VALID-3 onboarding), and a platform-spam vector (VALID-5 cross-tenant notifications). The 24-Form-Request authorize()=true sweep (VALID-6) is the long-tail.",
+      "estimated_effort": "2-3 days for the IDORs + path-traversal fixes + money-field max constraints. The 24-Form-Request sweep can land iteratively (1 file = 1 commit) over a week."
+    },
+    "phase_3": {
+      "title": "Critical Audit Trail + Compliance Gaps",
+      "scope": "AUDIT-1, AUDIT-2, AUDIT-3, AUDIT-4, AUDIT-5, AUDIT-6, AUDIT-7, AUDIT-9",
+      "rationale": "Compliance-fatal: admin impersonation has zero log trail (AUDIT-1), password reset never logged (AUDIT-2), 7 sensitive money-moving models lack Auditable (AUDIT-4), bulk operations lose operator-intent (AUDIT-5), deposit deductions bypass audit (AUDIT-6), self-deletion writes null actor (AUDIT-7).",
+      "estimated_effort": "1-2 days; mostly wiring existing-but-unused SecurityLogger/Auditable infrastructure. Add 7 `use Auditable;` lines in models + reorder operations + SecurityLogger injections in 3 controllers."
+    },
+    "phase_4": {
+      "title": "Critical Silent Failures + Lost-Money Vectors",
+      "scope": "HANDLE-1, HANDLE-2, HANDLE-3, HANDLE-4, HANDLE-5, HANDLE-6, HANDLE-7, HANDLE-8, HANDLE-10, HANDLE-11",
+      "rationale": "M-Pesa STK 200-Accepted on missing metadata (HANDLE-2) and queueUnmatchedPayment-only-logs (HANDLE-3) are direct lost-money. Synchronous Mail::send sweep (HANDLE-6) and Http::timeout sweep (HANDLE-5/7/10) prevent FPM worker exhaustion. HIBP fail-open (HANDLE-11) is a silently-bypassed security control.",
+      "estimated_effort": "2-3 days. The 14 sync-Mail call sites can be batched in one PR with a CI grep guard. The bank-service timeouts + dead-letter wiring is the most involved single change."
+    },
+    "phase_5": {
+      "title": "Defense-in-Depth: Concurrency Cleanup, Audit Refinements, Validation Hardening",
+      "scope": "CONC-8, CONC-10, CONC-11, CONC-13, CONC-14, AUDIT-8, AUDIT-10, AUDIT-11, AUDIT-12, AUDIT-13, VALID-9, VALID-10, VALID-11, VALID-12, HANDLE-9, HANDLE-12",
+      "rationale": "Functionally safe today, fragile to refactoring. Includes the AuditLog::record() helper (AUDIT-12) that retroactively hardens DataDeletionService and Consent — the same Phase-3 cleanup pattern applied to a new set of call sites.",
+      "estimated_effort": "2 days, can land iteratively. The AuditLog::record() helper extraction (AUDIT-12) is the highest-leverage single change."
+    },
+    "phase_6": {
+      "title": "LOW Cleanup",
+      "scope": "VALID-13, AUDIT-14, HANDLE-13",
+      "rationale": "Pick up when touching the area. InboxController::reply scope (VALID-13) is the only one that's a real bug; the other two are categorization improvements.",
+      "estimated_effort": "Opportunistic."
+    }
+  },
+  "out_of_scope": [
+    "Migration to Result/Either type across all gateway services (HANDLE-1 implementation scope) — start with PaystackService, expand iteratively",
+    "Repository pattern for high-volume queries (would address CONC-1/CONC-2 systemically by funnelling all number generation through a single repo method)",
+    "Conversion of all observers to event-with-afterCommit pattern (separate initiative — Phase 4 scope is just adding ->afterCommit() to the immediate offenders)",
+    "Adding ShouldBeUnique to all jobs (separate initiative — Phase 4 scope is just SendNotificationJob)",
+    "Backfill Auditable trait to all 20+ landlord_id-having models that don't have it (Phase 4 scope is the 7 sensitive financial models in AUDIT-4)",
+    "GDPR data-retention purge automation (out of scope; Phase 4 just adds audit completeness for existing manual purge flows)"
+  ],
+  "metadata": {
+    "audit_method": "Four parallel general-purpose explorer agents (CONC, VALID, AUDIT, HANDLE), each with a category-specific brief and concrete search hints. Every finding cites file:line evidence. Speculative findings without citation were excluded by the agent instructions.",
+    "phase_1_2_3_priors": "Phase 1 (32 bugs, commit 03e17b7): SQLi/auth/serialization/file-upload. Phase 2 (17 bugs, commit 4a305a0): data integrity. Phase 3 (46 findings, commits 12e204d…c3b89e4): tenant scope leakage + N+1 perf + new policies. Phase 4 (55 findings, this PRD): concurrency/idempotency + input validation + audit trail + silent failures. Phase 5 candidates (future): observability/metrics gaps, queue retry storm patterns, secrets rotation tooling, GDPR data-retention automation, frontend security (CSP, SRI).",
+    "totals": {
+      "total_findings": 55,
+      "by_priority": {
+        "HIGH": 36,
+        "MEDIUM": 16,
+        "LOW": 3
+      },
+      "by_category": {
+        "concurrency": 15,
+        "validation": 13,
+        "audit": 14,
+        "error_handling": 13
+      }
+    }
+  }
+}
