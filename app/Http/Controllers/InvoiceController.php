@@ -120,7 +120,7 @@ class InvoiceController extends Controller
             $invoice->refresh();
             $invoice->load(['lease.tenant', 'lease.unit.building.property']);
             if ($invoice->lease && $invoice->lease->tenant) {
-                Mail::to($invoice->lease->tenant)->send(new InvoiceSent($invoice));
+                Mail::to($invoice->lease->tenant)->queue(new InvoiceSent($invoice));
             }
         }
 
@@ -177,7 +177,7 @@ class InvoiceController extends Controller
         $tenant = $invoice->lease?->tenant;
 
         if ($tenant?->email) {
-            Mail::to($tenant->email)->send(new PaymentReceived($payment, $invoice));
+            Mail::to($tenant->email)->queue(new PaymentReceived($payment, $invoice));
         } else {
             Log::warning('Skipping payment receipt email: tenant not found', [
                 'invoice_id' => $invoice->id,
@@ -233,7 +233,7 @@ class InvoiceController extends Controller
         $invoice->load(['lease.tenant', 'lease.unit.building.property']);
 
         if ($invoice->lease && $invoice->lease->tenant) {
-            Mail::to($invoice->lease->tenant)->send(new InvoiceReminder($invoice));
+            Mail::to($invoice->lease->tenant)->queue(new InvoiceReminder($invoice));
         }
 
         return back()->with('success', __('messages.invoice.reminder_sent'));

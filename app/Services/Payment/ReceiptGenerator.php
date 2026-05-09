@@ -35,7 +35,9 @@ class ReceiptGenerator
 
         $receipt = $this->ensureReceipt($payment);
 
-        Mail::to($tenant->email)->send(new PaymentReceived($payment, $payment->invoice));
+        // HANDLE-6: queue so an SMTP hiccup doesn't 500 the controller that
+        // calls this from the request path.
+        Mail::to($tenant->email)->queue(new PaymentReceived($payment, $payment->invoice));
 
         $receipt->markAsEmailed();
     }

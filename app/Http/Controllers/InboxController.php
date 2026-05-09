@@ -6,6 +6,7 @@ use App\Models\Notification;
 use App\Models\TenantMessage;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class InboxController extends Controller
@@ -139,28 +140,38 @@ class InboxController extends Controller
             ? Notification::CHANNEL_WHATSAPP
             : Notification::CHANNEL_SMS;
 
-        $notification = Notification::create([
-            'landlord_id' => auth()->id(),
-            'recipient_id' => $tenant->id,
-            'type' => Notification::TYPE_GENERAL,
-            'channel' => $channel,
-            'subject' => 'Reply from landlord',
-            'message' => $request->body,
-            'urgency' => 'informational',
-            'data' => [
-                'reply_to_message_id' => $message->id,
-            ],
-        ]);
+        // HANDLE-8: wrap notification create + sendViaChannel in a single
+        // transaction so a provider misconfiguration / send failure rolls
+        // back the orphan Notification row instead of leaving it sitting
+        // unsent in the table.
+        try {
+            DB::transaction(function () use ($request, $message, $tenant, $channel) {
+                $notification = Notification::create([
+                    'landlord_id' => auth()->id(),
+                    'recipient_id' => $tenant->id,
+                    'type' => Notification::TYPE_GENERAL,
+                    'channel' => $channel,
+                    'subject' => 'Reply from landlord',
+                    'message' => $request->body,
+                    'urgency' => 'informational',
+                    'data' => [
+                        'reply_to_message_id' => $message->id,
+                    ],
+                ]);
 
-        $sent = $this->notificationService->sendViaChannel($notification, $tenant);
+                $sent = $this->notificationService->sendViaChannel($notification, $tenant);
 
-        if ($sent) {
-            $message->markAsProcessed();
+                if (! $sent) {
+                    throw new \RuntimeException('Notification channel failed to send.');
+                }
 
-            return back()->with('success', 'Reply sent successfully via '.ucfirst($message->source).'.');
+                $message->markAsProcessed();
+            });
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Failed to send reply. Please try again.');
         }
 
-        return back()->with('error', 'Failed to send reply. Please try again.');
+        return back()->with('success', 'Reply sent successfully via '.ucfirst($message->source).'.');
     }
 
     public function markAsRead(TenantMessage $message)

@@ -278,9 +278,11 @@ class AdminController extends Controller
         ]);
 
         try {
+            // HANDLE-10: bound the connection test so a Paystack outage
+            // doesn't hang the admin UI on the synchronous request path.
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer '.$validated['paystack_secret_key'],
-            ])->get('https://api.paystack.co/balance');
+            ])->connectTimeout(3)->timeout(8)->get('https://api.paystack.co/balance');
 
             if ($response->successful() && ($response->json('status') ?? false)) {
                 return response()->json([

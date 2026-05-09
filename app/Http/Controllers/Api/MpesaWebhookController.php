@@ -8,8 +8,10 @@ use App\Events\PaymentReceived as PaymentReceivedEvent;
 use App\Http\Controllers\Controller;
 use App\Mail\OverpaymentNotification;
 use App\Mail\PaymentReceived;
+use App\Models\BankReconciliationQueue;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\Refund;
 use App\Models\User;
 use App\Models\WebhookDeadLetter;
 use App\Models\WebhookLog;
@@ -94,6 +96,31 @@ class MpesaWebhookController extends Controller
         $transactionDate = $items->get('TransactionDate');
 
         if (! $mpesaReceiptNumber || ! $amount) {
+            // HANDLE-2: schema-mismatch on the success branch. We accept the
+            // 200 (otherwise Daraja keeps retrying) but capture the payload
+            // to the dead-letter queue so an operator can match the payment
+            // by hand. Landlord context comes from the pending Payment row
+            // we created at STK-push time, keyed by CheckoutRequestID.
+            $landlordId = null;
+            $checkoutRequestId = $callback['CheckoutRequestID'] ?? null;
+            if ($checkoutRequestId) {
+                $pending = Payment::withoutGlobalScope('landlord')
+                    ->where('mpesa_checkout_request_id', $checkoutRequestId)
+                    ->select(['landlord_id'])
+                    ->first();
+                $landlordId = $pending?->landlord_id;
+            }
+
+            $this->deadLetterService->capture(
+                WebhookDeadLetter::PROVIDER_MPESA,
+                'stk_callback',
+                $callback,
+                'Missing MpesaReceiptNumber or Amount in callback metadata',
+                WebhookDeadLetter::ERROR_SCHEMA,
+                $landlordId,
+                $request->headers->all(),
+            );
+
             Log::error('M-Pesa STK callback missing required data', ['items' => $items->toArray()]);
             $this->webhookLogService->finishTiming($webhookLog, $eventId, WebhookLog::STATUS_FAILED);
 
@@ -531,7 +558,13 @@ class MpesaWebhookController extends Controller
             }
 
             if (! $invoice) {
-                $this->queueUnmatchedPayment('mpesa_till', $transId, $amount, $request->all());
+                $this->queueUnmatchedPayment(
+                    'mpesa_till',
+                    $transId,
+                    $amount,
+                    $request->all(),
+                    $tenant?->landlord_id,
+                );
                 DB::commit();
                 $this->idempotencyService->release($idempotencyKey, [
                     'status' => 'queued_for_matching',
@@ -749,12 +782,40 @@ class MpesaWebhookController extends Controller
         ]);
     }
 
-    protected function queueUnmatchedPayment(string $source, string $transactionRef, float $amount, array $payload): void
+    protected function queueUnmatchedPayment(string $source, string $transactionRef, float $amount, array $payload, ?int $landlordId = null): void
     {
         Log::info('Queueing unmatched payment for manual reconciliation', [
             'source' => $source,
             'transaction_reference' => $transactionRef,
             'amount' => $amount,
+            'landlord_id' => $landlordId,
+        ]);
+
+        // HANDLE-3: persist a row so an operator can reconcile later. Without
+        // this the payment was only visible in app logs, not the
+        // reconciliation queue UI. landlord_id is required by the schema —
+        // when we can't derive one (no tenant match), capture the payload to
+        // the webhook DLQ instead so it's still visible in ops dashboards.
+        if (! $landlordId) {
+            $this->deadLetterService->capture(
+                WebhookDeadLetter::PROVIDER_MPESA,
+                $source,
+                $payload,
+                'Unmatched payment with no derivable landlord',
+                WebhookDeadLetter::ERROR_SCHEMA,
+                null,
+            );
+
+            return;
+        }
+
+        BankReconciliationQueue::withoutGlobalScope('landlord')->create([
+            'landlord_id' => $landlordId,
+            'bank_code' => $source,
+            'transaction_reference' => $transactionRef,
+            'amount' => $amount,
+            'status' => 'unmatched',
+            'raw_payload' => $payload,
         ]);
     }
 
@@ -767,6 +828,17 @@ class MpesaWebhookController extends Controller
             'conversation_id' => $conversationId,
             'transaction_id' => $transactionId,
         ]);
+
+        // HANDLE-3: when a Refund is awaiting B2C confirmation, mark it
+        // completed so the operator UI doesn't show 'processing' forever.
+        if ($conversationId) {
+            $refund = Refund::withoutGlobalScope('landlord')
+                ->where('mpesa_conversation_id', $conversationId)
+                ->first();
+            if ($refund) {
+                $refund->markAsCompleted($transactionId);
+            }
+        }
     }
 
     protected function processB2CFailure(array $result): void
@@ -778,5 +850,17 @@ class MpesaWebhookController extends Controller
             'result_code' => $result['ResultCode'] ?? null,
             'result_desc' => $result['ResultDesc'] ?? null,
         ]);
+
+        if ($conversationId) {
+            $refund = Refund::withoutGlobalScope('landlord')
+                ->where('mpesa_conversation_id', $conversationId)
+                ->first();
+            if ($refund) {
+                $refund->markAsFailed([
+                    'result_code' => $result['ResultCode'] ?? null,
+                    'result_desc' => $result['ResultDesc'] ?? null,
+                ]);
+            }
+        }
     }
 }

@@ -48,9 +48,10 @@ class RegisteredUserController extends Controller
 
         event(new Registered($user));
 
-        // Send welcome email to new landlords
+        // HANDLE-6: queue welcome mail so an SMTP hiccup doesn't 500 the
+        // registration response.
         if ($user->role === 'landlord') {
-            Mail::to($user)->send(new LandlordWelcome($user));
+            Mail::to($user)->queue(new LandlordWelcome($user));
         }
 
         Auth::login($user);

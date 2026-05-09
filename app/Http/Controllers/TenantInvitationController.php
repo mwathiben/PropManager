@@ -359,8 +359,9 @@ class TenantInvitationController extends Controller
             // Mark invitation as accepted
             $invitation->markAsAccepted();
 
-            // Send welcome email
-            Mail::to($tenant)->send(new TenantWelcome($tenant, $invitation, $lease));
+            // HANDLE-6: queue welcome mail so an SMTP hiccup doesn't 500
+            // the invitation-acceptance flow.
+            Mail::to($tenant)->queue(new TenantWelcome($tenant, $invitation, $lease));
 
             DB::commit();
 
@@ -511,7 +512,7 @@ class TenantInvitationController extends Controller
         // Email
         if ($invitation->shouldSendEmail()) {
             try {
-                Mail::to($invitation->email)->send(new TenantInvitationMail($invitation));
+                Mail::to($invitation->email)->queue(new TenantInvitationMail($invitation));
                 $invitation->update(['email_sent_at' => now()]);
             } catch (\Exception $e) {
                 Log::error('Failed to send tenant invitation email', [
@@ -833,8 +834,9 @@ class TenantInvitationController extends Controller
                 ->whereJsonContains('data->invitation_id', $invitation->id)
                 ->update(['read_at' => now(), 'status' => 'read']);
 
-            // Send welcome email
-            Mail::to($user)->send(new TenantWelcome($user, $invitation, $lease));
+            // HANDLE-6: queue welcome mail; SMTP delays must not hold up the
+            // existing-user invitation-acceptance flow.
+            Mail::to($user)->queue(new TenantWelcome($user, $invitation, $lease));
 
             DB::commit();
 

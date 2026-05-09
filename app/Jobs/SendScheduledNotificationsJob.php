@@ -85,7 +85,24 @@ class SendScheduledNotificationsJob implements ShouldQueue
                 'schedule_id' => $this->schedule->id,
                 'error' => $e->getMessage(),
             ]);
+
+            // HANDLE-4: re-throw so Laravel's queue retry/back-off applies.
+            // Without this the job is silently marked complete and the
+            // tenant simply never gets the scheduled notification.
+            throw $e;
         }
+    }
+
+    /**
+     * Called by the queue worker when retries are exhausted.
+     */
+    public function failed(\Throwable $exception): void
+    {
+        Log::error('SendScheduledNotificationsJob: Permanently failed', [
+            'recipient_id' => $this->recipientId,
+            'schedule_id' => $this->schedule->id,
+            'error' => $exception->getMessage(),
+        ]);
     }
 
     /**

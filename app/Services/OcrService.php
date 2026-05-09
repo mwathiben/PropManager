@@ -53,15 +53,20 @@ class OcrService
         // Convert image to base64
         $base64Image = base64_encode($this->getImageContent($image));
 
-        $response = Http::asForm()->post('https://api.ocr.space/parse/image', [
-            'apikey' => $apiKey,
-            'base64Image' => 'data:image/jpeg;base64,'.$base64Image,
-            'language' => 'eng',
-            'isOverlayRequired' => false,
-            'detectOrientation' => true,
-            'scale' => true,
-            'OCREngine' => 2, // Engine 2 is better for digits
-        ]);
+        // HANDLE-7: bound the OCR call so a hung provider can't tie up the
+        // request thread (this code can run on the request path).
+        $response = Http::asForm()
+            ->connectTimeout(3)
+            ->timeout(8)
+            ->post('https://api.ocr.space/parse/image', [
+                'apikey' => $apiKey,
+                'base64Image' => 'data:image/jpeg;base64,'.$base64Image,
+                'language' => 'eng',
+                'isOverlayRequired' => false,
+                'detectOrientation' => true,
+                'scale' => true,
+                'OCREngine' => 2, // Engine 2 is better for digits
+            ]);
 
         if ($response->successful()) {
             $data = $response->json();
@@ -97,10 +102,12 @@ class OcrService
         // Convert image to base64
         $base64Image = base64_encode($this->getImageContent($image));
 
+        // HANDLE-7: bound the OCR call so a hung provider can't tie up the
+        // request thread.
         $response = Http::withHeaders([
             'x-goog-api-key' => $apiKey,
             'Content-Type' => 'application/json',
-        ])->post('https://vision.googleapis.com/v1/images:annotate', [
+        ])->connectTimeout(3)->timeout(8)->post('https://vision.googleapis.com/v1/images:annotate', [
             'requests' => [
                 [
                     'image' => [
@@ -151,10 +158,13 @@ class OcrService
         // Read image content
         $imageContent = $this->getImageContent($image);
 
+        // HANDLE-7: bound the OCR call so a hung provider can't tie up the
+        // request thread.
         $response = Http::withHeaders([
             'Ocp-Apim-Subscription-Key' => $apiKey,
             'Content-Type' => 'application/octet-stream',
-        ])->withBody($imageContent, 'application/octet-stream')
+        ])->connectTimeout(3)->timeout(8)
+            ->withBody($imageContent, 'application/octet-stream')
             ->post("{$endpoint}/vision/v3.2/read/analyze");
 
         if ($response->successful()) {
@@ -165,7 +175,7 @@ class OcrService
 
             $resultResponse = Http::withHeaders([
                 'Ocp-Apim-Subscription-Key' => $apiKey,
-            ])->get($operationLocation);
+            ])->connectTimeout(3)->timeout(8)->get($operationLocation);
 
             if ($resultResponse->successful()) {
                 $data = $resultResponse->json();

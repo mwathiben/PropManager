@@ -4,7 +4,9 @@ namespace App\Rules;
 
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class PasswordPolicy implements ValidationRule
 {
@@ -89,34 +91,61 @@ class PasswordPolicy implements ValidationRule
      * Check if password has been breached using Have I Been Pwned API.
      *
      * Uses k-Anonymity model - only sends first 5 chars of SHA1 hash.
+     *
+     * HANDLE-11: failure modes are now visible. We cache successful range
+     * results for 10 minutes (so a flap doesn't open a fail-open window any
+     * wider than necessary) and emit a warning log on outage so ops can see
+     * how often the HIBP check is bypassed.
      */
     protected function isBreachedPassword(string $password): bool
     {
+        $sha1 = strtoupper(sha1($password));
+        $prefix = substr($sha1, 0, 5);
+        $suffix = substr($sha1, 5);
+
         try {
-            $sha1 = strtoupper(sha1($password));
-            $prefix = substr($sha1, 0, 5);
-            $suffix = substr($sha1, 5);
+            $body = Cache::remember(
+                "hibp:range:{$prefix}",
+                now()->addMinutes(10),
+                function () use ($prefix) {
+                    $response = Http::connectTimeout(2)
+                        ->timeout(5)
+                        ->get("https://api.pwnedpasswords.com/range/{$prefix}");
 
-            $response = Http::timeout(5)
-                ->get("https://api.pwnedpasswords.com/range/{$prefix}");
+                    if (! $response->successful()) {
+                        Log::channel('security')->warning('HIBP range fetch returned non-success; failing open', [
+                            'prefix' => $prefix,
+                            'status' => $response->status(),
+                        ]);
 
-            if (! $response->successful()) {
-                // If API fails, don't block the user
+                        return null;
+                    }
+
+                    return $response->body();
+                }
+            );
+
+            if ($body === null) {
                 return false;
             }
 
-            $hashes = explode("\n", $response->body());
-
-            foreach ($hashes as $hash) {
-                [$hashSuffix, $count] = explode(':', trim($hash));
-                if (strtoupper($hashSuffix) === $suffix) {
+            foreach (explode("\n", $body) as $hash) {
+                $parts = explode(':', trim($hash));
+                if (count($parts) < 2) {
+                    continue;
+                }
+                if (strtoupper($parts[0]) === $suffix) {
                     return true;
                 }
             }
 
             return false;
-        } catch (\Exception $e) {
-            // If anything fails, don't block the user
+        } catch (\Throwable $e) {
+            Log::channel('security')->warning('HIBP check failed; failing open', [
+                'prefix' => $prefix,
+                'error' => $e->getMessage(),
+            ]);
+
             return false;
         }
     }

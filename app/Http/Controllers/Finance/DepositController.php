@@ -111,7 +111,7 @@ class DepositController extends Controller
         ]);
 
         if ($lease->tenant?->email) {
-            Mail::to($lease->tenant->email)->send(new DepositRefundNotification($lease, $status));
+            Mail::to($lease->tenant->email)->queue(new DepositRefundNotification($lease, $status));
         }
 
         return back()->with('success', 'Deposit refund processed successfully.');
@@ -159,7 +159,7 @@ class DepositController extends Controller
         ]);
 
         if ($lease->tenant?->email) {
-            Mail::to($lease->tenant->email)->send(new DepositRefundNotification($lease, 'forfeited'));
+            Mail::to($lease->tenant->email)->queue(new DepositRefundNotification($lease, 'forfeited'));
         }
 
         return back()->with('success', 'Deposit forfeited successfully.');

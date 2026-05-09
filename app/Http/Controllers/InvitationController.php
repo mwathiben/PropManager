@@ -94,7 +94,7 @@ class InvitationController extends Controller
                 return $invitation;
             });
 
-            Mail::to($request->email)->send(new CaretakerInvitation($invitation));
+            Mail::to($request->email)->queue(new CaretakerInvitation($invitation));
 
             if ($existingUser) {
                 app(NotificationService::class)->sendCaretakerInvitation(
@@ -200,7 +200,7 @@ class InvitationController extends Controller
 
         try {
             $invitation->load('property', 'landlord');
-            Mail::to($invitation->email)->send(new CaretakerInvitation($invitation));
+            Mail::to($invitation->email)->queue(new CaretakerInvitation($invitation));
 
             return back()->with('success', 'Invitation resent successfully.');
         } catch (\Exception $e) {
