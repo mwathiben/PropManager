@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
@@ -9,6 +9,8 @@ import DangerButton from '@/Components/DangerButton.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
 import InputError from '@/Components/InputError.vue';
+import { useFormatters } from '@/composables';
+import type { PaymentVerificationsShowPageProps } from '@/types/tenants';
 import {
     ShieldCheckIcon,
     ClockIcon,
@@ -25,9 +27,9 @@ import {
     ExclamationTriangleIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    verification: Object,
-});
+const props = defineProps<PaymentVerificationsShowPageProps>();
+
+const { formatMoney: formatCurrency, formatDateTime } = useFormatters();
 
 const showApproveModal = ref(false);
 const showRejectModal = ref(false);
@@ -36,25 +38,6 @@ const processing = ref(false);
 const rejectForm = useForm({
     reason: '',
 });
-
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-    }).format(amount);
-};
-
-const formatDate = (date) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString('en-KE', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
-};
 
 const getStatusBadge = (status) => {
     const badges = {
@@ -162,7 +145,7 @@ const canApproveOrReject = props.verification.status === 'payment_submitted' || 
                                     {{ getStatusBadge(verification.status).label }}
                                 </span>
                                 <p v-if="verification.verified_at" class="text-sm text-gray-600 mt-1">
-                                    Verified on {{ formatDate(verification.verified_at) }}
+                                    Verified on {{ formatDateTime(verification.verified_at) }}
                                     <span v-if="verification.verified_by">by {{ verification.verified_by.name }}</span>
                                 </p>
                             </div>
@@ -268,11 +251,11 @@ const canApproveOrReject = props.verification.status === 'payment_submitted' || 
                     <div class="mt-4 pt-4 border-t border-gray-200 grid grid-cols-2 gap-4 text-sm">
                         <div>
                             <p class="text-gray-500">Created</p>
-                            <p class="text-gray-900">{{ formatDate(verification.created_at) }}</p>
+                            <p class="text-gray-900">{{ formatDateTime(verification.created_at) }}</p>
                         </div>
                         <div>
                             <p class="text-gray-500">Submitted</p>
-                            <p class="text-gray-900">{{ formatDate(verification.submitted_at) || 'Not yet submitted' }}</p>
+                            <p class="text-gray-900">{{ formatDateTime(verification.submitted_at) || 'Not yet submitted' }}</p>
                         </div>
                     </div>
                 </div>
@@ -297,7 +280,7 @@ const canApproveOrReject = props.verification.status === 'payment_submitted' || 
                                 <div>
                                     <p class="text-sm font-medium text-gray-900">{{ doc.title }}</p>
                                     <p class="text-xs text-gray-500">
-                                        Uploaded {{ formatDate(doc.uploaded_at) }}
+                                        Uploaded {{ formatDateTime(doc.uploaded_at) }}
                                     </p>
                                 </div>
                             </div>

@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, router, Link } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
@@ -15,10 +15,11 @@ import Bars3Icon from '@heroicons/vue/24/outline/Bars3Icon';
 import ExclamationCircleIcon from '@heroicons/vue/24/outline/ExclamationCircleIcon';
 import StarIconSolid from '@heroicons/vue/24/solid/StarIcon';
 import EmptyState from '@/Components/EmptyState.vue';
+import type { VerificationTemplatesPageProps } from '@/types';
 
-const props = defineProps({
-    templates: Array,
-    properties: Array,
+const props = withDefaults(defineProps<VerificationTemplatesPageProps>(), {
+    templates: () => [],
+    properties: () => [],
 });
 
 // Modal states
@@ -250,9 +251,9 @@ const defaultTemplate = computed(() => props.templates.find(t => t.is_default));
         <!-- Create Modal -->
         <div v-if="showCreateModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-                <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="closeModals"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="closeModals"></div>
 
-                <div class="relative inline-block w-full max-w-3xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-xl shadow-xl">
+                <div class="relative z-50 inline-block w-full max-w-3xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
                         <h3 class="text-lg font-semibold text-gray-900">Create Verification Template</h3>
                         <button @click="closeModals" class="text-gray-400 hover:text-gray-500">
@@ -418,9 +419,9 @@ const defaultTemplate = computed(() => props.templates.find(t => t.is_default));
         <!-- Edit Modal -->
         <div v-if="showEditModal && editingTemplate" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-                <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="closeModals"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="closeModals"></div>
 
-                <div class="relative inline-block w-full max-w-3xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-xl shadow-xl">
+                <div class="relative z-50 inline-block w-full max-w-3xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
                         <h3 class="text-lg font-semibold text-gray-900">Edit Template: {{ editingTemplate.name }}</h3>
                         <button @click="closeModals" class="text-gray-400 hover:text-gray-500">

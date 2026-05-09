@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
@@ -7,12 +7,13 @@ import UnitStatusTab from './UnitStatusTab.vue';
 import LeaseManagementTab from './LeaseManagementTab.vue';
 import TargetRentTab from './TargetRentTab.vue';
 import BuildingWingFilter from '@/Components/BuildingWingFilter.vue';
+import type { BulkOperationsIndexPageProps } from '@/types';
 
-const props = defineProps({
-    properties: Array,
-    buildings: Array,
-    units: Array,
-    tenants: Array
+const props = withDefaults(defineProps<BulkOperationsIndexPageProps>(), {
+    properties: () => [],
+    buildings: () => [],
+    units: () => [],
+    tenants: () => [],
 });
 
 // Active tab

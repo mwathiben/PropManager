@@ -1,30 +1,22 @@
-<script setup>
-const props = defineProps({
-    summary: {
-        type: Object,
-        required: true,
-        default: () => ({
-            total_paid: 0,
-            total_invoiced: 0,
-            outstanding: 0,
-            wallet_balance: 0,
-            deposit_held: 0
-        })
-    },
-    compact: {
-        type: Boolean,
-        default: false
-    }
+<script setup lang="ts">
+import { useFormatters } from '@/composables';
+import type { FinancialSummary } from '@/types';
+
+const props = withDefaults(defineProps<{
+    summary: FinancialSummary;
+    compact?: boolean;
+}>(), {
+    summary: () => ({
+        total_paid: 0,
+        total_invoiced: 0,
+        outstanding: 0,
+        wallet_balance: 0,
+        deposit_held: 0
+    }),
+    compact: false,
 });
 
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-    }).format(amount || 0);
-};
+const { formatMoney: formatCurrency } = useFormatters();
 
 const paymentProgress = () => {
     if (!props.summary.total_invoiced) return 100;

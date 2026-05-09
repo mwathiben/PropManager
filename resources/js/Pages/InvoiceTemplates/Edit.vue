@@ -1,8 +1,10 @@
-<script setup>
+<script setup lang="ts">
 import { computed, ref, reactive } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Breadcrumb from '@/Components/Breadcrumb.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { useFormatters } from '@/composables';
+import type { InvoiceTemplateEditPageProps } from '@/types/templates';
 import {
     DocumentDuplicateIcon,
     ArrowLeftIcon,
@@ -11,12 +13,9 @@ import {
     Cog6ToothIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    template: Object,
-    designOptions: Object,
-    settings: Object,
-    sampleInvoice: Object,
-});
+const props = defineProps<InvoiceTemplateEditPageProps>();
+
+const { formatMoney: formatCurrency } = useFormatters();
 
 const isEditing = computed(() => !!props.template);
 
@@ -96,14 +95,6 @@ const submit = () => {
     }
 };
 
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-    }).format(amount);
-};
-
 const getLogoUrl = () => {
     if (props.settings?.logo_path) {
         return `/storage/${props.settings.logo_path}`;
@@ -154,7 +145,7 @@ const designStyles = computed(() => {
             classic: 'border-2 border-gray-300 rounded-none shadow-md',
             modern: 'rounded-2xl shadow-2xl border-0',
             minimal: 'shadow-sm border border-gray-100 rounded-lg',
-            professional: 'rounded-none shadow-xl border-t-4 border-t-slate-800 border border-slate-300',
+            professional: 'rounded-none shadow-xl border-l-4 border-l-slate-800 border border-slate-300',
         }[design] || 'rounded-lg shadow-lg',
 
         header: {
@@ -219,6 +210,13 @@ const designStyles = computed(() => {
             minimal: 'border-b border-gray-100',
             professional: 'bg-slate-800 text-white',
         }[design] || 'border-b border-gray-200',
+
+        tableHeaderTextColor: {
+            classic: 'text-gray-600',
+            modern: 'text-gray-600',
+            minimal: 'text-gray-600',
+            professional: 'text-white',
+        }[design] || 'text-gray-600',
 
         lateWarning: {
             classic: 'bg-yellow-100 border-y-2 border-yellow-200',
@@ -408,7 +406,7 @@ const designStyles = computed(() => {
                                             type="button"
                                             @click="toggleField(toggle.key)"
                                             :class="[
-                                                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2',
+                                                'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2',
                                                 previewState[toggle.key] ? 'bg-indigo-600' : 'bg-gray-200'
                                             ]"
                                         >
@@ -545,8 +543,8 @@ const designStyles = computed(() => {
                                             <table class="w-full text-sm">
                                                 <thead>
                                                     <tr :class="designStyles.tableHeader">
-                                                        <th class="text-left py-2 font-medium text-gray-600">Description</th>
-                                                        <th class="text-right py-2 font-medium text-gray-600">Amount</th>
+                                                        <th :class="['text-left py-2 font-medium', designStyles.tableHeaderTextColor]">Description</th>
+                                                        <th :class="['text-right py-2 font-medium', designStyles.tableHeaderTextColor]">Amount</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>

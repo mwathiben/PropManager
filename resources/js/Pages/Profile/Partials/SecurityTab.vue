@@ -43,7 +43,7 @@ const updatePassword = () => {
         <!-- Security Info Banner -->
         <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
             <div class="flex">
-                <div class="flex-shrink-0">
+                <div class="shrink-0">
                     <ShieldCheckIcon class="h-5 w-5 text-indigo-400" />
                 </div>
                 <div class="ml-3">

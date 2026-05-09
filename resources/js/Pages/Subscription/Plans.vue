@@ -1,7 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { useErrorHandler, useFormatters } from '@/composables';
+import type { SubscriptionPlansPageProps, SubscriptionPlan } from '@/types/settings';
 import {
     CheckIcon,
     XMarkIcon,
@@ -9,26 +11,16 @@ import {
     ArrowLeftIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    plans: Array,
-    currentPlan: Object,
-    billingCycle: String,
-});
+const props = defineProps<SubscriptionPlansPageProps>();
 
+const { logError } = useErrorHandler();
+const { formatMoney: formatCurrency } = useFormatters();
 const selectedCycle = ref(props.billingCycle || 'monthly');
 const isProcessing = ref(false);
 const processingPlanId = ref(null);
 
 const getPlanPrice = (plan) => {
     return selectedCycle.value === 'yearly' ? plan.price_yearly : plan.price_monthly;
-};
-
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-    }).format(amount);
 };
 
 const isCurrentPlan = (plan) => {
@@ -81,7 +73,7 @@ const handleSubscribe = async (plan) => {
             alert(data.error);
         }
     } catch (error) {
-        console.error('Subscription error:', error);
+        logError(error, { component: 'SubscriptionPlans', action: 'subscribe' });
         alert('Failed to process subscription. Please try again.');
     } finally {
         isProcessing.value = false;
@@ -188,7 +180,7 @@ const popularPlan = computed(() => {
                                 :key="index"
                                 class="flex items-start gap-2"
                             >
-                                <CheckIcon class="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                                <CheckIcon class="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
                                 <span class="text-sm text-gray-600">{{ feature }}</span>
                             </li>
                         </ul>

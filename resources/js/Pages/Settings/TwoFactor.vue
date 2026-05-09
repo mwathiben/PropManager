@@ -92,7 +92,7 @@ const disableTwoFactor = () => {
                         <!-- Enabled State -->
                         <div v-if="enabled" class="space-y-6">
                             <div class="flex items-center gap-3">
-                                <div class="flex-shrink-0">
+                                <div class="shrink-0">
                                     <div class="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
                                         <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -145,7 +145,7 @@ const disableTwoFactor = () => {
                         <!-- Disabled State -->
                         <div v-else class="space-y-6">
                             <div class="flex items-center gap-3">
-                                <div class="flex-shrink-0">
+                                <div class="shrink-0">
                                     <div class="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center">
                                         <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -192,21 +192,21 @@ const disableTwoFactor = () => {
                         <h3 class="text-lg font-semibold text-gray-900 mb-4">How it works</h3>
                         <div class="space-y-4">
                             <div class="flex gap-4">
-                                <div class="flex-shrink-0 h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold text-sm">1</div>
+                                <div class="shrink-0 h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold text-sm">1</div>
                                 <div>
                                     <h4 class="font-medium text-gray-900">Install an authenticator app</h4>
                                     <p class="text-sm text-gray-600">Download Google Authenticator, Authy, or Microsoft Authenticator on your phone.</p>
                                 </div>
                             </div>
                             <div class="flex gap-4">
-                                <div class="flex-shrink-0 h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold text-sm">2</div>
+                                <div class="shrink-0 h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold text-sm">2</div>
                                 <div>
                                     <h4 class="font-medium text-gray-900">Scan the QR code</h4>
                                     <p class="text-sm text-gray-600">Use your authenticator app to scan the QR code we provide.</p>
                                 </div>
                             </div>
                             <div class="flex gap-4">
-                                <div class="flex-shrink-0 h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold text-sm">3</div>
+                                <div class="shrink-0 h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold text-sm">3</div>
                                 <div>
                                     <h4 class="font-medium text-gray-900">Enter the 6-digit code</h4>
                                     <p class="text-sm text-gray-600">Enter the code from your app to verify and complete setup.</p>
@@ -221,8 +221,8 @@ const disableTwoFactor = () => {
         <!-- Password Confirmation Modal -->
         <div v-if="showPasswordModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex min-h-full items-center justify-center p-4">
-                <div class="fixed inset-0 bg-gray-500 bg-opacity-75" @click="showPasswordModal = false"></div>
-                <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showPasswordModal = false"></div>
+                <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">Confirm Password</h3>
                     <p class="text-sm text-gray-600 mb-4">Please confirm your password to continue.</p>
 
@@ -260,8 +260,8 @@ const disableTwoFactor = () => {
         <!-- Disable 2FA Modal -->
         <div v-if="showDisableModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex min-h-full items-center justify-center p-4">
-                <div class="fixed inset-0 bg-gray-500 bg-opacity-75" @click="showDisableModal = false"></div>
-                <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showDisableModal = false"></div>
+                <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">Disable Two-Factor Authentication</h3>
                     <p class="text-sm text-gray-600 mb-4">
                         Enter your password and a code from your authenticator app to disable two-factor authentication.

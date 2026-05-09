@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { useForm, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import InputLabel from '@/Components/InputLabel.vue';
@@ -9,16 +9,14 @@ import {
     DocumentTextIcon,
     TrashIcon,
 } from '@heroicons/vue/24/outline';
+import type { BrandingSettings, InvoiceNumberFormats } from '@/types';
 
-const props = defineProps({
-    brandingSettings: {
-        type: Object,
-        default: () => ({}),
-    },
-    invoiceNumberFormats: {
-        type: Object,
-        default: () => ({}),
-    },
+const props = withDefaults(defineProps<{
+    brandingSettings?: BrandingSettings;
+    invoiceNumberFormats?: InvoiceNumberFormats;
+}>(), {
+    brandingSettings: () => ({} as BrandingSettings),
+    invoiceNumberFormats: () => ({} as InvoiceNumberFormats),
 });
 
 const form = useForm({
@@ -102,7 +100,7 @@ const submit = () => {
 
             <div class="flex items-start gap-6">
                 <!-- Logo Preview -->
-                <div class="flex-shrink-0">
+                <div class="shrink-0">
                     <div
                         v-if="logoPreview"
                         class="relative w-48 h-24 bg-white border border-gray-200 rounded-lg overflow-hidden"

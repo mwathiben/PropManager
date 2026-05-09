@@ -1,10 +1,11 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import BuildingWingFilter from '@/Components/BuildingWingFilter.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useStatusColors, useAuth } from '@/composables';
 import UploadDocumentModal from '@/Components/Modals/UploadDocumentModal.vue';
+import type { DocumentsIndexPageProps } from '@/types';
 import {
     DocumentTextIcon,
     FolderIcon,
@@ -17,11 +18,7 @@ import {
 } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
 
-const props = defineProps({
-    documents: Object,
-    buildings: Array,
-    filters: Object
-});
+const props = defineProps<DocumentsIndexPageProps>();
 
 const showUploadModal = ref(false);
 

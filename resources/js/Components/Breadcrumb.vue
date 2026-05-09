@@ -1,13 +1,13 @@
-<script setup>
+<script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
 import HomeIcon from '@heroicons/vue/24/outline/HomeIcon';
 import ChevronRightIcon from '@heroicons/vue/24/outline/ChevronRightIcon';
+import type { BreadcrumbItem } from '@/types';
 
-defineProps({
-    items: {
-        type: Array,
-        default: () => []
-    }
+withDefaults(defineProps<{
+    items?: BreadcrumbItem[];
+}>(), {
+    items: () => [],
 });
 </script>
 
@@ -17,7 +17,7 @@ defineProps({
             <HomeIcon class="h-4 w-4" />
         </Link>
         <template v-for="(item, index) in items" :key="index">
-            <ChevronRightIcon class="h-4 w-4 text-gray-300 flex-shrink-0" />
+            <ChevronRightIcon class="h-4 w-4 text-gray-300 shrink-0" />
             <Link
                 v-if="item.href"
                 :href="item.href"

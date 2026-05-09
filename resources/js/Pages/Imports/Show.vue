@@ -1,11 +1,10 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
+import type { ImportsShowPageProps } from '@/types/operations';
 
-const props = defineProps({
-    importRecord: Object
-});
+const props = defineProps<ImportsShowPageProps>();
 
 // Use composables
 const { formatDateTime: formatDate } = useFormatters();

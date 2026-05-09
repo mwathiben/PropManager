@@ -33,12 +33,11 @@ const { formatMoney: formatCurrency, formatDate } = useFormatters({ currency: pr
 
 const isOverdue = computed(() => {
     if (!props.invoice.due_date) return false;
-    const dueDate = new Date(props.invoice.due_date);
-    const today = new Date();
-    // Normalize both dates to start of day for date-only comparison
+    const parts = props.invoice.due_date.substring(0, 10).split('-');
+    const dueDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
     dueDate.setHours(0, 0, 0, 0);
+    const today = new Date();
     today.setHours(0, 0, 0, 0);
-    // Overdue only when today is strictly after the due date
     return today > dueDate;
 });
 

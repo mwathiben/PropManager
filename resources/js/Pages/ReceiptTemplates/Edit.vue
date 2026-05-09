@@ -1,8 +1,10 @@
-<script setup>
+<script setup lang="ts">
 import { computed, reactive } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Breadcrumb from '@/Components/Breadcrumb.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { useFormatters } from '@/composables';
+import type { ReceiptTemplateEditPageProps } from '@/types/templates';
 import {
     ReceiptPercentIcon,
     ArrowLeftIcon,
@@ -12,13 +14,9 @@ import {
     CheckCircleIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    template: Object,
-    designOptions: Object,
-    toggleGroups: Array,
-    settings: Object,
-    sampleReceipt: Object,
-});
+const props = defineProps<ReceiptTemplateEditPageProps>();
+
+const { formatMoney: formatCurrency } = useFormatters();
 
 const isEditing = computed(() => !!props.template);
 
@@ -102,14 +100,6 @@ const submit = () => {
     } else {
         form.post(route('receipt-templates.store'));
     }
-};
-
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-    }).format(amount);
 };
 
 const getLogoUrl = () => {
@@ -403,7 +393,7 @@ const toggleGroups = props.toggleGroups || [
                                             type="button"
                                             @click="toggleField(toggle.key)"
                                             :class="[
-                                                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2',
+                                                'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2',
                                                 previewState[toggle.key] ? 'bg-emerald-600' : 'bg-gray-200'
                                             ]"
                                         >

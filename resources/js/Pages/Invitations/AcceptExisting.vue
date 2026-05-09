@@ -1,7 +1,8 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import type { InvitationAcceptExistingPageProps } from '@/types/tenants';
 import {
     CheckCircleIcon,
     UserIcon,
@@ -9,9 +10,7 @@ import {
     CalendarIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    invitation: Object,
-});
+const props = defineProps<InvitationAcceptExistingPageProps>();
 
 const processing = ref(false);
 
@@ -56,7 +55,7 @@ const declineInvitation = () => {
                     <div class="px-6 py-6 bg-gray-50 border-b border-gray-200">
                         <div class="space-y-4">
                             <div class="flex items-center gap-3">
-                                <div class="flex-shrink-0 w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                                <div class="shrink-0 w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
                                     <UserIcon class="w-5 h-5 text-indigo-600" />
                                 </div>
                                 <div>
@@ -66,7 +65,7 @@ const declineInvitation = () => {
                             </div>
 
                             <div class="flex items-center gap-3">
-                                <div class="flex-shrink-0 w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                                <div class="shrink-0 w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
                                     <BuildingOfficeIcon class="w-5 h-5 text-green-600" />
                                 </div>
                                 <div>
@@ -76,7 +75,7 @@ const declineInvitation = () => {
                             </div>
 
                             <div class="flex items-center gap-3">
-                                <div class="flex-shrink-0 w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                                <div class="shrink-0 w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
                                     <CalendarIcon class="w-5 h-5 text-yellow-600" />
                                 </div>
                                 <div>

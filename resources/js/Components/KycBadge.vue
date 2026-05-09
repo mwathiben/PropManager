@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import Badge from '@/Components/Badge.vue';
-import { useStatusColors } from '@/composables';
+import { useStatusColors, useFormatters } from '@/composables';
 
 interface Props {
     completed?: boolean;
@@ -16,17 +16,9 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const { kycStatusColor } = useStatusColors();
+const { formatDate } = useFormatters();
 
 const colorClasses = computed(() => kycStatusColor(props.completed));
-
-const formatDate = (dateString: string | null): string => {
-    if (!dateString) return '';
-    return new Date(dateString).toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-    });
-};
 
 const label = computed(() => {
     let text = props.completed ? 'KYC Complete' : 'KYC Incomplete';

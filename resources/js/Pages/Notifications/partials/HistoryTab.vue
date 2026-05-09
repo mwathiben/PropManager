@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import {
@@ -18,10 +18,15 @@ import {
     ChevronRightIcon
 } from '@heroicons/vue/24/outline';
 import { useFormatters } from '@/composables';
+import type { NotificationEntry, NotificationFilters } from '@/types';
+import type { PaginatedResponse } from '@/types/global';
 
-const props = defineProps({
-    notifications: { type: Object, default: () => ({ data: [], links: [], meta: {} }) },
-    filters: { type: Object, default: () => ({}) },
+const props = withDefaults(defineProps<{
+    notifications?: PaginatedResponse<NotificationEntry>;
+    filters?: NotificationFilters;
+}>(), {
+    notifications: () => ({ data: [], links: { first: null, last: null, prev: null, next: null }, meta: { current_page: 1, from: null, last_page: 1, path: '', per_page: 15, to: null, total: 0, links: [] } }),
+    filters: () => ({}),
 });
 
 const { formatDateTime } = useFormatters();
@@ -356,9 +361,9 @@ const hasActiveFilters = () => {
         <Teleport to="body">
             <div v-if="showDetailModal && selectedNotification" class="fixed inset-0 z-50 overflow-y-auto">
                 <div class="flex min-h-full items-center justify-center p-4">
-                    <div class="fixed inset-0 bg-gray-500/75 transition-opacity" @click="showDetailModal = false"></div>
+                    <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="showDetailModal = false"></div>
 
-                    <div class="relative bg-white rounded-2xl shadow-xl max-w-lg w-full">
+                    <div class="relative z-50 bg-white rounded-2xl shadow-xl max-w-lg w-full">
                         <div class="border-b border-gray-100 px-6 py-4 rounded-t-2xl">
                             <div class="flex items-center justify-between">
                                 <h3 class="text-lg font-semibold text-gray-900">Notification Details</h3>

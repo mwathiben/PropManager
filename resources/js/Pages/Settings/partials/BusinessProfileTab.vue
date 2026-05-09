@@ -1,15 +1,15 @@
-<script setup>
+<script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import type { LandlordProfile } from '@/types';
 
-const props = defineProps({
-    landlordProfile: {
-        type: Object,
-        default: () => null,
-    },
+const props = withDefaults(defineProps<{
+    landlordProfile?: LandlordProfile | null;
+}>(), {
+    landlordProfile: null,
 });
 
 const form = useForm({

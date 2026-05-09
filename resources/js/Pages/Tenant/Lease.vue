@@ -1,7 +1,8 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
+import type { TenantLeasePageProps } from '@/types';
 import {
     HomeIcon,
     DocumentTextIcon,
@@ -10,13 +11,7 @@ import {
     ArrowTrendingUpIcon
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    hasLease: Boolean,
-    lease: Object,
-    unit: Object,
-    building: Object,
-    rentHistory: Array,
-});
+const props = defineProps<TenantLeasePageProps>();
 
 // Use composables
 const { formatCurrency, formatDate } = useFormatters();

@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, router, usePage } from '@inertiajs/vue3';
 import { ref, onMounted, onUnmounted, watch } from 'vue';
@@ -13,17 +13,15 @@ import {
     TrashIcon,
 } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
+import type { CaretakerInvitationsIndexPageProps, CaretakerInvitation } from '@/types';
 
-const props = defineProps({
-    invitations: Array,
-    properties: Array
-});
+const props = defineProps<CaretakerInvitationsIndexPageProps>();
 
 const page = usePage();
 const { subscribePrivate, unsubscribe } = useEcho();
 
 const showInviteModal = ref(false);
-const localInvitations = ref([...props.invitations]);
+const localInvitations = ref<CaretakerInvitation[]>([...props.invitations]);
 const toast = ref({ show: false, message: '', acceptedBy: '' });
 
 watch(() => props.invitations, (newVal) => {
@@ -252,8 +250,10 @@ const copyInviteLink = (token) => {
         </div>
 
         <!-- Send Invitation Modal -->
-        <div v-if="showInviteModal" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-            <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div v-if="showInviteModal" class="fixed inset-0 z-50 overflow-y-auto">
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showInviteModal = false"></div>
+                <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
                 <div class="px-6 py-4 border-b border-gray-200">
                     <h3 class="text-lg font-medium text-gray-900">Send Caretaker Invitation</h3>
                 </div>
@@ -322,6 +322,7 @@ const copyInviteLink = (token) => {
                         </button>
                     </div>
                 </form>
+                </div>
             </div>
         </div>
 

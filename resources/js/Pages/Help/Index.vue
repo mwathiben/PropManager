@@ -1,7 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { useErrorHandler } from '@/composables';
+import type { HelpIndexPageProps } from '@/types/help';
 import {
     MagnifyingGlassIcon,
     RocketLaunchIcon,
@@ -16,13 +18,9 @@ import {
     DocumentTextIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    faqs: Object,
-    articles: Object,
-    categories: Object,
-    supportEmail: String,
-});
+const props = defineProps<HelpIndexPageProps>();
 
+const { logError } = useErrorHandler();
 const searchQuery = ref('');
 const searchResults = ref({ faqs: [], articles: [] });
 const isSearching = ref(false);
@@ -53,7 +51,7 @@ const searchHelp = async () => {
         const response = await fetch(route('help.search') + '?q=' + encodeURIComponent(searchQuery.value));
         searchResults.value = await response.json();
     } catch (error) {
-        console.error('Search error:', error);
+        logError(error, { component: 'HelpIndex', action: 'search' });
     }
     isSearching.value = false;
 };
@@ -179,7 +177,7 @@ const currentCategoryArticles = computed(() => {
                                         <span class="font-medium text-gray-900">{{ faq.question }}</span>
                                         <component
                                             :is="expandedFaqs[faq.id] ? ChevronUpIcon : ChevronDownIcon"
-                                            class="h-5 w-5 text-gray-400 flex-shrink-0 ml-4"
+                                            class="h-5 w-5 text-gray-400 shrink-0 ml-4"
                                         />
                                     </button>
                                     <div

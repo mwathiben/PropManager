@@ -74,7 +74,7 @@ useBodyScrollLock(showRef);
                 :class="[widthClasses[width], 'fixed inset-y-0 right-0 w-full bg-white shadow-2xl z-50 flex flex-col border-l border-gray-200']"
             >
                 <!-- Header -->
-                <div class="flex-shrink-0 px-6 py-4 bg-gray-50 border-b border-gray-200">
+                <div class="shrink-0 px-6 py-4 bg-gray-50 border-b border-gray-200">
                     <div class="flex items-start justify-between">
                         <div>
                             <h2 class="text-lg font-semibold text-gray-900">
@@ -99,7 +99,7 @@ useBodyScrollLock(showRef);
                 </div>
 
                 <!-- Footer (optional) -->
-                <div v-if="$slots.footer" class="flex-shrink-0 px-6 py-4 bg-gray-50 border-t border-gray-200">
+                <div v-if="$slots.footer" class="shrink-0 px-6 py-4 bg-gray-50 border-t border-gray-200">
                     <slot name="footer" />
                 </div>
             </div>

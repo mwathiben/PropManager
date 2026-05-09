@@ -1,21 +1,18 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, watch, computed } from 'vue';
+import { useErrorHandler } from '@/composables';
+import type { TicketCreatePageProps, Unit } from '@/types';
 import {
     WrenchScrewdriverIcon,
     ChatBubbleBottomCenterTextIcon,
     ArrowLeftIcon
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    buildings: Array,
-    units: Array,
-    defaultBuildingId: Number,
-    defaultUnitId: Number,
-    subcategories: Object,
-    priorities: Object
-});
+const props = defineProps<TicketCreatePageProps>();
+
+const { logError } = useErrorHandler();
 
 const form = useForm({
     building_id: props.defaultBuildingId || '',
@@ -38,7 +35,7 @@ watch(() => form.building_id, async (newBuildingId) => {
             availableUnits.value = await response.json();
             form.unit_id = '';
         } catch (error) {
-            console.error('Failed to fetch units:', error);
+            logError(error, { component: 'TicketsCreate', action: 'fetchUnits' });
         }
     }
 });

@@ -1,10 +1,11 @@
-<script setup>
+<script setup lang="ts">
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import type { ConsentRequiredPageProps } from '@/types';
 
-const props = defineProps({
-    documents: Array,
+const props = withDefaults(defineProps<ConsentRequiredPageProps>(), {
+    documents: () => [],
 });
 
 const acceptedConsents = ref([]);

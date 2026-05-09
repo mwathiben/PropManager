@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import {
@@ -22,12 +22,18 @@ import {
     DocumentTextIcon,
     ArrowTopRightOnSquareIcon
 } from '@heroicons/vue/24/outline';
+import type { ProviderSettings, GlobalNotificationPreferences, WhatsAppTemplate } from '@/types';
 
-const props = defineProps({
-    settings: { type: Object, default: () => ({}) },
-    globalPreferences: { type: Object, default: () => ({}) },
-    setupComplete: { type: Boolean, default: false },
-    whatsappTemplates: { type: Array, default: () => [] },
+const props = withDefaults(defineProps<{
+    settings?: ProviderSettings;
+    globalPreferences?: GlobalNotificationPreferences;
+    setupComplete?: boolean;
+    whatsappTemplates?: WhatsAppTemplate[];
+}>(), {
+    settings: () => ({} as ProviderSettings),
+    globalPreferences: () => ({} as GlobalNotificationPreferences),
+    setupComplete: false,
+    whatsappTemplates: () => [],
 });
 
 const emit = defineEmits(['open-wizard']);

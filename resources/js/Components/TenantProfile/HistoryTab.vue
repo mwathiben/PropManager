@@ -1,26 +1,9 @@
-<script setup>
-const props = defineProps({
-    payments: Array,
-    invoices: Array,
-    pastLeases: Array
-});
+<script setup lang="ts">
+import { useFormatters } from '@/composables';
+import type { TenantHistoryTabProps } from '@/types';
 
-const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-    });
-};
-
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0
-    }).format(amount || 0);
-};
+const props = defineProps<TenantHistoryTabProps>();
+const { formatDate, formatMoney: formatCurrency } = useFormatters();
 
 const paymentMethodLabel = (method) => {
     const labels = {

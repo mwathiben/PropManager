@@ -24,6 +24,17 @@ const colorClasses = {
         inactive: 'text-gray-700 hover:bg-gray-50',
     },
 };
+
+/**
+ * Safely decodes HTML entities in pagination labels (e.g., &laquo; &raquo;)
+ * without allowing raw HTML injection. This prevents XSS while supporting
+ * common pagination arrow entities from Laravel's paginator.
+ */
+function decodeLabel(label: string): string {
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = label;
+    return textarea.value;
+}
 </script>
 
 <template>
@@ -39,13 +50,11 @@ const colorClasses = {
                             ? colorClasses[color].active
                             : colorClasses[color].inactive
                     ]"
-                    v-html="link.label"
-                />
+                >{{ decodeLabel(link.label) }}</button>
                 <span
                     v-else
                     class="px-3 py-1.5 text-sm text-gray-400"
-                    v-html="link.label"
-                />
+                >{{ decodeLabel(link.label) }}</span>
             </template>
         </nav>
     </div>

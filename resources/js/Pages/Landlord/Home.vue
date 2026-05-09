@@ -1,8 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Modal from '@/Components/Modal.vue';
+import type { LandlordHomePageProps } from '@/types/tenants';
 import {
     HomeModernIcon,
     PlusIcon,
@@ -15,10 +16,7 @@ import {
 } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
 
-const props = defineProps({
-    properties: Array,
-    buildingTypes: Object,
-});
+const props = defineProps<LandlordHomePageProps>();
 
 const showAddPropertyModal = ref(false);
 

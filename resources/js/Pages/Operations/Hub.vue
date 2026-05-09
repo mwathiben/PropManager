@@ -1,9 +1,10 @@
-<script setup>
+<script setup lang="ts">
 import { computed, defineAsyncComponent } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Breadcrumb from '@/Components/Breadcrumb.vue';
 import { TabLoadingPlaceholder } from '@/Components/Finances';
+import type { OperationsHubPageProps } from '@/types';
 import {
     CpuChipIcon,
     BellIcon,
@@ -43,24 +44,7 @@ const InboxTab = defineAsyncComponent({
     delay: 100,
 });
 
-const props = defineProps({
-    activeTab: {
-        type: String,
-        default: 'notifications',
-    },
-    notifications: Object,
-    notificationSettings: Object,
-    templates: Array,
-    scheduled: Array,
-    bulkStats: Object,
-    buildings: Array,
-    invitations: Object,
-    caretakers: Array,
-    imports: Object,
-    importTemplates: Array,
-    inbox: Object,
-    inboxUnreadCount: Number,
-});
+const props = defineProps<OperationsHubPageProps>();
 
 const tabs = [
     { id: 'notifications', name: 'Notifications', icon: BellIcon, route: 'operations.hub' },
@@ -162,11 +146,16 @@ const breadcrumbItems = computed(() => [
                     <div class="p-6">
                         <component
                             :is="currentTabComponent"
-                            :notifications="notifications"
-                            :notification-settings="notificationSettings"
+                            :stats="stats"
+                            :recent-notifications="recentNotifications"
+                            :channel-stats="channelStats"
+                            :tenants="tenants"
                             :templates="templates"
                             :scheduled="scheduled"
-                            :bulk-stats="bulkStats"
+                            :setup-complete="setupComplete"
+                            :buildings-with-counts="buildingsWithCounts"
+                            :active-tenant-count="activeTenantCount"
+                            :bulk-operations="bulkOperations"
                             :buildings="buildings"
                             :invitations="invitations"
                             :caretakers="caretakers"

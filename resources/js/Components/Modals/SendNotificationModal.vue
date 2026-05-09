@@ -36,7 +36,7 @@ const form = useForm({
 });
 
 const selectedTenant = computed(() => {
-    return props.tenants.find(t => t.id == form.recipient_id);
+    return props.tenants.find(t => String(t.id) === form.recipient_id);
 });
 
 const submit = () => {
@@ -71,7 +71,7 @@ watch(() => props.show, (newVal) => {
                     </div>
                     <h3 class="text-lg font-semibold text-gray-900">Send Notification</h3>
                 </div>
-                <button @click="close" class="p-2 text-gray-400 hover:text-gray-600 rounded-lg">
+                <button @click="close" aria-label="Close" class="p-2 text-gray-400 hover:text-gray-600 rounded-lg">
                     <XMarkIcon class="w-5 h-5" />
                 </button>
             </div>

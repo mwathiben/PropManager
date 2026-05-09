@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed, onMounted } from 'vue';
@@ -19,35 +19,60 @@ import ScheduledTab from './partials/ScheduledTab.vue';
 import HistoryTab from './partials/HistoryTab.vue';
 import SettingsTab from './partials/SettingsTab.vue';
 import SetupWizard from './components/SetupWizard.vue';
+import type {
+    NotificationEntry,
+    TenantReference,
+    BuildingReference,
+    NotificationFilters,
+    NotificationStats,
+    ChannelStats,
+    NotificationTemplate,
+    ScheduleTypeOption,
+    TemplatePlaceholders,
+    ScheduledNotification,
+    ProviderSettings,
+    GlobalNotificationPreferences,
+} from '@/types';
+import type { PaginatedResponse } from '@/types/global';
 
-const props = defineProps({
-    // Common props
-    activeTab: { type: String, default: 'overview' },
-    notifications: { type: Object, default: () => ({ data: [] }) },
-    tenants: { type: Array, default: () => [] },
-    buildings: { type: Array, default: () => [] },
-    filters: { type: Object, default: () => ({}) },
-    setupComplete: { type: Boolean, default: false },
-
-    // Overview tab props
-    stats: { type: Object, default: () => ({}) },
-    recentNotifications: { type: Array, default: () => [] },
-    channelStats: { type: Object, default: () => ({}) },
-
-    // Templates tab props
-    templates: { type: Array, default: () => [] },
-    notificationTypes: { type: Array, default: () => [] },
-    placeholders: { type: Object, default: () => ({}) },
-
-    // Schedules tab props
-    schedules: { type: Array, default: () => [] },
-    scheduleTypes: { type: Array, default: () => [] },
-
-    // Settings tab props
-    providers: { type: Object, default: () => ({}) },
-    smsProviders: { type: Array, default: () => [] },
-    currentSmsProvider: { type: String, default: 'none' },
-    globalPreferences: { type: Object, default: () => ({}) },
+const props = withDefaults(defineProps<{
+    activeTab?: string;
+    notifications?: PaginatedResponse<NotificationEntry>;
+    tenants?: TenantReference[];
+    buildings?: BuildingReference[];
+    filters?: NotificationFilters;
+    setupComplete?: boolean;
+    stats?: NotificationStats;
+    recentNotifications?: NotificationEntry[];
+    channelStats?: ChannelStats;
+    templates?: NotificationTemplate[];
+    notificationTypes?: ScheduleTypeOption[];
+    placeholders?: TemplatePlaceholders;
+    schedules?: ScheduledNotification[];
+    scheduleTypes?: ScheduleTypeOption[];
+    providers?: ProviderSettings;
+    smsProviders?: ScheduleTypeOption[];
+    currentSmsProvider?: string;
+    globalPreferences?: GlobalNotificationPreferences;
+}>(), {
+    activeTab: 'overview',
+    notifications: () => ({ data: [], links: { first: null, last: null, prev: null, next: null }, meta: { current_page: 1, from: null, last_page: 1, path: '', per_page: 15, to: null, total: 0, links: [] } }),
+    tenants: () => [],
+    buildings: () => [],
+    filters: () => ({}),
+    setupComplete: false,
+    stats: () => ({} as NotificationStats),
+    recentNotifications: () => [],
+    channelStats: () => ({} as ChannelStats),
+    templates: () => [],
+    notificationTypes: () => [],
+    placeholders: () => ({}),
+    schedules: () => [],
+    scheduleTypes: () => [],
+    providers: () => ({} as ProviderSettings),
+    smsProviders: () => [],
+    currentSmsProvider: 'none',
+    globalPreferences: () => ({} as GlobalNotificationPreferences),
 });
 
 // Tab state - use prop if provided, otherwise default to 'overview'

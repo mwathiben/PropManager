@@ -1,8 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { useFormatters, useEcho } from '@/composables';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import type { TenantFinancesIndexPageProps } from '@/types';
 import {
     MetricCard,
     InvoiceStatusBadge,
@@ -19,15 +20,9 @@ import {
     HomeIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    hasLease: Boolean,
-    lease: Object,
-    balance: Number,
-    pendingInvoices: Array,
-    recentPayments: Array,
-});
+const props = defineProps<TenantFinancesIndexPageProps>();
 
-const { formatMoney, formatDate } = useFormatters();
+const { formatMoney, formatDate, todayAsISODate } = useFormatters();
 
 // --- REAL-TIME UPDATES ---
 const { subscribePrivate, unsubscribe } = useEcho();
@@ -74,7 +69,7 @@ onMounted(() => {
                 amount: data.amount,
                 reference: data.reference,
                 payment_method: data.payment_method,
-                payment_date: new Date().toISOString().split('T')[0],
+                payment_date: todayAsISODate(),
             });
 
             // Keep only last 5 payments

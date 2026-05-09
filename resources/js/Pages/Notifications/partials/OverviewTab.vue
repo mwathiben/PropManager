@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import {
@@ -15,13 +15,20 @@ import {
 import { useFormatters } from '@/composables';
 import SendNotificationModal from '@/Components/Modals/SendNotificationModal.vue';
 import BulkSendNotificationModal from '@/Components/Modals/BulkSendNotificationModal.vue';
+import type { NotificationStats, NotificationEntry, ChannelStats, TenantReference } from '@/types';
 
-const props = defineProps({
-    stats: { type: Object, default: () => ({}) },
-    recentNotifications: { type: Array, default: () => [] },
-    channelStats: { type: Object, default: () => ({}) },
-    tenants: { type: Array, default: () => [] },
-    setupComplete: { type: Boolean, default: false },
+const props = withDefaults(defineProps<{
+    stats?: NotificationStats;
+    recentNotifications?: NotificationEntry[];
+    channelStats?: ChannelStats;
+    tenants?: TenantReference[];
+    setupComplete?: boolean;
+}>(), {
+    stats: () => ({} as NotificationStats),
+    recentNotifications: () => [],
+    channelStats: () => ({} as ChannelStats),
+    tenants: () => [],
+    setupComplete: false,
 });
 
 const emit = defineEmits(['open-wizard']);

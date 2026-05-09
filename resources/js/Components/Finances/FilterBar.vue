@@ -119,7 +119,7 @@ const activeFiltersCount = () => {
 <template>
     <div class="space-y-3">
         <div class="flex flex-wrap items-center gap-3">
-            <div v-if="showSearch" class="flex-1 min-w-[200px]">
+            <div v-if="showSearch" class="flex-1 min-w-50">
                 <div class="relative">
                     <MagnifyingGlassIcon class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input

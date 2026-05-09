@@ -1,9 +1,10 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Pagination from '@/Components/Pagination.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useFormatters } from '@/composables';
+import type { LeasesIndexPageProps } from '@/types/finances';
 import {
     DocumentDuplicateIcon,
     MagnifyingGlassIcon,
@@ -13,12 +14,7 @@ import {
     EyeIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    leases: Object,
-    stats: Object,
-    buildings: Array,
-    filters: Object,
-});
+const props = defineProps<LeasesIndexPageProps>();
 
 const { formatCurrency, formatDate } = useFormatters();
 

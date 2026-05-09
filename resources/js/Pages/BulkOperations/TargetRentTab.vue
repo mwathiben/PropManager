@@ -1,23 +1,15 @@
-<script setup>
+<script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import { useFormatters } from '@/composables';
+import type { TargetRentTabProps } from '@/types';
 
-const props = defineProps({
-    filteredUnits: {
-        type: Array,
-        default: () => []
-    },
-    selectedUnitIds: {
-        type: Array,
-        default: () => []
-    },
-    buildingId: {
-        type: [Number, null],
-        default: null
-    },
-    wingId: {
-        type: [Number, null],
-        default: null
-    }
+const { formatMoney } = useFormatters();
+
+const props = withDefaults(defineProps<TargetRentTabProps>(), {
+    filteredUnits: () => [],
+    selectedUnitIds: () => [],
+    buildingId: null,
+    wingId: null,
 });
 
 const emit = defineEmits(['update:selectedUnitIds', 'success']);
@@ -100,7 +92,7 @@ const submit = () => {
                                 {{ unit.building?.property?.name }} - {{ unit.building?.name }}
                             </div>
                             <div class="text-sm text-gray-500">
-                                Target: KES {{ unit.target_rent ? Number(unit.target_rent).toLocaleString() : 'Not set' }}
+                                Target: {{ unit.target_rent ? formatMoney(unit.target_rent) : 'Not set' }}
                             </div>
                         </div>
                     </div>

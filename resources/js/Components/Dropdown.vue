@@ -58,7 +58,7 @@ const positionClasses = computed(() => {
         <!-- Full Screen Dropdown Overlay -->
         <div
             v-show="open"
-            class="fixed inset-0 z-40"
+            class="fixed inset-0 z-30"
             @click="open = false"
         ></div>
 

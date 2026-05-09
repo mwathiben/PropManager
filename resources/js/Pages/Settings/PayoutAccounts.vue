@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
@@ -14,13 +14,14 @@ import {
     ArrowPathIcon,
 } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
+import type { PayoutAccountsPageProps } from '@/types';
 
-const props = defineProps({
-    accounts: Array,
-    hasPrimaryAccount: Boolean,
-    hasVerifiedAccount: Boolean,
-    currentFeePercentage: Number,
-    billingModel: String,
+const props = withDefaults(defineProps<PayoutAccountsPageProps>(), {
+    accounts: () => [],
+    hasPrimaryAccount: false,
+    hasVerifiedAccount: false,
+    currentFeePercentage: 0,
+    billingModel: '',
 });
 
 const { logError } = useErrorHandler();
@@ -279,9 +280,9 @@ const getStatusColor = (status) => {
         <!-- Add Account Modal -->
         <div v-if="showAddModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-gray-500 bg-opacity-75" @click="closeAddModal"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="closeAddModal"></div>
 
-                <div class="relative bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+                <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">Add Payout Account</h3>
 
                     <form @submit.prevent="submitForm" class="space-y-4">

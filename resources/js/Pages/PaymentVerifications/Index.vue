@@ -1,9 +1,11 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import BuildingWingFilter from '@/Components/BuildingWingFilter.vue';
 import Pagination from '@/Components/Pagination.vue';
+import { useFormatters } from '@/composables';
+import type { PaymentVerificationsIndexPageProps } from '@/types/tenants';
 import {
     ShieldCheckIcon,
     ClockIcon,
@@ -16,11 +18,9 @@ import {
     EyeIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    verifications: Object,
-    buildings: Array,
-    filters: Object,
-});
+const props = defineProps<PaymentVerificationsIndexPageProps>();
+
+const { formatMoney: formatCurrency, formatDate } = useFormatters();
 
 const search = ref(props.filters?.search || '');
 const status = ref(props.filters?.status || '');
@@ -65,23 +65,6 @@ const getStatusBadge = (statusValue) => {
         rejected: { class: 'bg-red-100 text-red-800', label: 'Rejected' },
     };
     return badges[statusValue] || { class: 'bg-gray-100 text-gray-800', label: statusValue };
-};
-
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-    }).format(amount);
-};
-
-const formatDate = (date) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString('en-KE', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-    });
 };
 
 const awaitingReviewCount = computed(() => {

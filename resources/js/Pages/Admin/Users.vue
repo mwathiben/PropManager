@@ -1,8 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useFormatters } from '@/composables';
+import type { AdminUsersPageProps } from '@/types';
 import {
     MagnifyingGlassIcon,
     ArrowRightOnRectangleIcon,
@@ -10,11 +11,7 @@ import {
     XCircleIcon
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    users: Object,
-    filters: Object,
-    roles: Object,
-});
+const props = defineProps<AdminUsersPageProps>();
 
 const searchQuery = ref(props.filters?.search || '');
 const selectedRole = ref(props.filters?.role || '');

@@ -1,10 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
+import type { AdminAuditLogDetailPageProps } from '@/types';
 
-const props = defineProps({
-    log: Object,
-});
+const props = defineProps<AdminAuditLogDetailPageProps>();
 
 const getEventBadgeClass = (color) => {
     const classes = {

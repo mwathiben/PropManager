@@ -1,29 +1,15 @@
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue';
 import FunnelIcon from '@heroicons/vue/24/outline/FunnelIcon';
 import XMarkIcon from '@heroicons/vue/24/outline/XMarkIcon';
+import type { UnitFiltersProps } from '@/types';
 
-const props = defineProps({
-    floor: {
-        type: [String, Number],
-        default: '',
-    },
-    unitType: {
-        type: String,
-        default: '',
-    },
-    status: {
-        type: String,
-        default: '',
-    },
-    availableFloors: {
-        type: Array,
-        default: () => [],
-    },
-    availableUnitTypes: {
-        type: Array,
-        default: () => ['residential', 'commercial'],
-    },
+const props = withDefaults(defineProps<UnitFiltersProps>(), {
+    floor: '',
+    unitType: '',
+    status: '',
+    availableFloors: () => [],
+    availableUnitTypes: () => ['residential', 'commercial'],
 });
 
 const emit = defineEmits(['update:floor', 'update:unitType', 'update:status', 'change', 'clear']);

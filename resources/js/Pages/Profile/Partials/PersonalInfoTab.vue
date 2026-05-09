@@ -1,10 +1,11 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useForm, Link } from '@inertiajs/vue3';
 import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import type { PersonalInfoTabProps } from '@/types';
 import {
     UserCircleIcon,
     EnvelopeIcon,
@@ -12,11 +13,7 @@ import {
     CameraIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    user: Object,
-    mustVerifyEmail: Boolean,
-    status: String,
-});
+const props = defineProps<PersonalInfoTabProps>();
 
 const form = useForm({
     name: props.user.name,
@@ -166,7 +163,7 @@ const roleLabel = computed(() => {
                 <!-- Email Verification Notice -->
                 <div v-if="mustVerifyEmail && !user.email_verified_at" class="rounded-lg bg-yellow-50 p-4">
                     <div class="flex">
-                        <div class="flex-shrink-0">
+                        <div class="shrink-0">
                             <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
                             </svg>

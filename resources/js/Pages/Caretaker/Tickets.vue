@@ -1,10 +1,11 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import TicketStatusBadge from '@/Components/TicketStatusBadge.vue';
 import TicketPriorityBadge from '@/Components/TicketPriorityBadge.vue';
 import { useFormatters } from '@/composables';
+import type { CaretakerTicketsPageProps, Ticket } from '@/types';
 import {
     WrenchScrewdriverIcon,
     ChatBubbleBottomCenterTextIcon,
@@ -17,13 +18,7 @@ import {
 } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
 
-const props = defineProps({
-    tickets: Object,
-    stats: Object,
-    filters: Object,
-    statuses: Object,
-    priorities: Object
-});
+const props = defineProps<CaretakerTicketsPageProps>();
 
 const status = ref(props.filters.status || 'active');
 const priority = ref(props.filters.priority || '');
@@ -319,11 +314,11 @@ const getTimeAgo = (dateString) => {
         <Teleport to="body">
             <div v-if="showResolveModal" class="fixed inset-0 z-50 overflow-y-auto">
                 <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                    <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showResolveModal = false"></div>
+                    <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="showResolveModal = false"></div>
 
                     <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
 
-                    <div class="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+                    <div class="relative z-50 inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
                         <div>
                             <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
                                 <CheckCircleIcon class="h-6 w-6 text-green-600" />

@@ -34,10 +34,16 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js')
             .then(registration => {
-                console.log('Service Worker registered:', registration.scope);
+                if (import.meta.env.DEV) {
+                    // eslint-disable-next-line no-console
+                    console.log('Service Worker registered:', registration.scope);
+                }
             })
             .catch(error => {
-                console.log('Service Worker registration failed:', error);
+                if (import.meta.env.DEV) {
+                    // eslint-disable-next-line no-console
+                    console.error('Service Worker registration failed:', error);
+                }
             });
     });
 }

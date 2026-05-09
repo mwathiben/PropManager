@@ -1,9 +1,10 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Pagination from '@/Components/Pagination.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useFormatters } from '@/composables';
+import type { TenantHistoryPageProps } from '@/types/finances';
 import {
     ArchiveBoxIcon,
     MagnifyingGlassIcon,
@@ -12,12 +13,7 @@ import {
     ArrowRightOnRectangleIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    pastTenants: Object,
-    stats: Object,
-    buildings: Array,
-    filters: Object,
-});
+const props = defineProps<TenantHistoryPageProps>();
 
 const { formatDate } = useFormatters();
 

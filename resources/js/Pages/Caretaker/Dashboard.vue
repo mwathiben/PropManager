@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
@@ -20,48 +20,48 @@ import {
     BuildingOffice2Icon,
     ArrowRightIcon
 } from '@heroicons/vue/24/outline';
+import type {
+    CaretakerProperty,
+    CaretakerBuilding,
+    CaretakerActionItems,
+    TicketStats,
+    CaretakerTask,
+    UnitStats,
+    LandlordContact
+} from '@/types';
 
-const props = defineProps({
-    property: Object,
-    buildings: Array,
-    actionItems: {
-        type: Object,
-        default: () => ({
-            urgent_tickets: 0,
-            open_tickets: 0,
-            pending_readings: 0
-        })
-    },
-    ticketStats: {
-        type: Object,
-        default: () => ({
-            total: 0,
-            open: 0,
-            urgent: 0,
-            resolved: 0
-        })
-    },
-    localTodaysTasks: {
-        type: Array,
-        default: () => []
-    },
-    unitStats: {
-        type: Object,
-        default: () => ({
-            total: 0,
-            occupied: 0,
-            vacant: 0,
-            maintenance: 0
-        })
-    },
-    hasWaterEnabled: {
-        type: Boolean,
-        default: false
-    },
-    landlord: {
-        type: Object,
-        default: null
-    }
+const props = withDefaults(defineProps<{
+    property?: CaretakerProperty | null;
+    buildings?: CaretakerBuilding[];
+    actionItems?: CaretakerActionItems;
+    ticketStats?: TicketStats;
+    localTodaysTasks?: CaretakerTask[];
+    unitStats?: UnitStats;
+    hasWaterEnabled?: boolean;
+    landlord?: LandlordContact | null;
+}>(), {
+    property: null,
+    buildings: () => [],
+    actionItems: () => ({
+        urgent_tickets: 0,
+        open_tickets: 0,
+        pending_readings: 0
+    }),
+    ticketStats: () => ({
+        total: 0,
+        open: 0,
+        urgent: 0,
+        resolved: 0
+    }),
+    localTodaysTasks: () => [],
+    unitStats: () => ({
+        total: 0,
+        occupied: 0,
+        vacant: 0,
+        maintenance: 0
+    }),
+    hasWaterEnabled: false,
+    landlord: null,
 });
 
 // Use composables

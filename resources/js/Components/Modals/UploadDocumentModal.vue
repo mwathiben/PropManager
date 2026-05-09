@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import Modal from '@/Components/Modal.vue';
 import type { UploadDocumentModalProps } from '@/types';
@@ -8,11 +8,11 @@ const props = defineProps<UploadDocumentModalProps>();
 
 const emit = defineEmits(['close']);
 
-const selectedFile = ref(null);
-const fileInputRef = ref(null);
+const selectedFile = ref<File | null>(null);
+const fileInputRef = ref<HTMLInputElement | null>(null);
 
 const form = useForm({
-    file: null,
+    file: null as File | null,
     title: '',
     document_type: 'other',
     documentable_type: 'Lease',
@@ -20,8 +20,14 @@ const form = useForm({
     description: ''
 });
 
-const handleFileSelect = (event) => {
-    const file = event.target.files[0];
+// Map backend value 'User' to user-friendly label 'Tenant'
+const documentableLabel = computed(() => {
+    return form.documentable_type === 'User' ? 'Tenant' : form.documentable_type;
+});
+
+const handleFileSelect = (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
     if (file) {
         selectedFile.value = file;
         form.file = file;
@@ -136,7 +142,7 @@ const close = () => {
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">
-                            {{ form.documentable_type }} ID <span class="text-red-500">*</span>
+                            {{ documentableLabel }} ID <span class="text-red-500">*</span>
                         </label>
                         <input
                             v-model="form.documentable_id"

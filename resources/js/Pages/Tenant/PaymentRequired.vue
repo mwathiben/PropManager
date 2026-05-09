@@ -1,10 +1,12 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import { useFormatters } from '@/composables';
+import type { PaymentRequiredPageProps } from '@/types';
 import {
     BanknotesIcon,
     DocumentArrowUpIcon,
@@ -18,11 +20,9 @@ import {
     HomeIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    verification: Object,
-    lease: Object,
-    landlord: Object,
-});
+const props = defineProps<PaymentRequiredPageProps>();
+
+const { formatMoney: formatCurrency, formatFileSize } = useFormatters();
 
 const form = useForm({
     documents: [],
@@ -65,14 +65,6 @@ const statusConfig = computed(() => {
     }
 });
 
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-    }).format(amount);
-};
-
 const selectFiles = () => {
     fileInput.value.click();
 };
@@ -113,12 +105,6 @@ const addFiles = (files) => {
 const removeFile = (index) => {
     selectedFiles.value.splice(index, 1);
     form.documents = selectedFiles.value;
-};
-
-const formatFileSize = (bytes) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 };
 
 const submitProof = () => {
@@ -180,7 +166,7 @@ const canPayOnline = computed(() => {
                         <component
                             :is="statusConfig.icon"
                             :class="[
-                                'w-6 h-6 flex-shrink-0',
+                                'w-6 h-6 shrink-0',
                                 {
                                     'text-yellow-600': statusConfig.color === 'yellow',
                                     'text-blue-600': statusConfig.color === 'blue',
@@ -398,7 +384,7 @@ const canPayOnline = computed(() => {
                 <!-- Info Card -->
                 <div class="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
                     <div class="flex">
-                        <div class="flex-shrink-0">
+                        <div class="shrink-0">
                             <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
                             </svg>

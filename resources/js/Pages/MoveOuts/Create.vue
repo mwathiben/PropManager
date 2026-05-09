@@ -1,6 +1,8 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
+import { useFormatters } from '@/composables';
+import type { MoveOutCreatePageProps } from '@/types/finances';
 import {
     ArrowLeftIcon,
     ArrowRightOnRectangleIcon,
@@ -10,26 +12,17 @@ import {
     BanknotesIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    lease: Object,
-});
+const props = defineProps<MoveOutCreatePageProps>();
+const { formatMoney: formatCurrency, formatDate, todayAsISODate } = useFormatters();
 
 const tenant = props.lease.tenant;
 const unit = props.lease.unit;
 
 const form = useForm({
-    notice_date: new Date().toISOString().split('T')[0],
+    notice_date: todayAsISODate(),
     intended_move_out_date: '',
     reason: '',
 });
-
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-    }).format(amount || 0);
-};
 
 const submit = () => {
     form.post(route('move-outs.store', props.lease.id));
@@ -101,7 +94,7 @@ const submit = () => {
                             </div>
                             <div class="bg-gray-50 rounded-lg p-3">
                                 <p class="text-xs text-gray-500">Lease Started</p>
-                                <p class="text-lg font-bold text-gray-900">{{ new Date(lease.start_date).toLocaleDateString('en-KE', { month: 'short', year: 'numeric' }) }}</p>
+                                <p class="text-lg font-bold text-gray-900">{{ formatDate(lease.start_date, 'short') }}</p>
                             </div>
                         </div>
                     </div>

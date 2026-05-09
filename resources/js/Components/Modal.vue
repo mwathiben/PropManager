@@ -81,13 +81,9 @@ const maxWidthClass = computed(() => {
             >
                 <div
                     v-show="show"
-                    class="fixed inset-0 transform transition-all"
+                    class="fixed inset-0 z-40 bg-gray-900/50 transition-opacity"
                     @click="close"
-                >
-                    <div
-                        class="absolute inset-0 bg-gray-500 opacity-75"
-                    />
-                </div>
+                />
             </Transition>
 
             <Transition
@@ -100,7 +96,7 @@ const maxWidthClass = computed(() => {
             >
                 <div
                     v-show="show"
-                    class="mb-6 transform overflow-hidden rounded-lg bg-white shadow-xl transition-all sm:mx-auto sm:w-full"
+                    class="relative z-50 mb-6 transform overflow-hidden rounded-lg bg-white shadow-xl transition-all sm:mx-auto sm:w-full"
                     :class="maxWidthClass"
                 >
                     <slot v-if="showSlot" />

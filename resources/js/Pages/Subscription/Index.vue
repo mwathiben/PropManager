@@ -1,7 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { useFormatters } from '@/composables';
+import type { SubscriptionIndexPageProps } from '@/types/settings';
 import {
     CheckCircleIcon,
     ExclamationTriangleIcon,
@@ -13,16 +15,9 @@ import {
     SparklesIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    subscription: Object,
-    currentPlan: Object,
-    plans: Array,
-    payments: Array,
-    usage: Object,
-    paystackPublicKey: String,
-    paystackConfigured: Boolean,
-});
+const props = defineProps<SubscriptionIndexPageProps>();
 
+const { formatDate, formatMoney: formatCurrency } = useFormatters();
 const showCancelModal = ref(false);
 const cancelImmediately = ref(false);
 
@@ -73,22 +68,6 @@ const isAtLimit = (current, limit) => {
     if (limit >= 999) return false;
     return current >= limit;
 };
-
-const formatDate = (date) => {
-    if (!date) return 'N/A';
-    return new Date(date).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-    });
-};
-
-const formatCurrency = (amount, currency = 'KES') => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: currency,
-    }).format(amount);
-};
 </script>
 
 <template>
@@ -115,7 +94,7 @@ const formatCurrency = (amount, currency = 'KES') => {
                 <!-- Payment Gateway Not Configured Warning -->
                 <div v-if="!paystackConfigured" class="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-8">
                     <div class="flex items-start gap-4">
-                        <div class="h-10 w-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+                        <div class="h-10 w-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
                             <ExclamationTriangleIcon class="h-5 w-5 text-amber-600" />
                         </div>
                         <div>

@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
@@ -8,6 +8,7 @@ import BusinessProfileTab from './Partials/BusinessProfileTab.vue';
 import VerificationTab from './Partials/VerificationTab.vue';
 import DangerZoneTab from './Partials/DangerZoneTab.vue';
 import NotificationsTab from './Partials/NotificationsTab.vue';
+import type { ProfileEditPageProps } from '@/types';
 import {
     UserCircleIcon,
     ShieldCheckIcon,
@@ -17,12 +18,7 @@ import {
     BellIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    user: Object,
-    landlordProfile: Object,
-    mustVerifyEmail: Boolean,
-    status: String,
-});
+const props = defineProps<ProfileEditPageProps>();
 
 const activeTab = ref('personal');
 

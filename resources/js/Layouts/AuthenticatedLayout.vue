@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import { usePage, Link, router } from '@inertiajs/vue3';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
@@ -48,16 +48,18 @@ import {
     ScaleIcon,
 } from '@heroicons/vue/24/outline';
 
+defineSlots<{
+    header(): unknown;
+    default(): unknown;
+}>();
+
 const showMobileSidebar = ref(false);
 
 const page = usePage();
 const user = computed(() => page.props.auth.user);
 const isImpersonating = computed(() => page.props.impersonating || false);
 const navBadges = computed(() => page.props.navBadges || {});
-const featureAccess = computed(() => {
-    console.log('featureAccess from server:', page.props.featureAccess);
-    return page.props.featureAccess || {};
-});
+const featureAccess = computed(() => page.props.featureAccess || {});
 
 const pendingInvitations = computed(() => page.props.pendingInvitations || []);
 
@@ -256,7 +258,7 @@ const navigationItems = computed(() => {
                             <!-- Badge -->
                             <span v-if="item.badgeKey && navBadges[item.badgeKey] > 0"
                                   :class="item.badgeColor"
-                                  class="ml-auto min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold text-white flex items-center justify-center">
+                                  class="ml-auto min-w-5 h-5 px-1.5 rounded-full text-xs font-bold text-white flex items-center justify-center">
                                 {{ navBadges[item.badgeKey] > 99 ? '99+' : navBadges[item.badgeKey] }}
                             </span>
                         </Link>
@@ -268,7 +270,7 @@ const navigationItems = computed(() => {
                     <Dropdown align="left" width="56" :dropUp="true">
                         <template #trigger>
                             <button class="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors text-left group">
-                                <div class="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-medium text-sm shadow-sm">
+                                <div class="h-9 w-9 rounded-full bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-medium text-sm shadow-sm">
                                     {{ user.name?.charAt(0)?.toUpperCase() }}
                                 </div>
                                 <div class="flex-1 min-w-0">
@@ -398,7 +400,7 @@ const navigationItems = computed(() => {
                                 <!-- Badge (Mobile) -->
                                 <span v-if="item.badgeKey && navBadges[item.badgeKey] > 0"
                                       :class="item.badgeColor"
-                                      class="ml-auto min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold text-white flex items-center justify-center">
+                                      class="ml-auto min-w-5 h-5 px-1.5 rounded-full text-xs font-bold text-white flex items-center justify-center">
                                     {{ navBadges[item.badgeKey] > 99 ? '99+' : navBadges[item.badgeKey] }}
                                 </span>
                             </Link>

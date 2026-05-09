@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { usePage, Link, router } from '@inertiajs/vue3';
 import { onClickOutside } from '@vueuse/core';
-import { useEcho } from '@/composables/useEcho';
+import { useEcho, useErrorHandler } from '@/composables';
 import BellIcon from '@heroicons/vue/24/outline/BellIcon';
 import ClockIcon from '@heroicons/vue/24/outline/ClockIcon';
 import ExclamationTriangleIcon from '@heroicons/vue/24/outline/ExclamationTriangleIcon';
@@ -18,6 +18,7 @@ import BellIconSolid from '@heroicons/vue/24/solid/BellIcon';
 
 const page = usePage();
 const { subscribePrivate, unsubscribe } = useEcho();
+const { logError } = useErrorHandler();
 
 const isOpen = ref(false);
 const notifications = ref([]);
@@ -113,7 +114,7 @@ const fetchNotifications = async () => {
         const data = await response.json();
         notifications.value = data.notifications || [];
     } catch (error) {
-        console.error('Failed to fetch notifications:', error);
+        logError(error, { component: 'NotificationBell', action: 'fetchNotifications' });
     } finally {
         loading.value = false;
     }
@@ -132,7 +133,7 @@ const markAsRead = async (notification) => {
         });
         notification.read_at = new Date().toISOString();
     } catch (error) {
-        console.error('Failed to mark notification as read:', error);
+        logError(error, { component: 'NotificationBell', action: 'markAsRead' });
     }
 };
 
@@ -149,7 +150,7 @@ const markAllAsRead = async () => {
             n.read_at = new Date().toISOString();
         });
     } catch (error) {
-        console.error('Failed to mark all notifications as read:', error);
+        logError(error, { component: 'NotificationBell', action: 'markAllAsRead' });
     }
 };
 
@@ -200,7 +201,7 @@ onUnmounted(() => {
             <!-- Badge -->
             <span
                 v-if="unreadCount > 0"
-                class="absolute -top-1 -right-1 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold text-white bg-red-500 rounded-full"
+                class="absolute -top-1 -right-1 flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-bold text-white bg-red-500 rounded-full"
             >
                 {{ unreadCount > 99 ? '99+' : unreadCount }}
             </span>

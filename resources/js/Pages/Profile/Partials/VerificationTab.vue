@@ -1,10 +1,11 @@
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import type { ProfileVerificationTabProps } from '@/types';
 import {
     IdentificationIcon,
     UserGroupIcon,
@@ -13,9 +14,7 @@ import {
     ExclamationCircleIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    user: Object,
-});
+const props = defineProps<ProfileVerificationTabProps>();
 
 const form = useForm({
     mobile_number: props.user.mobile_number || '',
@@ -106,11 +105,11 @@ const verificationStatus = computed(() => {
                 >
                     <CheckCircleIcon
                         v-if="field.complete"
-                        class="w-5 h-5 text-green-500 flex-shrink-0"
+                        class="w-5 h-5 text-green-500 shrink-0"
                     />
                     <ExclamationCircleIcon
                         v-else
-                        class="w-5 h-5 text-gray-300 flex-shrink-0"
+                        class="w-5 h-5 text-gray-300 shrink-0"
                     />
                     <span :class="field.complete ? 'text-gray-700' : 'text-gray-400'">
                         {{ field.name }}
@@ -225,7 +224,7 @@ const verificationStatus = computed(() => {
             <!-- Info Note -->
             <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
                 <div class="flex">
-                    <div class="flex-shrink-0">
+                    <div class="shrink-0">
                         <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
                         </svg>

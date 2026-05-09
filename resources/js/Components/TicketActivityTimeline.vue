@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import {
     PlusCircleIcon,
     ArrowPathIcon,
@@ -9,13 +9,14 @@ import {
     StarIcon,
     InformationCircleIcon
 } from '@heroicons/vue/24/outline';
+import { useFormatters } from '@/composables';
+import type { TicketActivity } from '@/types';
 
-const props = defineProps({
-    activities: {
-        type: Array,
-        required: true
-    }
-});
+const { formatDateTime } = useFormatters();
+
+const props = defineProps<{
+    activities: TicketActivity[];
+}>();
 
 const getIcon = (action) => {
     const icons = {
@@ -41,16 +42,6 @@ const getColor = (action) => {
         'feedback_submitted': 'text-yellow-500 bg-yellow-100'
     };
     return colors[action] || 'text-gray-500 bg-gray-100';
-};
-
-const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit'
-    });
 };
 </script>
 
@@ -86,7 +77,7 @@ const formatDate = (dateString) => {
                                 </p>
                             </div>
                             <div class="whitespace-nowrap text-right text-xs text-gray-500">
-                                {{ formatDate(activity.created_at) }}
+                                {{ formatDateTime(activity.created_at) }}
                             </div>
                         </div>
                     </div>

@@ -1,182 +1,344 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue';
 import { router, Link } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
+import SendNotificationModal from '@/Components/Modals/SendNotificationModal.vue';
+import BulkSendNotificationModal from '@/Components/Modals/BulkSendNotificationModal.vue';
 import {
-    BellIcon,
     PaperAirplaneIcon,
+    CheckCircleIcon,
     ClockIcon,
-    Cog6ToothIcon,
+    ExclamationTriangleIcon,
     EnvelopeIcon,
     DevicePhoneMobileIcon,
+    ChatBubbleLeftRightIcon,
+    BellIcon,
+    SparklesIcon,
+    ArrowTopRightOnSquareIcon,
 } from '@heroicons/vue/24/outline';
+import type { NotificationStats, ChannelStats, RecentNotification, TenantOption, NotificationTemplate, ScheduledNotification } from '@/types';
 
-const props = defineProps({
-    notifications: Object,
-    notificationSettings: Object,
-    templates: Array,
-    scheduled: Array,
+const props = withDefaults(defineProps<{
+    stats?: NotificationStats;
+    recentNotifications?: RecentNotification[];
+    channelStats?: ChannelStats;
+    tenants?: TenantOption[];
+    templates?: NotificationTemplate[];
+    scheduled?: ScheduledNotification[];
+    setupComplete?: boolean;
+}>(), {
+    stats: () => ({} as NotificationStats),
+    recentNotifications: () => [],
+    channelStats: () => ({} as ChannelStats),
+    tenants: () => [],
+    templates: () => [],
+    scheduled: () => [],
+    setupComplete: false,
 });
 
-const { formatDate } = useFormatters();
+const { formatDateTime } = useFormatters();
 
-const activeSubTab = ref('history');
+const showSendModal = ref(false);
+const showBulkModal = ref(false);
 
-const subTabs = [
-    { id: 'history', name: 'History', icon: ClockIcon },
-    { id: 'templates', name: 'Templates', icon: EnvelopeIcon },
-    { id: 'scheduled', name: 'Scheduled', icon: ClockIcon },
-    { id: 'settings', name: 'Settings', icon: Cog6ToothIcon },
+const notificationTypes = [
+    { value: 'rent_reminder', label: 'Rent Reminder' },
+    { value: 'arrears_notice', label: 'Arrears Notice' },
+    { value: 'invoice', label: 'Invoice' },
+    { value: 'receipt', label: 'Receipt' },
+    { value: 'rent_hike', label: 'Rent Hike' },
+    { value: 'lease_expiry', label: 'Lease Expiry' },
+    { value: 'general', label: 'General' },
 ];
 
-const getChannelIcon = (channel) => {
-    return channel === 'sms' ? DevicePhoneMobileIcon : EnvelopeIcon;
+const channels = [
+    { value: 'email', label: 'Email' },
+    { value: 'sms', label: 'SMS' },
+    { value: 'whatsapp', label: 'WhatsApp' },
+    { value: 'push', label: 'Push' },
+];
+
+const sendRentReminders = () => {
+    if (confirm('Send rent reminders to all tenants with active leases?')) {
+        router.post(route('notifications.sendRentReminders'));
+    }
 };
 
-const getStatusColor = (status) => {
-    const colors = {
-        sent: 'bg-green-100 text-green-800',
-        pending: 'bg-yellow-100 text-yellow-800',
-        failed: 'bg-red-100 text-red-800',
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+const sendArrearsNotices = () => {
+    if (confirm('Send arrears notices to all tenants with outstanding balances?')) {
+        router.post(route('notifications.sendArrearsNotices'));
+    }
+};
+
+const getChannelIcon = (channel) => {
+    switch (channel) {
+        case 'email': return EnvelopeIcon;
+        case 'sms': return DevicePhoneMobileIcon;
+        case 'whatsapp': return ChatBubbleLeftRightIcon;
+        case 'push': return BellIcon;
+        default: return EnvelopeIcon;
+    }
+};
+
+const getStatusClass = (status) => {
+    switch (status) {
+        case 'sent':
+        case 'delivered':
+        case 'read':
+            return 'text-green-600 bg-green-50';
+        case 'pending':
+            return 'text-yellow-600 bg-yellow-50';
+        case 'failed':
+            return 'text-red-600 bg-red-50';
+        default:
+            return 'text-gray-600 bg-gray-50';
+    }
 };
 </script>
 
 <template>
-    <div>
-        <!-- Sub-tabs -->
-        <div class="border-b border-gray-200 mb-6">
-            <nav class="flex gap-4">
-                <button
-                    v-for="tab in subTabs"
-                    :key="tab.id"
-                    @click="activeSubTab = tab.id"
-                    :class="[
-                        'px-3 py-2 text-sm font-medium rounded-t-lg transition-colors',
-                        activeSubTab === tab.id
-                            ? 'bg-purple-100 text-purple-700'
-                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                    ]"
-                >
-                    <component :is="tab.icon" class="w-4 h-4 inline mr-1" />
-                    {{ tab.name }}
-                </button>
-            </nav>
+    <div class="space-y-6">
+        <!-- Setup Alert -->
+        <div v-if="!setupComplete" class="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
+            <div class="flex items-start gap-3">
+                <div class="p-2 bg-amber-100 rounded-lg">
+                    <SparklesIcon class="w-5 h-5 text-amber-600" />
+                </div>
+                <div class="flex-1">
+                    <h3 class="font-medium text-amber-900">Complete Your Setup</h3>
+                    <p class="text-sm text-amber-700 mt-1">
+                        Configure SMS, WhatsApp, or Push notifications to reach tenants through multiple channels.
+                    </p>
+                    <Link
+                        :href="route('notifications.settings')"
+                        class="mt-2 inline-flex items-center text-sm font-medium text-amber-700 hover:text-amber-900"
+                    >
+                        Go to Settings
+                        <ArrowTopRightOnSquareIcon class="w-4 h-4 ml-1" />
+                    </Link>
+                </div>
+            </div>
         </div>
 
-        <!-- History Tab -->
-        <div v-if="activeSubTab === 'history'">
-            <div v-if="notifications?.data?.length > 0" class="space-y-3">
-                <div
-                    v-for="notif in notifications.data"
-                    :key="notif.id"
-                    class="bg-white border border-gray-200 rounded-lg p-4"
-                >
-                    <div class="flex items-start gap-3">
-                        <div class="p-2 bg-gray-100 rounded-lg">
-                            <component :is="getChannelIcon(notif.channel)" class="w-5 h-5 text-gray-600" />
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white rounded-xl border border-gray-200 p-4">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-green-100 rounded-lg">
+                        <CheckCircleIcon class="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                        <p class="text-xl font-bold text-gray-900">{{ stats.total_sent || 0 }}</p>
+                        <p class="text-xs text-gray-500">Total Sent</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl border border-gray-200 p-4">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-yellow-100 rounded-lg">
+                        <ClockIcon class="w-5 h-5 text-yellow-600" />
+                    </div>
+                    <div>
+                        <p class="text-xl font-bold text-gray-900">{{ stats.pending || 0 }}</p>
+                        <p class="text-xs text-gray-500">Pending</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl border border-gray-200 p-4">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-red-100 rounded-lg">
+                        <ExclamationTriangleIcon class="w-5 h-5 text-red-600" />
+                    </div>
+                    <div>
+                        <p class="text-xl font-bold text-gray-900">{{ stats.failed || 0 }}</p>
+                        <p class="text-xs text-gray-500">Failed</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl border border-gray-200 p-4">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-purple-100 rounded-lg">
+                        <PaperAirplaneIcon class="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                        <p class="text-xl font-bold text-gray-900">{{ stats.this_month || 0 }}</p>
+                        <p class="text-xs text-gray-500">This Month</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions & Channel Stats -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Quick Actions -->
+            <div class="bg-white rounded-xl border border-gray-200 p-5">
+                <h2 class="text-sm font-semibold text-gray-900 mb-4">Quick Actions</h2>
+                <div class="space-y-2">
+                    <button
+                        @click="showSendModal = true"
+                        class="w-full flex items-center gap-3 p-3 border border-purple-200 rounded-lg hover:border-purple-400 hover:bg-purple-50 transition-all text-left"
+                    >
+                        <div class="p-1.5 bg-purple-100 rounded">
+                            <PaperAirplaneIcon class="w-4 h-4 text-purple-600" />
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-900">Send Notification</h3>
+                            <p class="text-xs text-gray-500">Send to a specific tenant</p>
+                        </div>
+                    </button>
+
+                    <button
+                        @click="showBulkModal = true"
+                        class="w-full flex items-center gap-3 p-3 border border-blue-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-all text-left"
+                    >
+                        <div class="p-1.5 bg-blue-100 rounded">
+                            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-900">Bulk Send</h3>
+                            <p class="text-xs text-gray-500">Send to multiple tenants</p>
+                        </div>
+                    </button>
+
+                    <button
+                        @click="sendRentReminders"
+                        class="w-full flex items-center gap-3 p-3 border border-green-200 rounded-lg hover:border-green-400 hover:bg-green-50 transition-all text-left"
+                    >
+                        <div class="p-1.5 bg-green-100 rounded">
+                            <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-900">Send Rent Reminders</h3>
+                            <p class="text-xs text-gray-500">Notify all tenants about upcoming rent</p>
+                        </div>
+                    </button>
+
+                    <button
+                        @click="sendArrearsNotices"
+                        class="w-full flex items-center gap-3 p-3 border border-red-200 rounded-lg hover:border-red-400 hover:bg-red-50 transition-all text-left"
+                    >
+                        <div class="p-1.5 bg-red-100 rounded">
+                            <ExclamationTriangleIcon class="w-4 h-4 text-red-600" />
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-900">Send Arrears Notices</h3>
+                            <p class="text-xs text-gray-500">Notify tenants with outstanding balances</p>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Channel Distribution -->
+            <div class="bg-white rounded-xl border border-gray-200 p-5">
+                <h2 class="text-sm font-semibold text-gray-900 mb-4">Channel Distribution</h2>
+                <div class="space-y-3">
+                    <div v-for="(count, channel) in channelStats" :key="channel" class="flex items-center gap-3">
+                        <div class="p-1.5 bg-gray-100 rounded">
+                            <component :is="getChannelIcon(channel)" class="w-4 h-4 text-gray-600" />
                         </div>
                         <div class="flex-1">
-                            <div class="flex items-center gap-2">
-                                <span class="font-medium text-gray-900">{{ notif.subject || notif.type }}</span>
-                                <span :class="getStatusColor(notif.status)" class="px-2 py-0.5 text-xs rounded-full">
-                                    {{ notif.status }}
-                                </span>
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-xs font-medium text-gray-700 capitalize">{{ channel }}</span>
+                                <span class="text-xs text-gray-500">{{ count }}</span>
                             </div>
-                            <p class="text-sm text-gray-500 mt-1">To: {{ notif.recipient }}</p>
-                            <p class="text-xs text-gray-400 mt-1">{{ formatDate(notif.sent_at || notif.created_at) }}</p>
+                            <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                    class="h-full bg-purple-500 rounded-full"
+                                    :style="{ width: `${Math.min((count / (stats.total_sent || 1)) * 100, 100)}%` }"
+                                ></div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
-            <div v-else class="text-center py-12">
-                <BellIcon class="mx-auto h-12 w-12 text-gray-400" />
-                <h3 class="mt-2 text-sm font-medium text-gray-900">No notifications sent</h3>
-                <p class="mt-1 text-sm text-gray-500">Notification history will appear here.</p>
-            </div>
-        </div>
 
-        <!-- Templates Tab -->
-        <div v-else-if="activeSubTab === 'templates'">
-            <div v-if="templates?.length > 0" class="grid gap-4 md:grid-cols-2">
-                <div
-                    v-for="template in templates"
-                    :key="template.id"
-                    class="bg-white border border-gray-200 rounded-lg p-4"
-                >
-                    <h4 class="font-medium text-gray-900">{{ template.name }}</h4>
-                    <p class="text-sm text-gray-500 mt-1">{{ template.description }}</p>
-                    <div class="mt-3 flex gap-2">
-                        <span class="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
-                            {{ template.channel }}
-                        </span>
-                        <span class="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
-                            {{ template.trigger }}
-                        </span>
+                    <div v-if="Object.keys(channelStats || {}).length === 0" class="text-center py-6 text-gray-500">
+                        <BellIcon class="w-10 h-10 mx-auto text-gray-300 mb-2" />
+                        <p class="text-sm">No notifications sent yet</p>
                     </div>
                 </div>
             </div>
-            <div v-else class="text-center py-12">
-                <EnvelopeIcon class="mx-auto h-12 w-12 text-gray-400" />
-                <h3 class="mt-2 text-sm font-medium text-gray-900">No templates configured</h3>
-                <p class="mt-1 text-sm text-gray-500">Create notification templates for automated messaging.</p>
-            </div>
         </div>
 
-        <!-- Scheduled Tab -->
-        <div v-else-if="activeSubTab === 'scheduled'">
-            <div v-if="scheduled?.length > 0" class="space-y-3">
-                <div
-                    v-for="item in scheduled"
-                    :key="item.id"
-                    class="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between"
+        <!-- Recent Activity -->
+        <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-sm font-semibold text-gray-900">Recent Activity</h2>
+                <Link
+                    :href="route('notifications.index')"
+                    class="text-xs text-purple-600 hover:text-purple-800 font-medium"
                 >
-                    <div>
-                        <h4 class="font-medium text-gray-900">{{ item.name }}</h4>
-                        <p class="text-sm text-gray-500">Scheduled: {{ formatDate(item.scheduled_at) }}</p>
+                    View All →
+                </Link>
+            </div>
+
+            <div v-if="recentNotifications?.length === 0" class="text-center py-8 text-gray-500">
+                <PaperAirplaneIcon class="w-10 h-10 mx-auto text-gray-300 mb-2" />
+                <p class="text-sm">No notifications yet</p>
+                <p class="text-xs mt-1">Send your first notification to get started</p>
+            </div>
+
+            <div v-else class="divide-y divide-gray-100">
+                <div
+                    v-for="notification in recentNotifications"
+                    :key="notification.id"
+                    class="py-3 flex items-center gap-3"
+                >
+                    <div class="p-1.5 bg-gray-100 rounded">
+                        <component :is="getChannelIcon(notification.channel)" class="w-4 h-4 text-gray-600" />
                     </div>
-                    <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
-                        Pending
-                    </span>
-                </div>
-            </div>
-            <div v-else class="text-center py-12">
-                <ClockIcon class="mx-auto h-12 w-12 text-gray-400" />
-                <h3 class="mt-2 text-sm font-medium text-gray-900">No scheduled notifications</h3>
-                <p class="mt-1 text-sm text-gray-500">Schedule notifications to send later.</p>
-            </div>
-        </div>
-
-        <!-- Settings Tab -->
-        <div v-else-if="activeSubTab === 'settings'" class="max-w-2xl space-y-6">
-            <div class="bg-gray-50 rounded-lg border border-gray-200 p-6">
-                <h3 class="font-semibold text-gray-900 mb-4">Email Notifications</h3>
-                <div class="space-y-3">
-                    <label class="flex items-center gap-3">
-                        <input type="checkbox" :checked="notificationSettings?.invoice_created" class="rounded border-gray-300 text-purple-600" />
-                        <span class="text-sm text-gray-700">Invoice created</span>
-                    </label>
-                    <label class="flex items-center gap-3">
-                        <input type="checkbox" :checked="notificationSettings?.payment_received" class="rounded border-gray-300 text-purple-600" />
-                        <span class="text-sm text-gray-700">Payment received</span>
-                    </label>
-                    <label class="flex items-center gap-3">
-                        <input type="checkbox" :checked="notificationSettings?.rent_reminder" class="rounded border-gray-300 text-purple-600" />
-                        <span class="text-sm text-gray-700">Rent reminders</span>
-                    </label>
-                </div>
-            </div>
-
-            <div class="bg-gray-50 rounded-lg border border-gray-200 p-6">
-                <h3 class="font-semibold text-gray-900 mb-4">SMS Notifications</h3>
-                <div class="space-y-3">
-                    <label class="flex items-center gap-3">
-                        <input type="checkbox" :checked="notificationSettings?.sms_enabled" class="rounded border-gray-300 text-purple-600" />
-                        <span class="text-sm text-gray-700">Enable SMS notifications</span>
-                    </label>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-gray-900 truncate">{{ notification.subject }}</p>
+                        <p class="text-xs text-gray-500">
+                            To: {{ notification.recipient?.name || 'Unknown' }}
+                        </p>
+                    </div>
+                    <div class="text-right">
+                        <span :class="['px-2 py-0.5 text-xs font-medium rounded-full capitalize', getStatusClass(notification.status)]">
+                            {{ notification.status }}
+                        </span>
+                        <p class="text-xs text-gray-400 mt-1">{{ formatDateTime(notification.created_at) }}</p>
+                    </div>
                 </div>
             </div>
         </div>
+
+        <!-- Full Management Link -->
+        <div class="bg-purple-50 rounded-xl border border-purple-200 p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="font-medium text-purple-900">Full Notification Center</h3>
+                    <p class="text-sm text-purple-700">Manage templates, schedules, settings, and view complete history</p>
+                </div>
+                <Link
+                    :href="route('notifications.overview')"
+                    class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium"
+                >
+                    Open Center
+                    <ArrowTopRightOnSquareIcon class="w-4 h-4 ml-1" />
+                </Link>
+            </div>
+        </div>
+
+        <!-- Modals -->
+        <SendNotificationModal
+            :show="showSendModal"
+            :tenants="tenants"
+            :notification-types="notificationTypes"
+            @close="showSendModal = false"
+        />
+
+        <BulkSendNotificationModal
+            :show="showBulkModal"
+            :tenants="tenants"
+            :notification-types="notificationTypes"
+            :channels="channels"
+            @close="showBulkModal = false"
+        />
     </div>
 </template>

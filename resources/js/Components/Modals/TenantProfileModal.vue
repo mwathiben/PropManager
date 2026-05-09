@@ -1,5 +1,6 @@
-<script setup>
+<script setup lang="ts">
 import { ref, watch, computed } from 'vue';
+import { useErrorHandler } from '@/composables';
 import Modal from '@/Components/Modal.vue';
 import KycBadge from '@/Components/KycBadge.vue';
 import OverviewTab from '@/Components/TenantProfile/OverviewTab.vue';
@@ -7,23 +8,20 @@ import LeaseFinancesTab from '@/Components/TenantProfile/LeaseFinancesTab.vue';
 import DocumentsTab from '@/Components/TenantProfile/DocumentsTab.vue';
 import HistoryTab from '@/Components/TenantProfile/HistoryTab.vue';
 import NotesContactsTab from '@/Components/TenantProfile/NotesContactsTab.vue';
+import type { TenantProfileModalData } from '@/types';
 
-const props = defineProps({
-    show: {
-        type: Boolean,
-        default: false
-    },
-    tenantId: {
-        type: Number,
-        default: null
-    },
-    initialData: {
-        type: Object,
-        default: null
-    }
+const props = withDefaults(defineProps<{
+    show?: boolean;
+    tenantId?: number | null;
+    initialData?: TenantProfileModalData | null;
+}>(), {
+    show: false,
+    tenantId: null,
+    initialData: null,
 });
 
 const emit = defineEmits(['close']);
+const { logError, logWarning } = useErrorHandler();
 
 const loading = ref(false);
 const error = ref(null);
@@ -40,7 +38,7 @@ const tabs = [
 
 const fetchTenantData = async () => {
     if (!props.tenantId) {
-        console.warn('TenantProfileModal: No tenantId provided');
+        logWarning('No tenantId provided', { component: 'TenantProfileModal' });
         return;
     }
 
@@ -65,14 +63,13 @@ const fetchTenantData = async () => {
         data.value = await response.json();
     } catch (e) {
         error.value = e.message;
-        console.error('Error fetching tenant data:', e);
+        logError(e, { component: 'TenantProfileModal', action: 'fetchTenantData' });
     } finally {
         loading.value = false;
     }
 };
 
 watch(() => props.show, (newShow) => {
-    console.log('TenantProfileModal - show:', newShow, 'tenantId:', props.tenantId);
     if (newShow && props.tenantId) {
         activeTab.value = 'overview';
         if (props.initialData) {

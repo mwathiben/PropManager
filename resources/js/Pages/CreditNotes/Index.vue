@@ -1,9 +1,11 @@
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Breadcrumb from '@/Components/Breadcrumb.vue';
 import Pagination from '@/Components/Pagination.vue';
+import { useFormatters } from '@/composables';
+import type { CreditNotesIndexPageProps } from '@/types/templates';
 import {
     DocumentTextIcon,
     PlusIcon,
@@ -11,12 +13,8 @@ import {
     FunnelIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    creditNotes: Object,
-    stats: Object,
-    filters: Object,
-    reasonOptions: Object,
-});
+const props = defineProps<CreditNotesIndexPageProps>();
+const { formatMoney, formatDate } = useFormatters();
 
 const breadcrumbItems = [
     { label: 'Finance Hub', href: route('finances.index') },
@@ -31,24 +29,6 @@ const statusBadgeClass = (status) => {
         voided: 'bg-gray-100 text-gray-500',
     };
     return classes[status] || 'bg-gray-100 text-gray-800';
-};
-
-const formatMoney = (amount) => {
-    if (amount === null || amount === undefined) return '-';
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-    }).format(amount);
-};
-
-const formatDate = (date) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString('en-KE', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-    });
 };
 
 const search = (e) => {

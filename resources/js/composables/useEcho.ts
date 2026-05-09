@@ -6,17 +6,11 @@
 import { ref, readonly, computed, onUnmounted, type Ref, type DeepReadonly, type ComputedRef } from 'vue';
 import type Echo from 'laravel-echo';
 import type { Channel } from 'laravel-echo';
+import { useErrorHandler } from './useErrorHandler';
 
 type ConnectionState = 'connected' | 'connecting' | 'disconnected' | 'reconnecting';
 
 const FALLBACK_THRESHOLD_MS = 30000;
-const isDev = import.meta.env.DEV;
-
-function log(message: string, ...args: unknown[]) {
-    if (isDev) {
-        console.log(`[useEcho] ${message}`, ...args);
-    }
-}
 
 export interface UseEchoOptions {
     autoReconnect?: boolean;
@@ -42,6 +36,7 @@ export interface UseEchoReturn {
 const activeChannels = new Map<string, Channel>();
 
 export function useEcho(options: UseEchoOptions = {}): UseEchoReturn {
+    const { logDebug, logWarning } = useErrorHandler();
     const {
         autoReconnect = true,
         maxReconnectAttempts = 5,
@@ -75,7 +70,7 @@ export function useEcho(options: UseEchoOptions = {}): UseEchoReturn {
         const pusher = echo.connector.pusher;
 
         pusher.connection.bind('connected', () => {
-            log('Connected to WebSocket server');
+            logDebug('Connected to WebSocket server');
             connectionState.value = 'connected';
             isConnected.value = true;
             connectionError.value = null;
@@ -85,13 +80,13 @@ export function useEcho(options: UseEchoOptions = {}): UseEchoReturn {
         });
 
         pusher.connection.bind('connecting', () => {
-            log('Connecting to WebSocket server...');
+            logDebug('Connecting to WebSocket server...');
             connectionState.value = 'connecting';
             isConnected.value = false;
         });
 
         pusher.connection.bind('disconnected', () => {
-            log('Disconnected from WebSocket server');
+            logDebug('Disconnected from WebSocket server');
             connectionState.value = 'disconnected';
             isConnected.value = false;
 
@@ -107,7 +102,7 @@ export function useEcho(options: UseEchoOptions = {}): UseEchoReturn {
 
         pusher.connection.bind('error', (error: { error?: { data?: { code?: number; message?: string } } }) => {
             const errorMessage = error?.error?.data?.message ?? 'Connection error';
-            log('Connection error:', errorMessage);
+            logDebug('Connection error:', errorMessage);
             connectionError.value = errorMessage;
             connectionState.value = 'disconnected';
             isConnected.value = false;
@@ -131,7 +126,7 @@ export function useEcho(options: UseEchoOptions = {}): UseEchoReturn {
         reconnectAttemptCount.value++;
 
         const delay = reconnectInterval * Math.pow(2, reconnectAttemptCount.value - 1);
-        log(`Scheduling reconnect attempt ${reconnectAttemptCount.value}/${maxReconnectAttempts} in ${delay}ms`);
+        logDebug(`Scheduling reconnect attempt ${reconnectAttemptCount.value}/${maxReconnectAttempts} in ${delay}ms`);
 
         reconnectTimer = setTimeout(() => {
             reconnectTimer = null;
@@ -143,7 +138,7 @@ export function useEcho(options: UseEchoOptions = {}): UseEchoReturn {
     };
 
     const manualReconnect = () => {
-        log('Manual reconnect triggered');
+        logDebug('Manual reconnect triggered');
         reconnectAttemptCount.value = 0;
         disconnectedSince.value = null;
         stopFallbackCheck();
@@ -158,7 +153,7 @@ export function useEcho(options: UseEchoOptions = {}): UseEchoReturn {
         if (fallbackCheckTimer) return;
         fallbackCheckTimer = setInterval(() => {
             if (shouldUseFallback.value) {
-                log('Fallback threshold reached - polling mode recommended');
+                logDebug('Fallback threshold reached - polling mode recommended');
             }
         }, 5000);
     };
@@ -177,7 +172,7 @@ export function useEcho(options: UseEchoOptions = {}): UseEchoReturn {
     ): void => {
         const echo = getEcho();
         if (!echo) {
-            console.warn('[useEcho] Echo not initialized');
+            logWarning('Echo not initialized', { component: 'useEcho', action: 'subscribe' });
             return;
         }
 
@@ -197,7 +192,7 @@ export function useEcho(options: UseEchoOptions = {}): UseEchoReturn {
     ): void => {
         const echo = getEcho();
         if (!echo) {
-            console.warn('[useEcho] Echo not initialized');
+            logWarning('Echo not initialized', { component: 'useEcho', action: 'subscribePrivate' });
             return;
         }
 

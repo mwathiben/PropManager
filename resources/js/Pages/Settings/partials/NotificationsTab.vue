@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { useForm, Link } from '@inertiajs/vue3';
 import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
@@ -11,12 +11,12 @@ import {
     ChatBubbleLeftRightIcon,
     ArrowTopRightOnSquareIcon,
 } from '@heroicons/vue/24/outline';
+import type { NotificationDefaults } from '@/types';
 
-const props = defineProps({
-    notificationDefaults: {
-        type: Object,
-        default: () => null,
-    },
+const props = withDefaults(defineProps<{
+    notificationDefaults?: NotificationDefaults | null;
+}>(), {
+    notificationDefaults: null,
 });
 
 const form = useForm({

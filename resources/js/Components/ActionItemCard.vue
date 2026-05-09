@@ -1,37 +1,14 @@
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
+import type { ActionItemCardProps, ActionItemUrgency } from '@/types';
 
-const props = defineProps({
-    urgency: {
-        type: String,
-        default: 'medium',
-        validator: (value) => ['critical', 'high', 'medium', 'low'].includes(value)
-    },
-    icon: {
-        type: [Object, Function],
-        required: true
-    },
-    title: {
-        type: String,
-        required: true
-    },
-    count: {
-        type: Number,
-        default: 0
-    },
-    description: {
-        type: String,
-        default: ''
-    },
-    actionLabel: {
-        type: String,
-        default: 'View'
-    },
-    actionHref: {
-        type: String,
-        default: ''
-    }
+const props = withDefaults(defineProps<ActionItemCardProps>(), {
+    urgency: 'medium',
+    count: 0,
+    description: '',
+    actionLabel: 'View',
+    actionHref: '',
 });
 
 const urgencyStyles = {
@@ -76,7 +53,7 @@ const styles = computed(() => urgencyStyles[props.urgency]);
     >
         <div class="flex items-start gap-3">
             <!-- Icon -->
-            <div :class="[styles.icon, 'flex-shrink-0 p-2 rounded-lg']">
+            <div :class="[styles.icon, 'shrink-0 p-2 rounded-lg']">
                 <component :is="icon" class="h-5 w-5" />
             </div>
 

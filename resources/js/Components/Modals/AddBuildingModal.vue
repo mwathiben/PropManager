@@ -1,7 +1,8 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import Modal from '@/Components/Modal.vue';
+import type { AddBuildingModalProps } from '@/types';
 import {
     BuildingOffice2Icon,
     MapPinIcon,
@@ -17,11 +18,7 @@ import {
     TruckIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    show: Boolean,
-    buildingTypes: Object,
-    amenityOptions: Object,
-});
+const props = defineProps<AddBuildingModalProps>();
 
 const emit = defineEmits(['close']);
 

@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { computed, ref } from 'vue';
@@ -8,11 +8,16 @@ import {
     FunnelIcon,
     PlusIcon,
 } from '@heroicons/vue/24/outline';
+import { useFormatters } from '@/composables';
+import type { InvoicesPaginated, InvoiceFilters, Building } from '@/types';
 
-const props = defineProps({
-    invoices: Object,
-    buildings: { type: Array, default: () => [] },
-    filters: { type: Object, default: () => ({}) },
+const props = withDefaults(defineProps<{
+    invoices: InvoicesPaginated;
+    buildings?: Building[];
+    filters?: InvoiceFilters;
+}>(), {
+    buildings: () => [],
+    filters: () => ({}),
 });
 
 const search = ref(props.filters.search || '');
@@ -63,6 +68,8 @@ const applyFilters = () => {
     }, { preserveState: true });
 };
 
+const { formatMoney: formatCurrency } = useFormatters();
+
 const statusColor = (status) => {
     const colors = {
         draft: 'bg-gray-100 text-gray-800',
@@ -73,14 +80,6 @@ const statusColor = (status) => {
         voided: 'bg-red-100 text-red-800',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
-};
-
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-    }).format(amount || 0);
 };
 
 const submitGenerate = () => {
@@ -220,8 +219,8 @@ const submitGenerate = () => {
         <Teleport to="body">
             <div v-if="showGenerateModal" class="fixed inset-0 z-50 overflow-y-auto">
                 <div class="flex items-center justify-center min-h-screen px-4">
-                    <div class="fixed inset-0 bg-black opacity-30" @click="showGenerateModal = false"></div>
-                    <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                    <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showGenerateModal = false"></div>
+                    <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                         <h3 class="text-lg font-semibold text-gray-900 mb-4">Generate Invoices</h3>
                         <p class="text-sm text-gray-600 mb-4">
                             Generate invoices for all active leases for the selected billing period.

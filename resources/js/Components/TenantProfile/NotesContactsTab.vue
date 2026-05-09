@@ -1,19 +1,9 @@
-<script setup>
-const props = defineProps({
-    tenantNotes: Array,
-    emergencyContacts: Array
-});
+<script setup lang="ts">
+import { useFormatters } from '@/composables';
+import type { TenantNotesContactsTabProps } from '@/types';
 
-const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-};
+const props = defineProps<TenantNotesContactsTabProps>();
+const { formatDateTime: formatDate } = useFormatters();
 
 const pinnedNotes = () => (props.tenantNotes || []).filter(n => n.is_pinned);
 const regularNotes = () => (props.tenantNotes || []).filter(n => !n.is_pinned);
@@ -32,7 +22,7 @@ const regularNotes = () => (props.tenantNotes || []).filter(n => !n.is_pinned);
             <ul v-else class="divide-y">
                 <li v-for="contact in emergencyContacts" :key="contact.id" class="p-4">
                     <div class="flex items-start gap-3">
-                        <div class="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                        <div class="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
                             <svg class="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             </svg>
@@ -71,7 +61,7 @@ const regularNotes = () => (props.tenantNotes || []).filter(n => !n.is_pinned);
                 <div v-if="pinnedNotes().length" class="bg-yellow-50">
                     <div v-for="note in pinnedNotes()" :key="note.id" class="p-4 border-b border-yellow-100 last:border-b-0">
                         <div class="flex items-start gap-2">
-                            <svg class="h-4 w-4 text-yellow-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <svg class="h-4 w-4 text-yellow-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                                 <path d="M5 5a2 2 0 012-2h6a2 2 0 012 2v3a2 2 0 01-2 2h-1v1a3 3 0 11-6 0v-1H5a2 2 0 01-2-2V5z" />
                             </svg>
                             <div class="min-w-0 flex-1">

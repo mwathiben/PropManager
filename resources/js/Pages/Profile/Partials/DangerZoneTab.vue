@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, nextTick } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import InputLabel from '@/Components/InputLabel.vue';
@@ -7,14 +7,15 @@ import InputError from '@/Components/InputError.vue';
 import DangerButton from '@/Components/DangerButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import Modal from '@/Components/Modal.vue';
+import { useFormatters } from '@/composables';
+import type { DangerZoneTabProps } from '@/types';
 import {
     ExclamationTriangleIcon,
     TrashIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    user: Object,
-});
+const props = defineProps<DangerZoneTabProps>();
+const { formatDate } = useFormatters();
 
 const confirmingUserDeletion = ref(false);
 const passwordInput = ref(null);
@@ -49,7 +50,7 @@ const closeModal = () => {
         <!-- Warning Banner -->
         <div class="bg-red-50 border border-red-200 rounded-xl p-4">
             <div class="flex">
-                <div class="flex-shrink-0">
+                <div class="shrink-0">
                     <ExclamationTriangleIcon class="h-5 w-5 text-red-400" />
                 </div>
                 <div class="ml-3">
@@ -64,7 +65,7 @@ const closeModal = () => {
         <!-- Delete Account Section -->
         <div class="bg-white rounded-xl border border-red-200 p-6">
             <div class="flex items-start gap-4">
-                <div class="p-2 bg-red-100 rounded-lg flex-shrink-0">
+                <div class="p-2 bg-red-100 rounded-lg shrink-0">
                     <TrashIcon class="w-5 h-5 text-red-600" />
                 </div>
                 <div class="flex-1">
@@ -91,11 +92,7 @@ const closeModal = () => {
                 <div>
                     <dt class="text-gray-500">Account Created</dt>
                     <dd class="text-gray-900 font-medium">
-                        {{ new Date(user.created_at).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                        }) }}
+                        {{ formatDate(user.created_at, 'long') }}
                     </dd>
                 </div>
                 <div>

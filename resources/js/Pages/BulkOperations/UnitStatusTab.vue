@@ -1,23 +1,12 @@
-<script setup>
+<script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import type { UnitStatusTabProps } from '@/types';
 
-const props = defineProps({
-    filteredUnits: {
-        type: Array,
-        default: () => []
-    },
-    selectedUnitIds: {
-        type: Array,
-        default: () => []
-    },
-    buildingId: {
-        type: [Number, null],
-        default: null
-    },
-    wingId: {
-        type: [Number, null],
-        default: null
-    }
+const props = withDefaults(defineProps<UnitStatusTabProps>(), {
+    filteredUnits: () => [],
+    selectedUnitIds: () => [],
+    buildingId: null,
+    wingId: null,
 });
 
 const emit = defineEmits(['update:selectedUnitIds', 'success']);

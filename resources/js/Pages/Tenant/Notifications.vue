@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
@@ -16,12 +16,18 @@ import {
     CheckIcon,
     UserPlusIcon,
 } from '@heroicons/vue/24/outline';
-import { useFormatters } from '@/composables';
+import { useFormatters, useErrorHandler } from '@/composables';
+import type { TenantNotificationsPaginated, NotificationFilterType } from '@/types';
 
-const props = defineProps({
-    notifications: { type: Object, required: true },
-    unreadCount: { type: Number, default: 0 },
-    filter: { type: String, default: 'all' },
+const { logError } = useErrorHandler();
+
+const props = withDefaults(defineProps<{
+    notifications: TenantNotificationsPaginated;
+    unreadCount?: number;
+    filter?: NotificationFilterType;
+}>(), {
+    unreadCount: 0,
+    filter: 'all',
 });
 
 const { formatDate, formatRelativeTime } = useFormatters();
@@ -76,7 +82,7 @@ const markAsRead = async (notification) => {
         });
         notification.read_at = new Date().toISOString();
     } catch (error) {
-        console.error('Failed to mark notification as read:', error);
+        logError(error, { component: 'TenantNotifications', action: 'markAsRead' });
     }
 };
 
@@ -92,7 +98,7 @@ const markAllAsRead = async () => {
         // Refresh the page to update the list
         router.reload();
     } catch (error) {
-        console.error('Failed to mark all notifications as read:', error);
+        logError(error, { component: 'TenantNotifications', action: 'markAllAsRead' });
     }
 };
 
@@ -263,7 +269,7 @@ const groupedNotifications = computed(() => {
                                     <div class="flex gap-4">
                                         <!-- Type Icon -->
                                         <div :class="[
-                                            'flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center',
+                                            'shrink-0 w-12 h-12 rounded-xl flex items-center justify-center',
                                             getTypeConfig(notification.type).bg
                                         ]">
                                             <component

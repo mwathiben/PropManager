@@ -1,28 +1,10 @@
-<script setup>
+<script setup lang="ts">
 import FinancialSummaryCard from '@/Components/FinancialSummaryCard.vue';
+import { useFormatters } from '@/composables';
+import type { TenantLeaseFinancesTabProps } from '@/types/tenants';
 
-const props = defineProps({
-    activeLease: Object,
-    pastLeases: Array,
-    financialSummary: Object
-});
-
-const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-    });
-};
-
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0
-    }).format(amount || 0);
-};
+const props = defineProps<TenantLeaseFinancesTabProps>();
+const { formatDate, formatMoney: formatCurrency } = useFormatters();
 
 const leaseStatusClass = (lease) => {
     if (lease.is_active) return 'bg-green-100 text-green-800';

@@ -1,10 +1,11 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import { router, Link } from '@inertiajs/vue3';
 import BuildingWingFilter from '@/Components/BuildingWingFilter.vue';
 import TicketStatusBadge from '@/Components/TicketStatusBadge.vue';
 import TicketPriorityBadge from '@/Components/TicketPriorityBadge.vue';
 import { useFormatters, useAuth } from '@/composables';
+import type { MaintenanceTicketsTabProps } from '@/types/tickets';
 import {
     MagnifyingGlassIcon,
     PlusIcon,
@@ -12,14 +13,7 @@ import {
 } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
 
-const props = defineProps({
-    tickets: Object,
-    buildings: Array,
-    stats: Object,
-    filters: Object,
-    statuses: Object,
-    priorities: Object,
-});
+const props = defineProps<MaintenanceTicketsTabProps>();
 
 const search = ref(props.filters?.search || '');
 const status = ref(props.filters?.status || '');

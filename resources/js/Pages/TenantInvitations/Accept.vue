@@ -1,6 +1,7 @@
-<script setup>
+<script setup lang="ts">
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import { Head, useForm } from '@inertiajs/vue3';
+import { useFormatters } from '@/composables';
 import {
     CheckCircleIcon,
     ExclamationTriangleIcon,
@@ -11,11 +12,11 @@ import {
     CurrencyDollarIcon,
     CalendarIcon
 } from '@heroicons/vue/24/outline';
+import type { TenantInvitationAcceptPageProps } from '@/types';
 
-const props = defineProps({
-    invitation: Object,
-    error: String
-});
+const props = defineProps<TenantInvitationAcceptPageProps>();
+
+const { formatMoney: formatCurrency } = useFormatters();
 
 // Form for new user registration
 const form = useForm({
@@ -31,10 +32,6 @@ const acceptInvitation = () => {
     if (props.invitation) {
         form.post(route('tenant-invitations.accept', props.invitation.token));
     }
-};
-
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount);
 };
 </script>
 

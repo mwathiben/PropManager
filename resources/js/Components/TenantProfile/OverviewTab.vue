@@ -1,32 +1,11 @@
-<script setup>
+<script setup lang="ts">
 import KycBadge from '@/Components/KycBadge.vue';
 import FinancialSummaryCard from '@/Components/FinancialSummaryCard.vue';
+import { useFormatters } from '@/composables';
+import type { TenantOverviewTabProps } from '@/types';
 
-const props = defineProps({
-    tenant: Object,
-    activeLease: Object,
-    financialSummary: Object,
-    verificationStatus: Object,
-    emergencyContacts: Array,
-    activities: Array
-});
-
-const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-    });
-};
-
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0
-    }).format(amount || 0);
-};
+const props = defineProps<TenantOverviewTabProps>();
+const { formatDate, formatMoney: formatCurrency } = useFormatters();
 
 const primaryContact = () => {
     return props.emergencyContacts?.find(c => c.is_primary) || props.emergencyContacts?.[0];
@@ -133,7 +112,7 @@ const getActivityIcon = (type) => {
             <h3 class="text-sm font-medium text-gray-900 mb-3">Recent Activity</h3>
             <ul class="space-y-3">
                 <li v-for="activity in recentActivities()" :key="activity.id" class="flex items-start gap-3">
-                    <div class="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <div class="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
                         <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="getActivityIcon(activity.type)" />
                         </svg>

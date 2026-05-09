@@ -1,7 +1,8 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
+import type { BuildingsIndexPageProps } from '@/types/finances';
 import {
     PlusIcon,
     MagnifyingGlassIcon,
@@ -10,29 +11,21 @@ import {
     BuildingOffice2Icon,
     MapPinIcon,
     HomeModernIcon,
-    ChartBarIcon,
     XMarkIcon,
 } from '@heroicons/vue/24/outline';
 import AddBuildingModal from '@/Components/Modals/AddBuildingModal.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 
-const props = defineProps({
-    buildings: Array,
-    buildingTypes: Object,
-    amenityOptions: Object,
-    filters: Object,
-});
+const props = defineProps<BuildingsIndexPageProps>();
 
-// Local filter state
 const search = ref(props.filters?.search || '');
 const selectedType = ref(props.filters?.type || '');
 const selectedSort = ref(props.filters?.sort || 'name_asc');
 const showAddModal = ref(false);
 
-// Debounced search
-let searchTimeout = null;
-watch(search, (value) => {
-    clearTimeout(searchTimeout);
+let searchTimeout: ReturnType<typeof setTimeout> | null = null;
+watch(search, () => {
+    if (searchTimeout) clearTimeout(searchTimeout);
     searchTimeout = setTimeout(() => {
         applyFilters();
     }, 300);
@@ -62,6 +55,10 @@ const hasActiveFilters = computed(() => {
     return search.value || selectedType.value || selectedSort.value !== 'name_asc';
 });
 
+const totalBuildings = computed(() => {
+    return props.buildingGroups.reduce((sum, group) => sum + group.buildings.length, 0);
+});
+
 const sortOptions = [
     { value: 'name_asc', label: 'Name (A-Z)' },
     { value: 'name_desc', label: 'Name (Z-A)' },
@@ -70,20 +67,20 @@ const sortOptions = [
     { value: 'updated', label: 'Recently Updated' },
 ];
 
-const getOccupancyColor = (rate) => {
+const getOccupancyColor = (rate: number) => {
     if (rate >= 80) return 'bg-green-500';
     if (rate >= 50) return 'bg-yellow-500';
     return 'bg-red-500';
 };
 
-const getOccupancyTextColor = (rate) => {
+const getOccupancyTextColor = (rate: number) => {
     if (rate >= 80) return 'text-green-600';
     if (rate >= 50) return 'text-yellow-600';
     return 'text-red-600';
 };
 
-const getBuildingTypeColor = (type) => {
-    const colors = {
+const getBuildingTypeColor = (type: string) => {
+    const colors: Record<string, string> = {
         'residential_apartment': 'bg-blue-100 text-blue-700',
         'office_block': 'bg-purple-100 text-purple-700',
         'warehouse': 'bg-amber-100 text-amber-700',
@@ -179,7 +176,7 @@ const getBuildingTypeColor = (type) => {
                 </div>
 
                 <!-- Empty State -->
-                <div v-if="buildings.length === 0" class="bg-white rounded-xl shadow-sm border border-gray-100">
+                <div v-if="totalBuildings === 0" class="bg-white rounded-xl shadow-sm border border-gray-100">
                     <EmptyState
                         :icon="BuildingOffice2Icon"
                         title="No buildings yet"
@@ -190,87 +187,110 @@ const getBuildingTypeColor = (type) => {
                     />
                 </div>
 
-                <!-- Buildings Grid -->
-                <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <Link
-                        v-for="building in buildings"
-                        :key="building.id"
-                        :href="route('buildings.show', building.id)"
-                        class="group bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md hover:border-indigo-200 transition-all duration-200"
-                    >
-                        <!-- Photo / Placeholder -->
-                        <div class="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 relative overflow-hidden">
-                            <img
-                                v-if="building.primary_photo"
-                                :src="building.primary_photo"
-                                :alt="building.name"
-                                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                            <div v-else class="absolute inset-0 flex items-center justify-center">
-                                <HomeModernIcon class="w-16 h-16 text-gray-300" />
-                            </div>
-
-                            <!-- Type Badge -->
-                            <div class="absolute top-3 left-3">
+                <!-- Grouped Buildings -->
+                <div v-else class="space-y-8">
+                    <div v-for="group in buildingGroups" :key="group.parent_name ?? 'standalone'">
+                        <!-- Section Header (for parent buildings with wings) -->
+                        <div v-if="group.parent_name" class="mb-4">
+                            <div class="flex items-center gap-3">
+                                <h3 class="text-lg font-semibold text-gray-900">{{ group.parent_name }}</h3>
                                 <span
-                                    class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
-                                    :class="getBuildingTypeColor(building.building_type)"
+                                    v-if="group.parent_type_label"
+                                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                    :class="getBuildingTypeColor(group.parent_building_type ?? '')"
                                 >
-                                    {{ building.type_label }}
+                                    {{ group.parent_type_label }}
                                 </span>
                             </div>
-
-                            <!-- Occupancy Badge -->
-                            <div class="absolute top-3 right-3">
-                                <div class="bg-white/90 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1.5 shadow-sm">
-                                    <div class="w-2 h-2 rounded-full" :class="getOccupancyColor(building.occupancy_rate)"></div>
-                                    <span class="text-xs font-semibold" :class="getOccupancyTextColor(building.occupancy_rate)">
-                                        {{ building.occupancy_rate }}%
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Content -->
-                        <div class="p-4">
-                            <h3 class="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors truncate">
-                                {{ building.name }}
-                            </h3>
-
-                            <!-- Address -->
-                            <div v-if="building.address" class="mt-1 flex items-center text-sm text-gray-500">
+                            <div v-if="group.parent_address" class="mt-1 flex items-center text-sm text-gray-500">
                                 <MapPinIcon class="w-4 h-4 mr-1 shrink-0" />
-                                <span class="truncate">{{ building.address }}</span>
-                            </div>
-                            <div v-else class="mt-1 text-sm text-gray-400 italic">No address set</div>
-
-                            <!-- Stats -->
-                            <div class="mt-3 flex items-center justify-between text-sm">
-                                <div class="text-gray-500">
-                                    <span class="font-medium text-gray-900">{{ building.units_count }}</span> units
-                                </div>
-                                <div class="text-gray-500">
-                                    <span class="font-medium text-green-600">{{ building.occupied_units_count }}</span> occupied
-                                </div>
-                            </div>
-
-                            <!-- Occupancy Bar -->
-                            <div class="mt-3">
-                                <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                    <div
-                                        class="h-full rounded-full transition-all duration-300"
-                                        :class="getOccupancyColor(building.occupancy_rate)"
-                                        :style="{ width: `${building.occupancy_rate}%` }"
-                                    ></div>
-                                </div>
+                                <span>{{ group.parent_address }}</span>
                             </div>
                         </div>
-                    </Link>
+
+                        <!-- Building Cards Grid -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <Link
+                                v-for="building in group.buildings"
+                                :key="building.id"
+                                :href="route('buildings.show', building.id)"
+                                class="group bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md hover:border-indigo-200 transition-all duration-200"
+                            >
+                                <!-- Photo / Placeholder -->
+                                <div class="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 relative overflow-hidden">
+                                    <img
+                                        v-if="building.primary_photo"
+                                        :src="building.primary_photo"
+                                        :alt="building.name"
+                                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                    />
+                                    <div v-else class="absolute inset-0 flex items-center justify-center">
+                                        <HomeModernIcon class="w-16 h-16 text-gray-300" />
+                                    </div>
+
+                                    <!-- Type Badge -->
+                                    <div class="absolute top-3 left-3">
+                                        <span
+                                            class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                                            :class="getBuildingTypeColor(building.building_type ?? '')"
+                                        >
+                                            {{ building.type_label }}
+                                        </span>
+                                    </div>
+
+                                    <!-- Occupancy Badge -->
+                                    <div class="absolute top-3 right-3">
+                                        <div class="bg-white/90 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1.5 shadow-sm">
+                                            <div class="w-2 h-2 rounded-full" :class="getOccupancyColor(building.occupancy_rate)"></div>
+                                            <span class="text-xs font-semibold" :class="getOccupancyTextColor(building.occupancy_rate)">
+                                                {{ building.occupancy_rate }}%
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Content -->
+                                <div class="p-4">
+                                    <h3 class="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors truncate">
+                                        {{ building.name }}
+                                    </h3>
+
+                                    <!-- Address -->
+                                    <div v-if="building.address" class="mt-1 flex items-center text-sm text-gray-500">
+                                        <MapPinIcon class="w-4 h-4 mr-1 shrink-0" />
+                                        <span class="truncate">{{ building.address }}</span>
+                                    </div>
+                                    <div v-else class="mt-1 text-sm text-gray-400 italic">No address set</div>
+
+                                    <!-- Stats -->
+                                    <div class="mt-3 flex items-center justify-between text-sm">
+                                        <div class="text-gray-500">
+                                            <span class="font-medium text-gray-900">{{ building.units_count }}</span> units
+                                        </div>
+                                        <div class="text-gray-500">
+                                            <span class="font-medium text-green-600">{{ building.occupied_units_count }}</span> occupied
+                                        </div>
+                                    </div>
+
+                                    <!-- Occupancy Bar -->
+                                    <div class="mt-3">
+                                        <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                            <div
+                                                class="h-full rounded-full transition-all duration-300"
+                                                :class="getOccupancyColor(building.occupancy_rate)"
+                                                :style="{ width: `${building.occupancy_rate}%` }"
+                                            ></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Link>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Results Count -->
-                <div v-if="buildings.length > 0" class="mt-6 text-center text-sm text-gray-500">
-                    Showing {{ buildings.length }} building{{ buildings.length === 1 ? '' : 's' }}
+                <div v-if="totalBuildings > 0" class="mt-6 text-center text-sm text-gray-500">
+                    Showing {{ totalBuildings }} building{{ totalBuildings === 1 ? '' : 's' }}
                 </div>
             </div>
         </div>

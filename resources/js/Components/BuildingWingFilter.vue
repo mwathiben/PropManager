@@ -38,17 +38,18 @@
     </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue';
 import XMarkIcon from '@heroicons/vue/20/solid/XMarkIcon';
+import type { BuildingWingFilterProps } from '@/types';
 
-const props = defineProps({
-    buildings: { type: Array, default: () => [] },
-    buildingId: { type: [String, Number], default: null },
-    wingId: { type: [String, Number], default: null },
-    buildingPlaceholder: { type: String, default: 'All Buildings' },
-    wingPlaceholder: { type: String, default: 'All Wings' },
-    showBadge: { type: Boolean, default: true },
+const props = withDefaults(defineProps<BuildingWingFilterProps>(), {
+    buildings: () => [],
+    buildingId: null,
+    wingId: null,
+    buildingPlaceholder: 'All Buildings',
+    wingPlaceholder: 'All Wings',
+    showBadge: true,
 });
 
 const emit = defineEmits(['update:buildingId', 'update:wingId', 'change']);

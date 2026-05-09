@@ -1,16 +1,12 @@
-<script setup>
-const props = defineProps({
-    documents: Array
-});
+<script setup lang="ts">
+import { useFormatters } from '@/composables';
+import type { TenantDocument } from '@/types';
 
-const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-    });
-};
+const props = defineProps<{
+    documents?: TenantDocument[];
+}>();
+
+const { formatDate } = useFormatters();
 
 const documentTypeLabel = (type) => {
     const labels = {
@@ -69,7 +65,7 @@ const attachmentLabel = (doc) => {
         <ul v-else class="divide-y border rounded-lg overflow-hidden">
             <li v-for="doc in documents" :key="doc.id" class="bg-white p-4 hover:bg-gray-50">
                 <div class="flex items-start gap-3">
-                    <div class="h-10 w-10 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <div class="h-10 w-10 rounded bg-gray-100 flex items-center justify-center shrink-0">
                         <svg class="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="getFileIcon(doc.mime_type)" />
                         </svg>
@@ -89,7 +85,7 @@ const attachmentLabel = (doc) => {
                         </p>
                         <p v-if="doc.description" class="text-xs text-gray-600 mt-1">{{ doc.description }}</p>
                     </div>
-                    <div class="flex gap-2 flex-shrink-0">
+                    <div class="flex gap-2 shrink-0">
                         <a
                             :href="`/documents/${doc.id}/view`"
                             target="_blank"

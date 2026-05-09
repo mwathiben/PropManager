@@ -1,7 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { ref, computed } from 'vue';
+import { useFormatters } from '@/composables';
+import type { InvoicesShowPageProps } from '@/types';
 import {
     DocumentTextIcon,
     ArrowLeftIcon,
@@ -13,9 +15,8 @@ import {
     ArrowPathIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    invoice: Object,
-});
+const props = defineProps<InvoicesShowPageProps>();
+const { formatMoney: formatCurrency } = useFormatters();
 
 const showPaymentModal = ref(false);
 const showVoidModal = ref(false);
@@ -30,14 +31,6 @@ const paymentForm = useForm({
 const voidForm = useForm({
     reason: '',
 });
-
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-    }).format(amount || 0);
-};
 
 const statusColor = (status) => {
     const colors = {
@@ -311,8 +304,8 @@ const reissueInvoice = () => {
         <Teleport to="body">
             <div v-if="showPaymentModal" class="fixed inset-0 z-50 overflow-y-auto">
                 <div class="flex items-center justify-center min-h-screen px-4">
-                    <div class="fixed inset-0 bg-black opacity-30" @click="showPaymentModal = false"></div>
-                    <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                    <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showPaymentModal = false"></div>
+                    <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                         <h3 class="text-lg font-semibold text-gray-900 mb-4">Record Payment</h3>
 
                         <form @submit.prevent="submitPayment">
@@ -379,8 +372,8 @@ const reissueInvoice = () => {
 
             <div v-if="showVoidModal" class="fixed inset-0 z-50 overflow-y-auto">
                 <div class="flex items-center justify-center min-h-screen px-4">
-                    <div class="fixed inset-0 bg-black opacity-30" @click="showVoidModal = false"></div>
-                    <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                    <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showVoidModal = false"></div>
+                    <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                         <h3 class="text-lg font-semibold text-gray-900 mb-4">Void Invoice</h3>
                         <p class="text-sm text-gray-600 mb-4">
                             Are you sure you want to void this invoice? This action cannot be undone.

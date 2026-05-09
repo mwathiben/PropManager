@@ -1,11 +1,15 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import { useFormatters } from '@/composables';
 import ArrowLeftIcon from '@heroicons/vue/24/outline/ArrowLeftIcon';
+import type { TwoFactorRecoveryCodesPageProps } from '@/types';
 
-const props = defineProps({
-    recoveryCodes: Array,
+const { formatDate } = useFormatters();
+
+const props = withDefaults(defineProps<TwoFactorRecoveryCodesPageProps>(), {
+    recoveryCodes: () => [],
 });
 
 const showRegenerateModal = ref(false);
@@ -31,7 +35,7 @@ const copyAllCodes = () => {
 
 const downloadCodes = () => {
     const codesText = `PropManager Recovery Codes
-Generated: ${new Date().toLocaleDateString()}
+Generated: ${formatDate(new Date())}
 
 IMPORTANT: Store these codes safely. Each code can only be used once.
 
@@ -164,8 +168,8 @@ const printCodes = () => {
         <!-- Regenerate Modal -->
         <div v-if="showRegenerateModal" class="fixed inset-0 z-50 overflow-y-auto print:hidden">
             <div class="flex min-h-full items-center justify-center p-4">
-                <div class="fixed inset-0 bg-gray-500 bg-opacity-75" @click="showRegenerateModal = false"></div>
-                <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showRegenerateModal = false"></div>
+                <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                     <h3 class="text-lg font-semibold text-gray-900 mb-2">Regenerate Recovery Codes</h3>
                     <p class="text-sm text-gray-600 mb-4">
                         This will invalidate your existing recovery codes and generate new ones.

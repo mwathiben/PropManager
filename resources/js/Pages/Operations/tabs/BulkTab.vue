@@ -1,6 +1,7 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue';
 import { Link } from '@inertiajs/vue3';
+import type { OperationsBulkTabProps } from '@/types/operations';
 import {
     ArrowUpTrayIcon,
     CurrencyDollarIcon,
@@ -9,10 +10,7 @@ import {
     ChartBarIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    bulkStats: Object,
-    buildings: Array,
-});
+const props = defineProps<OperationsBulkTabProps>();
 
 const operations = [
     {

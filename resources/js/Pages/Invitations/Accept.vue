@@ -1,6 +1,7 @@
-<script setup>
+<script setup lang="ts">
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import { Head, useForm } from '@inertiajs/vue3';
+import type { InvitationAcceptPageProps } from '@/types/tenants';
 import {
     CheckCircleIcon,
     ExclamationTriangleIcon,
@@ -9,10 +10,7 @@ import {
     EnvelopeIcon
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    invitation: Object,
-    error: String
-});
+const props = defineProps<InvitationAcceptPageProps>();
 
 const form = useForm({
     name: '',

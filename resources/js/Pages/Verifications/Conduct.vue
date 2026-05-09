@@ -1,7 +1,11 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, router, Link } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
+import { useFormatters } from '@/composables';
+import type { VerificationsConductPageProps, LeaseVerificationItem } from '@/types/tenants';
+
+const { formatDate } = useFormatters();
 import ClipboardDocumentCheckIcon from '@heroicons/vue/24/outline/ClipboardDocumentCheckIcon';
 import CheckCircleIcon from '@heroicons/vue/24/outline/CheckCircleIcon';
 import XCircleIcon from '@heroicons/vue/24/outline/XCircleIcon';
@@ -19,13 +23,7 @@ import ChatBubbleLeftIcon from '@heroicons/vue/24/outline/ChatBubbleLeftIcon';
 import CheckCircleSolid from '@heroicons/vue/24/solid/CheckCircleIcon';
 import XCircleSolid from '@heroicons/vue/24/solid/XCircleIcon';
 
-const props = defineProps({
-    lease: Object,
-    templates: Array,
-    defaultTemplate: Object,
-    hasVerifications: Boolean,
-    progress: Number,
-});
+const props = defineProps<VerificationsConductPageProps>();
 
 // State
 const selectedTemplateId = ref(props.defaultTemplate?.id || '');
@@ -287,7 +285,7 @@ const completeVerification = () => {
                                     <!-- Status Icon -->
                                     <component
                                         :is="getStatusIcon(verification.status)"
-                                        class="w-6 h-6 flex-shrink-0"
+                                        class="w-6 h-6 shrink-0"
                                         :class="getStatusColor(verification.status)"
                                     />
 
@@ -320,7 +318,7 @@ const completeVerification = () => {
                                         </p>
                                         <p v-if="verification.verifier && verification.verified_at" class="mt-1 text-xs text-gray-400">
                                             {{ verification.status === 'verified' ? 'Verified' : verification.status === 'waived' ? 'Waived' : verification.status === 'rejected' ? 'Rejected' : 'Updated' }}
-                                            by {{ verification.verifier.name }} on {{ new Date(verification.verified_at).toLocaleDateString() }}
+                                            by {{ verification.verifier.name }} on {{ formatDate(verification.verified_at) }}
                                         </p>
                                     </div>
 
@@ -404,9 +402,9 @@ const completeVerification = () => {
         <!-- Note Modal -->
         <div v-if="showNoteModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-                <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showNoteModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="showNoteModal = false"></div>
 
-                <div class="relative inline-block w-full max-w-md my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-xl shadow-xl">
+                <div class="relative z-50 inline-block w-full max-w-md my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
                         <h3 class="text-lg font-semibold text-gray-900">Add Note</h3>
                         <p class="text-sm text-gray-500">{{ currentVerification?.item?.name }}</p>

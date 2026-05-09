@@ -1,6 +1,7 @@
-<script setup>
+<script setup lang="ts">
 import { router, Link } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
+import type { OperationsInboxTabProps } from '@/types/operations';
 import {
     InboxIcon,
     ChatBubbleLeftIcon,
@@ -14,10 +15,7 @@ import {
 } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
 
-const props = defineProps({
-    inbox: Object,
-    inboxUnreadCount: Number,
-});
+const props = defineProps<OperationsInboxTabProps>();
 
 const search = ref('');
 const statusFilter = ref('all');

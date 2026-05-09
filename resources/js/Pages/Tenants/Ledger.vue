@@ -1,9 +1,10 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Breadcrumb from '@/Components/Breadcrumb.vue';
 import { useFormatters } from '@/composables';
+import type { TenantLedgerPageProps } from '@/types/finances';
 import {
     ArrowLeftIcon,
     ArrowDownTrayIcon,
@@ -17,13 +18,7 @@ import {
     XMarkIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    tenant: Object,
-    activeLease: Object,
-    transactions: Array,
-    summary: Object,
-    filters: Object,
-});
+const props = defineProps<TenantLedgerPageProps>();
 
 const { formatMoney, formatDate } = useFormatters();
 

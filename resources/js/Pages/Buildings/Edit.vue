@@ -50,6 +50,7 @@ import DocumentTextIcon from '@heroicons/vue/24/outline/DocumentTextIcon';
 import ClockIcon from '@heroicons/vue/24/outline/ClockIcon';
 import EnvelopeIcon from '@heroicons/vue/24/outline/EnvelopeIcon';
 import CalendarDaysIcon from '@heroicons/vue/24/outline/CalendarDaysIcon';
+import InformationCircleIcon from '@heroicons/vue/24/outline/InformationCircleIcon';
 import CheckCircleIcon from '@heroicons/vue/24/solid/CheckCircleIcon';
 import StarIcon from '@heroicons/vue/24/solid/StarIcon';
 
@@ -62,92 +63,63 @@ const canAccessWater = computed(() => page.props.featureAccess?.water_billing ??
 // --- TABS ---
 const activeTab = ref('units');
 const tabs = [
-    { id: 'units', name: 'Units', icon: Square2StackIcon, description: 'Manage unit configuration' },
-    { id: 'settings', name: 'Details', icon: BuildingOfficeIcon, description: 'Building information' },
-    { id: 'amenities', name: 'Amenities', icon: SparklesIcon, description: 'Features & facilities' },
-    { id: 'location', name: 'Location', icon: MapPinIcon, description: 'Map & coordinates' },
-    { id: 'automation', name: 'Automation', icon: ClockIcon, description: 'Invoice automation' },
-    { id: 'deductions', name: 'Deductions', icon: DocumentTextIcon, description: 'Move-out deduction defaults' },
+    { id: 'units', name: 'Units', icon: Square2StackIcon },
+    { id: 'settings', name: 'Details', icon: BuildingOfficeIcon },
+    { id: 'amenities', name: 'Amenities', icon: SparklesIcon },
+    { id: 'location', name: 'Location', icon: MapPinIcon },
+    { id: 'automation', name: 'Automation', icon: ClockIcon },
+    { id: 'deductions', name: 'Deductions', icon: DocumentTextIcon },
 ];
+
+// --- STATUS STYLES (static classes for Tailwind JIT safety) ---
+const statusStyles = {
+    occupied: 'bg-green-50 border-green-200 text-green-700',
+    arrears: 'bg-red-50 border-red-200 text-red-700',
+    maintenance: 'bg-amber-50 border-amber-200 text-amber-700',
+    vacant: 'bg-gray-50 border-gray-200 text-gray-500',
+};
+
+const statusDotStyles = {
+    occupied: 'bg-green-400',
+    arrears: 'bg-red-400',
+    maintenance: 'bg-amber-400',
+    vacant: 'bg-gray-300',
+};
+
+const categoryStyles = {
+    utilities: { bg: 'bg-amber-100', text: 'text-amber-600', badge: 'bg-amber-100 text-amber-700', selectedBorder: 'border-amber-400 bg-amber-50', selectedBg: 'bg-amber-500 text-white', selectedText: 'text-amber-700' },
+    security: { bg: 'bg-red-100', text: 'text-red-600', badge: 'bg-red-100 text-red-700', selectedBorder: 'border-red-400 bg-red-50', selectedBg: 'bg-red-500 text-white', selectedText: 'text-red-700' },
+    parking: { bg: 'bg-blue-100', text: 'text-blue-600', badge: 'bg-blue-100 text-blue-700', selectedBorder: 'border-blue-400 bg-blue-50', selectedBg: 'bg-blue-500 text-white', selectedText: 'text-blue-700' },
+    common_amenities: { bg: 'bg-purple-100', text: 'text-purple-600', badge: 'bg-purple-100 text-purple-700', selectedBorder: 'border-purple-400 bg-purple-50', selectedBg: 'bg-purple-500 text-white', selectedText: 'text-purple-700' },
+    unit_features: { bg: 'bg-emerald-100', text: 'text-emerald-600', badge: 'bg-emerald-100 text-emerald-700', selectedBorder: 'border-emerald-400 bg-emerald-50', selectedBg: 'bg-emerald-500 text-white', selectedText: 'text-emerald-700' },
+    neighborhood: { bg: 'bg-cyan-100', text: 'text-cyan-600', badge: 'bg-cyan-100 text-cyan-700', selectedBorder: 'border-cyan-400 bg-cyan-50', selectedBg: 'bg-cyan-500 text-white', selectedText: 'text-cyan-700' },
+};
 
 // --- AMENITY CATEGORIES CONFIG ---
 const categoryConfig = {
-    utilities: {
-        icon: BoltIcon,
-        color: 'amber',
-        label: 'Utilities & Power'
-    },
-    security: {
-        icon: ShieldCheckIcon,
-        color: 'red',
-        label: 'Security Features'
-    },
-    parking: {
-        icon: TruckIcon,
-        color: 'blue',
-        label: 'Parking & Transport'
-    },
-    common_amenities: {
-        icon: SparklesIcon,
-        color: 'purple',
-        label: 'Common Amenities'
-    },
-    unit_features: {
-        icon: HomeModernIcon,
-        color: 'emerald',
-        label: 'Unit Features'
-    },
-    neighborhood: {
-        icon: MapIcon,
-        color: 'cyan',
-        label: 'Neighborhood'
-    }
+    utilities: { icon: BoltIcon, label: 'Utilities & Power' },
+    security: { icon: ShieldCheckIcon, label: 'Security Features' },
+    parking: { icon: TruckIcon, label: 'Parking & Transport' },
+    common_amenities: { icon: SparklesIcon, label: 'Common Amenities' },
+    unit_features: { icon: HomeModernIcon, label: 'Unit Features' },
+    neighborhood: { icon: MapIcon, label: 'Neighborhood' },
 };
 
-// Amenity icons mapping
 const amenityIcons = {
-    wifi: WifiIcon,
-    hot_water: FireIcon,
-    generator: BoltIcon,
-    solar: SunIcon,
-    borehole: ArrowPathIcon,
-    water_tank: ArrowPathIcon,
-    fiber_ready: SignalIcon,
-    cctv: VideoCameraIcon,
-    security_guard: ShieldCheckIcon,
-    intercom: SpeakerWaveIcon,
-    electric_fence: BoltIcon,
-    gated: LockClosedIcon,
-    biometric_access: FingerPrintIcon,
-    security_alarm: BellAlertIcon,
-    parking: TruckIcon,
-    covered_parking: TruckIcon,
-    motorcycle_parking: TruckIcon,
-    visitor_parking: TruckIcon,
-    parking_per_unit: TruckIcon,
-    elevator: ArrowsPointingOutIcon,
-    gym: HeartIcon,
-    swimming_pool: SparklesIcon,
-    playground: UserGroupIcon,
-    laundry: ArrowPathIcon,
-    rooftop: SunIcon,
-    bbq_area: FireIcon,
-    clubhouse: BuildingStorefrontIcon,
-    meeting_room: UserGroupIcon,
-    balcony: SunIcon,
-    garden: SparklesIcon,
-    pets_allowed: HeartIcon,
-    furnished: HomeModernIcon,
-    air_conditioning: SparklesIcon,
-    washer_hookup: ArrowPathIcon,
-    built_in_wardrobes: Square2StackIcon,
-    en_suite: HomeIcon,
-    near_schools: AcademicCapIcon,
-    near_hospital: HeartIcon,
-    near_shopping: ShoppingBagIcon,
-    public_transport: DeliveryIcon,
-    quiet_area: SpeakerWaveIcon,
-    main_road_access: MapIcon
+    wifi: WifiIcon, hot_water: FireIcon, generator: BoltIcon, solar: SunIcon,
+    borehole: ArrowPathIcon, water_tank: ArrowPathIcon, fiber_ready: SignalIcon,
+    cctv: VideoCameraIcon, security_guard: ShieldCheckIcon, intercom: SpeakerWaveIcon,
+    electric_fence: BoltIcon, gated: LockClosedIcon, biometric_access: FingerPrintIcon,
+    security_alarm: BellAlertIcon, parking: TruckIcon, covered_parking: TruckIcon,
+    motorcycle_parking: TruckIcon, visitor_parking: TruckIcon, parking_per_unit: TruckIcon,
+    elevator: ArrowsPointingOutIcon, gym: HeartIcon, swimming_pool: SparklesIcon,
+    playground: UserGroupIcon, laundry: ArrowPathIcon, rooftop: SunIcon,
+    bbq_area: FireIcon, clubhouse: BuildingStorefrontIcon, meeting_room: UserGroupIcon,
+    balcony: SunIcon, garden: SparklesIcon, pets_allowed: HeartIcon,
+    furnished: HomeModernIcon, air_conditioning: SparklesIcon, washer_hookup: ArrowPathIcon,
+    built_in_wardrobes: Square2StackIcon, en_suite: HomeIcon, near_schools: AcademicCapIcon,
+    near_hospital: HeartIcon, near_shopping: ShoppingBagIcon, public_transport: DeliveryIcon,
+    quiet_area: SpeakerWaveIcon, main_road_access: MapIcon,
 };
 
 // --- SETTINGS FORM ---
@@ -160,10 +132,10 @@ const settingsForm = useForm({
 });
 
 const buildingTypes = [
-    { value: 'residential', label: 'Residential Apartment', icon: HomeIcon },
-    { value: 'commercial', label: 'Commercial/Office', icon: BuildingOfficeIcon },
-    { value: 'mixed', label: 'Mixed Use', icon: BuildingStorefrontIcon },
-    { value: 'single_unit', label: 'Single Unit/House', icon: HomeModernIcon },
+    { value: 'residential_apartment', label: 'Residential Apartment', icon: HomeIcon },
+    { value: 'office_block', label: 'Commercial/Office', icon: BuildingOfficeIcon },
+    { value: 'mixed_use', label: 'Mixed Use', icon: BuildingStorefrontIcon },
+    { value: 'single_unit_rental', label: 'Single Unit/House', icon: HomeModernIcon },
     { value: 'warehouse', label: 'Warehouse/Industrial', icon: TruckIcon },
 ];
 
@@ -203,7 +175,6 @@ const isAmenitySelected = (key) => {
     return (settingsForm.amenities.selected || []).includes(key);
 };
 
-// Custom amenity handling
 const customAmenityInput = ref('');
 const addCustomAmenity = () => {
     if (customAmenityInput.value.trim()) {
@@ -220,13 +191,11 @@ const removeCustomAmenity = (index) => {
     settingsForm.amenities = { ...settingsForm.amenities, custom };
 };
 
-// Collapsed categories state
 const collapsedCategories = ref({});
 const toggleCategory = (cat) => {
     collapsedCategories.value[cat] = !collapsedCategories.value[cat];
 };
 
-// Count selected amenities per category
 const getSelectedCount = (category, items) => {
     return Object.keys(items).filter(key => isAmenitySelected(key)).length;
 };
@@ -238,20 +207,27 @@ const showAddUnitModal = ref(false);
 const modalType = ref('');
 const hoveredUnit = ref(null);
 
-// Computed: Floors in reverse order
-const floors = computed(() => {
-    return [...Array(props.building.total_floors).keys()].map(i => i + 1).reverse();
+// Group units by floor (descending - top floors first)
+const unitsByFloor = computed(() => {
+    const grouped = {};
+    props.units.forEach(unit => {
+        const floor = unit.floor_number || 1;
+        if (!grouped[floor]) grouped[floor] = [];
+        grouped[floor].push(unit);
+    });
+    return Object.entries(grouped)
+        .map(([floor, units]) => ({
+            floor: parseInt(floor),
+            units: units.sort((a, b) => String(a.unit_number).localeCompare(
+                String(b.unit_number), undefined, { numeric: true }
+            ))
+        }))
+        .sort((a, b) => b.floor - a.floor);
 });
 
-// Helper to find unit
-const findUnit = (floor, col) => {
-    const targetNumber = String((floor * 100) + col);
-    return props.units.find(u => String(u.unit_number) === targetNumber && u.floor_number === floor);
-};
-
-const getUnitsOnFloor = (floor) => {
-    return props.units.filter(u => u.floor_number === floor);
-};
+const floorGridStyle = computed(() => ({
+    gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))'
+}));
 
 const toggleSelection = (id) => {
     if (selectedIds.value.includes(id)) {
@@ -353,14 +329,17 @@ const openAddUnitModal = (floor = null) => {
     if (floor) {
         addUnitForm.floor_number = floor;
         const floorUnits = props.units.filter(u => u.floor_number === floor);
+        const prefix = props.building.unit_prefix || '';
         let nextNum;
         if (floorUnits.length > 0) {
-             const maxUnitNum = Math.max(...floorUnits.map(u => parseInt(u.unit_number)));
-             nextNum = maxUnitNum + 1;
+            const numericParts = floorUnits
+                .map(u => parseInt(String(u.unit_number).replace(/^\D+/, ''), 10))
+                .filter(n => !isNaN(n));
+            nextNum = numericParts.length > 0 ? Math.max(...numericParts) + 1 : (floor * 100) + 1;
         } else {
-             nextNum = (floor * 100) + 1;
+            nextNum = (floor * 100) + 1;
         }
-        addUnitForm.unit_number = nextNum;
+        addUnitForm.unit_number = prefix + nextNum;
     }
     showAddUnitModal.value = true;
 };
@@ -375,40 +354,39 @@ const submitAddUnit = () => {
     });
 };
 
-// Unit status colors
-const getUnitStatusColor = (unit) => {
-    if (unit.status === 'occupied') return 'emerald';
-    if (unit.status === 'maintenance') return 'amber';
-    if (unit.status === 'arrears') return 'red';
-    return 'gray';
-};
-
-const getUnitClasses = (unit, isSelected, isHovered) => {
-    const status = getUnitStatusColor(unit);
-    const isCommercial = unit.unit_type === 'commercial';
-
-    let base = "relative flex flex-col justify-between p-3 h-28 rounded-xl border-2 transition-all duration-200 cursor-pointer ";
-
+const getUnitClasses = (unit, isSelected) => {
     if (isSelected) {
-        return base + "border-indigo-500 bg-indigo-50 ring-2 ring-indigo-300 shadow-lg transform scale-[1.02] z-10";
+        return 'bg-indigo-50 border-indigo-300 text-indigo-700 ring-2 ring-indigo-500 ring-offset-1';
     }
-
-    if (isHovered) {
-        base += "shadow-lg transform scale-[1.01] ";
-    } else {
-        base += "shadow-sm hover:shadow-md ";
+    if (unit.unit_type === 'commercial') {
+        return 'bg-purple-50 border-purple-200 text-purple-700 hover:scale-105';
     }
-
-    if (isCommercial) {
-        return base + `border-purple-200 bg-gradient-to-br from-purple-50 to-white`;
-    }
-
-    return base + `border-${status}-200 bg-gradient-to-br from-${status}-50/50 to-white`;
+    return (statusStyles[unit.status] || statusStyles.vacant) + ' hover:scale-105';
 };
 
-// Map coordinates update
 const updateCoordinates = (coords) => {
     settingsForm.coordinates = coords;
+};
+
+// --- BUILDING DELETION ---
+const showDeleteBuildingModal = ref(false);
+const deletingBuilding = ref(false);
+
+const deleteTarget = computed(() => {
+    if (props.building.is_wing && props.parentBuilding) {
+        return props.parentBuilding;
+    }
+    return { id: props.building.id, name: props.building.name };
+});
+
+const confirmDeleteBuilding = () => {
+    deletingBuilding.value = true;
+    router.delete(route('buildings.destroy', deleteTarget.value.id), {
+        onFinish: () => {
+            deletingBuilding.value = false;
+            showDeleteBuildingModal.value = false;
+        },
+    });
 };
 </script>
 
@@ -417,541 +395,476 @@ const updateCoordinates = (coords) => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
-                        <Cog6ToothIcon class="w-6 h-6 text-white" />
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-indigo-100 rounded-lg">
+                        <Cog6ToothIcon class="w-6 h-6 text-indigo-600" />
                     </div>
                     <div>
-                        <h2 class="font-bold text-2xl text-gray-900">
-                            {{ building.name }}
-                        </h2>
-                        <p class="text-sm text-gray-500">Building Configuration</p>
+                        <h1 class="text-lg font-semibold text-gray-900">{{ building.name }}</h1>
+                        <p class="text-sm text-gray-500">{{ building.property?.name }} &middot; {{ units.length }} units</p>
                     </div>
                 </div>
-
                 <div class="flex items-center gap-3">
                     <Link :href="route('buildings.dashboard', building.id)"
-                        class="inline-flex items-center px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm">
+                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
                         <EyeIcon class="w-4 h-4 mr-2" />
                         View Dashboard
                     </Link>
+                    <button @click="showDeleteBuildingModal = true"
+                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                        <TrashIcon class="w-4 h-4 mr-2" />
+                        Delete
+                    </button>
                     <button @click="submitSettings"
                         :disabled="settingsForm.processing"
-                        class="inline-flex items-center px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md disabled:opacity-50">
+                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50">
                         <CheckIcon class="w-4 h-4 mr-2" />
-                        {{ settingsForm.processing ? 'Saving...' : 'Save All Changes' }}
+                        {{ settingsForm.processing ? 'Saving...' : 'Save Changes' }}
                     </button>
                 </div>
             </div>
         </template>
 
         <div class="py-6">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
-                <!-- WING NAVIGATION (if multiple buildings) -->
-                <div v-if="buildings.length > 1" class="flex items-center gap-2 overflow-x-auto pb-2">
+                <!-- WING NAVIGATION -->
+                <div v-if="buildings.length > 1" class="flex items-center gap-2 overflow-x-auto pb-4 mb-4">
                     <span class="text-xs font-medium text-gray-400 uppercase tracking-wider mr-2">Wings:</span>
                     <Link
                         v-for="b in buildings"
                         :key="b.id"
                         :href="route('buildings.edit', b.id)"
                         :class="[
-                            'px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap',
+                            'px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap',
                             building.id === b.id
-                                ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md'
-                                : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200 hover:border-gray-300'
+                                ? 'bg-indigo-600 text-white'
+                                : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
                         ]"
                         preserve-state>
                         {{ b.name }}
                     </Link>
                 </div>
 
-                <!-- MODERN TABS -->
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-1.5">
-                    <nav class="flex gap-1" aria-label="Tabs">
-                        <button
-                            v-for="tab in tabs"
-                            :key="tab.id"
-                            @click="activeTab = tab.id"
-                            :class="[
-                                'flex-1 group flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium text-sm transition-all duration-200',
-                                activeTab === tab.id
-                                    ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md'
-                                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                            ]">
-                            <component :is="tab.icon"
-                                :class="[
-                                    'w-5 h-5 transition-colors',
-                                    activeTab === tab.id ? 'text-white' : 'text-gray-400 group-hover:text-gray-500'
-                                ]" />
-                            <span class="hidden sm:inline">{{ tab.name }}</span>
-                        </button>
-                    </nav>
+                <!-- Shared settings banner for multi-wing buildings -->
+                <div v-if="buildings.length > 1"
+                    class="flex items-center gap-2 px-4 py-2.5 mb-4 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-100 text-sm">
+                    <InformationCircleIcon class="w-4 h-4 shrink-0" />
+                    <span>Settings, amenities, and automation changes apply to all wings.</span>
                 </div>
 
-                <!-- === TAB: UNITS === -->
-                <div v-show="activeTab === 'units'" class="space-y-4">
-                    <!-- MODERN TOOLBAR -->
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sticky top-4 z-20">
-                        <div class="flex flex-wrap gap-3 items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <!-- Selection indicator -->
-                                <div v-if="selectedIds.length > 0"
-                                    class="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200">
-                                    <CheckCircleIcon class="w-4 h-4" />
-                                    <span class="text-sm font-semibold">{{ selectedIds.length }} selected</span>
-                                    <button @click="clearSelection" class="ml-1 p-0.5 hover:bg-indigo-100 rounded">
-                                        <XMarkIcon class="w-4 h-4" />
-                                    </button>
-                                </div>
+                <!-- TABS (underline style matching Hub pattern) -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                    <div class="border-b border-gray-200">
+                        <nav class="flex -mb-px overflow-x-auto" aria-label="Tabs">
+                            <button
+                                v-for="tab in tabs"
+                                :key="tab.id"
+                                @click="activeTab = tab.id"
+                                :class="[
+                                    'flex items-center gap-2 px-4 py-4 text-sm font-medium border-b-2 whitespace-nowrap transition-colors',
+                                    activeTab === tab.id
+                                        ? 'border-indigo-500 text-indigo-600'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                ]">
+                                <component :is="tab.icon"
+                                    :class="[
+                                        'w-5 h-5',
+                                        activeTab === tab.id ? 'text-indigo-500' : 'text-gray-400'
+                                    ]" />
+                                <span class="hidden sm:inline">{{ tab.name }}</span>
+                            </button>
+                        </nav>
+                    </div>
 
-                                <!-- Bulk actions -->
+                    <!-- TAB CONTENT -->
+                    <div class="p-4 sm:p-6">
+
+                        <!-- === TAB: UNITS === -->
+                        <div v-show="activeTab === 'units'" class="space-y-4">
+                            <!-- Toolbar -->
+                            <div class="flex flex-wrap gap-3 items-center justify-between">
                                 <div class="flex items-center gap-2">
+                                    <div v-if="selectedIds.length > 0"
+                                        class="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200">
+                                        <CheckCircleIcon class="w-4 h-4" />
+                                        <span class="text-sm font-semibold">{{ selectedIds.length }} selected</span>
+                                        <button @click="clearSelection" class="ml-1 p-0.5 hover:bg-indigo-100 rounded">
+                                            <XMarkIcon class="w-4 h-4" />
+                                        </button>
+                                    </div>
+
                                     <button @click="openActionModal('update_rent')"
                                         :disabled="selectedIds.length === 0"
-                                        class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                                        :class="selectedIds.length > 0 ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200' : 'bg-gray-50 text-gray-400 border border-gray-200'">
+                                        class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                        :class="selectedIds.length > 0 ? 'text-emerald-700 hover:bg-emerald-50' : 'text-gray-400'">
                                         <CurrencyDollarIcon class="w-4 h-4 mr-1.5" />
                                         Set Rent
                                     </button>
                                     <button @click="openActionModal('update_type')"
                                         :disabled="selectedIds.length === 0"
-                                        class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                                        :class="selectedIds.length > 0 ? 'bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200' : 'bg-gray-50 text-gray-400 border border-gray-200'">
+                                        class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                        :class="selectedIds.length > 0 ? 'text-purple-700 hover:bg-purple-50' : 'text-gray-400'">
                                         <TagIcon class="w-4 h-4 mr-1.5" />
                                         Set Type
                                     </button>
                                     <button @click="openActionModal('delete')"
                                         :disabled="selectedIds.length === 0"
-                                        class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                                        :class="selectedIds.length > 0 ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200' : 'bg-gray-50 text-gray-400 border border-gray-200'">
+                                        class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                        :class="selectedIds.length > 0 ? 'text-red-600 hover:bg-red-50' : 'text-gray-400'">
                                         <TrashIcon class="w-4 h-4 mr-1.5" />
                                         Delete
                                     </button>
                                 </div>
-                            </div>
 
-                            <div class="flex items-center gap-2">
-                                <button @click="selectAll"
-                                    class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-all">
-                                    {{ selectedIds.length === units.length ? 'Deselect All' : 'Select All' }}
-                                </button>
-                                <button @click="openAddUnitModal()"
-                                    class="inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md">
-                                    <PlusIcon class="w-4 h-4 mr-1.5" />
-                                    Add Unit
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- VISUAL BUILDING GRID -->
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 overflow-x-auto">
-                        <!-- Building Visualization Header -->
-                        <div class="flex items-center justify-between mb-6">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                                    <BuildingOfficeIcon class="w-5 h-5 text-gray-500" />
-                                </div>
-                                <div>
-                                    <h3 class="font-semibold text-gray-900">Building Layout</h3>
-                                    <p class="text-xs text-gray-500">{{ building.total_floors }} floors &middot; {{ units.length }} units</p>
+                                <div class="flex items-center gap-2">
+                                    <button @click="selectAll"
+                                        class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                                        {{ selectedIds.length === units.length ? 'Deselect All' : 'Select All' }}
+                                    </button>
+                                    <button @click="openAddUnitModal()"
+                                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors">
+                                        <PlusIcon class="w-4 h-4 mr-1.5" />
+                                        Add Unit
+                                    </button>
                                 </div>
                             </div>
 
                             <!-- Legend -->
-                            <div class="flex items-center gap-4 text-xs">
+                            <div class="flex items-center gap-4 text-xs text-gray-500">
                                 <div class="flex items-center gap-1.5">
-                                    <div class="w-3 h-3 rounded-full bg-emerald-400"></div>
-                                    <span class="text-gray-500">Occupied</span>
+                                    <div class="w-2.5 h-2.5 rounded-full bg-green-400"></div>
+                                    Occupied
                                 </div>
                                 <div class="flex items-center gap-1.5">
-                                    <div class="w-3 h-3 rounded-full bg-gray-300"></div>
-                                    <span class="text-gray-500">Vacant</span>
+                                    <div class="w-2.5 h-2.5 rounded-full bg-gray-300"></div>
+                                    Vacant
                                 </div>
                                 <div class="flex items-center gap-1.5">
-                                    <div class="w-3 h-3 rounded-full bg-purple-400"></div>
-                                    <span class="text-gray-500">Commercial</span>
+                                    <div class="w-2.5 h-2.5 rounded-full bg-amber-400"></div>
+                                    Maintenance
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <div class="w-2.5 h-2.5 rounded-full bg-red-400"></div>
+                                    Arrears
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <div class="w-2.5 h-2.5 rounded-full bg-purple-400"></div>
+                                    Commercial
+                                </div>
+                            </div>
+
+                            <!-- Floor-grouped Grid -->
+                            <div class="max-h-150 overflow-y-auto rounded-lg border border-gray-200">
+                                <div v-for="floorGroup in unitsByFloor" :key="floorGroup.floor" class="border-b border-gray-100 last:border-b-0">
+                                    <!-- Floor Header -->
+                                    <div class="px-4 sm:px-6 py-2 bg-gray-50 sticky top-0 z-10 flex items-center justify-between">
+                                        <div class="flex items-center gap-3">
+                                            <button @click="selectFloor(floorGroup.floor)"
+                                                :class="[
+                                                    'px-2 py-1 rounded text-xs font-bold transition-colors',
+                                                    isFloorSelected(floorGroup.floor) ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:bg-gray-100'
+                                                ]">
+                                                F{{ floorGroup.floor }}
+                                            </button>
+                                            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Floor {{ floorGroup.floor }}</span>
+                                            <span class="text-xs text-gray-400">{{ floorGroup.units.length }} units</span>
+                                        </div>
+                                        <button @click="openAddUnitModal(floorGroup.floor)"
+                                            class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors">
+                                            <PlusIcon class="w-3.5 h-3.5" />
+                                            Add
+                                        </button>
+                                    </div>
+
+                                    <!-- Units Grid -->
+                                    <div class="p-4 sm:p-6 pt-3">
+                                        <div class="grid gap-2 sm:gap-3" :style="floorGridStyle">
+                                            <button
+                                                v-for="unit in floorGroup.units"
+                                                :key="unit.id"
+                                                @click="toggleSelection(unit.id)"
+                                                @mouseenter="hoveredUnit = unit.id"
+                                                @mouseleave="hoveredUnit = null"
+                                                :class="getUnitClasses(unit, selectedIds.includes(unit.id))"
+                                                class="relative aspect-square rounded-lg border p-2 flex flex-col items-center justify-center transition-all text-center cursor-pointer">
+                                                <!-- Selection check -->
+                                                <div v-if="selectedIds.includes(unit.id)"
+                                                    class="absolute top-1 right-1 w-4 h-4 bg-indigo-500 rounded-full flex items-center justify-center">
+                                                    <CheckIcon class="w-2.5 h-2.5 text-white" />
+                                                </div>
+                                                <span class="text-sm font-bold leading-tight">{{ unit.unit_number }}</span>
+                                                <span class="text-[10px] uppercase tracking-wide mt-0.5">
+                                                    {{ unit.status === 'occupied' ? 'Occ' : unit.status === 'arrears' ? 'Late' : unit.status === 'maintenance' ? 'Mnt' : 'Vac' }}
+                                                </span>
+                                                <span class="text-[10px] mt-0.5 opacity-75">{{ formatMoney(unit.target_rent) }}</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div v-if="unitsByFloor.length === 0" class="p-12 text-center text-gray-400">
+                                    <Square2StackIcon class="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                                    <p class="text-sm font-medium">No units yet</p>
+                                    <p class="text-xs mt-1">Click "Add Unit" to create your first unit</p>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Grid -->
-                        <div class="inline-grid gap-3" :style="`grid-template-columns: 80px repeat(${building.units_per_floor}, minmax(120px, 1fr)) 50px`">
-                            <template v-for="floor in floors" :key="floor">
-                                <!-- FLOOR LABEL -->
-                                <div
-                                    @click="selectFloor(floor)"
-                                    :class="[
-                                        'h-28 flex flex-col items-center justify-center rounded-xl cursor-pointer transition-all group',
-                                        isFloorSelected(floor)
-                                            ? 'bg-indigo-100 border-2 border-indigo-300'
-                                            : 'bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-transparent hover:border-indigo-200'
-                                    ]">
-                                    <span class="text-2xl font-bold text-gray-300 group-hover:text-indigo-500 transition-colors">{{ floor }}</span>
-                                    <span class="text-[10px] font-medium text-gray-400 uppercase tracking-wider">Floor</span>
-                                    <span class="text-[10px] text-gray-400 mt-1">{{ getUnitsOnFloor(floor).length }} units</span>
+                        <!-- === TAB: SETTINGS === -->
+                        <div v-show="activeTab === 'settings'" class="space-y-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <!-- Building Details -->
+                                <div class="space-y-5">
+                                    <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+                                        <BuildingOfficeIcon class="w-5 h-5 text-gray-400" />
+                                        Building Information
+                                    </h3>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Building Name</label>
+                                        <input v-model="settingsForm.name" type="text"
+                                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                                            placeholder="e.g., Sunrise Apartments">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Property Type</label>
+                                        <select v-model="settingsForm.building_type"
+                                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white">
+                                            <option v-for="type in buildingTypes" :key="type.value" :value="type.value">
+                                                {{ type.label }}
+                                            </option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Currency Override</label>
+                                        <select v-model="settingsForm.currency"
+                                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white">
+                                            <option value="">Inherit from default</option>
+                                            <option value="KES">Kenyan Shilling (KES)</option>
+                                            <option value="USD">US Dollar (USD)</option>
+                                            <option value="EUR">Euro (EUR)</option>
+                                            <option value="GBP">British Pound (GBP)</option>
+                                        </select>
+                                        <p class="mt-1 text-xs text-gray-500">Leave as "Inherit" to use your default currency setting.</p>
+                                    </div>
                                 </div>
 
-                                <!-- UNITS -->
-                                <div v-for="col in building.units_per_floor" :key="`${floor}-${col}`">
-                                    <div v-if="findUnit(floor, col)"
-                                         @click="toggleSelection(findUnit(floor, col).id)"
-                                         @mouseenter="hoveredUnit = findUnit(floor, col).id"
-                                         @mouseleave="hoveredUnit = null"
-                                         :class="getUnitClasses(findUnit(floor, col), selectedIds.includes(findUnit(floor, col).id), hoveredUnit === findUnit(floor, col).id)">
-
-                                        <!-- Top row: Unit number + Selection check -->
-                                        <div class="flex justify-between items-start">
-                                            <div class="flex items-center gap-1.5">
-                                                <span class="text-lg font-bold text-gray-800">{{ findUnit(floor, col).unit_number }}</span>
-                                                <span v-if="findUnit(floor, col).unit_type === 'commercial'"
-                                                    class="px-1.5 py-0.5 text-[9px] font-bold uppercase bg-purple-100 text-purple-600 rounded">
-                                                    COM
-                                                </span>
-                                            </div>
-                                            <div :class="[
-                                                'w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all',
-                                                selectedIds.includes(findUnit(floor, col).id)
-                                                    ? 'bg-indigo-500 border-indigo-500'
-                                                    : 'border-gray-300 bg-white'
-                                            ]">
-                                                <CheckIcon v-if="selectedIds.includes(findUnit(floor, col).id)" class="w-3 h-3 text-white" />
-                                            </div>
+                                <!-- Structure Overview -->
+                                <div class="space-y-5">
+                                    <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+                                        <Square2StackIcon class="w-5 h-5 text-gray-400" />
+                                        Structure Overview
+                                    </h3>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div class="p-4 rounded-xl border border-gray-200 bg-gray-50">
+                                            <div class="text-2xl font-bold text-gray-900">{{ building.total_floors }}</div>
+                                            <div class="text-sm text-gray-500">Floors</div>
                                         </div>
-
-                                        <!-- Center: Status indicator -->
-                                        <div class="flex items-center justify-center flex-grow">
-                                            <div :class="[
-                                                'w-2 h-2 rounded-full',
-                                                `bg-${getUnitStatusColor(findUnit(floor, col))}-400`
-                                            ]"></div>
+                                        <div class="p-4 rounded-xl border border-gray-200 bg-gray-50">
+                                            <div class="text-2xl font-bold text-gray-900">{{ units.length }}</div>
+                                            <div class="text-sm text-gray-500">Units</div>
                                         </div>
+                                        <div class="p-4 rounded-xl border border-green-200 bg-green-50">
+                                            <div class="text-2xl font-bold text-green-700">
+                                                {{ units.filter(u => u.status === 'occupied').length }}
+                                            </div>
+                                            <div class="text-sm text-gray-500">Occupied</div>
+                                        </div>
+                                        <div class="p-4 rounded-xl border border-gray-200 bg-gray-50">
+                                            <div class="text-2xl font-bold text-gray-500">
+                                                {{ units.filter(u => u.status === 'vacant').length }}
+                                            </div>
+                                            <div class="text-sm text-gray-500">Vacant</div>
+                                        </div>
+                                    </div>
 
-                                        <!-- Bottom: Rent -->
-                                        <div class="text-right">
-                                            <span class="text-sm font-semibold text-gray-700">
-                                                {{ formatMoney(findUnit(floor, col).target_rent) }}
+                                    <div class="pt-4 border-t border-gray-100">
+                                        <div class="flex items-center justify-between text-sm mb-2">
+                                            <span class="text-gray-500">Occupancy Rate</span>
+                                            <span class="font-semibold text-gray-900">
+                                                {{ units.length > 0 ? Math.round((units.filter(u => u.status === 'occupied').length / units.length) * 100) : 0 }}%
                                             </span>
                                         </div>
-                                    </div>
-
-                                    <!-- Empty slot -->
-                                    <div v-else
-                                        class="h-28 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center bg-gray-50/50 group hover:border-indigo-300 hover:bg-indigo-50/50 transition-all cursor-pointer"
-                                        @click="openAddUnitModal(floor)">
-                                        <PlusIcon class="w-5 h-5 text-gray-300 group-hover:text-indigo-400 transition-colors" />
+                                        <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                            <div class="h-full bg-green-500 rounded-full transition-all duration-500"
+                                                :style="`width: ${units.length > 0 ? (units.filter(u => u.status === 'occupied').length / units.length) * 100 : 0}%`"></div>
+                                        </div>
                                     </div>
                                 </div>
-
-                                <!-- Add unit button at end of row -->
-                                <div class="h-28 flex items-center justify-center">
-                                    <button @click="openAddUnitModal(floor)"
-                                        class="p-2 rounded-full bg-gray-100 hover:bg-indigo-100 text-gray-400 hover:text-indigo-600 transition-all"
-                                        title="Add unit to this floor">
-                                        <PlusIcon class="w-5 h-5" />
-                                    </button>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- === TAB: SETTINGS === -->
-                <div v-show="activeTab === 'settings'" class="space-y-6">
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <!-- Building Details Card -->
-                        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                            <div class="px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
-                                <h3 class="font-semibold text-gray-900 flex items-center gap-2">
-                                    <BuildingOfficeIcon class="w-5 h-5 text-gray-400" />
-                                    Building Information
-                                </h3>
                             </div>
-                            <div class="p-6 space-y-5">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Building Name</label>
-                                    <input v-model="settingsForm.name" type="text"
-                                        class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-                                        placeholder="e.g., Sunrise Apartments">
-                                </div>
+                        </div>
 
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Property Type</label>
-                                    <div class="grid grid-cols-1 gap-2">
-                                        <label v-for="type in buildingTypes" :key="type.value"
+                        <!-- === TAB: AMENITIES === -->
+                        <div v-show="activeTab === 'amenities'" class="space-y-4">
+                            <div v-for="(items, category) in amenityOptions" :key="category"
+                                class="border border-gray-200 rounded-xl overflow-hidden">
+                                <!-- Category Header -->
+                                <button @click="toggleCategory(category)"
+                                    class="w-full px-4 sm:px-6 py-4 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors">
+                                    <div class="flex items-center gap-3">
+                                        <div :class="[
+                                            'w-10 h-10 rounded-xl flex items-center justify-center',
+                                            categoryStyles[category]?.bg || 'bg-gray-100'
+                                        ]">
+                                            <component :is="categoryConfig[category]?.icon || SparklesIcon"
+                                                :class="['w-5 h-5', categoryStyles[category]?.text || 'text-gray-600']" />
+                                        </div>
+                                        <div class="text-left">
+                                            <h3 class="font-semibold text-gray-900">{{ categoryConfig[category]?.label || category }}</h3>
+                                            <p class="text-xs text-gray-500">
+                                                {{ getSelectedCount(category, items) }} of {{ Object.keys(items).length }} selected
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <div v-if="getSelectedCount(category, items) > 0"
                                             :class="[
-                                                'flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all',
-                                                settingsForm.building_type === type.value
-                                                    ? 'border-indigo-500 bg-indigo-50'
-                                                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                                                'px-2 py-1 rounded-full text-xs font-semibold',
+                                                categoryStyles[category]?.badge || 'bg-gray-100 text-gray-700'
                                             ]">
-                                            <input type="radio" v-model="settingsForm.building_type" :value="type.value" class="sr-only">
+                                            {{ getSelectedCount(category, items) }}
+                                        </div>
+                                        <ChevronDownIcon :class="[
+                                            'w-5 h-5 text-gray-400 transition-transform duration-200',
+                                            collapsedCategories[category] ? '' : 'rotate-180'
+                                        ]" />
+                                    </div>
+                                </button>
+
+                                <!-- Category Items -->
+                                <div v-show="!collapsedCategories[category]" class="px-4 sm:px-6 pb-4 sm:pb-6">
+                                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                        <button v-for="(label, key) in items" :key="key"
+                                            @click="toggleAmenity(key)"
+                                            :class="[
+                                                'flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-colors',
+                                                isAmenitySelected(key)
+                                                    ? (categoryStyles[category]?.selectedBorder || 'border-indigo-400 bg-indigo-50')
+                                                    : 'border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50'
+                                            ]">
                                             <div :class="[
-                                                'w-10 h-10 rounded-lg flex items-center justify-center',
-                                                settingsForm.building_type === type.value
-                                                    ? 'bg-indigo-500 text-white'
+                                                'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+                                                isAmenitySelected(key)
+                                                    ? (categoryStyles[category]?.selectedBg || 'bg-indigo-500 text-white')
                                                     : 'bg-gray-100 text-gray-400'
                                             ]">
-                                                <component :is="type.icon" class="w-5 h-5" />
+                                                <component :is="amenityIcons[key] || SparklesIcon" class="w-4 h-4" />
                                             </div>
                                             <span :class="[
-                                                'font-medium',
-                                                settingsForm.building_type === type.value ? 'text-indigo-700' : 'text-gray-700'
-                                            ]">{{ type.label }}</span>
-                                            <CheckCircleIcon v-if="settingsForm.building_type === type.value"
-                                                class="w-5 h-5 text-indigo-500 ml-auto" />
-                                        </label>
+                                                'text-sm font-medium truncate',
+                                                isAmenitySelected(key)
+                                                    ? (categoryStyles[category]?.selectedText || 'text-indigo-700')
+                                                    : 'text-gray-700'
+                                            ]">{{ label }}</span>
+                                        </button>
                                     </div>
                                 </div>
+                            </div>
 
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Currency Override</label>
-                                    <select
-                                        v-model="settingsForm.currency"
-                                        class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-                                    >
-                                        <option value="">Inherit from default</option>
-                                        <option value="KES">Kenyan Shilling (KES)</option>
-                                        <option value="USD">US Dollar (USD)</option>
-                                        <option value="EUR">Euro (EUR)</option>
-                                        <option value="GBP">British Pound (GBP)</option>
-                                    </select>
-                                    <p class="mt-1 text-xs text-gray-500">Leave as "Inherit" to use your default currency setting.</p>
+                            <!-- Custom Amenities -->
+                            <div class="border border-gray-200 rounded-xl overflow-hidden">
+                                <div class="px-4 sm:px-6 py-4 bg-gray-50 border-b border-gray-200">
+                                    <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+                                        <StarIcon class="w-5 h-5 text-amber-400" />
+                                        Custom Amenities
+                                    </h3>
+                                    <p class="text-xs text-gray-500 mt-1">Add unique features specific to your building</p>
+                                </div>
+                                <div class="p-4 sm:p-6">
+                                    <div class="flex gap-2 mb-4">
+                                        <input v-model="customAmenityInput" type="text"
+                                            placeholder="e.g., Rooftop Garden, EV Charging"
+                                            @keyup.enter="addCustomAmenity"
+                                            class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                        <button @click="addCustomAmenity"
+                                            :disabled="!customAmenityInput.trim()"
+                                            class="px-4 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                                            <PlusIcon class="w-5 h-5" />
+                                        </button>
+                                    </div>
+
+                                    <div v-if="settingsForm.amenities.custom?.length" class="flex flex-wrap gap-2">
+                                        <div v-for="(item, index) in settingsForm.amenities.custom" :key="index"
+                                            class="inline-flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200">
+                                            <StarIcon class="w-4 h-4 text-indigo-500" />
+                                            <span class="text-sm font-medium">{{ item }}</span>
+                                            <button @click="removeCustomAmenity(index)" class="p-0.5 hover:bg-indigo-100 rounded">
+                                                <XMarkIcon class="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <p v-else class="text-sm text-gray-400 text-center py-4">No custom amenities added yet</p>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Structure Info Card -->
-                        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                            <div class="px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
-                                <h3 class="font-semibold text-gray-900 flex items-center gap-2">
-                                    <Square2StackIcon class="w-5 h-5 text-gray-400" />
-                                    Structure Overview
+                        <!-- === TAB: LOCATION === -->
+                        <div v-show="activeTab === 'location'" class="space-y-6">
+                            <div>
+                                <h3 class="font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                                    <MapPinIcon class="w-5 h-5 text-gray-400" />
+                                    Building Location
                                 </h3>
-                            </div>
-                            <div class="p-6">
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div class="bg-gradient-to-br from-indigo-50 to-white p-4 rounded-xl border border-indigo-100">
-                                        <div class="text-3xl font-bold text-indigo-600">{{ building.total_floors }}</div>
-                                        <div class="text-sm text-gray-500">Total Floors</div>
-                                    </div>
-                                    <div class="bg-gradient-to-br from-purple-50 to-white p-4 rounded-xl border border-purple-100">
-                                        <div class="text-3xl font-bold text-purple-600">{{ units.length }}</div>
-                                        <div class="text-sm text-gray-500">Total Units</div>
-                                    </div>
-                                    <div class="bg-gradient-to-br from-emerald-50 to-white p-4 rounded-xl border border-emerald-100">
-                                        <div class="text-3xl font-bold text-emerald-600">
-                                            {{ units.filter(u => u.status === 'occupied').length }}
+                                <p class="text-xs text-gray-500 mb-4">Click on the map or drag the marker to set location</p>
+                                <BuildingMap
+                                    :coordinates="settingsForm.coordinates"
+                                    :address="building.property?.address"
+                                    :editable="true"
+                                    height="400px"
+                                    @update:coordinates="updateCoordinates"
+                                />
+
+                                <div v-if="settingsForm.coordinates?.lat" class="mt-4 flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
+                                            <MapPinIcon class="w-5 h-5 text-indigo-600" />
                                         </div>
-                                        <div class="text-sm text-gray-500">Occupied</div>
-                                    </div>
-                                    <div class="bg-gradient-to-br from-gray-50 to-white p-4 rounded-xl border border-gray-200">
-                                        <div class="text-3xl font-bold text-gray-600">
-                                            {{ units.filter(u => u.status === 'vacant').length }}
+                                        <div>
+                                            <div class="text-sm font-medium text-gray-900">Coordinates Set</div>
+                                            <div class="text-xs text-gray-500">
+                                                {{ settingsForm.coordinates.lat.toFixed(6) }}, {{ settingsForm.coordinates.lng.toFixed(6) }}
+                                            </div>
                                         </div>
-                                        <div class="text-sm text-gray-500">Vacant</div>
                                     </div>
-                                </div>
-
-                                <div class="mt-6 pt-6 border-t border-gray-100">
-                                    <div class="flex items-center justify-between text-sm">
-                                        <span class="text-gray-500">Occupancy Rate</span>
-                                        <span class="font-semibold text-gray-900">
-                                            {{ units.length > 0 ? Math.round((units.filter(u => u.status === 'occupied').length / units.length) * 100) : 0 }}%
-                                        </span>
-                                    </div>
-                                    <div class="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                        <div class="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-500"
-                                            :style="`width: ${units.length > 0 ? (units.filter(u => u.status === 'occupied').length / units.length) * 100 : 0}%`"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- === TAB: AMENITIES === -->
-                <div v-show="activeTab === 'amenities'" class="space-y-4">
-                    <!-- Amenity Categories -->
-                    <div v-for="(items, category) in amenityOptions" :key="category"
-                        class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <!-- Category Header -->
-                        <button @click="toggleCategory(category)"
-                            class="w-full px-6 py-4 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white hover:from-gray-100 hover:to-gray-50 transition-all">
-                            <div class="flex items-center gap-3">
-                                <div :class="[
-                                    'w-10 h-10 rounded-xl flex items-center justify-center',
-                                    `bg-${categoryConfig[category]?.color || 'gray'}-100`
-                                ]">
-                                    <component :is="categoryConfig[category]?.icon || SparklesIcon"
-                                        :class="[
-                                            'w-5 h-5',
-                                            `text-${categoryConfig[category]?.color || 'gray'}-600`
-                                        ]" />
-                                </div>
-                                <div class="text-left">
-                                    <h3 class="font-semibold text-gray-900">{{ categoryConfig[category]?.label || category }}</h3>
-                                    <p class="text-xs text-gray-500">
-                                        {{ getSelectedCount(category, items) }} of {{ Object.keys(items).length }} selected
-                                    </p>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <div v-if="getSelectedCount(category, items) > 0"
-                                    :class="[
-                                        'px-2 py-1 rounded-full text-xs font-semibold',
-                                        `bg-${categoryConfig[category]?.color || 'gray'}-100 text-${categoryConfig[category]?.color || 'gray'}-700`
-                                    ]">
-                                    {{ getSelectedCount(category, items) }}
-                                </div>
-                                <ChevronDownIcon :class="[
-                                    'w-5 h-5 text-gray-400 transition-transform duration-200',
-                                    collapsedCategories[category] ? '' : 'rotate-180'
-                                ]" />
-                            </div>
-                        </button>
-
-                        <!-- Category Items -->
-                        <div v-show="!collapsedCategories[category]" class="px-6 pb-6">
-                            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                <button v-for="(label, key) in items" :key="key"
-                                    @click="toggleAmenity(key)"
-                                    :class="[
-                                        'flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all',
-                                        isAmenitySelected(key)
-                                            ? `border-${categoryConfig[category]?.color || 'indigo'}-400 bg-${categoryConfig[category]?.color || 'indigo'}-50`
-                                            : 'border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50'
-                                    ]">
-                                    <div :class="[
-                                        'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
-                                        isAmenitySelected(key)
-                                            ? `bg-${categoryConfig[category]?.color || 'indigo'}-500 text-white`
-                                            : 'bg-gray-100 text-gray-400'
-                                    ]">
-                                        <component :is="amenityIcons[key] || SparklesIcon" class="w-4 h-4" />
-                                    </div>
-                                    <span :class="[
-                                        'text-sm font-medium truncate',
-                                        isAmenitySelected(key) ? `text-${categoryConfig[category]?.color || 'indigo'}-700` : 'text-gray-700'
-                                    ]">{{ label }}</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Custom Amenities -->
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div class="px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
-                            <h3 class="font-semibold text-gray-900 flex items-center gap-2">
-                                <StarIcon class="w-5 h-5 text-amber-400" />
-                                Custom Amenities
-                            </h3>
-                            <p class="text-xs text-gray-500 mt-1">Add unique features specific to your building</p>
-                        </div>
-                        <div class="p-6">
-                            <div class="flex gap-2 mb-4">
-                                <input v-model="customAmenityInput" type="text"
-                                    placeholder="e.g., Rooftop Garden, EV Charging"
-                                    @keyup.enter="addCustomAmenity"
-                                    class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
-                                <button @click="addCustomAmenity"
-                                    :disabled="!customAmenityInput.trim()"
-                                    class="px-4 py-2.5 bg-amber-500 text-white font-medium rounded-xl hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-                                    <PlusIcon class="w-5 h-5" />
-                                </button>
-                            </div>
-
-                            <div v-if="settingsForm.amenities.custom?.length" class="flex flex-wrap gap-2">
-                                <div v-for="(item, index) in settingsForm.amenities.custom" :key="index"
-                                    class="inline-flex items-center gap-2 px-3 py-2 bg-amber-50 text-amber-700 rounded-lg border border-amber-200">
-                                    <StarIcon class="w-4 h-4 text-amber-500" />
-                                    <span class="text-sm font-medium">{{ item }}</span>
-                                    <button @click="removeCustomAmenity(index)" class="p-0.5 hover:bg-amber-100 rounded">
-                                        <XMarkIcon class="w-4 h-4" />
+                                    <button @click="settingsForm.coordinates = null"
+                                        class="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                        Clear
                                     </button>
                                 </div>
                             </div>
-                            <p v-else class="text-sm text-gray-400 text-center py-4">No custom amenities added yet</p>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- === TAB: LOCATION === -->
-                <div v-show="activeTab === 'location'" class="space-y-6">
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div class="px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
-                            <h3 class="font-semibold text-gray-900 flex items-center gap-2">
-                                <MapPinIcon class="w-5 h-5 text-gray-400" />
-                                Building Location
-                            </h3>
-                            <p class="text-xs text-gray-500 mt-1">Click on the map or drag the marker to set location</p>
-                        </div>
-                        <div class="p-6">
-                            <BuildingMap
-                                :coordinates="settingsForm.coordinates"
-                                :address="building.property?.address"
-                                :editable="true"
-                                height="400px"
-                                @update:coordinates="updateCoordinates"
-                            />
-
-                            <!-- Coordinate Display -->
-                            <div v-if="settingsForm.coordinates?.lat" class="mt-4 flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
-                                        <MapPinIcon class="w-5 h-5 text-indigo-600" />
+                            <!-- Water Configuration Link -->
+                            <div v-if="canAccessWater" class="p-6 rounded-xl border border-blue-200 bg-blue-50">
+                                <div class="flex items-start gap-4">
+                                    <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                                        <Cog6ToothIcon class="w-5 h-5 text-blue-600" />
                                     </div>
-                                    <div>
-                                        <div class="text-sm font-medium text-gray-900">Coordinates Set</div>
-                                        <div class="text-xs text-gray-500">
-                                            {{ settingsForm.coordinates.lat.toFixed(6) }}, {{ settingsForm.coordinates.lng.toFixed(6) }}
-                                        </div>
+                                    <div class="flex-1">
+                                        <h3 class="font-semibold text-gray-900">Water Billing Configuration</h3>
+                                        <p class="text-sm text-gray-600 mt-1">
+                                            Set up water meters, billing rates, and consumption tracking.
+                                        </p>
+                                        <Link :href="route('buildings.water-settings', building.id)"
+                                            class="inline-flex items-center mt-3 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+                                            Configure Water Settings
+                                        </Link>
                                     </div>
                                 </div>
-                                <button @click="settingsForm.coordinates = null"
-                                    class="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-all">
-                                    Clear
-                                </button>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Water Configuration Link (only if water billing feature is enabled) -->
-                    <div v-if="canAccessWater" class="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl border border-blue-100 p-6">
-                        <div class="flex items-start gap-4">
-                            <div class="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center shrink-0">
-                                <Cog6ToothIcon class="w-6 h-6 text-white" />
-                            </div>
-                            <div class="flex-1">
-                                <h3 class="font-semibold text-gray-900">Water Billing Configuration</h3>
-                                <p class="text-sm text-gray-600 mt-1">
-                                    Set up water meters, billing rates, and consumption tracking for this building.
-                                </p>
-                                <Link :href="route('buildings.water-settings', building.id)"
-                                    class="inline-flex items-center mt-4 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all shadow-sm">
-                                    Configure Water Settings
-                                    <ChevronDownIcon class="w-4 h-4 ml-2 -rotate-90" />
-                                </Link>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- === TAB: AUTOMATION === -->
-                <div v-show="activeTab === 'automation'" class="space-y-6">
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div class="px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+                        <!-- === TAB: AUTOMATION === -->
+                        <div v-show="activeTab === 'automation'" class="space-y-6">
                             <h3 class="font-semibold text-gray-900 flex items-center gap-2">
                                 <DocumentTextIcon class="w-5 h-5 text-gray-400" />
                                 Invoice Automation
                             </h3>
-                            <p class="text-xs text-gray-500 mt-1">Configure automatic invoice generation for this building</p>
-                        </div>
-                        <div class="p-6 space-y-6">
+
                             <!-- Enable Automation Toggle -->
-                            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
                                         <ClockIcon class="w-5 h-5 text-indigo-600" />
@@ -963,11 +876,10 @@ const updateCoordinates = (coords) => {
                                 </div>
                                 <label class="relative inline-flex items-center cursor-pointer">
                                     <input type="checkbox" v-model="automationForm.auto_generate_invoices" class="sr-only peer">
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                                 </label>
                             </div>
 
-                            <!-- Generation Day -->
                             <div v-if="automationForm.auto_generate_invoices" class="space-y-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">
@@ -983,11 +895,10 @@ const updateCoordinates = (coords) => {
                                     <p class="mt-1 text-xs text-gray-500">Invoices will be generated at 6:00 AM on this day each month</p>
                                 </div>
 
-                                <!-- Auto-Send Toggle -->
-                                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
                                     <div class="flex items-center gap-3">
-                                        <div class="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                                            <EnvelopeIcon class="w-5 h-5 text-emerald-600" />
+                                        <div class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                                            <EnvelopeIcon class="w-5 h-5 text-green-600" />
                                         </div>
                                         <div>
                                             <div class="font-medium text-gray-900">Auto-Send via Email</div>
@@ -996,12 +907,11 @@ const updateCoordinates = (coords) => {
                                     </div>
                                     <label class="relative inline-flex items-center cursor-pointer">
                                         <input type="checkbox" v-model="automationForm.auto_send_invoices" class="sr-only peer">
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
                                     </label>
                                 </div>
                             </div>
 
-                            <!-- Info Box -->
                             <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
                                 <div class="flex gap-3">
                                     <DocumentTextIcon class="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
@@ -1017,31 +927,24 @@ const updateCoordinates = (coords) => {
                                 </div>
                             </div>
 
-                            <!-- Save Button -->
                             <div class="flex justify-end pt-4 border-t border-gray-100">
                                 <button @click="submitAutomation"
                                     :disabled="automationForm.processing"
-                                    class="inline-flex items-center px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md disabled:opacity-50">
+                                    class="inline-flex items-center px-6 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50">
                                     <CheckIcon class="w-4 h-4 mr-2" />
                                     {{ automationForm.processing ? 'Saving...' : 'Save Automation Settings' }}
                                 </button>
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                <!-- === TAB: DEDUCTIONS === -->
-                <div v-show="activeTab === 'deductions'" class="space-y-6">
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div class="px-6 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+                        <!-- === TAB: DEDUCTIONS === -->
+                        <div v-show="activeTab === 'deductions'" class="space-y-6">
                             <h3 class="font-semibold text-gray-900 flex items-center gap-2">
                                 <DocumentTextIcon class="w-5 h-5 text-gray-400" />
                                 Move-Out Deduction Defaults
                             </h3>
-                            <p class="text-xs text-gray-500 mt-1">Configure deductions that automatically apply during move-out inspections</p>
-                        </div>
-                        <div class="p-6 space-y-6">
-                            <!-- Info Box -->
+                            <p class="text-sm text-gray-500">Configure deductions that automatically apply during move-out inspections.</p>
+
                             <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
                                 <div class="flex gap-3">
                                     <DocumentTextIcon class="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
@@ -1056,21 +959,16 @@ const updateCoordinates = (coords) => {
                                 </div>
                             </div>
 
-                            <!-- Manage Categories Button -->
                             <div class="flex justify-center py-4">
                                 <Link
                                     :href="route('move-out-categories.index')"
-                                    class="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold text-indigo-600 bg-indigo-50 rounded-xl hover:bg-indigo-100 transition-colors"
-                                >
+                                    class="inline-flex items-center gap-2 px-6 py-3 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-xl hover:bg-indigo-100 transition-colors">
                                     <Cog6ToothIcon class="w-5 h-5" />
                                     Manage Deduction Categories
                                 </Link>
                             </div>
-
-                            <p class="text-center text-sm text-gray-500">
-                                Configure default deduction categories like cleaning fees, paint works, and repairs.
-                            </p>
                         </div>
+
                     </div>
                 </div>
 
@@ -1090,10 +988,8 @@ const updateCoordinates = (coords) => {
                 leave-to-class="opacity-0">
                 <div v-if="showActionModal" class="fixed inset-0 z-50 overflow-y-auto">
                     <div class="flex min-h-full items-center justify-center p-4">
-                        <!-- Backdrop -->
                         <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" @click="showActionModal = false"></div>
 
-                        <!-- Modal -->
                         <Transition
                             enter-active-class="duration-200 ease-out"
                             enter-from-class="opacity-0 scale-95"
@@ -1102,8 +998,7 @@ const updateCoordinates = (coords) => {
                             leave-from-class="opacity-100 scale-100"
                             leave-to-class="opacity-0 scale-95">
                             <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-                                <!-- Header -->
-                                <div class="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+                                <div class="px-6 py-4 border-b border-gray-100">
                                     <div class="flex items-center gap-3">
                                         <div :class="[
                                             'w-10 h-10 rounded-xl flex items-center justify-center',
@@ -1121,7 +1016,6 @@ const updateCoordinates = (coords) => {
                                     </div>
                                 </div>
 
-                                <!-- Content -->
                                 <div class="p-6">
                                     <div v-if="modalType === 'update_rent'">
                                         <label class="block text-sm font-medium text-gray-700 mb-2">New Rent Amount ({{ currencyCode }})</label>
@@ -1130,7 +1024,7 @@ const updateCoordinates = (coords) => {
                                                 <span class="text-gray-400 font-medium">{{ currencySymbol }}</span>
                                             </div>
                                             <input v-model="actionForm.value" type="number"
-                                                class="w-full pl-14 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-lg font-semibold"
+                                                class="w-full pl-14 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-lg font-semibold"
                                                 placeholder="25,000">
                                         </div>
                                     </div>
@@ -1139,54 +1033,39 @@ const updateCoordinates = (coords) => {
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Select Unit Type</label>
                                         <div class="grid grid-cols-2 gap-3">
                                             <label :class="[
-                                                'flex flex-col items-center gap-2 p-4 rounded-xl border-2 cursor-pointer transition-all',
+                                                'flex flex-col items-center gap-2 p-4 rounded-xl border-2 cursor-pointer transition-colors',
                                                 actionForm.value === 'residential'
                                                     ? 'border-indigo-500 bg-indigo-50'
                                                     : 'border-gray-200 hover:border-gray-300'
                                             ]">
                                                 <input type="radio" v-model="actionForm.value" value="residential" class="sr-only">
-                                                <HomeIcon :class="[
-                                                    'w-8 h-8',
-                                                    actionForm.value === 'residential' ? 'text-indigo-600' : 'text-gray-400'
-                                                ]" />
-                                                <span :class="[
-                                                    'font-medium',
-                                                    actionForm.value === 'residential' ? 'text-indigo-700' : 'text-gray-700'
-                                                ]">Residential</span>
+                                                <HomeIcon :class="['w-8 h-8', actionForm.value === 'residential' ? 'text-indigo-600' : 'text-gray-400']" />
+                                                <span :class="['font-medium', actionForm.value === 'residential' ? 'text-indigo-700' : 'text-gray-700']">Residential</span>
                                             </label>
                                             <label :class="[
-                                                'flex flex-col items-center gap-2 p-4 rounded-xl border-2 cursor-pointer transition-all',
+                                                'flex flex-col items-center gap-2 p-4 rounded-xl border-2 cursor-pointer transition-colors',
                                                 actionForm.value === 'commercial'
                                                     ? 'border-purple-500 bg-purple-50'
                                                     : 'border-gray-200 hover:border-gray-300'
                                             ]">
                                                 <input type="radio" v-model="actionForm.value" value="commercial" class="sr-only">
-                                                <BriefcaseIcon :class="[
-                                                    'w-8 h-8',
-                                                    actionForm.value === 'commercial' ? 'text-purple-600' : 'text-gray-400'
-                                                ]" />
-                                                <span :class="[
-                                                    'font-medium',
-                                                    actionForm.value === 'commercial' ? 'text-purple-700' : 'text-gray-700'
-                                                ]">Commercial</span>
+                                                <BriefcaseIcon :class="['w-8 h-8', actionForm.value === 'commercial' ? 'text-purple-600' : 'text-gray-400']" />
+                                                <span :class="['font-medium', actionForm.value === 'commercial' ? 'text-purple-700' : 'text-gray-700']">Commercial</span>
                                             </label>
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- Footer -->
                                 <div class="px-6 py-4 bg-gray-50 flex justify-end gap-3">
                                     <button @click="showActionModal = false"
-                                        class="px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all">
+                                        class="px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                                         Cancel
                                     </button>
                                     <button @click="submitAction"
                                         :disabled="!actionForm.value || actionForm.processing"
                                         :class="[
-                                            'px-4 py-2.5 text-sm font-semibold text-white rounded-xl transition-all disabled:opacity-50',
-                                            modalType === 'update_rent'
-                                                ? 'bg-emerald-600 hover:bg-emerald-700'
-                                                : 'bg-purple-600 hover:bg-purple-700'
+                                            'px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50',
+                                            modalType === 'update_rent' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-purple-600 hover:bg-purple-700'
                                         ]">
                                         {{ actionForm.processing ? 'Applying...' : 'Apply Changes' }}
                                     </button>
@@ -1224,12 +1103,12 @@ const updateCoordinates = (coords) => {
                             </div>
                             <div class="px-6 py-4 bg-gray-50 flex gap-3">
                                 <button @click="showDeleteConfirm = false"
-                                    class="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all">
+                                    class="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                                     Cancel
                                 </button>
                                 <button @click="confirmDelete"
                                     :disabled="actionForm.processing"
-                                    class="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 rounded-xl hover:bg-red-700 transition-all disabled:opacity-50">
+                                    class="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50">
                                     {{ actionForm.processing ? 'Deleting...' : 'Delete' }}
                                 </button>
                             </div>
@@ -1253,8 +1132,7 @@ const updateCoordinates = (coords) => {
                         <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" @click="showAddUnitModal = false"></div>
 
                         <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-                            <!-- Header -->
-                            <div class="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+                            <div class="px-6 py-4 border-b border-gray-100">
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
                                         <PlusIcon class="w-5 h-5 text-indigo-600" />
@@ -1266,7 +1144,6 @@ const updateCoordinates = (coords) => {
                                 </div>
                             </div>
 
-                            <!-- Form -->
                             <form @submit.prevent="submitAddUnit" class="p-6 space-y-5">
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
@@ -1302,43 +1179,36 @@ const updateCoordinates = (coords) => {
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Unit Type</label>
                                     <div class="grid grid-cols-2 gap-3">
                                         <label :class="[
-                                            'flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all',
+                                            'flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors',
                                             addUnitForm.unit_type === 'residential'
                                                 ? 'border-indigo-500 bg-indigo-50'
                                                 : 'border-gray-200 hover:border-gray-300'
                                         ]">
                                             <input type="radio" v-model="addUnitForm.unit_type" value="residential" class="sr-only">
-                                            <HomeIcon :class="[
-                                                'w-5 h-5',
-                                                addUnitForm.unit_type === 'residential' ? 'text-indigo-600' : 'text-gray-400'
-                                            ]" />
+                                            <HomeIcon :class="['w-5 h-5', addUnitForm.unit_type === 'residential' ? 'text-indigo-600' : 'text-gray-400']" />
                                             <span :class="addUnitForm.unit_type === 'residential' ? 'text-indigo-700' : 'text-gray-700'">Residential</span>
                                         </label>
                                         <label :class="[
-                                            'flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all',
+                                            'flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors',
                                             addUnitForm.unit_type === 'commercial'
                                                 ? 'border-purple-500 bg-purple-50'
                                                 : 'border-gray-200 hover:border-gray-300'
                                         ]">
                                             <input type="radio" v-model="addUnitForm.unit_type" value="commercial" class="sr-only">
-                                            <BriefcaseIcon :class="[
-                                                'w-5 h-5',
-                                                addUnitForm.unit_type === 'commercial' ? 'text-purple-600' : 'text-gray-400'
-                                            ]" />
+                                            <BriefcaseIcon :class="['w-5 h-5', addUnitForm.unit_type === 'commercial' ? 'text-purple-600' : 'text-gray-400']" />
                                             <span :class="addUnitForm.unit_type === 'commercial' ? 'text-purple-700' : 'text-gray-700'">Commercial</span>
                                         </label>
                                     </div>
                                 </div>
 
-                                <!-- Footer -->
                                 <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
                                     <button type="button" @click="showAddUnitModal = false"
-                                        class="px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all">
+                                        class="px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                                         Cancel
                                     </button>
                                     <button type="submit"
                                         :disabled="addUnitForm.processing"
-                                        class="px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all disabled:opacity-50">
+                                        class="px-4 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50">
                                         {{ addUnitForm.processing ? 'Creating...' : 'Create Unit' }}
                                     </button>
                                 </div>
@@ -1349,23 +1219,55 @@ const updateCoordinates = (coords) => {
             </Transition>
         </Teleport>
 
+        <!-- Delete Building Confirmation Modal -->
+        <Teleport to="body">
+            <Transition
+                enter-active-class="duration-200 ease-out"
+                enter-from-class="opacity-0"
+                enter-to-class="opacity-100"
+                leave-active-class="duration-150 ease-in"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0">
+                <div v-if="showDeleteBuildingModal" class="fixed inset-0 z-50 overflow-y-auto">
+                    <div class="flex min-h-full items-center justify-center p-4">
+                        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" @click="showDeleteBuildingModal = false"></div>
+
+                        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+                            <div class="p-6 text-center">
+                                <div class="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                                    <TrashIcon class="w-8 h-8 text-red-600" />
+                                </div>
+                                <h3 class="text-lg font-semibold text-gray-900 mb-2">Delete Building?</h3>
+                                <p class="text-sm text-gray-500">
+                                    <template v-if="building.is_wing && parentBuilding">
+                                        This will permanently delete <span class="font-semibold">{{ parentBuilding.name }}</span>,
+                                        all {{ buildings.length }} wings, and their units. This action cannot be undone.
+                                    </template>
+                                    <template v-else>
+                                        This will permanently delete <span class="font-semibold">{{ building.name }}</span>
+                                        and all {{ units.length }} units. This action cannot be undone.
+                                    </template>
+                                </p>
+                                <p v-if="$page.props.errors?.building" class="mt-3 text-sm text-red-600 font-medium">
+                                    {{ $page.props.errors.building }}
+                                </p>
+                            </div>
+                            <div class="px-6 py-4 bg-gray-50 flex gap-3">
+                                <button @click="showDeleteBuildingModal = false"
+                                    class="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                                    Cancel
+                                </button>
+                                <button @click="confirmDeleteBuilding"
+                                    :disabled="deletingBuilding"
+                                    class="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50">
+                                    {{ deletingBuilding ? 'Deleting...' : 'Delete Building' }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </Transition>
+        </Teleport>
+
     </AuthenticatedLayout>
 </template>
-
-<style scoped>
-/* Custom scrollbar for the grid */
-.overflow-x-auto::-webkit-scrollbar {
-    height: 8px;
-}
-.overflow-x-auto::-webkit-scrollbar-track {
-    background: #f1f5f9;
-    border-radius: 4px;
-}
-.overflow-x-auto::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 4px;
-}
-.overflow-x-auto::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
-}
-</style>

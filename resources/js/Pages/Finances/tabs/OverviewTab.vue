@@ -256,7 +256,7 @@ const monthTrendClass = computed(() => {
                         class="px-5 py-3 flex items-center justify-between hover:bg-gray-50"
                     >
                         <div class="flex items-center gap-3">
-                            <div class="flex-shrink-0">
+                            <div class="shrink-0">
                                 <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
                                     <BanknotesIcon class="h-4 w-4 text-emerald-600" />
                                 </div>
@@ -296,7 +296,7 @@ const monthTrendClass = computed(() => {
                         class="px-5 py-3 flex items-center justify-between hover:bg-gray-50"
                     >
                         <div class="flex items-center gap-3">
-                            <div class="flex-shrink-0">
+                            <div class="shrink-0">
                                 <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
                                     <DocumentTextIcon class="h-4 w-4 text-blue-600" />
                                 </div>

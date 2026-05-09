@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import ActionItemCard from '@/Components/ActionItemCard.vue';
@@ -19,34 +19,28 @@ import {
     ArrowTrendingUpIcon,
     EyeIcon
 } from '@heroicons/vue/24/outline';
+import type { SystemHealth, AdminActionItems, LandlordSummary } from '@/types';
 
-const props = defineProps({
-    systemHealth: {
-        type: Object,
-        default: () => ({
-            active_landlords: 0,
-            total_properties: 0,
-            total_units: 0,
-            total_tenants: 0,
-            monthly_revenue: 0,
-            total_revenue: 0,
-        })
-    },
-    actionItems: {
-        type: Object,
-        default: () => ({
-            inactive_landlords: 0,
-            new_signups: 0,
-        })
-    },
-    landlords: {
-        type: Array,
-        default: () => []
-    },
-    topLandlords: {
-        type: Array,
-        default: () => []
-    }
+const props = withDefaults(defineProps<{
+    systemHealth?: SystemHealth;
+    actionItems?: AdminActionItems;
+    landlords?: LandlordSummary[];
+    topLandlords?: LandlordSummary[];
+}>(), {
+    systemHealth: () => ({
+        active_landlords: 0,
+        total_properties: 0,
+        total_units: 0,
+        total_tenants: 0,
+        monthly_revenue: 0,
+        total_revenue: 0,
+    }),
+    actionItems: () => ({
+        inactive_landlords: 0,
+        new_signups: 0,
+    }),
+    landlords: () => [],
+    topLandlords: () => [],
 });
 
 // Use composables

@@ -1,16 +1,12 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useFormatters } from '@/composables';
 import BuildingWingFilter from '@/Components/BuildingWingFilter.vue';
+import type { ImportsIndexPageProps } from '@/types/operations';
 
-const props = defineProps({
-    imports: Object,
-    importTypes: Object,
-    buildings: Array,
-    filters: Object
-});
+const props = defineProps<ImportsIndexPageProps>();
 
 const selectedType = ref('');
 const selectedFile = ref(null);

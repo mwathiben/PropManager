@@ -1,6 +1,7 @@
-<script setup>
+<script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import type { HelpShowPageProps } from '@/types/help';
 import {
     ArrowLeftIcon,
     DocumentTextIcon,
@@ -8,10 +9,7 @@ import {
 import { marked } from 'marked';
 import { computed } from 'vue';
 
-const props = defineProps({
-    article: Object,
-    relatedArticles: Array,
-});
+const props = defineProps<HelpShowPageProps>();
 
 const renderedContent = computed(() => {
     return marked(props.article.content || '');
@@ -75,7 +73,7 @@ const categoryLabels = {
                                     class="block px-4 py-3 hover:bg-gray-50 transition-colors"
                                 >
                                     <div class="flex items-start gap-2">
-                                        <DocumentTextIcon class="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                                        <DocumentTextIcon class="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
                                         <span class="text-sm text-gray-700 hover:text-indigo-600">{{ related.title }}</span>
                                     </div>
                                 </Link>

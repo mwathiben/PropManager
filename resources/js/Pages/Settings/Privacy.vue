@@ -1,14 +1,11 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import type { PrivacySettingsPageProps } from '@/types/operations';
 import ArrowLeftIcon from '@heroicons/vue/24/outline/ArrowLeftIcon';
 
-const props = defineProps({
-    deletionStatus: Object,
-    canDelete: Object,
-    gracePeriodDays: Number,
-});
+const props = defineProps<PrivacySettingsPageProps>();
 
 const showDeleteModal = ref(false);
 const showExportModal = ref(false);
@@ -169,8 +166,10 @@ const cancelDeletion = () => {
         </div>
 
         <!-- Export Modal -->
-        <div v-if="showExportModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+        <div v-if="showExportModal" class="fixed inset-0 z-50 overflow-y-auto">
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showExportModal = false"></div>
+                <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
                 <h3 class="text-lg font-medium text-gray-900 mb-4">Export Your Data</h3>
                 <p class="text-sm text-gray-600 mb-4">
                     We'll prepare a ZIP file containing all your personal data. This may take a few minutes
@@ -191,12 +190,15 @@ const cancelDeletion = () => {
                         {{ exportInProgress ? 'Requesting...' : 'Request Export' }}
                     </button>
                 </div>
+                </div>
             </div>
         </div>
 
         <!-- Delete Modal -->
-        <div v-if="showDeleteModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+        <div v-if="showDeleteModal" class="fixed inset-0 z-50 overflow-y-auto">
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showDeleteModal = false"></div>
+                <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
                 <h3 class="text-lg font-medium text-red-600 mb-4">Delete Your Account</h3>
                 <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
                     <p class="text-sm text-red-800">
@@ -229,6 +231,7 @@ const cancelDeletion = () => {
                     >
                         {{ deleteForm.processing ? 'Processing...' : 'Delete My Account' }}
                     </button>
+                </div>
                 </div>
             </div>
         </div>

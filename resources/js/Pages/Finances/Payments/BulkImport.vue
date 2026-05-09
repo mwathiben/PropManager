@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { router, Head, Link } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
@@ -18,12 +18,10 @@ import {
     UserPlusIcon,
     InformationCircleIcon,
 } from '@heroicons/vue/24/outline';
+import type { PaymentsBulkImportPageProps } from '@/types';
 
-const props = defineProps({
-    buildings: {
-        type: Array,
-        default: () => [],
-    },
+const props = withDefaults(defineProps<PaymentsBulkImportPageProps>(), {
+    buildings: () => [],
 });
 
 const { formatMoney } = useFormatters();

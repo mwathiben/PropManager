@@ -1,8 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useFormatters } from '@/composables';
+import type { AdminLandlordsPageProps } from '@/types';
 import {
     MagnifyingGlassIcon,
     PlusIcon,
@@ -10,10 +11,7 @@ import {
     ArrowRightOnRectangleIcon
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    landlords: Object,
-    filters: Object,
-});
+const props = defineProps<AdminLandlordsPageProps>();
 
 const searchQuery = ref(props.filters?.search || '');
 const showCreateModal = ref(false);
@@ -178,8 +176,8 @@ const getOccupancyRate = (occupied, total) => {
         <!-- Create Modal -->
         <div v-if="showCreateModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-gray-500 bg-opacity-75" @click="showCreateModal = false"></div>
-                <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showCreateModal = false"></div>
+                <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">Create Landlord Account</h3>
                     <form @submit.prevent="createLandlord" class="space-y-4">
                         <div>

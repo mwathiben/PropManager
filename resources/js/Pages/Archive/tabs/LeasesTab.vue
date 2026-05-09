@@ -1,7 +1,8 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import { router, Link } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
+import type { ArchiveLeasesTabProps } from '@/types';
 import {
     MagnifyingGlassIcon,
     DocumentDuplicateIcon,
@@ -10,11 +11,7 @@ import {
 } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
 
-const props = defineProps({
-    leases: Object,
-    buildings: Array,
-    filters: Object,
-});
+const props = defineProps<ArchiveLeasesTabProps>();
 
 const { formatDate, formatCurrency } = useFormatters();
 

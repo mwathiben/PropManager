@@ -1,7 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, Link } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
+import { useFormatters } from '@/composables';
+import type { MoveOutsIndexPageProps } from '@/types/finances';
 import {
     ArrowRightOnRectangleIcon,
     ClipboardDocumentCheckIcon,
@@ -15,34 +17,14 @@ import {
 } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
 
-const props = defineProps({
-    moveOuts: Object,
-    status: String,
-    stats: Object,
-});
+const props = defineProps<MoveOutsIndexPageProps>();
+const { formatMoney: formatCurrency, formatDate } = useFormatters();
 
 const currentStatus = ref(props.status);
 
 const filterByStatus = (status) => {
     currentStatus.value = status;
     router.get(route('move-outs.index'), { status }, { preserveState: true });
-};
-
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-    }).format(amount || 0);
-};
-
-const formatDate = (date) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString('en-KE', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-    });
 };
 
 const getStatusBadge = (status) => {

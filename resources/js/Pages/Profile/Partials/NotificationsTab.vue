@@ -1,7 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { router } from '@inertiajs/vue3';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import { useErrorHandler } from '@/composables';
+import type { ProfileNotificationsTabProps } from '@/types';
 import {
     BellIcon,
     BellSlashIcon,
@@ -12,10 +14,9 @@ import {
     ArrowPathIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    user: Object,
-});
+const props = defineProps<ProfileNotificationsTabProps>();
 
+const { logError } = useErrorHandler();
 const isSupported = ref(false);
 const permissionState = ref('default');
 const isLoading = ref(false);
@@ -48,7 +49,7 @@ onMounted(async () => {
             const subscription = await registration.pushManager.getSubscription();
             isSubscribed.value = !!subscription;
         } catch (e) {
-            console.error('Failed to check push status:', e);
+            logError(e, { component: 'NotificationsTab', action: 'checkPushStatus' });
         }
     }
 });
@@ -120,7 +121,7 @@ const subscribe = async () => {
             throw new Error('Failed to save subscription');
         }
     } catch (e) {
-        console.error('Push subscription failed:', e);
+        logError(e, { component: 'NotificationsTab', action: 'subscribe' });
         error.value = 'Failed to enable push notifications. Please try again.';
     } finally {
         isLoading.value = false;
@@ -154,7 +155,7 @@ const unsubscribe = async () => {
         isSubscribed.value = false;
         success.value = 'Push notifications disabled.';
     } catch (e) {
-        console.error('Push unsubscribe failed:', e);
+        logError(e, { component: 'NotificationsTab', action: 'unsubscribe' });
         error.value = 'Failed to disable push notifications.';
     } finally {
         isLoading.value = false;
@@ -172,7 +173,7 @@ const testNotification = async () => {
             badge: '/images/badge-72.png',
         });
     } catch (e) {
-        console.error('Test notification failed:', e);
+        logError(e, { component: 'NotificationsTab', action: 'testNotification' });
     }
 };
 </script>
@@ -194,7 +195,7 @@ const testNotification = async () => {
             <!-- Not Supported -->
             <div v-if="!isSupported" class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <div class="flex items-start gap-3">
-                    <ExclamationTriangleIcon class="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+                    <ExclamationTriangleIcon class="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
                     <div>
                         <p class="text-sm font-medium text-yellow-800">Not Supported</p>
                         <p class="text-sm text-yellow-700 mt-1">
@@ -207,7 +208,7 @@ const testNotification = async () => {
             <!-- Permission Denied -->
             <div v-else-if="permissionState === 'denied'" class="bg-red-50 border border-red-200 rounded-lg p-4">
                 <div class="flex items-start gap-3">
-                    <BellSlashIcon class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                    <BellSlashIcon class="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
                     <div>
                         <p class="text-sm font-medium text-red-800">Notifications Blocked</p>
                         <p class="text-sm text-red-700 mt-1">
@@ -325,7 +326,7 @@ const testNotification = async () => {
         <!-- Other Devices Info -->
         <div class="bg-gray-50 rounded-xl border border-gray-200 p-4">
             <div class="flex items-start gap-3">
-                <DevicePhoneMobileIcon class="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                <DevicePhoneMobileIcon class="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
                 <div>
                     <h4 class="text-xs font-medium text-gray-700">Multiple Devices</h4>
                     <p class="text-xs text-gray-600 mt-1">

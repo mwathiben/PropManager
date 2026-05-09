@@ -1,7 +1,9 @@
-<script setup>
-import { ref } from 'vue';
-import { router, Link, useForm } from '@inertiajs/vue3';
+<script setup lang="ts">
+import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { router, Link, useForm, usePage } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
+import { useEcho } from '@/composables/useEcho';
+import type { OperationsTeamTabProps } from '@/types/operations';
 import {
     UserGroupIcon,
     UserPlusIcon,
@@ -11,17 +13,57 @@ import {
     CheckCircleIcon,
     ClockIcon,
     XCircleIcon,
+    ClipboardDocumentIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    invitations: Object,
-    caretakers: Array,
-    buildings: Array,
-});
+const props = defineProps<OperationsTeamTabProps>();
 
 const { formatDate } = useFormatters();
+const page = usePage();
+const { subscribePrivate, unsubscribe } = useEcho();
 
 const showInviteModal = ref(false);
+const localInvitations = ref([...(props.invitations?.data || [])]);
+const toast = ref({ show: false, message: '', type: 'success' });
+
+watch(() => props.invitations, (newVal) => {
+    localInvitations.value = [...(newVal?.data || [])];
+}, { deep: true });
+
+const landlordId = page.props.auth?.user?.id;
+
+onMounted(() => {
+    if (landlordId) {
+        subscribePrivate(`landlord.${landlordId}`, 'InvitationAccepted', handleInvitationAccepted);
+    }
+});
+
+onUnmounted(() => {
+    if (landlordId) {
+        unsubscribe(`landlord.${landlordId}`);
+    }
+});
+
+const handleInvitationAccepted = (data) => {
+    const index = localInvitations.value.findIndex(inv => inv.id === data.invitation_id);
+    if (index !== -1) {
+        localInvitations.value[index] = {
+            ...localInvitations.value[index],
+            status: 'accepted',
+            accepted_at: data.accepted_at
+        };
+    }
+
+    showToast(`${data.accepted_by} accepted the invitation!`, 'success');
+    router.reload({ only: ['caretakers', 'invitations'] });
+};
+
+const showToast = (message, type = 'success') => {
+    toast.value = { show: true, message, type };
+    setTimeout(() => {
+        toast.value.show = false;
+    }, 5000);
+};
 
 const inviteForm = useForm({
     email: '',
@@ -35,13 +77,17 @@ const submitInvite = () => {
         onSuccess: () => {
             showInviteModal.value = false;
             inviteForm.reset();
+            showToast('Invitation sent successfully!');
         },
     });
 };
 
 const resendInvitation = (id) => {
     if (confirm('Resend this invitation?')) {
-        router.post(route('invitations.resend', id), {}, { preserveScroll: true });
+        router.post(route('invitations.resend', id), {}, {
+            preserveScroll: true,
+            onSuccess: () => showToast('Invitation resent!'),
+        });
     }
 };
 
@@ -55,6 +101,15 @@ const removeCaretaker = (id) => {
     if (confirm('Remove this caretaker? They will lose access to your properties.')) {
         router.delete(route('caretakers.destroy', id), { preserveScroll: true });
     }
+};
+
+const copyInviteLink = (invitation) => {
+    const url = `${window.location.origin}/invitations/${invitation.token}`;
+    navigator.clipboard.writeText(url).then(() => {
+        showToast('Invitation link copied to clipboard!');
+    }).catch(() => {
+        showToast('Failed to copy link', 'error');
+    });
 };
 
 const getStatusIcon = (status) => {
@@ -78,7 +133,6 @@ const getStatusColor = (status) => {
 
 <template>
     <div>
-        <!-- Header with Invite Button -->
         <div class="flex items-center justify-between mb-6">
             <div>
                 <h3 class="font-semibold text-gray-900">Team Members</h3>
@@ -93,7 +147,6 @@ const getStatusColor = (status) => {
             </button>
         </div>
 
-        <!-- Active Caretakers -->
         <div class="mb-8">
             <h4 class="text-sm font-medium text-gray-700 mb-3">Active Caretakers</h4>
             <div v-if="caretakers?.length > 0" class="space-y-3">
@@ -130,12 +183,11 @@ const getStatusColor = (status) => {
             </div>
         </div>
 
-        <!-- Pending Invitations -->
         <div>
             <h4 class="text-sm font-medium text-gray-700 mb-3">Pending Invitations</h4>
-            <div v-if="invitations?.data?.length > 0" class="space-y-3">
+            <div v-if="localInvitations?.length > 0" class="space-y-3">
                 <div
-                    v-for="invitation in invitations.data"
+                    v-for="invitation in localInvitations"
                     :key="invitation.id"
                     class="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between"
                 >
@@ -156,20 +208,29 @@ const getStatusColor = (status) => {
                             <component :is="getStatusIcon(invitation.status)" class="w-3 h-3" />
                             {{ invitation.status }}
                         </span>
-                        <button
-                            @click="resendInvitation(invitation.id)"
-                            class="p-1 text-purple-600 hover:bg-purple-50 rounded"
-                            title="Resend"
-                        >
-                            <PaperAirplaneIcon class="w-5 h-5" />
-                        </button>
-                        <button
-                            @click="cancelInvitation(invitation.id)"
-                            class="p-1 text-red-600 hover:bg-red-50 rounded"
-                            title="Cancel"
-                        >
-                            <TrashIcon class="w-5 h-5" />
-                        </button>
+                        <template v-if="invitation.status === 'pending'">
+                            <button
+                                @click="copyInviteLink(invitation)"
+                                class="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                                title="Copy Link"
+                            >
+                                <ClipboardDocumentIcon class="w-5 h-5" />
+                            </button>
+                            <button
+                                @click="resendInvitation(invitation.id)"
+                                class="p-1 text-purple-600 hover:bg-purple-50 rounded"
+                                title="Resend"
+                            >
+                                <PaperAirplaneIcon class="w-5 h-5" />
+                            </button>
+                            <button
+                                @click="cancelInvitation(invitation.id)"
+                                class="p-1 text-red-600 hover:bg-red-50 rounded"
+                                title="Cancel"
+                            >
+                                <TrashIcon class="w-5 h-5" />
+                            </button>
+                        </template>
                     </div>
                 </div>
             </div>
@@ -179,12 +240,11 @@ const getStatusColor = (status) => {
             </div>
         </div>
 
-        <!-- Invite Modal -->
         <div v-if="showInviteModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen p-4">
-                <div class="fixed inset-0 bg-gray-500 bg-opacity-75" @click="showInviteModal = false"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showInviteModal = false"></div>
 
-                <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">Invite Caretaker</h3>
 
                     <form @submit.prevent="submitInvite" class="space-y-4">
@@ -247,5 +307,26 @@ const getStatusColor = (status) => {
                 </div>
             </div>
         </div>
+
+        <Transition
+            enter-active-class="transition ease-out duration-300"
+            enter-from-class="translate-y-2 opacity-0"
+            enter-to-class="translate-y-0 opacity-100"
+            leave-active-class="transition ease-in duration-200"
+            leave-from-class="translate-y-0 opacity-100"
+            leave-to-class="translate-y-2 opacity-0"
+        >
+            <div
+                v-if="toast.show"
+                :class="[
+                    'fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 z-50',
+                    toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+                ]"
+            >
+                <CheckCircleIcon v-if="toast.type === 'success'" class="w-6 h-6" />
+                <XCircleIcon v-else class="w-6 h-6" />
+                <p class="font-medium">{{ toast.message }}</p>
+            </div>
+        </Transition>
     </div>
 </template>

@@ -1,7 +1,8 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, Link } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
+import type { InboxIndexPageProps } from '@/types/operations';
 import {
     InboxIcon,
     ChatBubbleLeftIcon,
@@ -14,11 +15,7 @@ import {
 } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
 
-const props = defineProps({
-    messages: Object,
-    unreadCount: Number,
-    filters: Object,
-});
+const props = defineProps<InboxIndexPageProps>();
 
 const search = ref(props.filters.search);
 const statusFilter = ref(props.filters.status);

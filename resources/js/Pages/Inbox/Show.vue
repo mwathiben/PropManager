@@ -1,7 +1,8 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import type { InboxShowPageProps } from '@/types/operations';
 import {
     ArrowLeftIcon,
     ChatBubbleLeftIcon,
@@ -14,9 +15,7 @@ import {
     BellIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    message: Object,
-});
+const props = defineProps<InboxShowPageProps>();
 
 const replyForm = useForm({
     body: '',
@@ -87,7 +86,7 @@ const statusLabel = (status) => {
                     <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
                         <div class="flex items-start justify-between">
                             <div class="flex items-center gap-4">
-                                <div class="flex-shrink-0 h-12 w-12 bg-gray-200 rounded-full flex items-center justify-center">
+                                <div class="shrink-0 h-12 w-12 bg-gray-200 rounded-full flex items-center justify-center">
                                     <ChatBubbleLeftIcon class="w-6 h-6 text-gray-500" />
                                 </div>
                                 <div>
@@ -131,7 +130,7 @@ const statusLabel = (status) => {
                     <!-- Original Notification Context -->
                     <div v-if="message.is_reply && message.original_notification" class="px-6 py-3 bg-indigo-50 border-b border-indigo-100">
                         <div class="flex items-start gap-2">
-                            <BellIcon class="w-5 h-5 text-indigo-500 flex-shrink-0 mt-0.5" />
+                            <BellIcon class="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
                             <div>
                                 <p class="text-sm font-medium text-indigo-900">
                                     Replying to: {{ message.original_notification.subject }}

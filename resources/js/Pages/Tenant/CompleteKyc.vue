@@ -51,6 +51,22 @@ const form = useForm({
     submissions: buildSubmissions(),
 });
 
+// Helper functions for dynamic error key handling (type assertions for Inertia form)
+const setFileError = (requirementId: number, message: string) => {
+    (form.setError as (key: string, message: string) => void)(
+        `submissions.${requirementId}.file`,
+        message
+    );
+};
+
+const clearFileError = (requirementId: number) => {
+    (form.clearErrors as (key: string) => void)(`submissions.${requirementId}.file`);
+};
+
+const getFileError = (requirementId: number): string | undefined => {
+    return (form.errors as Record<string, string>)[`submissions.${requirementId}.file`];
+};
+
 // Track file previews per requirement
 const filePreviews = ref<Record<number, string>>({});
 
@@ -145,22 +161,65 @@ const handleFileSelect = (requirementId: number, event: Event) => {
 
     // Validate file size (10MB max)
     if (file.size > 10 * 1024 * 1024) {
-        form.setError(`submissions.${requirementId}.file`, 'File must not exceed 10MB');
+        setFileError(requirementId, 'File must not exceed 10MB');
+        input.value = ''; // Reset input so same file can be selected again
         return;
     }
 
     // Validate file type
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif'];
     if (!allowedTypes.includes(file.type)) {
-        form.setError(
-            `submissions.${requirementId}.file`,
-            'File must be PDF, JPG, PNG, or GIF'
-        );
+        setFileError(requirementId, 'File must be PDF, JPG, PNG, or GIF');
+        input.value = ''; // Reset input so same file can be selected again
         return;
     }
 
     // Clear any previous errors
-    form.clearErrors(`submissions.${requirementId}.file`);
+    clearFileError(requirementId);
+
+    // Set file in form
+    form.submissions[requirementId].file = file;
+    fileNames[requirementId] = file.name;
+
+    // Generate preview for images
+    if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            filePreviews.value[requirementId] = e.target?.result as string;
+        };
+        reader.readAsDataURL(file);
+    } else {
+        // Clear preview for non-images (PDF)
+        filePreviews.value[requirementId] = '';
+    }
+
+    // Reset input value so selecting the same file again will trigger change event
+    input.value = '';
+};
+
+// Handle file drop from drag-and-drop
+const handleFileDrop = (requirementId: number, event: DragEvent) => {
+    event.preventDefault();
+    dragOver.value[requirementId] = false;
+
+    const file = event.dataTransfer?.files?.[0];
+    if (!file) return;
+
+    // Validate file size (10MB max)
+    if (file.size > 10 * 1024 * 1024) {
+        setFileError(requirementId, 'File must not exceed 10MB');
+        return;
+    }
+
+    // Validate file type
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+        setFileError(requirementId, 'File must be PDF, JPG, PNG, or GIF');
+        return;
+    }
+
+    // Clear any previous errors
+    clearFileError(requirementId);
 
     // Set file in form
     form.submissions[requirementId].file = file;
@@ -179,12 +238,26 @@ const handleFileSelect = (requirementId: number, event: Event) => {
     }
 };
 
+// Handle drag over
+const handleDragOver = (requirementId: number, event: DragEvent) => {
+    event.preventDefault();
+    dragOver.value[requirementId] = true;
+};
+
+// Handle drag leave
+const handleDragLeave = (requirementId: number) => {
+    dragOver.value[requirementId] = false;
+};
+
+// Track drag state for visual feedback
+const dragOver = ref<Record<number, boolean>>({});
+
 // Clear selected file
 const clearFile = (requirementId: number) => {
     form.submissions[requirementId].file = null;
     delete fileNames[requirementId];
     delete filePreviews.value[requirementId];
-    form.clearErrors(`submissions.${requirementId}.file`);
+    clearFileError(requirementId);
 };
 
 // Format file size
@@ -202,14 +275,17 @@ const needsAction = (requirementId: number): boolean => {
 
 // Submit the form
 const submit = () => {
-    // Filter to only submit requirements that need action and have files
-    const submissionsToSend = Object.values(form.submissions).filter(
-        (sub) => sub.file !== null
+    // Filter to only submit requirements that have files
+    const submissionsToSend = Object.entries(form.submissions).filter(
+        ([, sub]) => sub.file !== null
     );
 
     if (submissionsToSend.length === 0) {
         return;
     }
+
+    // Track submitted IDs for cleanup
+    const submittedIds = submissionsToSend.map(([id]) => Number(id));
 
     form.post(route('tenant.kyc.update'), {
         forceFormData: true,
@@ -220,6 +296,12 @@ const submit = () => {
             Object.keys(filePreviews.value).forEach(
                 (key) => delete filePreviews.value[Number(key)]
             );
+            // Clear File objects from form.submissions for submitted entries
+            submittedIds.forEach((id) => {
+                if (form.submissions[id]) {
+                    form.submissions[id].file = null;
+                }
+            });
         },
     });
 };
@@ -439,7 +521,15 @@ const getStatusBadgeClasses = (color: string): string => {
                                 <!-- No file selected yet -->
                                 <label
                                     v-if="!form.submissions[requirement.id]?.file"
-                                    class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors"
+                                    :class="[
+                                        'flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer transition-colors',
+                                        dragOver[requirement.id]
+                                            ? 'border-indigo-500 bg-indigo-100'
+                                            : 'border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/50'
+                                    ]"
+                                    @dragover="handleDragOver(requirement.id, $event)"
+                                    @dragleave="handleDragLeave(requirement.id)"
+                                    @drop="handleFileDrop(requirement.id, $event)"
                                 >
                                     <div class="flex flex-col items-center justify-center pt-5 pb-6">
                                         <ArrowUpTrayIcon
@@ -505,7 +595,7 @@ const getStatusBadgeClasses = (color: string): string => {
                             </div>
 
                             <InputError
-                                :message="form.errors[`submissions.${requirement.id}.file`]"
+                                :message="getFileError(requirement.id)"
                                 class="mt-2"
                             />
                         </div>

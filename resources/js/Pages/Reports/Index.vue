@@ -1,19 +1,17 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Modal from '@/Components/Modal.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { useFormatters } from '@/composables';
+import type { ReportsIndexPageProps } from '@/types/operations';
 import {
     CalendarIcon,
     DocumentArrowDownIcon,
     ChevronDownIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    analytics: Object,
-    availablePeriods: Object
-});
+const props = defineProps<ReportsIndexPageProps>();
 
 const selectedPeriod = ref(props.analytics.period);
 const showExportDropdown = ref(null);
@@ -105,7 +103,7 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                                     :key="key"
                                     @click="changePeriod(key)"
                                     :class="[
-                                        'px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0',
+                                        'px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap shrink-0',
                                         selectedPeriod === key && !formatDateRangeLabel
                                             ? 'bg-indigo-600 text-white'
                                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -116,7 +114,7 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                                 <button
                                     @click="showDateRangeModal = true"
                                     :class="[
-                                        'px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 flex items-center gap-2',
+                                        'px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap shrink-0 flex items-center gap-2',
                                         formatDateRangeLabel
                                             ? 'bg-indigo-600 text-white'
                                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'

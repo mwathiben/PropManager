@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { usePushNotifications } from '@/composables';
+import { usePushNotifications, useErrorHandler } from '@/composables';
 import {
     BellAlertIcon,
     XMarkIcon,
@@ -16,6 +16,7 @@ const {
     error,
     subscribe
 } = usePushNotifications();
+const { logError } = useErrorHandler();
 
 const isVisible = ref(false);
 const isDismissedSession = ref(false);
@@ -79,7 +80,7 @@ const handleEnable = async () => {
             subscribeError.value = error.value || 'Failed to enable notifications. Please try again.';
         }
     } catch (err) {
-        console.error('Failed to subscribe:', err);
+        logError(err, { component: 'PushNotificationPrompt', action: 'handleEnable' });
         subscribeError.value = 'Something went wrong. Please try again later.';
     }
 };
@@ -119,7 +120,7 @@ onMounted(() => {
         >
             <div class="flex items-start gap-4">
                 <!-- Icon -->
-                <div class="flex-shrink-0 p-3 bg-white/20 rounded-xl">
+                <div class="shrink-0 p-3 bg-white/20 rounded-xl">
                     <BellAlertIcon class="w-6 h-6 text-white" />
                 </div>
 
@@ -195,7 +196,7 @@ onMounted(() => {
                 <!-- Close Button -->
                 <button
                     @click="handleDismiss"
-                    class="flex-shrink-0 p-1 text-white/60 hover:text-white transition-colors"
+                    class="shrink-0 p-1 text-white/60 hover:text-white transition-colors"
                 >
                     <XMarkIcon class="w-5 h-5" />
                 </button>

@@ -1,14 +1,10 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
+import type { AdminAuditLogsPageProps } from '@/types';
 
-const props = defineProps({
-    logs: Object,
-    filters: Object,
-    eventTypes: Array,
-    modelTypes: Array,
-});
+const props = defineProps<AdminAuditLogsPageProps>();
 
 const filters = ref({
     event_type: props.filters.event_type || '',

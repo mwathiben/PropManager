@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import BuildingWingFilter from '@/Components/BuildingWingFilter.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
@@ -6,6 +6,7 @@ import { ref, computed } from 'vue';
 import TicketStatusBadge from '@/Components/TicketStatusBadge.vue';
 import TicketPriorityBadge from '@/Components/TicketPriorityBadge.vue';
 import { useFormatters, useAuth } from '@/composables';
+import type { TicketsIndexPageProps, TicketStatus, TicketCategory, TicketPriority } from '@/types';
 import {
     FunnelIcon,
     MagnifyingGlassIcon,
@@ -16,15 +17,7 @@ import {
 } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
 
-const props = defineProps({
-    tickets: Object,
-    buildings: Array,
-    stats: Object,
-    filters: Object,
-    statuses: Object,
-    priorities: Object,
-    categories: Object
-});
+const props = defineProps<TicketsIndexPageProps>();
 
 const search = ref(props.filters.search || '');
 const status = ref(props.filters.status || '');

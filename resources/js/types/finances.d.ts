@@ -41,6 +41,8 @@ export interface Building extends BaseEntity {
   floors?: number;
   units_per_floor?: number;
   currency?: string;
+  is_wing?: boolean;
+  parent_building_id?: number | null;
 }
 
 // Property
@@ -597,9 +599,18 @@ export interface BuildingsIndexFilters {
   sort?: string;
 }
 
+// Grouped buildings for Index page
+export interface BuildingGroup {
+  parent_name: string | null;
+  parent_address: string | null;
+  parent_building_type: string | null;
+  parent_type_label: string | null;
+  buildings: BuildingListItem[];
+}
+
 // Buildings Index Page Props
 export interface BuildingsIndexPageProps {
-  buildings: BuildingListItem[];
+  buildingGroups: BuildingGroup[];
   buildingTypes: BuildingTypesLookup;
   amenityOptions: AmenityOptionsLookup;
   filters: BuildingsIndexFilters;
@@ -615,6 +626,7 @@ export interface BuildingEditUnit extends Unit {
 export interface BuildingEditData extends Building {
   total_floors: number;
   units_per_floor: number;
+  unit_prefix?: string | null;
   building_type?: string;
   amenities?: {
     selected: string[];
@@ -635,6 +647,7 @@ export interface BuildingsEditPageProps {
   buildings: Building[];
   units: BuildingEditUnit[];
   amenityOptions: AmenityOptionsLookup;
+  parentBuilding?: { id: number; name: string } | null;
 }
 
 // Invoices Show Page Props

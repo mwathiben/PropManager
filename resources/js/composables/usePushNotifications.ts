@@ -1,4 +1,5 @@
 import { ref, onMounted, type Ref } from 'vue';
+import { useErrorHandler } from './useErrorHandler';
 
 declare function route(name: string): string;
 
@@ -19,6 +20,7 @@ export interface UsePushNotificationsReturn {
 }
 
 export function usePushNotifications(): UsePushNotificationsReturn {
+    const { logError, logDebug, logWarning } = useErrorHandler();
     const isSupported = ref(false);
     const isSubscribed = ref(false);
     const subscription = ref<PushSubscription | null>(null);
@@ -28,8 +30,18 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
     // Check if push notifications are supported
     const checkSupport = (): boolean => {
-        isSupported.value = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
-        permission.value = 'Notification' in window ? Notification.permission : 'default';
+        const hasServiceWorker = 'serviceWorker' in navigator;
+        const hasPushManager = 'PushManager' in window;
+        const hasNotification = typeof Notification !== 'undefined';
+
+        isSupported.value = hasServiceWorker && hasPushManager && hasNotification;
+
+        if (hasNotification) {
+            permission.value = Notification.permission;
+        } else {
+            permission.value = 'default';
+        }
+
         return isSupported.value;
     };
 
@@ -42,10 +54,10 @@ export function usePushNotifications(): UsePushNotificationsReturn {
                 scope: '/'
             });
 
-            console.log('Service Worker registered:', registration.scope);
+            logDebug('Service Worker registered: ' + registration.scope);
             return registration;
         } catch (err) {
-            console.error('Service Worker registration failed:', err);
+            logError(err, { component: 'usePushNotifications', action: 'registerServiceWorker' });
             error.value = 'Failed to register service worker';
             return null;
         }
@@ -62,7 +74,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
             isSubscribed.value = !!sub;
             return sub;
         } catch (err) {
-            console.error('Error getting subscription:', err);
+            logError(err, { component: 'usePushNotifications', action: 'getSubscription' });
             error.value = 'Failed to get push subscription';
             return null;
         }
@@ -80,7 +92,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
             permission.value = result;
             return result === 'granted';
         } catch (err) {
-            console.error('Permission request failed:', err);
+            logError(err, { component: 'usePushNotifications', action: 'requestPermission' });
             error.value = 'Failed to request notification permission';
             return false;
         }
@@ -163,7 +175,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
             return true;
         } catch (err) {
-            console.error('Push subscription failed:', err);
+            logError(err, { component: 'usePushNotifications', action: 'subscribe' });
             error.value = 'Failed to subscribe to push notifications';
             return false;
         } finally {
@@ -178,29 +190,48 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         isLoading.value = true;
         error.value = null;
 
+        // Capture endpoint before unsubscribing (subscription will be invalidated after unsubscribe)
+        const endpoint = subscription.value.endpoint;
+
         try {
-            const endpoint = subscription.value.endpoint;
+            // Unsubscribe from push manager first
             await subscription.value.unsubscribe();
 
-            // Notify server
-            const response = await fetch(route('notifications.push.unsubscribe'), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
-                },
-                body: JSON.stringify({ endpoint })
-            });
-
-            if (!response.ok) {
-                console.warn('Server unsubscribe notification failed:', response.status);
-            }
-
+            // Clear local state immediately after successful unsubscribe
             subscription.value = null;
             isSubscribed.value = false;
+
+            // Notify server about the unsubscription
+            try {
+                const response = await fetch(route('notifications.push.unsubscribe'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
+                    },
+                    body: JSON.stringify({ endpoint })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text().catch(() => 'Unknown error');
+                    logWarning(`Server unsubscribe failed: ${response.status} - ${errorText}`, {
+                        component: 'usePushNotifications',
+                        action: 'unsubscribe',
+                        extra: { endpoint, status: response.status }
+                    });
+                }
+            } catch (fetchErr) {
+                // Log server notification failure but don't fail the unsubscribe operation
+                logWarning('Failed to notify server of unsubscription', {
+                    component: 'usePushNotifications',
+                    action: 'unsubscribe',
+                    extra: { endpoint, error: fetchErr instanceof Error ? fetchErr.message : String(fetchErr) }
+                });
+            }
+
             return true;
         } catch (err) {
-            console.error('Unsubscribe failed:', err);
+            logError(err, { component: 'usePushNotifications', action: 'unsubscribe' });
             error.value = 'Failed to unsubscribe from push notifications';
             return false;
         } finally {
@@ -226,7 +257,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
             });
             return true;
         } catch (err) {
-            console.error('Test notification failed:', err);
+            logError(err, { component: 'usePushNotifications', action: 'showTestNotification' });
             error.value = 'Failed to show test notification';
             return false;
         }
@@ -236,8 +267,12 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     onMounted(async () => {
         checkSupport();
         if (isSupported.value) {
-            await registerServiceWorker();
-            await getSubscription();
+            try {
+                await registerServiceWorker();
+                await getSubscription();
+            } catch (err) {
+                logError(err, { component: 'usePushNotifications', action: 'onMounted' });
+            }
         }
     });
 

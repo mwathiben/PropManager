@@ -1,6 +1,7 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
+import { useFormatters } from '@/composables';
 import {
     PlusIcon,
     PencilSquareIcon,
@@ -13,10 +14,13 @@ import {
     CheckIcon,
     BoltIcon
 } from '@heroicons/vue/24/outline';
+import type { NotificationsScheduledTabProps } from '@/types';
 
-const props = defineProps({
-    schedules: { type: Array, default: () => [] },
-    templates: { type: Array, default: () => [] },
+const { formatDateTime } = useFormatters();
+
+const props = withDefaults(defineProps<NotificationsScheduledTabProps>(), {
+    schedules: () => [],
+    templates: () => [],
 });
 
 const showCreateModal = ref(false);
@@ -139,25 +143,14 @@ const getTypeLabel = (type) => {
 const formatNextRun = (schedule) => {
     if (!schedule.is_active) return 'Paused';
     if (schedule.next_run) {
-        return new Date(schedule.next_run).toLocaleString('en-GB', {
-            day: 'numeric',
-            month: 'short',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        return formatDateTime(schedule.next_run);
     }
     return 'Calculating...';
 };
 
 const formatLastRun = (schedule) => {
     if (!schedule.last_run_at) return 'Never';
-    return new Date(schedule.last_run_at).toLocaleString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
+    return formatDateTime(schedule.last_run_at);
 };
 
 const getChannelBadges = (channelList) => {
@@ -312,9 +305,9 @@ const getChannelBadges = (channelList) => {
         <Teleport to="body">
             <div v-if="showCreateModal" class="fixed inset-0 z-50 overflow-y-auto">
                 <div class="flex min-h-full items-center justify-center p-4">
-                    <div class="fixed inset-0 bg-gray-500/75 transition-opacity" @click="closeModal"></div>
+                    <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="closeModal"></div>
 
-                    <div class="relative bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+                    <div class="relative z-50 bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
                         <div class="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 rounded-t-2xl">
                             <div class="flex items-center justify-between">
                                 <h3 class="text-lg font-semibold text-gray-900">

@@ -1,30 +1,22 @@
-<script setup>
+<script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import { useFormatters } from '@/composables';
+import type { LeaseManagementTabProps } from '@/types';
 
-const props = defineProps({
-    unitsWithLeases: {
-        type: Array,
-        default: () => []
-    },
-    selectedLeaseIds: {
-        type: Array,
-        default: () => []
-    },
-    buildingId: {
-        type: [Number, null],
-        default: null
-    },
-    wingId: {
-        type: [Number, null],
-        default: null
-    }
+const { todayAsISODate } = useFormatters();
+
+const props = withDefaults(defineProps<LeaseManagementTabProps>(), {
+    unitsWithLeases: () => [],
+    selectedLeaseIds: () => [],
+    buildingId: null,
+    wingId: null,
 });
 
 const emit = defineEmits(['update:selectedLeaseIds', 'success']);
 
 const terminateForm = useForm({
     lease_ids: [],
-    termination_date: new Date().toISOString().split('T')[0],
+    termination_date: todayAsISODate(),
     reason: '',
     notify_tenants: true,
     update_unit_status: true,

@@ -1,8 +1,11 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Pagination from '@/Components/Pagination.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import { useFormatters } from '@/composables';
+const { formatDateTime } = useFormatters();
+import type { ActivityLogsIndexPageProps } from '@/types';
 import {
     ClipboardDocumentListIcon,
     MagnifyingGlassIcon,
@@ -11,12 +14,7 @@ import {
     UserIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    activities: Object,
-    activityTypes: Array,
-    stats: Object,
-    filters: Object,
-});
+const props = defineProps<ActivityLogsIndexPageProps>();
 
 // Filter state
 const search = ref(props.filters.search || '');
@@ -46,18 +44,6 @@ const clearFilters = () => {
     applyFilters();
 };
 
-// Format date/time
-const formatDateTime = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
-};
 </script>
 
 <template>

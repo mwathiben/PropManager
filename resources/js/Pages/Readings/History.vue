@@ -1,15 +1,14 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { ClipboardDocumentListIcon } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
+import { useFormatters } from '@/composables';
+import type { ReadingsHistoryPageProps, WaterReading } from '@/types';
 
-const props = defineProps({
-    readings: Object,
-    buildings: Array,
-    filters: Object
-});
+const props = defineProps<ReadingsHistoryPageProps>();
+const { formatDate, formatMoney } = useFormatters();
 
 const filterForm = useForm({
     building_id: props.filters.building_id || '',
@@ -182,7 +181,7 @@ const deleteReading = (readingId) => {
                                         </template>
                                         <template v-else>
                                             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                                                {{ new Date(reading.reading_date).toLocaleDateString() }}
+                                                {{ formatDate(reading.reading_date) }}
                                             </td>
                                             <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                                                 {{ reading.unit.unit_number }}
@@ -197,7 +196,7 @@ const deleteReading = (readingId) => {
                                                 {{ reading.consumption }}
                                             </td>
                                             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-mono">
-                                                {{ reading.cost ? `KES ${reading.cost.toLocaleString()}` : 'N/A' }}
+                                                {{ reading.cost ? formatMoney(reading.cost) : 'N/A' }}
                                             </td>
                                             <td class="px-4 py-3 whitespace-nowrap text-center">
                                                 <span v-if="reading.is_invoiced" class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">

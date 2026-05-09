@@ -1,7 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, Link } from '@inertiajs/vue3';
 import { ref, watch, computed } from 'vue';
+import { useFormatters } from '@/composables';
+import type { TenantsIndexPageProps } from '@/types/finances';
 import {
     MagnifyingGlassIcon,
     UserCircleIcon,
@@ -27,15 +29,9 @@ import {
 } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
 
-const props = defineProps({
-    activeTenants: Object,
-    pastTenants: Object,
-    pendingInvitations: Object,
-    tab: String,
-    counts: Object,
-    stats: Object,
-    filters: Object,
-});
+const props = defineProps<TenantsIndexPageProps>();
+
+const { formatMoney: formatCurrency, formatDate } = useFormatters();
 
 const search = ref(props.filters?.search || '');
 const currentTab = ref(props.tab || 'active');
@@ -72,23 +68,6 @@ function changeTab(tabId) {
 // Helpers
 const getActiveLease = (tenant) => {
     return tenant.leases?.find(l => l.is_active) || tenant.leases?.[0];
-};
-
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-    }).format(amount || 0);
-};
-
-const formatDate = (date) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString('en-KE', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-    });
 };
 
 const getLeaseStatus = (tenant) => {

@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
@@ -7,6 +7,7 @@ import TicketPriorityBadge from '@/Components/TicketPriorityBadge.vue';
 import TicketActivityTimeline from '@/Components/TicketActivityTimeline.vue';
 import TicketFeedbackForm from '@/Components/TicketFeedbackForm.vue';
 import { useFormatters } from '@/composables';
+import type { TicketShowPageProps } from '@/types';
 import {
     ArrowLeftIcon,
     WrenchScrewdriverIcon,
@@ -21,15 +22,7 @@ import {
     StarIcon
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    ticket: Object,
-    caretakers: Array,
-    canAssign: Boolean,
-    canChangeStatus: Boolean,
-    canAddInternalComment: Boolean,
-    canSubmitFeedback: Boolean,
-    statuses: Object
-});
+const props = defineProps<TicketShowPageProps>();
 
 const showResolveModal = ref(false);
 const showAssignModal = ref(false);
@@ -99,18 +92,6 @@ const updateStatus = (newStatus) => {
 
 // Use composables
 const { formatDateTime: formatDate } = useFormatters();
-
-// Keep original for backwards compatibility if needed elsewhere
-const formatDateLocale = (dateString) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit'
-    });
-};
 
 const getCategoryIcon = computed(() => {
     return props.ticket.category === 'issue' ? WrenchScrewdriverIcon : ChatBubbleBottomCenterTextIcon;
@@ -408,8 +389,8 @@ const canEdit = computed(() => {
         <!-- Resolve Modal -->
         <div v-if="showResolveModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-gray-500 bg-opacity-75" @click="showResolveModal = false"></div>
-                <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showResolveModal = false"></div>
+                <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">Resolve Ticket</h3>
                     <form @submit.prevent="resolveTicket">
                         <div class="mb-4">
@@ -445,8 +426,8 @@ const canEdit = computed(() => {
         <!-- Assign Modal -->
         <div v-if="showAssignModal" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-gray-500 bg-opacity-75" @click="showAssignModal = false"></div>
-                <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showAssignModal = false"></div>
+                <div class="relative z-50 bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">Assign Ticket</h3>
                     <form @submit.prevent="assignTicket">
                         <div class="mb-4">

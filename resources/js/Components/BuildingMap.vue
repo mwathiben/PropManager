@@ -1,35 +1,32 @@
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import MapPinIcon from '@heroicons/vue/24/outline/MapPinIcon';
 import ArrowTopRightOnSquareIcon from '@heroicons/vue/24/outline/ArrowTopRightOnSquareIcon';
+import { useErrorHandler } from '@/composables';
+import type { MapCoordinates } from '@/types';
+
+const { logError } = useErrorHandler();
 
 // Fix Leaflet default marker icon issue
-delete L.Icon.Default.prototype._getIconUrl;
+delete (L.Icon.Default.prototype as Record<string, unknown>)._getIconUrl;
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
     iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-const props = defineProps({
-    coordinates: {
-        type: Object,
-        default: null, // { lat: number, lng: number }
-    },
-    address: {
-        type: String,
-        default: '',
-    },
-    editable: {
-        type: Boolean,
-        default: false,
-    },
-    height: {
-        type: String,
-        default: '300px',
-    },
+const props = withDefaults(defineProps<{
+    coordinates?: MapCoordinates | null;
+    address?: string;
+    editable?: boolean;
+    height?: string;
+}>(), {
+    coordinates: null,
+    address: '',
+    editable: false,
+    height: '300px',
 });
 
 const emit = defineEmits(['update:coordinates']);
@@ -124,7 +121,7 @@ const searchAddress = async () => {
             emit('update:coordinates', { lat: parseFloat(lat), lng: parseFloat(lon) });
         }
     } catch (error) {
-        console.error('Address search failed:', error);
+        logError(error, { component: 'BuildingMap', action: 'searchAddress' });
     }
 };
 

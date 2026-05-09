@@ -1,7 +1,8 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import type { AdminSettingsPageProps } from '@/types';
 import {
     CreditCardIcon,
     CheckCircleIcon,
@@ -13,9 +14,7 @@ import {
     Cog6ToothIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    paymentSettings: Object,
-});
+const props = defineProps<AdminSettingsPageProps>();
 
 // Payment form
 const paymentForm = useForm({

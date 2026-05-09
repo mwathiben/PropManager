@@ -1,8 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import type { TenantFinancesHistoryPageProps } from '@/types';
 import {
     DataTable,
     InvoiceStatusBadge,
@@ -17,10 +18,7 @@ import {
     DocumentArrowDownIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({
-    payments: Object,
-    invoices: Object,
-});
+const props = defineProps<TenantFinancesHistoryPageProps>();
 
 const { formatDate } = useFormatters();
 

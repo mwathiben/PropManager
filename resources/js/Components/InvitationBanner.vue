@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue';
 import { router } from '@inertiajs/vue3';
 import {
@@ -7,11 +7,16 @@ import {
     XMarkIcon,
     CheckIcon,
 } from '@heroicons/vue/24/outline';
+import { useFormatters } from '@/composables';
+import type { PendingInvitation } from '@/types';
 
-const props = defineProps({
-    invitations: { type: Array, default: () => [] },
+const props = withDefaults(defineProps<{
+    invitations?: PendingInvitation[];
+}>(), {
+    invitations: () => [],
 });
 
+const { formatMoney: formatCurrency } = useFormatters();
 const processing = ref(null);
 
 const acceptInvitation = (invitation) => {
@@ -41,14 +46,6 @@ const declineInvitation = (invitation) => {
         onFinish: () => processing.value = null,
     });
 };
-
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 0,
-    }).format(amount);
-};
 </script>
 
 <template>
@@ -60,7 +57,7 @@ const formatCurrency = (amount) => {
         >
             <div class="flex items-center justify-between gap-4">
                 <div class="flex items-center gap-4 flex-1 min-w-0">
-                    <div class="h-12 w-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <div class="h-12 w-12 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
                         <BuildingOffice2Icon v-if="invitation.type === 'caretaker'" class="h-6 w-6" />
                         <HomeModernIcon v-else class="h-6 w-6" />
                     </div>
@@ -84,7 +81,7 @@ const formatCurrency = (amount) => {
                         </div>
                     </div>
                 </div>
-                <div class="flex gap-2 flex-shrink-0">
+                <div class="flex gap-2 shrink-0">
                     <button
                         @click="acceptInvitation(invitation)"
                         :disabled="processing === `${invitation.type}-${invitation.id}`"

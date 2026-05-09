@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useForm, router } from '@inertiajs/vue3';
 import {
@@ -15,10 +15,14 @@ import {
     EyeIcon,
     EyeSlashIcon
 } from '@heroicons/vue/24/outline';
+import type { ProviderSettings } from '@/types';
 
-const props = defineProps({
-    show: { type: Boolean, default: false },
-    settings: { type: Object, default: () => ({}) },
+const props = withDefaults(defineProps<{
+    show?: boolean;
+    settings?: ProviderSettings;
+}>(), {
+    show: false,
+    settings: () => ({} as ProviderSettings),
 });
 
 const emit = defineEmits(['close', 'complete']);
@@ -186,9 +190,9 @@ watch(() => props.show, (newVal) => {
     <Teleport to="body">
         <div v-if="show" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex min-h-full items-center justify-center p-4">
-                <div class="fixed inset-0 bg-gray-900/75 transition-opacity" @click="$emit('close')"></div>
+                <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="$emit('close')"></div>
 
-                <div class="relative bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden">
+                <div class="relative z-50 bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden">
                     <!-- Progress Bar -->
                     <div class="h-1 bg-gray-100">
                         <div

@@ -54,6 +54,13 @@ interface PaystackResponse {
     message?: string;
 }
 
+interface IntaSendResponse {
+    success: boolean;
+    intasend_invoice_id?: string;
+    api_ref?: string;
+    message?: string;
+}
+
 export interface UsePaymentsReturn {
     isProcessing: Ref<boolean>;
     error: Ref<string | null>;
@@ -77,6 +84,7 @@ export interface UsePaymentsReturn {
     initiateMpesaPayment: (invoiceId: number, amount: number, phoneNumber: string) => Promise<MpesaResponse>;
     checkMpesaStatus: (checkoutRequestId: string) => Promise<MpesaStatusResponse>;
     initiatePaystackPayment: (invoiceId: number, amount: number) => Promise<PaystackResponse>;
+    initiateIntaSendPayment: (invoiceId: number, amount: number, phoneNumber: string) => Promise<IntaSendResponse>;
     recordManualPayment: (invoiceId: number, paymentData: PaymentData, options?: ActionOptions) => Promise<void>;
     generateInvoices: (month: number, year: number, options?: ActionOptions) => Promise<void>;
     sendInvoice: (invoiceId: number, options?: ActionOptions) => Promise<void>;
@@ -109,6 +117,7 @@ export function usePayments(): UsePaymentsReturn {
         cash: { label: 'Cash', icon: 'BanknotesIcon' },
         bank_transfer: { label: 'Bank Transfer', icon: 'BuildingLibraryIcon' },
         mobile_money: { label: 'M-Pesa', icon: 'DevicePhoneMobileIcon' },
+        intasend_mpesa: { label: 'M-Pesa (IntaSend)', icon: 'DevicePhoneMobileIcon' },
         paystack: { label: 'Paystack (Online)', icon: 'CreditCardIcon' },
     };
 
@@ -316,6 +325,43 @@ export function usePayments(): UsePaymentsReturn {
             if (data.authorization_url) {
                 window.location.href = data.authorization_url;
             }
+            return data;
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Payment initiation failed';
+            error.value = message;
+            throw err;
+        } finally {
+            isProcessing.value = false;
+        }
+    };
+
+    /**
+     * Initiate IntaSend M-Pesa STK push payment
+     */
+    const initiateIntaSendPayment = async (
+        invoiceId: number,
+        amount: number,
+        phoneNumber: string
+    ): Promise<IntaSendResponse> => {
+        isProcessing.value = true;
+        error.value = null;
+
+        try {
+            const response = await fetch(route('api.v1.tenant.payments.intasend.initiate'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                    invoice_id: invoiceId,
+                    amount,
+                    phone: phoneNumber,
+                }),
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'Payment initiation failed');
             return data;
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Payment initiation failed';
@@ -620,6 +666,7 @@ export function usePayments(): UsePaymentsReturn {
         initiateMpesaPayment,
         checkMpesaStatus,
         initiatePaystackPayment,
+        initiateIntaSendPayment,
         recordManualPayment,
         generateInvoices,
         sendInvoice,

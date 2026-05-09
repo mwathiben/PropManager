@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
@@ -10,11 +10,12 @@ import {
     MapPinIcon,
     GlobeAltIcon,
 } from '@heroicons/vue/24/outline';
+import type { ProfileUser, LandlordProfile } from '@/types';
 
-const props = defineProps({
-    user: Object,
-    landlordProfile: Object,
-});
+const props = defineProps<{
+    user: ProfileUser;
+    landlordProfile?: LandlordProfile | null;
+}>();
 
 const form = useForm({
     name: props.user.name,
@@ -43,7 +44,7 @@ const submit = () => {
         <!-- Business Info Banner -->
         <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
             <div class="flex">
-                <div class="flex-shrink-0">
+                <div class="shrink-0">
                     <BuildingOfficeIcon class="h-5 w-5 text-emerald-400" />
                 </div>
                 <div class="ml-3">
