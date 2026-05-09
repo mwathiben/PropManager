@@ -17,11 +17,23 @@ class DocumentController extends Controller
     use HasBuildingFilter;
 
     /**
+     * Resolve the landlord ID for the current user.
+     * Caretakers operate on behalf of their landlord, not their own user record.
+     */
+    private function resolveLandlordId(): int
+    {
+        $user = auth()->user();
+
+        return $user->isCaretaker() ? (int) $user->landlord_id : (int) $user->id;
+    }
+
+    /**
      * Display a listing of documents for the authenticated landlord
      */
     public function index(Request $request)
     {
-        $query = Document::where('landlord_id', auth()->id())
+        $landlordId = $this->resolveLandlordId();
+        $query = Document::where('landlord_id', $landlordId)
             ->with(['documentable', 'uploader']);
 
         // Filter by document type
@@ -114,18 +126,20 @@ class DocumentController extends Controller
             'description' => 'nullable|string|max:1000',
         ]);
 
+        $landlordId = $this->resolveLandlordId();
+
         // Verify documentable exists and belongs to landlord
         $modelClass = 'App\\Models\\'.$request->documentable_type;
         $documentable = $modelClass::findOrFail($request->documentable_id);
 
         // Authorization check
         if ($request->documentable_type === 'Lease') {
-            if ($documentable->landlord_id !== auth()->id()) {
+            if ($documentable->landlord_id !== $landlordId) {
                 abort(403, 'Unauthorized to upload documents for this lease');
             }
         } elseif ($request->documentable_type === 'User') {
             // Can only upload documents for tenants belonging to this landlord
-            if ($documentable->role !== 'tenant' || $documentable->landlord_id !== auth()->id()) {
+            if ($documentable->role !== 'tenant' || $documentable->landlord_id !== $landlordId) {
                 abort(403, 'Unauthorized to upload documents for this user');
             }
         }
@@ -138,16 +152,16 @@ class DocumentController extends Controller
         // Create unique filename
         $fileName = time().'_'.$sanitizedName;
 
-        // Store in private storage
+        // Store in private storage (path keyed to landlord, not uploader)
         $filePath = $file->storeAs(
-            'documents/'.auth()->id().'/'.$request->documentable_type,
+            'documents/'.$landlordId.'/'.$request->documentable_type,
             $fileName,
             'local'
         );
 
         // Create document record
         $document = Document::create([
-            'landlord_id' => auth()->id(),
+            'landlord_id' => $landlordId,
             'documentable_id' => $request->documentable_id,
             'documentable_type' => $modelClass,
             'title' => $request->title,
@@ -245,8 +259,9 @@ class DocumentController extends Controller
      */
     public function destroy(Document $document)
     {
-        // Only landlord who owns the document can delete it
-        if ($document->landlord_id !== auth()->id()) {
+        // Caretakers can also delete documents owned by their landlord.
+        $landlordId = $this->resolveLandlordId();
+        if ($document->landlord_id !== $landlordId) {
             abort(403, 'Unauthorized to delete this document');
         }
 
@@ -272,11 +287,13 @@ class DocumentController extends Controller
         $modelClass = 'App\\Models\\'.$request->model_type;
         $model = $modelClass::findOrFail($request->model_id);
 
+        $landlordId = $this->resolveLandlordId();
+
         // Authorization check
-        if ($request->model_type === 'Lease' && $model->landlord_id !== auth()->id()) {
+        if ($request->model_type === 'Lease' && $model->landlord_id !== $landlordId) {
             abort(403);
         }
-        if ($request->model_type === 'User' && $model->role === 'tenant' && $model->landlord_id !== auth()->id()) {
+        if ($request->model_type === 'User' && $model->role === 'tenant' && $model->landlord_id !== $landlordId) {
             abort(403);
         }
 
