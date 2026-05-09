@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\PaymentConfiguration;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -19,12 +19,10 @@ class PaymentHealthService
 
     public function check(bool $ping = false): array
     {
-        $configs = $this->loadConfigurations();
-
         $gateways = [
-            'paystack' => $this->getGatewayStatus($configs, 'paystack', $ping),
-            'mpesa' => $this->getGatewayStatus($configs, 'mpesa', $ping),
-            'intasend' => $this->getGatewayStatus($configs, 'intasend', $ping),
+            'paystack' => $this->getPaystackStatus($ping),
+            'mpesa' => $this->getMpesaStatus($ping),
+            'intasend' => $this->getIntaSendStatus($ping),
         ];
 
         return [
@@ -34,39 +32,59 @@ class PaymentHealthService
         ];
     }
 
-    private function loadConfigurations(): Collection
-    {
-        return PaymentConfiguration::withoutGlobalScopes()
-            ->select([
-                'landlord_id',
-                'paystack_enabled', 'paystack_public_key', 'paystack_secret_key',
-                'mpesa_consumer_key', 'mpesa_consumer_secret',
-                'mpesa_shortcode', 'mpesa_passkey', 'mpesa_environment',
-                'intasend_enabled', 'intasend_publishable_key',
-                'intasend_secret_key', 'intasend_environment',
-            ])
-            ->get();
-    }
+    // SCOPE-D1: Never hydrate encrypted credentials. The route is
+    // unauthenticated (throttle-only); previously this loaded every
+    // landlord's payment_configurations row including encrypted secrets
+    // into memory on every health check. Now we only ask the database
+    // for booleans and environment names.
 
-    private function getGatewayStatus(Collection $configs, string $gateway, bool $ping): array
+    private function getPaystackStatus(bool $ping): array
     {
-        $configured = $this->filterConfigured($configs, $gateway);
-        $count = $configured->count();
+        $count = $this->paystackQuery()->count();
 
         if ($count === 0) {
-            return [
-                'status' => 'not_configured',
-                'configured_count' => 0,
-            ];
+            return ['status' => 'not_configured', 'configured_count' => 0];
         }
 
-        $result = [
-            'status' => 'configured',
-            'configured_count' => $count,
-        ];
+        $result = ['status' => 'configured', 'configured_count' => $count];
 
         if ($ping) {
-            $urls = $this->getGatewayPingUrls($configured, $gateway);
+            $pingResult = $this->pingUrls(['https://api.paystack.co']);
+            $result['status'] = $pingResult['reachable'] ? 'ok' : 'degraded';
+            $result['response_time_ms'] = $pingResult['response_time_ms'];
+        }
+
+        return $result;
+    }
+
+    private function getMpesaStatus(bool $ping): array
+    {
+        $base = $this->mpesaQuery();
+        $count = (clone $base)->count();
+
+        if ($count === 0) {
+            return ['status' => 'not_configured', 'configured_count' => 0];
+        }
+
+        $result = ['status' => 'configured', 'configured_count' => $count];
+
+        if ($ping) {
+            $environments = (clone $base)
+                ->whereNotNull('mpesa_environment')
+                ->distinct()
+                ->pluck('mpesa_environment')
+                ->all();
+
+            if ($environments === []) {
+                $environments = ['sandbox'];
+            }
+
+            $urls = collect($environments)
+                ->map(fn (string $env) => config("mpesa.endpoints.{$env}"))
+                ->filter()
+                ->values()
+                ->all();
+
             $pingResult = $this->pingUrls($urls);
             $result['status'] = $pingResult['reachable'] ? 'ok' : 'degraded';
             $result['response_time_ms'] = $pingResult['response_time_ms'];
@@ -75,60 +93,70 @@ class PaymentHealthService
         return $result;
     }
 
-    private function filterConfigured(Collection $configs, string $gateway): Collection
+    private function getIntaSendStatus(bool $ping): array
     {
-        return match ($gateway) {
-            'paystack' => $configs->filter->hasPaystackConfig(),
-            'mpesa' => $configs->filter(fn (PaymentConfiguration $c) => $c->hasMpesaApiConfig() || $c->hasMpesaSTKConfig()),
-            'intasend' => $configs->filter->hasIntaSendConfig(),
-        };
-    }
+        $base = $this->intaSendQuery();
+        $count = (clone $base)->count();
 
-    private function getGatewayPingUrls(Collection $configured, string $gateway): array
-    {
-        return match ($gateway) {
-            'paystack' => ['https://api.paystack.co'],
-            'mpesa' => $this->getMpesaPingUrls($configured),
-            'intasend' => $this->getIntaSendPingUrls($configured),
-        };
-    }
-
-    private function getMpesaPingUrls(Collection $configured): array
-    {
-        $environments = $configured
-            ->pluck('mpesa_environment')
-            ->filter()
-            ->unique()
-            ->values();
-
-        if ($environments->isEmpty()) {
-            $environments = collect(['sandbox']);
+        if ($count === 0) {
+            return ['status' => 'not_configured', 'configured_count' => 0];
         }
 
-        return $environments
-            ->map(fn (string $env) => config("mpesa.endpoints.{$env}"))
-            ->filter()
-            ->values()
-            ->all();
-    }
+        $result = ['status' => 'configured', 'configured_count' => $count];
 
-    private function getIntaSendPingUrls(Collection $configured): array
-    {
-        $environments = $configured
-            ->pluck('intasend_environment')
-            ->filter()
-            ->unique()
-            ->values();
+        if ($ping) {
+            $environments = (clone $base)
+                ->whereNotNull('intasend_environment')
+                ->distinct()
+                ->pluck('intasend_environment')
+                ->all();
 
-        if ($environments->isEmpty()) {
-            $environments = collect(['sandbox']);
+            if ($environments === []) {
+                $environments = ['sandbox'];
+            }
+
+            $urls = collect($environments)
+                ->map(fn (string $env) => config("intasend.endpoints.{$env}"))
+                ->filter()
+                ->values()
+                ->all();
+
+            $pingResult = $this->pingUrls($urls);
+            $result['status'] = $pingResult['reachable'] ? 'ok' : 'degraded';
+            $result['response_time_ms'] = $pingResult['response_time_ms'];
         }
 
-        return $environments
-            ->map(fn (string $env) => config("intasend.endpoints.{$env}"))
-            ->filter()
-            ->values()
-            ->all();
+        return $result;
+    }
+
+    private function paystackQuery(): Builder
+    {
+        return PaymentConfiguration::withoutGlobalScopes()
+            ->where('paystack_enabled', true)
+            ->whereNotNull('paystack_public_key')
+            ->whereNotNull('paystack_secret_key');
+    }
+
+    private function mpesaQuery(): Builder
+    {
+        return PaymentConfiguration::withoutGlobalScopes()
+            ->where(function (Builder $q) {
+                $q->where(function (Builder $api) {
+                    $api->whereNotNull('mpesa_consumer_key')
+                        ->whereNotNull('mpesa_consumer_secret');
+                })->orWhere(function (Builder $stk) {
+                    $stk->whereNotNull('mpesa_shortcode')
+                        ->whereNotNull('mpesa_passkey');
+                });
+            });
+    }
+
+    private function intaSendQuery(): Builder
+    {
+        return PaymentConfiguration::withoutGlobalScopes()
+            ->where('intasend_enabled', true)
+            ->whereNotNull('intasend_publishable_key')
+            ->whereNotNull('intasend_secret_key');
     }
 
     private function pingUrls(array $urls): array

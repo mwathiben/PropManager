@@ -69,14 +69,24 @@ class PaymentLinkService
         $link->markClicked($request->ip());
     }
 
-    public function revokeForInvoice(int $invoiceId): int
+    // SCOPE-D3: callers must supply the landlord id alongside the invoice id.
+    // Without it, an attacker passing another tenant's invoice id could revoke
+    // their payment links via this scope-bypassed query. The bypass remains
+    // because PaymentObserver runs in queue context where Auth is unset, so
+    // TenantScope wouldn't apply anyway — the explicit landlord filter is the
+    // security control.
+    public function revokeForInvoice(int $invoiceId, int $landlordId): int
     {
         return PaymentLink::withoutGlobalScope('landlord')
+            ->where('landlord_id', $landlordId)
             ->where('invoice_id', $invoiceId)
             ->where('is_revoked', false)
             ->update(['is_revoked' => true]);
     }
 
+    // SCOPE-D3: cross-tenant by design — the scheduler purges every landlord's
+    // expired links in one pass. No tenant data is exposed; rows are deleted
+    // by their TTL alone.
     public function cleanupExpired(): int
     {
         return PaymentLink::withoutGlobalScope('landlord')

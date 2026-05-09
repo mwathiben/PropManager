@@ -44,8 +44,11 @@ class PaymentObserver
 
     private function revokePaymentLinks(Payment $payment): void
     {
-        if ($payment->invoice_id) {
-            $this->paymentLinkService->revokeForInvoice($payment->invoice_id);
+        if ($payment->invoice_id && $payment->landlord_id) {
+            $this->paymentLinkService->revokeForInvoice(
+                $payment->invoice_id,
+                $payment->landlord_id,
+            );
         }
     }
 }

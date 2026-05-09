@@ -76,20 +76,40 @@ class DailyPaymentReconciliation extends Command
     {
         $landlordOption = $this->option('landlord');
 
+        // SCOPE-D4: every per-landlord branch of this query routes through
+        // configsForLandlord(); the cross-tenant fleet branch is a separate,
+        // explicitly named helper so a future contributor can't conflate the two.
         if ($landlordOption) {
-            return PaymentConfiguration::withoutGlobalScope('landlord')
-                ->where('landlord_id', (int) $landlordOption)
-                ->where('paystack_enabled', true)
-                ->whereNotNull('paystack_secret_key')
+            return $this->configsForLandlord((int) $landlordOption)
                 ->pluck('landlord_id');
         }
 
+        return $this->paystackConfiguredFleet()
+            ->pluck('payment_configurations.landlord_id');
+    }
+
+    private function configsForLandlord(int $landlordId)
+    {
+        if ($landlordId <= 0) {
+            throw new \InvalidArgumentException('Reconciliation requires a positive landlord id.');
+        }
+
+        return PaymentConfiguration::withoutGlobalScope('landlord')
+            ->where('landlord_id', $landlordId)
+            ->where('paystack_enabled', true)
+            ->whereNotNull('paystack_secret_key');
+    }
+
+    // Intentional cross-tenant query — the daily cron sweeps every active
+    // landlord with Paystack configured. Documented so the next reader knows
+    // this is the one place the landlord_id filter is omitted on purpose.
+    private function paystackConfiguredFleet()
+    {
         return PaymentConfiguration::withoutGlobalScope('landlord')
             ->where('paystack_enabled', true)
             ->whereNotNull('paystack_secret_key')
             ->join('users', 'payment_configurations.landlord_id', '=', 'users.id')
-            ->where('users.is_archived', false)
-            ->pluck('payment_configurations.landlord_id');
+            ->where('users.is_archived', false);
     }
 
     private function processLandlord(PaymentReconciliationService $service, int $landlordId): void

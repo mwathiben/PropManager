@@ -276,6 +276,60 @@ class ArchiveOldPaymentsTest extends TestCase
         $this->assertDatabaseHas('payments', ['id' => $payment2->id]);
     }
 
+    public function test_audit_log_landlord_id_is_populated_in_queue_context(): void
+    {
+        // SCOPE-D5 regression: archival runs in queue worker context where
+        // Auth::check() returns false, so TenantScope's auto-fill won't run.
+        // The archival service must explicitly pass landlord_id so landlords
+        // can see archival events in their audit-log review.
+        ['landlord' => $landlord, 'units' => $units] = $this->createLandlordWithFullSetup();
+        ['lease' => $lease] = $this->createTenantWithActiveLease($landlord, $units->first());
+        ['payment' => $payment] = $this->createPaymentWithInvoice($lease);
+
+        $this->backdatePayment($payment, now()->subYears($this->retentionYears + 1));
+
+        auth()->logout();
+        $this->assertFalse(auth()->check(), 'Test must simulate queue context (no auth).');
+
+        (new ArchiveOldPayments)->handle(app(\App\Services\Payment\PaymentArchivalService::class));
+
+        $auditRow = DB::table('audit_logs')
+            ->where('event_type', 'archived')
+            ->where('auditable_type', Payment::class)
+            ->where('auditable_id', $payment->id)
+            ->first();
+
+        $this->assertNotNull($auditRow, 'Archival audit log must be created.');
+        $this->assertSame(
+            $landlord->id,
+            (int) $auditRow->landlord_id,
+            'Archival audit log must carry the payment landlord_id even without auth.'
+        );
+    }
+
+    public function test_archival_refuses_payment_with_null_landlord_id(): void
+    {
+        // SCOPE-D5 regression: a Payment row with null landlord_id is a
+        // data-integrity violation; archiving it would produce a null-landlord
+        // audit log invisible to every tenant. The service must reject the
+        // attempt rather than silently produce a hidden audit row.
+        $payment = new Payment([
+            'amount' => 100,
+            'payment_method' => 'cash',
+            'payment_date' => now()->subYears($this->retentionYears + 1),
+        ]);
+        $payment->landlord_id = null;
+        $payment->id = 999999;
+        $payment->exists = true;
+
+        $service = app(\App\Services\Payment\PaymentArchivalService::class);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('null landlord_id');
+
+        $service->archivePayment($payment);
+    }
+
     public function test_all_payments_view_includes_archived_and_active(): void
     {
         ['landlord' => $landlord, 'units' => $units] = $this->createLandlordWithFullSetup();

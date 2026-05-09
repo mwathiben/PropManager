@@ -28,6 +28,17 @@ class PaymentArchivalService
 
     public function archivePayment(Payment $payment): ArchivedPayment
     {
+        // SCOPE-D5: refuse to archive a payment whose landlord_id is null.
+        // The job runs in queue context where Auth is unset, so TenantScope's
+        // creating hook can't fill in a missing landlord_id — the resulting
+        // audit log row would be invisible to the affected landlord and break
+        // their compliance trail.
+        if ($payment->landlord_id === null) {
+            throw new \RuntimeException(
+                "Cannot archive payment #{$payment->id} with null landlord_id."
+            );
+        }
+
         return DB::transaction(function () use ($payment) {
             $relatedData = $this->snapshotRelatedData($payment);
 

@@ -66,7 +66,7 @@ class PaymentObserverTest extends TestCase
         $this->paymentLinkService
             ->shouldReceive('revokeForInvoice')
             ->once()
-            ->with(99)
+            ->with(99, 1)
             ->andReturn(2);
 
         $this->observer->created($payment);

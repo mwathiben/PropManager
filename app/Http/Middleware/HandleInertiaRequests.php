@@ -130,26 +130,33 @@ class HandleInertiaRequests extends Middleware
             return null;
         }
 
+        // SCOPE-D6: defense-in-depth. Each landlord/caretaker badge count
+        // adds an explicit landlord_id filter alongside the implicit
+        // TenantScope. If TenantScope ever fails to apply (impersonation
+        // edge, future refactor, queue context), counts stay scoped instead
+        // of leaking system-wide totals into the navigation chrome.
+        $landlordId = $user->isLandlord() ? $user->id : $user->landlord_id;
+
         return match ($user->role) {
             'landlord' => array_filter([
                 // Aggregated hub badges
-                'tenants' => TenantPaymentVerification::where('status', 'pending')->count()
-                    + MoveOut::active()->count()
-                    + TenantVerification::pending()->count(),
-                'invoices' => Invoice::where('status', 'overdue')->count(),
-                'tickets' => Ticket::open()->count(),
+                'tenants' => TenantPaymentVerification::where('landlord_id', $landlordId)->where('status', 'pending')->count()
+                    + MoveOut::where('landlord_id', $landlordId)->active()->count()
+                    + TenantVerification::where('landlord_id', $landlordId)->pending()->count(),
+                'invoices' => Invoice::where('landlord_id', $landlordId)->where('status', 'overdue')->count(),
+                'tickets' => Ticket::where('landlord_id', $landlordId)->open()->count(),
                 'readings' => $user->canAccessFeature('water_billing')
-                    ? WaterReading::where('status', 'pending')->count()
+                    ? WaterReading::where('landlord_id', $landlordId)->where('status', 'pending')->count()
                     : null,
                 'notifications' => Notification::where('recipient_id', $user->id)
                     ->whereNull('read_at')
                     ->count(),
-                'inbox' => TenantMessage::where('status', TenantMessage::STATUS_RECEIVED)->count(),
+                'inbox' => TenantMessage::where('landlord_id', $landlordId)->where('status', TenantMessage::STATUS_RECEIVED)->count(),
             ], fn ($v) => $v !== null && $v > 0),
             'caretaker' => array_filter([
-                'tickets' => Ticket::where('assigned_to', $user->id)->open()->count(),
+                'tickets' => Ticket::where('landlord_id', $landlordId)->where('assigned_to', $user->id)->open()->count(),
                 'readings' => ($user->landlord?->canAccessFeature('water_billing') ?? false)
-                    ? WaterReading::where('status', 'pending')->count()
+                    ? WaterReading::where('landlord_id', $landlordId)->where('status', 'pending')->count()
                     : null,
                 'notifications' => Notification::withoutGlobalScope('landlord')
                     ->where('recipient_id', $user->id)

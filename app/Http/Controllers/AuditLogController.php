@@ -180,16 +180,25 @@ class AuditLogController extends Controller
 
         $user = $request->user();
         $modelType = $request->model_type;
-        $modelId = $request->model_id;
+        $modelId = (int) $request->model_id;
+
+        // SCOPE-D7: resolve the target model first and verify ownership.
+        // Without this, a landlord could enumerate model ids belonging to
+        // other tenants by inspecting empty-vs-populated responses.
+        if (! $user->isSuperAdmin()) {
+            $landlordId = $user->isLandlord() ? $user->id : $user->landlord_id;
+
+            if (! $this->modelBelongsToLandlord($modelType, $modelId, (int) $landlordId)) {
+                abort(404);
+            }
+        }
 
         $query = AuditLog::where('auditable_type', 'like', "%{$modelType}%")
             ->where('auditable_id', $modelId)
             ->with('user:id,name')
             ->latest();
 
-        // Apply landlord scope for non-super-admins
         if (! $user->isSuperAdmin()) {
-            $landlordId = $user->isLandlord() ? $user->id : $user->landlord_id;
             $query->where('landlord_id', $landlordId);
         }
 
@@ -205,6 +214,36 @@ class AuditLogController extends Controller
         ]);
 
         return response()->json(['logs' => $logs]);
+    }
+
+    /**
+     * Resolve the FQCN that auditable_type points to and check ownership.
+     * Returns false when the class can't be resolved, the model is missing,
+     * or the model has no landlord_id column (we refuse to leak audit trails
+     * for unscoped models in the tenant-facing endpoint).
+     */
+    private function modelBelongsToLandlord(string $modelType, int $modelId, int $landlordId): bool
+    {
+        $candidates = [$modelType, 'App\\Models\\'.$modelType];
+
+        foreach ($candidates as $class) {
+            if (! class_exists($class) || ! is_subclass_of($class, \Illuminate\Database\Eloquent\Model::class)) {
+                continue;
+            }
+
+            $instance = new $class;
+            if (! \Illuminate\Support\Facades\Schema::hasColumn($instance->getTable(), 'landlord_id')) {
+                return false;
+            }
+
+            return $class::query()
+                ->withoutGlobalScopes()
+                ->whereKey($modelId)
+                ->where('landlord_id', $landlordId)
+                ->exists();
+        }
+
+        return false;
     }
 
     /**

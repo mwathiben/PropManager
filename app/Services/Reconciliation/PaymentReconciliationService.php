@@ -93,8 +93,7 @@ class PaymentReconciliationService
         CarbonImmutable $from,
         CarbonImmutable $to,
     ): array {
-        $payments = Payment::withoutGlobalScope('landlord')
-            ->where('landlord_id', $landlordId)
+        $payments = $this->paymentsForLandlord($landlordId)
             ->where('payment_method', 'paystack')
             ->whereNotNull('paystack_reference')
             ->where('is_voided', false)
@@ -196,6 +195,19 @@ class PaymentReconciliationService
         }
 
         return $amountMinor / 100;
+    }
+
+    // SCOPE-D4: a single funnel for any per-landlord Payment query in this
+    // service. Forgetting the landlord_id filter is no longer possible by
+    // construction — every reconciliation query goes through this helper.
+    private function paymentsForLandlord(int $landlordId): \Illuminate\Database\Eloquent\Builder
+    {
+        if ($landlordId <= 0) {
+            throw new \InvalidArgumentException('Reconciliation requires a positive landlord id.');
+        }
+
+        return Payment::withoutGlobalScope('landlord')
+            ->where('landlord_id', $landlordId);
     }
 
     private function indexByReference(array &$index, array $txn): void

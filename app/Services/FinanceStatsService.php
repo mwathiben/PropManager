@@ -264,7 +264,12 @@ class FinanceStatsService
             $expenseMonthSqlJoin = $this->getMonthSql('expenses.expense_date');
             $expenseYearSqlJoin = $this->getYearSql('expenses.expense_date');
 
-            $categoryBreakdown = Expense::withoutGlobalScopes()
+            // SCOPE-D2: bypass only the named 'landlord' scope (not all scopes).
+            // The join introduces an ambiguous `landlord_id` column which TenantScope's
+            // unqualified where would clash with — `expenses.landlord_id` below is the
+            // intentional, qualified, security-bearing filter. Caller MUST pass an
+            // auth-derived landlord id; never user input.
+            $categoryBreakdown = Expense::withoutGlobalScope('landlord')
                 ->where('expenses.landlord_id', $landlordId)
                 ->whereRaw("{$expenseMonthSqlJoin} = ? AND {$expenseYearSqlJoin} = ?", [$currentMonth, $currentYear])
                 ->leftJoin('expense_categories', 'expenses.category_id', '=', 'expense_categories.id')
