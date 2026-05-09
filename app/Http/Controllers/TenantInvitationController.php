@@ -317,6 +317,15 @@ class TenantInvitationController extends Controller
                 $tenant->role = 'tenant';
                 $tenant->landlord_id = $invitation->landlord_id;
                 $tenant->save();
+
+                // AUDIT-10: log the role grant on the SecurityLog so the
+                // privilege escalation (none → tenant) is queryable.
+                app(\App\Services\SecurityLogger::class)->logRoleChange(
+                    $tenant,
+                    'none',
+                    $tenant->role,
+                    $invitation->landlord,
+                );
             }
 
             // Create the lease

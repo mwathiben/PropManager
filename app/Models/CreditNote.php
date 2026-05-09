@@ -189,12 +189,22 @@ class CreditNote extends Model
         });
     }
 
-    public function void(): void
+    public function void(?string $reason = null): void
     {
+        // AUDIT-8: capture the previous status before update so the audit
+        // trail records the actual transition, not just the timestamp.
+        $previousStatus = $this->status;
+
         $this->update([
             'status' => self::STATUS_VOIDED,
             'voided_at' => now(),
         ]);
+
+        $this->logStatusChange(
+            (string) $previousStatus,
+            self::STATUS_VOIDED,
+            $reason,
+        );
     }
 
     public static function generateCreditNumber(?User $landlord = null): string

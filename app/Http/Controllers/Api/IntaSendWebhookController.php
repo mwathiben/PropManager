@@ -44,7 +44,7 @@ class IntaSendWebhookController extends Controller
         $payload = $request->all();
         $apiRef = $payload['api_ref'] ?? null;
         $intasendInvoiceId = $payload['invoice_id'] ?? null;
-        $eventId = $apiRef ?? $intasendInvoiceId ?? 'intasend-unknown-'.uniqid();
+        $eventId = $apiRef ?? $intasendInvoiceId ?? 'intasend-unknown-'.bin2hex(random_bytes(8));
 
         $webhookLog = $this->webhookLogService->recordHit(
             WebhookLog::PROVIDER_INTASEND,

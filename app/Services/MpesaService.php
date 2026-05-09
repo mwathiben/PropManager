@@ -494,12 +494,14 @@ class MpesaService
     {
         $prefix = $prefix ?? config('mpesa.defaults.account_reference_prefix', 'PROP');
 
-        return strtoupper($prefix).'-'.time().'-'.substr(uniqid(), -4);
+        // CONC-8: random_bytes is unpredictable and collision-safe; uniqid()
+        // is microtime-based and predictable across rapid calls.
+        return strtoupper($prefix).'-'.time().'-'.bin2hex(random_bytes(2));
     }
 
     public static function generateCheckoutReference(): string
     {
-        return 'MPESA-'.time().'-'.strtoupper(substr(uniqid(), -6));
+        return 'MPESA-'.time().'-'.strtoupper(bin2hex(random_bytes(3)));
     }
 
     public function isConfigured(): bool

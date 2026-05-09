@@ -50,7 +50,7 @@ class CoopBankService implements BankServiceInterface
         try {
             $response = Http::withToken($token)
                 ->post("{$this->baseUrl}/Enquiry/MiniStatement/Account/1.0.0", [
-                    'MessageReference' => uniqid('STMT_'),
+                    'MessageReference' => 'STMT_'.bin2hex(random_bytes(8)),
                     'AccountNumber' => $accountNumber,
                 ]);
 
@@ -78,7 +78,7 @@ class CoopBankService implements BankServiceInterface
         try {
             $response = Http::withToken($token)
                 ->post("{$this->baseUrl}/Enquiry/AccountBalance/1.0.0", [
-                    'MessageReference' => uniqid('VERIFY_'),
+                    'MessageReference' => 'VERIFY_'.bin2hex(random_bytes(8)),
                     'AccountNumber' => $accountNumber,
                 ]);
 
@@ -104,7 +104,8 @@ class CoopBankService implements BankServiceInterface
         try {
             $response = Http::withToken($token)
                 ->post("{$this->baseUrl}/VirtualAccount/1.0.0/CreateVirtualAccount", [
-                    'MessageReference' => uniqid('VA_'),
+                    // CONC-8: collision-safe random reference.
+                    'MessageReference' => 'VA_'.bin2hex(random_bytes(8)),
                     'AccountName' => $tenantName,
                     'AccountType' => 'COLLECTION',
                     'ExternalReference' => $tenantId,

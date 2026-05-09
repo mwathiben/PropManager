@@ -283,11 +283,22 @@ class InvoiceController extends Controller
             return back()->withErrors(['error' => __('messages.invoice.cannot_void_with_payments')]);
         }
 
+        // AUDIT-8: capture the previous status before update so the audit
+        // event records the actual transition rather than just the void
+        // reason.
+        $previousStatus = $invoice->status;
+
         $invoice->update([
             'status' => InvoiceStatus::Voided,
             'voided_at' => now(),
             'void_reason' => $request->reason,
         ]);
+
+        $invoice->logStatusChange(
+            $previousStatus->value,
+            InvoiceStatus::Voided->value,
+            $request->reason,
+        );
 
         return back()->with('success', __('messages.invoice.voided'));
     }

@@ -45,7 +45,7 @@ class MpesaWebhookController extends Controller
             return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Invalid payload']);
         }
 
-        $eventId = $callback['CheckoutRequestID'] ?? 'stk-unknown-'.uniqid();
+        $eventId = $callback['CheckoutRequestID'] ?? 'stk-unknown-'.bin2hex(random_bytes(8));
         $webhookLog = $this->webhookLogService->recordHit(
             WebhookLog::PROVIDER_MPESA,
             $eventId,
@@ -643,7 +643,7 @@ class MpesaWebhookController extends Controller
         $resultCode = $result['ResultCode'] ?? 1;
         $conversationId = $result['ConversationID'] ?? null;
         $transactionId = $result['TransactionID'] ?? null;
-        $eventId = $transactionId ?? $conversationId ?? 'b2c-unknown-'.uniqid();
+        $eventId = $transactionId ?? $conversationId ?? 'b2c-unknown-'.bin2hex(random_bytes(8));
 
         $webhookLog = $this->webhookLogService->recordHit(
             WebhookLog::PROVIDER_MPESA,

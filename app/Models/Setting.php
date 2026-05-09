@@ -31,7 +31,16 @@ class Setting extends Model
         if ($this->is_encrypted && $value) {
             try {
                 return Crypt::decryptString($value);
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
+                // HANDLE-12: log the decryption failure with model context so
+                // ops can see when a setting becomes unreadable (typically
+                // after an APP_KEY rotation). NEVER log the cipher value.
+                \Illuminate\Support\Facades\Log::error('Setting: decryption failed', [
+                    'setting_id' => $this->id,
+                    'key' => $this->key ?? null,
+                    'class' => get_class($e),
+                ]);
+
                 return null;
             }
         }

@@ -35,9 +35,14 @@ class AuditLogController extends Controller
             $query->where('event_type', $request->event_type);
         }
 
-        // Filter by model type
+        // VALID-12: whitelist the model_type to a known set so a leading
+        // wildcard LIKE can't be abused to scan unrelated auditable types,
+        // and the LIKE doesn't enable injection of % wildcards.
         if ($request->filled('model_type')) {
-            $query->where('auditable_type', 'like', '%'.$request->model_type.'%');
+            $allowed = ['Lease', 'User', 'Invoice', 'Payment', 'Unit', 'Building', 'Property'];
+            if (in_array($request->model_type, $allowed, true)) {
+                $query->where('auditable_type', "App\\Models\\{$request->model_type}");
+            }
         }
 
         // Filter by user
@@ -173,14 +178,18 @@ class AuditLogController extends Controller
     {
         Gate::authorize('view-audit-logs');
 
-        $request->validate([
-            'model_type' => 'required|string',
-            'model_id' => 'required|integer',
+        // VALID-12: whitelist model_type so it can't be abused to query
+        // unrelated polymorphic auditable types.
+        $validated = $request->validate([
+            'model_type' => ['required', \Illuminate\Validation\Rule::in([
+                'Lease', 'User', 'Invoice', 'Payment', 'Unit', 'Building', 'Property',
+            ])],
+            'model_id' => ['required', 'integer', 'min:1'],
         ]);
 
         $user = $request->user();
-        $modelType = $request->model_type;
-        $modelId = (int) $request->model_id;
+        $modelType = $validated['model_type'];
+        $modelId = (int) $validated['model_id'];
 
         // SCOPE-D7: resolve the target model first and verify ownership.
         // Without this, a landlord could enumerate model ids belonging to

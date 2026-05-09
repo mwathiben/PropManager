@@ -40,7 +40,8 @@ class ManualPaymentHandler
                 'amount' => $validated['amount'],
                 'payment_method' => $validated['payment_method'],
                 'payment_date' => $validated['payment_date'],
-                'reference' => $validated['reference'] ?? 'MANUAL-'.strtoupper(uniqid()),
+                // CONC-8: random_bytes is collision-safe; uniqid() is microtime-based.
+                'reference' => $validated['reference'] ?? 'MANUAL-'.strtoupper(bin2hex(random_bytes(6))),
                 'notes' => $validated['notes'] ?? null,
             ]);
 

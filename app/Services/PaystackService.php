@@ -186,7 +186,8 @@ class PaystackService
      */
     public static function generateReference(string $prefix = 'PAY')
     {
-        return $prefix.'-'.time().'-'.strtoupper(substr(uniqid(), -6));
+        // CONC-8: random_bytes is collision-safe and unpredictable.
+        return $prefix.'-'.time().'-'.strtoupper(bin2hex(random_bytes(3)));
     }
 
     /**

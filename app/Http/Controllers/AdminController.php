@@ -308,10 +308,13 @@ class AdminController extends Controller
      */
     public function createLandlord(Request $request)
     {
+        // VALID-9: enforce the same password policy as user-self-registration.
+        // Without this, super-admin-created landlord accounts could ship with
+        // 8-char passwords that fail HIBP / strength rules.
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:8',
+            'password' => ['required', 'string', 'confirmed', \Illuminate\Validation\Rules\Password::defaults()],
             'mobile_number' => 'nullable|string|max:20',
         ]);
 
@@ -323,6 +326,10 @@ class AdminController extends Controller
         ]);
         $user->role = 'landlord';
         $user->save();
+
+        // AUDIT-10 follow-up: log the role grant when an admin provisions a
+        // landlord account from the admin UI.
+        $this->securityLogger->logRoleChange($user, 'none', $user->role, Auth::user());
 
         return redirect()->back()
             ->with('success', "Landlord account created for {$user->name}.");

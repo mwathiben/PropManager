@@ -68,7 +68,16 @@ class NotificationProviderConfig extends Model
 
         try {
             return json_decode(Crypt::decryptString($value), true);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            // HANDLE-12: log decryption failure with config id so ops can see
+            // when provider credentials become unreadable (e.g. after APP_KEY
+            // rotation). NEVER log the cipher value or the credentials body.
+            \Illuminate\Support\Facades\Log::error('NotificationProviderConfig: credential decryption failed', [
+                'config_id' => $this->id,
+                'provider' => $this->provider ?? null,
+                'class' => get_class($e),
+            ]);
+
             return null;
         }
     }

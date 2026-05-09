@@ -214,4 +214,42 @@ class AuditLog extends Model
     {
         return static::where('created_at', '<', now()->subDays($days))->delete();
     }
+
+    /**
+     * AUDIT-12: write a manual audit row with consistent context.
+     *
+     * Auto-fills user_id from Auth, landlord_id from $model->landlord_id
+     * (falling back to the actor's tenancy), and ip/user_agent/url from
+     * the current request. Use this anywhere we need to write an audit
+     * outside the Auditable trait's automatic events — replaces the manual
+     * AuditLog::create() pattern that drifts each time.
+     */
+    public static function record(string $event, Model $model, array $extras = []): self
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+
+        $landlordId = null;
+        if (isset($model->landlord_id)) {
+            $landlordId = (int) $model->landlord_id;
+        } elseif ($user) {
+            $landlordId = $user->role === 'landlord'
+                ? (int) $user->id
+                : ($user->landlord_id ? (int) $user->landlord_id : null);
+        }
+
+        return static::create([
+            'user_id' => $user?->id,
+            'landlord_id' => $landlordId,
+            'event_type' => $event,
+            'auditable_type' => get_class($model),
+            'auditable_id' => $model->getKey(),
+            'metadata' => $extras['metadata'] ?? null,
+            'old_values' => $extras['old_values'] ?? null,
+            'new_values' => $extras['new_values'] ?? null,
+            'changed_fields' => $extras['changed_fields'] ?? null,
+            'ip_address' => $extras['ip_address'] ?? \Illuminate\Support\Facades\Request::ip(),
+            'user_agent' => $extras['user_agent'] ?? \Illuminate\Support\Facades\Request::userAgent(),
+            'url' => $extras['url'] ?? \Illuminate\Support\Facades\Request::fullUrl(),
+        ]);
+    }
 }

@@ -178,6 +178,15 @@ class InvitationController extends Controller
                 return [$user, $invitation];
             });
 
+            // AUDIT-10: log the role grant on the SecurityLog so the
+            // privilege escalation (none → caretaker) is queryable.
+            app(\App\Services\SecurityLogger::class)->logRoleChange(
+                $user,
+                'none',
+                $user->role,
+                $invitation->landlord,
+            );
+
             event(new InvitationAccepted($invitation, $user));
 
             auth()->login($user);

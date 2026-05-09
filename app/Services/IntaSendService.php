@@ -60,7 +60,8 @@ class IntaSendService
      */
     public static function generateReference(string $prefix = 'ITS'): string
     {
-        return $prefix.'-'.time().'-'.strtoupper(substr(uniqid(), -6));
+        // CONC-8: random_bytes is unpredictable and collision-safe.
+        return $prefix.'-'.time().'-'.strtoupper(bin2hex(random_bytes(3)));
     }
 
     /**

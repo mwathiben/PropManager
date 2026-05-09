@@ -127,8 +127,16 @@ class BuildingCacheService
                     Cache::forget($keyWithoutPrefix);
                 }
             }
-        } catch (\Exception $e) {
-            // Redis not available, skip pattern deletion
+        } catch (\Throwable $e) {
+            // HANDLE-9: don't bury the failure — emit a warning so SREs can
+            // see Redis health when cache invalidations are silently failing.
+            // Stale config reads after a failed invalidation are how you ship
+            // a payment to the wrong tenant.
+            \Illuminate\Support\Facades\Log::warning('BuildingCacheService: pattern delete failed', [
+                'pattern' => $pattern,
+                'error' => $e->getMessage(),
+                'class' => get_class($e),
+            ]);
         }
     }
 

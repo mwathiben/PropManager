@@ -41,9 +41,14 @@ class DocumentController extends Controller
             $query->where('document_type', $request->type);
         }
 
-        // Filter by documentable type (Lease, User)
+        // VALID-10: only allow whitelisted documentable types — the value is
+        // appended to App\Models\ and used in a WHERE clause, so unvalidated
+        // input previously enabled querying any class.
         if ($request->filled('model_type')) {
-            $query->where('documentable_type', 'App\\Models\\'.$request->model_type);
+            $allowed = ['Lease', 'User', 'Invoice', 'Payment', 'Unit', 'Building', 'Property'];
+            if (in_array($request->model_type, $allowed, true)) {
+                $query->where('documentable_type', 'App\\Models\\'.$request->model_type);
+            }
         }
 
         // Building/Wing filter for documents
@@ -279,13 +284,20 @@ class DocumentController extends Controller
      */
     public function forModel(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'model_type' => 'required|in:Lease,User',
-            'model_id' => 'required|integer',
+            'model_id' => ['required', 'integer', 'min:1'],
         ]);
 
-        $modelClass = 'App\\Models\\'.$request->model_type;
-        $model = $modelClass::findOrFail($request->model_id);
+        // VALID-10: resolve the class via match, never via string concat. The
+        // user-provided model_type is already constrained by the validator
+        // above, but we keep the second guard so an attacker can't ride a
+        // future relaxation to instantiate arbitrary App\Models\* classes.
+        $modelClass = match ($validated['model_type']) {
+            'Lease' => \App\Models\Lease::class,
+            'User' => \App\Models\User::class,
+        };
+        $model = $modelClass::findOrFail($validated['model_id']);
 
         $landlordId = $this->resolveLandlordId();
 

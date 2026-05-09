@@ -45,15 +45,22 @@ class ConsentController extends Controller
      */
     public function accept(Request $request)
     {
-        $request->validate([
+        // VALID-11: enforce the type:version contract at the validator. Without
+        // the regex, attackers could pass arbitrary strings — the explode()
+        // below would silently destructure into null/garbage and we'd record
+        // a Consent row with a null type.
+        $validated = $request->validate([
             'consents' => 'required|array',
-            'consents.*' => 'required|string',
+            'consents.*' => [
+                'required',
+                'string',
+                'regex:/^(privacy_policy|terms_of_service|marketing|cookies):\d+\.\d+$/',
+            ],
         ]);
 
         $user = $request->user();
 
-        foreach ($request->consents as $consentKey) {
-            // Format: type:version
+        foreach ($validated['consents'] as $consentKey) {
             [$type, $version] = explode(':', $consentKey);
 
             Consent::record($user, $type, $version, [
