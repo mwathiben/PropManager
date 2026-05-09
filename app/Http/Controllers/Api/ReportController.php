@@ -7,15 +7,47 @@ use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Unit;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class ReportController extends Controller
 {
-    public function occupancy(Request $request)
+    /**
+     * Resolve the landlord_id whose data this request should report on.
+     *
+     * Landlord token  → own user id (operates on own properties).
+     * Caretaker token → manager's landlord_id.
+     * Super-admin / integration:webhook token → required `landlord_id` query
+     * parameter, validated against an existing landlord. Without the param we
+     * abort 422 rather than silently scoping to the super-admin's empty tenant.
+     */
+    private function resolveLandlordId(Request $request): int
     {
         $user = $request->user();
-        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+
+        if ($user->isCaretaker()) {
+            return (int) $user->landlord_id;
+        }
+
+        // Super-admin / integration tokens must specify a target landlord.
+        if ($user->isSuperAdmin() || $request->user()->tokenCan('integration:webhook')) {
+            $request->validate([
+                'landlord_id' => 'required|integer|exists:users,id',
+            ]);
+
+            $target = User::find($request->integer('landlord_id'));
+            abort_unless($target?->isLandlord(), 422, 'landlord_id must reference a user with the landlord role.');
+
+            return (int) $target->id;
+        }
+
+        return (int) $user->id;
+    }
+
+    public function occupancy(Request $request)
+    {
+        $landlordId = $this->resolveLandlordId($request);
 
         $units = Unit::where('landlord_id', $landlordId)
             ->selectRaw('status, COUNT(*) as count')
@@ -36,8 +68,7 @@ class ReportController extends Controller
 
     public function revenue(Request $request)
     {
-        $user = $request->user();
-        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+        $landlordId = $this->resolveLandlordId($request);
 
         $startDate = $request->get('start_date', Carbon::now()->startOfMonth()->toDateString());
         $endDate = $request->get('end_date', Carbon::now()->endOfMonth()->toDateString());
@@ -64,8 +95,7 @@ class ReportController extends Controller
 
     public function arrears(Request $request)
     {
-        $user = $request->user();
-        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+        $landlordId = $this->resolveLandlordId($request);
 
         $overdueInvoices = Invoice::where('landlord_id', $landlordId)
             ->where('status', InvoiceStatus::Overdue)
@@ -123,8 +153,7 @@ class ReportController extends Controller
 
     public function arrearsV2(Request $request)
     {
-        $user = $request->user();
-        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
+        $landlordId = $this->resolveLandlordId($request);
 
         $summary = Invoice::where('landlord_id', $landlordId)
             ->where('status', InvoiceStatus::Overdue)
