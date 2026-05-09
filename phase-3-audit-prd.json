@@ -1,0 +1,733 @@
+{
+  "project": {
+    "name": "PropManager Phase 3 Audit",
+    "description": "Defensive code audit covering multi-tenant authorization scope leakage and N+1/performance hotspots. Phase 1 (commit 03e17b7) covered 32 SQLi/auth/serialization/file-upload bugs; Phase 2 (commit 4a305a0) covered 17 data-integrity bugs. Phase 3 surfaces 45 findings across tenant-isolation and runtime performance — different bug class, equally costly when missed.",
+    "version": "1.0.0",
+    "created": "2026-05-08",
+    "techStack": {
+      "backend": "Laravel 12 (PHP 8.4+)",
+      "frontend": "Inertia.js + Vue 3 + Tailwind CSS v4",
+      "database": "MySQL 8.0+ (production), MySQL 8.0 (CI), SQLite (local dev/test optional)",
+      "testing": "PHPUnit 11.5 via ParaTest 7.8 (--parallel), Dusk for browser E2E"
+    }
+  },
+  "qualityStandards": {
+    "description": "Phase 3 fixes must preserve Phase 1+2 contracts: TenantScope semantics, InvoiceStatus enum migration, encrypted credential casts, audit logging.",
+    "principles": [
+      "Every TenantScope bypass (withoutGlobalScope, withoutGlobalScopes, DB::table) requires either an explicit landlord_id filter OR a documented architectural reason (e.g. token-based public lookup)",
+      "Every model with a landlord_id column SHOULD use the TenantScope trait as defense-in-depth, even if all current callers filter manually",
+      "Every API route returning model data must enforce ability:* middleware AND a Form Request authorize() check, not just one or the other",
+      "Every controller method calling Model::all() or ::get() on hot paths must declare its eager loads — the codebase already has Lazy Loading violation detection in non-prod",
+      "Every Inertia::render passing a paginated or large collection must specify select() columns to avoid loading wide rows",
+      "Every scheduled job (routes/console.php) iterating a collection must verify N+1 absence before deploy"
+    ],
+    "skills_to_apply": [
+      "laravelpolicies-and-authorization",
+      "laravelperformance-eager-loading",
+      "laravelperformance-select-columns",
+      "laravelperformance-caching",
+      "laraveldata-chunking-large-datasets",
+      "laraveleloquent-relationships",
+      "laraveltdd-with-pest",
+      "verification-first"
+    ]
+  },
+  "feedbackLoops": {
+    "commands": {
+      "lint_backend": "vendor/bin/pint --test",
+      "test_backend": "php artisan test --parallel",
+      "build_frontend": "npm run build",
+      "find_n_plus_1": "Use Laravel's Model::preventLazyLoading() in AppServiceProvider::boot() during dev to surface lazy loads as exceptions"
+    }
+  },
+  "categories": {
+    "tenant_scope_critical": {
+      "priority": 1,
+      "description": "Confirmed cross-tenant data exposure or write paths. Fix before anything else."
+    },
+    "performance_critical": {
+      "priority": 2,
+      "description": "Hot-path N+1 or unbounded collection loads — measurable user-facing slowdown or job-runner scale failure."
+    },
+    "tenant_scope_defense": {
+      "priority": 3,
+      "description": "Scope is bypassed but a manual filter exists. Functionally safe; fragile to future refactors."
+    },
+    "performance_optimization": {
+      "priority": 4,
+      "description": "Real N+1 or over-fetching on cool paths, or missing caches/indexes worth picking up."
+    },
+    "cleanup_consistency": {
+      "priority": 5,
+      "description": "Inconsistencies with codebase conventions but not exploitable. Pick up when touching the area."
+    }
+  },
+  "items": [
+    {
+      "id": "SCOPE-S1",
+      "category": "tenant_scope_critical",
+      "priority": "HIGH",
+      "title": "Bulk invoice generation iterates ALL tenants' leases in CLI context",
+      "files": [
+        "app/Console/Commands/GenerateMonthlyInvoices.php:32",
+        "app/Services/InvoiceAutomationService.php:96",
+        "app/Http/Controllers/InvoiceController.php:76"
+      ],
+      "problem": "TenantScope::bootTenantScope skips scope registration when Auth::check() is false (CLI / queue / cron). The `invoices:generate` artisan command and InvoiceAutomationService call Lease::where('is_active', true)->get() with no landlord_id constraint, so a single cron run iterates every active lease across every landlord and writes invoices for tenants who didn't request them.",
+      "evidence": "grep -n \"Lease::where('is_active', true)\" -- 3 hits, none with landlord_id filter. TenantScope.php:41 confirms `if (Auth::check() && !Auth::user()->isSuperAdmin())` — no scope when no auth.",
+      "fix": "Refactor GenerateMonthlyInvoices::handle to chunk by landlord: `User::landlords()->each(fn($l) => $this->generateForLandlord($l->id))`. In each landlord pass, use `Lease::withoutGlobalScope('landlord')->where('landlord_id', $l->id)->where('is_active', true)`. Add a regression test that asserts an unauthenticated artisan call only touches one specified landlord's leases.",
+      "blast_radius": "Cron-triggered duplicate/erroneous invoices for every landlord on the platform; potential billing chaos and disputed charges."
+    },
+    {
+      "id": "SCOPE-S2",
+      "category": "tenant_scope_critical",
+      "priority": "HIGH",
+      "title": "Mpesa STK push and status endpoints accept any tenant's invoice ID",
+      "files": [
+        "app/Http/Controllers/Api/MpesaController.php:18",
+        "app/Http/Controllers/Api/MpesaController.php:61",
+        "routes/api.php:111-114"
+      ],
+      "problem": "`POST /api/v1/mpesa/stk-push` and the related status endpoint sit outside the `ability:tenant:read` middleware group used by /tenant/payments routes. The controller calls `Invoice::findOrFail($request->invoice_id)` with no ownership check. Authenticated landlord/caretaker tokens can invoke STK push against arbitrary invoice IDs.",
+      "evidence": "routes/api.php:111: `Route::post('/mpesa/stk-push', [MpesaController::class, 'initiateStkPush'])->middleware(['auth:sanctum', 'throttle:payment'])` — no ability check. Compare with /tenant/payments/mpesa/initiate which is wrapped with ability:tenant:read.",
+      "fix": "Move both routes into the `ability:tenant:read` group. Add explicit ownership guard in MpesaController::checkStatus: `if ($invoice->lease->tenant_id !== $request->user()->id) abort(403)`. Audit InitiateMpesaPaymentRequest::authorize() for parity.",
+      "blast_radius": "Any authenticated API user triggers STK pushes on invoices belonging to other tenants; potentially used for harassment or to charge wrong M-Pesa numbers."
+    },
+    {
+      "id": "SCOPE-S3",
+      "category": "tenant_scope_critical",
+      "priority": "HIGH",
+      "title": "DocumentController index/store use auth()->id() — broken for caretakers",
+      "files": [
+        "app/Http/Controllers/DocumentController.php:24",
+        "app/Http/Controllers/DocumentController.php:123",
+        "app/Http/Controllers/DocumentController.php:128",
+        "app/Http/Controllers/DocumentController.php:150"
+      ],
+      "problem": "DocumentController::index filters Document::where('landlord_id', auth()->id()). For a caretaker, auth()->id() returns the caretaker's user ID — not their landlord's. Index returns zero documents. store() assigns landlord_id = auth()->id() (caretaker ID), creating orphaned documents. Download/view paths at lines 178/216 correctly use `$user->landlord_id`, so the inconsistency is index/store-only.",
+      "evidence": "DocumentController.php:24: `Document::where('landlord_id', auth()->id())`. Compare DocumentController.php:178: `if ($user->role === 'caretaker' && $document->landlord_id !== $user->landlord_id)` — correct caretaker-aware check.",
+      "fix": "Add `$landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;` resolution at the top of every DocumentController action. Replace all `auth()->id()` references with `$landlordId`.",
+      "blast_radius": "Caretakers see zero documents (DoS for them); their uploads are orphaned to a landlord_id that doesn't exist as a landlord."
+    },
+    {
+      "id": "SCOPE-S4",
+      "category": "tenant_scope_critical",
+      "priority": "HIGH",
+      "title": "ReconciliationReport model has landlord_id but no TenantScope trait",
+      "files": [
+        "app/Models/ReconciliationReport.php:13",
+        "app/Http/Controllers/FinancesController.php:100"
+      ],
+      "problem": "ReconciliationReport stores per-landlord Paystack reconciliation data (payment discrepancies, dispute metadata) but does not use the TenantScope trait. Current callers filter manually via where('landlord_id'). Any future code path calling ReconciliationReport::query() without that filter exposes all landlords' reconciliation results.",
+      "evidence": "Model declaration: only `use HasFactory`. Migration shows landlord_id as a foreignId.",
+      "fix": "Add `use App\\Traits\\TenantScope;` and `use TenantScope;` to ReconciliationReport. Run the test suite — manual filters become redundant but safe.",
+      "blast_radius": "Defense-in-depth gap. No active leak today; any future call site without an explicit filter would expose all landlords' reconciliation data."
+    },
+    {
+      "id": "SCOPE-S5",
+      "category": "tenant_scope_critical",
+      "priority": "HIGH",
+      "title": "BankReconciliationQueue model has landlord_id but no TenantScope trait",
+      "files": [
+        "app/Models/BankReconciliationQueue.php:10",
+        "app/Services/Payment/PaymentArchivalService.php:120"
+      ],
+      "problem": "BankReconciliationQueue stores per-landlord bank-statement matching records but omits TenantScope. PaymentArchivalService at line 120 uses raw DB::table('bank_reconciliation_queue')->where('payment_id', ...)->delete() — scoped only by payment_id with no landlord_id filter. Cross-tenant protection relies entirely on the payment_id never collide-leaking; an enumeration bug elsewhere would cascade.",
+      "evidence": "Model declaration: only `use HasFactory`. Service uses raw DB::table() instead of Eloquent.",
+      "fix": "Add `use App\\Traits\\TenantScope;` to BankReconciliationQueue. Refactor PaymentArchivalService to use Eloquent (`BankReconciliationQueue::where('payment_id', ...)->delete()`) so the scope kicks in.",
+      "blast_radius": "Same as SCOPE-S4 — defense-in-depth."
+    },
+    {
+      "id": "SCOPE-S6",
+      "category": "tenant_scope_critical",
+      "priority": "HIGH",
+      "title": "/api/v1/integrations/reports endpoints scope to super-admin's empty tenant",
+      "files": [
+        "routes/api.php:104-107",
+        "app/Http/Controllers/Api/ReportController.php:15-63"
+      ],
+      "problem": "Integration reports are gated by `ability:integration:webhook`, granted only to super admins. Inside the controller, $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id — for a super admin this is their own user ID (a non-landlord), returning empty data. There's no validation preventing a `?landlord_id=X` query parameter override, inviting a future request-shape bug to escalate.",
+      "evidence": "ReportController.php:18: `$landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;` no super-admin handling.",
+      "fix": "Require an explicit `landlord_id` query parameter on integration routes with FormRequest validation. Validate the super-admin token has scoped access. If integration tokens should be cross-tenant, document and add explicit cross-tenant flag.",
+      "blast_radius": "Logic error today (returns empty); design invites privilege escalation if /integrations/reports starts accepting landlord_id input without validation."
+    },
+    {
+      "id": "PERF-P1",
+      "category": "performance_critical",
+      "priority": "HIGH",
+      "title": "Landlord dashboard fires 4 separate aging queries per render (and 4 more in real-time path)",
+      "files": [
+        "app/Services/DashboardService.php:513-518",
+        "app/Services/DashboardService.php:772-777"
+      ],
+      "problem": "calculateLandlordMetrics() calls getArrearsInRangeForLeases() four times with different day bounds. Each issues an independent SUM(total_due - amount_paid) over the same lease set. The pattern repeats in calculateQuickMetrics() which fires on every payment broadcast event.",
+      "evidence": "Lines 513-518 show `arrearsAging = ['0_30', '31_60', '61_90', '90_plus']` each as a separate call. FinanceStatsService::getArrearsStats already implements the single-query CASE-WHEN version.",
+      "fix": "Replace all four calls with one selectRaw query: `Invoice::whereIn('lease_id', $leaseIds)->selectRaw(\"SUM(CASE WHEN DATEDIFF(NOW(), due_date) BETWEEN 0 AND 30 THEN total_due - amount_paid ELSE 0 END) as bucket_0_30, SUM(CASE WHEN ... BETWEEN 31 AND 60 ... ) as bucket_31_60, ...\")->first()`. Match the FinanceStatsService::getArrearsStats pattern (lines 151-186).",
+      "estimated_impact": "3 extra queries eliminated per landlord dashboard render, plus 3 more on every payment broadcast (Reverb event). High-volume landlords see this fire dozens of times per minute."
+    },
+    {
+      "id": "PERF-P2",
+      "category": "performance_critical",
+      "priority": "HIGH",
+      "title": "Caretaker dashboard fires 5 redundant ticket COUNT queries",
+      "files": [
+        "app/Services/DashboardService.php:226-243"
+      ],
+      "problem": "getCaretakerDashboardData() runs 5 separate COUNT queries against tickets, each with the same `assigned_to = $caretaker->id` predicate, differing only by status/priority filter combinations.",
+      "evidence": "Lines 226-243 show actionItems[urgent_tickets|open_tickets] and ticketStats[total|open|urgent|resolved] all firing as independent counts.",
+      "fix": "Consolidate to one selectRaw: `Ticket::where('assigned_to', $caretaker->id)->selectRaw(\"COUNT(*) as total, COUNT(CASE WHEN status NOT IN ('resolved','closed') THEN 1 END) as open, COUNT(CASE WHEN status NOT IN ('resolved','closed') AND priority='urgent' THEN 1 END) as urgent_open, COUNT(CASE WHEN status='resolved' THEN 1 END) as resolved\")->first()`.",
+      "estimated_impact": "4 queries eliminated per caretaker dashboard render."
+    },
+    {
+      "id": "PERF-P3",
+      "category": "performance_critical",
+      "priority": "HIGH",
+      "title": "InvoiceController::generate loads ALL active leases across ALL landlords",
+      "files": [
+        "app/Http/Controllers/InvoiceController.php:76-90"
+      ],
+      "problem": "Lease::where('is_active', true)->with(['unit.building.property', 'tenant'])->get() — no landlord_id filter (TenantScope active for the auth context but the iteration loops to invoke generateInvoiceForLease for each lease). On a 1,000-lease platform, hydrates 1,000 leases with 4 nested eager loads in a single synchronous request. Same root cause as SCOPE-S1; address jointly.",
+      "evidence": "Line 76: `$leases = Lease::where('is_active', true)->with(...)->get(); foreach ($leases as $lease) { $invoiceService->generateInvoiceForLease(...); }`",
+      "fix": "Add `->where('landlord_id', auth()->id())` to scope. Convert to chunked iteration (`->chunkById(100, fn($chunk) => ...)`) and dispatch generateInvoiceForLease as a queued job to avoid request timeouts. Coordinate fix with SCOPE-S1.",
+      "estimated_impact": "Memory/timeout risk: unbounded collection load. Synchronous N writes of generated invoices in a single HTTP request."
+    },
+    {
+      "id": "PERF-P4",
+      "category": "performance_critical",
+      "priority": "HIGH",
+      "title": "BulkRentAdjuster fires one Lease query per lease ID inside the loop",
+      "files": [
+        "app/Services/BulkOperations/BulkRentAdjuster.php:100-133"
+      ],
+      "problem": "execute() loops over $this->leaseIds and calls processLease($leaseId) for each, which issues `Lease::where('id', $leaseId)->...->firstOrFail()`. A 100-lease batch = 100 individual SELECTs inside one DB transaction.",
+      "evidence": "Lines 116-120: `Lease::where('id', $leaseId)->where('landlord_id', $this->landlordId)->where('is_active', true)->with('tenant:id,name')->firstOrFail()` — inside the loop.",
+      "fix": "Pre-load all target leases keyed by ID before the loop: `$leases = Lease::whereIn('id', $this->leaseIds)->where('landlord_id', $this->landlordId)->where('is_active', true)->with('tenant:id,name')->get()->keyBy('id');`. Inside the loop, look up `$leases[$leaseId] ?? throw new ModelNotFoundException(...)`.",
+      "estimated_impact": "Reduces from 1+N queries to 1 pre-load. For N=100 leases that's 99 queries eliminated per bulk rent adjustment."
+    },
+    {
+      "id": "PERF-P5",
+      "category": "performance_critical",
+      "priority": "HIGH",
+      "title": "SchedulerService::processRentReminders — N+1 lease query per tenant every 5 min",
+      "files": [
+        "app/Services/SchedulerService.php:91-126",
+        "app/Services/SchedulerService.php:235"
+      ],
+      "problem": "getEligibleTenants() returns Users with no relations. The loop calls `$tenant->leases()->where('is_active', true)->first()` per tenant. For a landlord with 200 tenants this fires 200 queries every 5 minutes.",
+      "evidence": "Line 93-95: `foreach ($tenants as $tenant) { $lease = $tenant->leases()->where('is_active', true)->first(); ... }`. Line 235: `User::...->get()` with no `with()`.",
+      "fix": "Add eager-load to getEligibleTenants(): `->with(['leases' => fn($q) => $q->where('is_active', true)->with('unit.building.property')])`. Inside loop: `$lease = $tenant->leases->first()` (pre-loaded).",
+      "estimated_impact": "Reduces 1+N queries per scheduled run to 2 total (1 tenant load + 1 lease eager load). Runs every 5 minutes."
+    },
+    {
+      "id": "PERF-P6",
+      "category": "performance_critical",
+      "priority": "HIGH",
+      "title": "SchedulerService::processArrearsNotices — same N+1 pattern as P5",
+      "files": [
+        "app/Services/SchedulerService.php:133-179",
+        "app/Services/SchedulerService.php:246"
+      ],
+      "problem": "Same shape as PERF-P5: getTenatsWithArrears() returns Users without preloaded relations; loop fires per-tenant `$tenant->leases()->where('is_active', true)->where('arrears', '>', 0)->first()`.",
+      "evidence": "Lines 138-142.",
+      "fix": "Eager-load filtered relation: `->with(['leases' => fn($q) => $q->where('is_active', true)->where('arrears', '>', 0)])`.",
+      "estimated_impact": "Eliminates up to 200 queries per scheduled run; pairs with P5 — fix together."
+    },
+    {
+      "id": "PERF-P7",
+      "category": "performance_critical",
+      "priority": "HIGH",
+      "title": "DashboardService::getTenantKycStats — hasCompletedKyc() runs 2 queries per tenant",
+      "files": [
+        "app/Services/DashboardService.php:682-697",
+        "app/Models/User.php:147-179"
+      ],
+      "problem": "`$tenants->filter(fn($t) => $t->hasCompletedKyc())` calls hasCompletedKyc() per tenant. The accessor lazy-loads $this->lease, then queries KycRequirement, then counts kycSubmissions. For a 50-tenant building this is 100+ extra queries per dashboard.",
+      "evidence": "Line 689-690: `$complete = $tenants->filter(fn($t) => $t->hasCompletedKyc())->count();`. User::hasCompletedKyc at User.php:147 issues 2 queries.",
+      "fix": "Replace with a single DB aggregate: join kyc_submissions on user_id grouped by user_id, compare COUNT(verified) >= COUNT(required). Or use `kyc_completed_at IS NOT NULL` as a fast proxy if the column is reliably maintained.",
+      "estimated_impact": "2N queries eliminated per dashboard render where N = tenants in the building (significant on 50-100 tenant buildings)."
+    },
+    {
+      "id": "SCOPE-D1",
+      "category": "tenant_scope_defense",
+      "priority": "MEDIUM",
+      "title": "PaymentHealthService loads all tenants' encrypted payment credentials on unauth health check",
+      "files": [
+        "app/Services/PaymentHealthService.php:39",
+        "routes/api.php:22"
+      ],
+      "problem": "PaymentHealthService::loadConfigurations() uses `withoutGlobalScopes()` to fetch all PaymentConfiguration rows including encrypted secret keys for all landlords. Called by HealthCheckController::payments() which is wrapped only in `throttle:api` — no auth. The secrets aren't returned in JSON, but they're hydrated into memory on every health-check call from any unauthenticated client.",
+      "evidence": "PaymentHealthService.php:39: `PaymentConfiguration::withoutGlobalScopes()->select(['landlord_id', 'paystack_secret_key', 'mpesa_consumer_secret', 'intasend_secret_key', ...])->get();`. routes/api.php:22 — no `auth:sanctum`.",
+      "fix": "Either require auth + ability:admin on /health/payments, OR narrow loadConfigurations to fetch only non-secret fields needed for the ping (e.g., `paystack_enabled`, `mpesa_environment`). Don't hydrate secret_key columns at all unless needed.",
+      "blast_radius": "No active leak via the JSON response. Compounding risk: a future serializer change or debug toggle would expose every landlord's payment credentials publicly."
+    },
+    {
+      "id": "SCOPE-D2",
+      "category": "tenant_scope_defense",
+      "priority": "MEDIUM",
+      "title": "FinanceStatsService::getExpenseStats uses withoutGlobalScopes with manual filter — fragile",
+      "files": [
+        "app/Services/FinanceStatsService.php:267"
+      ],
+      "problem": "Expense::withoutGlobalScopes()->where('expenses.landlord_id', $landlordId) — functionally safe, but bypasses TenantScope wholesale. If $landlordId is ever sourced from untrusted input, exposure is direct.",
+      "evidence": "Line 267.",
+      "fix": "Replace `withoutGlobalScopes()` with `withoutGlobalScope('landlord')` (named bypass — preserves any other future scopes). Add a code comment naming the manual filter as the security control.",
+      "blast_radius": "If a future caller mis-routes user input as $landlordId, all tenants' expense data leaks."
+    },
+    {
+      "id": "SCOPE-D3",
+      "category": "tenant_scope_defense",
+      "priority": "MEDIUM",
+      "title": "PaymentLinkService::revokeForInvoice and cleanupExpired bypass scope",
+      "files": [
+        "app/Services/PaymentLinkService.php:73",
+        "app/Services/PaymentLinkService.php:82"
+      ],
+      "problem": "revokeForInvoice($invoiceId) and cleanupExpired() use `withoutGlobalScope('landlord')` with only an invoice_id or expires_at filter. revokeForInvoice in particular is an IDOR if a tenant passes an invoice ID belonging to another tenant.",
+      "evidence": "Line 73-76, line 82.",
+      "fix": "In revokeForInvoice, add `->whereHas('invoice', fn($q) => $q->where('landlord_id', $landlordId))` or accept landlord_id as a parameter. In cleanupExpired, the cross-tenant nature is intentional — add a code comment.",
+      "blast_radius": "Possible cross-tenant payment-link revocation via ID enumeration."
+    },
+    {
+      "id": "SCOPE-D4",
+      "category": "tenant_scope_defense",
+      "priority": "MEDIUM",
+      "title": "DailyPaymentReconciliation depends on remembering the landlord_id filter on every query",
+      "files": [
+        "app/Console/Commands/DailyPaymentReconciliation.php:80",
+        "app/Services/Reconciliation/PaymentReconciliationService.php:96"
+      ],
+      "problem": "Pattern is correct (uses `withoutGlobalScope('landlord')->where('landlord_id', $specificId)`), but the entire chain relies on developer discipline to add `where('landlord_id', ...)` on every query. One forgotten filter = silent cross-tenant exposure in a financial reconciliation flow.",
+      "evidence": "Lines as cited.",
+      "fix": "Encapsulate the per-landlord query path in a repository method (e.g., `PaymentRepository::forLandlord($id)->reconcilable()`) so the landlord_id filter is unforgettable by construction.",
+      "blast_radius": "Today: safe. Future: any new query in this chain without filter exposes all landlords' reconciliation data."
+    },
+    {
+      "id": "SCOPE-D5",
+      "category": "tenant_scope_defense",
+      "priority": "MEDIUM",
+      "title": "ArchiveOldPayments — audit log entries may have null landlord_id",
+      "files": [
+        "app/Jobs/ArchiveOldPayments.php:30",
+        "app/Services/Payment/PaymentArchivalService.php:134"
+      ],
+      "problem": "PaymentArchivalService::archivePayment calls AuditLog::withoutGlobalScope('landlord')->create([...]) without populating landlord_id. The job runs as a queue worker (no Auth) so TenantScope's creating hook doesn't auto-fill landlord_id. Result: archival audit logs carry null landlord_id and are invisible to landlords reviewing their audit trail.",
+      "evidence": "Line 134.",
+      "fix": "In archivePayment, explicitly include `'landlord_id' => $payment->landlord_id` in the AuditLog::create payload. Add a regression test that archives a payment in a queue context and verifies the audit log row has the correct landlord_id.",
+      "blast_radius": "Compliance gap: landlords miss critical archival events in their audit log review."
+    },
+    {
+      "id": "SCOPE-D6",
+      "category": "tenant_scope_defense",
+      "priority": "MEDIUM",
+      "title": "HandleInertiaRequests landlord nav badges rely solely on TenantScope",
+      "files": [
+        "app/Http/Middleware/HandleInertiaRequests.php:136",
+        "app/Http/Middleware/HandleInertiaRequests.php:147"
+      ],
+      "problem": "Badge counts (`TenantMessage::where('status', ...)->count()`, `Invoice::where('status', 'overdue')->count()`, `Ticket::open()->count()`) rely entirely on the global TenantScope. If TenantScope is ever bypassed by a refactor or runs in a context where Auth::check() unexpectedly returns false (impersonation, queue), these badge counts leak system-wide totals.",
+      "evidence": "Lines as cited; no explicit `where('landlord_id', $user->id)`.",
+      "fix": "Add explicit `->where('landlord_id', $user->id)` to all badge count queries in the landlord branch as defense-in-depth alongside TenantScope. Match the redundant-filter pattern used elsewhere.",
+      "blast_radius": "Currently safe. Any TenantScope regression cascades to nav UI."
+    },
+    {
+      "id": "SCOPE-D7",
+      "category": "tenant_scope_defense",
+      "priority": "MEDIUM",
+      "title": "AuditLogController::forModel allows model-existence enumeration across tenants",
+      "files": [
+        "app/Http/Controllers/AuditLogController.php:185"
+      ],
+      "problem": "AuditLogController::forModel accepts model_type + model_id from user input. For non-super-admins, it filters audit log results by landlord_id, but it does not first verify that the requested model belongs to the landlord. A landlord can probe arbitrary model IDs and infer their existence from empty-vs-populated audit log responses.",
+      "evidence": "Line 185 area.",
+      "fix": "Resolve $model from $modelType/$modelId before querying audit logs. Verify $model->landlord_id === $landlordId. Return 404 if not found or not owned. Then query audit logs.",
+      "blast_radius": "Cross-tenant model ID enumeration via timing/empty-response side channel."
+    },
+    {
+      "id": "PERF-Q1",
+      "category": "performance_optimization",
+      "priority": "MEDIUM",
+      "title": "ArrearsController fires 7 redundant aggregate queries per page load",
+      "files": [
+        "app/Http/Controllers/ArrearsController.php:91-137"
+      ],
+      "problem": "After paginating, the controller computes a $stats array (3 separate queries: COUNT DISTINCT lease_id, COUNT, SUM) and a $aging array (4 SUM queries — same scan, different date ranges). All 7 hit the same WHERE-predicated rows. FinanceStatsService::getArrearsStats already implements the consolidated single-query version.",
+      "evidence": "Lines 92-137.",
+      "fix": "Replace the 7 queries with `FinanceCacheService::rememberStats('arrears', $landlordId, fn() => $this->financeStatsService->getArrearsStats($landlordId))`. Map the result keys to existing $stats/$aging shape.",
+      "estimated_impact": "6 queries eliminated per arrears page load + caching benefit on repeat hits."
+    },
+    {
+      "id": "PERF-Q2",
+      "category": "performance_optimization",
+      "priority": "MEDIUM",
+      "title": "NotificationsController::sendRentReminders dispatches one job per tenant",
+      "files": [
+        "app/Http/Controllers/NotificationsController.php:220-251"
+      ],
+      "problem": "Loads full Lease collection with `with('tenant:id,name')->get()` (no select for Lease columns), then dispatches a SendNotificationJob per tenant. For a landlord with 500 active leases, this fans out 500 individual queue jobs.",
+      "evidence": "Lines 220-227.",
+      "fix": "Add `->select(['id', 'tenant_id', 'rent_amount', 'landlord_id'])` on the Lease query. Replace per-tenant dispatch with a single SendBulkNotificationsJob carrying the lease ID list.",
+      "estimated_impact": "Reduces queue fan-out from N jobs to 1; reduces memory by skipping unused Lease columns."
+    },
+    {
+      "id": "PERF-Q3",
+      "category": "performance_optimization",
+      "priority": "MEDIUM",
+      "title": "ReportService::getOccupancyMetrics loads all units for PHP-side aggregation",
+      "files": [
+        "app/Services/ReportService.php:87-110"
+      ],
+      "problem": "Unit::where('landlord_id', $landlordId)->get() pulls all unit rows, then PHP aggregates with `$units->where('status', 'occupied')->count()` etc. The Api/ReportController::occupancy already does this correctly with `selectRaw('status, COUNT(*) as cnt')->groupBy('status')->pluck('cnt', 'status')`.",
+      "evidence": "Lines 87-90.",
+      "fix": "Mirror the Api/ReportController::occupancy implementation: single groupBy('status') aggregate.",
+      "estimated_impact": "Eliminates loading N unit rows. For 200 units, ~200 row hydrations skipped per render."
+    },
+    {
+      "id": "PERF-Q4",
+      "category": "performance_optimization",
+      "priority": "MEDIUM",
+      "title": "LeaseController::batchAdjustRent sends mail synchronously per lease",
+      "files": [
+        "app/Http/Controllers/LeaseController.php:207-240"
+      ],
+      "problem": "`Mail::to($lease->tenant)->send(new RentHikeNotice(...))` inside a foreach. For a 30-unit batch, that's 30 synchronous SMTP calls in one HTTP request — typically 200-2000ms each.",
+      "evidence": "Lines 207-240.",
+      "fix": "Replace `->send(...)` with `->queue(...)`. Or better, dispatch SendNotificationJob (which already supports email + SMS + WhatsApp fallback channels).",
+      "estimated_impact": "Eliminates 6-60 seconds of synchronous SMTP latency from a single HTTP request."
+    },
+    {
+      "id": "PERF-Q5",
+      "category": "performance_optimization",
+      "priority": "MEDIUM",
+      "title": "TenantController::show loads full Invoice/Payment rows for short summary panels",
+      "files": [
+        "app/Http/Controllers/TenantController.php:207-215"
+      ],
+      "problem": "`Payment::where('lease_id', ...)->limit(10)->get()` and `Invoice::where('lease_id', ...)->limit(10)->get()` fetch full model rows. The view only renders ~4 fields per row.",
+      "evidence": "Lines 207-215.",
+      "fix": "Add explicit `->select(['id', 'amount', 'payment_method', 'payment_date', 'reference'])` for payments and `->select(['id', 'invoice_number', 'total_due', 'amount_paid', 'status', 'due_date'])` for invoices.",
+      "estimated_impact": "Reduces row-bytes per Inertia render — meaningful on encrypted PII columns we don't need."
+    },
+    {
+      "id": "PERF-Q6",
+      "category": "performance_optimization",
+      "priority": "MEDIUM",
+      "title": "TenantsHubController verifications list eager-loads full tenant rows including encrypted PII",
+      "files": [
+        "app/Http/Controllers/TenantsHubController.php:129-142"
+      ],
+      "problem": "TenantVerification->with('lease.tenant')->paginate(20) eager-loads entire User rows including encrypted national_id and bank_details. Verifications list only needs id+name+email.",
+      "evidence": "Lines 135-137.",
+      "fix": "Use `->with(['lease:id,tenant_id', 'lease.tenant:id,name,email'])` to constrain columns.",
+      "estimated_impact": "Avoids loading encrypted PII per row; reduces decryption overhead and memory."
+    },
+    {
+      "id": "PERF-Q7",
+      "category": "performance_optimization",
+      "priority": "MEDIUM",
+      "title": "DashboardService uses whereHas where whereIn would suffice",
+      "files": [
+        "app/Services/DashboardService.php:497-501",
+        "app/Services/DashboardService.php:530-541"
+      ],
+      "problem": "Two queries use `Payment::whereHas('lease', fn($q) => $q->whereIn('unit_id', $metricsUnitIds))` — translates to a correlated subquery (EXISTS). $metricsLeaseIds is already computed at line 475; using it directly in `whereIn('lease_id', $metricsLeaseIds)` is faster.",
+      "evidence": "Line 497-500, 530.",
+      "fix": "Replace whereHas with `Payment::whereIn('lease_id', $metricsLeaseIds)`. Same fix in both call sites.",
+      "estimated_impact": "Replaces correlated subquery with direct indexed IN clause."
+    },
+    {
+      "id": "PERF-Q8",
+      "category": "performance_optimization",
+      "priority": "MEDIUM",
+      "title": "Api/ReportController::arrears (v1) — full collection load + PHP-side bucketing",
+      "files": [
+        "app/Http/Controllers/Api/ReportController.php:65-122"
+      ],
+      "problem": "v1 endpoint loads all overdue invoices `->with('lease.tenant', 'lease.unit', 'lease.unit.building')->get()`, then buckets in PHP. v2 endpoint (arrearsV2 at line 124) already implements this with selectRaw + cursor pagination — but mobile API still calls v1.",
+      "evidence": "Lines 70-85 vs lines 124+.",
+      "fix": "Direct mobile clients to v2. Or apply v2's selectRaw + cursor pagination to v1 directly.",
+      "estimated_impact": "For a landlord with 500 overdue invoices: 500 model hydrations + 3 nested eager loads avoided per API call."
+    },
+    {
+      "id": "PERF-Q9",
+      "category": "performance_optimization",
+      "priority": "MEDIUM",
+      "title": "PaymentsHubController::overview computes collection rate via 2 queries; not cached",
+      "files": [
+        "app/Http/Controllers/PaymentsHubController.php:421-471"
+      ],
+      "problem": "calculateCollectionRate fires 2 SUMs (total_due, amount_paid) on the same predicate. getPaymentStats just above fires 4 more uncached aggregate queries. None cached — every overview tab load re-runs all 6.",
+      "evidence": "Lines 456-467, 421-447.",
+      "fix": "Combine into one selectRaw('SUM(total_due) as invoiced, SUM(amount_paid) as collected'). Wrap getPaymentStats result in FinanceCacheService::rememberStats with appropriate TTL and invalidation.",
+      "estimated_impact": "1+ queries eliminated per render; caching eliminates all 6 on warm hits."
+    },
+    {
+      "id": "PERF-Q10",
+      "category": "performance_optimization",
+      "priority": "MEDIUM",
+      "title": "TenantsHubController::getCounts re-runs 4 COUNTs on every tab navigation",
+      "files": [
+        "app/Http/Controllers/TenantsHubController.php:257-274"
+      ],
+      "problem": "getCounts() runs 4 COUNT queries on every tab nav (no cache). Tab switching is frequent on this page.",
+      "evidence": "Lines 257-274.",
+      "fix": "Wrap in `Cache::remember(\"tenant_hub_counts:{$landlordId}\", 60, fn() => [...])`. Invalidate via observer hooks on TenantInvitation, TenantVerification, TenantPaymentVerification, MoveOut.",
+      "estimated_impact": "3 queries skipped per repeat hub nav inside the 60s TTL."
+    },
+    {
+      "id": "PERF-Q11",
+      "category": "performance_optimization",
+      "priority": "MEDIUM",
+      "title": "FinanceNotificationController::sendArrearsNotices loads full collection just to count",
+      "files": [
+        "app/Http/Controllers/Finance/FinanceNotificationController.php:20-37"
+      ],
+      "problem": "Invoice::where(...)->with('lease.tenant')->get() then `foreach ($invoices as $i) if ($i->lease?->tenant?->email) $count++` — full hydration with relations just for a count. The endpoint doesn't actually send anything; it returns the count as a flash message.",
+      "evidence": "Lines 20-30.",
+      "fix": "Replace with `Invoice::where('landlord_id', $id)->where('status', InvoiceStatus::Overdue)->whereHas('lease.tenant', fn($q) => $q->whereNotNull('email'))->count()`.",
+      "estimated_impact": "Eliminates full collection load for a no-op endpoint."
+    },
+    {
+      "id": "PERF-Q12",
+      "category": "performance_optimization",
+      "priority": "MEDIUM",
+      "title": "WarmFinanceCacheJob — getHubStats double-executes overview stats on cold cache",
+      "files": [
+        "app/Services/FinanceStatsService.php:77-143"
+      ],
+      "problem": "getHubStats wraps in `rememberStats('hub', ...)` and inside calls `getOverviewStats()` (which has its own remember block). When both caches are cold (warm-up after invalidation), inner queries execute once for `overview` and again inside `hub`.",
+      "evidence": "Lines 78-81.",
+      "fix": "In WarmFinanceCacheJob::handle, warm `overview` and `arrears` BEFORE warming `hub` so the nested calls find warm caches.",
+      "estimated_impact": "Avoids double execution of overview's payment/invoice queries during cache warm-up."
+    },
+    {
+      "id": "SCOPE-P1",
+      "category": "cleanup_consistency",
+      "priority": "LOW",
+      "title": "WaterSettingsController uses auth()->id() — same caretaker bug as DocumentController",
+      "files": [
+        "app/Http/Controllers/WaterSettingsController.php:50"
+      ],
+      "problem": "PUT /water/settings called by a caretaker writes `PaymentConfiguration::updateOrCreate(['landlord_id' => $caretakerUserId], ...)`. Same root cause as SCOPE-S3.",
+      "evidence": "Line 50.",
+      "fix": "Same fix as SCOPE-S3: resolve `$landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;`. Add `$this->authorize('update', WaterSetting::class)` or middleware role guard.",
+      "blast_radius": "Caretaker write creates an orphaned config row; same bug-class as SCOPE-S3."
+    },
+    {
+      "id": "SCOPE-P2",
+      "category": "cleanup_consistency",
+      "priority": "LOW",
+      "title": "MoveOutDeductionCategoryController — verify policy class matches AuthServiceProvider registration",
+      "files": [
+        "app/Http/Controllers/MoveOutDeductionCategoryController.php:21",
+        "app/Policies/MoveOutDeductionCategoryPolicy.php"
+      ],
+      "problem": "Recent untracked addition; verify `MoveOutDeductionCategoryPolicy::viewAny()` is correctly defined and respects landlord ownership for non-super-admins.",
+      "evidence": "Line 21 calls authorize. Policy class needs review.",
+      "fix": "Code review of MoveOutDeductionCategoryPolicy methods (viewAny, view, create, update, delete). Ensure landlord-scoped checks. No code change yet — verification only.",
+      "blast_radius": "None known; flagged because the policy was added in this session's recovery commits."
+    },
+    {
+      "id": "SCOPE-P3",
+      "category": "cleanup_consistency",
+      "priority": "LOW",
+      "title": "KycRequirementPolicy may allow landlords to delete platform defaults",
+      "files": [
+        "app/Http/Controllers/KycRequirementController.php:82",
+        "app/Policies/KycRequirementPolicy.php"
+      ],
+      "problem": "KycRequirement.landlord_id IS NULL = platform default. Verify KycRequirementPolicy::delete() rejects deletion when landlord_id is null and user is not a super admin.",
+      "evidence": "KycRequirement::scopeGlobal and ::isGlobal at lines 120 confirm landlord_id IS NULL semantics.",
+      "fix": "In KycRequirementPolicy::delete, add `if ($kycRequirement->landlord_id === null) return $user->isSuperAdmin();`.",
+      "blast_radius": "Landlord deletion of a platform default would affect all landlords' onboarding flows."
+    },
+    {
+      "id": "SCOPE-P4",
+      "category": "cleanup_consistency",
+      "priority": "LOW",
+      "title": "Refund / Import / LandlordPayoutAccount missing from AuthServiceProvider $policies",
+      "files": [
+        "app/Providers/AuthServiceProvider.php:59-82"
+      ],
+      "problem": "These models have landlord_id and TenantScope but no registered Policy. Controllers rely on manual filter checks; no central authz audit trail; @can directives would silently return false.",
+      "evidence": "Grep shows Refund, Import, LandlordPayoutAccount used in controllers; no Policy registration in AuthServiceProvider.",
+      "fix": "Create Policy classes (RefundPolicy, ImportPolicy, LandlordPayoutAccountPolicy) and register in AuthServiceProvider::$policies. Update controllers to call `$this->authorize(...)`.",
+      "blast_radius": "Authz layer gap; not exploitable today but invites future regressions."
+    },
+    {
+      "id": "SCOPE-P5",
+      "category": "cleanup_consistency",
+      "priority": "LOW",
+      "title": "SecurityLog pre-auth events have null landlord_id",
+      "files": [
+        "app/Models/SecurityLog.php",
+        "app/Traits/TenantScope.php:41"
+      ],
+      "problem": "Failed-login security logs are created in unauthenticated context; TenantScope's creating hook skips landlord_id population. Result: log entries are visible only to super admins, not the landlord whose tenant attempted login.",
+      "evidence": "TenantScope.php:69 creating hook gated on Auth::check().",
+      "fix": "On pre-login failures, resolve target user from email and populate `landlord_id` from `$targetUser->landlord_id` (or `$targetUser->id` if landlord). Add a regression test.",
+      "blast_radius": "Compliance/visibility gap on tenant brute-force events."
+    },
+    {
+      "id": "SCOPE-P6",
+      "category": "cleanup_consistency",
+      "priority": "LOW",
+      "title": "HandleInertiaRequests deferred props — convention compliant, document",
+      "files": [
+        "app/Http/Middleware/HandleInertiaRequests.php:57",
+        "app/Http/Middleware/HandleInertiaRequests.php:181-205"
+      ],
+      "problem": "getPendingInvitations uses `withoutGlobalScope('landlord')` deliberately for tenant-self-lookup. Pattern is correct but deserves documentation.",
+      "evidence": "Lines as cited.",
+      "fix": "No code change. Add doc comment explaining why scope bypass is required (cross-tenant invitation lookup by user ID).",
+      "blast_radius": "None — pattern is correct."
+    },
+    {
+      "id": "SCOPE-P7",
+      "category": "cleanup_consistency",
+      "priority": "LOW",
+      "title": "BulkOperationsController validates lease ownership via building chain, not direct landlord_id",
+      "files": [
+        "app/Http/Controllers/BulkOperationsController.php:82"
+      ],
+      "problem": "validateLeasesBelongToBuilding uses `whereHas('unit', fn($q) => $q->whereIn('building_id', $buildingIds))`. Correct in practice (because building_id is then verified against landlord_id). But if data corruption ever desyncs lease.landlord_id from unit.building.property.landlord_id, the check passes incorrectly.",
+      "evidence": "Line 82.",
+      "fix": "Add redundant `->where('landlord_id', $landlordId)` directly on the Lease query.",
+      "blast_radius": "Only materializes with pre-existing data corruption."
+    },
+    {
+      "id": "PERF-R1",
+      "category": "cleanup_consistency",
+      "priority": "LOW",
+      "title": "User::getPlanAttribute lazy-loads subscription on every CheckPlanLimits middleware hit",
+      "files": [
+        "app/Models/User.php:379-382"
+      ],
+      "problem": "`$this->subscription?->plan ?? SubscriptionPlan::free()` lazy-loads subscription if not eager-loaded. CheckPlanLimits middleware calls $user->canAccessFeature() / withinLimit() / getLimit() — each accesses $this->plan, each may trigger a subscription query.",
+      "evidence": "User.php:379-382.",
+      "fix": "In CheckPlanLimits middleware, call `$request->user()->loadMissing('subscription.plan')` before any plan check. Or memoize in the User model: `$this->loadedPlan ??= $this->subscription?->plan ?? SubscriptionPlan::free();`.",
+      "estimated_impact": "1 query per request on landlord-scoped routes when subscription not preloaded."
+    },
+    {
+      "id": "PERF-R2",
+      "category": "cleanup_consistency",
+      "priority": "LOW",
+      "title": "Lease::getVerificationProgressAttribute lazy-loads verifications relation",
+      "files": [
+        "app/Models/Lease.php:232-243"
+      ],
+      "problem": "Accessor accesses $this->verifications. TenantController::show eager-loads it, but TenantIndexService::getActiveTenants does not — hits N+1 on the index page if the attribute is serialized.",
+      "evidence": "Line 232-242.",
+      "fix": "Either eager-load 'verifications' wherever Lease is serialized for Inertia, or remove from $appends and compute on-demand only when explicitly requested.",
+      "estimated_impact": "Up to 1 query per lease on hub index pages."
+    },
+    {
+      "id": "PERF-R3",
+      "category": "cleanup_consistency",
+      "priority": "LOW",
+      "title": "FinanceStatsService::calculateExpenseCategoryBreakdown accesses category relation per group",
+      "files": [
+        "app/Services/FinanceStatsService.php:484-495"
+      ],
+      "problem": "`$group->first()->category?->name` triggers lazy load if category isn't eager-loaded on the source $expenses collection.",
+      "evidence": "Lines 489-492.",
+      "fix": "Ensure $expenses is loaded with `->with('category:id,name,color')`. Or use the DB-level breakdown already in getExpenseStats (lines 265-283) which avoids this entirely.",
+      "estimated_impact": "Up to M lazy loads where M = distinct expense categories per landlord."
+    },
+    {
+      "id": "PERF-R4",
+      "category": "cleanup_consistency",
+      "priority": "LOW",
+      "title": "Super-admin metrics cache key omits month-year — stale across boundaries",
+      "files": [
+        "app/Services/DashboardService.php:26-98"
+      ],
+      "problem": "Cache key `finance:superadmin:metrics` doesn't include month-year. After the month boundary, super-admin dashboard shows previous month's revenue for up to 5 minutes (TTL).",
+      "evidence": "Line 86-88 — month/year are bound parameters but absent from cache key.",
+      "fix": "Append month-year suffix: `rememberSuperAdminStats(\"metrics:{$month}:{$year}\", ...)`. Manually invalidate the previous month's key on the 1st of each month.",
+      "estimated_impact": "Removes 5-minute stale-data window after month rollover."
+    },
+    {
+      "id": "PERF-R5",
+      "category": "cleanup_consistency",
+      "priority": "LOW",
+      "title": "Missing index on payments.payment_date for monthly aggregations",
+      "files": [
+        "database/migrations/2026_01_15_000001_add_finance_hub_indexes.php",
+        "database/migrations/2025_12_16_093818_create_payments_table.php"
+      ],
+      "problem": "Existing indexes cover (landlord_id, payment_method) and (landlord_id, invoice_id). 12+ call sites use `whereMonth('payment_date', ...)` — MySQL can't use a function-based index for MONTH() without a generated column. Every monthly revenue query scans all payment rows for the landlord.",
+      "evidence": "12 occurrences of `whereMonth('payment_date'` across app/.",
+      "fix": "Add migration: `$table->index(['landlord_id', 'payment_date'], 'payments_landlord_date_idx')`. Optionally create a covering composite index `(landlord_id, payment_date, amount)` for SUM aggregations.",
+      "estimated_impact": "Converts table scan to range scan on payments. On 10k payment rows, drops from full-scan to small slice."
+    },
+    {
+      "id": "PERF-R6",
+      "category": "cleanup_consistency",
+      "priority": "LOW",
+      "title": "Missing composite index on notifications.(landlord_id, created_at) — filesort on every page",
+      "files": [
+        "database/migrations/2025_12_16_195159_create_notifications_table.php"
+      ],
+      "problem": "NotificationsController::index and OperationsHubController::getNotificationsData both run `Notification::where('landlord_id', ..)->orderBy('created_at', 'desc')->paginate(20)`. Without (landlord_id, created_at) index, MySQL filesorts after filtering.",
+      "evidence": "Migration shows no such index.",
+      "fix": "Add migration: `$table->index(['landlord_id', 'created_at'], 'notifications_landlord_created_idx')`.",
+      "estimated_impact": "Eliminates filesort on every notifications hub render."
+    },
+    {
+      "id": "PERF-R7",
+      "category": "cleanup_consistency",
+      "priority": "LOW",
+      "title": "users.landlord_id index relies on FK-implicit index (varies by engine)",
+      "files": [
+        "database/migrations/2025_01_01_000001_create_prop_manager_tables.php:18"
+      ],
+      "problem": "users.landlord_id is a foreignId. MySQL InnoDB auto-creates the FK index; SQLite does not. 25+ call sites use `User::where('landlord_id', ...)`. SQLite test runs may be slower because of missing index.",
+      "evidence": "Base migration; FK constraint without explicit index.",
+      "fix": "Add `$table->index(['landlord_id', 'role'], 'users_landlord_role_idx')` in a new migration. Benefits all engines uniformly.",
+      "estimated_impact": "Standardizes performance across MySQL/SQLite envs; helps test parallelism."
+    }
+  ],
+  "execution_phases": {
+    "phase_1": {
+      "title": "Critical Tenant-Isolation Fixes",
+      "scope": "SCOPE-S1, S2, S3, S4, S5, S6",
+      "rationale": "Highest blast radius; involves cross-tenant data exposure or write paths. Phase 3 cannot proceed until these land.",
+      "estimated_effort": "1-2 days; each fix is small but requires regression tests."
+    },
+    "phase_2": {
+      "title": "Critical Performance Fixes",
+      "scope": "PERF-P1 through PERF-P7",
+      "rationale": "Hot-path N+1 affecting dashboards, schedulers, and bulk operations. Direct user impact.",
+      "estimated_effort": "1-2 days; mostly query consolidation."
+    },
+    "phase_3": {
+      "title": "Defense-in-Depth Tenant Scope",
+      "scope": "SCOPE-D1 through D7",
+      "rationale": "Functionally safe today, fragile to refactoring. Cleanup that also catches one MEDIUM-likely-IDOR (D3).",
+      "estimated_effort": "1 day."
+    },
+    "phase_4": {
+      "title": "Performance Optimization",
+      "scope": "PERF-Q1 through Q12",
+      "rationale": "Real but cooler-path N+1 and cache opportunities. Should land before next high-traffic deployment.",
+      "estimated_effort": "2-3 days."
+    },
+    "phase_5": {
+      "title": "Cleanup & Consistency",
+      "scope": "SCOPE-P1-P7 + PERF-R1-R6",
+      "rationale": "Pick up when touching the area. Includes 3 missing-index migrations worth running together.",
+      "estimated_effort": "Opportunistic; bundle migrations into one deployment window."
+    }
+  },
+  "out_of_scope": [
+    "Architectural refactor of TenantScope to lazy-resolve auth at query time (would fix the SCOPE-S* root cause but is a multi-week initiative)",
+    "Migration to repository pattern for all per-landlord queries (would address SCOPE-D4 systemically)",
+    "Conversion of PHPUnit suite to Pest (separate initiative)",
+    "Coverage threshold restoration (separate effort: backfill tests for legacy services to reach 70%)",
+    "Replacement of Eloquent with query builder for high-volume reports (consider when reports cross 1M rows)"
+  ],
+  "metadata": {
+    "audit_method": "Two parallel feature-dev:code-explorer agents (multi-tenant scope + N+1/perf), exhaustive grep + LSP, no LLM speculation — every finding cites a file:line.",
+    "phase_1_2_priors": "Phase 1 (32 bugs, commit 03e17b7): SQLi/auth/serialization/file-upload. Phase 2 (17 bugs, commit 4a305a0): data integrity. Phase 3 (45 findings, this PRD): scope leakage + N+1. Phase 4 candidates (future): observability gaps, queue idempotency, public-API rate limiting beyond /payment, secrets rotation."
+  }
+}
