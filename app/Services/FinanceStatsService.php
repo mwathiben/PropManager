@@ -491,8 +491,10 @@ class FinanceStatsService
         // PERF-R3: defense-in-depth eager-load. Callers should pass expenses
         // with category already loaded; if not, this single loadMissing
         // collapses M lazy SELECTs (one per distinct category) into one
-        // batched query.
-        if ($expenses->isNotEmpty()) {
+        // batched query. Guarded for Eloquent Collection because callers
+        // may pass a Support Collection (e.g. ->lazy()->collect() in
+        // FinanceExportService) which has no loadMissing macro.
+        if ($expenses->isNotEmpty() && $expenses instanceof \Illuminate\Database\Eloquent\Collection) {
             $expenses->loadMissing('category:id,name,color');
         }
 
