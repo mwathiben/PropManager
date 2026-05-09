@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Traits\TenantScope;
 use App\ValueObjects\ReconciliationResult;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ReconciliationReport extends Model
 {
-    use HasFactory;
+    use HasFactory, TenantScope;
 
     protected $fillable = [
         'landlord_id',
