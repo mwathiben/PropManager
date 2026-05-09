@@ -6,9 +6,22 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateTenantRequest extends FormRequest
 {
+    // VALID-6: route-model ownership check at the Form Request layer.
+    // Pre-fix relied entirely on the controller for IDOR protection;
+    // route-middleware regression would silently flip this endpoint
+    // open to cross-landlord tenant edits.
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user();
+        $tenant = $this->route('tenant');
+
+        if (! $user || ! $tenant) {
+            return false;
+        }
+
+        $landlordId = $user->isCaretaker() ? (int) $user->landlord_id : (int) $user->id;
+
+        return $tenant->landlord_id === $landlordId;
     }
 
     public function rules(): array

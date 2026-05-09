@@ -26,10 +26,27 @@ class StorePaymentRequest extends FormRequest
 
     public function rules(): array
     {
+        // VALID-2: scope tenant_id and invoice_id to the caller's landlord.
+        // Pre-fix, exists:users,id and exists:invoices,id allowed a landlord to
+        // record a payment against another landlord's invoice or tenant —
+        // direct cross-tenant financial corruption. VALID-8: explicit max
+        // and decimal:0,2 reject scientific notation and DECIMAL(12,2) overflow.
+        $user = auth()->user();
+        $landlordId = $user?->isCaretaker() ? (int) $user->landlord_id : (int) $user?->id;
+
         return [
-            'tenant_id' => 'required_without:invoice_id|nullable|exists:users,id',
-            'invoice_id' => 'nullable|exists:invoices,id',
-            'amount' => 'required|numeric|min:0.01',
+            'tenant_id' => [
+                'required_without:invoice_id',
+                'nullable',
+                Rule::exists('users', 'id')
+                    ->where('landlord_id', $landlordId)
+                    ->where('role', 'tenant'),
+            ],
+            'invoice_id' => [
+                'nullable',
+                Rule::exists('invoices', 'id')->where('landlord_id', $landlordId),
+            ],
+            'amount' => ['required', 'decimal:0,2', 'min:0.01', 'max:9999999.99'],
             'payment_method' => ['required', Rule::in(PaymentMethod::values())],
             'payment_date' => 'required|date|before_or_equal:today',
             'reference' => 'nullable|string|max:255',

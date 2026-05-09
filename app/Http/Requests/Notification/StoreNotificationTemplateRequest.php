@@ -6,9 +6,12 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class StoreNotificationTemplateRequest extends FormRequest
 {
+    // VALID-6: notification templates are landlord-scoped configuration.
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user();
+
+        return $user && ($user->isLandlord() || $user->isCaretaker());
     }
 
     public function rules(): array

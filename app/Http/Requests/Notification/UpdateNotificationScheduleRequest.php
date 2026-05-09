@@ -3,23 +3,40 @@
 namespace App\Http\Requests\Notification;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateNotificationScheduleRequest extends FormRequest
 {
+    // VALID-6: route-model ownership check on the schedule being edited.
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user();
+        $schedule = $this->route('schedule');
+
+        if (! $user || ! $schedule) {
+            return false;
+        }
+
+        $landlordId = $user->isCaretaker() ? (int) $user->landlord_id : (int) $user->id;
+
+        return (int) $schedule->landlord_id === $landlordId;
     }
 
     public function rules(): array
     {
+        $user = $this->user();
+        $landlordId = $user && $user->isCaretaker() ? (int) $user->landlord_id : (int) ($user?->id ?? 0);
+
         return [
             'name' => 'required|string|max:255',
             'days_offset' => 'required|integer|min:1|max:90',
             'send_time' => 'required|date_format:H:i',
             'channels' => 'required|array|min:1',
             'channels.*' => 'in:email,sms,whatsapp,push',
-            'template_id' => 'nullable|exists:notification_templates,id',
+            'template_id' => [
+                'nullable',
+                Rule::exists('notification_templates', 'id')->where('landlord_id', $landlordId),
+            ],
             'is_active' => 'boolean',
         ];
     }

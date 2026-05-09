@@ -6,9 +6,12 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateGlobalPreferencesRequest extends FormRequest
 {
+    // VALID-6: global notification preferences are landlord-only settings.
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user();
+
+        return $user && ($user->isLandlord() || $user->isCaretaker());
     }
 
     public function rules(): array

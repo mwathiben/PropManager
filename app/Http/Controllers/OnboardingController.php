@@ -46,9 +46,13 @@ class OnboardingController extends Controller
         $user = auth()->user();
         $progress = $user->getOrCreateOnboardingProgress();
 
-        $this->validateStep($request, $step);
+        // VALID-3: pass only the validated subset to the service so unknown
+        // attacker-injected fields can't ride along into model creation.
+        // Falls back to $request->all() only on steps that have no rules
+        // defined (e.g. step 1 — no fields).
+        $validated = $this->validateStep($request, $step);
 
-        $result = $this->onboardingService->processStep($step, $request->all(), $user, $progress);
+        $result = $this->onboardingService->processStep($step, $validated, $user, $progress);
 
         if ($result === false) {
             return back()->withErrors(['error' => 'Failed to save step data.']);
@@ -155,7 +159,7 @@ class OnboardingController extends Controller
         return redirect()->route('dashboard');
     }
 
-    private function validateStep(Request $request, int $step): void
+    private function validateStep(Request $request, int $step): array
     {
         $rules = match ($step) {
             2 => [
@@ -197,22 +201,40 @@ class OnboardingController extends Controller
             6 => [
                 'invitations' => 'nullable|array',
                 'invitations.*.email' => 'required_with:invitations|email',
-                'invitations.*.property_id' => 'nullable|exists:properties,id',
+                // VALID-3: scope property_id to the onboarding landlord so a
+                // hostile signed-up landlord can't plant invitations on a
+                // competitor's property tree.
+                'invitations.*.property_id' => [
+                    'nullable',
+                    \Illuminate\Validation\Rule::exists('properties', 'id')
+                        ->where('landlord_id', auth()->id()),
+                ],
             ],
             7 => [
-                'unit_id' => 'required|exists:units,id',
+                // VALID-3: same scope on unit_id. Pre-fix, a logged-in landlord
+                // could submit step 7 with another landlord's unit_id and
+                // attach victim tenants to attacker-chosen units.
+                'unit_id' => [
+                    'required',
+                    \Illuminate\Validation\Rule::exists('units', 'id')
+                        ->where('landlord_id', auth()->id()),
+                ],
                 'tenant_email' => 'required|email',
                 'tenant_name' => 'nullable|string|max:255',
                 'tenant_phone' => 'nullable|string|max:20',
-                'rent_amount' => 'required|numeric|min:0',
-                'deposit_amount' => 'required|numeric|min:0',
+                // VALID-8: explicit money-field max — see StorePaymentRequest
+                // for the same pattern. decimal:0,2 rejects scientific notation.
+                'rent_amount' => ['required', 'decimal:0,2', 'min:0', 'max:9999999.99'],
+                'deposit_amount' => ['required', 'decimal:0,2', 'min:0', 'max:9999999.99'],
                 'start_date' => 'required|date|after_or_equal:today',
             ],
             default => [],
         };
 
-        if (! empty($rules)) {
-            $request->validate($rules);
+        if (empty($rules)) {
+            return $request->only([]);
         }
+
+        return $request->validate($rules);
     }
 }

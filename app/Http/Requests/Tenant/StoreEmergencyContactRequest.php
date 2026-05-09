@@ -6,9 +6,19 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class StoreEmergencyContactRequest extends FormRequest
 {
+    // VALID-6: route-model ownership check on the tenant the contact attaches to.
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user();
+        $tenant = $this->route('tenant');
+
+        if (! $user || ! $tenant) {
+            return false;
+        }
+
+        $landlordId = $user->isCaretaker() ? (int) $user->landlord_id : (int) $user->id;
+
+        return (int) $tenant->landlord_id === $landlordId;
     }
 
     public function rules(): array

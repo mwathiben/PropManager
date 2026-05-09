@@ -58,20 +58,46 @@ class GdprController extends Controller
      */
     public function downloadExport(Request $request)
     {
+        // VALID-4: the previous str_contains check on a base64-decoded
+        // path was satisfied by any substring, so a path like
+        // `../../../../etc/exports/{userId}/passwd` passed and `storage_path("app/{$path}")`
+        // resolved to an arbitrary location, granting authenticated arbitrary
+        // file read across the entire storage/app filesystem. Now:
+        //   - reject any input containing `..`, null bytes, or path separators
+        //     other than forward-slash (Windows backslash on Linux storage),
+        //   - require the path to *start with* the user's exports/{id}/ prefix
+        //     (str_starts_with, not str_contains),
+        //   - resolve the absolute path with realpath() and verify it's still
+        //     a descendant of storage_path('app/exports/{userId}/').
         $request->validate([
-            'path' => 'required|string',
+            'path' => 'required|string|max:1024',
         ]);
 
-        $path = base64_decode($request->path);
+        $path = base64_decode($request->path, true);
+        if ($path === false) {
+            abort(400, 'Invalid path encoding.');
+        }
 
-        // Security: Ensure the path belongs to this user
-        if (! str_contains($path, "exports/{$request->user()->id}/")) {
+        $userId = (int) $request->user()->id;
+        $expectedPrefix = "exports/{$userId}/";
+
+        if (
+            ! str_starts_with($path, $expectedPrefix)
+            || str_contains($path, '..')
+            || str_contains($path, "\0")
+            || str_contains($path, '\\')
+        ) {
             abort(403, 'Unauthorized access');
         }
 
-        $fullPath = storage_path("app/{$path}");
+        $fullPath = realpath(storage_path("app/{$path}"));
+        $allowedRoot = realpath(storage_path("app/exports/{$userId}"));
 
-        if (! file_exists($fullPath)) {
+        if (! $fullPath || ! $allowedRoot || ! str_starts_with($fullPath, $allowedRoot.DIRECTORY_SEPARATOR)) {
+            abort(404, 'Export not found or has expired');
+        }
+
+        if (! is_file($fullPath)) {
             abort(404, 'Export not found or has expired');
         }
 

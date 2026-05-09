@@ -6,9 +6,19 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateNotificationTemplateRequest extends FormRequest
 {
+    // VALID-6: route-model ownership check on the template being edited.
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user();
+        $template = $this->route('template');
+
+        if (! $user || ! $template) {
+            return false;
+        }
+
+        $landlordId = $user->isCaretaker() ? (int) $user->landlord_id : (int) $user->id;
+
+        return (int) $template->landlord_id === $landlordId;
     }
 
     public function rules(): array

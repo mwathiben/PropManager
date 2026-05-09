@@ -16,14 +16,28 @@ class AdjustDepositsRequest extends FormRequest
 
     public function rules(): array
     {
+        // VALID-7: scope every exists: to the caller's landlord — see
+        // AdjustRentRequest for the full rationale.
+        $user = Auth::user();
+        $landlordId = $user?->isCaretaker() ? (int) $user->landlord_id : (int) $user?->id;
+
         return [
             'lease_ids' => 'required|array|min:1',
-            'lease_ids.*' => 'exists:leases,id',
+            'lease_ids.*' => [
+                'integer',
+                \Illuminate\Validation\Rule::exists('leases', 'id')->where('landlord_id', $landlordId),
+            ],
             'adjustment_type' => 'required|in:percentage,fixed,set',
             'adjustment_value' => 'required|numeric',
             'notify_tenants' => 'boolean',
-            'building_id' => 'nullable|integer|exists:buildings,id',
-            'wing_id' => 'nullable|integer|exists:wings,id',
+            'building_id' => [
+                'nullable', 'integer',
+                \Illuminate\Validation\Rule::exists('buildings', 'id')->where('landlord_id', $landlordId),
+            ],
+            'wing_id' => [
+                'nullable', 'integer',
+                \Illuminate\Validation\Rule::exists('buildings', 'id')->where('landlord_id', $landlordId),
+            ],
         ];
     }
 }

@@ -14,7 +14,10 @@ class RecordPaymentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'amount' => 'required|numeric|min:0.01',
+            // VALID-8: explicit decimal:0,2 + max rejects scientific notation
+            // and DECIMAL(12,2) overflow that would otherwise silently
+            // truncate at the DB layer.
+            'amount' => ['required', 'decimal:0,2', 'min:0.01', 'max:9999999.99'],
             'payment_method' => 'required|string|in:cash,bank_transfer,mobile_money,paystack',
             'reference' => 'nullable|string|max:255',
             'notes' => 'nullable|string|max:500',

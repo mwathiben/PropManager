@@ -6,9 +6,31 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class InitializePaystackRequest extends FormRequest
 {
+    // VALID-6: route-model ownership check. The caller must be either the
+    // landlord/caretaker who owns the invoice, or the tenant on the invoice's
+    // lease — anyone else paying on someone else's invoice is an IDOR.
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user();
+        $invoice = $this->route('invoice');
+
+        if (! $user || ! $invoice) {
+            return false;
+        }
+
+        if ($user->isLandlord() || $user->isCaretaker()) {
+            $landlordId = $user->isCaretaker() ? (int) $user->landlord_id : (int) $user->id;
+
+            return (int) $invoice->landlord_id === $landlordId;
+        }
+
+        if ($user->isTenant()) {
+            $lease = $invoice->lease;
+
+            return $lease && (int) $lease->tenant_id === (int) $user->id;
+        }
+
+        return false;
     }
 
     public function rules(): array

@@ -30,9 +30,13 @@ class RefundRequest extends FormRequest
 
     public function rules(): array
     {
+        // VALID-8: decimal:0,2 + max — see RecordPaymentRequest for the
+        // rationale. amount > refundableAmount is also enforced in
+        // withValidator below, but that runs after coercion; the validator
+        // here rejects scientific notation up front.
         return [
             'payment_id' => 'required|exists:payments,id',
-            'amount' => 'required|numeric|min:0.01',
+            'amount' => ['required', 'decimal:0,2', 'min:0.01', 'max:9999999.99'],
             'reason' => 'required|string|max:500',
             'refund_method' => 'required|string|in:original_method,cash,bank_transfer,mobile_money',
             'notes' => 'nullable|string|max:1000',

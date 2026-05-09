@@ -6,9 +6,10 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateNotificationPreferencesRequest extends FormRequest
 {
+    // VALID-6: per-user notification preferences — any authenticated user.
     public function authorize(): bool
     {
-        return true;
+        return $this->user() !== null;
     }
 
     public function rules(): array

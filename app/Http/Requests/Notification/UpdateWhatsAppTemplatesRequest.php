@@ -6,9 +6,12 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateWhatsAppTemplatesRequest extends FormRequest
 {
+    // VALID-6: WhatsApp template SIDs are landlord-scoped credentials.
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user();
+
+        return $user && ($user->isLandlord() || $user->isCaretaker());
     }
 
     public function rules(): array
