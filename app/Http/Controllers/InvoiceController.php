@@ -86,17 +86,21 @@ class InvoiceController extends Controller
             $leasesQuery->where('landlord_id', $landlordId);
         }
 
-        $leases = $leasesQuery->get();
+        // PERF-P3: chunkById instead of get() so a landlord with thousands of
+        // leases doesn't hydrate the full collection into memory in one HTTP
+        // request. 250-row chunks bound peak memory regardless of fleet size.
         $successCount = 0;
 
-        foreach ($leases as $lease) {
-            try {
-                $invoiceService->generateInvoiceForLease($lease, $billingPeriod);
-                $successCount++;
-            } catch (\Exception $e) {
-                continue;
+        $leasesQuery->chunkById(250, function ($leases) use ($invoiceService, $billingPeriod, &$successCount) {
+            foreach ($leases as $lease) {
+                try {
+                    $invoiceService->generateInvoiceForLease($lease, $billingPeriod);
+                    $successCount++;
+                } catch (\Exception $e) {
+                    continue;
+                }
             }
-        }
+        });
 
         return redirect()->route('invoices.index')->with('success', __('messages.invoice.generated', ['count' => $successCount]));
     }
