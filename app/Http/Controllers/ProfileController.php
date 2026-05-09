@@ -148,6 +148,14 @@ class ProfileController extends Controller
             Storage::disk('public')->delete($user->profile_photo_path);
         }
 
+        // AUDIT-7: log BEFORE Auth::logout() so the audit row carries the
+        // self-deleting user's id. After logout, Auth::id() is null and the
+        // automatic deleted-event audit row would lose the actor.
+        $user->logCustomAudit('account_force_deleted', [
+            'email' => $user->email,
+            'self_initiated' => true,
+        ]);
+
         Auth::logout();
 
         $user->forceDelete();

@@ -30,7 +30,12 @@ class VoidPaymentHandler
                 'void_reason' => $reason,
             ]);
 
-            [$invoice, $previousStatus, $newStatus] = $this->recalculateInvoice($payment);
+            // AUDIT-3: capture the void as a status_changed audit event so
+            // the void reason and actor are recoverable from AuditLog alone,
+            // not just the void_reason column.
+            $payment->logStatusChange('completed', 'voided', $reason);
+
+            [$invoice, $previousStatus, $newStatus] = $this->recalculateInvoice($payment, $reason);
 
             Log::info('Payment voided', [
                 'payment_id' => $payment->id,
@@ -42,7 +47,7 @@ class VoidPaymentHandler
         });
     }
 
-    private function recalculateInvoice(Payment $payment): array
+    private function recalculateInvoice(Payment $payment, string $reason): array
     {
         if (! $payment->invoice_id) {
             return [null, null, null];
@@ -62,6 +67,16 @@ class VoidPaymentHandler
             'amount_paid' => $newAmountPaid,
             'status' => $newStatus,
         ]);
+
+        // AUDIT-3: emit a status_changed event when the void recalculation
+        // moves the invoice to a new state (e.g. Paid → Partial).
+        if ($previousStatus !== $newStatus) {
+            $invoice->logStatusChange(
+                $previousStatus->value,
+                $newStatus->value,
+                "Recalculated after void of payment #{$payment->id}: {$reason}",
+            );
+        }
 
         return [$invoice, $previousStatus, $newStatus];
     }

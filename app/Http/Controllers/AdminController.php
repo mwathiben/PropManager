@@ -8,12 +8,16 @@ use App\Models\Property;
 use App\Models\Setting;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\SecurityLogger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Inertia\Inertia;
 
 class AdminController extends Controller
 {
+    public function __construct(private readonly SecurityLogger $securityLogger) {}
+
     /**
      * Display the list of all landlords.
      */
@@ -139,16 +143,24 @@ class AdminController extends Controller
      */
     public function impersonate(User $user)
     {
-        // Don't allow impersonating super admins
+        // AUDIT-1: only super admins can impersonate (defence-in-depth on top
+        // of the route middleware) — and the action is logged BEFORE the
+        // session swap so the actor on the SecurityLog is the admin, not the
+        // impersonated user.
+        $admin = Auth::user();
+        if (! $admin || ! $admin->isSuperAdmin()) {
+            abort(403);
+        }
+
         if ($user->isSuperAdmin()) {
             return redirect()->back()->with('error', 'Cannot impersonate super admin users.');
         }
 
-        // Store the original admin ID in session
-        session(['impersonating' => auth()->id()]);
-        session(['impersonating_name' => auth()->user()->name]);
+        $this->securityLogger->logImpersonationStart($admin, $user);
 
-        // Login as the target user
+        session(['impersonating' => $admin->id]);
+        session(['impersonating_name' => $admin->name]);
+
         auth()->login($user);
 
         return redirect()->route('dashboard')
@@ -174,6 +186,13 @@ class AdminController extends Controller
 
             return redirect()->route('login')
                 ->with('error', 'Original user not found. Please login again.');
+        }
+
+        // AUDIT-1: log the end-of-impersonation while we still know the
+        // currently-impersonated user.
+        $impersonated = Auth::user();
+        if ($impersonated) {
+            $this->securityLogger->logImpersonationEnd($originalUser, $impersonated);
         }
 
         session()->forget(['impersonating', 'impersonating_name']);

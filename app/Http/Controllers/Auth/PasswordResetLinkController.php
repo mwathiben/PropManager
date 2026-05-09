@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Services\SecurityLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Password;
@@ -12,6 +13,8 @@ use Inertia\Response;
 
 class PasswordResetLinkController extends Controller
 {
+    public function __construct(private readonly SecurityLogger $securityLogger) {}
+
     /**
      * Display the password reset link request view.
      */
@@ -33,9 +36,11 @@ class PasswordResetLinkController extends Controller
             'email' => 'required|email',
         ]);
 
-        // We will send the password reset link to this user. Once we have attempted
-        // to send the link, we will examine the response then see the message we
-        // need to show to the user. Finally, we'll send out a proper response.
+        // AUDIT-2: log every reset-link request regardless of whether the
+        // email is registered, so attackers can't use the audit-log signal
+        // (or its absence) to enumerate accounts.
+        $this->securityLogger->logPasswordResetRequest($request->input('email'));
+
         $status = Password::sendResetLink(
             $request->only('email')
         );

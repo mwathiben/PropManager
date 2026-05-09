@@ -65,6 +65,7 @@ class DepositController extends Controller
 
         $status = $deductions > 0 ? 'partial_refund' : 'refunded';
         $balanceAfter = $lease->deposit_amount - $refundAmount - $deductions;
+        $previousDepositStatus = $lease->deposit_status;
 
         $lease->update([
             'deposit_status' => $status,
@@ -74,6 +75,14 @@ class DepositController extends Controller
             'deposit_processed_at' => now(),
             'deposit_processed_by' => auth()->id(),
         ]);
+
+        // AUDIT-6: emit a status_changed event so the deposit refund is
+        // reconstructable from AuditLog with the deduction reason intact.
+        $lease->logStatusChange(
+            "deposit:{$previousDepositStatus}",
+            "deposit:{$status}",
+            $request->deduction_reason ?? 'Deposit refund',
+        );
 
         if ($deductions > 0) {
             DepositTransaction::create([
@@ -120,6 +129,8 @@ class DepositController extends Controller
             return back()->withErrors(['error' => 'This deposit has already been processed.']);
         }
 
+        $previousDepositStatus = $lease->deposit_status;
+
         $lease->update([
             'deposit_status' => 'forfeited',
             'deposit_deductions' => $lease->deposit_amount,
@@ -127,6 +138,14 @@ class DepositController extends Controller
             'deposit_processed_at' => now(),
             'deposit_processed_by' => auth()->id(),
         ]);
+
+        // AUDIT-6: emit status_changed for the forfeit so the actor + reason
+        // are recoverable from AuditLog.
+        $lease->logStatusChange(
+            "deposit:{$previousDepositStatus}",
+            'deposit:forfeited',
+            $request->reason ?? 'Deposit forfeited',
+        );
 
         DepositTransaction::create([
             'lease_id' => $lease->id,

@@ -292,8 +292,16 @@ class DataDeletionService
             'email_verified_at' => null,
         ]);
 
-        // Invalidate all sessions
+        // AUDIT-9: capture how many sessions were terminated so the audit
+        // trail records the security impact of the purge (instead of just
+        // "user anonymised").
+        $sessionCount = DB::table('sessions')->where('user_id', $user->id)->count();
         DB::table('sessions')->where('user_id', $user->id)->delete();
+
+        $user->logCustomAudit('sessions_purged', [
+            'sessions_terminated' => $sessionCount,
+            'reason' => 'gdpr_anonymization',
+        ]);
 
         // Revoke all API tokens
         if (method_exists($user, 'tokens')) {

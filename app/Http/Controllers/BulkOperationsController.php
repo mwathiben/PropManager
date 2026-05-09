@@ -21,6 +21,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -231,6 +232,11 @@ class BulkOperationsController extends Controller
             'errors' => [],
         ];
 
+        // AUDIT-5: stamp every per-row audit row with the same operation id
+        // so the original bulk action can be reconstructed even after some
+        // rows succeed and others fail.
+        $bulkOpId = (string) Str::uuid();
+
         DB::beginTransaction();
 
         try {
@@ -246,6 +252,13 @@ class BulkOperationsController extends Controller
                     $lease->update([
                         'is_active' => false,
                         'end_date' => $validated['termination_date'],
+                    ]);
+
+                    $lease->logCustomAudit('bulk_terminated', [
+                        'bulk_operation_id' => $bulkOpId,
+                        'reason' => $validated['reason'] ?? null,
+                        'termination_date' => $validated['termination_date'],
+                        'total_in_batch' => count($validated['lease_ids']),
                     ]);
 
                     // Update unit status if requested
@@ -321,6 +334,9 @@ class BulkOperationsController extends Controller
             'errors' => [],
         ];
 
+        // AUDIT-5: stamp every per-row audit row with the same operation id.
+        $bulkOpId = (string) Str::uuid();
+
         DB::beginTransaction();
 
         try {
@@ -338,6 +354,14 @@ class BulkOperationsController extends Controller
                         : now()->addMonths($validated['extension_months']);
 
                     $lease->update(['end_date' => $newEndDate]);
+
+                    $lease->logCustomAudit('bulk_extended', [
+                        'bulk_operation_id' => $bulkOpId,
+                        'extension_months' => $validated['extension_months'],
+                        'old_end_date' => $oldEndDate,
+                        'new_end_date' => $newEndDate->format('Y-m-d'),
+                        'total_in_batch' => count($validated['lease_ids']),
+                    ]);
 
                     // Notify tenant if requested
                     if ($validated['notify_tenants'] ?? false) {

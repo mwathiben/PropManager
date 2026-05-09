@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Services\SecurityLogger;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,6 +17,8 @@ use Inertia\Response;
 
 class NewPasswordController extends Controller
 {
+    public function __construct(private readonly SecurityLogger $securityLogger) {}
+
     /**
      * Display the password reset view.
      */
@@ -50,6 +53,11 @@ class NewPasswordController extends Controller
                     'password' => Hash::make($request->password),
                     'remember_token' => Str::random(60),
                 ])->save();
+
+                // AUDIT-2: completion log uses the actual user model so the
+                // SecurityLog row carries the right user_id/email regardless
+                // of whether anyone is logged in at the time.
+                $this->securityLogger->logPasswordReset($user);
 
                 event(new PasswordReset($user));
             }

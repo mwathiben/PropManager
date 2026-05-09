@@ -2,13 +2,31 @@
 
 namespace App\Models;
 
+use App\Traits\Auditable;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DepositTransaction extends Model
 {
-    use TenantScope;
+    use Auditable, TenantScope;
+
+    /**
+     * AUDIT-6: capture deposit-transaction context (type/amount/balance/processed_by)
+     * on every audit row so deductions, forfeits and refunds are traceable
+     * without joining back to deposit_transactions.
+     */
+    public function getAuditMetadata(): array
+    {
+        return [
+            'type' => $this->type,
+            'amount' => $this->amount,
+            'balance_after' => $this->balance_after,
+            'processed_by' => $this->processed_by,
+            'lease_id' => $this->lease_id,
+            'move_out_id' => $this->move_out_id,
+        ];
+    }
 
     public const TYPE_RECEIVED = 'received';
 

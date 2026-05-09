@@ -7,6 +7,7 @@ use App\Models\Lease;
 use App\Models\RentHistory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class BulkRentAdjuster
 {
@@ -94,6 +95,11 @@ class BulkRentAdjuster
 
     public function execute(): array
     {
+        // AUDIT-5: stamp every per-row audit row with the same operation id
+        // so the original bulk action can be reconstructed even when only a
+        // subset of leases succeed.
+        $bulkOpId = (string) Str::uuid();
+
         DB::beginTransaction();
 
         try {
@@ -107,7 +113,7 @@ class BulkRentAdjuster
                 ->keyBy('id');
 
             foreach ($this->leaseIds as $leaseId) {
-                $this->processLease($leaseId, $leases->get($leaseId));
+                $this->processLease($leaseId, $leases->get($leaseId), $bulkOpId);
             }
 
             DB::commit();
@@ -120,7 +126,7 @@ class BulkRentAdjuster
         }
     }
 
-    private function processLease(int $leaseId, ?Lease $lease): void
+    private function processLease(int $leaseId, ?Lease $lease, string $bulkOpId): void
     {
         if (! $lease) {
             // Lease either belongs to a different landlord, is inactive, or
@@ -134,6 +140,17 @@ class BulkRentAdjuster
         $newRent = $this->calculateNewRent($oldRent);
 
         $lease->update(['rent_amount' => $newRent]);
+
+        $lease->logCustomAudit('bulk_rent_adjusted', [
+            'bulk_operation_id' => $bulkOpId,
+            'reason' => $this->reason,
+            'adjustment_type' => $this->adjustmentType,
+            'adjustment_value' => $this->adjustmentValue,
+            'effective_date' => $this->effectiveDate,
+            'old_rent' => $oldRent,
+            'new_rent' => $newRent,
+            'total_in_batch' => count($this->leaseIds),
+        ]);
 
         $this->recordRentHistory($lease, $oldRent, $newRent);
 

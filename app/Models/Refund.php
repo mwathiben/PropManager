@@ -3,13 +3,30 @@
 namespace App\Models;
 
 use App\Enums\RefundStatus;
+use App\Traits\Auditable;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Refund extends Model
 {
-    use TenantScope;
+    use Auditable, TenantScope;
+
+    /**
+     * AUDIT-4 / AUDIT-11: capture refund-specific context on every audit
+     * row so the security log is queryable by approver/state without
+     * joining back to refunds.
+     */
+    public function getAuditMetadata(): array
+    {
+        return [
+            'amount' => $this->amount,
+            'status' => $this->status?->value,
+            'payment_method' => $this->payment_method,
+            'approved_by' => $this->approved_by,
+            'initiated_by' => $this->initiated_by,
+        ];
+    }
 
     protected $fillable = [
         'payment_id',
