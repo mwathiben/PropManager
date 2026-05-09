@@ -97,10 +97,17 @@ class ReportController extends Controller
     {
         $landlordId = $this->resolveLandlordId($request);
 
+        // PERF-Q8: cap the v1 result set so a landlord with thousands of
+        // overdue invoices doesn't trigger a multi-MB JSON response with
+        // three nested eager-loaded relations on each row. Mobile clients
+        // hitting the cap should migrate to v2 (cursor-paginated, summary-
+        // first) — see the Deprecation/Sunset headers on the response.
         $overdueInvoices = Invoice::where('landlord_id', $landlordId)
             ->where('status', InvoiceStatus::Overdue)
             ->select(['id', 'invoice_number', 'lease_id', 'total_due', 'amount_paid', 'due_date'])
             ->with(['lease.tenant:id,name,email,mobile_number', 'lease.unit:id,unit_number,building_id', 'lease.unit.building:id,name'])
+            ->orderBy('due_date', 'asc')
+            ->limit(500)
             ->get();
 
         $now = Carbon::now();
@@ -148,7 +155,10 @@ class ReportController extends Controller
                 '61_90_days' => (float) collect($aged['61_90'])->sum('balance'),
                 '90_plus_days' => (float) collect($aged['90_plus'])->sum('balance'),
             ],
-        ]);
+        ])
+            ->header('Deprecation', 'true')
+            ->header('Sunset', 'Wed, 31 Dec 2026 23:59:59 GMT')
+            ->header('Link', '</api/v1/reports/arrears-v2>; rel="successor-version"');
     }
 
     public function arrearsV2(Request $request)

@@ -84,13 +84,20 @@ class ReportService
      */
     private function getOccupancyMetrics(int $landlordId): array
     {
-        $units = Unit::where('landlord_id', $landlordId)->get();
+        // PERF-Q3: aggregate in SQL instead of hydrating every Unit row and
+        // counting in PHP. For a landlord with hundreds of units this avoids
+        // hundreds of model hydrations per render. Mirrors the implementation
+        // in Api/ReportController::occupancy.
+        $statusCounts = Unit::where('landlord_id', $landlordId)
+            ->selectRaw('status, COUNT(*) as cnt')
+            ->groupBy('status')
+            ->pluck('cnt', 'status');
 
-        $totalUnits = $units->count();
-        $occupied = $units->where('status', 'occupied')->count();
-        $vacant = $units->where('status', 'vacant')->count();
-        $maintenance = $units->where('status', 'maintenance')->count();
-        $arrears = $units->where('status', 'arrears')->count();
+        $occupied = (int) ($statusCounts['occupied'] ?? 0);
+        $vacant = (int) ($statusCounts['vacant'] ?? 0);
+        $maintenance = (int) ($statusCounts['maintenance'] ?? 0);
+        $arrears = (int) ($statusCounts['arrears'] ?? 0);
+        $totalUnits = (int) $statusCounts->sum();
 
         return [
             'total_units' => $totalUnits,

@@ -13,21 +13,19 @@ class FinanceNotificationController extends Controller
 {
     use WithLandlordScope;
 
+    // PERF-Q11: count via SQL whereHas instead of hydrating the full
+    // invoice + lease + tenant graph just to filter on email presence in
+    // PHP. The endpoint never actually sends — it returns the count as a
+    // flash message — so an aggregate count is the right shape.
+
     public function sendArrearsNotices(Request $request): RedirectResponse
     {
         $landlordId = $this->getLandlordId();
 
-        $overdueInvoices = Invoice::where('landlord_id', $landlordId)
+        $sentCount = Invoice::where('landlord_id', $landlordId)
             ->where('status', InvoiceStatus::Overdue)
-            ->with('lease.tenant')
-            ->get();
-
-        $sentCount = 0;
-        foreach ($overdueInvoices as $invoice) {
-            if ($invoice->lease?->tenant?->email) {
-                $sentCount++;
-            }
-        }
+            ->whereHas('lease.tenant', fn ($q) => $q->whereNotNull('email')->where('email', '!=', ''))
+            ->count();
 
         if ($sentCount === 0) {
             return back()->with('info', 'No tenants with arrears have email addresses configured.');
@@ -40,19 +38,12 @@ class FinanceNotificationController extends Controller
     {
         $landlordId = $this->getLandlordId();
 
-        $upcomingInvoices = Invoice::where('landlord_id', $landlordId)
+        $sentCount = Invoice::where('landlord_id', $landlordId)
             ->whereIn('status', [InvoiceStatus::Sent, InvoiceStatus::Draft])
             ->where('due_date', '>=', now())
             ->where('due_date', '<=', now()->addDays(7))
-            ->with('lease.tenant')
-            ->get();
-
-        $sentCount = 0;
-        foreach ($upcomingInvoices as $invoice) {
-            if ($invoice->lease?->tenant?->email) {
-                $sentCount++;
-            }
-        }
+            ->whereHas('lease.tenant', fn ($q) => $q->whereNotNull('email')->where('email', '!=', ''))
+            ->count();
 
         if ($sentCount === 0) {
             return back()->with('info', 'No upcoming invoices found for reminders.');

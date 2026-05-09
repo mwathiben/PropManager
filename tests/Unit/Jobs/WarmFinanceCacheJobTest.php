@@ -56,12 +56,17 @@ class WarmFinanceCacheJobTest extends TestCase
     }
 
     #[Test]
-    public function job_calls_all_five_stat_methods(): void
+    public function job_warms_inner_caches_before_outer(): void
     {
+        // PERF-Q12: warm overview + arrears BEFORE hub so the nested
+        // getOverviewStats()/getArrearsStats() calls inside getHubStats()
+        // hit warm caches instead of re-running the same aggregations.
         /** @var MockInterface&FinanceStatsService $stats */
         $stats = Mockery::mock(FinanceStatsService::class);
 
-        $stats->shouldReceive('getHubStats')->once()->with(5)->andReturn([]);
+        $stats->shouldReceive('getOverviewStats')->once()->with(5)->ordered()->andReturn([]);
+        $stats->shouldReceive('getArrearsStats')->once()->with(5)->ordered()->andReturn([]);
+        $stats->shouldReceive('getHubStats')->once()->with(5)->ordered()->andReturn([]);
         $stats->shouldReceive('getDepositStats')->once()->with(5)->andReturn([]);
         $stats->shouldReceive('getLateFeeStats')->once()->with(5)->andReturn([]);
         $stats->shouldReceive('getExpenseStats')->once()->with(5)->andReturn([]);

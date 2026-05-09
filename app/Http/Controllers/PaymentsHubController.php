@@ -12,6 +12,7 @@ use App\Models\PaymentConfiguration;
 use App\Models\PlatformBillingSetting;
 use App\Models\PlatformFee;
 use App\Services\BillingModelService;
+use App\Services\FinanceCacheService;
 use App\Services\PaystackSubaccountService;
 use App\Traits\DatabaseAgnosticQueries;
 use Illuminate\Http\JsonResponse;
@@ -416,32 +417,43 @@ class PaymentsHubController extends Controller
     /**
      * Get payment statistics
      */
+    // PERF-Q9: cache the whole stats payload at the same TTL as other
+    // finance stats so repeat overview tab loads inside the 5-min window
+    // hit memory instead of 6 aggregate queries.
     private function getPaymentStats(int $landlordId): array
+    {
+        return FinanceCacheService::rememberStats(
+            'payments_hub_overview',
+            $landlordId,
+            fn () => $this->computePaymentStats($landlordId),
+            now()->format('Y-m'),
+        );
+    }
+
+    private function computePaymentStats(int $landlordId): array
     {
         $now = now();
 
         $totalCollected = Payment::withArchived()->where('landlord_id', $landlordId)->sum('amount');
 
-        $thisMonth = Payment::where('landlord_id', $landlordId)
+        // Combined: thisMonth (sum) + paymentCount (count) for the same
+        // predicate — single scan instead of two.
+        $monthAgg = Payment::where('landlord_id', $landlordId)
             ->whereMonth('payment_date', $now->month)
             ->whereYear('payment_date', $now->year)
-            ->sum('amount');
+            ->selectRaw('COALESCE(SUM(amount), 0) as total, COUNT(*) as cnt')
+            ->first();
 
         $pendingAmount = Invoice::where('landlord_id', $landlordId)
             ->whereIn('status', [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue])
             ->selectRaw('COALESCE(SUM(total_due - amount_paid), 0) as pending')
             ->value('pending') ?? 0;
 
-        $paymentCount = Payment::where('landlord_id', $landlordId)
-            ->whereMonth('payment_date', $now->month)
-            ->whereYear('payment_date', $now->year)
-            ->count();
-
         return [
-            'total_collected' => round($totalCollected, 2),
-            'this_month' => round($thisMonth, 2),
-            'pending_amount' => round($pendingAmount, 2),
-            'payment_count' => $paymentCount,
+            'total_collected' => round((float) $totalCollected, 2),
+            'this_month' => round((float) ($monthAgg->total ?? 0), 2),
+            'pending_amount' => round((float) $pendingAmount, 2),
+            'payment_count' => (int) ($monthAgg->cnt ?? 0),
             'collection_rate' => $this->calculateCollectionRate($landlordId),
         ];
     }
@@ -453,21 +465,21 @@ class PaymentsHubController extends Controller
     {
         $now = now();
 
-        $invoiced = Invoice::where('landlord_id', $landlordId)
+        // PERF-Q9: combined SUMs — one scan instead of two on the same
+        // landlord+month predicate.
+        $totals = Invoice::where('landlord_id', $landlordId)
             ->whereMonth('created_at', $now->month)
             ->whereYear('created_at', $now->year)
-            ->sum('total_due');
+            ->selectRaw('COALESCE(SUM(total_due), 0) as invoiced, COALESCE(SUM(amount_paid), 0) as collected')
+            ->first();
+
+        $invoiced = (float) ($totals->invoiced ?? 0);
 
         if ($invoiced <= 0) {
             return 0;
         }
 
-        $collected = Invoice::where('landlord_id', $landlordId)
-            ->whereMonth('created_at', $now->month)
-            ->whereYear('created_at', $now->year)
-            ->sum('amount_paid');
-
-        return round(($collected / $invoiced) * 100, 1);
+        return round(((float) ($totals->collected ?? 0) / $invoiced) * 100, 1);
     }
 
     /**

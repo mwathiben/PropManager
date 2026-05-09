@@ -132,7 +132,10 @@ class TenantsHubController extends Controller
                     ->orWhere('email', 'like', "%{$search}%"));
             })
             ->when($status, fn ($q, $status) => $q->where('status', $status))
-            ->with('lease.tenant')
+            ->with([
+                'lease:id,tenant_id,unit_id',
+                'lease.tenant:id,name,email',
+            ])
             ->orderBy('created_at', 'desc')
             ->paginate(20)
             ->withQueryString();
@@ -254,22 +257,37 @@ class TenantsHubController extends Controller
         ];
     }
 
+    // PERF-Q10: short-TTL cache. Tab navigation re-runs the same 4 COUNTs
+    // many times per session; a 60s window is short enough to feel live
+    // and long enough to absorb a flurry of tab clicks. Invalidated by
+    // observers on TenantInvitation/TenantVerification/TenantPaymentVerification/MoveOut.
+    public const COUNTS_CACHE_TTL = 60;
+
+    public static function countsCacheKey(int $landlordId): string
+    {
+        return "tenant_hub_counts:{$landlordId}";
+    }
+
     private function getCounts(int $landlordId): array
     {
-        return [
-            'pendingInvitations' => TenantInvitation::where('landlord_id', $landlordId)
-                ->where('status', 'pending')
-                ->where('expires_at', '>', now())
-                ->count(),
-            'pendingVerifications' => TenantVerification::where('landlord_id', $landlordId)
-                ->where('status', 'pending')
-                ->count(),
-            'paymentVerifications' => TenantPaymentVerification::where('landlord_id', $landlordId)
-                ->where('status', 'pending')
-                ->count(),
-            'moveOuts' => MoveOut::where('landlord_id', $landlordId)
-                ->active()
-                ->count(),
-        ];
+        return \Illuminate\Support\Facades\Cache::remember(
+            self::countsCacheKey($landlordId),
+            self::COUNTS_CACHE_TTL,
+            fn () => [
+                'pendingInvitations' => TenantInvitation::where('landlord_id', $landlordId)
+                    ->where('status', 'pending')
+                    ->where('expires_at', '>', now())
+                    ->count(),
+                'pendingVerifications' => TenantVerification::where('landlord_id', $landlordId)
+                    ->where('status', 'pending')
+                    ->count(),
+                'paymentVerifications' => TenantPaymentVerification::where('landlord_id', $landlordId)
+                    ->where('status', 'pending')
+                    ->count(),
+                'moveOuts' => MoveOut::where('landlord_id', $landlordId)
+                    ->active()
+                    ->count(),
+            ],
+        );
     }
 }

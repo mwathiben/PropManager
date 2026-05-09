@@ -204,12 +204,18 @@ class TenantController extends Controller
         $payments = [];
         $invoices = [];
         if ($activeLease) {
+            // PERF-Q5: explicit column lists. Payment and Invoice rows
+            // include encrypted PII (paystack_reference, mpesa_*, bank_*)
+            // we don't render in the summary panel; selecting only the
+            // displayed fields skips decryption and slims the payload.
             $payments = Payment::where('lease_id', $activeLease->id)
+                ->select(['id', 'lease_id', 'amount', 'payment_method', 'payment_date', 'reference', 'created_at'])
                 ->orderBy('created_at', 'desc')
                 ->limit(10)
                 ->get();
 
             $invoices = Invoice::where('lease_id', $activeLease->id)
+                ->select(['id', 'lease_id', 'invoice_number', 'total_due', 'amount_paid', 'status', 'due_date', 'created_at'])
                 ->orderBy('created_at', 'desc')
                 ->limit(10)
                 ->get();

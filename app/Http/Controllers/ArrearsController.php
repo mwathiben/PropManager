@@ -87,53 +87,45 @@ class ArrearsController extends Controller
             return $invoice;
         });
 
-        // Calculate stats
+        // PERF-Q1: collapse 7 separate aggregate queries into a single
+        // CASE WHEN selectRaw. The pre-fix code re-scanned the same
+        // arrears predicate seven times to produce $stats + $aging.
+        $today = Carbon::today();
+        $cutoff30 = $today->copy()->subDays(30)->format('Y-m-d');
+        $cutoff60 = $today->copy()->subDays(60)->format('Y-m-d');
+        $cutoff90 = $today->copy()->subDays(90)->format('Y-m-d');
+        $todayStr = $today->format('Y-m-d');
+
+        $agg = Invoice::where('landlord_id', $landlordId)
+            ->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial])
+            ->whereRaw('(total_due - amount_paid) > 0')
+            ->selectRaw('
+                COALESCE(SUM(total_due - amount_paid), 0) as total_arrears,
+                COUNT(DISTINCT lease_id) as tenants_in_arrears,
+                COUNT(*) as invoices_overdue,
+                COALESCE(SUM(CASE WHEN due_date >= ? AND due_date < ? THEN total_due - amount_paid ELSE 0 END), 0) as age_0_30,
+                COALESCE(SUM(CASE WHEN due_date >= ? AND due_date < ? THEN total_due - amount_paid ELSE 0 END), 0) as age_31_60,
+                COALESCE(SUM(CASE WHEN due_date >= ? AND due_date < ? THEN total_due - amount_paid ELSE 0 END), 0) as age_61_90,
+                COALESCE(SUM(CASE WHEN due_date <  ? THEN total_due - amount_paid ELSE 0 END), 0) as age_90_plus
+            ', [
+                $cutoff30, $todayStr,
+                $cutoff60, $cutoff30,
+                $cutoff90, $cutoff60,
+                $cutoff90,
+            ])
+            ->first();
+
         $stats = [
-            'total_arrears' => Invoice::where('landlord_id', $landlordId)
-                ->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial])
-                ->selectRaw('COALESCE(SUM(total_due - amount_paid), 0) as total')
-                ->value('total') ?? 0,
-            'tenants_in_arrears' => Invoice::where('landlord_id', $landlordId)
-                ->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial])
-                ->whereRaw('(total_due - amount_paid) > 0')
-                ->distinct('lease_id')
-                ->count('lease_id'),
-            'invoices_overdue' => Invoice::where('landlord_id', $landlordId)
-                ->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial])
-                ->whereRaw('(total_due - amount_paid) > 0')
-                ->count(),
+            'total_arrears' => (float) ($agg->total_arrears ?? 0),
+            'tenants_in_arrears' => (int) ($agg->tenants_in_arrears ?? 0),
+            'invoices_overdue' => (int) ($agg->invoices_overdue ?? 0),
         ];
 
-        // Calculate aging buckets
-        $today = Carbon::today();
         $aging = [
-            '0_30' => Invoice::where('landlord_id', $landlordId)
-                ->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial])
-                ->whereRaw('(total_due - amount_paid) > 0')
-                ->where('due_date', '>=', $today->copy()->subDays(30))
-                ->where('due_date', '<', $today)
-                ->selectRaw('COALESCE(SUM(total_due - amount_paid), 0) as total')
-                ->value('total') ?? 0,
-            '31_60' => Invoice::where('landlord_id', $landlordId)
-                ->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial])
-                ->whereRaw('(total_due - amount_paid) > 0')
-                ->where('due_date', '>=', $today->copy()->subDays(60))
-                ->where('due_date', '<', $today->copy()->subDays(30))
-                ->selectRaw('COALESCE(SUM(total_due - amount_paid), 0) as total')
-                ->value('total') ?? 0,
-            '61_90' => Invoice::where('landlord_id', $landlordId)
-                ->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial])
-                ->whereRaw('(total_due - amount_paid) > 0')
-                ->where('due_date', '>=', $today->copy()->subDays(90))
-                ->where('due_date', '<', $today->copy()->subDays(60))
-                ->selectRaw('COALESCE(SUM(total_due - amount_paid), 0) as total')
-                ->value('total') ?? 0,
-            '90_plus' => Invoice::where('landlord_id', $landlordId)
-                ->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial])
-                ->whereRaw('(total_due - amount_paid) > 0')
-                ->where('due_date', '<', $today->copy()->subDays(90))
-                ->selectRaw('COALESCE(SUM(total_due - amount_paid), 0) as total')
-                ->value('total') ?? 0,
+            '0_30' => (float) ($agg->age_0_30 ?? 0),
+            '31_60' => (float) ($agg->age_31_60 ?? 0),
+            '61_90' => (float) ($agg->age_61_90 ?? 0),
+            '90_plus' => (float) ($agg->age_90_plus ?? 0),
         ];
 
         // Get buildings for filter dropdown

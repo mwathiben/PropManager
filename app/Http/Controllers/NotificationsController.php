@@ -216,36 +216,42 @@ class NotificationsController extends Controller
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
 
-        // Get all active leases
-        $leases = Lease::where('landlord_id', $landlordId)
-            ->where('is_active', true)
-            ->with('tenant:id,name')
-            ->get();
-
+        // PERF-Q2: thin Lease projection + chunked iteration. The reminder is
+        // per-tenant personalized (name + rent_amount), so we keep the per-
+        // lease dispatch but stop hydrating full Lease rows and bound memory
+        // for landlords with thousands of leases.
         $sent = 0;
 
-        foreach ($leases as $lease) {
-            if ($lease->tenant) {
-                dispatch(SendNotificationJob::forNew(
-                    $lease->tenant_id,
-                    'rent_reminder',
-                    'Rent Reminder',
-                    sprintf(
-                        "Hello %s,\n\nYour rent of KES %s is due soon.\n\nThank you.",
-                        $lease->tenant->name,
-                        number_format($lease->rent_amount, 2)
-                    ),
-                    [
-                        'lease_id' => $lease->id,
-                        'amount' => $lease->rent_amount,
-                        'due_date' => now()->format('Y-m-d'),
-                    ],
-                    $landlordId
-                ));
+        Lease::where('landlord_id', $landlordId)
+            ->where('is_active', true)
+            ->select(['id', 'tenant_id', 'rent_amount', 'landlord_id'])
+            ->with('tenant:id,name')
+            ->chunkById(250, function ($leases) use ($landlordId, &$sent) {
+                foreach ($leases as $lease) {
+                    if (! $lease->tenant) {
+                        continue;
+                    }
 
-                $sent++;
-            }
-        }
+                    dispatch(SendNotificationJob::forNew(
+                        $lease->tenant_id,
+                        'rent_reminder',
+                        'Rent Reminder',
+                        sprintf(
+                            "Hello %s,\n\nYour rent of KES %s is due soon.\n\nThank you.",
+                            $lease->tenant->name,
+                            number_format($lease->rent_amount, 2)
+                        ),
+                        [
+                            'lease_id' => $lease->id,
+                            'amount' => $lease->rent_amount,
+                            'due_date' => now()->format('Y-m-d'),
+                        ],
+                        $landlordId
+                    ));
+
+                    $sent++;
+                }
+            });
 
         return redirect()->back()->with('success', "Rent reminders queued for {$sent} tenants.");
     }

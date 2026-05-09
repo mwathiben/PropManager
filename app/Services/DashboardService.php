@@ -543,7 +543,10 @@ class DashboardService
         ];
 
         $expectedRevenue = Lease::whereIn('unit_id', $metricsUnitIds)->where('is_active', true)->sum('rent_amount');
-        $monthlyRevenue = Payment::whereHas('lease', fn ($q) => $q->whereIn('unit_id', $metricsUnitIds))
+        // PERF-Q7: $metricsLeaseIds is already computed above; using it as a
+        // direct whereIn replaces the correlated `whereHas('lease', ...)`
+        // EXISTS subquery with a flat IN against the indexed lease_id.
+        $monthlyRevenue = Payment::whereIn('lease_id', $metricsLeaseIds)
             ->whereMonth('payment_date', now()->month)
             ->whereYear('payment_date', now()->year)
             ->sum('amount');
@@ -571,7 +574,9 @@ class DashboardService
                 : 0,
         ];
 
-        $recentPayments = Payment::whereHas('lease', fn ($q) => $q->whereIn('unit_id', $metricsUnitIds))
+        // PERF-Q7: same swap as monthlyRevenue — direct whereIn over the
+        // pre-computed lease ids instead of a correlated EXISTS subquery.
+        $recentPayments = Payment::whereIn('lease_id', $metricsLeaseIds)
             ->select(['id', 'invoice_id', 'amount', 'payment_method', 'payment_date', 'created_at'])
             ->with([
                 'invoice:id,lease_id',

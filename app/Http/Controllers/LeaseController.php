@@ -187,10 +187,11 @@ class LeaseController extends Controller
         // 2. Update Lease
         $lease->update(['rent_amount' => $request->new_amount]);
 
-        // 3. Send rent hike notification email
+        // PERF-Q4: queue, don't send. Synchronous SMTP added 200-2000ms to
+        // every adjustRent request. batchAdjustRent already uses ->queue().
         $lease->load(['tenant', 'unit.building.property']);
         if ($lease->tenant) {
-            Mail::to($lease->tenant)->send(new RentHikeNotice(
+            Mail::to($lease->tenant)->queue(new RentHikeNotice(
                 $lease,
                 $oldAmount,
                 $request->new_amount,

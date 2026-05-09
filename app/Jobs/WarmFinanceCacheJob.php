@@ -30,6 +30,14 @@ class WarmFinanceCacheJob implements ShouldBeUnique, ShouldQueue
     {
         $start = microtime(true);
 
+        // PERF-Q12: warm overview + arrears BEFORE hub. getHubStats() calls
+        // getOverviewStats() and getArrearsStats() inside its own remember
+        // block; without this ordering, cold-start warming would execute
+        // those inner aggregations once for the inner caches and again
+        // inside the outer hub callback before the inner caches were set.
+        $stats->getOverviewStats($this->landlordId);
+        $stats->getArrearsStats($this->landlordId);
+
         $stats->getHubStats($this->landlordId);
         $stats->getDepositStats($this->landlordId);
         $stats->getLateFeeStats($this->landlordId);
