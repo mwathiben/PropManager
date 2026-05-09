@@ -1,0 +1,490 @@
+{
+  "project": "PropManager",
+  "audit_cycle": "phase-5",
+  "audit_date": "2026-05-09",
+  "scope": "Defensive audit of categories not covered in Phases 1-4: privilege-escalation (PRIV), rate-limiting (RATE), crypto/secrets (CRYPTO), observability (OBS).",
+  "context_baseline": {
+    "previous_audits": [
+      "Phase 1/2 (commits 03e17b7, 4a305a0): 49 SQLi/auth/serialization/file-upload/data-integrity",
+      "Phase 3 (phase-3-audit-prd.json): 46 SCOPE-S/D/P + PERF-P/Q/R findings",
+      "Phase 4 (phase-4-audit-prd.json): 55 CONC/VALID/AUDIT/HANDLE findings"
+    ],
+    "do_not_reflag": "Findings duplicating any item in phase-3-audit-prd.json or phase-4-audit-prd.json."
+  },
+  "qualityStandards": {
+    "test": "All Phase-5 fixes must pass `php artisan test` and `vendor/bin/pint --test`.",
+    "ci": "Each Phase commit must land on main with green CI before next phase starts.",
+    "no_breaking_change": "Existing test mocks expecting null returns should keep passing; only widen behaviour at error-path edges."
+  },
+  "feedbackLoops": {
+    "lint": "vendor/bin/pint --test",
+    "test_focused": "php artisan test --filter='<keyword>'",
+    "test_full": "php artisan test --parallel",
+    "ci_watch": "gh run list --limit 1 --branch main --json status,conclusion"
+  },
+  "categories": {
+    "PRIV": {
+      "description": "Privilege escalation, missing authorization, IDOR via shared-attribute lookups, mass-assignment escalation, sub-resource auth gaps.",
+      "count": 15
+    },
+    "RATE": {
+      "description": "Missing rate limiters, throttle-name typos, account-lockout absence, signed-URL replay, quota-burn vectors.",
+      "count": 12
+    },
+    "CRYPTO": {
+      "description": "Dead crypto-rule code, magic-link expiry, SSRF via tenant-controlled URLs, plaintext PII at rest, session fixation, key rotation.",
+      "count": 12
+    },
+    "OBS": {
+      "description": "Missing error tracking, static health check, swallowed exceptions, missing channels, unaudited admin actions, no metrics, no request id.",
+      "count": 15
+    }
+  },
+  "items": [
+    {
+      "id": "CRYPTO-1",
+      "title": "PasswordPolicy class is dead code — never invoked anywhere",
+      "severity": "HIGH",
+      "files": ["app/Rules/PasswordPolicy.php (entire class)", "app/Http/Controllers/Auth/RegisteredUserController.php:38", "app/Http/Controllers/Auth/NewPasswordController.php:43", "app/Http/Controllers/Auth/PasswordController.php:26", "app/Http/Controllers/TenantInvitationController.php:298", "app/Http/Controllers/AdminController.php:317"],
+      "evidence": "All 5 password-write endpoints use Rules\\Password::defaults() (Laravel built-in, 8-char min). Grep confirms zero imports/instantiations of PasswordPolicy outside its own file. Phase-4 HANDLE-11 HIBP fail-open hardening, the 22-password banlist, the 12-char minimum, and symbol enforcement all have ZERO runtime effect.",
+      "fix": "In AppServiceProvider::boot, call Password::defaults(fn () => Password::min(12)->mixedCase()->numbers()->symbols()->rules([new PasswordPolicy])). This makes Phase-4 HANDLE-11 + the existing PasswordPolicy rule live everywhere `Rules\\Password::defaults()` is used."
+    },
+    {
+      "id": "CRYPTO-2",
+      "title": "Magic-login URL in TenantWelcome has no expiry — permanent backdoor login from forwarded email",
+      "severity": "HIGH",
+      "files": ["app/Mail/TenantWelcome.php:64", "app/Http/Controllers/NotificationsController.php:308-323"],
+      "evidence": "URL::signedRoute('email.preferences', ['user' => $tenant->id]) (no expiry). NotificationsController::emailPreferences calls Auth::login($user). All 7 sibling mailables use temporarySignedRoute.",
+      "fix": "Replace with URL::temporarySignedRoute('email.preferences', now()->addDays(7), ['user' => $tenant->id]) to match peer mailables. Better: stop auto-login entirely — render preferences without elevating session identity."
+    },
+    {
+      "id": "CRYPTO-3",
+      "title": "SSRF via tenant-controlled azure_vision_endpoint setting",
+      "severity": "HIGH",
+      "files": ["app/Services/OcrService.php:152", "app/Services/OcrService.php:168"],
+      "evidence": "$endpoint = Setting::get('azure_vision_endpoint', null, $landlordId) is concatenated into Http::post(\"{$endpoint}/...\"); the response's Operation-Location header is then followed by Http::get($operationLocation) with no host validation. A landlord can set endpoint to http://169.254.169.254/, http://localhost:6379, etc.",
+      "fix": "Validate the URL: parse_url, reject private/loopback/link-local IP ranges (10/8, 172.16/12, 192.168/16, 127/8, 169.254/16, ::1, fc00::/7), allowlist *.cognitiveservices.azure.com. Refuse to follow Operation-Location headers whose host differs from the configured endpoint."
+    },
+    {
+      "id": "CRYPTO-5",
+      "title": "Session fixation — 6 auth()->login() sites do not regenerate session ID",
+      "severity": "HIGH",
+      "files": ["app/Http/Controllers/AdminController.php:164 (impersonate)", "app/Http/Controllers/AdminController.php:199 (stop)", "app/Http/Controllers/InvitationController.php:192", "app/Http/Controllers/TenantInvitationController.php:378", "app/Http/Controllers/NotificationsController.php:321", "app/Http/Controllers/Auth/RegisteredUserController.php:57"],
+      "evidence": "Each elevates session privilege without $request->session()->regenerate(). AuthenticatedSessionController::store and TwoFactorController::challenge regenerate; these don't.",
+      "fix": "Add $request->session()->regenerate() immediately after each Auth::login() call. For impersonation, regenerate on both start and stop."
+    },
+    {
+      "id": "CRYPTO-4",
+      "title": "LandlordPayoutAccount account_number/mobile_number stored plaintext at rest",
+      "severity": "HIGH",
+      "files": ["app/Models/LandlordPayoutAccount.php:47-54"],
+      "evidence": "account_number is in $hidden and getAuditExclude() but has NO 'encrypted' cast — unlike PaymentConfiguration.bank_account_number which IS encrypted. DB dump exposes every landlord's payout bank account.",
+      "fix": "Add 'account_number' => 'encrypted', 'mobile_number' => 'encrypted', 'account_name' => 'encrypted' to $casts. Write a chunked backfill migration that re-saves existing rows through the encrypter."
+    },
+    {
+      "id": "CRYPTO-6",
+      "title": "No APP_KEY rotation procedure — 7 encrypted-column families unreadable on rotation",
+      "severity": "HIGH",
+      "files": ["no rotate-keys command exists"],
+      "evidence": "7+ encrypted column families (User national_id/bank_details, PaymentConfiguration credentials, Setting.value, NotificationProviderConfig.credentials, two_factor_secret/recovery_codes). HANDLE-12 logs explicitly cite 'after APP_KEY rotation' as known failure mode, acknowledging the gap.",
+      "fix": "Add `php artisan crypt:rotate {--old-key=}` that iterates each encrypted column chunked, decrypts with old key, re-encrypts with new. Document in deployment runbook."
+    },
+    {
+      "id": "PRIV-1",
+      "title": "Lease wallet-adjustment route accepts any authenticated user — tenants can credit own wallet",
+      "severity": "HIGH",
+      "files": ["routes/web.php:168-170", "app/Http/Controllers/LeaseController.php:253-275"],
+      "evidence": "POST /leases/{lease}/wallet-adjustment is gated only by 'auth' (no role:landlord,caretaker), no FormRequest, no $this->authorize. TenantScope binds Lease for the tenant by landlord_id — tenant can route-bind their own lease and credit wallet_balance.",
+      "fix": "Add 'role:landlord,caretaker' middleware on the route. Convert walletAdjustment to a WalletAdjustmentRequest with authorize() verifying isLandlord/isCaretaker AND $this->route('lease')->landlord_id matches resolved landlordId."
+    },
+    {
+      "id": "PRIV-2",
+      "title": "WaterReadingController destroy/update have no policy invocation — tenants delete sibling readings",
+      "severity": "HIGH",
+      "files": ["app/Http/Controllers/WaterReadingController.php:73-96"],
+      "evidence": "WaterReadingPolicy::delete exists but never called. Route gated only by 'auth'. Tenant under landlord X can DELETE /readings/{reading} for any reading under landlord X (TenantScope binds it), poisoning utility billing.",
+      "fix": "Add $this->authorize('update', $reading) and $this->authorize('delete', $reading) at top of update/destroy. Tighten UpdateWaterReadingRequest::authorize to verify $reading->landlord_id."
+    },
+    {
+      "id": "PRIV-3",
+      "title": "Signed email-preferences URL silently logs in tenant — impersonation gap beyond AdminController",
+      "severity": "HIGH",
+      "files": ["app/Http/Controllers/NotificationsController.php:308-323"],
+      "evidence": "Auth::login($user) based on user id from signed query-string. Phase-4 AUDIT-1 hardened impersonation through AdminController; this second identity-switching path missed. SecurityLogger never invoked.",
+      "fix": "Inject SecurityLogger; call logLogin($user, 'signed-link', $request) before Auth::login. Better: remove auto-login and require existing session (PRD overlap with CRYPTO-2)."
+    },
+    {
+      "id": "PRIV-4",
+      "title": "InvitationController and TenantInvitationController acceptAuthenticated mass-assign role/landlord_id silently",
+      "severity": "HIGH",
+      "files": ["app/Http/Controllers/InvitationController.php:256-260", "app/Http/Controllers/TenantInvitationController.php:792-795"],
+      "evidence": "$user->update(['role' => ..., 'landlord_id' => ...]) — User::$fillable does NOT include 'role' or 'landlord_id'. Update silently succeeds, role/landlord_id unchanged. Net effect: landlord/caretaker who accepts a tenant invitation keeps their role AND a Lease is created with tenant_id pointing at them.",
+      "fix": "Replace with direct attribute assignment + save(): $user->role = 'caretaker'; $user->landlord_id = $invitation->landlord_id; $user->save(). Add authorize() rejecting calls when existing $user->role is landlord/super_admin."
+    },
+    {
+      "id": "PRIV-5",
+      "title": "Bank webhook + M-Pesa C2B Till lookups have no landlord_id scope",
+      "severity": "HIGH",
+      "files": ["app/Http/Controllers/Api/BankWebhookController.php:224-254", "app/Http/Controllers/Api/MpesaWebhookController.php:426-437"],
+      "evidence": "Webhook signature middleware authenticates the gateway, but findInvoice/findTenantByPhone resolve across all landlords. Two landlords with colliding invoice_number formats get cross-credited.",
+      "fix": "Resolve landlord_id from PaymentConfiguration (per-landlord callback URL or short_code mapping); scope queries by landlord_id. If no landlord context resolves, queue to BankReconciliationQueue with status 'unmatched'."
+    },
+    {
+      "id": "PRIV-6",
+      "title": "LeaseController/PropertyController/InboxController use auth()->id() as landlord_id — caretakers create orphans",
+      "severity": "HIGH",
+      "files": ["app/Http/Controllers/LeaseController.php:121-148", "app/Http/Controllers/PropertyController.php:50-79", "app/Http/Controllers/InboxController.php:127-175"],
+      "evidence": "Direct extension of Phase-3 SCOPE-S3 same bug class. For caretaker, auth()->id() is caretaker's user_id, not landlord's id. Records become orphaned vs TenantScope by real landlord.",
+      "fix": "Use $user->isCaretaker() ? $user->landlord_id : $user->id throughout. Extract Controller::resolveLandlordId() helper."
+    },
+    {
+      "id": "RATE-1",
+      "title": "API two-factor route uses non-existent limiter name 'two_factor' (underscore vs dash)",
+      "severity": "HIGH",
+      "files": ["routes/api.php:34"],
+      "evidence": "->middleware('throttle:two_factor') but AppServiceProvider registers 'two-factor' (dash). Mismatch silently parses as legacy <max>,<minutes> syntax or default 60/min. Web route at routes/web.php:95 correctly uses 'two-factor'.",
+      "fix": "Change routes/api.php:34 to ->middleware('throttle:two-factor'). Add Pest test asserting 6th POST returns 429."
+    },
+    {
+      "id": "RATE-2",
+      "title": "InvoiceController::sendReminder no throttle — landlord can blast tenant via email queue",
+      "severity": "HIGH",
+      "files": ["routes/web.php:359"],
+      "evidence": "Route::post('/invoices/{invoice}/send-reminder', ...) — no throttle. Each call queues mail; no per-invoice cooldown.",
+      "fix": "Register notification-send limiter: Limit::perMinute(3)->by('reminder:'.$invoice->id). Apply ->middleware('throttle:notification-send') to send-reminder, send-receipt, ledger-email."
+    },
+    {
+      "id": "RATE-3",
+      "title": "Notifications send/sendBulk/sendRentReminders/sendArrearsNotices unthrottled — fan-out spam vector",
+      "severity": "HIGH",
+      "files": ["routes/web.php:463-466"],
+      "evidence": "None throttled. SendBulkNotificationRequest doesn't cap recipient_ids array length. Compromised caretaker can enqueue tens of thousands of SMS.",
+      "fix": "Add bulk-notify limiter Limit::perMinute(2)->by('landlord:'.$landlordId). Cap recipient_ids at 500 per request."
+    },
+    {
+      "id": "RATE-4",
+      "title": "BulkOperations endpoints unthrottled and lack concurrent-action lock",
+      "severity": "HIGH",
+      "files": ["routes/web.php:507-513"],
+      "evidence": "All 7 bulk routes (adjustRent, terminateLeases, extendLeases, adjustDeposits, updateUnitStatus, updateMeterNumbers, updateTargetRent) live in auth() with no throttle and no Cache::lock. Double-click fires concurrent writes + queue floods.",
+      "fix": "Register bulk-ops limiter (3/min/user). Wrap action body in Cache::lock('bulk:'.$landlordId, 60)->block(0, fn() => ...)."
+    },
+    {
+      "id": "RATE-5",
+      "title": "Inbox reply no per-conversation rate limit — landlord can blast tenant via SMS/WhatsApp",
+      "severity": "HIGH",
+      "files": ["routes/web.php:295"],
+      "evidence": "InboxController::reply sends paid SMS/WhatsApp on each call. Nothing prevents 200 replies in 2 min (harassment + cost-amplification).",
+      "fix": "Register inbox-reply limiter: Limit::perMinute(5)->by('thread:'.$message->user_id.':'.$user->id). Server-side 30s cooldown via TenantMessage.last_reply_at."
+    },
+    {
+      "id": "OBS-1",
+      "title": "No external error tracking — production errors only land in local log files",
+      "severity": "HIGH",
+      "files": ["composer.json", "app/Exceptions/DomainException.php:141-149"],
+      "evidence": "No sentry/bugsnag/flare in composer.json. DomainException::report() does Log::error only. Ops can't aggregate, alert, dedup, or release-tag.",
+      "fix": "Install sentry/sentry-laravel; bind in bootstrap/app.php / Handler::register(). DomainException::report() also calls Sentry::captureException after Log::error."
+    },
+    {
+      "id": "OBS-2",
+      "title": "Health endpoint /api/v1/health is a static literal — no DB/Redis/queue/Reverb checks",
+      "severity": "HIGH",
+      "files": ["routes/api.php:21", "app/Http/Controllers/Api/HealthCheckController.php:14-17"],
+      "evidence": "Closure returns ['status' => 'ok', 'version' => '1.0'] regardless of underlying state. Wedged queue worker or down Redis is invisible.",
+      "fix": "Replace with HealthCheckController::index that runs DB::connection()->getPdo(), Redis::connection()->ping(), Queue::size('default'), checks WebhookDeadLetter depth. Returns 200 only when all green; 503 on degradation."
+    },
+    {
+      "id": "OBS-3",
+      "title": "Schedulers use runInBackground() with no onFailure() — silent cron failures",
+      "severity": "HIGH",
+      "files": ["routes/console.php:18-97"],
+      "evidence": "runInBackground() discards stdout/stderr. A failing invoices:automate (monthly invoice gen for every landlord) leaves zero trace.",
+      "fix": "Append ->emailOutputOnFailure(config('app.ops_email')) AND ->onFailure(fn() => Log::channel('security')->error(...)) to every Schedule::command call."
+    },
+    {
+      "id": "OBS-4",
+      "title": "NotificationService channel-send catches swallow exceptions with NO Log:: call",
+      "severity": "HIGH",
+      "files": ["app/Services/NotificationService.php:185-188, 235-238, 506-510, 554-558, 618-622, 681-685, 1264-1268"],
+      "evidence": "Each catch calls markAsFailed but no Log::error. Twilio outage produces zero log lines — operators can't triage 'why didn't tenants get rent reminders last night?'",
+      "fix": "Inside each catch: Log::channel('notifications')->error('Notification dispatch failed', [notification_id, channel, recipient_id, landlord_id, error, exception_class]) BEFORE markAsFailed."
+    },
+    {
+      "id": "OBS-6",
+      "title": "PaymentConfiguration secret-key updates are NOT audit-logged",
+      "severity": "HIGH",
+      "files": ["app/Http/Controllers/SettingsController.php:163-188", "app/Http/Controllers/AdminController.php:244-268"],
+      "evidence": "$config->update($data) on payment configuration with NO SecurityLogger / AuditLog. Forensics on a leaked/swapped key has no audit trail.",
+      "fix": "After $config->update, call SecurityLogger::logPaymentConfigChange($user, $config, $changedFieldNamesOnly). Add Auditable to PaymentConfiguration model."
+    },
+    {
+      "id": "OBS-11",
+      "title": "No metric counters for payment-success rate, webhook failure rate, notification delivery rate",
+      "severity": "HIGH",
+      "files": ["app-wide"],
+      "evidence": "Zero Cache::increment, no Prometheus exporter, no StatsD client. Cannot answer 'has Paystack been degraded today?' or 'did last night's late-fee run process the right number?'",
+      "fix": "Introduce thin MetricsService bound in container (Redis-backed counters). Increment from PaymentCallbackProcessor, MpesaWebhookController, SendNotificationJob, ApplyLateFees. Surface in /admin/metrics dashboard."
+    },
+    {
+      "id": "PRIV-7",
+      "title": "AddTicketCommentRequest::authorize returns true for any landlord/caretaker without ticket scope",
+      "severity": "MEDIUM",
+      "files": ["app/Http/Requests/Ticket/AddTicketCommentRequest.php:9-19"],
+      "fix": "Match ResolveTicketRequest pattern: resolve $landlordId, return $ticket->landlord_id === $landlordId."
+    },
+    {
+      "id": "PRIV-8",
+      "title": "VerificationController::storeTemplate has no role guard — tenants create templates",
+      "severity": "MEDIUM",
+      "files": ["app/Http/Controllers/VerificationController.php:51-103"],
+      "fix": "Add isLandlord||isCaretaker guard at top. Scope property_id with Rule::exists()->where('landlord_id', $landlordId)."
+    },
+    {
+      "id": "PRIV-9",
+      "title": "Api\\AuthController::register lets anyone mint a tenant API token without invitation",
+      "severity": "MEDIUM",
+      "files": ["app/Http/Controllers/Api/AuthController.php:92-122"],
+      "fix": "Delete the endpoint OR require invitation_token parameter that resolves landlord_id from valid TenantInvitation."
+    },
+    {
+      "id": "PRIV-10",
+      "title": "ImportsController::upload accepts any building_id without landlord scope",
+      "severity": "MEDIUM",
+      "files": ["app/Http/Controllers/ImportsController.php:97-142"],
+      "fix": "Replace exists rule with Rule::exists('buildings', 'id')->where('landlord_id', $landlordId)."
+    },
+    {
+      "id": "PRIV-11",
+      "title": "InboxController::reply hard-codes auth()->id() as landlord_id (caretaker bug)",
+      "severity": "MEDIUM",
+      "files": ["app/Http/Controllers/InboxController.php:127-175"],
+      "fix": "Resolve $landlordId properly. Add TenantMessage::where('landlord_id', $landlordId) check on route binding."
+    },
+    {
+      "id": "PRIV-12",
+      "title": "TenantController::ledgerEmail/ledgerPdf accept arbitrary tenant route binding without policy",
+      "severity": "MEDIUM",
+      "files": ["app/Http/Controllers/TenantController.php"],
+      "fix": "Add TenantPolicy::viewLedger. Authorize ledger/ledgerPdf/ledgerEmail/modalData/outstandingInvoices/refundablePayments. Add role:landlord,caretaker to routes."
+    },
+    {
+      "id": "PRIV-13",
+      "title": "Big route group missing role:landlord,caretaker on landlord management surface",
+      "severity": "MEDIUM",
+      "files": ["routes/web.php:136-747"],
+      "fix": "Wrap the inner block with Route::middleware('role:landlord,caretaker') for landlord/caretaker-only routes. Keep notifications/profile/help/two-factor in inner group."
+    },
+    {
+      "id": "RATE-6",
+      "title": "Tenant API mpesa/status checkMpesaStatus unthrottled — STK quota exhaustion",
+      "severity": "MEDIUM",
+      "files": ["routes/api.php:60"],
+      "fix": "Add ->middleware('throttle:payment')."
+    },
+    {
+      "id": "RATE-7",
+      "title": "GdprController immediateExport/requestExport/downloadExport unthrottled",
+      "severity": "MEDIUM",
+      "files": ["routes/web.php:844-846"],
+      "fix": "Apply throttle:export. Guard requestExport with ShouldBeUnique on the ExportUserData job."
+    },
+    {
+      "id": "RATE-8",
+      "title": "Account-level lockout missing — IP-rotating credential-stuffing bypasses login limiter",
+      "severity": "MEDIUM",
+      "files": ["app/Http/Requests/Auth/LoginRequest.php:96"],
+      "fix": "Add account_locked_at + failed_login_count columns. Check separate RateLimiter::tooManyAttempts('login-email:'.$email, 15) (15 failures across all IPs in 1h triggers 30-min email-only lock)."
+    },
+    {
+      "id": "RATE-9",
+      "title": "Signed unsubscribe / email-preferences URLs replayable — no nonce, full TTL re-use",
+      "severity": "MEDIUM",
+      "files": ["routes/web.php:127-133"],
+      "fix": "Single-use opaque token in signed_link_uses table; mark used in middleware. OR downgrade emailPreferences to require password before session attaches."
+    },
+    {
+      "id": "RATE-10",
+      "title": "PaymentsHub verifyAccount and getBanks unthrottled — Paystack quota burn + name enumeration",
+      "severity": "MEDIUM",
+      "files": ["routes/web.php:564, 739"],
+      "fix": "Apply throttle:sensitive (3/min) or new bank-verify limiter."
+    },
+    {
+      "id": "RATE-11",
+      "title": "Notification retry/runScheduleNow/testProvider/previewTemplate unthrottled",
+      "severity": "MEDIUM",
+      "files": ["routes/web.php:470, 486, 491, 478"],
+      "fix": "Apply throttle:sensitive (3/min) to retry/run; new provider-test limiter for testProvider/previewTemplate."
+    },
+    {
+      "id": "CRYPTO-7",
+      "title": "2FA recovery codes use Str::random and non-constant-time matching",
+      "severity": "MEDIUM",
+      "files": ["app/Services/TwoFactorService.php:130, :168"],
+      "fix": "Generator: strtoupper(bin2hex(random_bytes(5))) segmented. Verify: $codes->reduce(fn($c,$x)=>$c||hash_equals($x,$normalizedCode), false)."
+    },
+    {
+      "id": "CRYPTO-8",
+      "title": "Three different secure-token generators across codebase — standardize",
+      "severity": "MEDIUM",
+      "files": ["app/Models/Invitation.php:96", "app/Models/TenantInvitation.php:122", "app/Models/PaymentLink.php:126"],
+      "fix": "Centralize via App\\Support\\Tokens::secure(int $bytes = 32): string. Route all generators through it."
+    },
+    {
+      "id": "CRYPTO-9",
+      "title": "QueuedPaymentIntent::generateIdempotencyKey uses bare hash() — predictable if nonce is client-supplied",
+      "severity": "MEDIUM",
+      "files": ["app/Models/QueuedPaymentIntent.php:179-182"],
+      "fix": "Convert to hash_hmac('sha256', payload, config('app.key')) so derivation requires APP_KEY. Or delete if dead code."
+    },
+    {
+      "id": "CRYPTO-10",
+      "title": "Tenant-supplied callback_url forwarded to Paystack — open-redirect / payment-status-leak vector",
+      "severity": "MEDIUM",
+      "files": ["app/Http/Requests/Api/InitiatePaystackPaymentRequest.php:27", "app/Services/PaystackService.php:91"],
+      "fix": "Validate callback_url host matches parse_url(config('app.url'), PHP_URL_HOST). Reject anything else with 422."
+    },
+    {
+      "id": "CRYPTO-11",
+      "title": "Bank webhook secrets are platform-wide env values — single point of failure",
+      "severity": "MEDIUM",
+      "files": ["app/Services/Banking/CoopBankService.php:23", "app/Services/Banking/EquityBankService.php:23", "app/Services/Banking/KcbBankService.php:23"],
+      "fix": "Move webhook secrets to per-landlord PaymentConfiguration::{bank}_webhook_secret with 'encrypted' cast."
+    },
+    {
+      "id": "OBS-5",
+      "title": "Log::channel('notifications') referenced but channel does not exist in config/logging.php",
+      "severity": "MEDIUM",
+      "files": ["app/Console/Commands/ProcessFailedNotifications.php:107", "config/logging.php"],
+      "fix": "Add 'notifications' and 'payments' channel blocks (driver: daily, 30-day retention) for parity with 'security'/'whatsapp'/'cache'."
+    },
+    {
+      "id": "OBS-7",
+      "title": "Subscription tier change is unaudited",
+      "severity": "MEDIUM",
+      "files": ["app/Http/Controllers/SubscriptionController.php", "app/Models/Subscription.php"],
+      "fix": "Add use Auditable to Subscription. SecurityLog row for paid-tier transitions."
+    },
+    {
+      "id": "OBS-8",
+      "title": "External-API call durations only land in laravel.log — no metrics sink",
+      "severity": "MEDIUM",
+      "files": ["app/Traits/LogsExternalRequests.php:27-38"],
+      "fix": "Persist to external_request_logs table OR write Redis sliding window for Prometheus scrape."
+    },
+    {
+      "id": "OBS-9",
+      "title": "Production has no lazy-loading detection — preventLazyLoading disabled outside non-production",
+      "severity": "MEDIUM",
+      "files": ["app/Providers/AppServiceProvider.php:107-122"],
+      "fix": "Add sampled prod branch: if (random_int(1, 100) === 1) { Model::handleLazyLoadingViolationUsing(...) } so 1% of prod requests still surface N+1."
+    },
+    {
+      "id": "OBS-10",
+      "title": "No request-id / correlation-id middleware",
+      "severity": "MEDIUM",
+      "files": ["app/Http/Kernel.php"],
+      "fix": "Add AddRequestId middleware; Log::withContext(['request_id' => Str::uuid()]) per request. Expose to Inertia/API as X-Request-Id header."
+    },
+    {
+      "id": "OBS-12",
+      "title": "MpesaWebhookController b2cTimeout logs full payload including PII",
+      "severity": "MEDIUM",
+      "files": ["app/Http/Controllers/Api/MpesaWebhookController.php:678-680"],
+      "fix": "Replace with redaction pattern. Or extract just safe fields (OriginatorConversationID, ConversationID, ResultCode)."
+    },
+    {
+      "id": "OBS-13",
+      "title": "failed_jobs table has no growth monitor — silent queue degradation",
+      "severity": "MEDIUM",
+      "files": ["routes/console.php"],
+      "fix": "Daily Schedule::call counting failed_jobs older than 24h; mail alert when threshold crossed."
+    },
+    {
+      "id": "OBS-14",
+      "title": "Failed login attempts log only generic 'Invalid credentials'",
+      "severity": "MEDIUM",
+      "files": ["app/Http/Requests/Auth/LoginRequest.php:48-52"],
+      "fix": "Resolve target user first; pass distinct reason codes (user_not_found, wrong_password, account_locked, email_not_verified)."
+    },
+    {
+      "id": "PRIV-14",
+      "title": "AdminController::toggleUserStatus unaudited",
+      "severity": "LOW",
+      "files": ["app/Http/Controllers/AdminController.php:341-362"],
+      "fix": "SecurityLogger custom event + Auditable on User. Reject toggles on landlords with active leases."
+    },
+    {
+      "id": "PRIV-15",
+      "title": "TenantController search/modalData endpoints rely on TenantScope without role guard",
+      "severity": "LOW",
+      "files": ["app/Http/Controllers/TenantController.php"],
+      "fix": "Add role:landlord,caretaker to /tenants/search etc. Register TenantPolicy."
+    },
+    {
+      "id": "RATE-12",
+      "title": "PDF download endpoints unthrottled — invoices.download, leases.download, ledger.pdf",
+      "severity": "LOW",
+      "files": ["routes/web.php:360, 173, 253, 415"],
+      "fix": "Apply throttle:export OR new pdf-render limiter (15/min/user)."
+    },
+    {
+      "id": "CRYPTO-12",
+      "title": "REVERB_APP_SECRET=your-secret-key-here in committed .env.example",
+      "severity": "LOW",
+      "files": [".env.example:130-131"],
+      "fix": "Replace with empty values. Add deployment guard rejecting placeholder values in non-local envs."
+    },
+    {
+      "id": "OBS-15",
+      "title": "DashboardService no duration instrumentation",
+      "severity": "LOW",
+      "files": ["app/Services/DashboardService.php:107, :24"],
+      "fix": "Wrap getLandlordDashboardData and helpers with hrtime() bracket; log to 'cache' channel with section/landlord_id/duration_ms/unit_count."
+    }
+  ],
+  "phases": {
+    "phase_1": {
+      "title": "Critical: dead-rule, mass-assign, SSRF, session-fixation, magic-link",
+      "scope": "CRYPTO-1, CRYPTO-2, CRYPTO-3, CRYPTO-5, PRIV-3, PRIV-4",
+      "rationale": "CRYPTO-1 means Phase-4 HANDLE-11 has zero runtime effect — single biggest gap. PRIV-4 is a silent role-grant failure. Other items are clear auth-bypass / SSRF vectors. All are small, focused fixes."
+    },
+    "phase_2": {
+      "title": "Critical: cross-tenant write IDOR, caretaker bug, plaintext PII",
+      "scope": "PRIV-1, PRIV-2, PRIV-5, PRIV-6, CRYPTO-4, CRYPTO-6",
+      "rationale": "Direct cross-tenant write paths plus the caretaker auth()->id() bug class extension (4th occurrence). Bank PII at rest is compliance-fatal. APP_KEY rotation procedure is operational."
+    },
+    "phase_3": {
+      "title": "Critical: rate-limit gaps for spam/DoS",
+      "scope": "RATE-1, RATE-2, RATE-3, RATE-4, RATE-5",
+      "rationale": "RATE-1 is a typo causing total lack of throttle. Others are direct spam/cost-amplification vectors against tenants."
+    },
+    "phase_4": {
+      "title": "Critical: observability blackouts",
+      "scope": "OBS-1, OBS-2, OBS-3, OBS-4, OBS-6, OBS-11",
+      "rationale": "Sentry + meaningful health check + scheduler onFailure + NotificationService logging + PaymentConfiguration audit + metrics counters. Without any of these, money-loss events are invisible to ops."
+    },
+    "phase_5": {
+      "title": "MEDIUM defense-in-depth",
+      "scope": "PRIV-7, PRIV-8, PRIV-9, PRIV-10, PRIV-11, PRIV-12, PRIV-13, RATE-6, RATE-7, RATE-8, RATE-9, RATE-10, RATE-11, CRYPTO-7, CRYPTO-8, CRYPTO-9, CRYPTO-10, CRYPTO-11, OBS-5, OBS-7, OBS-8, OBS-9, OBS-10, OBS-12, OBS-13, OBS-14",
+      "rationale": "Hardening + standardization. Can land iteratively."
+    },
+    "phase_6": {
+      "title": "LOW cleanup",
+      "scope": "PRIV-14, PRIV-15, RATE-12, CRYPTO-12, OBS-15",
+      "rationale": "Pick up when touching the area."
+    }
+  },
+  "out_of_scope": [
+    "Reverb allowed_origins='*' — CORS not RATE/CRYPTO",
+    "Webhook DDoS — Cloudflare/upstream concern",
+    "HIBP per-user rate — protected by login/register/password-reset limiters",
+    "Cache key collision via tenant.name — no instances found"
+  ],
+  "metadata": {
+    "total_findings": 54,
+    "high": 22,
+    "medium": 26,
+    "low": 6
+  }
+}

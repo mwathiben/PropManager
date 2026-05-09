@@ -56,11 +56,12 @@ class PasswordResetTest extends TestCase
         $this->post('/forgot-password', ['email' => $user->email]);
 
         Notification::assertSentTo($user, ResetPassword::class, function ($notification) use ($user) {
+            // CRYPTO-1: defaults now enforce strong passwords platform-wide.
             $response = $this->post('/reset-password', [
                 'token' => $notification->token,
                 'email' => $user->email,
-                'password' => 'password',
-                'password_confirmation' => 'password',
+                'password' => 'Str0ng-Pass-Phrase!',
+                'password_confirmation' => 'Str0ng-Pass-Phrase!',
             ]);
 
             $response

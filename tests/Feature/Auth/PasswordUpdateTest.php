@@ -15,20 +15,21 @@ class PasswordUpdateTest extends TestCase
     {
         $user = User::factory()->create();
 
+        // CRYPTO-1: defaults now enforce strong passwords platform-wide.
         $response = $this
             ->actingAs($user)
             ->from('/profile')
             ->put('/password', [
                 'current_password' => 'password',
-                'password' => 'new-password',
-                'password_confirmation' => 'new-password',
+                'password' => 'New-Str0ng-Pass!',
+                'password_confirmation' => 'New-Str0ng-Pass!',
             ]);
 
         $response
             ->assertSessionHasNoErrors()
             ->assertRedirect('/profile');
 
-        $this->assertTrue(Hash::check('new-password', $user->refresh()->password));
+        $this->assertTrue(Hash::check('New-Str0ng-Pass!', $user->refresh()->password));
     }
 
     public function test_correct_password_must_be_provided_to_update_password(): void

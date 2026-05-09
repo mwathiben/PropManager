@@ -163,6 +163,10 @@ class AdminController extends Controller
 
         auth()->login($user);
 
+        // CRYPTO-5: rotate the session id across the privilege transition
+        // so a leaked / fixated cookie can't ride from admin → user.
+        request()->session()->regenerate();
+
         return redirect()->route('dashboard')
             ->with('success', "Now viewing as {$user->name}. Click 'Stop Impersonating' in the header to return.");
     }
@@ -197,6 +201,10 @@ class AdminController extends Controller
 
         session()->forget(['impersonating', 'impersonating_name']);
         auth()->login($originalUser);
+
+        // CRYPTO-5: rotate the session id back to admin context so a cookie
+        // sniffed during impersonation can't hijack the post-stop session.
+        request()->session()->regenerate();
 
         return redirect()->route('dashboard')
             ->with('success', 'Returned to your admin account.');

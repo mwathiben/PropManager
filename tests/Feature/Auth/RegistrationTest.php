@@ -18,12 +18,14 @@ class RegistrationTest extends TestCase
 
     public function test_new_users_can_register(): void
     {
+        // CRYPTO-1: defaults now enforce 12-char min + mixed case + numbers
+        // + symbols + HIBP via PasswordPolicy.
         $response = $this->post('/register', [
             'name' => 'Test User',
             'email' => 'test@example.com',
             'role' => 'landlord',
-            'password' => 'password',
-            'password_confirmation' => 'password',
+            'password' => 'Str0ng-Pass-Phrase!',
+            'password_confirmation' => 'Str0ng-Pass-Phrase!',
         ]);
 
         $this->assertAuthenticated();

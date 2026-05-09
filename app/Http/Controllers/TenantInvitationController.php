@@ -377,6 +377,9 @@ class TenantInvitationController extends Controller
             // Log the user in
             auth()->login($tenant);
 
+            // CRYPTO-5: rotate the session id across the privilege transition.
+            $request->session()->regenerate();
+
             return redirect()->route('dashboard')->with('success', 'Welcome! Your lease has been activated successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -785,14 +788,22 @@ class TenantInvitationController extends Controller
             return back()->withErrors(['invitation' => 'This unit is no longer available.']);
         }
 
+        // PRIV-4: refuse to silently downgrade an existing landlord/admin
+        // by accepting a tenant invitation while logged in as them.
+        if (in_array($user->role, ['landlord', 'super_admin', 'caretaker'], true)) {
+            return back()->withErrors(['invitation' => 'This account already has elevated privileges. Sign out before accepting a tenant invitation.']);
+        }
+
         try {
             DB::beginTransaction();
 
-            // Update user to tenant role
-            $user->update([
-                'role' => 'tenant',
-                'landlord_id' => $invitation->landlord_id,
-            ]);
+            // PRIV-4: User::$fillable does not include role/landlord_id,
+            // so the previous $user->update([...]) silently dropped both
+            // fields. Use direct assignment + save() so the role grant
+            // actually persists.
+            $user->role = 'tenant';
+            $user->landlord_id = $invitation->landlord_id;
+            $user->save();
 
             // Create the lease
             $lease = Lease::create([

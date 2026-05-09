@@ -191,6 +191,9 @@ class InvitationController extends Controller
 
             auth()->login($user);
 
+            // CRYPTO-5: rotate the session id across the privilege transition.
+            request()->session()->regenerate();
+
             return redirect()->route('dashboard')->with('success', 'Welcome! Your caretaker account has been created successfully.');
         } catch (\Exception $e) {
             Log::error('Failed to accept caretaker invitation', [
@@ -252,12 +255,21 @@ class InvitationController extends Controller
             return back()->withErrors(['invitation' => 'This invitation has expired.']);
         }
 
+        // PRIV-4: refuse to silently downgrade an existing landlord/admin
+        // by accepting a caretaker invitation while logged in as them.
+        if (in_array($user->role, ['landlord', 'super_admin'], true)) {
+            return back()->with('error', 'This account already has elevated privileges. Sign out before accepting a caretaker invitation.');
+        }
+
         try {
             DB::transaction(function () use ($user, $invitation) {
-                $user->update([
-                    'role' => 'caretaker',
-                    'landlord_id' => $invitation->landlord_id,
-                ]);
+                // PRIV-4: User::$fillable does not include role/landlord_id,
+                // so the previous $user->update([...]) silently dropped both
+                // fields. Use direct assignment + save() to actually persist
+                // the role grant (matches the new-user accept() pattern).
+                $user->role = 'caretaker';
+                $user->landlord_id = $invitation->landlord_id;
+                $user->save();
 
                 $invitation->markAsAccepted();
 

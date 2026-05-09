@@ -32,6 +32,7 @@ use App\Repositories\Contracts\NotificationConfigRepositoryInterface;
 use App\Repositories\Contracts\NotificationDefaultsRepositoryInterface;
 use App\Repositories\NotificationConfigRepository;
 use App\Repositories\NotificationDefaultsRepository;
+use App\Rules\PasswordPolicy;
 use App\Services\AfricasTalkingService;
 use App\Services\PaymentGatewayManager;
 use App\Services\SecurityLogger;
@@ -42,6 +43,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -85,6 +87,17 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Vite::prefetch(concurrency: 3);
+
+        // CRYPTO-1: wire the project-wide password rules so every
+        // Rules\Password::defaults() in controllers/Form Requests applies
+        // them. Without this the PasswordPolicy class (HIBP fail-open
+        // hardening from Phase-4 HANDLE-11, the 22-password banlist, the
+        // 12-char minimum, and the symbol enforcement) is dead code.
+        Password::defaults(fn () => Password::min(12)
+            ->mixedCase()
+            ->numbers()
+            ->symbols()
+            ->rules([new PasswordPolicy]));
 
         // Register model observers
         Building::observe(BuildingObserver::class);

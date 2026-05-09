@@ -155,6 +155,20 @@ class OcrService
             return null;
         }
 
+        // CRYPTO-3: refuse to issue requests to private/loopback hosts. The
+        // azure_vision_endpoint Setting is tenant-controlled — without this
+        // guard a landlord can set the endpoint to http://169.254.169.254
+        // (cloud metadata) or http://localhost:6379 (Redis) and force the
+        // server to emit requests against internal services.
+        if (! $this->isAllowedExternalHost($endpoint)) {
+            Log::warning('OCR: rejected non-allowed Azure endpoint', [
+                'landlord_id' => $landlordId,
+                'host' => parse_url($endpoint, PHP_URL_HOST),
+            ]);
+
+            return null;
+        }
+
         // Read image content
         $imageContent = $this->getImageContent($image);
 
@@ -169,6 +183,19 @@ class OcrService
 
         if ($response->successful()) {
             $operationLocation = $response->header('Operation-Location');
+
+            // CRYPTO-3: refuse to follow Operation-Location headers that
+            // point at a different host than the configured endpoint —
+            // otherwise a compromised Azure response could redirect to an
+            // internal IP.
+            if (! $operationLocation || ! $this->isSameHost($endpoint, $operationLocation)) {
+                Log::warning('OCR: refusing to follow cross-host Operation-Location', [
+                    'expected_host' => parse_url($endpoint, PHP_URL_HOST),
+                    'actual_host' => $operationLocation ? parse_url($operationLocation, PHP_URL_HOST) : null,
+                ]);
+
+                return null;
+            }
 
             // Poll for results
             sleep(2); // Wait for processing
@@ -356,5 +383,58 @@ class OcrService
         }
 
         return Storage::disk('local')->get($image);
+    }
+
+    /**
+     * CRYPTO-3: SSRF guard. Reject hosts that resolve to loopback /
+     * link-local / private IP ranges or that aren't on the Azure-Cognitive
+     * allowlist when used as the OCR endpoint.
+     */
+    protected function isAllowedExternalHost(string $url): bool
+    {
+        $host = parse_url($url, PHP_URL_HOST);
+        if (! $host) {
+            return false;
+        }
+
+        // Allowlist Azure Cognitive Services / OCR.space / Google.
+        $allowedSuffixes = [
+            'cognitiveservices.azure.com',
+            'api.cognitive.microsoft.com',
+            'vision.googleapis.com',
+            'api.ocr.space',
+        ];
+
+        foreach ($allowedSuffixes as $suffix) {
+            if ($host === $suffix || str_ends_with($host, '.'.$suffix)) {
+                return true;
+            }
+        }
+
+        // Otherwise reject any private/loopback/link-local IP literal.
+        $ip = filter_var($host, FILTER_VALIDATE_IP);
+        if ($ip !== false) {
+            $isPublic = filter_var(
+                $ip,
+                FILTER_VALIDATE_IP,
+                FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE,
+            );
+
+            return $isPublic !== false;
+        }
+
+        return false;
+    }
+
+    /**
+     * CRYPTO-3: verify two URLs share the same host so we won't follow a
+     * redirected Operation-Location header to an unrelated origin.
+     */
+    protected function isSameHost(string $a, string $b): bool
+    {
+        $hostA = parse_url($a, PHP_URL_HOST);
+        $hostB = parse_url($b, PHP_URL_HOST);
+
+        return $hostA && $hostB && strcasecmp($hostA, $hostB) === 0;
     }
 }

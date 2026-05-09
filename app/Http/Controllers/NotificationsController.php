@@ -318,7 +318,23 @@ class NotificationsController extends Controller
             abort(403, 'Invalid email preferences link.');
         }
 
+        // PRIV-3: log the auto-login on the SecurityLog so every signed-URL
+        // identity switch is auditable, not just AdminController impersonation.
+        app(\App\Services\SecurityLogger::class)->log(
+            'signed_link_login',
+            "Tenant {$user->email} auto-logged-in via email-preferences signed link",
+            [
+                'user_id' => $user->id,
+                'route' => 'email.preferences',
+            ],
+            \App\Models\SecurityLog::SEVERITY_INFO,
+            $user,
+        );
+
         Auth::login($user);
+
+        // CRYPTO-5: rotate the session id across the privilege transition.
+        $request->session()->regenerate();
 
         return redirect()->route('profile.edit', ['tab' => 'notifications']);
     }

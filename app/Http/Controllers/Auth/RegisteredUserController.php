@@ -56,6 +56,10 @@ class RegisteredUserController extends Controller
 
         Auth::login($user);
 
+        // CRYPTO-5: rotate the session id across the privilege transition
+        // so a fixated cookie can't ride the registration flow.
+        $request->session()->regenerate();
+
         // Redirect logic based on role
         // Tenants/Caretakers don't need onboarding wizard
         if ($user->role === 'landlord') {
