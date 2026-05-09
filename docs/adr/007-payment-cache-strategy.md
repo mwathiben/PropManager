@@ -42,7 +42,7 @@ A dedicated `cache` daily log channel at `storage/logs/cache.log` (7-day retenti
 | `finance:{type}:{landlordId}:{suffix}` | 300s | `rememberStats()` | `invalidateStats()` |
 | `finance:report:{type}:{landlordId}:{md5}` | 600s | `rememberReport()` | `invalidateReports()` |
 | `finance:report_keys:{landlordId}` | 660s | `registerReportKey()` | `invalidateReports()` |
-| `finance:superadmin:{type}` | 300s | `rememberSuperAdminStats()` | `invalidateSuperAdminStats()` |
+| `finance:superadmin:{type}` | 300s | `rememberSuperAdminStats()` | `invalidateSuperAdminStats(?$type)` — iterates known types when `$type` is null; called on-demand (not via observers) |
 
 ### Invalidation Flow
 
@@ -78,7 +78,7 @@ Model Event (created/updated/deleted)
 
 - Existing `finance:warm-cache` artisan command remains for manual/scheduled warming
 - `WithETag` HTTP-level caching on FinancesController is unaffected
-- Super admin cache keeps 5-minute TTL without explicit invalidation (acceptable for admin dashboard)
+- Super admin cache (`finance:superadmin:{type}`) is invalidated via `invalidateSuperAdminStats()`, which iterates all known type keys from a registry constant. This method is intended for manual or on-demand use (e.g., admin actions, scheduled jobs) and is **not** wired to model observers, since super admin stats aggregate across all landlords and event-driven invalidation would be excessive. The 5-minute TTL provides acceptable staleness for the admin dashboard.
 
 ## References
 

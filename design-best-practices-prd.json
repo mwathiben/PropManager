@@ -4,7 +4,7 @@
     "description": "Systematic elimination of technical debt, code duplication, and architectural inconsistencies in the PropManager property management SaaS. This PRD addresses 44 items across notification consolidation, component consolidation, backend architecture, code quality, and performance optimization. Phase 2 adds 20 items identified from skill gap analysis.",
     "version": "1.0.0",
     "techStack": {
-      "backend": "Laravel 12 (PHP 8.2+)",
+      "backend": "Laravel 12 (PHP 8.4+)",
       "frontend": "Inertia.js + Vue 3 + Tailwind CSS v4",
       "database": "MySQL 9.4 (primary)",
       "testing": "PHPUnit, Vitest"

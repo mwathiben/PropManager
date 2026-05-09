@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "created_at": "2026-01-17",
     "techStack": {
-      "backend": "Laravel 12 (PHP 8.2+)",
+      "backend": "Laravel 12 (PHP 8.4+)",
       "frontend": "Inertia.js + Vue 3 + Tailwind CSS v4",
       "realtime": "Laravel Reverb (WebSocket)",
       "crypto_backend": "paragonie/sodium_compat (libsodium)",
@@ -40,7 +40,7 @@
       "Client-side key generation: All keypairs generated in browser, never transmitted",
       "Cryptographic audit trail: Log key operations without exposing secrets",
       "Graceful degradation: Handle key loss, device changes, session corruption",
-      "GDPR compliance: Users can export and delete their cryptographic identity",
+      "GDPR compliance: See MSG-015 for detailed export/delete implementation",
       "Accessibility: Encryption should be invisible to users—just works",
       "Use FormRequest for validation on all API endpoints",
       "Use Policy for authorization (KeyPolicy, ConversationPolicy, MessagePolicy)",
@@ -61,7 +61,41 @@
       "Rate limiting on key bundle requests to prevent enumeration",
       "Signature verification on all prekeys before use",
       "Constant-time comparison for all cryptographic operations"
-    ]
+    ],
+    "keyDerivationFunctions": {
+      "passwordBased": {
+        "algorithm": "Argon2id",
+        "parameters": {
+          "timeCost": 3,
+          "memoryCostKB": 65536,
+          "parallelism": 4,
+          "outputLength": 32
+        },
+        "saltRequirements": {
+          "length": 16,
+          "generation": "crypto_random_bytes(16)",
+          "storage": "Stored separately from encrypted private keys in IndexedDB",
+          "uniqueness": "Must be unique per user, regenerated on password change"
+        },
+        "passwordRequirements": {
+          "minEntropy": 50,
+          "minLength": 12,
+          "recommendedLength": 16
+        },
+        "implementation": "Record KDF name, version, and all parameters alongside encrypted key metadata for future decryption reproducibility"
+      },
+      "deviceBased": {
+        "algorithm": "HKDF",
+        "parameters": {
+          "hash": "SHA-256",
+          "salt": "32 bytes from device-specific entropy or zero bytes if unavailable",
+          "info": "PropManager_DeviceKey_v1",
+          "outputLength": 32
+        },
+        "ikm": "Device-specific secret (e.g., from secure enclave, WebAuthn, or browser fingerprint)",
+        "implementation": "Store HKDF parameters in key metadata; info string includes protocol version for upgrades"
+      }
+    }
   },
   "signalProtocol": {
     "overview": "The Signal Protocol provides end-to-end encryption with forward secrecy and post-compromise security. It combines the X3DH key agreement protocol for initial key exchange with the Double Ratchet algorithm for ongoing message encryption.",
@@ -70,16 +104,17 @@
       "purpose": "Establish shared secret between two parties who have never communicated",
       "keys": {
         "identityKey": {
-          "type": "Ed25519 keypair",
+          "type": "Ed25519 keypair (signing) + X25519 keypair (DH)",
           "lifetime": "Permanent (until user resets)",
-          "purpose": "Long-term identity, signs prekeys",
-          "storage": "Private in IndexedDB, public on server"
+          "purpose": "Long-term identity: Ed25519 for signing prekeys, X25519 for DH operations",
+          "storage": "Private keys in IndexedDB, public keys (both Ed25519 and X25519) on server",
+          "derivation": "X25519 public key derived from Ed25519 secret key via crypto_sign_ed25519_sk_to_curve25519"
         },
         "signedPreKey": {
           "type": "X25519 keypair",
           "lifetime": "7-30 days",
           "purpose": "Medium-term key for session initiation",
-          "signature": "Signed by identity key",
+          "signature": "Signed by Ed25519 identity key",
           "storage": "Private in IndexedDB, public+signature on server"
         },
         "oneTimePreKeys": {
@@ -92,10 +127,11 @@
       },
       "keyBundle": {
         "description": "Public keys fetched before initiating conversation",
-        "contents": ["identityKey", "signedPreKey", "signedPreKeySignature", "oneTimePreKey (optional)"]
+        "contents": ["identityKeyEd25519", "identityKeyX25519", "signedPreKey", "signedPreKeySignature", "oneTimePreKey (optional)"]
       },
       "sharedSecretDerivation": {
-        "inputs": ["DH(IK_A, SPK_B)", "DH(EK_A, IK_B)", "DH(EK_A, SPK_B)", "DH(EK_A, OPK_B) if available"],
+        "inputs": ["DH(IK_X_A, SPK_B)", "DH(EK_A, IK_X_B)", "DH(EK_A, SPK_B)", "DH(EK_A, OPK_B) if available"],
+        "note": "IK_X denotes the X25519 identity key (derived from Ed25519), all DH operations use X25519 keys",
         "output": "32-byte shared secret via HKDF"
       }
     },
@@ -139,7 +175,11 @@
       "lint_frontend": "npm run lint",
       "lint_backend": "vendor/bin/pint --test",
       "test_crypto": "php artisan test --filter=Encryption",
+      "test_crypto_vectors": "php artisan test --filter=CryptoVectors",
+      "fuzz_crypto": "php artisan test --filter=CryptoFuzz",
       "test_messaging": "php artisan test --filter=SecureMessaging",
+      "test_x3dh": "php artisan test --filter=X3DH",
+      "test_double_ratchet": "php artisan test --filter=DoubleRatchet",
       "security_audit": "npm audit && composer audit"
     },
     "verification": {
@@ -221,12 +261,13 @@
     "tables": [
       {
         "name": "user_identity_keys",
-        "description": "Stores public identity keys for each user",
+        "description": "Stores public identity keys for each user (both Ed25519 for signing and X25519 for DH)",
         "columns": [
           {"name": "id", "type": "bigint unsigned", "primary": true},
           {"name": "user_id", "type": "bigint unsigned", "foreign": "users.id", "unique": true},
-          {"name": "public_key", "type": "binary(32)", "description": "Ed25519 public key"},
-          {"name": "key_id", "type": "char(16)", "description": "First 8 bytes of SHA256(public_key), hex encoded"},
+          {"name": "public_key_ed25519", "type": "binary(32)", "description": "Ed25519 public key for signing"},
+          {"name": "public_key_x25519", "type": "binary(32)", "description": "X25519 public key for DH operations (derived from Ed25519)"},
+          {"name": "key_id", "type": "char(16)", "description": "First 8 bytes of SHA256(public_key_ed25519), hex encoded"},
           {"name": "created_at", "type": "timestamp"},
           {"name": "rotated_at", "type": "timestamp", "nullable": true}
         ],
@@ -268,13 +309,15 @@
           {"name": "id", "type": "bigint unsigned", "primary": true},
           {"name": "owner_user_id", "type": "bigint unsigned", "foreign": "users.id"},
           {"name": "peer_user_id", "type": "bigint unsigned", "foreign": "users.id"},
+          {"name": "session_id", "type": "char(32)", "description": "Unique session identifier (UUID without dashes)"},
+          {"name": "is_active", "type": "boolean", "default": true, "description": "Only one active session per peer pair"},
           {"name": "session_data", "type": "text", "description": "Encrypted session state (base64)"},
           {"name": "version", "type": "integer unsigned", "default": 1},
           {"name": "created_at", "type": "timestamp"},
           {"name": "updated_at", "type": "timestamp"}
         ],
-        "indexes": [["owner_user_id", "peer_user_id"]],
-        "constraints": ["UNIQUE(owner_user_id, peer_user_id)"]
+        "indexes": [["owner_user_id", "peer_user_id"], ["owner_user_id", "peer_user_id", "is_active"]],
+        "constraints": ["UNIQUE(owner_user_id, peer_user_id, session_id)", "UNIQUE partial index on (owner_user_id, peer_user_id) WHERE is_active = true"]
       },
       {
         "name": "ticket_conversations",
@@ -311,19 +354,19 @@
       },
       {
         "name": "encrypted_attachments",
-        "description": "Encrypted file attachments",
+        "description": "Encrypted file attachments (file key transmitted in message payload, not stored here)",
         "columns": [
           {"name": "id", "type": "bigint unsigned", "primary": true},
           {"name": "conversation_id", "type": "bigint unsigned", "foreign": "ticket_conversations.id"},
           {"name": "uploader_id", "type": "bigint unsigned", "foreign": "users.id"},
-          {"name": "file_key_ciphertext", "type": "binary(48)", "description": "Encrypted symmetric file key"},
           {"name": "file_path", "type": "string(255)", "description": "Path to encrypted file in storage"},
           {"name": "original_name_encrypted", "type": "text", "description": "Encrypted original filename"},
           {"name": "mime_type_encrypted", "type": "text", "description": "Encrypted MIME type"},
           {"name": "file_size", "type": "bigint unsigned"},
           {"name": "created_at", "type": "timestamp"}
         ],
-        "indexes": ["conversation_id", "uploader_id"]
+        "indexes": ["conversation_id", "uploader_id"],
+        "notes": "File symmetric key is embedded in the message payload and encrypted with message encryption, not stored separately"
       },
       {
         "name": "message_keys_skipped",
@@ -391,12 +434,16 @@
       }
     },
     {
-      "method": "GET",
+      "method": "POST",
       "path": "/api/v1/keys/{userId}/bundle",
-      "description": "Fetch recipient's key bundle for X3DH",
+      "description": "Fetch recipient's key bundle for X3DH (POST to ensure atomic one-time prekey consumption)",
       "auth": "Bearer token",
+      "request": {
+        "request_id": "string (optional, for idempotency)"
+      },
       "response": {
-        "identity_key": "base64 (32 bytes)",
+        "identity_key_ed25519": "base64 (32 bytes)",
+        "identity_key_x25519": "base64 (32 bytes)",
         "signed_prekey": {
           "key_id": "integer",
           "public_key": "base64 (32 bytes)",
@@ -407,7 +454,13 @@
           "public_key": "base64 (32 bytes)"
         }
       },
-      "notes": "One-time prekey is consumed and removed from pool"
+      "implementation": {
+        "transaction": "Wrap consume-and-return logic in DB::transaction()",
+        "locking": "SELECT ... FOR UPDATE on one-time prekey row to prevent concurrent consumption",
+        "idempotency": "If request_id provided and already processed, return cached response",
+        "atomicity": "Mark prekey consumed_at and consumed_by in same transaction as response generation"
+      },
+      "notes": "One-time prekey is consumed and removed from pool atomically; use POST to signal state mutation"
     },
     {
       "method": "GET",
@@ -485,19 +538,19 @@
     {
       "method": "POST",
       "path": "/api/v1/attachments",
-      "description": "Upload encrypted attachment",
+      "description": "Upload encrypted attachment (file key is transmitted in message payload, not here)",
       "auth": "Bearer token",
       "request": {
         "conversation_id": "integer",
         "encrypted_file": "multipart file",
-        "file_key_ciphertext": "base64 (encrypted symmetric key)",
         "original_name_encrypted": "base64",
         "mime_type_encrypted": "base64"
       },
       "response": {
         "id": "attachment ID",
         "file_size": "integer bytes"
-      }
+      },
+      "notes": "File key is NOT sent here; instead it is embedded in the message payload as {type:'attachment', fileKey:'base64-32', attachmentId:..., fileName:..., mimeType:..., fileSize:...} and encrypted with message encryption"
     },
     {
       "method": "GET",
@@ -509,12 +562,33 @@
     {
       "method": "POST",
       "path": "/api/v1/sessions/sync",
-      "description": "Sync session state to server (encrypted)",
+      "description": "Sync session state to server (encrypted) with optimistic locking",
       "auth": "Bearer token",
       "request": {
         "peer_user_id": "integer",
+        "session_id": "string (32 char UUID)",
         "session_data": "base64 encrypted session state",
-        "version": "integer"
+        "expected_version": "integer (current version client has)"
+      },
+      "response": {
+        "success": "boolean",
+        "new_version": "integer",
+        "current_session_data": "base64 (only on conflict, current server state)"
+      },
+      "implementation": {
+        "atomicUpdate": "UPDATE encrypted_sessions SET session_data = ?, version = version + 1 WHERE owner_user_id = ? AND peer_user_id = ? AND session_id = ? AND version = ?",
+        "conflictDetection": "If affected_rows == 0, return VERSION_MISMATCH error with current server version and session_data",
+        "clientGuidance": "On VERSION_MISMATCH, client should fetch current state, merge/resolve conflict, and retry"
+      },
+      "errors": {
+        "VERSION_MISMATCH": {
+          "code": 409,
+          "message": "Session version conflict",
+          "data": {
+            "server_version": "integer",
+            "current_session_data": "base64"
+          }
+        }
       }
     },
     {
@@ -691,12 +765,13 @@
       "category": "key_management",
       "priority": "CRITICAL",
       "title": "Generate User Identity Keys on Registration",
-      "description": "When a user registers or first accesses secure messaging, generate an Ed25519 identity keypair client-side and upload the public key to the server.",
+      "description": "When a user registers or first accesses secure messaging, generate an Ed25519 identity keypair for signing and derive X25519 keypair for DH operations client-side, then upload both public keys to the server.",
       "steps": [
         "Create KeySetup.vue component shown on first secure messaging access",
         "Generate Ed25519 keypair using libsodium crypto_sign_keypair()",
-        "Store private key encrypted in IndexedDB using user's password-derived key",
-        "POST public key to /api/v1/keys/identity",
+        "Derive X25519 keypair from Ed25519 using crypto_sign_ed25519_sk_to_curve25519() and crypto_sign_ed25519_pk_to_curve25519()",
+        "Store both private keys encrypted in IndexedDB using user's password-derived key (Argon2id)",
+        "POST both public keys (Ed25519 and X25519) to /api/v1/keys/identity",
         "Store key_id in localStorage for quick lookup",
         "Add identity_key_uploaded_at column to users table",
         "Show success confirmation with safety number preview"
@@ -709,13 +784,14 @@
         "database/migrations/*_create_user_identity_keys_table.php"
       ],
       "acceptance_criteria": [
-        "Identity keypair generated entirely client-side (server never sees private key)",
-        "Private key encrypted before IndexedDB storage",
-        "Public key successfully uploaded to server",
+        "Ed25519 and X25519 identity keypairs generated entirely client-side (server never sees private keys)",
+        "X25519 key correctly derived from Ed25519 key",
+        "Private keys encrypted with Argon2id-derived key before IndexedDB storage",
+        "Both public keys successfully uploaded to server",
         "Key generation takes < 500ms on modern devices",
         "User can see their key fingerprint (safety number)"
       ],
-      "verification": "Generate keys; verify only public key in server DB; verify private key in IndexedDB is encrypted",
+      "verification": "Generate keys; verify both public keys in server DB; verify private keys in IndexedDB are encrypted; verify X25519 DH operations work",
       "passes": false,
       "attempt_count": 0
     },
@@ -788,9 +864,10 @@
       "category": "session",
       "priority": "CRITICAL",
       "title": "Initialize Double Ratchet Session",
-      "description": "Perform X3DH key agreement to establish shared secret, then initialize Double Ratchet session for ongoing encryption.",
+      "description": "Perform X3DH key agreement using X25519 keys to establish shared secret, then initialize Double Ratchet session for ongoing encryption.",
       "steps": [
-        "Implement performX3DH() function computing 3 or 4 DH operations",
+        "Implement performX3DH() function computing 3 or 4 DH operations using X25519 keys",
+        "Use X25519 identity key (IK_X) for DH, not Ed25519 signing key",
         "Derive shared secret using HKDF with protocol-specific info string",
         "Initialize Double Ratchet state with shared secret",
         "Set root key, sending/receiving chain keys",
@@ -802,18 +879,29 @@
         "resources/js/composables/useDoubleRatchet.ts"
       ],
       "x3dhCalculation": {
-        "initiator": "SK = HKDF(DH(IK_A, SPK_B) || DH(EK_A, IK_B) || DH(EK_A, SPK_B) || DH(EK_A, OPK_B))",
+        "initiator": "SK = HKDF(DH(IK_X_A, SPK_B) || DH(EK_A, IK_X_B) || DH(EK_A, SPK_B) || DH(EK_A, OPK_B))",
+        "note": "IK_X denotes X25519 identity key derived from Ed25519; all DH operations are X25519",
         "info": "PropManager_X3DH_v1",
         "salt": "32 zero bytes"
       },
+      "test_cases": [
+        "Both parties derive identical shared secret from same inputs",
+        "Session works correctly with one-time prekey present",
+        "Session works correctly without one-time prekey (fallback)",
+        "Verify against Signal X3DH test vectors (libsignal reference)",
+        "Invalid signature on signed prekey is rejected",
+        "Tampered identity key causes verification failure",
+        "One-time prekey consumed on first use, unavailable for second"
+      ],
       "acceptance_criteria": [
         "X3DH produces identical shared secret on both sides",
+        "All DH operations use X25519 keys (not Ed25519)",
         "Double Ratchet initialized with correct root key",
         "Session state can be serialized and restored",
         "Works with and without one-time prekey",
         "Info string includes protocol version for future upgrades"
       ],
-      "verification": "Initialize session between two users; verify both derive same root key",
+      "verification": "Initialize session between two users; verify both derive same root key using X25519 DH",
       "passes": false,
       "attempt_count": 0
     },
@@ -822,13 +910,14 @@
       "category": "session",
       "priority": "CRITICAL",
       "title": "Session State Persistence",
-      "description": "Persist encrypted Double Ratchet session state to both IndexedDB (client) and server for cross-device continuity.",
+      "description": "Persist encrypted Double Ratchet session state to both IndexedDB (client) and server for cross-device continuity with optimistic locking.",
       "steps": [
         "Serialize session state to JSON (root key, chain keys, counters, skipped keys)",
         "Encrypt serialized state with user's storage key",
         "Store in IndexedDB for offline access",
-        "Sync encrypted state to server via /api/v1/sessions/sync",
-        "Implement version number for conflict resolution",
+        "Sync encrypted state to server via /api/v1/sessions/sync with expected_version",
+        "Implement optimistic locking: server performs atomic UPDATE ... WHERE version = expected_version",
+        "Handle VERSION_MISMATCH error by fetching current state, resolving conflict, and retrying",
         "Handle session restore on page reload and device switch"
       ],
       "files": [
@@ -841,11 +930,12 @@
       "acceptance_criteria": [
         "Session state encrypted before server storage",
         "Session restored correctly after page reload",
-        "Version conflict detected and latest version used",
+        "Optimistic locking: server returns VERSION_MISMATCH with current version and data on conflict",
+        "Client handles conflict by fetching latest, merging, and retrying",
         "Conversation works after browser clear (fetch from server)",
         "Deleted sessions cannot be recovered by server admin"
       ],
-      "verification": "Send messages; close browser; reopen and continue conversation without re-keying",
+      "verification": "Send messages; close browser; reopen and continue conversation without re-keying; simulate concurrent update and verify conflict resolution",
       "passes": false,
       "attempt_count": 0
     },
@@ -872,6 +962,15 @@
         "app/Models/EncryptedMessage.php",
         "app/Events/SecureMessageSent.php"
       ],
+      "test_cases": [
+        "Each message encrypted with unique, non-reused key",
+        "Encrypting same plaintext twice produces different ciphertext (nondeterministic)",
+        "Message key deleted after encryption (forward secrecy)",
+        "Tampered ciphertext fails decryption with authentication error",
+        "Tampered header causes decryption failure",
+        "Message number increments correctly per message",
+        "DH ratchet step occurs on direction change"
+      ],
       "acceptance_criteria": [
         "Message encrypted with unique key (never reused)",
         "Header allows recipient to derive same key",
@@ -879,7 +978,7 @@
         "Session state updated correctly after send",
         "Optimistic UI shows message before server confirmation"
       ],
-      "verification": "Send message; verify server only has ciphertext; verify recipient can decrypt",
+      "verification": "Send message; verify server only has ciphertext; verify recipient can decrypt; verify same plaintext produces different ciphertext",
       "passes": false,
       "attempt_count": 0
     },
@@ -1040,14 +1139,14 @@
       "category": "attachments",
       "priority": "MEDIUM",
       "title": "Encrypted File Attachments",
-      "description": "Allow sending encrypted file attachments (images, documents) within ticket conversations.",
+      "description": "Allow sending encrypted file attachments (images, documents) within ticket conversations. File key is embedded in message payload for reliable decryption.",
       "steps": [
         "Generate random 256-bit symmetric key for file",
-        "Encrypt file client-side with XChaCha20-Poly1305",
-        "Encrypt file key with recipient's current message key",
-        "Upload encrypted file to /api/v1/attachments",
-        "Send message with attachment reference and encrypted file key",
-        "Recipient decrypts file key with message key, then decrypts file"
+        "Encrypt file client-side with XChaCha20-Poly1305 using the file key",
+        "Upload encrypted file to /api/v1/attachments (without file key)",
+        "Create message with attachment payload: {type:'attachment', fileKey:'base64-32', attachmentId:..., fileName:..., mimeType:..., fileSize:...}",
+        "Send message using normal Double Ratchet encryption (file key protected by message encryption)",
+        "Recipient decrypts message to get fileKey, then downloads and decrypts file"
       ],
       "files": [
         "resources/js/Components/Secure/AttachmentUpload.vue",
@@ -1057,16 +1156,25 @@
         "app/Models/EncryptedAttachment.php",
         "database/migrations/*_create_encrypted_attachments_table.php"
       ],
+      "messagePayloadFormat": {
+        "type": "attachment",
+        "fileKey": "base64-encoded 32-byte symmetric key",
+        "attachmentId": "integer (from upload response)",
+        "fileName": "original filename",
+        "mimeType": "file MIME type",
+        "fileSize": "integer bytes"
+      },
       "sizeLimit": "10MB per file",
       "allowedTypes": ["image/*", "application/pdf", "text/*"],
       "acceptance_criteria": [
         "File encrypted entirely client-side before upload",
-        "Server stores only encrypted blob (cannot view)",
-        "Recipient can download and decrypt file",
+        "File key embedded in message payload, protected by message encryption",
+        "Server stores only encrypted blob (cannot view file or key)",
+        "Recipient can download and decrypt file using key from decrypted message",
         "Image thumbnails generated client-side",
         "File size and type validation before upload"
       ],
-      "verification": "Upload image; verify server file is encrypted; download and view on recipient",
+      "verification": "Upload image; verify server file is encrypted and has no file key; download and view on recipient using key from message",
       "passes": false,
       "attempt_count": 0
     },
@@ -1144,6 +1252,71 @@
       "verification": "Rotate prekey; verify session continues; change identity key; verify warning shown",
       "passes": false,
       "attempt_count": 0
+    },
+    {
+      "id": "MSG-015",
+      "category": "security",
+      "priority": "HIGH",
+      "title": "GDPR Cryptographic Identity Export and Delete",
+      "description": "Implement GDPR-compliant export and deletion of user's cryptographic identity with proper scope controls and legal disclosures.",
+      "steps": [
+        "Create /api/v1/gdpr/export endpoint for identity export",
+        "Create /api/v1/gdpr/delete endpoint with scope parameter",
+        "Implement export as encrypted JSON archive containing: identity keys (public only), signed prekey metadata, session metadata (no content), key rotation audit logs",
+        "Implement deletion scopes: 'keys_only' (delete keys, keep messages), 'keys_and_metadata' (delete keys + session metadata), 'full' (cascade: keys → sessions → messages → attachments)",
+        "Server-side cascade must delete in order: one_time_prekeys → signed_prekeys → identity_keys → sessions → messages → attachments",
+        "Add UI disclosure: 'Due to end-to-end encryption, we cannot delete copies of messages already delivered to other users' devices'",
+        "Create privacy_consent table: user_id, policy_version, accepted_at, ip_address",
+        "Show consent UI on first secure messaging access",
+        "Implement prekey expiry cleanup (delete consumed prekeys after 30 days)",
+        "Retain audit logs for 90 days after deletion per legal requirements"
+      ],
+      "files": [
+        "app/Http/Controllers/Api/GdprController.php",
+        "app/Http/Requests/GdprExportRequest.php",
+        "app/Http/Requests/GdprDeleteRequest.php",
+        "app/Services/GdprService.php",
+        "app/Models/PrivacyConsent.php",
+        "database/migrations/*_create_privacy_consents_table.php",
+        "resources/js/Components/Secure/PrivacyConsentModal.vue"
+      ],
+      "apiEndpoints": {
+        "export": {
+          "method": "POST",
+          "path": "/api/v1/gdpr/export",
+          "request": {"password": "string (for export encryption)"},
+          "response": {"download_url": "string", "expires_at": "ISO 8601"}
+        },
+        "delete": {
+          "method": "DELETE",
+          "path": "/api/v1/gdpr/delete",
+          "request": {"scope": "keys_only | keys_and_metadata | full", "confirmation": "string (type 'DELETE' to confirm)"},
+          "response": {"deleted": "object with counts per type"}
+        }
+      },
+      "exportContents": {
+        "format": "AES-256-GCM encrypted JSON archive",
+        "includes": ["identity_key_public", "signed_prekey_metadata", "session_peer_ids", "key_rotation_logs", "privacy_consent_history"],
+        "excludes": ["private_keys (never on server)", "message_content (encrypted, unreadable)", "other_users_data"]
+      },
+      "deletionCascade": {
+        "keys_only": ["user_identity_keys", "user_signed_prekeys", "user_one_time_prekeys"],
+        "keys_and_metadata": ["+ encrypted_sessions", "+ message_keys_skipped"],
+        "full": ["+ encrypted_messages (where sender_id = user)", "+ encrypted_attachments (where uploader_id = user)"]
+      },
+      "acceptance_criteria": [
+        "User can export cryptographic identity as encrypted archive",
+        "User can delete keys with chosen scope",
+        "Cascade deletion follows correct order to avoid FK violations",
+        "UI clearly discloses E2E limitation (recipients retain local copies)",
+        "Privacy consent recorded before first secure message",
+        "Audit logs retained for legal compliance period",
+        "Legal/privacy counsel sign-off obtained before release"
+      ],
+      "verification": "Export identity; verify archive contains expected data; delete with 'full' scope; verify cascade completed; verify disclosure shown",
+      "legal_review_required": true,
+      "passes": false,
+      "attempt_count": 0
     }
   ],
   "implementationPhases": [
@@ -1185,17 +1358,19 @@
     {
       "phase": 4,
       "name": "Security Hardening",
-      "items": ["MSG-014"],
-      "description": "Key rotation and advanced security features",
+      "items": ["MSG-014", "MSG-015"],
+      "description": "Key rotation, GDPR compliance, and advanced security features",
       "deliverables": [
         "Automatic key rotation",
         "Identity verification",
-        "Audit logging complete"
+        "Audit logging complete",
+        "GDPR export and delete functionality",
+        "Privacy consent management"
       ]
     }
   ],
   "metadata": {
-    "total_items": 14,
+    "total_items": 15,
     "passing_items": 0,
     "categories": ["key_management", "session", "messaging", "realtime", "attachments", "ui", "security"]
   }

@@ -31,17 +31,25 @@ Select these options:
 ## Step 1.3: Install All Required Components
 ```bash
 # Form components
-npx shadcn-vue@latest add button input label checkbox select textarea switch
+npx shadcn-vue@latest add button input label checkbox select textarea switch radio-group
 
 # Modal/overlay components
-npx shadcn-vue@latest add dialog sheet dropdown-menu popover tooltip
+npx shadcn-vue@latest add dialog sheet dropdown-menu popover tooltip hover-card
 
 # Data display components
-npx shadcn-vue@latest add card badge avatar table pagination
+npx shadcn-vue@latest add card badge avatar table pagination tabs
 
 # Feedback components
-npx shadcn-vue@latest add alert toast separator
+npx shadcn-vue@latest add alert toast separator sonner skeleton
+
+# Navigation & utility
+npx shadcn-vue@latest add breadcrumb command scroll-area collapsible accordion
+
+# Date/time (for filters)
+npx shadcn-vue@latest add calendar
 ```
+
+**Total: ~30 shadcn components**
 
 ---
 
@@ -464,24 +472,85 @@ In the header section, before NotificationBell:
 
 ---
 
-# PHASE 6: Component Migration Map
+# PHASE 6: Complete Component Migration Map
 
-## Migration Reference Table
+## 6.1 Core UI Primitives (14 components)
 
-| Current Component | shadcn Replacement | Import Statement |
-|-------------------|-------------------|------------------|
-| `PrimaryButton` | `Button` | `import { Button } from '@/Components/ui/button'` |
-| `SecondaryButton` | `Button variant="secondary"` | Same as above |
-| `DangerButton` | `Button variant="destructive"` | Same as above |
-| `TextInput` | `Input` | `import { Input } from '@/Components/ui/input'` |
-| `InputLabel` | `Label` | `import { Label } from '@/Components/ui/label'` |
-| `Checkbox` | `Checkbox` | `import { Checkbox } from '@/Components/ui/checkbox'` |
-| `Modal` | `Dialog` | `import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/Components/ui/dialog'` |
-| `SlideOutPanel` | `Sheet` | `import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/Components/ui/sheet'` |
-| `Dropdown` | `DropdownMenu` | `import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/Components/ui/dropdown-menu'` |
-| `MetricCard` | `Card` | `import { Card, CardHeader, CardTitle, CardContent } from '@/Components/ui/card'` |
-| `Pagination` | `Pagination` | `import { Pagination, ... } from '@/Components/ui/pagination'` |
-| `TicketStatusBadge` | `Badge` | `import { Badge } from '@/Components/ui/badge'` |
+| Current Component | shadcn Replacement | Notes |
+|-------------------|-------------------|-------|
+| `PrimaryButton.vue` | `Button` | Default variant |
+| `SecondaryButton.vue` | `Button variant="secondary"` | |
+| `DangerButton.vue` | `Button variant="destructive"` | |
+| `TextInput.vue` | `Input` | |
+| `InputLabel.vue` | `Label` | |
+| `InputError.vue` | Keep custom or use form validation | |
+| `Checkbox.vue` | `Checkbox` | |
+| `Modal.vue` | `Dialog` | Base modal component |
+| `SlideOutPanel.vue` | `Sheet` | Side panel |
+| `Dropdown.vue` | `DropdownMenu` | |
+| `DropdownLink.vue` | `DropdownMenuItem` | |
+| `NavLink.vue` | Keep custom (navigation-specific) | |
+| `ResponsiveNavLink.vue` | Keep custom | |
+| `Pagination.vue` | `Pagination` | |
+
+## 6.2 Business Components (19 components)
+
+| Component | Action | Notes |
+|-----------|--------|-------|
+| `ActionItemCard.vue` | Use `Card` | Wrap with Card primitives |
+| `ApplicationLogo.vue` | Keep custom | App-specific |
+| `Breadcrumb.vue` | Use `Breadcrumb` | Add component |
+| `BuildingMap.vue` | Keep custom | Domain-specific visualization |
+| `BuildingWingFilter.vue` | Use `Select` | Replace dropdown |
+| `FinancialSummaryCard.vue` | Use `Card` | Wrap with Card |
+| `InvitationBanner.vue` | Use `Alert` | |
+| `KycBadge.vue` | Use `Badge` | |
+| `MetricCard.vue` | Use `Card` | |
+| `NotificationBell.vue` | Use `DropdownMenu` + `Popover` | Complex component |
+| `PushNotificationPrompt.vue` | Use `Alert` or `Dialog` | |
+| `QuickActionsPanel.vue` | Use `Card` | |
+| `SlideOutPanel.vue` | Use `Sheet` | |
+| `TicketActivityTimeline.vue` | Keep custom | Domain-specific |
+| `TicketFeedbackForm.vue` | Update form elements only | |
+| `TicketPriorityBadge.vue` | Use `Badge` | |
+| `TicketStatusBadge.vue` | Use `Badge` | |
+| `TimeFilter.vue` | Use `Select` + `Popover` | |
+| `UnitFilters.vue` | Use `Select` components | |
+
+## 6.3 Finance Components (12 components)
+
+| Component | Action | Notes |
+|-----------|--------|-------|
+| `DataTable.vue` | Use `Table` | Complex - needs custom wrapper |
+| `VirtualDataTable.vue` | Keep custom + use `Table` styling | Performance-critical |
+| `Pagination.vue` | Use `Pagination` | |
+| `FilterBar.vue` | Use `Input` + `Select` + `Popover` | Complex composition |
+| `ExportDropdown.vue` | Use `DropdownMenu` | |
+| `AmountDisplay.vue` | Keep custom | Formatting utility |
+| `MetricCard.vue` | Use `Card` | |
+| `InvoiceStatusBadge.vue` | Use `Badge` with variants | |
+| `PaymentMethodBadge.vue` | Use `Badge` | |
+| `EmptyState.vue` | Keep custom or use Alert | |
+| `ModalLoadingPlaceholder.vue` | Use `Skeleton` | Add component |
+| `TabLoadingPlaceholder.vue` | Use `Skeleton` | |
+
+## 6.4 Tab System (NEW - No existing component)
+
+Create wrapper for consistent tab patterns across:
+- Profile/Edit.vue (6 tabs)
+- Settings/Index.vue (6 tabs)
+- Finances/Index.vue (12+ tabs)
+- Notifications/Index.vue (5 tabs)
+- TenantProfileModal (5 tabs)
+
+**File**: `resources/js/Components/ui/tabs-wrapper/TabsWrapper.vue`
+
+## 6.5 Icons Decision
+
+**Current**: `@heroicons/vue` (Heroicons 24px)
+**shadcn default**: `lucide-vue-next` (Lucide icons)
+
+**Recommendation**: Keep Heroicons initially, optional Lucide migration later
 
 ## Example Migrations
 
@@ -542,56 +611,194 @@ In the header section, before NotificationBell:
 
 ---
 
-# PHASE 7: Page Migration Order
+# PHASE 7: Complete System Migration
 
-## Recommended Sequence
+## System Inventory Summary
+- **138 Pages** across 30+ feature folders
+- **58 Components** (14 UI primitives, 44 business/domain)
+- **15+ Modals** requiring Dialog migration
+- **100+ files** using buttons, inputs, modals
 
-### Batch 1: Auth Pages (Simple, Low Risk)
-- [ ] `Pages/Auth/Login.vue`
-- [ ] `Pages/Auth/Register.vue`
-- [ ] `Pages/Auth/ForgotPassword.vue`
-- [ ] `Pages/Auth/ResetPassword.vue`
-- [ ] `Pages/Auth/VerifyEmail.vue`
-- [ ] `Pages/Auth/ConfirmPassword.vue`
+---
 
-### Batch 2: Profile & Settings
-- [ ] `Pages/Profile/Edit.vue`
-- [ ] `Pages/Profile/Partials/UpdateProfileInformationForm.vue`
-- [ ] `Pages/Profile/Partials/UpdatePasswordForm.vue`
-- [ ] `Pages/Profile/Partials/DeleteUserForm.vue`
+## Batch 1: Auth Pages (7 pages)
+- [ ] `Auth/Login.vue`
+- [ ] `Auth/Register.vue`
+- [ ] `Auth/ForgotPassword.vue`
+- [ ] `Auth/ResetPassword.vue`
+- [ ] `Auth/VerifyEmail.vue`
+- [ ] `Auth/ConfirmPassword.vue`
+- [ ] `Auth/TwoFactorChallenge.vue`
 
-### Batch 3: Secondary Features
-- [ ] `Pages/Documents/Index.vue`
-- [ ] `Pages/Invitations/Index.vue`
-- [ ] `Pages/Invitations/Accept.vue`
-- [ ] `Pages/Readings/Index.vue`
-- [ ] `Pages/Readings/History.vue`
+## Batch 2: Profile & User Settings (17 pages)
+- [ ] `Profile/Edit.vue`
+- [ ] `Profile/Partials/*` (8 partials)
+- [ ] `Settings/Index.vue`
+- [ ] `Settings/PayoutAccounts.vue`
+- [ ] `Settings/Privacy.vue`
+- [ ] `Settings/TwoFactor.vue`
+- [ ] `Settings/TwoFactorSetup.vue`
+- [ ] `Settings/TwoFactorRecoveryCodes.vue`
+- [ ] `Settings/partials/*` (6 partials)
 
-### Batch 4: Core Features
-- [ ] `Pages/Invoices/Index.vue`
-- [ ] `Pages/Invoices/Show.vue`
-- [ ] `Pages/Tenants/Show.vue`
-- [ ] `Pages/Leases/Create.vue`
+## Batch 3: Admin & Caretaker (10 pages)
+- [ ] `Admin/Dashboard.vue`
+- [ ] `Admin/Settings.vue`
+- [ ] `Admin/Landlords.vue`
+- [ ] `Admin/Users.vue`
+- [ ] `Admin/AuditLogs.vue`
+- [ ] `Admin/AuditLogDetail.vue`
+- [ ] `Admin/BillingSettings.vue`
+- [ ] `Caretaker/Dashboard.vue`
+- [ ] `Caretaker/Tickets.vue`
+- [ ] `ActivityLogs/Index.vue`
 
-### Batch 5: Complex Pages (Last)
-- [ ] `Pages/Dashboard.vue`
-- [ ] `Pages/Caretaker/Dashboard.vue`
-- [ ] `Pages/Buildings/Edit.vue`
-- [ ] `Pages/Onboarding/Index.vue`
+## Batch 4: Property & Building Management (12 pages)
+- [ ] `Dashboard.vue` (main)
+- [ ] `Onboarding/Index.vue`
+- [ ] `Buildings/Index.vue`
+- [ ] `Buildings/Edit.vue`
+- [ ] `Buildings/Dashboard.vue`
+- [ ] `Buildings/Show.vue`
+- [ ] `Buildings/WaterSettings.vue`
+- [ ] `BulkOperations/Index.vue`
+- [ ] `BulkOperations/RentAdjustmentTab.vue`
+- [ ] `BulkOperations/UnitStatusTab.vue`
+- [ ] `BulkOperations/LeaseManagementTab.vue`
+- [ ] `BulkOperations/TargetRentTab.vue`
 
-### Batch 6: Modal Components
+## Batch 5: Tenant Management (17 pages)
+- [ ] `Tenants/Index.vue`
+- [ ] `Tenants/Show.vue`
+- [ ] `Tenants/History.vue`
+- [ ] `Tenants/Ledger.vue`
+- [ ] `Leases/Index.vue`
+- [ ] `Leases/Create.vue`
+- [ ] `MoveOuts/Index.vue`
+- [ ] `MoveOuts/Create.vue`
+- [ ] `MoveOuts/Show.vue`
+- [ ] `TenantInvitations/Index.vue`
+- [ ] `TenantInvitations/Accept.vue`
+- [ ] `Invitations/Index.vue`
+- [ ] `Invitations/Accept.vue`
+- [ ] `Invitations/AcceptExisting.vue`
+- [ ] `Tenant/Dashboard.vue`
+- [ ] `Tenant/Lease.vue`
+- [ ] `Tenant/CompleteKyc.vue`
+
+## Batch 6: Finance Hub (34 pages - LARGEST)
+- [ ] `Finances/Hub.vue`
+- [ ] `Finances/Index.vue`
+- [ ] `Finances/tabs/OverviewTab.vue`
+- [ ] `Finances/tabs/InvoicesTab.vue`
+- [ ] `Finances/tabs/PaymentsTab.vue`
+- [ ] `Finances/tabs/ArrearsTab.vue`
+- [ ] `Finances/tabs/DepositsTab.vue`
+- [ ] `Finances/tabs/RefundsTab.vue`
+- [ ] `Finances/tabs/ExpensesTab.vue`
+- [ ] `Finances/tabs/ReconciliationTab.vue`
+- [ ] `Finances/tabs/ReportsTab.vue`
+- [ ] `Finances/tabs/SettingsTab.vue`
+- [ ] `Finances/tabs/LateFeeSettingsTab.vue`
+- [ ] `Finances/tabs/TemplatesTab.vue`
+- [ ] `Finances/Payments/BulkImport.vue`
+- [ ] `Finances/Payments/Record.vue`
+- [ ] `Finances/Refunds/Create.vue`
+- [ ] `Invoices/Index.vue`
+- [ ] `Invoices/Show.vue`
+- [ ] `InvoiceSettings/Edit.vue`
+- [ ] `InvoiceTemplates/Edit.vue`
+- [ ] `ReceiptTemplates/Edit.vue`
+- [ ] `CreditNotes/Index.vue`
+- [ ] `CreditNotes/Show.vue`
+- [ ] `CreditNotes/Create.vue`
+- [ ] `PaymentVerifications/Index.vue`
+- [ ] `PaymentVerifications/Show.vue`
+- [ ] `TenantFinances/Index.vue`
+- [ ] `TenantFinances/History.vue`
+- [ ] `TenantFinances/Pay.vue`
+- [ ] `Tenant/PaymentRequired.vue`
+- [ ] `Tenant/Notifications.vue`
+- [ ] `Subscription/Index.vue`
+- [ ] `Subscription/Plans.vue`
+
+## Batch 7: Water & Readings (4 pages)
+- [ ] `Water/Settings.vue`
+- [ ] `Readings/Index.vue`
+- [ ] `Readings/History.vue`
+- [ ] `Readings/Review.vue`
+
+## Batch 8: Notifications & Communications (7 pages)
+- [ ] `Notifications/Index.vue`
+- [ ] `Notifications/partials/OverviewTab.vue`
+- [ ] `Notifications/partials/ScheduledTab.vue`
+- [ ] `Notifications/partials/HistoryTab.vue`
+- [ ] `Notifications/partials/SettingsTab.vue`
+- [ ] `Notifications/partials/TemplatesTab.vue`
+- [ ] `Notifications/SetupWizard.vue`
+
+## Batch 9: Support & Utilities (13 pages)
+- [ ] `Tickets/Index.vue`
+- [ ] `Tickets/Create.vue`
+- [ ] `Tickets/Show.vue`
+- [ ] `Documents/Index.vue`
+- [ ] `Reports/Index.vue`
+- [ ] `Imports/Index.vue`
+- [ ] `Imports/Show.vue`
+- [ ] `Verifications/Templates.vue`
+- [ ] `Verifications/Conduct.vue`
+- [ ] `Help/Index.vue`
+- [ ] `Help/Show.vue`
+- [ ] `Consent/Required.vue`
+- [ ] `Landlord/Home.vue`
+
+## Batch 10: All Modal Components (15 modals)
+### Root Modals
 - [ ] `Components/Modals/AddBuildingModal.vue`
 - [ ] `Components/Modals/AddWingModal.vue`
 - [ ] `Components/Modals/MassHikeModal.vue`
 - [ ] `Components/Modals/UploadDocumentModal.vue`
 - [ ] `Components/Modals/EvictionNoticeModal.vue`
 - [ ] `Components/Modals/SendNotificationModal.vue`
+- [ ] `Components/Modals/BulkSendNotificationModal.vue`
+- [ ] `Components/Modals/TenantProfileModal.vue`
+
+### Finance Modals
+- [ ] `Finances/modals/PaymentDetailModal.vue`
+- [ ] `Finances/modals/InvoiceDetailModal.vue`
+- [ ] `Finances/modals/RecordPaymentModal.vue`
+- [ ] `Finances/modals/RefundModal.vue`
+- [ ] `Finances/modals/ForfeitDepositModal.vue`
+- [ ] `Finances/modals/MatchPaymentModal.vue`
+- [ ] `Finances/modals/SendRemindersModal.vue`
+- [ ] `Finances/modals/RefundDepositModal.vue`
+
+## Batch 11: Tenant Profile Tabs (5 components)
+- [ ] `Components/TenantProfile/OverviewTab.vue`
+- [ ] `Components/TenantProfile/DocumentsTab.vue`
+- [ ] `Components/TenantProfile/HistoryTab.vue`
+- [ ] `Components/TenantProfile/LeaseFinancesTab.vue`
+- [ ] `Components/TenantProfile/NotesContactsTab.vue`
+
+## Batch 12: Finance-Specific Components (12 components)
+- [ ] `Components/Finances/DataTable.vue`
+- [ ] `Components/Finances/VirtualDataTable.vue`
+- [ ] `Components/Finances/Pagination.vue`
+- [ ] `Components/Finances/FilterBar.vue`
+- [ ] `Components/Finances/ExportDropdown.vue`
+- [ ] `Components/Finances/AmountDisplay.vue`
+- [ ] `Components/Finances/MetricCard.vue`
+- [ ] `Components/Finances/InvoiceStatusBadge.vue`
+- [ ] `Components/Finances/PaymentMethodBadge.vue`
+- [ ] `Components/Finances/EmptyState.vue`
+- [ ] `Components/Finances/ModalLoadingPlaceholder.vue`
+- [ ] `Components/Finances/TabLoadingPlaceholder.vue`
 
 ---
 
-# PHASE 8: Testing Checklist
+# PHASE 8: Comprehensive Testing Checklist
 
-## Per-Page Testing
+## 8.1 Per-Page Testing (apply to all 138 pages)
 
 For each migrated page, verify:
 
@@ -605,13 +812,71 @@ For each migrated page, verify:
 - [ ] Keyboard navigation works
 - [ ] No console errors
 
-## Status Colors Test
+## 8.2 Component-Specific Testing
+
+### Buttons
+- [ ] All 3 variants render correctly (primary, secondary, destructive)
+- [ ] Loading states work
+- [ ] Disabled states work
+- [ ] Icons align properly
+
+### Forms
+- [ ] All input types work (text, email, password, number)
+- [ ] Validation errors display correctly
+- [ ] Labels associate with inputs
+- [ ] Focus states visible in both themes
+
+### Modals (15+ modals)
+- [ ] Open/close animations smooth
+- [ ] Escape key closes modal
+- [ ] Backdrop click closes (where applicable)
+- [ ] Body scroll locks when open
+- [ ] Focus trapped inside modal
+
+### Tables (Finance DataTable)
+- [ ] Sorting works
+- [ ] Row selection works
+- [ ] Pagination works
+- [ ] Loading states display
+- [ ] Empty states display
+
+### Tabs (multiple pages)
+- [ ] Tab switching works
+- [ ] Active tab styling correct
+- [ ] Tab content loads properly
+- [ ] URL params preserved (if applicable)
+
+## 8.3 Status Colors Test
 
 After dark mode is enabled, verify on Dashboard:
 - [ ] Vacant units: Gray tint visible in both modes
 - [ ] Occupied units: Green tint visible in both modes
 - [ ] Maintenance units: Orange tint visible in both modes
 - [ ] Arrears units: Red tint visible in both modes
+
+## 8.4 Cross-Browser Testing
+
+Test in:
+- [ ] Chrome (latest)
+- [ ] Firefox (latest)
+- [ ] Safari (latest)
+- [ ] Edge (latest)
+- [ ] Mobile Safari (iOS)
+- [ ] Chrome Mobile (Android)
+
+## 8.5 Accessibility Testing
+
+- [ ] Color contrast meets WCAG AA
+- [ ] Focus indicators visible
+- [ ] Screen reader announces components correctly
+- [ ] Keyboard-only navigation works
+
+## 8.6 Performance Testing
+
+- [ ] No significant bundle size increase (check with `npm run build`)
+- [ ] VirtualDataTable still performs with 1000+ rows
+- [ ] Dark mode toggle is instant (no flash)
+- [ ] No layout shifts during page load
 
 ---
 
@@ -631,7 +896,7 @@ After dark mode is enabled, verify on Dashboard:
 
 ---
 
-# Estimated Timeline
+# Revised Timeline (Full System)
 
 | Phase | Description | Effort |
 |-------|-------------|--------|
@@ -639,9 +904,24 @@ After dark mode is enabled, verify on Dashboard:
 | 2 | Configuration Files | 1 hour |
 | 3 | Utilities & Composables | 30 min |
 | 4 | Theme Toggle | 30 min |
-| 5 | AuthenticatedLayout | 1 hour |
-| 6 | Component Migration Reference | Reference only |
-| 7 | Page Migration (all batches) | 4-8 hours |
-| 8 | Testing | 2 hours |
+| 5 | AuthenticatedLayout + Dark Mode | 2 hours |
+| 6 | Base Component Migration | 2 hours |
+| 7.1 | Batch 1-3: Auth, Profile, Admin (34 pages) | 4 hours |
+| 7.2 | Batch 4-5: Buildings, Tenants (29 pages) | 4 hours |
+| 7.3 | Batch 6: Finance Hub (34 pages) | 6 hours |
+| 7.4 | Batch 7-9: Water, Notifications, Support (24 pages) | 3 hours |
+| 7.5 | Batch 10-12: Modals & Components (32 items) | 4 hours |
+| 8 | Testing & QA | 4 hours |
 
-**Total: ~10-14 hours** (spread across multiple sessions)
+**Total: ~32-40 hours** (spread across multiple sessions/sprints)
+
+## Recommended Sprint Plan
+
+| Sprint | Focus | Pages/Components |
+|--------|-------|------------------|
+| Sprint 1 | Foundation + Auth | Phases 1-4 + Batch 1 |
+| Sprint 2 | Settings + Admin | Batches 2-3 |
+| Sprint 3 | Core Features | Batches 4-5 |
+| Sprint 4 | Finance Hub | Batch 6 (largest) |
+| Sprint 5 | Utilities + Modals | Batches 7-12 |
+| Sprint 6 | Testing + Polish | Phase 8 |

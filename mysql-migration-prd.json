@@ -8,7 +8,7 @@
       "frontend": "Inertia.js + Vue 3 + Tailwind CSS v4",
       "database_current": "SQLite (database/database.sqlite)",
       "database_target": "MySQL 9.4",
-      "testing": "PHPUnit"
+      "testing": "PHPUnit, ParaTest"
     }
   },
   "rationale": {

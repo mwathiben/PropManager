@@ -144,7 +144,9 @@
         "Move callback verification to PaymentCallbackProcessor (already exists)",
         "Simplify deletePayment/voidPayment with early returns"
       ],
-      "estimated_effort": "large"
+      "estimated_effort": "large",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-002",
@@ -167,7 +169,9 @@
         "Create InvitationNotificationService for notification methods",
         "Simplify contact update with early returns"
       ],
-      "estimated_effort": "large"
+      "estimated_effort": "large",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-003",
@@ -188,7 +192,9 @@
         "Extract BulkDepositAdjuster for adjustDeposits (similar to BulkRentAdjuster)",
         "Extract BulkTargetRentUpdater for updateTargetRent"
       ],
-      "estimated_effort": "medium"
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-004",
@@ -206,7 +212,9 @@
         "Extract TicketUpdateService for update() transitions",
         "Simplify destroy() with early returns"
       ],
-      "estimated_effort": "medium"
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-005",
@@ -225,7 +233,9 @@
         "Extract TenantPaymentPageBuilder for showPaymentPage",
         "Use TenantIndexService (already exists) more extensively"
       ],
-      "estimated_effort": "medium"
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-006",
@@ -245,7 +255,9 @@
         "Create NotificationsControllerDependencies DTO for constructor",
         "Move provider testing to dedicated NotificationProviderTestService"
       ],
-      "estimated_effort": "large"
+      "estimated_effort": "large",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-007",
@@ -276,7 +288,9 @@
         "Use Strategy pattern for channel dispatch",
         "Reduce constructor to 3-4 dependencies max"
       ],
-      "estimated_effort": "x-large"
+      "estimated_effort": "x-large",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-008",
@@ -294,7 +308,9 @@
         "Simplify send() branching with early returns",
         "Extract subscription validation to helper method"
       ],
-      "estimated_effort": "medium"
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-009",
@@ -313,7 +329,9 @@
         "Create DashboardFilters DTO for filter parameters",
         "Split by dashboard type: LandlordDashboard, CaretakerDashboard, TenantDashboard"
       ],
-      "estimated_effort": "medium"
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-010",
@@ -333,7 +351,9 @@
         "Use rule objects for individual field validations",
         "Simplify main validate() to orchestrate sub-validators"
       ],
-      "estimated_effort": "medium"
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-011",
@@ -352,7 +372,9 @@
         "Extract MpesaPaymentProcessor for payment processing",
         "Create MpesaTillPaymentRequest DTO"
       ],
-      "estimated_effort": "medium"
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-012",
@@ -368,7 +390,9 @@
         "Create SecurityLogEntry DTO (level, message, context, user, ip, extra)",
         "Update log() and logToFile() to accept DTO"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-013",
@@ -384,7 +408,9 @@
         "Create UnitGenerationConfig DTO",
         "Create PeriodComparisonRequest DTO"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-014",
@@ -399,7 +425,9 @@
         "Create OnboardingUnitConfig DTO",
         "Refactor processStructure() to use DTO"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-015",
@@ -415,7 +443,9 @@
         "Create DataProcessingLog DTO",
         "Create BreachNotificationRequest DTO"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-016",
@@ -429,7 +459,9 @@
       "steps": [
         "This is already a value object - consider builder pattern or factory method"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-017",
@@ -443,7 +475,9 @@
       "steps": [
         "Create MpesaPaymentStatus DTO to wrap payment state"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-018",
@@ -457,7 +491,9 @@
       "steps": [
         "This is already a value object - acceptable or use named constructor"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-019",
@@ -471,7 +507,9 @@
       "steps": [
         "This is already a value object - acceptable or use named constructor"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-020",
@@ -485,7 +523,9 @@
       "steps": [
         "Create PublishDocumentRequest DTO"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-021",
@@ -500,7 +540,9 @@
       "steps": [
         "Create SettingValue DTO with metadata"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-022",
@@ -517,7 +559,9 @@
         "Extract VerificationProcessor for store logic",
         "Simplify edit/update with early returns"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-023",
@@ -534,7 +578,9 @@
         "Extract DocumentAccessVerifier for download/view auth checks",
         "Simplify index with query scopes"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-024",
@@ -550,7 +596,9 @@
         "Extract AuditLogQueryBuilder for index filters",
         "Extract AuditLogExporter for export logic"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-025",
@@ -566,7 +614,9 @@
         "Use PaymentLinkService more extensively",
         "Simplify store() validation flow"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-026",
@@ -582,7 +632,9 @@
         "Extract ActivityDataBuilder",
         "Simplify document query with scopes"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-027",
@@ -597,7 +649,9 @@
         "Extract ActivityLogQueryBuilder",
         "Use query scopes for filtering"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-028",
@@ -613,7 +667,9 @@
         "Extract PaymentMethodUpdater",
         "Extract IntegrationUpdater"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-029",
@@ -628,7 +684,9 @@
         "Use FinanceReportService more extensively",
         "Simplify date range handling"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-030",
@@ -644,7 +702,9 @@
         "Extract MoveOutDeductionProcessor",
         "Extract MoveOutCalculator"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-031",
@@ -659,7 +719,9 @@
         "Extract ArrearsQueryBuilder",
         "Use query scopes for filtering"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-032",
@@ -679,7 +741,9 @@
         "Extract PaymentImporter",
         "Create ImportResult value object"
       ],
-      "estimated_effort": "medium"
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-033",
@@ -698,7 +762,9 @@
         "Extract ReportDateRangeResolver",
         "Split by report type"
       ],
-      "estimated_effort": "medium"
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-034",
@@ -715,7 +781,9 @@
         "Extract MpesaAuthenticator",
         "Simplify error handling"
       ],
-      "estimated_effort": "medium"
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-035",
@@ -731,7 +799,9 @@
         "Use Strategy pattern for matching algorithms",
         "Simplify branching in match methods"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-036",
@@ -746,7 +816,9 @@
         "Extract InboundMessageProcessor",
         "Use Command pattern for message handling"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-037",
@@ -761,7 +833,9 @@
         "Break down updateDefaults into focused methods",
         "Use transaction callbacks"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-038",
@@ -776,7 +850,9 @@
         "Extract individual checks to helper methods",
         "Use early returns"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-039",
@@ -791,7 +867,9 @@
         "Extract validation helpers",
         "Use early returns"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-040",
@@ -807,7 +885,9 @@
         "Extract RateLimitingConfigurator",
         "Extract ProductionSecurityValidator"
       ],
-      "estimated_effort": "medium"
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-041",
@@ -822,7 +902,9 @@
         "Refactor to use feature configuration array",
         "Reduce conditional logic"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-042",
@@ -838,7 +920,9 @@
         "Use ExceptionContext DTO",
         "Extract sanitization to helper"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-043",
@@ -853,7 +937,9 @@
         "Extract ticket number generation logic",
         "Simplify branching"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-044",
@@ -868,7 +954,9 @@
         "Extract OCR result parsing logic",
         "Use early returns"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-045",
@@ -883,7 +971,9 @@
         "Extract context building logic",
         "Simplify branching"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-046",
@@ -900,7 +990,9 @@
         "Note: High public count often acceptable for User model"
       ],
       "estimated_effort": "small",
-      "notes": "May be acceptable - User models typically have many relationships and accessors"
+      "notes": "May be acceptable - User models typically have many relationships and accessors",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-047",
@@ -916,7 +1008,9 @@
         "Extract query scopes to separate trait",
         "Extract helper methods to service"
       ],
-      "estimated_effort": "medium"
+      "estimated_effort": "medium",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-048",
@@ -932,7 +1026,9 @@
         "Create TicketActivityLog DTO for logActivity",
         "Consider if some methods can move to service"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-049",
@@ -958,7 +1054,9 @@
         "Note: Eloquent models often have high public counts due to relationships"
       ],
       "estimated_effort": "small",
-      "notes": "May be acceptable - these are large domain models with many relationships"
+      "notes": "May be acceptable - these are large domain models with many relationships",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-050",
@@ -985,7 +1083,9 @@
         "Use early returns to reduce nesting",
         "Extract validation helpers where applicable"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-051",
@@ -1008,7 +1108,9 @@
         "Delegate complex logic to services",
         "Use early returns"
       ],
-      "estimated_effort": "small"
+      "estimated_effort": "small",
+      "passes": false,
+      "attempt_count": 0
     },
     {
       "id": "PMD-052",
@@ -1044,7 +1146,9 @@
         "Consider if complexity is inherent (7 is borderline)"
       ],
       "estimated_effort": "medium",
-      "notes": "Many of these are borderline (CC=7) and may be acceptable with minor cleanup"
+      "notes": "Many of these are borderline (CC=7) and may be acceptable with minor cleanup",
+      "passes": false,
+      "attempt_count": 0
     }
   ]
 }

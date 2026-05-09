@@ -289,6 +289,7 @@
         "Add POST /email/unsubscribe route with signed+throttle middleware",
         "Write failing tests for oneClickUnsubscribe endpoint (RED)",
         "Implement NotificationsController::oneClickUnsubscribe() (GREEN)",
+        "Add security log entry in oneClickUnsubscribe() after disabling email (include actor user_id, tenant landlord_id, action 'email_unsubscribe', request IP) and write test assertion verifying the security log is created",
         "Run Pint and phpmd, run full test suite"
       ],
       "files": [
@@ -371,7 +372,7 @@
   "metadata": {
     "total_stories": 8,
     "passing_stories": 8,
-    "total_story_points": 28,
+    "total_story_points": 29,
     "estimated_effort": "medium",
     "critical_path": "NOTIF-TPL-001 -> NOTIF-TPL-002 -> NOTIF-TPL-003 -> NOTIF-TPL-004 -> NOTIF-TPL-006 -> NOTIF-TPL-007 -> NOTIF-TPL-008"
   }

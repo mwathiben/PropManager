@@ -4,11 +4,11 @@
     "description": "Consolidate 20+ sidebar menu items into 8-9 hub entries following the Finance Hub pattern, reducing navigation scroll by ~55% and improving user experience across the landlord portal",
     "version": "1.0.0",
     "techStack": {
-      "backend": "Laravel 12 (PHP 8.2+)",
+      "backend": "Laravel 12 (PHP 8.4+)",
       "frontend": "Inertia.js + Vue 3 + Tailwind CSS v4",
       "build": "Vite 7",
-      "database": "SQLite (dev), MySQL/PostgreSQL (production)",
-      "testing": "PHPUnit",
+      "database": "MySQL 9.4",
+      "testing": "PHPUnit, ParaTest",
       "codeStyle": "Laravel Pint"
     }
   },

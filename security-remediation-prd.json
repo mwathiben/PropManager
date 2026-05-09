@@ -143,6 +143,15 @@
         "Refunds work with per-landlord config",
         "Security credential properly encrypted"
       ],
+      "definition_of_done": [
+        "Migration created and runs successfully for B2C columns",
+        "PaymentConfiguration model updated with B2C attributes",
+        "MpesaService B2C methods use landlord-specific credentials",
+        "PaymentMethodsTab.vue includes B2C configuration section",
+        "B2C credentials encrypted at rest in database",
+        "Refunds work correctly with per-landlord B2C configuration",
+        "Tests pass for B2C credential storage and refund operations"
+      ],
       "estimated_effort": "medium",
       "passes": false,
       "attempt_count": 0,

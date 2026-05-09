@@ -50,6 +50,8 @@ NotificationDefaults::create([
     'rent_reminder_days_before' => 3,
     'enable_sms_notifications' => true,
     'quiet_hours_enabled' => true,
+    'quiet_hours_start' => '22:00',
+    'quiet_hours_end' => '07:00',
     // ...
 ]);
 ```
@@ -66,6 +68,7 @@ NotificationPreference::create([
     'email_enabled' => true,
     'sms_enabled' => false,  // User opted out
     'quiet_hours_start' => '22:00',
+    'quiet_hours_end' => '07:00',
     // ...
 ]);
 ```
@@ -83,7 +86,7 @@ When sending notification:
 
 - **Clear ownership**: Each table has single responsibility
 - **Security**: Credentials separate from preferences
-- **Intuitive UX**: Two locations only (Notifications Center, Profile)
+- **Intuitive UX**: Three locations (Notifications Center > Settings tab for provider config, Settings > Notifications tab for defaults, Profile > Notifications tab for user preferences)
 - **Testable**: Each tier can be tested independently
 - **Maintainable**: Changes to one tier don't affect others
 

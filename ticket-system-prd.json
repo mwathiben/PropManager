@@ -53,24 +53,35 @@
       "title": "Real-time Ticket Created Notification",
       "description": "When a tenant creates a new ticket, landlord and assigned caretaker (if auto-assigned) see it instantly on their dashboards.",
       "steps": [
+        "Create CreateTicketRequest FormRequest for validation",
+        "Create TicketPolicy with create, view, update, delete, assign, comment methods",
         "Create TicketCreated event implementing ShouldBroadcast",
-        "Dispatch from TicketController::store() after ticket creation",
+        "Update TicketController::store() to use CreateTicketRequest and authorize via TicketPolicy::create",
+        "Dispatch TicketCreated from TicketController::store() after ticket creation",
         "Broadcast to landlord.{landlordId} channel",
+        "If caretaker auto-assigned, also broadcast to caretaker.{caretakerId} channel",
         "Add Echo listener in landlord Dashboard.vue for new tickets",
+        "Add Echo listener in Caretaker/Dashboard.vue for new tickets",
         "Prepend new ticket to recentTickets list",
         "Increment open_tickets count in action items",
         "Play notification sound or show toast"
       ],
       "acceptance_criteria": [
         "Landlord sees new ticket appear in dashboard without refresh",
+        "Auto-assigned caretaker sees new ticket in their dashboard without refresh",
         "New ticket appears at top of recentTickets list",
         "Action items count updates instantly",
-        "Works for tickets created via web and API"
+        "Works for tickets created via web and API",
+        "Validation handled by CreateTicketRequest, not inline",
+        "Authorization handled by TicketPolicy::create"
       ],
       "files": [
         "app/Events/TicketCreated.php",
         "app/Http/Controllers/TicketController.php",
-        "resources/js/Pages/Dashboard.vue"
+        "app/Http/Requests/CreateTicketRequest.php",
+        "app/Policies/TicketPolicy.php",
+        "resources/js/Pages/Dashboard.vue",
+        "resources/js/Pages/Caretaker/Dashboard.vue"
       ],
       "depends_on": [],
       "passes": false,
@@ -81,29 +92,42 @@
       "category": "real_time_events",
       "priority": "HIGH",
       "title": "Real-time Ticket Assignment Notification",
-      "description": "When a landlord assigns a ticket to a caretaker, the caretaker sees it appear in their todaysTasks instantly.",
+      "description": "When a landlord assigns a ticket to a caretaker, the caretaker sees it appear in their todaysTasks instantly, and tenant sees assignment update.",
       "steps": [
+        "Create AssignTicketRequest FormRequest for validation",
         "Create TicketAssigned event implementing ShouldBroadcast",
-        "Dispatch from TicketController::assign() after assignment",
-        "Broadcast to landlord.{landlordId} channel (caretakers subscribe here)",
+        "Update TicketController::assign() to use AssignTicketRequest and authorize via TicketPolicy::assign",
+        "Dispatch TicketAssigned from TicketController::assign() after assignment",
+        "Broadcast to landlord.{landlordId} channel (caretakers subscribe here - documented: caretakers use landlord channel for simplicity)",
+        "Also broadcast to tenant.{tenantId} channel with 'Assigned to [caretaker_name]' message",
         "Include old_assignee_id and new_assignee_id in payload",
         "Add Echo listener in Caretaker/Dashboard.vue for assignments",
+        "Add Echo listener in Tenant/Dashboard.vue for assignment updates",
         "New assignee: prepend ticket to todaysTasks",
         "Old assignee (if any): remove ticket from todaysTasks",
+        "Tenant: show assignment update notification",
         "Update ticket stats for both caretakers"
       ],
       "acceptance_criteria": [
         "New assignee sees ticket appear without refresh",
         "Old assignee sees ticket removed without refresh",
-        "Tenant sees 'Assigned to [caretaker_name]' update",
-        "Stats update correctly for both parties"
+        "Tenant sees 'Assigned to [caretaker_name]' update via tenant.{tenantId} channel",
+        "Stats update correctly for both parties",
+        "Validation handled by AssignTicketRequest, not inline",
+        "Authorization handled by TicketPolicy::assign"
       ],
       "files": [
         "app/Events/TicketAssigned.php",
         "app/Http/Controllers/TicketController.php",
+        "app/Http/Requests/AssignTicketRequest.php",
+        "app/Policies/TicketPolicy.php",
         "resources/js/Pages/Caretaker/Dashboard.vue",
         "resources/js/Pages/Tenant/Dashboard.vue"
       ],
+      "channel_strategy": {
+        "landlord_channel": "landlord.{landlordId} - used by landlord and their caretakers for simplicity",
+        "tenant_channel": "tenant.{tenantId} - for tenant-specific updates like assignment notifications"
+      },
       "depends_on": [],
       "passes": false,
       "attempt_count": 0
@@ -115,6 +139,8 @@
       "title": "Real-time Ticket Comment Notification",
       "description": "When a comment is added to a ticket, all parties see a comment indicator update in real-time.",
       "steps": [
+        "Create AddCommentRequest FormRequest for validation",
+        "Update TicketController::addComment() to use AddCommentRequest and authorize via TicketPolicy::comment",
         "Create TicketCommented event implementing ShouldBroadcast",
         "Dispatch from TicketController::addComment()",
         "Broadcast to landlord and tenant channels",
@@ -126,11 +152,15 @@
         "Reporter sees new comment indicator on their ticket",
         "Landlord sees comment count update",
         "Caretaker sees comment on assigned tickets",
-        "Internal comments not visible to tenant"
+        "Internal comments not visible to tenant",
+        "Validation handled by AddCommentRequest, not inline",
+        "Authorization handled by TicketPolicy::comment"
       ],
       "files": [
         "app/Events/TicketCommented.php",
         "app/Http/Controllers/TicketController.php",
+        "app/Http/Requests/AddCommentRequest.php",
+        "app/Policies/TicketPolicy.php",
         "resources/js/Pages/Dashboard.vue",
         "resources/js/Pages/Tenant/Dashboard.vue",
         "resources/js/Pages/Caretaker/Dashboard.vue"
@@ -255,23 +285,30 @@
       "title": "Ticket SLA Breach Alerts",
       "description": "Alert landlord and caretaker when a ticket is approaching or has breached its SLA based on priority.",
       "steps": [
-        "Define SLA thresholds per priority (urgent: 4h, high: 24h, etc.)",
-        "Create scheduled job to check ticket ages",
-        "Send notification when approaching SLA (75% of time)",
-        "Send urgent notification when SLA breached",
-        "Show SLA status indicator on ticket cards",
-        "Add SLA breach count to action items"
+        "Create config/sla.php with default thresholds per priority (urgent: 4h, high: 24h, medium: 48h, low: 72h)",
+        "Create migration for sla_thresholds table or add sla_config JSON column to landlord settings for per-landlord customization",
+        "Update CheckTicketSLA command to read thresholds from config/DB",
+        "Add helper methods to Ticket model: getSlaThreshold(), getSlaRemainingMinutes(), getSlaPercentUsed(), isApproachingSla(), isBreachedSla()",
+        "Create scheduled job to check ticket ages against SLA thresholds",
+        "Send notification when approaching SLA (75% of time elapsed)",
+        "Send urgent notification when SLA breached (100% elapsed)",
+        "Update TicketCard.vue to read Ticket model's SLA status and show warning/critical indicators",
+        "Add SLA breach count to action items widget"
       ],
       "acceptance_criteria": [
+        "SLA thresholds configurable via config/sla.php or DB",
+        "Ticket model provides SLA helper methods for remaining time and status",
         "Tickets approaching SLA show warning indicator",
         "Breached tickets show critical indicator",
         "Landlord/caretaker receive notifications",
         "Action items show SLA breach count"
       ],
       "files": [
+        "config/sla.php",
         "app/Console/Commands/CheckTicketSLA.php",
         "app/Models/Ticket.php",
-        "resources/js/Components/TicketCard.vue"
+        "resources/js/Components/TicketCard.vue",
+        "database/migrations/*_create_sla_thresholds_table.php"
       ],
       "depends_on": [],
       "passes": false,
@@ -284,7 +321,9 @@
       "title": "Ticket Escalation Workflow",
       "description": "Auto-escalate tickets to landlord if caretaker doesn't respond within threshold.",
       "steps": [
-        "Add escalated_at and escalation_level fields to tickets",
+        "Create migration database/migrations/add_escalation_to_tickets.php to add escalated_at and escalation_level fields",
+        "Run database migration: php artisan migrate",
+        "Update Ticket model with escalation attributes and relationships",
         "Create scheduled job to check unacknowledged tickets",
         "Escalate if no response within threshold (e.g., 2 hours for urgent)",
         "Notify landlord of escalation",
@@ -292,15 +331,16 @@
         "Allow manual escalation by tenant"
       ],
       "acceptance_criteria": [
+        "Migration adds escalated_at and escalation_level columns to tickets table",
         "Unacknowledged urgent tickets auto-escalate after 2 hours",
         "Landlord receives escalation notification",
         "Ticket shows escalation history",
         "Tenant can manually escalate"
       ],
       "files": [
+        "database/migrations/add_escalation_to_tickets.php",
         "app/Console/Commands/EscalateTickets.php",
-        "app/Models/Ticket.php",
-        "database/migrations/add_escalation_to_tickets.php"
+        "app/Models/Ticket.php"
       ],
       "depends_on": ["TKT-008"],
       "passes": false,
@@ -314,19 +354,31 @@
       "description": "Allow landlords to create ticket templates for common issues to speed up ticket creation.",
       "steps": [
         "Create TicketTemplate model with title, description, category, subcategory, priority",
-        "Add CRUD for templates (landlord only)",
+        "Create TicketTemplateFactory for tests and seeders",
+        "Create TicketTemplatePolicy with landlord-only access (viewAny, view, create, update, delete)",
+        "Register TicketTemplatePolicy in AuthServiceProvider",
+        "Create CreateTicketTemplateRequest and UpdateTicketTemplateRequest FormRequests",
+        "Create TicketTemplateController using FormRequests and authorizeResource()",
+        "Add CRUD for templates (landlord only via policy)",
         "Show template selector when creating ticket",
         "Auto-fill form fields from template",
         "Track template usage for analytics"
       ],
       "acceptance_criteria": [
         "Landlord can create/edit/delete templates",
+        "Non-landlords cannot access template management (enforced by policy)",
         "Tenants see template selector when creating ticket",
         "Selecting template fills form fields",
-        "Templates are landlord-specific"
+        "Templates are landlord-specific",
+        "Validation handled by CreateTicketTemplateRequest/UpdateTicketTemplateRequest",
+        "Factory exists for tests"
       ],
       "files": [
         "app/Models/TicketTemplate.php",
+        "database/factories/TicketTemplateFactory.php",
+        "app/Policies/TicketTemplatePolicy.php",
+        "app/Http/Requests/CreateTicketTemplateRequest.php",
+        "app/Http/Requests/UpdateTicketTemplateRequest.php",
         "app/Http/Controllers/TicketTemplateController.php",
         "resources/js/Pages/Tickets/Create.vue",
         "resources/js/Pages/Settings/TicketTemplates.vue"
@@ -343,8 +395,12 @@
       "description": "Allow landlords to set rules for auto-assigning tickets to caretakers based on category, building, or round-robin.",
       "steps": [
         "Create TicketAssignmentRule model",
+        "Create TicketAssignmentRuleFactory for tests and seeders",
+        "Create TicketAssignmentRulePolicy with landlord-only access",
+        "Register TicketAssignmentRulePolicy in AuthServiceProvider",
+        "Create CreateTicketAssignmentRuleRequest and UpdateTicketAssignmentRuleRequest FormRequests",
         "Support rules: by category, by building, by load balancing",
-        "Apply rules in TicketObserver::created",
+        "Apply rules in TicketObserver::created via TicketAssignmentService",
         "Show assigned caretaker immediately after ticket creation",
         "Allow override of auto-assignment"
       ],
@@ -352,10 +408,17 @@
         "Tickets auto-assign based on rules",
         "Multiple rule types supported",
         "Rules can be prioritized",
-        "Manual override always possible"
+        "Manual override always possible",
+        "Validation handled by FormRequests",
+        "Authorization handled by TicketAssignmentRulePolicy",
+        "Factory exists for tests"
       ],
       "files": [
         "app/Models/TicketAssignmentRule.php",
+        "database/factories/TicketAssignmentRuleFactory.php",
+        "app/Policies/TicketAssignmentRulePolicy.php",
+        "app/Http/Requests/CreateTicketAssignmentRuleRequest.php",
+        "app/Http/Requests/UpdateTicketAssignmentRuleRequest.php",
         "app/Observers/TicketObserver.php",
         "app/Services/TicketAssignmentService.php",
         "resources/js/Pages/Settings/TicketRules.vue"

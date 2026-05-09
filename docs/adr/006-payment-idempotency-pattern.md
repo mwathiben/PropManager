@@ -305,6 +305,110 @@ Schedule::command('idempotency:cleanup')
     ->runInBackground();
 ```
 
+---
+
+## Controller Integration (PAY-V2-003 Completion)
+
+### Requirement
+
+PRD explicitly states: **"Implement in all webhook controllers as FIRST step"**
+
+IdempotencyService must be called BEFORE any payment processing begins, not after.
+
+### Controllers Updated
+
+| Controller | Method | Idempotency Key Pattern |
+|------------|--------|-------------------------|
+| `MpesaWebhookController` | `processPayment()` | `mpesa:{receipt_number}` |
+| `MpesaWebhookController` | `tillConfirmation()` | `mpesa:till:{transaction_id}` |
+| `IntaSendWebhookController` | `processCompletePayment()` | `intasend:{api_ref}` |
+| `PaymentController` | `processSuccessfulCharge()` | `paystack:{reference}` |
+| `BankWebhookController` | `processWebhook()` | `bank:{bank_code}:{transaction_id}` |
+
+### Standard Integration Pattern
+
+All webhook controllers follow this pattern:
+
+```php
+public function __construct(
+    // ... other dependencies
+    protected IdempotencyService $idempotencyService
+) {}
+
+protected function processPayment(array $data): void
+{
+    $reference = $data['transaction_reference'];
+    $idempotencyKey = "provider:{$reference}";
+
+    // FIRST: Check idempotency BEFORE any processing
+    $idempotencyResult = $this->idempotencyService->acquire($idempotencyKey);
+
+    if (! $idempotencyResult['acquired']) {
+        Log::info('Payment already handled (idempotency)', [
+            'key' => $idempotencyKey,
+            'cached' => $idempotencyResult['response'] !== null,
+        ]);
+        return; // or return response()->json(['status' => 'success'])
+    }
+
+    try {
+        DB::beginTransaction();
+
+        // ... existing processing logic (unchanged) ...
+
+        DB::commit();
+
+        // On success, release with response data
+        $this->idempotencyService->release($idempotencyKey, [
+            'status' => 'success',
+            'payment_id' => $payment->id,
+        ]);
+
+    } catch (\Illuminate\Database\QueryException $e) {
+        DB::rollBack();
+
+        // MySQL error 1062 = duplicate entry (unique constraint violation)
+        if ($e->errorInfo[1] === 1062) {
+            $this->idempotencyService->release($idempotencyKey, ['status' => 'duplicate']);
+            Log::info('Duplicate webhook ignored (idempotent)', [...]);
+            return;
+        }
+
+        $this->idempotencyService->fail($idempotencyKey, $e->getMessage());
+        throw $e;
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        $this->idempotencyService->fail($idempotencyKey, $e->getMessage());
+        throw $e;
+    }
+}
+```
+
+### Key Integration Rules
+
+1. **Acquire FIRST**: IdempotencyService.acquire() must be the FIRST step, before any DB reads or processing
+2. **Release on ALL success paths**: Always call release() with response data when processing succeeds
+3. **Fail on ALL error paths**: Always call fail() in catch blocks before re-throwing
+4. **QueryException(1062)**: Still handle duplicate entry as success (database-level safety net)
+5. **Log appropriately**: Log idempotency cache hits as INFO, not ERROR
+
+### Test Coverage (Controller Integration)
+
+| Test File | Tests |
+|-----------|-------|
+| `tests/Feature/IdempotencyWebhookIntegrationTest.php` | 8 tests verifying idempotency in all webhooks |
+| `tests/Browser/PaymentIdempotencyE2ETest.php` | 5 E2E tests verifying frontend displays correct data |
+
+### Files Modified (Controller Integration)
+
+| File | Change |
+|------|--------|
+| `app/Http/Controllers/Api/MpesaWebhookController.php` | Added IdempotencyService injection, updated processPayment(), tillConfirmation() |
+| `app/Http/Controllers/Api/IntaSendWebhookController.php` | Added IdempotencyService injection, updated processCompletePayment() |
+| `app/Http/Controllers/PaymentController.php` | Added IdempotencyService injection, updated processSuccessfulCharge() |
+| `app/Http/Controllers/Api/BankWebhookController.php` | Added IdempotencyService injection, updated processWebhook(), FIXED missing QueryException handler |
+
 ## References
 
 - PAY-V2-001: Add Unique Constraint on mpesa_transaction_id
