@@ -2,13 +2,28 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Models\Invoice;
 use Illuminate\Foundation\Http\FormRequest;
 
 class MpesaCheckStatusRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return auth()->check();
+        if (! $this->user()) {
+            return false;
+        }
+
+        $invoice = Invoice::find($this->invoice_id);
+
+        // The 'exists' rule will reject missing invoices in validation; here
+        // we authorize even on null so validation gets to surface the right
+        // error message rather than a generic 403.
+        if (! $invoice) {
+            return true;
+        }
+
+        // Tenants may only check status for invoices on their own lease.
+        return $invoice->lease?->tenant_id === $this->user()->id;
     }
 
     public function rules(): array

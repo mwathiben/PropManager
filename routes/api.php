@@ -107,11 +107,13 @@ Route::prefix('v1')->group(function () {
         });
     });
 
-    // M-Pesa payment initiation and status check (authenticated tenant)
-    Route::post('/mpesa/stk-push', [\App\Http\Controllers\Api\MpesaController::class, 'initiateStkPush'])
-        ->middleware(['auth:sanctum', 'throttle:payment']);
-    Route::post('/mpesa/status', [\App\Http\Controllers\Api\MpesaController::class, 'checkStatus'])
-        ->middleware(['auth:sanctum', 'throttle:payment']);
+    // M-Pesa payment initiation and status check (authenticated tenant only).
+    // Both routes need ability:tenant:read so non-tenant tokens (landlord:manage,
+    // integration:webhook) cannot trigger STK pushes against arbitrary invoices.
+    Route::middleware(['auth:sanctum', 'ability:tenant:read', 'throttle:payment'])->group(function () {
+        Route::post('/mpesa/stk-push', [\App\Http\Controllers\Api\MpesaController::class, 'initiateStkPush']);
+        Route::post('/mpesa/status', [\App\Http\Controllers\Api\MpesaController::class, 'checkStatus']);
+    });
 });
 
 // API v2 routes - Optimized endpoints with pagination
