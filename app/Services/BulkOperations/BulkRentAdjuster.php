@@ -97,8 +97,17 @@ class BulkRentAdjuster
         DB::beginTransaction();
 
         try {
+            // PERF-P4: pre-load all target leases keyed by id so processLease
+            // reads from memory rather than firing one SELECT per lease id.
+            $leases = Lease::whereIn('id', $this->leaseIds)
+                ->where('landlord_id', $this->landlordId)
+                ->where('is_active', true)
+                ->with('tenant:id,name')
+                ->get()
+                ->keyBy('id');
+
             foreach ($this->leaseIds as $leaseId) {
-                $this->processLease($leaseId);
+                $this->processLease($leaseId, $leases->get($leaseId));
             }
 
             DB::commit();
@@ -111,13 +120,15 @@ class BulkRentAdjuster
         }
     }
 
-    private function processLease(int $leaseId): void
+    private function processLease(int $leaseId, ?Lease $lease): void
     {
-        $lease = Lease::where('id', $leaseId)
-            ->where('landlord_id', $this->landlordId)
-            ->where('is_active', true)
-            ->with('tenant:id,name')
-            ->firstOrFail();
+        if (! $lease) {
+            // Lease either belongs to a different landlord, is inactive, or
+            // doesn't exist. Match the prior firstOrFail behavior.
+            throw new \Illuminate\Database\Eloquent\ModelNotFoundException(
+                "Lease #{$leaseId} not found, inactive, or not owned by landlord."
+            );
+        }
 
         $oldRent = $lease->rent_amount;
         $newRent = $this->calculateNewRent($oldRent);
