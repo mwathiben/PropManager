@@ -50,11 +50,18 @@ class WaterSettingsController extends Controller
     public function update(UpdateWaterSettingsRequest $request)
     {
         $validated = $request->validated();
-        $userId = auth()->id();
+
+        // SCOPE-P1: caretakers act on the landlord's behalf — using
+        // auth()->id() would have written to a phantom landlord_id
+        // matching the caretaker's user id. Same root cause as SCOPE-S3
+        // (DocumentController) — resolve to the landlord they manage.
+        $user = auth()->user();
+        $landlordId = $user->isCaretaker() ? (int) $user->landlord_id : (int) $user->id;
+
         $defaultRate = config('propmanager.water.default_rate', 150);
 
         PaymentConfiguration::updateOrCreate(
-            ['landlord_id' => $userId],
+            ['landlord_id' => $landlordId],
             [
                 'water_billing_type' => $validated['water_billing_type'],
                 'water_unit_rate' => $validated['water_unit_rate'] ?? $defaultRate,
@@ -65,7 +72,7 @@ class WaterSettingsController extends Controller
         if (! empty($validated['building_overrides'])) {
             foreach ($validated['building_overrides'] as $override) {
                 $building = Building::where('id', $override['id'])
-                    ->where('landlord_id', $userId)
+                    ->where('landlord_id', $landlordId)
                     ->first();
 
                 if ($building) {

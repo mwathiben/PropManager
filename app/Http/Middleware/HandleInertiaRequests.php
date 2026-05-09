@@ -183,6 +183,17 @@ class HandleInertiaRequests extends Middleware
 
     /**
      * Get pending invitations details for the dashboard banner.
+     *
+     * SCOPE-P6: this method intentionally bypasses the landlord TenantScope
+     * via withoutGlobalScope('landlord') on TenantInvitation and its
+     * unit/building/property eager loads. The user inviting a tenant lives
+     * under one landlord; the tenant being invited (existing_user_id)
+     * almost always lives under a *different* landlord (or none yet).
+     * Filtering by the viewer's landlord_id would hide every legitimate
+     * cross-tenant invitation and break the banner. The security control
+     * is `where('existing_user_id', $user->id)` — the viewer can only see
+     * invitations addressed to them by user id, not by landlord. Callers
+     * adding new invitation types here MUST replicate that exact filter.
      */
     protected function getPendingInvitations(Request $request): array
     {

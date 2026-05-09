@@ -79,7 +79,14 @@ class BulkOperationsController extends Controller
 
         $buildingIds = $this->getBuildingIds($buildingId, $wingId);
 
+        // SCOPE-P7: redundant lease.landlord_id check alongside the unit
+        // chain so a future data desync between lease.landlord_id and
+        // unit.building.property.landlord_id can't sneak past the validator.
+        $user = auth()->user();
+        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+
         $count = Lease::whereIn('id', $leaseIds)
+            ->where('landlord_id', $landlordId)
             ->whereHas('unit', function ($query) use ($buildingIds) {
                 $query->whereIn('building_id', $buildingIds);
             })
