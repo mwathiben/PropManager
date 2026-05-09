@@ -23,12 +23,9 @@ class LandlordPayoutAccountController extends Controller
      */
     public function index(): Response
     {
+        $this->authorize('viewAny', LandlordPayoutAccount::class);
+
         $user = auth()->user();
-
-        if (! $user->isLandlord()) {
-            abort(403, 'Only landlords can manage payout accounts.');
-        }
-
         $accounts = $this->subaccountService->getLandlordAccounts($user);
         $billingSettings = PlatformBillingSetting::current();
 
@@ -106,12 +103,9 @@ class LandlordPayoutAccountController extends Controller
      */
     public function store(Request $request): \Illuminate\Http\RedirectResponse
     {
+        $this->authorize('create', LandlordPayoutAccount::class);
+
         $user = auth()->user();
-
-        if (! $user->isLandlord()) {
-            abort(403, 'Only landlords can add payout accounts.');
-        }
-
         $request->validate([
             'business_name' => 'required|string|max:255',
             'bank_code' => 'required|string',
@@ -143,12 +137,7 @@ class LandlordPayoutAccountController extends Controller
      */
     public function setPrimary(LandlordPayoutAccount $account): \Illuminate\Http\RedirectResponse
     {
-        $user = auth()->user();
-
-        // Authorization check
-        if ($account->landlord_id !== $user->id) {
-            abort(403, 'You can only manage your own payout accounts.');
-        }
+        $this->authorize('setPrimary', $account);
 
         if (! $account->canReceivePayments()) {
             return redirect()->back()->withErrors(['error' => 'Account must be verified and active to be set as primary.']);
@@ -164,12 +153,7 @@ class LandlordPayoutAccountController extends Controller
      */
     public function destroy(LandlordPayoutAccount $account): \Illuminate\Http\RedirectResponse
     {
-        $user = auth()->user();
-
-        // Authorization check
-        if ($account->landlord_id !== $user->id) {
-            abort(403, 'You can only manage your own payout accounts.');
-        }
+        $this->authorize('delete', $account);
 
         if ($account->is_primary) {
             return redirect()->back()->withErrors(['error' => 'Cannot deactivate primary account. Set another account as primary first.']);
@@ -186,12 +170,7 @@ class LandlordPayoutAccountController extends Controller
      */
     public function sync(LandlordPayoutAccount $account): \Illuminate\Http\RedirectResponse
     {
-        $user = auth()->user();
-
-        // Authorization check
-        if ($account->landlord_id !== $user->id) {
-            abort(403, 'You can only manage your own payout accounts.');
-        }
+        $this->authorize('sync', $account);
 
         $synced = $this->subaccountService->syncAccountStatus($account);
 

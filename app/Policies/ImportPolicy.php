@@ -18,21 +18,39 @@ class ImportPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isLandlord() || $user->isCaretaker();
     }
 
     public function view(User $user, Import $import): bool
     {
-        return $user->isLandlord() && $import->landlord_id === $user->id;
+        return $this->isOwner($user, $import);
     }
 
     public function create(User $user): bool
     {
-        return $user->isLandlord();
+        return $user->isLandlord() || $user->isCaretaker();
+    }
+
+    public function reprocess(User $user, Import $import): bool
+    {
+        return $this->isOwner($user, $import);
     }
 
     public function delete(User $user, Import $import): bool
     {
-        return $user->isLandlord() && $import->landlord_id === $user->id;
+        return $this->isOwner($user, $import);
+    }
+
+    private function isOwner(User $user, Import $import): bool
+    {
+        if ($user->isLandlord()) {
+            return $import->landlord_id === $user->id;
+        }
+
+        if ($user->isCaretaker()) {
+            return $import->landlord_id === $user->landlord_id;
+        }
+
+        return false;
     }
 }

@@ -26,6 +26,8 @@ class ImportsController extends Controller
      */
     public function index(Request $request)
     {
+        $this->authorize('viewAny', Import::class);
+
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
 
@@ -94,6 +96,8 @@ class ImportsController extends Controller
      */
     public function upload(Request $request)
     {
+        $this->authorize('create', Import::class);
+
         $validated = $request->validate([
             'file' => 'required|file|mimes:csv,txt|max:10240', // 10MB max
             'type' => 'required|string|in:tenants,leases,water_readings,invoices,payments,units',
@@ -178,13 +182,7 @@ class ImportsController extends Controller
      */
     public function show(Import $import)
     {
-        // Authorization check
-        $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
-
-        if ($import->landlord_id !== $landlordId) {
-            abort(403, 'Unauthorized');
-        }
+        $this->authorize('view', $import);
 
         $import->load('importer:id,name');
 
@@ -198,13 +196,7 @@ class ImportsController extends Controller
      */
     public function destroy(Import $import)
     {
-        // Authorization check
-        $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
-
-        if ($import->landlord_id !== $landlordId) {
-            abort(403, 'Unauthorized');
-        }
+        $this->authorize('delete', $import);
 
         // Delete file
         if (Storage::exists($import->file_path)) {
@@ -221,13 +213,7 @@ class ImportsController extends Controller
      */
     public function reprocess(Import $import)
     {
-        // Authorization check
-        $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
-
-        if ($import->landlord_id !== $landlordId) {
-            abort(403, 'Unauthorized');
-        }
+        $this->authorize('reprocess', $import);
 
         if (! $import->isFailed() && ! $import->isCompleted()) {
             return redirect()->back()->with('error', 'Only failed or completed imports can be reprocessed.');

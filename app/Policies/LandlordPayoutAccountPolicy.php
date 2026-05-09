@@ -36,6 +36,16 @@ class LandlordPayoutAccountPolicy
         return $user->isLandlord() && $account->landlord_id === $user->id;
     }
 
+    public function setPrimary(User $user, LandlordPayoutAccount $account): bool
+    {
+        return $user->isLandlord() && $account->landlord_id === $user->id;
+    }
+
+    public function sync(User $user, LandlordPayoutAccount $account): bool
+    {
+        return $user->isLandlord() && $account->landlord_id === $user->id;
+    }
+
     public function delete(User $user, LandlordPayoutAccount $account): bool
     {
         return $user->isLandlord() && $account->landlord_id === $user->id;

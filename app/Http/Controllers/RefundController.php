@@ -17,12 +17,9 @@ class RefundController extends Controller
 
     public function index(Request $request)
     {
+        $this->authorize('viewAny', Refund::class);
+
         $user = auth()->user();
-
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
-            abort(403);
-        }
-
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         $query = Refund::where('landlord_id', $landlordId)
@@ -51,12 +48,8 @@ class RefundController extends Controller
 
     public function create(Payment $payment)
     {
-        $user = auth()->user();
-        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
-
-        if ($payment->landlord_id !== $landlordId) {
-            abort(403);
-        }
+        $this->authorize('create', Refund::class);
+        $this->authorize('view', $payment);
 
         $payment->load(['invoice', 'lease.tenant', 'lease.unit.building']);
 
@@ -70,13 +63,10 @@ class RefundController extends Controller
 
     public function store(Request $request, Payment $payment)
     {
+        $this->authorize('create', Refund::class);
+        $this->authorize('view', $payment);
+
         $user = auth()->user();
-        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
-
-        if ($payment->landlord_id !== $landlordId) {
-            abort(403);
-        }
-
         $refundableAmount = $this->refundService->getRefundableAmount($payment);
 
         $request->validate([
@@ -101,12 +91,7 @@ class RefundController extends Controller
 
     public function show(Refund $refund)
     {
-        $user = auth()->user();
-        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
-
-        if ($refund->landlord_id !== $landlordId) {
-            abort(403);
-        }
+        $this->authorize('view', $refund);
 
         $refund->load(['payment', 'invoice', 'initiator', 'approver']);
 
@@ -117,12 +102,7 @@ class RefundController extends Controller
 
     public function process(Refund $refund)
     {
-        $user = auth()->user();
-        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
-
-        if ($refund->landlord_id !== $landlordId) {
-            abort(403);
-        }
+        $this->authorize('process', $refund);
 
         if (! $refund->canProcess()) {
             return back()->withErrors(['refund' => 'This refund cannot be processed.']);
@@ -143,12 +123,7 @@ class RefundController extends Controller
 
     public function cancel(Refund $refund)
     {
-        $user = auth()->user();
-        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
-
-        if ($refund->landlord_id !== $landlordId) {
-            abort(403);
-        }
+        $this->authorize('cancel', $refund);
 
         if (! $refund->isPending()) {
             return back()->withErrors(['refund' => 'Only pending refunds can be cancelled.']);
@@ -161,11 +136,7 @@ class RefundController extends Controller
 
     public function createStandalone()
     {
-        $user = auth()->user();
-
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
-            abort(403);
-        }
+        $this->authorize('create', Refund::class);
 
         $refundMethods = [
             ['value' => 'original_method', 'label' => 'Original Payment Method'],
@@ -191,8 +162,15 @@ class RefundController extends Controller
 
     public function storeStandalone(RefundRequest $request)
     {
-        $user = auth()->user();
+        $this->authorize('create', Refund::class);
+
         $payment = Payment::findOrFail($request->payment_id);
+        // SCOPE-P4: storeStandalone previously had no payment-ownership
+        // check — a tenant or caretaker could refund any payment by id.
+        // Routing through PaymentPolicy::view closes that IDOR.
+        $this->authorize('view', $payment);
+
+        $user = auth()->user();
 
         try {
             $refund = $this->refundService->initiateRefund(
