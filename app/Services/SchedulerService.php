@@ -91,7 +91,8 @@ class SchedulerService
         $count = 0;
 
         foreach ($tenants as $tenant) {
-            $lease = $tenant->leases()->where('is_active', true)->first();
+            // Eager-loaded above (PERF-P5): avoid the per-tenant lazy query.
+            $lease = $tenant->leases->first();
             if (! $lease) {
                 continue;
             }
@@ -135,10 +136,8 @@ class SchedulerService
         $count = 0;
 
         foreach ($tenants as $tenant) {
-            $lease = $tenant->leases()
-                ->where('is_active', true)
-                ->where('arrears', '>', 0)
-                ->first();
+            // Eager-loaded above (PERF-P6): avoid the per-tenant lazy query.
+            $lease = $tenant->leases->first();
 
             if (! $lease) {
                 continue;
@@ -237,6 +236,9 @@ class SchedulerService
             ->whereHas('leases', function ($query) {
                 $query->where('is_active', true);
             })
+            ->with(['leases' => function ($query) {
+                $query->where('is_active', true);
+            }])
             ->get();
     }
 
@@ -251,6 +253,10 @@ class SchedulerService
                 $query->where('is_active', true)
                     ->where('arrears', '>', 0);
             })
+            ->with(['leases' => function ($query) {
+                $query->where('is_active', true)
+                    ->where('arrears', '>', 0);
+            }])
             ->get();
     }
 
