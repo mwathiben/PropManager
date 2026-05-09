@@ -292,7 +292,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [InboxController::class, 'index'])->name('index');
         Route::put('/mark-all-read', [InboxController::class, 'markAllAsRead'])->name('mark-all-read');
         Route::get('/{message}', [InboxController::class, 'show'])->name('show');
-        Route::post('/{message}/reply', [InboxController::class, 'reply'])->name('reply');
+        Route::post('/{message}/reply', [InboxController::class, 'reply'])
+            ->middleware('throttle:inbox-reply') // RATE-5
+            ->name('reply');
         Route::put('/{message}/read', [InboxController::class, 'markAsRead'])->name('mark-read');
     });
 
@@ -356,7 +358,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/invoices/{invoice}/payment', [InvoiceController::class, 'recordPayment'])
         ->name('invoices.recordPayment');
     Route::delete('/invoices/{invoice}', [InvoiceController::class, 'destroy'])->name('invoices.destroy');
-    Route::post('/invoices/{invoice}/send-reminder', [InvoiceController::class, 'sendReminder'])->name('invoices.send-reminder');
+    Route::post('/invoices/{invoice}/send-reminder', [InvoiceController::class, 'sendReminder'])
+        ->middleware('throttle:notification-send') // RATE-2
+        ->name('invoices.send-reminder');
     Route::get('/invoices/{invoice}/download', [InvoiceController::class, 'download'])->name('invoices.download');
     Route::post('/invoices/{invoice}/void', [InvoiceController::class, 'void'])->name('invoices.void');
     Route::get('/invoices/{invoice}/preview', [InvoiceController::class, 'preview'])->name('invoices.preview');
@@ -393,7 +397,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/payments/callback', [PaymentController::class, 'handleCallback'])->name('payments.callback');
     Route::get('/payments/public-key', [PaymentController::class, 'getPublicKey'])->name('payments.publicKey');
     Route::get('/payments/{payment}/receipt', [PaymentController::class, 'downloadReceipt'])->name('payments.downloadReceipt');
-    Route::post('/payments/{payment}/send-receipt', [PaymentController::class, 'sendReceipt'])->name('payments.send-receipt');
+    Route::post('/payments/{payment}/send-receipt', [PaymentController::class, 'sendReceipt'])
+        ->middleware('throttle:notification-send') // RATE-2
+        ->name('payments.send-receipt');
     Route::post('/payments/{payment}/void', [PaymentController::class, 'void'])->name('payments.void');
 
     // Refunds
@@ -460,10 +466,21 @@ Route::middleware('auth')->group(function () {
     // 12. Notifications
     Route::get('/notifications', [\App\Http\Controllers\NotificationsController::class, 'index'])->name('notifications.index');
     Route::get('/notifications/overview', [\App\Http\Controllers\NotificationsController::class, 'overview'])->name('notifications.overview');
-    Route::post('/notifications/send', [\App\Http\Controllers\NotificationsController::class, 'send'])->name('notifications.send');
-    Route::post('/notifications/send-bulk', [\App\Http\Controllers\NotificationsController::class, 'sendBulk'])->name('notifications.sendBulk');
-    Route::post('/notifications/rent-reminders', [\App\Http\Controllers\NotificationsController::class, 'sendRentReminders'])->name('notifications.sendRentReminders');
-    Route::post('/notifications/arrears-notices', [\App\Http\Controllers\NotificationsController::class, 'sendArrearsNotices'])->name('notifications.sendArrearsNotices');
+    // RATE-3: bulk-notify limiter caps fan-out spam vectors. 2/min and
+    // 20/hour per landlord; per-row cap separately enforced in
+    // SendBulkNotificationRequest.
+    Route::post('/notifications/send', [\App\Http\Controllers\NotificationsController::class, 'send'])
+        ->middleware('throttle:bulk-notify')
+        ->name('notifications.send');
+    Route::post('/notifications/send-bulk', [\App\Http\Controllers\NotificationsController::class, 'sendBulk'])
+        ->middleware('throttle:bulk-notify')
+        ->name('notifications.sendBulk');
+    Route::post('/notifications/rent-reminders', [\App\Http\Controllers\NotificationsController::class, 'sendRentReminders'])
+        ->middleware('throttle:bulk-notify')
+        ->name('notifications.sendRentReminders');
+    Route::post('/notifications/arrears-notices', [\App\Http\Controllers\NotificationsController::class, 'sendArrearsNotices'])
+        ->middleware('throttle:bulk-notify')
+        ->name('notifications.sendArrearsNotices');
     Route::get('/notifications/preferences', [\App\Http\Controllers\NotificationsController::class, 'getPreferences'])->name('notifications.preferences');
     Route::post('/notifications/preferences', [\App\Http\Controllers\NotificationsController::class, 'updatePreferences'])->name('notifications.updatePreferences');
     Route::post('/notifications/{notification}/mark-read', [\App\Http\Controllers\NotificationsController::class, 'markAsRead'])->name('notifications.markAsRead');
@@ -504,13 +521,30 @@ Route::middleware('auth')->group(function () {
 
     // 13. Bulk Operations
     Route::get('/bulk-operations', [\App\Http\Controllers\BulkOperationsController::class, 'index'])->name('bulk.index');
-    Route::post('/bulk-operations/adjust-rent', [\App\Http\Controllers\BulkOperationsController::class, 'adjustRent'])->name('bulk.adjustRent');
-    Route::post('/bulk-operations/update-unit-status', [\App\Http\Controllers\BulkOperationsController::class, 'updateUnitStatus'])->name('bulk.updateUnitStatus');
-    Route::post('/bulk-operations/terminate-leases', [\App\Http\Controllers\BulkOperationsController::class, 'terminateLeases'])->name('bulk.terminateLeases');
-    Route::post('/bulk-operations/extend-leases', [\App\Http\Controllers\BulkOperationsController::class, 'extendLeases'])->name('bulk.extendLeases');
-    Route::post('/bulk-operations/adjust-deposits', [\App\Http\Controllers\BulkOperationsController::class, 'adjustDeposits'])->name('bulk.adjustDeposits');
-    Route::post('/bulk-operations/update-target-rent', [\App\Http\Controllers\BulkOperationsController::class, 'updateTargetRent'])->name('bulk.updateTargetRent');
-    Route::post('/bulk-operations/update-meter-numbers', [\App\Http\Controllers\BulkOperationsController::class, 'updateMeterNumbers'])->name('bulk.updateMeterNumbers');
+    // RATE-4: bulk-ops limiter (3/min/user) + per-controller Cache::lock
+    // serialization in BulkOperationsController so concurrent calls per
+    // landlord don't race.
+    Route::post('/bulk-operations/adjust-rent', [\App\Http\Controllers\BulkOperationsController::class, 'adjustRent'])
+        ->middleware('throttle:bulk-ops')
+        ->name('bulk.adjustRent');
+    Route::post('/bulk-operations/update-unit-status', [\App\Http\Controllers\BulkOperationsController::class, 'updateUnitStatus'])
+        ->middleware('throttle:bulk-ops')
+        ->name('bulk.updateUnitStatus');
+    Route::post('/bulk-operations/terminate-leases', [\App\Http\Controllers\BulkOperationsController::class, 'terminateLeases'])
+        ->middleware('throttle:bulk-ops')
+        ->name('bulk.terminateLeases');
+    Route::post('/bulk-operations/extend-leases', [\App\Http\Controllers\BulkOperationsController::class, 'extendLeases'])
+        ->middleware('throttle:bulk-ops')
+        ->name('bulk.extendLeases');
+    Route::post('/bulk-operations/adjust-deposits', [\App\Http\Controllers\BulkOperationsController::class, 'adjustDeposits'])
+        ->middleware('throttle:bulk-ops')
+        ->name('bulk.adjustDeposits');
+    Route::post('/bulk-operations/update-target-rent', [\App\Http\Controllers\BulkOperationsController::class, 'updateTargetRent'])
+        ->middleware('throttle:bulk-ops')
+        ->name('bulk.updateTargetRent');
+    Route::post('/bulk-operations/update-meter-numbers', [\App\Http\Controllers\BulkOperationsController::class, 'updateMeterNumbers'])
+        ->middleware('throttle:bulk-ops')
+        ->name('bulk.updateMeterNumbers');
 
     // 14. Tickets (Issues & Complaints)
     Route::get('/tickets', [TicketController::class, 'index'])->name('tickets.index');

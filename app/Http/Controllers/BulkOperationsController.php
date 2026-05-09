@@ -19,6 +19,7 @@ use App\Services\BulkOperations\BulkRentAdjuster;
 use App\Traits\HasBuildingFilter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -127,6 +128,13 @@ class BulkOperationsController extends Controller
         $user = auth()->user();
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
 
+        // RATE-4: serialize concurrent bulk-rent-adjust requests per
+        // landlord so a double-click can't race on the same lease set.
+        $lock = Cache::lock("bulk-ops:adjust-rent:{$landlordId}", 60);
+        if (! $lock->get()) {
+            return redirect()->back()->with('error', 'Another bulk operation is in progress for this account. Please wait and try again.');
+        }
+
         try {
             $results = BulkRentAdjuster::forLeases($validated['lease_ids'], $landlordId)
                 ->withAdjustmentType($validated['adjustment_type'])
@@ -143,6 +151,8 @@ class BulkOperationsController extends Controller
             ))->with('bulk_results', $results);
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Bulk rent adjustment failed: '.$e->getMessage());
+        } finally {
+            $lock->release();
         }
     }
 
@@ -232,6 +242,12 @@ class BulkOperationsController extends Controller
             'errors' => [],
         ];
 
+        // RATE-4: serialize concurrent terminate-lease requests per landlord.
+        $lock = Cache::lock("bulk-ops:terminate:{$landlordId}", 60);
+        if (! $lock->get()) {
+            return redirect()->back()->with('error', 'Another bulk operation is in progress for this account. Please wait and try again.');
+        }
+
         // AUDIT-5: stamp every per-row audit row with the same operation id
         // so the original bulk action can be reconstructed even after some
         // rows succeed and others fail.
@@ -308,6 +324,8 @@ class BulkOperationsController extends Controller
             Log::error('Bulk lease termination failed', ['error' => $e->getMessage()]);
 
             return redirect()->back()->with('error', 'Bulk lease termination failed: '.$e->getMessage());
+        } finally {
+            $lock->release();
         }
     }
 
@@ -333,6 +351,12 @@ class BulkOperationsController extends Controller
             'failed' => 0,
             'errors' => [],
         ];
+
+        // RATE-4: serialize concurrent extend-lease requests per landlord.
+        $lock = Cache::lock("bulk-ops:extend:{$landlordId}", 60);
+        if (! $lock->get()) {
+            return redirect()->back()->with('error', 'Another bulk operation is in progress for this account. Please wait and try again.');
+        }
 
         // AUDIT-5: stamp every per-row audit row with the same operation id.
         $bulkOpId = (string) Str::uuid();
@@ -407,6 +431,8 @@ class BulkOperationsController extends Controller
             Log::error('Bulk lease extension failed', ['error' => $e->getMessage()]);
 
             return redirect()->back()->with('error', 'Bulk lease extension failed: '.$e->getMessage());
+        } finally {
+            $lock->release();
         }
     }
 

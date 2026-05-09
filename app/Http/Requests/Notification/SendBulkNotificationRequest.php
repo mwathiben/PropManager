@@ -23,7 +23,9 @@ class SendBulkNotificationRequest extends FormRequest
         $landlordId = $user?->isCaretaker() ? (int) $user->landlord_id : (int) $user?->id;
 
         return [
-            'recipient_ids' => 'required|array|min:1',
+            // RATE-3: cap the array length so a single bulk request can't
+            // enqueue tens of thousands of SMS jobs.
+            'recipient_ids' => 'required|array|min:1|max:500',
             'recipient_ids.*' => [
                 'integer',
                 Rule::exists('users', 'id')->where('landlord_id', $landlordId),

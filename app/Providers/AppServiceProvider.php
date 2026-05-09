@@ -337,6 +337,65 @@ class AppServiceProvider extends ServiceProvider
                     ], 429, $headers);
                 });
         });
+
+        // RATE-2: per-invoice + per-user notification-send limiter so a
+        // landlord can't blast a tenant via 'send reminder' / 'send
+        // receipt' / 'email ledger' buttons.
+        RateLimiter::for('notification-send', function (Request $request) {
+            $invoice = $request->route('invoice');
+            $payment = $request->route('payment');
+            $tenant = $request->route('tenant');
+            $resourceKey = is_object($invoice) ? 'invoice:'.$invoice->id
+                : (is_object($payment) ? 'payment:'.$payment->id
+                : (is_object($tenant) ? 'tenant:'.$tenant->id
+                : 'user:'.($request->user()?->id ?: $request->ip())));
+
+            return [
+                Limit::perMinute(3)->by($resourceKey),
+                Limit::perMinute(20)->by('user:'.($request->user()?->id ?: $request->ip())),
+            ];
+        });
+
+        // RATE-3: bulk-notification limiter so a compromised landlord/
+        // caretaker session can't enqueue thousands of SMS/emails per
+        // hour. 2/min and 20/hour per landlord.
+        RateLimiter::for('bulk-notify', function (Request $request) {
+            $user = $request->user();
+            $landlordId = $user
+                ? ($user->isCaretaker() ? $user->landlord_id : $user->id)
+                : null;
+            $key = $landlordId ? 'landlord:'.$landlordId : 'ip:'.$request->ip();
+
+            return [
+                Limit::perMinute(2)->by($key),
+                Limit::perHour(20)->by($key),
+            ];
+        });
+
+        // RATE-4: bulk-operations limiter — per-user 3/min plus a
+        // serializing Cache::lock applied in the controller body so two
+        // concurrent bulk-rent-adjust requests can't race.
+        RateLimiter::for('bulk-ops', function (Request $request) {
+            $user = $request->user();
+            $key = 'user:'.($user?->id ?: $request->ip());
+
+            return Limit::perMinute(3)->by($key);
+        });
+
+        // RATE-5: per-conversation + per-user inbox-reply limiter so a
+        // landlord can't blast a tenant via 200 paid SMS/WhatsApp replies
+        // in two minutes.
+        RateLimiter::for('inbox-reply', function (Request $request) {
+            $message = $request->route('message');
+            $threadKey = is_object($message)
+                ? 'thread:'.$message->user_id.':'.($request->user()?->id ?? 'anon')
+                : 'user:'.($request->user()?->id ?: $request->ip());
+
+            return [
+                Limit::perMinute(5)->by($threadKey),
+                Limit::perMinute(20)->by('user:'.($request->user()?->id ?: $request->ip())),
+            ];
+        });
     }
 
     /**

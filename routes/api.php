@@ -31,7 +31,10 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/register', [\App\Http\Controllers\Api\AuthController::class, 'register'])
         ->middleware('throttle:register');
     Route::post('/auth/two-factor-challenge', [\App\Http\Controllers\Api\AuthController::class, 'twoFactorChallenge'])
-        ->middleware('throttle:two_factor');
+        // RATE-1: limiter is registered as 'two-factor' (dash); the
+        // underscore variant silently parses as legacy <max>,<minutes>
+        // syntax and never enforces the 5/min 2FA brute-force bound.
+        ->middleware('throttle:two-factor');
 
     // Authenticated routes
     Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
