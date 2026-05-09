@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Gateways;
 
 use App\Contracts\PaymentGatewayInterface;
+use App\Exceptions\Integration\PaymentGatewayUnreachableException;
 use App\Services\PaystackService;
 use App\ValueObjects\Payment\Money;
 use App\ValueObjects\Payment\PaymentRequest;
@@ -38,7 +39,15 @@ class PaystackGateway implements PaymentGatewayInterface
             'metadata' => $request->metadata,
         ];
 
-        $response = $this->service->initializeTransaction($data);
+        try {
+            $response = $this->service->initializeTransaction($data);
+        } catch (PaymentGatewayUnreachableException $e) {
+            return PaymentResult::failed(
+                error: $e->getMessage(),
+                errorCode: $e->getErrorCode(),
+                reference: $request->reference,
+            );
+        }
 
         if ($response === null) {
             return PaymentResult::failed(

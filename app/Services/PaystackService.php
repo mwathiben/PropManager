@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\Currency;
+use App\Exceptions\Integration\PaymentGatewayUnreachableException;
 use App\Models\PaymentConfiguration;
 use App\Traits\LogsExternalRequests;
 use Illuminate\Http\Client\ConnectionException;
@@ -103,12 +104,14 @@ class PaystackService
 
             return null;
         } catch (ConnectionException $e) {
+            // HANDLE-1: surface gateway unreachability so the controller can
+            // 503 with a 'try again' message instead of generic 500.
             Log::error('Paystack initialization connection failed', [
                 'error' => $e->getMessage(),
                 'reference' => $data['reference'] ?? null,
             ]);
 
-            return null;
+            throw new PaymentGatewayUnreachableException('Paystack', '/transaction/initialize', $e);
         } catch (\Exception $e) {
             Log::error('Paystack initialization exception', [
                 'error' => $e->getMessage(),

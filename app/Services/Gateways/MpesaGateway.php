@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Gateways;
 
 use App\Contracts\PaymentGatewayInterface;
+use App\Exceptions\Integration\PaymentGatewayUnreachableException;
 use App\Models\PaymentConfiguration;
 use App\Services\MpesaService;
 use App\ValueObjects\Payment\Money;
@@ -58,7 +59,17 @@ class MpesaGateway implements PaymentGatewayInterface
             'callback_url' => $request->callbackUrl ?? route('webhooks.mpesa.stk-callback'),
         ];
 
-        $response = $this->service->initiateSTKPush($data, $this->config);
+        try {
+            $response = $this->service->initiateSTKPush($data, $this->config);
+        } catch (PaymentGatewayUnreachableException $e) {
+            // HANDLE-1: distinguish gateway-down from gateway-rejected so
+            // the consumer can show 'try again later' vs 'payment failed'.
+            return PaymentResult::failed(
+                error: $e->getMessage(),
+                errorCode: $e->getErrorCode(),
+                reference: $request->reference,
+            );
+        }
 
         if ($response === null) {
             return PaymentResult::failed(

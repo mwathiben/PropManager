@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\Integration\PaymentGatewayUnreachableException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\InitiateMpesaPaymentRequest;
 use App\Http\Requests\Api\MpesaCheckStatusRequest;
@@ -25,13 +26,23 @@ class MpesaController extends Controller
             ], 503);
         }
 
-        $result = $this->mpesaService->initiateSTKPush([
-            'phone' => $request->phone,
-            'amount' => $request->amount,
-            'account_reference' => $invoice->invoice_number,
-            'description' => "Payment for Invoice {$invoice->invoice_number}",
-            'callback_url' => route('webhooks.mpesa.stk-callback'),
-        ], $paymentConfig);
+        try {
+            $result = $this->mpesaService->initiateSTKPush([
+                'phone' => $request->phone,
+                'amount' => $request->amount,
+                'account_reference' => $invoice->invoice_number,
+                'description' => "Payment for Invoice {$invoice->invoice_number}",
+                'callback_url' => route('webhooks.mpesa.stk-callback'),
+            ], $paymentConfig);
+        } catch (PaymentGatewayUnreachableException $e) {
+            // HANDLE-1: 503 + retry message instead of generic 500 — this is
+            // a transient outage, not a permanent failure.
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'error_code' => $e->getErrorCode(),
+            ], $e->getStatusCode());
+        }
 
         if (! $result) {
             return response()->json([

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\Integration\PaymentGatewayUnreachableException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\CheckMpesaStatusRequest;
 use App\Http\Requests\Api\InitiateIntaSendPaymentRequest;
@@ -78,13 +79,21 @@ class TenantPaymentController extends Controller
             ], 503);
         }
 
-        $result = $this->mpesaService->initiateSTKPush([
-            'phone' => $request->phone,
-            'amount' => $request->amount,
-            'account_reference' => $invoice->invoice_number,
-            'description' => "Payment for Invoice {$invoice->invoice_number}",
-            'callback_url' => route('webhooks.mpesa.stk-callback'),
-        ], $paymentConfig);
+        try {
+            $result = $this->mpesaService->initiateSTKPush([
+                'phone' => $request->phone,
+                'amount' => $request->amount,
+                'account_reference' => $invoice->invoice_number,
+                'description' => "Payment for Invoice {$invoice->invoice_number}",
+                'callback_url' => route('webhooks.mpesa.stk-callback'),
+            ], $paymentConfig);
+        } catch (PaymentGatewayUnreachableException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'error_code' => $e->getErrorCode(),
+            ], $e->getStatusCode());
+        }
 
         if (! $result) {
             return response()->json([
@@ -195,21 +204,29 @@ class TenantPaymentController extends Controller
 
         $reference = PaystackService::generateReference('API');
 
-        $result = $paystackService->initializeTransaction([
-            'email' => $user->email,
-            'amount' => $request->amount,
-            'currency' => $invoice->currency?->value ?? 'KES',
-            'reference' => $reference,
-            'callback_url' => $request->callback_url ?? route('payments.callback'),
-            'metadata' => [
-                'invoice_id' => $invoice->id,
-                'invoice_number' => $invoice->invoice_number,
-                'tenant_name' => $user->name,
-                'landlord_id' => $invoice->landlord_id,
+        try {
+            $result = $paystackService->initializeTransaction([
+                'email' => $user->email,
                 'amount' => $request->amount,
-                'source' => 'api',
-            ],
-        ]);
+                'currency' => $invoice->currency?->value ?? 'KES',
+                'reference' => $reference,
+                'callback_url' => $request->callback_url ?? route('payments.callback'),
+                'metadata' => [
+                    'invoice_id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'tenant_name' => $user->name,
+                    'landlord_id' => $invoice->landlord_id,
+                    'amount' => $request->amount,
+                    'source' => 'api',
+                ],
+            ]);
+        } catch (PaymentGatewayUnreachableException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'error_code' => $e->getErrorCode(),
+            ], $e->getStatusCode());
+        }
 
         if (! $result || ! $result['status']) {
             return response()->json([
@@ -250,12 +267,22 @@ class TenantPaymentController extends Controller
             'state' => IntaSendTransaction::STATE_PENDING,
         ]);
 
-        $result = $intaSendService->initializeMpesaStkPush(
-            $request->amount,
-            $request->phone,
-            $reference,
-            $paymentConfig->intasend_wallet_id ? ['wallet_id' => $paymentConfig->intasend_wallet_id] : null
-        );
+        try {
+            $result = $intaSendService->initializeMpesaStkPush(
+                $request->amount,
+                $request->phone,
+                $reference,
+                $paymentConfig->intasend_wallet_id ? ['wallet_id' => $paymentConfig->intasend_wallet_id] : null
+            );
+        } catch (PaymentGatewayUnreachableException $e) {
+            $transaction->markFailed('Gateway unreachable: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'error_code' => $e->getErrorCode(),
+            ], $e->getStatusCode());
+        }
 
         if (! $result || ! isset($result['invoice']['invoice_id'])) {
             $transaction->markFailed('STK Push initiation failed');

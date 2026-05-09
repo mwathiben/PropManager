@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\Integration\PaymentGatewayUnreachableException;
 use App\Models\PaymentConfiguration;
 use App\Traits\LogsExternalRequests;
 use Illuminate\Http\Client\ConnectionException;
@@ -132,12 +133,14 @@ class IntaSendService
 
             return null;
         } catch (ConnectionException $e) {
+            // HANDLE-1: surface gateway unreachability so callers can show a
+            // 'try again later' message instead of a generic 500.
             Log::error('IntaSend STK Push connection failed', [
                 'error' => $e->getMessage(),
                 'reference' => $reference,
             ]);
 
-            return null;
+            throw new PaymentGatewayUnreachableException('IntaSend', '/api/v1/payment/mpesa-stk-push', $e);
         } catch (\Exception $e) {
             Log::error('IntaSend STK Push exception', [
                 'error' => $e->getMessage(),

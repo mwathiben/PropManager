@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\Integration\PaymentGatewayUnreachableException;
 use App\Models\PaymentConfiguration;
 use App\Traits\LogsExternalRequests;
 use Illuminate\Http\Client\ConnectionException;
@@ -184,12 +185,15 @@ class MpesaService
 
             return $result;
         } catch (ConnectionException $e) {
+            // HANDLE-1: surface gateway unreachability as a distinct
+            // exception so callers can show a 'try again later' message
+            // (retry will likely succeed) instead of a generic 500.
             Log::error('M-Pesa STK Push connection failed', [
                 'error' => $e->getMessage(),
                 'phone' => substr($phone, -4),
             ]);
 
-            return null;
+            throw new PaymentGatewayUnreachableException('M-Pesa', '/mpesa/stkpush/v1/processrequest', $e);
         } catch (\Exception $e) {
             Log::error('M-Pesa STK Push exception', [
                 'error' => $e->getMessage(),
