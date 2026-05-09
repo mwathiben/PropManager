@@ -223,22 +223,31 @@ class DashboardService
 
         $buildingIds = $assignedBuildings->pluck('id');
 
+        // One pass over the caretaker's tickets, four CASE-branched counts.
+        // Replaces 5 redundant COUNT queries (open and urgent counts were
+        // computed twice for actionItems and ticketStats).
+        $ticketCounts = Ticket::where('assigned_to', $caretaker->id)
+            ->selectRaw("
+                COUNT(*) as total,
+                COUNT(CASE WHEN status IN ('open', 'acknowledged', 'in_progress') THEN 1 END) as open_count,
+                COUNT(CASE WHEN status IN ('open', 'acknowledged', 'in_progress') AND priority = 'urgent' THEN 1 END) as urgent_open_count,
+                COUNT(CASE WHEN status = 'resolved' THEN 1 END) as resolved_count
+            ")
+            ->first();
+
         $actionItems = [
-            'urgent_tickets' => Ticket::where('assigned_to', $caretaker->id)
-                ->open()
-                ->where('priority', 'urgent')
-                ->count(),
-            'open_tickets' => Ticket::where('assigned_to', $caretaker->id)->open()->count(),
+            'urgent_tickets' => (int) $ticketCounts->urgent_open_count,
+            'open_tickets' => (int) $ticketCounts->open_count,
             'pending_readings' => WaterReading::whereIn('unit_id', function ($query) use ($buildingIds) {
                 $query->select('id')->from('units')->whereIn('building_id', $buildingIds);
             })->where('status', 'pending')->count(),
         ];
 
         $ticketStats = [
-            'total' => Ticket::where('assigned_to', $caretaker->id)->count(),
-            'open' => Ticket::where('assigned_to', $caretaker->id)->open()->count(),
-            'urgent' => Ticket::where('assigned_to', $caretaker->id)->open()->where('priority', 'urgent')->count(),
-            'resolved' => Ticket::where('assigned_to', $caretaker->id)->where('status', 'resolved')->count(),
+            'total' => (int) $ticketCounts->total,
+            'open' => (int) $ticketCounts->open_count,
+            'urgent' => (int) $ticketCounts->urgent_open_count,
+            'resolved' => (int) $ticketCounts->resolved_count,
         ];
 
         $todaysTasks = Ticket::where('assigned_to', $caretaker->id)
@@ -376,6 +385,46 @@ class DashboardService
             ->value('total') ?? 0;
     }
 
+    /**
+     * Compute all four arrears-aging buckets in ONE query instead of four
+     * separate SUMs against the same row set. Saves 3 queries per landlord
+     * dashboard render and per real-time payment broadcast.
+     *
+     * @return array{0_30: float, 31_60: float, 61_90: float, 90_plus: float}
+     */
+    public function getArrearsAgingBucketsForLeases(Collection $leaseIds): array
+    {
+        $empty = ['0_30' => 0.0, '31_60' => 0.0, '61_90' => 0.0, '90_plus' => 0.0];
+
+        if ($leaseIds->isEmpty()) {
+            return $empty;
+        }
+
+        $daysDiffSql = $this->getDaysBetweenSql('due_date', now()->format('Y-m-d'));
+
+        $row = Invoice::whereIn('lease_id', $leaseIds)
+            ->whereIn('status', ['overdue', 'partial'])
+            ->whereNotNull('due_date')
+            ->selectRaw("
+                COALESCE(SUM(CASE WHEN {$daysDiffSql} BETWEEN 0 AND 30
+                    THEN total_due - amount_paid ELSE 0 END), 0) as bucket_0_30,
+                COALESCE(SUM(CASE WHEN {$daysDiffSql} BETWEEN 31 AND 60
+                    THEN total_due - amount_paid ELSE 0 END), 0) as bucket_31_60,
+                COALESCE(SUM(CASE WHEN {$daysDiffSql} BETWEEN 61 AND 90
+                    THEN total_due - amount_paid ELSE 0 END), 0) as bucket_61_90,
+                COALESCE(SUM(CASE WHEN {$daysDiffSql} > 90
+                    THEN total_due - amount_paid ELSE 0 END), 0) as bucket_90_plus
+            ")
+            ->first();
+
+        return [
+            '0_30' => round((float) $row->bucket_0_30, 2),
+            '31_60' => round((float) $row->bucket_31_60, 2),
+            '61_90' => round((float) $row->bucket_61_90, 2),
+            '90_plus' => round((float) $row->bucket_90_plus, 2),
+        ];
+    }
+
     protected function getLandlordMonthlyRevenue(int $landlordId): float
     {
         return Payment::withoutGlobalScope('landlord')
@@ -510,12 +559,7 @@ class DashboardService
                 ->value('total') ?? 0,
         ];
 
-        $arrearsAging = [
-            '0_30' => $this->getArrearsInRangeForLeases($metricsLeaseIds, 0, 30),
-            '31_60' => $this->getArrearsInRangeForLeases($metricsLeaseIds, 31, 60),
-            '61_90' => $this->getArrearsInRangeForLeases($metricsLeaseIds, 61, 90),
-            '90_plus' => $this->getArrearsInRangeForLeases($metricsLeaseIds, 91, 9999),
-        ];
+        $arrearsAging = $this->getArrearsAgingBucketsForLeases($metricsLeaseIds);
 
         $stats = [
             'total_units' => $metricsUnits->count(),
@@ -769,12 +813,7 @@ class DashboardService
                 'collection_rate' => $collectionRate,
                 'total_arrears' => (float) $totalArrears,
             ],
-            'arrears_aging' => [
-                '0_30' => $this->getArrearsInRangeForLeases($leaseIds, 0, 30),
-                '31_60' => $this->getArrearsInRangeForLeases($leaseIds, 31, 60),
-                '61_90' => $this->getArrearsInRangeForLeases($leaseIds, 61, 90),
-                '90_plus' => $this->getArrearsInRangeForLeases($leaseIds, 91, 9999),
-            ],
+            'arrears_aging' => $this->getArrearsAgingBucketsForLeases($leaseIds),
         ];
     }
 }
