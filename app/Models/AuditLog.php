@@ -21,6 +21,13 @@ class AuditLog extends Model
 
     public const EVENT_DELETED = 'deleted';
 
+    /**
+     * AUDIT-14: distinguish soft-delete from force-delete in the audit
+     * trail. A force-delete on a soft-deletable model is a permanent loss
+     * of data and deserves its own event type for compliance reporting.
+     */
+    public const EVENT_FORCE_DELETED = 'force_deleted';
+
     public const EVENT_RESTORED = 'restored';
 
     public const EVENT_EXPORTED = 'exported';

@@ -185,7 +185,14 @@ class InboxController extends Controller
 
     public function markAllAsRead()
     {
-        TenantMessage::where('status', TenantMessage::STATUS_RECEIVED)
+        // VALID-13: scope explicitly by landlord even though TenantScope is
+        // global — defence in depth against a future caller forgetting to
+        // re-apply the global scope after withoutGlobalScope().
+        $user = auth()->user();
+        $landlordId = $user->isCaretaker() ? (int) $user->landlord_id : (int) $user->id;
+
+        TenantMessage::where('landlord_id', $landlordId)
+            ->where('status', TenantMessage::STATUS_RECEIVED)
             ->update(['status' => TenantMessage::STATUS_PROCESSED]);
 
         return back()->with('success', 'All messages marked as read.');

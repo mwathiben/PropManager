@@ -35,7 +35,14 @@ trait Auditable
         });
 
         static::deleted(function (Model $model) {
-            static::logAudit($model, AuditLog::EVENT_DELETED);
+            // AUDIT-14: distinguish force-delete from soft-delete on models
+            // that use SoftDeletes. A force-delete is permanent data loss
+            // and deserves its own audit event for compliance reporting.
+            $event = method_exists($model, 'isForceDeleting') && $model->isForceDeleting()
+                ? AuditLog::EVENT_FORCE_DELETED
+                : AuditLog::EVENT_DELETED;
+
+            static::logAudit($model, $event);
         });
 
         // Handle soft delete restoration if the model uses SoftDeletes

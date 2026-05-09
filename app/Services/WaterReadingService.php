@@ -158,11 +158,18 @@ class WaterReadingService
     {
         $ocrReading = null;
         $ocrVerified = false;
+        $ocrStatus = 'skipped';
+        $ocrError = null;
 
         $ocrEnabled = Setting::get('ocr_enabled', 'false', $landlordId) === 'true';
 
         if (! $ocrEnabled || ! $photoPath || ! $photo) {
-            return ['reading' => $ocrReading, 'verified' => $ocrVerified];
+            return [
+                'reading' => $ocrReading,
+                'verified' => $ocrVerified,
+                'ocr_status' => $ocrStatus,
+                'ocr_error' => $ocrError,
+            ];
         }
 
         try {
@@ -171,6 +178,7 @@ class WaterReadingService
 
             if ($ocrResult && $ocrResult['success'] && $ocrResult['reading']) {
                 $ocrReading = $ocrResult['reading'];
+                $ocrStatus = 'matched';
 
                 $tolerance = 0.5;
                 $autoVerify = Setting::get('ocr_auto_verify', 'false', $landlordId) === 'true';
@@ -178,12 +186,24 @@ class WaterReadingService
                 if ($autoVerify && abs($ocrReading - $manualReading) <= $tolerance) {
                     $ocrVerified = true;
                 }
+            } else {
+                $ocrStatus = 'no_reading';
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            // HANDLE-13: surface the error state to callers instead of just
+            // logging. The controller persists ocr_status on the WaterReading
+            // row so an operator can review failed extractions later.
             Log::warning('OCR processing failed', ['error' => $e->getMessage()]);
+            $ocrStatus = 'errored';
+            $ocrError = $e->getMessage();
         }
 
-        return ['reading' => $ocrReading, 'verified' => $ocrVerified];
+        return [
+            'reading' => $ocrReading,
+            'verified' => $ocrVerified,
+            'ocr_status' => $ocrStatus,
+            'ocr_error' => $ocrError,
+        ];
     }
 
     public function getFilteredHistory(Collection $unitIds, array $filters): \Illuminate\Contracts\Pagination\LengthAwarePaginator
