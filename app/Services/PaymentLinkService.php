@@ -13,6 +13,13 @@ class PaymentLinkService
     public function generate(Invoice $invoice, array $utm = []): PaymentLink
     {
         return DB::transaction(function () use ($invoice, $utm) {
+            // CONC-7: serialize generate() against revokeForInvoice() by
+            // locking the parent Invoice row. Without this, a generate that
+            // just observed 'no valid link exists' could race with a
+            // concurrent revokeForInvoice and leave a fresh link active
+            // even though the landlord requested a wholesale revocation.
+            Invoice::whereKey($invoice->id)->lockForUpdate()->firstOrFail();
+
             $existingLink = PaymentLink::where('invoice_id', $invoice->id)
                 ->valid()
                 ->lockForUpdate()
@@ -75,13 +82,20 @@ class PaymentLinkService
     // because PaymentObserver runs in queue context where Auth is unset, so
     // TenantScope wouldn't apply anyway — the explicit landlord filter is the
     // security control.
+    //
+    // CONC-7: lock the parent Invoice row so a concurrent generate() can't
+    // slip in a new link between the read here and the bulk update.
     public function revokeForInvoice(int $invoiceId, int $landlordId): int
     {
-        return PaymentLink::withoutGlobalScope('landlord')
-            ->where('landlord_id', $landlordId)
-            ->where('invoice_id', $invoiceId)
-            ->where('is_revoked', false)
-            ->update(['is_revoked' => true]);
+        return DB::transaction(function () use ($invoiceId, $landlordId) {
+            \App\Models\Invoice::whereKey($invoiceId)->lockForUpdate()->first();
+
+            return PaymentLink::withoutGlobalScope('landlord')
+                ->where('landlord_id', $landlordId)
+                ->where('invoice_id', $invoiceId)
+                ->where('is_revoked', false)
+                ->update(['is_revoked' => true]);
+        });
     }
 
     // SCOPE-D3: cross-tenant by design — the scheduler purges every landlord's

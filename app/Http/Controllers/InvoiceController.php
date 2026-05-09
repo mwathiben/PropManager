@@ -132,6 +132,12 @@ class InvoiceController extends Controller
         $paymentAmount = $request->amount;
 
         [$payment, $overpayment] = DB::transaction(function () use ($request, $invoice, $receiptService, $paymentAmount) {
+            // CONC-5: refetch under lockForUpdate so two concurrent recordPayment
+            // calls on the same invoice (double-click, co-landlord users) can't
+            // both read amount_paid=0 and overwrite each other's update. The
+            // route-bound $invoice was hydrated outside the transaction.
+            $invoice = Invoice::whereKey($invoice->id)->lockForUpdate()->firstOrFail();
+
             $remainingBalance = $invoice->total_due - $invoice->amount_paid;
             $appliedAmount = min($paymentAmount, $remainingBalance);
             $overpayment = max(0, $paymentAmount - $remainingBalance);

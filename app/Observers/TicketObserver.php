@@ -87,13 +87,18 @@ class TicketObserver
      */
     public function updated(Ticket $ticket): void
     {
-        // Check for status change
+        // CONC-4: when a controller calls $ticket->update() inside its own
+        // DB::transaction, this observer fires before COMMIT. Notification
+        // dispatches must defer with DB::afterCommit so workers don't read
+        // pre-commit state and so notifications for rolled-back transitions
+        // never go out. The activity-log writes inline because they belong
+        // to the same transaction.
+
         if ($ticket->wasChanged('status')) {
             $oldStatus = $ticket->getOriginal('status');
             $this->handleStatusChange($ticket, $oldStatus, $ticket->status);
         }
 
-        // Check for assignment change
         if ($ticket->wasChanged('assigned_to')) {
             $oldAssignedTo = $ticket->getOriginal('assigned_to');
             $this->handleAssignmentChange($ticket, $oldAssignedTo, $ticket->assigned_to);
@@ -122,7 +127,7 @@ class TicketObserver
         );
 
         if ($ticket->reporter_id) {
-            $this->notifyStatusChange($ticket, $ticket->reporter_id, $oldStatus, $newStatus);
+            DB::afterCommit(fn () => $this->notifyStatusChange($ticket, $ticket->reporter_id, $oldStatus, $newStatus));
         }
     }
 
@@ -145,7 +150,7 @@ class TicketObserver
 
         // Notify new assignee
         if ($newAssigneeId) {
-            $this->notifyAssignment($ticket, $newAssigneeId);
+            DB::afterCommit(fn () => $this->notifyAssignment($ticket, $newAssigneeId));
         }
     }
 

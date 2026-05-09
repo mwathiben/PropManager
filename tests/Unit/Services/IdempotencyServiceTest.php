@@ -62,21 +62,49 @@ class IdempotencyServiceTest extends TestCase
         $this->assertEquals($cachedResponse, $result['response']);
     }
 
-    public function test_acquire_deletes_expired_key_and_creates_new(): void
+    public function test_acquire_replaces_expired_pending_key_with_new_processing(): void
     {
+        // CONC-12: only PENDING/PROCESSING keys may be deleted on TTL expiry
+        // and replaced with a fresh attempt. COMPLETED keys are immortal —
+        // see test_acquire_returns_completed_response_for_expired_completed_key.
         IdempotencyKey::create([
-            'key' => 'expired-key',
-            'status' => 'completed',
-            'response_data' => ['old' => 'response'],
+            'key' => 'expired-pending-key',
+            'status' => 'processing',
             'expires_at' => now()->subHours(1),
         ]);
 
-        $result = $this->service->acquire('expired-key');
+        $result = $this->service->acquire('expired-pending-key');
 
         $this->assertTrue($result['acquired']);
         $this->assertDatabaseHas('idempotency_keys', [
-            'key' => 'expired-key',
+            'key' => 'expired-pending-key',
             'status' => 'processing',
+        ]);
+    }
+
+    public function test_acquire_returns_completed_response_for_expired_completed_key(): void
+    {
+        // CONC-12 regression: a completed idempotency key whose TTL has
+        // technically expired must still return its cached response. Without
+        // this, a long-delayed gateway webhook replay would re-enter
+        // processing and double-credit the wallet (no DB constraint at the
+        // wallet_transactions layer prevented this — Phase 4 also adds one).
+        $cachedResponse = ['status' => 'success', 'payment_id' => 999];
+
+        IdempotencyKey::create([
+            'key' => 'expired-completed-key',
+            'status' => 'completed',
+            'response_data' => $cachedResponse,
+            'expires_at' => now()->subYears(1),
+        ]);
+
+        $result = $this->service->acquire('expired-completed-key');
+
+        $this->assertFalse($result['acquired'], 'Completed key must remain idempotent past TTL.');
+        $this->assertSame($cachedResponse, $result['response']);
+        $this->assertDatabaseHas('idempotency_keys', [
+            'key' => 'expired-completed-key',
+            'status' => 'completed',
         ]);
     }
 

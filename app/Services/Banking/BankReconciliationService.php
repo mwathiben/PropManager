@@ -299,8 +299,15 @@ class BankReconciliationService
                 );
             }
 
+            // CONC-15: queue, not send. Synchronous Mail::send held InnoDB
+            // row locks for the SMTP timeout window, cascading parallel
+            // reconciliations. Wrapped in DB::afterCommit so the queued
+            // mailable only enqueues once the payment row is durable.
             $invoice->load(['lease.tenant', 'lease.unit.building']);
-            Mail::to($invoice->lease->tenant->email)->send(new PaymentReceived($payment, $invoice));
+            \Illuminate\Support\Facades\DB::afterCommit(function () use ($payment, $invoice) {
+                Mail::to($invoice->lease->tenant->email)->queue(new PaymentReceived($payment, $invoice));
+                \App\Events\PaymentReceived::dispatch($payment, $invoice);
+            });
 
             return $payment;
         });

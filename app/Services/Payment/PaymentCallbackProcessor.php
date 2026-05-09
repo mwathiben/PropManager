@@ -372,7 +372,11 @@ class PaymentCallbackProcessor
         $tenant = $invoice->lease?->tenant;
 
         if ($tenant) {
-            Mail::to($tenant->email)->send(new PaymentReceived($result->payment, $invoice));
+            // CONC-3: queue, not send. Sync SMTP previously blocked the
+            // gateway-callback request thread — bad for webhook latency
+            // budgets and unnecessary because the mailable doesn't need
+            // to be delivered before responding to the gateway.
+            Mail::to($tenant->email)->queue(new PaymentReceived($result->payment, $invoice));
             PaymentReceivedEvent::dispatch($result->payment, $invoice);
         }
     }

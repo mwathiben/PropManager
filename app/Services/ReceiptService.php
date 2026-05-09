@@ -45,6 +45,11 @@ class ReceiptService
         ]);
     }
 
+    // CONC-1: prefer the InvoiceSetting path, which serializes via lockForUpdate.
+    // The fallback count()+1 is only reachable when a landlord has no
+    // invoice_settings row; the backfill migration covers existing landlords,
+    // and InvoiceSetting::createDefaultsForLandlord backstops new ones. The
+    // unique index on receipt_number is the canonical guarantee.
     protected function generateReceiptNumber(?User $landlord): string
     {
         $settings = $landlord?->invoiceSetting;

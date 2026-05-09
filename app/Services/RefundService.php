@@ -89,8 +89,15 @@ class RefundService
         return DB::transaction(function () use ($payment) {
             $lockedPayment = Payment::lockForUpdate()->find($payment->id);
 
+            // CONC-9: lock the existing refunds rows too. The pre-fix path
+            // locked only the payment row, so two parallel initiateRefund
+            // calls on the same payment from different processes both
+            // observed existingRefunds = 0 and both inserted refunds whose
+            // sum exceeded the payment amount. Locking the refunds rows
+            // serializes the read with any concurrent insert.
             $existingRefunds = Refund::where('payment_id', $lockedPayment->id)
                 ->whereIn('status', ['pending', 'approved', 'processing', 'completed'])
+                ->lockForUpdate()
                 ->sum('amount');
 
             return max(0, (float) $lockedPayment->amount - (float) $existingRefunds);

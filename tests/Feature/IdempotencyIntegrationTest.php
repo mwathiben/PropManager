@@ -164,11 +164,14 @@ class IdempotencyIntegrationTest extends TestCase
         $this->assertFalse($this->service->acquire($paystackKey)['acquired']);
     }
 
-    public function test_expired_key_allows_new_acquisition(): void
+    public function test_expired_completed_key_remains_idempotent(): void
     {
+        // CONC-12: a completed idempotency key whose TTL has technically
+        // expired must NOT be replaced — replaying a finalized webhook
+        // re-enters processing and (without the wallet_transactions
+        // unique index) double-credits the wallet.
         $key = 'reusable-key';
         $oldResponse = ['old' => 'data'];
-        $newResponse = ['new' => 'data'];
 
         IdempotencyKey::create([
             'key' => $key,
@@ -178,12 +181,24 @@ class IdempotencyIntegrationTest extends TestCase
         ]);
 
         $acquire = $this->service->acquire($key);
+        $this->assertFalse($acquire['acquired'], 'Completed key past TTL must stay idempotent.');
+        $this->assertSame($oldResponse, $acquire['response']);
+    }
+
+    public function test_expired_pending_key_allows_new_acquisition(): void
+    {
+        // Pending/processing keys (request started, never finished) ARE
+        // safe to replace on TTL expiry — they represent a stalled or
+        // crashed handler, not a finalized response.
+        $key = 'stalled-key';
+
+        IdempotencyKey::create([
+            'key' => $key,
+            'status' => 'processing',
+            'expires_at' => now()->subHours(1),
+        ]);
+
+        $acquire = $this->service->acquire($key);
         $this->assertTrue($acquire['acquired']);
-
-        $this->service->release($key, $newResponse);
-
-        $retry = $this->service->acquire($key);
-        $this->assertFalse($retry['acquired']);
-        $this->assertEquals($newResponse, $retry['response']);
     }
 }

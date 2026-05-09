@@ -734,7 +734,11 @@ class MpesaWebhookController extends Controller
             }
         }
 
-        PaymentReceivedEvent::dispatch($payment, $invoice);
+        // CONC-3: defer broadcast until COMMIT. processTillPayment is called
+        // inside the surrounding DB::beginTransaction (tillConfirmation handler);
+        // dispatching the broadcast event before commit lets a worker observe
+        // pre-commit state.
+        DB::afterCommit(fn () => PaymentReceivedEvent::dispatch($payment, $invoice));
 
         Log::info('M-Pesa Till payment recorded', [
             'payment_id' => $payment->id,

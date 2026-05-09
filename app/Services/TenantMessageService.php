@@ -220,6 +220,8 @@ class TenantMessageService
         $unitName = $ticket->unit?->name ?? 'Unknown unit';
         $previewBody = substr($message->body, 0, 100).(strlen($message->body) > 100 ? '...' : '');
 
+        // CONC-4: handleInbound wraps this call in DB::transaction; afterCommit
+        // ensures the queue worker sees a committed notification context.
         dispatch(SendNotificationJob::forNew(
             $caretaker->id,
             'maintenance_notice',
@@ -236,7 +238,7 @@ class TenantMessageService
                 'priority' => $ticket->priority,
             ],
             $ticket->landlord_id
-        ));
+        ))->afterCommit();
 
         Log::channel('whatsapp')->info('Caretaker notified of new ticket', [
             'ticket_id' => $ticket->id,
@@ -266,7 +268,7 @@ class TenantMessageService
                 'preferred_channel' => $channel,
             ],
             $ticket->landlord_id
-        ));
+        ))->afterCommit();
 
         Log::channel('whatsapp')->info('Tenant confirmation sent for ticket', [
             'ticket_id' => $ticket->id,
@@ -338,7 +340,7 @@ class TenantMessageService
                 'ticket_id' => $message->ticket_id,
             ],
             $message->landlord_id
-        ));
+        ))->afterCommit();
     }
 
     protected function normalizePhone(string $phone): string

@@ -79,28 +79,38 @@ class InvoiceSetting extends Model
         return $this->belongsTo(User::class, 'landlord_id');
     }
 
+    // CONC-2: read-format-increment must serialize across workers. The pre-fix
+    // code read $this->X (in-memory, possibly stale Eloquent attribute), formatted
+    // the number, then called increment(). Two parallel requests holding the same
+    // hydrated InvoiceSetting both formatted the same number. Now we re-fetch
+    // under lockForUpdate, format from the locked row, increment, and return.
     public function getNextInvoiceNumber(): string
     {
-        $number = str_pad($this->invoice_next_number, 4, '0', STR_PAD_LEFT);
-        $this->increment('invoice_next_number');
-
-        return $this->invoice_prefix.'-'.now()->format('Ym').'-'.$number;
+        return $this->serializedNextNumber('invoice_next_number', $this->invoice_prefix);
     }
 
     public function getNextReceiptNumber(): string
     {
-        $number = str_pad($this->receipt_next_number, 4, '0', STR_PAD_LEFT);
-        $this->increment('receipt_next_number');
-
-        return $this->receipt_prefix.'-'.now()->format('Ym').'-'.$number;
+        return $this->serializedNextNumber('receipt_next_number', $this->receipt_prefix);
     }
 
     public function getNextCreditNoteNumber(): string
     {
-        $number = str_pad($this->credit_note_next_number, 4, '0', STR_PAD_LEFT);
-        $this->increment('credit_note_next_number');
+        return $this->serializedNextNumber('credit_note_next_number', $this->credit_note_prefix);
+    }
 
-        return $this->credit_note_prefix.'-'.now()->format('Ym').'-'.$number;
+    private function serializedNextNumber(string $column, string $prefix): string
+    {
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($column, $prefix) {
+            $locked = self::query()->whereKey($this->id)->lockForUpdate()->first();
+            $value = (int) $locked->{$column};
+            $locked->increment($column);
+            // Keep the in-memory model attribute consistent so callers reading
+            // $this->{$column} after the call see the post-increment value.
+            $this->{$column} = $value + 1;
+
+            return $prefix.'-'.now()->format('Ym').'-'.str_pad((string) $value, 4, '0', STR_PAD_LEFT);
+        });
     }
 
     public function hasBankDetails(): bool

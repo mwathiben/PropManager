@@ -25,13 +25,20 @@ class IdempotencyService
                 ->first();
 
             if ($existing) {
-                if ($existing->isExpired()) {
-                    $existing->delete();
-                } elseif ($existing->isCompleted()) {
+                // CONC-12: COMPLETED idempotency keys are immortal — never
+                // delete them on TTL expiry. The pre-fix path would replay
+                // a 91-day-old webhook as a fresh request, double-crediting
+                // wallets via the unconstrained wallet_transactions insert.
+                // The Phase 4 unique index on wallet_transactions(payment_id,
+                // type) is the canonical DB-level guarantee; this code path
+                // ensures we never even ATTEMPT the replay.
+                if ($existing->isCompleted()) {
                     return [
                         'acquired' => false,
                         'response' => $existing->response_data,
                     ];
+                } elseif ($existing->isExpired()) {
+                    $existing->delete();
                 } else {
                     return [
                         'acquired' => false,

@@ -173,11 +173,20 @@ class LateFeeService
             return null;
         }
 
-        if (! $this->isEligibleForLateFeeToday($invoice, $policy)) {
-            return null;
-        }
-
         return DB::transaction(function () use ($invoice, $policy) {
+            // CONC-6: re-fetch under lockForUpdate and re-check eligibility
+            // INSIDE the transaction. The pre-fix path checked eligibility
+            // outside the lock, so two parallel scheduler runs both saw
+            // count=0 and both inserted a LateFee. The unique index added
+            // by the Phase 4 indexes migration (late_fees_invoice_applied_unique)
+            // would now reject the second insert at the DB layer; this lock
+            // makes the failure path deterministic instead of a race-loser.
+            $invoice = Invoice::whereKey($invoice->id)->lockForUpdate()->firstOrFail();
+
+            if (! $this->isEligibleForLateFeeToday($invoice, $policy)) {
+                return null;
+            }
+
             $existingFees = (float) $invoice->late_fees_total;
             $baseAmount = (float) $invoice->rent_due + (float) $invoice->water_due + (float) $invoice->arrears;
 

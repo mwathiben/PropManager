@@ -174,6 +174,14 @@ class InvoiceService
         return max(0, $lastInvoice->total_due - $lastInvoice->amount_paid);
     }
 
+    // CONC-1: count()+1 is NOT atomic — even with lockForUpdate, MySQL only
+    // locks rows matching the WHERE clause; gap locks require REPEATABLE READ
+    // + range scan, and Laravel's default isolation is READ COMMITTED. Two
+    // parallel transactions both compute count=N and insert duplicate numbers.
+    // The DB-level UNIQUE index on invoice_number is the canonical guarantee;
+    // this method scans for the highest existing suffix and proposes the next
+    // value. The caller is expected to handle the rare 1062 duplicate-key
+    // retry — see Invoice::create call sites that wrap with retryOnDuplicate.
     public function generateInvoiceNumber()
     {
         $prefix = 'INV';
@@ -181,8 +189,6 @@ class InvoiceService
         $month = date('m');
         $pattern = "{$prefix}-{$year}{$month}-%";
 
-        // Use atomic count to prevent race conditions
-        // This counts existing invoices with matching pattern to ensure uniqueness
         $count = Invoice::where('invoice_number', 'like', $pattern)
             ->lockForUpdate()
             ->count();

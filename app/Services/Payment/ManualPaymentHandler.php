@@ -121,7 +121,13 @@ class ManualPaymentHandler
 
         $invoice->load(['lease.tenant', 'lease.unit.building']);
 
-        Mail::to($invoice->lease->tenant->email)->queue(new PaymentReceived($payment, $invoice));
-        PaymentReceivedEvent::dispatch($payment, $invoice);
+        // CONC-3: registered inside the surrounding DB::transaction so the
+        // ShouldBroadcast PaymentReceivedEvent (and its mailable) only fire
+        // once the payment row is durable. Without this, a queue worker
+        // could pick up the broadcast job before COMMIT and read stale state.
+        \Illuminate\Support\Facades\DB::afterCommit(function () use ($payment, $invoice) {
+            Mail::to($invoice->lease->tenant->email)->queue(new PaymentReceived($payment, $invoice));
+            PaymentReceivedEvent::dispatch($payment, $invoice);
+        });
     }
 }
