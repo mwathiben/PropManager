@@ -7,16 +7,19 @@ use App\Models\DepositTransaction;
 use App\Models\Document;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
+use App\Models\Import;
 use App\Models\Invitation;
 use App\Models\Invoice;
 use App\Models\InvoiceTemplate;
 use App\Models\KycRequirement;
+use App\Models\LandlordPayoutAccount;
 use App\Models\LateFeePolicy;
 use App\Models\Lease;
 use App\Models\MoveOutDeductionCategory;
 use App\Models\Payment;
 use App\Models\Property;
 use App\Models\ReceiptTemplate;
+use App\Models\Refund;
 use App\Models\TenantKycSubmission;
 use App\Models\TenantPaymentVerification;
 use App\Models\Ticket;
@@ -29,16 +32,19 @@ use App\Policies\DepositTransactionPolicy;
 use App\Policies\DocumentPolicy;
 use App\Policies\ExpenseCategoryPolicy;
 use App\Policies\ExpensePolicy;
+use App\Policies\ImportPolicy;
 use App\Policies\InvitationPolicy;
 use App\Policies\InvoicePolicy;
 use App\Policies\InvoiceTemplatePolicy;
 use App\Policies\KycRequirementPolicy;
+use App\Policies\LandlordPayoutAccountPolicy;
 use App\Policies\LateFeeRulePolicy;
 use App\Policies\LeasePolicy;
 use App\Policies\MoveOutDeductionCategoryPolicy;
 use App\Policies\PaymentPolicy;
 use App\Policies\PropertyPolicy;
 use App\Policies\ReceiptTemplatePolicy;
+use App\Policies\RefundPolicy;
 use App\Policies\TenantKycSubmissionPolicy;
 use App\Policies\TenantPaymentVerificationPolicy;
 use App\Policies\TicketPolicy;
@@ -79,6 +85,12 @@ class AuthServiceProvider extends ServiceProvider
         TenantKycSubmission::class => TenantKycSubmissionPolicy::class,
         TenantPaymentVerification::class => TenantPaymentVerificationPolicy::class,
         KycRequirement::class => KycRequirementPolicy::class,
+        // SCOPE-P4: closed authz-layer gap. These models had landlord_id +
+        // TenantScope but no registered Policy, so @can directives silently
+        // returned false and central authz audit was missing.
+        Refund::class => RefundPolicy::class,
+        Import::class => ImportPolicy::class,
+        LandlordPayoutAccount::class => LandlordPayoutAccountPolicy::class,
     ];
 
     /**
