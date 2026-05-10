@@ -34,6 +34,7 @@ use App\Repositories\NotificationConfigRepository;
 use App\Repositories\NotificationDefaultsRepository;
 use App\Rules\PasswordPolicy;
 use App\Services\AfricasTalkingService;
+use App\Services\MetricsService;
 use App\Services\PaymentGatewayManager;
 use App\Services\SecurityLogger;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -56,6 +57,13 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(SecurityLogger::class, function ($app) {
             return new SecurityLogger($app['request']);
         });
+
+        // OBS-11: Redis-backed counters for the payment / webhook /
+        // notification hot paths. Singleton because it holds no state
+        // beyond a connection name; safe to share across requests.
+        $this->app->singleton(MetricsService::class, fn () => new MetricsService(
+            config('metrics.connection', 'cache')
+        ));
 
         // Register notification config repository
         $this->app->bind(

@@ -18,7 +18,9 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Health checks
-Route::get('/health', fn () => response()->json(['status' => 'ok', 'version' => '1.0']));
+// OBS-2: real probe replaces the static literal so load balancers /
+// uptime monitors can detect DB / Redis / queue / DLQ failures.
+Route::get('/health', [HealthCheckController::class, 'index']);
 Route::get('/health/payments', [HealthCheckController::class, 'payments'])
     ->middleware('throttle:api');
 

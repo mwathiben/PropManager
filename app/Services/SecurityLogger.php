@@ -322,6 +322,25 @@ class SecurityLogger
     }
 
     /**
+     * OBS-6: log a payment-configuration change. We record only the
+     * NAMES of fields that changed — never the secret values themselves —
+     * so the audit trail is reviewable without re-leaking credentials.
+     */
+    public function logPaymentConfigChange(User $actor, array $changedFields, array $context = []): ?SecurityLog
+    {
+        return $this->log(
+            SecurityLog::EVENT_PAYMENT_CONFIG_CHANGE,
+            "Payment configuration updated by {$actor->email}",
+            array_merge([
+                'changed_fields' => array_values($changedFields),
+                'actor_email' => $actor->email,
+            ], $context),
+            SecurityLog::SEVERITY_WARNING,
+            $actor
+        );
+    }
+
+    /**
      * Log suspicious activity.
      */
     public function logSuspiciousActivity(string $description, array $details = [], ?User $user = null): ?SecurityLog

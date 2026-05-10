@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Notification;
+use App\Services\MetricsService;
 use App\Services\NotificationService;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -116,6 +117,15 @@ class SendNotificationJob implements ShouldBeUnique, ShouldQueue
             } else {
                 $this->handleNewNotification($notificationService);
             }
+
+            // OBS-11: notification.dispatched is the queue-throughput
+            // signal; pair it with notification.failed and the
+            // notification-channel logs from OBS-4 to spot delivery
+            // regressions before tenants complain.
+            app(MetricsService::class)->increment(
+                'notification.dispatched',
+                labels: ['type' => $this->type ?? 'deferred']
+            );
         } catch (\Exception $e) {
             Log::error('SendNotificationJob failed', [
                 'notification_id' => $this->notificationId,
@@ -123,6 +133,11 @@ class SendNotificationJob implements ShouldBeUnique, ShouldQueue
                 'type' => $this->type,
                 'error' => $e->getMessage(),
             ]);
+
+            app(MetricsService::class)->increment(
+                'notification.failed',
+                labels: ['type' => $this->type ?? 'deferred']
+            );
 
             throw $e;
         }

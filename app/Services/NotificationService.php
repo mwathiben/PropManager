@@ -137,6 +137,29 @@ class NotificationService
     }
 
     /**
+     * OBS-4: every notification-channel failure must land in the
+     * 'notifications' log channel with full context. Pre-fix the catch
+     * blocks only stamped markAsFailed() on the row; ops had no way to
+     * detect a wedged Twilio account or expired Africa's Talking key
+     * because the failure rate was buried in DB rows that nobody queries.
+     */
+    private function logChannelFailure(Notification $notification, \Throwable $e): void
+    {
+        Log::channel(config('logging.notifications_channel', 'stack'))->error(
+            'Notification channel failure',
+            [
+                'notification_id' => $notification->id,
+                'landlord_id' => $notification->landlord_id,
+                'recipient_id' => $notification->recipient_id ?? $notification->user_id ?? null,
+                'channel' => $notification->channel,
+                'type' => $notification->type,
+                'error' => $e->getMessage(),
+                'exception' => $e::class,
+            ]
+        );
+    }
+
+    /**
      * Send a notification to ALL enabled channels (for critical notifications).
      */
     public function sendToAllChannels(
@@ -184,6 +207,7 @@ class NotificationService
                     $results[$channel] = $sent ? 'sent' : 'failed';
                 } catch (\Exception $e) {
                     $notification->markAsFailed($e->getMessage());
+                    $this->logChannelFailure($notification, $e);
                     $results[$channel] = 'failed';
                 }
             }
@@ -234,6 +258,7 @@ class NotificationService
                     $results[$channel] = $sent ? 'sent' : 'failed';
                 } catch (\Exception $e) {
                     $notification->markAsFailed($e->getMessage());
+                    $this->logChannelFailure($notification, $e);
                     $results[$channel] = 'failed';
                 }
             }
@@ -505,6 +530,7 @@ class NotificationService
             return false;
         } catch (\Exception $e) {
             $notification->markAsFailed($e->getMessage());
+            $this->logChannelFailure($notification, $e);
 
             return false;
         }
@@ -553,6 +579,7 @@ class NotificationService
             return false;
         } catch (\Exception $e) {
             $notification->markAsFailed($e->getMessage());
+            $this->logChannelFailure($notification, $e);
 
             return false;
         }
@@ -617,6 +644,7 @@ class NotificationService
             return false;
         } catch (\Exception $e) {
             $notification->markAsFailed($e->getMessage());
+            $this->logChannelFailure($notification, $e);
 
             return false;
         }
@@ -680,6 +708,7 @@ class NotificationService
             return false;
         } catch (\Exception $e) {
             $notification->markAsFailed($e->getMessage());
+            $this->logChannelFailure($notification, $e);
 
             return false;
         }
@@ -1263,6 +1292,7 @@ class NotificationService
                 return $sent;
             } catch (\Exception $e) {
                 $notification->markAsFailed($e->getMessage());
+                $this->logChannelFailure($notification, $e);
 
                 return false;
             }

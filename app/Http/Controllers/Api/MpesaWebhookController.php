@@ -17,6 +17,7 @@ use App\Models\WebhookDeadLetter;
 use App\Models\WebhookLog;
 use App\Services\BillingModelService;
 use App\Services\IdempotencyService;
+use App\Services\MetricsService;
 use App\Services\Payment\WebhookDeadLetterService;
 use App\Services\Payment\WebhookLogService;
 use App\Services\ReceiptService;
@@ -42,8 +43,21 @@ class MpesaWebhookController extends Controller
         $callback = $request->input('Body.stkCallback');
 
         if (! $callback) {
+            // OBS-11: malformed-payload counter is the canary for misrouted
+            // webhooks (Safaricom retried the wrong endpoint, NAT mangled
+            // the body, etc.).
+            app(MetricsService::class)->increment(
+                'webhook.received',
+                labels: ['provider' => 'mpesa', 'event' => 'stk_callback', 'outcome' => 'invalid_payload']
+            );
+
             return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Invalid payload']);
         }
+
+        app(MetricsService::class)->increment(
+            'webhook.received',
+            labels: ['provider' => 'mpesa', 'event' => 'stk_callback', 'outcome' => ($callback['ResultCode'] ?? -1) === 0 ? 'success' : 'failure']
+        );
 
         $eventId = $callback['CheckoutRequestID'] ?? 'stk-unknown-'.bin2hex(random_bytes(8));
         $webhookLog = $this->webhookLogService->recordHit(

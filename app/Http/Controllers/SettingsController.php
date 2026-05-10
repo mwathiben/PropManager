@@ -14,6 +14,7 @@ use App\Models\NotificationPreference;
 use App\Models\PaymentConfiguration;
 use App\Models\Setting;
 use App\Services\OcrService;
+use App\Services\SecurityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -160,7 +161,7 @@ class SettingsController extends Controller
     /**
      * Update payment methods configuration
      */
-    public function updatePaymentMethods(UpdatePaymentMethodsRequest $request)
+    public function updatePaymentMethods(UpdatePaymentMethodsRequest $request, SecurityLogger $securityLogger)
     {
         $config = PaymentConfiguration::getOrCreateForLandlord(auth()->id());
 
@@ -182,7 +183,31 @@ class SettingsController extends Controller
             }
         }
 
+        // OBS-6: capture only the NAMES of changed fields (no secret values)
+        // before the update so the audit trail can survive a credentials
+        // leak without becoming the leak. Diff against the existing record
+        // so that no-op submits don't create noise in the security log.
+        // Non-scalars (e.g. b2c_initiators array) are JSON-serialised so the
+        // diff is stable and can't blow up on Array-to-string conversion.
+        $normalise = static fn (mixed $v): string => is_scalar($v) || $v === null
+            ? (string) ($v ?? '')
+            : json_encode($v);
+        $changedFields = [];
+        foreach ($data as $field => $value) {
+            if ($normalise($config->{$field} ?? null) !== $normalise($value)) {
+                $changedFields[] = $field;
+            }
+        }
+
         $config->update($data);
+
+        if ($changedFields !== []) {
+            $securityLogger->logPaymentConfigChange(
+                auth()->user(),
+                $changedFields,
+                ['landlord_id' => (int) auth()->id()]
+            );
+        }
 
         return redirect()->back()->with('success', 'Payment methods updated successfully.');
     }

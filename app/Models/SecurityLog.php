@@ -82,6 +82,11 @@ class SecurityLog extends Model
 
     public const EVENT_PROFILE_UPDATE = 'profile_update';
 
+    // OBS-6: payment-config audit trail. Recorded when a landlord changes
+    // M-Pesa / Paystack / IntaSend / B2C credentials so that any payout
+    // misroute can be traced back to the actor + diff that caused it.
+    public const EVENT_PAYMENT_CONFIG_CHANGE = 'payment_config_change';
+
     /**
      * Severity levels.
      */

@@ -253,6 +253,8 @@ class AdminController extends Controller
         ]);
 
         // Only update if value is provided (not empty)
+        $changedFields = [];
+
         if (! empty($validated['paystack_public_key'])) {
             Setting::setSystem(
                 'paystack_public_key',
@@ -261,6 +263,7 @@ class AdminController extends Controller
                 'payment',
                 'Paystack public key for payment processing'
             );
+            $changedFields[] = 'paystack_public_key';
         }
 
         if (! empty($validated['paystack_secret_key'])) {
@@ -270,6 +273,18 @@ class AdminController extends Controller
                 true,
                 'payment',
                 'Paystack secret key for payment processing'
+            );
+            $changedFields[] = 'paystack_secret_key';
+        }
+
+        // OBS-6: super-admin (system-wide) Paystack key edits go in the
+        // same audit trail as per-landlord changes. Field names only —
+        // never the secret values themselves.
+        if ($changedFields !== [] && ($actor = auth()->user())) {
+            $this->securityLogger->logPaymentConfigChange(
+                $actor,
+                $changedFields,
+                ['scope' => 'system']
             );
         }
 

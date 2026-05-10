@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Models\WebhookDeadLetter;
 use App\Services\BillingModelService;
 use App\Services\IdempotencyService;
+use App\Services\MetricsService;
 use App\Services\ReceiptService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -165,6 +166,16 @@ class PaymentCallbackProcessor
                 'payment_id' => $result->payment?->id,
             ]);
 
+            // OBS-11: counter for payment-callback outcomes; the
+            // 'duplicate' bucket is the canary for replay storms.
+            $outcome = $result->isSuccess()
+                ? 'success'
+                : ($result->isAlreadyProcessed() ? 'duplicate' : 'error');
+            app(MetricsService::class)->increment(
+                'payment.callback',
+                labels: ['source' => $this->source ?? 'paystack', 'outcome' => $outcome]
+            );
+
             return $result;
         } catch (\Illuminate\Database\QueryException $e) {
             if ($e->errorInfo[1] === 1062) {
@@ -193,6 +204,11 @@ class PaymentCallbackProcessor
                 $this->resolvePaymentLandlordId()
             );
 
+            app(MetricsService::class)->increment(
+                'payment.callback',
+                labels: ['source' => $this->source ?? 'paystack', 'outcome' => 'db_error']
+            );
+
             return PaymentProcessResult::error($e->getMessage());
         } catch (\Exception $e) {
             $this->idempotencyService->fail($this->idempotencyKey, $e->getMessage());
@@ -209,6 +225,11 @@ class PaymentCallbackProcessor
                 $e->getMessage(),
                 WebhookDeadLetter::ERROR_PERMANENT,
                 $this->resolvePaymentLandlordId()
+            );
+
+            app(MetricsService::class)->increment(
+                'payment.callback',
+                labels: ['source' => $this->source ?? 'paystack', 'outcome' => 'exception']
             );
 
             return PaymentProcessResult::error($e->getMessage());
