@@ -51,6 +51,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'webhook.paystack' => \App\Http\Middleware\ValidatePaystackWebhook::class,
             'webhook.intasend' => \App\Http\Middleware\ValidateIntaSendWebhook::class,
             'block.archived' => \App\Http\Middleware\BlockArchivedUsers::class,
+            // RATE-9: single-use signed link enforcement (above + table).
+            'signed.once' => \App\Http\Middleware\EnsureSignedLinkSingleUse::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -124,13 +124,16 @@ Route::get('/dashboard/stats', \App\Http\Controllers\DashboardStatsController::c
     ->name('dashboard.stats');
 
 // --- SIGNED EMAIL ROUTES (no auth required) ---
+// RATE-9: signed.once replaces 'signed' so a forwarded email link
+// cannot be replayed. The first hit consumes the signature in
+// signed_link_uses; subsequent hits return 403.
 Route::get('/email/preferences', [\App\Http\Controllers\NotificationsController::class, 'emailPreferences'])
     ->name('email.preferences')
-    ->middleware(['signed', 'throttle:invitation']);
+    ->middleware(['signed.once', 'throttle:invitation']);
 
 Route::post('/email/unsubscribe', [\App\Http\Controllers\NotificationsController::class, 'oneClickUnsubscribe'])
     ->name('email.unsubscribe')
-    ->middleware(['signed', 'throttle:invitation']);
+    ->middleware(['signed.once', 'throttle:invitation']);
 
 // --- AUTHENTICATED ROUTES GROUP ---
 Route::middleware('auth')->group(function () {
