@@ -123,7 +123,7 @@ class PaymentLink extends Model
 
     public static function generateToken(): string
     {
-        return bin2hex(random_bytes(32));
+        return \App\Support\Tokens::secure(32);
     }
 
     public function isExpired(): bool

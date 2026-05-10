@@ -171,6 +171,43 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // OBS-5: per-domain channels for notification + payment +
+        // schedule + metrics events. Pre-fix, NotificationService and
+        // ProcessFailedNotifications referenced Log::channel('notifications')
+        // which didn't exist, so the writes silently fell back to the
+        // default stack channel and got mixed with HTTP logs.
+        'notifications' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/notifications.log'),
+            'level' => env('NOTIFICATIONS_LOG_LEVEL', 'debug'),
+            'days' => env('NOTIFICATIONS_LOG_RETENTION_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
+        'payments' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/payments.log'),
+            'level' => env('PAYMENTS_LOG_LEVEL', 'debug'),
+            'days' => env('PAYMENTS_LOG_RETENTION_DAYS', 90),
+            'replace_placeholders' => true,
+        ],
+
+        'schedule' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/schedule.log'),
+            'level' => env('SCHEDULE_LOG_LEVEL', 'info'),
+            'days' => env('SCHEDULE_LOG_RETENTION_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
+        'metrics' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/metrics.log'),
+            'level' => env('METRICS_LOG_LEVEL', 'warning'),
+            'days' => 14,
+            'replace_placeholders' => true,
+        ],
+
     ],
 
 ];

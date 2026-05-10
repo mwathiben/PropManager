@@ -11,11 +11,25 @@ class AddTicketCommentRequest extends FormRequest
         $user = auth()->user();
         $ticket = $this->route('ticket');
 
+        if (! $user || ! $ticket) {
+            return false;
+        }
+
         if ($user->isTenant()) {
             return $ticket->reporter_id === $user->id;
         }
 
-        return $user->isLandlord() || $user->isCaretaker();
+        // PRIV-7: a landlord/caretaker may only comment on their own
+        // tenant's ticket. Pre-fix, returning true for any landlord
+        // role meant landlord A could comment on landlord B's tickets
+        // by guessing the route id.
+        if ($user->isLandlord() || $user->isCaretaker()) {
+            $landlordId = $user->isCaretaker() ? (int) $user->landlord_id : (int) $user->id;
+
+            return (int) $ticket->landlord_id === $landlordId;
+        }
+
+        return false;
     }
 
     public function rules(): array

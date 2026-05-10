@@ -484,7 +484,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/notifications/preferences', [\App\Http\Controllers\NotificationsController::class, 'getPreferences'])->name('notifications.preferences');
     Route::post('/notifications/preferences', [\App\Http\Controllers\NotificationsController::class, 'updatePreferences'])->name('notifications.updatePreferences');
     Route::post('/notifications/{notification}/mark-read', [\App\Http\Controllers\NotificationsController::class, 'markAsRead'])->name('notifications.markAsRead');
-    Route::post('/notifications/{notification}/retry', [\App\Http\Controllers\NotificationsController::class, 'retry'])->name('notifications.retry');
+    // RATE-11: retry hits the SMS/email provider — bound to 'sensitive'.
+    Route::post('/notifications/{notification}/retry', [\App\Http\Controllers\NotificationsController::class, 'retry'])
+        ->middleware('throttle:sensitive')
+        ->name('notifications.retry');
     Route::delete('/notifications/{notification}', [\App\Http\Controllers\NotificationsController::class, 'destroy'])->name('notifications.destroy');
 
     // Notification Templates
@@ -492,7 +495,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/notifications/templates', [\App\Http\Controllers\NotificationsController::class, 'storeTemplate'])->name('notifications.templates.store');
     Route::put('/notifications/templates/{template}', [\App\Http\Controllers\NotificationsController::class, 'updateTemplate'])->name('notifications.templates.update');
     Route::delete('/notifications/templates/{template}', [\App\Http\Controllers\NotificationsController::class, 'destroyTemplate'])->name('notifications.templates.destroy');
-    Route::post('/notifications/templates/{template}/preview', [\App\Http\Controllers\NotificationsController::class, 'previewTemplate'])->name('notifications.templates.preview');
+    Route::post('/notifications/templates/{template}/preview', [\App\Http\Controllers\NotificationsController::class, 'previewTemplate'])
+        ->middleware('throttle:provider-test')
+        ->name('notifications.templates.preview');
 
     // Notification Schedules
     Route::get('/notifications/schedules', [\App\Http\Controllers\NotificationsController::class, 'schedules'])->name('notifications.schedules');
@@ -500,12 +505,17 @@ Route::middleware('auth')->group(function () {
     Route::put('/notifications/schedules/{schedule}', [\App\Http\Controllers\NotificationsController::class, 'updateSchedule'])->name('notifications.schedules.update');
     Route::delete('/notifications/schedules/{schedule}', [\App\Http\Controllers\NotificationsController::class, 'destroySchedule'])->name('notifications.schedules.destroy');
     Route::post('/notifications/schedules/{schedule}/toggle', [\App\Http\Controllers\NotificationsController::class, 'toggleSchedule'])->name('notifications.schedules.toggle');
-    Route::post('/notifications/schedules/{schedule}/run', [\App\Http\Controllers\NotificationsController::class, 'runScheduleNow'])->name('notifications.schedules.run');
+    // RATE-11: run-now triggers an immediate broadcast — sensitive bound.
+    Route::post('/notifications/schedules/{schedule}/run', [\App\Http\Controllers\NotificationsController::class, 'runScheduleNow'])
+        ->middleware('throttle:sensitive')
+        ->name('notifications.schedules.run');
 
     // Notification Settings
     Route::get('/notifications/settings', [\App\Http\Controllers\NotificationsController::class, 'settings'])->name('notifications.settings');
     Route::post('/notifications/settings/provider/{provider}', [\App\Http\Controllers\NotificationsController::class, 'updateProviderSettings'])->name('notifications.settings.provider');
-    Route::post('/notifications/settings/test/{provider}', [\App\Http\Controllers\NotificationsController::class, 'testProvider'])->name('notifications.settings.test');
+    Route::post('/notifications/settings/test/{provider}', [\App\Http\Controllers\NotificationsController::class, 'testProvider'])
+        ->middleware('throttle:provider-test')
+        ->name('notifications.settings.test');
     Route::post('/notifications/settings/complete-setup', [\App\Http\Controllers\NotificationsController::class, 'completeSetup'])->name('notifications.settings.complete-setup');
     Route::post('/notifications/push/generate-keys', [\App\Http\Controllers\NotificationsController::class, 'generateVapidKeys'])->name('notifications.push.generate-keys');
     Route::get('/notifications/settings/status', [\App\Http\Controllers\NotificationsController::class, 'checkSetupStatus'])->name('notifications.settings.status');
@@ -592,10 +602,15 @@ Route::middleware('auth')->group(function () {
         Route::post('/complete-setup', [PaymentsHubController::class, 'completeSetup'])->name('complete-setup');
 
         // AJAX APIs
+        // RATE-10: bank-verify limiter is tighter than the general api
+        // throttle since both endpoints round-trip to Paystack and the
+        // verify-account response leaks holder names.
         Route::get('/banks', [PaymentsHubController::class, 'getBanks'])
-            ->middleware('throttle:api')
+            ->middleware('throttle:bank-verify')
             ->name('banks');
-        Route::post('/verify-account', [PaymentsHubController::class, 'verifyAccount'])->name('verify-account');
+        Route::post('/verify-account', [PaymentsHubController::class, 'verifyAccount'])
+            ->middleware('throttle:bank-verify')
+            ->name('verify-account');
     });
 
     // 15c. Finances Hub (Unified Finance Management - New Architecture)
@@ -767,10 +782,13 @@ Route::middleware('auth')->group(function () {
 
     // API endpoints for payout accounts - redirect to Payments Hub endpoints
     Route::middleware('role:landlord')->group(function () {
+        // RATE-10: bank-verify on the legacy alias too.
         Route::get('/api/banks', [PaymentsHubController::class, 'getBanks'])
-            ->middleware('throttle:api')
+            ->middleware('throttle:bank-verify')
             ->name('api.banks');
-        Route::post('/api/verify-account', [PaymentsHubController::class, 'verifyAccount'])->name('api.verify-account');
+        Route::post('/api/verify-account', [PaymentsHubController::class, 'verifyAccount'])
+            ->middleware('throttle:bank-verify')
+            ->name('api.verify-account');
     });
 
     // 19. KYC Review Routes (Landlords and Caretakers)
@@ -875,9 +893,18 @@ Route::middleware('auth')->group(function () {
     // GDPR Privacy Settings
     Route::prefix('privacy')->name('gdpr.')->group(function () {
         Route::get('/', [GdprController::class, 'index'])->name('index');
-        Route::post('/export', [GdprController::class, 'requestExport'])->name('request-export');
-        Route::get('/export/download', [GdprController::class, 'downloadExport'])->name('download-export');
-        Route::get('/export/immediate', [GdprController::class, 'immediateExport'])->name('immediate-export');
+        // RATE-7: every export path bound to throttle:export — these
+        // touch the full account dataset and ZIP+sign it; an unbounded
+        // loop is a cheap DoS on the worker.
+        Route::post('/export', [GdprController::class, 'requestExport'])
+            ->middleware('throttle:export')
+            ->name('request-export');
+        Route::get('/export/download', [GdprController::class, 'downloadExport'])
+            ->middleware('throttle:export')
+            ->name('download-export');
+        Route::get('/export/immediate', [GdprController::class, 'immediateExport'])
+            ->middleware('throttle:export')
+            ->name('immediate-export');
         Route::post('/delete', [GdprController::class, 'requestDeletion'])
             ->middleware('throttle:sensitive')
             ->name('request-deletion');

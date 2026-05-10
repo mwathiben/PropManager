@@ -178,6 +178,11 @@ class QueuedPaymentIntent extends Model
 
     public static function generateIdempotencyKey(int $tenantId, ?int $invoiceId, string $nonce): string
     {
-        return hash('sha256', "{$tenantId}:{$invoiceId}:{$nonce}");
+        // CRYPTO-9: hash_hmac so the key cannot be derived without
+        // APP_KEY. Pre-fix, a client-supplied nonce + a known
+        // tenantId/invoiceId would let an outsider precompute the
+        // idempotency key and pre-claim it (DoS) or correlate it to
+        // a payment row.
+        return hash_hmac('sha256', "{$tenantId}:{$invoiceId}:{$nonce}", config('app.key'));
     }
 }

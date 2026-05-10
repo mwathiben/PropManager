@@ -37,6 +37,7 @@ class InitiatePaystackPaymentRequest extends FormRequest
             'amount.min' => 'Payment amount must be at least KES 1.',
             'amount.max' => 'Payment amount cannot exceed KES 500,000 per transaction.',
             'callback_url.url' => 'Callback URL must be a valid URL.',
+            'callback_url.in' => 'Callback URL must be on this site.',
         ];
     }
 
@@ -57,6 +58,22 @@ class InitiatePaystackPaymentRequest extends FormRequest
 
                 if ($invoice->status === InvoiceStatus::Paid) {
                     $validator->errors()->add('invoice_id', 'This invoice is already fully paid.');
+                }
+            }
+
+            // CRYPTO-10: callback_url is forwarded to Paystack and the
+            // payment-status redirect lands the user there. An off-site
+            // callback is an open redirect and a payment-status leak
+            // vector. Lock it to the configured app.url host.
+            $callbackUrl = $this->input('callback_url');
+            if ($callbackUrl) {
+                $callbackHost = parse_url($callbackUrl, PHP_URL_HOST);
+                $appHost = parse_url((string) config('app.url'), PHP_URL_HOST);
+                if (! $callbackHost || ! $appHost || strcasecmp($callbackHost, $appHost) !== 0) {
+                    $validator->errors()->add(
+                        'callback_url',
+                        'Callback URL host must match the application host.'
+                    );
                 }
             }
         });

@@ -98,15 +98,28 @@ class ImportsController extends Controller
     {
         $this->authorize('create', Import::class);
 
+        $user = auth()->user();
+        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+
         $validated = $request->validate([
             'file' => 'required|file|mimes:csv,txt|max:10240', // 10MB max
             'type' => 'required|string|in:tenants,leases,water_readings,invoices,payments,units',
-            'building_id' => 'nullable|integer|exists:buildings,id',
-            'wing_id' => 'nullable|integer|exists:buildings,id',
+            // PRIV-10: building/wing must belong to the caller's landlord.
+            // Pre-fix, exists:buildings,id let landlord A reference any
+            // building globally and import payments into landlord B's books.
+            'building_id' => [
+                'nullable',
+                'integer',
+                \Illuminate\Validation\Rule::exists('buildings', 'id')
+                    ->where('landlord_id', $landlordId),
+            ],
+            'wing_id' => [
+                'nullable',
+                'integer',
+                \Illuminate\Validation\Rule::exists('buildings', 'id')
+                    ->where('landlord_id', $landlordId),
+            ],
         ]);
-
-        $user = auth()->user();
-        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
 
         // Use wing_id if provided, otherwise use building_id
         $targetBuildingId = $validated['wing_id'] ?? $validated['building_id'] ?? null;

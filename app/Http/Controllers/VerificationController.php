@@ -51,11 +51,22 @@ class VerificationController extends Controller
     public function storeTemplate(Request $request)
     {
         $user = auth()->user();
+        // PRIV-8: pre-fix, a tenant could POST here and create a template
+        // (TenantScope hides the read but doesn't gate the write).
+        if (! $user || (! $user->isLandlord() && ! $user->isCaretaker())) {
+            abort(403);
+        }
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'property_id' => 'nullable|exists:properties,id',
+            // PRIV-8: scope property_id to caller's landlord so a landlord
+            // can't reach into another landlord's property by id.
+            'property_id' => [
+                'nullable',
+                \Illuminate\Validation\Rule::exists('properties', 'id')
+                    ->where('landlord_id', $landlordId),
+            ],
             'is_default' => 'boolean',
             'items' => 'required|array|min:1',
             'items.*.name' => 'required|string|max:255',

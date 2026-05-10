@@ -404,6 +404,28 @@ class AppServiceProvider extends ServiceProvider
                 Limit::perMinute(20)->by('user:'.($request->user()?->id ?: $request->ip())),
             ];
         });
+
+        // RATE-10: bank-verify limiter — Paystack bank verification is
+        // metered by Paystack and also a name-enumeration vector if left
+        // wide open. 3/min per user, with a 30/hour ceiling per landlord.
+        RateLimiter::for('bank-verify', function (Request $request) {
+            $user = $request->user();
+            $key = 'user:'.($user?->id ?: $request->ip());
+
+            return [
+                Limit::perMinute(3)->by($key),
+                Limit::perHour(30)->by($key),
+            ];
+        });
+
+        // RATE-11: provider-test limiter — testProvider/previewTemplate
+        // both round-trip to the SMS/email provider; a tight bound stops
+        // a runaway UI from burning the daily provider quota.
+        RateLimiter::for('provider-test', function (Request $request) {
+            $key = 'user:'.($request->user()?->id ?: $request->ip());
+
+            return Limit::perMinute(5)->by($key);
+        });
     }
 
     /**

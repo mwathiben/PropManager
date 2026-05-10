@@ -5,7 +5,6 @@ namespace App\Models;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
 
 class Invitation extends Model
 {
@@ -93,7 +92,7 @@ class Invitation extends Model
      */
     public static function generateToken(): string
     {
-        return Str::random(64);
+        return \App\Support\Tokens::secure(32);
     }
 
     /**

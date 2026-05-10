@@ -689,8 +689,22 @@ class MpesaWebhookController extends Controller
 
     public function b2cTimeout(Request $request)
     {
+        // OBS-12: log only safe identifiers, not the whole payload —
+        // B2C timeouts include payee phone numbers and account names.
+        // Keeping conversation_id + result_code in the log is enough
+        // to correlate to our own webhook_logs row, which holds the
+        // raw payload behind RBAC.
+        $payload = $request->all();
         Log::warning('M-Pesa B2C timeout received', [
-            'payload' => $request->all(),
+            'originator_conversation_id' => $payload['Result']['OriginatorConversationID']
+                ?? $payload['OriginatorConversationID']
+                ?? null,
+            'conversation_id' => $payload['Result']['ConversationID']
+                ?? $payload['ConversationID']
+                ?? null,
+            'result_code' => $payload['Result']['ResultCode']
+                ?? $payload['ResultCode']
+                ?? null,
         ]);
 
         return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);

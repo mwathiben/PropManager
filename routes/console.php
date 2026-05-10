@@ -72,3 +72,24 @@ $archive = Schedule::job(new \App\Jobs\ArchiveOldPayments)
 if ($failureEmail) {
     $archive->emailOutputOnFailure($failureEmail);
 }
+
+// OBS-13: failed_jobs growth monitor. Without this, a wedged worker /
+// poisoned job lets failed_jobs grow unbounded and we don't notice
+// until queue throughput collapses. Threshold + recipient are
+// configurable so dev / CI doesn't blast real inboxes.
+Schedule::call(function () use ($failureEmail) {
+    $threshold = (int) config('queue.failed_jobs_alert_threshold', 25);
+    $count = \Illuminate\Support\Facades\DB::table('failed_jobs')
+        ->where('failed_at', '>=', now()->subDay())
+        ->count();
+    Log::channel(config('logging.schedule_channel', 'stack'))->info(
+        'failed_jobs growth monitor',
+        ['count_24h' => $count, 'threshold' => $threshold]
+    );
+    if ($count > $threshold && $failureEmail) {
+        \Illuminate\Support\Facades\Mail::raw(
+            "failed_jobs grew by {$count} rows in the last 24h (threshold {$threshold}). Investigate worker logs.",
+            fn ($m) => $m->to($failureEmail)->subject('[ALERT] failed_jobs growth threshold crossed')
+        );
+    }
+})->name('failed-jobs-growth-monitor')->dailyAt('05:00')->onOneServer();

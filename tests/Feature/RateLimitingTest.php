@@ -85,15 +85,17 @@ class RateLimitingTest extends TestCase
         $response->assertHeader('X-RateLimit-Limit', '30');
     }
 
-    public function test_banks_api_endpoint_uses_api_rate_limiter(): void
+    public function test_banks_api_endpoint_uses_bank_verify_rate_limiter(): void
     {
         $landlord = User::factory()->create(['role' => 'landlord']);
 
         $response = $this->actingAs($landlord)
             ->get(route('payments-hub.banks'));
 
-        // Should use the api rate limiter (60/min)
-        $response->assertHeader('X-RateLimit-Limit', '60');
+        // RATE-10: bank-verify limiter (3/min) is tighter than the
+        // generic api throttle since both /banks and /verify-account
+        // round-trip to Paystack and the verify response leaks names.
+        $response->assertHeader('X-RateLimit-Limit', '3');
     }
 
     public function test_audit_logs_export_uses_export_rate_limiter(): void

@@ -7,7 +7,6 @@ use App\Models\User;
 use App\Services\TwoFactorService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -91,34 +90,17 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users',
-            'password' => ['required', 'string', 'confirmed', Password::min(12)->mixedCase()->numbers()->symbols()],
-            'device_name' => 'required|string|max:255',
-        ]);
-
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-        ]);
-        $user->role = 'tenant';
-        $user->save();
-
-        $abilities = $this->getAbilitiesForUser($user);
-        $token = $user->createToken($request->device_name, $abilities);
-
+        // PRIV-9: tenant accounts are created by landlord/caretaker
+        // invitation only. Pre-fix, anyone could POST here, mint a
+        // tenant token, and reach landlord-scoped tenant endpoints
+        // because TenantScope's writes-allowed-pre-auth gap keeps the
+        // record visible until landlord_id is set. There is no business
+        // case for unauthenticated public registration in this app, so
+        // the endpoint is closed; see TenantInvitationController for
+        // the supported flow.
         return response()->json([
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $user->role,
-            ],
-            'token' => $token->plainTextToken,
-            'abilities' => $abilities,
-        ], 201);
+            'message' => 'Registration is invitation-only. Contact your landlord for an invitation link.',
+        ], 403);
     }
 
     public function logout(Request $request)

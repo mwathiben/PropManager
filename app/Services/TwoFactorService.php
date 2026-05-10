@@ -124,10 +124,19 @@ class TwoFactorService
 
     /**
      * Generate a single recovery code.
+     *
+     * CRYPTO-7: Str::random uses random_bytes under the hood today, but
+     * the alphabet (a-zA-Z0-9) gives only ~5.95 bits per char. Using
+     * random_bytes(5)+bin2hex yields a uniform 40-bit code per segment
+     * with no alphabet ambiguity (no l/I/0/O collisions when typed).
      */
     protected function generateRecoveryCode(): string
     {
-        return Str::upper(Str::random(4).'-'.Str::random(4).'-'.Str::random(4));
+        return strtoupper(implode('-', [
+            bin2hex(random_bytes(2)),
+            bin2hex(random_bytes(2)),
+            bin2hex(random_bytes(2)),
+        ]));
     }
 
     /**
@@ -165,7 +174,19 @@ class TwoFactorService
 
         $normalizedCode = Str::upper(str_replace(' ', '', $code));
 
-        if (! $codes->contains($normalizedCode)) {
+        // CRYPTO-7: constant-time match. ::contains short-circuits on
+        // first match, leaking the index of the matched code via timing
+        // — small but real. hash_equals folds the whole list before
+        // returning so the wall-clock duration is independent of which
+        // (if any) code matched.
+        $matched = false;
+        foreach ($codes as $candidate) {
+            if (hash_equals((string) $candidate, $normalizedCode)) {
+                $matched = true;
+            }
+        }
+
+        if (! $matched) {
             return false;
         }
 
