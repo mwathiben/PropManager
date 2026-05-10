@@ -235,30 +235,36 @@ Route::middleware('auth')->group(function () {
     // ========================================
 
     // 4. Tenant Management (Viewing/Editing Profiles)
-    Route::get('/tenants', [TenantController::class, 'index'])->name('tenants.index');
-    Route::get('/tenants/{tenant}', [TenantController::class, 'show'])->name('tenants.show');
-    Route::get('/tenants/{tenant}/modal-data', [TenantController::class, 'modalData'])->name('tenants.modal-data');
-    Route::put('/tenants/{tenant}', [TenantController::class, 'update'])->name('tenants.update');
-    // Tenant Notes
-    Route::post('/tenants/{tenant}/notes', [TenantNoteController::class, 'store'])->name('tenants.notes.store');
-    Route::put('/tenant-notes/{note}', [TenantNoteController::class, 'update'])->name('tenants.notes.update');
-    Route::delete('/tenant-notes/{note}', [TenantNoteController::class, 'destroy'])->name('tenants.notes.destroy');
-    // Emergency Contacts
-    Route::post('/tenants/{tenant}/emergency-contacts', [TenantEmergencyContactController::class, 'store'])->name('tenants.emergency-contacts.store');
-    Route::put('/emergency-contacts/{contact}', [TenantEmergencyContactController::class, 'update'])->name('tenants.emergency-contacts.update');
-    Route::delete('/emergency-contacts/{contact}', [TenantEmergencyContactController::class, 'destroy'])->name('tenants.emergency-contacts.destroy');
-    // Tenant API for payment recording
-    Route::get('/tenants/search', [TenantController::class, 'search'])
-        ->middleware('throttle:search')
-        ->name('tenants.search');
-    Route::get('/tenants/{tenant}/outstanding-invoices', [TenantController::class, 'outstandingInvoices'])->name('tenants.outstanding-invoices');
-    Route::get('/tenants/{tenant}/refundable-payments', [TenantController::class, 'refundablePayments'])->name('tenants.refundable-payments');
-    // Tenant Ledger/Statement
-    Route::get('/tenants/{tenant}/ledger', [TenantController::class, 'ledger'])->name('tenants.ledger');
-    Route::get('/tenants/{tenant}/ledger/pdf', [TenantController::class, 'ledgerPdf'])
-        ->middleware('throttle:pdf-render')
-        ->name('tenants.ledger.pdf');
-    Route::post('/tenants/{tenant}/ledger/email', [TenantController::class, 'ledgerEmail'])->name('tenants.ledger.email');
+    // PRIV-15: defense-in-depth role guard. Controllers already verify
+    // landlord scope inline, but the route-level role:landlord,caretaker
+    // means a misconfigured controller (or a future regression) cannot
+    // accidentally expose these endpoints to a tenant role token.
+    Route::middleware('role:landlord,caretaker')->group(function () {
+        Route::get('/tenants', [TenantController::class, 'index'])->name('tenants.index');
+        Route::get('/tenants/{tenant}', [TenantController::class, 'show'])->name('tenants.show');
+        Route::get('/tenants/{tenant}/modal-data', [TenantController::class, 'modalData'])->name('tenants.modal-data');
+        Route::put('/tenants/{tenant}', [TenantController::class, 'update'])->name('tenants.update');
+        // Tenant Notes
+        Route::post('/tenants/{tenant}/notes', [TenantNoteController::class, 'store'])->name('tenants.notes.store');
+        Route::put('/tenant-notes/{note}', [TenantNoteController::class, 'update'])->name('tenants.notes.update');
+        Route::delete('/tenant-notes/{note}', [TenantNoteController::class, 'destroy'])->name('tenants.notes.destroy');
+        // Emergency Contacts
+        Route::post('/tenants/{tenant}/emergency-contacts', [TenantEmergencyContactController::class, 'store'])->name('tenants.emergency-contacts.store');
+        Route::put('/emergency-contacts/{contact}', [TenantEmergencyContactController::class, 'update'])->name('tenants.emergency-contacts.update');
+        Route::delete('/emergency-contacts/{contact}', [TenantEmergencyContactController::class, 'destroy'])->name('tenants.emergency-contacts.destroy');
+        // Tenant API for payment recording
+        Route::get('/tenants/search', [TenantController::class, 'search'])
+            ->middleware('throttle:search')
+            ->name('tenants.search');
+        Route::get('/tenants/{tenant}/outstanding-invoices', [TenantController::class, 'outstandingInvoices'])->name('tenants.outstanding-invoices');
+        Route::get('/tenants/{tenant}/refundable-payments', [TenantController::class, 'refundablePayments'])->name('tenants.refundable-payments');
+        // Tenant Ledger/Statement
+        Route::get('/tenants/{tenant}/ledger', [TenantController::class, 'ledger'])->name('tenants.ledger');
+        Route::get('/tenants/{tenant}/ledger/pdf', [TenantController::class, 'ledgerPdf'])
+            ->middleware('throttle:pdf-render')
+            ->name('tenants.ledger.pdf');
+        Route::post('/tenants/{tenant}/ledger/email', [TenantController::class, 'ledgerEmail'])->name('tenants.ledger.email');
+    });
 
     // 5. Water Readings (The Water Guy)
     Route::get('/readings', [WaterReadingController::class, 'index'])->name('readings.index');
