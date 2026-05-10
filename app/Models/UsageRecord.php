@@ -50,6 +50,11 @@ class UsageRecord extends Model
     public static function incrementUsage(int $userId, string $feature, int $amount = 1): self
     {
         $period = self::currentPeriod();
+        // SQL-1: PHP's `int` type hint already prevents string smuggling
+        // here, but an explicit (int) cast on interpolation is the
+        // belt-and-braces defense — if the type hint is ever weakened
+        // to mixed/string the interpolation can't carry SQL anyway.
+        $delta = (int) $amount;
 
         return self::updateOrCreate(
             [
@@ -58,7 +63,7 @@ class UsageRecord extends Model
                 'period_start' => $period['start'],
             ],
             [
-                'quantity' => \DB::raw("quantity + {$amount}"),
+                'quantity' => \DB::raw("quantity + {$delta}"),
                 'period_end' => $period['end'],
             ]
         );

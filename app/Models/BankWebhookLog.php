@@ -20,8 +20,13 @@ class BankWebhookLog extends Model
         'processed_payment_id',
     ];
 
+    // LEAK-1: webhook payloads include bank account numbers, sender
+    // names, and reference fields that are PII / financial data. The
+    // 'encrypted:array' cast wraps them at rest so a DB backup leak
+    // does not expose raw transaction details. Reads/writes go through
+    // Crypt transparently.
     protected $casts = [
-        'payload' => 'array',
+        'payload' => 'encrypted:array',
     ];
 
     public function processedPayment(): BelongsTo

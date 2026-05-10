@@ -40,13 +40,16 @@ class IntaSendTransaction extends Model
         'webhook_payload',
     ];
 
+    // LEAK-2: webhook_payload carries the full IntaSend callback,
+    // which includes phone numbers and transaction state. Encrypt at
+    // rest so a DB backup leak does not expose tenant PII.
     protected $casts = [
         'amount' => 'decimal:2',
         'intasend_charges' => 'decimal:2',
         'net_amount' => 'decimal:2',
         'platform_fee' => 'decimal:2',
         'landlord_amount' => 'decimal:2',
-        'webhook_payload' => 'array',
+        'webhook_payload' => 'encrypted:array',
     ];
 
     public function payment(): BelongsTo
