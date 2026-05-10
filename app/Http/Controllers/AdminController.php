@@ -369,17 +369,44 @@ class AdminController extends Controller
                 ->with('error', 'Cannot deactivate super admin users.');
         }
 
+        // PRIV-14: refuse to deactivate a landlord that still has active
+        // leases — pre-fix, an admin could accidentally lock out a real
+        // landlord's tenants from rent payments by clicking the toggle.
+        $isDeactivating = (bool) $user->email_verified_at;
+        if ($isDeactivating && $user->isLandlord()) {
+            $hasActiveLeases = \App\Models\Lease::where('landlord_id', $user->id)
+                ->where('is_active', true)
+                ->exists();
+            if ($hasActiveLeases) {
+                return redirect()->back()
+                    ->with('error', 'Cannot deactivate a landlord with active leases. Terminate or transfer leases first.');
+            }
+        }
+
         // Toggle email_verified_at as a simple activation status
         // In production, you might want a dedicated 'is_active' column
-        if ($user->email_verified_at) {
+        if ($isDeactivating) {
             $user->email_verified_at = null;
             $message = "User {$user->name} has been deactivated.";
+            $event = 'admin_user_deactivated';
         } else {
             $user->email_verified_at = now();
             $message = "User {$user->name} has been activated.";
+            $event = 'admin_user_activated';
         }
 
         $user->save();
+
+        // PRIV-14: audit trail for activation/deactivation since the
+        // toggle gates downstream login (User::canLogin checks
+        // email_verified_at) and tenant access.
+        $this->securityLogger->log(
+            $event,
+            "Admin toggled {$user->email}",
+            ['target_user_id' => $user->id, 'target_email' => $user->email, 'role' => $user->role],
+            \App\Models\SecurityLog::SEVERITY_WARNING,
+            Auth::user()
+        );
 
         return redirect()->back()->with('success', $message);
     }

@@ -170,7 +170,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/leases/{lease}/wallet-adjustment', [LeaseController::class, 'walletAdjustment'])->name('leases.wallet-adjustment');
     Route::get('/leases/{lease}/wallet-history', [LeaseController::class, 'walletHistory'])->name('leases.wallet-history');
     Route::get('/leases/{lease}', [LeaseController::class, 'show'])->name('leases.show');
-    Route::get('/leases/{lease}/download', [LeaseController::class, 'download'])->name('leases.download');
+    Route::get('/leases/{lease}/download', [LeaseController::class, 'download'])
+        ->middleware('throttle:pdf-render')
+        ->name('leases.download');
 
     // 3. The Architect (Building Configuration)
     Route::get('/buildings/{building}/configure', [BuildingController::class, 'edit'])->name('buildings.edit');
@@ -250,7 +252,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/tenants/{tenant}/refundable-payments', [TenantController::class, 'refundablePayments'])->name('tenants.refundable-payments');
     // Tenant Ledger/Statement
     Route::get('/tenants/{tenant}/ledger', [TenantController::class, 'ledger'])->name('tenants.ledger');
-    Route::get('/tenants/{tenant}/ledger/pdf', [TenantController::class, 'ledgerPdf'])->name('tenants.ledger.pdf');
+    Route::get('/tenants/{tenant}/ledger/pdf', [TenantController::class, 'ledgerPdf'])
+        ->middleware('throttle:pdf-render')
+        ->name('tenants.ledger.pdf');
     Route::post('/tenants/{tenant}/ledger/email', [TenantController::class, 'ledgerEmail'])->name('tenants.ledger.email');
 
     // 5. Water Readings (The Water Guy)
@@ -361,7 +365,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/invoices/{invoice}/send-reminder', [InvoiceController::class, 'sendReminder'])
         ->middleware('throttle:notification-send') // RATE-2
         ->name('invoices.send-reminder');
-    Route::get('/invoices/{invoice}/download', [InvoiceController::class, 'download'])->name('invoices.download');
+    Route::get('/invoices/{invoice}/download', [InvoiceController::class, 'download'])
+        ->middleware('throttle:pdf-render')
+        ->name('invoices.download');
     Route::post('/invoices/{invoice}/void', [InvoiceController::class, 'void'])->name('invoices.void');
     Route::get('/invoices/{invoice}/preview', [InvoiceController::class, 'preview'])->name('invoices.preview');
     Route::post('/invoices/{invoice}/reissue', [InvoiceController::class, 'reissue'])->name('invoices.reissue');

@@ -16,10 +16,35 @@ use App\Models\WaterReading;
 use App\Traits\DatabaseAgnosticQueries;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
 class DashboardService
 {
     use DatabaseAgnosticQueries;
+
+    /**
+     * OBS-15: bracket a dashboard section with hrtime() so a slow
+     * query can be traced back to the section that owns it. Logs at
+     * debug level on the metrics channel; sample the log in prod by
+     * adjusting METRICS_LOG_LEVEL or letting the channel daily-roll.
+     */
+    private function trackSection(string $section, ?int $landlordId, callable $work): mixed
+    {
+        $start = hrtime(true);
+        try {
+            return $work();
+        } finally {
+            $durationMs = (int) ((hrtime(true) - $start) / 1_000_000);
+            Log::channel(config('logging.metrics_channel', 'stack'))->debug(
+                'dashboard section duration',
+                [
+                    'section' => $section,
+                    'landlord_id' => $landlordId,
+                    'duration_ms' => $durationMs,
+                ]
+            );
+        }
+    }
 
     public function getSuperAdminMetrics(): array
     {
@@ -105,6 +130,13 @@ class DashboardService
     }
 
     public function getLandlordDashboardData(User $landlord, Request $request): array
+    {
+        return $this->trackSection('landlord_dashboard', (int) $landlord->id, function () use ($landlord, $request) {
+            return $this->buildLandlordDashboardData($landlord, $request);
+        });
+    }
+
+    private function buildLandlordDashboardData(User $landlord, Request $request): array
     {
         $allProperties = $landlord->properties()
             ->select(['id', 'landlord_id', 'name'])

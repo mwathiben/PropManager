@@ -434,6 +434,17 @@ class AppServiceProvider extends ServiceProvider
 
             return Limit::perMinute(5)->by($key);
         });
+
+        // RATE-12: PDF rendering is CPU-bound (DOMPDF/Snappy); a bound
+        // protects worker pool from an automation that loops download.
+        // 15/min lets a landlord export 15 receipts/leases without
+        // tripping the tighter export limiter (5/min) which is reserved
+        // for full-account dumps.
+        RateLimiter::for('pdf-render', function (Request $request) {
+            $key = 'user:'.($request->user()?->id ?: $request->ip());
+
+            return Limit::perMinute(15)->by($key);
+        });
     }
 
     /**
@@ -470,6 +481,20 @@ class AppServiceProvider extends ServiceProvider
         // Check app key
         if (empty(config('app.key'))) {
             $warnings[] = 'APP_KEY is not set! Application encryption will not work.';
+        }
+
+        // CRYPTO-12: refuse to start with the committed Reverb placeholder
+        // values still in env. The .env.example now ships blanks; if a
+        // production env still has the historical 'your-secret-key-here'
+        // string something went wrong with the deploy.
+        $reverbSecret = (string) config('reverb.apps.apps.0.secret', '');
+        $reverbKey = (string) config('reverb.apps.apps.0.key', '');
+        $placeholderValues = ['your-secret-key-here', 'propmanager-key'];
+        foreach ([$reverbSecret, $reverbKey] as $value) {
+            if (in_array($value, $placeholderValues, true)) {
+                $warnings[] = 'REVERB credentials still hold a placeholder value. Override REVERB_APP_KEY / REVERB_APP_SECRET.';
+                break;
+            }
         }
 
         // Log warnings
