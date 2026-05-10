@@ -19,6 +19,13 @@ class Lease extends Model
         return $query->where('is_active', true);
     }
 
+    // MASS-1: wallet_balance is system-managed (creditToWallet /
+    // deductFromWallet only) and must never be mass-assignable from a
+    // user-controlled payload. The DB column defaults to 0 so callers
+    // that previously passed 'wallet_balance' => 0 keep working with
+    // the field omitted; any future caller that tries to set a non-zero
+    // balance via Lease::create() will silently no-op, surfacing the
+    // mistake instead of granting free credit.
     protected $fillable = [
         'unit_id',
         'tenant_id',
@@ -28,7 +35,6 @@ class Lease extends Model
         'rent_amount',
         'deposit_amount',
         'service_charge',
-        'wallet_balance',
         'is_active',
         'lease_doc_path',
         'deposit_status',
@@ -123,7 +129,11 @@ class Lease extends Model
         $locked = static::lockForUpdate()->find($this->id);
         $newBalance = (float) $locked->wallet_balance + $amount;
 
-        $locked->update(['wallet_balance' => $newBalance]);
+        // MASS-1: wallet_balance is no longer in $fillable, so direct
+        // attribute assignment + save() is required (update([]) goes
+        // through fillable and would silently no-op).
+        $locked->wallet_balance = $newBalance;
+        $locked->save();
 
         WalletTransaction::create([
             'lease_id' => $this->id,
@@ -154,7 +164,11 @@ class Lease extends Model
 
         if ($deducted > 0) {
             $newBalance = (float) $locked->wallet_balance - $deducted;
-            $locked->update(['wallet_balance' => $newBalance]);
+            // MASS-1: wallet_balance is no longer in $fillable, so direct
+            // attribute assignment + save() is required (update([]) goes
+            // through fillable and would silently no-op).
+            $locked->wallet_balance = $newBalance;
+            $locked->save();
 
             WalletTransaction::create([
                 'lease_id' => $this->id,

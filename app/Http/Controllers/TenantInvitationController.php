@@ -328,7 +328,8 @@ class TenantInvitationController extends Controller
                 );
             }
 
-            // Create the lease
+            // Create the lease (wallet_balance defaults to 0 in DB; not
+            // mass-assignable per MASS-1).
             $lease = Lease::create([
                 'unit_id' => $invitation->unit_id,
                 'tenant_id' => $tenant->id,
@@ -338,7 +339,6 @@ class TenantInvitationController extends Controller
                 'rent_amount' => $invitation->rent_amount,
                 'service_charge' => $invitation->service_charge,
                 'deposit_amount' => $invitation->deposit_amount,
-                'wallet_balance' => 0,
                 'is_active' => true,
             ]);
 
@@ -805,7 +805,8 @@ class TenantInvitationController extends Controller
             $user->landlord_id = $invitation->landlord_id;
             $user->save();
 
-            // Create the lease
+            // Create the lease (MASS-1: wallet_balance no longer
+            // mass-assignable; DB default is 0).
             $lease = Lease::create([
                 'unit_id' => $invitation->unit_id,
                 'tenant_id' => $user->id,
@@ -815,7 +816,6 @@ class TenantInvitationController extends Controller
                 'rent_amount' => $invitation->rent_amount,
                 'service_charge' => $invitation->service_charge,
                 'deposit_amount' => $invitation->deposit_amount,
-                'wallet_balance' => 0,
                 'is_active' => true,
             ]);
 

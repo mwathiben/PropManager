@@ -148,7 +148,9 @@ class LeaseController extends Controller
                     'service_charge' => $request->service_charge ?? 0,
                     'deposit_amount' => $request->deposit_amount,
                     'lease_doc_path' => $docPath,
-                    'wallet_balance' => 0,
+                    // wallet_balance defaults to 0 in the DB; explicit
+                    // assignment dropped per MASS-1 ($fillable no longer
+                    // exposes wallet_balance to mass assignment).
                     'is_active' => true,
                 ]);
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\SecureFile;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreLeaseRequest extends FormRequest
@@ -25,7 +26,15 @@ class StoreLeaseRequest extends FormRequest
             'service_charge' => ['nullable', 'decimal:0,2', 'min:0', 'max:9999999.99'],
             'deposit_amount' => ['required', 'decimal:0,2', 'min:0', 'max:9999999.99'],
             'start_date' => 'required|date',
-            'lease_doc' => 'nullable|file|mimes:pdf,jpg,png|max:2048',
+            // UPLOAD-7: SecureFile sniffs the actual MIME via finfo and
+            // checks magic bytes; the 'mimes:' rule trusted only the
+            // client-provided extension and would happily accept a
+            // .php webshell renamed to .pdf.
+            'lease_doc' => [
+                'nullable',
+                'file',
+                new SecureFile(maxSizeMb: 2, allowedMimes: ['application/pdf', 'image/jpeg', 'image/png'], allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png']),
+            ],
         ];
     }
 

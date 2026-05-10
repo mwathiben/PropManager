@@ -221,7 +221,6 @@ class ImportService
                         'landlord_id' => $landlordId,
                         'rent_amount' => $row['rent_amount'],
                         'deposit_amount' => $row['deposit_amount'],
-                        'wallet_balance' => 0,
                         'start_date' => $row['start_date'],
                         'end_date' => $row['end_date'] ?? null,
                         'is_active' => true,

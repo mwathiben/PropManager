@@ -216,8 +216,39 @@ class DocumentController extends Controller
             abort(404, 'File not found in storage');
         }
 
-        // Return file download
-        return Storage::disk('local')->download($document->file_path, $document->file_name);
+        // UPLOAD-8: file_name is the user-uploaded original filename and
+        // ends up verbatim in the Content-Disposition response header.
+        // Strip CR/LF and other characters that could be used to inject
+        // additional headers, then ensure the extension is preserved
+        // for sensible browser handling.
+        $safeName = $this->sanitiseDownloadFilename($document->file_name, (string) $document->file_path);
+
+        return Storage::disk('local')->download($document->file_path, $safeName);
+    }
+
+    /**
+     * UPLOAD-8: produce a download filename that is safe to inject into
+     * the Content-Disposition response header. Stops CR/LF / control-byte
+     * smuggling and falls back to a synthesised name if the original is
+     * empty or all-stripped.
+     */
+    private function sanitiseDownloadFilename(?string $original, string $storedPath): string
+    {
+        $base = trim((string) $original);
+        // Strip CR/LF/control bytes outright, plus quote characters that
+        // can break out of the disposition string.
+        $base = preg_replace('/[\x00-\x1F\x7F"\\\\;]+/u', '', $base) ?? '';
+        // Disallow path separators in the user-facing name.
+        $base = str_replace(['/', '\\'], '-', $base);
+        $base = trim($base);
+
+        if ($base === '' || $base === '.' || $base === '..') {
+            $ext = pathinfo($storedPath, PATHINFO_EXTENSION);
+
+            return 'document'.($ext ? '.'.$ext : '');
+        }
+
+        return mb_substr($base, 0, 200);
     }
 
     /**

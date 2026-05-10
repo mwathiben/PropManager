@@ -490,7 +490,8 @@ class IntaSendWebhookControllerTest extends TestCase
         $invoice = $this->createInvoiceForLease($lease, 'sent');
 
         $initialBalance = 1000.00;
-        $lease->update(['wallet_balance' => $initialBalance]);
+        $lease->wallet_balance = $initialBalance;
+        $lease->save();
 
         $overpaymentAmount = 500.00;
         $paymentAmount = $invoice->total_due + $overpaymentAmount;

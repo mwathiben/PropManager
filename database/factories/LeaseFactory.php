@@ -15,6 +15,9 @@ class LeaseFactory extends Factory
     {
         $unit = Unit::factory()->create();
 
+        // wallet_balance defaults to 0 in the DB and is no longer in
+        // Lease::$fillable (MASS-1). Factories that need a non-zero
+        // balance should use ->withWalletBalance($amount).
         return [
             'unit_id' => $unit->id,
             'tenant_id' => User::factory()->state([
@@ -27,7 +30,6 @@ class LeaseFactory extends Factory
             'service_charge' => fake()->boolean(30) ? fake()->numberBetween(500, 2000) : 0,
             'start_date' => now(),
             'is_active' => true,
-            'wallet_balance' => 0,
         ];
     }
 
@@ -46,7 +48,14 @@ class LeaseFactory extends Factory
 
     public function withWalletBalance(float $amount): static
     {
-        return $this->state(['wallet_balance' => $amount]);
+        // MASS-1: wallet_balance is no longer in $fillable. Use an
+        // afterCreating hook + saveQuietly so the factory still produces
+        // leases with a seed balance for tests that need it (e.g. wallet
+        // debit edge cases) without making the field user-mass-assignable.
+        return $this->afterCreating(function (Lease $lease) use ($amount) {
+            $lease->wallet_balance = $amount;
+            $lease->saveQuietly();
+        });
     }
 
     public function forUnit(Unit $unit, ?User $tenant = null): static

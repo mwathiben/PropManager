@@ -222,7 +222,10 @@ class InvoiceServiceTest extends TestCase
 
     public function test_applies_wallet_balance_to_invoice(): void
     {
-        $this->lease->update(['wallet_balance' => 5000]);
+        // MASS-1: wallet_balance no longer mass-assignable; direct
+        // attribute assignment + save bypasses fillable.
+        $this->lease->wallet_balance = 5000;
+        $this->lease->save();
 
         $billingPeriod = Carbon::now()->startOfMonth();
         $invoice = $this->service->generateInvoiceForLease($this->lease, $billingPeriod);
@@ -236,7 +239,8 @@ class InvoiceServiceTest extends TestCase
 
     public function test_wallet_balance_exceeding_total_marks_invoice_paid(): void
     {
-        $this->lease->update(['wallet_balance' => 30000]);
+        $this->lease->wallet_balance = 30000;
+        $this->lease->save();
 
         $billingPeriod = Carbon::now()->startOfMonth();
         $invoice = $this->service->generateInvoiceForLease($this->lease, $billingPeriod);

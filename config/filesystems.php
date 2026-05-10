@@ -38,6 +38,22 @@ return [
             'report' => false,
         ],
 
+        // UPLOAD-5: TenantPaymentVerificationController and other paths
+        // store payment proofs / KYC docs to a 'private' disk that did
+        // not previously exist in this config — Laravel was throwing
+        // InvalidArgumentException at runtime on every upload. The disk
+        // points at the same root as 'local' (storage/app/private) so
+        // existing code paths continue to work; the alias makes the
+        // intent explicit at the call site ('private' reads better than
+        // 'local' for sensitive uploads).
+        'private' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private'),
+            'serve' => true,
+            'throw' => false,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

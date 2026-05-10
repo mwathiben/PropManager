@@ -253,7 +253,8 @@ class LeaseControllerTest extends TestCase
     {
         $unit = $this->setupData['units']->first();
         ['lease' => $lease] = $this->createTenantWithActiveLease($this->landlord, $unit);
-        $lease->update(['wallet_balance' => 3000]);
+        $lease->wallet_balance = 3000;
+        $lease->save();
 
         $response = $this->actingAs($this->landlord)
             ->post(route('leases.wallet-adjustment', $lease), [
