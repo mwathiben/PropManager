@@ -134,6 +134,11 @@ class PaystackWebhookSecurityTest extends TestCase
             '52.31.139.75',
         ]]);
 
+        // OBS-10: AddRequestId middleware calls Log::withContext on every
+        // request — partialMock first so the mock-create order doesn't
+        // shadow that pass-through.
+        Log::partialMock();
+        Log::shouldReceive('withContext')->andReturnNull();
         Log::shouldReceive('warning')
             ->once()
             ->withArgs(function (string $message, array $context) {
@@ -143,8 +148,6 @@ class PaystackWebhookSecurityTest extends TestCase
                     && isset($context['reason'])
                     && isset($context['path']);
             });
-
-        Log::makePartial();
 
         $this->postJson(
             $this->webhookRoute,

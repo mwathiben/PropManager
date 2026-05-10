@@ -191,6 +191,11 @@ class MpesaWebhookSecurityTest extends TestCase
 
     public function test_rejection_logged_with_structured_context(): void
     {
+        // OBS-10: AddRequestId middleware calls Log::withContext on every
+        // request — partialMock first so the mock-create order doesn't
+        // shadow that pass-through.
+        Log::partialMock();
+        Log::shouldReceive('withContext')->andReturnNull();
         Log::shouldReceive('warning')
             ->once()
             ->withArgs(function (string $message, array $context) {
@@ -200,8 +205,6 @@ class MpesaWebhookSecurityTest extends TestCase
                     && isset($context['reason'])
                     && isset($context['path']);
             });
-
-        Log::makePartial();
 
         $this->postJson(
             $this->stkCallbackApiRoute,

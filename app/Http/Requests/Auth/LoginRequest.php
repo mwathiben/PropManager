@@ -46,6 +46,12 @@ class LoginRequest extends FormRequest
 
         if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
+            // RATE-8: per-email throttle in addition to the per-(email|ip)
+            // one. An IP-rotating credential-stuffer can keep $this->throttleKey
+            // (which contains the IP) below the 5/min cap forever; a separate
+            // email-only key catches that pattern. 15 fails/hr triggers a
+            // 30-min lock regardless of source IP.
+            RateLimiter::hit($this->emailLockoutKey(), 60 * 30);
 
             // OBS-14: distinguish failure reasons in the security log.
             // The end-user message stays generic ('auth.failed') so we
@@ -68,6 +74,7 @@ class LoginRequest extends FormRequest
         }
 
         RateLimiter::clear($this->throttleKey());
+        RateLimiter::clear($this->emailLockoutKey());
     }
 
     /**
@@ -77,7 +84,9 @@ class LoginRequest extends FormRequest
      */
     public function ensureIsNotRateLimited(): void
     {
-        if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
+        $emailLocked = RateLimiter::tooManyAttempts($this->emailLockoutKey(), 15);
+
+        if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5) && ! $emailLocked) {
             return;
         }
 
@@ -86,10 +95,12 @@ class LoginRequest extends FormRequest
         // Log account lockout
         app(SecurityLogger::class)->logAccountLocked(
             $this->string('email'),
-            'Too many failed login attempts'
+            $emailLocked ? 'Account locked: 15+ failed login attempts (any IP)' : 'Too many failed login attempts'
         );
 
-        $seconds = RateLimiter::availableIn($this->throttleKey());
+        $seconds = $emailLocked
+            ? RateLimiter::availableIn($this->emailLockoutKey())
+            : RateLimiter::availableIn($this->throttleKey());
 
         throw ValidationException::withMessages([
             'email' => trans('auth.throttle', [
@@ -105,5 +116,14 @@ class LoginRequest extends FormRequest
     public function throttleKey(): string
     {
         return Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
+    }
+
+    /**
+     * RATE-8: separate per-email lockout key (no IP) for credential
+     * stuffing across rotating IPs.
+     */
+    public function emailLockoutKey(): string
+    {
+        return 'login-email:'.Str::transliterate(Str::lower($this->string('email')));
     }
 }

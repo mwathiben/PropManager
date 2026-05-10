@@ -125,13 +125,21 @@ class AppServiceProvider extends ServiceProvider
 
         // Prevent lazy loading in non-production to catch N+1 queries
         // Violations are logged to security channel instead of throwing
-        if (! app()->environment('production')) {
+        // OBS-9: in production, sample 1% of requests so genuine N+1
+        // regressions still surface in logs without hard-throwing on
+        // every request. The handler always logs (never throws) in prod
+        // so a lazy-load can't take a customer page down.
+        $shouldDetectLazyLoading = ! app()->environment('production')
+            || (app()->runningInConsole() ? false : random_int(1, 100) === 1);
+
+        if ($shouldDetectLazyLoading) {
             Model::preventLazyLoading();
 
             Model::handleLazyLoadingViolationUsing(function ($model, $relation) {
                 Log::channel('security')->warning('N+1 Query Detected', [
                     'model' => get_class($model),
                     'relation' => $relation,
+                    'environment' => app()->environment(),
                     'trace' => collect(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 10))
                         ->filter(fn ($frame) => isset($frame['file']) && ! str_contains($frame['file'], '/vendor/'))
                         ->take(5)

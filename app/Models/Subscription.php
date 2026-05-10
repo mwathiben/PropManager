@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\SubscriptionStatus;
+use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +11,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Subscription extends Model
 {
-    use HasFactory;
+    // OBS-7: capture every plan/status/billing change so a billing
+    // dispute can be reconstructed from audit_logs without trusting
+    // the (mutable) row. Pre-fix tier transitions were silent.
+    use Auditable, HasFactory;
 
     protected $fillable = [
         'user_id',

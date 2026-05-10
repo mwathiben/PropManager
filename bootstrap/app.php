@@ -16,6 +16,11 @@ return Application::configure(basePath: dirname(__DIR__))
         apiPrefix: 'api',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // OBS-10: stamp request-id BEFORE anything else so downstream
+        // logs (security, schedule, payments, notifications) all share
+        // the same correlation key for the request lifecycle.
+        $middleware->prepend(\App\Http\Middleware\AddRequestId::class);
+
         // Security headers should be applied to all responses
         $middleware->web(prepend: [
             \App\Http\Middleware\SecurityHeaders::class,
