@@ -21,6 +21,7 @@ use App\Services\Tenant\LedgerTransactionBuilder;
 use App\Services\Tenant\TenantIndexService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
@@ -65,16 +66,8 @@ class TenantController extends Controller
      */
     public function modalData(User $tenant)
     {
-        $user = auth()->user();
-
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
-            abort(403);
-        }
-
-        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
-        if ($tenant->landlord_id !== $landlordId) {
-            abort(403);
-        }
+        // PRIV-12: centralised via TenantPolicy::view.
+        $this->authorize('view', $tenant);
 
         $tenant->load([
             'leases' => fn ($q) => $q->with([
@@ -170,17 +163,8 @@ class TenantController extends Controller
      */
     public function show(User $tenant)
     {
-        $user = auth()->user();
-
-        // Authorization: landlord or caretaker must own this tenant
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
-            abort(403);
-        }
-
-        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
-        if ($tenant->landlord_id !== $landlordId) {
-            abort(403);
-        }
+        // PRIV-12: centralised via TenantPolicy::view.
+        $this->authorize('view', $tenant);
 
         // Load tenant with all relationships
         $tenant->load([
@@ -339,12 +323,15 @@ class TenantController extends Controller
      */
     public function outstandingInvoices(User $tenant)
     {
-        $user = auth()->user();
-
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+        // PRIV-12: centralised via TenantPolicy::viewLedger. JSON callers
+        // expect a stable response shape on denial, so we keep
+        // Gate::denies + structured payload rather than the default
+        // AuthorizationException renderer.
+        if (Gate::denies('viewLedger', $tenant)) {
             return response()->json(['data' => []], 403);
         }
 
+        $user = auth()->user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         if ($tenant->landlord_id !== $landlordId) {
@@ -387,12 +374,12 @@ class TenantController extends Controller
 
     public function refundablePayments(User $tenant)
     {
-        $user = auth()->user();
-
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
+        // PRIV-12: centralised via TenantPolicy::viewLedger.
+        if (Gate::denies('viewLedger', $tenant)) {
             return response()->json(['data' => []], 403);
         }
 
+        $user = auth()->user();
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         if ($tenant->landlord_id !== $landlordId) {
@@ -593,17 +580,8 @@ class TenantController extends Controller
      */
     public function ledger(Request $request, User $tenant)
     {
-        $user = auth()->user();
-
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
-            abort(403, 'Access denied.');
-        }
-
-        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
-
-        if ($tenant->landlord_id !== $landlordId) {
-            abort(403, 'Access denied.');
-        }
+        // PRIV-12: centralised via TenantPolicy::viewLedger.
+        $this->authorize('viewLedger', $tenant);
 
         $dateFrom = $request->get('date_from');
         $dateTo = $request->get('date_to');
@@ -639,12 +617,10 @@ class TenantController extends Controller
      */
     public function ledgerPdf(Request $request, User $tenant)
     {
+        // PRIV-12: centralised via TenantPolicy::viewLedger.
+        $this->authorize('viewLedger', $tenant);
+
         $user = auth()->user();
-
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
-            abort(403, 'Access denied.');
-        }
-
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         if ($tenant->landlord_id !== $landlordId) {
@@ -693,12 +669,10 @@ class TenantController extends Controller
      */
     public function ledgerEmail(Request $request, User $tenant)
     {
+        // PRIV-12: centralised via TenantPolicy::viewLedger.
+        $this->authorize('viewLedger', $tenant);
+
         $user = auth()->user();
-
-        if (! $user->isLandlord() && ! $user->isCaretaker()) {
-            abort(403, 'Access denied.');
-        }
-
         $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
 
         if ($tenant->landlord_id !== $landlordId) {

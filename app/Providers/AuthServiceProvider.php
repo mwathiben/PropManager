@@ -24,6 +24,7 @@ use App\Models\TenantKycSubmission;
 use App\Models\TenantPaymentVerification;
 use App\Models\Ticket;
 use App\Models\Unit;
+use App\Models\User;
 use App\Models\Vendor;
 use App\Models\WaterReading;
 use App\Models\WaterSetting;
@@ -47,6 +48,7 @@ use App\Policies\ReceiptTemplatePolicy;
 use App\Policies\RefundPolicy;
 use App\Policies\TenantKycSubmissionPolicy;
 use App\Policies\TenantPaymentVerificationPolicy;
+use App\Policies\TenantPolicy;
 use App\Policies\TicketPolicy;
 use App\Policies\UnitPolicy;
 use App\Policies\VendorPolicy;
@@ -91,6 +93,9 @@ class AuthServiceProvider extends ServiceProvider
         Refund::class => RefundPolicy::class,
         Import::class => ImportPolicy::class,
         LandlordPayoutAccount::class => LandlordPayoutAccountPolicy::class,
+        // PRIV-12: tenant-target authorization (User model represents
+        // tenants in ledger/modalData/etc. contexts).
+        User::class => TenantPolicy::class,
     ];
 
     /**
