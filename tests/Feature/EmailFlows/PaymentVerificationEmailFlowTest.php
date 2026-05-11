@@ -49,9 +49,9 @@ class PaymentVerificationEmailFlowTest extends TestCase
         );
 
         $this->assertEmailSentTo($tenant->email, 'Payment Verified');
-        $this->assertEmailCount(1);
+        $this->assertEmailCountFor($tenant->email, 1);
 
-        $html = $this->getLatestEmailHtml();
+        $html = $this->getLatestEmailHtmlFor($tenant->email);
         $decodedHtml = html_entity_decode($html, ENT_QUOTES, 'UTF-8');
 
         $this->assertStringContainsString($tenant->name, $decodedHtml);
@@ -69,7 +69,7 @@ class PaymentVerificationEmailFlowTest extends TestCase
         $this->assertStringContainsString('Go to Dashboard', $decodedHtml);
         $this->assertStringContainsString('PropManager', $decodedHtml);
 
-        $links = $this->getLatestEmailLinks();
+        $links = $this->getLatestEmailLinksFor($tenant->email);
         $this->assertDashboardLinkPresent($links);
         $this->assertSignedUnsubscribeLinkPresent($links);
 
@@ -103,9 +103,9 @@ class PaymentVerificationEmailFlowTest extends TestCase
         $this->assertEquals($rejectionReason, $verification->rejection_reason);
 
         $this->assertEmailSentTo($tenant->email, 'Payment Verification Issue');
-        $this->assertEmailCount(1);
+        $this->assertEmailCountFor($tenant->email, 1);
 
-        $html = $this->getLatestEmailHtml();
+        $html = $this->getLatestEmailHtmlFor($tenant->email);
         $decodedHtml = html_entity_decode($html, ENT_QUOTES, 'UTF-8');
 
         $this->assertStringContainsString($tenant->name, $decodedHtml);
@@ -122,7 +122,7 @@ class PaymentVerificationEmailFlowTest extends TestCase
         $this->assertStringContainsString('Resubmit Payment Proof', $decodedHtml);
         $this->assertStringContainsString('PropManager', $decodedHtml);
 
-        $links = $this->getLatestEmailLinks();
+        $links = $this->getLatestEmailLinksFor($tenant->email);
         $this->assertResubmitLinkPresent($links);
         $this->assertSignedUnsubscribeLinkPresent($links);
 

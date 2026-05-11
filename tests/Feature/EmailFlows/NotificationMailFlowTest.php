@@ -45,10 +45,10 @@ class NotificationMailFlowTest extends TestCase
         Mail::to($tenant->email)->send($mailable);
 
         $this->assertEmailSentTo($tenant->email, 'Rent Reminder');
-        $this->assertEmailCount(1);
+        $this->assertEmailCountFor($tenant->email, 1);
 
-        $message = $this->mailpit->getLatestMessage();
-        $headers = $this->mailpit->getMessageHeaders($message['ID']);
+        $messages = $this->mailpit->searchByRecipient($tenant->email);
+        $headers = $this->mailpit->getMessageHeaders($messages[0]['ID']);
 
         $this->assertArrayHasKey('List-Unsubscribe', $headers);
         $this->assertArrayHasKey('List-Unsubscribe-Post', $headers);
@@ -62,7 +62,7 @@ class NotificationMailFlowTest extends TestCase
         $listUnsubscribePost = $headers['List-Unsubscribe-Post'][0];
         $this->assertEquals('List-Unsubscribe=One-Click', $listUnsubscribePost);
 
-        $html = $this->getLatestEmailHtml();
+        $html = $this->getLatestEmailHtmlFor($tenant->email);
         $decoded = html_entity_decode($html, ENT_QUOTES, 'UTF-8');
 
         $this->assertStringContainsString($tenant->name, $decoded);
@@ -71,7 +71,7 @@ class NotificationMailFlowTest extends TestCase
         $this->assertStringContainsString('March 1, 2026', $decoded);
         $this->assertStringContainsString('PropManager', $decoded);
 
-        $links = $this->getLatestEmailLinks();
+        $links = $this->getLatestEmailLinksFor($tenant->email);
         $this->assertSignedUnsubscribeLinkPresent($links);
 
         $this->assertStringNotContainsString('secret_key', strtolower($decoded));
@@ -104,7 +104,7 @@ class NotificationMailFlowTest extends TestCase
 
         $this->assertEmailSentTo($tenant->email, 'Payment Update');
 
-        $html = $this->getLatestEmailHtml();
+        $html = $this->getLatestEmailHtmlFor($tenant->email);
         $decoded = html_entity_decode($html, ENT_QUOTES, 'UTF-8');
 
         $this->assertStringContainsString('B-202', $decoded);
@@ -120,49 +120,48 @@ class NotificationMailFlowTest extends TestCase
 
     public function test_action_button_rejects_javascript_url(): void
     {
-        $scenario = $this->createTenantWithLandlord();
-        $tenant = $scenario['tenant'];
+        // Two distinct tenants so each mailable can be retrieved by
+        // recipient without a Mailpit deleteAll in between — that wipe
+        // is unsafe under --parallel (other workers see it too).
+        $maliciousTenant = $this->createTenantWithLandlord()['tenant'];
+        $safeTenant = $this->createTenantWithLandlord()['tenant'];
 
-        $malicious = new NotificationMail(
+        Mail::to($maliciousTenant->email)->send(new NotificationMail(
             notificationSubject: 'XSS Action Test',
             notificationMessage: 'Testing action button security.',
             data: [
                 'action_url' => 'javascript:alert(1)',
                 'action_text' => 'Click Me',
             ],
-            recipient: $tenant,
-        );
+            recipient: $maliciousTenant,
+        ));
 
-        Mail::to($tenant->email)->send($malicious);
-
-        $this->assertEmailSentTo($tenant->email, 'XSS Action Test');
-
-        $html = $this->getLatestEmailHtml();
-        $decoded = html_entity_decode($html, ENT_QUOTES, 'UTF-8');
-
-        $this->assertStringNotContainsString('javascript:', $decoded);
-
-        $this->mailpit->deleteAll();
-
-        $safe = new NotificationMail(
+        Mail::to($safeTenant->email)->send(new NotificationMail(
             notificationSubject: 'Safe Action Test',
             notificationMessage: 'Testing safe action button.',
             data: [
                 'action_url' => 'https://propmanager.test/dashboard',
                 'action_text' => 'Go to Dashboard',
             ],
-            recipient: $tenant,
+            recipient: $safeTenant,
+        ));
+
+        $this->assertEmailSentTo($maliciousTenant->email, 'XSS Action Test');
+        $maliciousDecoded = html_entity_decode(
+            $this->getLatestEmailHtmlFor($maliciousTenant->email),
+            ENT_QUOTES,
+            'UTF-8',
         );
+        $this->assertStringNotContainsString('javascript:', $maliciousDecoded);
 
-        Mail::to($tenant->email)->send($safe);
-
-        $this->assertEmailSentTo($tenant->email, 'Safe Action Test');
-
-        $html = $this->getLatestEmailHtml();
-        $decoded = html_entity_decode($html, ENT_QUOTES, 'UTF-8');
-
-        $this->assertStringContainsString('Go to Dashboard', $decoded);
-        $this->assertStringContainsString('https://propmanager.test/dashboard', $decoded);
+        $this->assertEmailSentTo($safeTenant->email, 'Safe Action Test');
+        $safeDecoded = html_entity_decode(
+            $this->getLatestEmailHtmlFor($safeTenant->email),
+            ENT_QUOTES,
+            'UTF-8',
+        );
+        $this->assertStringContainsString('Go to Dashboard', $safeDecoded);
+        $this->assertStringContainsString('https://propmanager.test/dashboard', $safeDecoded);
     }
 
     public function test_xss_in_message_body_escaped(): void
@@ -181,7 +180,7 @@ class NotificationMailFlowTest extends TestCase
 
         $this->assertEmailSentTo($tenant->email, 'Body XSS Test');
 
-        $html = $this->getLatestEmailHtml();
+        $html = $this->getLatestEmailHtmlFor($tenant->email);
 
         $this->assertStringNotContainsString('<script>', $html);
         $this->assertStringContainsString('&lt;script&gt;', $html);
@@ -205,10 +204,10 @@ class NotificationMailFlowTest extends TestCase
         Mail::to($landlord->email)->send($mailable);
 
         $this->assertEmailSentTo($landlord->email, 'Landlord Notification');
-        $this->assertEmailCount(1);
+        $this->assertEmailCountFor($landlord->email, 1);
 
-        $message = $this->mailpit->getLatestMessage();
-        $headers = $this->mailpit->getMessageHeaders($message['ID']);
+        $messages = $this->mailpit->searchByRecipient($landlord->email);
+        $headers = $this->mailpit->getMessageHeaders($messages[0]['ID']);
 
         $this->assertArrayHasKey('List-Unsubscribe', $headers);
         $listUnsubscribe = $headers['List-Unsubscribe'][0];
@@ -221,7 +220,7 @@ class NotificationMailFlowTest extends TestCase
             'Landlord emails must not have List-Unsubscribe-Post (GET route is not RFC 8058 compliant)',
         );
 
-        $html = $this->getLatestEmailHtml();
+        $html = $this->getLatestEmailHtmlFor($landlord->email);
         $decoded = html_entity_decode($html, ENT_QUOTES, 'UTF-8');
 
         $this->assertStringContainsString($landlord->name, $decoded);
@@ -229,7 +228,7 @@ class NotificationMailFlowTest extends TestCase
         $this->assertStringContainsString('Jane Doe', $decoded);
         $this->assertStringContainsString('PropManager', $decoded);
 
-        $links = $this->getLatestEmailLinks();
+        $links = $this->getLatestEmailLinksFor($landlord->email);
         $this->assertSettingsLinkPresent($links);
 
         $this->assertStringNotContainsString('secret_key', strtolower($decoded));
