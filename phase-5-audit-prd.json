@@ -486,5 +486,18 @@
     "high": 22,
     "medium": 26,
     "low": 6
+  },
+  "closeout": {
+    "audited": "2026-05-11",
+    "commits": {
+      "phases_1_through_6": "Closed across 11 commits 80ec338..3e322eb (initial Phase-5 cycle, 50/54 findings) plus 3a579cf regression tests.",
+      "phase_5_cleanup": {
+        "CRYPTO-11": "36fd2f1 — per-landlord encrypted webhook secrets on PaymentConfiguration with env fallback; BankWebhookController resolves landlord pre-validation.",
+        "PRIV-5 (M-Pesa half)": "07e9c54 — MpesaWebhookController.findTenantByPhone now requires landlord_id resolved from BusinessShortCode; refuses cross-landlord match.",
+        "PRIV-12": "25c24c9 — TenantPolicy::view/viewLedger registered for User; six TenantController methods now use $this->authorize / Gate::denies.",
+        "OBS-1": "c422057 — sentry/sentry-laravel installed; Integration::handles in bootstrap/app.php; DomainException::report forwards to Sentry::captureException."
+      }
+    },
+    "deferred": []
   }
 }
