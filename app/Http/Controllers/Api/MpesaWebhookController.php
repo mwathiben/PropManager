@@ -481,16 +481,23 @@ class MpesaWebhookController extends Controller
     {
         $phone = $request->input('MSISDN');
         $amount = (float) $request->input('TransAmount');
+        $shortCode = $request->input('BusinessShortCode');
 
         Log::info('M-Pesa Till validation request', [
             'amount' => $amount,
             'phone' => substr($phone, -4),
+            'short_code' => $shortCode,
         ]);
 
-        $tenant = $this->findTenantByPhone($phone);
+        // PRIV-5: scope tenant lookup to the landlord owning this Till.
+        $landlordId = $this->resolveLandlordFromShortCode($shortCode);
+        $tenant = $this->findTenantByPhone($phone, $landlordId);
 
         if (! $tenant) {
-            Log::info('M-Pesa Till: No tenant found by phone, will queue for manual matching');
+            Log::info('M-Pesa Till: No tenant found by phone for landlord, will queue for manual matching', [
+                'short_code' => $shortCode,
+                'landlord_id' => $landlordId,
+            ]);
 
             return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted for manual review']);
         }
@@ -560,7 +567,13 @@ class MpesaWebhookController extends Controller
                 return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Already processed']);
             }
 
-            $tenant = $this->findTenantByPhone($phone);
+            // PRIV-5: scope tenant lookup to the landlord owning this Till
+            // so a colliding phone number across landlords can't get
+            // cross-credited. Unknown shortcode -> landlordId null ->
+            // findTenantByPhone returns null -> we DLQ the payment below.
+            $shortCode = $request->input('BusinessShortCode');
+            $landlordId = $this->resolveLandlordFromShortCode($shortCode);
+            $tenant = $this->findTenantByPhone($phone, $landlordId);
             $invoice = null;
 
             if ($tenant) {
@@ -710,8 +723,23 @@ class MpesaWebhookController extends Controller
         return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
     }
 
-    protected function findTenantByPhone(string $phone): ?User
+    /**
+     * PRIV-5: tenant lookup MUST be scoped to the landlord owning the
+     * receiving Till. Two tenants under different landlords commonly
+     * share the same M-Pesa phone number (one human leases two units);
+     * unscoped, the first row sorted wins and gets cross-credited.
+     *
+     * Caller must resolve landlord_id from the webhook's BusinessShortCode
+     * via resolveLandlordFromShortCode() before calling. If landlord_id
+     * is null (unknown Till), refuse to match — the caller should queue
+     * to the dead-letter queue instead.
+     */
+    protected function findTenantByPhone(string $phone, ?int $landlordId = null): ?User
     {
+        if ($landlordId === null) {
+            return null;
+        }
+
         $phone = preg_replace('/[^0-9]/', '', $phone);
 
         if (str_starts_with($phone, '254')) {
@@ -719,12 +747,31 @@ class MpesaWebhookController extends Controller
         }
 
         return User::where('role', 'tenant')
+            ->where('landlord_id', $landlordId)
             ->where(function ($query) use ($phone) {
                 $query->where('mobile_number', $phone)
                     ->orWhere('mobile_number', '254'.substr($phone, 1))
                     ->orWhere('mobile_number', '+254'.substr($phone, 1));
             })
             ->first();
+    }
+
+    /**
+     * PRIV-5: resolve the landlord that owns the receiving M-Pesa Till
+     * shortcode. Each landlord configures their own mpesa_shortcode on
+     * PaymentConfiguration; the Daraja payload carries it as
+     * BusinessShortCode. Unknown shortcode -> null -> caller queues to
+     * DLQ rather than matching cross-landlord.
+     */
+    protected function resolveLandlordFromShortCode(?string $shortCode): ?int
+    {
+        if (! $shortCode) {
+            return null;
+        }
+
+        return \App\Models\PaymentConfiguration::withoutGlobalScopes()
+            ->where('mpesa_shortcode', $shortCode)
+            ->value('landlord_id');
     }
 
     protected function processTillPayment(Invoice $invoice, float $amount, string $transId, string $phone, array $rawPayload): void
