@@ -18,9 +18,17 @@ class KcbBankService implements BankServiceInterface
             : 'https://api.kcbgroup.com';
     }
 
-    public function validateWebhook(string $signature, string $payload): bool
+    public function validateWebhook(string $signature, string $payload, ?string $overrideSecret = null): bool
     {
-        $expected = base64_encode(hash_hmac('sha256', $payload, config('services.kcb.webhook_secret'), true));
+        // CRYPTO-11: prefer the per-landlord secret resolved by the
+        // controller. Fall back to the env-wide secret while landlords
+        // are still being migrated to per-landlord secrets.
+        $secret = $overrideSecret ?? (string) config('services.kcb.webhook_secret');
+        if ($secret === '') {
+            return false;
+        }
+
+        $expected = base64_encode(hash_hmac('sha256', $payload, $secret, true));
 
         return hash_equals($expected, $signature);
     }

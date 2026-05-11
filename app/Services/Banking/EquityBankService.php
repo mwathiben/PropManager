@@ -18,9 +18,17 @@ class EquityBankService implements BankServiceInterface
             : 'https://api.finserve.africa';
     }
 
-    public function validateWebhook(string $signature, string $payload): bool
+    public function validateWebhook(string $signature, string $payload, ?string $overrideSecret = null): bool
     {
-        $expected = hash_hmac('sha256', $payload, config('services.equity.webhook_secret'));
+        // CRYPTO-11: prefer the per-landlord secret resolved by the
+        // controller. Fall back to the env-wide secret while landlords
+        // are still being migrated to per-landlord secrets.
+        $secret = $overrideSecret ?? (string) config('services.equity.webhook_secret');
+        if ($secret === '') {
+            return false;
+        }
+
+        $expected = hash_hmac('sha256', $payload, $secret);
 
         return hash_equals($expected, $signature);
     }

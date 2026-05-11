@@ -6,7 +6,7 @@ use DateTime;
 
 interface BankServiceInterface
 {
-    public function validateWebhook(string $signature, string $payload): bool;
+    public function validateWebhook(string $signature, string $payload, ?string $overrideSecret = null): bool;
 
     public function parsePaymentNotification(array $payload): PaymentNotification;
 

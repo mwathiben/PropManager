@@ -25,6 +25,9 @@ class PaymentConfiguration extends Model
         'bank_account_name',
         'bank_account_number',
         'bank_branch',
+        'coop_webhook_secret',
+        'equity_webhook_secret',
+        'kcb_webhook_secret',
         'mpesa_account_name',
         'mpesa_shortcode_type',
         'mpesa_shortcode',
@@ -63,7 +66,36 @@ class PaymentConfiguration extends Model
         'intasend_secret_key' => 'encrypted',
         'intasend_webhook_challenge' => 'encrypted',
         'bank_account_number' => 'encrypted',
+        'coop_webhook_secret' => 'encrypted',
+        'equity_webhook_secret' => 'encrypted',
+        'kcb_webhook_secret' => 'encrypted',
     ];
+
+    /**
+     * CRYPTO-11: per-landlord bank webhook secret lookup. Returns null
+     * when no per-landlord secret is configured — caller should fall
+     * back to the env-wide secret. Uses withoutGlobalScopes because the
+     * lookup runs in the webhook request context, before any auth.
+     */
+    public static function webhookSecretFor(int $landlordId, string $bankCode): ?string
+    {
+        $column = match ($bankCode) {
+            'coop', 'equity', 'kcb' => "{$bankCode}_webhook_secret",
+            default => null,
+        };
+
+        if ($column === null) {
+            return null;
+        }
+
+        $config = static::withoutGlobalScopes()
+            ->where('landlord_id', $landlordId)
+            ->first();
+
+        $secret = $config?->{$column};
+
+        return $secret === '' ? null : $secret;
+    }
 
     public static function getAvailablePaymentMethods(): array
     {

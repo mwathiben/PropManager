@@ -9,6 +9,7 @@ use App\Models\BankReconciliationQueue;
 use App\Models\BankWebhookLog;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\PaymentConfiguration;
 use App\Models\User;
 use App\Services\Banking\BankServiceInterface;
 use App\Services\Banking\CoopBankService;
@@ -57,7 +58,30 @@ class BankWebhookController extends Controller
 
         try {
             $signature = $request->header('X-Signature') ?? $request->header('Authorization') ?? '';
-            if (! $service->validateWebhook($signature, $request->getContent())) {
+
+            // CRYPTO-11: resolve the landlord owning the destination
+            // account BEFORE signature validation so we can validate
+            // with that landlord's secret. parsePaymentNotification is
+            // pure data mapping (no exec), safe on unverified input —
+            // we wrap it because malformed payloads will throw and
+            // should be treated as bad-sig (401).
+            $notification = null;
+            $perLandlordSecret = null;
+            try {
+                $notification = $service->parsePaymentNotification($request->all());
+                $landlordId = $this->resolveLandlordFromBankAccount($notification);
+                if ($landlordId) {
+                    $perLandlordSecret = PaymentConfiguration::webhookSecretFor($landlordId, $bankCode);
+                }
+            } catch (\Throwable $parseError) {
+                // Fall through to validation with env-only secret; an
+                // adversary cannot use a malformed payload to opt out
+                // of validation because the env secret is still
+                // required when no landlord resolves.
+                $notification = null;
+            }
+
+            if (! $service->validateWebhook($signature, $request->getContent(), $perLandlordSecret)) {
                 $log->markAsError('Invalid signature');
                 Log::warning("{$bankCode} webhook: Invalid signature", ['ip' => $request->ip()]);
 
@@ -65,7 +89,7 @@ class BankWebhookController extends Controller
             }
 
             $log->markAsProcessing();
-            $notification = $service->parsePaymentNotification($request->all());
+            $notification ??= $service->parsePaymentNotification($request->all());
 
             $idempotencyKey = "bank:{$bankCode}:{$notification->transactionId}";
             $idempotencyResult = $this->idempotencyService->acquire($idempotencyKey);
