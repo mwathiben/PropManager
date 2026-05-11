@@ -146,6 +146,13 @@ abstract class DomainException extends Exception
             'context' => $this->sanitizeForLogging($this->context),
             'trace' => $this->getTraceAsString(),
         ]);
+
+        // OBS-1: forward to Sentry so ops can aggregate, dedup, alert,
+        // and release-tag. captureException is a no-op when the DSN is
+        // empty (local/CI), so this is safe to call unconditionally.
+        if (function_exists('Sentry\captureException')) {
+            \Sentry\captureException($this);
+        }
     }
 
     /**

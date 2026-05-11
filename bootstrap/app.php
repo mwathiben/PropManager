@@ -5,6 +5,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Sentry\Laravel\Integration;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -56,6 +57,11 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // OBS-1: route every unhandled exception through Sentry. When
+        // SENTRY_LARAVEL_DSN is empty (local dev, CI), the SDK is a
+        // silent no-op — so this is safe to leave on globally.
+        Integration::handles($exceptions);
+
         $exceptions->render(function (DomainException $e, Request $request) {
             if ($request->expectsJson()) {
                 return response()->json([
