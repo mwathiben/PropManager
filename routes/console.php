@@ -90,6 +90,11 @@ $schedule('queue:prune-failed --hours=720', fn ($e) => $e->dailyAt('04:10'));
 // are logged + bumped to invoice_amount_paid_drift_count gauge. Phase
 // -16 ops alerts can trigger off the gauge.
 $schedule('payments:audit-allocations', fn ($e) => $e->dailyAt('05:30'));
+
+// Phase-18 DATA-2: Lease.wallet_balance vs sum(wallet_transactions)
+// drift audit. Same shape as MONEY-5: log mismatches, bump the
+// lease_wallet_balance_drift_count Prometheus gauge, exit FAILURE.
+$schedule('wallets:audit-balances', fn ($e) => $e->dailyAt('05:35'));
 // Phase-16 QUEUE-9: same prune for the job_batches table. SendBulkNoti-
 // ficationsJob (post-Phase-16 QUEUE-2) now creates a job_batches row
 // per fan-out — without this prune the table grows unbounded.
