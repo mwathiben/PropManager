@@ -219,6 +219,31 @@ class KenyaDpaService
     }
 
     /**
+     * Phase-13 DPA-10: Section 33 / Article 8 — children's data
+     * special handling. Returns true when the supplied date of birth
+     * resolves to under 18. PropManager's policy is to NOT knowingly
+     * accept tenants under 18; the helper is the gate any future
+     * KYC-submission code should call before persisting a tenant.
+     * Out-of-band parental consent artefacts are an operator
+     * concern (see docs/legal/childrens-data-policy.md).
+     */
+    public function isMinor(string $dateOfBirth, int $minimumAge = 18): bool
+    {
+        try {
+            $dob = new \DateTimeImmutable($dateOfBirth);
+        } catch (\Exception) {
+            // Malformed date — treat as 'unknown', fail-safe = true
+            // so the gate trips and operator must investigate.
+            return true;
+        }
+
+        $today = new \DateTimeImmutable('today');
+        $age = $today->diff($dob)->y;
+
+        return $age < $minimumAge;
+    }
+
+    /**
      * Phase-13 BREACH-4: notify affected data subjects per Kenya DPA
      * Section 43(2) / GDPR Article 34. Called by the operator (via
      * controller or dpa:notify-affected-subjects) when the breach is
@@ -278,25 +303,47 @@ class KenyaDpaService
     }
 
     /**
-     * Assess the severity of a data breach.
+     * Phase-13 BREACH-8: severity auto-classification helper. Public
+     * counterpart of assessBreachSeverity so callers (or the ops
+     * surface) can pre-compute severity from a known dataset before
+     * the breach is recorded. The classifier:
+     *   - sensitive_data + financial_data + >100 affected → critical
+     *   - sensitive_data OR >500 affected               → high
+     *   - financial_data OR >50 affected                → medium
+     *   - otherwise                                     → low
+     */
+    public function classifySeverity(int $affectedCount, bool $sensitiveData, bool $financialData): string
+    {
+        if ($sensitiveData && $affectedCount > 100) {
+            return SecurityIncident::SEVERITY_CRITICAL;
+        }
+        if ($sensitiveData || $affectedCount > 500) {
+            return SecurityIncident::SEVERITY_HIGH;
+        }
+        if ($financialData || $affectedCount > 50) {
+            return SecurityIncident::SEVERITY_MEDIUM;
+        }
+
+        return SecurityIncident::SEVERITY_LOW;
+    }
+
+    /**
+     * Internal severity assessment used by initiateBreachNotification —
+     * delegates to classifySeverity. financial_data is derived from
+     * the data types: if 'bank_details' or 'payment_data' is in the
+     * affected list, financial_data = true.
      */
     protected function assessBreachSeverity(array $affectedDataTypes, int $affectedUsers): string
     {
         $hasSensitiveData = ! empty(array_intersect($affectedDataTypes, self::SENSITIVE_DATA_CATEGORIES));
+        $hasFinancialData = ! empty(array_intersect($affectedDataTypes, [
+            'bank_details',
+            'payment_data',
+            'card_number',
+            'account_number',
+        ]));
 
-        if ($hasSensitiveData && $affectedUsers > 100) {
-            return 'critical';
-        }
-
-        if ($hasSensitiveData || $affectedUsers > 500) {
-            return 'high';
-        }
-
-        if ($affectedUsers > 50) {
-            return 'medium';
-        }
-
-        return 'low';
+        return $this->classifySeverity($affectedUsers, $hasSensitiveData, $hasFinancialData);
     }
 
     /**
