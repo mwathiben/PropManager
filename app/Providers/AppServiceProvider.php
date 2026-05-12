@@ -576,6 +576,14 @@ class AppServiceProvider extends ServiceProvider
             $warnings[] = 'SENTRY_LARAVEL_DSN is empty. Error tracking is a silent no-op; OBS-1 has no production effect.';
         }
 
+        // Phase-14 OBSERV-6: distributed tracing turn-on. Without
+        // traces, slow-but-not-error is invisible. 0.0 = no traces;
+        // typical production: 0.05-0.2.
+        $tracesRate = (float) config('sentry.traces_sample_rate', 0.0);
+        if (! empty(config('sentry.dsn')) && $tracesRate <= 0.0) {
+            $warnings[] = 'SENTRY_TRACES_SAMPLE_RATE=0 in production. No distributed-tracing data captured; latency regressions are invisible. Set to 0.1 (10%) as a starting point.';
+        }
+
         // SECRETS-5: debug-level logging in production writes SQL +
         // bound PII to log files — Kenya DPA hazard. info-level is
         // similarly verbose. Warn so ops flips to warning+ explicitly.

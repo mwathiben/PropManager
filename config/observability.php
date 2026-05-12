@@ -27,6 +27,12 @@ return [
         // rejected with 403. Empty disables IP gating.
         // Example: '10.0.0.0/8,172.16.0.0/12'
         'allow_ips' => env('METRICS_ALLOW_IPS', ''),
+
+        // Phase-14 OBSERV-9: histogram bucket boundaries in
+        // milliseconds. Exponential progression is the Prometheus
+        // default and captures typical web latencies (sub-5ms cache
+        // hits through 2.5s timeouts).
+        'histogram_buckets_ms' => [5, 10, 25, 50, 100, 250, 500, 1000, 2500],
     ],
 
     'sentry' => [

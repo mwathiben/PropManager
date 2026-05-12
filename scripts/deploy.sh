@@ -40,7 +40,13 @@ php artisan down --retry=15 --refresh=15 || true
 trap 'php artisan up || true' EXIT
 
 log "composer install (production)"
-composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-progress
+# Phase-14 SUPPLY-8: --classmap-authoritative refuses to autoload
+# classes not in the classmap. Prevents PSR-4 ambiguity attacks
+# (drop a class file into a path Laravel scans and have it loaded
+# without the operator noticing). PropManager doesn't use runtime
+# class loading in production; tests do, but tests run with the
+# full dev classmap.
+composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --classmap-authoritative --no-progress
 
 log "npm ci + build"
 npm ci --silent

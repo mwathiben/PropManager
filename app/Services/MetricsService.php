@@ -38,6 +38,47 @@ class MetricsService
         }
     }
 
+    /**
+     * Phase-14 OBSERV-9: histogram observation. Records a value
+     * (typically a latency in milliseconds) into exponential
+     * buckets. Each bucket is its own counter; snapshot() exposes
+     * them with a `_bucket{le=N}` suffix that Prometheus can scrape
+     * as a histogram metric.
+     *
+     * Default buckets:  5, 10, 25, 50, 100, 250, 500, 1000, 2500ms
+     * Each observation increments every bucket whose le >= value
+     * (Prometheus convention: bucket le=X means "<=X").
+     */
+    public function observe(string $name, float $valueMs, array $labels = []): void
+    {
+        try {
+            $key = $this->bucketKey();
+            $client = Redis::connection($this->connection);
+            $buckets = config('observability.metrics.histogram_buckets_ms', [5, 10, 25, 50, 100, 250, 500, 1000, 2500]);
+
+            foreach ($buckets as $bound) {
+                if ($valueMs <= (float) $bound) {
+                    $field = $this->fieldName($name.'_bucket', $labels + ['le' => (string) $bound]);
+                    $client->hincrby($key, $field, 1);
+                }
+            }
+            // +Inf bucket always increments (Prometheus convention).
+            $infField = $this->fieldName($name.'_bucket', $labels + ['le' => '+Inf']);
+            $client->hincrby($key, $infField, 1);
+
+            // Sum + count: standard histogram aggregates.
+            $client->hincrbyfloat($key, $this->fieldName($name.'_sum', $labels), $valueMs);
+            $client->hincrby($key, $this->fieldName($name.'_count', $labels), 1);
+
+            $client->expire($key, 60 * 60 * 24 * 14);
+        } catch (\Throwable $e) {
+            Log::channel(config('logging.metrics_channel', 'stack'))->warning(
+                'metrics observe failed',
+                ['name' => $name, 'error' => $e->getMessage()]
+            );
+        }
+    }
+
     public function snapshot(?string $bucket = null): array
     {
         try {

@@ -166,6 +166,23 @@ jobs:
       - name: composer audit
         run: composer audit --no-dev --locked --format=plain --abandoned=fail
 
+      # Phase-14 SUPPLY-6: refuse install when composer.lock doesn't
+      # match composer.json. Prevents a tampered or stale lockfile
+      # from shipping un-audited transitives.
+      - name: lockfile integrity check
+        run: composer install --no-dev --no-interaction --no-progress --no-scripts --dry-run
+
+      # Phase-14 SUPPLY-7: license inventory. Warn-only — manual
+      # review on any AGPL/GPL transitive (those create copyleft
+      # obligations for a SaaS, which conflicts with our MIT licence).
+      - name: license inventory
+        continue-on-error: true
+        run: |
+          composer install --no-dev --no-interaction --no-progress --no-scripts
+          composer licenses --no-dev --format=json > licenses-composer.json
+          # Surface AGPL / GPL families for review (non-blocking).
+          jq -r '.dependencies | to_entries[] | select(.value.license[] | test("AGPL|^GPL"; "i")) | .key + " :: " + (.value.license | join(","))' licenses-composer.json || true
+
   npm-audit:
     name: NPM Audit (SUPPLY-3)
     runs-on: ubuntu-latest
@@ -186,6 +203,13 @@ jobs:
         # --omit=dev so dev-only transitives don't gate the build;
         # --audit-level=high so MEDIUM advisories warn but don't fail.
         run: npm audit --audit-level=high --omit=dev
+
+      # Phase-14 SUPPLY-6: npm ci refuses install when package-lock.json
+      # is out of sync with package.json (built-in behaviour). The
+      # --ignore-scripts protects against malicious postinstall hooks
+      # in a transitive package.
+      - name: lockfile integrity check
+        run: npm ci --ignore-scripts
 
   sbom:
     name: SBOM Inventory (SUPPLY-4)
