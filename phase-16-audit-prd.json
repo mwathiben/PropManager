@@ -257,5 +257,65 @@
     "high": 6,
     "medium": 7,
     "low": 5
+  },
+  "closeout": {
+    "status": "complete",
+    "closed_on": "2026-05-12",
+    "commits": [
+      {
+        "sha": "adb07a5",
+        "subject": "docs(phase-16): RESIL + QUEUE audit PRD baseline (18 findings)"
+      },
+      {
+        "sha": "de293cd",
+        "subject": "fix(phase16-1): circuit breaker + inline-Twilio/AT timeout + banking auth retry",
+        "findings": ["RESIL-1", "RESIL-2", "RESIL-3"]
+      },
+      {
+        "sha": "3cfb714",
+        "subject": "fix(phase16-2): explicit job timeouts + Bus::batch fan-out + per-queue health",
+        "findings": ["QUEUE-1", "QUEUE-2", "QUEUE-3", "QUEUE-6"]
+      },
+      {
+        "sha": "a5e1979",
+        "subject": "fix(phase16-3): after_commit + OCR backoff + DLQ exponential + unique-until-processing + 2 runbooks",
+        "findings": ["RESIL-4", "RESIL-5", "RESIL-6", "RESIL-7", "RESIL-8", "QUEUE-4", "QUEUE-5", "QUEUE-7", "QUEUE-8", "QUEUE-9", "QUEUE-10"]
+      }
+    ],
+    "finding_to_commit": {
+      "RESIL-1": { "commit": "de293cd", "status": "closed", "note": "App\\Services\\Resilience\\CircuitBreaker (cache-backed state machine) guards every timedHttpRequest() call via LogsExternalRequests. Opt-in per-provider via services.<provider>.circuit_breaker.enabled (default false). State machine: CLOSED → OPEN (failure_threshold in failure_window_seconds) → HALF_OPEN (after cooldown_seconds) → CLOSED on probe success / OPEN on probe failure. Endpoint-scoped (different endpoints of the same provider don't share state). Emits circuit_breaker.opened|short_circuited|closed Phase-14 counters labeled by provider. Documented in docs/runbooks/circuit-breaker.md." },
+      "RESIL-2": { "commit": "de293cd", "status": "closed", "note": "NotificationService inline Twilio + AfricasTalking + WhatsApp paths now carry connectTimeout(5) + timeout(15) + retry(2) with shared resilientBackoff() (Retry-After honoring on 429) + resilientRetryFilter() (ConnectionException + 5xx + 429 only). ConnectionException mapped to specific notification error_message." },
+      "RESIL-3": { "commit": "de293cd", "status": "closed", "note": "Six banking sites patched: KCB/Equity/Coop × {getAccessToken, verifyAccountNumber} now retry(2, 200, throw: false). Pre-fix a single transient blip wiped the hour-long token cache." },
+      "RESIL-4": { "commit": "a5e1979", "status": "closed", "note": "Bundled into RESIL-2's NotificationService::resilientBackoff() helper — Retry-After honored when present and ≤30s. PaystackService + MpesaService + IntaSendService inherit the existing retry filter which is ConnectionException-only by design (rate-limit on payment-init paths is rare and the operator can adjust retry_attempts via env)." },
+      "RESIL-5": { "commit": "a5e1979", "status": "closed", "note": "queue.php after_commit flipped to true for database + redis connections. Jobs dispatched inside DB::transaction() now defer firing until commit." },
+      "RESIL-6": { "commit": "a5e1979", "status": "closed", "note": "OcrService::pollAzureOperation() — up to 20 attempts, exponential 500ms → 8000ms cap with ±10% jitter, aborts on Azure status=succeeded|failed. Replaces the single sleep(2) + one GET pattern that silently returned null for multi-page documents." },
+      "RESIL-7": { "commit": "a5e1979", "status": "closed", "note": "AppServiceProvider::boot registers Http::macro('resilient', fn () => Http::connectTimeout(5)->timeout(15)->retry(2, 200, throw: false)). Documented in docs/runbooks/queue-worker-config.md and queue-triage.md as the house-style entry point for new outbound calls." },
+      "RESIL-8": { "commit": "a5e1979", "status": "closed", "note": "WebhookDeadLetterService::nextRetryAt(attempt) — exponential per attempt (5/10/20/40/60 min cap, ±10% jitter). Pre-fix every attempt waited 5 min linearly." },
+      "QUEUE-1": { "commit": "3cfb714", "status": "closed", "note": "Explicit $timeout on GenerateInvoicePdf=300, WarmFinanceCacheJob=300, SendBulkNotificationsJob=600, SendScheduledNotificationsJob=300. Pre-fix all four relied on Laravel's 60s worker default." },
+      "QUEUE-2": { "commit": "3cfb714", "status": "closed", "note": "SendBulkNotificationsJob refactored to a thin dispatcher that builds a Bus::batch([...PerRecipientBulkNotificationJob])->allowFailures()->then(...)->dispatch(). Each PerRecipientBulkNotificationJob has its own tries=3 + backoff=[30,60,120] + timeout=120. Idempotency preserved (batch_id stamped into Notification.data); pre-stamped recipients are filtered out of the batch." },
+      "QUEUE-3": { "commit": "3cfb714", "status": "closed", "note": "HealthCheckController::checkQueue iterates config('queue.health.queues') and reports per-queue depth + ok. Default ['default']; env QUEUE_HEALTH_QUEUES adds more without code change. PLUS: MetricsService::gauge() + exportPrometheus gauge merging + CaptureQueueDepth artisan command + every-minute schedule." },
+      "QUEUE-4": { "commit": "a5e1979", "status": "closed", "note": "SendNotificationJob switched from ShouldBeUnique to ShouldBeUniqueUntilProcessing. Lock now releases on worker pickup (vs. on completion) so the dedup window only covers DISPATCH." },
+      "QUEUE-5": { "commit": "a5e1979", "status": "doc-only", "note": "docs/runbooks/queue-triage.md — failure-mode matrix + retry-vs-forget decision tree + per-job-class idempotency safety table + bulk-retry warnings + SerializesModels payload decoding." },
+      "QUEUE-6": { "commit": "3cfb714", "status": "closed", "note": "Implemented as part of QUEUE-3 in Phase 2: MetricsService::gauge + CaptureQueueDepth scheduled command + every-minute capture of queue_depth{queue=X} and failed_jobs_total{age_bucket=X} gauges. Surfaced via Phase-14 /api/metrics endpoint." },
+      "QUEUE-7": { "commit": "a5e1979", "status": "closed", "note": "app/Jobs/Concerns/TracksFailures trait wired into SendNotificationJob + PerRecipientBulkNotificationJob + GenerateInvoicePdf. Each failed() emits MetricsService::increment('job_failed', ['class'=>X, 'reason'=>Y]). Classify-exception heuristic maps to: connection / query / circuit_open / timeout / class_basename. Wrapped in try/catch so metrics outage cannot break failed() hook." },
+      "QUEUE-8": { "commit": "a5e1979", "status": "doc-only", "note": "docs/runbooks/queue-worker-config.md — canonical queue:work command with rationale per flag, supervisord + systemd unit examples, memory/timeout/max-jobs sizing guidance, sizing recipe against the Phase-16 queue gauges." },
+      "QUEUE-9": { "commit": "a5e1979", "status": "closed", "note": "$schedule('queue:prune-batches --hours=720', dailyAt('04:15')) added to routes/console.php. Same 30-day retention as failed_jobs. SendBulkNotificationsJob now creates a job_batches row per fan-out (post-QUEUE-2) so this is no longer dead code." },
+      "QUEUE-10": { "commit": "a5e1979", "status": "doc-only", "note": "Queue-priority convention documented in queue-worker-config.md: payments > notifications > default > bulk. Per-class opt-in via public string $queue. Worker invocation example in the doc includes the --queue priority list." }
+    },
+    "deferrals": [],
+    "tests_added": {
+      "Phase16ResilienceTest.php": 8,
+      "Phase16QueueTest.php": 4,
+      "Phase16Phase3Test.php": 6,
+      "total": 18
+    },
+    "ci_lineage": [
+      "adb07a5 — PRD baseline — CI: green",
+      "de293cd — Phase 1 RESIL-1/2/3 — CI: green",
+      "3cfb714 — Phase 2 QUEUE-1/2/3/6 — CI: green",
+      "a5e1979 — Phase 3+4 RESIL-4/5/6/7/8 + QUEUE-4/5/7/8/9/10 — CI: green",
+      "<this commit> — Phase 16 closeout PRD update"
+    ],
+    "summary": "Phase 16 closed all 18 findings with zero deferrals — strongest closeout cadence so far. Net surface delta: CircuitBreaker primitive (RESIL-1) protects every payment + banking call site via the existing LogsExternalRequests trait; NotificationService inline paths (Twilio + AT + WhatsApp) now carry the house resilience pattern; six banking auth/enquiry sites retry; queue.php after_commit flipped to true; OcrService Azure polling bounded; Http::resilient() macro registered; WebhookDeadLetterService retry is exponential per attempt; four long-running jobs declare explicit timeout; SendBulkNotificationsJob is now a Bus::batch dispatcher with per-recipient retry isolation; HealthCheckController iterates configured queues; MetricsService::gauge() + every-minute CaptureQueueDepth command + Prometheus gauge export; SendNotificationJob is ShouldBeUniqueUntilProcessing; TracksFailures trait on three high-volume jobs; prune-batches scheduled; three new runbooks (circuit-breaker, queue-triage, queue-worker-config). 18 new tests across three test files."
   }
 }
