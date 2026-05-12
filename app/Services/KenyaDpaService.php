@@ -387,6 +387,23 @@ class KenyaDpaService
     }
 
     /**
+     * Phase-12 RETAIN-5 (PARTIAL): the values returned below are
+     * authoritative for documentation/compliance display, but are
+     * NOT enforced automatically. A future `dpa:enforce-retention`
+     * command will walk this array and drive per-category purges.
+     *
+     * Today the per-category sweeps are handled separately:
+     *   - audit_logs / security_logs  → logs:prune
+     *   - soft-deleted models         → soft-deleted:purge
+     *   - account-deletion grace      → gdpr:process-deletions
+     *   - resolved webhook DLQ        → logs:prune --table=dead-letter
+     *   - financial archive (7y)      → ArchiveOldPayments
+     *   - export files (7d)           → exports:cleanup
+     *
+     * Still missing automated enforcement: notifications (1y),
+     * consent records (consent + 3y), KYC photos past the lease+7y
+     * window. Those are RETAIN-5 follow-up scope.
+     *
      * Get data retention requirements.
      */
     public function getRetentionRequirements(): array

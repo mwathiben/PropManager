@@ -133,6 +133,37 @@ If production has actually lost data:
 9. **Post-incident**: file a writeup within 24h covering observed
    RPO/RTO, root cause, and changes needed before the next incident.
 
+## Redis durability (Phase-12 BACKUP-7)
+
+`.env.production.example` proposes `QUEUE_CONNECTION=redis` and
+`CACHE_STORE=redis`. On Redis failover or instance loss:
+
+- **In-flight queue jobs are lost.** Critical jobs (payment
+  webhooks, notification dispatches) re-enter at the next retry
+  via idempotency keys, but uncommitted state is gone.
+- **Sessions are dropped.** Every active user is logged out.
+- **Cache is empty.** First requests pay the cold-cache penalty
+  (rebuilt from DB).
+
+**Mitigation contract** (operators must satisfy at least one):
+
+1. **AWS ElastiCache for Redis** with Multi-AZ + automatic
+   failover + automatic backup retention 7 days. Failover RTO
+   is sub-30-seconds for Redis 6+.
+2. **Self-managed Redis** with AOF persistence (`appendonly yes`)
+   plus a hot replica (`replicaof <primary> <port>`), backed up
+   to S3 daily via a sidecar `BGSAVE + aws s3 cp` cron.
+
+Either option satisfies a Redis-loss RPO ≤ 24h. Tight RPO (sub-1h)
+requires option 1.
+
+**Job persistence supplement**: critical job classes
+(`SendNotificationJob`, payment processors) implement
+`ShouldBeUnique` so duplicate dispatches during failover collapse to
+idempotent re-runs. New job classes MUST follow the same pattern;
+the audit Phase-12 RETAIN-7 ensures the dead-letter table is the
+authoritative record of any job that ran out of retries.
+
 ## Drill log
 
 See `docs/runbooks/dr-drill-log.md` (Phase 12 Phase 4) for the

@@ -59,6 +59,11 @@ $schedule('reconciliation:run-daily', fn ($e) => $e->dailyAt('04:00'));
 // batch) so a multi-million-row prune doesn't lock either table.
 $schedule('logs:prune --table=audit --confirm', fn ($e) => $e->dailyAt('03:30'));
 $schedule('logs:prune --table=security --confirm', fn ($e) => $e->dailyAt('03:35'));
+// Phase-12 RETAIN-7/8: prune RESOLVED webhook_dead_letters past 28
+// days (config('payments.dead_letter.retention_days'), previously a
+// dead config). Unresolved rows are operational debt and never
+// pruned here.
+$schedule('logs:prune --table=dead-letter --confirm', fn ($e) => $e->dailyAt('03:40'));
 
 // Phase-12 RETAIN-3: GDPR Article 17 deletion request processor.
 // Command existed pre-Phase-12 (ProcessScheduledDeletions) but was
@@ -84,6 +89,14 @@ $schedule('backup:verify', fn ($e) => $e->weeklyOn(0, '06:35'));
 // Phase-12 RETAIN-4: force-delete soft-deleted rows past the grace
 // window. DELETION_GRACE_DAYS lives in .env; defaults to 30.
 $schedule('soft-deleted:purge --confirm', fn ($e) => $e->dailyAt('03:45'));
+
+// Phase-12 RETAIN-6: DataExportService::cleanupOldExports already
+// existed but was never scheduled — GDPR export files accumulated
+// on disk after the user downloaded them. Default retention 7 days
+// post-creation.
+Schedule::call(function () {
+    app(\App\Services\DataExportService::class)->cleanupOldExports(7);
+})->name('exports:cleanup')->dailyAt('03:15')->onOneServer();
 
 // Process queued offline payment intents every minute
 $queuedIntents = Schedule::job(new \App\Jobs\ProcessQueuedPaymentIntents)

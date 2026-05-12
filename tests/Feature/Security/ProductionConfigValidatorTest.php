@@ -55,6 +55,7 @@ class ProductionConfigValidatorTest extends TestCase
             'security.kenya_dpa.enabled' => true,
             'security.kenya_dpa.registration' => 'KE-DPA-12345',
             'hashing.bcrypt.rounds' => 12,
+            'filesystems.default' => 's3',
         ]);
     }
 
@@ -199,6 +200,15 @@ class ProductionConfigValidatorTest extends TestCase
 
         $warnings = $this->warnings();
         $this->assertNotEmpty(array_filter($warnings, fn ($w) => str_contains($w, 'BCRYPT_ROUNDS=10')));
+    }
+
+    public function test_filesystem_disk_local_is_warning(): void
+    {
+        $this->setProductionSafeBaseline();
+        config(['filesystems.default' => 'local']);
+
+        $warnings = $this->warnings();
+        $this->assertNotEmpty(array_filter($warnings, fn ($w) => str_contains($w, 'FILESYSTEM_DISK=local')));
     }
 
     public function test_multiple_critical_misconfigs_all_reported(): void

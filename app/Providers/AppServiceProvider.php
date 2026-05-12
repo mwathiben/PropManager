@@ -590,6 +590,15 @@ class AppServiceProvider extends ServiceProvider
             $warnings[] = 'BCRYPT_ROUNDS='.$rounds.' is below the production minimum of 12.';
         }
 
+        // BACKUP-5: FILESYSTEM_DISK=local in production means uploads
+        // live on a single host's filesystem — gone on container
+        // restart or instance loss. Force operators to choose a
+        // durable disk (s3, do_spaces) or explicitly opt in.
+        $defaultDisk = (string) config('filesystems.default', 'local');
+        if ($defaultDisk === 'local') {
+            $warnings[] = 'FILESYSTEM_DISK=local in production. Uploads (KYC, lease docs, payment proofs) live on a single host\'s filesystem and disappear on restart.';
+        }
+
         return $warnings;
     }
 }

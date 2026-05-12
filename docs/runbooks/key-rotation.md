@@ -91,6 +91,40 @@ A `Schedule::call` cron annual reminder lives in
 `routes/console.php` — verify it is active and routes to the on-call
 distribution list.
 
+### APP_KEY escrow (Phase-12 BACKUP-6)
+
+Backups taken BEFORE an APP_KEY rotation contain rows whose encrypted
+columns were encrypted with the OLD key. If those backups need to be
+restored AFTER rotation, the old key MUST still be available — once
+discarded, the encrypted columns in older backups are permanently
+unreadable.
+
+**Escrow procedure** (run BEFORE rotation):
+
+1. Generate the new key but do not deploy it yet.
+2. Write the OLD key + the rotation date to a sealed secret store:
+   - **Recommended**: 1Password vault entry named
+     `propmanager/app-key/<YYYY-MM-DD>` with the base64 key in the
+     password field.
+   - **Alternative**: AWS Secrets Manager entry with KMS-encrypted
+     value, same naming convention.
+3. The escrow entry MUST live as long as the oldest backup that
+   needs it — at minimum, until `keep_yearly_backups_for_years`
+   (currently 7) has elapsed since the rotation date.
+4. Document the escrow location in the rotation's audit_log
+   metadata (already captured by `crypt:rotate` — see
+   `escrow_location` in the SecurityLog row).
+
+**Unsealing procedure** (during a restore from a pre-rotation backup):
+
+1. Restore the backup to a throwaway DB schema.
+2. Retrieve the escrowed key from the vault.
+3. In the throwaway environment's `.env`, set `APP_KEY` to the
+   escrowed key.
+4. Run `php artisan crypt:rotate --old-key=base64:... --confirm` to
+   migrate the restored rows to the current production key.
+5. Now the restored DB can be merged into production safely.
+
 ---
 
 ## 2. Per-landlord webhook secret rotation

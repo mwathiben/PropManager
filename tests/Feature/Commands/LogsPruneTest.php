@@ -116,6 +116,40 @@ class LogsPruneTest extends TestCase
         ])->assertExitCode(2);
     }
 
+    public function test_dead_letter_table_only_prunes_resolved_rows(): void
+    {
+        config(['payments.dead_letter.retention_days' => 28]);
+
+        $landlord = \App\Models\User::factory()->create(['role' => 'landlord']);
+
+        $insertDeadLetter = function (string $errorReason, ?\Carbon\Carbon $resolvedAt) use ($landlord) {
+            DB::table('webhook_dead_letters')->insert([
+                'landlord_id' => $landlord->id,
+                'provider' => 'mpesa',
+                'event_type' => 'stk_callback',
+                'payload' => json_encode([]),
+                'error_reason' => $errorReason,
+                'error_class' => 'schema',
+                'resolved_at' => $resolvedAt,
+                'created_at' => $resolvedAt ?? now()->subDays(60),
+                'updated_at' => $resolvedAt ?? now()->subDays(60),
+            ]);
+        };
+
+        $insertDeadLetter('old resolved', now()->subDays(60));
+        $insertDeadLetter('old unresolved', null);
+        $insertDeadLetter('fresh resolved', now()->subDays(5));
+
+        $this->artisan('logs:prune', [
+            '--table' => 'dead-letter',
+            '--confirm' => true,
+        ])->assertExitCode(0);
+
+        $remaining = DB::table('webhook_dead_letters')->pluck('error_reason')->all();
+        sort($remaining);
+        $this->assertSame(['fresh resolved', 'old unresolved'], $remaining);
+    }
+
     public function test_chunking_handles_more_than_one_batch(): void
     {
         config(['security.audit.retention_days' => 30]);

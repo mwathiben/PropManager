@@ -45,11 +45,31 @@ class LogsPrune extends Command
             'table' => 'audit_logs',
             'config' => 'security.audit.retention_days',
             'default' => 365,
+            'column' => 'created_at',
+            'where_not_null' => null,
         ],
         'security' => [
             'table' => 'security_logs',
             'config' => 'security.logging.retention_days',
             'default' => 90,
+            'column' => 'created_at',
+            'where_not_null' => null,
+        ],
+        // Phase-12 RETAIN-7: webhook_dead_letters carries failed-
+        // payment payloads with PII (phone, account, transaction id).
+        // Resolved entries past 90 days are operational debt the
+        // operator already decided is closed — purge. Unresolved old
+        // entries are NOT pruned here; the column-vs-where_not_null
+        // gate is the safety mechanism.
+        'dead-letter' => [
+            'table' => 'webhook_dead_letters',
+            // RETAIN-8 follow-up: config('payments.dead_letter.retention_days')
+            // existed pre-Phase-12 with no consumer. This command is the
+            // consumer; the value (28 days default) is preserved.
+            'config' => 'payments.dead_letter.retention_days',
+            'default' => 28,
+            'column' => 'resolved_at',
+            'where_not_null' => 'resolved_at',
         ],
     ];
 
@@ -83,9 +103,12 @@ class LogsPrune extends Command
             $retentionDays = (int) config($spec['config'], $spec['default']);
             $cutoff = now()->subDays($retentionDays);
 
-            $candidateCount = DB::table($spec['table'])
-                ->where('created_at', '<', $cutoff)
-                ->count();
+            $column = $spec['column'];
+            $candidateQuery = DB::table($spec['table'])->where($column, '<', $cutoff);
+            if ($spec['where_not_null'] !== null) {
+                $candidateQuery->whereNotNull($spec['where_not_null']);
+            }
+            $candidateCount = $candidateQuery->count();
 
             $this->info(sprintf(
                 '[%s] retention=%d days, cutoff=%s, candidates=%d',
@@ -106,10 +129,11 @@ class LogsPrune extends Command
             // laravel-backup convention.
             $deleted = 0;
             do {
-                $batch = DB::table($spec['table'])
-                    ->where('created_at', '<', $cutoff)
-                    ->limit(1000)
-                    ->delete();
+                $deleteQuery = DB::table($spec['table'])->where($column, '<', $cutoff);
+                if ($spec['where_not_null'] !== null) {
+                    $deleteQuery->whereNotNull($spec['where_not_null']);
+                }
+                $batch = $deleteQuery->limit(1000)->delete();
                 $deleted += $batch;
             } while ($batch > 0);
 
