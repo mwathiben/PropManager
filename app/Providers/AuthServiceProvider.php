@@ -105,21 +105,22 @@ class AuthServiceProvider extends ServiceProvider
     {
         $this->registerPolicies();
 
-        // Define Gates for cross-cutting authorization concerns
-
-        // Super admin can do everything
-        Gate::before(function ($user, $ability) {
-            if ($user->isSuperAdmin()) {
-                return true;
-            }
-        });
+        // Define Gates for cross-cutting authorization concerns.
+        //
+        // Phase-18 AUTHZ-8: ORDER MATTERS. Pre-Phase-18 the super-admin
+        // Gate::before fired FIRST and returned true for every ability,
+        // which short-circuited the Phase-13 DPA-4 restriction check.
+        // A DPA-restricted super-admin would NOT actually be restricted.
+        // Post-Phase-18 the DPA-4 check fires first; super-admin bypass
+        // is constrained to abilities NOT denied by DPA-4.
 
         // Phase-13 DPA-4: Article 18 restriction. A restricted user
-        // is read-only; deny any write-side ability while restricted.
-        // The list of allowed abilities is intentionally narrow —
-        // anything not on it is denied. Release path goes through
-        // GdprController::releaseRestriction, which doesn't need to
-        // pass a Gate (the user is acting on their own record).
+        // (whatever their role) is read-only; deny any write-side
+        // ability while restricted. The list of allowed abilities is
+        // intentionally narrow — anything not on it is denied. Release
+        // path goes through GdprController::releaseRestriction, which
+        // doesn't need to pass a Gate (the user is acting on their
+        // own record).
         Gate::before(function ($user, $ability) {
             if (! method_exists($user, 'isRestricted') || ! $user->isRestricted()) {
                 return null;
@@ -131,7 +132,7 @@ class AuthServiceProvider extends ServiceProvider
                 'viewLedger',
                 'export-data',
                 'request-deletion',
-                'access-admin', // super-admin path already returned above
+                'access-admin',
                 'view-security-logs',
                 'view-audit-logs',
             ];
@@ -141,6 +142,16 @@ class AuthServiceProvider extends ServiceProvider
             }
 
             return false;
+        });
+
+        // Super-admin bypass. Applied AFTER the DPA-4 restriction check
+        // above, so a restricted super-admin is denied write-side
+        // abilities (the DPA-4 hook returns false first; this hook
+        // never runs for those abilities).
+        Gate::before(function ($user, $ability) {
+            if ($user->isSuperAdmin()) {
+                return true;
+            }
         });
 
         // Gate for accessing admin panel

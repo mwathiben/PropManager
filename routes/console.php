@@ -95,6 +95,11 @@ $schedule('payments:audit-allocations', fn ($e) => $e->dailyAt('05:30'));
 // drift audit. Same shape as MONEY-5: log mismatches, bump the
 // lease_wallet_balance_drift_count Prometheus gauge, exit FAILURE.
 $schedule('wallets:audit-balances', fn ($e) => $e->dailyAt('05:35'));
+
+// Phase-18 DATA-7: weekly orphan-row audit. Catches lease→trashed-unit,
+// invoice→trashed-lease, audit_logs/security_logs with missing
+// user_id. Emits data_orphan_row_count{kind=X} Prometheus gauges.
+$schedule('data:audit-orphans', fn ($e) => $e->weeklyOn(0, '06:00'));
 // Phase-16 QUEUE-9: same prune for the job_batches table. SendBulkNoti-
 // ficationsJob (post-Phase-16 QUEUE-2) now creates a job_batches row
 // per fan-out — without this prune the table grows unbounded.

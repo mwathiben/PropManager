@@ -11,6 +11,7 @@ use App\Models\LateFee;
 use App\Models\LateFeePolicy;
 use App\Models\Lease;
 use App\Models\Payment;
+use App\Models\Property;
 use App\Models\Refund;
 use App\Models\Ticket;
 use App\Models\Unit;
@@ -23,6 +24,7 @@ use App\Observers\LateFeeObserver;
 use App\Observers\LateFeePolicyObserver;
 use App\Observers\LeaseObserver;
 use App\Observers\PaymentObserver;
+use App\Observers\PropertyObserver;
 use App\Observers\RefundObserver;
 use App\Observers\TicketObserver;
 use App\Observers\UnitObserver;
@@ -116,6 +118,7 @@ class AppServiceProvider extends ServiceProvider
             ->rules([new PasswordPolicy]));
 
         // Register model observers
+        Property::observe(PropertyObserver::class);
         Building::observe(BuildingObserver::class);
         Unit::observe(UnitObserver::class);
         WaterReading::observe(WaterReadingObserver::class);
