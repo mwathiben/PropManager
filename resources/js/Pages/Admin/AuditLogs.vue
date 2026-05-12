@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import PaginatorLink from '@/Components/PaginatorLink.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import type { AdminAuditLogsPageProps } from '@/types';
@@ -247,13 +248,15 @@ const getEventBadgeClass = (color) => {
                                                 ? 'bg-indigo-600 text-white'
                                                 : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
                                         ]"
-                                        v-html="link.label"
-                                    />
+                                    >
+                                        <PaginatorLink :label="link.label" />
+                                    </button>
                                     <span
                                         v-else
                                         class="px-3 py-1 text-sm text-gray-400"
-                                        v-html="link.label"
-                                    />
+                                    >
+                                        <PaginatorLink :label="link.label" />
+                                    </span>
                                 </template>
                             </nav>
                         </div>

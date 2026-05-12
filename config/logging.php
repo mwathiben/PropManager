@@ -184,6 +184,18 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Phase-15 PERF-6: slow-query channel. SlowQueryServiceProvider
+        // writes here when a query exceeds SLOW_QUERY_THRESHOLD_MS.
+        'slow-query' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/slow-query.log'),
+            'level' => 'warning',
+            'days' => env('SLOW_QUERY_LOG_RETENTION_DAYS', 14),
+            'replace_placeholders' => true,
+            // Mask any PII in slow-query log context (Phase-13 DPA-6).
+            'tap' => [\App\Logging\TapMaskingProcessor::class],
+        ],
+
         // OBS-5: per-domain channels for notification + payment +
         // schedule + metrics events. Pre-fix, NotificationService and
         // ProcessFailedNotifications referenced Log::channel('notifications')
