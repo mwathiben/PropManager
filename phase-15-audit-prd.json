@@ -215,5 +215,97 @@
     "high": 7,
     "medium": 7,
     "low": 4
+  },
+  "closeout": {
+    "status": "complete",
+    "closed_on": "2026-05-12",
+    "commits": [
+      {
+        "sha": "6bf47f9",
+        "subject": "fix(phase14-test): production-config baseline needs sentry.traces_sample_rate",
+        "scope": "Phase-14 baseline-test hotfix + Phase 15 PRD landed"
+      },
+      {
+        "sha": "2a3685d",
+        "subject": "fix(phase15-1): frontend XSS + CSP hardening (FRONT-1/2/3 + 5/6 bonus)",
+        "findings": ["FRONT-1", "FRONT-2", "FRONT-3", "FRONT-5", "FRONT-6"]
+      },
+      {
+        "sha": "fdcc713",
+        "subject": "fix(phase15-2): notifications index + per_page cap + N+1 audit lock-in",
+        "findings": ["PERF-1", "PERF-2", "PERF-3", "PERF-4", "PERF-7"]
+      },
+      {
+        "sha": "4634091",
+        "subject": "fix(phase15-3): PaginatorLink + slow-query logging + config:cache CI + 4 docs",
+        "findings": ["FRONT-4", "FRONT-7", "FRONT-8", "PERF-6", "PERF-8", "PERF-9", "PERF-10"]
+      }
+    ],
+    "finding_to_commit": {
+      "FRONT-1": { "commit": "2a3685d", "status": "closed", "note": "DOMPurify wraps marked() output in Help/Show.vue. ALLOWED_TAGS = markdown render set, ALLOWED_ATTR = href/src/alt/title/class only, javascript: URIs blocked." },
+      "FRONT-2": { "commit": "2a3685d", "status": "closed", "note": "style-src no longer carries 'unsafe-inline'. Nonced style-src plus CSP3 style-src-attr 'unsafe-inline' for Vue :style runtime bindings." },
+      "FRONT-3": { "commit": "2a3685d", "status": "closed", "note": "https://js.paystack.co removed from script-src — no <script src=> for Paystack inline.js in the codebase. If re-added later, must carry SRI integrity hash + documented rotation runbook." },
+      "FRONT-4": { "commit": "4634091", "status": "partial", "note": "PaginatorLink component shipped + canonical example in AuditLogs.vue; 12 remaining v-html paginator callsites are deferred (framework-controlled HTML, low actual risk, mechanical migration tracked in follow-up)." },
+      "FRONT-5": { "commit": "2a3685d", "status": "closed", "note": "img-src tightened from wide-open `https:` to explicit origins (data:, blob:, imgs.paystack.co). Test pins production CSP does not match wide https:." },
+      "FRONT-6": { "commit": "2a3685d", "status": "closed", "note": "CSP report-uri /api/v1/csp-reports + CspReportController writes SecurityLog(event_type='csp_violation'). Rate-limited 30/min/IP." },
+      "FRONT-7": { "commit": "4634091", "status": "doc-only", "note": "docs/runbooks/frontend-validation-pattern.md pins vee-validate 4.x + Zod. Per-form roll-out deferred — security stance is unchanged (server is the only line)." },
+      "FRONT-8": { "commit": "4634091", "status": "doc-only", "note": "docs/runbooks/inertia-share-audit.md catalogues share() payload; auth.user slim-DTO migration deferred (touches every page that reads auth.user)." },
+      "PERF-1": { "commit": "fdcc713", "status": "closed-by-already-shipped", "note": "payments_landlord_date_idx already exists from 2026_01_10 add_unique_constraint_to_paystack_reference. Test locks it in so a future migration cannot silently drop it." },
+      "PERF-2": { "commit": "fdcc713", "status": "closed-by-already-shipped", "note": "invoices_landlord_status_due_idx already exists from 2026_01_15 add_finance_hub_indexes. Test locks it in." },
+      "PERF-3": { "commit": "fdcc713", "status": "closed", "note": "LimitsPerPage trait clamps per_page at 200 silently for numeric over-cap, 422 for non-numeric. Applied to 5 uncapped paginators (Invoice/Payment/TenantInvoice/TenantLease/TenantNotification). Others already clamped at 100 inline." },
+      "PERF-4": { "commit": "fdcc713", "status": "closed", "note": "Invoice + Payment controllers already eager-loaded the hot relationships — PRD overstated the gap. Test pins query count < 20 for a 15-row invoice index page; future regression that drops eager-loading is caught." },
+      "PERF-5": { "commit": null, "status": "deferred", "note": "MySQL InnoDB has no PostgreSQL-style partial-index for `deleted_at IS NULL`. Functional-index workaround adds churn without operational evidence of a hot-path slow-down. Revisit if SLOW_QUERY_THRESHOLD_MS surfaces evidence." },
+      "PERF-6": { "commit": "4634091", "status": "closed", "note": "SlowQueryServiceProvider listens to DB::QueryExecuted. No-op unless SLOW_QUERY_THRESHOLD_MS env is set. Above threshold: writes to 'slow-query' channel + observes Phase-14 OBSERV-9 db_query_ms histogram with kind=select|insert|update|delete|other. Double-wrapped (service is fail-closed + provider try/catch) so a Redis hiccup cannot break query execution." },
+      "PERF-7": { "commit": "fdcc713", "status": "closed", "note": "notifications_recipient_read_idx composite shipped (recipient_id, read_at). Hot path is the unread-badge query that fires on every Inertia request. Migration is idempotent via Schema::hasIndex." },
+      "PERF-8": { "commit": "4634091", "status": "doc-only", "note": "docs/runbooks/web-server-config.md nginx + Apache + Caddy snippets for immutable Cache-Control on /build/* hashed assets. Verification curl recipe included." },
+      "PERF-9": { "commit": "4634091", "status": "closed", "note": "ci.yml config-cache-check job runs `php artisan config:cache + route:cache + event:cache` against production config. Catches closure-in-config and route binding mistakes that pass tests but break the deploy." },
+      "PERF-10": { "commit": "4634091", "status": "doc-only", "note": "docs/runbooks/web-server-config.md gzip+brotli sections. Operator-side smoke-test snippet (curl Accept-Encoding) for verifying compression post-deploy. Pre-staging-environment, no CI smoke test." }
+    },
+    "deferrals": [
+      {
+        "id": "FRONT-4-tail",
+        "reason": "12 remaining v-html=\"link.label\" paginator callsites — mechanical migration to PaginatorLink. Framework-controlled HTML so low actual risk. Tracked for Phase 16+ cleanup pass.",
+        "files": ["resources/js/Pages/**/*.vue (12 paginator callsites still using v-html)"]
+      },
+      {
+        "id": "FRONT-7",
+        "reason": "vee-validate 4.x + Zod per-form roll-out. Pattern is pinned (docs/runbooks/frontend-validation-pattern.md); migrating each form is incremental UX work. Server validation still the only line of defence.",
+        "files": ["resources/js/Pages/Auth/*.vue, resources/js/Pages/Tenants/*.vue, etc."]
+      },
+      {
+        "id": "FRONT-8",
+        "reason": "Inertia share() slim-DTO migration — `auth.user` ships full User model on every request. Slim DTO is documented in docs/runbooks/inertia-share-audit.md; migration touches every Vue page that reads auth.user (template refactor + types).",
+        "files": ["app/Http/Middleware/HandleInertiaRequests.php + downstream consumers"]
+      },
+      {
+        "id": "PERF-5",
+        "reason": "MySQL InnoDB has no PostgreSQL-style partial-index. Functional-index workaround on `deleted_at IS NULL` adds maintenance cost without operational evidence of a hot-path slow-down. Revisit if SLOW_QUERY_THRESHOLD_MS (PERF-6) surfaces evidence.",
+        "files": ["database/migrations (not added)"]
+      },
+      {
+        "id": "PERF-8-CI",
+        "reason": "Cache-Control fallback middleware not shipped — emission is operator-side (nginx/Apache/Caddy). Documented; PHP fallback would mask a real misconfig instead of failing visibly.",
+        "files": ["docs/runbooks/web-server-config.md only"]
+      },
+      {
+        "id": "PERF-10-CI",
+        "reason": "Compression smoke test deferred — Phase-11 DEPLOY-5 staging environment is the prerequisite. Pattern documented for when staging exists.",
+        "files": ["docs/runbooks/web-server-config.md only"]
+      }
+    ],
+    "tests_added": {
+      "FrontendHardeningTest.php": 7,
+      "PerformanceHardeningTest.php": 7,
+      "Phase15Phase3Test.php": 3,
+      "total": 17
+    },
+    "ci_lineage": [
+      "6bf47f9 — Phase 14 baseline-test hotfix + Phase 15 PRD baseline — CI: green",
+      "2a3685d — Phase 15 Phase 1 (FRONT-1/2/3 + 5/6) — CI: green",
+      "fdcc713 — Phase 15 Phase 2 (PERF-1/2/3/4/7) — CI: green",
+      "4634091 — Phase 15 Phase 3+4 (FRONT-4/7/8 + PERF-6/8/9/10) — CI: green",
+      "<this commit> — Phase 15 closeout PRD update"
+    ],
+    "summary": "Phase 15 closed 12 of 18 findings as fully fixed, 4 as doc-only (FRONT-7/8 + PERF-8/10 — pattern pinned, per-form/per-page roll-out is incremental), 1 as partial (FRONT-4 — canonical component shipped + 12 mechanical callsites deferred), and 1 deferred (PERF-5 — MySQL has no partial-index primitive without operational evidence). Audit-time surprise: PERF-1 and PERF-2 indexes already shipped by Jan-2026 finance-hub migrations — tests now lock them in. Net surface delta: nonced CSP without 'unsafe-inline', DOMPurify on the help-article render path, CSP report-uri wired to SecurityLog, per_page DoS cap, slow-query observability hooked to OBSERV-9 histograms, config:cache CI gate, four operator runbooks. 17 new tests."
   }
 }
