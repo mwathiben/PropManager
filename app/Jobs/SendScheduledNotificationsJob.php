@@ -15,6 +15,13 @@ class SendScheduledNotificationsJob implements ShouldQueue
     use Queueable;
 
     /**
+     * Phase-16 QUEUE-1: explicit timeout. This job iterates schedules
+     * and dispatches per-recipient notification work — under load, the
+     * 60s worker default is insufficient.
+     */
+    public int $timeout = 300;
+
+    /**
      * Create a new job instance.
      */
     public function __construct(

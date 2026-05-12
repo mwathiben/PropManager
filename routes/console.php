@@ -146,6 +146,12 @@ if ($failureEmail) {
     $archive->emailOutputOnFailure($failureEmail);
 }
 
+// Phase-16 QUEUE-6: per-queue depth + failed-jobs gauges. Runs every
+// minute; the Phase-14 /api/metrics endpoint surfaces them so Grafana
+// can plot the time series. Cheap O(1) Queue::size() + 3 cardinality-
+// 1 COUNT queries per minute.
+$schedule('metrics:capture-queue-depth', fn ($e) => $e->everyMinute());
+
 // OBS-13: failed_jobs growth monitor. Without this, a wedged worker /
 // poisoned job lets failed_jobs grow unbounded and we don't notice
 // until queue throughput collapses. Threshold + recipient are

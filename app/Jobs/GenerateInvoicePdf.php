@@ -19,6 +19,15 @@ class GenerateInvoicePdf implements ShouldQueue
 
     public array $backoff = [30, 60, 120];
 
+    /**
+     * Phase-16 QUEUE-1: explicit timeout. Pre-fix this defaulted to the
+     * 60s worker timeout, which a 30+ page invoice render via dompdf
+     * routinely exceeds — SIGTERM mid-render leaves the worker dead and
+     * the job in failed_jobs as 'process killed'. 5 minutes covers the
+     * worst-case render observed in production.
+     */
+    public int $timeout = 300;
+
     public function __construct(
         public int $invoiceId
     ) {}

@@ -17,6 +17,14 @@ class WarmFinanceCacheJob implements ShouldBeUnique, ShouldQueue
 
     public int $uniqueFor = 10;
 
+    /**
+     * Phase-16 QUEUE-1: explicit timeout. Cold-cache warming runs 7
+     * aggregate queries serially across the landlord's full data set;
+     * for a landlord with thousands of leases/invoices this can exceed
+     * the 60s default worker timeout.
+     */
+    public int $timeout = 300;
+
     public function __construct(
         public readonly int $landlordId
     ) {}

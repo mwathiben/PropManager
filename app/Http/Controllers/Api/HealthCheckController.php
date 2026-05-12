@@ -99,18 +99,33 @@ class HealthCheckController extends Controller
         }
     }
 
+    /**
+     * Phase-16 QUEUE-3: per-queue depth check. Pre-fix this only sampled
+     * the 'default' queue, so a 10k-row backup on 'notifications' showed
+     * green here. Iterates the configured queue list and degrades on
+     * any per-queue overage.
+     */
     private function checkQueue(): array
     {
         try {
-            $size = Queue::size();
-            // Treat a default-queue depth above 1000 as degraded — workers
-            // are not keeping up.
+            $queues = config('queue.health.queues', ['default']);
             $threshold = (int) config('queue.health.depth_threshold', 1000);
 
+            $perQueue = [];
+            $worstOk = true;
+            foreach ($queues as $queue) {
+                $size = Queue::size($queue);
+                $ok = $size <= $threshold;
+                $perQueue[$queue] = ['depth' => $size, 'ok' => $ok];
+                if (! $ok) {
+                    $worstOk = false;
+                }
+            }
+
             return [
-                'ok' => $size <= $threshold,
-                'depth' => $size,
+                'ok' => $worstOk,
                 'threshold' => $threshold,
+                'queues' => $perQueue,
             ];
         } catch (\Throwable $e) {
             return ['ok' => false, 'error' => $e->getMessage()];

@@ -79,6 +79,30 @@ class MetricsService
         }
     }
 
+    /**
+     * Phase-16 QUEUE-6: gauge metric — set-not-increment. Useful for
+     * point-in-time values like queue depth or failed-job counts that
+     * are captured on a schedule rather than emitted per-event.
+     *
+     * Tracked in a separate redis hash so the export pass can render
+     * `# TYPE name gauge` (vs. `counter`) for Prometheus.
+     */
+    public function gauge(string $name, float $value, array $labels = []): void
+    {
+        try {
+            $key = $this->gaugeKey();
+            $field = $this->fieldName($name, $labels);
+            $client = Redis::connection($this->connection);
+            $client->hset($key, $field, (string) $value);
+            $client->expire($key, 60 * 60 * 24 * 14);
+        } catch (\Throwable $e) {
+            Log::channel(config('logging.metrics_channel', 'stack'))->warning(
+                'metrics gauge failed',
+                ['name' => $name, 'error' => $e->getMessage()]
+            );
+        }
+    }
+
     public function snapshot(?string $bucket = null): array
     {
         try {
@@ -101,18 +125,33 @@ class MetricsService
      */
     public function exportPrometheus(): string
     {
-        $snapshot = $this->snapshot();
-        if ($snapshot === []) {
+        $counterSnapshot = $this->snapshot();
+        $gaugeSnapshot = $this->gaugeSnapshot();
+
+        if ($counterSnapshot === [] && $gaugeSnapshot === []) {
             return "# no metrics recorded yet\n";
         }
 
         $lines = [];
-        foreach ($snapshot as $field => $value) {
+        foreach ($counterSnapshot as $field => $value) {
             $lines[] = '# TYPE '.$this->prometheusName($field).' counter';
             $lines[] = $this->prometheusName($field).' '.((int) $value);
         }
+        foreach ($gaugeSnapshot as $field => $value) {
+            $lines[] = '# TYPE '.$this->prometheusName($field).' gauge';
+            $lines[] = $this->prometheusName($field).' '.((float) $value);
+        }
 
         return implode("\n", $lines)."\n";
+    }
+
+    public function gaugeSnapshot(): array
+    {
+        try {
+            return Redis::connection($this->connection)->hgetall($this->gaugeKey()) ?: [];
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     private function prometheusName(string $field): string
@@ -132,6 +171,11 @@ class MetricsService
     private function bucketKey(): string
     {
         return 'metrics:'.now()->format('Y-m-d');
+    }
+
+    private function gaugeKey(): string
+    {
+        return 'metrics:gauges';
     }
 
     private function fieldName(string $name, array $labels): string

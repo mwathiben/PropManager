@@ -126,4 +126,22 @@ return [
         'table' => 'failed_jobs',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Queue Health
+    |--------------------------------------------------------------------------
+    |
+    | Phase-16 QUEUE-3/6: enumerate every queue that should be probed by
+    | the /api/v1/health endpoint and the metrics:capture-queue-depth
+    | scheduled command. Adding a new queue (e.g. 'payments') means it
+    | will be observed without further code change.
+    |
+    */
+    'health' => [
+        'queues' => array_filter(array_map('trim', explode(',', (string) env('QUEUE_HEALTH_QUEUES', 'default')))),
+        'depth_threshold' => (int) env('QUEUE_HEALTH_DEPTH_THRESHOLD', 1000),
+    ],
+
+    'failed_jobs_alert_threshold' => (int) env('QUEUE_FAILED_JOBS_ALERT_THRESHOLD', 25),
+
 ];
