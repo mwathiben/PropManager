@@ -88,7 +88,19 @@ class User extends Authenticatable
         'kyc_completed_at' => 'datetime',
         'is_archived' => 'boolean',
         'archived_at' => 'datetime',
+        // Phase-13 DPA-4: Article 18 restriction-of-processing flag.
+        // When non-null the account is read-only; the Gate::before
+        // hook in AuthServiceProvider denies write-side abilities.
+        'restricted_at' => 'datetime',
     ];
+
+    /**
+     * Phase-13 DPA-4: Article 18 / Kenya DPA Section 26(d).
+     */
+    public function isRestricted(): bool
+    {
+        return $this->restricted_at !== null;
+    }
 
     public function isSuperAdmin(): bool
     {

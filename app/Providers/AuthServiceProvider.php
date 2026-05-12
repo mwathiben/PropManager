@@ -114,6 +114,35 @@ class AuthServiceProvider extends ServiceProvider
             }
         });
 
+        // Phase-13 DPA-4: Article 18 restriction. A restricted user
+        // is read-only; deny any write-side ability while restricted.
+        // The list of allowed abilities is intentionally narrow —
+        // anything not on it is denied. Release path goes through
+        // GdprController::releaseRestriction, which doesn't need to
+        // pass a Gate (the user is acting on their own record).
+        Gate::before(function ($user, $ability) {
+            if (! method_exists($user, 'isRestricted') || ! $user->isRestricted()) {
+                return null;
+            }
+
+            $allowedWhileRestricted = [
+                'view',
+                'viewAny',
+                'viewLedger',
+                'export-data',
+                'request-deletion',
+                'access-admin', // super-admin path already returned above
+                'view-security-logs',
+                'view-audit-logs',
+            ];
+
+            if (in_array($ability, $allowedWhileRestricted, true)) {
+                return null;
+            }
+
+            return false;
+        });
+
         // Gate for accessing admin panel
         Gate::define('access-admin', function ($user) {
             return $user->isSuperAdmin();

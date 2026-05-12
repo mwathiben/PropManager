@@ -928,6 +928,17 @@ Route::middleware('auth')->group(function () {
             ->middleware('throttle:sensitive')
             ->name('request-deletion');
         Route::post('/delete/cancel', [GdprController::class, 'cancelDeletion'])->name('cancel-deletion');
+
+        // Phase-13 DPA-4: Article 18 right to restriction of
+        // processing. Sets restricted_at on the user; the Gate hook
+        // in AuthServiceProvider denies write-side abilities while
+        // restricted. Release path clears it.
+        Route::post('/restrict', [GdprController::class, 'requestRestriction'])
+            ->middleware('throttle:sensitive')
+            ->name('request-restriction');
+        Route::post('/restrict/release', [GdprController::class, 'releaseRestriction'])
+            ->middleware('throttle:sensitive')
+            ->name('release-restriction');
     });
 });
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\ExportUserData;
+use App\Models\AuditLog;
 use App\Models\DeletionRequest;
 use App\Services\DataDeletionService;
 use App\Services\DataExportService;
@@ -145,6 +146,82 @@ class GdprController extends Controller
         $this->deletionService->cancelDeletion($deletionRequest);
 
         return back()->with('success', 'Your deletion request has been cancelled.');
+    }
+
+    /**
+     * Phase-13 DPA-4: Article 18 / Kenya DPA Section 26(d). Mark the
+     * account as restricted — read-only mode active from now on. The
+     * AuthServiceProvider Gate::before hook denies write-side
+     * abilities while restricted; the controller's only job is to
+     * stamp the timestamp + reason and write the audit row.
+     */
+    public function requestRestriction(Request $request)
+    {
+        $validated = $request->validate([
+            'reason' => 'required|string|max:500',
+        ]);
+
+        $user = $request->user();
+        if ($user->isRestricted()) {
+            return back()->with('success', 'Your account is already restricted.');
+        }
+
+        $user->forceFill([
+            'restricted_at' => now(),
+            'restriction_reason' => $validated['reason'],
+        ])->save();
+
+        AuditLog::create([
+            'user_id' => $user->id,
+            'landlord_id' => $user->isLandlord() ? $user->id : $user->landlord_id,
+            'event_type' => 'processing_restricted',
+            'auditable_type' => $user::class,
+            'auditable_id' => $user->id,
+            'metadata' => [
+                'reason' => $validated['reason'],
+                'compliance' => 'gdpr_article_18',
+            ],
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        return back()->with('success', 'Your account has been placed under restricted-processing mode. Write actions are paused until you release the restriction.');
+    }
+
+    /**
+     * Phase-13 DPA-4 release path: clear the restriction. Releases
+     * are user-initiated; an operator-initiated release would go
+     * through an admin route (not in this commit's scope).
+     */
+    public function releaseRestriction(Request $request)
+    {
+        $user = $request->user();
+        if (! $user->isRestricted()) {
+            return back()->with('success', 'Your account is not under restriction.');
+        }
+
+        $previousReason = $user->restriction_reason;
+
+        $user->forceFill([
+            'restricted_at' => null,
+            'restriction_reason' => null,
+        ])->save();
+
+        AuditLog::create([
+            'user_id' => $user->id,
+            'landlord_id' => $user->isLandlord() ? $user->id : $user->landlord_id,
+            'event_type' => 'processing_restriction_released',
+            'auditable_type' => $user::class,
+            'auditable_id' => $user->id,
+            'metadata' => [
+                'previous_reason' => $previousReason,
+                'compliance' => 'gdpr_article_18',
+            ],
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        return back()->with('success', 'Your account restriction has been released. Normal processing has resumed.');
     }
 
     /**
