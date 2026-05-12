@@ -88,27 +88,49 @@ class SecurityHeaders
     {
         $nonce = Vite::cspNonce();
 
-        // Base directives with nonce for scripts and styles
+        // Phase-15 FRONT-2: split style-src into element vs attribute.
+        // style-src 'self' 'nonce-X' covers <style nonce> blocks
+        // (tightened — drops legacy 'unsafe-inline' for those).
+        // style-src-attr 'unsafe-inline' covers Vue's `:style=`
+        // bindings (which emit inline style attributes at runtime).
+        // CSP3 browsers honour the split; older browsers fall back to
+        // style-src which still works.
+        //
+        // Phase-15 FRONT-3: js.paystack.co was preemptively allowlisted
+        // but no <script src=> for it exists in the codebase today.
+        // Removed from script-src. If a future feature loads Paystack
+        // inline.js, add it back WITH an integrity SRI hash + document
+        // the rotation procedure in docs/runbooks/.
+        //
+        // Phase-15 FRONT-5: img-src https: was wide-open. Now restricted
+        // to explicit origins. Vue/Vite emit data: and blob: URIs for
+        // small inline assets so those remain.
         $directives = [
             "default-src 'self'",
-            "script-src 'self' 'nonce-{$nonce}' https://js.paystack.co",
-            "style-src 'self' 'unsafe-inline' https://fonts.bunny.net",
-            "img-src 'self' data: blob: https:",
+            "script-src 'self' 'nonce-{$nonce}'",
+            "style-src 'self' 'nonce-{$nonce}' https://fonts.bunny.net",
+            "style-src-attr 'unsafe-inline'",
+            "img-src 'self' data: blob: https://imgs.paystack.co",
             "font-src 'self' data: https://fonts.bunny.net",
             "connect-src 'self' ws: wss: https://api.paystack.co",
             "frame-ancestors 'none'",
             "base-uri 'self'",
             "form-action 'self'",
+            // Phase-15 FRONT-6: report violations to the in-app
+            // endpoint so ops can see what's being blocked. Defaults
+            // to /api/v1/csp-reports; rate-limited there.
+            'report-uri '.config('observability.csp.report_uri', '/api/v1/csp-reports'),
         ];
 
-        // In development, allow Vite dev server origin
+        // In development, allow Vite dev server origin + relax
+        // restrictions that would block the dev server's hot module
+        // reload.
         if (app()->environment('local', 'testing') && file_exists(public_path('hot'))) {
             $viteOrigin = $this->getViteOrigin();
 
             if ($viteOrigin) {
-                // Add Vite origin to script-src and connect-src
-                $directives[1] = "script-src 'self' 'nonce-{$nonce}' {$viteOrigin} https://js.paystack.co";
-                $directives[5] = "connect-src 'self' ws: wss: {$viteOrigin} https://api.paystack.co";
+                $directives[1] = "script-src 'self' 'nonce-{$nonce}' {$viteOrigin}";
+                $directives[6] = "connect-src 'self' ws: wss: {$viteOrigin} https://api.paystack.co";
             }
         }
 

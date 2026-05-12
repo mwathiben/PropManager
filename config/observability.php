@@ -43,4 +43,11 @@ return [
         'release_env_var' => 'SENTRY_RELEASE',
     ],
 
+    'csp' => [
+        // Phase-15 FRONT-6: where SecurityHeaders sends report-uri.
+        // Override with CSP_REPORT_URI to point at an external
+        // collector (e.g. report-uri.com).
+        'report_uri' => env('CSP_REPORT_URI', '/api/v1/csp-reports'),
+    ],
+
 ];

@@ -6,13 +6,32 @@ import {
     ArrowLeftIcon,
     DocumentTextIcon,
 } from '@heroicons/vue/24/outline';
+import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import { computed } from 'vue';
 
 const props = defineProps<HelpShowPageProps>();
 
+// Phase-15 FRONT-1: sanitize the marked output before v-html. marked
+// permits inline HTML pass-through (per the CommonMark spec) so any
+// <script>, onerror=, or similar in article.content would otherwise
+// land in every reader's DOM. DOMPurify strips scripts + event
+// handlers + javascript: URLs while leaving the standard markdown-
+// rendered tags intact.
 const renderedContent = computed(() => {
-    return marked(props.article.content || '');
+    const html = marked.parse(props.article.content || '', { async: false }) as string;
+    return DOMPurify.sanitize(html, {
+        ALLOWED_TAGS: [
+            'p', 'br', 'hr',
+            'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+            'strong', 'em', 'b', 'i', 'u', 's',
+            'ul', 'ol', 'li',
+            'a', 'code', 'pre', 'blockquote',
+            'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
+        ],
+        ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class'],
+        ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+    });
 });
 
 const categoryLabels = {

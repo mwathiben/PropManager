@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\CspReportController;
 use App\Http\Controllers\Api\HealthCheckController;
 use App\Http\Controllers\Api\MetricsController;
 use App\Http\Controllers\Api\TenantInvoiceController;
@@ -29,6 +30,11 @@ Route::get('/health/payments', [HealthCheckController::class, 'payments'])
 // allowlist gated in MetricsController so the route registration
 // itself is unauthenticated — auth lives at the controller.
 Route::get('/metrics', [MetricsController::class, 'index']);
+
+// Phase-15 FRONT-6: CSP violation report sink. Public (browsers
+// post unauthenticated) but rate-limited so one offender can't spam.
+Route::post('/v1/csp-reports', [CspReportController::class, 'store'])
+    ->middleware('throttle:csp-report');
 
 // API v1 routes
 Route::prefix('v1')->group(function () {

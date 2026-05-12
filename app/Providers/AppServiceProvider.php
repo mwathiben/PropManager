@@ -243,6 +243,15 @@ class AppServiceProvider extends ServiceProvider
                 ->by($request->user()?->id ?: $request->ip());
         });
 
+        // Phase-15 FRONT-6: CSP violation reports. One compromised
+        // browser or extension can fire many violations per minute;
+        // 30/min is a reasonable cap that surfaces a genuine
+        // misconfiguration without becoming a write-amplification
+        // attack on security_logs.
+        RateLimiter::for('csp-report', function (Request $request) {
+            return Limit::perMinute(30)->by($request->ip());
+        });
+
         // Invitation acceptance rate limiter
         RateLimiter::for('invitation', function (Request $request) {
             return Limit::perMinute(5)
