@@ -1,0 +1,217 @@
+{
+  "project": "PropManager",
+  "audit_cycle": "phase-12",
+  "audit_date": "2026-05-12",
+  "scope": "Defensive audit of backup / disaster-recovery (BACKUP) and data-retention enforcement (RETAIN). Phase 11 shipped a fail-closed production-config validator and deploy automation; Phase 12 closes the next layer — what happens when the database goes away (BACKUP), and what happens to data that should age out (RETAIN). Both are direct DPA / GDPR exposure: an unrecoverable data loss event AND data that lingers past its retention period are equally regulator-flagged.",
+  "context_baseline": {
+    "previous_audits": [
+      "Phase 1/2 (commits 03e17b7, 4a305a0): 49 SQLi/auth/serialization/file-upload/data-integrity",
+      "Phase 3 (phase-3-audit-prd.json): 46 SCOPE-S/D/P + PERF-P/Q/R findings",
+      "Phase 4 (phase-4-audit-prd.json): 55 CONC/VALID/AUDIT/HANDLE findings",
+      "Phase 5 (phase-5-audit-prd.json): 54 PRIV/RATE/CRYPTO/OBS findings + 4-finding cleanup",
+      "Phase 11 (phase-11-audit-prd.json): 21 DEPLOY/SECRETS findings closed across 6 commits"
+    ],
+    "do_not_reflag": "Findings duplicating items already closed in phases 1-11. SECRETS-9 already shipped a key-rotation runbook; this phase does not re-flag rotation procedure. ArchiveOldPayments already implements payment archival; RETAIN findings target the OTHER tables without archival."
+  },
+  "qualityStandards": {
+    "test": "All Phase-12 fixes must pass `php artisan test --parallel` and `vendor/bin/pint --test`.",
+    "ci": "Each commit must land on main with green CI before the next phase starts.",
+    "no_breaking_change": "Adding retention pruning commands must be gated on --confirm (mirror webhook:rotate-secret). Pruning is destructive."
+  },
+  "feedbackLoops": {
+    "lint": "vendor/bin/pint --test",
+    "test_focused": "php artisan test --filter='<keyword>'",
+    "test_full": "php artisan test --parallel",
+    "ci_watch": "gh run list --limit 1 --branch main --json status,conclusion"
+  },
+  "categories": {
+    "BACKUP": {
+      "description": "Backup / disaster-recovery posture — production-database backup automation, backup verification (a backup is only as good as the last restore drill), backup retention, document-storage durability, encrypted-column key escrow, documented RPO/RTO. The repo today has ZERO backup automation; loss of the production DB cluster equals total data loss.",
+      "count": 8
+    },
+    "RETAIN": {
+      "description": "Data-retention enforcement — the codebase DEFINES retention windows (AUDIT_RETENTION_DAYS, SECURITY_LOG_RETENTION_DAYS, DATA_RETENTION_YEARS, DELETION_GRACE_DAYS) and KenyaDpaService documents them, but very little actually ENFORCES them. Audit/security logs grow unboundedly; the gdpr:process-deletions command exists but is not scheduled; soft-deleted rows never force-delete past grace. DPA and GDPR Article 17 exposure.",
+      "count": 10
+    }
+  },
+  "items": [
+    {
+      "id": "BACKUP-1",
+      "title": "No backup mechanism exists — DB cluster loss equals total data loss",
+      "severity": "HIGH",
+      "files": ["composer.json (no spatie/laravel-backup)", "routes/console.php (no backup schedule)", "app/Console/Commands/ (no backup command)"],
+      "evidence": "grep composer.json for 'backup' returns nothing. No mysqldump cron in console.php. No S3 sync. No host-level systemd timer documented anywhere in repo. The only backup story is whatever's configured on the DB host out-of-band — invisible to the app's deploy and audit process.",
+      "fix": "Install spatie/laravel-backup. Configure config/backup.php with: mysqldump-style DB dump, optional file-tree backup (storage/app uploads), encrypted disk target (s3 with KMS), per-environment naming. Add a daily schedule + a weekly schedule. Notify failures via Sentry (OBS-1) + email. Document the package in README."
+    },
+    {
+      "id": "BACKUP-2",
+      "title": "No backup verification — a backup is only as good as the last restore drill",
+      "severity": "HIGH",
+      "files": ["no restore-test command exists"],
+      "evidence": "Even after BACKUP-1 ships, there is no automated assurance the backups are RESTORABLE. A backup that silently encrypts to garbage (wrong AWS region, corrupted gzip, schema-incompatible) gives false confidence. spatie/laravel-backup's monitor command checks size and age but does NOT actually restore.",
+      "fix": "Add `php artisan backup:verify` command that: pulls the latest backup, restores to a throwaway DB schema, runs a smoke-test query (SELECT COUNT(*) from leases / invoices / users), drops the schema. Schedule weekly. Failure -> Sentry + email."
+    },
+    {
+      "id": "BACKUP-3",
+      "title": "No backup retention policy — accumulate forever or age out unmanaged",
+      "severity": "HIGH",
+      "files": ["config/backup.php (does not exist)"],
+      "evidence": "Without explicit retention, two failure modes: (a) backups accumulate forever, S3 cost grows without bound; (b) backups age out via host TTL with no policy, data loss horizon is whatever the host happens to do. Neither is auditable.",
+      "fix": "In the new config/backup.php, configure GFS retention: daily for 14 days, weekly for 12 weeks, monthly for 24 months, yearly for 7 years (matches DATA_RETENTION_YEARS). Document the policy in README + docs/runbooks/."
+    },
+    {
+      "id": "BACKUP-4",
+      "title": "No documented RPO / RTO — operators don't know what's acceptable",
+      "severity": "HIGH",
+      "files": ["docs/runbooks/ (no DR runbook)"],
+      "evidence": "RPO (Recovery Point Objective: how much data loss is acceptable) and RTO (Recovery Time Objective: how fast must we recover) are the two numbers DR strategy is built on. Neither is documented. Without them, BACKUP-1/2/3 ship without a target to validate against.",
+      "fix": "Add docs/runbooks/disaster-recovery.md documenting RPO (proposed: 24h for now, shrink to 1h once binlog-based PITR is wired) and RTO (proposed: 4h cold restore, validated by quarterly drills). Include the restore procedure, the rollback contacts, and the post-incident review template."
+    },
+    {
+      "id": "BACKUP-5",
+      "title": "Document storage on FILESYSTEM_DISK has no documented versioning / lifecycle",
+      "severity": "MEDIUM",
+      "files": ["config/filesystems.php", "no S3 lifecycle policy documented"],
+      "evidence": "Lease documents, KYC photos, payment proofs all live on FILESYSTEM_DISK. If the configured disk is S3 without versioning enabled (the default), a delete (intentional or accidental) is permanent. A misconfigured bucket lifecycle could also expire objects unexpectedly.",
+      "fix": "Document the required S3 bucket settings (versioning ENABLED, MFA-delete on production, lifecycle policy that matches RETAIN-* retention windows). Add a validator check that warns if FILESYSTEM_DISK is 'local' in production. Optional: a `php artisan storage:audit` command that walks each disk's config and reports gaps."
+    },
+    {
+      "id": "BACKUP-6",
+      "title": "No APP_KEY escrow for encrypted columns in backups",
+      "severity": "MEDIUM",
+      "files": ["docs/runbooks/key-rotation.md (no escrow section)"],
+      "evidence": "Backups contain rows whose encrypted columns (payment configs, KYC, 2FA secrets) are encrypted with the APP_KEY that was current AT BACKUP TIME. If APP_KEY is rotated AND the old key is destroyed AND a backup from before the rotation is restored, the encrypted columns are unrecoverable. CryptRotate handles forward rotation but not the escrow problem.",
+      "fix": "Update key-rotation.md with an APP_KEY ESCROW section: before rotating, snapshot the old key to a sealed secret store (1Password vault, AWS KMS-encrypted file, etc.) labelled with the rotation date. Retention: as long as the oldest backup that needs it. Document the unsealing procedure for restoration."
+    },
+    {
+      "id": "BACKUP-7",
+      "title": "Redis state (sessions, queue, cache) has no backup story",
+      "severity": "MEDIUM",
+      "files": ["config/queue.php (QUEUE_CONNECTION=redis)", "config/session.php"],
+      "evidence": ".env.production.example proposes QUEUE_CONNECTION=redis. On Redis failover, in-flight jobs are lost. Sessions are also Redis-backed (CACHE_STORE=redis); a flush logs every user out. No documented Redis backup or replica setup.",
+      "fix": "Document Redis durability tier requirements: AOF persistence enabled, replica node for failover, AWS ElastiCache with automatic backup retention if that's the deploy target. Add to README's Deployment section."
+    },
+    {
+      "id": "BACKUP-8",
+      "title": "No restore-drill cadence — last successful restore is unknown",
+      "severity": "LOW",
+      "files": ["docs/runbooks/ (no drill log)"],
+      "evidence": "DR posture is only credible if recently exercised. Without a documented drill cadence and a log of past drills, the 'we have backups' claim is untested.",
+      "fix": "Add docs/runbooks/dr-drill-log.md template. Mandate a quarterly drill: restore the latest backup to staging, run a 10-query smoke test, record date + duration + observed RPO/RTO in the log. The cron-reminder approach used for APP_KEY rotation applies here too."
+    },
+    {
+      "id": "RETAIN-1",
+      "title": "AUDIT_RETENTION_DAYS=365 defined but no command prunes audit_logs",
+      "severity": "HIGH",
+      "files": ["config/security.php:122", "no logs:prune-audit command exists"],
+      "evidence": "config('security.audit.retention_days') = 365 but grep finds zero callers OTHER than the config reading itself. The audit_logs table grows unboundedly forever. Storage cost + Kenya DPA hazard ('storage limitation' principle: personal data shall not be kept longer than necessary).",
+      "fix": "Add `php artisan logs:prune --table=audit --dry-run/--confirm` that DELETEs rows older than retention_days. Schedule daily at 03:30. SecurityLog entry per prune run with deleted-count metadata. Test: insert N+1 rows past retention, run command with --confirm, assert N pruned + 1 fresh row remains."
+    },
+    {
+      "id": "RETAIN-2",
+      "title": "SECURITY_LOG_RETENTION_DAYS=90 defined but no command prunes security_logs",
+      "severity": "HIGH",
+      "files": ["config/security.php:152"],
+      "evidence": "Same pattern as RETAIN-1 but for the security_logs table (login events, password changes, impersonation, etc.). config('security.logging.retention_days') = 90 with zero consumers.",
+      "fix": "Extend the same `logs:prune` command from RETAIN-1 with --table=security support. Schedule alongside the audit prune."
+    },
+    {
+      "id": "RETAIN-3",
+      "title": "gdpr:process-deletions command exists but is not scheduled",
+      "severity": "HIGH",
+      "files": ["app/Console/Commands/ProcessScheduledDeletions.php", "routes/console.php"],
+      "evidence": "ProcessScheduledDeletions implements GDPR Article 17 deletion processing (after the DELETION_GRACE_DAYS window). routes/console.php does NOT schedule it. So a user who requested deletion has their account marked, never actually deleted. GDPR fine territory.",
+      "fix": "Add `$schedule('gdpr:process-deletions', fn ($e) => $e->dailyAt('02:45'))` to routes/console.php. Use the existing $schedule helper that already wraps onOneServer + onFailure handling."
+    },
+    {
+      "id": "RETAIN-4",
+      "title": "Soft-deleted rows are never force-deleted past grace period",
+      "severity": "MEDIUM",
+      "files": ["app/Models/* (15+ models use SoftDeletes)", "no purge command exists"],
+      "evidence": "15+ models use SoftDeletes (Building, Lease, Invoice, Property, Unit, etc.). 'Deleting' marks deleted_at; the row stays forever. DELETION_GRACE_DAYS=30 is defined but unused. A user who deletes a lease still has the lease data on disk in perpetuity.",
+      "fix": "Add `php artisan soft-deleted:purge --grace-days=30 --dry-run/--confirm`. Iterates known soft-deletable models, force-deletes rows where deleted_at < now() - graceDays. Per-model audit log entry summarizing count. Schedule daily."
+    },
+    {
+      "id": "RETAIN-5",
+      "title": "KenyaDpaService documents retention windows but service does not enforce them",
+      "severity": "MEDIUM",
+      "files": ["app/Services/KenyaDpaService.php:390-421"],
+      "evidence": "getDataRetentionRequirements() returns a static array: lease=7y, financial=7y, consent=3y after withdrawal, communications=1y, etc. The values are returned for display only — no scheduled job reads them and enforces.",
+      "fix": "Rewrite KenyaDpaService::getDataRetentionRequirements to be the source-of-truth that drives a `php artisan dpa:enforce-retention` command. Each requirement maps to a model + scope + retention period; the command iterates, force-deletes rows past their window. Audit log entry per run. Reference KenyaDpaService::DATA_CATEGORIES_PURGED in the audit_log metadata."
+    },
+    {
+      "id": "RETAIN-6",
+      "title": "DataExportService produces files but no scheduled cleanup of old exports",
+      "severity": "MEDIUM",
+      "files": ["app/Services/DataExportService.php:353"],
+      "evidence": "DataExportService::cleanup() exists (the comment 'Clean up old exports' suggests it). No scheduled caller. So export files accumulate on FILESYSTEM_DISK — each export contains tenant PII bundled for download.",
+      "fix": "Verify DataExportService::cleanup is wired; if not, schedule it daily at 03:15. Default retention: 7 days post-download (long enough for the user to actually retrieve)."
+    },
+    {
+      "id": "RETAIN-7",
+      "title": "WebhookDeadLetter has no documented retention — PII accumulates forever",
+      "severity": "MEDIUM",
+      "files": ["app/Models/WebhookDeadLetter.php"],
+      "evidence": "Failed payment webhook payloads are persisted to webhook_dead_letters for manual reconciliation. Payloads contain phone numbers, account numbers, transaction IDs. Without retention, the table is an ever-growing PII archive.",
+      "fix": "Add a 'resolved_at' / 'archived_at' lifecycle. A scheduled command prunes rows where resolved_at < now() - 90 days. Unresolved old rows escalate to an ops alert instead of silently aging out."
+    },
+    {
+      "id": "RETAIN-8",
+      "title": "config('payments.retention_days')=28 — investigate consumer, document or remove",
+      "severity": "MEDIUM",
+      "files": ["config/payments.php:47"],
+      "evidence": "config/payments.php defines retention_days=28 with no clear consumer in grep. Could be dead config (worth removing to avoid confusion) or used by a service I missed (worth documenting).",
+      "fix": "grep all callers of config('payments.retention_days'). If used, add a docblock on the consumer pointing back to the config key + the retention reason. If unused, remove the config entry."
+    },
+    {
+      "id": "RETAIN-9",
+      "title": "failed_jobs table grows unboundedly — failed-jobs-growth-monitor only alerts",
+      "severity": "LOW",
+      "files": ["routes/console.php:80-95 (failed-jobs-growth-monitor)", "no failed_jobs prune command"],
+      "evidence": "failed-jobs-growth-monitor (added in Phase-5 OBS-13) ALERTS when failed_jobs grows past a threshold but does not PRUNE. A flaky integration that intermittently fails fills the table; alert fatigue follows.",
+      "fix": "Add `php artisan queue:prune-failed --hours=720` (built-in Laravel command) to the schedule. Daily at 03:45. Operators retain 30 days of failed-job history for debugging."
+    },
+    {
+      "id": "RETAIN-10",
+      "title": "webhook_logs / bank_webhook_logs grow unboundedly",
+      "severity": "LOW",
+      "files": ["app/Models/WebhookLog.php", "app/Models/BankWebhookLog.php"],
+      "evidence": "Every M-Pesa, Paystack, IntaSend, Coop, Equity, KCB webhook hit lands in one of these tables (Phase-5 OBS observability work). High volume tables. Phase-5 CRYPTO-11 encrypts payloads — encryption doesn't shrink them. Without retention, primary-key index bloat slows reads.",
+      "fix": "Extend the `logs:prune` command from RETAIN-1/2 with --table=webhook and --table=bank-webhook support. Default retention: 180 days (longer than payment-reconciliation operator workflows need)."
+    }
+  ],
+  "phases": {
+    "phase_1": {
+      "title": "Critical: install backup automation + retention pruning that already has DEFINED windows",
+      "scope": "BACKUP-1, RETAIN-1, RETAIN-2, RETAIN-3",
+      "rationale": "Highest-leverage cluster. BACKUP-1 closes the catastrophic-loss exposure; RETAIN-1/2/3 close the easy wins where config + service code already exists, we just need the scheduled enforcement."
+    },
+    "phase_2": {
+      "title": "Critical: backup verification + RPO/RTO documentation + soft-delete force-purge",
+      "scope": "BACKUP-2, BACKUP-3, BACKUP-4, RETAIN-4",
+      "rationale": "BACKUP-2/3/4 turn 'we have backups' into 'we have AUDITABLE backups'. RETAIN-4 closes the soft-delete-eternity bug class."
+    },
+    "phase_3": {
+      "title": "Medium: storage durability + DPA enforcement wiring + dead-letter retention",
+      "scope": "BACKUP-5, BACKUP-6, BACKUP-7, RETAIN-5, RETAIN-6, RETAIN-7, RETAIN-8",
+      "rationale": "Polish + the longer-tail retention sweeps. Each individually small."
+    },
+    "phase_4": {
+      "title": "LOW: high-volume table prunes + drill cadence",
+      "scope": "BACKUP-8, RETAIN-9, RETAIN-10",
+      "rationale": "Index-bloat prevention + DR drill discipline."
+    }
+  },
+  "out_of_scope": [
+    "Kenya DPA / GDPR full coverage (consent UX, breach notification, export completeness) — own phase",
+    "Dependency supply-chain audit beyond CVE bumps — own phase",
+    "Accessibility (WCAG 2.2) — own phase",
+    "Already-shipped ArchiveOldPayments and key-rotation runbook"
+  ],
+  "metadata": {
+    "total_findings": 18,
+    "high": 7,
+    "medium": 9,
+    "low": 2
+  }
+}
