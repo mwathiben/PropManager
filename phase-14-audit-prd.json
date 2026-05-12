@@ -208,5 +208,26 @@
     "high": 7,
     "medium": 7,
     "low": 4
+  },
+  "closeout": {
+    "status": "closed",
+    "closed_date": "2026-05-12",
+    "commits": [
+      {"id": "b6f28eb", "phase": "1", "findings": ["SUPPLY-1", "SUPPLY-2", "SUPPLY-3", "SUPPLY-4"], "summary": "Dependabot weekly Monday 06:00 Africa/Nairobi + composer-audit + npm-audit (warn-on-main / block-on-PR) + SBOM inventory artifact (90d retention)"},
+      {"id": "1fd1d1e", "phase": "2", "findings": ["OBSERV-1", "OBSERV-2", "OBSERV-3", "OBSERV-4"], "summary": "/api/metrics Prometheus endpoint (bearer + CIDR gated) + scripts/deploy.sh stamps SENTRY_RELEASE + HealthCheckController external_apis check (60s cache) + PropagatesRequestId job middleware + CarriesRequestId trait + SendNotificationJob example wiring"},
+      {"id": "7cee0b9", "phase": "3", "findings": ["OBSERV-5", "OBSERV-6", "OBSERV-7", "OBSERV-8", "OBSERV-9", "OBSERV-10", "SUPPLY-5", "SUPPLY-6", "SUPPLY-7", "SUPPLY-8"], "summary": "slo.md + alert-thresholds.md + tracing-disabled validator warning (DSN-gated) + TapJsonFormatter + MetricsService::observe histograms + logs:correlate command + upgrades.md policy + composer/npm lockfile integrity checks + license inventory (AGPL/GPL surfacing) + --classmap-authoritative in deploy"}
+    ],
+    "tests_added": [
+      "ObservabilityPhase14Test (7 tests — OBSERV-1/4)",
+      "ObservabilityPhase14ExtensionsTest (6 tests — OBSERV-6/7/9/10)"
+    ],
+    "test_count_total": 13,
+    "deferred": [
+      "SUPPLY-5: constraint tightening from ^X.Y → ~X.Y is documented in docs/upgrades.md but not applied to composer.json. Operator opts in once Dependabot has been observed for a cycle.",
+      "SUPPLY-4: dependency inventory is `composer show --format=json` + `npm list --json`, not full CycloneDX format. CycloneDX upgrade requires adding cyclonedx/cyclonedx-php-composer plugin + an allow-plugins block — separate PR.",
+      "OBSERV-7: TapJsonFormatter is wired only into single + daily channels. security + notifications + payments channels keep the line formatter for now (their consumers are operator humans, not log shippers — extending coverage is incremental).",
+      "OBSERV-10: webhook_logs does not yet store request_id; correlation by IP only works for that table. Migration to add metadata->request_id is a separate PR."
+    ],
+    "notes": "13 new tests + 4 new doc files. Two CI jobs added (composer-audit, npm-audit, sbom). Production-validator gained one new warning (Sentry tracing). One new artisan command (logs:correlate). The CARRIES-REQUEST-ID pattern is wired on SendNotificationJob as the canonical example; future jobs adopt it by adding `use CarriesRequestId` + calling `->withCurrentRequestId()` at dispatch."
   }
 }
