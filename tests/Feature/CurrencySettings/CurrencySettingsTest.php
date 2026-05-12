@@ -232,6 +232,26 @@ class CurrencySettingsTest extends TestCase
 
     public function test_building_currency_can_be_updated_via_building_settings(): void
     {
+        // Phase-17 MONEY-9: validator pins building currency to KES until
+        // Phase-18 FX support ships. The original test used GBP — now
+        // expected to be rejected. KES remains accepted.
+        $response = $this->actingAs($this->landlord)
+            ->put(route('buildings.update-settings', $this->building), [
+                'name' => $this->building->name,
+                'building_type' => $this->building->building_type,
+                'currency' => 'KES',
+            ]);
+
+        $response->assertRedirect();
+
+        $this->assertEquals(Currency::KES, $this->building->fresh()->currency);
+    }
+
+    public function test_building_currency_update_rejects_non_kes(): void
+    {
+        // Phase-17 MONEY-9 regression-lock: GBP/USD/EUR rejected by
+        // validator. Cross-currency arithmetic is broken without
+        // Phase-18 FX support.
         $response = $this->actingAs($this->landlord)
             ->put(route('buildings.update-settings', $this->building), [
                 'name' => $this->building->name,
@@ -239,8 +259,6 @@ class CurrencySettingsTest extends TestCase
                 'currency' => 'GBP',
             ]);
 
-        $response->assertRedirect();
-
-        $this->assertEquals(Currency::GBP, $this->building->fresh()->currency);
+        $response->assertSessionHasErrors('currency');
     }
 }
