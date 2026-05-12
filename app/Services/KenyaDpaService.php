@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Mail\BreachAffectedSubjectNotice;
 use App\Mail\BreachReportedAlert;
 use App\Models\AuditLog;
 use App\Models\SecurityIncident;
+use App\Models\SecurityLog;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -212,6 +214,65 @@ class KenyaDpaService
         $this->notifyAdministrators($incident);
 
         return $incident;
+    }
+
+    /**
+     * Phase-13 BREACH-4: notify affected data subjects per Kenya DPA
+     * Section 43(2) / GDPR Article 34. Called by the operator (via
+     * controller or dpa:notify-affected-subjects) when the breach is
+     * likely to result in high risk to subject rights — not every
+     * breach triggers this. Returns the count of mailables queued.
+     *
+     * After dispatch, marks users_notified_at on the incident and
+     * writes a SecurityLog row preserving the user-id list for audit.
+     *
+     * @param  array<int>  $userIds  data subject user ids to notify
+     */
+    public function notifyAffectedSubjects(SecurityIncident $incident, array $userIds): int
+    {
+        $userIds = array_values(array_unique(array_filter(array_map('intval', $userIds))));
+        if (empty($userIds)) {
+            return 0;
+        }
+
+        $users = User::whereIn('id', $userIds)->get();
+        $queued = 0;
+
+        foreach ($users as $user) {
+            if (! $user->email) {
+                continue;
+            }
+            Mail::to($user->email)->queue(new BreachAffectedSubjectNotice($incident, $user));
+            $queued++;
+        }
+
+        if ($queued === 0) {
+            return 0;
+        }
+
+        $incident->markUsersNotified();
+
+        SecurityLog::create([
+            'user_id' => auth()->id(),
+            'landlord_id' => null,
+            'event_type' => 'breach_subjects_notified',
+            'severity' => SecurityLog::SEVERITY_WARNING,
+            'description' => "Affected-subject notification dispatched for incident #{$incident->id}",
+            'metadata' => [
+                'incident_id' => $incident->id,
+                'subject_count' => $queued,
+                'user_ids' => $users->pluck('id')->all(),
+                'compliance' => 'kenya_dpa_section_43_2',
+            ],
+            'is_suspicious' => false,
+        ]);
+
+        Log::channel(config('security.logging.channel', 'security'))->warning(
+            'Article 34 / Section 43(2) affected-subject notification dispatched',
+            ['incident_id' => $incident->id, 'queued' => $queued]
+        );
+
+        return $queued;
     }
 
     /**
