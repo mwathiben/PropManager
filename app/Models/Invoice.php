@@ -6,6 +6,7 @@ use App\Enums\Currency;
 use App\Enums\InvoiceStatus;
 use App\Traits\Auditable;
 use App\Traits\TenantScope;
+use App\ValueObjects\Money;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -149,25 +150,45 @@ class Invoice extends Model
 
     public function recalculateLateFees(): void
     {
-        $activeTotal = $this->lateFees()->where('is_waived', false)->sum('fee_amount');
-        $waivedTotal = $this->lateFees()->where('is_waived', true)->sum('fee_amount');
+        // Phase-17 MONEY-1/2: bcmath-backed Money arithmetic replaces the
+        // (float) X + (float) Y chain. Cumulative drift across compounded
+        // late-fee updates persists in the total_due column — using Money
+        // here eliminates that drift at the canonical write site.
+        $activeTotal = Money::fromString((string) $this->lateFees()->where('is_waived', false)->sum('fee_amount'));
+        $waivedTotal = Money::fromString((string) $this->lateFees()->where('is_waived', true)->sum('fee_amount'));
 
-        $totalDue = (float) $this->rent_due
-            + (float) $this->water_due
-            + (float) $this->arrears
-            + $activeTotal
-            - (float) $this->wallet_applied;
+        $totalDue = Money::fromString((string) $this->rent_due)
+            ->add(Money::fromString((string) $this->water_due))
+            ->add(Money::fromString((string) $this->arrears))
+            ->add($activeTotal)
+            ->subtract(Money::fromString((string) ($this->wallet_applied ?? '0')))
+            ->clampPositive();
 
         $this->update([
-            'late_fees_total' => $activeTotal,
-            'late_fees_waived' => $waivedTotal,
-            'total_due' => max(0, $totalDue),
+            'late_fees_total' => $activeTotal->toDecimalString(),
+            'late_fees_waived' => $waivedTotal->toDecimalString(),
+            'total_due' => $totalDue->toDecimalString(),
         ]);
     }
 
+    /**
+     * Phase-17 MONEY-1/2: bcmath-backed Money replaces the (float) X -
+     * (float) Y pattern. Caller-facing return is still float for
+     * backwards compatibility with the controllers and Inertia
+     * serialization; the float is generated from the exact string at
+     * the boundary so any drift is bounded to a single conversion
+     * (vs. accumulating across every read).
+     */
     public function getOutstandingAmount(): float
     {
-        return max(0, (float) $this->total_due - (float) $this->amount_paid);
+        return $this->getOutstandingMoney()->toFloatLossy();
+    }
+
+    public function getOutstandingMoney(): Money
+    {
+        return Money::fromString((string) $this->total_due)
+            ->subtract(Money::fromString((string) $this->amount_paid))
+            ->clampPositive();
     }
 
     public function isEligibleForLateFee(): bool

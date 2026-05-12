@@ -6,6 +6,7 @@ use App\Enums\InvoiceStatus;
 use App\Models\Invoice;
 use App\Models\LateFee;
 use App\Models\LateFeePolicy;
+use App\ValueObjects\Money;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -132,9 +133,11 @@ class LateFeeService
             return false;
         }
 
-        $outstanding = (float) $invoice->total_due - (float) $invoice->amount_paid;
-
-        return $outstanding > 0;
+        // Phase-17 MONEY-2: bcmath-backed comparison. Pre-fix float
+        // subtraction produced "outstanding" values within 0.01 KES of
+        // zero that were positive but visually rounded to 0.00, applying
+        // a fee against a zero-balance invoice.
+        return $invoice->getOutstandingMoney()->isPositive();
     }
 
     /**
@@ -187,21 +190,28 @@ class LateFeeService
                 return null;
             }
 
-            $existingFees = (float) $invoice->late_fees_total;
-            $baseAmount = (float) $invoice->rent_due + (float) $invoice->water_due + (float) $invoice->arrears;
+            // Phase-17 MONEY-2: bcmath-backed accumulation. Compounding
+            // monthly over 12 months in float drifts by ~0.06 KES against
+            // a known closed-form; Money holds the exact decimal sum.
+            $existingFees = Money::fromString((string) $invoice->late_fees_total);
+            $baseAmount = Money::fromString((string) $invoice->rent_due)
+                ->add(Money::fromString((string) $invoice->water_due))
+                ->add(Money::fromString((string) $invoice->arrears));
 
-            $feeAmount = $policy->calculateFee($baseAmount, $existingFees);
+            $feeAmount = $policy->calculateFeeMoney($baseAmount, $existingFees);
 
-            if ($feeAmount <= 0) {
+            if (! $feeAmount->isPositive()) {
                 return null;
             }
+
+            $cumulativeTotal = $existingFees->add($feeAmount);
 
             $lateFee = LateFee::create([
                 'invoice_id' => $invoice->id,
                 'late_fee_policy_id' => $policy->id,
                 'landlord_id' => $invoice->landlord_id,
-                'fee_amount' => $feeAmount,
-                'cumulative_total' => $existingFees + $feeAmount,
+                'fee_amount' => $feeAmount->toDecimalString(),
+                'cumulative_total' => $cumulativeTotal->toDecimalString(),
                 'applied_date' => now()->toDateString(),
                 'days_overdue' => $invoice->due_date->startOfDay()->diffInDays(now()->startOfDay()),
             ]);

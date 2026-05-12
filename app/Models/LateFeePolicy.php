@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Traits\Auditable;
 use App\Traits\TenantScope;
+use App\ValueObjects\Money;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -80,22 +81,42 @@ class LateFeePolicy extends Model
 
     public function calculateFee(float $baseAmount, float $existingLateFees = 0): float
     {
+        // Phase-17 MONEY-2: legacy float entry point — delegates to the
+        // Money-backed implementation. Retained for backwards compat
+        // with existing tests + callers that haven't migrated yet.
+        return $this->calculateFeeMoney(
+            Money::fromString((string) $baseAmount),
+            Money::fromString((string) $existingLateFees),
+        )->toFloatLossy();
+    }
+
+    /**
+     * Phase-17 MONEY-2: canonical Money-backed late-fee calculation.
+     * Uses bcmath for the percentage / cap arithmetic so 12-month
+     * compounding against a known closed-form matches at scale=2.
+     * MONEY-4 (Phase 3): percentage rounding is banker's half-even
+     * via Money::multiply (which roundHalfEvens internally).
+     */
+    public function calculateFeeMoney(Money $baseAmount, Money $existingLateFees): Money
+    {
         $amountToCalculateOn = $this->is_compounding
-            ? ($baseAmount + $existingLateFees)
+            ? $baseAmount->add($existingLateFees)
             : $baseAmount;
 
         $fee = $this->fee_type === 'percentage'
-            ? $amountToCalculateOn * ($this->fee_percentage / 100)
-            : (float) $this->fee_amount;
+            ? $amountToCalculateOn->multiply(bcdiv((string) $this->fee_percentage, '100', 6))
+            : Money::fromString((string) $this->fee_amount);
 
         if ($this->max_fee_cap !== null) {
-            $totalAfterFee = $existingLateFees + $fee;
-            if ($totalAfterFee > $this->max_fee_cap) {
-                $fee = max(0, $this->max_fee_cap - $existingLateFees);
+            $cap = Money::fromString((string) $this->max_fee_cap);
+            $totalAfterFee = $existingLateFees->add($fee);
+
+            if ($totalAfterFee->greaterThan($cap)) {
+                $fee = $cap->subtract($existingLateFees)->clampPositive();
             }
         }
 
-        return round($fee, 2);
+        return $fee;
     }
 
     public function getScopeLabel(): string

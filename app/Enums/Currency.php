@@ -59,6 +59,20 @@ enum Currency: string
         return (int) round($amount * $this->minorUnitMultiplier());
     }
 
+    /**
+     * Phase-17 MONEY-3: canonical bcmath-backed conversion. Preferred
+     * over toMinorUnits(float) wherever the caller has a Money instance —
+     * round-trips precisely and uses banker's-rounding to disagree with
+     * Paystack/M-Pesa minor-unit refund-reconciliation by zero cents.
+     *
+     * The float variant remains for backwards compatibility but should
+     * not be added to new code.
+     */
+    public function toMinorUnitsFromMoney(\App\ValueObjects\Money $amount): int
+    {
+        return $amount->toMinorUnits();
+    }
+
     public function fromMinorUnits(int $amount): float
     {
         return $amount / $this->minorUnitMultiplier();
