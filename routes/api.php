@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\HealthCheckController;
+use App\Http\Controllers\Api\MetricsController;
 use App\Http\Controllers\Api\TenantInvoiceController;
 use App\Http\Controllers\Api\TenantLeaseController;
 use App\Http\Controllers\Api\TenantNotificationController;
@@ -23,6 +24,11 @@ use Illuminate\Support\Facades\Route;
 Route::get('/health', [HealthCheckController::class, 'index']);
 Route::get('/health/payments', [HealthCheckController::class, 'payments'])
     ->middleware('throttle:api');
+
+// Phase-14 OBSERV-1: Prometheus exposition endpoint. Bearer + CIDR
+// allowlist gated in MetricsController so the route registration
+// itself is unauthenticated — auth lives at the controller.
+Route::get('/metrics', [MetricsController::class, 'index']);
 
 // API v1 routes
 Route::prefix('v1')->group(function () {

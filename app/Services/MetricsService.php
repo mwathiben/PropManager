@@ -49,6 +49,45 @@ class MetricsService
         }
     }
 
+    /**
+     * Phase-14 OBSERV-1: emit the current snapshot in Prometheus
+     * exposition format (text/plain; version=0.0.4). The /metrics
+     * endpoint serves this directly to a Prometheus scraper. Each
+     * counter becomes `propmanager_<name>{labels...} value`.
+     *
+     * The date-bucket suffix from the Redis key is dropped — the
+     * scraper provides its own timestamp.
+     */
+    public function exportPrometheus(): string
+    {
+        $snapshot = $this->snapshot();
+        if ($snapshot === []) {
+            return "# no metrics recorded yet\n";
+        }
+
+        $lines = [];
+        foreach ($snapshot as $field => $value) {
+            $lines[] = '# TYPE '.$this->prometheusName($field).' counter';
+            $lines[] = $this->prometheusName($field).' '.((int) $value);
+        }
+
+        return implode("\n", $lines)."\n";
+    }
+
+    private function prometheusName(string $field): string
+    {
+        // field is `name` or `name{k=v,k2=v2}` from fieldName(). Rewrite
+        // the bare name to `propmanager_<name>` and preserve the label
+        // braces. Prometheus naming rules disallow most punctuation in
+        // the metric name; underscores are the standard separator.
+        $braceStart = strpos($field, '{');
+        $name = $braceStart === false ? $field : substr($field, 0, $braceStart);
+        $labels = $braceStart === false ? '' : substr($field, $braceStart);
+        $name = preg_replace('/[^a-zA-Z0-9_]/', '_', $name);
+
+        return 'propmanager_'.$name.$labels;
+    }
+
     private function bucketKey(): string
     {
         return 'metrics:'.now()->format('Y-m-d');

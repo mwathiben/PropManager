@@ -9,6 +9,7 @@ use App\Models\WebhookDeadLetter;
 use App\Services\PaymentHealthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Redis;
@@ -33,6 +34,7 @@ class HealthCheckController extends Controller
             'redis' => $this->checkRedis(),
             'queue' => $this->checkQueue(),
             'webhook_dlq' => $this->checkWebhookDeadLetter(),
+            'external_apis' => $this->checkExternalApis(),
         ];
 
         $allHealthy = collect($checks)->every(fn ($c) => $c['ok'] === true);
@@ -42,6 +44,37 @@ class HealthCheckController extends Controller
             'version' => '1.0',
             'checks' => $checks,
         ], $allHealthy ? 200 : 503);
+    }
+
+    /**
+     * Phase-14 OBSERV-3: external payment-gateway reachability. /up
+     * returned 200 'ok' while Paystack / M-Pesa / IntaSend were
+     * unreachable; the payment path was effectively dead but the
+     * load balancer didn't notice. Result is cached for 60s so
+     * health-check fan-in doesn't fan out external pings.
+     */
+    private function checkExternalApis(): array
+    {
+        try {
+            $result = Cache::remember('health:external_apis', 60, function () {
+                return app(PaymentHealthService::class)->check(ping: true);
+            });
+
+            // Aggregated gateway status (PaymentHealthService combines
+            // them). 'ok' / 'degraded' / 'down' — ok is the only green.
+            $status = (string) ($result['status'] ?? 'unknown');
+
+            return [
+                'ok' => $status === 'ok',
+                'status' => $status,
+                'gateways' => array_map(
+                    fn ($g) => ['status' => $g['status'] ?? 'unknown'],
+                    $result['gateways'] ?? [],
+                ),
+            ];
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'error' => $e->getMessage()];
+        }
     }
 
     private function checkDatabase(): array

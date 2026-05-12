@@ -21,6 +21,18 @@ log() { echo "[deploy $(TS)] $*"; }
 
 log "starting deploy to $TARGET_SHA"
 
+# Phase-14 OBSERV-2: stamp SENTRY_RELEASE in .env so Sentry can
+# attribute errors to the specific commit. Without this, an error
+# from yesterday looks the same as one from a week-old release —
+# regression attribution required commit archaeology.
+# The line is upsert-style: replace if present, append otherwise.
+if grep -q '^SENTRY_RELEASE=' .env 2>/dev/null; then
+  sed -i.bak "s|^SENTRY_RELEASE=.*|SENTRY_RELEASE=${TARGET_SHA}|" .env && rm -f .env.bak
+else
+  echo "SENTRY_RELEASE=${TARGET_SHA}" >> .env
+fi
+log "stamped SENTRY_RELEASE=${TARGET_SHA}"
+
 # Maintenance mode keeps user-facing 503 short during migrate+cache.
 # --retry tells balancers to retry after N seconds; queue workers are
 # unaffected (they don't honor maintenance mode).

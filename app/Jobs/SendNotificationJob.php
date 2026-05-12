@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Jobs\Concerns\CarriesRequestId;
 use App\Models\Notification;
 use App\Services\MetricsService;
 use App\Services\NotificationService;
@@ -14,7 +15,9 @@ use Illuminate\Support\Facades\Log;
 
 class SendNotificationJob implements ShouldBeUnique, ShouldQueue
 {
-    use InteractsWithQueue, Queueable, SerializesModels;
+    // Phase-14 OBSERV-4: carry the HTTP request_id across the queue
+    // boundary. Callers do `->withCurrentRequestId()` at dispatch.
+    use CarriesRequestId, InteractsWithQueue, Queueable, SerializesModels;
 
     /**
      * CONC-10: how long the unique-job lock is held in seconds.
