@@ -16,6 +16,18 @@ class Invoice extends Model
 {
     use Auditable, HasFactory, SoftDeletes, TenantScope;
 
+    /**
+     * Phase-13 DPA-3: invoices are processed on the lawful basis of
+     * contract performance — the underlying lease defines the
+     * payment obligation that an invoice realises. The 7-year
+     * retention obligation lives on Payment (legal_obligation); an
+     * invoice without an attached payment is purely contractual.
+     */
+    public function getLawfulBasis(): string
+    {
+        return 'contract';
+    }
+
     public function scopeOverdue($query)
     {
         return $query->where('status', InvoiceStatus::Overdue);

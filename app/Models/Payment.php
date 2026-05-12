@@ -13,6 +13,19 @@ class Payment extends Model
 {
     use Auditable, TenantScope;
 
+    /**
+     * Phase-13 DPA-3: payment processing has two stacked lawful bases —
+     * the underlying transaction is a contract performance, but the
+     * retention obligation (7-year tax & financial records) is a legal
+     * obligation under Kenya tax law. We surface legal_obligation as
+     * the dominant basis because it determines the longer of the two
+     * retention windows.
+     */
+    public function getLawfulBasis(): string
+    {
+        return 'legal_obligation';
+    }
+
     protected $fillable = [
         'invoice_id',
         'lease_id',

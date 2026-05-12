@@ -102,7 +102,33 @@ trait Auditable
             'ip_address' => Request::ip(),
             'user_agent' => Request::userAgent(),
             'url' => Request::fullUrl(),
-            'metadata' => $model->getAuditMetadata(),
+            'metadata' => static::buildAuditMetadata($model),
+        ]);
+    }
+
+    /**
+     * Phase-13 DPA-3: merge the model-supplied audit metadata with the
+     * lawful_basis tag. Section 30 of the Kenya DPA / Article 6 of
+     * GDPR require a documented lawful basis for every processing
+     * operation. Models override getLawfulBasis() to declare the
+     * appropriate basis; the default is 'legitimate_interests' (the
+     * fallback the KenyaDpaService catalog returns for unmapped data
+     * types). Audit rows for tenant-data writes now carry the basis
+     * inline so a regulator inspection can answer "on what basis was
+     * this processing performed?" without code archaeology.
+     *
+     * @return array<string, mixed>
+     */
+    protected static function buildAuditMetadata(Model $model): array
+    {
+        $modelMetadata = $model->getAuditMetadata() ?? [];
+        $lawfulBasis = method_exists($model, 'getLawfulBasis')
+            ? $model->getLawfulBasis()
+            : 'legitimate_interests';
+
+        return array_merge($modelMetadata, [
+            'lawful_basis' => $lawfulBasis,
+            'compliance' => 'kenya_dpa_section_30',
         ]);
     }
 
@@ -139,10 +165,19 @@ trait Auditable
 
     /**
      * Get fields to exclude from audit (can be overridden in model).
+     *
+     * Defensive against PHP 8.4: property_exists() returns true for the
+     * static $auditExclude declared on this trait, but accessing it via
+     * $this-> returns null. Coalesce to [] so the consumer's array_merge
+     * never gets a null operand.
      */
     public function getAuditExclude(): array
     {
-        return property_exists($this, 'auditExclude') ? $this->auditExclude : [];
+        if (! property_exists($this, 'auditExclude')) {
+            return [];
+        }
+
+        return $this->auditExclude ?? [];
     }
 
     /**
@@ -151,6 +186,19 @@ trait Auditable
     public function getAuditMetadata(): ?array
     {
         return null;
+    }
+
+    /**
+     * Phase-13 DPA-3: model-declared lawful basis for processing
+     * (Kenya DPA Section 30 / GDPR Article 6). Models override this
+     * to declare the basis that applies to their write events.
+     * Catalogue of valid values lives in KenyaDpaService::LAWFUL_BASES.
+     * Default 'legitimate_interests' is the KenyaDpaService fallback
+     * and is the safest answer when a basis hasn't been declared.
+     */
+    public function getLawfulBasis(): string
+    {
+        return 'legitimate_interests';
     }
 
     /**

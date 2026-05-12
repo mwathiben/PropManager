@@ -14,6 +14,16 @@ class Lease extends Model
 {
     use Auditable, HasFactory, SoftDeletes, TenantScope;
 
+    /**
+     * Phase-13 DPA-3: leases are processed on the lawful basis of
+     * contract performance (Kenya DPA Section 30 / GDPR Article 6(1)(b))
+     * — the tenant-landlord agreement is the contract.
+     */
+    public function getLawfulBasis(): string
+    {
+        return 'contract';
+    }
+
     public function scopeActive($query)
     {
         return $query->where('is_active', true);

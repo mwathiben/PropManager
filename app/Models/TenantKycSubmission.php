@@ -34,6 +34,19 @@ class TenantKycSubmission extends Model
 {
     use Auditable, HasFactory, TenantScope;
 
+    /**
+     * Phase-13 DPA-3: KYC processing is a legal obligation under
+     * Kenya's AML/CFT regulations and the Proceeds of Crime and
+     * Anti-Money Laundering Act. national_id and biometric data fall
+     * under SENSITIVE_DATA_CATEGORIES — the lawful basis matters when
+     * a subject objects (DPA-5) because legal_obligation overrides
+     * objection.
+     */
+    public function getLawfulBasis(): string
+    {
+        return 'legal_obligation';
+    }
+
     protected $fillable = [
         'user_id',
         'landlord_id',
