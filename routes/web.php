@@ -902,7 +902,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/required', [ConsentController::class, 'required'])->name('required');
         Route::post('/accept', [ConsentController::class, 'accept'])->name('accept');
         Route::get('/history', [ConsentController::class, 'history'])->name('history');
-        Route::post('/withdraw-marketing', [ConsentController::class, 'withdrawMarketing'])->name('withdraw-marketing');
+        // Phase-13 DPA-1: generic consent withdrawal replaces the
+        // marketing-only path. Article 7(3) requires withdrawing be
+        // as easy as granting — one route + a 'type' body param covers
+        // every withdrawable consent kind.
+        Route::post('/withdraw', [ConsentController::class, 'withdrawConsent'])->name('withdraw');
     });
 
     // GDPR Privacy Settings

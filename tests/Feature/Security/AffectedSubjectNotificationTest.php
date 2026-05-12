@@ -83,7 +83,7 @@ class AffectedSubjectNotificationTest extends TestCase
         Mail::assertQueuedCount(1);
     }
 
-public function test_artisan_dry_run_does_not_queue_or_stamp(): void
+    public function test_artisan_dry_run_does_not_queue_or_stamp(): void
     {
         Mail::fake();
         $incident = SecurityIncident::factory()->dataBreach()->create();

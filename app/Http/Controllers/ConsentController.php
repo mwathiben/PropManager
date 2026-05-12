@@ -133,12 +133,29 @@ class ConsentController extends Controller
     }
 
     /**
-     * Withdraw marketing consent.
+     * Phase-13 DPA-1: generic consent withdrawal. Article 7(3) of GDPR
+     * and Section 32 of the Kenya DPA require that withdrawing consent
+     * be as easy as granting it. The withdrawMarketing path before this
+     * commit only worked for one of the consent types the model
+     * supports — all other types had no withdrawal route.
+     *
+     * Mandatory consents (terms + privacy) cannot be withdrawn here;
+     * those are account-blocking and the user must use account
+     * deletion instead. The validator pins this so a stray client
+     * cannot reach into a blocking consent via this endpoint.
      */
-    public function withdrawMarketing(Request $request)
+    public function withdrawConsent(Request $request)
     {
+        $validated = $request->validate([
+            'type' => [
+                'required',
+                'string',
+                'in:'.implode(',', self::WITHDRAWABLE_CONSENT_TYPES),
+            ],
+        ]);
+
         $consent = Consent::where('user_id', $request->user()->id)
-            ->where('consent_type', Consent::TYPE_MARKETING)
+            ->where('consent_type', $validated['type'])
             ->where('is_granted', true)
             ->whereNull('withdrawn_at')
             ->first();
@@ -147,6 +164,21 @@ class ConsentController extends Controller
             $consent->withdraw();
         }
 
-        return back()->with('success', 'Marketing preferences updated.');
+        return back()->with('success', 'Consent preferences updated.');
     }
+
+    /**
+     * Consent types that can be withdrawn via DPA-1 generic withdrawal.
+     * Mandatory consents (terms_of_service, privacy_policy) are not
+     * included — withdrawing those would block all account use, so the
+     * user must instead initiate account deletion.
+     */
+    public const WITHDRAWABLE_CONSENT_TYPES = [
+        Consent::TYPE_MARKETING,
+        Consent::TYPE_DATA_PROCESSING,
+        Consent::TYPE_THIRD_PARTY_SHARING,
+        'cookies',
+        'analytics',
+        'profile_analytics',
+    ];
 }
