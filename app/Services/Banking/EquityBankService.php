@@ -86,8 +86,11 @@ class EquityBankService implements BankServiceInterface
         }
 
         try {
+            // Phase-16 RESIL-3: retry the account verification endpoint on
+            // transient failures. Same shape as the statement endpoint.
             $response = Http::withToken($token)
                 ->connectTimeout(3)->timeout(15)
+                ->retry(2, 200, throw: false)
                 ->get("{$this->baseUrl}/account/v2/accounts/{$accountNumber}");
 
             if ($response->successful()) {
@@ -123,10 +126,14 @@ class EquityBankService implements BankServiceInterface
 
             return Cache::remember($cacheKey, 3500, function () {
                 try {
-                    $response = Http::connectTimeout(3)->timeout(15)->asForm()->post("{$this->baseUrl}/authentication/api/v3/authenticate/merchant", [
-                        'merchantCode' => config('services.equity.merchant_code'),
-                        'consumerSecret' => config('services.equity.consumer_secret'),
-                    ]);
+                    // Phase-16 RESIL-3: retry the OAuth-equivalent merchant
+                    // auth endpoint on transient failures.
+                    $response = Http::connectTimeout(3)->timeout(15)
+                        ->retry(2, 200, throw: false)
+                        ->asForm()->post("{$this->baseUrl}/authentication/api/v3/authenticate/merchant", [
+                            'merchantCode' => config('services.equity.merchant_code'),
+                            'consumerSecret' => config('services.equity.consumer_secret'),
+                        ]);
 
                     if ($response->successful()) {
                         return $response->json('accessToken');

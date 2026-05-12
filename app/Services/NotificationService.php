@@ -13,6 +13,7 @@ use App\Repositories\Contracts\NotificationConfigRepositoryInterface;
 use App\Services\Notification\ChannelSelector;
 use App\Services\Notification\NotificationDispatcher;
 use Carbon\Carbon;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -510,8 +511,15 @@ class NotificationService
         }
 
         try {
+            // Phase-16 RESIL-2: explicit timeout + retry on transient
+            // ConnectionException / 5xx / 429. Pre-fix this call was
+            // unbounded (Laravel default 30s, no retry) so a wedged
+            // Twilio routinely starved the worker.
             /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::withBasicAuth($accountSid, $authToken)
+                ->connectTimeout(5)
+                ->timeout(15)
+                ->retry(2, $this->resilientBackoff(), $this->resilientRetryFilter(), throw: false)
                 ->asForm()
                 ->post("https://api.twilio.com/2010-04-01/Accounts/{$accountSid}/Messages.json", [
                     'From' => $fromNumber,
@@ -526,6 +534,11 @@ class NotificationService
             }
 
             $notification->markAsFailed($response->json('message', 'Unknown error'));
+
+            return false;
+        } catch (ConnectionException $e) {
+            $notification->markAsFailed('Twilio unreachable: '.$e->getMessage());
+            $this->logChannelFailure($notification, $e);
 
             return false;
         } catch (\Exception $e) {
@@ -553,16 +566,24 @@ class NotificationService
         }
 
         try {
+            // Phase-16 RESIL-2: same resilience treatment as Twilio above.
+            // The standalone AfricasTalkingService already had timeout +
+            // retry; this inline path was the regression.
             /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::withHeaders([
                 'apiKey' => $apiKey,
                 'Content-Type' => 'application/x-www-form-urlencoded',
-            ])->asForm()->post('https://api.africastalking.com/version1/messaging', [
-                'username' => $username,
-                'to' => $recipient->mobile_number,
-                'message' => $notification->message,
-                'from' => $from,
-            ]);
+            ])
+                ->connectTimeout(5)
+                ->timeout(15)
+                ->retry(2, $this->resilientBackoff(), $this->resilientRetryFilter(), throw: false)
+                ->asForm()
+                ->post('https://api.africastalking.com/version1/messaging', [
+                    'username' => $username,
+                    'to' => $recipient->mobile_number,
+                    'message' => $notification->message,
+                    'from' => $from,
+                ]);
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -575,6 +596,11 @@ class NotificationService
             }
 
             $notification->markAsFailed($response->body());
+
+            return false;
+        } catch (ConnectionException $e) {
+            $notification->markAsFailed("Africa's Talking unreachable: ".$e->getMessage());
+            $this->logChannelFailure($notification, $e);
 
             return false;
         } catch (\Exception $e) {
@@ -628,8 +654,13 @@ class NotificationService
                 $payload['Body'] = $notification->message;
             }
 
+            // Phase-16 RESIL-2: timeout + retry + connection-exception
+            // handling. Same shape as Twilio SMS path above.
             /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::withBasicAuth($accountSid, $authToken)
+                ->connectTimeout(5)
+                ->timeout(15)
+                ->retry(2, $this->resilientBackoff(), $this->resilientRetryFilter(), throw: false)
                 ->asForm()
                 ->post("https://api.twilio.com/2010-04-01/Accounts/{$accountSid}/Messages.json", $payload);
 
@@ -642,12 +673,54 @@ class NotificationService
             $notification->markAsFailed($response->json('message', 'Unknown error'));
 
             return false;
+        } catch (ConnectionException $e) {
+            $notification->markAsFailed('Twilio WhatsApp unreachable: '.$e->getMessage());
+            $this->logChannelFailure($notification, $e);
+
+            return false;
         } catch (\Exception $e) {
             $notification->markAsFailed($e->getMessage());
             $this->logChannelFailure($notification, $e);
 
             return false;
         }
+    }
+
+    /**
+     * Phase-16 RESIL-2 + RESIL-4: shared backoff + retry-filter for the
+     * inline Twilio + AfricasTalking calls. Retries on ConnectionException
+     * + 5xx + 429 only; honors Retry-After header when the server sets it
+     * (RESIL-4). Exponential 200 → 400 → 800 ms otherwise.
+     */
+    private function resilientBackoff(): \Closure
+    {
+        return function (int $attempt, ?\Throwable $exception = null): int {
+            if ($exception instanceof \Illuminate\Http\Client\RequestException
+                && $exception->response?->header('Retry-After')) {
+                $hint = (int) $exception->response->header('Retry-After');
+                if ($hint > 0 && $hint <= 30) {
+                    return $hint * 1000;
+                }
+            }
+
+            return 200 * (2 ** ($attempt - 1));
+        };
+    }
+
+    private function resilientRetryFilter(): \Closure
+    {
+        return function (\Throwable $exception): bool {
+            if ($exception instanceof ConnectionException) {
+                return true;
+            }
+            if ($exception instanceof \Illuminate\Http\Client\RequestException) {
+                $status = $exception->response?->status() ?? 0;
+
+                return $status === 429 || $status >= 500;
+            }
+
+            return false;
+        };
     }
 
     /**

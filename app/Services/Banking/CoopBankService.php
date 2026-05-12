@@ -86,8 +86,10 @@ class CoopBankService implements BankServiceInterface
         }
 
         try {
+            // Phase-16 RESIL-3: retry the enquiry endpoint.
             $response = Http::withToken($token)
                 ->connectTimeout(3)->timeout(15)
+                ->retry(2, 200, throw: false)
                 ->post("{$this->baseUrl}/Enquiry/AccountBalance/1.0.0", [
                     'MessageReference' => 'VERIFY_'.bin2hex(random_bytes(8)),
                     'AccountNumber' => $accountNumber,
@@ -162,11 +164,15 @@ class CoopBankService implements BankServiceInterface
                         config('services.coop.consumer_key').':'.config('services.coop.consumer_secret')
                     );
 
+                    // Phase-16 RESIL-3: retry the OAuth token fetch.
                     $response = Http::withHeaders([
                         'Authorization' => 'Basic '.$credentials,
-                    ])->connectTimeout(3)->timeout(15)->asForm()->post("{$this->baseUrl}/token", [
-                        'grant_type' => 'client_credentials',
-                    ]);
+                    ])
+                        ->connectTimeout(3)->timeout(15)
+                        ->retry(2, 200, throw: false)
+                        ->asForm()->post("{$this->baseUrl}/token", [
+                            'grant_type' => 'client_credentials',
+                        ]);
 
                     if ($response->successful()) {
                         return $response->json('access_token');

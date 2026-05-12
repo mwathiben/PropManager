@@ -3,6 +3,7 @@
 namespace App\Traits;
 
 use App\Services\MetricsService;
+use App\Services\Resilience\CircuitBreaker;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Log;
 
@@ -10,7 +11,24 @@ trait LogsExternalRequests
 {
     protected int $slowThresholdMs = 5000;
 
+    /**
+     * Phase-16 RESIL-1: gate the HTTP call through CircuitBreaker before
+     * timing it. The breaker is opt-in per-provider (config 'enabled'
+     * defaults to false); when disabled, this is a transparent pass-through.
+     *
+     * A breaker that's OPEN throws CircuitOpenException — the caller's
+     * existing ConnectionException catch + return-null path is the
+     * production contract for "gateway unreachable", so all sites that
+     * already use timedHttpRequest get fast-fail behaviour for free.
+     */
     protected function timedHttpRequest(string $provider, string $endpoint, callable $httpCall): Response
+    {
+        return app(CircuitBreaker::class)->guard($provider, $endpoint, function () use ($provider, $endpoint, $httpCall) {
+            return $this->measureHttpCall($provider, $endpoint, $httpCall);
+        });
+    }
+
+    private function measureHttpCall(string $provider, string $endpoint, callable $httpCall): Response
     {
         $startTime = microtime(true);
 

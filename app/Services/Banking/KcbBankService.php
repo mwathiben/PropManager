@@ -87,8 +87,13 @@ class KcbBankService implements BankServiceInterface
         }
 
         try {
+            // Phase-16 RESIL-3: retry the enquiry endpoint on transient
+            // failures, same shape as the statement endpoint above. Pre-fix,
+            // a single 500 on /enquiry failed the entire reconciliation
+            // run for the account.
             $response = Http::withToken($token)
                 ->connectTimeout(3)->timeout(15)
+                ->retry(2, 200, throw: false)
                 ->post("{$this->baseUrl}/account/v1/enquiry", [
                     'accountNumber' => $accountNumber,
                 ]);
@@ -129,11 +134,17 @@ class KcbBankService implements BankServiceInterface
 
             return Cache::remember($cacheKey, 3500, function () {
                 try {
-                    $response = Http::connectTimeout(3)->timeout(15)->asForm()->post("{$this->baseUrl}/oauth/token", [
-                        'grant_type' => 'client_credentials',
-                        'client_id' => config('services.kcb.client_id'),
-                        'client_secret' => config('services.kcb.client_secret'),
-                    ]);
+                    // Phase-16 RESIL-3: retry the OAuth token fetch on
+                    // transient failures. A single TLS handshake blip
+                    // pre-fix wiped out the hour-long token cache, taking
+                    // down all downstream KCB calls until manual refresh.
+                    $response = Http::connectTimeout(3)->timeout(15)
+                        ->retry(2, 200, throw: false)
+                        ->asForm()->post("{$this->baseUrl}/oauth/token", [
+                            'grant_type' => 'client_credentials',
+                            'client_id' => config('services.kcb.client_id'),
+                            'client_secret' => config('services.kcb.client_secret'),
+                        ]);
 
                     if ($response->successful()) {
                         return $response->json('access_token');
