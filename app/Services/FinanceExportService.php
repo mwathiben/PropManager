@@ -19,8 +19,8 @@ use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\PaymentConfiguration;
 use App\Models\Vendor;
+use App\Support\DateFilter;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
@@ -75,9 +75,13 @@ class FinanceExportService
 
         $payments = $query->orderBy('payment_date', 'desc')->lazy(1000)->collect();
 
+        // Phase-17 TIME-2: parse date filters in the authed user's
+        // timezone so a non-Kenya user filtering 'their day' actually
+        // gets their day's boundaries, not Africa/Nairobi-midnight.
+        $user = auth()->user();
         $dateRange = [
-            'start' => isset($filters['date_from']) ? Carbon::parse($filters['date_from']) : now()->subMonth(),
-            'end' => isset($filters['date_to']) ? Carbon::parse($filters['date_to']) : now(),
+            'start' => DateFilter::parseUserDayOr($filters['date_from'] ?? null, $user, now()->subMonth(), 'startOfDay'),
+            'end' => DateFilter::parseUserDayOr($filters['date_to'] ?? null, $user, now(), 'endOfDay'),
         ];
 
         return match ($format) {
@@ -125,9 +129,11 @@ class FinanceExportService
 
         $expenses = $query->orderBy('expense_date', 'desc')->lazy(1000)->collect();
 
+        // Phase-17 TIME-2: user-TZ date filtering.
+        $user = auth()->user();
         $dateRange = [
-            'start' => isset($filters['date_from']) ? Carbon::parse($filters['date_from']) : now()->subMonth(),
-            'end' => isset($filters['date_to']) ? Carbon::parse($filters['date_to']) : now(),
+            'start' => DateFilter::parseUserDayOr($filters['date_from'] ?? null, $user, now()->subMonth(), 'startOfDay'),
+            'end' => DateFilter::parseUserDayOr($filters['date_to'] ?? null, $user, now(), 'endOfDay'),
         ];
 
         return match ($format) {

@@ -10,6 +10,7 @@ use App\Models\Property;
 use App\Models\Ticket;
 use App\Models\Unit;
 use App\Models\WaterReading;
+use App\Support\DateFilter;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -487,13 +488,19 @@ class BuildingService
 
     protected function getStartDate(string $period, Request $request): Carbon
     {
+        // Phase-17 TIME-2: custom period anchors the supplied date in
+        // the authed user's timezone. Named periods (this_month, etc.)
+        // remain anchored to app-TZ by design — they're operator-side
+        // definitions, not user-supplied dates.
         return match ($period) {
             'this_month' => now()->startOfMonth(),
             'last_month' => now()->subMonth()->startOfMonth(),
             'this_quarter' => now()->startOfQuarter(),
             'last_quarter' => now()->subQuarter()->startOfQuarter(),
             'this_year' => now()->startOfYear(),
-            'custom' => Carbon::parse($request->get('start_date', now()->startOfMonth())),
+            'custom' => $request->filled('start_date')
+                ? DateFilter::parseUserDay((string) $request->get('start_date'), $request->user(), 'startOfDay')
+                : now()->startOfMonth(),
             default => now()->startOfMonth(),
         };
     }
@@ -506,7 +513,9 @@ class BuildingService
             'this_quarter' => now()->endOfQuarter(),
             'last_quarter' => now()->subQuarter()->endOfQuarter(),
             'this_year' => now()->endOfYear(),
-            'custom' => Carbon::parse($request->get('end_date', now()->endOfMonth())),
+            'custom' => $request->filled('end_date')
+                ? DateFilter::parseUserDay((string) $request->get('end_date'), $request->user(), 'endOfDay')
+                : now()->endOfMonth(),
             default => now()->endOfMonth(),
         };
     }

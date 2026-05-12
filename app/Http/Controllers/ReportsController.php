@@ -10,6 +10,7 @@ use App\Exports\PaymentsExport;
 use App\Models\Payment;
 use App\Models\PaymentConfiguration;
 use App\Services\ReportService;
+use App\Support\DateFilter;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -122,15 +123,24 @@ class ReportsController extends Controller
      */
     private function getDateRange(Request $request, string $period): array
     {
+        // Phase-17 TIME-2: parse user-supplied date filters in the
+        // authed user's timezone (not Africa/Nairobi by default). A
+        // user in America/New_York filtering '2026-01-15' now gets
+        // their day's boundaries, not Nairobi-midnight (off-by-day).
+        $user = $request->user();
+
         if ($request->filled('date_from') && $request->filled('date_to')) {
             return [
-                'start' => Carbon::parse($request->date_from),
-                'end' => Carbon::parse($request->date_to),
+                'start' => DateFilter::parseUserDay($request->date_from, $user, 'startOfDay'),
+                'end' => DateFilter::parseUserDay($request->date_to, $user, 'endOfDay'),
             ];
         }
 
         $dateRange = $this->reportService->getDateRange($period);
 
+        // getDateRange returns app-TZ-relative period boundaries — these
+        // are operator-defined periods (this_month, last_month) so they
+        // stay anchored to the application timezone by design.
         return [
             'start' => Carbon::parse($dateRange['start']),
             'end' => Carbon::parse($dateRange['end']),
