@@ -1,0 +1,247 @@
+{
+  "project": "PropManager",
+  "audit_cycle": "phase-17",
+  "audit_date": "2026-05-12",
+  "scope": "Defensive audit of financial precision (MONEY — decimal arithmetic, currency rounding, minor-unit conversion at API boundaries, sum invariants, late-fee math, attacker-supplied-amount handling) and time correctness (TIME — user-tz vs app-tz, Carbon parse without explicit tz, scheduled-task tz pinning, M-Pesa webhook timestamp handling, date-arithmetic boundary bugs). Prior phases covered observability (Phase 14 — how we know things are slow), perf (Phase 15 — how fast the happy path is), and resilience (Phase 16 — how we behave when dependencies fail). Phase 17 closes a different gap: are the VALUES we record actually correct? Money bugs are quiet (no exception, just wrong totals) and regulator-visible (Kenya DPA audit trail + tenant-visible ledger). Time bugs cause cross-tenant ledger inconsistencies and late-fee miscalibration that only surface in quarterly reconciliation.",
+  "context_baseline": {
+    "previous_audits": [
+      "Phase 1-5 core security categories + 10A/10B (mass-assign + file-upload + webhook payload encryption)",
+      "Phase 11 (DEPLOY + SECRETS, 21 findings)",
+      "Phase 12 (BACKUP + RETAIN, 18 findings)",
+      "Phase 13 (DPA + BREACH, 18 findings — regulator-inspectable layer)",
+      "Phase 14 (SUPPLY + OBSERV, 18 findings — supply-chain + observability)",
+      "Phase 15 (FRONT + PERF, 18 findings — user-perceived surface)",
+      "Phase 16 (RESIL + QUEUE, 18 findings — resilience + queue reliability)"
+    ],
+    "do_not_reflag": "Phase-4 CONC-6 unique index late_fees_invoice_applied_unique prevents double-LateFee insert (race condition). Phase-4 wallet_transactions(payment_id, type) unique index prevents wallet double-credit (concurrency invariant). Phase-5 PRIV/CRYPTO covered the cross-tenant + encryption layers. Phase-10B encrypted webhook payloads at rest. The DB schema CORRECTLY uses DECIMAL(10,2) for every money column (confirmed across all migrations). The Eloquent model 'decimal:2' cast CORRECTLY returns a string from the model attribute access. The bug surface is in the SERVICE LAYER between model read and DB write: (float) casts + native PHP arithmetic + half-up rounding."
+  },
+  "qualityStandards": {
+    "test": "All Phase-17 fixes must pass `php artisan test --parallel` and `vendor/bin/pint --test`.",
+    "ci": "Each commit must land on main with green CI before the next phase starts.",
+    "no_breaking_change": "Money-precision fixes are non-breaking — bcmath/string arithmetic produces the same display values for amounts within DECIMAL(10,2) precision. The fix removes silent floating-point drift over thousands of operations. Time-fix is non-breaking when APP_TIMEZONE stays at Africa/Nairobi (current default); the explicit pinning is defence-in-depth against future operator missteps. The user-tz fix changes display behaviour for non-Kenya users — that's the intent."
+  },
+  "feedbackLoops": {
+    "lint": "vendor/bin/pint --test",
+    "test_focused": "php artisan test --filter='<keyword>'",
+    "test_full": "php artisan test --parallel",
+    "ci_watch": "gh run list --limit 1 --branch main --json status,conclusion"
+  },
+  "categories": {
+    "MONEY": {
+      "description": "Financial precision: every model attribute is cast `'decimal:2'` (string) by Eloquent — that's correct. Every DB column is DECIMAL(10,2) — also correct. The bug surface is the SERVICE LAYER: 48+ files cast to `(float)` for arithmetic, then round at the boundary. Cumulative compounding (late fees applied monthly over 12 months) drifts by ~0.01 KES per operation in pathological cases; not catastrophic per-invoice but a quiet ledger-vs-deposit divergence that surfaces at quarterly reconciliation. Worse: `Currency::toMinorUnits(float $amount)` is the boundary that sends `amount * 100` to Paystack as an integer; if `$amount` ever arrives with float-precision noise, Paystack receives wrong cents. Bank webhook ingestion (KCB/Equity/Coop) reads attacker-supplied `Amount` as `(float)` without re-validation. No central Money value object — every site reinvents the same casting + rounding pattern. LateFeePolicy::calculateFee rounds half-up (PHP default); banker's rounding (half-even) is the financial standard for cumulative compounding. 10 findings.",
+      "count": 10
+    },
+    "TIME": {
+      "description": "Timezone consistency: APP_TIMEZONE=Africa/Nairobi is the configured default. Every emitted date IMPLICITLY relies on that. User->getTimezone() exists on the User model but is consumed by exactly ONE service (QuietHoursService). Every dashboard, every invoice render, every report uses app-TZ — a non-Kenya landlord sees Kenya times labeled with their local dates. Carbon::parse() of inbound date filters (date_from/date_to in reports + exports) has no explicit TZ, so it falls back to app-TZ — a US user filtering '2026-01-15' filters by Nairobi-midnight, which is 2026-01-14 14:00 their time (off-by-day). Scheduled tasks (->dailyAt('00:05')) implicitly run in APP_TIMEZONE — if APP_TIMEZONE were flipped to UTC for portability the overdue-marker would run 3 hours late. M-Pesa webhook timestamp parsing has no TZ. Date-arithmetic boundary: Carbon's ->addMonth() day-of-month overflow (Jan 31 + 1 month = Mar 3) affects late-fee monthly compounding cadence. 8 findings.",
+      "count": 8
+    }
+  },
+  "items": [
+    {
+      "id": "MONEY-1",
+      "title": "48+ service-layer sites cast money to (float) before arithmetic — silent floating-point drift",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/FinanceStatsService.php (28 (float) casts)",
+        "app/Services/DashboardService.php (10 (float) casts)",
+        "app/Services/Banking/BankReconciliationService.php",
+        "app/Models/Invoice.php:155-159 (recalculateLateFees)",
+        "app/Models/Invoice.php:170 (getOutstandingAmount)",
+        "app/Models/Lease.php (rent + service charge + deposit arithmetic)",
+        "and 40+ more services / controllers"
+      ],
+      "evidence": "DB DECIMAL(10,2) + Eloquent 'decimal:2' cast → string preserves precision through model access. But every service that does math reads `$invoice->total_due` (string), casts to `(float)` for arithmetic, then writes back as a number. For a single invoice this is harmless because all values are within float-representable range. For cumulative compounding (late fees applied monthly × 12 months, paid against partially over thousands of payment allocations) the drift accumulates to ~0.01-0.10 KES per invoice over a year. Across 10k invoices = up to 1000 KES of unaccountable drift in the quarterly ledger. Hard to debug — no exception, just wrong totals that compound silently.",
+      "fix": "Introduce `App\\ValueObjects\\Money` — wraps a `string` decimal representation and provides `add()`, `subtract()`, `multiply(int|string $factor)`, `divide(string $divisor)`, `compareTo()`, `toMinorUnits()`, `toDecimalString()`, `toFloat()` methods. Internally uses `bcmath` (PHP extension, already loaded — confirm in composer.json platform check). Phase 1 wires it into the hot paths: Invoice::recalculateLateFees, Invoice::getOutstandingAmount, LateFeePolicy::calculateFee. Tests pin: 100 successive Money::add('0.01') yields exactly '1.00' (float arithmetic would yield '0.9999999...')."
+    },
+    {
+      "id": "MONEY-2",
+      "title": "Invoice::recalculateLateFees + getOutstandingAmount + LateFeeService::isEligibleForLateFee all use float arithmetic",
+      "severity": "HIGH",
+      "files": [
+        "app/Models/Invoice.php:150-166 (recalculateLateFees: total = rent + water + arrears + late - wallet, all (float))",
+        "app/Models/Invoice.php:168-171 (getOutstandingAmount: total_due - amount_paid as float)",
+        "app/Services/LateFeeService.php:135 (isEligibleForLateFeeToday: total_due - amount_paid as float)",
+        "app/Services/LateFeeService.php:190-191 (applyLateFee: base = rent + water + arrears as float)"
+      ],
+      "evidence": "These are the 4 hottest money-arithmetic paths in the application. `recalculateLateFees` fires on every LateFee insert and Invoice mutation. `getOutstandingAmount` fires on every payment-controller index page render. `isEligibleForLateFeeToday` fires nightly on every overdue invoice. Each computation today is a chain of `(float) X + (float) Y - (float) Z` — for invoices with > 6 months of compounded fees + multiple partial payments, the result has 0.01-0.03 KES of drift vs. the same arithmetic in DECIMAL. The drift gets persisted back into the DB (`total_due` column) so subsequent reads inherit the drift.",
+      "fix": "Refactor each of these 4 methods to construct Money instances from the string attribute access (no (float) cast), perform `->add()`/`->subtract()` chains, and serialize via `->toDecimalString()` for DB write. Behaviour is unchanged for normal inputs; cumulative drift over compound fees disappears. Tests pin: 12 successive monthly compounding fees on a 10000 KES base at 5% should produce an exact 6000 KES total fee (1.05^12 minus 1 times 10000), not 5999.99 or 6000.01."
+    },
+    {
+      "id": "MONEY-3",
+      "title": "Currency::toMinorUnits(float $amount) signature loses precision at the Paystack/M-Pesa API boundary",
+      "severity": "HIGH",
+      "files": ["app/Enums/Currency.php:57-60"],
+      "evidence": "`public function toMinorUnits(float $amount): int { return (int) round($amount * $this->minorUnitMultiplier()); }`. Two issues: (1) the parameter type FORCES a float conversion at the boundary; if the caller has a Money value object (post-MONEY-1) or a DECIMAL string, PHP coerces to float here. For values up to 10 digits the float is exactly representable so this is harmless TODAY, but the contract is fragile — a future invoice with 11+ digits or a fractional-cent surcharge would silently lose precision. (2) round() is half-up; for amounts ending in exactly .5 cents (rare but possible via percentage fees), the rounded cents disagree with the banker's-rounding standard Paystack uses internally for refund reconciliation. 10000.005 KES → 1000001 cents via half-up; → 1000000 cents via half-even. The mismatch surfaces as a 1-cent reconciliation discrepancy on every refund.",
+      "fix": "Add `Currency::toMinorUnitsFromMoney(Money $amount): int` that uses string arithmetic + bankers' rounding. Keep the float version (`toMinorUnits(float)`) for backwards compatibility but mark @deprecated. Update PaystackService + MpesaService + IntaSendService call sites to use the Money variant once Money is shipped. Tests pin: `toMinorUnitsFromMoney(Money::fromString('10000.005'))` returns 1000000 (banker's rounding to even cent) not 1000001."
+    },
+    {
+      "id": "MONEY-4",
+      "title": "LateFeePolicy::calculateFee uses round($fee, 2) — half-up rounding accumulates bias on compounding fees",
+      "severity": "MEDIUM",
+      "files": ["app/Models/LateFeePolicy.php:81-99 (calculateFee)"],
+      "evidence": "PHP's `round($fee, 2)` defaults to PHP_ROUND_HALF_UP. For a 12-month compounding policy at 5% on a 10000 KES invoice, every monthly fee is computed as `(base + existing) * 0.05`. The rounding happens at each step. Half-up always rounds .005 → .01 (up), .015 → .02 (up), etc. — never .005 → .00. Banker's rounding (half-even / PHP_ROUND_HALF_EVEN) alternates: .005 → .00, .015 → .02, .025 → .02. Over 12 successive operations the half-up bias adds ~0.06 KES to the total. Not catastrophic per invoice, but systematic — tenants paying 12-month compounded late fees are over-charged by a few cents on average. Multiplied across thousands of late-fee-bearing invoices the bias is detectable in landlord ledger vs. payment-allocation reconciliation.",
+      "fix": "Change `round($fee, 2)` to `round($fee, 2, PHP_ROUND_HALF_EVEN)`. Update the docblock to call out the rounding mode. Tests pin: a 0.005 KES amount rounds to 0.00 (current behaviour rounds to 0.01); 0.015 rounds to 0.02 (same as current); 12 successive `calculateFee(10000, $prev)` operations match a known fixture computed via banker's rounding."
+    },
+    {
+      "id": "MONEY-5",
+      "title": "No payment-sum invariant test — sum(payment_allocations.amount per invoice) could exceed invoice.total_due",
+      "severity": "MEDIUM",
+      "files": ["No test asserting this invariant; PaymentController + PaymentReconciliationService rely on Invoice::amount_paid update path"],
+      "evidence": "The Phase-4 unique index `wallet_transactions(payment_id, type)` prevents wallet double-credit. The payment_allocations table records which invoice(s) a payment was split across. The invariant `sum(payment_allocations.amount WHERE invoice_id=X) == invoice(X).amount_paid` should hold by construction, but no test or DB-level check enforces it. A bug in the partial-payment-split code (e.g., a payment of 9000 KES allocated 5000+5000 by mistake) would over-credit the invoice. The Phase-4 unique index doesn't catch SUM mismatches — it only prevents duplicate row insertion for the same (payment, invoice) pair.",
+      "fix": "Two-layer defence. (1) New feature test `payment_allocations_sum_matches_invoice_amount_paid` that constructs varied payment-split scenarios and asserts the invariant after each. (2) Optional DB integrity check: a migration that adds a constraint via a trigger (MySQL 8 supports CHECK constraints but not on aggregate state). The cleaner approach is the test + a scheduled `payments:audit-allocations` command that scans for mismatches and pages ops via the existing failure-email channel. The latter is the canonical pattern (Phase-12 RETAIN's `failed-jobs-growth-monitor` is the same shape)."
+    },
+    {
+      "id": "MONEY-6",
+      "title": "Bank webhook (KCB/Equity/Coop) parses attacker-supplied 'Amount' as (float) — precision loss + injection surface",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/Banking/KcbBankService.php:41 (PaymentNotification amount: (float))",
+        "app/Services/Banking/EquityBankService.php:41 (same pattern)",
+        "app/Services/Banking/CoopBankService.php:41 (same pattern)"
+      ],
+      "evidence": "`amount: (float) $payload['Amount']` — banks send the transaction amount as either a string or a number depending on the bank. `(float)` cast is lossy for high-precision strings ('12345.678' → 12345.68 silently truncated) and accepts numeric-looking strings PHP can coerce ('12345' OR 'twelve thousand' → 0). The webhook signature middleware (Phase-10B encrypted payloads) verifies authenticity but not VALUE correctness. A bank-side bug that sent '12345.99x9' would be parsed as 12345.99 and credited that amount, when the user paid 12346.00 — silent under-credit.",
+      "fix": "Strict cast: `$rawAmount = $payload['Amount']; if (!is_numeric($rawAmount)) throw new InvalidPayloadException(...); $amount = Money::fromString((string) $rawAmount);` — explicit validation + Money construction at the boundary. Reject (don't silently parse) malformed values. The downstream PaymentNotification value object now carries Money instead of float. Tests pin: '12345.678' is rejected (not silently truncated); 'twelve thousand' is rejected (not silently zeroed); '12345.67' passes."
+    },
+    {
+      "id": "MONEY-7",
+      "title": "No central Money value object — every site reimplements the same casting + rounding pattern",
+      "severity": "LOW",
+      "files": ["app/ValueObjects/* (no Money.php exists today)"],
+      "evidence": "Across 48+ services + 20+ controllers, the pattern `(float) $a + (float) $b` then `round(..., 2)` appears with minor variations. A central value object would (1) make MONEY-1/2/3 fixes mechanical (drop in `Money::fromString($invoice->total_due)` and call `->add()`), (2) document the canonical pattern for new code, (3) enable safer interoperability with PHP money libraries (moneyphp/money if we ever migrate). Without it every new feature reinvents the wheel and inherits the float-drift risk.",
+      "fix": "Build `App\\ValueObjects\\Money` as the canonical type. Immutable. Constructors: `fromString(string $decimal): self`, `fromMinorUnits(int $cents): self`, `zero(): self`. Operations: `add(Money $other): Money`, `subtract(Money $other): Money`, `multiply(string $factor): Money`, `divide(string $divisor, int $scale = 2): Money`, `compareTo(Money $other): int`, `isZero(): bool`, `isNegative(): bool`. Output: `toDecimalString(): string`, `toMinorUnits(): int`, `toFloat(): float` (explicitly named, signals lossy). Internally uses bcmath. Phase 1 ships the class; Phase 2-4 migrate hot paths."
+    },
+    {
+      "id": "MONEY-8",
+      "title": "Wallet + late-fee invariant untested: total_due = rent + water + arrears + late_fees_total - wallet_applied",
+      "severity": "LOW",
+      "files": ["app/Models/Invoice.php:150-166 (recalculateLateFees), tests/* (no invariant test)"],
+      "evidence": "Invoice has 7 money columns: rent_due, water_due, arrears, late_fees_total, late_fees_waived, wallet_applied, total_due. The recalculateLateFees method updates total_due as a derived value, but there's no test that asserts the invariant `total_due == rent_due + water_due + arrears + late_fees_total - wallet_applied` after every mutation that could affect it (recalculate, payment-applied, wallet-applied, late-fee-waived). A future regression that introduces a +/- sign flip or a missed-column update would silently produce wrong totals.",
+      "fix": "Feature test that exercises every Invoice mutation path: late fee added, late fee waived, payment partially applied, wallet credit applied, wallet refund issued. After each, assert the invariant holds. Optional: a `App\\Models\\Concerns\\InvoiceTotalInvariant` trait with a `verifyInvoiceTotalInvariant()` method that the test calls. The same method could be wired into a scheduled audit command (Phase-12 retention-monitor pattern) for production drift detection."
+    },
+    {
+      "id": "MONEY-9",
+      "title": "Currency enum declares USD/EUR/GBP but no FX/exchange-rate handling — cross-currency arithmetic is broken",
+      "severity": "LOW",
+      "files": ["app/Enums/Currency.php (USD/EUR/GBP enum cases with no FX path)"],
+      "evidence": "Currency enum has USD/EUR/GBP cases. Lease + Invoice models can declare currency != KES. But the dashboard + reports + financial stats services sum amounts across invoices regardless of currency — implicitly treating them all as KES. A landlord with one USD lease + ten KES leases would see the USD amount summed into the KES total with no conversion. The total is meaningless. Either currency restriction (enforce KES-only at the validator) or actual FX rates (out of scope for this audit).",
+      "fix": "Two options. (a) Conservative: add a validator that rejects Lease.currency != 'KES' for now, with a docblock noting that USD/EUR/GBP are enum-only and require Phase-18+ FX integration. (b) Aggressive: add a `currency_exchange_rates` table fed by a scheduled FX-rate-poll command, multiply all foreign-currency amounts to KES at read time. Phase 17 ships (a); Phase 18 candidates can revisit (b). Tests pin: creating a Lease with currency=USD returns 422 with an explanatory message until FX is wired."
+    },
+    {
+      "id": "MONEY-10",
+      "title": "Payment validators accept amount = 0 or negative — refunds should go through RefundService not be inserted as payment",
+      "severity": "LOW",
+      "files": ["app/Http/Requests/PaymentRequest.php (no min:0.01 rule), app/Http/Controllers/PaymentController.php"],
+      "evidence": "The PaymentRequest validators today accept `amount >= 0` (or even no min: rule depending on path). A payment.amount = 0 row is meaningless — it bloats the table + the ledger. Negative amounts conceptually represent refunds, but those should be RefundService rows with their own audit trail + state machine. Inserting a negative-amount Payment bypasses the refund workflow + audit + the Phase-13 lawful_basis tag.",
+      "fix": "Tighten the PaymentRequest validator: `'amount' => ['required', 'numeric', 'min:0.01', 'max:99999999.99']`. Add a feature test that posts amount=0 and amount=-50 and asserts 422. Refund flow remains routed through `App\\Services\\RefundService::createRefund()` which already has its own audit + state machine."
+    },
+    {
+      "id": "TIME-1",
+      "title": "User->getTimezone() exists but only QuietHoursService consumes it — every other emitted date is in app-TZ",
+      "severity": "HIGH",
+      "files": [
+        "app/Models/User.php:209-212 (getTimezone)",
+        "app/Services/QuietHoursService.php (only consumer)",
+        "everywhere else: app/Http/Controllers/*, app/Services/*, resources/js/Pages/* implicit"
+      ],
+      "evidence": "PropManager is Kenya-market but the User model has a per-user `timezone` column + `getTimezone()` accessor — the schema admits non-Kenya users (overseas landlords, admins). QuietHoursService respects user-TZ when computing notification quiet hours. Nothing else does. A landlord in London (Europe/London, UTC+0/+1 with DST) viewing the dashboard sees rent due dates rendered as Kenya midnight (which is 21:00/22:00 London time the previous day). Invoice PDFs show Kenya dates. Email body templates render `$invoice->due_date->format('M j, Y')` using app-TZ. Inertia responses ship `created_at` ISO strings without TZ markers, leaving the front-end to guess.",
+      "fix": "Phase-17 scope is the back-end ground-truth: ensure date arithmetic + emission is anchored. (1) Helper: `App\\Support\\TenantClock::nowFor(User $user): Carbon` — wraps `now()->setTimezone($user->getTimezone())`. (2) Audit emitted dates in 3 hottest paths: InvoicePdfService, NotificationMail templates, InvoiceController API response. Each emits ISO 8601 with explicit TZ (e.g., '2026-05-12T00:05:00+03:00') so the frontend can convert. (3) Tests pin: a user with timezone='Europe/London' viewing an invoice due Kenya-2026-05-15 sees due_date emitted as a TZ-suffixed ISO string the frontend can localize."
+    },
+    {
+      "id": "TIME-2",
+      "title": "Carbon::parse() of date_from/date_to filters without explicit timezone — off-by-day for non-Kenya users",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/FinanceExportService.php:79-80, 129-130",
+        "app/Services/BuildingService.php:496, 509",
+        "app/Http/Controllers/ReportsController.php:127-128, 135"
+      ],
+      "evidence": "`Carbon::parse($filters['date_from'])` — when the input is '2026-01-15' the parsed value is `2026-01-15 00:00:00 Africa/Nairobi` (app-TZ fallback). For a user in `America/New_York` filtering 'their 2026-01-15', they mean `2026-01-15 00:00 New_York`, which is `2026-01-15 08:00 Nairobi`. The query then runs `WHERE created_at >= '2026-01-15 00:00 Nairobi'` — payments made in the NY-evening of 2026-01-14 (Nairobi 2026-01-15 02:00) are included even though the user's day boundary said they shouldn't be. Off-by-day at every TZ boundary; off-by-up-to-8-hours for distant TZs. The user thinks they filtered Jan 15 and gets Jan 14 evening's data too.",
+      "fix": "Wrap the filter parse in a helper: `App\\Support\\DateFilter::parseUserDay(string $input, User $user): Carbon` — calls `Carbon::parse($input, $user->getTimezone())->startOfDay()`. For end-of-day: `->endOfDay()`. Update the 5 known call sites. Tests pin: a NY user filtering '2026-01-15' constructs a query bound at `2026-01-15 00:00 America/New_York` which translates to `2026-01-15 05:00 UTC` / `2026-01-15 08:00 Africa/Nairobi`."
+    },
+    {
+      "id": "TIME-3",
+      "title": "Scheduled tasks (->dailyAt('00:05')) have no explicit ->timezone() — implicit dependence on APP_TIMEZONE",
+      "severity": "MEDIUM",
+      "files": ["routes/console.php (28 schedule entries)"],
+      "evidence": "Laravel's `->dailyAt('00:05')` runs at the configured `APP_TIMEZONE` (currently Africa/Nairobi). 28 scheduled commands rely on this. If an operator flipped APP_TIMEZONE to UTC for portability (a common 'best practice' recommendation), every cron would shift by 3 hours: the invoices:mark-overdue command would run at 03:05 EAT instead of 00:05 — invoices marked overdue 3 hours late, late fees applied at 03:10 instead of 00:10. The bug is silent — `php artisan schedule:list` still says '00:05', but the times are now UTC.",
+      "fix": "Pin the schedule timezone explicitly. Either (a) add `->timezone('Africa/Nairobi')` to every $schedule entry (verbose, but each schedule self-documents its TZ), or (b) add `'schedule' => ['timezone' => 'Africa/Nairobi']` to config/app.php as the default and let Laravel apply it to every schedule entry. Tests pin: `Schedule::events()->each->expression` returns the expected timezone-aware cron expression."
+    },
+    {
+      "id": "TIME-4",
+      "title": "M-Pesa webhook Carbon::createFromFormat('YmdHis', $timestamp) has no TZ — implicit reliance on APP_TIMEZONE",
+      "severity": "MEDIUM",
+      "files": ["app/Http/Middleware/ValidateMpesaWebhook.php:51"],
+      "evidence": "M-Pesa daraja sends `TransactionDate` in `YmdHis` format with no TZ marker — Safaricom emits it as Africa/Nairobi local time per their docs. `Carbon::createFromFormat('YmdHis', $timestamp)` uses APP_TIMEZONE which is correct TODAY (Africa/Nairobi). If APP_TIMEZONE were flipped, every webhook tolerance check would be off by 3 hours and either reject every legitimate webhook (now() in UTC vs. parsed in old-Nairobi-equivalent UTC) or accept replay attacks 3 hours stale. Explicit pinning makes this defence-in-depth.",
+      "fix": "Pass explicit TZ to createFromFormat: `Carbon::createFromFormat('YmdHis', $timestamp, 'Africa/Nairobi')`. Same fix in any other webhook timestamp parser. Tests pin: setting APP_TIMEZONE to UTC at test setup does NOT cause the webhook tolerance check to drift."
+    },
+    {
+      "id": "TIME-5",
+      "title": "Carbon ->addMonth() day-overflow for late-fee monthly compounding — Jan 31 + 1 month = Mar 3",
+      "severity": "MEDIUM",
+      "files": ["app/Services/LateFeeService.php:158-161 (compounding_frequency match block)"],
+      "evidence": "Carbon's `->addMonth()` follows PHP's DateInterval behaviour: Jan 31 + 1 month = Mar 3 (not Feb 28/29). For a late-fee policy with `compounding_frequency = 'monthly'`, this means an invoice that first applied a fee on Jan 31 has its NEXT fee due date computed as Mar 3, not Feb 28. The cadence drifts: after one year of monthly compounding starting Jan 31, fees would have been applied on Jan 31, Mar 3, Apr 3, May 3, Jun 3, Jul 3, Aug 3, Sep 3, Oct 3, Nov 3, Dec 3, Jan 3 — that's 12 fees but 12 distinct dates spread across 12 months and 3 days. Predictable but surprising.",
+      "fix": "Use Carbon's `->addMonthNoOverflow()` (introduced in Carbon 2.x): Jan 31 + 1 month = Feb 28 (or Feb 29 in a leap year). The cadence becomes deterministic — fee N applies on the same day-of-month every month, clamping for short months. Update the match block in LateFeeService::shouldApplyCompoundingFee. Tests pin: starting from Jan 31, 12 successive `addMonthNoOverflow()` operations yield the last day of each subsequent month."
+    },
+    {
+      "id": "TIME-6",
+      "title": "JSON responses emit dates without explicit timezone suffix — frontend has to guess",
+      "severity": "LOW",
+      "files": ["app/Http/Controllers/Api/* (default toJson serializes Carbon as ISO without offset depending on app config)"],
+      "evidence": "Laravel serializes Carbon as ISO 8601, but whether the offset suffix is included depends on the model's `$dateFormat` property + the application's serialization defaults. Today, due_date and created_at typically emit as `'2026-05-12T00:05:00.000000Z'` (UTC marker) OR `'2026-05-12 00:05:00'` (no marker) depending on path. The frontend `new Date(stringInput)` parses these differently in different browsers — Safari historically treated 'YYYY-MM-DD' as UTC midnight while Chrome treats it as local midnight. Off-by-up-to-12h between users.",
+      "fix": "Pin the serialization format. Set `User::$dateFormat = DateTimeInterface::ATOM` (or equivalent in the User model + downstream models). All dates emit as `'2026-05-12T00:05:00+03:00'` with explicit offset. Frontend `new Date(input)` is deterministic. Tests pin: API response for an invoice has due_date matching `/\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\+\\d{2}:\\d{2}/`."
+    },
+    {
+      "id": "TIME-7",
+      "title": "DB DATETIME columns lack TZ info — operator-side hardening",
+      "severity": "LOW",
+      "files": ["database/migrations/* (DATETIME used everywhere)"],
+      "evidence": "MySQL DATETIME is TZ-naive — stored bytes are just the date+time string with no offset. If the application server TZ is ever misconfigured (e.g., a deploy to a non-Kenya region), datetime writes get stored as the new TZ's wall-clock time + datetime reads are interpreted in the new TZ. For payment timestamps + audit logs this is a chronological-integrity problem. The MySQL 8 alternative is `TIMESTAMP` which is TZ-aware (stored in UTC, converted on read).",
+      "fix": "Document the operator constraint in docs/runbooks/deployment.md: MySQL session timezone MUST be set to '+03:00' or 'Africa/Nairobi' at every connection. Phase-11 deploy.sh can stamp this via `SET time_zone = 'Africa/Nairobi'` on connection. Migration to TIMESTAMP columns is a Phase 18+ candidate — every table affected, every read/write site needs revalidation. For Phase 17, pin the operational constraint."
+    },
+    {
+      "id": "TIME-8",
+      "title": "Carbon::now() vs now() inconsistency across services — readability + linting",
+      "severity": "LOW",
+      "files": ["app/Services/* (mixed Carbon::now() and now() calls), app/Models/* (same)"],
+      "evidence": "Both `Carbon::now()` and `now()` return the same Carbon instance. The codebase uses both, sometimes within the same class. Cosmetic but reduces grep-ability and signals different intent that doesn't actually exist.",
+      "fix": "Pint rule that enforces `now()` (the Laravel helper) consistently. Migrate the ~30 Carbon::now() call sites in services + models to `now()`. Document in CLAUDE.md as the house style. Non-functional change."
+    }
+  ],
+  "phases": {
+    "phase_1": {
+      "title": "Critical: Money value object + hot-path migration (MONEY-1/2/3)",
+      "scope": "MONEY-1, MONEY-2, MONEY-3",
+      "rationale": "Foundation: ship App\\ValueObjects\\Money with bcmath-backed arithmetic + comprehensive tests. Migrate the 3 hottest paths: Invoice::recalculateLateFees, Invoice::getOutstandingAmount, LateFeeService::isEligibleForLateFeeToday + applyLateFee. Add Currency::toMinorUnitsFromMoney(Money) and update PaystackService + MpesaService + IntaSendService call sites. Single commit; biggest semantic-equivalent refactor surface in Phase 17."
+    },
+    "phase_2": {
+      "title": "Critical: timezone consistency on inbound filters + emitted dates (TIME-1/2)",
+      "scope": "TIME-1, TIME-2",
+      "rationale": "App\\Support\\TenantClock helper + DateFilter::parseUserDay. Migrate the 5 known date_from/date_to filter sites. Pin emitted-date serialization format for ATOM ISO. Two related touches to a small surface — tight commit."
+    },
+    "phase_3": {
+      "title": "Medium: banker's rounding + sum invariant + bank webhook validation + scheduled-task TZ + M-Pesa TZ + month-overflow (MONEY-4/5/6 + TIME-3/4/5)",
+      "scope": "MONEY-4, MONEY-5, MONEY-6, TIME-3, TIME-4, TIME-5",
+      "rationale": "Six independently-shippable mediums. MONEY-4 is a one-line rounding mode change. MONEY-5 is a feature test + scheduled audit command. MONEY-6 is a validator tightening at 3 banking webhook ingress points. TIME-3/4/5 are explicit-TZ pinning. Largest-test-surface phase."
+    },
+    "phase_4": {
+      "title": "Low: documentation + minor cleanup (MONEY-7/8/9/10 + TIME-6/7/8)",
+      "scope": "MONEY-7, MONEY-8, MONEY-9, MONEY-10, TIME-6, TIME-7, TIME-8",
+      "rationale": "Polish + docs + a few validator tightenings. Money value object is shipped in Phase 1; this phase backfills documentation + invariant tests + the currency-enum lockdown + payment-amount validator + Pint rule for now()."
+    }
+  },
+  "out_of_scope": [
+    "Multi-currency FX exchange-rate handling — Phase 18+ candidate, requires an FX-rate source + a periodic refresh + UI for currency selection at lease creation",
+    "Kenya VAT (16%) handling — feature gap, not a defensive correctness issue; out of scope until the product team adds a VAT-bearing lease type",
+    "Migration from MySQL DATETIME to TIMESTAMP — operator-side cutover, Phase 18+ candidate; for Phase 17 we pin the operational constraint instead",
+    "Front-end date rendering / Vue i18n — Phase 17 scope is the back-end ground truth (correct TZ-suffixed ISO + correct money values). Front-end localization is a Phase 19+ candidate",
+    "Phase-12 deferred items (full restore automation, binlog PITR, RETAIN-5 unified orchestrator) — Phase-12 deferrals",
+    "Phase-14 deferred items (SUPPLY-5 constraint tightening, SUPPLY-4 full CycloneDX, OBSERV-7 JSON formatter on auxiliary channels, OBSERV-10 webhook_logs request_id) — Phase-14 deferrals",
+    "Phase-15 deferred items (PERF-5 partial indexes pending MySQL primitive, FRONT-7/8 + PERF-8/10 incremental roll-outs) — Phase-15 deferrals"
+  ],
+  "metadata": {
+    "total_findings": 18,
+    "high": 5,
+    "medium": 6,
+    "low": 7
+  }
+}
