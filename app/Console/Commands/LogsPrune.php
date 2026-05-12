@@ -71,6 +71,23 @@ class LogsPrune extends Command
             'column' => 'resolved_at',
             'where_not_null' => 'resolved_at',
         ],
+        // Phase-12 RETAIN-10: high-volume append-only webhook log
+        // tables. Payment-reconciliation operators rarely look back
+        // past 180 days; index bloat past that hurts read perf.
+        'webhook' => [
+            'table' => 'webhook_logs',
+            'config' => 'webhook.retention_days',
+            'default' => 180,
+            'column' => 'created_at',
+            'where_not_null' => null,
+        ],
+        'bank-webhook' => [
+            'table' => 'bank_webhook_logs',
+            'config' => 'webhook.bank_retention_days',
+            'default' => 180,
+            'column' => 'created_at',
+            'where_not_null' => null,
+        ],
     ];
 
     public function handle(): int

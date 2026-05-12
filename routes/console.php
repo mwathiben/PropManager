@@ -64,6 +64,17 @@ $schedule('logs:prune --table=security --confirm', fn ($e) => $e->dailyAt('03:35
 // dead config). Unresolved rows are operational debt and never
 // pruned here.
 $schedule('logs:prune --table=dead-letter --confirm', fn ($e) => $e->dailyAt('03:40'));
+// Phase-12 RETAIN-10: high-volume webhook log tables. 180-day
+// retention keeps payment-reconciliation history but contains
+// index bloat. Stagger off the dead-letter prune so they don't
+// contend for the table cache.
+$schedule('logs:prune --table=webhook --confirm', fn ($e) => $e->dailyAt('03:50'));
+$schedule('logs:prune --table=bank-webhook --confirm', fn ($e) => $e->dailyAt('03:55'));
+
+// Phase-12 RETAIN-9: Laravel's built-in failed-jobs prune. Phase-5
+// OBS-13 added an ALERT (failed-jobs-growth-monitor); this is the
+// matching PRUNE. 720 hours = 30 days retention.
+$schedule('queue:prune-failed --hours=720', fn ($e) => $e->dailyAt('04:10'));
 
 // Phase-12 RETAIN-3: GDPR Article 17 deletion request processor.
 // Command existed pre-Phase-12 (ProcessScheduledDeletions) but was
