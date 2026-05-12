@@ -212,5 +212,40 @@
     "high": 8,
     "medium": 8,
     "low": 2
+  },
+  "closeout": {
+    "status": "closed",
+    "closed_date": "2026-05-12",
+    "commits": [
+      {"id": "5185b69", "phase": "1a", "findings": ["BREACH-1 (paths a+b)", "BREACH-3"], "summary": "dpa:initiate-breach + breach:escalate-overdue + dpa:mark-regulator-notified + ops alert mailable"},
+      {"id": "28e671a", "phase": "1b", "findings": ["BREACH-2"], "summary": "IncidentDetector seed rules + SuspiciousActivityDetected event + failed-login seam wired"},
+      {"id": "f9705da", "phase": "1c", "findings": ["BREACH-4"], "summary": "Article 34 affected-subject notification via notifyAffectedSubjects + dpa:notify-affected-subjects"},
+      {"id": "abacaee", "phase": "2a", "findings": ["DPA-1"], "summary": "generic POST /consent/withdraw replaces withdraw-marketing; also Phase-1c Pint fix"},
+      {"id": "4bc2d40", "phase": "2b", "findings": ["DPA-3"], "summary": "lawful_basis tagging via Auditable trait + getLawfulBasis() on Lease/Invoice (contract), Payment/TenantKycSubmission (legal_obligation)"},
+      {"id": "87048a9", "phase": "2c", "findings": ["DPA-4"], "summary": "Article 18 restriction-of-processing — restricted_at column + /privacy/restrict[/release] + Gate::before read-only enforcement"},
+      {"id": "5023c5b", "phase": "2d", "findings": ["DPA-2"], "summary": "cross-border transfer validation at boot — collectCrossBorderTransferWarnings() inspects backup S3 region + uploads disk + Sentry DSN"},
+      {"id": "44f79e3", "phase": "3a", "findings": ["BREACH-5", "BREACH-7", "DPA-8"], "summary": "webhook + impersonation detector seams + 30-day review SLA (review_due_at column + breach:review-overdue) + logs:prune --table=consent"},
+      {"id": "b83fd2e", "phase": "3b", "findings": ["DPA-5", "DPA-6", "DPA-7", "DPA-9", "BREACH-6"], "summary": "Article 21 objection + Monolog masking processor + DPIA process + privacy notice template + breach drill runbook"},
+      {"id": "b228a71", "phase": "4", "findings": ["BREACH-8", "DPA-10"], "summary": "classifySeverity public helper + isMinor helper + children's data policy doc"}
+    ],
+    "tests_added": [
+      "BreachNotificationTest (9 tests — BREACH-1/3 paths)",
+      "IncidentDetectorTest (9 tests — BREACH-2/5 rules)",
+      "AffectedSubjectNotificationTest (6 tests — BREACH-4)",
+      "ConsentWithdrawalTest (8 tests — DPA-1)",
+      "LawfulBasisTaggingTest (6 tests — DPA-3)",
+      "ProcessingRestrictionTest (8 tests — DPA-4)",
+      "CrossBorderTransferTest (8 tests — DPA-2)",
+      "BreachReviewAndRetentionTest (5 tests — BREACH-7/DPA-8)",
+      "SensitiveDataMaskingTest (7 tests — DPA-6)",
+      "ProcessingObjectionTest (5 tests — DPA-5)",
+      "SeverityAndMinorTest (8 tests — BREACH-8/DPA-10)"
+    ],
+    "test_count_total": 79,
+    "deferred": [
+      "DPA-10: tenant_dob + parental_consent_artefact_url schema/form work — operator-policy gate not yet wired into form. isMinor() helper ready when triggered (see docs/legal/childrens-data-policy.md trigger conditions).",
+      "BREACH-2: full detector seam coverage. Phase 13 wired failed-login (Phase 1b), webhook signature (Phase 3a), impersonation frequency (Phase 3a). Large-export seam (DataExportService callers) deferred — the rule method exists but no controller calls it yet."
+    ],
+    "notes": "Total 18 findings × 10 commits, all green CI. Trait change (Auditable adds lawful_basis to audit metadata) is forward-only — production logged_events whitelist still suppresses created/updated/deleted, so existing audit consumers see no change. Tap-on-each-handler Monolog masking pattern is new for the codebase; defence-in-depth on top of DomainException::sanitizeForLogging."
   }
 }
