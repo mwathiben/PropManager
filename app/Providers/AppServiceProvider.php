@@ -574,6 +574,22 @@ class AppServiceProvider extends ServiceProvider
             $warnings[] = 'LOG_LEVEL='.$logLevel.'. Production should be at warning or higher; debug logs SQL + bound PII.';
         }
 
+        // SECRETS-10: Kenya DPA requires a registered Data Controller
+        // number for any personal-data-processing entity. KENYA_DPA_ENABLED
+        // defaults to true; the registration number must be set before
+        // accepting tenants. Warn so the gap is visible during launch.
+        if (config('security.kenya_dpa.enabled', true) && empty(config('security.kenya_dpa.registration'))) {
+            $warnings[] = 'KENYA_DPA_ENABLED=true but KENYA_DPA_REGISTRATION is empty. Required by Kenya Data Protection Act for live use.';
+        }
+
+        // SECRETS-11: BCRYPT_ROUNDS=10 is bcrypt's library default and
+        // too weak for production. We require >=12. A regressed env
+        // value silently weakens password hashing for every new user.
+        $rounds = (int) config('hashing.bcrypt.rounds', 10);
+        if ($rounds < 12) {
+            $warnings[] = 'BCRYPT_ROUNDS='.$rounds.' is below the production minimum of 12.';
+        }
+
         return $warnings;
     }
 }

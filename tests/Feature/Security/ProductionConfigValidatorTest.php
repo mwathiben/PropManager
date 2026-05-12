@@ -51,6 +51,10 @@ class ProductionConfigValidatorTest extends TestCase
             'reverb.apps.apps.0.key' => 'real-key',
             'reverb.apps.apps.0.secret' => 'real-secret',
             'sentry.dsn' => 'https://example.ingest.sentry.io/123',
+            'logging.channels.single.level' => 'warning',
+            'security.kenya_dpa.enabled' => true,
+            'security.kenya_dpa.registration' => 'KE-DPA-12345',
+            'hashing.bcrypt.rounds' => 12,
         ]);
     }
 
@@ -147,6 +151,54 @@ class ProductionConfigValidatorTest extends TestCase
 
         $warnings = $this->warnings();
         $this->assertNotEmpty(array_filter($warnings, fn ($w) => str_contains($w, 'HSTS')));
+    }
+
+    public function test_log_level_debug_is_warning(): void
+    {
+        $this->setProductionSafeBaseline();
+        config(['logging.channels.single.level' => 'debug']);
+
+        $warnings = $this->warnings();
+        $this->assertNotEmpty(array_filter($warnings, fn ($w) => str_contains($w, 'LOG_LEVEL=debug')));
+    }
+
+    public function test_log_level_info_is_warning(): void
+    {
+        $this->setProductionSafeBaseline();
+        config(['logging.channels.single.level' => 'info']);
+
+        $warnings = $this->warnings();
+        $this->assertNotEmpty(array_filter($warnings, fn ($w) => str_contains($w, 'LOG_LEVEL=info')));
+    }
+
+    public function test_missing_kenya_dpa_registration_is_warning_when_enabled(): void
+    {
+        $this->setProductionSafeBaseline();
+        config(['security.kenya_dpa.registration' => '']);
+
+        $warnings = $this->warnings();
+        $this->assertNotEmpty(array_filter($warnings, fn ($w) => str_contains($w, 'KENYA_DPA_REGISTRATION')));
+    }
+
+    public function test_missing_kenya_dpa_registration_is_silent_when_disabled(): void
+    {
+        $this->setProductionSafeBaseline();
+        config([
+            'security.kenya_dpa.enabled' => false,
+            'security.kenya_dpa.registration' => '',
+        ]);
+
+        $warnings = $this->warnings();
+        $this->assertEmpty(array_filter($warnings, fn ($w) => str_contains($w, 'KENYA_DPA_REGISTRATION')));
+    }
+
+    public function test_bcrypt_rounds_below_12_is_warning(): void
+    {
+        $this->setProductionSafeBaseline();
+        config(['hashing.bcrypt.rounds' => 10]);
+
+        $warnings = $this->warnings();
+        $this->assertNotEmpty(array_filter($warnings, fn ($w) => str_contains($w, 'BCRYPT_ROUNDS=10')));
     }
 
     public function test_multiple_critical_misconfigs_all_reported(): void
