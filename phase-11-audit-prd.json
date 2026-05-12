@@ -1,0 +1,246 @@
+{
+  "project": "PropManager",
+  "audit_cycle": "phase-11",
+  "audit_date": "2026-05-12",
+  "scope": "Defensive audit of production deployment safety (DEPLOY) and environment/secret hygiene (SECRETS). Direct follow-up to the Phase-5 OBS-1 (Sentry) and CRYPTO-11 (per-landlord secrets) work — both ship a runtime hook that only earns its keep when the production deploy pipeline actually configures it. This phase audits the seam between repo state and production state.",
+  "context_baseline": {
+    "previous_audits": [
+      "Phase 1/2 (commits 03e17b7, 4a305a0): 49 SQLi/auth/serialization/file-upload/data-integrity",
+      "Phase 3 (phase-3-audit-prd.json): 46 SCOPE-S/D/P + PERF-P/Q/R findings",
+      "Phase 4 (phase-4-audit-prd.json): 55 CONC/VALID/AUDIT/HANDLE findings",
+      "Phase 5 (phase-5-audit-prd.json): 54 PRIV/RATE/CRYPTO/OBS findings + 4-finding cleanup batch (CRYPTO-11/PRIV-5-mpesa/PRIV-12/OBS-1)"
+    ],
+    "do_not_reflag": "Findings duplicating items already closed in phases 1-5 or 10A/10B. CRYPTO-12 (Reverb env placeholder) is already addressed; this phase extends the same pattern to the rest of .env.example without re-flagging the Reverb item."
+  },
+  "qualityStandards": {
+    "test": "All Phase-11 fixes must pass `php artisan test --parallel` and `vendor/bin/pint --test`.",
+    "ci": "Each commit must land on main with green CI before the next phase starts.",
+    "no_breaking_change": "Adding production-config validators must NOT break local dev or CI. Validators throw only in app()->environment('production'); CI runs as 'testing'."
+  },
+  "feedbackLoops": {
+    "lint": "vendor/bin/pint --test",
+    "test_focused": "php artisan test --filter='<keyword>'",
+    "test_full": "php artisan test --parallel",
+    "ci_watch": "gh run list --limit 1 --branch main --json status,conclusion"
+  },
+  "categories": {
+    "DEPLOY": {
+      "description": "Production deployment safety — workflow automation, migration rehearsal, cache warming, queue restarts, health-check coverage, runbook gaps. The repo has zero deploy automation today; every production cutover is a human shell session.",
+      "count": 10
+    },
+    "SECRETS": {
+      "description": "Environment and secret hygiene — production-config validators that fail closed, .env.example defaults that are unsafe to ship as-is, per-landlord secret rotation procedures, missing breach-readiness contact info.",
+      "count": 11
+    }
+  },
+  "items": [
+    {
+      "id": "DEPLOY-1",
+      "title": "No deploy workflow exists — production cutover is fully manual",
+      "severity": "HIGH",
+      "files": [".github/workflows/ (only ci.yml present)"],
+      "evidence": "ls .github/workflows -> ci.yml only. No deploy.yml, no production.yml, no Dockerfile, no deploy/* directory. Every production deploy is a manual SSH session running `git pull && composer install --no-dev && php artisan migrate && php artisan queue:restart` (best case). No audit trail of who deployed which commit when; no rollback automation; no pre-deploy gate (lint+tests already green on the deployed SHA).",
+      "fix": "Add .github/workflows/deploy.yml triggered on push to main, gated on CI success (workflow_run dependency). Steps: SSH to server (action secrets), checkout deploy SHA, run a project deploy script that runs migrate --force + config/route/event cache + queue:restart + restart php-fpm. Annotate deploys via gh deployment API so the GitHub UI shows current production SHA."
+    },
+    {
+      "id": "DEPLOY-2",
+      "title": "validateProductionSecurity logs warnings instead of failing fast on critical misconfig",
+      "severity": "HIGH",
+      "files": ["app/Providers/AppServiceProvider.php:453-511"],
+      "evidence": "Empty APP_KEY -> Log::channel('security')->warning only; the app boots and serves traffic with encrypted columns unreadable. SESSION_ENCRYPT=false, SESSION_SECURE_COOKIE=false, HSTS disabled all log-only. The only THROW is reached when APP_DEBUG=true AND environment is production (line 506). Critical-but-not-debug misconfigs ship silently.",
+      "fix": "Split the validator into 'critical' (empty APP_KEY, missing session.encrypt) and 'warning' (HSTS off, etc.) tiers. Critical tier throws RuntimeException at boot; warning tier logs. Add a SENTRY_LARAVEL_DSN empty check at the warning tier so OBS-1 silent no-op is visible."
+    },
+    {
+      "id": "DEPLOY-3",
+      "title": "Sentry DSN not validated at boot — OBS-1 silently no-ops in production",
+      "severity": "HIGH",
+      "files": ["app/Providers/AppServiceProvider.php:453-511", "config/sentry.php"],
+      "evidence": "Phase-5 OBS-1 installed sentry-laravel and wired DomainException::report. SENTRY_LARAVEL_DSN is intentionally blank in .env.example. Nothing checks that production has a real DSN — a deploy that forgets to set it ships error monitoring as a silent no-op. ops cannot answer 'why didn't we get a Sentry alert for the last incident'.",
+      "fix": "In validateProductionSecurity, warn (and ideally throw via the critical tier) when SENTRY_LARAVEL_DSN is empty in production. Add a /api/v1/health check that asserts Sentry hub is bound AND a placeholder breadcrumb can be enqueued."
+    },
+    {
+      "id": "DEPLOY-4",
+      "title": "CI workflow targets retired 'master' branch",
+      "severity": "MEDIUM",
+      "files": [".github/workflows/ci.yml:5-7"],
+      "evidence": "branches: [main, master]. master was retired 2026-05-08 (per project memory). Push events to master can no longer happen, but PR events targeting master would silently skip CI if anyone re-creates the branch.",
+      "fix": "Drop master from the trigger lists. Single-line edit; no runtime impact."
+    },
+    {
+      "id": "DEPLOY-5",
+      "title": "No migrate --pretend rehearsal in CI — schema-breaking diffs land unverified",
+      "severity": "MEDIUM",
+      "files": [".github/workflows/ci.yml:112-113"],
+      "evidence": "CI runs `php artisan migrate --force` on a fresh MySQL 8 service, so green CI proves migrations apply on an empty schema. It does NOT prove they apply on a production-shaped schema (existing data, FK constraints, indexes already present). The earlier MySQL JSON-default + enum-string mismatch pattern (per memory) bit this exact gap.",
+      "fix": "Add a CI step that seeds the test DB with a small representative fixture before migrate (factory: 50 landlords + 1k leases + 5k invoices). Migrate against THAT, not empty. Surfaces NOT NULL backfills + index lock contention before prod."
+    },
+    {
+      "id": "DEPLOY-6",
+      "title": "No config/route/event cache warming documented for deploy",
+      "severity": "MEDIUM",
+      "files": ["no deploy script exists"],
+      "evidence": "Laravel cold-start without config:cache + route:cache + event:cache + view:cache pays full reflection cost on every request. Without a deploy script that runs these, a fresh container hits 200-400ms-per-request floor on routes that should be 30ms.",
+      "fix": "Ship deploy.sh in repo root (or scripts/deploy.sh). After migrate: artisan config:cache && route:cache && event:cache && view:cache. Document in README and reference from deploy workflow."
+    },
+    {
+      "id": "DEPLOY-7",
+      "title": "No queue:restart documented post-deploy — stale workers run old code",
+      "severity": "MEDIUM",
+      "files": ["no deploy script exists", "config/horizon.php (or supervisor config)"],
+      "evidence": "Long-running queue workers (or Horizon supervisors) cache class files in opcache and the boot autoloader. Post-deploy, workers continue executing pre-deploy job handlers. A late-fee bug fix won't take effect until next worker restart (could be days under supervisor).",
+      "fix": "deploy.sh must call `php artisan queue:restart` (and `php artisan horizon:terminate` if Horizon is in use). Document the supervisor restart contract in README."
+    },
+    {
+      "id": "DEPLOY-8",
+      "title": "/up health endpoint is Laravel's built-in static — bypasses real liveness checks",
+      "severity": "MEDIUM",
+      "files": ["bootstrap/app.php:15 (health: '/up')", "app/Http/Controllers/Api/HealthCheckController.php"],
+      "evidence": "withRouting(health: '/up') registers Laravel's static OK probe. The real probe at /api/v1/health (OBS-2) checks DB + Redis + queue + WebhookDeadLetter depth. A load balancer pointed at /up gets a 200 even when MySQL is wedged.",
+      "fix": "Either point the LB at /api/v1/health, or remove the /up shortcut so there's only one liveness endpoint. Document the chosen LB target in the deploy runbook."
+    },
+    {
+      "id": "DEPLOY-9",
+      "title": "README has no Deployment section — new ops staff have no source of truth",
+      "severity": "LOW",
+      "files": ["README.md"],
+      "evidence": "Memory captures stack + CI gates + migration gotchas, but the public README is the first place an operator will look. Without a 'Deployment' section that lists the cutover steps, env-var inventory, and rollback procedure, runbook lives only in tribal knowledge.",
+      "fix": "Add a Deployment section to README covering: deploy.sh invocation, required production env vars (link to .env.example with a 'prod overrides' comment), rollback (gh deployment list + cherry-pick revert), and on-call escalation."
+    },
+    {
+      "id": "DEPLOY-10",
+      "title": "validateProductionSecurity warnings have no ops-visible escalation",
+      "severity": "LOW",
+      "files": ["app/Providers/AppServiceProvider.php:500-503"],
+      "evidence": "Warnings land in Log::channel('security'). After OBS-1 ships, security-channel errors flow to Sentry — but warnings DON'T (sentry-laravel default is error+). Misconfig warnings are visible only to whoever tails the log file.",
+      "fix": "Bump from warning to error in the validator, OR add the security channel to the Sentry log channel mapping. Pick the level so misconfig still pages oncall."
+    },
+    {
+      "id": "SECRETS-1",
+      "title": "Production-config validator covers 5 of ~90 env vars — most critical creds missing",
+      "severity": "HIGH",
+      "files": ["app/Providers/AppServiceProvider.php:453-511", ".env.example"],
+      "evidence": "Validator checks: APP_DEBUG, SESSION_ENCRYPT, SESSION_SECURE_COOKIE, HSTS, APP_KEY, REVERB placeholders. .env.example exposes ~90 keys including MAIL_PASSWORD, REDIS_PASSWORD, AWS_SECRET_ACCESS_KEY, MPESA_CONSUMER_SECRET, PAYSTACK_SECRET_KEY, INTASEND_SECRET_KEY, SAML_SP_*, KENYA_DPA_REGISTRATION. A production deploy that forgets to set any of these ships a broken service or an unauthenticated integration.",
+      "fix": "Extend the validator with a 'required-in-production' env list. Loop over each, log/throw on empty. Categorize by criticality: 'critical' (APP_KEY, DB_PASSWORD, payment gateway creds) -> throw; 'warning' (analytics, optional integrations) -> log."
+    },
+    {
+      "id": "SECRETS-2",
+      "title": "APP_DEBUG=true is the .env.example default — a copy-and-deploy leaks stack traces",
+      "severity": "HIGH",
+      "files": [".env.example:4"],
+      "evidence": "The current validateProductionSecurity catches APP_DEBUG=true ONLY when APP_ENV is exactly 'production'. If a staging/uat deploy uses APP_ENV=staging, debug stays on and stack traces (with framework-extracted env values) ship to browsers. Defense-in-depth: APP_DEBUG should default to false in the file, with a comment that local dev must opt in.",
+      "fix": "Flip the .env.example default to APP_DEBUG=false. Add comment line explaining local override. Extend validator to throw when APP_DEBUG=true and APP_ENV != 'local'."
+    },
+    {
+      "id": "SECRETS-3",
+      "title": "SENTRY_LARAVEL_DSN blank in .env.example with no production check",
+      "severity": "HIGH",
+      "files": ["app/Providers/AppServiceProvider.php:453-511", ".env.example (SENTRY_LARAVEL_DSN block)"],
+      "evidence": "Phase-5 OBS-1 commit c422057 added a blank DSN placeholder (intentional — sentry-laravel no-ops on empty DSN, keeping CI green). The flip side: production with no DSN is also a no-op, defeating the entire OBS-1 effort. There's currently zero signal that prod is mis-deployed.",
+      "fix": "Add a validateProductionSecurity warning (escalating to critical if app.env=production) when SENTRY_LARAVEL_DSN is empty. Cross-reference with DEPLOY-3 — same fix."
+    },
+    {
+      "id": "SECRETS-4",
+      "title": "Per-landlord webhook secrets (CRYPTO-11) have no rotation procedure",
+      "severity": "HIGH",
+      "files": ["app/Console/Commands/CryptRotate.php (APP_KEY only)", "app/Models/PaymentConfiguration.php (CRYPTO-11 columns)"],
+      "evidence": "CRYPTO-11 introduced encrypted {coop,equity,kcb}_webhook_secret columns on PaymentConfiguration. APP_KEY rotation has CryptRotate (CRYPTO-6). What's missing: a per-landlord secret rotation flow when a single landlord's secret leaks. Today an ops person has to manually SSH into tinker, encrypt a new secret, write it directly to the DB column. No audit trail, no Slack notification to the affected landlord, no atomic 'old + new both accepted for 24h' transition window.",
+      "fix": "Add `php artisan webhook:rotate-secret {--bank=} {--landlord=}` command. Generates new random secret, encrypts via the model cast, records SecurityLog entry with old-secret hash + new-secret hash + actor. Emits a HasNewWebhookSecret notification to the landlord. Document the 24h cutover assumption (banks will send signed callbacks with the OLD secret until they re-key on their side)."
+    },
+    {
+      "id": "SECRETS-5",
+      "title": "LOG_LEVEL=debug default leaks SQL queries with PII to logs",
+      "severity": "MEDIUM",
+      "files": [".env.example (LOG_LEVEL=debug)"],
+      "evidence": "Laravel's `debug` level logs every query (when query log is enabled) and every framework breadcrumb. A production server that doesn't override LOG_LEVEL writes SELECT clauses (including bound PII) to log files. PII-in-logs is a Kenya DPA hazard.",
+      "fix": "Set LOG_LEVEL=warning in .env.example. Add a validator warning when LOG_LEVEL is debug or info in production. Keep dev/CI on debug via override."
+    },
+    {
+      "id": "SECRETS-6",
+      "title": "SESSION_SECURE_COOKIE=false default — validator warns instead of fail",
+      "severity": "MEDIUM",
+      "files": [".env.example (SESSION_SECURE_COOKIE=false)", "app/Providers/AppServiceProvider.php:471-474"],
+      "evidence": "Default is false (correct for local dev). Validator warns in prod but doesn't throw. A misconfigured prod with HTTP-only mode ships session cookies in cleartext if HTTPS isn't strictly enforced upstream.",
+      "fix": "Validator should THROW for SESSION_SECURE_COOKIE=false in production (not just warn). The Reverb-placeholder code path already shows the throw pattern; mirror it."
+    },
+    {
+      "id": "SECRETS-7",
+      "title": "MAIL_MAILER=log default — production deploys silently discard transactional email",
+      "severity": "MEDIUM",
+      "files": [".env.example (MAIL_MAILER=log)"],
+      "evidence": "Default writes all mail to laravel.log. A prod deploy that forgets to override MAIL_MAILER never sends rent reminders, payment receipts, KYC verification emails. Tenants don't know rent is due. Failure mode is silent (logs grow, but nothing user-visible breaks until the support ticket).",
+      "fix": "Add MAIL_MAILER check to the production validator. If MAIL_MAILER='log' or 'array' in production, throw. Document required MAIL_MAILER='smtp'/'mailgun'/'ses' values in the deploy runbook."
+    },
+    {
+      "id": "SECRETS-8",
+      "title": "No .env.production.example template — operators copy dev defaults",
+      "severity": "MEDIUM",
+      "files": [".env.example"],
+      "evidence": "Operators bootstrapping a new prod environment copy .env.example because it's the only template. Then they tweak ~30 booleans (APP_DEBUG, SESSION_SECURE_COOKIE, SECURITY_HSTS_ENABLED, MAIL_MAILER, LOG_LEVEL, REVERB_*, etc.). Forgetting one is the typical deploy failure mode.",
+      "fix": "Add .env.production.example with prod-safe defaults pre-flipped (APP_DEBUG=false, SECURITY_HSTS_ENABLED=true, SESSION_SECURE_COOKIE=true, LOG_LEVEL=warning, MAIL_MAILER=smtp, etc.). Keep blanks for true secrets. README points new operators at it."
+    },
+    {
+      "id": "SECRETS-9",
+      "title": "APP_KEY rotation procedure exists but trigger conditions are undocumented",
+      "severity": "MEDIUM",
+      "files": ["app/Console/Commands/CryptRotate.php", "README.md (no key-rotation section)"],
+      "evidence": "Phase-4 CRYPTO-6 shipped a `php artisan crypt:rotate {--old-key=}` command for APP_KEY rotation across 7 encrypted column families. No documented trigger: when does ops decide to rotate? On suspected leak? Annually? After offboarding a sysadmin? No runbook, no schedule.",
+      "fix": "Add 'Key Rotation' section to README. Document: trigger conditions (leak detected, scheduled annual, departure of ops with key access), prerequisites (maintenance window, encrypted-columns backup), exact command sequence, post-rotation verification (random sample of decrypted rows). Add cron reminder to scheduler for annual rotation."
+    },
+    {
+      "id": "SECRETS-10",
+      "title": "KENYA_DPA_REGISTRATION blank in .env.example with no deploy-time enforcement",
+      "severity": "LOW",
+      "files": [".env.example (KENYA_DPA_REGISTRATION=)", "config/security.php or similar"],
+      "evidence": "Kenya DPA requires a registered Data Controller number on every personal-data-processing entity. The env var exists but is blank. No validator checks it in production. A production launch without the registration is non-compliant.",
+      "fix": "Add KENYA_DPA_REGISTRATION to the production validator's required list. If KENYA_DPA_ENABLED=true (already on by default) AND KENYA_DPA_REGISTRATION is empty AND environment is production, log a critical warning and (optionally) refuse to boot."
+    },
+    {
+      "id": "SECRETS-11",
+      "title": "BCRYPT_ROUNDS env value is unbounded — a regressed value silently weakens password hashing",
+      "severity": "LOW",
+      "files": [".env.example (BCRYPT_ROUNDS=12)", "app/Providers/AppServiceProvider.php (no check)"],
+      "evidence": "BCRYPT_ROUNDS=12 is OK. Nothing prevents a careless operator from setting it to 10 (or 8) and weakening the hashing factor. Hash::driver() uses whatever's in env without sanity bounds.",
+      "fix": "Validator asserts BCRYPT_ROUNDS >= 12 in production. Reject lower at boot. Document 12 as the floor."
+    }
+  ],
+  "phases": {
+    "phase_1": {
+      "title": "Critical: tighten the production-config validator (fail-closed instead of warn-and-pray)",
+      "scope": "DEPLOY-2, DEPLOY-3, SECRETS-1, SECRETS-2, SECRETS-3, SECRETS-6, SECRETS-7",
+      "rationale": "Single file edit cluster (AppServiceProvider::validateProductionSecurity + .env.example defaults). All HIGH. Highest leverage: a production deploy that's missing APP_KEY/MAIL_MAILER/SESSION_SECURE_COOKIE/Sentry DSN should refuse to start, not log a warning into a file no one watches."
+    },
+    "phase_2": {
+      "title": "Critical: deploy automation + secret rotation procedures",
+      "scope": "DEPLOY-1, SECRETS-4, SECRETS-9",
+      "rationale": "Deploy workflow + the two missing rotation procedures (per-landlord webhook secret, APP_KEY trigger conditions). Larger commits than phase 1 but orthogonal — can land in parallel."
+    },
+    "phase_3": {
+      "title": "Medium: CI rehearsal + cache warming + worker restart",
+      "scope": "DEPLOY-4, DEPLOY-5, DEPLOY-6, DEPLOY-7, DEPLOY-8",
+      "rationale": "Each individually small. Bundle into a single deploy.sh + ci.yml refactor."
+    },
+    "phase_4": {
+      "title": "Medium: secrets hygiene polish",
+      "scope": "SECRETS-5, SECRETS-8",
+      "rationale": "LOG_LEVEL default + .env.production.example template. Documentation + .env edits."
+    },
+    "phase_5": {
+      "title": "LOW: documentation + compliance",
+      "scope": "DEPLOY-9, DEPLOY-10, SECRETS-10, SECRETS-11",
+      "rationale": "README sections + a few BCRYPT_ROUNDS + KENYA_DPA_REGISTRATION validator checks."
+    }
+  },
+  "out_of_scope": [
+    "Backup / DR procedure audit — own phase (proposed Phase 12)",
+    "Kenya DPA / GDPR coverage (consent UX, retention enforcement, export/erase completeness) — own phase",
+    "Dependency supply-chain audit beyond CVE bumps (lockfile freshness, abandoned packages, transitive risk) — own phase",
+    "Accessibility (WCAG 2.2) — own phase",
+    "Already-closed CRYPTO-12 Reverb placeholder check — Phase-5 work"
+  ],
+  "metadata": {
+    "total_findings": 21,
+    "high": 7,
+    "medium": 10,
+    "low": 4
+  }
+}
