@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Concerns\LimitsPerPage;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\InvoiceResource;
 use App\Models\Invoice;
@@ -9,6 +10,8 @@ use Illuminate\Http\Request;
 
 class InvoiceController extends Controller
 {
+    use LimitsPerPage;
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -25,8 +28,9 @@ class InvoiceController extends Controller
             $query->whereHas('lease.unit', fn ($q) => $q->where('building_id', $request->building_id));
         }
 
+        // Phase-15 PERF-3: cap per_page at 200 to prevent ?per_page=99999 DoS.
         $invoices = $query->orderBy('created_at', 'desc')
-            ->paginate($request->get('per_page', 20));
+            ->paginate($this->resolvePerPage($request, default: 20));
 
         return InvoiceResource::collection($invoices);
     }

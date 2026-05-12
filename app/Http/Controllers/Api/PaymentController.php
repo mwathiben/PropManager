@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Concerns\LimitsPerPage;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PaymentResource;
 use App\Models\Payment;
@@ -9,6 +10,8 @@ use Illuminate\Http\Request;
 
 class PaymentController extends Controller
 {
+    use LimitsPerPage;
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -29,8 +32,9 @@ class PaymentController extends Controller
             $query->whereDate('payment_date', '<=', $request->date_to);
         }
 
+        // Phase-15 PERF-3: per_page cap.
         $payments = $query->orderBy('payment_date', 'desc')
-            ->paginate($request->get('per_page', 20));
+            ->paginate($this->resolvePerPage($request, default: 20));
 
         return PaymentResource::collection($payments);
     }

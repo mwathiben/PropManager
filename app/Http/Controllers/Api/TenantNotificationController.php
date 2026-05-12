@@ -2,19 +2,23 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Concerns\LimitsPerPage;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\NotificationResource;
 use Illuminate\Http\Request;
 
 class TenantNotificationController extends Controller
 {
+    use LimitsPerPage;
+
     public function index(Request $request)
     {
         $user = $request->user();
 
+        // Phase-15 PERF-3: per_page cap.
         $notifications = $user->notifications()
             ->orderBy('created_at', 'desc')
-            ->paginate($request->get('per_page', 20));
+            ->paginate($this->resolvePerPage($request, default: 20));
 
         return NotificationResource::collection($notifications)
             ->additional([

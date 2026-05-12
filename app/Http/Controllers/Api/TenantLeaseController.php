@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Concerns\LimitsPerPage;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\LeaseResource;
 use App\Models\Lease;
@@ -9,6 +10,8 @@ use Illuminate\Http\Request;
 
 class TenantLeaseController extends Controller
 {
+    use LimitsPerPage;
+
     public function current(Request $request)
     {
         $user = $request->user();
@@ -32,10 +35,11 @@ class TenantLeaseController extends Controller
     {
         $user = $request->user();
 
+        // Phase-15 PERF-3: per_page cap.
         $leases = Lease::where('tenant_id', $user->id)
             ->with(['unit.building.property'])
             ->orderBy('start_date', 'desc')
-            ->paginate($request->get('per_page', 10));
+            ->paginate($this->resolvePerPage($request, default: 10));
 
         return LeaseResource::collection($leases);
     }

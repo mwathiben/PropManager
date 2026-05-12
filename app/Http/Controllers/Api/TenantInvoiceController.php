@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\Currency;
+use App\Http\Concerns\LimitsPerPage;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\InvoiceResource;
 use App\Models\Invoice;
@@ -11,6 +12,8 @@ use Illuminate\Http\Request;
 
 class TenantInvoiceController extends Controller
 {
+    use LimitsPerPage;
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -20,7 +23,7 @@ class TenantInvoiceController extends Controller
         })
             ->with(['lease.unit.building'])
             ->orderBy('created_at', 'desc')
-            ->paginate($request->get('per_page', 15));
+            ->paginate($this->resolvePerPage($request, default: 15));
 
         return InvoiceResource::collection($invoices);
     }
