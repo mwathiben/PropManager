@@ -35,10 +35,13 @@ class CoopBankService implements BankServiceInterface
 
     public function parsePaymentNotification(array $payload): PaymentNotification
     {
+        // Phase-17 MONEY-6: strict-validate the attacker-supplied amount.
+        $amount = WebhookAmountParser::parse($payload['Amount'] ?? $payload['TransactionAmount'] ?? null);
+
         return new PaymentNotification(
             bankCode: 'coop',
             transactionId: $payload['TransactionID'] ?? $payload['MessageReference'],
-            amount: (float) ($payload['Amount'] ?? $payload['TransactionAmount']),
+            amount: $amount->toFloatLossy(),
             accountNumber: $payload['AccountNumber'] ?? $payload['VirtualAccountNumber'],
             reference: $payload['Narration'] ?? $payload['TransactionReference'] ?? null,
             senderName: $payload['SenderName'] ?? null,

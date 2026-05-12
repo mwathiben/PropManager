@@ -35,10 +35,15 @@ class KcbBankService implements BankServiceInterface
 
     public function parsePaymentNotification(array $payload): PaymentNotification
     {
+        // Phase-17 MONEY-6: strict-validate the attacker-supplied amount.
+        // (float) cast pre-fix would silently zero 'twelve thousand' or
+        // truncate '12345.99x9' to 12345.99 — the parser rejects both.
+        $amount = WebhookAmountParser::parse($payload['Amount'] ?? null);
+
         return new PaymentNotification(
             bankCode: 'kcb',
             transactionId: $payload['TransactionID'],
-            amount: (float) $payload['Amount'],
+            amount: $amount->toFloatLossy(),
             accountNumber: $payload['DebitAccountNumber'],
             reference: $payload['Narration'] ?? null,
             senderName: $payload['DebitAccountName'] ?? null,

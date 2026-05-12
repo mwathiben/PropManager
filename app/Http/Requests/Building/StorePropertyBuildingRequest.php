@@ -20,7 +20,12 @@ class StorePropertyBuildingRequest extends FormRequest
             'name' => 'required|string|max:255',
             'floors' => 'required|integer|min:1',
             'units_per_floor' => 'required|integer|min:1',
-            'currency' => ['nullable', 'string', Rule::in(Currency::values())],
+            // Phase-17 MONEY-9: temporarily KES-only. The Currency enum
+            // declares USD/EUR/GBP cases for future cross-border support
+            // but FX/exchange-rate handling is Phase-18+ work — without
+            // FX, dashboards + reports would mis-sum across currencies.
+            // Lock to KES until the Phase 18 candidate ships.
+            'currency' => ['nullable', 'string', Rule::in(['KES'])],
         ];
     }
 }

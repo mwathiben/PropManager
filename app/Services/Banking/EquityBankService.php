@@ -35,10 +35,13 @@ class EquityBankService implements BankServiceInterface
 
     public function parsePaymentNotification(array $payload): PaymentNotification
     {
+        // Phase-17 MONEY-6: strict-validate the attacker-supplied amount.
+        $amount = WebhookAmountParser::parse($payload['amount'] ?? null);
+
         return new PaymentNotification(
             bankCode: 'equity',
             transactionId: $payload['transactionId'],
-            amount: (float) $payload['amount'],
+            amount: $amount->toFloatLossy(),
             accountNumber: $payload['accountNumber'],
             reference: $payload['reference'] ?? null,
             senderName: $payload['senderName'] ?? null,

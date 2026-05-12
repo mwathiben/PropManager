@@ -28,10 +28,16 @@ $logFailure = function (string $command): \Closure {
     };
 };
 
+// Phase-17 TIME-3: explicitly pin every schedule to Africa/Nairobi
+// regardless of APP_TIMEZONE. Pre-fix, dailyAt('00:05') ran in
+// APP_TIMEZONE — if an operator ever flipped APP_TIMEZONE to UTC for
+// portability, every cron would shift by 3 hours and the overdue-
+// marker would run 03:05 local instead of 00:05.
 $schedule = function (string $command, callable $cadence) use ($failureEmail, $logFailure) {
     $event = Schedule::command($command);
     $cadence($event);
-    $event->withoutOverlapping()
+    $event->timezone('Africa/Nairobi')
+        ->withoutOverlapping()
         ->onOneServer()
         ->runInBackground()
         ->onFailure($logFailure($command));
@@ -78,6 +84,12 @@ $schedule('logs:prune --table=consent --confirm', fn ($e) => $e->dailyAt('04:00'
 // OBS-13 added an ALERT (failed-jobs-growth-monitor); this is the
 // matching PRUNE. 720 hours = 30 days retention.
 $schedule('queue:prune-failed --hours=720', fn ($e) => $e->dailyAt('04:10'));
+
+// Phase-17 MONEY-5: invoice.amount_paid drift audit. Sums per-invoice
+// payments and compares to invoice.amount_paid; mismatches > 0.01 KES
+// are logged + bumped to invoice_amount_paid_drift_count gauge. Phase
+// -16 ops alerts can trigger off the gauge.
+$schedule('payments:audit-allocations', fn ($e) => $e->dailyAt('05:30'));
 // Phase-16 QUEUE-9: same prune for the job_batches table. SendBulkNoti-
 // ficationsJob (post-Phase-16 QUEUE-2) now creates a job_batches row
 // per fan-out — without this prune the table grows unbounded.
@@ -128,11 +140,12 @@ $schedule('soft-deleted:purge --confirm', fn ($e) => $e->dailyAt('03:45'));
 // post-creation.
 Schedule::call(function () {
     app(\App\Services\DataExportService::class)->cleanupOldExports(7);
-})->name('exports:cleanup')->dailyAt('03:15')->onOneServer();
+})->name('exports:cleanup')->dailyAt('03:15')->timezone('Africa/Nairobi')->onOneServer();
 
 // Process queued offline payment intents every minute
 $queuedIntents = Schedule::job(new \App\Jobs\ProcessQueuedPaymentIntents)
     ->everyMinute()
+    ->timezone('Africa/Nairobi')
     ->withoutOverlapping()
     ->onOneServer()
     ->onFailure($logFailure('ProcessQueuedPaymentIntents'));
@@ -143,6 +156,7 @@ if ($failureEmail) {
 // Archive payments older than retention period (7 years) on 1st of each month at 03:30
 $archive = Schedule::job(new \App\Jobs\ArchiveOldPayments)
     ->monthlyOn(1, '03:30')
+    ->timezone('Africa/Nairobi')
     ->withoutOverlapping()
     ->onOneServer()
     ->onFailure($logFailure('ArchiveOldPayments'));
@@ -175,4 +189,4 @@ Schedule::call(function () use ($failureEmail) {
             fn ($m) => $m->to($failureEmail)->subject('[ALERT] failed_jobs growth threshold crossed')
         );
     }
-})->name('failed-jobs-growth-monitor')->dailyAt('05:00')->onOneServer();
+})->name('failed-jobs-growth-monitor')->dailyAt('05:00')->timezone('Africa/Nairobi')->onOneServer();

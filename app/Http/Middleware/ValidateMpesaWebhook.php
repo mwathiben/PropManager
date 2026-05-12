@@ -48,7 +48,11 @@ class ValidateMpesaWebhook
             return false;
         }
 
-        $parsed = Carbon::createFromFormat('YmdHis', $timestamp);
+        // Phase-17 TIME-4: pin TZ explicitly. M-Pesa daraja emits
+        // TransactionDate in Africa/Nairobi wall-clock per Safaricom
+        // docs; defaulting to APP_TIMEZONE leaves the tolerance check
+        // dependent on env config which an operator could flip.
+        $parsed = Carbon::createFromFormat('YmdHis', $timestamp, 'Africa/Nairobi');
 
         if (! $parsed) {
             return true;

@@ -158,10 +158,15 @@ class LateFeeService
         $today = now()->startOfDay();
         $lastApplied = $lastFee->applied_date->startOfDay();
 
+        // Phase-17 TIME-5: addMonthNoOverflow clamps Jan 31 + 1 month to
+        // Feb 28/29 (instead of overflowing to Mar 3). Without this, a
+        // monthly-compounding policy that first fires on Jan 31 drifts
+        // its cadence by ~3 days every year. addMonthNoOverflow keeps
+        // the day-of-month anchored where possible.
         $nextDue = match ($policy->compounding_frequency) {
             'daily' => $lastApplied->copy()->addDay(),
             'weekly' => $lastApplied->copy()->addWeek(),
-            'monthly' => $lastApplied->copy()->addMonth(),
+            'monthly' => $lastApplied->copy()->addMonthNoOverflow(),
             default => null,
         };
 
