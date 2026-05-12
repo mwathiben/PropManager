@@ -65,6 +65,9 @@ class SecurityIncident extends Model
         'status',
         'resolution_notes',
         'compliance_references',
+        // Phase-13 BREACH-7: 30-day post-incident review tracking.
+        'review_due_at',
+        'review_completed_at',
     ];
 
     protected $casts = [
@@ -75,6 +78,8 @@ class SecurityIncident extends Model
         'odpc_notified_at' => 'datetime',
         'users_notified_at' => 'datetime',
         'resolved_at' => 'datetime',
+        'review_due_at' => 'datetime',
+        'review_completed_at' => 'datetime',
     ];
 
     /**

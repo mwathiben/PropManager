@@ -134,6 +134,44 @@ class IncidentDetector
     }
 
     /**
+     * Rule 5 (BREACH-5): impersonation frequency. Phase-13 BREACH-5
+     * adds this on top of the four rules shipped in BREACH-2 — the
+     * admin impersonation feature is high-blast-radius (the admin can
+     * read anything the target can), so an abnormal burst is worth
+     * an incident even when each individual call passes throttle.
+     */
+    public function checkImpersonationFrequency(int $adminUserId): ?SecurityIncident
+    {
+        $threshold = (int) config('security.detection.impersonation.threshold', 5);
+        $windowMinutes = (int) config('security.detection.impersonation.window_minutes', 60);
+        $debounceMinutes = (int) config('security.detection.impersonation.debounce_minutes', 60);
+
+        $count = SecurityLog::query()
+            ->where('event_type', SecurityLog::EVENT_IMPERSONATION_START)
+            ->where('user_id', $adminUserId)
+            ->where('created_at', '>=', now()->subMinutes($windowMinutes))
+            ->count();
+
+        if ($count <= $threshold) {
+            return null;
+        }
+
+        if ($this->recentlyDetected('impersonation_frequency', ['admin_id' => $adminUserId], $debounceMinutes)) {
+            return null;
+        }
+
+        return $this->createIncident(
+            rule: 'impersonation_frequency',
+            severity: SecurityIncident::SEVERITY_MEDIUM,
+            description: "Admin {$adminUserId} initiated {$count} impersonations in {$windowMinutes}m",
+            affectedDataTypes: ['authorization'],
+            estimatedAffectedUsers: $count,
+            mitigation: 'Verify admin session is not compromised; review impersonation targets for sensitivity',
+            context: ['admin_user_id' => $adminUserId, 'count' => $count, 'window_minutes' => $windowMinutes],
+        );
+    }
+
+    /**
      * Rule 4: webhook signature failures > N from one IP in W minutes.
      * Called from the webhook controllers (BREACH-5) after a signature
      * mismatch is logged to security_logs.
@@ -218,6 +256,8 @@ class IncidentDetector
                 'reported_by' => null,
                 'reported_at' => now(),
                 'notification_deadline' => now()->addHours(72),
+                // Phase-13 BREACH-7: 30-day post-incident review deadline.
+                'review_due_at' => now()->addDays(30),
                 'status' => SecurityIncident::STATUS_REPORTED,
                 'compliance_references' => [
                     'kenya_dpa_section_43',

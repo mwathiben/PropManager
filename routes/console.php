@@ -70,6 +70,9 @@ $schedule('logs:prune --table=dead-letter --confirm', fn ($e) => $e->dailyAt('03
 // contend for the table cache.
 $schedule('logs:prune --table=webhook --confirm', fn ($e) => $e->dailyAt('03:50'));
 $schedule('logs:prune --table=bank-webhook --confirm', fn ($e) => $e->dailyAt('03:55'));
+// Phase-13 DPA-8 (RETAIN-5 follow-up): consent records past 3 years
+// after withdrawal. Active consents never prune (withdrawn_at IS NULL).
+$schedule('logs:prune --table=consent --confirm', fn ($e) => $e->dailyAt('04:00'));
 
 // Phase-12 RETAIN-9: Laravel's built-in failed-jobs prune. Phase-5
 // OBS-13 added an ALERT (failed-jobs-growth-monitor); this is the
@@ -84,6 +87,11 @@ $schedule('queue:prune-failed --hours=720', fn ($e) => $e->dailyAt('04:10'));
 // the loop. Failure here means a Section 43 reporting miss becomes
 // invisible — same on-failure email channel as the other gates.
 $schedule('breach:escalate-overdue', fn ($e) => $e->hourly());
+
+// Phase-13 BREACH-7: weekly check for SecurityIncidents whose 30-day
+// post-incident review report is overdue. Acknowledgement via
+// dpa:mark-review-complete stops the surfacing.
+$schedule('breach:review-overdue', fn ($e) => $e->weeklyOn(1, '07:00'));
 
 // Phase-12 RETAIN-3: GDPR Article 17 deletion request processor.
 // Command existed pre-Phase-12 (ProcessScheduledDeletions) but was

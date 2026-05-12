@@ -88,6 +88,19 @@ class LogsPrune extends Command
             'column' => 'created_at',
             'where_not_null' => null,
         ],
+        // Phase-13 DPA-8 (RETAIN-5 follow-up): consent records past
+        // their 'duration of consent + 3 years' window. We prune
+        // ONLY withdrawn consents — active consents never expire
+        // because the lawful basis is ongoing. The retention window
+        // is computed against withdrawn_at; an active consent has
+        // NULL there and the where_not_null gate skips it.
+        'consent' => [
+            'table' => 'consents',
+            'config' => 'security.compliance.consent_retention_days',
+            'default' => 1095, // 3 years
+            'column' => 'withdrawn_at',
+            'where_not_null' => 'withdrawn_at',
+        ],
     ];
 
     public function handle(): int

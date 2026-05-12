@@ -168,6 +168,10 @@ return [
         'data_retention_years' => (int) env('DATA_RETENTION_YEARS', 7),
         'consent_required' => ['terms', 'privacy'],
         'breach_notification_hours' => 72, // GDPR & Kenya DPA requirement
+        // Phase-13 DPA-8: consent records 'duration of consent + 3y'
+        // retention (KenyaDpaService::getRetentionRequirements). Used
+        // by logs:prune --table=consent.
+        'consent_retention_days' => (int) env('CONSENT_RETENTION_DAYS', 1095),
         'log_in_console' => env('AUDIT_LOG_IN_CONSOLE', false), // Log audit events in console/CLI
     ],
 
@@ -288,6 +292,12 @@ return [
             'threshold' => (int) env('DETECTION_WEBHOOK_SIGNATURE_THRESHOLD', 10),
             'window_minutes' => (int) env('DETECTION_WEBHOOK_SIGNATURE_WINDOW', 1),
             'debounce_minutes' => (int) env('DETECTION_WEBHOOK_SIGNATURE_DEBOUNCE', 30),
+        ],
+        // Phase-13 BREACH-5: impersonation frequency rule.
+        'impersonation' => [
+            'threshold' => (int) env('DETECTION_IMPERSONATION_THRESHOLD', 5),
+            'window_minutes' => (int) env('DETECTION_IMPERSONATION_WINDOW', 60),
+            'debounce_minutes' => (int) env('DETECTION_IMPERSONATION_DEBOUNCE', 60),
         ],
     ],
 

@@ -196,6 +196,8 @@ class KenyaDpaService
             'reported_by' => $reportedBy ?? auth()->id(),
             'reported_at' => now(),
             'notification_deadline' => now()->addHours(72),
+            // Phase-13 BREACH-7: 30-day post-incident review deadline.
+            'review_due_at' => now()->addDays(30),
             'status' => 'reported',
             'compliance_references' => [
                 'kenya_dpa_section_43',

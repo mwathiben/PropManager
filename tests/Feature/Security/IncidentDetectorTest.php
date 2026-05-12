@@ -7,6 +7,7 @@ namespace Tests\Feature\Security;
 use App\Events\SuspiciousActivityDetected;
 use App\Models\SecurityIncident;
 use App\Models\SecurityLog;
+use App\Models\User;
 use App\Services\IncidentDetector;
 use App\Services\SecurityLogger;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -124,6 +125,53 @@ class IncidentDetectorTest extends TestCase
 
         $this->assertNotNull($incident);
         $this->assertSame(SecurityIncident::SEVERITY_MEDIUM, $incident->severity);
+    }
+
+    public function test_impersonation_frequency_fires_above_threshold_only(): void
+    {
+        $detector = app(IncidentDetector::class);
+        $admin = User::factory()->create(['role' => 'super_admin']);
+        $adminId = $admin->id;
+
+        // Threshold default = 5/h. Seed 6 entries (one over).
+        for ($i = 0; $i < 6; $i++) {
+            SecurityLog::create([
+                'user_id' => $adminId,
+                'landlord_id' => null,
+                'event_type' => SecurityLog::EVENT_IMPERSONATION_START,
+                'severity' => SecurityLog::SEVERITY_WARNING,
+                'description' => 'imp',
+                'metadata' => [],
+                'is_suspicious' => false,
+            ]);
+        }
+
+        $incident = $detector->checkImpersonationFrequency($adminId);
+
+        $this->assertNotNull($incident);
+        $this->assertSame(SecurityIncident::SEVERITY_MEDIUM, $incident->severity);
+        $this->assertContains('phase13_breach2:impersonation_frequency', $incident->compliance_references);
+    }
+
+    public function test_impersonation_frequency_at_threshold_does_not_fire(): void
+    {
+        $detector = app(IncidentDetector::class);
+        $admin = User::factory()->create(['role' => 'super_admin']);
+        $adminId = $admin->id;
+
+        // Threshold default = 5. Seed exactly 5 — rule uses >, not >=.
+        for ($i = 0; $i < 5; $i++) {
+            SecurityLog::create([
+                'user_id' => $adminId,
+                'event_type' => SecurityLog::EVENT_IMPERSONATION_START,
+                'severity' => SecurityLog::SEVERITY_WARNING,
+                'description' => 'imp',
+                'metadata' => [],
+                'is_suspicious' => false,
+            ]);
+        }
+
+        $this->assertNull($detector->checkImpersonationFrequency($adminId));
     }
 
     public function test_security_logger_failed_login_seam_escalates_when_burst_threshold_crossed(): void

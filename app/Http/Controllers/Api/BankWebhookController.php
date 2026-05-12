@@ -10,6 +10,7 @@ use App\Models\BankWebhookLog;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PaymentConfiguration;
+use App\Models\SecurityLog;
 use App\Models\User;
 use App\Services\Banking\BankServiceInterface;
 use App\Services\Banking\CoopBankService;
@@ -18,6 +19,7 @@ use App\Services\Banking\KcbBankService;
 use App\Services\Banking\PaymentNotification;
 use App\Services\BillingModelService;
 use App\Services\IdempotencyService;
+use App\Services\IncidentDetector;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -84,6 +86,30 @@ class BankWebhookController extends Controller
             if (! $service->validateWebhook($signature, $request->getContent(), $perLandlordSecret)) {
                 $log->markAsError('Invalid signature');
                 Log::warning("{$bankCode} webhook: Invalid signature", ['ip' => $request->ip()]);
+
+                // Phase-13 BREACH-5: record a SecurityLog row + run the
+                // IncidentDetector. The webhook_signature_failed event_type
+                // is what IncidentDetector::checkWebhookSignatureFlood
+                // counts; 10+ failures from one IP in 1 minute escalates
+                // to a SecurityIncident. Wrapped so an error in detection
+                // never escapes the controller.
+                try {
+                    SecurityLog::create([
+                        'user_id' => null,
+                        'landlord_id' => null,
+                        'event_type' => 'webhook_signature_failed',
+                        'severity' => SecurityLog::SEVERITY_WARNING,
+                        'description' => "{$bankCode} webhook signature validation failed",
+                        'ip_address' => $request->ip(),
+                        'metadata' => ['bank_code' => $bankCode],
+                        'is_suspicious' => true,
+                    ]);
+                    app(IncidentDetector::class)->checkWebhookSignatureFlood((string) $request->ip());
+                } catch (\Throwable $e) {
+                    Log::warning('IncidentDetector failed during webhook-signature escalation', [
+                        'error' => $e->getMessage(),
+                    ]);
+                }
 
                 return response()->json(['error' => 'Invalid signature'], 401);
             }

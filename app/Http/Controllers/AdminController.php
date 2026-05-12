@@ -8,10 +8,12 @@ use App\Models\Property;
 use App\Models\Setting;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\IncidentDetector;
 use App\Services\SecurityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class AdminController extends Controller
@@ -157,6 +159,19 @@ class AdminController extends Controller
         }
 
         $this->securityLogger->logImpersonationStart($admin, $user);
+
+        // Phase-13 BREACH-5: each impersonation passes throttle:sensitive
+        // individually, but a burst against many tenants can still be
+        // pathological. checkImpersonationFrequency consults
+        // security_logs and escalates if the admin has crossed the
+        // hourly threshold (default 5/hour).
+        try {
+            app(IncidentDetector::class)->checkImpersonationFrequency($admin->id);
+        } catch (\Throwable $e) {
+            Log::warning('IncidentDetector failed during impersonation-frequency check', [
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         session(['impersonating' => $admin->id]);
         session(['impersonating_name' => $admin->name]);
