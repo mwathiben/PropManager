@@ -242,5 +242,40 @@
     "high": 7,
     "medium": 10,
     "low": 4
+  },
+  "closeout": {
+    "audited": "2026-05-12",
+    "commits": {
+      "phase_1": {
+        "sha": "2137071",
+        "findings": ["DEPLOY-2", "DEPLOY-3", "SECRETS-1", "SECRETS-2", "SECRETS-3", "SECRETS-6", "SECRETS-7"],
+        "summary": "Production-config validator split into critical (throw) + warning (error-level log) tiers. .env.example APP_DEBUG default flipped to false."
+      },
+      "phase_2": {
+        "sha": "571b5e5",
+        "followup_sha": "1361dd5",
+        "findings": ["DEPLOY-1", "DEPLOY-6", "DEPLOY-7", "SECRETS-4", "SECRETS-9"],
+        "summary": ".github/workflows/deploy.yml + scripts/deploy.sh (cache warming, queue:restart). webhook:rotate-secret artisan command with SecurityLog audit trail. docs/runbooks/key-rotation.md. Follow-up commit (1361dd5) added permissions block + secrets-presence gating on deploy.yml after first-run 403."
+      },
+      "phase_3": {
+        "sha": "d889f6f",
+        "findings": ["DEPLOY-4", "DEPLOY-5", "DEPLOY-8"],
+        "summary": "Dropped retired master branch from CI triggers. Added migrate --pretend sanity gate before destructive migrate. Removed /up health route so LBs probe /api/v1/health exclusively."
+      },
+      "phase_4": {
+        "sha": "edd01f5",
+        "findings": ["SECRETS-5", "SECRETS-8"],
+        "summary": "LOG_LEVEL=warning default in .env.example + validator warning for debug/info in prod. New .env.production.example template with all toggles prod-flipped."
+      },
+      "phase_5": {
+        "sha": "38a45d7",
+        "findings": ["DEPLOY-9", "DEPLOY-10", "SECRETS-10", "SECRETS-11"],
+        "summary": "Validator extensions: LOG_LEVEL warning (already added in phase 4, the test was added here), KENYA_DPA_REGISTRATION gap when DPA enabled, BCRYPT_ROUNDS < 12. README rewrite with deployment runbook. DEPLOY-10 was closed incidentally by phase 1 (warnings now log at error level, mapping to Sentry via OBS-1)."
+      }
+    },
+    "deferred_work": {
+      "DEPLOY-5_full": "Production-shape data rehearsal (fixture seeder + prior-schema replay before applying new migrations) is deferred to a future audit. Phase-11 ships only the migrate --pretend sanity gate; full data-shape testing is non-trivial (requires per-migration schema snapshotting) and would inflate CI runtime.",
+      "DEPLOY-1_production_environment": "deploy.yml is a graceful no-op until the production GitHub environment is created and DEPLOY_SSH_KEY / DEPLOY_HOST / DEPLOY_PATH secrets are configured. Operator action, not a code change."
+    }
   }
 }
