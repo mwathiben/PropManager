@@ -51,6 +51,9 @@ class ProductionConfigValidatorTest extends TestCase
             'reverb.apps.apps.0.key' => 'real-key',
             'reverb.apps.apps.0.secret' => 'real-secret',
             'sentry.dsn' => 'https://example.ingest.sentry.io/123',
+            // Phase-14 OBSERV-6: baseline must satisfy the new
+            // traces-disabled warning (DSN set + traces > 0).
+            'sentry.traces_sample_rate' => 0.1,
             'logging.channels.single.level' => 'warning',
             'security.kenya_dpa.enabled' => true,
             'security.kenya_dpa.registration' => 'KE-DPA-12345',

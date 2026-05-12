@@ -1,0 +1,219 @@
+{
+  "project": "PropManager",
+  "audit_cycle": "phase-15",
+  "audit_date": "2026-05-12",
+  "scope": "Defensive audit of frontend XSS / CSP surface (FRONT) and database hot-path performance + N+1 (PERF). Phase 13 closed the regulator-inspectable layer; Phase 14 closed ops observability + supply-chain. Phase 15 closes the user-perceived surface: 'will a malicious tenant landlord-impersonate via XSS?' and 'will the dashboard time out for a landlord with 5000 invoices?' The user-facing surface has been audited piecemeal across Phase 1-5 but never as a coherent layer.",
+  "context_baseline": {
+    "previous_audits": [
+      "Phase 1-5 core security categories + 10A/10B (mass-assign + file-upload + webhook payload encryption)",
+      "Phase 11 (DEPLOY + SECRETS, 21 findings)",
+      "Phase 12 (BACKUP + RETAIN, 18 findings)",
+      "Phase 13 (DPA + BREACH, 18 findings — regulator-inspectable layer)",
+      "Phase 14 (SUPPLY + OBSERV, 18 findings — supply-chain + observability beyond OBS-1)"
+    ],
+    "do_not_reflag": "Phase-3 SCOPE-S/D/P (tenant-isolation) + Phase-5 PRIV-* (cross-tenant authorization) covered the back-end side. Phase-5 OBS-12 added a sampled N+1 detector. Phase-10A mass-assign + Phase-10B SQL defensive cast covered injection. Phase-13 DPA-6 Monolog masking covered log-side PII. Phase-15 does NOT re-audit those; it covers the user-facing rendering / query layer."
+  },
+  "qualityStandards": {
+    "test": "All Phase-15 fixes must pass `php artisan test --parallel` and `vendor/bin/pint --test`.",
+    "ci": "Each commit must land on main with green CI before the next phase starts.",
+    "no_breaking_change": "Frontend XSS sanitization may strip operator-supplied HTML in help articles — that's an INTENTIONAL stripping (operator content moves through the same trust model as tenant content). Index additions are non-breaking but require MIGRATE on production; we ship one migration per index group to allow rollback granularity."
+  },
+  "feedbackLoops": {
+    "lint": "vendor/bin/pint --test",
+    "test_focused": "php artisan test --filter='<keyword>'",
+    "test_full": "php artisan test --parallel",
+    "ci_watch": "gh run list --limit 1 --branch main --json status,conclusion"
+  },
+  "categories": {
+    "FRONT": {
+      "description": "Frontend security: XSS via v-html, CSP weakening (unsafe-inline on style-src + wide img-src), missing Subresource Integrity on external scripts, frontend-side validation enforcement. 19 v-html occurrences in Vue templates today — most are Laravel paginator labels (framework-controlled, low-risk) but at least one binds a `marked()` markdown render directly to v-html with no sanitization (Help/Show.vue). A stored-XSS attack via a help-article body would target every user who opens the article.",
+      "count": 8
+    },
+    "PERF": {
+      "description": "Database hot-path performance + N+1 elimination. payments + invoices tables have foreign-key indexes but no composite indexes on (landlord_id, status, date) — the canonical 'show this landlord's overdue invoices for this month' query is doing a sequential scan within the FK partition. API controllers have only 12 ->with() eager-loading calls across 9 controllers, so most index pages today are N+1 surface. Pagination per_page parameter is not capped — a malicious caller can request ?per_page=99999 and DoS the worker. No slow-query logging configured; we have no production data on what's actually slow.",
+      "count": 10
+    }
+  },
+  "items": [
+    {
+      "id": "FRONT-1",
+      "title": "marked() markdown rendered via v-html without sanitization — stored XSS surface",
+      "severity": "HIGH",
+      "files": ["resources/js/Pages/Help/Show.vue:14-57"],
+      "evidence": "Help/Show.vue does `import { marked } from 'marked'; const renderedContent = computed(() => marked(props.article.content || ''))` then `<div v-html=\"renderedContent\">`. marked by default emits raw HTML inline tags (the markdown spec permits HTML pass-through). If `article.content` is operator-supplied and ever becomes user-supplied (a planned feature, an admin-impersonated edit, a misconfigured route), arbitrary `<script>` lands in every reader's DOM.",
+      "fix": "Add DOMPurify (`npm i dompurify @types/dompurify`) and wrap the marked output: `DOMPurify.sanitize(marked(content))`. Configure DOMPurify with an allowlist that matches what help articles need (p, h1-h6, ul, ol, li, code, pre, a[href], img[src], strong, em). Alternatively, configure marked itself with `mangle: false, headerIds: false` and use `marked.parse(content, { sanitizer: ... })`. Tests pin that a known XSS payload (`<img src=x onerror=alert(1)>`) does not survive the pipeline."
+    },
+    {
+      "id": "FRONT-2",
+      "title": "CSP style-src 'unsafe-inline' weakens XSS protection",
+      "severity": "HIGH",
+      "files": ["app/Http/Middleware/SecurityHeaders.php:95"],
+      "evidence": "buildCspHeader() emits `style-src 'self' 'unsafe-inline' https://fonts.bunny.net`. unsafe-inline on style-src defeats most CSP protection — an attacker who lands HTML can inject `<style>` or `style=\"\"` attributes with arbitrary CSS, and CSS expressions (`background: url(javascript:...)`) are blocked but `style=\"position:fixed;...\"` clickjacking + UI redress is open. Vue's Tailwind v4 build now emits a fixed set of styles at build time and inline styles are no longer required for normal app operation.",
+      "fix": "Drop 'unsafe-inline' from style-src in production. Switch to `style-src 'self' 'nonce-{$nonce}' https://fonts.bunny.net` and explicitly nonce the few inline styles that remain (login background, etc.). For dev, keep 'unsafe-inline' under the local-environment branch of the if-statement that already handles Vite dev origin. Tests pin: production CSP does not contain 'unsafe-inline' in style-src."
+    },
+    {
+      "id": "FRONT-3",
+      "title": "External Paystack script loaded without Subresource Integrity (SRI)",
+      "severity": "HIGH",
+      "files": ["app/Http/Middleware/SecurityHeaders.php:94 (CSP allows js.paystack.co)", "resources/js/* (no SRI hash on Paystack script tag)"],
+      "evidence": "CSP allows https://js.paystack.co — meaning the browser will execute any script Paystack serves. If Paystack's CDN is compromised, every PropManager user runs the attacker's JS on the payment page. SRI (Subresource Integrity) protects against this by pinning a sha256 hash of the script.",
+      "fix": "Identify the Paystack include script (likely in a payment-confirmation Vue page). Add the SRI hash from Paystack's documentation: `<script src=\"https://js.paystack.co/v1/inline.js\" integrity=\"sha384-...\" crossorigin=\"anonymous\"></script>`. Paystack publishes hashes; pin to the current version. Document the rotation procedure in docs/runbooks/paystack-script-rotation.md."
+    },
+    {
+      "id": "PERF-1",
+      "title": "payments table missing (landlord_id, payment_date) composite index — hot query is a partition scan",
+      "severity": "HIGH",
+      "files": ["database/migrations/2025_12_16_093818_create_payments_table.php (no composite indexes)"],
+      "evidence": "The create migration sets foreignId on landlord_id which gives a single-column FK index. The reports dashboard query `SELECT * FROM payments WHERE landlord_id = X AND payment_date BETWEEN Y AND Z` uses the FK index but then scans every row for that landlord and filters on date — for a landlord with 5000 payments and a 1-month window, that's a 5000-row read returning 100. Sequential within the partition.",
+      "fix": "New migration: `$table->index(['landlord_id', 'payment_date'], 'payments_landlord_date_idx')`. Same composite for `(landlord_id, status)` for the unreconciled-payments path. Verify with `EXPLAIN SELECT ... WHERE landlord_id = X AND payment_date BETWEEN ...` shows `Using index` rather than `Using where`."
+    },
+    {
+      "id": "PERF-2",
+      "title": "invoices table missing (landlord_id, status, due_date) composite — overdue-invoice scan is slow",
+      "severity": "HIGH",
+      "files": ["database/migrations/create_invoices*.php (no composite indexes)"],
+      "evidence": "The MarkOverdueInvoices nightly scheduled command runs `SELECT WHERE landlord_id = X AND status IN ('Sent','Partial') AND due_date < NOW()` for every landlord. With N landlords and M invoices per landlord, that's N×M scanned rows when only N is small but M grows unbounded. The same query pattern fires from the tenants' dashboard 'my outstanding invoices' card.",
+      "fix": "New migration: `$table->index(['landlord_id', 'status', 'due_date'], 'invoices_landlord_status_due_idx')`. The order matters: landlord_id is the partition, status is enum-cardinality (low), due_date is range-scan. With this index MySQL uses index-range scan rather than full partition scan."
+    },
+    {
+      "id": "PERF-3",
+      "title": "API pagination per_page parameter is not capped — DoS via ?per_page=99999",
+      "severity": "HIGH",
+      "files": ["app/Http/Controllers/Api/* (no per-page cap)"],
+      "evidence": "Index endpoints use `Model::paginate($request->per_page ?? 15)`. A caller with valid auth can pass ?per_page=99999 and the controller responds with 99999 rows from the database, ZIP'd up in JSON, sent over the network. The worker is tied up while it builds the response; the bill is the operator's cloud-egress. RATE limits the request rate but not the payload size.",
+      "fix": "Add a per_page validator rule across the affected controllers (~9 controllers per Phase 14 audit): `'per_page' => 'sometimes|integer|min:1|max:200'`. Even tenant-export endpoints with legitimate large-result use cases should use a streaming path (Phase 12 DataExportService) rather than a paginated endpoint. Tests pin: ?per_page=10000 returns either 422 (validation rejected) or is silently capped at 200."
+    },
+    {
+      "id": "PERF-4",
+      "title": "N+1 audit: 12 ->with() calls across 9 API controllers — most index pages still N+1",
+      "severity": "HIGH",
+      "files": ["app/Http/Controllers/Api/* (12 ->with(), implying ~30+ N+1 surfaces)"],
+      "evidence": "A grep across the 9 API controllers shows 12 instances of `->with()` eager-loading. PropManager has 30+ Eloquent relationships in the hot path (invoice→lease→tenant→user, payment→invoice→lease→landlord, etc.). The math doesn't work: at minimum every paginated index endpoint that renders related fields needs eager loading. Phase-5 OBS-12 added a SAMPLED N+1 detector — at 1% sample rate, real N+1s in production are invisible.",
+      "fix": "Audit each API controller's index method (~9 files). For every page that renders a related field, add the appropriate ->with() call. The most acute paths: InvoiceController::index (lease + tenant), PaymentController::index (invoice + lease + landlord payout account), TenantPaymentController::history (each tenant has many lease/invoice payments). Each fix should be paired with a test that asserts query count via DB::enableQueryLog() before + after — the count for a paginated 15-row response should be O(1), not O(15). Estimate 5-8 controller methods need touch."
+    },
+    {
+      "id": "FRONT-4",
+      "title": "v-html on link.label across 13+ paginator usages — framework-controlled but unnecessary surface",
+      "severity": "MEDIUM",
+      "files": ["resources/js/Pages/**/*.vue (13 occurrences)"],
+      "evidence": "The Laravel paginator emits link.label as an HTML string like `<i class=\"prev\">«</i>` — this is framework-controlled HTML so it's not a current vulnerability. But the pattern desensitises maintainers to v-html safety, and the Laravel team has historically changed the paginator HTML between Laravel versions (12 vs 11). A v-text + icon-by-class lookup keeps the same rendering with a smaller XSS surface.",
+      "fix": "Replace each `v-html=\"link.label\"` with a small component that translates the label string back to icon names + accessible text. Single Vue component: `<PaginatorLink :label=\"link.label\" />` — internally maps « → ChevronDoubleLeft, » → ChevronDoubleRight, etc. Centralises the safety property + adds aria-labels. Update 13 callsites to use the component."
+    },
+    {
+      "id": "PERF-5",
+      "title": "SoftDeletes withTrashed predicate not indexed — 'WHERE deleted_at IS NULL' is implicit on every query",
+      "severity": "MEDIUM",
+      "files": ["any table with SoftDeletes trait (User, Invoice, Lease, etc.)"],
+      "evidence": "Models using SoftDeletes prepend `WHERE deleted_at IS NULL` to every query unless `withTrashed()` is called. MySQL cannot use the deleted_at FK index for a NULL predicate — it has to evaluate per row. For tables with high soft-delete churn (notifications, security_logs) this is a slow predicate. Phase-12 RETAIN-4 partly mitigates via soft-deleted purge, but the predicate cost is paid before the purge runs.",
+      "fix": "Add partial indexes on deleted_at = NULL — MySQL 8 supports functional indexes via `$table->rawIndex('(deleted_at IS NULL)', '...')`. Apply to the 5 most-queried soft-delete tables (User, Lease, Invoice, Payment, Notification). Measure before + after with EXPLAIN — should drop the type from `ALL` to `ref`."
+    },
+    {
+      "id": "PERF-6",
+      "title": "No slow-query logging — production query patterns are invisible to operators",
+      "severity": "MEDIUM",
+      "files": ["config/database.php (no slow_query_log)"],
+      "evidence": "MySQL slow query log is off by default. PropManager doesn't enable it via my.cnf, doesn't enable Laravel-side query logging via DB::listen, and the Phase-14 MetricsService::observe histograms (just shipped) are not wired into the DB driver. When a tenant complains 'the dashboard is slow', ops cannot pull the actual SQL.",
+      "fix": "Wire DB::listen in a service provider that's only enabled when SLOW_QUERY_THRESHOLD_MS env is set (default off). Log queries exceeding the threshold via MetricsService::observe('db_query_ms', $time, ['statement' => substr($sql, 0, 50)]) + Log::channel('slow-query')->warning(...). New logging channel 'slow-query' with its own retention. Phase-14 OBSERV-1 /metrics endpoint surfaces the histogram."
+    },
+    {
+      "id": "FRONT-5",
+      "title": "img-src directive is wide-open (https:) — any HTTPS asset can be loaded",
+      "severity": "MEDIUM",
+      "files": ["app/Http/Middleware/SecurityHeaders.php:96"],
+      "evidence": "buildCspHeader emits `img-src 'self' data: blob: https:`. The trailing `https:` allows the browser to load <img src=\"https://attacker.example.com/track.gif\"> — which leaks the user's IP + cookies to the attacker. Pixel trackers via stored XSS would silently exfiltrate. The data: and blob: schemes are similarly broad but PropManager actually uses them (Vue compiled assets emit data: URLs for small images).",
+      "fix": "Replace `https:` with an explicit allowlist: `img-src 'self' data: blob: https://s3.amazonaws.com https://imgs.paystack.co`. Identify the actual external image sources by grepping the codebase for `<img src=\"https://...\">` patterns. data: + blob: retained because Vue / Tailwind emit them. For user-uploaded images (KYC photos, tenant photos), serve from app-owned S3 with a signed URL — already 'self' compatible."
+    },
+    {
+      "id": "PERF-7",
+      "title": "notifications table — high-volume, no composite (user_id, read_at IS NULL, created_at) index",
+      "severity": "MEDIUM",
+      "files": ["database/migrations/2025_12_16_195159_create_notifications_table.php"],
+      "evidence": "Each tenant + landlord generates dozens of notifications/week. The badge query `SELECT COUNT(*) FROM notifications WHERE user_id = ? AND read_at IS NULL` fires on every Inertia request that includes the layout. Without a (user_id, read_at) composite, MySQL scans every notification for the user and evaluates read_at per row. Phase-13 DPA-8 prune by withdrawn_at doesn't help here because notifications are not consent-shaped.",
+      "fix": "Migration: `$table->index(['user_id', 'read_at'], 'notifications_user_read_idx')`. Order matters — user_id is the partition (high cardinality), read_at is the secondary filter. For the timeline view, add a separate `(user_id, created_at)` index. Measure with the actual badge query."
+    },
+    {
+      "id": "FRONT-6",
+      "title": "No Content-Security-Policy-Report-Only endpoint — CSP violations invisible to ops",
+      "severity": "MEDIUM",
+      "files": ["app/Http/Middleware/SecurityHeaders.php (no report-uri or report-to directive)"],
+      "evidence": "The CSP header is enforced (not report-only) but emits no `report-uri` or `report-to` directive. Real violations in production fall on the floor — the browser blocks the request but ops doesn't see the violation. When a third-party script provider rotates its hash (FRONT-3), or when an extension injects an inline script that triggers CSP, we want to know.",
+      "fix": "Add `report-uri /api/v1/csp-reports` to the CSP directive list. New controller `Api\\CspReportController::store` accepts the JSON violation report, writes a SecurityLog row with event_type='csp_violation' + the violation details. Phase-13 DPA-6 masking processor strips any PII from the violation payload before logging. Rate-limit the endpoint (one offender can easily spam the endpoint)."
+    },
+    {
+      "id": "FRONT-7",
+      "title": "Frontend-side validation pinning absent — server-side trust is the only line",
+      "severity": "LOW",
+      "files": ["resources/js/Pages/Auth/*.vue (no Vue validation library)"],
+      "evidence": "Login + Register + ResetPassword forms today rely 100% on the server for validation. While that's a correct security posture, the UX is poor — a tenant resetting their password gets a 422 redirect and has to read the flash message. Modern UX expects inline field-level errors. No vee-validate / @vuelidate / @vee-validate-3 / etc. integration today.",
+      "fix": "Out-of-scope for security per se (server-side validation is what matters); but pinning a Vue-side validation pattern reduces the surface where a developer adds a form that silently accepts garbage. Add a small composable `useFormValidation` and apply to Register form first. This is mostly a UX finding flagged as security because past phases have surfaced fields that the client trimmed/lowercased but server didn't (or vice versa)."
+    },
+    {
+      "id": "FRONT-8",
+      "title": "HandleInertiaRequests::share() — audit what's leaked into every page's props",
+      "severity": "LOW",
+      "files": ["app/Http/Middleware/HandleInertiaRequests.php"],
+      "evidence": "Every Inertia request includes the `share()` payload — typically auth.user, flash messages, ziggy routes. If any field there is sensitive (e.g., a feature-flag list that names unreleased features, or a token), it ships to the client even when the page doesn't render it. Inertia 2.0 supports lazy props that don't fire unless used; the audit is whether we're using them.",
+      "fix": "Read HandleInertiaRequests::share() top-to-bottom. For each field, ask: 'does every page need this?' If not, move to lazy. Most likely sus: full user object (should be a slim DTO), all permissions (lazy via ziggy), all settings (rarely all needed). Phase-13 DPA-6 masking processor catches the obvious — this is the structural cleanup."
+    },
+    {
+      "id": "PERF-8",
+      "title": "HTTP response cache headers — static assets served without long-cache directives",
+      "severity": "LOW",
+      "files": ["public/build/* (Vite emits hashed filenames but no Cache-Control header from PHP)"],
+      "evidence": "Vite emits content-hashed filenames (e.g. app-DfRwc.js) — perfect immutability candidate. But PHP doesn't emit Cache-Control: public, max-age=31536000, immutable. Whichever web server serves /build assets falls back to defaults that vary between nginx and Apache. Cold cache on every deploy = wasted bandwidth + slower TTI.",
+      "fix": "Document the operator-side cache header config in docs/runbooks/web-server-config.md. Optionally, add a fallback Middleware that stamps Cache-Control headers on /build/* responses if the web server didn't. The migration is operator-side so this is a doc-only deliverable."
+    },
+    {
+      "id": "PERF-9",
+      "title": "config:cache / route:cache validation absent from CI — a syntax error breaks production but not CI",
+      "severity": "LOW",
+      "files": [".github/workflows/ci.yml (no config:cache step)"],
+      "evidence": "Laravel's config:cache + route:cache compile the config + routes into a single PHP file. A closure in a config file (which is legal in dev) breaks config:cache silently — the cache file is written but routing fails at runtime. Phase-11 deploy runs config:cache after install; if config:cache fails post-deploy, the symptom is 500s on every route. CI doesn't catch it.",
+      "fix": "Add a CI step `php artisan config:cache && php artisan route:cache` between the migrate step and the test run. Fails fast on closure-in-config + route binding mistakes. Run in a separate CI job to avoid polluting the test environment's runtime cache state."
+    },
+    {
+      "id": "PERF-10",
+      "title": "Response compression (gzip / brotli) not asserted in deploy",
+      "severity": "LOW",
+      "files": ["scripts/deploy.sh (no compression verification)"],
+      "evidence": "PHP-FPM + nginx typically gzip responses, but PropManager has no guarantee. A misconfigured proxy could ship 200KB JSON responses uncompressed to mobile clients on 3G. The compromise-the-mobile-tenant-onboarding-flow signal would be slow form submits and timeouts.",
+      "fix": "Documentation + smoke test. Add docs/runbooks/web-server-config.md gzip/brotli section. Optional CI smoke test that hits `/health` with Accept-Encoding: gzip and asserts a Content-Encoding: gzip response — this only works once we have a staging environment to hit (Phase-11 DEPLOY-5 deferred)."
+    }
+  ],
+  "phases": {
+    "phase_1": {
+      "title": "Critical: frontend XSS + CSP hardening (FRONT-1/2/3)",
+      "scope": "FRONT-1, FRONT-2, FRONT-3",
+      "rationale": "Highest blast radius. FRONT-1 is a stored-XSS surface that hits every reader of a help article. FRONT-2 weakens every other CSP defence. FRONT-3 makes us vulnerable to Paystack's CDN being compromised. Tight commit since all three live in 2 files."
+    },
+    "phase_2": {
+      "title": "Critical: hot-path indexing + pagination cap + N+1 sweep (PERF-1/2/3/4)",
+      "scope": "PERF-1, PERF-2, PERF-3, PERF-4",
+      "rationale": "Most acute query-cost wins. Two composite-index migrations + a per_page cap validator + an N+1 sweep across 5-8 controller methods. The N+1 sweep is the highest-uncertainty part — it may surface findings that cascade into PERF-6 (slow-query logging)."
+    },
+    "phase_3": {
+      "title": "Medium: V-html paginator cleanup + soft-delete index + slow-query logging + img-src lock + CSP reports + remaining (FRONT-4/5/6 + PERF-5/6/7)",
+      "scope": "FRONT-4, FRONT-5, FRONT-6, PERF-5, PERF-6, PERF-7",
+      "rationale": "Paginator component + img-src allowlist + CSP report endpoint + soft-delete partial indexes + slow-query logging + notifications index. Mixed code + docs but each independently shipable."
+    },
+    "phase_4": {
+      "title": "LOW: validation pin + share() audit + cache headers + config:cache CI + compression doc (FRONT-7/8 + PERF-8/9/10)",
+      "scope": "FRONT-7, FRONT-8, PERF-8, PERF-9, PERF-10",
+      "rationale": "Polish + docs + the config:cache CI step. Last-mile work; all docs + a small CI step."
+    }
+  },
+  "out_of_scope": [
+    "Accessibility (WCAG 2.2) — own phase (Phase 16 candidate)",
+    "I18N / localisation — own phase",
+    "Mobile/PWA readiness — own phase",
+    "Self-hosted infra audit (k8s manifests, Terraform) — out of repo scope",
+    "Phase-12 deferred items (notifications/KYC retention automation, full restore automation, binlog PITR) — explicit Phase-12 deferrals",
+    "Phase-14 deferred items (SUPPLY-5 constraint tightening, SUPPLY-4 full CycloneDX, OBSERV-7 auxiliary-channel JSON, OBSERV-10 webhook_logs request_id) — Phase-14 deferrals, will be re-audited later"
+  ],
+  "metadata": {
+    "total_findings": 18,
+    "high": 7,
+    "medium": 7,
+    "low": 4
+  }
+}
