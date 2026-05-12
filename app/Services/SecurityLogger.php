@@ -97,7 +97,7 @@ class SecurityLogger
         // it being visible only to super admins.
         $targetUser = User::where('email', $email)->first();
 
-        return $this->log(
+        $log = $this->log(
             SecurityLog::EVENT_LOGIN_FAILED,
             "Failed login attempt for {$email}".($reason ? ": {$reason}" : ''),
             ['email' => $email, 'reason' => $reason],
@@ -105,6 +105,26 @@ class SecurityLogger
             $targetUser,
             $isSuspicious
         );
+
+        // Phase-13 BREACH-2: after recording, give the detector a
+        // chance to escalate to a SecurityIncident. The per-IP throttle
+        // (SecurityLog::shouldBlockIp) catches IP-bound brute force;
+        // this catches credential stuffing distributed across many IPs
+        // targeting one account.
+        $this->maybeEscalateFailedLogin($email);
+
+        return $log;
+    }
+
+    protected function maybeEscalateFailedLogin(string $email): void
+    {
+        try {
+            app(IncidentDetector::class)->checkFailedLoginBurst($email);
+        } catch (\Throwable $e) {
+            Log::warning('IncidentDetector failed during failed-login escalation', [
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

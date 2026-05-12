@@ -260,4 +260,35 @@ return [
         'alert_admins' => env('INTRUSION_ALERT_ADMINS', true),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Breach Detection Seed Rules (Phase-13 BREACH-2)
+    |--------------------------------------------------------------------------
+    |
+    | Thresholds consumed by App\Services\IncidentDetector. Each rule
+    | has a threshold + window + debounce window so the same burst
+    | does not create one SecurityIncident per triggering event.
+    | Tuning these is preferable to disabling — set window very high
+    | rather than disabling the rule entirely, so a regulator audit
+    | still sees evidence of detection.
+    |
+    */
+
+    'detection' => [
+        'failed_login_burst' => [
+            'threshold' => (int) env('DETECTION_FAILED_LOGIN_BURST_THRESHOLD', 50),
+            'window_minutes' => (int) env('DETECTION_FAILED_LOGIN_BURST_WINDOW', 60),
+            'debounce_minutes' => (int) env('DETECTION_FAILED_LOGIN_BURST_DEBOUNCE', 60),
+        ],
+        'large_export' => [
+            'threshold' => (int) env('DETECTION_LARGE_EXPORT_THRESHOLD', 10000),
+            'debounce_minutes' => (int) env('DETECTION_LARGE_EXPORT_DEBOUNCE', 60),
+        ],
+        'webhook_signature' => [
+            'threshold' => (int) env('DETECTION_WEBHOOK_SIGNATURE_THRESHOLD', 10),
+            'window_minutes' => (int) env('DETECTION_WEBHOOK_SIGNATURE_WINDOW', 1),
+            'debounce_minutes' => (int) env('DETECTION_WEBHOOK_SIGNATURE_DEBOUNCE', 30),
+        ],
+    ],
+
 ];
