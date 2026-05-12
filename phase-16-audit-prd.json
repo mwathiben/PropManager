@@ -1,0 +1,261 @@
+{
+  "project": "PropManager",
+  "audit_cycle": "phase-16",
+  "audit_date": "2026-05-12",
+  "scope": "Defensive audit of resilience patterns (RESIL — circuit breakers, timeouts, retries, idempotency around Paystack/M-Pesa/IntaSend/Twilio/AfricasTalking/banking) and queue reliability (QUEUE — dead-letter handling, job timeouts, fan-out batching, per-queue depth visibility, failed-job alerting). Phase 14 closed observability + supply-chain; Phase 15 closed user-perceived frontend + perf surface. Phase 16 closes the 'what happens when external dependencies fail or the queue backs up' layer — the gap between the metrics that show a problem and the runtime behaviour that responds to it.",
+  "context_baseline": {
+    "previous_audits": [
+      "Phase 1-5 core security categories + 10A/10B (mass-assign + file-upload + webhook payload encryption)",
+      "Phase 11 (DEPLOY + SECRETS, 21 findings)",
+      "Phase 12 (BACKUP + RETAIN, 18 findings)",
+      "Phase 13 (DPA + BREACH, 18 findings — regulator-inspectable layer)",
+      "Phase 14 (SUPPLY + OBSERV, 18 findings — supply-chain + observability)",
+      "Phase 15 (FRONT + PERF, 18 findings — user-perceived surface)"
+    ],
+    "do_not_reflag": "Phase-4 HANDLE-1 PaymentGatewayUnreachableException + Phase-5 OBS-13 failed_jobs growth monitor + Phase-12 RETAIN-9 queue:prune-failed + Phase-12 webhook DLQ are all in place. Phase-13 BREACH-2 IncidentDetector hooks for queue-side anomalies are already wired. Phase-14 MetricsService::observe histogram infrastructure exists — we just don't emit queue-depth or job-duration into it. Phase-15 PERF-6 SlowQueryServiceProvider observes db_query_ms — same pattern needs to extend to external_api_ms and queue_wait_ms."
+  },
+  "qualityStandards": {
+    "test": "All Phase-16 fixes must pass `php artisan test --parallel` and `vendor/bin/pint --test`.",
+    "ci": "Each commit must land on main with green CI before the next phase starts.",
+    "no_breaking_change": "Circuit-breaker is opt-in via env (CIRCUIT_BREAKER_ENABLED=false default) so a misconfigured breaker cannot wedge production. Job timeout additions are strictly safer (longer than default). queue.php after_commit toggle is the riskiest change — covered by tests asserting committed-state visibility before dispatch."
+  },
+  "feedbackLoops": {
+    "lint": "vendor/bin/pint --test",
+    "test_focused": "php artisan test --filter='<keyword>'",
+    "test_full": "php artisan test --parallel",
+    "ci_watch": "gh run list --limit 1 --branch main --json status,conclusion"
+  },
+  "categories": {
+    "RESIL": {
+      "description": "Resilience patterns around external dependencies. Paystack, M-Pesa, IntaSend, Twilio, AfricasTalking, Azure OCR, and three banking APIs (KCB/Equity/Coop) all sit on the synchronous request path or the queue. When any of them is hard down or rate-limiting, the existing retry+timeout pattern burns the full timeout × retries × backoff per request — no circuit breaker to fast-fail. NotificationService has TWO paths to AfricasTalking — the standalone AfricasTalkingService has timeout+retry+ConnectionException handling, but the inline NotificationService::sendViaAfricasTalking does not. Twilio (SMS + WhatsApp) has neither timeout NOR retry on the inline path. Banking auth + account-enquiry endpoints retry only the statement endpoint. queue.php database `after_commit` is false — jobs dispatched inside transactions can fire against uncommitted state. 8 findings.",
+      "count": 8
+    },
+    "QUEUE": {
+      "description": "Queue reliability + observability. failed_jobs growth monitor (Phase-5 OBS-13) emits an email but no time-series metric. HealthCheckController checks only the default queue's depth — jobs onto notifications / scheduled / payments queues back up invisibly. GenerateInvoicePdf and WarmFinanceCacheJob have no $timeout set (Laravel default = 60s) — a 30-page invoice render or a cold cache warm can kill the worker mid-execution and the SIGTERM-orphaned row sits stuck in the jobs table. SendBulkNotificationsJob fans out N recipients in-band without Bus::batch — one failed recipient retries the entire batch. SendNotificationJob's ShouldBeUnique lock holds for $uniqueFor seconds INCLUDING queue wait (should be ShouldBeUniqueUntilProcessing). No operator runbook for `queue:retry` / `queue:forget`. job_batches table is not pruned. 10 findings.",
+      "count": 10
+    }
+  },
+  "items": [
+    {
+      "id": "RESIL-1",
+      "title": "No circuit breaker for Paystack / M-Pesa / IntaSend / banking — every failure burns full timeout × retries × backoff",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/PaystackService.php (15 retry blocks)",
+        "app/Services/MpesaService.php (5 retry blocks)",
+        "app/Services/IntaSendService.php (2 retry blocks)",
+        "app/Services/Banking/{Kcb,Equity,Coop}BankService.php"
+      ],
+      "evidence": "Paystack/M-Pesa/IntaSend already have a sound retry strategy: `Http::timeout($this->timeoutSeconds())->retry($this->retryAttempts(), exponential-backoff, retryOnConnectionException-only)`. But when the provider is HARD DOWN — Paystack CDN outage, M-Pesa daraja maintenance window, banking VPN tunnel broken — every API call burns the full timeout × retries × backoff before failing. With timeout=30s × 3 retries × 2-4-8s backoff, a single failed call eats ~100 worker-seconds. A queue worker processing 100 notifications during a Twilio outage = 10,000 worker-seconds = 3 hours of throughput lost. The Phase-14 external_api.calls + external_api.slow metrics show the symptom but nothing fast-fails.",
+      "fix": "Introduce `App\\Services\\Resilience\\CircuitBreaker` — Cache-backed counter that tracks failure rate per (provider, endpoint) over a sliding window. When failure_rate > threshold in a recent window, trip OPEN: subsequent calls fast-fail with `CircuitOpenException` for cooldown_seconds. After cooldown, transition to HALF_OPEN: allow one probe; if it succeeds, CLOSED; if it fails, back to OPEN. Wrap `timedHttpRequest()` in `App\\Traits\\LogsExternalRequests` with `$this->circuitGuarded($provider, $endpoint, fn () => ...)`. Config: `services.<provider>.circuit_breaker.failure_threshold`, `.cooldown_seconds`, `.enabled` (default off — opt-in until operationally validated). Tests pin: 3 consecutive failures + threshold=2 → breaker opens; subsequent call fast-fails without HTTP traffic; after cooldown a successful probe closes it again. MetricsService increments `circuit_breaker.opened{provider}` + `circuit_breaker.short_circuited{provider}` so ops can graph the rate. Documented in docs/runbooks/circuit-breaker.md."
+    },
+    {
+      "id": "RESIL-2",
+      "title": "NotificationService::sendViaTwilio + sendViaAfricasTalking + sendWhatsApp — inline HTTP with NO timeout and NO retry",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/NotificationService.php:512-537 (Twilio SMS)",
+        "app/Services/NotificationService.php:555-586 (AfricasTalking inline path)",
+        "app/Services/NotificationService.php:589-650 (Twilio WhatsApp)"
+      ],
+      "evidence": "Three inline `Http::withBasicAuth(...)->post(...)` blocks for Twilio SMS, AfricasTalking, and Twilio WhatsApp. None set `Http::timeout()` — Laravel default is 30s. None call `Http::retry()` — a transient blip kills the notification permanently. None catch `ConnectionException` specifically — generic Exception path marks the notification as failed and never retries. Compare with the standalone `App\\Services\\AfricasTalkingService::send` (Phase-5 path) which has timeout=30 + retry=2 with exponential backoff + smart `shouldRetry()` filter. The inline path is a regression: NotificationService was never updated to delegate to the standalone services.",
+      "fix": "Refactor the three inline paths to delegate to the standalone services: `app(\\App\\Services\\AfricasTalkingService::class)->send(...)`, and a new `App\\Services\\TwilioService` extracted from the inline Twilio code. Both services use `LogsExternalRequests` trait + Phase-14 metrics + (post-RESIL-1) circuit breaker. Tests pin: a 5xx response triggers retry per AfricasTalking spec; a ConnectionException maps to a clear notification failure state with the right error_message; a 429 triggers retry-after honoring (see RESIL-4). The notification record's retry-count + status accurately reflects what happened."
+    },
+    {
+      "id": "RESIL-3",
+      "title": "Banking auth + verifyAccountNumber retry only on the statement endpoint — auth-token refresh fails on first transient",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/Banking/KcbBankService.php:108-154 (getAccessToken — NO retry)",
+        "app/Services/Banking/KcbBankService.php:82-106 (verifyAccountNumber — NO retry)",
+        "app/Services/Banking/EquityBankService.php:81-103 (verifyAccountNumber — NO retry)",
+        "app/Services/Banking/CoopBankService.php (verifyAccountNumber — NO retry)"
+      ],
+      "evidence": "All three banking services consistently apply `->retry(2, 200, throw: false)` to `getTransactionHistory` (the reconciliation hot-path) but the auth + account-enquiry endpoints have no retry. A transient TLS handshake blip during `/oauth/token` fetch in `getAccessToken()` fails the entire downstream reconciliation cycle for that bank for the hour-long token-cache window. The 5-second lock-block wait further amplifies the impact under thundering-herd cache miss.",
+      "fix": "Add `->retry(2, 200, throw: false)` to all six untreated paths (3 banks × 2 endpoints). Same retry shape as the statement endpoint. Tests pin: a single transient 500 on /oauth/token does not block the next call; the cache-miss serialisation lock releases on failure (no permanent lock leak)."
+    },
+    {
+      "id": "RESIL-4",
+      "title": "429 Retry-After + rate-limit response not honored — provider throttling triggers immediate retry loop",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/AfricasTalkingService.php (shouldRetry: ConnectionException + 5xx only)",
+        "app/Services/NotificationService.php (no retry at all)",
+        "app/Services/PaystackService.php (retry: ConnectionException only)"
+      ],
+      "evidence": "All retry filters today gate on ConnectionException or 5xx. None handle 429 (Too Many Requests) or read the `Retry-After` response header. AfricasTalking + Twilio explicitly publish per-minute rate limits; Paystack publishes per-second rate limits. Sending 100 SMS in 10 seconds → AfricasTalking returns 429 → no retry → caller logs as permanent failure → operator pages. Worse: Paystack `/transaction/verify` is rate-limited per second per merchant; a webhook burst from a successful Paystack reconciliation cycle could trip it.",
+      "fix": "Extend `shouldRetry()` filters to include `$e instanceof RequestException && $e->response->status() === 429`. The backoff callback honors `Retry-After` header when present (`(int) ($response?->header('Retry-After') ?: $defaultBackoff)`). Move shared retry logic into a `App\\Traits\\HasResilienceRetry` trait. Tests pin: a 429 with Retry-After: 5 schedules the next attempt at +5s, not at the default exponential delay."
+    },
+    {
+      "id": "RESIL-5",
+      "title": "queue.php `after_commit => false` — jobs dispatched inside transactions can fire before commit",
+      "severity": "MEDIUM",
+      "files": [
+        "config/queue.php:39-45 (database connection: 'after_commit' => false)",
+        "config/queue.php:67-72 (redis connection: 'after_commit' => false)"
+      ],
+      "evidence": "Both database + redis queue connections set `after_commit => false`. Jobs dispatched inside a `DB::transaction(...)` block (e.g., `Invoice::create(...)->dispatch(new SendNotificationJob(...))`) fire IMMEDIATELY — before the transaction commits. The worker can race: pick up the job, query for the Invoice row that doesn't exist yet, fail with ModelNotFoundException, retry, succeed on attempt 2 — a 90s artificial delay on every transactional dispatch. Some call sites already remember to call `->afterCommit()` explicitly (BulkOperationsController, 10+ Mailables), but ANY call site that forgets has the race. Laravel 12 default is `false` for backwards compat but the modern recommendation is `true`.",
+      "fix": "Flip `after_commit => true` for the `database` + `redis` connections. The `sync` driver doesn't need it. Audit call sites that dispatch OUTSIDE a transaction: those keep working (afterCommit is a no-op when no transaction is open). The flip is safe but worth a test: `DB::transaction(fn () => Invoice::create(...) && SendNotificationJob::dispatch(...))` followed by a transaction rollback should NEVER fire the job (currently it fires anyway because the dispatch already happened). Tests pin both: committed-on-commit firing + rolled-back-not-firing."
+    },
+    {
+      "id": "RESIL-6",
+      "title": "OcrService Azure polling — no exponential backoff, no attempt cap",
+      "severity": "MEDIUM",
+      "files": ["app/Services/OcrService.php:177-220 (Azure Read API polling loop)"],
+      "evidence": "OcrService submits an Azure Read API operation, then polls `operation_location` for the result. The polling loop has timeout=8 on each request but no exponential backoff between polls, no maximum-attempts cap, and no jitter. Azure Read API typical latency is 2-5 seconds; a multi-page document can take 30+ seconds. The current loop hammers Azure at full speed within a worker timeout window. If Azure is slow, the worker times out and the OCR retries from scratch.",
+      "fix": "Standard polling pattern: max 20 attempts, exponential backoff = `min(8000, 500 * 2^attempt)` ms with ±10% jitter, abort on status=failed. Return null on timeout instead of throwing — the caller already handles null. Tests pin: a status='running' response retries with increased delay; status='failed' aborts immediately; max attempts hit returns null."
+    },
+    {
+      "id": "RESIL-7",
+      "title": "No global Http:: default timeout / preset — new services land without explicit timeout",
+      "severity": "LOW",
+      "files": ["No Http::macro or Http::globalRequestMiddleware in AppServiceProvider"],
+      "evidence": "Laravel default Http client timeout is 30 seconds. PropManager has 44 service classes that call Http::*; today 5-6 use the explicit `Http::timeout()`/`->retry()` pattern, the rest rely on implicit defaults. A new service added without explicit timeout will block a worker for 30s on a wedged endpoint. There's no `Http::macro('resilient', ...)` or global preset that documents the house-style.",
+      "fix": "Add `Http::macro('resilient', fn () => Http::timeout(15)->connectTimeout(5)->retry(2, 200, throw: false))` in AppServiceProvider::boot. Document in docs/runbooks/external-api-patterns.md as the canonical entry point. Existing services keep their explicit configurations; new services use `Http::resilient()->get(...)`. Not a breaking change."
+    },
+    {
+      "id": "RESIL-8",
+      "title": "Webhook DLQ retry — linear 5-min interval + 0-60s jitter, no exponential per attempt",
+      "severity": "LOW",
+      "files": ["app/Services/Payment/WebhookDeadLetterService.php:49 (next_retry_at: now + 5min + 0-60s)"],
+      "evidence": "When a webhook lands in the dead-letter, the first retry is scheduled at `now()->addMinutes(5)->addSeconds(random_int(0, 60))`. Subsequent retries (if attempts < max_retries) currently re-use the same 5-minute base — no exponential per-attempt backoff. A persistently-failing webhook hammers the DLQ retry path at 5-minute intervals × 5 attempts = 25 minutes total. If the underlying problem takes an hour to recover, all retries are wasted.",
+      "fix": "Per-attempt exponential: `$base = 5min × 2^attempts` capped at 1 hour. With jitter ±10%. Tests pin: attempt 1 = ~5min, attempt 2 = ~10min, attempt 3 = ~20min, attempt 4 = ~40min, attempt 5 = ~60min (capped). Same WebhookDeadLetter retry runner picks up `next_retry_at` correctly."
+    },
+    {
+      "id": "QUEUE-1",
+      "title": "GenerateInvoicePdf + WarmFinanceCacheJob — no $timeout property (defaults to 60s)",
+      "severity": "HIGH",
+      "files": [
+        "app/Jobs/GenerateInvoicePdf.php (no $timeout)",
+        "app/Jobs/WarmFinanceCacheJob.php (no $timeout)",
+        "app/Jobs/SendBulkNotificationsJob.php (no $timeout)",
+        "app/Jobs/SendScheduledNotificationsJob.php (no $timeout)"
+      ],
+      "evidence": "ArchiveOldPayments has timeout=600 (10min). ExportUserData has timeout=600. ProcessQueuedPaymentIntents has timeout=300. But GenerateInvoicePdf (dompdf rendering 30-page invoices), WarmFinanceCacheJob (cold cache rebuild = N queries × M landlords), SendBulkNotificationsJob (N recipients × 3-5 channels each), and SendScheduledNotificationsJob (cron sweep) all default to Laravel's 60-second worker timeout. A heavy invoice render or a cold-cache rebuild routinely exceeds 60s, killing the worker via SIGTERM. The job's `failed()` doesn't even run cleanly because the worker died. The job stays in the failed_jobs table with 'process killed' for the operator to retry manually.",
+      "fix": "Set explicit `$timeout` on every ShouldQueue job that does NETWORK I/O or LARGE CPU work: GenerateInvoicePdf=300, WarmFinanceCacheJob=300, SendBulkNotificationsJob=600, SendScheduledNotificationsJob=300. Document the timeout-budget pattern in docs/runbooks/queue-job-budgets.md so future jobs don't ship without one. Linter rule (deferred): a custom Pint rule that flags ShouldQueue without $timeout."
+    },
+    {
+      "id": "QUEUE-2",
+      "title": "SendBulkNotificationsJob — fan-out without Bus::batch, no per-recipient retry / progress",
+      "severity": "HIGH",
+      "files": ["app/Jobs/SendBulkNotificationsJob.php"],
+      "evidence": "SendBulkNotificationsJob takes `array $recipientIds` and iterates in-band, calling NotificationService per recipient. If recipient 47 of 200 fails with a transient error, the ENTIRE job retries from recipient 1 — 47 successful sends become duplicate sends. The job's `$tries = 2` means a retry replays the whole batch. There's no batch progress (operator cannot see 'sent 47 / 200'), no batch cancellation, no per-recipient retry isolation. The Laravel-canonical pattern for this shape is `Bus::batch([...individual SendNotificationJob per recipient...])->onQueue('notifications')->dispatch()`.",
+      "fix": "Refactor SendBulkNotificationsJob into a dispatcher that creates a `Bus::batch([new SendNotificationJob(r1, ...), new SendNotificationJob(r2, ...), ...])` with `->allowFailures()` so one bad recipient doesn't fail the whole batch. The bulk job becomes a thin shim that builds the batch + dispatches it. SendNotificationJob already has the unique-job + tries=3 + backoff=60 + dedup pattern — it's the right per-recipient unit. UI surfaces `Bus::findBatch(...)->totalJobs / processedJobs / failedJobs` for the operator. Tests pin: a 5-recipient batch with one failing recipient finishes the other 4; the batch reports 4 success + 1 failed; the failed recipient lands in failed_jobs (or in the per-recipient notification record's failed state via SendNotificationJob's failed() hook)."
+    },
+    {
+      "id": "QUEUE-3",
+      "title": "HealthCheckController checks only default queue depth — non-default queues back up invisibly",
+      "severity": "HIGH",
+      "files": ["app/Http/Controllers/Api/HealthCheckController.php:102-118 (checkQueue uses Queue::size with no queue argument)"],
+      "evidence": "`Queue::size()` with no argument reports the size of the DEFAULT queue only. PropManager uses queue routing in places (notifications jobs likely target a 'notifications' queue; payment jobs may target 'payments'). The current health check would report 0 even with 10,000 notifications backed up — because they're not on 'default'. Phase-14 OBSERV-9 added the histogram infrastructure but `queue_depth{queue=X}` is not emitted to Prometheus either. The failed-jobs growth monitor (Phase-5 OBS-13) sees failed jobs but not backed-up live jobs.",
+      "fix": "Make `checkQueue()` iterate over the configured queue names from `config('queue.health.queues', ['default', 'notifications', 'payments'])` and report depth + threshold per queue. The aggregate 'ok' is true only if every queue is under its per-queue threshold. ALSO: emit a Prometheus gauge `queue_depth{queue}` via MetricsService — Phase-14's MetricsController surfaces it automatically. Tests pin: a 600-job depth on 'notifications' (threshold 500) returns ok=false with the offending queue named."
+    },
+    {
+      "id": "QUEUE-4",
+      "title": "SendNotificationJob — ShouldBeUnique lock held during queue wait (not ShouldBeUniqueUntilProcessing)",
+      "severity": "MEDIUM",
+      "files": ["app/Jobs/SendNotificationJob.php:16 (`implements ShouldBeUnique`)"],
+      "evidence": "`ShouldBeUnique` holds the unique-job lock from dispatch until job execution COMPLETES (including queue wait + execution + retry chain). With `$uniqueFor = 300` (5 minutes), a job that waits 4 minutes in queue then takes 30 seconds to execute holds the lock for ~4.5 minutes — and during that time, no duplicate dispatch with the same uniqueId can enqueue. For high-frequency notification types (payment confirmations during a webhook burst) this serialises the dispatch path AND silently drops genuine duplicates that would have been distinct on re-attempt.",
+      "fix": "Switch to `ShouldBeUniqueUntilProcessing` — the lock releases once the worker picks up the job (before execution). The dedup window then only covers DISPATCH, not the full lifecycle. Tests pin: two dispatches with the same uniqueId queued back-to-back result in one job processed + one silently deduped; a later third dispatch after the first job started processing IS allowed through (vs. the current behaviour which would silently drop it)."
+    },
+    {
+      "id": "QUEUE-5",
+      "title": "No queue:retry / queue:forget operator runbook — failed-job triage undocumented",
+      "severity": "MEDIUM",
+      "files": ["docs/runbooks/* (no queue triage runbook)"],
+      "evidence": "Phase-12 RETAIN-9 added `queue:prune-failed --hours=720`. Phase-5 OBS-13 added the failed_jobs growth monitor. But when ops sees 'failed_jobs grew by 47 in the last 24h' from the alert, there's no runbook for: how to inspect the failed payloads, how to fix the root cause vs. retry safely, when retry is safe vs. when it would double-charge / double-notify, how to extract the SerializesModels payload to find the affected user. The operator's only option today is to dump `failed_jobs.exception` and read the stack.",
+      "fix": "New `docs/runbooks/queue-triage.md` that covers: (1) `php artisan queue:failed` for the list, (2) `php artisan queue:retry {uuid}` for safe retry (only for idempotent jobs — link to the idempotency notes per job class), (3) `php artisan queue:forget {uuid}` for poisoned jobs, (4) the danger of `queue:retry --all` (replays everything indiscriminately), (5) how to find the SerializesModels payload + decode the affected entity, (6) per-job-class idempotency notes (which jobs are safe to retry, which need manual investigation). Cross-link from each job's `failed()` log message so an operator hitting the runbook lands on the right section."
+    },
+    {
+      "id": "QUEUE-6",
+      "title": "No Prometheus queue_depth_by_name gauge — only the health endpoint surfaces depth",
+      "severity": "MEDIUM",
+      "files": ["app/Services/MetricsService.php (no queue gauge), config/observability.php (no queue metric config)"],
+      "evidence": "Phase-14 OBSERV-1 ships `/api/metrics` Prometheus exposition. Phase-14 OBSERV-9 ships histogram buckets. But the only queue-depth signal is the `/api/v1/health` JSON response from HealthCheckController. A Grafana dashboard cannot graph queue depth over time because there's no gauge metric. The health endpoint is point-in-time + binary (ok / degraded) — useless for trend analysis. The same is true for failed_jobs count (only emitted as a daily-summary email).",
+      "fix": "Add a `MetricsService::gauge(string $name, float $value, array $labels = [])` method (mirrors the existing `increment` + `observe` shape). New scheduled command `metrics:capture-queue-depth` runs every minute, sets `queue_depth{queue=default}` + `queue_depth{queue=notifications}` etc. Same command sets `failed_jobs_total{age_bucket=last_hour|last_day|all}`. Phase-14 MetricsController automatically surfaces them. Tests pin: gauge value updates on subsequent capture; export format is valid Prometheus."
+    },
+    {
+      "id": "QUEUE-7",
+      "title": "Job failed() methods don't record a MetricsService counter — no time-series visibility per job class",
+      "severity": "LOW",
+      "files": [
+        "app/Jobs/SendNotificationJob.php:211 (failed() logs only)",
+        "app/Jobs/GenerateInvoicePdf.php:71 (failed() logs only)",
+        "app/Jobs/FallbackNotificationJob.php:138 (failed() logs only)",
+        "app/Jobs/ExportUserData.php:102 (failed() logs only)",
+        "app/Jobs/SendBulkNotificationsJob.php:112 (failed() logs only)",
+        "app/Jobs/ProcessQueuedPaymentIntents.php:36 (failed() logs only)",
+        "app/Jobs/ArchiveOldPayments.php:55 (failed() logs only)"
+      ],
+      "evidence": "Every job's `failed()` hook writes a Log::error line. Useful for individual incident triage but useless for 'is GenerateInvoicePdf failing more this week than last?' trend analysis. Phase-14 metrics infrastructure exists but no job emits.",
+      "fix": "Each `failed(Throwable $e)` adds `app(MetricsService::class)->increment('job.failed', ['class' => static::class, 'reason' => $e::class])` wrapped in `try { ... } catch (Throwable) {}` (metrics must never break the failed() hook). Same pattern in a shared `App\\Jobs\\Concerns\\TracksFailures` trait so future jobs get it for free."
+    },
+    {
+      "id": "QUEUE-8",
+      "title": "Worker memory limit + restart cadence undocumented in deploy.sh",
+      "severity": "LOW",
+      "files": [
+        "scripts/deploy.sh (no queue:work invocation pattern documented)",
+        "docs/runbooks/queue-worker-config.md (does not exist)"
+      ],
+      "evidence": "`queue:work --memory=128 --timeout=60 --tries=3 --max-jobs=1000 --max-time=3600` is the standard production invocation but it's not documented anywhere. Operators running the deploy without this know-how end up with workers that leak memory unbounded, never restart, and accumulate state. supervisord.conf / systemd unit isn't in the repo either.",
+      "fix": "Add `docs/runbooks/queue-worker-config.md` covering supervisord + systemd unit examples, the memory/timeout/max-jobs args, and the rationale for each. Sample supervisord.conf + systemd unit file. Cross-link from deploy.sh comments so an operator running deploy knows where to find it."
+    },
+    {
+      "id": "QUEUE-9",
+      "title": "No prune-batches schedule — job_batches table accumulates forever",
+      "severity": "LOW",
+      "files": ["routes/console.php (no queue:prune-batches schedule)"],
+      "evidence": "Laravel's `job_batches` table records every dispatched batch. `queue:prune-batches --hours=N` purges old ones. PropManager's nightly maintenance window (Phase-12) runs `queue:prune-failed --hours=720` but not `prune-batches`. Once SendBulkNotificationsJob is refactored to Bus::batch (QUEUE-2), this table will grow on every bulk send.",
+      "fix": "Add `$schedule('queue:prune-batches --hours=720', fn ($e) => $e->dailyAt('04:15'));` to routes/console.php. Same 30-day retention as failed_jobs. Inside the existing 02:00-04:00 nightly maintenance window."
+    },
+    {
+      "id": "QUEUE-10",
+      "title": "No queue priorities documented — payment + webhook jobs share the default queue with bulk notifications",
+      "severity": "LOW",
+      "files": [
+        "app/Jobs/* (no ->onQueue() calls beyond afterCommit() in BulkOperationsController)",
+        "docs/runbooks/* (no queue-routing documentation)"
+      ],
+      "evidence": "Today everything dispatches to the default queue. A SendBulkNotificationsJob fan-out (200 individual SMS sends, post-QUEUE-2) can starve a SendNotificationJob for a payment-received confirmation that's behind it in line. Laravel supports `queue:work --queue=payments,notifications,default` so workers process higher-priority queues first.",
+      "fix": "Document the queue-routing convention: payment webhooks + payment confirmations → 'payments' queue; user-facing notifications → 'notifications' queue; bulk fan-outs + analytics warm-ups → 'bulk' queue; everything else → 'default'. Each job class declares `public string $queue = 'payments';` for the priority queues. Update queue-worker-config.md to recommend `--queue=payments,notifications,default,bulk` so workers drain in priority order. Tests pin: priority queues for the critical job classes via assertion on `$job->queue`."
+    }
+  ],
+  "phases": {
+    "phase_1": {
+      "title": "Critical: external API resilience (RESIL-1/2/3)",
+      "scope": "RESIL-1, RESIL-2, RESIL-3",
+      "rationale": "Biggest blast radius. RESIL-1 introduces the circuit-breaker primitive that RESIL-4 + RESIL-7 later plug into. RESIL-2 closes the inline-Twilio/AT regression — same shape as Phase-5 PRIV-2 'two paths, one trusted'. RESIL-3 is mechanical retry-flag plumbing. Tight commit because all three sit in app/Services/* and the new CircuitBreaker primitive."
+    },
+    "phase_2": {
+      "title": "Critical: queue reliability — timeouts + fan-out + per-queue health (QUEUE-1/2/3)",
+      "scope": "QUEUE-1, QUEUE-2, QUEUE-3",
+      "rationale": "Most operationally acute. QUEUE-1 explicit timeouts on 4 long-running jobs. QUEUE-2 refactors SendBulkNotificationsJob to Bus::batch — biggest behaviour change in Phase 16, biggest test surface. QUEUE-3 extends HealthCheckController + adds Prometheus queue_depth gauge."
+    },
+    "phase_3": {
+      "title": "Medium: rate-limit honoring + after-commit + OCR backoff + unique-until-processing + per-queue metrics + triage runbook (RESIL-4/5/6 + QUEUE-4/5/6)",
+      "scope": "RESIL-4, RESIL-5, RESIL-6, QUEUE-4, QUEUE-5, QUEUE-6",
+      "rationale": "Six independently-shippable mediums. RESIL-5 (after_commit flip) is the riskiest — tests must assert committed-state visibility. Others are additive."
+    },
+    "phase_4": {
+      "title": "Low: global Http preset + DLQ exponential backoff + failed() metrics + worker docs + prune-batches + queue priorities (RESIL-7/8 + QUEUE-7/8/9/10)",
+      "scope": "RESIL-7, RESIL-8, QUEUE-7, QUEUE-8, QUEUE-9, QUEUE-10",
+      "rationale": "Polish + docs + small CI work. Last mile. All low-risk."
+    }
+  },
+  "out_of_scope": [
+    "Laravel Horizon adoption (separate decision — affects supervisor + dashboard + alerts)",
+    "Replacing the database queue driver with Redis (separate infra phase; queue.php already supports both)",
+    "Async job patterns beyond Bus::batch (chains, fan-in, sagas) — Phase 17+ if Bus::batch limits surface",
+    "External provider SDK migration (sentry-laravel events, Twilio SDK vs. raw Http::) — current Http:: pattern is canonical",
+    "Phase-12 deferred items (full restore automation, binlog PITR, RETAIN-5 unified orchestrator) — Phase-12 deferrals",
+    "Phase-14 deferred items (SUPPLY-5 constraint tightening, SUPPLY-4 full CycloneDX, OBSERV-7 JSON formatter on auxiliary channels, OBSERV-10 webhook_logs request_id) — Phase-14 deferrals",
+    "Phase-15 deferred items (PERF-5 partial indexes pending MySQL primitive, FRONT-7/8 + PERF-8/10 incremental roll-outs) — Phase-15 deferrals"
+  ],
+  "metadata": {
+    "total_findings": 18,
+    "high": 6,
+    "medium": 7,
+    "low": 5
+  }
+}
