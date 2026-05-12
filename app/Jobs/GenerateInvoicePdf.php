@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Jobs\Concerns\TracksFailures;
 use App\Models\Invoice;
 use App\Services\InvoicePdfService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -13,7 +14,7 @@ use Illuminate\Support\Facades\Storage;
 
 class GenerateInvoicePdf implements ShouldQueue
 {
-    use InteractsWithQueue, Queueable, SerializesModels;
+    use InteractsWithQueue, Queueable, SerializesModels, TracksFailures;
 
     public int $tries = 3;
 
@@ -83,5 +84,7 @@ class GenerateInvoicePdf implements ShouldQueue
             'invoice_id' => $this->invoiceId,
             'error' => $exception->getMessage(),
         ]);
+
+        $this->recordJobFailure($exception);
     }
 }

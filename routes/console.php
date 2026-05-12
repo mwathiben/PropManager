@@ -78,6 +78,10 @@ $schedule('logs:prune --table=consent --confirm', fn ($e) => $e->dailyAt('04:00'
 // OBS-13 added an ALERT (failed-jobs-growth-monitor); this is the
 // matching PRUNE. 720 hours = 30 days retention.
 $schedule('queue:prune-failed --hours=720', fn ($e) => $e->dailyAt('04:10'));
+// Phase-16 QUEUE-9: same prune for the job_batches table. SendBulkNoti-
+// ficationsJob (post-Phase-16 QUEUE-2) now creates a job_batches row
+// per fan-out — without this prune the table grows unbounded.
+$schedule('queue:prune-batches --hours=720', fn ($e) => $e->dailyAt('04:15'));
 
 // Phase-13 BREACH-3: 72-hour SLA enforcement. Hourly check for
 // SecurityIncidents whose ODPC notification deadline is closing or

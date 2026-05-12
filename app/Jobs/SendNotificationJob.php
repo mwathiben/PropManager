@@ -3,21 +3,31 @@
 namespace App\Jobs;
 
 use App\Jobs\Concerns\CarriesRequestId;
+use App\Jobs\Concerns\TracksFailures;
 use App\Models\Notification;
 use App\Services\MetricsService;
 use App\Services\NotificationService;
-use Illuminate\Contracts\Queue\ShouldBeUnique;
+use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
-class SendNotificationJob implements ShouldBeUnique, ShouldQueue
+class SendNotificationJob implements ShouldBeUniqueUntilProcessing, ShouldQueue
 {
+    // Phase-16 QUEUE-4: ShouldBeUniqueUntilProcessing releases the unique
+    // lock when the worker picks the job up (vs. when the job COMPLETES).
+    // Pre-fix the lock was held across queue wait + execution + retry
+    // chain — for high-frequency notifications a duplicate dispatch
+    // arriving 30s later (within the previous lock's $uniqueFor=300s)
+    // was silently dropped. Now the dedup window only covers DISPATCH,
+    // which matches the intent: prevent two simultaneous dispatches of
+    // the same logical event from racing into Notification::create().
+
     // Phase-14 OBSERV-4: carry the HTTP request_id across the queue
     // boundary. Callers do `->withCurrentRequestId()` at dispatch.
-    use CarriesRequestId, InteractsWithQueue, Queueable, SerializesModels;
+    use CarriesRequestId, InteractsWithQueue, Queueable, SerializesModels, TracksFailures;
 
     /**
      * CONC-10: how long the unique-job lock is held in seconds.
@@ -216,5 +226,7 @@ class SendNotificationJob implements ShouldBeUnique, ShouldQueue
             'type' => $this->type,
             'error' => $exception->getMessage(),
         ]);
+
+        $this->recordJobFailure($exception);
     }
 }

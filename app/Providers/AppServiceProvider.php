@@ -40,6 +40,7 @@ use App\Services\SecurityLogger;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Vite;
@@ -95,6 +96,13 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Vite::prefetch(concurrency: 3);
+
+        // Phase-16 RESIL-7: house-style HTTP preset. Any new outbound
+        // call site can do `Http::resilient()->get(...)` and inherit
+        // the 5s connect / 15s overall timeout + 2-retry policy. Pre-
+        // fix the default was 30s no-retry; ad-hoc usages routinely
+        // forgot to set ->timeout().
+        Http::macro('resilient', fn () => Http::connectTimeout(5)->timeout(15)->retry(2, 200, throw: false));
 
         // CRYPTO-1: wire the project-wide password rules so every
         // Rules\Password::defaults() in controllers/Form Requests applies

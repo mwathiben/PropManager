@@ -41,7 +41,13 @@ return [
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
             'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
-            'after_commit' => false,
+            // Phase-16 RESIL-5: dispatch AFTER the surrounding transaction
+            // commits. Pre-fix this was false (Laravel back-compat default)
+            // so a job dispatched inside DB::transaction() fired
+            // immediately and could race the worker against an unwritten
+            // row. Call sites that need pre-commit dispatch can still
+            // opt out with ->afterCommit(false).
+            'after_commit' => true,
         ],
 
         'beanstalkd' => [
@@ -70,7 +76,9 @@ return [
             'queue' => env('REDIS_QUEUE', 'default'),
             'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
             'block_for' => null,
-            'after_commit' => false,
+            // Phase-16 RESIL-5: same as 'database' above — defer dispatch
+            // until the surrounding transaction commits.
+            'after_commit' => true,
         ],
 
         'deferred' => [

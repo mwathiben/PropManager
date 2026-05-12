@@ -197,33 +197,76 @@ class OcrService
                 return null;
             }
 
-            // Poll for results
-            sleep(2); // Wait for processing
+            // Phase-16 RESIL-6: real polling loop with exponential backoff.
+            // Pre-fix this slept 2s then made exactly one GET request;
+            // multi-page documents that took longer would silently return
+            // null. Max 20 attempts × backoff 500ms→8s (capped) ~= 90s
+            // total budget. Aborts early on status=succeeded|failed.
+            $data = $this->pollAzureOperation($operationLocation, $apiKey);
 
-            $resultResponse = Http::withHeaders([
-                'Ocp-Apim-Subscription-Key' => $apiKey,
-            ])->connectTimeout(3)->timeout(8)->get($operationLocation);
+            if ($data && isset($data['analyzeResult']['readResults'][0]['lines'])) {
+                $text = collect($data['analyzeResult']['readResults'][0]['lines'])
+                    ->pluck('text')
+                    ->implode(' ');
 
-            if ($resultResponse->successful()) {
-                $data = $resultResponse->json();
+                $reading = $this->extractNumericReading($text);
 
-                if (isset($data['analyzeResult']['readResults'][0]['lines'])) {
-                    $text = collect($data['analyzeResult']['readResults'][0]['lines'])
-                        ->pluck('text')
-                        ->implode(' ');
-
-                    $reading = $this->extractNumericReading($text);
-
-                    return [
-                        'success' => true,
-                        'reading' => $reading,
-                        'raw_text' => $text,
-                        'confidence' => null,
-                        'provider' => 'azure_vision',
-                    ];
-                }
+                return [
+                    'success' => true,
+                    'reading' => $reading,
+                    'raw_text' => $text,
+                    'confidence' => null,
+                    'provider' => 'azure_vision',
+                ];
             }
         }
+
+        return null;
+    }
+
+    /**
+     * Phase-16 RESIL-6: poll an Azure Read API operation_location with
+     * exponential backoff + jitter. Returns the final analyzeResult
+     * payload on success, or null on timeout / failure.
+     */
+    private function pollAzureOperation(string $operationLocation, string $apiKey, int $maxAttempts = 20): ?array
+    {
+        for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+            $delayMs = min(8000, 500 * (2 ** $attempt));
+            $jitterMs = (int) ($delayMs * 0.1 * (mt_rand() / mt_getrandmax()));
+            usleep(($delayMs + $jitterMs) * 1000);
+
+            try {
+                $response = Http::withHeaders([
+                    'Ocp-Apim-Subscription-Key' => $apiKey,
+                ])->connectTimeout(3)->timeout(8)->get($operationLocation);
+            } catch (\Throwable $e) {
+                Log::warning('OCR poll exception', ['attempt' => $attempt, 'error' => $e->getMessage()]);
+
+                continue;
+            }
+
+            if (! $response->successful()) {
+                continue;
+            }
+
+            $data = $response->json();
+            $status = strtolower((string) ($data['status'] ?? ''));
+
+            if ($status === 'succeeded') {
+                return $data;
+            }
+
+            if ($status === 'failed') {
+                Log::warning('OCR poll reported failed', ['attempt' => $attempt]);
+
+                return null;
+            }
+
+            // 'running' / 'notStarted' — continue polling.
+        }
+
+        Log::warning('OCR poll exhausted attempts', ['max_attempts' => $maxAttempts]);
 
         return null;
     }

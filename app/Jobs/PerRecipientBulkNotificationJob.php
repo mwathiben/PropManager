@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Jobs\Concerns\TracksFailures;
 use App\Services\NotificationService;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -25,7 +26,7 @@ use Throwable;
  */
 class PerRecipientBulkNotificationJob implements ShouldQueue
 {
-    use Batchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Batchable, InteractsWithQueue, Queueable, SerializesModels, TracksFailures;
 
     public int $tries = 3;
 
@@ -69,5 +70,7 @@ class PerRecipientBulkNotificationJob implements ShouldQueue
             'batch_id' => $this->data['batch_id'] ?? null,
             'error' => $exception->getMessage(),
         ]);
+
+        $this->recordJobFailure($exception);
     }
 }

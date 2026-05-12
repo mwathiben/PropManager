@@ -34,7 +34,6 @@ class WebhookDeadLetterService
 
         $isTransient = $errorClass === WebhookDeadLetter::ERROR_TRANSIENT;
         $maxRetries = $isTransient ? (int) config('payments.dead_letter.max_retries', 5) : 0;
-        $jitterSeconds = $isTransient ? random_int(0, 60) : 0;
 
         $deadLetter = WebhookDeadLetter::withoutGlobalScope('landlord')->create([
             'landlord_id' => $landlordId,
@@ -46,7 +45,11 @@ class WebhookDeadLetterService
             'error_class' => $errorClass,
             'attempts' => 1,
             'max_retries' => $maxRetries,
-            'next_retry_at' => $isTransient ? now()->addMinutes(5)->addSeconds($jitterSeconds) : null,
+            // Phase-16 RESIL-8: exponential per-attempt backoff capped at
+            // 1h with ±10% jitter. Pre-fix the first AND every subsequent
+            // retry waited 5 min — a persistently failing upstream burned
+            // 25 min on 5 attempts. Now: ~5/10/20/40/60 min.
+            'next_retry_at' => $isTransient ? $this->nextRetryAt(1) : null,
         ]);
 
         $this->sendAlertIfNotThrottled($deadLetter);
@@ -57,6 +60,20 @@ class WebhookDeadLetterService
     public function resolve(WebhookDeadLetter $deadLetter, User $user, string $notes): void
     {
         $deadLetter->markResolved($user, $notes);
+    }
+
+    /**
+     * Phase-16 RESIL-8: exponential per-attempt backoff with jitter,
+     * capped at 1h. Attempts: 1=5m, 2=10m, 3=20m, 4=40m, 5+=60m (cap).
+     */
+    public function nextRetryAt(int $attempt): \DateTimeInterface
+    {
+        $baseSeconds = 300; // 5 minutes
+        $cap = 3600; // 1 hour
+        $delay = min($cap, $baseSeconds * (2 ** max(0, $attempt - 1)));
+        $jitter = (int) ($delay * 0.1 * (random_int(0, 1000) / 1000));
+
+        return now()->addSeconds($delay + $jitter);
     }
 
     private function sendAlertIfNotThrottled(WebhookDeadLetter $deadLetter): void
