@@ -13,7 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         channels: __DIR__.'/../routes/channels.php',
-        health: '/up',
+        // Phase-11 DEPLOY-8: removed Laravel's static /up shortcut so
+        // there is exactly one liveness endpoint — /api/v1/health
+        // (OBS-2) which probes DB / Redis / queue / WebhookDeadLetter.
+        // Point all load balancers + uptime monitors at /api/v1/health.
         apiPrefix: 'api',
     )
     ->withMiddleware(function (Middleware $middleware): void {

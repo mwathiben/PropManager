@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   pull_request:
-    branches: [main, master]
+    branches: [main]
 
 jobs:
   lint:
@@ -108,6 +108,13 @@ jobs:
         run: |
           npm ci
           npm run build
+
+      - name: Pretend-migrate (DEPLOY-5 sanity gate)
+        # Surfaces invalid SQL / unsupported MySQL features before the
+        # destructive --force run. Production-shape data rehearsal is
+        # called out in docs/runbooks/key-rotation.md follow-up — this
+        # step is the cheap minimum.
+        run: php artisan migrate --pretend
 
       - name: Run migrations
         run: php artisan migrate --force
