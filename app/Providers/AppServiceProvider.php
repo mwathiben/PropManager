@@ -566,6 +566,14 @@ class AppServiceProvider extends ServiceProvider
             $warnings[] = 'SENTRY_LARAVEL_DSN is empty. Error tracking is a silent no-op; OBS-1 has no production effect.';
         }
 
+        // SECRETS-5: debug-level logging in production writes SQL +
+        // bound PII to log files — Kenya DPA hazard. info-level is
+        // similarly verbose. Warn so ops flips to warning+ explicitly.
+        $logLevel = strtolower((string) config('logging.channels.single.level', 'debug'));
+        if (in_array($logLevel, ['debug', 'info'], true)) {
+            $warnings[] = 'LOG_LEVEL='.$logLevel.'. Production should be at warning or higher; debug logs SQL + bound PII.';
+        }
+
         return $warnings;
     }
 }
