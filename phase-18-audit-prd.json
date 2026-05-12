@@ -1,0 +1,248 @@
+{
+  "project": "PropManager",
+  "audit_cycle": "phase-18",
+  "audit_date": "2026-05-12",
+  "scope": "Defensive audit of authorization coverage (AUTHZ — Gate/Policy/Sanctum coverage matrix, role-check pattern consistency, DPA-4 restriction enforcement at controller layer) and database integrity (DATA — orphan-row detection, FK constraint semantics, soft-delete cascade behaviour, denormalization drift beyond Phase-17 MONEY-5). Prior phases covered correctness of recorded VALUES (Phase 17), resilience around external dependencies (Phase 16), perf + frontend (Phase 15), supply-chain + observability (Phase 14), regulator-inspectable layer (Phase 13). Phase 18 covers a deeper layer: are the authorization decisions consistent across every controller (currently 77 of 95 controllers DON'T call authorize()), and do the FK + soft-delete + denormalization invariants hold across the schema?",
+  "context_baseline": {
+    "previous_audits": [
+      "Phase 1-5 core security categories + 10A/10B (mass-assign + file-upload + webhook payload encryption)",
+      "Phase 11 (DEPLOY + SECRETS, 21 findings)",
+      "Phase 12 (BACKUP + RETAIN, 18 findings)",
+      "Phase 13 (DPA + BREACH, 18 findings — regulator-inspectable layer)",
+      "Phase 14 (SUPPLY + OBSERV, 18 findings — supply-chain + observability)",
+      "Phase 15 (FRONT + PERF, 18 findings — user-perceived surface)",
+      "Phase 16 (RESIL + QUEUE, 18 findings — resilience + queue reliability)",
+      "Phase 17 (MONEY + TIME, 18 findings — value correctness)"
+    ],
+    "do_not_reflag": "Phase-3 SCOPE-S/D/P + Phase-5 PRIV-* cover cross-tenant isolation at the read path (TenantScope). Phase-4 CONC-2 + wallet_transactions unique index (payment_id, type) prevents wallet double-credit. Phase-4 CONC-6 + late_fees_invoice_applied_unique prevents LateFee duplicate. Phase-10A mass-assign + Phase-10B SQL defensive cast covered injection. Phase-13 DPA-4 introduced restricted_at; the Gate::before hook lives in AuthServiceProvider. Phase-13 DPA-3 set Payment lawful_basis to legal_obligation (7-year retention). Phase-17 MONEY-5 covers invoice.amount_paid drift audit. Phase 18 does NOT re-audit those; it covers the AUTHZ surface (Gate/Policy coverage) + the DATA-integrity surface (FK semantics, soft-delete cascade, denormalization drift for non-amount_paid fields)."
+  },
+  "qualityStandards": {
+    "test": "All Phase-18 fixes must pass `php artisan test --parallel` and `vendor/bin/pint --test`.",
+    "ci": "Each commit must land on main with green CI before the next phase starts.",
+    "no_breaking_change": "AUTHZ tightening (replacing inline role checks with Gate::allows) is non-breaking — both paths return the same boolean for normal users. The Phase-13 DPA-4 restriction surface DOES become tighter for restricted users — that's the intent. DATA changes are mostly additive (invariant tests + audit command + FK rewrites where the new behaviour matches the documented intent). The one risky migration is payments.invoice_id ON DELETE CASCADE → RESTRICT — operator-side verification required to ensure no in-flight Invoice deletions trip the constraint."
+  },
+  "feedbackLoops": {
+    "lint": "vendor/bin/pint --test",
+    "test_focused": "php artisan test --filter='<keyword>'",
+    "test_full": "php artisan test --parallel",
+    "ci_watch": "gh run list --limit 1 --branch main --workflow=CI --json status,conclusion"
+  },
+  "categories": {
+    "AUTHZ": {
+      "description": "Authorization coverage + consistency. AuthServiceProvider defines 9 Gates (access-admin, impersonate, view-security-logs, view-audit-logs, manage-caretakers, generate-invoices, perform-bulk-operations, access-reports, manage-subscription, export-data, request-deletion). Grep shows 5 of them (perform-bulk-operations, manage-caretakers, generate-invoices, access-reports, manage-subscription) have ZERO call sites — dead Gate definitions. Of 95 controllers in app/Http/Controllers/, only 18 call \\$this->authorize() — most rely on route middleware (role:landlord etc.) + inline \\$user->isSuperAdmin() checks. The Phase-13 DPA-4 restriction Gate::before hook only fires when Gates/Policies are invoked — controllers that bypass Gates also bypass the restriction enforcement. AdminController is the worst offender: every action uses inline \\$user->isSuperAdmin() instead of Gate::allows('access-admin'), so a DPA-restricted super-admin would still be able to act. 9 findings.",
+      "count": 9
+    },
+    "DATA": {
+      "description": "Database-integrity audit beyond Phase-17 MONEY-5. payments.invoice_id is ON DELETE CASCADE — force-deleting an invoice nukes its payment audit trail, violating Phase-13 DPA-3 7-year retention. No invariant test pins Lease.wallet_balance == sum(wallet_transactions where lease_id). Lease.unit_id can point at a soft-deleted Unit (Unit uses SoftDeletes; the FK is to units.id with no deleted_at filter). Invoice.late_fees_total is a denormalized sum with no drift audit (MONEY-5 covers amount_paid only). Cross-tenant FK consistency (e.g., payment.tenant_id and payment.lease_id sharing the same landlord_id) is not enforced at the DB layer. Soft-delete cascade behaviour is undefined — when a Property is soft-deleted, its Buildings/Units/Leases stay live (the FK has DB-level cascade but Eloquent SoftDelete writes deleted_at WITHOUT triggering the cascade). No data:audit-orphans command for periodic orphan-row detection. 9 findings.",
+      "count": 9
+    }
+  },
+  "items": [
+    {
+      "id": "AUTHZ-1",
+      "title": "5 of 9 custom Gates have zero call sites — dead Gate definitions",
+      "severity": "HIGH",
+      "files": [
+        "app/Providers/AuthServiceProvider.php:167-185 (manage-caretakers, generate-invoices, perform-bulk-operations, access-reports, manage-subscription)"
+      ],
+      "evidence": "Grep across app/ + resources/ for these 5 Gate names finds them ONLY in AuthServiceProvider.php — they are defined but never checked. BulkOperationsController has no Gate::allows('perform-bulk-operations') call (it does its own \\$user->role check). Same pattern for SubscriptionController + InvoiceController. The intent was likely 'this Gate exists for explicit authorization' but in practice the controllers fall back to role checks. The dead Gates create a misleading 'authorization is comprehensive' impression — a security reviewer would assume the Gate is enforced.",
+      "fix": "Either (a) wire the Gates into the matching controllers via \\$this->authorize() — but this is more invasive and changes runtime behaviour, or (b) DELETE the dead Gates from AuthServiceProvider and rely on the role middleware that's already enforcing the same constraint. Pick (b) for Phase 18 to keep the change surgical: dead-Gate deletion + a comment explaining that route-middleware enforces the equivalent constraint. Tests pin: Gate::has('perform-bulk-operations') === false post-fix; existing controller routes still gate via middleware."
+    },
+    {
+      "id": "AUTHZ-2",
+      "title": "77 of 95 controllers don't call authorize() — Gate-based authorization is a minority pattern",
+      "severity": "HIGH",
+      "files": [
+        "app/Http/Controllers/* (77 of 95 files have no \\$this->authorize() call)"
+      ],
+      "evidence": "Only 18 controllers use \\$this->authorize() — predominantly the resource controllers registered with Policies (TenantController, LeaseController, InvoiceController, etc.). The other 77 controllers (BulkOperationsController, DashboardController, ConsentController, GdprController, AdminController, KycController, ReportsController, etc.) authorize via (a) route middleware role:X (b) inline \\$user->role === 'landlord' (c) TenantScope's read-side filter alone. The 3-way split makes it impossible to audit 'who can do what' without reading every controller. Phase-13 DPA-4 restriction enforcement only fires through Gate::before — controllers that skip Gates also skip the restriction check, so a DPA-restricted user could STILL bulk-edit leases via BulkOperationsController.",
+      "fix": "Phase 18 scope: build an Authz Coverage Matrix test that enumerates every controller action and asserts EITHER (a) it has \\$this->authorize() OR (b) the route has a role: middleware. New tests/Feature/Security/AuthzCoverageMatrixTest.php walks the route table, finds controller@action pairs, reflects on the controller method body, and reports gaps. This is the audit instrument — the actual gap-closing is incremental (each gap goes to a follow-up issue). For Phase 18 we ship the matrix + close the highest-priority gaps (BulkOperationsController, AdminController hot paths)."
+    },
+    {
+      "id": "AUTHZ-3",
+      "title": "AdminController bypasses Gate::allows('access-admin') — uses inline \\$user->isSuperAdmin() instead",
+      "severity": "HIGH",
+      "files": [
+        "app/Http/Controllers/AdminController.php (10+ inline isSuperAdmin checks)"
+      ],
+      "evidence": "Gate::allows('access-admin') is the canonical 'is this user authorised for admin actions' check. AdminController instead uses raw `if (! \\$user->isSuperAdmin()) abort(403)` checks at 10+ method bodies. Functionally equivalent for normal use but: (1) Phase-13 DPA-4 restriction (isRestricted blocks write-side abilities) is enforced via Gate::before — inline isSuperAdmin checks BYPASS the Gate layer entirely, so a super-admin who has been DPA-restricted could STILL act through AdminController. (2) Future authorization changes (e.g., 2FA requirement, IP allowlisting for admin) would need to touch every inline check rather than one Gate. (3) Audit reviewers see two parallel authorization patterns and can't determine intent.",
+      "fix": "Refactor AdminController to call Gate::authorize('access-admin') at the top of every action. Add a constructor that does it via $this->authorizeResource where applicable, or use middleware('can:access-admin') at the route layer. Phase-13 DPA-4 restriction now applies. Tests pin: a DPA-restricted super-admin gets 403 on AdminController routes (previously got 200)."
+    },
+    {
+      "id": "AUTHZ-4",
+      "title": "No Policy coverage matrix test — Policies missing methods or models without Policy go undetected",
+      "severity": "MEDIUM",
+      "files": ["tests/* (no PolicyCoverageMatrixTest)"],
+      "evidence": "AuthServiceProvider maps 27 model→Policy pairs. There's no test that asserts: (a) every Eloquent model with TenantScope has a registered Policy, (b) every Policy implements the standard methods (view, viewAny, create, update, delete) consistently. A future model added with TenantScope but no Policy entry would silently fall back to 'always allow' for non-Resource controllers using @can directives.",
+      "fix": "New tests/Feature/Security/PolicyCoverageMatrixTest.php iterates all model classes via Filesystem::class globbing app/Models/, finds the ones using TenantScope trait via reflection, and asserts each appears in AuthServiceProvider::$policies. Same matrix asserts each Policy class has the 5 standard methods. Test FAILS on a new model added without a Policy."
+    },
+    {
+      "id": "AUTHZ-5",
+      "title": "Sanctum abilities (landlord:manage, tenant:manage) defined separately from Gate abilities — no mapping doc",
+      "severity": "MEDIUM",
+      "files": ["app/Models/User.php (no Sanctum ability list), routes/api.php (uses landlord:manage etc.)"],
+      "evidence": "The API routes use Sanctum::abilities() with strings like 'landlord:manage', 'tenant:manage', etc. These exist alongside the Gate abilities (access-admin, etc.) but there's no mapping documenting which controller actions require which Sanctum ability. A security reviewer auditing 'is this API endpoint properly gated' has to grep the routes file + each controller — there's no central authority.",
+      "fix": "docs/runbooks/authz-coverage.md — single doc enumerating: (1) all Sanctum abilities and which routes they gate, (2) all Gate abilities and where they're enforced, (3) all role: middleware uses. Phase-18 scope is the doc; building a real Sanctum/Gate mapping framework is Phase-19+ candidate."
+    },
+    {
+      "id": "AUTHZ-6",
+      "title": "Role checks use 4 different patterns inconsistently across controllers",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/* (mix of `->role === 'landlord'`, `->isLandlord()`, Gate::allows, route middleware)"
+      ],
+      "evidence": "Found 4 distinct role-check patterns: (1) `\\$user->role === 'landlord'` (raw string comparison — fails if enum is added later), (2) `\\$user->isLandlord()` (the canonical method on User), (3) `Gate::allows('access-admin')` (Gate-routed), (4) `role:landlord` route middleware. All 4 produce the same result today but: a future role like 'super_caretaker' would need to be checked in every (1)+(2) site; only (3) gets it for free via Gate logic. A typo `\\$user->role === 'landloard'` is a real bug — Phase-4 history has examples.",
+      "fix": "Pint rule or PHPStan extension that forbids `\\$user->role === '...'` and forces `\\$user->isLandlord()` (or equivalent). Add CLAUDE.md guidance: prefer Gate::allows when authorising an ACTION, isLandlord() etc. for routing/UI conditional rendering, never raw role comparisons. Phase 18 ships the guidance doc + a feature test that asserts no `\\$user->role === ` string appears outside the User model (regex grep over app/Http/Controllers)."
+    },
+    {
+      "id": "AUTHZ-7",
+      "title": "Phase-13 DPA-4 restriction enforcement not asserted via controller routes",
+      "severity": "LOW",
+      "files": [
+        "tests/Feature/Security/ProcessingRestrictionTest.php (only tests Gate behaviour directly)"
+      ],
+      "evidence": "Phase-13 DPA-4 introduced the restricted_at User column + Gate::before hook in AuthServiceProvider that denies write-side abilities while restricted. The existing test ProcessingRestrictionTest.php exercises the Gate directly (Gate::allows('update', $invoice)) but doesn't ride the controller route layer — a controller that bypasses Gate (e.g., AdminController, BulkOperationsController) would still allow the restricted user to act. The test passes today but doesn't catch the AUTHZ-3 + AUTHZ-2 surface.",
+      "fix": "Extend ProcessingRestrictionTest to cover the controller route paths: when User::restricted_at is set, POST /admin/users/X/role returns 403 (AUTHZ-3 fix prerequisite), POST /bulk-operations/adjust-rent returns 403 (AUTHZ-2 fix prerequisite). Two new test cases. Catches the regression where a future controller bypasses Gate."
+    },
+    {
+      "id": "AUTHZ-8",
+      "title": "Gate::before super-admin bypass returns true even for DPA-restricted super-admins",
+      "severity": "LOW",
+      "files": ["app/Providers/AuthServiceProvider.php:111-115 (Gate::before super-admin)"],
+      "evidence": "The super-admin Gate::before returns true for EVERY ability — including the abilities the DPA-4 Gate::before is supposed to deny. The order matters: super-admin Gate::before fires FIRST and short-circuits (returns true), so the DPA-4 Gate::before never runs. A super-admin who is DPA-restricted (rare but possible — e.g., a super-admin whose own account is subject to a deletion request) would NOT be restricted in practice. Phase-13 docstring acknowledges this; should have a test pinning the behaviour AND a runbook note for the operator on what to do if a super-admin needs to be restricted.",
+      "fix": "Acknowledge in code: reorder the two Gate::before hooks so DPA-4 fires first (or merge them into one). Test pin: a super-admin with restricted_at set returns FALSE for an update ability. Optional: add a 'force-allow-super-admin-bypass' Gate that lets ops explicitly bypass DPA-4 for legitimate operational needs (e.g., breaking out of a misfired restriction)."
+    },
+    {
+      "id": "AUTHZ-9",
+      "title": "Policy methods (force-delete, restore) missing on most policies — SoftDeletes/restore paths un-gated",
+      "severity": "LOW",
+      "files": ["app/Policies/* (most policies missing forceDelete + restore methods)"],
+      "evidence": "Of 26 Policy classes, most implement view, viewAny, create, update, delete only. Models using SoftDeletes (Building, Document, Invoice, KycRequirement, Lease, Property, Unit, User) have additional canonical actions — forceDelete (hard-delete) + restore (un-soft-delete). Without those Policy methods, the restore + force-delete paths fall back to the default 'allow' if not explicitly authorized; for SoftDeleted Invoices that's a quiet security gap.",
+      "fix": "Audit each policy of a SoftDelete-using model. Add forceDelete() + restore() Policy methods that gate appropriately (typically: super-admin only for forceDelete, landlord-owner for restore). Tests pin: a non-super-admin landlord cannot force-delete an Invoice via the Policy."
+    },
+    {
+      "id": "DATA-1",
+      "title": "payments.invoice_id is ON DELETE CASCADE — force-deleting an invoice nukes its payment history",
+      "severity": "HIGH",
+      "files": ["database/migrations/2025_12_16_093818_create_payments_table.php:16"],
+      "evidence": "payments table FK: `\\$table->foreignId('invoice_id')->constrained()->onDelete('cascade')`. If an Invoice is force-deleted (Invoice uses SoftDeletes so this requires an explicit force-delete call), every Payment that referenced it is silently CASCADE-deleted. Phase-13 DPA-3 sets Payment.lawful_basis to legal_obligation with 7-year retention — cascade-delete VIOLATES the Kenya DPA Article 30 retention obligation. The Phase-12 RETAIN-9 + RETAIN-3 paths assume retention is enforced by the soft-delete-prune cycle, not by FK CASCADE. The pre-fix path is: operator force-deletes a misposted invoice → payment audit trail vanishes silently → regulator audit fails next quarter.",
+      "fix": "Migration to alter payments.invoice_id FK from ON DELETE CASCADE to ON DELETE RESTRICT. Force-deleting an Invoice with attached Payments would now fail at the DB layer — surfacing the policy violation instead of silently violating retention. The InvoiceController + InvoiceObserver paths use SoftDelete by default; the failure case only fires for explicit force-delete callers (probably zero in app code today). Tests pin: force-deleting an Invoice with payments raises QueryException (foreign key constraint fails)."
+    },
+    {
+      "id": "DATA-2",
+      "title": "No invariant test for Lease.wallet_balance vs sum(wallet_transactions where lease_id=N)",
+      "severity": "HIGH",
+      "files": [
+        "app/Models/Lease.php (creditToWallet + deductFromWallet maintain wallet_balance)",
+        "tests/* (no wallet-balance invariant test)"
+      ],
+      "evidence": "Lease.wallet_balance is a denormalized derived field. Phase-4 CONC-2 added a unique index on wallet_transactions(payment_id, type) to prevent double-credit at the row layer. But there's no test asserting `Lease.wallet_balance == SUM(wallet_transactions.amount WHERE lease_id=X AND type='credit') - SUM(wallet_transactions.amount WHERE lease_id=X AND type='debit')` (the aggregate invariant). A bug in creditToWallet/deductFromWallet, a manual SQL update to wallet_transactions, or a transaction-rollback at the wrong moment could let the two values diverge. Phase-17 MONEY-5 covers Invoice.amount_paid; this is the wallet-side equivalent.",
+      "fix": "(a) New tests/Feature/Security/WalletBalanceInvariantTest.php feature test that exercises credit + debit operations and asserts the invariant after each. (b) New artisan command `wallets:audit-balances` (scheduled nightly at 05:35 Africa/Nairobi) that scans for mismatches > 0.01 KES and sets a Phase-16 Prometheus gauge `lease_wallet_balance_drift_count`. Same shape as Phase-17 MONEY-5 payments:audit-allocations."
+    },
+    {
+      "id": "DATA-3",
+      "title": "Lease.unit_id can reference a soft-deleted Unit — active-lease check doesn't filter on Unit.deleted_at",
+      "severity": "HIGH",
+      "files": [
+        "app/Models/Lease.php (unit() relationship doesn't filter soft-deleted)",
+        "app/Models/Unit.php (uses SoftDeletes)"
+      ],
+      "evidence": "Unit uses SoftDeletes. When a Unit is soft-deleted (its building converted, demolished, etc.), Lease.unit_id still references the now-soft-deleted row. The Lease's belongsTo Unit relationship doesn't apply withoutTrashed() — so Lease->unit returns a soft-deleted Unit instance. Dashboard queries that join leases + units typically use Eloquent which applies the SoftDeletes scope on Unit by default — so the join silently drops the lease from the result set (because the unit is filtered out by Unit's global SoftDeletes scope). Operator sees a 'missing lease' that's actually still active.",
+      "fix": "Two-part: (a) When soft-deleting a Unit, the Lease must be terminated first (operator workflow + a model-level check in UnitObserver::deleting that throws if active leases exist). (b) For historical audit purposes, the Lease->unit relationship should optionally include trashed Units via a withTrashed() variant method `Lease::unitWithTrashed()`. Tests pin: soft-deleting a Unit with an active lease raises DomainException; the audit-log report can still resolve the historical unit name."
+    },
+    {
+      "id": "DATA-4",
+      "title": "Invoice.late_fees_total denormalized drift — no audit beyond MONEY-5 amount_paid",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Models/Invoice.php (late_fees_total denormalized from sum(late_fees.fee_amount))",
+        "app/Console/Commands/AuditPaymentAllocations.php (only audits amount_paid)"
+      ],
+      "evidence": "Invoice.late_fees_total is recalculated by Invoice::recalculateLateFees from sum(late_fees.fee_amount WHERE is_waived=false). Phase-17 MONEY-5 audits invoice.amount_paid vs sum(payments). The equivalent invariant for late_fees_total is NOT audited. A bug in LateFee insert/update path, a manual SQL operation, or a soft-deleted LateFee that wasn't filtered correctly would let the two diverge silently. The Invoice.total_due computation then reads the drift-bearing late_fees_total.",
+      "fix": "Extend payments:audit-allocations to also check invoice.late_fees_total vs sum(active late_fees.fee_amount). OR new artisan command `invoices:audit-late-fees-drift`. Same shape as MONEY-5: log mismatches, set Prometheus gauge invoice_late_fees_drift_count, exit FAILURE."
+    },
+    {
+      "id": "DATA-5",
+      "title": "Cross-tenant FK consistency not enforced at DB — payment.tenant_id + payment.lease_id could reference different landlord_ids",
+      "severity": "MEDIUM",
+      "files": [
+        "database/migrations/* (no composite FK with landlord_id consistency)",
+        "app/Traits/TenantScope.php (read-path filter only)"
+      ],
+      "evidence": "Payment has tenant_id (User FK), lease_id (Lease FK), invoice_id (Invoice FK), landlord_id (User FK). The TenantScope trait filters READS to a single landlord_id automatically. But the WRITE path could insert a payment where payment.tenant_id belongs to landlord A while payment.lease_id belongs to landlord B — the DB has no composite FK enforcing the consistency. Phase-3 SCOPE-D mitigates via controller-layer landlord_id matching; a future code path that bypasses the controller (e.g., a job that synthesizes payment rows) could insert inconsistent state.",
+      "fix": "Either (a) DB-level: add CHECK constraints via raw SQL (MySQL 8 supports this) like `CHECK (landlord_id = (SELECT landlord_id FROM leases WHERE id = lease_id))` — but MySQL CHECK constraints can't reference other tables. (b) Trigger-based enforcement (BEFORE INSERT/UPDATE trigger). (c) Application-level: a Phase-18 audit test that scans for inconsistencies + a model observer that throws on inconsistent write. Pick (c) for Phase 18; observer + test."
+    },
+    {
+      "id": "DATA-6",
+      "title": "Soft-delete cascade behaviour undefined — soft-deleting a Property leaves Buildings + Units + Leases live",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Models/Property.php (SoftDeletes, no observer to cascade)",
+        "app/Models/Building.php (SoftDeletes)"
+      ],
+      "evidence": "Property uses SoftDeletes. The FK building.property_id is ON DELETE CASCADE — but Eloquent SoftDelete writes deleted_at WITHOUT triggering DB cascade (the DELETE statement doesn't fire). So a soft-deleted Property leaves its Buildings, Units, Leases, Invoices all live. The dashboard query for 'list my properties' includes the soft-delete scope and hides the Property — but the dashboard query for 'list my buildings' doesn't filter by Property.deleted_at, so the orphaned Buildings still appear. Operator-visible inconsistency.",
+      "fix": "Either (a) PropertyObserver::deleting cascades soft-delete down (sets deleted_at on every Building → Unit → Lease in transaction). (b) Building/Unit/Lease global scope filters by Property.deleted_at IS NULL. Pick (a) — explicit cascade is more debuggable than a global scope. Tests pin: soft-deleting a Property soft-deletes every descendant in the same transaction; force-deleting follows the existing DB cascade."
+    },
+    {
+      "id": "DATA-7",
+      "title": "No data:audit-orphans command — periodic orphan-row detection absent",
+      "severity": "LOW",
+      "files": ["app/Console/Commands/* (no orphan-audit command)"],
+      "evidence": "Various FK patterns create orphan-row risk: payment.tenant_id → User (nullOnDelete pattern means it could be null after deletion), lease.unit_id → soft-deleted Unit (DATA-3), invoice.lease_id → restricted Lease but the model query might fail silently. Without periodic auditing, orphan rows accumulate quietly and surface only at reconciliation time.",
+      "fix": "New artisan command `data:audit-orphans` (scheduled weekly Sunday 06:00 Africa/Nairobi). Checks: leases with no active unit, invoices with no lease, payments with no invoice, audit_logs with user_id set to a non-existent User. Logs counts + sets a Prometheus gauge data_orphan_row_count. Operator can run on-demand for diagnostic investigations."
+    },
+    {
+      "id": "DATA-8",
+      "title": "Migration drift — not every table has the standard landlord_id composite index",
+      "severity": "LOW",
+      "files": ["database/migrations/* (composite-index coverage uneven)"],
+      "evidence": "Phase-15 PERF-1/2 spot-checked payments + invoices composite indexes. Phase-15 PERF-7 added notifications(recipient_id, read_at). But the broader pattern — every tenant-scoped table should have a (landlord_id, primary-date-field) composite — is not enforced. Tables like documents, water_readings, tickets, audit_logs may or may not have the composite. Slow queries from missing indexes won't fail tests — they just show up as Phase-15 PERF-6 slow-query log entries in production.",
+      "fix": "Audit test: tests/Feature/Security/TenantScopeIndexCoverageTest.php walks every model using TenantScope, checks Schema::getIndexes() for the table, asserts a (landlord_id, X) composite exists where X is a sensible date column (created_at fallback). Test FAILS on a new tenant-scoped table that ships without the composite. Adoption: a migration per table that's missing the composite — incremental, low risk."
+    },
+    {
+      "id": "DATA-9",
+      "title": "No FK convention guide — onDelete behaviour is per-migration-author",
+      "severity": "LOW",
+      "files": ["docs/runbooks/* (no FK convention doc)"],
+      "evidence": "Different migration authors picked different onDelete semantics: payments.invoice_id is CASCADE, payments.landlord_id is implicit RESTRICT, audit_logs.user_id is nullOnDelete, properties.landlord_id is CASCADE. The intent is sound (logs should survive user deletion, payments shouldn't) but it's not documented. A future migration author will pick whatever feels right, potentially producing the next DATA-1 (cascade where restrict was needed).",
+      "fix": "docs/runbooks/database-conventions.md documenting the canonical onDelete semantics: log tables = nullOnDelete (preserve audit trail), financial tables = restrictOnDelete (DPA-3 retention), ownership tables = cascadeOnDelete (parent-child structural). Cross-link from CLAUDE.md."
+    }
+  ],
+  "phases": {
+    "phase_1": {
+      "title": "Critical: AdminController Gate enforcement + AuthzCoverageMatrix + dead-Gate cleanup (AUTHZ-1/2/3)",
+      "scope": "AUTHZ-1, AUTHZ-2, AUTHZ-3",
+      "rationale": "Foundational. Delete the 5 dead Gates + audit-test that asserts no dead Gates remain. Build the AuthzCoverageMatrix test that walks the route table and reports controllers missing authorize() calls. Refactor AdminController to use Gate::authorize('access-admin') so Phase-13 DPA-4 restriction enforcement applies. Single tight commit — all three findings touch AuthServiceProvider + AdminController + a new test file."
+    },
+    "phase_2": {
+      "title": "Critical: DATA invariants — payments.invoice_id FK + wallet-balance audit + Unit soft-delete safety (DATA-1/2/3)",
+      "scope": "DATA-1, DATA-2, DATA-3",
+      "rationale": "Biggest blast radius. Migration to flip payments.invoice_id from CASCADE to RESTRICT (DATA-1). New WalletBalanceInvariantTest + wallets:audit-balances command (DATA-2). UnitObserver::deleting throws if active leases exist (DATA-3). Same operational-audit shape as Phase-17 MONEY-5 — Prometheus gauge + scheduled command + invariant test."
+    },
+    "phase_3": {
+      "title": "Medium: Policy coverage matrix + Sanctum map + role-check consistency + late-fees drift + cross-tenant consistency + soft-delete cascade (AUTHZ-4/5/6 + DATA-4/5/6)",
+      "scope": "AUTHZ-4, AUTHZ-5, AUTHZ-6, DATA-4, DATA-5, DATA-6",
+      "rationale": "Six independently-shippable mediums. PolicyCoverageMatrixTest + authz-coverage runbook + role-check regex test + extended audit-allocations + Payment cross-tenant observer + PropertyObserver soft-delete cascade. Larger surface than Phase 2 — needs a separate commit."
+    },
+    "phase_4": {
+      "title": "Low: DPA-4 restriction controller tests + super-admin restriction ordering + Policy SoftDelete methods + data:audit-orphans + tenant-scope index audit + FK convention doc (AUTHZ-7/8/9 + DATA-7/8/9)",
+      "scope": "AUTHZ-7, AUTHZ-8, AUTHZ-9, DATA-7, DATA-8, DATA-9",
+      "rationale": "Polish + docs + one structural Gate::before reorder. All low-risk. The Gate::before reorder (AUTHZ-8) is the most behaviour-changing — pinned by a regression test."
+    }
+  },
+  "out_of_scope": [
+    "A11Y (WCAG 2.2) — Phase 15 candidate, still deferred. Larger UX-quality audit than the defensive-correctness focus of Phase 18",
+    "I18N / Swahili localization — Phase 19+ candidate; Phase 18 is back-end correctness",
+    "API versioning + contract-test framework — Phase 19+ candidate",
+    "DATETIME → TIMESTAMP migration (Phase 17 TIME-7 deferral) — Phase 19+ candidate",
+    "FX/exchange-rate handling (Phase 17 MONEY-9 deferral) — Phase 19+ candidate",
+    "Phase-12 deferred items, Phase-14 deferred items, Phase-15 deferred items, Phase-16 had no deferrals, Phase-17 deferrals (FX, DATETIME, per-callsite emitted-date migration)",
+    "Self-hosted infra audit (k8s, Terraform) — out of repo scope"
+  ],
+  "metadata": {
+    "total_findings": 18,
+    "high": 6,
+    "medium": 6,
+    "low": 6
+  }
+}
