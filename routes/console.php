@@ -75,6 +75,15 @@ $schedule('gdpr:process-deletions', fn ($e) => $e->dailyAt('02:45'));
 $schedule('backup:clean', fn ($e) => $e->dailyAt('01:00'));
 $schedule('backup:run', fn ($e) => $e->dailyAt('01:30'));
 $schedule('backup:monitor', fn ($e) => $e->dailyAt('06:30'));
+// Phase-12 BACKUP-2: weekly archive-integrity check beyond
+// backup:monitor's age/size assertions. Catches the case where a
+// backup is the right size and recent but the .zip itself is
+// corrupted or the inner dump is empty.
+$schedule('backup:verify', fn ($e) => $e->weeklyOn(0, '06:35'));
+
+// Phase-12 RETAIN-4: force-delete soft-deleted rows past the grace
+// window. DELETION_GRACE_DAYS lives in .env; defaults to 30.
+$schedule('soft-deleted:purge --confirm', fn ($e) => $e->dailyAt('03:45'));
 
 // Process queued offline payment intents every minute
 $queuedIntents = Schedule::job(new \App\Jobs\ProcessQueuedPaymentIntents)
