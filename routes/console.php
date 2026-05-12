@@ -76,6 +76,15 @@ $schedule('logs:prune --table=bank-webhook --confirm', fn ($e) => $e->dailyAt('0
 // matching PRUNE. 720 hours = 30 days retention.
 $schedule('queue:prune-failed --hours=720', fn ($e) => $e->dailyAt('04:10'));
 
+// Phase-13 BREACH-3: 72-hour SLA enforcement. Hourly check for
+// SecurityIncidents whose ODPC notification deadline is closing or
+// has passed without odpc_notified_at being set. Pages ops via
+// KENYA_DPA_BREACH_EMAIL + writes a HIGH-severity SecurityLog row
+// each time. Acknowledgement via dpa:mark-regulator-notified stops
+// the loop. Failure here means a Section 43 reporting miss becomes
+// invisible — same on-failure email channel as the other gates.
+$schedule('breach:escalate-overdue', fn ($e) => $e->hourly());
+
 // Phase-12 RETAIN-3: GDPR Article 17 deletion request processor.
 // Command existed pre-Phase-12 (ProcessScheduledDeletions) but was
 // never scheduled — deletion requests were marked then never

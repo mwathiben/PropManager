@@ -2,10 +2,12 @@
 
 namespace App\Services;
 
+use App\Mail\BreachReportedAlert;
 use App\Models\AuditLog;
 use App\Models\SecurityIncident;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Kenya Data Protection Act 2019 Compliance Service
@@ -235,19 +237,31 @@ class KenyaDpaService
     }
 
     /**
-     * Notify administrators about a security incident.
+     * Phase-13 BREACH-1: page the configured ops channel + every
+     * super-admin user via BreachReportedAlert. Previously this method
+     * wrote a Log::info line per admin and nothing else — a breach
+     * could be recorded with no human paged. The dedicated ops email
+     * (KENYA_DPA_BREACH_EMAIL) is required for Section 43 / Article 33
+     * timeliness; the per-admin fan-out remains for redundancy.
      */
     protected function notifyAdministrators(SecurityIncident $incident): void
     {
-        $admins = User::where('role', 'super_admin')->get();
+        $opsRecipient = config('security.kenya_dpa.breach_notification_email');
+        if ($opsRecipient) {
+            Mail::to($opsRecipient)->queue(new BreachReportedAlert($incident));
+        } else {
+            Log::channel(config('security.logging.channel', 'security'))->warning(
+                'KENYA_DPA_BREACH_EMAIL is not configured — breach notification email skipped',
+                ['incident_id' => $incident->id]
+            );
+        }
 
+        $admins = User::where('role', 'super_admin')->get();
         foreach ($admins as $admin) {
-            // In production, this would send an actual notification
-            // For now, we log it
-            Log::info('Admin notified of security incident', [
-                'admin_id' => $admin->id,
-                'incident_id' => $incident->id,
-            ]);
+            if (! $admin->email) {
+                continue;
+            }
+            Mail::to($admin->email)->queue(new BreachReportedAlert($incident));
         }
     }
 
