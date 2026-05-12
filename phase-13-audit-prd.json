@@ -1,0 +1,216 @@
+{
+  "project": "PropManager",
+  "audit_cycle": "phase-13",
+  "audit_date": "2026-05-12",
+  "scope": "Defensive audit of Kenya DPA / GDPR completeness (DPA) and breach detection + notification (BREACH). Phase 11 added the registration-number check; Phase 12 closed half of the retention surface. Phase 13 closes the regulator-inspectable behaviour gap: consent withdrawal across all consent types, cross-border transfer validation at code boundaries, lawful-basis tagging on processing operations, the rights surface beyond Article 17 (restriction, objection, full portability), automated incident detection, the 72-hour breach notification clock, and affected-subject notification. This is the regulator-inspectable layer — code structure that exists but doesn't fire counts as zero compliance.",
+  "context_baseline": {
+    "previous_audits": [
+      "Phase 1-5 (49 + 46 + 55 + 54 + 4 cleanup): core security categories",
+      "Phase 10A/10B: mass-assign + file-upload + webhook payload encryption",
+      "Phase 11 (21 DEPLOY/SECRETS): KENYA_DPA_REGISTRATION validator, production-config fail-closed, deploy automation",
+      "Phase 12 (18 BACKUP/RETAIN): backup automation, retention enforcement for audit/security/dead-letter/webhook log tables, key escrow runbook"
+    ],
+    "do_not_reflag": "Phase-12 RETAIN-5 already documented the categories whose retention is NOT yet automated (notifications, consent records, KYC photos). This phase does not re-flag those; it adds the regulator-facing behaviours beyond mere data lifecycle. Article 17 (erasure) is also already wired via gdpr:process-deletions."
+  },
+  "qualityStandards": {
+    "test": "All Phase-13 fixes must pass `php artisan test --parallel` and `vendor/bin/pint --test`.",
+    "ci": "Each commit must land on main with green CI before the next phase starts.",
+    "no_breaking_change": "Wiring breach notification end-to-end may cascade into many call sites; pivot to inserting incident detection at well-defined seams (login failures, large exports, role escalations) and accept that exhaustive coverage is a follow-up audit."
+  },
+  "feedbackLoops": {
+    "lint": "vendor/bin/pint --test",
+    "test_focused": "php artisan test --filter='<keyword>'",
+    "test_full": "php artisan test --parallel",
+    "ci_watch": "gh run list --limit 1 --branch main --json status,conclusion"
+  },
+  "categories": {
+    "DPA": {
+      "description": "Kenya DPA Sections 26-31 + GDPR Articles 13-22. The infrastructure (Consent model, DataDeletionService, DataExportService, KenyaDpaService) exists but is patchy in actual application: consent withdrawal works only for marketing; cross-border transfer validation is a helper with zero callers; lawful basis is a helper with zero callers; Article 18 restriction is unimplemented. Each finding closes a specific regulator-facing gap.",
+      "count": 10
+    },
+    "BREACH": {
+      "description": "Kenya DPA Section 43 + GDPR Articles 33-34. KenyaDpaService::initiateBreachNotification creates a SecurityIncident — and is invoked nowhere else in the codebase. SecurityIncident records are never auto-created from suspicious patterns. The 72-hour notification clock has no timer. KENYA_DPA_BREACH_EMAIL config is read into security.compliance.breach_notification_email and has no consumer. End-to-end, breach notification is a manual procedure with no automated detection, no SLA enforcement, and no affected-subject channel.",
+      "count": 8
+    }
+  },
+  "items": [
+    {
+      "id": "BREACH-1",
+      "title": "initiateBreachNotification is defined but never called — manual-only triggering",
+      "severity": "HIGH",
+      "files": ["app/Services/KenyaDpaService.php:178-258"],
+      "evidence": "grep across app/ for 'initiateBreachNotification' returns one match: the method's own definition. No controller, command, observer, listener, or scheduled job invokes it. A real breach today requires an ops engineer to remember the method exists, open tinker, and call it manually with the right arguments. Section 43 timing exposure is acute.",
+      "fix": "Wire the method to at least three seams: (a) admin Incidents controller that creates from an in-app form; (b) a `dpa:initiate-breach` artisan command for ops-during-incident use; (c) automatic invocation from a SuspiciousActivityDetected event raised by BREACH-2/5 detection. Tests pin that calling the method dispatches the regulator-notification mail + records the SecurityIncident."
+    },
+    {
+      "id": "BREACH-2",
+      "title": "SecurityIncident records are never created from detected patterns",
+      "severity": "HIGH",
+      "files": ["app/Models/SecurityIncident.php", "no detection seam exists"],
+      "evidence": "SecurityIncident::create is invoked only by initiateBreachNotification (the manual path). Suspicious patterns that should auto-create an Incident — repeated failed logins across IPs, an export of more than N records, an admin role-grant outside business hours, a webhook from a non-allowlisted IP — produce nothing. There is no listener, no detection job, no automated seed.",
+      "fix": "Add an IncidentDetector service with seed rules: (1) 50+ failed logins for one account in 1h; (2) data-export > X rows in one request; (3) role escalation to landlord without invitation; (4) webhook signature failures > 10/min from one IP. Each rule writes a SecurityIncident with severity + dispatches SuspiciousActivityDetected event. The seed is intentionally small — exhaustive detection is a follow-up audit."
+    },
+    {
+      "id": "BREACH-3",
+      "title": "No 72-hour notification clock — Section 43 / Article 33 SLA invisible",
+      "severity": "HIGH",
+      "files": ["no SLA timer", "no missed-deadline alert"],
+      "evidence": "Kenya DPA Section 43 and GDPR Article 33 require breach notification to the regulator within 72 hours of awareness. SecurityIncident has a created_at column but no notify_by_deadline field, no scheduled job that escalates a still-unreported incident at hour 60, no audit log of who acknowledged at what time. A miss is invisible until the regulator audits.",
+      "fix": "Add notify_by, regulator_notified_at, affected_subjects_notified_at columns to security_incidents. On Incident creation, set notify_by = created_at + 72h. A `breach:escalate-overdue` scheduled command runs hourly: any Incident with notify_by < now() AND regulator_notified_at IS NULL produces an email to the operator + Sentry alert + writes a HIGH-severity SecurityLog entry. Operators acknowledge by recording the notification timestamps."
+    },
+    {
+      "id": "BREACH-4",
+      "title": "Article 34 affected-subject notification is not implemented",
+      "severity": "HIGH",
+      "files": ["app/Services/KenyaDpaService.php:178-258", "no affected-subject mailable"],
+      "evidence": "initiateBreachNotification notifies the regulator and ops only. GDPR Article 34 + Kenya DPA Section 43(2) require the data CONTROLLER to notify affected individuals 'without undue delay' when the breach is likely to result in high risk. There is no mailable, no notification, no list-derivation logic that maps breach scope to affected user_ids.",
+      "fix": "Add notifyAffectedSubjects($incident, array $userIds) method that queues a BreachNotificationMail to each affected User with: incident date, data categories affected, likely consequences, mitigation steps, contact for questions. Mailable text vetted by legal-ish source (Kenya DPA Section 43(2)). Tests pin that the mail goes out and the affected_subjects_notified_at column updates."
+    },
+    {
+      "id": "DPA-1",
+      "title": "Consent withdrawal limited to marketing — other consent types have no withdrawal route",
+      "severity": "HIGH",
+      "files": ["routes/web.php:901-906 (only withdraw-marketing exists)", "app/Models/Consent.php (supports multiple types but no withdraw routes)"],
+      "evidence": "ConsentController has withdrawMarketing only. Consent model supports any consent_type string. config('security.compliance.consent_required', [...]) probably lists more types than just marketing. A user cannot withdraw analytics, profiling, or any other consent without contacting support — a GDPR Article 7(3) violation (withdrawal must be as easy as granting).",
+      "fix": "Add a generic withdrawConsent(string $type) route + controller method. Update the privacy-settings UI to list every consent grant the user has + a Withdraw button per row. Tests pin that withdrawing each type updates the Consent record and the SecurityLog audit row mentions the consent_type."
+    },
+    {
+      "id": "DPA-2",
+      "title": "Cross-border transfer validation is a helper with zero callers",
+      "severity": "HIGH",
+      "files": ["app/Services/KenyaDpaService.php:141 (canTransferCrossBorder defined but never called)"],
+      "evidence": "canTransferCrossBorder returns a structured response 'is this transfer allowed?' but is invoked nowhere. Cross-border transfers DO happen: AWS S3 backups (us-east-1 default), Paystack callbacks (international API), Sentry breadcrumbs (EU/US data centres). Without a call site, Section 48 obligations are unverified.",
+      "fix": "Add validation at three boundaries: (a) BackupServiceProvider boot — assert config('backup.backup.destination.disks') target region; (b) PaymentGatewayManager — log lawful-basis decision per gateway call; (c) sentry config — if SENTRY_DSN is non-EU/non-KE, log a one-time KENYA_DPA_CROSS_BORDER_CONSENT-required warning at boot. Each violation produces a SecurityLog entry."
+    },
+    {
+      "id": "DPA-3",
+      "title": "Lawful basis is a service helper with zero callers — no processing operation tags its basis",
+      "severity": "HIGH",
+      "files": ["app/Services/KenyaDpaService.php:70 (getLawfulBasis), :111 (logDataProcessing) — both with zero callers"],
+      "evidence": "DPA Section 30 requires a documented lawful basis for every processing operation. getLawfulBasis returns the basis for a (dataType, purpose) pair; logDataProcessing writes an AuditLog row capturing the basis. Neither is called anywhere. A regulator audit asking 'on what basis are you processing this user's location data?' has no answer.",
+      "fix": "Add lawful_basis column to audit_logs (already has a metadata column — extract from there). Update the Auditable trait to call KenyaDpaService::getLawfulBasis for the model's primary purpose and stamp the basis into the audit entry. At minimum, cover Lease (contract), Payment (contract + legal_obligation), KYC (legal_obligation), TenantPaymentVerification (contract). New models inherit the basis from their lookup table."
+    },
+    {
+      "id": "DPA-4",
+      "title": "Article 18 restriction of processing is unimplemented — user has no 'pause' option",
+      "severity": "HIGH",
+      "files": ["no restriction flag on User", "no restriction route or controller"],
+      "evidence": "GDPR Article 18 grants the right to restriction: 'pause processing while contesting accuracy or pending erasure decision'. Kenya DPA Section 26(d) mirrors it. PropManager has request-deletion (Article 17) and request-export (Article 20) but no restrict route. A user who wants their data preserved-but-frozen has no recourse.",
+      "fix": "Add a restricted_at timestamp on users. Routes: POST /privacy/restrict, POST /privacy/restrict/release. A restricted user is read-only: tenants cannot pay (graceful 'account on hold' message), landlords cannot edit. Global scope on User + a Gate::before hook denies write-side abilities while restricted. Tests pin all three states (active, restricted, released)."
+    },
+    {
+      "id": "BREACH-5",
+      "title": "No incident-detection automation beyond manual reporting",
+      "severity": "MEDIUM",
+      "files": ["no IncidentDetector service", "no listeners on Failed-login / Authentication events"],
+      "evidence": "Phase-5 OBS-13 ships a failed_jobs growth monitor and Phase-5 RATE-8 ships account lockout. Neither produces a SecurityIncident. Patterns that should: 5+ different IPs hitting one account in 1h, 100+ failed signature webhooks from one IP, the BREACH-2 detection rules. The seed-rules list there is the same; this finding documents the listener-side that consumes the events.",
+      "fix": "Bound to BREACH-2's IncidentDetector. Wire listeners on Illuminate\\Auth\\Events\\Failed, on existing FailedWebhookSignature event, on AdminController::impersonate to inspect frequency. Each invokes the detector which decides whether to escalate."
+    },
+    {
+      "id": "BREACH-6",
+      "title": "No breach drill / tabletop exercise documented",
+      "severity": "MEDIUM",
+      "files": ["docs/runbooks/ (no breach-drill template)"],
+      "evidence": "Phase-12 added a DR drill cadence. Breach response has no equivalent. Without an annual tabletop exercise, the on-call rotation does not know whether the 72h clock can actually be met under realistic constraints (legal review, regulator forms, affected-subject email templates).",
+      "fix": "Add docs/runbooks/breach-drill.md with: simulated-incident scenario (e.g., 'a stolen laptop with .env on it'), the BREACH-1/3/4 invocation sequence, expected timeline against the 72h budget, post-drill review checklist. Cadence: annual, owner rotates from CISO/on-call."
+    },
+    {
+      "id": "BREACH-7",
+      "title": "No post-incident review process — 30-day follow-up is unspecified",
+      "severity": "MEDIUM",
+      "files": ["app/Models/SecurityIncident.php (no review_due_at column)"],
+      "evidence": "After a breach, ICO/ODPC expects a 30-day post-incident report covering root cause, mitigation, and changes preventing recurrence. SecurityIncident has no review_due_at field; no scheduled command surfaces overdue reviews; no template exists.",
+      "fix": "Add review_due_at to security_incidents (defaults to created_at + 30d). A weekly scheduled command lists incidents with review_due_at < now() AND review_completed_at IS NULL; routes the list to the operator email. docs/runbooks/breach-drill.md (BREACH-6) includes the review template."
+    },
+    {
+      "id": "BREACH-8",
+      "title": "Severity auto-classification — initiateBreachNotification accepts severity as arg, no auto-derivation",
+      "severity": "LOW",
+      "files": ["app/Services/KenyaDpaService.php:178-258"],
+      "evidence": "Severity (LOW/MEDIUM/HIGH/CRITICAL) is currently a free-string arg to initiateBreachNotification. Operators under stress will guess. A scoring rule on (affected_subject_count, sensitive_data_present, financial_data_present) would give consistent severity classification.",
+      "fix": "Add KenyaDpaService::classifySeverity(int $affectedCount, bool $sensitiveData, bool $financialData) returning an enum. Default severity is the classified value if caller doesn't override. Phase-3 helper."
+    },
+    {
+      "id": "DPA-5",
+      "title": "Article 21 objection beyond direct marketing — no general objection mechanism",
+      "severity": "MEDIUM",
+      "files": ["routes/web.php (no /privacy/object route)"],
+      "evidence": "Article 21 grants the right to object to processing based on legitimate interest or public interest. PropManager's lawful basis defaults are contract + legal_obligation (which aren't objectable), but legitimate_interests is one of the LAWFUL_BASES enumerated and could be picked. There is no objection route at all.",
+      "fix": "Once DPA-3 ships lawful-basis tagging, add a /privacy/object endpoint that lists processing operations marked legitimate_interests and lets the user object. Objection records as a special Consent withdrawal."
+    },
+    {
+      "id": "DPA-6",
+      "title": "containsSensitiveData is a helper with no enforcement at log capture",
+      "severity": "MEDIUM",
+      "files": ["app/Services/KenyaDpaService.php:54 (containsSensitiveData)"],
+      "evidence": "The method correctly returns categories present in an array, but is not called by Log::* call sites or by the Sentry breadcrumb sender. A handler that logs a $request payload containing national_id ships it to logs unmasked.",
+      "fix": "Add a Monolog processor that runs containsSensitiveData on the log context; mask matched fields with the existing DomainException sanitizer (PII_KEYS masking). Apply globally via config/logging.php tap. Sentry beforeSend hook does the same on Sentry envelopes."
+    },
+    {
+      "id": "DPA-7",
+      "title": "DPIA template generates but no process requires DPIA for new high-risk features",
+      "severity": "MEDIUM",
+      "files": ["app/Services/KenyaDpaService.php:259 (generateDpiaTemplate)"],
+      "evidence": "Article 35 / Section 31 requires a Data Protection Impact Assessment before any high-risk processing. The template-generator helper exists but no PR template / CI check / docs gate enforces it for new features touching sensitive_data categories.",
+      "fix": "Add a CONTRIBUTING.md / PR-template stub: 'If this PR introduces processing of any SENSITIVE_DATA_CATEGORIES (national_id, ethnic_origin, health_data, biometric, genetic, sex_life, sexual_orientation, political_opinion, religious_belief, trade_union_membership, criminal_record), attach a DPIA generated by KenyaDpaService::generateDpiaTemplate.' Optional CI grep that warns on new code referencing those categories without a DPIA-tagged commit message."
+    },
+    {
+      "id": "DPA-8",
+      "title": "Consent records have no retention enforcement (Phase-12 RETAIN-5 follow-up)",
+      "severity": "MEDIUM",
+      "files": ["app/Services/KenyaDpaService.php:416 (consent retention: 'consent + 3 years')", "no scheduled prune"],
+      "evidence": "KenyaDpaService documents 'Duration of consent + 3 years' retention for consent records. Phase-12 RETAIN-5 partial closed audit/security/dead-letter/webhook prunes but explicitly left consent records open. A withdrawn consent stays in the consents table forever today.",
+      "fix": "Add `--table=consent` to LogsPrune. Prune rows where withdrawn_at IS NOT NULL AND withdrawn_at < now() - 3y. Schedule daily. Active consents are never pruned."
+    },
+    {
+      "id": "DPA-9",
+      "title": "Privacy notice / DPA-required disclosures at point of collection are not audited",
+      "severity": "MEDIUM",
+      "files": ["resources/js/Pages/Auth/Register.vue (no Article 13 disclosure)", "no /legal/privacy-notice route content audit"],
+      "evidence": "Article 13 / Section 29 requires that at the point of data collection, the subject is informed of: controller identity, purposes, lawful basis, retention period, rights, cross-border transfers. The /legal/{type} route exists (ConsentController::view) but the content is operator-supplied; we have no in-repo template or audit confirming each registration / KYC / payment-config form actually presents the disclosure.",
+      "fix": "Add docs/legal/privacy-notice-template.md as the authoritative disclosure text. Audit each major collection form (Register, KYC, PaymentConfiguration) — assert the form references the privacy-notice URL with explicit acknowledgement. Where missing, add the acknowledgement checkbox and tie to a Consent record."
+    },
+    {
+      "id": "DPA-10",
+      "title": "Children's data special handling (DPA Section 33) not differentiated",
+      "severity": "LOW",
+      "files": ["app/Models/User.php (no minor flag)"],
+      "evidence": "Section 33 + Article 8 require additional consent (parental) for processing personal data of children under 13 (UK / 16 EU). PropManager has no date_of_birth field on User and no flag preventing minor accounts. Likely no minors register today (B2B SaaS for landlords), but tenants can be any age. A 16-year-old tenant signing a lease through PropManager has no special protection.",
+      "fix": "Document the assumption: 'PropManager does not knowingly accept tenants under 18; landlords accepting a minor lease must record the parental-consent artefact out-of-band'. Add a tenant_dob field on KYC submission and refuse acceptance under 18 unless an explicit parental_consent_artefact_url is supplied. This is a policy-and-form question, not a deep code change."
+    }
+  ],
+  "phases": {
+    "phase_1": {
+      "title": "Critical: wire breach notification end-to-end (BREACH-1/2/3/4)",
+      "scope": "BREACH-1, BREACH-2, BREACH-3, BREACH-4",
+      "rationale": "Highest regulator-exposure cluster. End-to-end breach response is the single most likely audit finding to draw a fine. Phase 1 makes the existing service callable, seeds automated detection, starts the 72-hour clock, and reaches affected subjects."
+    },
+    "phase_2": {
+      "title": "Critical: extend the DPA rights surface (DPA-1/2/3/4)",
+      "scope": "DPA-1, DPA-2, DPA-3, DPA-4",
+      "rationale": "All-types consent withdrawal, cross-border validation, lawful-basis tagging, Article 18 restriction. Each is independently shipable but they share a model (Consent / User) so a single commit is cleanest."
+    },
+    "phase_3": {
+      "title": "Medium: DPA + BREACH polish (DPA-5/6/7/8/9 + BREACH-5/6/7)",
+      "scope": "DPA-5, DPA-6, DPA-7, DPA-8, DPA-9, BREACH-5, BREACH-6, BREACH-7",
+      "rationale": "Objection mechanism, log-capture masking, DPIA process, consent retention, privacy notice audit, detection listener wiring, drill cadence, post-incident review."
+    },
+    "phase_4": {
+      "title": "LOW: severity auto-classification + minor flag (BREACH-8 + DPA-10)",
+      "scope": "BREACH-8, DPA-10",
+      "rationale": "Polish + policy-doc finding."
+    }
+  },
+  "out_of_scope": [
+    "Dependency supply-chain audit beyond CVE bumps — own phase",
+    "Accessibility (WCAG 2.2) — own phase",
+    "I18N / localisation beyond Kenyan English — own phase",
+    "Phase-12 deferred items (notifications/KYC retention, full restore automation, binlog PITR) — explicit Phase-12 deferrals, will be re-audited later"
+  ],
+  "metadata": {
+    "total_findings": 18,
+    "high": 8,
+    "medium": 8,
+    "low": 2
+  }
+}
