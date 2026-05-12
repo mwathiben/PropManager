@@ -53,6 +53,29 @@ $schedule('tenant-invitations:cleanup', fn ($e) => $e->dailyAt('02:30'));
 $schedule('idempotency:cleanup', fn ($e) => $e->dailyAt('03:00'));
 $schedule('reconciliation:run-daily', fn ($e) => $e->dailyAt('04:00'));
 
+// Phase-12 RETAIN-1/2: prune append-only log tables past their
+// configured retention window. config/security.php defines the
+// windows; this is the consumer. Pruning is chunked (1000 rows per
+// batch) so a multi-million-row prune doesn't lock either table.
+$schedule('logs:prune --table=audit --confirm', fn ($e) => $e->dailyAt('03:30'));
+$schedule('logs:prune --table=security --confirm', fn ($e) => $e->dailyAt('03:35'));
+
+// Phase-12 RETAIN-3: GDPR Article 17 deletion request processor.
+// Command existed pre-Phase-12 (ProcessScheduledDeletions) but was
+// never scheduled — deletion requests were marked then never
+// actioned. Daily at 02:45 sits inside the existing 02:00-04:00
+// nightly maintenance window.
+$schedule('gdpr:process-deletions', fn ($e) => $e->dailyAt('02:45'));
+
+// Phase-12 BACKUP-1: spatie/laravel-backup scheduling. backup:clean
+// applies the GFS retention from config/backup.php. backup:run
+// produces the daily backup. backup:monitor checks health (age +
+// size thresholds) and notifies on failure. Phase 2 refines the
+// retention policy further.
+$schedule('backup:clean', fn ($e) => $e->dailyAt('01:00'));
+$schedule('backup:run', fn ($e) => $e->dailyAt('01:30'));
+$schedule('backup:monitor', fn ($e) => $e->dailyAt('06:30'));
+
 // Process queued offline payment intents every minute
 $queuedIntents = Schedule::job(new \App\Jobs\ProcessQueuedPaymentIntents)
     ->everyMinute()
