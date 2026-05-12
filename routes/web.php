@@ -939,6 +939,13 @@ Route::middleware('auth')->group(function () {
         Route::post('/restrict/release', [GdprController::class, 'releaseRestriction'])
             ->middleware('throttle:sensitive')
             ->name('release-restriction');
+
+        // Phase-13 DPA-5: Article 21 right to object. Records an
+        // objection to a legitimate_interests processing operation.
+        // The catalog of objectable categories is in
+        // ConsentController::OBJECTABLE_CATEGORIES.
+        Route::post('/object', [ConsentController::class, 'objectToProcessing'])
+            ->name('object');
     });
 });
 

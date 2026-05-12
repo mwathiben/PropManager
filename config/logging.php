@@ -63,6 +63,10 @@ return [
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,
+            // Phase-13 DPA-6: globally mask PII / sensitive-data
+            // categories in log context. Defence-in-depth on top of
+            // DomainException::sanitizeForLogging.
+            'tap' => [\App\Logging\TapMaskingProcessor::class],
         ],
 
         'daily' => [
@@ -71,6 +75,7 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => env('LOG_DAILY_DAYS', 14),
             'replace_placeholders' => true,
+            'tap' => [\App\Logging\TapMaskingProcessor::class],
         ],
 
         'slack' => [
@@ -143,6 +148,8 @@ return [
             'level' => 'debug',
             'days' => env('SECURITY_LOG_RETENTION_DAYS', 90),
             'replace_placeholders' => true,
+            // Phase-13 DPA-6.
+            'tap' => [\App\Logging\TapMaskingProcessor::class],
         ],
 
         /*

@@ -168,6 +168,49 @@ class ConsentController extends Controller
     }
 
     /**
+     * Phase-13 DPA-5: Article 21 right to object. Object to a
+     * processing operation that is grounded on legitimate_interests.
+     * Contract / legal_obligation bases are not objectable (the
+     * underlying lease or AML obligation cannot be unilaterally
+     * paused by the data subject), so the controller validates
+     * the operation against OBJECTABLE_CATEGORIES — the lawful_basis
+     * tagging from DPA-3 is the authority for this list.
+     *
+     * The objection is recorded as a Consent row with a special
+     * objection: prefix so it shows up in the user's consent history
+     * and can be enumerated by the operator + ODPC during audit.
+     */
+    public function objectToProcessing(Request $request)
+    {
+        $validated = $request->validate([
+            'category' => [
+                'required',
+                'string',
+                'in:'.implode(',', self::OBJECTABLE_CATEGORIES),
+            ],
+            'reason' => 'required|string|max:1000',
+        ]);
+
+        $consentType = 'objection:'.$validated['category'];
+        $user = $request->user();
+
+        // Use the existing Consent::record path so audit logging,
+        // version stamping, and prior-withdrawal handling are all
+        // consistent with marketing/data_processing flows.
+        $consent = Consent::record($user, $consentType, '1.0', [
+            'reason' => $validated['reason'],
+            'compliance' => 'gdpr_article_21',
+        ]);
+        // Immediately mark the recorded objection as effective.
+        $consent->update([
+            'is_granted' => false,
+            'withdrawn_at' => now(),
+        ]);
+
+        return back()->with('success', 'Your objection has been recorded. Processing of this category will be reviewed by the controller.');
+    }
+
+    /**
      * Consent types that can be withdrawn via DPA-1 generic withdrawal.
      * Mandatory consents (terms_of_service, privacy_policy) are not
      * included — withdrawing those would block all account use, so the
@@ -180,5 +223,20 @@ class ConsentController extends Controller
         'cookies',
         'analytics',
         'profile_analytics',
+    ];
+
+    /**
+     * Phase-13 DPA-5: processing categories that can be objected to.
+     * Only legitimate_interests-grounded operations are objectable.
+     * Contract and legal_obligation operations (leases, payments,
+     * KYC) are NOT in this list — the data subject cannot
+     * unilaterally pause those without breaking the legal/contractual
+     * basis that supports them.
+     */
+    public const OBJECTABLE_CATEGORIES = [
+        'analytics',
+        'profile_enrichment',
+        'usage_telemetry',
+        'marketing_analysis',
     ];
 }
