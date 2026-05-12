@@ -448,7 +448,19 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Validate that critical security settings are properly configured in production.
+     * Phase-11 DEPLOY-2 / SECRETS-{1,2,3,6,7}: production-config
+     * validator now splits into two tiers:
+     *
+     *  - CRITICAL: throw RuntimeException so the app refuses to boot.
+     *    A misconfigured prod that ships will leak secrets, send mail
+     *    nowhere, or run unencrypted sessions. Failing-closed is the
+     *    only acceptable answer.
+     *
+     *  - WARNING: log to the security channel. After OBS-1 the security
+     *    channel flows to Sentry, so warnings escalate to ops alerts.
+     *
+     * The phase-5 OBS-1 / CRYPTO-11 / CRYPTO-12 hooks are all guarded
+     * here so a deploy that forgets to flip a flag fails fast.
      */
     protected function validateProductionSecurity(): void
     {
@@ -456,37 +468,88 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
+        $critical = $this->collectCriticalProductionMisconfig();
+        if ($critical !== []) {
+            $first = $critical[0];
+            // Surface all failures to logs first so the dump in the
+            // exception is the tip of the iceberg, not the only signal.
+            foreach ($critical as $msg) {
+                Log::channel('security')->error('[SECURITY CONFIG CRITICAL] '.$msg);
+            }
+
+            throw new \RuntimeException(
+                'PRODUCTION REFUSE-TO-BOOT: '.$first.
+                (count($critical) > 1 ? ' (and '.(count($critical) - 1).' more — see security log)' : '')
+            );
+        }
+
+        foreach ($this->collectProductionWarnings() as $msg) {
+            Log::channel('security')->error('[SECURITY CONFIG WARNING] '.$msg);
+        }
+    }
+
+    /**
+     * Misconfigs that MUST fail boot. Any one of these in production
+     * means real harm — silent data loss, plaintext session cookies on
+     * the wire, etc.
+     *
+     * @return array<int, string>
+     */
+    protected function collectCriticalProductionMisconfig(): array
+    {
+        $errors = [];
+
+        // SECRETS-1: APP_KEY empty -> Crypt::* throws on every encrypted
+        // column read/write -> entire app effectively dead. Fail closed.
+        if (empty(config('app.key'))) {
+            $errors[] = 'APP_KEY is empty. Encrypted columns (payment configs, KYC, 2FA secrets) are unreadable.';
+        }
+
+        // SECRETS-2: APP_DEBUG=true outside local exposes stack traces
+        // (with env values) to the browser. The previous validator only
+        // caught environment('production'); staging/uat with debug=true
+        // is also harmful.
+        if (config('app.debug') && config('app.env') !== 'local') {
+            $errors[] = 'APP_DEBUG=true with APP_ENV='.config('app.env').'. Stack traces leak secrets to clients.';
+        }
+
+        // DEPLOY-2 / SECRETS-6: unencrypted or insecure cookies = session
+        // hijack vector. Both must be on in production.
+        if (! config('session.encrypt')) {
+            $errors[] = 'SESSION_ENCRYPT is disabled. Session payloads must be encrypted in production.';
+        }
+        if (! config('session.secure')) {
+            $errors[] = 'SESSION_SECURE_COOKIE is disabled. Cookies must be HTTPS-only in production.';
+        }
+
+        // SECRETS-7: MAIL_MAILER=log silently drops every transactional
+        // email (rent reminders, payment receipts, KYC). Failure is
+        // invisible until tenant complaints.
+        $mailer = config('mail.default');
+        if (in_array($mailer, ['log', 'array'], true)) {
+            $errors[] = 'MAIL_MAILER='.$mailer.'. Transactional email is discarded; configure smtp/mailgun/ses.';
+        }
+
+        return $errors;
+    }
+
+    /**
+     * Non-fatal but ops-actionable misconfigs. Logged at error level so
+     * the OBS-1 Sentry channel mapping catches them.
+     *
+     * @return array<int, string>
+     */
+    protected function collectProductionWarnings(): array
+    {
         $warnings = [];
 
-        // Check debug mode
-        if (config('app.debug')) {
-            $warnings[] = 'APP_DEBUG is enabled in production! This exposes sensitive information.';
-        }
-
-        // Check session encryption
-        if (! config('session.encrypt')) {
-            $warnings[] = 'SESSION_ENCRYPT is disabled. Sessions should be encrypted in production.';
-        }
-
-        // Check HTTPS/secure cookies
-        if (! config('session.secure')) {
-            $warnings[] = 'SESSION_SECURE_COOKIE is disabled. Cookies should be secure in production.';
-        }
-
-        // Check HSTS
+        // Existing HSTS check kept as warning — sites behind a CDN can
+        // reasonably defer HSTS to the edge.
         if (! config('security.headers.hsts_enabled')) {
             $warnings[] = 'HSTS is disabled. Enable it for HTTPS-only enforcement.';
         }
 
-        // Check app key
-        if (empty(config('app.key'))) {
-            $warnings[] = 'APP_KEY is not set! Application encryption will not work.';
-        }
-
-        // CRYPTO-12: refuse to start with the committed Reverb placeholder
-        // values still in env. The .env.example now ships blanks; if a
-        // production env still has the historical 'your-secret-key-here'
-        // string something went wrong with the deploy.
+        // CRYPTO-12 (already shipped): refuse the historic Reverb placeholder.
         $reverbSecret = (string) config('reverb.apps.apps.0.secret', '');
         $reverbKey = (string) config('reverb.apps.apps.0.key', '');
         $placeholderValues = ['your-secret-key-here', 'propmanager-key'];
@@ -497,16 +560,12 @@ class AppServiceProvider extends ServiceProvider
             }
         }
 
-        // Log warnings
-        foreach ($warnings as $warning) {
-            Log::channel('security')->warning('[SECURITY CONFIG] '.$warning);
+        // DEPLOY-3 / SECRETS-3: Phase-5 OBS-1 wired Sentry but the SDK
+        // no-ops when SENTRY_LARAVEL_DSN is empty. Surface that.
+        if (empty(config('sentry.dsn'))) {
+            $warnings[] = 'SENTRY_LARAVEL_DSN is empty. Error tracking is a silent no-op; OBS-1 has no production effect.';
         }
 
-        // In strict mode, throw exception for critical issues
-        if (config('app.debug') && $this->app->environment('production')) {
-            throw new \RuntimeException(
-                'CRITICAL: Debug mode is enabled in production. Set APP_DEBUG=false in your .env file.'
-            );
-        }
+        return $warnings;
     }
 }
