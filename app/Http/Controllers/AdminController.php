@@ -18,7 +18,27 @@ use Inertia\Inertia;
 
 class AdminController extends Controller
 {
-    public function __construct(private readonly SecurityLogger $securityLogger) {}
+    public function __construct(private readonly SecurityLogger $securityLogger)
+    {
+        // Phase-18 AUTHZ-3: route through Gate::authorize('access-admin')
+        // instead of inline isSuperAdmin() checks scattered across each
+        // action. Two effects:
+        //   - Phase-13 DPA-4 Gate::before restriction now applies (a
+        //     DPA-restricted super-admin was previously NOT actually
+        //     restricted because the inline check bypassed the Gate
+        //     layer)
+        //   - Future authorization concerns (2FA, IP allowlist, etc.)
+        //     attach to one Gate definition rather than 10+ inline
+        //     checks
+        // The 'impersonate' / 'admin.disable-impersonate' paths retain
+        // their own per-action Gate::allows('impersonate', $target)
+        // because they pass a target.
+        $this->middleware(function ($request, $next) {
+            \Illuminate\Support\Facades\Gate::authorize('access-admin');
+
+            return $next($request);
+        })->except(['stopImpersonating']);
+    }
 
     /**
      * Display the list of all landlords.

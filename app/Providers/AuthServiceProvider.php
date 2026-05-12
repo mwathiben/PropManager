@@ -163,31 +163,16 @@ class AuthServiceProvider extends ServiceProvider
             return $user->isSuperAdmin() || $user->isLandlord();
         });
 
-        // Gate for managing caretakers
-        Gate::define('manage-caretakers', function ($user) {
-            return $user->isLandlord();
-        });
-
-        // Gate for generating invoices
-        Gate::define('generate-invoices', function ($user) {
-            return $user->isLandlord() || $user->isCaretaker();
-        });
-
-        // Gate for bulk operations
-        Gate::define('perform-bulk-operations', function ($user) {
-            return $user->isLandlord() && $user->canAccessFeature('bulk_operations');
-        });
-
-        // Gate for accessing reports
-        Gate::define('access-reports', function ($user) {
-            return ($user->isLandlord() || $user->isCaretaker())
-                && $user->canAccessFeature('reports');
-        });
-
-        // Gate for managing subscriptions
-        Gate::define('manage-subscription', function ($user) {
-            return $user->isLandlord();
-        });
+        // Phase-18 AUTHZ-1: removed 5 dead Gates that had zero call
+        // sites across app/ + resources/:
+        //   manage-caretakers (covered by role:landlord middleware)
+        //   generate-invoices (covered by role:landlord,caretaker middleware)
+        //   perform-bulk-operations (covered by role:landlord + feature gate)
+        //   access-reports (covered by role:landlord,caretaker + feature gate)
+        //   manage-subscription (covered by role:landlord middleware)
+        // Re-adding any of these requires a corresponding Gate::allows /
+        // $this->authorize() call site — orphan Gates create a misleading
+        // 'authorization is comprehensive' impression for security review.
 
         // Gate for data export (GDPR)
         Gate::define('export-data', function ($user) {
