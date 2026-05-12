@@ -486,6 +486,16 @@ class AppServiceProvider extends ServiceProvider
         foreach ($this->collectProductionWarnings() as $msg) {
             Log::channel('security')->error('[SECURITY CONFIG WARNING] '.$msg);
         }
+
+        // Phase-13 DPA-2: cross-border-transfer validation at boot.
+        // Section 48 of the Kenya DPA / Article 44 of GDPR require
+        // adequate-protection safeguards for any transfer of personal
+        // data outside the destination country. The KenyaDpaService::
+        // canTransferCrossBorder helper has existed with zero callers;
+        // this loop wires the call sites that matter most at boot.
+        foreach ($this->collectCrossBorderTransferWarnings() as $msg) {
+            Log::channel('security')->error('[KENYA DPA SECTION 48] '.$msg);
+        }
     }
 
     /**
@@ -600,5 +610,124 @@ class AppServiceProvider extends ServiceProvider
         }
 
         return $warnings;
+    }
+
+    /**
+     * Phase-13 DPA-2: cross-border-transfer warnings. Returns one
+     * string per detected transfer to a non-adequate-protection
+     * destination. Strings are routed through the KENYA DPA SECTION
+     * 48 log prefix so Sentry's OBS-1 channel captures them but they
+     * do not block boot (warning-level, not critical).
+     *
+     * Three boundaries are inspected: S3 backup destination region,
+     * uploads disk region (when an S3-like disk is the default),
+     * and the Sentry DSN host.
+     *
+     * @return array<int, string>
+     */
+    protected function collectCrossBorderTransferWarnings(): array
+    {
+        // Outside production we don't run this — local dev points at
+        // localhost everywhere and the noise would drown signal.
+        if (! $this->app->environment('production')) {
+            return [];
+        }
+
+        $warnings = [];
+        $dpa = $this->app->make(\App\Services\KenyaDpaService::class);
+
+        // (a) S3 region for the laravel-backup destination.
+        $backupDisks = (array) config('backup.backup.destination.disks', []);
+        foreach ($backupDisks as $diskName) {
+            $diskRegion = (string) config("filesystems.disks.{$diskName}.region", '');
+            $country = $this->awsRegionToCountryCode($diskRegion);
+            if ($country !== null) {
+                $check = $dpa->canTransferCrossBorder($country);
+                if (! $check['allowed']) {
+                    $warnings[] = "Backup disk '{$diskName}' region={$diskRegion} resolves to country={$country} which lacks DPA Section 48 adequate-protection. Add SCCs, BCRs, or explicit consent before going live.";
+                }
+            }
+        }
+
+        // (b) Default uploads disk (FILESYSTEM_DISK) when it's an
+        // S3-like region-bearing disk.
+        $defaultDisk = (string) config('filesystems.default', 'local');
+        if ($defaultDisk !== 'local') {
+            $region = (string) config("filesystems.disks.{$defaultDisk}.region", '');
+            $country = $this->awsRegionToCountryCode($region);
+            if ($country !== null) {
+                $check = $dpa->canTransferCrossBorder($country);
+                if (! $check['allowed']) {
+                    $warnings[] = "Default uploads disk '{$defaultDisk}' region={$region} resolves to country={$country} which lacks DPA Section 48 adequate-protection.";
+                }
+            }
+        }
+
+        // (c) Sentry DSN host. EU-region Sentry SaaS hosts contain
+        // 'de.' or '.eu' in the ingest host; everything else from
+        // sentry.io is the US ingestor (non-adequate). Self-hosted
+        // DSNs are operator-managed and we don't warn on those.
+        $sentryDsn = (string) config('sentry.dsn', '');
+        if ($sentryDsn !== '') {
+            $host = parse_url($sentryDsn, PHP_URL_HOST) ?: '';
+            $sentryCountry = $this->sentryHostToCountryCode($host);
+            if ($sentryCountry !== null) {
+                $check = $dpa->canTransferCrossBorder($sentryCountry);
+                if (! $check['allowed']) {
+                    $warnings[] = "Sentry DSN host={$host} resolves to country={$sentryCountry} which lacks DPA Section 48 adequate-protection. Switch to a Sentry EU project or self-hosted DSN.";
+                }
+            }
+        }
+
+        return $warnings;
+    }
+
+    /**
+     * Map an AWS region code to an ISO 3166-1 country code, leaving
+     * unknown regions as null (no warning). Conservative: missing
+     * regions are silent (we'd rather under-warn than spam ops with
+     * false positives for self-hosted S3 alternatives).
+     */
+    protected function awsRegionToCountryCode(string $region): ?string
+    {
+        return match (true) {
+            $region === '' => null,
+            str_starts_with($region, 'us-') => 'US',
+            str_starts_with($region, 'ca-') => 'CA',
+            str_starts_with($region, 'eu-') => 'EU',
+            str_starts_with($region, 'af-south-') => 'ZA',
+            str_starts_with($region, 'ap-northeast-1') => 'JP',
+            str_starts_with($region, 'ap-northeast-2') => 'KR',
+            str_starts_with($region, 'ap-northeast-3') => 'JP',
+            str_starts_with($region, 'ap-south-') => 'IN',
+            str_starts_with($region, 'ap-southeast-3') => 'ID',
+            str_starts_with($region, 'ap-southeast-') => 'SG',
+            str_starts_with($region, 'me-') => 'AE',
+            str_starts_with($region, 'sa-') => 'BR',
+            default => null,
+        };
+    }
+
+    /**
+     * Heuristic mapping of Sentry SaaS DSN host to country code. Self-
+     * hosted DSNs are intentionally unmapped (we don't know their
+     * locale). The EU subdomain (`de.`, `ingest.de.`) is reliable
+     * because that's the Sentry EU SaaS naming convention.
+     */
+    protected function sentryHostToCountryCode(string $host): ?string
+    {
+        $host = strtolower($host);
+        if ($host === '') {
+            return null;
+        }
+        if (str_contains($host, '.de.sentry.io') || str_starts_with($host, 'de.sentry.io')
+            || str_contains($host, 'de.ingest.sentry.io')) {
+            return 'EU';
+        }
+        if (str_ends_with($host, '.sentry.io') || $host === 'sentry.io') {
+            return 'US';
+        }
+
+        return null;
     }
 }
