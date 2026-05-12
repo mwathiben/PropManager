@@ -213,5 +213,35 @@
     "high": 7,
     "medium": 9,
     "low": 2
+  },
+  "closeout": {
+    "audited": "2026-05-12",
+    "commits": {
+      "phase_1": {
+        "sha": "f624e9e",
+        "findings": ["BACKUP-1", "RETAIN-1", "RETAIN-2", "RETAIN-3"],
+        "summary": "Installed spatie/laravel-backup; published config; scheduled backup:run + backup:clean + backup:monitor. New LogsPrune command + 7 tests prunes audit_logs and security_logs past their configured retention windows. Scheduled ProcessScheduledDeletions (gdpr:process-deletions) which existed but was never wired."
+      },
+      "phase_2": {
+        "sha": "ccad383",
+        "findings": ["BACKUP-2", "BACKUP-3", "BACKUP-4", "RETAIN-4"],
+        "summary": "New backup:verify command (cheap archive integrity check beyond backup:monitor). config/backup.php retention curve aligned with DATA_RETENTION_YEARS=7 (14d/12w/24m/7y, 20GB soft cap). docs/runbooks/disaster-recovery.md with RPO/RTO targets + restore drill procedure. New SoftDeletedPurge command + 4 tests force-deletes soft-deleted rows past grace window."
+      },
+      "phase_3": {
+        "sha": "2d14ced",
+        "findings": ["BACKUP-5", "BACKUP-6", "BACKUP-7", "RETAIN-5_partial", "RETAIN-6", "RETAIN-7", "RETAIN-8"],
+        "summary": "Validator FILESYSTEM_DISK=local warning. APP_KEY escrow section added to key-rotation.md. Redis durability mitigation contract added to disaster-recovery.md. LogsPrune extended for resolved webhook_dead_letters using the previously-dead config('payments.dead_letter.retention_days'). DataExportService::cleanupOldExports wired into schedule. KenyaDpaService docblock now lists the current per-category enforcement matrix and flags the still-missing pieces."
+      },
+      "phase_4": {
+        "sha": "d496876",
+        "findings": ["BACKUP-8", "RETAIN-9", "RETAIN-10"],
+        "summary": "docs/runbooks/dr-drill-log.md quarterly-drill template (Kenya DPA Section 41 compliance artefact). queue:prune-failed scheduled (pairs with Phase-5 OBS-13 alerter). LogsPrune extended for webhook_logs and bank_webhook_logs (180-day retention)."
+      }
+    },
+    "deferred_work": {
+      "RETAIN-5_full": "Unified dpa:enforce-retention orchestrator command that walks KenyaDpaService::getRetentionRequirements and drives per-category purges across notifications (1y), consent records (consent+3y), and KYC photos beyond lease+7y. Today these three categories have no automated enforcement; the rest of the matrix is covered. KenyaDpaService docblock documents the gap.",
+      "BACKUP-2_full_restore": "backup:verify ships cheap archive-integrity checks. Full restore-to-throwaway-schema rehearsal remains an operator quarterly responsibility (procedure documented in disaster-recovery.md). Automating the full restore would require a sidecar test DB plus MySQL client in the deploy environment; non-trivial.",
+      "BACKUP-4_binlog_pitr": "Current RPO is 24h (daily backup cadence). Sub-hour RPO requires MySQL binlog streaming to a separate region. Deferred to a future infrastructure phase."
+    }
   }
 }
