@@ -1,0 +1,212 @@
+{
+  "project": "PropManager",
+  "audit_cycle": "phase-14",
+  "audit_date": "2026-05-12",
+  "scope": "Defensive audit of supply-chain controls (SUPPLY) and observability beyond Sentry capture (OBSERV). Phase 5 OBS-1 wired Sentry capture; Phase 11 shipped the deploy pipeline; Phase 13 closed the regulator-inspectable layer. Phase 14 closes the question 'did you detect the breach in time?' — observability gaps make incident response slow even when the controls themselves work — and 'did you ship a dependency CVE?' — the composer.lock has 13k+ lines with zero CI audit gate today.",
+  "context_baseline": {
+    "previous_audits": [
+      "Phase 1-5 (core security categories) + 10A/10B (mass-assign + file-upload + webhook payload encryption)",
+      "Phase 11 (DEPLOY + SECRETS, 21 findings): deploy pipeline + WebhookRotateSecret + production-config validator",
+      "Phase 12 (BACKUP + RETAIN, 18 findings): backup automation + retention enforcement",
+      "Phase 13 (DPA + BREACH, 18 findings): regulator-inspectable layer — consent withdrawal, lawful-basis tagging, restriction, breach SLA, IncidentDetector, affected-subject notification"
+    ],
+    "do_not_reflag": "Phase-5 OBS-1 already wired sentry/sentry-laravel + DomainException::report → Sentry::captureException. Phase-5 OBS-10 shipped AddRequestId middleware. Phase-5 OBS-11 shipped MetricsService. Phase-5 OBS-13 shipped failed_jobs growth monitor. Phase-12 BACKUP-1/2 shipped spatie/laravel-backup. Phase-11 DEPLOY-2 shipped the deploy workflow. Phase 14 builds on top — extending what exists, not rebuilding it."
+  },
+  "qualityStandards": {
+    "test": "All Phase-14 fixes must pass `php artisan test --parallel` and `vendor/bin/pint --test`.",
+    "ci": "Each commit must land on main with green CI before the next phase starts.",
+    "no_breaking_change": "Wiring SBOM / dependency audits at the CI gate may surface real CVEs in transitive packages — those are LANDING findings (block deploy until upgraded), not Phase 14 findings. Phase 14 ships the gate; upgrades are operator-followup."
+  },
+  "feedbackLoops": {
+    "lint": "vendor/bin/pint --test",
+    "test_focused": "php artisan test --filter='<keyword>'",
+    "test_full": "php artisan test --parallel",
+    "ci_watch": "gh run list --limit 1 --branch main --json status,conclusion"
+  },
+  "categories": {
+    "SUPPLY": {
+      "description": "Dependency supply-chain controls. composer.lock has 13k+ lines, package.json carries axios/marked/leaflet/pinia/vue with no audit gate, and no automation auto-PRs security updates. A CVE landing in any transitive package today ships to production undetected for as long as the operator doesn't manually run `composer audit`. Phase 14 closes the gate at CI time + automates the PR flow.",
+      "count": 8
+    },
+    "OBSERV": {
+      "description": "Observability beyond OBS-1. Sentry capture exists for exceptions, MetricsService records counters into Redis, AddRequestId stamps each HTTP request, health-check covers DB/Redis/Queue/DLQ. What's missing: an external scraper endpoint (Prometheus can't pull MetricsService data today), Sentry release tagging (errors can't be attributed to commit), external-API reachability checks, request-id propagation through queued jobs, SLO documentation, distributed tracing wired (traces_sample_rate=0 default), structured logging spec, and alert-threshold documentation. Most of these are 'wire the existing helper into the visible-to-ops path' rather than new infrastructure.",
+      "count": 10
+    }
+  },
+  "items": [
+    {
+      "id": "SUPPLY-1",
+      "title": "No automated dependency-update PRs — security fixes wait for operator attention",
+      "severity": "HIGH",
+      "files": [".github/dependabot.yml (does not exist)", ".github/renovate.json (does not exist)"],
+      "evidence": "Find . -maxdepth 3 -name 'dependabot*' -o -name 'renovate*' returns nothing. composer audit + npm audit must currently be run manually. Phase-5 cleanup commit 2cea799 (composer CVE bumps × 9) was triggered by an operator running the audit by hand. The 9-CVE bump took a same-day push but the gap window was unbounded.",
+      "fix": "Add .github/dependabot.yml with weekly schedule for composer + npm + github-actions ecosystems. Group security-only updates separately from minor/major bumps (security PRs auto-approved/auto-merged after CI; bumps require human review). Allowlist of trusted PR mergers needed."
+    },
+    {
+      "id": "SUPPLY-2",
+      "title": "composer audit not gated in CI — transitive CVEs ship undetected",
+      "severity": "HIGH",
+      "files": [".github/workflows/ci.yml (no composer-audit job)"],
+      "evidence": "grep 'composer audit' .github/workflows/* returns nothing. composer.lock contains 13k+ lines pinning hundreds of transitives. The Phase-5 cleanup commit 2cea799 found 9 CVEs across them — without an audit gate, the next 9 CVEs land in production undetected.",
+      "fix": "Add a 'Composer Audit' job to ci.yml running `composer audit --no-dev --locked --format=plain`. Fail on any HIGH or CRITICAL advisory. MEDIUM and below produce a warning (visible in PR comments) but don't block. The job is non-blocking on `main` (warn-only) so an active CVE doesn't wedge unrelated work, but gating on PRs."
+    },
+    {
+      "id": "SUPPLY-3",
+      "title": "npm audit not gated in CI — JS dependency CVEs ship undetected",
+      "severity": "HIGH",
+      "files": [".github/workflows/ci.yml (no npm-audit job)"],
+      "evidence": "Same as SUPPLY-2 but for the JS surface — package-lock.json carries vue/vite/leaflet/marked transitives. Phase-5 cleanup f27af25 (postcss XSS via npm audit fix) was a manual operator run. Same operator-attention dependency as SUPPLY-1.",
+      "fix": "Add 'NPM Audit' job to ci.yml: `npm audit --audit-level=high`. Same warn-on-main / block-on-PR pattern. Optionally `--production` flag to skip dev-only transitives."
+    },
+    {
+      "id": "OBSERV-1",
+      "title": "MetricsService has no external scraper endpoint — Prometheus can't pull",
+      "severity": "HIGH",
+      "files": ["app/Services/MetricsService.php (snapshot() exists)", "routes/api.php (no /metrics route)"],
+      "evidence": "MetricsService::snapshot reads a Redis hash and returns the counters, but nothing exposes that over HTTP. grep 'metrics' routes/ finds only one unrelated route (/reports/metrics → finances.reports). The OBS-11 docblock anticipates 'a Prometheus exporter' but the exporter was never wired. Ops dashboards built today have nothing to scrape.",
+      "fix": "Add GET /api/v1/metrics returning Prometheus exposition format (text/plain; version=0.0.4). Each MetricsService counter becomes a Counter; the date-bucket is dropped from the field name. Endpoint gated by an env-controlled allowlist (METRICS_ALLOW_IPS) + optional bearer token (METRICS_BEARER) so it can be public-Prometheus-scrape-able OR private-network-only depending on infra."
+    },
+    {
+      "id": "OBSERV-2",
+      "title": "Sentry release version not stamped — errors can't be attributed to commit",
+      "severity": "HIGH",
+      "files": ["config/sentry.php", "scripts/deploy.sh (no SENTRY_RELEASE export)"],
+      "evidence": "config/sentry.php has the standard 'release' config key but reads only env('SENTRY_RELEASE'). The deploy script never exports SENTRY_RELEASE — it has $TARGET_SHA already, but doesn't push it into the env. Sentry's release-tagging feature is unused: a JS error from yesterday looks the same as one from a week-old release. Regression attribution requires manual commit-archaeology.",
+      "fix": "scripts/deploy.sh writes SENTRY_RELEASE=$TARGET_SHA to a deploy-time env file (or to .env directly) before php artisan config:cache. config/sentry.php defaults release to env('SENTRY_RELEASE', git_short_sha()) — falls back to a runtime read of HEAD when env is unset (dev). Verify via tinker `\\Sentry\\State\\Hub::getCurrent()->getOptions()->getRelease()`."
+    },
+    {
+      "id": "OBSERV-3",
+      "title": "No external-API reachability check — payment-gateway outages invisible to /up",
+      "severity": "HIGH",
+      "files": ["app/Http/Controllers/Api/HealthCheckController.php (DB/Redis/Queue/DLQ only)"],
+      "evidence": "HealthCheckController checks 4 things: DB, Redis, Queue, WebhookDeadLetter. Payment gateways (M-Pesa, Paystack, IntaSend) are external — and an outage on any of them effectively breaks the payment path. /up returns 200 'ok' while Paystack is unreachable. PaymentHealthService exists (referenced from payments() method) but isn't part of the main probe.",
+      "fix": "Extend HealthCheckController::index with a fifth check 'external_apis' that pings the configured gateways via lightweight reachability check (DNS + TCP, NOT a real API call). Threshold: at least one gateway up = degraded; all down = failure. Wire PaymentHealthService::check(true) where ping=true means quick HEAD probe."
+    },
+    {
+      "id": "OBSERV-4",
+      "title": "Request-ID does not propagate through queued jobs — correlation breaks at job boundary",
+      "severity": "HIGH",
+      "files": ["app/Http/Middleware/AddRequestId.php (Log::withContext only)"],
+      "evidence": "AddRequestId calls Log::withContext(['request_id' => $id]) which is process-local. When a job dispatches inside the request, the job runs in a different process and the context is empty. Correlating 'invoice sent' → 'email queued' → 'email delivered' across the queue today requires re-grepping by timestamp.",
+      "fix": "AddRequestId stamps the request_id onto a context attribute. A new BaseJob trait + Job middleware reads X-Request-Id from job payload metadata and re-applies Log::withContext in handle(). Existing jobs need light refactor to pass the id through their constructor (or use the queue's job-context bag added in Laravel 11). Pin one canonical pattern with a single example refactor (e.g., SendInvoiceEmail) so future jobs follow."
+    },
+    {
+      "id": "SUPPLY-4",
+      "title": "No SBOM generation — regulator + auditor have no inventory",
+      "severity": "MEDIUM",
+      "files": [".github/workflows/ci.yml (no SBOM step)"],
+      "evidence": "An ODPC audit asking 'what third-party software processes Kenya tenant data?' requires manually grepping composer.lock + package-lock.json. No CycloneDX or SPDX file exists; no published per-release SBOM. Kenya DPA Section 25 obligations on data controllers include knowing the processing supply chain.",
+      "fix": "CI job emits cyclonedx-bom on tag push: `composer bom-build` (cyclonedx/cyclonedx-php-composer) + `cyclonedx-npm` for the JS side. Attach the SBOM to the GitHub release artefacts. Format: CycloneDX JSON. Retention: 7 years (matches financial records)."
+    },
+    {
+      "id": "OBSERV-5",
+      "title": "No SLO documentation — operators don't know what 'healthy' means quantitatively",
+      "severity": "MEDIUM",
+      "files": ["docs/runbooks/ (no slo.md)"],
+      "evidence": "Phase-12 BACKUP-2 added RPO/RTO targets in DR docs. No equivalent for the runtime stack: what's the target uptime, p95 latency for the payment endpoint, queue worker freshness budget? When `/up` shows 'degraded', is that 'page someone' or 'check back in an hour'? Without an SLO doc, the answer depends on which engineer is on call.",
+      "fix": "Add docs/runbooks/slo.md with targets per service tier: tenant-facing web (99.5% uptime, p95<500ms), payment webhook handlers (99.9%, p95<2s), background jobs (no SLO — best-effort). Each target maps to a measurable signal (the /metrics endpoint + the health check) + a paging rule. Phase-13 BREACH-6 drill runbook can reference it."
+    },
+    {
+      "id": "OBSERV-6",
+      "title": "Sentry distributed tracing disabled by default — no latency attribution data",
+      "severity": "MEDIUM",
+      "files": [".env.example (SENTRY_TRACES_SAMPLE_RATE=0.0)"],
+      "evidence": "SENTRY_TRACES_SAMPLE_RATE defaults to 0.0, meaning Sentry receives zero performance/trace data. When a tenant complains 'the dashboard is slow', ops can see an error count but not a slowness count. Phase-11 SECRETS-5 set LOG_LEVEL=warning to reduce log volume — without tracing, slow-but-not-error becomes invisible.",
+      "fix": ".env.production.example sets SENTRY_TRACES_SAMPLE_RATE=0.1 (10% sample) — enough volume to spot p95 regressions without overrunning the Sentry quota. config/sentry.php documents the rate-vs-volume tradeoff in a comment. The production-config validator (Phase 11) gets a warning if traces_sample_rate==0 in production."
+    },
+    {
+      "id": "SUPPLY-5",
+      "title": "Critical-path packages not pinned to a specific minor — silent breaking changes possible",
+      "severity": "MEDIUM",
+      "files": ["composer.json", "package.json"],
+      "evidence": "composer.json uses `^12.0` for laravel/framework — that allows 12.0.x ALL THE WAY through 12.99.x. A minor bump can introduce a behavior change (Laravel has done this before — typed return values, removed deprecations). Same for laravel/sanctum, laravel/reverb, sentry/sentry-laravel. composer.lock pins exact versions of course; the concern is when an operator runs `composer update` they get whatever 12.x is current.",
+      "fix": "Tighten the most-critical packages to `~12.X` (allows 12.X.Y patches, not 12.Y+1.Z minors). Affected: laravel/framework, laravel/sanctum, laravel/reverb, sentry/sentry-laravel, spatie/laravel-backup, inertiajs/inertia-laravel. Document the policy in CONTRIBUTING / docs/upgrades.md: minor bumps require an explicit PR with regression test review."
+    },
+    {
+      "id": "OBSERV-7",
+      "title": "Structured logging format not standardized — log shippers can't parse uniformly",
+      "severity": "MEDIUM",
+      "files": ["config/logging.php (default formatter)", "no JsonFormatter wired"],
+      "evidence": "Each log channel uses the default LineFormatter, which produces text logs. A log-shipping pipeline (Loki, ELK, Datadog) wants JSON for indexable fields. Today, grepping the request_id from a log line is a regex job. Audit consumers of security.log and audit_logs.json columns are stuck with SQL-side grep.",
+      "fix": "Add a JsonFormatter tap (similar to TapMaskingProcessor pattern from DPA-6) that wraps each log line in JSON with fields: timestamp, level, message, channel, request_id, context, exception. Enable via LOG_FORMATTER=json env. Production .env defaults to json; dev keeps line for human readability. Stack tap chain: TapMaskingProcessor THEN JsonFormatter so masking runs first."
+    },
+    {
+      "id": "OBSERV-8",
+      "title": "Alert thresholds documented inline, not centrally — drift not detectable",
+      "severity": "MEDIUM",
+      "files": ["routes/console.php (failed_jobs_alert_threshold)", "config/payments.php (dead_letter alert_threshold)", "config/security.php (detection.* thresholds)"],
+      "evidence": "Alert thresholds are scattered across env vars (FAILED_JOBS_ALERT_THRESHOLD, DETECTION_FAILED_LOGIN_BURST_THRESHOLD, etc.) and config files. No central doc explains the rationale — why is failed_jobs_alert at 25? Why is failed_login_burst at 50? An operator tuning one without considering the others creates inconsistent paging budgets.",
+      "fix": "Add docs/runbooks/alert-thresholds.md cataloging every alert + its current threshold + the rationale + the on-call action when it fires. Link from breach-drill.md + slo.md. Operator tunes here first; env var changes follow."
+    },
+    {
+      "id": "SUPPLY-6",
+      "title": "lockfile-verification step absent — modified lockfile could ship un-audited transitives",
+      "severity": "MEDIUM",
+      "files": [".github/workflows/ci.yml (no composer/npm lock validation)"],
+      "evidence": "An attacker pushing a PR that modifies composer.lock or package-lock.json (to introduce a malicious version) would land if a maintainer approves on diff alone. CI today doesn't verify the lockfile matches the manifest, doesn't verify packages came from the configured registry, doesn't pin npm registry to npmjs.org.",
+      "fix": "CI step `composer install --no-dev --no-interaction --check-lock` (Composer 2.5+ flag — refuses install when lock doesn't match manifest). `npm ci --ignore-scripts` (CI mode + skip lifecycle scripts in case of compromise). Set NPM_CONFIG_REGISTRY=https://registry.npmjs.org/ explicitly. Pin the install-step to a specific node-version-file."
+    },
+    {
+      "id": "SUPPLY-7",
+      "title": "No license audit — license-incompatible package could land",
+      "severity": "LOW",
+      "files": ["composer.json + package.json (no license-checker)"],
+      "evidence": "A PR adding a GPL-licensed PHP library (AGPL is particularly risky for SaaS) would land without a license check. PropManager's license is MIT (composer.json `\"license\": \"MIT\"`); a transitive GPL package would create an obligation to release the entire codebase as GPL.",
+      "fix": "CI step running `composer licenses --format=json` + a script that fails on AGPL/GPL families. Same for `npx license-checker --production --excludePrivatePackages --onlyAllow='MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;CC0-1.0;Unlicense'`. Warnings only — manual review of any violation. Catalog of currently-present licenses in docs/legal/license-inventory.md."
+    },
+    {
+      "id": "SUPPLY-8",
+      "title": "composer install in deploy uses --optimize-autoloader but not --classmap-authoritative",
+      "severity": "LOW",
+      "files": ["scripts/deploy.sh:31"],
+      "evidence": "Deploy runs `composer install --no-dev --optimize-autoloader`. The stricter `--classmap-authoritative` flag would refuse class autoload outside the classmap — preventing class-name injection attacks via PSR-4 ambiguity. The flag is recommended by Composer for production but not currently used.",
+      "fix": "scripts/deploy.sh: add --classmap-authoritative to composer install. Document the tradeoff: cannot autoload classes added at runtime (dynamic class loading patterns break). PropManager doesn't use runtime class loading anywhere except maybe in tests — production should be safe."
+    },
+    {
+      "id": "OBSERV-9",
+      "title": "MetricsService supports counters only — no histograms / latency buckets",
+      "severity": "LOW",
+      "files": ["app/Services/MetricsService.php"],
+      "evidence": "increment(name, by, labels) is the only method. p95/p99 latency is the canonical SLO signal but there's no histogram support — operators tracking 'how long does a payment webhook take?' have to roll their own. The OBS-11 docblock said 'intentionally minimal' but enough has changed since then that the gap is now load-bearing.",
+      "fix": "Add MetricsService::observe(name, valueMs, labels) that writes into a separate Redis hash keyed by histogram buckets (e.g. exponential: 5, 10, 25, 50, 100, 250, 500, 1000, 2500ms). snapshot() exposes the bucket counts alongside the counters. The /metrics Prometheus endpoint (OBSERV-1) emits them as `_bucket{le=...}` Prometheus histograms."
+    },
+    {
+      "id": "OBSERV-10",
+      "title": "audit_logs ↔ security_logs ↔ webhook_logs correlation requires JOIN gymnastics",
+      "severity": "LOW",
+      "files": ["app/Models/AuditLog.php", "app/Models/SecurityLog.php", "app/Models/WebhookLog.php"],
+      "evidence": "A regulator query 'show me everything that happened from request X' requires SELECT * FROM audit_logs WHERE metadata->>'$.request_id' = ... UNION ... FROM security_logs ... etc. Each table stores the request_id (or doesn't) inconsistently. There's no view, no helper, no operator command that does this — the on-call has to write SQL.",
+      "fix": "Add a dedicated request_id column on each log table (audit_logs already has metadata->request_id from Phase-5 OBS-10; security_logs and webhook_logs need similar). New `php artisan logs:correlate --request-id=<uuid>` command prints rows from all three tables sorted by created_at. Useful both for ops and for the Phase-13 BREACH-6 drill."
+    }
+  ],
+  "phases": {
+    "phase_1": {
+      "title": "Critical: dependency-audit CI gate + SBOM (SUPPLY-1/2/3/4)",
+      "scope": "SUPPLY-1, SUPPLY-2, SUPPLY-3, SUPPLY-4",
+      "rationale": "Highest-leverage cluster. composer + npm audit gate at CI time + dependabot automation is a 1-day fix that closes the largest open window. SBOM generation rides along since it lives in the same CI surface."
+    },
+    "phase_2": {
+      "title": "Critical: external observability surface (OBSERV-1/2/3/4)",
+      "scope": "OBSERV-1, OBSERV-2, OBSERV-3, OBSERV-4",
+      "rationale": "Prometheus metrics endpoint, Sentry release tagging, external-API health check, request-id propagation through jobs. Each independently shipable; bundled because they share the observability surface."
+    },
+    "phase_3": {
+      "title": "Medium: SLO + tracing + structured logging + alert doc + lockfile + license + pinning (8 mediums + 2 lows)",
+      "scope": "OBSERV-5, OBSERV-6, OBSERV-7, OBSERV-8, SUPPLY-5, SUPPLY-6, SUPPLY-7, OBSERV-9, OBSERV-10, SUPPLY-8",
+      "rationale": "Doc + config + small-code changes. SLO doc + tracing turn-on + JSON log formatter + alert threshold catalog + tighter version pinning + lockfile-check CI step + license audit + classmap-authoritative + MetricsService histograms + logs:correlate command."
+    }
+  },
+  "out_of_scope": [
+    "Accessibility (WCAG 2.2) — own phase",
+    "I18N / localisation beyond Kenyan English — own phase",
+    "Performance audit beyond observability gating (load testing, N+1 sweep beyond Phase-5 OBS-12) — own phase",
+    "Frontend-specific CSP nonce audit (Phase-5 partly covered) — own phase",
+    "Self-hosted infra audit (k8s manifests, Terraform, etc.) — out of repo scope"
+  ],
+  "metadata": {
+    "total_findings": 18,
+    "high": 7,
+    "medium": 7,
+    "low": 4
+  }
+}
