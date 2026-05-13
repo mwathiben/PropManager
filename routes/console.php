@@ -96,6 +96,14 @@ $schedule('payments:audit-allocations', fn ($e) => $e->dailyAt('05:30'));
 // lease_wallet_balance_drift_count Prometheus gauge, exit FAILURE.
 $schedule('wallets:audit-balances', fn ($e) => $e->dailyAt('05:35'));
 
+// Phase-19 INDEX-1 (DATA-4 closure): invoice.late_fees_total vs
+// sum(active late_fees.fee_amount) drift audit. Same shape as
+// MONEY-5 / DATA-2 above: log mismatches, bump the
+// invoice_late_fees_total_drift_count Prometheus gauge, exit FAILURE
+// on drift. Runs 5min after wallets:audit-balances so MetricsService
+// gauges don't race for the same Cache key write window.
+$schedule('latefees:audit-drift', fn ($e) => $e->dailyAt('05:40'));
+
 // Phase-18 DATA-7: weekly orphan-row audit. Catches lease→trashed-unit,
 // invoice→trashed-lease, audit_logs/security_logs with missing
 // user_id. Emits data_orphan_row_count{kind=X} Prometheus gauges.
