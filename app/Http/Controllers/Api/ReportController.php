@@ -30,8 +30,13 @@ class ReportController extends Controller
             return (int) $user->landlord_id;
         }
 
-        // Super-admin / integration tokens must specify a target landlord.
-        if ($user->isSuperAdmin() || $request->user()->tokenCan('integration:webhook')) {
+        // Phase-19 POLICY-7: route the super-admin + integration-token
+        // path through the Gate registry so DPA-4 restriction enforcement
+        // applies symmetrically. Pre-Phase-19 a restricted super-admin
+        // or restricted user holding an integration:webhook token could
+        // still cross-landlord query because the inline OR check bypassed
+        // Gate::before.
+        if (\Illuminate\Support\Facades\Gate::forUser($user)->allows('integration:webhook')) {
             $request->validate([
                 'landlord_id' => 'required|integer|exists:users,id',
             ]);

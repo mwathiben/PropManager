@@ -196,6 +196,17 @@ class AuthServiceProvider extends ServiceProvider
             return $user->isLandlord();
         });
 
+        // Phase-19 POLICY-7: 'integration:webhook' Sanctum ability now
+        // mirrored in the Gate registry so DPA-4 restriction enforcement
+        // applies. Pre-Phase-19 the only check was tokenCan() — a
+        // restricted user's token could still cross-landlord query.
+        // Super-admin path handled by Gate::before bypass above (and
+        // DPA-4 denies super-admin too if restricted); the explicit
+        // hook below fires for non-super-admin token holders.
+        Gate::define('integration:webhook', function ($user) {
+            return $user->tokenCan('integration:webhook');
+        });
+
         // Gate for data export (GDPR)
         Gate::define('export-data', function ($user) {
             return true; // All users can export their own data
