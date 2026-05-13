@@ -114,19 +114,37 @@ class AuthzCoverageMatrixTest extends TestCase
 
     public function test_no_dead_gates_in_auth_service_provider(): void
     {
-        // AUTHZ-1: pre-Phase-18 these 5 Gates were defined but never
-        // called. Re-adding any of them without a call site re-introduces
-        // the same audit-misleading 'authorization is comprehensive'
-        // problem.
+        // AUTHZ-1: pre-Phase-18 these Gates were defined but never called.
+        // Re-adding any of them without a call site re-introduces the
+        // same audit-misleading 'authorization is comprehensive' problem.
+        // Phase-19 POLICY-5: 'manage-subscription' graduated off the
+        // dead-Gate list — SubscriptionController::index/plans/subscribe
+        // now invoke Gate::authorize('manage-subscription') for real.
         $contents = file_get_contents(base_path('app/Providers/AuthServiceProvider.php'));
 
-        foreach (['manage-caretakers', 'generate-invoices', 'perform-bulk-operations', 'access-reports', 'manage-subscription'] as $deadGate) {
+        foreach (['manage-caretakers', 'generate-invoices', 'perform-bulk-operations', 'access-reports'] as $deadGate) {
             $this->assertStringNotContainsString(
                 "Gate::define('{$deadGate}'",
                 $contents,
                 "Phase-18 AUTHZ-1: '{$deadGate}' is a dead Gate (no call sites in app/ or resources/). Either delete it OR add a Gate::allows/\$this->authorize call site."
             );
         }
+
+        // Phase-19 POLICY-5: explicit positive assertion — 'manage-subscription'
+        // MUST stay wired to both define + call sites. Removing either side
+        // (define without callers OR callers without define) should fail.
+        $this->assertStringContainsString(
+            "Gate::define('manage-subscription'",
+            $contents,
+            "Phase-19 POLICY-5: 'manage-subscription' Gate must be defined (called by SubscriptionController)."
+        );
+
+        $subscriptionController = file_get_contents(base_path('app/Http/Controllers/SubscriptionController.php'));
+        $this->assertStringContainsString(
+            "Gate::authorize('manage-subscription')",
+            $subscriptionController,
+            "Phase-19 POLICY-5: SubscriptionController must invoke Gate::authorize('manage-subscription')."
+        );
     }
 
     /**

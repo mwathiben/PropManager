@@ -72,6 +72,24 @@ class LeasePolicy
     }
 
     /**
+     * Phase-19 POLICY-1: super-admin only via before(); explicit deny here
+     * so the destructive force-delete path is gated.
+     */
+    public function forceDelete(User $user, Lease $lease): bool
+    {
+        return false;
+    }
+
+    /**
+     * Phase-19 POLICY-1: restoring mirrors delete() — landlord owner can
+     * undo a soft-delete.
+     */
+    public function restore(User $user, Lease $lease): bool
+    {
+        return $user->isLandlord() && $lease->landlord_id === $user->id;
+    }
+
+    /**
      * Determine whether the user can adjust rent.
      */
     public function adjustRent(User $user, Lease $lease): bool

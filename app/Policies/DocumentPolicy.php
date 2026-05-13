@@ -96,4 +96,26 @@ class DocumentPolicy
     {
         return $this->view($user, $document);
     }
+
+    /**
+     * Phase-19 POLICY-1: super-admin only via before(); explicit deny here
+     * so the destructive force-delete path is gated.
+     */
+    public function forceDelete(User $user, Document $document): bool
+    {
+        return false;
+    }
+
+    /**
+     * Phase-19 POLICY-1: restoring mirrors delete() — uploader or landlord
+     * who owned the document can undo a soft-delete.
+     */
+    public function restore(User $user, Document $document): bool
+    {
+        if ($document->uploaded_by === $user->id) {
+            return true;
+        }
+
+        return $user->isLandlord() && $document->landlord_id === $user->id;
+    }
 }

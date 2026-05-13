@@ -175,15 +175,26 @@ class AuthServiceProvider extends ServiceProvider
         });
 
         // Phase-18 AUTHZ-1: removed 5 dead Gates that had zero call
-        // sites across app/ + resources/:
+        // sites across app/ + resources/. Re-adding any of these
+        // requires a corresponding Gate::allows / $this->authorize()
+        // call site — orphan Gates create a misleading 'authorization
+        // is comprehensive' impression for security review.
+        // Still dead post-Phase-19:
         //   manage-caretakers (covered by role:landlord middleware)
         //   generate-invoices (covered by role:landlord,caretaker middleware)
         //   perform-bulk-operations (covered by role:landlord + feature gate)
         //   access-reports (covered by role:landlord,caretaker + feature gate)
-        //   manage-subscription (covered by role:landlord middleware)
-        // Re-adding any of these requires a corresponding Gate::allows /
-        // $this->authorize() call site — orphan Gates create a misleading
-        // 'authorization is comprehensive' impression for security review.
+
+        // Phase-19 POLICY-5: manage-subscription resurrected. Wired into
+        // SubscriptionController::index/plans/subscribe — replaces three
+        // inline `$user->role !== 'landlord'` checks that bypassed the
+        // Gate layer (and therefore bypassed Phase-13 DPA-4 restriction
+        // enforcement; a restricted landlord could previously still
+        // initiate a paid subscription). Landlord-only by design;
+        // restricted landlord blocked by DPA-4 hook above.
+        Gate::define('manage-subscription', function ($user) {
+            return $user->isLandlord();
+        });
 
         // Gate for data export (GDPR)
         Gate::define('export-data', function ($user) {

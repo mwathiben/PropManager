@@ -128,6 +128,23 @@ class User extends Authenticatable
     }
 
     /**
+     * Phase-19 POLICY-6: full-system audit-log visibility predicate.
+     * Pre-Phase-19 AuditLogController scoped via inline isSuperAdmin()
+     * AFTER the Gate authorized the read — a DPA-4 restricted super-admin
+     * passed the Gate (view-audit-logs is on the allow-list) but kept
+     * full-system visibility. This helper bakes the restriction state
+     * into the scoping predicate so restricted super-admins fall back to
+     * the landlord-scoped query path (which then returns their own
+     * landlord_id rows; for true super-admins with no landlord_id, the
+     * query collapses to landlord_id=null and returns nothing — also
+     * acceptable for the restricted state).
+     */
+    public function canAccessAllAuditLogs(): bool
+    {
+        return $this->isSuperAdmin() && ! $this->isRestricted();
+    }
+
+    /**
      * @param  Builder<User>  $query
      */
     public function scopeArchived(Builder $query): Builder

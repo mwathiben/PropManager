@@ -73,6 +73,24 @@ class BuildingPolicy
     }
 
     /**
+     * Phase-19 POLICY-1: super-admin only via before(); explicit deny here
+     * so the destructive force-delete path is gated, not framework-defaulted.
+     */
+    public function forceDelete(User $user, Building $building): bool
+    {
+        return false;
+    }
+
+    /**
+     * Phase-19 POLICY-1: restoring a soft-deleted building mirrors the
+     * delete ownership check (the landlord who could delete it can undo).
+     */
+    public function restore(User $user, Building $building): bool
+    {
+        return $user->isLandlord() && $building->landlord_id === $user->id;
+    }
+
+    /**
      * Determine whether the user can manage units in this building.
      */
     public function manageUnits(User $user, Building $building): bool

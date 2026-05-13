@@ -107,6 +107,27 @@ class InvoicePolicy
     }
 
     /**
+     * Phase-19 POLICY-1: super-admin only via before(); explicit deny here
+     * so the destructive force-delete path is gated, not framework-defaulted.
+     */
+    public function forceDelete(User $user, Invoice $invoice): bool
+    {
+        return false;
+    }
+
+    /**
+     * Phase-19 POLICY-1: restoring a soft-deleted invoice mirrors the
+     * landlord-ownership check from delete() but without the draft-only
+     * status guard — restoring undoes a destructive op regardless of the
+     * pre-delete status (a Sent invoice that was soft-deleted by mistake
+     * should be restorable to its prior state).
+     */
+    public function restore(User $user, Invoice $invoice): bool
+    {
+        return $user->isLandlord() && $invoice->landlord_id === $user->id;
+    }
+
+    /**
      * Check if user can manage the invoice.
      */
     protected function canManage(User $user, Invoice $invoice): bool

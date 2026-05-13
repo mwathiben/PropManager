@@ -21,13 +21,19 @@ class DashboardStatsController extends Controller
     {
         $user = auth()->user();
 
-        if ($user->role === 'super_admin') {
+        // Phase-19 POLICY-5: raw role-string comparisons replaced with
+        // User helper methods (Phase-18 no-raw-role-strings watchdog).
+        // Super-admin redirect kept as inline abort — a Gate-routed deny
+        // would be short-circuited by AuthServiceProvider's super-admin
+        // Gate::before bypass. This is UX routing (super-admins have
+        // their own dashboard at /admin), not an authorization gap.
+        if ($user->isSuperAdmin()) {
             abort(403, 'Super admins use the admin dashboard.');
         }
 
-        $landlordId = match ($user->role) {
-            'landlord' => $user->id,
-            'caretaker' => $user->landlord_id,
+        $landlordId = match (true) {
+            $user->isLandlord() => $user->id,
+            $user->isCaretaker() => $user->landlord_id,
             default => abort(403, 'You do not have permission to access this resource.'),
         };
 

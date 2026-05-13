@@ -60,6 +60,24 @@ class PropertyPolicy
     }
 
     /**
+     * Phase-19 POLICY-1: super-admin only via before(); explicit deny here
+     * so the destructive force-delete path is gated.
+     */
+    public function forceDelete(User $user, Property $property): bool
+    {
+        return false;
+    }
+
+    /**
+     * Phase-19 POLICY-1: restoring mirrors delete() — landlord owner can
+     * undo a soft-delete.
+     */
+    public function restore(User $user, Property $property): bool
+    {
+        return $user->isLandlord() && $property->landlord_id === $user->id;
+    }
+
+    /**
      * Check if user owns or manages (caretaker) the property.
      */
     protected function ownsOrManages(User $user, Property $property): bool

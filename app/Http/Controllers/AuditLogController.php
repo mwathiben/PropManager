@@ -20,14 +20,16 @@ class AuditLogController extends Controller
         $query = AuditLog::with('user:id,name,email')
             ->latest();
 
-        // Apply landlord scope for non-super-admins
+        // Apply landlord scope for non-super-admins.
+        // Phase-19 POLICY-6: canAccessAllAuditLogs() returns false for a
+        // DPA-4 restricted super-admin; that super-admin's landlord_id is
+        // null so the WHERE collapses to landlord_id=NULL which returns
+        // zero rows — the correct restricted-state behaviour. Pattern
+        // matches the other sites (show/export/forModel) for consistency.
         $user = $request->user();
-        if (! $user->isSuperAdmin()) {
-            if ($user->isLandlord()) {
-                $query->where('landlord_id', $user->id);
-            } elseif ($user->isCaretaker()) {
-                $query->where('landlord_id', $user->landlord_id);
-            }
+        if (! $user->canAccessAllAuditLogs()) {
+            $landlordId = $user->isLandlord() ? $user->id : $user->landlord_id;
+            $query->where('landlord_id', $landlordId);
         }
 
         // Filter by event type
@@ -92,7 +94,7 @@ class AuditLogController extends Controller
 
         // Get filter options
         $eventTypes = AuditLog::query()
-            ->when(! $user->isSuperAdmin(), function ($q) use ($user) {
+            ->when(! $user->canAccessAllAuditLogs(), function ($q) use ($user) {
                 $q->where('landlord_id', $user->isLandlord() ? $user->id : $user->landlord_id);
             })
             ->distinct()
@@ -100,7 +102,7 @@ class AuditLogController extends Controller
             ->toArray();
 
         $modelTypes = AuditLog::query()
-            ->when(! $user->isSuperAdmin(), function ($q) use ($user) {
+            ->when(! $user->canAccessAllAuditLogs(), function ($q) use ($user) {
                 $q->where('landlord_id', $user->isLandlord() ? $user->id : $user->landlord_id);
             })
             ->distinct()
@@ -135,7 +137,7 @@ class AuditLogController extends Controller
         $user = $request->user();
 
         // Check access for non-super-admins
-        if (! $user->isSuperAdmin()) {
+        if (! $user->canAccessAllAuditLogs()) {
             $landlordId = $user->isLandlord() ? $user->id : $user->landlord_id;
             if ($auditLog->landlord_id !== $landlordId) {
                 abort(403);
@@ -194,7 +196,7 @@ class AuditLogController extends Controller
         // SCOPE-D7: resolve the target model first and verify ownership.
         // Without this, a landlord could enumerate model ids belonging to
         // other tenants by inspecting empty-vs-populated responses.
-        if (! $user->isSuperAdmin()) {
+        if (! $user->canAccessAllAuditLogs()) {
             $landlordId = $user->isLandlord() ? $user->id : $user->landlord_id;
 
             if (! $this->modelBelongsToLandlord($modelType, $modelId, (int) $landlordId)) {
@@ -207,7 +209,7 @@ class AuditLogController extends Controller
             ->with('user:id,name')
             ->latest();
 
-        if (! $user->isSuperAdmin()) {
+        if (! $user->canAccessAllAuditLogs()) {
             $query->where('landlord_id', $landlordId);
         }
 
@@ -266,7 +268,7 @@ class AuditLogController extends Controller
         $query = AuditLog::with('user:id,name,email')->latest();
 
         // Apply landlord scope for non-super-admins
-        if (! $user->isSuperAdmin()) {
+        if (! $user->canAccessAllAuditLogs()) {
             $landlordId = $user->isLandlord() ? $user->id : $user->landlord_id;
             $query->where('landlord_id', $landlordId);
         }

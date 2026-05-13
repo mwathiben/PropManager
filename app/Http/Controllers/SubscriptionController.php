@@ -12,6 +12,7 @@ use App\Services\PaystackSubscriptionService;
 use App\Services\SubscriptionService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -35,13 +36,13 @@ class SubscriptionController extends Controller
      */
     public function index(): Response
     {
+        // Phase-19 POLICY-5: Gate-routed authorization. Replaces the
+        // pre-Phase-19 inline `$user->role !== 'landlord'` check which
+        // bypassed Gate::before and therefore bypassed Phase-13 DPA-4
+        // restriction enforcement. A restricted landlord is now denied.
+        Gate::authorize('manage-subscription');
+
         $user = auth()->user();
-
-        // Only landlords can manage subscriptions
-        if ($user->role !== 'landlord') {
-            abort(403, 'Only landlords can manage subscriptions.');
-        }
-
         $subscription = $user->subscription?->load('plan');
         $plans = SubscriptionPlan::active()->get();
         $payments = $user->subscriptionPayments()
@@ -86,11 +87,10 @@ class SubscriptionController extends Controller
      */
     public function plans(): Response
     {
-        $user = auth()->user();
+        // Phase-19 POLICY-5: Gate-routed authorization.
+        Gate::authorize('manage-subscription');
 
-        if ($user->role !== 'landlord') {
-            abort(403);
-        }
+        $user = auth()->user();
 
         $plans = SubscriptionPlan::active()->get()->map(function ($plan) {
             return [
@@ -121,17 +121,17 @@ class SubscriptionController extends Controller
      */
     public function subscribe(Request $request)
     {
+        // Phase-19 POLICY-5: Gate-routed authorization. Restricted
+        // landlords blocked at the DPA-4 hook — they cannot initiate
+        // a paid subscription while under Article-18 restriction.
+        Gate::authorize('manage-subscription');
+
         $validated = $request->validate([
             'plan_id' => 'required|exists:subscription_plans,id',
             'billing_cycle' => 'required|in:monthly,yearly',
         ]);
 
         $user = auth()->user();
-
-        if ($user->role !== 'landlord') {
-            return back()->with('error', 'Only landlords can subscribe.');
-        }
-
         $plan = SubscriptionPlan::findOrFail($validated['plan_id']);
 
         // Free plan - no payment needed

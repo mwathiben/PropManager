@@ -62,4 +62,24 @@ class TenantPolicy
     {
         return $this->actorManagesTenant($actor, $tenant);
     }
+
+    /**
+     * Phase-19 POLICY-1: tenant force-delete is GDPR right-to-erasure
+     * execution. Super-admin only via before(); landlord/caretaker can
+     * REQUEST deletion (Phase-13 DPA) but cannot execute it directly.
+     */
+    public function forceDelete(User $actor, User $tenant): bool
+    {
+        return false;
+    }
+
+    /**
+     * Phase-19 POLICY-1: restoring a soft-deleted tenant (e.g. during
+     * the DPA grace window before hard-delete) is symmetric with
+     * actorManagesTenant — the landlord managing the tenant can undo.
+     */
+    public function restore(User $actor, User $tenant): bool
+    {
+        return $this->actorManagesTenant($actor, $tenant);
+    }
 }

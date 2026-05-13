@@ -82,14 +82,16 @@ class Phase18Phase3Test extends TestCase
             }
         }
 
-        // Watchdog: baseline 8 controllers at Phase-18 close — they
-        // pre-date the isLandlord()/isCaretaker() convention. Threshold
-        // 10 catches a NEW controller adopting the forbidden pattern;
-        // the existing 8 are tracked for incremental cleanup.
+        // Watchdog: baseline 6 controllers at Phase-19 close — Phase-18
+        // closed with 8; Phase-19 POLICY-5 refactored SubscriptionController
+        // + DashboardStatsController to use isLandlord()/isCaretaker()/
+        // isSuperAdmin(). Threshold 8 catches a NEW controller adopting
+        // the forbidden pattern; the existing 6 are tracked for
+        // incremental cleanup.
         $this->assertLessThanOrEqual(
-            10,
+            8,
             count($offenders),
-            "Phase-18 AUTHZ-6: more than 10 controllers use raw \$user->role === 'X' string comparisons.\n  - ".implode("\n  - ", $offenders),
+            "Phase-19 AUTHZ-6: more than 8 controllers use raw \$user->role === 'X' string comparisons.\n  - ".implode("\n  - ", $offenders),
         );
     }
 
