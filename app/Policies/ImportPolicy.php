@@ -41,6 +41,17 @@ class ImportPolicy
         return $this->isOwner($user, $import);
     }
 
+    /**
+     * Phase-19 POLICY-4: Imports are immutable post-upload — a CSV
+     * succeeded or failed, and mutation corrupts the upload audit
+     * lineage. If metadata-amend (e.g. renaming the display label)
+     * becomes a real requirement, flip this to $this->isOwner().
+     */
+    public function update(User $user, Import $import): bool
+    {
+        return false;
+    }
+
     private function isOwner(User $user, Import $import): bool
     {
         if ($user->isLandlord()) {

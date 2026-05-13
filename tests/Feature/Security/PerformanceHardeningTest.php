@@ -36,10 +36,17 @@ class PerformanceHardeningTest extends TestCase
 
     public function test_invoices_table_has_landlord_status_due_composite_index(): void
     {
-        // PERF-2 — already shipped by 2026_01_15 add_finance_hub_indexes.
-        // Locking it in.
+        // PERF-2 — Phase-19 INDEX-5 upgraded this to a covering index
+        // (added total_due + amount_paid). The Phase-15 prefix variant
+        // is dropped in the same migration. Watchdog now locks in the
+        // covering version.
         $indexes = $this->indexesOn('invoices');
-        $this->assertContains('invoices_landlord_status_due_idx', $indexes);
+        $this->assertContains('invoices_landlord_status_due_covering_idx', $indexes);
+        $this->assertNotContains(
+            'invoices_landlord_status_due_idx',
+            $indexes,
+            'Phase-19 INDEX-5: the 3-column prefix must be dropped (covering variant supersedes).',
+        );
     }
 
     public function test_notifications_table_has_recipient_read_composite_index(): void

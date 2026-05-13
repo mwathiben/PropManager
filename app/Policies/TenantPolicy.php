@@ -64,6 +64,52 @@ class TenantPolicy
     }
 
     /**
+     * Phase-19 POLICY-3: tenants are listable by landlord/caretaker. The
+     * existing TenantController::index path already enforces this via
+     * route middleware role:landlord,caretaker — POLICY-3 declares the
+     * intent at the policy layer for symmetric coverage.
+     */
+    public function viewAny(User $actor): bool
+    {
+        return $actor->isLandlord() || $actor->isCaretaker();
+    }
+
+    /**
+     * Phase-19 POLICY-3: tenant creation is invitation-only. The
+     * canonical creation flow is InvitationController (landlord
+     * invites → tenant accepts → User row provisioned). Direct
+     * tenant creation via $this->authorize('create', User::class)
+     * is explicitly denied.
+     */
+    public function create(User $actor): bool
+    {
+        return false;
+    }
+
+    /**
+     * Phase-19 POLICY-3: tenants edit their own profile via the
+     * tenant self-service flow (ProfileController). Cross-tenant
+     * landlord-side edits of a tenant's User row go through dedicated
+     * abilities (e.g. TenantController::update calls authorize('update',
+     * $tenant) — explicit gate decision below).
+     */
+    public function update(User $actor, User $tenant): bool
+    {
+        return $this->actorManagesTenant($actor, $tenant);
+    }
+
+    /**
+     * Phase-19 POLICY-3: tenant deletion is the GDPR right-to-erasure
+     * path via the deletion-request workflow (Phase-13). Direct delete
+     * is denied; landlords mark tenants archived (User::is_archived)
+     * for tenancy lifecycle, never delete.
+     */
+    public function delete(User $actor, User $tenant): bool
+    {
+        return false;
+    }
+
+    /**
      * Phase-19 POLICY-1: tenant force-delete is GDPR right-to-erasure
      * execution. Super-admin only via before(); landlord/caretaker can
      * REQUEST deletion (Phase-13 DPA) but cannot execute it directly.
