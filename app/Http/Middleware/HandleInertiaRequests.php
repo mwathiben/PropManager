@@ -14,6 +14,7 @@ use App\Models\TenantPaymentVerification;
 use App\Models\TenantVerification;
 use App\Models\Ticket;
 use App\Models\WaterReading;
+use App\Support\UserDto;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Middleware;
@@ -47,7 +48,11 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $user,
+                // Phase-20 AUTHZ-FRONT-1/6: slim DTO + abilities map.
+                // Previously shared the full Eloquent User instance —
+                // see App\Support\UserDto for the explicit field list +
+                // App\Support\AuthAbilities for the computed gate map.
+                'user' => $user ? UserDto::from($user) : null,
             ],
             'impersonating' => session('impersonating') !== null,
             'impersonating_name' => session('impersonating_name'),
