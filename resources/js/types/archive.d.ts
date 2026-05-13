@@ -4,6 +4,7 @@
  */
 
 import type { BaseEntity, Building, Lease, Unit, PaginatedResponse } from './finances';
+import type { CursorPaginatedResponse } from './global';
 
 // Document Type (matches backend enum/constants)
 export type DocumentType =
@@ -147,8 +148,9 @@ export interface DocumentsIndexPageProps {
 }
 
 // Activity Logs Index Page Props
+// Phase-20 FRONT-UX-1: cursor paginator shape (was offset).
 export interface ActivityLogsIndexPageProps {
-  activities: PaginatedResponse<ActivityLog>;
+  activities: CursorPaginatedResponse<ActivityLog>;
   activityTypes: Array<{ value: string; label: string }>;
   stats: ActivityStats;
   filters: ActivityFilters;

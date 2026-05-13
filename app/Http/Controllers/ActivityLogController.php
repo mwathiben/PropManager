@@ -55,10 +55,13 @@ class ActivityLogController extends Controller
             });
         }
 
-        // Order by most recent first
-        $query->orderBy('created_at', 'desc');
+        // Phase-20 FRONT-UX-1 (Phase-19 INDEX-6 closure): cursor
+        // pagination on the unbounded activity log. Order by
+        // (created_at DESC, id DESC) — supported by the Phase-20
+        // composite (landlord_id, created_at, id).
+        $query->orderBy('created_at', 'desc')->orderBy('id', 'desc');
 
-        $activities = $query->paginate(50)->withQueryString();
+        $activities = $query->cursorPaginate(50)->withQueryString();
 
         // Transform activities for display
         $activities->getCollection()->transform(function ($activity) {

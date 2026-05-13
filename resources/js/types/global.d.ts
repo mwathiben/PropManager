@@ -37,3 +37,17 @@ export interface PaginatedResponse<T> {
     };
     meta: PaginationMeta;
 }
+
+/**
+ * Phase-20 FRONT-UX-1: cursor-paginator response shape (Laravel
+ * ->cursorPaginate()). Unlike PaginatedResponse, cursor has no
+ * from/to/total/last_page counters — only next/prev. See
+ * CursorPagination.vue + docs/runbooks/frontend-authz-and-ux.md.
+ */
+export interface CursorPaginatedResponse<T> {
+    data: T[];
+    per_page: number;
+    next_page_url: string | null;
+    prev_page_url: string | null;
+    path?: string;
+}

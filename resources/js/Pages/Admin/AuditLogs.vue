@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import PaginatorLink from '@/Components/PaginatorLink.vue';
+import CursorPagination from '@/Components/CursorPagination.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import type { AdminAuditLogsPageProps } from '@/types';
@@ -231,35 +231,10 @@ const getEventBadgeClass = (color) => {
                         </tbody>
                     </table>
 
-                    <!-- Pagination -->
-                    <div v-if="logs.links && logs.links.length > 3" class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
-                        <div class="flex items-center justify-between">
-                            <div class="text-sm text-gray-700">
-                                Showing {{ logs.from }} to {{ logs.to }} of {{ logs.total }} results
-                            </div>
-                            <nav class="flex space-x-1">
-                                <template v-for="(link, index) in logs.links" :key="index">
-                                    <button
-                                        v-if="link.url"
-                                        @click="router.visit(link.url)"
-                                        :class="[
-                                            'px-3 py-1 text-sm rounded',
-                                            link.active
-                                                ? 'bg-indigo-600 text-white'
-                                                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-                                        ]"
-                                    >
-                                        <PaginatorLink :label="link.label" />
-                                    </button>
-                                    <span
-                                        v-else
-                                        class="px-3 py-1 text-sm text-gray-400"
-                                    >
-                                        <PaginatorLink :label="link.label" />
-                                    </span>
-                                </template>
-                            </nav>
-                        </div>
+                    <!-- Phase-20 FRONT-UX-1: cursor pagination (was offset). -->
+                    <!-- CursorPagination has no from/to/total counters — see runbook. -->
+                    <div class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
+                        <CursorPagination :paginator="logs" color="indigo" />
                     </div>
                 </div>
             </div>

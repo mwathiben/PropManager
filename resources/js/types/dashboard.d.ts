@@ -438,13 +438,14 @@ export interface AuditLogEntry extends BaseEntity {
 }
 
 // Admin Audit Logs Page Props
+// Phase-20 FRONT-UX-1: cursor paginator shape (was offset).
 export interface AdminAuditLogsPageProps {
   logs: {
     data: AuditLogEntry[];
-    current_page: number;
-    last_page: number;
     per_page: number;
-    total: number;
+    next_page_url: string | null;
+    prev_page_url: string | null;
+    path?: string;
   };
   filters: {
     event_type?: string;

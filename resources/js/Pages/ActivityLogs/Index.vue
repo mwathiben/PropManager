@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import Pagination from '@/Components/Pagination.vue';
+import CursorPagination from '@/Components/CursorPagination.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useFormatters } from '@/composables';
@@ -218,8 +218,8 @@ const clearFilters = () => {
                     </div>
                 </div>
 
-                <!-- Pagination -->
-                <Pagination v-if="activities.data.length > 0" :links="activities.links" color="indigo" class="mt-6" />
+                <!-- Phase-20 FRONT-UX-1: cursor pagination (was offset). -->
+                <CursorPagination v-if="activities.data.length > 0" :paginator="activities" color="indigo" class="mt-6" />
             </div>
         </div>
     </AuthenticatedLayout>

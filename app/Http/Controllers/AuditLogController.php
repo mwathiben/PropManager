@@ -17,8 +17,13 @@ class AuditLogController extends Controller
     {
         Gate::authorize('view-audit-logs');
 
+        // Phase-20 FRONT-UX-1 (Phase-19 INDEX-6 closure): cursor
+        // pagination on this unbounded log table. Order by
+        // (created_at DESC, id DESC) — supported by the Phase-20
+        // composite (landlord_id, created_at, id).
         $query = AuditLog::with('user:id,name,email')
-            ->latest();
+            ->orderBy('created_at', 'desc')
+            ->orderBy('id', 'desc');
 
         // Apply landlord scope for non-super-admins.
         // Phase-19 POLICY-6: canAccessAllAuditLogs() returns false for a
@@ -73,7 +78,7 @@ class AuditLogController extends Controller
             });
         }
 
-        $logs = $query->paginate(25)->through(fn ($log) => [
+        $logs = $query->cursorPaginate(25)->through(fn ($log) => [
             'id' => $log->id,
             'event_type' => $log->event_type,
             'description' => $log->description,
