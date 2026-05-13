@@ -1,0 +1,258 @@
+{
+  "project": "PropManager",
+  "audit_cycle": "phase-19",
+  "audit_date": "2026-05-13",
+  "scope": "Defensive audit of authorization-layer completeness (POLICY — forceDelete/restore methods on SoftDelete-using policies, standard-method coverage per Policy class, inline isSuperAdmin/role checks that bypass the Gate layer and therefore bypass Phase-13 DPA-4 restriction enforcement, Sanctum ability/Gate parity, frontend @can/v-can coverage, console-command guard rails) and database query-performance completeness (INDEX — tenant-scope composite-index audit beyond Phase-15 PERF-1/2/7, FK-leading-index audit, late-fees denormalization drift audit extending Phase-17 MONEY-5 pattern, covering-index opportunities on hot report queries, cursor-pagination migration for unbounded log tables, soft-delete partial-index workaround revisited via MySQL generated columns). Consumes the three Phase-18 deferrals: AUTHZ-9 (POLICY-1), DATA-4 (INDEX-1), DATA-8 (INDEX-4). Prior phases covered authorization coverage matrix (Phase 18 AUTHZ) and data-integrity invariants (Phase 18 DATA). Phase 19 covers the completeness layer underneath: are the Policies themselves complete and do the indexes that support the scoped queries exist where the Phase-15 pattern would put them?",
+  "context_baseline": {
+    "previous_audits": [
+      "Phase 1-5 core security categories + 10A/10B (mass-assign + file-upload + webhook payload encryption)",
+      "Phase 11 (DEPLOY + SECRETS, 21 findings)",
+      "Phase 12 (BACKUP + RETAIN, 18 findings)",
+      "Phase 13 (DPA + BREACH, 18 findings — regulator-inspectable layer)",
+      "Phase 14 (SUPPLY + OBSERV, 18 findings — supply-chain + observability)",
+      "Phase 15 (FRONT + PERF, 18 findings — user-perceived surface)",
+      "Phase 16 (RESIL + QUEUE, 18 findings — resilience + queue reliability)",
+      "Phase 17 (MONEY + TIME, 18 findings — value correctness)",
+      "Phase 18 (AUTHZ + DATA, 15/18 findings — authorization coverage + DB integrity; 3 deferred to Phase 19)"
+    ],
+    "do_not_reflag": "Phase-18 AUTHZ-1 cleared 5 dead Gates (manage-caretakers/generate-invoices/perform-bulk-operations/access-reports/manage-subscription) — do not re-add them without a corresponding Gate::allows call site; AuthzCoverageMatrixTest watchdog (threshold 350, baseline ~291) catches Gate-less authenticated controller routes. Phase-18 AUTHZ-3 cleared AdminController inline isSuperAdmin via constructor Gate::authorize('access-admin') middleware — POLICY-5/POLICY-6 cover the REMAINING controllers (SubscriptionController, DashboardStatsController, AuditLogController), not AdminController. Phase-18 AUTHZ-4 watchdog: every TenantScope model has a registered Policy (threshold 40, baseline 35); POLICY-2/3/4 do NOT add new Policy classes — they fill standard-method gaps in EXISTING Policy classes. Phase-18 DATA-1 already flipped payments.invoice_id FK to RESTRICT; Phase-18 DATA-5 PaymentObserver enforces cross-tenant landlord_id consistency. Phase-15 PERF-1/2/7 added payments(landlord_id, payment_date) + invoices(landlord_id, status, due_date) + notifications(recipient_id, read_at) composites — INDEX-4 (DATA-8 closure) extends the pattern to buildings/units/properties/expenses/wallet_transactions, NOT re-touches payments/invoices/notifications. Phase-17 MONEY-5 covers invoice.amount_paid drift only; INDEX-1 (DATA-4 closure) is the SAME audit pattern applied to invoice.late_fees_total — not a different mechanism, just a new denormalization target. Phase-15 PERF-5 deferred SoftDeletes partial-index because MySQL InnoDB lacks PG-style partial indexes; INDEX-9 revisits with a generated-column workaround. Phase-13 DPA-4 Gate::before order (DPA-4 restriction FIRST, super-admin bypass SECOND) is LOCKED — no Phase-19 item changes the ordering."
+  },
+  "qualityStandards": {
+    "test": "All Phase-19 fixes must pass `php artisan test --parallel` and `vendor/bin/pint --test`.",
+    "ci": "Each commit must land on main with green CI before the next phase starts. Index-adding migrations land in a single commit per phase to keep CI migration time bounded.",
+    "no_breaking_change": "POLICY method additions (forceDelete/restore + missing CRUD methods) are non-breaking — they go from 'method missing, policy returns null, framework defaults to allow' to 'method present, returns explicit boolean'. POLICY-5/POLICY-6 inline-check removals are non-breaking for non-restricted users (same result) but CORRECTLY restrict DPA-4 users where they were previously bypassing the restriction — this is the intent. INDEX additions are online for InnoDB (ALGORITHM=INPLACE, LOCK=NONE on index creation; no table rewrite). The one operator-visible change is INDEX-6 cursor pagination — response shape adds a `next_cursor` field and drops `current_page`/`last_page`; affected callers must update; internal Inertia pages migrate at the same time as the controller."
+  },
+  "feedbackLoops": {
+    "lint": "vendor/bin/pint --test",
+    "test_focused": "php artisan test --filter='<keyword>'",
+    "test_full": "php artisan test --parallel",
+    "ci_watch": "gh run list --limit 1 --branch main --workflow=CI --json status,conclusion"
+  },
+  "categories": {
+    "POLICY": {
+      "description": "Authorization-layer completeness. 8 models use SoftDeletes AND have registered Policies (Building, Document, Invoice, KycRequirement, Lease, Property, Unit, User) but ZERO of those Policies declare forceDelete() or restore() — when a soft-deleted row is force-deleted via tinker/console/future-UI, no Policy gate fires (POLICY-1 / AUTHZ-9 closure). Three controllers (SubscriptionController, DashboardStatsController, AuditLogController) still use inline `$user->isSuperAdmin()` or `$user->role === 'X'` checks AFTER Phase-18 cleared AdminController — these BYPASS the Gate layer and therefore bypass Phase-13 DPA-4 restriction enforcement (POLICY-5/6). Three Policy classes (TenantPaymentVerificationPolicy, TenantPolicy, ImportPolicy) lack one or more standard CRUD methods — framework default is allow, so a controller calling `$this->authorize('update', $model)` against a Policy without an update() method silently passes (POLICY-2/3/4). Sanctum issues an `integration:webhook` ability with no corresponding Gate mirror (POLICY-7). Zero @can/v-can directives across resources/views and resources/js — entire frontend renders ungated buttons (POLICY-8). Three cross-tenant console commands lack --dry-run / --landlord-id guard rails (POLICY-9). 9 findings.",
+      "count": 9
+    },
+    "INDEX": {
+      "description": "Database query-performance completeness. Phase-17 MONEY-5 shipped payments:audit-allocations for invoice.amount_paid drift; the same denormalization-drift pattern is missing for invoice.late_fees_total (INDEX-1 / DATA-4 closure). Five TenantScope-using tables (buildings, units, properties, expenses, wallet_transactions) lack the (landlord_id, primary_date) composite that Phase-15 PERF-1/2/7 established as the house convention; INDEX-4 closes DATA-8 by extending the pattern. Five FK columns on the expenses table (category_id, vendor_id, property_id, building_id, unit_id) and one on invoice_items (invoice_id) lack leading indexes — MySQL InnoDB needs leading FK indexes for join performance AND lock-scope correctness (INDEX-3/7). Late_fees has (landlord_id, applied_date) but no (landlord_id, is_waived, applied_date) covering active-fee queries (INDEX-2). Hot report queries (arrears, revenue) pull a small aggregate column set and would benefit from covering indexes (INDEX-5). Three unbounded log tables (audit_logs, security_logs, webhook_logs) use offset pagination — LIMIT 25 OFFSET 1M is a full scan; INDEX-6 migrates to cursor pagination. Phase-15 PERF-5 deferred SoftDelete partial-index workaround; INDEX-9 revisits with MySQL generated-column approach. 9 findings.",
+      "count": 9
+    }
+  },
+  "items": [
+    {
+      "id": "POLICY-1",
+      "title": "forceDelete + restore methods missing on 8 SoftDelete-using Policies — un-gated authorization paths (AUTHZ-9 closure)",
+      "severity": "HIGH",
+      "files": [
+        "app/Policies/BuildingPolicy.php",
+        "app/Policies/DocumentPolicy.php",
+        "app/Policies/InvoicePolicy.php",
+        "app/Policies/KycRequirementPolicy.php",
+        "app/Policies/LeasePolicy.php",
+        "app/Policies/PropertyPolicy.php",
+        "app/Policies/UnitPolicy.php",
+        "app/Policies/UserPolicy.php"
+      ],
+      "evidence": "8 models use the SoftDeletes trait AND have a registered Policy in AuthServiceProvider::$policies (Building, Document, Invoice, KycRequirement, Lease, Property, Unit, User). NONE of those 8 Policy classes declare forceDelete() or restore() methods. When `$user->can('forceDelete', $invoice)` or `$user->can('restore', $invoice)` is checked (or `$this->authorize('forceDelete', $invoice)` from a controller), the Policy returns null because the method is missing, Laravel falls through to Gate::before, and the DPA-4 restriction hook + super-admin bypass run. For non-super-admins, Gate::before returns null too, and Laravel's default for a missing Policy method is DENY (since Laravel 5.7) — but Phase-19 closes the gap explicitly so the authorization decision is visible in the Policy class, not implicit in framework defaults. Phase-18 AUTHZ-9 deferred this as informational-risk because today's production paths force-delete via tinker/console (no Policy invocation) and there's no restore UI; Phase-19 closes it because (a) Phase-12 BACKUP shipped scripts/restore.sh which COULD call $invoice->restore() at the service layer, and (b) future GDPR/audit features may need restore-with-policy-check.",
+      "fix": "Add forceDelete($user, $model) + restore($user, $model) to each of the 8 Policy classes. forceDelete mirrors delete() logic (same landlord ownership check) PLUS adds explicit super-admin requirement (force-delete is destructive); restore mirrors update() logic. New test tests/Feature/Security/Phase19SoftDeletePolicyTest.php pins: (a) each of the 8 Policies has both methods (reflection check), (b) non-owner returns false on both, (c) owner returns true on restore but false on forceDelete (super-admin only), (d) super-admin returns true on both, (e) DPA-4 restricted super-admin returns false on both (forceDelete and restore are WRITE-side abilities, not in the DPA-4 allow-list). Update Phase18Phase3Test::test_no_dead_gates baseline if a watchdog needs adjustment."
+    },
+    {
+      "id": "POLICY-2",
+      "title": "TenantPaymentVerificationPolicy missing create/update/delete methods — silent allow on $this->authorize",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Policies/TenantPaymentVerificationPolicy.php",
+        "app/Models/TenantPaymentVerification.php"
+      ],
+      "evidence": "Policy declares viewAny, view, approve, reject — but NO create, update, or delete methods. If any controller calls `$this->authorize('create', TenantPaymentVerification::class)` or `$this->authorize('update', $verification)`, the Policy returns null. Pre-Laravel-5.7 this defaulted to allow; post-5.7 default is deny — but the explicit intent (tenant-submitted verifications are immutable post-creation; only the verifier acts on them via approve/reject) should be DECLARED in the Policy, not relied on framework defaults. A future controller method added without explicit policy method coverage would silently get the framework default — POLICY-2 makes the contract visible.",
+      "fix": "Add create($user, $tenant=null), update($user, $verification), delete($user, $verification) — each returns false with a brief PHPDoc explaining the read-only-after-creation invariant. Tenants create verifications via TenantOnboardingController which uses Gate::authorize separately (verify path is open by submission flow, gated by route middleware role:tenant). Test pins: each method exists + returns false for landlord/tenant/super-admin (write-side denial is universal post-creation)."
+    },
+    {
+      "id": "POLICY-3",
+      "title": "TenantPolicy missing standard CRUD methods — read-only-by-design invariant implicit not declared",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Policies/TenantPolicy.php",
+        "app/Http/Controllers/TenantController.php"
+      ],
+      "evidence": "Phase-5 PRIV-12 introduced TenantPolicy with view() and viewLedger() — it gates the 6 TenantController methods that landlord/caretaker uses to inspect tenant records. The policy does NOT declare viewAny, create, update, delete. Tenants are created via the InvitationController flow (landlord invites → invitation email → tenant accepts → User row created with role=tenant), not via TenantController::store. The read-only-by-design invariant is correct but un-declared — a future TenantController::update method added without checking would silently authorize. Phase-18 AUTHZ-4 informational baseline noted this Policy as 'incomplete'.",
+      "fix": "Add viewAny($user), create($user), update($user, $tenant), delete($user, $tenant) — viewAny returns true for landlord/caretaker/super-admin (matches view()), the three write methods return false with PHPDoc pointing to InvitationController as the canonical creation flow. Test pins each method's return value across user types."
+    },
+    {
+      "id": "POLICY-4",
+      "title": "ImportPolicy missing update method — denormalization risk if Import becomes mutable",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Policies/ImportPolicy.php",
+        "app/Models/Import.php"
+      ],
+      "evidence": "ImportPolicy declares viewAny, view, create, delete + custom reprocess() — no update() method. Imports are conceptually immutable (a CSV upload either succeeds or fails; mutation post-upload corrupts audit lineage), but the invariant is not declared in the Policy. If an Imports controller adds an update method (e.g., to amend metadata like the upload's display name), it would silently authorize for any logged-in user. Same risk class as POLICY-2/3 but lower volume.",
+      "fix": "Add update($user, $import) returning false with PHPDoc explaining the immutable-post-upload invariant. If metadata-amend becomes a real requirement later, the method can be flipped to enforce ownership. Test pin matches POLICY-2/3 pattern."
+    },
+    {
+      "id": "POLICY-5",
+      "title": "SubscriptionController + DashboardStatsController bypass Gate via inline isSuperAdmin/role checks — DPA-4 restriction not enforced",
+      "severity": "HIGH",
+      "files": [
+        "app/Http/Controllers/SubscriptionController.php:41,91,131",
+        "app/Http/Controllers/DashboardStatsController.php:24"
+      ],
+      "evidence": "SubscriptionController has 3 sites using `if ($user->role !== 'landlord' && ! $user->isSuperAdmin()) abort(403)` or equivalent. DashboardStatsController:24 uses `if ($user->role === 'super_admin') abort(403, 'Super admins use the admin dashboard.')` — interesting inverse case where the inline check ACTIVELY denies super-admins. Both patterns share the same flaw as Phase-18 AUTHZ-3 (AdminController): they bypass the Gate layer, which means the Phase-13 DPA-4 restriction Gate::before hook never fires. A DPA-restricted landlord acting through SubscriptionController would not be restricted; a DPA-restricted super-admin acting through DashboardStatsController would still get the inline-deny but the AUDIT TRAIL of the restriction enforcement is missing (no SecurityLog row, no audit_logs row tagged with lawful_basis=restriction_enforcement).",
+      "fix": "Replace inline checks with Gate::authorize('manage-subscription') for SubscriptionController (re-defining this Gate — Phase-18 deleted it as dead, but POLICY-5 wires it up for real this time; AuthzCoverageMatrixTest still passes because it asserts EITHER $this->authorize OR role: middleware, both apply here). For DashboardStatsController, replace the inverse super-admin check with a route-level middleware Gate::allows('access-landlord-dashboard') that's allowed for landlord/caretaker and denied for super-admin/tenant — same behaviour, Gate-routed. Tests pin: (a) Gate behavior matches former inline behavior for non-restricted users, (b) DPA-4 restricted landlord gets 403 on SubscriptionController::subscribe path (write-side ability), (c) DPA-4 restricted landlord gets 200 on SubscriptionController::index (read-side allow-list)."
+    },
+    {
+      "id": "POLICY-6",
+      "title": "AuditLogController scopes results via inline isSuperAdmin AFTER Gate — DPA-4 restricted super-admin sees full-system audit logs",
+      "severity": "HIGH",
+      "files": [
+        "app/Http/Controllers/AuditLogController.php:25,95,103,138,197,210,269"
+      ],
+      "evidence": "AuditLogController correctly calls Gate::authorize('view-audit-logs') at the top of each action — so DPA-4 restriction enforcement DOES fire (view-audit-logs is on the DPA-4 read-side allow-list, so super-admin bypass returns true; restricted super-admin would still pass since 'view-audit-logs' is allowed while restricted). HOWEVER, AFTER the Gate, the controller uses `if (! $user->isSuperAdmin())` at 6+ sites to SCOPE the query: non-super-admins see only their landlord's logs; super-admins see ALL logs. A DPA-4 restricted super-admin therefore sees the WHOLE-SYSTEM audit log — which is a read-side allow but the BLAST-RADIUS of what they can read is unbounded by their own data. This is privilege-during-restriction surface that POLICY-6 closes by reducing the restricted super-admin to their OWN landlord's data (or to zero, depending on policy).",
+      "fix": "Introduce User::canAccessAllAuditLogs() that returns ($user->isSuperAdmin() && ! $user->isRestricted()). Replace all 6 inline isSuperAdmin checks in AuditLogController with this method. Test pin: (a) unrestricted super-admin gets full-system view (existing behavior), (b) DPA-4 restricted super-admin gets only their own landlord_id-scoped audit logs, (c) non-super-admin landlord gets their own landlord_id-scoped logs (existing). Same fix pattern applies to SecurityLogController if it has the equivalent surface — verify in implementation."
+    },
+    {
+      "id": "POLICY-7",
+      "title": "Sanctum ability 'integration:webhook' issued + checked but has no Gate::define mirror — Gate-layer asymmetry",
+      "severity": "LOW",
+      "files": [
+        "app/Http/Controllers/Api/AuthController.php:133 (token creation)",
+        "app/Http/Controllers/Api/ReportController.php:34 (tokenCan check)"
+      ],
+      "evidence": "AuthController::getAbilitiesForUser returns ['integration:webhook'] for super_admin role; ReportController checks $request->user()->tokenCan('integration:webhook'). The ability works (Sanctum validates the token-attached ability list at runtime), but there's no Gate::define('integration:webhook', ...) in AuthServiceProvider. This creates Gate-layer asymmetry: a security reviewer auditing 'what authorization checks exist' sees the Gate registry as one source of truth and Sanctum abilities as another — easy to miss that integration:webhook exists. Phase-18 AUTHZ-5 deferred the Sanctum/Gate mapping doc to Phase-19+; POLICY-7 ships the doc + adds a Gate mirror so the registry is complete.",
+      "fix": "Add Gate::define('integration:webhook', fn ($user) => $user->isSuperAdmin() && ! $user->isRestricted()) to AuthServiceProvider. Update ReportController to check both: tokenCan('integration:webhook') AND Gate::allows('integration:webhook') — the AND is intentional (Sanctum gates which TOKEN can use the ability; Gate gates which USER is allowed regardless of token). New docs/runbooks/authz-coverage.md enumerates: (1) Gate registry (X abilities), (2) Sanctum ability registry (Y abilities), (3) mapping between the two, (4) role middleware uses. Phase-18 AUTHZ-5 placeholder doc becomes this file. Tests pin: the Gate is defined; ReportController denies if either tokenCan or Gate fails."
+    },
+    {
+      "id": "POLICY-8",
+      "title": "Zero @can / v-can directives in Blade and Vue templates — UI renders authorization-blind",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/views/**/*.blade.php (0 @can directives)",
+        "resources/js/**/*.vue (0 v-can directives)",
+        "resources/js/Pages/**/*.vue"
+      ],
+      "evidence": "Grep across resources/views and resources/js for @can / v-can / canCheck returns ZERO matches. Server-side authorization via Policies/Gates is enforced (Phase-15/18 shipped the coverage matrix), but the UI layer is authorization-blind: delete buttons, edit forms, and admin-only links render for all users; the server returns 403 when they're invoked. UX impact: users see actions they can't take and get confused; audit reviewers can't tell which features the UI advertises vs hides per role. POLICY-8 introduces the pattern + seeds the highest-impact 10-15 templates so the convention is visible and future templates can copy it.",
+      "fix": "(a) Define `Gate::policy()`-backed canDirective in resources/js — a small Vue 3 directive `v-can:delete=\"invoice\"` that reads from Inertia's shared auth.user.abilities map (Phase-15 FRONT-8 deferred slim-DTO migration; v-can needs the abilities subset, not the full user). (b) Update Inertia's HandleInertiaRequests middleware to share auth.user.abilities (subset of Gate-defined abilities + relevant Policy methods for the currently-viewing user). (c) Seed @can / v-can directives across the 10-15 highest-traffic templates (Invoices Index, Tenants Index, Buildings Index, Admin nav, Subscription nav). New tests/Feature/Frontend/CanDirectiveTest.php asserts the shared abilities map is non-empty for authenticated users. Watchdog: tests/Feature/Frontend/Phase19TemplateCanCoverageTest.php scans resources/js/Pages for delete/edit/admin button patterns and asserts at least N templates have v-can guards (baseline 12 post-implementation, threshold 8 catches regression)."
+    },
+    {
+      "id": "POLICY-9",
+      "title": "Cross-tenant artisan commands lack --landlord-id / --dry-run guard rails — accidental full-system mutation risk",
+      "severity": "LOW",
+      "files": [
+        "app/Console/Commands/GenerateMonthlyInvoices.php:36,41",
+        "app/Console/Commands/MarkOverdueInvoices.php",
+        "app/Console/Commands/ProcessScheduledDeletions.php"
+      ],
+      "evidence": "GenerateMonthlyInvoices uses withoutGlobalScope('landlord') and mutates invoices across all landlords; same for MarkOverdueInvoices. ProcessScheduledDeletions calls DataDeletionService which hard-deletes user data after the Phase-13 grace period expires. These are intentional system-wide ops scheduled via the kernel cron — but a manual `php artisan invoices:generate` invocation by an unattended operator would re-run the same logic with no --dry-run / --landlord-id flags to scope the blast radius. A typo or wrong-environment invocation could re-mutate invoices.",
+      "fix": "Add --landlord-id=N (run for one landlord only), --dry-run (print what would change, mutate nothing), --confirm=YES (block invocation unless explicit confirmation; bypassed when --no-interaction is set for scheduler runs). Schedule definitions in routes/console.php pass --no-interaction so the cron path is unaffected. ProcessScheduledDeletions additionally adds a --max-deletions=N safety cap (defaults to 50, error if scope exceeds without explicit override). Tests pin: --dry-run does not mutate the DB; --landlord-id=N only mutates rows for that landlord; --confirm=YES required for interactive runs."
+    },
+    {
+      "id": "INDEX-1",
+      "title": "invoice.late_fees_total denormalization drift audit missing (DATA-4 closure)",
+      "severity": "HIGH",
+      "files": [
+        "app/Models/LateFee.php",
+        "app/Models/Invoice.php",
+        "database/migrations/2026_01_12_100002_create_late_fees_table.php",
+        "database/migrations/2026_01_12_100003_add_late_fee_columns_to_invoices_table.php",
+        "app/Console/Commands/AuditPaymentAllocations.php (MONEY-5 reference pattern)"
+      ],
+      "evidence": "Phase-17 MONEY-5 shipped php artisan payments:audit-allocations (nightly 06:00 Africa/Nairobi) comparing invoice.amount_paid against SUM(payments.amount WHERE invoice_id=N), emitting invoice_amount_paid_drift_count Prometheus gauge + exiting FAILURE on drift > threshold. The SAME denormalization-drift surface exists for invoice.late_fees_total: it's a cached sum of LateFee.fee_amount WHERE deleted_at IS NULL AND is_waived=false GROUP BY invoice_id. No audit command verifies this. If LateFee::waive() forgets to update the parent Invoice.late_fees_total (which is what Invoice::recalculateLateFees handles, but a future bug could skip the recalc), the drift goes silently until a report shows the wrong total_due. Phase-18 DATA-4 deferred as 'mechanical given the MONEY-5 pattern' — INDEX-1 ships it.",
+      "fix": "New app/Console/Commands/AuditLateFeesAllocation.php mirroring AuditPaymentAllocations structure: query SELECT invoice_id, SUM(fee_amount) FROM late_fees WHERE deleted_at IS NULL AND is_waived=false GROUP BY invoice_id; JOIN invoices ON id=invoice_id; flag rows where ABS(invoices.late_fees_total - computed_sum) > 0.01. Emits invoice_late_fees_total_drift_count Prometheus gauge (via MetricsService::gauge). Schedule in routes/console.php at 06:15 Africa/Nairobi (15min after payments:audit-allocations). Exit FAILURE on drift_count > 5 (configurable via config('integrity.late_fees_drift_threshold', 5)). New tests/Feature/Integrity/LateFeesDriftAuditTest.php: clean-state passes; force-drift via DB::update bypassing model → audit detects + flags + exits failure."
+    },
+    {
+      "id": "INDEX-2",
+      "title": "late_fees lacks (landlord_id, is_waived, applied_date) covering composite for active-fee reporting",
+      "severity": "MEDIUM",
+      "files": [
+        "database/migrations/2026_01_12_100002_create_late_fees_table.php:29-31"
+      ],
+      "evidence": "Existing indexes on late_fees: (invoice_id, applied_date), (landlord_id, applied_date), (invoice_id, is_waived). The (landlord_id, applied_date) composite covers TenantScope + date range filters but does NOT include is_waived. Queries like 'list active (non-waived) late fees for landlord X between date_from and date_to' (which is the Phase-15 PERF-6 slow-query log's #3 hottest report query) scan the (landlord_id, applied_date) index range and filter is_waived in-engine — for landlords with high waive ratios this scans ~3x the rows it returns. INDEX-1's drift audit also benefits: it filters WHERE deleted_at IS NULL AND is_waived=false GROUP BY invoice_id; a covering composite (is_waived, invoice_id, fee_amount) lets MySQL serve the GROUP BY entirely from the index leaf pages.",
+      "fix": "Single migration database/migrations/2026_05_13_xxxx_phase19_index2_late_fees_active_composite.php: $table->index(['landlord_id', 'is_waived', 'applied_date'], 'late_fees_landlord_active_date_idx') + $table->index(['is_waived', 'invoice_id', 'fee_amount'], 'late_fees_active_invoice_fee_idx') for INDEX-1's drift audit. Down migration drops both. Add `vendor/bin/phpunit --filter=LateFeesIndexTest` schema-introspection test asserting the indexes exist via information_schema query. Migration is online (CREATE INDEX ALGORITHM=INPLACE LOCK=NONE on InnoDB)."
+    },
+    {
+      "id": "INDEX-3",
+      "title": "invoice_items.invoice_id FK lacks leading index — InnoDB join + lock scope risk",
+      "severity": "MEDIUM",
+      "files": [
+        "database/migrations/2026_01_12_130005_create_invoice_items_table.php"
+      ],
+      "evidence": "invoice_items declares ->foreignId('invoice_id')->constrained()->cascadeOnDelete() but NO explicit index on invoice_id. Laravel's ->constrained() creates the FK constraint but does NOT auto-create a covering index on the child column (only the parent's PRIMARY is reused; child-side index is required for reverse-direction joins). MySQL InnoDB requires a leading index on the FK column for: (a) JOIN performance when querying invoice->items() — without the index, an invoice with N items triggers N row-by-row lookups, (b) lock-scope correctness — inserting an invoice_item with FK=X without an index escalates to a gap lock on the entire range, blocking concurrent inserts. Phase-15 slow-query log entries for invoice detail pages confirm this is exercised.",
+      "fix": "Migration database/migrations/2026_05_13_xxxx_phase19_index3_invoice_items_fk_idx.php: $table->index('invoice_id', 'invoice_items_invoice_id_idx'). Down drops it. Online migration. Schema-introspection test asserts the index exists. Same review pattern applies to ALL ->constrained() calls — INDEX-7 catches the expense table; the systematic audit is deferred to docs/runbooks/policy-and-index.md as a manual-review checklist with the foreignId-without-index rule documented."
+    },
+    {
+      "id": "INDEX-4",
+      "title": "Five TenantScope tables lack the (landlord_id, primary_date) composite Phase-15 established (DATA-8 closure)",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Models/Building.php (TenantScope, no composite)",
+        "app/Models/Unit.php (TenantScope, no composite)",
+        "app/Models/Property.php (TenantScope, no composite)",
+        "app/Models/Expense.php (TenantScope, has (landlord_id, expense_date) — verify)",
+        "app/Models/WalletTransaction.php (TenantScope, no (landlord_id, created_at) composite)",
+        "database/migrations/2025_01_01_000001_create_prop_manager_tables.php (buildings/units/properties schema)",
+        "database/migrations/2026_01_12_091834_create_expenses_table.php",
+        "database/migrations/2026_01_11_002114_create_wallet_transactions_table.php"
+      ],
+      "evidence": "Phase-15 PERF-1/2/7 established the (landlord_id, primary_date_field) composite as the house convention for TenantScope tables, citing the read-path query pattern of 'list X for landlord Y in date range Z'. payments, invoices, notifications all received composites. Five more TenantScope tables share the same query pattern but lack the composite: buildings (queried by (landlord_id, created_at) for property dashboards), units ((landlord_id, building_id, created_at) for unit lists), properties ((landlord_id, name) for autocomplete), wallet_transactions ((landlord_id, created_at) for ledger views — Phase-18 DATA-2 audit-balances command also benefits), expenses ((landlord_id, expense_date) MAY already exist — verify in migration). Phase-18 DATA-8 deferred as 'mechanical, broader audit, not enforced as CI gate' — INDEX-4 ships the indexes + adds the CI gate.",
+      "fix": "Single migration database/migrations/2026_05_13_xxxx_phase19_index4_tenantscope_composites.php: Schema::table for each of buildings/units/properties/wallet_transactions adding the named composite (CREATE INDEX ... ALGORITHM=INPLACE LOCK=NONE). Verify expenses composite exists; add if missing. Update Phase18Phase3Test::test_every_tenant_scoped_model_has_a_registered_policy to also assert each TenantScope model's table has at LEAST a (landlord_id) leading index — informational baseline first, watchdog threshold next. Down migration drops added indexes. Schema-introspection tests pin presence."
+    },
+    {
+      "id": "INDEX-5",
+      "title": "Hot report queries (arrears, revenue) miss covering index opportunity on invoices",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/ReportService.php:171-197 (getArrearsAnalysis)",
+        "app/Services/FinanceReportService.php:28-65 (getRevenueReport)"
+      ],
+      "evidence": "ReportService::getArrearsAnalysis queries invoices WHERE landlord_id=X AND status IN ('overdue', 'partial') AND due_date < now() with SELECT SUM(total_due - amount_paid). FinanceReportService::getRevenueReport queries invoices WHERE landlord_id=X AND created_at BETWEEN [...] SUM(total_due). Both pull only aggregate columns (status, due_date, total_due, amount_paid). Phase-15 PERF-2 added (landlord_id, status, due_date) — covers the WHERE/index seek — but SUM still requires a heap fetch for total_due/amount_paid. A covering index that INCLUDES total_due + amount_paid lets the query plan stay entirely in the index leaf pages (~3-5x faster on cold cache).",
+      "fix": "MySQL 8.0 doesn't have INCLUDE syntax but supports covering indexes by listing all referenced columns in the index. Migration database/migrations/2026_05_13_xxxx_phase19_index5_invoice_report_covering.php: add (landlord_id, status, due_date, total_due, amount_paid) — supersedes the Phase-15 PERF-2 (landlord_id, status, due_date) which becomes redundant and can be dropped in the same migration (Phase-19 INDEX-9 hygiene rule). Verify via EXPLAIN that the new index serves both report queries. Schema-introspection test asserts the index. Note: index becomes ~30% larger; acceptable trade for report-hot-path covering."
+    },
+    {
+      "id": "INDEX-6",
+      "title": "audit_logs / security_logs / webhook_logs use offset pagination — full-scan at scale",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/AuditLogController.php:74 (->paginate(25))",
+        "app/Http/Controllers/ActivityLogController.php",
+        "app/Http/Controllers/SecurityLogController.php (verify)",
+        "app/Http/Controllers/WebhookLogController.php (verify)"
+      ],
+      "evidence": "Three unbounded log tables (audit_logs, security_logs, webhook_logs) grow ~1 row per user action / login / webhook event respectively. Per-landlord 6-month volume estimate: 100k-500k rows. Offset pagination (LIMIT 25 OFFSET 50000) requires MySQL to scan 50k+ rows to skip to the desired page — full index walk even with a perfect index. Cursor pagination using (created_at, id) as cursor performs a constant-time range seek: WHERE (created_at < $cursor_date OR (created_at = $cursor_date AND id < $cursor_id)) LIMIT 26. Phase-15 PERF-3 added per_page clamping (max 200) but didn't migrate pagination strategy. Phase-15 noted '...migrate to v2 (cursor-paginated...' as a deferred follow-up.",
+      "fix": "Migrate AuditLogController, ActivityLogController, SecurityLogController, WebhookLogController to ->cursorPaginate(25, ['*'], 'cursor', $cursor). Update Inertia page components (Pages/AuditLog/Index.vue, etc.) to use next_cursor / prev_cursor instead of links array. The pagination response shape changes — affected callers (Vue pages) update in the same commit. Add `created_at DESC, id DESC` order to each query if not already present. Schema-introspection: confirm (landlord_id, created_at, id) composite exists on each log table; add if missing (INDEX-6 ships the index migration alongside the controller change). Test pins: cursor pagination returns expected page size, next/prev cursors are valid, navigating forward + backward returns consistent results. The api/v1/audit-logs JSON endpoint also migrates — old offset-based callers are unsupported per the Phase-7 v2 migration note."
+    },
+    {
+      "id": "INDEX-7",
+      "title": "expenses table has 5 FK columns without leading indexes (category_id, vendor_id, property_id, building_id, unit_id)",
+      "severity": "MEDIUM",
+      "files": [
+        "database/migrations/2026_01_12_091834_create_expenses_table.php"
+      ],
+      "evidence": "expenses declares 5 FKs via foreignId()->constrained() (category_id, vendor_id, property_id, building_id, unit_id) but NO leading indexes on any of them. The migration adds composites (landlord_id, expense_date), (landlord_id, category_id) — the latter has category_id as a TRAILING column, which does NOT serve a 'list all expenses for category X' query (composite indexes only seek on prefix). Queries from BulkOperationsController + ReportController that filter by category_id or property_id alone trigger full landlord_id index scan + in-engine filter. Same InnoDB lock-scope concern as INDEX-3.",
+      "fix": "Migration database/migrations/2026_05_13_xxxx_phase19_index7_expense_fk_indexes.php: $table->index('category_id'), $table->index('vendor_id'), $table->index(['property_id', 'expense_date']), $table->index(['building_id', 'expense_date']), $table->index(['unit_id', 'expense_date']) — composites where the FK pairs with a typical date filter, single-column where the FK is queried alone. (landlord_id, category_id) composite is RETAINED — it serves the 'expenses by category for landlord X' query. Online migrations. Schema-introspection tests pin each index."
+    },
+    {
+      "id": "INDEX-8",
+      "title": "wallet_transactions lacks (landlord_id, created_at) composite — DATA-2 audit query slow",
+      "severity": "MEDIUM",
+      "files": [
+        "database/migrations/2026_01_11_002114_create_wallet_transactions_table.php",
+        "app/Console/Commands/AuditWalletBalances.php (DATA-2 reference)"
+      ],
+      "evidence": "wallet_transactions has indexes on (lease_id, type) + bare created_at — no composite on (landlord_id, created_at). Phase-18 DATA-2 wired wallets:audit-balances which queries SUM(amount) WHERE lease_id=X GROUP BY lease_id (joins via lease.landlord_id) and validates against Lease.wallet_balance. The query pattern is index-friendly on lease_id but the dashboard 'wallet transactions for landlord X last 30 days' query (used by WalletController::index per Phase-5) scans all of created_at then filters by joining leases on landlord_id. Adding (landlord_id, created_at) lets the dashboard query seek directly. Subsumed under INDEX-4 family but called out separately because the (landlord_id) column is on wallet_transactions itself (denormalized) — POLICY-4 [edit: INDEX-4] migration includes it, but the audit-balances drift query also benefits.",
+      "fix": "Already covered by INDEX-4's migration — wallet_transactions composite is one of the 5 additions. Test pin: wallets:audit-balances completes ~3x faster on a seed dataset of 10k transactions (informational benchmark, not a regression test). Documentation note: same (landlord_id, primary_date) pattern as Phase-15 PERF-1."
+    },
+    {
+      "id": "INDEX-9",
+      "title": "SoftDelete partial-index workaround via generated column — Phase-15 PERF-5 closure",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Models/Building.php (SoftDeletes + TenantScope, high cardinality)",
+        "app/Models/Unit.php (SoftDeletes + TenantScope, high cardinality)",
+        "app/Models/Document.php (SoftDeletes + TenantScope, high volume)",
+        "database/migrations/* (target tables)"
+      ],
+      "evidence": "Phase-15 PERF-5 deferred a partial-index workaround for SoftDelete tables because MySQL InnoDB lacks PostgreSQL's `WHERE deleted_at IS NULL` partial-index syntax. For tables with SoftDeletes + low deletion rate (deleted_rows / total_rows < 5%), queries like 'list ACTIVE units for landlord X' (the common UI listing) scan the (landlord_id, *) composite including deleted rows and filter in-engine. A MySQL workaround: add a STORED GENERATED column `is_active TINYINT GENERATED ALWAYS AS (CASE WHEN deleted_at IS NULL THEN 1 ELSE 0 END) STORED` + index on (is_active, landlord_id, primary_date). Queries that filter is_active=1 then seek directly to the active subset, mimicking partial-index selectivity. STORED (not VIRTUAL) is required for indexing on the generated column in MySQL 8.0.",
+      "fix": "Pilot on 3 high-impact tables: buildings, units, documents (high query volume, low deletion rate). Migration database/migrations/2026_05_13_xxxx_phase19_index9_softdelete_active_column.php adds: (a) $table->tinyInteger('is_active')->storedAs('CASE WHEN deleted_at IS NULL THEN 1 ELSE 0 END')->after('deleted_at'), (b) $table->index(['is_active', 'landlord_id'], 'TABLE_active_landlord_idx'). Eloquent: TenantScope trait's bootTenantScope already filters by landlord_id; add an ActiveScope trait used by these 3 models that adds where('is_active', 1) — Eloquent's SoftDeletes already filters deleted_at IS NULL; ActiveScope is the index-friendly synonym. Test pin: EXPLAIN shows the new (is_active, landlord_id) index is used; queries return same results as the deleted_at IS NULL path. Migration online; STORED column rewrites the table on add — operator-visible: ~30s lock window per table at production scale. Plan for low-traffic window."
+    }
+  ]
+}
