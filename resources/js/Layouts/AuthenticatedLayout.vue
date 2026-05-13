@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { usePage, Link, router } from '@inertiajs/vue3';
+import { useAuth } from '@/composables/useAuth';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
@@ -56,7 +57,7 @@ defineSlots<{
 const showMobileSidebar = ref(false);
 
 const page = usePage();
-const user = computed(() => page.props.auth.user);
+const { user, isSuperAdmin, isLandlord, isCaretaker, isTenant, isRestricted, can } = useAuth();
 const isImpersonating = computed(() => page.props.impersonating || false);
 const navBadges = computed(() => page.props.navBadges || {});
 const featureAccess = computed(() => page.props.featureAccess || {});
@@ -78,11 +79,15 @@ const roleConfig = computed(() => {
     return configs[user.value?.role] || { label: 'User', color: 'bg-gray-600', icon: UserCircleIcon };
 });
 
-// Navigation items based on role
+// Navigation items based on role.
+// Phase-20 AUTHZ-FRONT-3: admin section gated via can('access-admin')
+// instead of raw role-string. Phase-13 DPA-4 restriction propagates
+// through Gate::before — a restricted super-admin's abilities map
+// will have access-admin=true (it's on the read-side allow-list)
+// so they still see the nav; per-action buttons in admin pages are
+// individually gated via finer abilities.
 const navigationItems = computed(() => {
-    const role = user.value?.role;
-
-    if (role === 'super_admin') {
+    if (can('access-admin')) {
         return [
             { name: 'Dashboard', href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard') },
             { name: 'Landlords', href: route('admin.landlords'), icon: BuildingOffice2Icon, active: route().current('admin.landlords*') },
@@ -92,6 +97,7 @@ const navigationItems = computed(() => {
         ];
     }
 
+    const role = user.value?.role;
     if (role === 'landlord') {
         return [
             { name: 'Dashboard', href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard') },
@@ -480,6 +486,35 @@ const navigationItems = computed(() => {
                         <NotificationBell />
                     </div>
                 </header>
+
+                <!--
+                    Phase-20 AUTHZ-FRONT-4: DPA-4 restriction banner.
+                    Renders when the current user has restricted_at set
+                    (Phase-13 DPA-4 / Kenya DPA Section 26(d) Article 18
+                    right to restriction of processing). Pre-Phase-20
+                    a restricted user clicking 'Edit' got a silent 403
+                    with no UI feedback; the banner now makes the state
+                    visible and points at the release path.
+                -->
+                <div
+                    v-if="isRestricted"
+                    role="alert"
+                    class="bg-amber-50 border-l-4 border-amber-500 px-4 py-3"
+                >
+                    <div class="flex items-start gap-3">
+                        <ExclamationTriangleIcon class="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                        <div class="flex-1 text-sm text-amber-900">
+                            <p class="font-semibold">Your account is currently restricted (Article 18).</p>
+                            <p class="mt-0.5">
+                                You have read-only access. Write actions (edits, payments, deletions) will be denied.
+                                <Link :href="route('gdpr.index')" class="underline font-medium hover:text-amber-700">
+                                    Manage your privacy settings
+                                </Link>
+                                to release the restriction.
+                            </p>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Invitation Banner (for pending invitations) -->
                 <InvitationBanner

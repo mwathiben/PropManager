@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { useEscapeKey } from '@/composables/useEscapeKey';
 import { useBodyScrollLock } from '@/composables/useBodyScrollLock';
+import { useFocusTrap } from '@/composables/useFocusTrap';
 
 const props = defineProps({
     show: {
@@ -47,6 +48,10 @@ const close = () => {
 };
 
 useEscapeKey(close, showRef);
+
+// Phase-20 FRONT-UX-7: trap Tab focus inside the modal while open.
+// Pre-Phase-20 Tab could escape to background page content.
+useFocusTrap(dialog, showRef);
 
 const maxWidthClass = computed(() => {
     return {

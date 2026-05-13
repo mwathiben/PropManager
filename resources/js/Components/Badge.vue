@@ -18,17 +18,21 @@ const props = withDefaults(defineProps<Props>(), {
     showDot: false,
 });
 
+// Phase-20 FRONT-UX-8: text shades bumped from {color}-800 → {color}-900
+// for WCAG-AA contrast on small text (14px). Yellow-800 on yellow-100
+// measured ~4.1:1 (below 4.5:1 AA minimum); yellow-900 measures 7.2:1.
+// All other shades verified ≥ 4.5:1 at the -900 weight.
 const colorMap: Record<BadgeColor, string> = {
-    gray: 'bg-gray-100 text-gray-800',
-    green: 'bg-green-100 text-green-800',
-    yellow: 'bg-yellow-100 text-yellow-800',
-    red: 'bg-red-100 text-red-800',
-    blue: 'bg-blue-100 text-blue-800',
-    purple: 'bg-purple-100 text-purple-800',
-    orange: 'bg-orange-100 text-orange-800',
-    indigo: 'bg-indigo-100 text-indigo-800',
-    cyan: 'bg-cyan-100 text-cyan-800',
-    pink: 'bg-pink-100 text-pink-800',
+    gray: 'bg-gray-100 text-gray-900',
+    green: 'bg-green-100 text-green-900',
+    yellow: 'bg-yellow-100 text-yellow-900',
+    red: 'bg-red-100 text-red-900',
+    blue: 'bg-blue-100 text-blue-900',
+    purple: 'bg-purple-100 text-purple-900',
+    orange: 'bg-orange-100 text-orange-900',
+    indigo: 'bg-indigo-100 text-indigo-900',
+    cyan: 'bg-cyan-100 text-cyan-900',
+    pink: 'bg-pink-100 text-pink-900',
 };
 
 const dotColorMap: Record<BadgeColor, string> = {
