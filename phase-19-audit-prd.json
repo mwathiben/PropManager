@@ -254,5 +254,90 @@
       "evidence": "Phase-15 PERF-5 deferred a partial-index workaround for SoftDelete tables because MySQL InnoDB lacks PostgreSQL's `WHERE deleted_at IS NULL` partial-index syntax. For tables with SoftDeletes + low deletion rate (deleted_rows / total_rows < 5%), queries like 'list ACTIVE units for landlord X' (the common UI listing) scan the (landlord_id, *) composite including deleted rows and filter in-engine. A MySQL workaround: add a STORED GENERATED column `is_active TINYINT GENERATED ALWAYS AS (CASE WHEN deleted_at IS NULL THEN 1 ELSE 0 END) STORED` + index on (is_active, landlord_id, primary_date). Queries that filter is_active=1 then seek directly to the active subset, mimicking partial-index selectivity. STORED (not VIRTUAL) is required for indexing on the generated column in MySQL 8.0.",
       "fix": "Pilot on 3 high-impact tables: buildings, units, documents (high query volume, low deletion rate). Migration database/migrations/2026_05_13_xxxx_phase19_index9_softdelete_active_column.php adds: (a) $table->tinyInteger('is_active')->storedAs('CASE WHEN deleted_at IS NULL THEN 1 ELSE 0 END')->after('deleted_at'), (b) $table->index(['is_active', 'landlord_id'], 'TABLE_active_landlord_idx'). Eloquent: TenantScope trait's bootTenantScope already filters by landlord_id; add an ActiveScope trait used by these 3 models that adds where('is_active', 1) — Eloquent's SoftDeletes already filters deleted_at IS NULL; ActiveScope is the index-friendly synonym. Test pin: EXPLAIN shows the new (is_active, landlord_id) index is used; queries return same results as the deleted_at IS NULL path. Migration online; STORED column rewrites the table on add — operator-visible: ~30s lock window per table at production scale. Plan for low-traffic window."
     }
-  ]
+  ],
+  "closeout": {
+    "status": "complete",
+    "closed_on": "2026-05-13",
+    "commits": [
+      { "sha": "77ce105", "subject": "docs(phase-19): POLICY + INDEX audit PRD baseline (18 findings)" },
+      {
+        "sha": "ca74068",
+        "subject": "fix(phase19-1): POLICY HIGH — forceDelete/restore policies + subscription Gate + audit-log DPA-4 scope",
+        "findings": ["POLICY-1", "POLICY-5", "POLICY-6"]
+      },
+      {
+        "sha": "b25d9bc",
+        "subject": "fix(phase19-2): INDEX HIGH — invoice.late_fees_total drift audit (DATA-4 closure)",
+        "findings": ["INDEX-1"]
+      },
+      {
+        "sha": "6bda33a",
+        "subject": "fix(phase19-3a): MEDIUM batch — policy method completeness + index migrations (DATA-8 closure)",
+        "findings": ["POLICY-2", "POLICY-3", "POLICY-4", "INDEX-2", "INDEX-3", "INDEX-4", "INDEX-5", "INDEX-7", "INDEX-8"]
+      },
+      {
+        "sha": "812f5de",
+        "subject": "fix(phase19-4): LOW batch + runbook — integration:webhook Gate parity + console guard rails",
+        "findings": ["POLICY-7", "POLICY-9"]
+      }
+    ],
+    "finding_to_commit": {
+      "POLICY-1": { "commit": "ca74068", "status": "closed", "note": "Closes Phase-18 AUTHZ-9 deferral. 8 Policy classes (Building, Document, Invoice, KycRequirement, Lease, Property, Unit, TenantPolicy) gain explicit forceDelete + restore methods. forceDelete returns false (super-admin-only via Policy::before bypass); restore mirrors delete() ownership. DPA-4 restriction enforced at Gate::before so a DPA-restricted super-admin is denied both write-side abilities (not on the allow-list). Phase19PolicyTest data-provider iterates the 8 policies via Reflection asserting method presence + publicity." },
+      "POLICY-2": { "commit": "6bda33a", "status": "closed", "note": "TenantPaymentVerificationPolicy declares explicit create/update/delete returning false. Verifications are submission-gated (PaymentVerificationController) and immutable post-submission; approve/reject have their own abilities. Pre-fix the missing methods relied on framework defaults — now the read-only-after-creation contract is visible at the Policy layer. Phase19Phase3Test::test_tenant_payment_verification_policy_methods_return_false_for_writes pins the explicit-deny return values." },
+      "POLICY-3": { "commit": "6bda33a", "status": "closed", "note": "TenantPolicy declares explicit viewAny (allows landlord+caretaker), create (returns false — invitation-only via InvitationController), update (mirrors actorManagesTenant), delete (returns false — GDPR right-to-erasure goes via deletion-request workflow). Phase19Phase3Test pins viewAny outcomes across user types and the create/delete=false invariant." },
+      "POLICY-4": { "commit": "6bda33a", "status": "closed", "note": "ImportPolicy declares explicit update returning false (imports immutable post-upload). If metadata-amend becomes a real requirement later, flip to $this->isOwner(). Phase19Phase3Test::test_import_policy_declares_explicit_update pins the deny." },
+      "POLICY-5": { "commit": "ca74068", "status": "closed", "note": "Gate::define('manage-subscription') resurrected (Phase-18 deleted it as dead, Phase-19 wires real call sites in SubscriptionController::index/plans/subscribe replacing 3 inline `$user->role !== 'landlord'` checks that bypassed Gate::before). DashboardStatsController raw role-string comparisons replaced with isSuperAdmin/isLandlord/isCaretaker helpers (Phase-18 no-raw-role-strings watchdog baseline 8 → 6). AuthzCoverageMatrixTest dead-Gate denylist updated to allow 'manage-subscription' + adds positive define-AND-call-site assertion. Phase19PolicyTest pins Gate definition + restricted-landlord denial." },
+      "POLICY-6": { "commit": "ca74068", "status": "closed", "note": "User::canAccessAllAuditLogs() new helper combining isSuperAdmin() && !isRestricted(). AuditLogController's 6 inline `! $user->isSuperAdmin()` scope checks now use this helper. Pre-Phase-19 a DPA-restricted super-admin retained full-system audit-log visibility (view-audit-logs is on the DPA-4 read-side allow-list, so the Gate passed); post-fix the helper falls them back to the landlord-scoped query path which collapses to landlord_id=NULL → zero rows. Phase19PolicyTest pins predicate behavior + functional Inertia response shape for restricted super-admin." },
+      "POLICY-7": { "commit": "812f5de", "status": "closed", "note": "Gate::define('integration:webhook') mirrors the Sanctum ability — Gate::before DPA-4 hook now fires for the cross-landlord report path. Api\\ReportController::resolveLandlordId switched from inline `$user->isSuperAdmin() || $request->user()->tokenCan('integration:webhook')` to `Gate::forUser($user)->allows('integration:webhook')`. A restricted super-admin (or a restricted user holding an integration token) is now denied; non-super-admin token holders still pass via the Gate::define hook which checks tokenCan internally. Phase19Phase4Test pins the 3 outcomes (super-admin allow, restricted super-admin deny, landlord-without-token deny)." },
+      "POLICY-8": { "commit": null, "status": "deferred", "note": "Frontend @can/v-can directives across Blade + Vue templates. Needs (a) Inertia HandleInertiaRequests middleware change to share auth.user.abilities map, (b) Vue 3 v-can directive registration, (c) seeding 10-15 highest-traffic templates. Substantial UX-pattern coordination work whose payoff is UI ergonomics — server-side authorization is already enforced via Phase-15/18 coverage matrix. Deferred to Phase-20+ frontend-focused phase." },
+      "POLICY-9": { "commit": "812f5de", "status": "closed", "note": "Cross-tenant artisan commands (invoices:generate, invoices:mark-overdue, gdpr:process-deletions) gain --landlord-id / --dry-run / --confirm guard rails. ProcessScheduledDeletions adds --max-deletions=N pre-flight safety cap (default 50) — refuses to run if pending queue exceeds the cap, preventing accidental mass-deletion. Scheduler invocations run non-interactively so --confirm is auto-skipped; operator shell runs require it explicitly. docs/runbooks/policy-and-index.md section 4 documents the guard-rail signature pattern for future cross-tenant commands. Phase19Phase4Test pins dry-run no-mutation, --landlord-id scoping correctness, and the --max-deletions cap blocking a runaway scenario." },
+      "INDEX-1": { "commit": "b25d9bc", "status": "closed", "note": "Closes Phase-18 DATA-4 deferral. New App\\Console\\Commands\\AuditLateFeesAllocation following the Phase-17 MONEY-5 pattern — sums per-invoice active LateFee.fee_amount (is_waived=false; LateFee doesn't soft-delete) and compares against invoice.late_fees_total. Drift > 0.01 KES logged to schedule channel + bumps invoice_late_fees_total_drift_count Prometheus gauge. Scheduled at 05:40 Africa/Nairobi (10min after wallets:audit-balances). Phase19IndexTest pins balanced + drift + zero-fees-zero-total paths + schedule wiring." },
+      "INDEX-2": { "commit": "6bda33a", "status": "closed", "note": "late_fees gains (landlord_id, is_waived, applied_date) + (is_waived, invoice_id, fee_amount) composites. First serves the Phase-15 slow-query #3 'active fees for landlord X in date range'; second serves INDEX-1's latefees:audit-drift GROUP BY entirely from index leaf pages. Existing (landlord_id, applied_date) + (invoice_id, applied_date) composites are retained — they serve different access patterns." },
+      "INDEX-3": { "commit": "6bda33a", "status": "closed", "note": "invoice_items.invoice_id gains a leading index. Laravel's ->foreignId()->constrained() does NOT auto-add a leading index on the child column; InnoDB needs it for reverse-direction joins + correct lock scope on inserts. Schema-introspection test pins existence." },
+      "INDEX-4": { "commit": "6bda33a", "status": "closed", "note": "Closes Phase-18 DATA-8 deferral. TenantScope composites added on buildings (landlord_id, id), units (landlord_id, id), properties (landlord_id, created_at), wallet_transactions (landlord_id, created_at) — extends the Phase-15 PERF-1/2/7 (landlord_id, primary_date) pattern to the 4 highest-traffic TenantScope tables that previously lacked it. INDEX-8 folds into this migration." },
+      "INDEX-5": { "commit": "6bda33a", "status": "closed", "note": "invoices (landlord_id, status, due_date, total_due, amount_paid) covering index supersedes the Phase-15 PERF-2 3-column prefix (dropped in the same migration). MySQL 8.0 lacks PostgreSQL-style INCLUDE syntax — listing all referenced columns gives the same covering behavior. Arrears + revenue report queries now stay entirely in the index leaf pages. PerformanceHardeningTest watchdog updated to assert the covering name + the prefix's absence." },
+      "INDEX-6": { "commit": null, "status": "deferred", "note": "Cursor pagination on audit_logs + tenant_activities. The change requires a new CursorPagination.vue component (cursor paginator has no from/to/total counters used by the current UI), Vue page rewrites in Admin/AuditLogs.vue + ActivityLogs/Index.vue, and the Phase-7-flagged api/v1/audit-logs v2 endpoint migration. Capacity-planning work, not yet load-driven — current per-landlord row counts haven't crossed the offset-pagination pain threshold. Deferred to Phase-20+." },
+      "INDEX-7": { "commit": "6bda33a", "status": "closed", "note": "expenses leading FK indexes for category_id, vendor_id + composites for property_id/building_id/unit_id each paired with expense_date. The existing (landlord_id, category_id) composite is retained for the 'expenses by category for landlord X' path. InnoDB lock-scope correctness on inserts now satisfied for all 5 FK columns." },
+      "INDEX-8": { "commit": "6bda33a", "status": "closed-by-folding", "note": "wallet_transactions (landlord_id, created_at) composite folded into the INDEX-4 migration. Same Phase-15 (landlord_id, primary_date) pattern — serves Phase-18 DATA-2 wallets:audit-balances query AND the dashboard ledger view." },
+      "INDEX-9": { "commit": null, "status": "deferred", "note": "SoftDelete partial-index workaround via STORED GENERATED columns on buildings/units/documents. The STORED column addition is NOT an online InnoDB operation — it rewrites the table (operator-visible ~30s lock per table at production scale). Requires operator-coordinated maintenance window. Deferred to a Phase-20+ infra-focused cycle where the schema-rewrite ergonomics can be planned alongside other heavy migrations." }
+    },
+    "deferrals": [
+      {
+        "id": "POLICY-8-frontend-can-directives",
+        "reason": "Frontend @can/v-can directive adoption across Blade + Vue templates needs Inertia HandleInertiaRequests middleware change to share auth.user.abilities, Vue 3 v-can directive registration, and seeding 10-15 highest-traffic templates. Server-side authorization is already enforced (Phase-15/18 coverage); the gap is UX ergonomics. Phase-20+ frontend-focused cycle.",
+        "files": ["resources/views/**/*.blade.php (0 @can directives)", "resources/js/Pages/**/*.vue (0 v-can directives)", "app/Http/Middleware/HandleInertiaRequests.php (no abilities share yet)"]
+      },
+      {
+        "id": "INDEX-6-cursor-pagination",
+        "reason": "Cursor pagination on audit_logs + tenant_activities needs (a) new CursorPagination.vue component (cursor paginator has no from/to/total counters), (b) Vue page rewrites in Admin/AuditLogs.vue + ActivityLogs/Index.vue, (c) Phase-7-flagged api/v1/audit-logs v2 endpoint migration. Capacity-planning work, not yet load-driven. Phase-20+ candidate.",
+        "files": ["app/Http/Controllers/AuditLogController.php (still offset paginate)", "app/Http/Controllers/ActivityLogController.php (still offset paginate)", "resources/js/Pages/Admin/AuditLogs.vue (uses logs.links)", "resources/js/Pages/ActivityLogs/Index.vue (uses activities.links + Pagination.vue)"]
+      },
+      {
+        "id": "INDEX-9-softdelete-generated-column",
+        "reason": "STORED generated column addition for is_active rewrite is NOT online InnoDB — table rewrite, operator-visible lock window. Needs maintenance-window coordination per table. Phase-20+ infra-focused cycle.",
+        "files": ["database/migrations/* (no STORED generated column migration yet)", "app/Models/Building.php + Unit.php + Document.php (would gain ActiveScope trait)"]
+      }
+    ],
+    "tests_added": {
+      "Phase19PolicyTest.php": 17,
+      "Phase19IndexTest.php": 5,
+      "Phase19Phase3Test.php": 21,
+      "Phase19Phase4Test.php": 10,
+      "total": 53
+    },
+    "watchdog_updates": [
+      "AuthzCoverageMatrixTest::test_no_dead_gates: 'manage-subscription' graduated off the dead-Gate denylist; added positive assertion that Gate::define + Gate::authorize call site coexist (POLICY-5).",
+      "Phase18Phase3Test::test_no_raw_role_string_comparison_in_controllers: baseline 8 → 6 (SubscriptionController + DashboardStatsController cleaned up), threshold 10 → 8.",
+      "PerformanceHardeningTest::test_invoices_table_has_landlord_status_due_composite_index: now asserts the 5-column covering index name (invoices_landlord_status_due_covering_idx) + the absence of the Phase-15 PERF-2 3-column prefix (INDEX-5)."
+    ],
+    "ci_lineage": [
+      "77ce105 — PRD baseline — CI: green",
+      "ca74068 — Phase 1 POLICY HIGH — CI: green",
+      "b25d9bc — Phase 2 INDEX HIGH — CI: green",
+      "6bda33a — Phase 3a MEDIUM (9 findings) — CI: green",
+      "812f5de — Phase 4 LOW + runbook — CI: green",
+      "<this commit> — Phase 19 closeout PRD update"
+    ],
+    "summary": "Phase 19 closed 15 of 18 findings; 3 deferred (POLICY-8 frontend @can/v-can directives, INDEX-6 cursor pagination + Vue rewrites, INDEX-9 STORED-column maintenance window). Consumed all 3 Phase-18 deferrals (AUTHZ-9 → POLICY-1, DATA-4 → INDEX-1, DATA-8 → INDEX-4). 53 new tests across 4 test classes. Net surface delta: 8 SoftDelete-using policies gain forceDelete + restore methods (un-gated authorization paths closed); SubscriptionController/AuditLogController/Api\\ReportController routed through Gate layer so DPA-4 restriction enforcement applies symmetrically (Phase-13/18 hardening now extends to subscription billing + audit log scope + integration token paths); User::canAccessAllAuditLogs() helper makes the 'super-admin AND not restricted' predicate reusable; 3 read-only-by-design policies (TenantPaymentVerification, Tenant, Import) declare explicit deny methods instead of relying on framework defaults; new latefees:audit-drift artisan command closes the late_fees_total denormalization drift gap (third audit in the MONEY-5/DATA-2 family); 13 new composite/leading-FK/covering indexes added across late_fees/invoice_items/buildings/units/properties/wallet_transactions/invoices/expenses (DATA-8 closed, Phase-15 PERF-2 prefix retired in favor of covering version); 3 cross-tenant artisan commands gain --landlord-id/--dry-run/--confirm guard rails + ProcessScheduledDeletions adds --max-deletions safety cap; integration:webhook Sanctum ability mirrored in Gate registry. docs/runbooks/policy-and-index.md documents the Phase-19 conventions in 6 sections (policy completeness, Sanctum/Gate parity, index design, drift-audit pattern, command guard rails, deferred items). Watchdog tightening: no-raw-role baseline 8 → 6 (threshold 10 → 8); dead-Gate denylist loses 'manage-subscription' + adds positive define-AND-call-site assertion; PerformanceHardeningTest pinned to the new covering index name. Same closure ratio as Phase-18 (15/18, 3 deferred); deferrals are coordination-heavy items (frontend UX adoption, response-shape changes with UI rewrites, schema rewrite needing maintenance window) — appropriate for next-cycle planning rather than this-cycle scope creep."
+  }
 }
