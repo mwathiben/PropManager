@@ -2,6 +2,8 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
+import { useZodForm } from '@/composables/forms/useZodForm';
+import { moveOutSchema } from '@/composables/forms/schemas/moveOutSchema';
 import type { MoveOutCreatePageProps } from '@/types/finances';
 import {
     ArrowLeftIcon,
@@ -24,7 +26,12 @@ const form = useForm({
     reason: '',
 });
 
+const { validate } = useZodForm(form, moveOutSchema);
+
 const submit = () => {
+    if (!validate()) {
+        return;
+    }
     form.post(route('move-outs.store', props.lease.id));
 };
 </script>

@@ -3,6 +3,8 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, watch, computed } from 'vue';
 import { useErrorHandler } from '@/composables';
+import { useZodForm } from '@/composables/forms/useZodForm';
+import { ticketSchema } from '@/composables/forms/schemas/ticketSchema';
 import type { TicketCreatePageProps, Unit } from '@/types';
 import {
     WrenchScrewdriverIcon,
@@ -49,7 +51,12 @@ watch(() => form.category, () => {
     form.subcategory = '';
 });
 
+const { validate } = useZodForm(form, ticketSchema);
+
 const submit = () => {
+    if (!validate()) {
+        return;
+    }
     form.post(route('tickets.store'), {
         preserveScroll: true
     });

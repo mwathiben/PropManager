@@ -5,6 +5,8 @@ import InputLabel from '@/Components/InputLabel.vue';
 import FormSubmitButton from '@/Components/FormSubmitButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { useZodForm } from '@/composables/forms/useZodForm';
+import { registerSchema } from '@/composables/forms/schemas/registerSchema';
 
 const form = useForm({
     name: '',
@@ -14,7 +16,12 @@ const form = useForm({
     role: 'landlord', // Default role
 });
 
+const { validate } = useZodForm(form, registerSchema);
+
 const submit = () => {
+    if (!validate()) {
+        return;
+    }
     form.post(route('register'), {
         onFinish: () => form.reset('password', 'password_confirmation'),
     });

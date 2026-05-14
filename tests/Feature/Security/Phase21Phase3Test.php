@@ -224,6 +224,86 @@ class Phase21Phase3Test extends TestCase
         }
     }
 
+    public function test_top_5_forms_use_zod_validation(): void
+    {
+        // DEFER-FRONT-2 (closes Phase-15 FRONT-7 deferral): the first 5
+        // forms must pre-validate client-side via useZodForm + a
+        // server-mirrored Zod schema. The watchdog pins adoption so a
+        // future PR can't quietly drop the client-side validation.
+        $forms = [
+            'resources/js/Pages/Auth/Login.vue' => 'loginSchema',
+            'resources/js/Pages/Auth/Register.vue' => 'registerSchema',
+            'resources/js/Pages/Leases/Create.vue' => 'tenantInvitationSchema',
+            'resources/js/Pages/Tickets/Create.vue' => 'ticketSchema',
+            'resources/js/Pages/MoveOuts/Create.vue' => 'moveOutSchema',
+        ];
+
+        foreach ($forms as $relative => $schema) {
+            $source = file_get_contents(base_path($relative));
+            $this->assertStringContainsString(
+                "import { useZodForm } from '@/composables/forms/useZodForm';",
+                $source,
+                "DEFER-FRONT-2: $relative must import the useZodForm bridge.",
+            );
+            $this->assertStringContainsString(
+                $schema,
+                $source,
+                "DEFER-FRONT-2: $relative must use the $schema Zod schema.",
+            );
+            $this->assertStringContainsString(
+                'if (!validate())',
+                $source,
+                "DEFER-FRONT-2: $relative submit() must gate on validate() before posting.",
+            );
+        }
+    }
+
+    public function test_zod_schemas_exist_for_top_5_forms(): void
+    {
+        // DEFER-FRONT-2: each schema mirrors its server-side Form Request.
+        $schemas = [
+            'loginSchema',
+            'registerSchema',
+            'tenantInvitationSchema',
+            'ticketSchema',
+            'moveOutSchema',
+        ];
+
+        foreach ($schemas as $schema) {
+            $this->assertFileExists(
+                base_path("resources/js/composables/forms/schemas/{$schema}.ts"),
+                "DEFER-FRONT-2: {$schema}.ts must exist under composables/forms/schemas/.",
+            );
+        }
+
+        $bridge = base_path('resources/js/composables/forms/useZodForm.ts');
+        $this->assertFileExists($bridge, 'DEFER-FRONT-2: useZodForm.ts bridge must exist.');
+        $this->assertStringContainsString(
+            'form.setError(errors)',
+            file_get_contents($bridge),
+            'DEFER-FRONT-2: useZodForm must pipe Zod failures into Inertia form.errors via setError().',
+        );
+    }
+
+    public function test_validation_pattern_doc_reflects_zod_decision(): void
+    {
+        // DEFER-FRONT-2: the Phase-15 doc pinned vee-validate; Phase 21
+        // corrected the decision to Zod + useZodForm. The doc must record
+        // the correction so code and docs stay honest.
+        $doc = file_get_contents(base_path('docs/runbooks/frontend-validation-pattern.md'));
+
+        $this->assertStringContainsString(
+            'useZodForm',
+            $doc,
+            'DEFER-FRONT-2: the validation pattern doc must document the useZodForm bridge.',
+        );
+        $this->assertStringContainsString(
+            'Phase-21 DEFER-FRONT-2 update',
+            $doc,
+            'DEFER-FRONT-2: the doc must record why the vee-validate pin was corrected.',
+        );
+    }
+
     public function test_ci_workflow_emits_cyclonedx_sbom(): void
     {
         // DEFER-SUPPLY-1: CycloneDX format alongside the raw inventory.

@@ -3,6 +3,8 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useFormatters, useCurrency } from '@/composables';
+import { useZodForm } from '@/composables/forms/useZodForm';
+import { tenantInvitationSchema } from '@/composables/forms/schemas/tenantInvitationSchema';
 import type { LeasesCreatePageProps } from '@/types/finances';
 import {
     EnvelopeIcon,
@@ -37,7 +39,12 @@ const invitationSent = ref(false);
 const sentEmail = ref('');
 const sentChannels = ref([]);
 
+const { validate } = useZodForm(form, tenantInvitationSchema);
+
 const submit = () => {
+    if (!validate()) {
+        return;
+    }
     form.post(route('tenant-invitations.store'), {
         preserveScroll: true,
         onSuccess: () => {

@@ -6,6 +6,8 @@ import InputLabel from '@/Components/InputLabel.vue';
 import FormSubmitButton from '@/Components/FormSubmitButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { useZodForm } from '@/composables/forms/useZodForm';
+import { loginSchema } from '@/composables/forms/schemas/loginSchema';
 
 defineProps({
     canResetPassword: {
@@ -22,7 +24,12 @@ const form = useForm({
     remember: false,
 });
 
+const { validate } = useZodForm(form, loginSchema);
+
 const submit = () => {
+    if (!validate()) {
+        return;
+    }
     form.post(route('login'), {
         onFinish: () => form.reset('password'),
     });
