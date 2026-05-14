@@ -18,6 +18,8 @@ class BankWebhookLog extends Model
         'error_details',
         'ip_address',
         'processed_payment_id',
+        // Phase-21 DEFER-OBSERV-1: cross-log correlation via logs:correlate.
+        'request_id',
     ];
 
     // LEAK-1: webhook payloads include bank account numbers, sender

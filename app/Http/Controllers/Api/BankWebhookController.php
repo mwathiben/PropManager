@@ -54,6 +54,10 @@ class BankWebhookController extends Controller
             'payload' => $request->all(),
             'status' => 'received',
             'ip_address' => $request->ip(),
+            // Phase-21 DEFER-OBSERV-1: cross-log correlation. logs:correlate
+            // ties this webhook back to the originating request via the
+            // X-Request-Id header stamped by Phase-14 AddRequestId middleware.
+            'request_id' => $request->header('X-Request-Id'),
         ]);
 
         $idempotencyKey = null;

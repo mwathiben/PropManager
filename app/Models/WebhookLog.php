@@ -38,6 +38,8 @@ class WebhookLog extends Model
         'status',
         'processing_time_ms',
         'ip_address',
+        // Phase-21 DEFER-OBSERV-1: cross-log correlation via logs:correlate.
+        'request_id',
     ];
 
     protected $casts = [

@@ -6,6 +6,7 @@ use App\Models\WebhookLog;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class WebhookLogService
 {
@@ -21,6 +22,12 @@ class WebhookLogService
     ): WebhookLog {
         $payloadHash = hash('sha256', $rawPayload);
         $now = now();
+        // Phase-21 DEFER-OBSERV-1: stamp request_id from the Phase-14
+        // AddRequestId middleware header so logs:correlate can tie this
+        // webhook back to the originating HTTP request. Falls back to a
+        // fresh UUID for paths that hit recordHit() outside a request
+        // context (e.g. replays, fixtures).
+        $requestId = request()?->header('X-Request-Id') ?? (string) Str::uuid();
 
         try {
             return WebhookLog::withoutGlobalScope('landlord')->create([
@@ -34,6 +41,7 @@ class WebhookLogService
                 'last_received_at' => $now,
                 'status' => WebhookLog::STATUS_PENDING,
                 'ip_address' => $ipAddress,
+                'request_id' => $requestId,
             ]);
         } catch (QueryException $e) {
             if ($e->errorInfo[1] !== 1062) {

@@ -104,6 +104,15 @@ $schedule('wallets:audit-balances', fn ($e) => $e->dailyAt('05:35'));
 // gauges don't race for the same Cache key write window.
 $schedule('latefees:audit-drift', fn ($e) => $e->dailyAt('05:40'));
 
+// Phase-21 DEFER-DPA-3 (closes Phase-12 RETAIN-5 deferral): unified
+// retention orchestrator. Runs logs:prune (6 tables) + soft-deleted:purge
+// + queue:prune-batches + queue:prune-failed + gdpr:process-deletions
+// in sequence with per-stage health gauges + aggregated failure count.
+// Individual schedule entries above still run (idempotent — defensive
+// duplication). Operator dashboard watches retention_pipeline_health
+// {stage=X} gauges.
+$schedule('dpa:enforce-retention', fn ($e) => $e->dailyAt('02:00')->withoutOverlapping(120));
+
 // Phase-21 DEFER-DPA-1: nightly minor-tenant consent drift audit.
 // Kenya DPA Article 8 / Section 33 — flags tenants with dob indicating
 // minor status BUT no parental_consent_provided_at. Same pattern as

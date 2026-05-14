@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\AuditLog;
+use App\Models\BankWebhookLog;
 use App\Models\SecurityLog;
 use App\Models\WebhookLog;
 use Illuminate\Console\Command;
@@ -42,6 +43,7 @@ class LogsCorrelate extends Command
             ->concat($this->fromAuditLogs($since))
             ->concat($this->fromSecurityLogs($since))
             ->concat($this->fromWebhookLogs($since))
+            ->concat($this->fromBankWebhookLogs($since))
             ->sortBy('at');
 
         if ($rows->isEmpty()) {
@@ -128,14 +130,20 @@ class LogsCorrelate extends Command
             return collect();
         }
 
-        $query = WebhookLog::query()->where('created_at', '>=', $since);
+        $query = WebhookLog::withoutGlobalScope('landlord')->where('created_at', '>=', $since);
+        $requestId = (string) ($this->option('request-id') ?? '');
         $ip = (string) ($this->option('ip') ?? '');
+
+        // Phase-21 DEFER-OBSERV-1: closes the comment-tagged follow-up.
+        // webhook_logs.request_id is now stamped by
+        // WebhookLogService::recordHit so the correlate query path is
+        // symmetric with audit_logs/security_logs.
+        if ($requestId !== '') {
+            $query->where('request_id', $requestId);
+        }
         if ($ip !== '') {
             $query->where('ip_address', $ip);
         }
-        // webhook_logs do not currently store user_id or request_id;
-        // restrict to ip-based match for now. Adding metadata->request_id
-        // is part of OBSERV-10 follow-up.
 
         return $query->limit(500)->get()->map(fn ($w) => [
             'at' => (string) $w->created_at,
@@ -143,6 +151,38 @@ class LogsCorrelate extends Command
             'event' => 'webhook_'.($w->provider ?? 'unknown'),
             'actor' => $w->ip_address,
             'detail' => substr((string) ($w->event_type ?? ''), 0, 60),
+        ]);
+    }
+
+    /**
+     * Phase-21 DEFER-OBSERV-1: bank webhook ingress (KCB / Coop / Equity
+     * via BankWebhookController) writes to bank_webhook_logs with
+     * request_id stamped from the X-Request-Id header. Surfaces here
+     * alongside the other audit-trail tables.
+     */
+    private function fromBankWebhookLogs(\DateTimeInterface $since): Collection
+    {
+        if (! class_exists(BankWebhookLog::class)) {
+            return collect();
+        }
+
+        $query = BankWebhookLog::query()->where('created_at', '>=', $since);
+        $requestId = (string) ($this->option('request-id') ?? '');
+        $ip = (string) ($this->option('ip') ?? '');
+
+        if ($requestId !== '') {
+            $query->where('request_id', $requestId);
+        }
+        if ($ip !== '') {
+            $query->where('ip_address', $ip);
+        }
+
+        return $query->limit(500)->get()->map(fn ($b) => [
+            'at' => (string) $b->created_at,
+            'source' => 'bank_webhook_logs',
+            'event' => 'bank_'.($b->bank_code ?? 'unknown'),
+            'actor' => $b->ip_address,
+            'detail' => substr((string) ($b->event_type ?? $b->status ?? ''), 0, 60),
         ]);
     }
 
