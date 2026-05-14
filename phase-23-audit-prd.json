@@ -1,0 +1,263 @@
+{
+  "project": "PropManager",
+  "audit_cycle": "phase-23",
+  "audit_date": "2026-05-14",
+  "scope": "Tier-2 non-functional excellence, cycle 2 of 3 (per project_propmanager_path_forward.md). Phase 22 closed the performance/load surface; Phase 23 [A11Y] is the full WCAG 2.1 AA conformance audit. Phase 20 shipped strong a11y foundations — Badge contrast hardened to AA, icon-only buttons require an aria-label (IconButton), Modal has a focus trap + Escape handling, InputError carries role=alert + an icon affordance, decorative icons are aria-hidden, every page sets a Head title, and the layout uses real <header>/<nav>/<main>/<aside> landmarks. What is missing is everything that makes the app actually usable by a keyboard-only or screen-reader user end to end: there is NO skip-link, form errors are visually present but NOT programmatically associated to their input (no aria-describedby / aria-invalid), required fields have no accessible indicator, there is NO ARIA live region so flash messages and async updates are silent to a screen reader, dropdowns do not manage focus, the mobile sidebar overlay has no focus trap, prefers-reduced-motion is unhandled, data tables lack header semantics, and there is ZERO automated a11y tooling (no eslint a11y plugin, no axe). Phase 23 closes those gaps. 18 findings across 6 categories: A11Y-KBD (3 — skip-link, dropdown focus management, mobile-sidebar focus trap), A11Y-SR (4 — ARIA live announcer, landmark/heading audit, DataTable semantics, Leaflet map alt), A11Y-FORM (3 — error association, required-field indication, helper-text association), A11Y-VISUAL (3 — prefers-reduced-motion, color-not-sole-indicator, focus-visible consistency), A11Y-CI (3 — eslint-plugin-vuejs-accessibility gate, axe-core smoke test, source-level watchdogs), A11Y-DOC (2 — conformance statement, testing runbook). Severity split 4H/9M/5L.",
+  "context_baseline": {
+    "previous_audits": [
+      "Phase 15 (FRONT + PERF, 18 findings — CSP, DOMPurify, PaginatorLink)",
+      "Phase 18 (AUTHZ + DATA, 15/18)",
+      "Phase 19 (POLICY + INDEX, 15/18)",
+      "Phase 20 (FRONT + UX-AUTHZ, 12/18 — Badge AA contrast, Modal useFocusTrap, InputError role=alert + icon, EmptyState, DPA-4 banner role=alert, semantic layout landmarks, AuthAbilities framework)",
+      "Phase 21 (DEFER-CLEANUP, 18/18 — IconButton with required ariaLabel, FormSubmitButton adoption, Errors/403+404 pages)",
+      "Phase 22 (PERF + LOAD, 18/18 — k6 harness, http_request_ms + slo:report, CI perf budgets, N+1 test gate, cache metrics, statelessness audit)"
+    ],
+    "do_not_reflag": "Already shipped — Phase 23 rides this surface, it does not rebuild it. (1) Badge.vue contrast pairs are AA-hardened (bg-{c}-100 / text-{c}-900) — do not re-touch the colour map. (2) IconButton.vue requires an ariaLabel prop and marks its icon aria-hidden — icon-only buttons that already use IconButton are done; the gap is bare <button>+icon sites that have not migrated, and that is a Phase-21 concern not re-opened here. (3) Modal.vue has useFocusTrap + useEscapeKey + useBodyScrollLock — the Modal itself is done; A11Y-KBD-3 is the MOBILE SIDEBAR overlay, a different component with no trap. (4) InputError.vue already has role=alert + ExclamationCircleIcon + text-red-700 AA contrast — A11Y-FORM-1 does NOT change InputError's rendering, it adds the aria-describedby/aria-invalid WIRING between the input and the existing InputError. (5) Every page sets <Head title> — do not re-audit page titles; A11Y-SR-2 is about the <h1> + landmark labelling, not the document title. (6) Layout landmarks (<header>/<nav>/<main>/<aside>) exist in AuthenticatedLayout — A11Y-SR-2 ADDS aria-label to the multiple <nav>s (a screen reader needs to tell them apart) and a skip-link target, it does not add the landmarks. (7) Focus-ring styling (focus:ring-2 focus:ring-offset-2) is broadly applied — A11Y-VISUAL-3 is a consistency sweep + a watchdog, not a from-scratch rollout. (8) The Phase-22 watchdog pattern (source-level assertions in tests/Feature/Performance) is the template for A11Y-CI-3's tests/Feature/Accessibility watchdogs.",
+    "audit_strategy": "Per project_propmanager_path_forward.md Tier 2. Cycle pattern: PRD baseline (this commit) -> Phase 1 HIGH (4 findings: A11Y-KBD-1 skip-link, A11Y-SR-1 ARIA live announcer, A11Y-FORM-1 error association, A11Y-CI-1 eslint a11y gate) -> Phase 2 MEDIUM (9 findings: dropdown focus mgmt, mobile-sidebar trap, landmark/heading audit, DataTable semantics, required-field indication, prefers-reduced-motion, colour-not-sole-indicator, axe-core smoke test, conformance statement) -> Phase 3 LOW (5 findings: Leaflet map alt, helper-text association, focus-visible consistency, source-level watchdogs, testing runbook) -> closeout. The eslint a11y gate (A11Y-CI-1) ships FIRST among CI work and with a baseline-count threshold like the Phase-18/19/22 watchdogs — if it surfaces more violations than the targeted findings fix, the gate pins the floor and later findings ratchet it down. Target: zero deferrals (continuing the Phase 16 / 21 / 22 discipline) or document why. Test budget: ~25-35 new tests across tests/Feature/Accessibility/Phase23*Test classes following the Phase-22 watchdog conventions; axe-core runs in its own harness.",
+    "wcag_target": "WCAG 2.1 Level AA. The audit is scoped to AA success criteria reachable from the codebase: 1.3.1 Info and Relationships (form/table semantics, landmarks), 1.4.3 Contrast (already largely done in Phase 20), 1.4.11 Non-text Contrast, 1.4.13 Content on Hover/Focus, 2.1.1/2.1.2 Keyboard / No Keyboard Trap, 2.4.1 Bypass Blocks (skip-link), 2.4.3 Focus Order, 2.4.6 Headings and Labels, 2.4.7 Focus Visible, 3.2.x consistent navigation, 3.3.1/3.3.2 Error Identification + Labels, 4.1.2 Name/Role/Value, 4.1.3 Status Messages (ARIA live), 2.3.3 Animation from Interactions (prefers-reduced-motion, AAA but cheap and high-value). Criteria that need real assistive-tech testing (full NVDA/VoiceOver passes) are documented as a manual checklist in A11Y-DOC-2 rather than automated."
+  },
+  "qualityStandards": {
+    "test": "All Phase-23 changes must pass `php artisan test --parallel`, `vendor/bin/pint --test`, and `npm run build`. New: `npm run lint` (eslint-plugin-vuejs-accessibility) must pass — it ships in A11Y-CI-1 and is a CI gate from that commit forward. Source-level a11y watchdogs live in tests/Feature/Accessibility and run under PHPUnit; the axe-core smoke test (A11Y-CI-2) runs in its own harness/job.",
+    "ci": "Each commit lands on main with green CI before the next phase starts. All prior watchdogs stay green: Phase-15/19 PerformanceHardeningTest, Phase-18/19 AuthzCoverageMatrixTest, Phase-20 AuthzFrontCoverageMatrixTest, Phase-21 Phase21* suites, Phase-22 Phase22* suites + the perf-budget / load-smoke jobs. New CI jobs/steps (eslint a11y lint, axe smoke) are additive; eslint a11y gates on PR.",
+    "no_breaking_change": "All Phase-23 changes are additive or semantic-only. The skip-link is visually hidden until focused (sr-only + focus styles) — zero visual change for sighted mouse users. aria-describedby / aria-invalid are attributes, not layout. The ARIA live announcer is an off-screen region. prefers-reduced-motion only changes behaviour for users who asked for it. Required-field indicators are small additive markers. The eslint a11y plugin is dev-only. Touching template markup for semantics (aria-label on <nav>, <caption> on tables, scope on <th>) is non-visual. Where a fix DOES touch visible markup (required-field asterisk, colour-not-sole-indicator icons) it is purely additive — nothing is removed or restyled. CLAUDE.md's 'no direct edits to visual/styling code' rule is respected: these are semantic/markup additions, not restyles."
+  },
+  "feedbackLoops": {
+    "lint": "vendor/bin/pint --test",
+    "eslint_a11y": "npm run lint",
+    "test_focused": "php artisan test --filter='<keyword>'",
+    "test_full": "php artisan test --parallel",
+    "frontend_build": "npm run build",
+    "axe_smoke": "npm run test:a11y",
+    "ci_watch": "gh run list --limit 1 --branch main --workflow=CI --json status,conclusion"
+  },
+  "categories": {
+    "A11Y-KBD": {
+      "description": "Keyboard operability (WCAG 2.1.1, 2.1.2, 2.4.1, 2.4.3). Phase 20 gave Modal a focus trap, but the rest of the keyboard journey has gaps: there is no skip-link so a keyboard user tabs through the entire sidebar nav on every page before reaching content; Dropdown does not move focus into the menu on open or support arrow keys; the mobile sidebar overlay is a de-facto modal with no focus trap. This category makes the keyboard path complete end to end.",
+      "count": 3
+    },
+    "A11Y-SR": {
+      "description": "Screen-reader semantics (WCAG 1.3.1, 2.4.6, 4.1.2, 4.1.3). The biggest gap is the absence of any ARIA live region — flash messages, toasts, and async table updates are completely silent to a screen reader. Beyond that: the multiple <nav> landmarks are indistinguishable without aria-label, the <h1>-per-page convention is implicit not enforced, DataTable lacks header/caption semantics, and the Leaflet map has no text alternative.",
+      "count": 4
+    },
+    "A11Y-FORM": {
+      "description": "Accessible forms (WCAG 1.3.1, 3.3.1, 3.3.2, 4.1.2). Labels are correctly associated via for/id (Phase-20 era), but the error and helper relationships are not: InputError renders below the input with role=alert, yet the input has no aria-describedby pointing at it and no aria-invalid when errored — a screen-reader user does not learn the error belongs to that field. Required fields have no accessible indicator at all. This category centralises the input <-> error <-> helper wiring through the shared form components.",
+      "count": 3
+    },
+    "A11Y-VISUAL": {
+      "description": "Visual accessibility (WCAG 1.4.11, 1.4.13, 2.3.3, 2.4.7). Phase 20 hardened Badge text contrast; this category covers the rest: there is no prefers-reduced-motion handling so every Modal/Dropdown/SlideOutPanel transition runs regardless of the user's OS setting; some data-grid status cells may still rely on colour alone; and focus-visible styling, while broadly present, has not been swept for focus:outline-none-without-replacement regressions.",
+      "count": 3
+    },
+    "A11Y-CI": {
+      "description": "Automated a11y enforcement. The codebase has ZERO a11y tooling — no eslint a11y plugin, no axe. A manual audit decays the moment it ships. This category installs eslint-plugin-vuejs-accessibility as a CI lint gate (catches a large class of issues statically), adds an axe-core smoke test against rendered pages, and adds source-level watchdogs (skip-link present, live region present, etc.) in the Phase-22 watchdog style so the structural wins cannot silently regress.",
+      "count": 3
+    },
+    "A11Y-DOC": {
+      "description": "Conformance documentation. WCAG conformance is a procurement requirement for institutional landlords (see the path-forward notes). This category ships an accessibility conformance statement — a VPAT-lite mapping each in-scope AA criterion to its status + known gaps — and a testing runbook covering how to run axe locally plus the manual NVDA / VoiceOver / keyboard-only checklist that automation cannot replace.",
+      "count": 2
+    }
+  },
+  "items": [
+    {
+      "id": "A11Y-KBD-1",
+      "title": "Skip-link — bypass the nav block (WCAG 2.4.1)",
+      "severity": "HIGH",
+      "files": [
+        "resources/js/Layouts/AuthenticatedLayout.vue (skip-link as the first focusable element + id on <main>)",
+        "resources/js/Layouts/GuestLayout.vue (parallel — or document why guest pages are exempt)",
+        "resources/css/app.css (sr-only + focus-reveal utility if not already present)"
+      ],
+      "evidence": "AuthenticatedLayout has a real <main> landmark but no way to jump to it. A keyboard-only user lands on every page and must Tab through the entire sidebar navigation (dozens of links) before reaching the page content — on every single navigation. WCAG 2.4.1 Bypass Blocks requires a mechanism to skip repeated blocks; the canonical mechanism is a skip-link.",
+      "fix": "(a) Add `<a href=\"#main-content\" class=\"sr-only focus:not-sr-only focus:absolute focus:z-50 ...\">Skip to main content</a>` as the FIRST focusable element in AuthenticatedLayout (before the sidebar). (b) Add `id=\"main-content\"` + `tabindex=\"-1\"` to the <main> element so the link target is focusable. (c) The link is visually hidden (sr-only) until focused, then revealed with a clear focus style — zero change for mouse users. (d) GuestLayout: auth pages are short single-form pages with no repeated nav block — document the exemption in the conformance statement rather than forcing a pointless skip-link. (e) Phase23KbdTest::test_authenticated_layout_has_skip_link + test_main_landmark_is_focus_targetable — source-level watchdog asserting the skip-link + the id/tabindex on <main>."
+    },
+    {
+      "id": "A11Y-KBD-2",
+      "title": "Dropdown focus management — arrow-key menu nav + focus move on open (WCAG 2.1.1, 2.4.3)",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/Components/Dropdown.vue (focus move on open, arrow-key handling, Escape returns focus to trigger)",
+        "resources/js/composables/useFocusTrap.ts (reuse or extend for the menu)"
+      ],
+      "evidence": "Dropdown.vue opens on click and relies on the browser's default tab order — it does NOT move focus into the menu on open, does not support Up/Down arrow navigation between items, and Escape (via useEscapeKey) closes the menu but does not restore focus to the trigger. The trigger slot is wrapped in a bare `<div @click>` — keyboard support depends entirely on the caller putting a real <button> in the slot. WCAG 2.1.1 requires full keyboard operability; the ARIA menu pattern requires focus management.",
+      "fix": "(a) On open, move focus to the first focusable menu item (requestAnimationFrame-deferred like useFocusTrap). (b) Up/Down arrows move focus between menu items (wrapping); Home/End jump to first/last. (c) Escape closes AND returns focus to the trigger element (capture it on open). (d) Ensure the trigger wrapper is keyboard-operable: if the slotted trigger is not natively focusable, the wrapper gets role=button + tabindex=0 + @keydown.enter/space — but prefer documenting that callers must slot a real <button> and add a dev-time check. (e) Phase23KbdTest::test_dropdown_manages_focus — assert the component wires the open-focus + arrow handlers + escape-restores-focus."
+    },
+    {
+      "id": "A11Y-KBD-3",
+      "title": "Mobile sidebar overlay — focus trap + aria-modal + Escape (WCAG 2.1.2, 4.1.2)",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/Layouts/AuthenticatedLayout.vue (the mobile sidebar overlay block, lines ~365-460)"
+      ],
+      "evidence": "On mobile the sidebar is a full-screen overlay over the page content — functionally a modal — but unlike Modal.vue it has NO focus trap, NO aria-modal, and Escape does not close it. A keyboard / screen-reader user on a small viewport can Tab out of the open sidebar into the (visually obscured) page behind it, and the screen reader does not announce that a modal-like surface has taken over.",
+      "fix": "(a) When the mobile sidebar is open, apply useFocusTrap (the Phase-20 composable) to the sidebar panel. (b) Add role=dialog + aria-modal=true + an aria-label to the overlay panel. (c) Wire useEscapeKey to close it (mirrors Modal.vue). (d) On open, move focus into the panel; on close, restore focus to the hamburger trigger. (e) useBodyScrollLock while open (mirror Modal). (f) Phase23KbdTest::test_mobile_sidebar_is_a_trapped_modal — assert the overlay block wires useFocusTrap + useEscapeKey + aria-modal."
+    },
+    {
+      "id": "A11Y-SR-1",
+      "title": "ARIA live announcer for flash messages + async status (WCAG 4.1.3)",
+      "severity": "HIGH",
+      "files": [
+        "resources/js/Components/LiveAnnouncer.vue (new — the polite/assertive live region pair)",
+        "resources/js/composables/useAnnouncer.ts (new — announce(message, politeness))",
+        "resources/js/Layouts/AuthenticatedLayout.vue (mount the announcer once, wire Inertia flash messages)",
+        "resources/js/Layouts/GuestLayout.vue (parallel)"
+      ],
+      "evidence": "WCAG 4.1.3 Status Messages requires that status changes a sighted user sees are also conveyed to assistive tech without moving focus. PropManager has NO ARIA live region — Inertia flash messages (success/error after a form post), the optimistic notification updates, and any async table refresh are completely silent to a screen reader. role=alert exists only on InputError + the DPA-4 banner; there is no general-purpose announcer.",
+      "fix": "(a) LiveAnnouncer.vue: a visually-hidden component rendering two regions — `<div aria-live=\"polite\">` and `<div aria-live=\"assertive\" role=\"alert\">` — mounted ONCE per layout. (b) useAnnouncer.ts: `announce(message, politeness = 'polite')` writes into the right region (briefly clears + re-sets so repeated identical messages re-announce). (c) Wire Inertia's shared `flash` props (success -> polite, error -> assertive) through the announcer in the layout. (d) Export `useAnnouncer` so feature code (optimistic notifications, async refreshes) can announce too. (e) Phase23SrTest::test_layouts_mount_live_announcer + test_announcer_has_polite_and_assertive_regions."
+    },
+    {
+      "id": "A11Y-SR-2",
+      "title": "Landmark labelling + h1-per-page enforcement (WCAG 1.3.1, 2.4.1, 2.4.6)",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/Layouts/AuthenticatedLayout.vue (aria-label on each <nav>; the desktop + mobile nav need distinct labels)",
+        "resources/js/Components/Breadcrumb.vue (nav aria-label)",
+        "tests/Feature/Accessibility/Phase23SrTest.php (h1-per-page watchdog over resources/js/Pages)"
+      ],
+      "evidence": "AuthenticatedLayout has multiple <nav> landmarks (desktop sidebar, mobile sidebar) and a Breadcrumb <nav> — a screen reader's landmark list shows three unlabelled 'navigation' entries with no way to tell them apart (WCAG 2.4.1 / ARIA practice: multiple same-type landmarks need accessible names). Separately, the <h1>-per-page convention is implicit — pages render the heading via a #header slot, and a page that omits the slot has no h1, breaking the document outline (WCAG 1.3.1 / 2.4.6).",
+      "fix": "(a) Add a distinct aria-label to each <nav>: 'Primary' for the desktop sidebar nav, 'Mobile primary' for the mobile one, 'Breadcrumb' for the breadcrumb. (b) Audit resources/js/Pages for pages lacking an <h1> (the slot or template). Where missing, add one (visually styled to match, or sr-only if the design has no visible page title). (c) Phase23SrTest::test_nav_landmarks_are_labelled + test_every_page_has_an_h1 — the h1 watchdog greps Pages/*.vue for an <h1> (or a header-slot h1) and pins the count; a documented allow-list covers pages where an h1 genuinely does not apply (e.g. full-bleed Welcome)."
+    },
+    {
+      "id": "A11Y-SR-3",
+      "title": "DataTable header semantics — caption, scope, sortable-column ARIA (WCAG 1.3.1)",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/Components/DataTable.vue",
+        "resources/js/Components/Finances/VirtualDataTable.vue"
+      ],
+      "evidence": "DataTable.vue + VirtualDataTable render tabular data but (per the surface audit) lack the semantics a screen reader needs to navigate a table: no <caption> (or aria-label) naming the table, no scope=\"col\" on header cells, and sortable columns expose no aria-sort state. WCAG 1.3.1 requires the table's structure to be programmatically determinable.",
+      "fix": "(a) DataTable accepts a `caption` prop rendered as a real <caption> (or aria-label on the <table> if a visible caption does not fit the design). (b) Header <th> cells get scope=\"col\"; any row-header cells get scope=\"row\". (c) For sortable columns, the header's sort control is a real <button> and the <th> carries aria-sort=\"ascending|descending|none\" reflecting the current sort. (d) VirtualDataTable: same contract — the virtualisation must not drop the header semantics. (e) Phase23SrTest::test_datatable_exposes_table_semantics — assert the component templates carry caption/aria-label + scope + aria-sort wiring."
+    },
+    {
+      "id": "A11Y-SR-4",
+      "title": "Leaflet map text alternative (WCAG 1.1.1)",
+      "severity": "LOW",
+      "files": [
+        "resources/js/Components/BuildingMap.vue"
+      ],
+      "evidence": "BuildingMap.vue renders a Leaflet map. Leaflet's tile/marker DOM is not meaningfully navigable by a screen reader. WCAG 1.1.1 requires a text alternative for non-text content that conveys information — a map showing a building's location needs either an accessible description or, if the same information (the address) is available elsewhere on the page, the map can be marked decorative.",
+      "fix": "(a) If the building's address / location is already shown as text on the page (it is — building detail pages show the address), mark the map container aria-hidden=\"true\" + role=\"presentation\" so the screen reader skips the un-navigable map and uses the real text. (b) If a map is ever the SOLE source of location info, instead give the container a role=\"img\" + an aria-label describing what it shows. (c) Either way the container must not be a focus trap — confirm no focusable Leaflet controls strand a keyboard user. (d) Phase23SrTest::test_building_map_has_a_text_alternative — assert the component either aria-hides the map or gives it a role=img + label."
+    },
+    {
+      "id": "A11Y-FORM-1",
+      "title": "Form error association — aria-describedby + aria-invalid (WCAG 1.3.1, 3.3.1, 4.1.2)",
+      "severity": "HIGH",
+      "files": [
+        "resources/js/Components/TextInput.vue (accept + render aria-describedby / aria-invalid)",
+        "resources/js/Components/InputError.vue (accept + render an id)",
+        "resources/js/Components/InputLabel.vue (if it needs to thread the id)",
+        "resources/js/Pages/Auth/*.vue + a sample of Create forms (adopt the wired pattern)"
+      ],
+      "evidence": "Labels are associated via for/id, and InputError already renders with role=alert + an icon. But the INPUT and the ERROR are not linked: the input has no aria-describedby pointing at the error element, and no aria-invalid=\"true\" when errored. A screen-reader user tabbing onto the field hears the label but not the error — they only encounter the error if they happen to read past the input linearly. WCAG 3.3.1 requires the error to be associated with its field.",
+      "fix": "(a) InputError renders a stable id (prop-driven, e.g. `${field}-error`). (b) TextInput accepts an `errorId` (or derives it) — when an error is present it sets aria-invalid=\"true\" and aria-describedby=\"${errorId}\" (appending, not overwriting, any helper-text id from A11Y-FORM-3). (c) Establish the canonical 3-line form-field block (InputLabel + TextInput + InputError) so adoption is a mechanical wiring change, not a redesign. (d) Adopt across the 5 Auth forms + a representative Create form set; the eslint a11y plugin + a watchdog keep new forms honest. (e) Phase23FormTest::test_errored_input_is_aria_invalid_and_described_by + test_auth_forms_wire_error_association."
+    },
+    {
+      "id": "A11Y-FORM-2",
+      "title": "Required-field indication — visible marker + aria-required (WCAG 1.3.1, 3.3.2)",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/Components/InputLabel.vue (a `required` prop -> visible marker + sr-only text)",
+        "resources/js/Pages/Auth/*.vue + Create forms (pass required to InputLabel)"
+      ],
+      "evidence": "Required fields carry the HTML `required` attribute (which a screen reader does announce on focus) but have NO VISIBLE indicator — a sighted low-vision user filling the form has no way to know which fields are mandatory until submission fails. WCAG 3.3.2 Labels or Instructions: the form must communicate what is required up front.",
+      "fix": "(a) InputLabel gains a `required` boolean prop: when true it renders a visible marker (the conventional red asterisk) PLUS an sr-only ' (required)' so it is not colour/symbol-only, and the marker is aria-hidden so the sr-only text is the single spoken source. (b) The associated input keeps its native `required` (and gets aria-required=\"true\" for older AT). (c) Forms pass `:required` to InputLabel wherever the input is required — kept in sync with the input's own `required`. (d) Phase23FormTest::test_required_label_has_visible_and_sr_marker."
+    },
+    {
+      "id": "A11Y-FORM-3",
+      "title": "Helper-text association — aria-describedby for hints (WCAG 1.3.1)",
+      "severity": "LOW",
+      "files": [
+        "resources/js/Components/TextInput.vue (thread a helper-text id into aria-describedby)",
+        "resources/js/Pages/Auth/Register.vue (the role-select helper text is the canonical example)"
+      ],
+      "evidence": "Some fields have helper text — Register.vue's role <select> renders a paragraph explaining each role — but the helper paragraph is not associated to the control via aria-describedby, so a screen-reader user hears the label and options but not the explanation. WCAG 1.3.1: the relationship between the control and its instructions must be programmatic.",
+      "fix": "(a) Where a field has helper text, the helper element gets a stable id and the input's aria-describedby includes it (alongside the A11Y-FORM-1 error id — aria-describedby takes a space-separated id list). (b) Provide a small convention/prop on TextInput (`helperId`) so this is consistent. (c) Apply to the known helper-text sites (Register role select; sweep for `text-xs text-gray-500` hint paragraphs adjacent to inputs). (d) Phase23FormTest::test_helper_text_is_associated — assert Register's role helper is wired."
+    },
+    {
+      "id": "A11Y-VISUAL-1",
+      "title": "prefers-reduced-motion handling (WCAG 2.3.3)",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/css/app.css (global prefers-reduced-motion media query)",
+        "resources/js/Components/Modal.vue + SlideOutPanel.vue + Dropdown.vue (motion-reduce on the heavy transitions, if the global rule is not sufficient)"
+      ],
+      "evidence": "There is no `@media (prefers-reduced-motion: reduce)` anywhere. Modal (300ms), SlideOutPanel (300/200ms), Dropdown (200/75ms) and other transitions run unconditionally — for a user with a vestibular disorder who has set the OS 'reduce motion' preference, the app ignores it. WCAG 2.3.3 (and the spirit of 2.2.2) calls for honouring that preference.",
+      "fix": "(a) A global rule in app.css: `@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }` — the standard, well-tested reset. (b) Verify the heavy Vue <Transition> components still function (they will — the transition just becomes instant). (c) Where a JS-driven animation exists that the CSS rule cannot reach, gate it on `window.matchMedia('(prefers-reduced-motion: reduce)')`. (d) Phase23VisualTest::test_app_css_honours_prefers_reduced_motion — assert the media query + the reset rule are present."
+    },
+    {
+      "id": "A11Y-VISUAL-2",
+      "title": "Colour is not the sole indicator of state (WCAG 1.4.1)",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/Components/DataTable.vue + status-cell renderers",
+        "resources/js/Components/*StatusBadge.vue (Ticket/Invoice/Kyc) — verify each pairs colour with text/icon",
+        "data-grid status columns across resources/js/Pages (Finances, Tenants, Invoices indexes)"
+      ],
+      "evidence": "WCAG 1.4.1: colour must not be the only visual means of conveying information. Phase 20 fixed InputError (now red + icon) and the Badge component carries a text label. But the surface audit flagged data-grid status cells as a pending risk — a table cell that shows status purely as a coloured dot or coloured text, with no text label or icon, fails 1.4.1 for colour-blind users.",
+      "fix": "(a) Audit the status/state cells in DataTable + the index pages (Invoices status, Tenant verification state, Ticket priority, payment state). (b) Any cell conveying state by colour alone gets a paired affordance — the existing Badge component (text label) or an icon + accessible name. The *StatusBadge components already pair colour with text; the gap is ad-hoc coloured-text/dot cells in page templates. (c) Do NOT restyle — ADD the text/icon affordance alongside the existing colour (CLAUDE.md: additive markup, not a restyle). (d) Phase23VisualTest::test_status_badges_pair_colour_with_text — watchdog asserting the *StatusBadge components render a text label, plus a documented list of the audited+fixed page cells."
+    },
+    {
+      "id": "A11Y-VISUAL-3",
+      "title": "Focus-visible consistency sweep (WCAG 2.4.7)",
+      "severity": "LOW",
+      "files": [
+        "resources/js/Components/*.vue (sweep for focus:outline-none without a ring replacement)",
+        "tests/Feature/Accessibility/Phase23VisualTest.php (watchdog)"
+      ],
+      "evidence": "Focus-ring styling (focus:ring-2 focus:ring-offset-2) is broadly applied, but the surface audit could not rule out a `focus:outline-none` somewhere that removes the native outline WITHOUT providing a visible replacement — which fails WCAG 2.4.7 Focus Visible. A consistency sweep + a watchdog locks this down.",
+      "fix": "(a) Grep resources/js for `focus:outline-none` and `outline-none`; for each occurrence confirm a visible focus replacement (focus:ring*, focus-visible:*, a border change) is present on the same element. (b) Fix any bare `focus:outline-none` by adding a ring. (c) Phase23VisualTest::test_no_unreplaced_focus_outline_none — a watchdog that flags any `focus:outline-none` not accompanied by a `focus:ring` / `focus-visible:` on the same class list, with a documented allow-list for any genuine exceptions (count pinned, shrink-only)."
+    },
+    {
+      "id": "A11Y-CI-1",
+      "title": "eslint-plugin-vuejs-accessibility — static a11y lint gate",
+      "severity": "HIGH",
+      "files": [
+        "package.json (devDependency + a `lint` script)",
+        "eslint.config.js / .eslintrc (new — flat config with the vuejs-accessibility plugin)",
+        ".github/workflows/ci.yml (npm run lint step in the build job or a dedicated job)"
+      ],
+      "evidence": "There is ZERO a11y tooling in the repo — no eslint a11y plugin, no axe, nothing. A manual a11y audit (everything else in this PRD) decays the moment a new component ships without anyone re-checking. eslint-plugin-vuejs-accessibility statically catches a large class of issues (missing alt, label-for, no positive tabindex, click-without-keyboard, aria-* validity) at lint time — the highest-leverage single addition.",
+      "fix": "(a) Add eslint + eslint-plugin-vuejs-accessibility as devDependencies; add a `lint` script to package.json. (b) eslint flat config enabling the plugin's recommended ruleset for *.vue. (c) Run it; it WILL surface existing violations — triage: fix what is in scope of the other Phase-23 findings inline, and for the rest establish a baseline (either rule-level `warn` downgrades with a tracked list, or an eslint-disable inventory) so the gate is green from day one and ratchets stricter as later findings land. (d) CI: `npm run lint` as a gating step (blocking on PR, like Pint). (e) Phase23CiTest::test_eslint_a11y_plugin_is_configured + test_ci_runs_a11y_lint — source-level watchdog on package.json + the eslint config + ci.yml."
+    },
+    {
+      "id": "A11Y-CI-2",
+      "title": "axe-core smoke test against rendered pages",
+      "severity": "MEDIUM",
+      "files": [
+        "tests/a11y/axe-smoke.spec.* (new — axe-core run against key rendered pages)",
+        "package.json (devDependency: @axe-core/* + a test:a11y script)",
+        ".github/workflows/ci.yml (a11y smoke job, or a step in the existing load-smoke-style job)"
+      ],
+      "evidence": "Static lint (A11Y-CI-1) catches template-level issues but cannot catch RENDERED problems — computed contrast, focus order in the assembled DOM, ARIA that is only wrong in context, duplicate ids after composition. axe-core run against the actual rendered pages is the complement. Today nothing does this.",
+      "fix": "(a) Add an axe-core harness. The pragmatic option given the existing Phase-22 CI scaffolding (a booted app + the load-smoke job pattern): a small Playwright + @axe-core/playwright spec that logs in as the seeded load-test landlord and runs axe against the hot pages (dashboard, an index, a Create form, a Show page, the login page). (b) Fail on serious/critical axe violations; baseline-allow the moderate ones with a tracked list. (c) CI: a dedicated a11y-smoke job (reuse the load-smoke job's app-boot + LoadTestSeeder steps), continue-on-error on main / blocking on PR — same pattern as composer-audit + load-smoke. (d) Phase23CiTest::test_axe_smoke_harness_exists + test_ci_has_a11y_smoke_job."
+    },
+    {
+      "id": "A11Y-CI-3",
+      "title": "Source-level a11y watchdogs",
+      "severity": "LOW",
+      "files": [
+        "tests/Feature/Accessibility/Phase23*Test.php (the watchdog suite consolidating the structural assertions)"
+      ],
+      "evidence": "The structural wins of this phase — skip-link present, live announcer mounted, nav landmarks labelled, prefers-reduced-motion rule present, no unreplaced focus:outline-none — are exactly the kind of thing that silently regresses when someone refactors a layout. The Phase-18/19/21/22 watchdog pattern (cheap source-level PHPUnit assertions) is the proven guard.",
+      "fix": "(a) Consolidate / complete the tests/Feature/Accessibility watchdog suite — each Phase-23 finding contributes its watchdog (referenced in the per-finding fix entries above); this finding ensures the suite is coherent, the baseline-count thresholds are documented as shrink-only, and there is a single Phase23 a11y test group. (b) Following Phase-22's Phase22*Test conventions exactly. (c) This finding is the 'glue' — it does not invent new assertions, it makes sure the suite from KBD/SR/FORM/VISUAL is complete + consistent + documented."
+    },
+    {
+      "id": "A11Y-DOC-1",
+      "title": "Accessibility conformance statement (VPAT-lite)",
+      "severity": "MEDIUM",
+      "files": [
+        "docs/runbooks/accessibility.md (new — the conformance statement + criterion-by-criterion status)"
+      ],
+      "evidence": "WCAG conformance is a procurement question for institutional landlords (path-forward Tier-2 rationale). There is no document an operator or a prospective customer can point to that states what PropManager does and does not conform to. A VPAT-lite — each in-scope AA criterion mapped to Supports / Partially Supports / Does Not Support + notes — is the standard artefact.",
+      "fix": "(a) docs/runbooks/accessibility.md: the conformance target (WCAG 2.1 AA), a table of the in-scope success criteria (the list from context_baseline.wcag_target) each with a status + a note pointing at the implementing component/finding, the KNOWN GAPS section (anything that stayed Partially Supports + why), and the maintenance commitment (the eslint + axe gates, the watchdog suite). (b) Honest, not aspirational — 'Partially Supports' with a real note beats a fake 'Supports'. (c) Cross-reference the testing runbook (A11Y-DOC-2). (d) Phase23DocsTest::test_accessibility_conformance_statement_exists — assert the file exists + names WCAG 2.1 AA + has the criterion table + a known-gaps section."
+    },
+    {
+      "id": "A11Y-DOC-2",
+      "title": "A11y testing runbook — automated + manual checklist",
+      "severity": "LOW",
+      "files": [
+        "docs/runbooks/accessibility.md (a testing section — or a sibling doc)"
+      ],
+      "evidence": "Automation (eslint a11y + axe) catches maybe half of WCAG issues; the rest needs a human with a keyboard and a screen reader. There is no documented process for how to run the automated checks locally or how to do the manual passes — so the manual testing simply will not happen consistently.",
+      "fix": "(a) A testing section in accessibility.md (or docs/runbooks/accessibility-testing.md): how to run `npm run lint` + `npm run test:a11y` locally and read the output; the keyboard-only test pass (Tab through every flow, no trap, visible focus, skip-link works, Escape closes overlays); the screen-reader checklist (NVDA on Windows, VoiceOver on macOS — what to listen for on a form, a table, a flash message); and when a manual pass is required (any new page, any layout change, any new interactive component). (b) Phase23DocsTest::test_a11y_testing_runbook_documents_manual_checklist — assert the manual keyboard + screen-reader checklist is present."
+    }
+  ]
+}
