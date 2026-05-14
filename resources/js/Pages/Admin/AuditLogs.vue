@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import CursorPagination from '@/Components/CursorPagination.vue';
+import EmptyState from '@/Components/EmptyState.vue';
+import { ClipboardDocumentListIcon } from '@heroicons/vue/24/outline';
 import { Head, router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import type { AdminAuditLogsPageProps } from '@/types';
@@ -223,9 +225,14 @@ const getEventBadgeClass = (color) => {
                                     </button>
                                 </td>
                             </tr>
+                            <!-- Phase-20 FRONT-UX-9: EmptyState component. -->
                             <tr v-if="logs.data.length === 0">
-                                <td colspan="7" class="px-6 py-12 text-center text-gray-500">
-                                    No audit logs found.
+                                <td colspan="7" class="px-6">
+                                    <EmptyState
+                                        :icon="ClipboardDocumentListIcon"
+                                        title="No audit logs found"
+                                        description="Adjust your filters above. Audit logs are generated automatically as users act on records."
+                                    />
                                 </td>
                             </tr>
                         </tbody>

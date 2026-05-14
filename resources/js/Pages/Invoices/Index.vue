@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import EmptyState from '@/Components/EmptyState.vue';
 import { computed, ref } from 'vue';
 import {
     DocumentTextIcon,
@@ -203,10 +204,14 @@ const submitGenerate = () => {
                                         </Link>
                                     </td>
                                 </tr>
+                                <!-- Phase-20 FRONT-UX-9: EmptyState component. -->
                                 <tr v-if="!invoices.data?.length">
-                                    <td colspan="7" class="px-6 py-12 text-center text-gray-500">
-                                        <DocumentTextIcon class="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                                        <p>No invoices found</p>
+                                    <td colspan="7" class="px-6">
+                                        <EmptyState
+                                            :icon="DocumentTextIcon"
+                                            title="No invoices found"
+                                            description="Adjust your filters above. Invoices are generated automatically from active leases."
+                                        />
                                     </td>
                                 </tr>
                             </tbody>

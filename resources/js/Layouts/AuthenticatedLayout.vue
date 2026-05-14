@@ -189,12 +189,26 @@ const navigationItems = computed(() => {
 <template>
     <div>
         <div class="min-h-screen bg-gray-100">
-            <!-- Impersonation Banner -->
+            <!--
+                Impersonation Banner.
+                Phase-20 AUTHZ-FRONT-9: when the impersonated target is
+                DPA-4 restricted, append a read-only suffix so the
+                operator sees that write-side actions will be denied
+                even though they're acting as super-admin. Pre-Phase-20
+                a super-admin impersonating a restricted user saw the
+                full write UI; the server denies, but the banner gave
+                no warning.
+            -->
             <div v-if="isImpersonating" class="bg-yellow-500 text-yellow-900 px-4 py-2 fixed top-0 left-0 right-0 z-50">
                 <div class="max-w-7xl mx-auto flex items-center justify-between">
                     <div class="flex items-center">
                         <ExclamationTriangleIcon class="h-5 w-5 mr-2" />
-                        <span class="font-medium">Viewing as: <strong>{{ user.name }}</strong> ({{ user.role }})</span>
+                        <span class="font-medium">
+                            Viewing as: <strong>{{ user.name }}</strong> ({{ user.role }})
+                            <span v-if="isRestricted" class="ml-2 text-red-900 font-bold">
+                                — read-only (Article 18)
+                            </span>
+                        </span>
                     </div>
                     <button @click="stopImpersonating"
                             class="px-3 py-1 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 text-sm font-medium">
