@@ -25,10 +25,19 @@ final class CacheMetrics
 {
     public static function record(string $cache, string $type, bool $hit): void
     {
-        app(MetricsService::class)->increment(
-            $hit ? 'cache_hit_total' : 'cache_miss_total',
-            1,
-            ['cache' => $cache, 'type' => $type],
-        );
+        try {
+            app(MetricsService::class)->increment(
+                $hit ? 'cache_hit_total' : 'cache_miss_total',
+                1,
+                ['cache' => $cache, 'type' => $type],
+            );
+        } catch (\Throwable) {
+            // Fail-open and SILENT. MetricsService::increment already
+            // swallows Redis errors, but its catch block logs via the
+            // Log facade — and that itself can throw in tests that mock
+            // the Log facade (NoMatchingExpectationException). A cache
+            // metric is never worth interfering with a cache read, so
+            // anything that escapes increment() is discarded here.
+        }
     }
 }
