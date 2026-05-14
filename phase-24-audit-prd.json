@@ -1,0 +1,269 @@
+{
+  "project": "PropManager",
+  "audit_cycle": "phase-24",
+  "audit_date": "2026-05-14",
+  "scope": "Tier-2 non-functional excellence, cycle 3 of 3 (per project_propmanager_path_forward.md). Phase 22 closed performance/load, Phase 23 closed WCAG 2.1 AA accessibility; Phase 24 [I18N + SWAHILI] makes the app speak Swahili. Kenyan market reality: roughly half of users prefer Swahili over English — an English-only product caps the addressable market. The codebase today is effectively monolingual: config/app.php sets locale=en with no per-user override and NO locale-resolver middleware, so App::getLocale() never changes from 'en'. lang/en/ has PHP arrays (messages.php ~80 flash keys, validation.php custom rules, emails.php, pdfs.php) and controllers DO use __() / trans() — but there is no lang/sw/, no JSON bundle for the frontend, the users table has no locale column, no settings UI to pick a language, the ~60 Inertia/Vue pages hardcode every label/button/title in English with zero vue-i18n, useFormatters.ts is locked to en-GB/en-KE with English relative-date words ('Yesterday'/'Just now'), and all 22 Mailables hardcode English subjects + single-language Blade templates. Phase 24 builds the localization spine end to end and ships Swahili for the highest-value surface — it does NOT translate all 60 Vue pages (that is incremental work the infrastructure + enforcement enable). 18 findings across 7 categories: I18N-INFRA (4 — users.locale column, SetLocale middleware, Inertia locale share, locale-switch endpoint), I18N-FRONT (4 — vue-i18n engine, useI18n composable + selector UI, chrome-string migration, locale-aware date inputs), I18N-BACKEND (3 — Mailable localisation, JSON bundle + lang/sw parity scaffold, notification localisation), I18N-FORMAT (3 — date/relative-time, currency/number, backend Carbon), I18N-SWAHILI (2 — lang/sw PHP translations, frontend JSON bundle translations), I18N-CI (1 — key-parity + wiring watchdogs), I18N-DOC (1 — i18n contributor runbook). Severity split 5H/9M/4L.",
+  "context_baseline": {
+    "previous_audits": [
+      "Phase 20 (FRONT + UX-AUTHZ, 12/18 — AuthAbilities, slim UserDto in HandleInertiaRequests::share, semantic layout landmarks)",
+      "Phase 21 (DEFER-CLEANUP, 18/18 — useZodForm bridge + Zod schemas mirroring server FormRequests, IconButton, Errors pages)",
+      "Phase 22 (PERF + LOAD, 18/18 — k6 harness, SLO budgets, CI perf gates, LoadTestSeeder)",
+      "Phase 23 (A11Y, 18/18 — skip-link, LiveAnnouncer + useAnnouncer, form error association, eslint-plugin-vuejs-accessibility lint gate, axe-core smoke job, h1-per-page, prefers-reduced-motion, conformance statement)"
+    ],
+    "do_not_reflag": "Already shipped — Phase 24 builds on this surface, it does not rebuild it. (1) lang/en/messages.php + validation.php + emails.php + pdfs.php EXIST and controllers already call __()/trans() against them — Phase 24 does NOT re-key the English strings, it ADDS lang/sw/ parity + the JSON bundle the frontend needs. (2) config/app.php locale/fallback_locale are set (en/en) — Phase 24 adds the per-user RESOLVER, it does not touch the config defaults. (3) HandleInertiaRequests::share already exposes a slim auth UserDto + currency + flash (Phase-20/23) — I18N-INFRA-3 ADDS a `locale` + `availableLocales` + messages-bundle prop alongside them, it does not restructure share(). (4) useFormatters.ts already wraps Intl.DateTimeFormat / Intl.NumberFormat + reads the shared currency prop (Phase-pre-24) — I18N-FORMAT-1/2 DRIVE the existing Intl locale argument from the shared locale, they do not rewrite the formatter API. (5) Currency enum + Currency::locale() exist — I18N-FORMAT-2 extends the locale mapping, it does not replace the enum. (6) useZodForm + the Zod schemas (Phase-21) mirror server FormRequests — Phase 24 does NOT re-translate validation inside Zod; server validation messages localise via lang/*/validation.php and the client surfaces whatever the server returns. (7) The Phase-23 eslint flat config (eslint.config.js) + Phase23*Test watchdog pattern are the templates for I18N-CI-1 — reuse them, do not invent a parallel harness. (8) users.timezone column + the Phase-18 timezone handling exist — users.locale is a SIBLING column following the same migration/model/cast pattern; do not touch timezone.",
+    "audit_strategy": "Per project_propmanager_path_forward.md Tier 2 cycle 3. Cycle pattern: PRD baseline (this commit) -> Phase 1 HIGH (5 findings: I18N-INFRA-1 users.locale column, I18N-INFRA-2 SetLocale middleware, I18N-INFRA-3 Inertia locale share, I18N-FRONT-1 vue-i18n engine, I18N-SWAHILI-1 lang/sw PHP translations) -> Phase 2 MEDIUM (9 findings: locale-switch endpoint, useI18n + selector UI, chrome-string migration, Mailable localisation, JSON bundle scaffold, date/relative-time formatting, currency/number formatting, frontend JSON Swahili, CI watchdogs) -> Phase 3 LOW (4 findings: locale-aware date inputs, notification localisation, backend Carbon, i18n runbook) -> closeout. SCOPE DISCIPLINE: the path-forward memory explicitly scopes this to 'top ~50 user-facing strings (auth, invoices, payments, errors) + the chrome' — Phase 24 ships the SPINE complete (every piece of plumbing works end to end) and Swahili for the high-value surface, with the I18N-CI-1 watchdog enforcing lang/en<->lang/sw key parity so the long tail can be filled incrementally without the infrastructure rotting. Translating all ~60 Vue pages is explicitly OUT of scope and is NOT a deferral — it is incremental product work the spine enables. Target: zero deferrals (continuing the Phase 16/21/22/23 discipline) or document why. Test budget: ~25-35 new tests across tests/Feature/I18n/Phase24*Test classes following the Phase-23 watchdog conventions + a real locale-switching integration test.",
+    "i18n_target": "Two locales: `en` (English, the existing default + fallback) and `sw` (Swahili / Kiswahili). Locale resolution order (I18N-INFRA-2): authenticated user's `users.locale` -> session('locale') -> request Accept-Language header (only if it resolves to a supported locale) -> config('app.locale'). The supported-locale list is a single source of truth (config/app.php `available_locales` or a config/locales.php) consumed by the middleware, the switch endpoint validation, the Inertia share, and the CI parity watchdog. Swahili content priority for this cycle: auth flow (login/register/password reset), invoices + payments flash messages, validation errors, the global navigation chrome + common buttons/empty-states, and email subjects for the highest-volume Mailables. Out of scope this cycle: the long tail of per-page Vue strings, PDF body localisation beyond what lang/sw/pdfs.php trivially covers, and RTL (neither en nor sw is RTL). The frontend bundle is a JSON file per locale (lang/en.json + lang/sw.json or resources/js/lang/*.json) loaded into vue-i18n; the PHP lang/{locale}/*.php files stay server-side for __()/validation/mail."
+  },
+  "qualityStandards": {
+    "test": "All Phase-24 changes must pass `php artisan test --parallel`, `vendor/bin/pint --test`, `npm run lint` (the Phase-23 eslint a11y gate stays green), and `npm run build`. New: source-level i18n watchdogs in tests/Feature/I18n run under PHPUnit; a locale-switching integration test exercises the resolver middleware + the switch endpoint + session/user persistence end to end. The lang/en <-> lang/sw key-parity assertion (I18N-CI-1) is a hard gate — a missing or orphan Swahili key fails the suite.",
+    "ci": "Each commit lands on main with green CI before the next phase starts. All prior watchdogs stay green: Phase-15/19 PerformanceHardeningTest, Phase-18/19 AuthzCoverageMatrixTest, Phase-20 AuthzFrontCoverageMatrixTest, Phase-21 Phase21* suites, Phase-22 Phase22* suites + perf/load jobs, Phase-23 Phase23* suites + the eslint a11y lint gate + the axe-core a11y-smoke job. New i18n watchdogs are additive. vue-i18n is a runtime dependency (not dev-only) — the bundle-size budget check (Phase-22 PERF-CI-3) must still pass; if vue-i18n pushes a chunk over budget, re-baseline the budget in the same commit with a noted justification.",
+    "no_breaking_change": "The default + fallback locale stays `en` — a user with no locale preference sees exactly today's English UI. The users.locale column is nullable with an `en` effective default; existing rows need no backfill. The SetLocale middleware is a no-op for `en` (App::setLocale('en') is already the state). vue-i18n is introduced with `en` as the active locale by default, and the chrome-string migration (I18N-FRONT-3) replaces hardcoded English with $t() calls whose `en` translation is the SAME string — zero visible change for English users. Swahili is opt-in via the settings selector. Mailable localisation falls back to the `en` template when a `sw` template/key is absent. The CI key-parity gate guarantees lang/sw can never be PARTIALLY wired in a way that 500s — a missing key falls back to `en`, and the watchdog catches the gap at test time. CLAUDE.md's 'no direct edits to visual/styling code' rule is respected: swapping a hardcoded string for `$t('key')` that resolves to the identical English text is a content-source change, not a restyle.",
+    "translation_quality": "Swahili translations must be natural Kenyan Kiswahili (the Coastal/Nairobi register users actually read), NOT literal word-for-word machine output. Domain terms: keep widely-understood English loanwords where Kenyan users expect them (e.g. 'M-Pesa', 'invoice' is often left as-is colloquially but 'ankara'/'risiti' contexts differ) — when in doubt prefer the term a Kenyan landlord/tenant would say aloud. Placeholders (:count, :amount, {name}) MUST be preserved exactly. Pluralisation uses Laravel's `|` pipe syntax for PHP and vue-i18n's plural rules for the JSON bundle. Every Swahili string is reviewed against its English source for meaning-equivalence before commit; the i18n runbook (I18N-DOC-1) records the term glossary so future translations stay consistent."
+  },
+  "feedbackLoops": {
+    "lint": "vendor/bin/pint --test",
+    "eslint": "npm run lint",
+    "test_focused": "php artisan test --filter='<keyword>'",
+    "test_i18n": "php artisan test --filter=Phase24",
+    "test_full": "php artisan test --parallel",
+    "frontend_build": "npm run build",
+    "key_parity": "php artisan test --filter=Phase24CiTest",
+    "ci_watch": "gh run list --limit 1 --branch main --workflow=CI --json status,conclusion"
+  },
+  "categories": {
+    "I18N-INFRA": {
+      "description": "The localization spine. The app has no per-user locale state at all: no users.locale column, no resolver middleware, no locale signal reaching the frontend, no way to change languages. This category lays the four load-bearing pieces — persistence (users.locale), resolution (SetLocale middleware with a single-source-of-truth supported-locale list), propagation (HandleInertiaRequests shares locale + availableLocales + the active message bundle), and mutation (a validated locale-switch endpoint that persists to user + session). Everything else in Phase 24 sits on top of these four.",
+      "count": 4
+    },
+    "I18N-FRONT": {
+      "description": "Frontend internationalization. The ~60 Inertia/Vue pages hardcode every string and there is no vue-i18n. This category installs the vue-i18n engine (hydrated from the Inertia-shared bundle so server + client agree on the active locale and messages), the useI18n composable + the in-settings locale selector, the migration of the high-value CHROME strings (global nav, the 5 Auth pages, shared buttons/EmptyState) to translation keys, and locale-aware native date inputs. The long tail of per-page strings is explicitly out of scope — the engine + composable + enforcement make it incremental.",
+      "count": 4
+    },
+    "I18N-BACKEND": {
+      "description": "Backend string localization beyond the lang/*.php files that already exist. All 22 Mailables hardcode English subjects in envelope() and resolve a single English Blade template — this category localises subjects via __() and routes templates per-locale (Laravel's Mail::locale() / template fallback). It also establishes the JSON message bundle the frontend consumes (built from a lang/{locale}.json source) and makes mail/database Notification classes locale-aware so a Swahili user's emailed + in-app notifications match their UI.",
+      "count": 3
+    },
+    "I18N-FORMAT": {
+      "description": "Locale-sensitive formatting. useFormatters.ts wraps Intl.DateTimeFormat / Intl.NumberFormat but the locale argument is hardcoded (en-GB / en-KE) and relative-date words ('Yesterday', 'Just now') are English literals. This category drives the Intl locale from the shared locale, moves the relative-date words into i18n keys, extends Currency::locale() for sw-KE, and sets Carbon's locale server-side (via the SetLocale middleware) so server-rendered dates in PDFs + emails localise too.",
+      "count": 3
+    },
+    "I18N-SWAHILI": {
+      "description": "The actual Swahili translation content — the deliverable that makes the spine worth building. Natural Kenyan Kiswahili (not machine-literal) for the server-side lang/sw/*.php files (messages, validation, emails — the auth/invoices/payments/errors priority surface) and the frontend lang/sw.json bundle (the chrome strings migrated in I18N-FRONT-3). Placeholders preserved exactly; pluralisation via Laravel pipe syntax + vue-i18n plural rules. The I18N-CI-1 key-parity watchdog guarantees completeness against the English source.",
+      "count": 2
+    },
+    "I18N-CI": {
+      "description": "Automated i18n enforcement. A manual translation effort rots the moment a new English key ships without its Swahili pair, or the middleware/share wiring gets refactored away. This category adds the source-level watchdog suite (Phase-23 Phase23*Test pattern): lang/en <-> lang/sw key parity (no missing, no orphan keys, placeholders match), the SetLocale middleware is registered, HandleInertiaRequests shares locale, vue-i18n is wired in app.js, and the migrated chrome files actually use $t() rather than reverting to hardcoded strings.",
+      "count": 1
+    },
+    "I18N-DOC": {
+      "description": "Contributor documentation. i18n only stays healthy if contributors know the rules: when to use PHP __() vs vue-i18n $t(), the key-naming convention, how to add a new locale, the Swahili term glossary (so translations stay consistent), the translation-review workflow, and what is translated vs. what is still English (the honest scope statement). One runbook, docs/runbooks/i18n.md.",
+      "count": 1
+    }
+  },
+  "items": [
+    {
+      "id": "I18N-INFRA-1",
+      "title": "users.locale column + model + supported-locale source of truth",
+      "severity": "HIGH",
+      "files": [
+        "database/migrations/<ts>_add_locale_to_users_table.php (new — nullable string, sibling of the Phase-18 timezone column)",
+        "app/Models/User.php ($fillable + the locale accessor/effective-default helper)",
+        "config/app.php OR config/locales.php (new — the `available_locales` list: ['en', 'sw'] — single source of truth)"
+      ],
+      "evidence": "There is nowhere to persist a user's language preference. The users table (0001_01_01 + the Phase-18 timezone migration) has `timezone` but no `locale`/`language` column. Without persistence the resolver has nothing authoritative to read and the selector UI has nothing to write — every other Phase-24 finding depends on this.",
+      "fix": "(a) Migration: `users.locale` nullable string(5), no backfill needed (null = the `en` effective default). Follows the Phase-18 timezone migration pattern exactly. (b) User model: add `locale` to $fillable; add an `effectiveLocale()` accessor returning `$this->locale ?? config('app.locale')` so callers never deal with null. (c) Establish the supported-locale list as a single source of truth — `config('app.available_locales')` (or a dedicated config/locales.php) returning `['en' => 'English', 'sw' => 'Kiswahili']`. The middleware, the switch endpoint's validation rule, the Inertia share, and the CI parity watchdog all consume THIS — never a hardcoded list. (d) Phase24InfraTest::test_users_table_has_locale_column + test_supported_locales_config_is_the_source_of_truth."
+    },
+    {
+      "id": "I18N-INFRA-2",
+      "title": "SetLocale middleware — resolve + apply the request locale",
+      "severity": "HIGH",
+      "files": [
+        "app/Http/Middleware/SetLocale.php (new)",
+        "bootstrap/app.php (append SetLocale to the web middleware group, after auth so the user is resolved)"
+      ],
+      "evidence": "App::getLocale() is permanently 'en' — there is no middleware that ever calls App::setLocale(). __() and trans() therefore always return English regardless of any preference. This is the piece that makes the whole localization layer actually switch.",
+      "fix": "(a) SetLocale middleware resolves the locale in priority order: authenticated user's `effectiveLocale()` -> `session('locale')` -> the request's Accept-Language header BUT only if it maps to a supported locale -> `config('app.locale')`. The resolved value is validated against `config('app.available_locales')` — an unknown value falls through to the default, never 500s. (b) It calls `App::setLocale($resolved)` AND `Carbon::setLocale($resolved)` (the latter sets up I18N-FORMAT-3). (c) Registered in bootstrap/app.php's web group, positioned AFTER the authenticate middleware so `$request->user()` is populated. It is a deliberate no-op when the resolved locale is `en` (already the state). (d) Phase24InfraTest::test_setlocale_middleware_is_registered + test_locale_resolution_priority_order (a feature test asserting user pref beats session beats Accept-Language beats default)."
+    },
+    {
+      "id": "I18N-INFRA-3",
+      "title": "HandleInertiaRequests shares locale + availableLocales + message bundle",
+      "severity": "HIGH",
+      "files": [
+        "app/Http/Middleware/HandleInertiaRequests.php (add locale, availableLocales, and the active-locale message bundle to share())"
+      ],
+      "evidence": "The frontend has no idea what locale is active — HandleInertiaRequests::share() exposes auth/currency/flash/navBadges/featureAccess but NOT locale. Without this, vue-i18n (I18N-FRONT-1) cannot pick a locale, the selector cannot show the current value, and server + client would disagree on language.",
+      "fix": "(a) share() adds `locale` => App::getLocale(), `availableLocales` => config('app.available_locales'), and `i18n` => the active locale's frontend JSON message bundle (read once, cache-friendly — it is the same file vue-i18n would otherwise fetch). (b) The bundle is the lang/{locale}.json source (I18N-BACKEND-2). Sharing it inline avoids a second round-trip and guarantees the messages match the locale the server resolved. (c) Plain closure (always evaluated, like currency/navBadges) — NOT Inertia::defer/optional, the frontend needs it on first paint. (d) Phase24InfraTest::test_inertia_shares_locale_and_bundle — assert share() exposes locale + availableLocales + i18n."
+    },
+    {
+      "id": "I18N-INFRA-4",
+      "title": "Locale-switch endpoint — persist to user + session",
+      "severity": "MEDIUM",
+      "files": [
+        "routes/web.php (a `PATCH /settings/locale` or `POST /locale` route)",
+        "app/Http/Controllers/LocaleController.php (new) OR a method on an existing settings controller",
+        "app/Http/Requests/UpdateLocaleRequest.php (new — validates `locale` against config('app.available_locales'))"
+      ],
+      "evidence": "Even with persistence + resolver + share in place, there is no way for a user to actually CHANGE their language. The selector UI (I18N-FRONT-2) needs an endpoint to POST to.",
+      "fix": "(a) A route + thin controller action: validate the submitted `locale` via UpdateLocaleRequest against `config('app.available_locales')` (rejects anything unsupported), then — if authenticated — persist to `users.locale`, and always set `session('locale')` so a guest's choice survives the request. (b) Returns a redirect back (Inertia) so the next request's SetLocale middleware picks up the new value and the whole UI re-renders translated. (c) Rate-limited modestly (it is a write) but not throttle-sensitive. (d) Phase24InfraTest::test_locale_switch_persists_to_user_and_session + test_locale_switch_rejects_unsupported_locale."
+    },
+    {
+      "id": "I18N-FRONT-1",
+      "title": "vue-i18n engine — hydrated from the Inertia-shared bundle",
+      "severity": "HIGH",
+      "files": [
+        "package.json (vue-i18n runtime dependency)",
+        "resources/js/app.js (createI18n, locale + messages from the Inertia-shared props, .use(i18n))",
+        "scripts/check-bundle-size.mjs (re-baseline the budget if vue-i18n pushes a chunk over — with a noted justification)"
+      ],
+      "evidence": "There is no vue-i18n in package.json and no translation engine in app.js — the frontend cannot translate anything. This is the engine every I18N-FRONT/I18N-SWAHILI frontend deliverable runs on.",
+      "fix": "(a) Add `vue-i18n` as a runtime dependency. (b) In app.js's createInertiaApp setup, `createI18n({ legacy: false, locale: props.initialPage.props.locale, fallbackLocale: 'en', messages: { [locale]: props.initialPage.props.i18n } })` and `.use(i18n)` on the app — the locale + messages come from the Inertia share (I18N-INFRA-3) so SSR/first-paint is correct with no flash of untranslated content. (c) On Inertia navigations, keep the i18n locale in sync if it ever changes (it only changes via a full reload after the switch endpoint, so a `router.on('success')` guard suffices). (d) If the vendor chunk blows the Phase-22 bundle budget, re-baseline check-bundle-size.mjs IN THIS COMMIT with a comment explaining vue-i18n is the cause. (e) Phase24FrontTest::test_vue_i18n_is_a_dependency + test_app_js_wires_vue_i18n."
+    },
+    {
+      "id": "I18N-FRONT-2",
+      "title": "useI18n composable + the in-settings locale selector",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/composables/useI18n.ts (new — thin wrapper exposing t() + the current locale, the canonical accessor)",
+        "resources/js/Components/LocaleSelector.vue (new — the language dropdown)",
+        "resources/js/Pages/Settings/Index.vue OR Profile/Edit.vue (mount LocaleSelector in a Language section)"
+      ],
+      "evidence": "vue-i18n's raw API works but a project needs a canonical accessor (so a future engine swap is one file) and there is NO UI anywhere for a user to pick Swahili — Settings/Index.vue has Business/Payment/Notifications/Security/Branding tabs and Profile/Edit.vue has personal-info sections, neither has Language.",
+      "fix": "(a) useI18n.ts: a thin composable re-exporting vue-i18n's `t` + a `locale` ref + the `availableLocales` from the shared props — components import THIS, not vue-i18n directly. (b) LocaleSelector.vue: a labelled <select> (or accessible dropdown — honour the Phase-23 a11y patterns: real <label>, keyboard-operable) listing `availableLocales`, bound to the current locale, that POSTs to the I18N-INFRA-4 endpoint on change and lets Inertia reload. (c) Mounted in a 'Language' section of the Settings or Profile page. (d) Phase24FrontTest::test_useI18n_composable_exists + test_locale_selector_is_mounted_in_settings."
+    },
+    {
+      "id": "I18N-FRONT-3",
+      "title": "Migrate the high-value chrome strings to translation keys",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/Layouts/AuthenticatedLayout.vue (nav item labels, section dividers, the user-menu items)",
+        "resources/js/Layouts/GuestLayout.vue",
+        "resources/js/Pages/Auth/*.vue (the 5 auth pages — labels, buttons, helper text)",
+        "resources/js/Components/EmptyState.vue + the shared button components (FormSubmitButton, etc.)"
+      ],
+      "evidence": "Every Vue string is hardcoded English. Translating all ~60 pages is out of scope, but the CHROME — the global nav a user sees on every page, the auth flow that is a prospect's first impression, and the shared empty-state/button components — is the highest-leverage surface and the priority named in the path-forward memory.",
+      "fix": "(a) Replace hardcoded English in the chrome files with `t('key')` calls (template) / `useI18n().t('key')` (script). (b) The English value of every new key is the EXACT current string — zero visible change for English users (no_breaking_change). (c) Key-naming convention (documented in I18N-DOC-1): dotted, namespaced — `nav.dashboard`, `auth.login.title`, `common.save`, `empty.no_results`. (d) The keys land in lang/en.json (I18N-BACKEND-2) and their Swahili pairs in lang/sw.json (I18N-SWAHILI-2). (e) This is a SCOPED migration — nav + 5 auth pages + EmptyState + shared buttons, NOT the page bodies. (f) Phase24FrontTest::test_chrome_files_use_translation_keys — assert the migrated files contain no obvious hardcoded user-facing English in the targeted spots (a pragmatic grep-style watchdog, allow-listed where a literal is genuinely not user-facing)."
+    },
+    {
+      "id": "I18N-FRONT-4",
+      "title": "Locale-aware native date inputs",
+      "severity": "LOW",
+      "files": [
+        "resources/js/Components/* (date input components / wrappers)",
+        "resources/js/composables/useFormatters.ts (if a display-format helper feeds the inputs)"
+      ],
+      "evidence": "Native <input type=\"date\"> renders in the BROWSER's locale already, but any custom date-picker wrapper or any place that shows a formatted date hint/placeholder alongside an input uses the hardcoded en-GB format. A Swahili user should see month names + the date order their locale expects.",
+      "fix": "(a) Audit the date-input components — where a display string or placeholder is derived, drive it from the shared locale via useFormatters (I18N-FORMAT-1). (b) For native <input type=date> nothing is needed (browser-localised); for any custom picker, pass the locale through. (c) Keep it small — this is a LOW finding; the win is consistency, not a date-picker rewrite. (d) Phase24FrontTest::test_date_inputs_are_locale_aware (or a documented note in the runbook if the audit finds native inputs already cover it)."
+    },
+    {
+      "id": "I18N-BACKEND-1",
+      "title": "Mailable localisation — subjects + per-locale templates",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Mail/*.php (envelope() subjects via __(); the highest-volume Mailables first — InvoiceSent, payment receipts, the auth/password mails)",
+        "lang/en/emails.php + lang/sw/emails.php (subject + body keys)",
+        "resources/views/emails/*.blade.php (use __() for in-template strings; or per-locale template resolution)"
+      ],
+      "evidence": "All 22 Mailables hardcode English subjects in envelope() (e.g. InvoiceSent: `'Invoice '.$number.' - Payment Due'`) and resolve a single English Blade template. A Swahili user gets English email even with a Swahili UI.",
+      "fix": "(a) Move subjects into lang/{locale}/emails.php and build them via __() in envelope(), preserving placeholders (:number). (b) Use `Mail::to(...)->locale($user->effectiveLocale())` at the SEND sites so the Mailable renders in the recipient's locale, OR set the locale inside the Mailable from the notifiable — pick the pattern that fits the existing send sites and document it. (c) In-template strings move to __() against lang/*/emails.php; the Blade template itself stays one file (Laravel renders it under the set locale). (d) Scope: the high-volume Mailables this cycle (invoices, payments, auth) — the rest follow the established pattern incrementally. (e) Phase24BackendTest::test_mailable_subjects_are_localised — assert the targeted Mailables build their subject via __()."
+    },
+    {
+      "id": "I18N-BACKEND-2",
+      "title": "Frontend JSON message bundle + lang/sw scaffold",
+      "severity": "MEDIUM",
+      "files": [
+        "lang/en.json (new — the frontend bundle source for `en`; the keys from I18N-FRONT-3)",
+        "lang/sw.json (new — the `sw` bundle, scaffolded with en values, translated in I18N-SWAHILI-2)",
+        "app/Http/Middleware/HandleInertiaRequests.php (reads lang/{locale}.json for the shared `i18n` prop)"
+      ],
+      "evidence": "vue-i18n (I18N-FRONT-1) + the Inertia share (I18N-INFRA-3) both need a frontend message bundle to exist. Laravel's PHP lang files are server-side; the frontend needs a JSON bundle per locale. Today there is none.",
+      "fix": "(a) lang/en.json — the canonical frontend bundle, keyed per the I18N-FRONT-3 convention, English values. (b) lang/sw.json — the Swahili sibling; scaffolded in THIS finding with English placeholder values + a clear marker, then filled by I18N-SWAHILI-2 (so I18N-CI-1's parity gate has both files to compare even before translation lands — parity = same KEY SET, translation completeness is a separate human-reviewed step). (c) HandleInertiaRequests::share reads `lang/{App::getLocale()}.json` for the `i18n` prop. (d) Decide + document: lang/*.json at the repo root vs resources/js/lang/*.json — pick one, the watchdog + the middleware must agree. (e) Phase24BackendTest::test_frontend_bundles_exist_for_every_supported_locale."
+    },
+    {
+      "id": "I18N-BACKEND-3",
+      "title": "Notification class localisation",
+      "severity": "LOW",
+      "files": [
+        "app/Notifications/*.php (toMail / toArray locale-awareness)"
+      ],
+      "evidence": "Mail + database Notification classes follow the same English-only pattern as the Mailables — a Swahili user's in-app notification feed + notification emails stay English even after I18N-BACKEND-1 localises the standalone Mailables.",
+      "fix": "(a) Notification toMail() builds its content via __() against lang/*/emails.php (or a notifications namespace); toArray() / the database channel stores a translation KEY + params rather than a baked English string, OR renders under the notifiable's locale at write time — pick the pattern that fits how the notification feed renders today and document it. (b) Honour `$notifiable->effectiveLocale()`. (c) Scope: LOW — the highest-volume notifications, the rest follow the pattern. (d) Phase24BackendTest::test_notifications_honour_recipient_locale (targeted)."
+    },
+    {
+      "id": "I18N-FORMAT-1",
+      "title": "Locale-driven date + relative-time formatting",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/composables/useFormatters.ts (drive Intl.DateTimeFormat locale from the shared locale; relative-date words via i18n keys)",
+        "lang/en.json + lang/sw.json (relative-date keys: today/yesterday/tomorrow/just_now/etc.)"
+      ],
+      "evidence": "useFormatters.ts hardcodes `dateLocale: 'en-GB'` and the relative-date output ('Yesterday', 'Tomorrow', 'Just now') is English string literals — a Swahili user sees English dates everywhere a date is rendered.",
+      "fix": "(a) useFormatters reads the active locale from the shared Inertia prop (or useI18n) and passes it as the Intl.DateTimeFormat / Intl.RelativeTimeFormat locale argument — `en` users get exactly today's en-GB output. (b) The relative-date WORDS ('Yesterday' etc.) move to i18n keys (`format.relative.yesterday` ...) resolved via useI18n — Intl.RelativeTimeFormat can also do much of this natively, prefer it where it gives natural output. (c) Phase24FormatTest::test_useFormatters_drives_locale_from_shared_prop + test_relative_date_words_are_translated."
+    },
+    {
+      "id": "I18N-FORMAT-2",
+      "title": "Locale-driven currency + number formatting",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/composables/useFormatters.ts + useCurrency.ts (Intl.NumberFormat locale from the shared locale)",
+        "app/Enums/Currency.php (Currency::locale() — add the sw-KE mapping)"
+      ],
+      "evidence": "useFormatters.formatMoney() / useCurrency use Intl.NumberFormat with a hardcoded `en-KE` locale and Currency::locale() maps currency->locale with no Swahili variant — number grouping + currency placement do not follow the user's locale.",
+      "fix": "(a) The Intl.NumberFormat locale argument is driven by the shared locale (falling back to the currency's own locale) — KES still renders as 'KES 12,345.00' but a Swahili user gets sw-KE grouping/spacing conventions. (b) Currency::locale() gains the `sw-KE` mapping (and any other currency the app supports gets its `sw` variant or falls back gracefully). (c) The currency CODE/symbol is NOT translated (KES is KES) — only the number FORMAT localises. (d) Phase24FormatTest::test_currency_formatting_is_locale_driven + test_currency_enum_has_swahili_locale."
+    },
+    {
+      "id": "I18N-FORMAT-3",
+      "title": "Backend Carbon localisation for server-rendered dates",
+      "severity": "LOW",
+      "files": [
+        "app/Http/Middleware/SetLocale.php (Carbon::setLocale — wired in I18N-INFRA-2, verified here)",
+        "PDF + email date rendering sites (confirm they pick up the set locale)"
+      ],
+      "evidence": "Server-rendered dates — in PDFs (lang/en/pdfs.php exists) and emails — go through Carbon, which has its own locale separate from App's. Without Carbon::setLocale() a Swahili user's invoice PDF + emails still show English month names.",
+      "fix": "(a) I18N-INFRA-2's SetLocale middleware already calls Carbon::setLocale($resolved) — this finding VERIFIES that and audits the PDF/email date-rendering sites to confirm they use Carbon's localised formatting (`->translatedFormat()` / `->isoFormat()`) rather than the English-locked `->format()`. (b) Fix any site that bypasses Carbon's locale. (c) Phase24FormatTest::test_setlocale_middleware_sets_carbon_locale + a spot-check on a PDF/email date helper."
+    },
+    {
+      "id": "I18N-SWAHILI-1",
+      "title": "Swahili translations — lang/sw/*.php (server-side)",
+      "severity": "HIGH",
+      "files": [
+        "lang/sw/messages.php (new — the ~80 flash-message keys)",
+        "lang/sw/validation.php (new — custom rules + the default Laravel rule messages)",
+        "lang/sw/emails.php (new — subject + body keys, paired with I18N-BACKEND-1)",
+        "lang/sw/pdfs.php (new — PDF strings)"
+      ],
+      "evidence": "lang/sw/ does not exist. Every server-side __() / trans() / validation message falls back to English for a Swahili user. This is the core content deliverable — the spine is worthless without it.",
+      "fix": "(a) Create lang/sw/ mirroring lang/en/ key-for-key: messages.php, validation.php, emails.php, pdfs.php. (b) Natural Kenyan Kiswahili per qualityStandards.translation_quality — NOT machine-literal. Placeholders (:count, :amount) preserved exactly; pluralisation via Laravel's `|` pipe syntax. (c) Priority surface for review depth: auth, invoices, payments, validation errors. (d) For validation.php, include the standard Laravel rule messages (required/email/numeric/...) in Swahili, not just the custom rules — a Swahili user's form errors must be Swahili. (e) I18N-CI-1's parity watchdog gates that the key SETS match en exactly. (f) Phase24SwahiliTest::test_swahili_php_lang_files_exist + (the parity assertion lives in Phase24CiTest)."
+    },
+    {
+      "id": "I18N-SWAHILI-2",
+      "title": "Swahili translations — lang/sw.json (frontend bundle)",
+      "severity": "MEDIUM",
+      "files": [
+        "lang/sw.json (the frontend chrome bundle — fill the I18N-BACKEND-2 scaffold with real Swahili)"
+      ],
+      "evidence": "lang/sw.json is scaffolded with English placeholder values by I18N-BACKEND-2 so the parity gate has something to compare — but until it carries real Swahili, a Swahili user's nav + auth pages + buttons are still English.",
+      "fix": "(a) Translate every key in lang/sw.json to natural Kenyan Kiswahili — the nav labels, the 5 auth pages, common buttons, empty-states (the I18N-FRONT-3 surface). (b) Same quality bar as I18N-SWAHILI-1: placeholders ({name}, {count}) preserved, vue-i18n plural syntax where needed. (c) Cross-check against lang/en.json key-for-key (I18N-CI-1 gates it). (d) Phase24SwahiliTest::test_swahili_json_bundle_has_no_untranslated_placeholders — assert no value still carries the I18N-BACKEND-2 'untranslated' marker."
+    },
+    {
+      "id": "I18N-CI-1",
+      "title": "i18n watchdog suite — key parity + wiring assertions",
+      "severity": "MEDIUM",
+      "files": [
+        "tests/Feature/I18n/Phase24CiTest.php (new — the parity + wiring watchdogs)",
+        "tests/Feature/I18n/Phase24*Test.php (the per-category watchdogs referenced throughout this PRD)"
+      ],
+      "evidence": "A translation effort rots silently: a new English key ships without its Swahili pair, or someone refactors the SetLocale middleware out, or the Inertia share loses the locale prop. The Phase-18/19/21/22/23 watchdog pattern (cheap source-level PHPUnit assertions) is the proven guard and it has not been applied to i18n.",
+      "fix": "(a) Key-parity assertions: for every supported locale, lang/{locale}/*.php and lang/{locale}.json have EXACTLY the same key set as the `en` source — no missing keys (would fall back silently), no orphan keys (dead translations). Placeholder tokens within each string must match between en and sw (a :count in en must be :count in sw). (b) Wiring assertions: SetLocale is registered in bootstrap/app.php; HandleInertiaRequests::share exposes locale + availableLocales + i18n; app.js wires createI18n; config('app.available_locales') is the list everything consumes. (c) Consolidate the per-category Phase24*Test classes into a coherent tests/Feature/I18n suite following the Phase-23 Phase23*Test conventions exactly. (d) Phase24CiTest::test_lang_key_parity_across_locales + test_i18n_wiring_is_intact."
+    },
+    {
+      "id": "I18N-DOC-1",
+      "title": "i18n contributor runbook",
+      "severity": "LOW",
+      "files": [
+        "docs/runbooks/i18n.md (new)"
+      ],
+      "evidence": "i18n stays healthy only if contributors know the rules — when to use PHP __() vs vue-i18n $t(), the key convention, how to add a locale, and the Swahili term glossary so translations stay consistent. None of that is written down.",
+      "fix": "(a) docs/runbooks/i18n.md: the two-engine model (PHP __()/lang/*.php for server-side: validation, mail, PDFs; vue-i18n/lang/*.json for the frontend) and when each applies; the dotted key-naming convention; how to add a new locale end to end (config list -> lang/{locale}/*.php -> lang/{locale}.json -> the parity gate does the rest); the Swahili term glossary (the domain-term decisions from qualityStandards.translation_quality — what 'invoice', 'tenant', 'landlord', 'M-Pesa' etc. are rendered as, so future translators stay consistent); the translation-review workflow; and an HONEST scope statement — what is translated (the chrome + auth/invoices/payments/errors) vs what is still English (the per-page long tail), so nobody assumes full coverage. (b) Cross-reference the conformance-statement style of docs/runbooks/accessibility.md. (c) Phase24DocsTest::test_i18n_runbook_exists_and_covers_the_two_engine_model + the glossary."
+    }
+  ]
+}
