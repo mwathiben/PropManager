@@ -266,5 +266,48 @@
       "evidence": "The PERF-SCALE-1/2 findings produce facts (statelessness audit results, graceful-shutdown contract) but those facts need a home an operator can act on. There is no document that answers 'what has to be true before we run N app instances' or 'here is the checklist to scale horizontally'.",
       "fix": "(a) docs/runbooks/autoscale-readiness.md sections: the statelessness requirements (session/cache/storage drivers, the single-host assumptions audited in PERF-SCALE-1 and their status), the graceful-shutdown contract (PERF-SCALE-2), the scheduler-on-one-server requirement (only one instance runs the cron — schedule:work / onOneServer, Phase-12 context), the horizontal-scale checklist (what to set, what to verify, how to load-test the scaled topology with PERF-LOAD's k6 baseline), and the known not-yet-ready items if any remain. (b) Cross-reference load-testing.md, slo.md, queue-worker-config.md, disaster-recovery.md. (c) Phase22ScaleTest::test_autoscale_runbook_exists — assert the file exists and covers statelessness + scheduler-single-server + the scale checklist."
     }
-  ]
+  ],
+  "closeout": {
+    "status": "complete",
+    "closeout_date": "2026-05-14",
+    "findings_total": 18,
+    "findings_closed": 18,
+    "findings_deferred": 0,
+    "summary": "Phase 22 [PERF + LOAD] closes all 18 findings — zero deferrals, continuing the Phase 16 / Phase 21 discipline. Tier-2 cycle 1 of 3. The cycle added the load-and-latency discipline the codebase lacked: a k6 load-test harness + CI smoke gate, per-request http_request_ms instrumentation feeding SLO budgets + a slo:report command, three CI perf-budget gates (slow-query, query-count, bundle-size), the N+1 detector promoted from prod-sampled-log-only to a test-env hard gate (which surfaced ZERO violations — the suite was already clean), cache hit-rate metrics + stampede protection + conditional HTTP cache headers, and a horizontal-scale readiness audit. 12 fix commits + a PRD baseline; the load-smoke CI job needed three follow-up fixes to get clean (it is continue-on-error on main, so the run conclusion was never blocked).",
+    "commit_lineage": [
+      { "commit": "c9db5b1", "ref": "docs(phase-22)", "findings": ["PRD baseline"] },
+      { "commit": "a0fa3df", "ref": "phase22-1", "findings": ["PERF-SLO-1", "PERF-LOAD-1", "PERF-NPLUS1-1"] },
+      { "commit": "4163029", "ref": "phase22-2a", "findings": ["PERF-SLO-2", "PERF-SLO-3"] },
+      { "commit": "c770f9f", "ref": "phase22-2b", "findings": ["PERF-CI-1", "PERF-CI-2"] },
+      { "commit": "eeb65cf", "ref": "phase22-2c", "findings": ["PERF-CACHE-1", "PERF-CACHE-2"] },
+      { "commit": "6c1acbd", "ref": "phase22-2d", "findings": ["PERF-SCALE-1", "PERF-LOAD-2"] },
+      { "commit": "dbd0435", "ref": "phase22-2c fix", "findings": ["PERF-CACHE-1"], "note": "CacheMetrics made fail-open against the Log facade — its MetricsService::increment call broke 2 pre-existing FinanceCacheServiceTest unit tests that mock Log" },
+      { "commit": "0d7fbb3", "ref": "phase22-3a", "findings": ["PERF-CI-3", "PERF-CACHE-3"] },
+      { "commit": "c430e99", "ref": "phase22-3b", "findings": ["PERF-SCALE-2", "PERF-NPLUS1-2"] },
+      { "commit": "06ffb46", "ref": "phase22-2d fix", "findings": ["PERF-SCALE-1", "PERF-LOAD-2"], "note": "repaired two phase22-2d regressions: the statelessness warnings broke ProductionConfigValidatorTest's safe-baseline (now sets redis drivers); the k6 scripts re-logged-in every iteration and 429'd the shared login throttle (now login-once-per-VU + CI lifts RATE_LIMIT_LOGIN + env-overridable thresholds)" },
+      { "commit": "ec776f4", "ref": "phase22-3c", "findings": ["PERF-LOAD-3", "PERF-SLO-4", "PERF-SCALE-3"] },
+      { "commit": "67037ed", "ref": "phase22-2d fix", "findings": ["PERF-LOAD-2"], "note": "dropped /api/health from the k6 smoke iteration loop — the load-smoke CI job has no Redis service so /api/health returns 503 (degraded), which k6 counted as request failures" }
+    ],
+    "deviations_from_prd": [
+      "PERF-NPLUS1-2: the PRD framed this as remediation of the lazy-load violations the PERF-NPLUS1-1 gate surfaces. The full-suite run with the gate active surfaced ZERO violations — the codebase was already eager-loading cleanly — so the NPlusOneBaseline allow-list ships empty and the watchdog threshold is 0. The finding instead verifies the goal state and ships docs/runbooks/n-plus-one.md.",
+      "PERF-SCALE-1: the statelessness audit found 26 hardcoded Storage::disk('local') call sites — a real horizontal-scale blocker, but migrating them to a configurable shared disk is larger than a single MEDIUM finding. Per the PRD's own 'fix what's cleanly fixable + document the rest' instruction, this cycle ships the config-validator warnings (session/cache) + a shrink-only watchdog pinning the 26-count, and documents the call-site migration as a tracked follow-up in autoscale-readiness.md.",
+      "PERF-CACHE-2: the enumerated read routes (help-center pages) are Inertia HTML carrying a per-request CSP nonce (Phase-15), so the content-based ETag rarely produces a 304 for them in practice — the Cache-Control max-age is the real win there. The ETag/304 path is correct middleware behaviour that pays off for any non-nonce'd route added to the allow-list later; the 304 contract is tested at the middleware level rather than via /help.",
+      "Load-smoke CI job: the new PERF-LOAD-2 job needed three iterations to land clean (login-throttle 429 storm, ProductionConfigValidatorTest baseline, then /api/health 503-without-Redis). It is continue-on-error on main pushes, so none of these blocked the overall CI conclusion — but they are recorded here for honesty."
+    ],
+    "watchdog_tests": [
+      "Phase22SloTest — latency middleware contract + label cardinality, SLO config shape, RouteClassResolver, slo:report registration + out-of-budget breach",
+      "Phase22LoadTest — k6 harness file existence + script structure + (when k6 is installed) k6 inspect",
+      "Phase22NPlusOneTest — preventLazyLoading active, lazy-load throws in test env, eager-load passes, shrink-only baseline threshold (0)",
+      "Phase22PerfCiTest — slow-query budget on hot endpoints, constant-under-N query-count budgets, bundle-size script + CI wiring",
+      "Phase22CacheTest — cache hit/miss counters + bounded labels, HTTP cache headers on enumerated routes, sensitive-route regression-lock, stampede-guard compute-once + lock-timeout fallback",
+      "Phase22StatelessnessTest — production validator flags per-host session/cache drivers, Storage::disk('local') shrink-only baseline",
+      "Phase22ScaleTest — self-contained 503 view, graceful-shutdown doc, empty N+1 baseline",
+      "Phase22DocsTest — load-testing / slo / autoscale-readiness runbooks exist + cover their load-bearing sections"
+    ],
+    "follow_ups": [
+      "Storage::disk('local') call-site migration — 26 hardcoded local-disk sites (KYC/lease docs, water photos, invoice PDFs, GDPR exports, imports) must move to the configurable shared disk before a multi-instance deploy. Tracked in docs/runbooks/autoscale-readiness.md; sized as its own work item, a candidate for a future PERF or SRE cycle.",
+      "Fill the load-testing.md baseline table — run baseline.js against a production-shaped stack (php-fpm + opcache + Redis) and record the real p50/p95/p99 reference numbers. The CI smoke gate is intentionally lenient (artisan serve) and is not a latency reference.",
+      "Pre-existing TypeScript errors in resources/js (carried from Phase 21 closeout) — still out of scope; candidate for a dedicated type-hygiene cycle."
+    ]
+  }
 }
