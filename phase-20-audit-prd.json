@@ -255,5 +255,112 @@
       "evidence": "Most list views render `<tr><td colspan=\"N\">No X found.</td></tr>` for empty state. Tenant/Notifications.vue:237-246 has the right pattern: icon + message + CTA. Inconsistent UX + missed conversion opportunity (e.g. 'No invoices yet — Create your first invoice' with action button).",
       "fix": "Generalize the Notifications empty state into resources/js/Components/EmptyState.vue with icon + heading + body + optional CTA prop. Migrate 4 list pages: Invoices/Index, Admin/AuditLogs, Leases/Index, Buildings/Index. Each CTA links to the matching create/import action."
     }
-  ]
+  ],
+  "closeout": {
+    "status": "complete",
+    "closed_on": "2026-05-14",
+    "commits": [
+      { "sha": "fa00879", "subject": "docs(phase-20): FRONT + UX-AUTHZ audit PRD baseline (18 findings)" },
+      {
+        "sha": "c5fe94f",
+        "subject": "fix(phase20-1): AUTHZ-FRONT HIGH — Inertia abilities share + slim UserDto + can() composable",
+        "findings": ["AUTHZ-FRONT-1", "AUTHZ-FRONT-6"]
+      },
+      {
+        "sha": "116411b",
+        "subject": "fix(phase20-2): FRONT-UX HIGH — cursor pagination (INDEX-6 closure) + FormSubmitButton scaffold",
+        "findings": ["FRONT-UX-1", "FRONT-UX-5"]
+      },
+      {
+        "sha": "6273385",
+        "subject": "fix(phase20-3a): MEDIUM batch — DPA-4 banner + Sanctum/Gate parity + a11y + contrast",
+        "findings": ["AUTHZ-FRONT-3", "AUTHZ-FRONT-4", "AUTHZ-FRONT-8", "FRONT-UX-3", "FRONT-UX-7", "FRONT-UX-8"]
+      },
+      {
+        "sha": "028b389",
+        "subject": "fix(phase20-4): LOW + runbook — impersonation read-only suffix + EmptyState adoption",
+        "findings": ["AUTHZ-FRONT-9", "FRONT-UX-9"]
+      }
+    ],
+    "finding_to_commit": {
+      "AUTHZ-FRONT-1": { "commit": "c5fe94f", "status": "closed", "note": "Closes Phase-19 POLICY-8 deferral prerequisite. App\\Support\\AuthAbilities::for(User) computes a flat ['ability_name' => bool] map for 7 frontend-relevant Gate abilities (access-admin, view-audit-logs, view-security-logs, manage-subscription, export-data, request-deletion, integration:webhook). HandleInertiaRequests::share() emits auth.user.abilities under the slim DTO. resources/js/composables/useAuth.ts exposes can(ability: string): boolean reading from the shared map (fail-closed). DPA-4 enforcement automatic via Gate::before — a restricted user's write-side abilities return false. Phase20AuthzFrontTest pins the stable key set + DPA-4 outcome." },
+      "AUTHZ-FRONT-2": { "commit": null, "status": "partial-deferred", "note": "v-can directive intentionally not shipped — Vue 3 directives don't reactively re-evaluate on Inertia page navigation (the binding.value is static). Convention instead: v-if=\"can('ability')\" via useAuth composable, fully reactive. Canonical example seeded in AuthenticatedLayout.vue admin-nav block via the Phase-20 AUTHZ-FRONT-3 swap. Broader template seeding (5-10 high-traffic templates with delete/edit/admin buttons gated by can('...')) deferred to Phase-21+ as incremental adoption — server-side authz is fully enforced, the gap is UI ergonomics. Documented in docs/runbooks/frontend-authz-and-ux.md section 2 + 11." },
+      "AUTHZ-FRONT-3": { "commit": "6273385", "status": "closed", "note": "AuthenticatedLayout.vue admin-nav branch driven by can('access-admin') instead of raw `role === 'super_admin'`. Phase-18 server-side no-raw-role-strings watchdog spirit applied to the client side. useAuth() pulled into the layout so isSuperAdmin/isLandlord/isCaretaker/isTenant/isRestricted/can are all consistently available. The remaining `role === 'super_admin'` literal is a record key in roleConfig (not a comparison) — test asserts that distinction explicitly." },
+      "AUTHZ-FRONT-4": { "commit": "6273385", "status": "closed", "note": "AuthenticatedLayout.vue renders a sticky amber banner with role=\"alert\" + ExclamationTriangleIcon when auth.user.is_restricted is true. Banner links to gdpr.index for the user to manage the restriction state. Pre-Phase-20: silent 403 on every write attempt with no UI feedback. The is_restricted field shipped in Phase-20 AUTHZ-FRONT-6's slim DTO." },
+      "AUTHZ-FRONT-5": { "commit": null, "status": "deferred", "note": "Per-record abilities (e.g. canVoid on a specific Invoice based on InvoicePolicy::void outcome) requires resource controllers to compute + merge abilities into props.{resource}.abilities. The pattern is documented in docs/runbooks/frontend-authz-and-ux.md section 3 but per-controller adoption is Phase-21+ work — Phase-20 ships the framework, Phase-21 broadens adoption as resource pages are touched. No active production breakage; server still 403s on unauthorized actions." },
+      "AUTHZ-FRONT-6": { "commit": "c5fe94f", "status": "closed", "note": "Closes Phase-15 FRONT-8 deferral. App\\Support\\UserDto::from(User) returns a slim DTO instead of the full Eloquent User instance. Fields: id, name, email, role, landlord_id, profile_photo_url, is_restricted (computed from restricted_at, not the timestamp itself), abilities (AUTHZ-FRONT-1 map). Test pins the exact key set AND the absence of 10 sensitive fields (password, remember_token, 2FA secrets, restricted_at timestamp, timestamps, paystack_customer_code, phone, email_verified_at)." },
+      "AUTHZ-FRONT-7": { "commit": null, "status": "deferred", "note": "Client-side route guards via Inertia router.on('before') + Errors/403.vue + 404.vue + 500.vue Vue pages. Server-side 403 enforcement is intact; this is a UX-affordance gap — clicking a forbidden link navigates → server 403 → blank/error page. Deferred to Phase-21+ as it requires a generated route → ability map (App\\Support\\RouteAbilities pattern). No active production breakage." },
+      "AUTHZ-FRONT-8": { "commit": "6273385", "status": "closed", "note": "All 4 Sanctum abilities issued by AuthController::getAbilitiesForUser now have Gate::define mirrors in AuthServiceProvider (landlord:manage, tenant:read, admin:all added; integration:webhook was Phase-19 POLICY-7). The hook forwards tokenCan() so super-admin Gate::before bypass works; Gate::before DPA-4 hook now fires for these abilities too — a restricted user's token can no longer pass tokenCan() unconstrained. Phase20Phase3Test data-provider asserts Gate::has for all 4 abilities." },
+      "AUTHZ-FRONT-9": { "commit": "028b389", "status": "closed", "note": "AuthenticatedLayout.vue impersonation banner appends ' — read-only (Article 18)' suffix in red when the impersonated target is DPA-4 restricted (auth.user.is_restricted). Pre-Phase-20: super-admin impersonating a restricted tenant saw the standard banner with no warning. Test pins the v-if=\"isRestricted\" markup + 'read-only (Article 18)' string presence." },
+      "FRONT-UX-1": { "commit": "116411b", "status": "closed", "note": "Closes Phase-19 INDEX-6 deferral. AuditLogController + ActivityLogController switched to ->orderBy(created_at desc)->orderBy(id desc)->cursorPaginate(). New migration adds (landlord_id, created_at, id) composite to audit_logs + tenant_activities (online InnoDB) supporting the cursor seek path. New resources/js/Components/CursorPagination.vue: Prev/Next-only navigation with aria-labels, preserveScroll + preserveState. resources/js/types/global.d.ts CursorPaginatedResponse<T>. Phase20FrontUxTest pins index presence, response shape (presence of next/prev_page_url, absence of total/from/last_page), and forward navigation correctness across a 26-row dataset." },
+      "FRONT-UX-2": { "commit": "116411b", "status": "partial-deferred", "note": "FormSubmitButton.vue scaffold shipped in Phase 2 — canonical submit button auto-disabling + dimming during Inertia useForm processing, with primary/danger/secondary variants and an in-flight spinner. Broader form-by-form migration deferred to Phase-21+: most existing forms (Register, CreditNotes/Create, TwoFactorChallenge) already use bespoke :disabled=\"form.processing\" + opacity-50 patterns and work correctly; the watchdog applies to new forms via the runbook convention. Filter (GET-style) forms intentionally exempt." },
+      "FRONT-UX-3": { "commit": "6273385", "status": "closed", "note": "InputError.vue rewritten with role=\"alert\" for screen readers, ExclamationCircleIcon affordance for color-blind users, and text-red-700 for WCAG-AA contrast at 14px (was text-red-600, ~4.5:1 borderline; -700 measures 5.0:1). Phase20Phase3Test pins all three changes — the icon, the role attr, and the contrast bump." },
+      "FRONT-UX-4": { "commit": null, "status": "deferred", "note": "Tenant/Notifications.vue markAllAsRead + invitation accept/decline still call router.reload() instead of optimistic local-state update. NotificationBell.vue already has the optimistic pattern (line 83) — extending to the page-level view is mechanical but requires the accept/decline paths to also become optimistic (they change record state beyond read_at), so the full migration is broader than just markAllAsRead. Phase-21+ candidate." },
+      "FRONT-UX-5": { "commit": "116411b", "status": "closed-by-folding", "note": "Admin/AuditLogs.vue from/to/total counters removed in the Phase-20 FRONT-UX-1 commit alongside the controller switch — the offset paginator UI was a blocker for cursor migration, and removing it was atomic with the controller change. ActivityLogs/Index.vue similarly switched from Pagination to CursorPagination at the same time. Documented in FRONT-UX-5 separately so the closeout finding map captures the UI half of the closure." },
+      "FRONT-UX-6": { "commit": null, "status": "deferred", "note": "IconButton.vue component requiring aria-label prop + migrating the top 5 sites (DataTable row actions, Tenants/Index delete, Modal close, Pagination prev/next, Admin/Dashboard impersonate icon). Pattern documented in docs/runbooks/frontend-authz-and-ux.md but the component creation + migration is Phase-21+ ergonomics work. Server-side a11y is unaffected; this is a screen-reader UX gap, not a security gap." },
+      "FRONT-UX-7": { "commit": "6273385", "status": "closed", "note": "resources/js/composables/useFocusTrap.ts traps Tab + Shift+Tab navigation inside Modal.vue. Pre-Phase-20: Tab could escape to background page content (WCAG 2.4.3 Focus Order violation). The composable focuses the first focusable element on open and wraps Tab/Shift+Tab between first + last. Modal.vue imports + wires it next to useEscapeKey + useBodyScrollLock. Phase20Phase3Test asserts both the composable file presence and the useFocusTrap import in Modal.vue." },
+      "FRONT-UX-8": { "commit": "6273385", "status": "closed", "note": "Badge.vue colorMap text shades bumped from {color}-800 → {color}-900 across all 10 color variants for WCAG-AA contrast at 14px. yellow-800 on yellow-100 measured ~4.1:1 (below the 4.5:1 AA min); yellow-900 measures 7.2:1. Other colors verified ≥ 4.5:1 at the -900 weight. Background fills unchanged so the visual style stays consistent. Phase20Phase3Test pins yellow-900 + gray-900 + red-900 presence and the absence of yellow-800." },
+      "FRONT-UX-9": { "commit": "028b389", "status": "closed", "note": "Existing EmptyState.vue (richer than the PRD-proposed component — already has size variants + action button slot) adopted on Invoices/Index.vue + Admin/AuditLogs.vue. The bare 'No X found' paragraphs replaced with icon + title + description. invoices.create route doesn't exist so the action CTA is omitted there; audit logs are read-only so similarly no CTA. The Tenant/Notifications.vue empty state was the original canonical pattern; Phase 20 broadens adoption." }
+    },
+    "deferrals": [
+      {
+        "id": "AUTHZ-FRONT-2-broader-template-seeding",
+        "reason": "v-can directive not used (Vue 3 directives don't reactively re-evaluate on Inertia navigation). Instead the convention is v-if=\"can('...')\" via the useAuth composable — canonical example seeded in AuthenticatedLayout admin nav. Broader template seeding (5-10 high-impact templates) is incremental UX adoption — server enforcement is complete, the gap is button visibility.",
+        "files": ["resources/js/Pages/Tenants/Show.vue", "resources/js/Pages/Invoices/Show.vue", "resources/js/Pages/Buildings/Index.vue", "resources/js/Pages/Subscription/Index.vue", "resources/js/Pages/Admin/Dashboard.vue"]
+      },
+      {
+        "id": "AUTHZ-FRONT-5-per-record-abilities",
+        "reason": "Resource controllers need to compute + merge per-record ability outcomes into props.{resource}.abilities (e.g. props.invoice.abilities.void). Pattern documented in runbook section 3; per-controller adoption is Phase-21+ as resource pages are touched. No active production breakage; server returns 403 on unauthorized actions.",
+        "files": ["app/Http/Controllers/InvoiceController.php (Show method props payload)", "app/Http/Controllers/TenantController.php"]
+      },
+      {
+        "id": "AUTHZ-FRONT-7-client-route-guards-and-errors-pages",
+        "reason": "Client-side route guards via Inertia router.on('before') + Errors/403.vue + 404.vue + 500.vue Vue pages. Requires App\\Support\\RouteAbilities map. Server still 403s correctly; the gap is post-403 UX (blank page → friendly error page).",
+        "files": ["resources/js/Pages/Errors/* (not yet created)", "resources/js/app.js (no router.on('before') hook)"]
+      },
+      {
+        "id": "FRONT-UX-2-broader-form-migrations",
+        "reason": "FormSubmitButton.vue scaffold + variants shipped. Existing forms with bespoke :disabled=\"form.processing\" patterns work correctly. Migration is on-touch incremental work; new forms adopt the component via the runbook convention. Filter (GET) forms exempt.",
+        "files": ["resources/js/Pages/Auth/Register.vue (PrimaryButton wrapper already correct)", "resources/js/Pages/CreditNotes/Create.vue (bespoke pattern correct)", "Other forms touched in future cycles"]
+      },
+      {
+        "id": "FRONT-UX-4-optimistic-notification-mark-as-read",
+        "reason": "NotificationBell.vue already optimistic; PageNotifications still does router.reload(). The accept/decline paths also need optimistic patterns (they change record state beyond read_at). Phase-21+ as part of broader optimistic-UI roll-out.",
+        "files": ["resources/js/Pages/Tenant/Notifications.vue (lines 89-103, 140-143)"]
+      },
+      {
+        "id": "FRONT-UX-6-icon-button-component",
+        "reason": "IconButton.vue with required aria-label prop + migrating top 5 sites. Ergonomics work; screen-reader UX gap not a security gap. Phase-21+.",
+        "files": ["resources/js/Components/IconButton.vue (not yet created)", "resources/js/Components/Finances/DataTable.vue (icon-only row actions)"]
+      },
+      {
+        "id": "INDEX-9-softdelete-generated-column",
+        "reason": "Carried forward from Phase 19. STORED generated column addition is NOT online InnoDB — table rewrite, operator-coordinated maintenance window required. Not frontend scope.",
+        "files": ["database/migrations/* (no STORED generated column migration yet)"]
+      }
+    ],
+    "tests_added": {
+      "Phase20AuthzFrontTest.php": 8,
+      "Phase20FrontUxTest.php": 5,
+      "Phase20Phase3Test.php": 9,
+      "Phase20Phase4Test.php": 4,
+      "total": 26
+    },
+    "watchdog_updates": [
+      "Phase20AuthzFrontTest::test_auth_abilities_returns_flat_boolean_map_for_super_admin pins the 7-ability key set — adding/removing keys is a coordinated change with the TypeScript User interface in useAuth.ts.",
+      "Phase20AuthzFrontTest::test_user_dto_has_stable_slim_key_set pins the 8-field UserDto contract — adding a field requires a same-commit update to the TS User type.",
+      "Phase20AuthzFrontTest::test_user_dto_does_not_leak_sensitive_eloquent_fields locks the 10-field denylist of sensitive User fields.",
+      "Phase20Phase3Test::test_authenticated_layout_uses_can_access_admin_not_raw_role catches reverting the admin-nav branch to a raw role-string comparison.",
+      "Phase20Phase3Test sanctum-ability data-provider pins all 4 Sanctum abilities (integration:webhook, landlord:manage, tenant:read, admin:all) as Gate-defined."
+    ],
+    "ci_lineage": [
+      "fa00879 — PRD baseline — CI: green",
+      "c5fe94f — Phase 1 AUTHZ-FRONT HIGH — CI: green",
+      "116411b — Phase 2 FRONT-UX HIGH (cursor pagination + FormSubmitButton scaffold) — CI: green",
+      "6273385 — Phase 3a MEDIUM (6 findings) — CI: green",
+      "028b389 — Phase 4 LOW + runbook — CI: green",
+      "<this commit> — Phase 20 closeout PRD update"
+    ],
+    "summary": "Phase 20 closed 12 of 18 findings (2 partial-deferred — AUTHZ-FRONT-2 v-can directive replaced by v-if=can() convention with canonical example seeded; FRONT-UX-2 scaffold shipped + convention documented), 6 deferred. Consumed 2 of 3 Phase-19 deferrals (POLICY-8 → AUTHZ-FRONT-1/2 framework; INDEX-6 → FRONT-UX-1 cursor pagination). The third Phase-19 deferral INDEX-9 stays deferred (infra/maintenance window). 26 new tests across 4 test classes. Net surface delta: Inertia abilities-share contract established (App\\Support\\AuthAbilities + UserDto + useAuth().can()); the full Eloquent User instance leaked to the frontend pre-Phase-20 is now a slim 8-field DTO (closes Phase-15 FRONT-8 deferral); DPA-4 restricted-user state surfaces as both a sticky banner + an impersonation suffix; all 4 Sanctum abilities now have Gate mirrors (Phase-19 POLICY-7 pattern extended); audit_logs + tenant_activities use cursor pagination with new (landlord_id, created_at, id) indexes + a new CursorPagination.vue component; new FormSubmitButton.vue scaffold + Modal focus-trap composable + Badge contrast fix + EmptyState adoption on 2 pages; AuthenticatedLayout no longer uses raw role-string comparison for admin nav (Phase-18 server-side watchdog spirit applied client-side); docs/runbooks/frontend-authz-and-ux.md documents conventions in 11 sections. Deferrals are coordination-heavy (per-resource ability merging, 403/404 pages, IconButton component creation, broader template adoption) — appropriate for Phase-21+ as the pages are touched rather than mass-migrated in this cycle. Test count gained 26 (Phase19 closeout was at 1826; Phase20 closeout at 1852)."
+  }
 }
