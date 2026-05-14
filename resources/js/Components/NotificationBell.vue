@@ -193,10 +193,12 @@ onUnmounted(() => {
         <!-- Bell Button -->
         <button
             @click="toggleDropdown"
+            :aria-label="unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'"
+            :aria-expanded="isOpen"
             class="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
         >
-            <BellIconSolid v-if="unreadCount > 0" class="w-6 h-6 text-indigo-600" />
-            <BellIcon v-else class="w-6 h-6" />
+            <BellIconSolid v-if="unreadCount > 0" class="w-6 h-6 text-indigo-600" aria-hidden="true" />
+            <BellIcon v-else class="w-6 h-6" aria-hidden="true" />
 
             <!-- Badge -->
             <span

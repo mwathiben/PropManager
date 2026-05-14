@@ -291,7 +291,8 @@ const navigationItems = computed(() => {
                 <!-- Logo & Role Badge -->
                 <div class="h-16 flex items-center justify-between px-4 border-b border-gray-200">
                     <Link :href="route('dashboard')" class="flex items-center">
-                        <ApplicationLogo class="h-8 w-auto fill-current text-gray-800" />
+                        <ApplicationLogo class="h-8 w-auto fill-current text-gray-800" aria-hidden="true" />
+                        <span class="sr-only">PropManager — go to dashboard</span>
                     </Link>
                 </div>
 

@@ -27,6 +27,10 @@ Thumbs.db
 tmpclaude-*
 .claude/settings.local.json
 C:UsersbensonAppDataLocalTemp*
+/test-results
+/playwright-report
+/blob-report
+/playwright/.cache
 /ci-result*.txt
 _ide_helper.php
 _ide_helper_models.php

@@ -10,3 +10,22 @@
 @source "../js/**/*.vue";
 @source "../js/**/*.js";
 @source "../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php";
+
+/*
+ * Phase-23 A11Y-VISUAL-1: honour the OS "reduce motion" preference
+ * (WCAG 2.3.3). For a user with a vestibular disorder, the Modal /
+ * SlideOutPanel / Dropdown transitions are unhelpful at best. This is
+ * the standard, well-tested global reset — transitions still "run",
+ * they just complete in ~0ms, so Vue's <Transition> hooks and any
+ * transitionend listeners still fire.
+ */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

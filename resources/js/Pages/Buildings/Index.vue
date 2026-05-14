@@ -140,6 +140,7 @@ const getBuildingTypeColor = (type: string) => {
                             <select
                                 v-model="selectedType"
                                 @change="applyFilters"
+                                aria-label="Filter by building type"
                                 class="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 appearance-none bg-white min-w-[180px]"
                             >
                                 <option value="">All Types</option>
@@ -155,6 +156,7 @@ const getBuildingTypeColor = (type: string) => {
                             <select
                                 v-model="selectedSort"
                                 @change="applyFilters"
+                                aria-label="Sort buildings"
                                 class="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 appearance-none bg-white min-w-[160px]"
                             >
                                 <option v-for="option in sortOptions" :key="option.value" :value="option.value">

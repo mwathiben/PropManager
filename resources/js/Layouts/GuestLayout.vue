@@ -39,8 +39,9 @@ watch(
         <LiveAnnouncer />
 
         <div>
-            <Link href="/">
-                <ApplicationLogo class="h-20 w-20 fill-current text-gray-500" />
+            <Link href="/" class="flex items-center">
+                <ApplicationLogo class="h-20 w-20 fill-current text-gray-500" aria-hidden="true" />
+                <span class="sr-only">PropManager — home</span>
             </Link>
         </div>
 

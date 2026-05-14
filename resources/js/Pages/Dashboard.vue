@@ -752,17 +752,21 @@ onUnmounted(() => {
                                 <div v-if="!hasWings || activeWingFilter" class="flex bg-gray-100 rounded-lg p-1">
                                     <button
                                         @click="viewMode = 'grid'"
+                                        aria-label="Grid view"
+                                        :aria-pressed="viewMode === 'grid'"
                                         :class="viewMode === 'grid' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'"
                                         class="px-3 py-1.5 text-xs font-medium rounded-md transition-all"
                                     >
-                                        <Squares2X2Icon class="w-4 h-4" />
+                                        <Squares2X2Icon class="w-4 h-4" aria-hidden="true" />
                                     </button>
                                     <button
                                         @click="viewMode = 'list'"
+                                        aria-label="List view"
+                                        :aria-pressed="viewMode === 'list'"
                                         :class="viewMode === 'list' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'"
                                         class="px-3 py-1.5 text-xs font-medium rounded-md transition-all"
                                     >
-                                        <ListBulletIcon class="w-4 h-4" />
+                                        <ListBulletIcon class="w-4 h-4" aria-hidden="true" />
                                     </button>
                                 </div>
 

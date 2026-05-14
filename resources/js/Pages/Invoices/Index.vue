@@ -120,6 +120,7 @@ const submitGenerate = () => {
 
                             <select
                                 v-model="status"
+                                aria-label="Filter by status"
                                 class="border border-gray-300 rounded-md px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 @change="applyFilters"
                             >
@@ -131,6 +132,7 @@ const submitGenerate = () => {
                             <select
                                 v-if="buildings.length > 0"
                                 v-model="buildingId"
+                                aria-label="Filter by building"
                                 class="border border-gray-300 rounded-md px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 @change="applyFilters"
                             >

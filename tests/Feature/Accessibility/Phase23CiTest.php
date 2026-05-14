@@ -64,4 +64,61 @@ class Phase23CiTest extends TestCase
             'A11Y-CI-1: the CI workflow must have a named accessibility-lint step.',
         );
     }
+
+    public function test_axe_smoke_harness_exists(): void
+    {
+        $package = json_decode(file_get_contents(base_path('package.json')), true);
+
+        $this->assertArrayHasKey(
+            '@axe-core/playwright',
+            $package['devDependencies'] ?? [],
+            'A11Y-CI-2: @axe-core/playwright must be a devDependency.',
+        );
+        $this->assertArrayHasKey(
+            '@playwright/test',
+            $package['devDependencies'] ?? [],
+            'A11Y-CI-2: @playwright/test must be a devDependency.',
+        );
+        $this->assertSame(
+            'playwright test',
+            $package['scripts']['test:a11y'] ?? null,
+            'A11Y-CI-2: package.json must expose a `test:a11y` script.',
+        );
+
+        $this->assertFileExists(
+            base_path('playwright.config.ts'),
+            'A11Y-CI-2: playwright.config.ts must exist.',
+        );
+
+        $specPath = base_path('tests/a11y/axe-smoke.spec.ts');
+        $this->assertFileExists($specPath, 'A11Y-CI-2: tests/a11y/axe-smoke.spec.ts must exist.');
+
+        $spec = file_get_contents($specPath);
+        $this->assertStringContainsString(
+            'AxeBuilder',
+            $spec,
+            'A11Y-CI-2: the smoke spec must run axe-core via AxeBuilder.',
+        );
+        $this->assertStringContainsString(
+            "GATED_IMPACTS = new Set(['critical'])",
+            $spec,
+            'A11Y-CI-2: the smoke spec must gate on critical violations (serious is the shrink-only baseline).',
+        );
+    }
+
+    public function test_ci_has_a11y_smoke_job(): void
+    {
+        $ci = file_get_contents(base_path('.github/workflows/ci.yml'));
+
+        $this->assertStringContainsString(
+            'a11y-smoke:',
+            $ci,
+            'A11Y-CI-2: the CI workflow must define an a11y-smoke job.',
+        );
+        $this->assertStringContainsString(
+            'npm run test:a11y',
+            $ci,
+            'A11Y-CI-2: the a11y-smoke job must run `npm run test:a11y`.',
+        );
+    }
 }
