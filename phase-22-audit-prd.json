@@ -1,0 +1,270 @@
+{
+  "project": "PropManager",
+  "audit_cycle": "phase-22",
+  "audit_date": "2026-05-14",
+  "scope": "Tier-2 non-functional excellence, cycle 1 of 3 (per project_propmanager_path_forward.md). Twenty-one audit cycles have shipped the server-side security/observability/DPA/money/resilience surface plus the frontend authz/UX framework, and Phase 21 reset the deferral debt to zero. Phase 22 [PERF + LOAD] turns the lens on performance and load-handling — the dimension that becomes a user complaint before it becomes an alert. The codebase already has real observability primitives (Phase-14 MetricsService with counter/histogram/gauge + Prometheus export, Phase-15 SlowQueryServiceProvider, Phase-21 slow-query:report, sampled N+1 detection, a 200-row per-page cap, cursor pagination for unbounded tables, a few pinned composite indexes, queue-depth health checks). What is missing is the load-and-latency discipline that proves the app holds up: there is NO load-test harness, NO per-request latency instrumentation, NO SLO targets in config, NO perf budget gate in CI, the N+1 detector is production-sampled but not test-gated, cache hit-rate is logged-not-measured, and there is no horizontal-scale readiness assessment. Phase 22 closes those gaps. 18 findings across 6 categories: PERF-LOAD (3 — k6 harness + CI smoke + runbook), PERF-SLO (4 — latency middleware + SLO config + slo:report + doc), PERF-CI (3 — slow-query budget gate + global query-count budget + bundle-size budget), PERF-NPLUS1 (2 — test-gated lazy-load watchdog + baseline cleanup), PERF-CACHE (3 — hit-rate metrics + HTTP cache headers + stampede protection), PERF-SCALE (3 — statelessness audit + graceful shutdown + autoscale runbook). Severity split 3H/8M/7L.",
+  "context_baseline": {
+    "previous_audits": [
+      "Phase 11 (DEPLOY + SECRETS, 21 findings)",
+      "Phase 12 (BACKUP + RETAIN, 18 findings)",
+      "Phase 13 (DPA + BREACH, 18 findings)",
+      "Phase 14 (SUPPLY + OBSERV, 18 findings — MetricsService + Prometheus + slow-query channel + logs:correlate)",
+      "Phase 15 (FRONT + PERF, 18 findings — SlowQueryServiceProvider, LimitsPerPage, PaginatorLink, PERF-1/2 composite indexes)",
+      "Phase 16 (RESIL + QUEUE, 18 findings — CircuitBreaker, queue-depth health, Bus::batch fan-out)",
+      "Phase 17 (MONEY + TIME, 18 findings)",
+      "Phase 18 (AUTHZ + DATA, 15/18 — drift audits, observer integrity)",
+      "Phase 19 (POLICY + INDEX, 15/18 — INDEX-2..8 composite + FK leading indexes, PerformanceHardeningTest expanded)",
+      "Phase 20 (FRONT + UX-AUTHZ, 12/18 — CursorPagination.vue, AuthAbilities framework)",
+      "Phase 21 (DEFER-CLEANUP, 18/18 — all carry-forward deferrals closed, slow-query:report shipped, zero deferrals)"
+    ],
+    "do_not_reflag": "Already shipped — Phase 22 rides this surface, it does not rebuild it. (1) Phase-14 MetricsService: increment()/observe()/gauge()/exportPrometheus() + /api/metrics endpoint gated by METRICS_BEARER/METRICS_ALLOW_IPS + histogram_buckets_ms in config/observability.php — Phase 22 ADDS new metric names through this API, it does not redesign the service. (2) Phase-15 SlowQueryServiceProvider: DB::listen gate keyed on SLOW_QUERY_THRESHOLD_MS, writes to the slow-query log channel + observes db_query_ms histogram — Phase 22 USES this in the CI budget gate, it does not rebuild query timing. (3) Phase-21 slow-query:report: p50/p95/p99 aggregation by query shape — reused as-is. (4) Sampled N+1 detection in AppServiceProvider (Model::preventLazyLoading + 1%-sampled prod logging, fail-open) — Phase 22 PROMOTES this to a test-env hard gate, the prod-sampled behaviour stays. (5) PerformanceHardeningTest: payments/invoices/notifications composite-index assertions + the Invoice-index 20-query budget — Phase 22 EXTENDS this test class with more endpoints, the existing assertions stay green. (6) LimitsPerPage trait (200-row cap) + CursorPagination.vue — unchanged. (7) HealthCheckController 5-probe surface (db/redis/queue/webhook_dlq/external_apis) — unchanged; Phase 22 does not add probes, it adds latency timing context. (8) config-cache-check CI job (PERF-9) — stays. (9) FinanceCacheService/BuildingCacheService Cache::remember + registry invalidation — Phase 22 ADDS hit-rate counters via the existing &$hit closure seam, it does not rewrite the cache services.",
+    "audit_strategy": "Per project_propmanager_path_forward.md Tier 2. Cycle pattern: PRD baseline (this commit) -> Phase 1 HIGH (3 findings: PERF-LOAD-1 k6 harness, PERF-SLO-1 latency middleware, PERF-NPLUS1-1 test-gated lazy-load watchdog) -> Phase 2 MEDIUM (8 findings: load CI smoke, SLO config + slo:report, slow-query CI budget, global query-count budget, cache hit-rate metrics, HTTP cache headers, statelessness audit) -> Phase 3 LOW (7 findings: load runbook, SLO doc, bundle-size budget, N+1 baseline cleanup, cache-stampede protection, graceful shutdown, autoscale runbook) -> closeout. The N+1 test-gate (PERF-NPLUS1-1) ships with a baseline-count threshold like the Phase-18/19 watchdogs — if it surfaces more lazy-load sites than can be fixed in PERF-NPLUS1-2's scope, the gate pins the floor and the cleanup finding ratchets it down. Target: zero deferrals (continuing the Phase 16 / Phase 21 discipline) or document why specific items stayed deferred. Test budget: ~25-35 new tests across Phase22 test classes; the k6 scripts are committed but run in their own CI job, not under PHPUnit.",
+    "load_profile_assumptions": "Kenya market, SMB landlords. Working assumption for the k6 baseline until real traffic data refines it: a mid-size landlord tenant has ~50-500 units; the hot read paths are the dashboard, the invoice index, the tenant index, and the payments hub; the hot write path is the payment webhook ingress (M-Pesa/Paystack/IntaSend callbacks, bursty around month-start rent cycles). Baseline target is correctness-under-concurrency + p95 latency budgets, NOT a throughput record — the goal is to catch regressions and right-size before institutional landlords (1000+ units) onboard."
+  },
+  "qualityStandards": {
+    "test": "All Phase-22 PHP changes must pass `php artisan test --parallel` and `vendor/bin/pint --test`. Frontend changes must pass `npm run build`. The k6 load scripts must be syntactically valid (`k6 inspect`) and runnable against a local app; they execute in a dedicated CI job, not under PHPUnit. PERF-NPLUS1-1's test-env lazy-load gate must not break the existing suite — it ships with a baseline threshold if violations exceed the PERF-NPLUS1-2 fix budget.",
+    "ci": "Each commit lands on main with green CI before the next phase starts. All prior watchdogs stay green: Phase-15/19 PerformanceHardeningTest (composite-index name pins + Invoice-index query budget), Phase-18/19 AuthzCoverageMatrixTest + no-raw-role baseline, Phase-20 AuthzFrontCoverageMatrixTest, Phase-21 Phase21FrontAuthzTest/Phase21Phase2Test/Phase21Phase3Test. New CI jobs (load smoke, slow-query budget, bundle-size budget) are additive and gate on PR.",
+    "no_breaking_change": "All Phase-22 changes are additive or instrumentation-only. The latency middleware (PERF-SLO-1) is append-only in the web group and emits metrics in a fail-open try/catch — a metrics-write failure must never 500 a request. SLO targets in config/observability.php are new keys with safe defaults. The slow-query CI budget runs the suite with SLOW_QUERY_THRESHOLD_MS set — it does not change runtime behaviour, the provider is already threshold-gated. HTTP cache headers (PERF-CACHE-2) apply only to explicitly-enumerated GET routes — no blanket caching. Cache-stampede locks (PERF-CACHE-3) wrap existing Cache::remember calls with a short lock + fallback to stale-or-compute, never block indefinitely. The N+1 gate (PERF-NPLUS1-1) changes TEST-env behaviour only; prod stays 1%-sampled fail-open."
+  },
+  "feedbackLoops": {
+    "lint": "vendor/bin/pint --test",
+    "test_focused": "php artisan test --filter='<keyword>'",
+    "test_full": "php artisan test --parallel",
+    "frontend_build": "npm run build",
+    "load_smoke": "k6 run tests/load/smoke.js",
+    "slow_query_budget": "SLOW_QUERY_THRESHOLD_MS=100 php artisan test --filter=<hot-endpoint>",
+    "ci_watch": "gh run list --limit 1 --branch main --workflow=CI --json status,conclusion"
+  },
+  "categories": {
+    "PERF-LOAD": {
+      "description": "Load-testing capability. PropManager has zero load-test tooling today — there is a BenchmarkDatabase artisan command (SQLite-vs-MySQL micro-benchmark) but nothing that exercises the HTTP surface under concurrency. This category ships a k6 harness with baseline scenarios for the hot read + write paths, a short CI smoke run that gates on a p95 threshold, and the runbook that tells an operator how to run a full load test, read the output, and decide when to re-baseline.",
+      "count": 3
+    },
+    "PERF-SLO": {
+      "description": "Service-level-objective instrumentation. Phase-14 shipped the MetricsService histogram primitive and a docs/runbooks/slo.md skeleton, but no per-request latency is actually measured and no SLO targets live in config. This category adds a latency middleware emitting http_request_ms{route,method,status}, SLO budgets in config/observability.php, a slo:report command that computes p50/p95/p99 + compliance per route class, and extends the SLO doc with the concrete budgets.",
+      "count": 4
+    },
+    "PERF-CI": {
+      "description": "Performance budget gates in CI. The only perf-adjacent CI job today is config-cache-check (PERF-9). This category adds three gates: a slow-query budget (run the suite with SLOW_QUERY_THRESHOLD_MS set, fail on slow queries in hot paths), a global query-count budget (extend PerformanceHardeningTest's Invoice-index 20-query cap to the other hot index endpoints), and a frontend bundle-size budget (cap total build size + largest chunk).",
+      "count": 3
+    },
+    "PERF-NPLUS1": {
+      "description": "N+1 query gating. AppServiceProvider already calls Model::preventLazyLoading with a 1%-sampled, fail-open prod logger — good for prod safety, useless as a regression gate because nothing fails when a lazy-load slips in. This category promotes the detector to a hard gate in the testing environment (lazy-load throws), ships it with a baseline-count threshold like the Phase-18/19 watchdogs so it is tractable, and fixes the lazy-load violations the gate surfaces.",
+      "count": 2
+    },
+    "PERF-CACHE": {
+      "description": "Caching effectiveness + safety. FinanceCacheService and BuildingCacheService use Cache::remember with a &$hit closure that is logged-but-not-measured, there are no HTTP cache headers on read-heavy GET responses, and hot cache keys have no stampede protection. This category exposes cache hit-rate as Prometheus counters, wires conditional HTTP cache headers (ETag / Cache-Control) on enumerated read endpoints, and adds short-lock stampede protection to the hottest Cache::remember keys.",
+      "count": 3
+    },
+    "PERF-SCALE": {
+      "description": "Horizontal-scale readiness. PropManager has never been assessed for running more than one app instance. This category audits statelessness (session/cache externalised, no single-host filesystem assumptions, no in-process state that breaks under a load balancer), documents graceful shutdown (queue worker SIGTERM draining, php artisan down behaviour), and ships an autoscale-readiness runbook with a horizontal-scale checklist.",
+      "count": 3
+    }
+  },
+  "items": [
+    {
+      "id": "PERF-LOAD-1",
+      "title": "k6 load-test harness + baseline scenarios for the hot read/write paths",
+      "severity": "HIGH",
+      "files": [
+        "tests/load/smoke.js (new — short ramp, used by CI)",
+        "tests/load/baseline.js (new — full baseline: dashboard, invoice index, tenant index, payments hub, payment webhook)",
+        "tests/load/lib/auth.js (new — shared login helper that seeds a session/token)",
+        "tests/load/lib/config.js (new — BASE_URL, VU counts, thresholds as env-overridable constants)",
+        "tests/load/README.md (new — quickstart pointer to the runbook)"
+      ],
+      "evidence": "There is no load-testing tooling in the repo. BenchmarkDatabase (app/Console/Commands/BenchmarkDatabase.php) micro-benchmarks SQLite vs MySQL but never exercises the HTTP surface, never applies concurrency, and never touches middleware/auth/serialization. The app has never been observed under sustained concurrent load — the first time that happens should not be in production during a month-start rent cycle when payment webhooks burst.",
+      "fix": "(a) Add k6 scripts under tests/load/. smoke.js: 1-2 min, low VU count, hits the 4 hot read paths + a synthetic payment-webhook POST, asserts http_req_duration p95 thresholds. baseline.js: longer ramp (e.g. 5 min, staged VUs), the full scenario set, richer thresholds. (b) lib/auth.js logs in once per VU and reuses the session cookie; lib/config.js centralises BASE_URL (default http://localhost:8000) + threshold constants, all env-overridable so CI and a laptop run the same scripts with different knobs. (c) Scenarios must be data-safe — reads hit seeded fixtures; the webhook POST uses a test signature path or a dedicated load-test landlord so it never mutates real data. (d) tests/load/README.md is a 5-line pointer to docs/runbooks/load-testing.md (PERF-LOAD-3). (e) Phase22LoadTest::test_k6_scripts_are_syntactically_valid — assert the files exist and (if k6 is on PATH) `k6 inspect` exits 0; otherwise assert the files parse as JS modules with the expected exported options."
+    },
+    {
+      "id": "PERF-LOAD-2",
+      "title": "CI smoke load-test job — short k6 run gating on a p95 threshold",
+      "severity": "MEDIUM",
+      "files": [
+        ".github/workflows/ci.yml (new load-smoke job)",
+        "tests/load/smoke.js (consumed by the job)"
+      ],
+      "evidence": "Even with a k6 harness committed (PERF-LOAD-1), nothing runs it automatically — a latency regression would only be caught if someone remembered to run k6 by hand. The existing CI has lint/test/build/config-cache-check/audits but no latency gate.",
+      "fix": "(a) Add a load-smoke job to ci.yml: boots the app (php artisan serve or the built-in server) against the MySQL service container with a seeded load-test landlord, installs k6 (grafana/setup-k6-action or apt), runs `k6 run tests/load/smoke.js`. (b) k6's threshold mechanism is the gate — a breached p95/error-rate threshold makes k6 exit non-zero and fails the job. (c) Gate on PR (blocking); on push to main, continue-on-error so an infra hiccup in the smoke run does not wedge unrelated merges (same warn-on-main pattern as composer-audit). (d) Job needs the Vite manifest (npm run build) because the pages are Inertia-rendered. (e) Phase22LoadTest::test_ci_workflow_has_load_smoke_job — assert ci.yml contains the load-smoke job + the k6 invocation."
+    },
+    {
+      "id": "PERF-LOAD-3",
+      "title": "Load-testing runbook — how to run, read, and re-baseline",
+      "severity": "LOW",
+      "files": [
+        "docs/runbooks/load-testing.md (new)"
+      ],
+      "evidence": "A k6 harness without a runbook is a script nobody but its author can operate. Operators need to know how to run the full baseline, what the numbers mean, what the current baseline IS (so a regression is visible), and when to re-baseline (after an index change, a major dependency bump, an N-tenant growth milestone).",
+      "fix": "(a) docs/runbooks/load-testing.md sections: prerequisites (k6 install, seeded data, BASE_URL), running the smoke vs baseline scripts, interpreting k6 output (http_req_duration percentiles, iteration rate, checks), the CURRENT baseline numbers table (filled from a real local baseline run), threshold rationale, re-baseline triggers, and how the CI smoke job differs from a full baseline. (b) Cross-reference docs/runbooks/slo.md (PERF-SLO budgets) and docs/runbooks/autoscale-readiness.md (PERF-SCALE-3). (c) Phase22LoadTest::test_load_testing_runbook_exists — assert the file exists and references smoke.js + baseline.js + a re-baseline trigger section."
+    },
+    {
+      "id": "PERF-SLO-1",
+      "title": "Per-request latency middleware emitting http_request_ms histogram",
+      "severity": "HIGH",
+      "files": [
+        "app/Http/Middleware/RecordRequestLatency.php (new)",
+        "bootstrap/app.php (append to the web + api middleware groups)",
+        "app/Services/MetricsService.php (no change — uses existing observe())"
+      ],
+      "evidence": "The MetricsService histogram primitive (Phase-14 OBSERV-9) is only fed by SlowQueryServiceProvider's db_query_ms today. There is no http_request_ms — the app cannot answer 'what is our p95 page latency' because nothing measures end-to-end request time. SLO work (PERF-SLO-2/3) and load-test interpretation (PERF-LOAD) are blind without it.",
+      "fix": "(a) RecordRequestLatency middleware captures a high-resolution start time in handle(), and in a terminable callback (terminate()) computes elapsed ms and calls MetricsService::observe('http_request_ms', $ms, ['route' => $routeName ?? 'unmatched', 'method' => $method, 'status' => $statusClass]). status label is bucketed (2xx/3xx/4xx/5xx) not raw — keeps cardinality bounded. route label uses the route NAME not the URI (cardinality + PII safety — raw URIs leak ids). (b) The observe() call is wrapped in try/catch — a Redis blip must never affect the response (fail-open, same posture as MetricsService internals). (c) Appended to both the web and api middleware groups in bootstrap/app.php, after the response is built so status is final. (d) Phase22SloTest::test_latency_middleware_emits_http_request_ms (hit a route, assert the histogram bucket counters moved) + test_latency_label_cardinality_is_bounded (assert status is bucketed, route uses name)."
+    },
+    {
+      "id": "PERF-SLO-2",
+      "title": "SLO latency + error-rate budgets in config/observability.php",
+      "severity": "MEDIUM",
+      "files": [
+        "config/observability.php (new slo key)",
+        ".env.example (document the override vars)"
+      ],
+      "evidence": "config/observability.php has metrics/sentry/csp keys but no SLO targets — there is no machine-readable definition of 'acceptable'. Phase-14's docs/runbooks/slo.md describes SLOs in prose; nothing enforces or reports against them because the numbers do not exist in config.",
+      "fix": "(a) Add an 'slo' key to config/observability.php: per-route-class p95 latency budgets in ms (e.g. read_path => 500, write_path => 1000, webhook => 2000, report => 3000) + a global error-rate budget (e.g. 1%) + the window for evaluation (e.g. 24h). All env-overridable with safe production defaults. (b) A small route-class resolver maps a route name to its class (prefix-based: webhooks.* => webhook, reports.* => report, *.store/update/destroy => write_path, else read_path) so PERF-SLO-3 and the load thresholds can share one definition. (c) Document the override env vars in .env.example. (d) Phase22SloTest::test_slo_budgets_are_configured (assert the slo config key has the expected shape + sane defaults) + test_route_class_resolver_buckets_known_routes."
+    },
+    {
+      "id": "PERF-SLO-3",
+      "title": "slo:report command — p50/p95/p99 + SLO compliance per route class",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/SloReport.php (new)",
+        "routes/console.php (optional scheduled daily summary)"
+      ],
+      "evidence": "Phase-21 shipped slow-query:report for DB query shapes, but there is no equivalent for HTTP latency. Once PERF-SLO-1 emits http_request_ms and PERF-SLO-2 defines budgets, an operator still has no command that says 'route class X is at p95 620ms against a 500ms budget — OUT OF SLO'.",
+      "fix": "(a) slo:report reads the http_request_ms histogram from MetricsService::snapshot(), computes p50/p95/p99 per route (and aggregated per route class via the PERF-SLO-2 resolver), compares against the configured budgets, and prints a table with an IN/OUT-OF-SLO column. (b) Flags: --since (which metric day-buckets to aggregate), --route-class (filter), --json (machine output), --fail-on-breach (exit non-zero if any class is out of SLO — usable in a future alerting cron). (c) Optionally schedule a daily non-failing summary to the metrics log channel. (d) Phase22SloTest::test_slo_report_registered + test_slo_report_flags_out_of_budget_route_class (seed histogram values above budget, assert the report marks it OUT OF SLO and --fail-on-breach exits non-zero)."
+    },
+    {
+      "id": "PERF-SLO-4",
+      "title": "Extend docs/runbooks/slo.md with the concrete Phase-22 budgets",
+      "severity": "LOW",
+      "files": [
+        "docs/runbooks/slo.md (extend — Phase-14 shipped the skeleton)"
+      ],
+      "evidence": "docs/runbooks/slo.md exists (Phase-14 OBSERV) but predates any actual latency measurement — it describes SLOs aspirationally. With PERF-SLO-1/2/3 shipping real instrumentation, config budgets, and a report command, the doc must be updated to the concrete numbers and the new tooling, or it drifts into fiction.",
+      "fix": "(a) Update slo.md: the route-class taxonomy + each class's p95 budget (mirroring config/observability.php so the doc and config agree), how to read slo:report, the http_request_ms metric definition, the relationship between the SLO budgets and the k6 load thresholds (PERF-LOAD), and the escalation path when a class goes out of SLO. (b) Add a 'budgets are defined in config/observability.php, this doc explains them' pointer so the config stays the single source of truth. (c) Phase22SloTest::test_slo_doc_documents_route_classes — assert slo.md names each route class + references slo:report + http_request_ms."
+    },
+    {
+      "id": "PERF-CI-1",
+      "title": "Slow-query budget gate in CI",
+      "severity": "MEDIUM",
+      "files": [
+        ".github/workflows/ci.yml (slow-query budget step in the test job, or a dedicated job)",
+        "tests/Feature/Performance/SlowQueryBudgetTest.php (new — or extend PerformanceHardeningTest)"
+      ],
+      "evidence": "SlowQueryServiceProvider (Phase-15) only does anything when SLOW_QUERY_THRESHOLD_MS is set, which it never is in CI — so a query that takes 400ms on a hot path sails through CI undetected and is only discovered via prod slow-query logs after users feel it. The detection mechanism exists; nothing exercises it as a gate.",
+      "fix": "(a) A test-level gate is more deterministic than a workflow-level one: SlowQueryBudgetTest sets SLOW_QUERY_THRESHOLD_MS via config in setUp, registers a DB::listen collector, exercises the hot endpoints (dashboard, invoice index, tenant index, payments hub) as a seeded landlord, and asserts no single query exceeds the budget AND the per-request query time stays under a ceiling. (b) Because CI timing is noisier than prod, the budget is generous (catch 10x regressions, not 10% noise) — the goal is catching an accidental un-indexed scan or a lost eager-load, not micro-optimisation. (c) Pre-existing slow queries the gate surfaces are recorded as a baseline allow-list with a ticket reference, same pattern as the Phase-18 watchdog baselines. (d) test_hot_endpoints_have_no_slow_queries + test_hot_endpoint_total_query_time_under_ceiling."
+    },
+    {
+      "id": "PERF-CI-2",
+      "title": "Global query-count budget — extend the Invoice-index cap to all hot index endpoints",
+      "severity": "MEDIUM",
+      "files": [
+        "tests/Feature/Security/PerformanceHardeningTest.php (extend — or a new Phase22 perf test class)"
+      ],
+      "evidence": "PerformanceHardeningTest::test_invoice_index_query_count_is_constant_under_n_invoices pins a 20-query budget for ONE endpoint. Every other hot index page (tenant index, payments hub, dashboard, building/property index, finance tabs) has no query-count assertion — a regression that turns an eager-load into an N+1 on the tenant index would not fail any test.",
+      "fix": "(a) Extend the existing query-count pattern to the top hot index endpoints. For each: seed N rows (e.g. 15-25), hit the endpoint as the appropriate role, count queries via DB::enableQueryLog or a listener, assert the count is BOTH under an absolute cap AND constant as N grows (the constant-under-N check is the real N+1 catch — an absolute cap alone can hide a slow linear growth). (b) Keep the budgets honest: count auth + count + page + eager-loads, set the cap a little above the observed-correct count so it catches regressions without being brittle. (c) Reuse the Phase-15 test's helper shape so the assertions read consistently. (d) test_<endpoint>_query_count_is_constant_under_n_rows per endpoint."
+    },
+    {
+      "id": "PERF-CI-3",
+      "title": "Frontend bundle-size budget gate",
+      "severity": "LOW",
+      "files": [
+        ".github/workflows/ci.yml (bundle-size step in the build job)",
+        "scripts/check-bundle-size.mjs (new — or inline in the workflow)"
+      ],
+      "evidence": "npm run build runs in CI but nothing inspects the output size. Kenyan network reality (3G common, 2G rural — see the path-forward Phase-26 PWA notes) makes JS payload a real user-facing latency factor, and the Phase-15 PaginatorLink groundwork is wasted if a careless dependency import doubles the vendor chunk unnoticed.",
+      "fix": "(a) After npm run build, a small node script sums public/build/assets/*.js (gzipped where measurable) and checks: total JS under a budget + the largest single chunk under a budget + (soft warn) the vendor/vue-core chunk delta. (b) Budgets are set from the CURRENT measured build with generous headroom — the gate catches a 2x regression, not normal growth. (c) Gate on PR; warn-on-main. (d) Phase22PerfCiTest::test_bundle_size_budget_script_exists + test_ci_build_job_runs_bundle_size_check (assert the workflow wires it). The actual size assertion lives in the workflow, not PHPUnit, since it needs the build artifacts."
+    },
+    {
+      "id": "PERF-NPLUS1-1",
+      "title": "Promote N+1 detection from prod-sampled to a test-env hard gate",
+      "severity": "HIGH",
+      "files": [
+        "app/Providers/AppServiceProvider.php (testing-env branch of the lazy-loading config)",
+        "tests/Feature/Performance/NPlusOneGateTest.php (new — the watchdog + baseline-count pin)"
+      ],
+      "evidence": "AppServiceProvider calls Model::preventLazyLoading with a fail-open, 1%-sampled prod logger and an always-on non-prod logger that also does not throw. So in the test suite a lazy-load is logged-and-ignored — there is zero enforcement. An N+1 introduced in a PR is invisible to CI; it surfaces only as a prod slow-query weeks later.",
+      "fix": "(a) In the testing environment, switch handleLazyLoadingViolationUsing to THROW (Laravel's default LazyLoadingViolationException) so any tested code path that lazy-loads fails the test that exercises it. Prod stays exactly as-is (1%-sampled, fail-open). Local non-prod dev stays log-only (throwing on every dev page is too aggressive). (b) Because flipping this on a mature suite can surface many violations at once, ship it with a tractable rollout: if the violation count is small, fix inline (folds into PERF-NPLUS1-2). If large, the throw is scoped behind an allow-list of known-offending model+relation pairs (the baseline), and NPlusOneGateTest pins the allow-list SIZE as a watchdog threshold — new violations outside the allow-list throw immediately; the allow-list only ever shrinks. (c) NPlusOneGateTest::test_lazy_loading_throws_in_test_env + test_nplus1_baseline_allowlist_count (threshold pin, documented shrink-only rule). (d) Document the convention in a short docs/runbooks/n-plus-one.md or a section in an existing perf runbook."
+    },
+    {
+      "id": "PERF-NPLUS1-2",
+      "title": "N+1 baseline cleanup — fix the lazy-load violations the gate surfaces",
+      "severity": "LOW",
+      "files": [
+        "app/Http/Controllers/* (add ->with(...) eager-loads where the gate flags lazy-loads)",
+        "app/Services/* (same — service-layer query builders)",
+        "tests/Feature/Performance/NPlusOneGateTest.php (ratchet the baseline-count threshold down as fixes land)"
+      ],
+      "evidence": "PERF-NPLUS1-1 ships the gate; this finding is the remediation. Each entry on the baseline allow-list is a real N+1 (or a deliberate-but-unannotated lazy-load) waiting to bite a high-row-count tenant. The cleanup is mechanical per site — add the missing eager-load, or annotate a genuinely-fine single-row access — but it must actually happen, not sit on the allow-list forever.",
+      "fix": "(a) Work the allow-list from PERF-NPLUS1-1: for each model+relation pair, find the call site, add the missing ->with() / ->load() eager-load (or, for a genuine single-record access where eager-loading is wasteful, document why and keep it — but those should be rare). (b) After each fix, remove the pair from the allow-list and ratchet NPlusOneGateTest's threshold down — the test enforces shrink-only so a fix cannot silently regress. (c) Target: empty allow-list, or a short documented residue with per-entry justification. (d) The existing endpoint tests + the PERF-CI-2 query-count budgets confirm the fixes hold."
+    },
+    {
+      "id": "PERF-CACHE-1",
+      "title": "Cache hit-rate metrics — expose FinanceCacheService / BuildingCacheService effectiveness",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/FinanceCacheService.php (emit hit/miss counters via the existing &$hit seam)",
+        "app/Services/BuildingCacheService.php (same)",
+        "app/Services/MetricsService.php (no change — uses existing increment())"
+      ],
+      "evidence": "FinanceCacheService and BuildingCacheService already compute a &$hit boolean per Cache::remember call and log it at debug level — but a debug log is not a metric. There is no way to answer 'is the finance cache actually helping' — a 5-minute TTL that is always missed (because invalidation is too aggressive, or keys are too granular) is pure overhead, and nothing would reveal it.",
+      "fix": "(a) At the existing &$hit decision point in both cache services, call MetricsService::increment('cache_hit_total', 1, ['cache' => 'finance'|'building', 'type' => $type]) or 'cache_miss_total' accordingly. Bounded label cardinality — 'type' is the existing small enum (stats/reports/etc.), not a per-landlord key. (b) The increment is fail-open (MetricsService already swallows Redis errors) so a metrics blip never breaks a cache read. (c) These counters then flow through the existing /api/metrics Prometheus export — hit-rate is hit/(hit+miss) computed downstream. (d) Phase22CacheTest::test_finance_cache_emits_hit_and_miss_counters (cold call increments miss, warm call increments hit) + test_cache_metric_labels_are_bounded."
+    },
+    {
+      "id": "PERF-CACHE-2",
+      "title": "Conditional HTTP cache headers on read-heavy GET endpoints",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Middleware/SetReadCacheHeaders.php (new — or wire Laravel's SetCacheHeaders)",
+        "routes/web.php + routes/api.php (apply to enumerated read routes)",
+        "config/observability.php OR config/cache.php (the route allow-list + max-age)"
+      ],
+      "evidence": "No read endpoint sends Cache-Control or ETag. Every navigation re-fetches in full even when nothing changed. Laravel ships SetCacheHeaders middleware but it is not wired anywhere. Inertia partial reloads and the cursor-paginated audit/activity feeds are especially wasteful — they are read-mostly and re-pulled constantly.",
+      "fix": "(a) Apply cache headers ONLY to an explicitly enumerated set of safe read routes — never blanket. Good candidates: static-ish reference endpoints, the cursor-paginated audit/activity feeds (short max-age + ETag), help/docs pages. NEVER on authz-sensitive or per-request-fresh data (dashboards with live counts, anything with a CSRF token in the payload). (b) Prefer ETag (conditional 304) over a long max-age for authenticated content — a 304 still re-checks auth but skips the body. Use private, must-revalidate so shared caches never store per-landlord data. (c) The route allow-list + max-age live in config so the surface is reviewable in one place. (d) Phase22CacheTest::test_enumerated_read_routes_send_cache_headers + test_sensitive_routes_have_no_cache_headers (regression-lock: dashboard/auth routes must NOT be cached)."
+    },
+    {
+      "id": "PERF-CACHE-3",
+      "title": "Cache-stampede protection on the hottest Cache::remember keys",
+      "severity": "LOW",
+      "files": [
+        "app/Services/FinanceCacheService.php (wrap the hot remember calls with a short lock)",
+        "app/Services/BuildingCacheService.php (same where applicable)",
+        "app/Services/PaymentHealthService.php (external-API cache — high stampede cost)"
+      ],
+      "evidence": "When a hot cache key expires under concurrency, every in-flight request misses simultaneously and all of them run the (expensive) compute — a thundering herd. FinanceCacheService's finance stats/reports and PaymentHealthService's external-API check are exactly the kind of expensive-compute-behind-a-TTL keys where this bites: at month-start, many dashboard loads hit an expired finance:stats:{landlord} key at once.",
+      "fix": "(a) Wrap the hottest Cache::remember calls with Cache::lock: the first request to miss acquires a short lock (e.g. 5-10s) and computes; concurrent missers either briefly wait for the lock then read the freshly-set value, or fall back to recomputing if the lock cannot be acquired in time (never block indefinitely — fail toward the existing behaviour). (b) Scope this to genuinely hot + expensive keys only — a cheap query behind a lock is just added latency. Use the PERF-CACHE-1 hit/miss data to pick the targets. (c) Keep the existing registry-based invalidation untouched — this is purely about the expiry-under-concurrency window. (d) Phase22CacheTest::test_hot_cache_key_uses_lock_on_miss (concurrent-miss simulation: assert the compute callback runs once, not once-per-caller, within the lock window)."
+    },
+    {
+      "id": "PERF-SCALE-1",
+      "title": "Statelessness audit — verify the app survives behind a load balancer",
+      "severity": "MEDIUM",
+      "files": [
+        "config/session.php + config/cache.php (confirm externalised drivers, document the prod requirement)",
+        "app/** (audit for single-host filesystem assumptions + in-process state)",
+        "tests/Feature/Performance/StatelessnessTest.php (new — regression-lock the findings)"
+      ],
+      "evidence": "PropManager has only ever run as a single app instance. Before autoscaling is even considered, the app must be proven stateless: sessions and cache must live in Redis (not file), uploaded files must go to a shared disk (not local storage), no controller/service may hold state in a static or in-process structure that assumes request affinity, and no code may write to a local path another instance cannot see. None of this has been verified.",
+      "fix": "(a) Audit: SESSION_DRIVER + CACHE_STORE must resolve to redis/database in prod (the production-config validator from Phase-11 — extend it to warn if SESSION_DRIVER=file in production). (b) Grep for Storage::disk('local') / storage_path() writes on request paths, file()-based caches, static mutable properties holding cross-request state, and lock files. (c) Confirm the queue is database/redis (already true per Phase-16) and that scheduled commands are onOneServer where they must not double-run (Phase-12 already did this — verify, do not redo). (d) Fix any real single-host assumption found; document the rest in the autoscale runbook. (e) StatelessnessTest::test_session_and_cache_drivers_are_externalised_in_production_config + test_no_local_disk_writes_on_request_paths (grep-style watchdog with a justified allow-list)."
+    },
+    {
+      "id": "PERF-SCALE-2",
+      "title": "Graceful shutdown — queue worker SIGTERM draining + maintenance-mode behaviour",
+      "severity": "LOW",
+      "files": [
+        "docs/runbooks/queue-worker-config.md (extend — Phase-16 shipped the base)",
+        "scripts/deploy.sh (verify the worker restart sequence drains, does not kill mid-job)",
+        "resources/views/errors/503.blade.php OR the Inertia maintenance page (verify it renders cleanly)"
+      ],
+      "evidence": "Autoscaling means instances are created and destroyed routinely — an instance going away mid-deploy or mid-scale-down must drain in-flight work, not drop it. Phase-16 shipped queue-worker-config.md but did not cover SIGTERM draining specifically. And `php artisan down` behaviour under Inertia (does the maintenance page render, or does the client get a broken JSON response) has never been checked.",
+      "fix": "(a) Document the queue worker SIGTERM contract: queue:work finishes the current job on SIGTERM (Laravel default) — verify deploy.sh sends SIGTERM and waits, not SIGKILL; document the --max-time / --stop-when-empty options and the supervisor stopwaitsecs that must exceed the longest job timeout (cross-ref the Phase-16 job $timeout values). (b) Verify `php artisan down` renders a proper 503 for both a full page load and an Inertia XHR visit (the Inertia client needs a sane response, not a parse error) — fix the maintenance view if it does not. (c) HTTP request draining: document the expectation that the load balancer stops routing to a terminating instance before it dies (connection draining is infra config, but the app contract — finite request timeouts — must be stated). (d) Phase22ScaleTest::test_maintenance_mode_renders_for_inertia_and_plain_requests."
+    },
+    {
+      "id": "PERF-SCALE-3",
+      "title": "Autoscale-readiness runbook + horizontal-scale checklist",
+      "severity": "LOW",
+      "files": [
+        "docs/runbooks/autoscale-readiness.md (new)"
+      ],
+      "evidence": "The PERF-SCALE-1/2 findings produce facts (statelessness audit results, graceful-shutdown contract) but those facts need a home an operator can act on. There is no document that answers 'what has to be true before we run N app instances' or 'here is the checklist to scale horizontally'.",
+      "fix": "(a) docs/runbooks/autoscale-readiness.md sections: the statelessness requirements (session/cache/storage drivers, the single-host assumptions audited in PERF-SCALE-1 and their status), the graceful-shutdown contract (PERF-SCALE-2), the scheduler-on-one-server requirement (only one instance runs the cron — schedule:work / onOneServer, Phase-12 context), the horizontal-scale checklist (what to set, what to verify, how to load-test the scaled topology with PERF-LOAD's k6 baseline), and the known not-yet-ready items if any remain. (b) Cross-reference load-testing.md, slo.md, queue-worker-config.md, disaster-recovery.md. (c) Phase22ScaleTest::test_autoscale_runbook_exists — assert the file exists and covers statelessness + scheduler-single-server + the scale checklist."
+    }
+  ]
+}
