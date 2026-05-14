@@ -5,22 +5,21 @@ declare(strict_types=1);
 namespace App\Support;
 
 use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * Phase-20 AUTHZ-FRONT-1: compute the abilities map shared via Inertia
- * to the frontend so Vue templates can gate buttons via v-can without
+ * Phase-20 AUTHZ-FRONT-1: user-level abilities map shared via Inertia
+ * so Vue templates can gate buttons via useAuth().can() without
  * replicating role logic client-side.
  *
- * The map is a flat ['ability_name' => bool] — one entry per registered
- * Gate ability that's relevant to the UI. Per-record abilities (e.g.
- * 'update' on a specific Invoice) are NOT included here; they're
- * computed at the resource-controller level and merged into the
- * individual props payload (AUTHZ-FRONT-5).
+ * Phase-21 DEFER-AUTHZ-3: per-record abilities resolved via forRecord()
+ * and merged into the resource payload by show-controllers (e.g.
+ * Invoices/Show, Tenants/Show). Vue templates consume them as
+ * props.invoice.abilities.update — the Policy outcome for THIS record,
+ * not just the user-level Gate registry.
  *
- * Cheap to compute: ~10 Gate::forUser->allows() calls per Inertia
- * response. Adding/removing abilities here changes the share payload
- * shape — keep in sync with resources/js/composables/useAuth.ts and
+ * Keep in sync with resources/js/composables/useAuth.ts and
  * docs/runbooks/frontend-authz-and-ux.md.
  */
 class AuthAbilities
@@ -43,6 +42,28 @@ class AuthAbilities
         $map = [];
         foreach ($abilities as $ability) {
             $map[$ability] = Gate::forUser($user)->allows($ability);
+        }
+
+        return $map;
+    }
+
+    /**
+     * Phase-21 DEFER-AUTHZ-3: resolve per-record abilities by calling
+     * Gate::forUser($user)->allows($ability, $record) for each ability.
+     *
+     * Each ability must correspond to a Policy method on the model's
+     * registered policy (e.g. InvoicePolicy::update for ability 'update').
+     * Returns flat ['ability' => bool] — Vue templates consume as
+     * props.<resource>.abilities.<ability>.
+     *
+     * @param  array<int, string>  $abilities
+     * @return array<string, bool>
+     */
+    public static function forRecord(User $user, Model $record, array $abilities): array
+    {
+        $map = [];
+        foreach ($abilities as $ability) {
+            $map[$ability] = Gate::forUser($user)->allows($ability, $record);
         }
 
         return $map;

@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Models\VerificationTemplate;
 use App\Services\Tenant\LedgerTransactionBuilder;
 use App\Services\Tenant\TenantIndexService;
+use App\Support\AuthAbilities;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -218,8 +219,12 @@ class TenantController extends Controller
         // Make national_id visible for landlord view
         $tenant->makeVisible(['national_id']);
 
+        $abilities = AuthAbilities::forRecord(auth()->user(), $tenant, [
+            'view', 'viewLedger', 'update', 'delete', 'restore',
+        ]);
+
         return Inertia::render('Tenants/Show', [
-            'tenant' => $tenant,
+            'tenant' => array_merge($tenant->toArray(), ['abilities' => $abilities]),
             'activeLease' => $activeLease,
             'payments' => $payments,
             'invoices' => $invoices,

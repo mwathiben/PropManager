@@ -54,8 +54,14 @@ const paymentProgress = computed(() => {
 });
 
 const canVoid = computed(() => {
-    return ['draft', 'sent'].includes(props.invoice?.status) && (props.invoice?.amount_paid || 0) === 0;
+    return (props.invoice?.abilities?.update ?? false)
+        && ['draft', 'sent'].includes(props.invoice?.status)
+        && (props.invoice?.amount_paid || 0) === 0;
 });
+
+const canDeleteInvoice = computed(() => props.invoice?.abilities?.delete ?? false);
+const canSendInvoice = computed(() => props.invoice?.abilities?.send ?? false);
+const canRecordPayment = computed(() => props.invoice?.abilities?.recordPayment ?? false);
 
 const isVoided = computed(() => props.invoice?.status === 'voided');
 

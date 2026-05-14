@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Services\InvoicePdfService;
 use App\Services\InvoiceService;
 use App\Services\ReceiptService;
+use App\Support\AuthAbilities;
 use App\Traits\HasBuildingFilter;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -64,8 +65,12 @@ class InvoiceController extends Controller
 
         $invoice->load(['lease.unit', 'lease.tenant', 'lease.unit.building', 'payments']);
 
+        $abilities = AuthAbilities::forRecord(auth()->user(), $invoice, [
+            'update', 'delete', 'recordPayment', 'send', 'pay', 'restore',
+        ]);
+
         return Inertia::render('Invoices/Show', [
-            'invoice' => $invoice,
+            'invoice' => array_merge($invoice->toArray(), ['abilities' => $abilities]),
         ]);
     }
 
