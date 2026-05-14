@@ -5,7 +5,9 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 use Sentry\Laravel\Integration;
+use Symfony\Component\HttpFoundation\Response;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -75,5 +77,21 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return null;
+        });
+
+        // Phase-21 DEFER-AUTHZ-4: render dedicated Inertia 403/404 pages
+        // for HTML requests instead of the raw Symfony error overlay.
+        // API requests keep their JSON shape; local dev keeps Ignition
+        // so stack traces stay debuggable.
+        $exceptions->respond(function (Response $response, Throwable $e, Request $request) {
+            if ($request->expectsJson() || $request->is('api/*') || app()->environment('local')) {
+                return $response;
+            }
+
+            return match ($response->getStatusCode()) {
+                403 => Inertia::render('Errors/403')->toResponse($request)->setStatusCode(403),
+                404 => Inertia::render('Errors/404')->toResponse($request)->setStatusCode(404),
+                default => $response,
+            };
         });
     })->create();

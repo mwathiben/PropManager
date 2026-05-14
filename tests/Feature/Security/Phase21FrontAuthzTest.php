@@ -211,6 +211,102 @@ class Phase21FrontAuthzTest extends TestCase
     }
 
     /**
+     * Phase-21 DEFER-AUTHZ-4: a real server-side 403 on an HTML request
+     * must render the dedicated Errors/403 Inertia page (status 403),
+     * not the raw Symfony error overlay.
+     */
+    public function test_403_returns_inertia_page_for_html_requests(): void
+    {
+        $landlord = User::factory()->create(['role' => 'landlord']);
+
+        $response = $this->actingAs($landlord)->get('/admin/users');
+
+        $response->assertStatus(403);
+        $response->assertInertia(fn ($page) => $page->component('Errors/403'));
+    }
+
+    /**
+     * Phase-21 DEFER-AUTHZ-4: an unknown URL on an HTML request must
+     * render the dedicated Errors/404 Inertia page (status 404).
+     */
+    public function test_404_returns_inertia_page_for_html_requests(): void
+    {
+        $user = User::factory()->create(['role' => 'landlord']);
+
+        $response = $this->actingAs($user)->get('/this-route-does-not-exist-'.uniqid());
+
+        $response->assertStatus(404);
+        $response->assertInertia(fn ($page) => $page->component('Errors/404'));
+    }
+
+    /**
+     * Phase-21 DEFER-AUTHZ-4: API 403s keep their JSON shape — the
+     * Inertia error-page render only applies to HTML requests.
+     */
+    public function test_api_403_stays_json(): void
+    {
+        $landlord = User::factory()->create(['role' => 'landlord']);
+
+        $response = $this->actingAs($landlord)
+            ->getJson('/admin/users');
+
+        $response->assertStatus(403);
+        // A JSON 403 must NOT carry the Inertia HTML page payload.
+        $this->assertStringNotContainsString('Errors/403', $response->getContent());
+    }
+
+    /**
+     * Phase-21 DEFER-AUTHZ-4: the /403 landing route (target of the
+     * client-side router guard redirect) renders the Errors/403 page.
+     */
+    public function test_client_guard_403_landing_route_renders_error_page(): void
+    {
+        $response = $this->get('/403');
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page->component('Errors/403'));
+    }
+
+    /**
+     * Phase-21 DEFER-AUTHZ-4: source-level watchdog for the client-side
+     * route guard. app.js must register the Inertia `before` hook and
+     * carry the URL-prefix → ability table; regressing either silently
+     * disables client-side pre-checking.
+     */
+    public function test_app_js_registers_client_side_route_guard(): void
+    {
+        $appJs = file_get_contents(base_path('resources/js/app.js'));
+
+        $this->assertStringContainsString(
+            "router.on('before'",
+            $appJs,
+            'DEFER-AUTHZ-4: app.js must register the Inertia `before` hook for client-side route guarding.',
+        );
+        $this->assertStringContainsString(
+            'ROUTE_ABILITY_MAP',
+            $appJs,
+            'DEFER-AUTHZ-4: app.js must define the URL-prefix → required-ability table.',
+        );
+        $this->assertStringContainsString(
+            "router.visit('/403')",
+            $appJs,
+            'DEFER-AUTHZ-4: the guard must redirect to /403 when the abilities map lacks the required ability.',
+        );
+    }
+
+    public function test_error_pages_exist(): void
+    {
+        $this->assertFileExists(
+            base_path('resources/js/Pages/Errors/403.vue'),
+            'DEFER-AUTHZ-4: Errors/403.vue page component must exist.',
+        );
+        $this->assertFileExists(
+            base_path('resources/js/Pages/Errors/404.vue'),
+            'DEFER-AUTHZ-4: Errors/404.vue page component must exist.',
+        );
+    }
+
+    /**
      * @return array<int, string>
      */
     private function collectVueFiles(string $path): array

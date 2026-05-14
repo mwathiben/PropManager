@@ -70,6 +70,13 @@ Route::get('/', function () {
     ]);
 });
 
+// Phase-21 DEFER-AUTHZ-4: client-side route-guard landing page. The
+// Inertia router.beforeEach hook in resources/js/app.js redirects here
+// when the shared abilities map predicts the server will reject the
+// visit — so the user sees the 403.vue UX without a wasted round-trip.
+// Real server-side 403/404s render the same pages via bootstrap/app.php.
+Route::get('/403', fn () => Inertia::render('Errors/403'))->name('errors.403');
+
 // --- PUBLIC INVITATION ROUTES (Guest Access) ---
 // Caretaker Invitations
 Route::get('/invitations/{token}', [InvitationController::class, 'show'])->name('invitations.show');
