@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Jobs\WarmFinanceCacheJob;
 use App\Support\CacheMetrics;
+use App\Support\CacheStampedeGuard;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -98,7 +99,10 @@ class FinanceCacheService
         $key = self::statsKey($type, $landlordId, $suffix);
         $hit = true;
 
-        $result = Cache::remember($key, self::STATS_TTL, function () use ($callback, &$hit) {
+        // Phase-22 PERF-CACHE-3: stampede-protected — at month-start a
+        // burst of dashboard loads hits an expired finance:stats key at
+        // once; the guard makes one of them compute while the rest wait.
+        $result = CacheStampedeGuard::remember($key, self::STATS_TTL, function () use ($callback, &$hit) {
             $hit = false;
 
             return $callback();
@@ -119,7 +123,9 @@ class FinanceCacheService
         $key = self::reportKey($type, $landlordId, $filters);
         $hit = true;
 
-        $result = Cache::remember($key, self::REPORTS_TTL, function () use ($callback, &$hit) {
+        // Phase-22 PERF-CACHE-3: reports are the most expensive compute
+        // behind a TTL — stampede protection matters most here.
+        $result = CacheStampedeGuard::remember($key, self::REPORTS_TTL, function () use ($callback, &$hit) {
             $hit = false;
 
             return $callback();

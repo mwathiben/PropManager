@@ -158,4 +158,61 @@ class Phase22CacheTest extends TestCase
             );
         }
     }
+
+    public function test_stampede_guard_computes_once_and_caches(): void
+    {
+        // PERF-CACHE-3: a miss computes; a subsequent hit serves the
+        // cached value WITHOUT re-running the (expensive) callback.
+        $key = 'phase22:stampede:'.uniqid();
+        $runs = 0;
+        $compute = function () use (&$runs): string {
+            $runs++;
+
+            return 'computed-value';
+        };
+
+        $first = \App\Support\CacheStampedeGuard::remember($key, 60, $compute);
+        $second = \App\Support\CacheStampedeGuard::remember($key, 60, $compute);
+
+        $this->assertSame('computed-value', $first);
+        $this->assertSame('computed-value', $second);
+        $this->assertSame(1, $runs, 'PERF-CACHE-3: the compute callback must run exactly once — the second call is a cache hit.');
+    }
+
+    public function test_stampede_guard_falls_back_when_lock_is_unavailable(): void
+    {
+        // PERF-CACHE-3: if the stampede lock cannot be acquired within
+        // the wait window, the caller computes directly rather than
+        // blocking — it must NEVER hang or throw.
+        $key = 'phase22:stampede:'.uniqid();
+
+        // Hold the stampede lock so remember() cannot acquire it.
+        $heldLock = \Illuminate\Support\Facades\Cache::lock("stampede:{$key}", 10);
+        $this->assertTrue($heldLock->get(), 'fixture: the test must be able to hold the lock.');
+
+        try {
+            $value = \App\Support\CacheStampedeGuard::remember(
+                $key,
+                60,
+                fn () => 'fallback-computed',
+                lockSeconds: 10,
+                waitSeconds: 1,
+            );
+            $this->assertSame('fallback-computed', $value, 'PERF-CACHE-3: a lock-timeout caller must fall back to a direct compute.');
+        } finally {
+            $heldLock->release();
+        }
+    }
+
+    public function test_finance_cache_routes_through_stampede_guard(): void
+    {
+        // PERF-CACHE-3 regression-lock: the hot finance cache methods
+        // must use the stampede guard, not a bare Cache::remember.
+        $source = file_get_contents(base_path('app/Services/FinanceCacheService.php'));
+        $this->assertStringContainsString(
+            'CacheStampedeGuard::remember',
+            $source,
+            'PERF-CACHE-3: FinanceCacheService rememberStats/rememberReport must route through CacheStampedeGuard.',
+        );
+    }
 }

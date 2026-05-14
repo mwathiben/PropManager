@@ -206,4 +206,26 @@ class Phase22PerfCiTest extends TestCase
             "PERF-CI-2: the web tenant index must be O(1) in tenant count — saw {$smallCount} queries for 2 tenants vs {$largeCount} for 6.",
         );
     }
+
+    public function test_bundle_size_budget_script_exists(): void
+    {
+        // PERF-CI-3: the bundle-size budget gate.
+        $script = base_path('scripts/check-bundle-size.mjs');
+        $this->assertFileExists($script, 'PERF-CI-3: scripts/check-bundle-size.mjs must exist.');
+
+        $source = file_get_contents($script);
+        $this->assertStringContainsString('TOTAL_JS_BUDGET_BYTES', $source, 'PERF-CI-3: the script must define a total-JS budget.');
+        $this->assertStringContainsString('LARGEST_CHUNK_BUDGET_BYTES', $source, 'PERF-CI-3: the script must define a largest-chunk budget.');
+        $this->assertStringContainsString('process.exit(1)', $source, 'PERF-CI-3: the script must exit non-zero when over budget.');
+    }
+
+    public function test_ci_build_job_runs_bundle_size_check(): void
+    {
+        $ci = file_get_contents(base_path('.github/workflows/ci.yml'));
+        $this->assertStringContainsString(
+            'node scripts/check-bundle-size.mjs',
+            $ci,
+            'PERF-CI-3: the CI build job must run the bundle-size budget check.',
+        );
+    }
 }
