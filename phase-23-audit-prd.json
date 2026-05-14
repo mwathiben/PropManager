@@ -259,5 +259,91 @@
       "evidence": "Automation (eslint a11y + axe) catches maybe half of WCAG issues; the rest needs a human with a keyboard and a screen reader. There is no documented process for how to run the automated checks locally or how to do the manual passes — so the manual testing simply will not happen consistently.",
       "fix": "(a) A testing section in accessibility.md (or docs/runbooks/accessibility-testing.md): how to run `npm run lint` + `npm run test:a11y` locally and read the output; the keyboard-only test pass (Tab through every flow, no trap, visible focus, skip-link works, Escape closes overlays); the screen-reader checklist (NVDA on Windows, VoiceOver on macOS — what to listen for on a form, a table, a flash message); and when a manual pass is required (any new page, any layout change, any new interactive component). (b) Phase23DocsTest::test_a11y_testing_runbook_documents_manual_checklist — assert the manual keyboard + screen-reader checklist is present."
     }
-  ]
+  ],
+  "closeout": {
+    "status": "complete",
+    "closeout_date": "2026-05-14",
+    "findings_total": 18,
+    "findings_closed": 18,
+    "findings_deferred": 0,
+    "summary": "Phase 23 [A11Y] closes all 18 findings — zero deferrals, continuing the Phase 16 / 21 / 22 discipline. Tier-2 cycle 2 of 3. The cycle made the app usable end to end by a keyboard-only or screen-reader user: a skip-link + focusable <main>, a polite/assertive ARIA LiveAnnouncer wired to Inertia flash, form errors programmatically associated to their inputs (aria-invalid/aria-describedby) plus required-field markers, keyboard operability for Dropdown (focus move + arrow keys + Escape-restores-focus) and the mobile sidebar (focus trap + aria-modal), distinct aria-labels on every <nav> landmark, an <h1> on every standalone page, DataTable caption/scope/aria-sort with sortable headers as real <button>s, a prefers-reduced-motion reset, a Leaflet-map text alternative, helper-text association, and a focus-visible consistency sweep. Automated enforcement: eslint-plugin-vuejs-accessibility as a blocking CI lint gate (pre-existing violations baselined to 'warn', shrink-only) and an axe-core Playwright smoke job (CRITICAL-gated; every critical on the scanned pages was fixed — button-name, select-name, link-name). 5 fix commits + a PRD baseline; 26 source-level watchdog tests in tests/Feature/Accessibility. Full suite 1979 pass.",
+    "commit_lineage": [
+      {
+        "commit": "62f8b07",
+        "ref": "docs(phase-23)",
+        "findings": [
+          "PRD baseline"
+        ]
+      },
+      {
+        "commit": "8e027bc",
+        "ref": "phase23-1",
+        "findings": [
+          "A11Y-KBD-1",
+          "A11Y-SR-1",
+          "A11Y-FORM-1",
+          "A11Y-CI-1"
+        ]
+      },
+      {
+        "commit": "16fdbb2",
+        "ref": "chore",
+        "findings": [],
+        "note": "untrack .claude/settings.local.json — local Claude Code settings were being swept into commits by git add -A; untracked + gitignored. Not a Phase-23 finding."
+      },
+      {
+        "commit": "ccd1f99",
+        "ref": "phase23-2a",
+        "findings": [
+          "A11Y-KBD-2",
+          "A11Y-KBD-3"
+        ]
+      },
+      {
+        "commit": "f627263",
+        "ref": "phase23-2b",
+        "findings": [
+          "A11Y-SR-2",
+          "A11Y-SR-3",
+          "A11Y-FORM-2"
+        ]
+      },
+      {
+        "commit": "44f89a9",
+        "ref": "phase23-2c",
+        "findings": [
+          "A11Y-VISUAL-1",
+          "A11Y-VISUAL-2",
+          "A11Y-CI-2",
+          "A11Y-DOC-1"
+        ]
+      },
+      {
+        "commit": "c733645",
+        "ref": "phase23-3",
+        "findings": [
+          "A11Y-SR-4",
+          "A11Y-FORM-3",
+          "A11Y-VISUAL-3",
+          "A11Y-CI-3",
+          "A11Y-DOC-2"
+        ]
+      }
+    ],
+    "deferrals": [],
+    "follow_ups": [
+      "eslint a11y baseline (eslint.config.js): 7 rules at 'warn' with pre-existing violations — no-autofocus, label-has-for, form-control-has-label, no-static-element-interactions, click-events-have-key-events, mouse-events-have-key-events, alt-text, anchor-has-content, no-redundant-roles. Each ratchets to 'error' as a future sweep clears it. The ~7 icon-only <a> links (anchor-has-content) and the <ul role=list> Safari-workaround sites (no-redundant-roles) are the named backlog.",
+      "axe-core smoke gate is CRITICAL-only. The 'serious' color-contrast backlog (notably ~56 nodes on /invoices, mostly text-gray-400 / emerald-link pairs) is printed to the run log as the shrink-only baseline; a follow-up contrast sweep clears it, then 'serious' is promoted into GATED_IMPACTS. Contrast (WCAG 1.4.3) restyles were intentionally out of Phase-23's semantic-only scope.",
+      "Manual assistive-tech passes (full NVDA / VoiceOver) are documented as a checklist in docs/runbooks/accessibility.md rather than automated — required for any new page, layout change, or interactive component.",
+      "1.4.11 Non-text Contrast and 1.4.13 Content on Hover/Focus remain 'Partially Supports' in the conformance statement — neither has an exhaustive audit yet."
+    ],
+    "verification": {
+      "test_suite": "1979 pass / 14 skipped / 2 pre-existing PHPUnit deprecations",
+      "phase23_watchdogs": "26 tests, 132 assertions, tests/Feature/Accessibility/Phase23{Kbd,Sr,Form,Visual,Ci,Docs}Test",
+      "eslint_a11y": "npm run lint exits 0 (blocking CI step in Frontend Build job)",
+      "axe_smoke": "npm run test:a11y green — 0 critical violations on login + dashboard/invoices/tenants/buildings; a11y-smoke CI job passed",
+      "build": "npm run build clean",
+      "ci": "all commits landed on main with green CI"
+    }
+  }
 }
