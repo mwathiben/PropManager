@@ -5,10 +5,12 @@ import { ref, computed } from 'vue';
 import { ClipboardDocumentListIcon } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
 import { useFormatters } from '@/composables';
+import { useAuth } from '@/composables/useAuth';
 import type { ReadingsHistoryPageProps, WaterReading } from '@/types';
 
 const props = defineProps<ReadingsHistoryPageProps>();
 const { formatDate, formatMoney } = useFormatters();
+const { can } = useAuth();
 
 const filterForm = useForm({
     building_id: props.filters.building_id || '',
@@ -210,7 +212,7 @@ const deleteReading = (readingId) => {
                                                 <button v-if="!reading.is_invoiced" @click="startEdit(reading)" class="text-indigo-600 hover:text-indigo-900 mr-3">
                                                     Edit
                                                 </button>
-                                                <button v-if="!reading.is_invoiced" @click="deleteReading(reading.id)" class="text-red-600 hover:text-red-900">
+                                                <button v-if="can('finances:manage') && !reading.is_invoiced" @click="deleteReading(reading.id)" class="text-red-600 hover:text-red-900">
                                                     Delete
                                                 </button>
                                                 <span v-if="reading.is_invoiced" class="text-gray-400 text-xs">Locked</span>

@@ -7,6 +7,7 @@ import TicketPriorityBadge from '@/Components/TicketPriorityBadge.vue';
 import TicketActivityTimeline from '@/Components/TicketActivityTimeline.vue';
 import TicketFeedbackForm from '@/Components/TicketFeedbackForm.vue';
 import { useFormatters } from '@/composables';
+import { useAuth } from '@/composables/useAuth';
 import type { TicketShowPageProps } from '@/types';
 import {
     ArrowLeftIcon,
@@ -23,6 +24,7 @@ import {
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps<TicketShowPageProps>();
+const { can } = useAuth();
 
 const showResolveModal = ref(false);
 const showAssignModal = ref(false);
@@ -372,7 +374,7 @@ const canEdit = computed(() => {
                         </div>
 
                         <!-- Cancel Button (for reporter) -->
-                        <div v-if="canEdit && $page.props.auth.user.id === ticket.reporter_id">
+                        <div v-if="can('tenants:manage') && canEdit && $page.props.auth.user.id === ticket.reporter_id">
                             <button
                                 @click="cancelTicket"
                                 class="w-full px-4 py-2 border border-red-300 text-red-700 rounded-md hover:bg-red-50 text-sm"

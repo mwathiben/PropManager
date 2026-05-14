@@ -37,6 +37,23 @@ class AuthAbilities
             'export-data',
             'request-deletion',
             'integration:webhook',
+            // Phase-21 DEFER-AUTHZ-1: management abilities exposed for
+            // Vue index-page action gating (Add / Delete / Bulk). Mirror
+            // the Gate definitions in AuthServiceProvider::boot. DPA-4
+            // restriction propagates via Gate::before so a restricted
+            // landlord/caretaker sees these as false.
+            'tenants:manage',
+            'invoices:manage',
+            'payments:manage',
+            'properties:manage',
+            'buildings:manage',
+            'units:manage',
+            'documents:manage',
+            'settings:manage',
+            'team:manage',
+            'templates:manage',
+            'finances:manage',
+            'imports:manage',
         ];
 
         $map = [];

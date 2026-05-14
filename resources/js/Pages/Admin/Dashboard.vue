@@ -4,6 +4,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import ActionItemCard from '@/Components/ActionItemCard.vue';
 import MetricCard from '@/Components/MetricCard.vue';
 import { useFormatters } from '@/composables';
+import { useAuth } from '@/composables/useAuth';
 import {
     UserGroupIcon,
     BuildingOfficeIcon,
@@ -45,6 +46,7 @@ const props = withDefaults(defineProps<{
 
 // Use composables
 const { formatCurrency, formatDate } = useFormatters();
+const { can } = useAuth();
 
 const getOccupancyRate = (occupied, total) => {
     if (!total) return 0;
@@ -256,7 +258,7 @@ const impersonateLandlord = (landlordId) => {
                                                   class="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition">
                                                 <EyeIcon class="w-4 h-4" />
                                             </Link>
-                                            <button @click="impersonateLandlord(landlord.id)"
+                                            <button v-if="can('access-admin')" @click="impersonateLandlord(landlord.id)"
                                                     class="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-white hover:bg-indigo-600 border border-gray-200 hover:border-indigo-600 rounded-lg transition">
                                                 Login As
                                             </button>

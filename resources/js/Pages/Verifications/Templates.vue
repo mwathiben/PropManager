@@ -15,12 +15,15 @@ import Bars3Icon from '@heroicons/vue/24/outline/Bars3Icon';
 import ExclamationCircleIcon from '@heroicons/vue/24/outline/ExclamationCircleIcon';
 import StarIconSolid from '@heroicons/vue/24/solid/StarIcon';
 import EmptyState from '@/Components/EmptyState.vue';
+import { useAuth } from '@/composables/useAuth';
 import type { VerificationTemplatesPageProps } from '@/types';
 
 const props = withDefaults(defineProps<VerificationTemplatesPageProps>(), {
     templates: () => [],
     properties: () => [],
 });
+
+const { can } = useAuth();
 
 // Modal states
 const showCreateModal = ref(false);
@@ -224,6 +227,7 @@ const defaultTemplate = computed(() => props.templates.find(t => t.is_default));
                                         <PencilIcon class="w-5 h-5" />
                                     </button>
                                     <button
+                                        v-if="can('templates:manage')"
                                         @click="deleteTemplate(template.id)"
                                         class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg"
                                         title="Delete"

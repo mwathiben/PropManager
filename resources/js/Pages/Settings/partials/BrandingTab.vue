@@ -4,6 +4,7 @@ import { ref, computed } from 'vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import { useAuth } from '@/composables/useAuth';
 import {
     PhotoIcon,
     DocumentTextIcon,
@@ -18,6 +19,8 @@ const props = withDefaults(defineProps<{
     brandingSettings: () => ({} as BrandingSettings),
     invoiceNumberFormats: () => ({} as InvoiceNumberFormats),
 });
+
+const { can } = useAuth();
 
 const form = useForm({
     invoice_number_format: props.brandingSettings?.invoice_number_format || 'INV-{YYYY}{MM}-{NNNN}',
@@ -111,6 +114,7 @@ const submit = () => {
                             class="w-full h-full object-contain p-2"
                         >
                         <button
+                            v-if="can('settings:manage')"
                             @click="deleteLogo"
                             class="absolute top-1 right-1 p-1 bg-red-100 text-red-600 rounded-full hover:bg-red-200 transition-colors"
                             title="Delete logo"

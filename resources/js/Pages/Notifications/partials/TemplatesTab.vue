@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
+import { useAuth } from '@/composables/useAuth';
 import {
     PlusIcon,
     PencilSquareIcon,
@@ -15,6 +16,7 @@ import {
 import type { NotificationsTemplatesTabProps } from '@/types';
 
 const { formatDate, formatMoney } = useFormatters();
+const { can } = useAuth();
 
 const props = withDefaults(defineProps<NotificationsTemplatesTabProps>(), {
     templates: () => [],
@@ -240,7 +242,7 @@ const getTypeColor = (type) => {
                         <DocumentDuplicateIcon class="w-4 h-4" />
                     </button>
                     <button
-                        v-if="!template.is_default"
+                        v-if="can('templates:manage') && !template.is_default"
                         @click="deleteTemplate(template)"
                         class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         title="Delete"

@@ -4,6 +4,7 @@ import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Breadcrumb from '@/Components/Breadcrumb.vue';
 import { useFormatters, useCurrency } from '@/composables';
+import { useAuth } from '@/composables/useAuth';
 import type { CreditNoteShowPageProps } from '@/types/templates';
 
 import {
@@ -18,6 +19,7 @@ import {
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps<CreditNoteShowPageProps>();
+const { can } = useAuth();
 const { formatMoney, formatDateTime } = useFormatters();
 const { currencySymbol } = useCurrency();
 
@@ -228,7 +230,7 @@ const voidCredit = () => {
                                 </button>
 
                                 <button
-                                    v-if="canVoid"
+                                    v-if="can('invoices:manage') && canVoid"
                                     @click="voidCredit"
                                     class="w-full flex items-center justify-center gap-2 px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition"
                                 >

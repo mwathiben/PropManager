@@ -2,6 +2,7 @@
 import { useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import { useAuth } from '@/composables/useAuth';
 import type { OcrSettings, OcrProvidersLookup } from '@/types';
 
 const props = withDefaults(defineProps<{
@@ -11,6 +12,8 @@ const props = withDefaults(defineProps<{
     ocrSettings: () => ({} as OcrSettings),
     ocrProviders: () => ({} as OcrProvidersLookup),
 });
+
+const { can } = useAuth();
 
 const showApiKeyInput = ref(false);
 const selectedProvider = ref(props.ocrSettings.provider || 'none');
@@ -186,6 +189,7 @@ const providerChanged = (provider) => {
                             Update Key
                         </button>
                         <button
+                            v-if="can('settings:manage')"
                             @click="deleteApiKey(ocrForm.provider)"
                             type="button"
                             class="px-3 py-1 text-sm bg-red-600 text-white rounded-md hover:bg-red-700"

@@ -4,6 +4,7 @@ import Breadcrumb from '@/Components/Breadcrumb.vue';
 import Pagination from '@/Components/Pagination.vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
+import { useAuth } from '@/composables/useAuth';
 import {
     PlusIcon,
     PencilSquareIcon,
@@ -61,6 +62,8 @@ const props = defineProps<{
         search: string | null;
     };
 }>();
+
+const { can } = useAuth();
 
 const { formatCurrency } = useFormatters();
 const { currencyCode } = useCurrency();
@@ -417,7 +420,7 @@ const breadcrumbs = [
                                         <PencilSquareIcon class="h-4 w-4" />
                                     </button>
                                     <button
-                                        v-if="canDelete(category)"
+                                        v-if="can('settings:manage') && canDelete(category)"
                                         @click="openDeleteModal(category)"
                                         class="p-1 text-gray-400 hover:text-red-600 rounded transition-colors"
                                     >
@@ -512,7 +515,7 @@ const breadcrumbs = [
                                         <PencilSquareIcon class="h-4 w-4" />
                                     </button>
                                     <button
-                                        v-if="canDelete(category)"
+                                        v-if="can('settings:manage') && canDelete(category)"
                                         @click="openDeleteModal(category)"
                                         class="p-1 text-gray-400 hover:text-red-600 rounded transition-colors"
                                     >

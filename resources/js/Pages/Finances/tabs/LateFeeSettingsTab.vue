@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue';
 import { useForm, router } from '@inertiajs/vue3';
 import { useFormatters, useCurrency } from '@/composables';
+import { useAuth } from '@/composables/useAuth';
 import {
     PlusIcon,
     PencilSquareIcon,
@@ -52,6 +53,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const { formatMoney: formatCurrency } = useFormatters();
 const { currencySymbol } = useCurrency();
+const { can } = useAuth();
 
 const showForm = ref(false);
 const editingPolicy = ref(null);
@@ -467,6 +469,7 @@ const deletePolicy = () => {
                             <PencilSquareIcon class="w-5 h-5" />
                         </button>
                         <button
+                            v-if="can('finances:manage')"
                             @click="confirmDelete(policy)"
                             class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             title="Delete"

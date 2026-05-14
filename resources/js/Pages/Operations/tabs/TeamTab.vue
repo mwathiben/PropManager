@@ -2,6 +2,7 @@
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { router, Link, useForm, usePage } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
+import { useAuth } from '@/composables/useAuth';
 import { useEcho } from '@/composables/useEcho';
 import type { OperationsTeamTabProps } from '@/types/operations';
 import {
@@ -19,6 +20,7 @@ import {
 const props = defineProps<OperationsTeamTabProps>();
 
 const { formatDate } = useFormatters();
+const { can } = useAuth();
 const page = usePage();
 const { subscribePrivate, unsubscribe } = useEcho();
 
@@ -169,6 +171,7 @@ const getStatusColor = (status) => {
                             {{ caretaker.buildings_count || 0 }} buildings
                         </span>
                         <button
+                            v-if="can('team:manage')"
                             @click="removeCaretaker(caretaker.id)"
                             class="p-1 text-red-600 hover:bg-red-50 rounded"
                         >
@@ -224,6 +227,7 @@ const getStatusColor = (status) => {
                                 <PaperAirplaneIcon class="w-5 h-5" />
                             </button>
                             <button
+                                v-if="can('team:manage')"
                                 @click="cancelInvitation(invitation.id)"
                                 class="p-1 text-red-600 hover:bg-red-50 rounded"
                                 title="Cancel"

@@ -228,5 +228,40 @@ class AuthServiceProvider extends ServiceProvider
         Gate::define('request-deletion', function ($user) {
             return true; // All users can request their data to be deleted
         });
+
+        // Phase-21 DEFER-AUTHZ-1 management Gates. Each represents "this
+        // user role can perform management operations on this resource
+        // class". UI consumes via useAuth().can('tenants:manage') to
+        // gate "Add"/"Delete"/"Bulk action" buttons that index pages
+        // show; per-record authorization is still resolved at the
+        // Policy layer (see AuthAbilities::forRecord for Show pages).
+        //
+        // Each Gate is paired with a server-side call site to satisfy
+        // the Phase-18 AUTHZ-1 "no orphan Gates" rule — adding a Gate
+        // without call sites creates a misleading impression of
+        // authorization comprehensiveness during security review. Call
+        // sites are in the corresponding controllers' constructor
+        // middleware or @authorize blocks.
+        //
+        // DPA-4 restriction applies automatically via the Gate::before
+        // hook above — restricted landlords/caretakers/super-admins
+        // see false for any of these abilities.
+        $manageGates = [
+            'tenants:manage' => fn ($user) => $user->isLandlord() || $user->isCaretaker(),
+            'invoices:manage' => fn ($user) => $user->isLandlord() || $user->isCaretaker(),
+            'payments:manage' => fn ($user) => $user->isLandlord() || $user->isCaretaker(),
+            'properties:manage' => fn ($user) => $user->isLandlord(),
+            'buildings:manage' => fn ($user) => $user->isLandlord(),
+            'units:manage' => fn ($user) => $user->isLandlord(),
+            'documents:manage' => fn ($user) => $user->isLandlord() || $user->isCaretaker(),
+            'settings:manage' => fn ($user) => $user->isLandlord(),
+            'team:manage' => fn ($user) => $user->isLandlord(),
+            'templates:manage' => fn ($user) => $user->isLandlord(),
+            'finances:manage' => fn ($user) => $user->isLandlord(),
+            'imports:manage' => fn ($user) => $user->isLandlord(),
+        ];
+        foreach ($manageGates as $ability => $resolver) {
+            Gate::define($ability, $resolver);
+        }
     }
 }

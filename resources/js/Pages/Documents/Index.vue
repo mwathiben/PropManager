@@ -2,7 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import BuildingWingFilter from '@/Components/BuildingWingFilter.vue';
 import { Head, router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useStatusColors, useAuth } from '@/composables';
 import UploadDocumentModal from '@/Components/Modals/UploadDocumentModal.vue';
 import type { DocumentsIndexPageProps } from '@/types';
@@ -89,7 +89,12 @@ const getDocumentTypeLabel = (type) => {
 
 // Use composables for document type colors and auth
 const { documentTypeColor: getDocumentTypeColor } = useStatusColors();
-const { isLandlord, isTenant, canUploadDocuments, canDeleteDocuments } = useAuth();
+const { isLandlord, isTenant, can } = useAuth();
+// Phase-21 DEFER-AUTHZ-1: prefer ability-based gating over role-derived
+// legacy computeds. documents:manage Gate (AuthServiceProvider) returns
+// true for landlord/caretaker/super-admin minus DPA-4 restricted users.
+const canDeleteDocuments = computed(() => can('documents:manage'));
+const canUploadDocuments = computed(() => can('documents:manage'));
 
 const getFileIcon = (document) => {
     if (document.is_pdf) return '📄';

@@ -446,7 +446,7 @@ const getActivityIcon = (action) => {
                                             </div>
                                         </div>
                                         <button
-                                            v-if="activeLease"
+                                            v-if="activeLease && canEditTenant"
                                             @click="openWalletModal"
                                             class="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
                                         >
@@ -671,6 +671,7 @@ const getActivityIcon = (action) => {
                                 <div class="flex justify-between items-center mb-4">
                                     <h3 class="text-lg font-semibold text-gray-900">Private Notes</h3>
                                     <button
+                                        v-if="canEditTenant"
                                         @click="openNewNoteModal"
                                         class="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                                     >
@@ -690,10 +691,10 @@ const getActivityIcon = (action) => {
                                                 </span>
                                             </div>
                                             <div class="flex gap-1">
-                                                <button @click="editNote(note)" class="p-1 text-gray-400 hover:text-gray-600">
+                                                <button v-if="canEditTenant" @click="editNote(note)" class="p-1 text-gray-400 hover:text-gray-600">
                                                     <PencilIcon class="w-4 h-4" />
                                                 </button>
-                                                <button @click="deleteNote(note.id)" class="p-1 text-gray-400 hover:text-red-600">
+                                                <button v-if="canEditTenant" @click="deleteNote(note.id)" class="p-1 text-gray-400 hover:text-red-600">
                                                     <TrashIcon class="w-4 h-4" />
                                                 </button>
                                             </div>
@@ -714,6 +715,7 @@ const getActivityIcon = (action) => {
                                 <div class="flex justify-between items-center mb-4">
                                     <h3 class="text-lg font-semibold text-gray-900">Emergency Contacts</h3>
                                     <button
+                                        v-if="canEditTenant"
                                         @click="openNewContactModal"
                                         class="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                                     >
@@ -738,10 +740,10 @@ const getActivityIcon = (action) => {
                                                 </div>
                                             </div>
                                             <div class="flex gap-1">
-                                                <button @click="editContact(contact)" class="p-1 text-gray-400 hover:text-gray-600">
+                                                <button v-if="canEditTenant" @click="editContact(contact)" class="p-1 text-gray-400 hover:text-gray-600">
                                                     <PencilIcon class="w-4 h-4" />
                                                 </button>
-                                                <button @click="deleteContact(contact.id)" class="p-1 text-gray-400 hover:text-red-600">
+                                                <button v-if="canEditTenant" @click="deleteContact(contact.id)" class="p-1 text-gray-400 hover:text-red-600">
                                                     <TrashIcon class="w-4 h-4" />
                                                 </button>
                                             </div>

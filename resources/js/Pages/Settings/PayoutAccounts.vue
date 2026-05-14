@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { useErrorHandler } from '@/composables';
+import { useAuth } from '@/composables/useAuth';
 import {
     BanknotesIcon,
     PlusIcon,
@@ -15,6 +16,8 @@ import {
 } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
 import type { PayoutAccountsPageProps } from '@/types';
+
+const { can } = useAuth();
 
 const props = withDefaults(defineProps<PayoutAccountsPageProps>(), {
     accounts: () => [],
@@ -250,7 +253,7 @@ const getStatusColor = (status) => {
                                             <ArrowPathIcon class="w-5 h-5" />
                                         </button>
                                         <button
-                                            v-if="!account.is_primary"
+                                            v-if="can('settings:manage') && !account.is_primary"
                                             @click="deleteAccount(account.id)"
                                             class="p-2 text-gray-500 hover:text-red-600"
                                             title="Deactivate"

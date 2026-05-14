@@ -3,10 +3,12 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useFormatters } from '@/composables';
+import { useAuth } from '@/composables/useAuth';
 import BuildingWingFilter from '@/Components/BuildingWingFilter.vue';
 import type { ImportsIndexPageProps } from '@/types/operations';
 
 const props = defineProps<ImportsIndexPageProps>();
+const { can } = useAuth();
 
 const selectedType = ref('');
 const selectedFile = ref(null);
@@ -302,6 +304,7 @@ const { formatDateTime: formatDate } = useFormatters();
                                                     Reprocess
                                                 </button>
                                                 <button
+                                                    v-if="can('imports:manage')"
                                                     @click="deleteImport(importRecord.id)"
                                                     class="text-red-600 hover:text-red-800 font-medium"
                                                 >

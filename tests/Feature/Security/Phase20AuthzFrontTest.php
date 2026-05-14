@@ -28,9 +28,18 @@ class Phase20AuthzFrontTest extends TestCase
 
         $this->assertIsArray($abilities);
         $this->assertSame(
-            ['access-admin', 'view-audit-logs', 'view-security-logs', 'manage-subscription', 'export-data', 'request-deletion', 'integration:webhook'],
+            [
+                'access-admin', 'view-audit-logs', 'view-security-logs',
+                'manage-subscription', 'export-data', 'request-deletion',
+                'integration:webhook',
+                // Phase-21 DEFER-AUTHZ-1: management Gates.
+                'tenants:manage', 'invoices:manage', 'payments:manage',
+                'properties:manage', 'buildings:manage', 'units:manage',
+                'documents:manage', 'settings:manage', 'team:manage',
+                'templates:manage', 'finances:manage', 'imports:manage',
+            ],
             array_keys($abilities),
-            'AuthAbilities::for must emit a stable key set — adding/removing keys is a Phase-20 change (sync with useAuth.ts).',
+            'AuthAbilities::for must emit a stable key set — adding/removing keys is a Phase-20+ change (sync with useAuth.ts).',
         );
 
         $this->assertTrue($abilities['access-admin']);

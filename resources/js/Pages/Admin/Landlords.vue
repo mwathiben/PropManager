@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useFormatters } from '@/composables';
+import { useAuth } from '@/composables/useAuth';
 import type { AdminLandlordsPageProps } from '@/types';
 import {
     MagnifyingGlassIcon,
@@ -12,6 +13,7 @@ import {
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps<AdminLandlordsPageProps>();
+const { can } = useAuth();
 
 const searchQuery = ref(props.filters?.search || '');
 const showCreateModal = ref(false);
@@ -137,7 +139,7 @@ const getOccupancyRate = (occupied, total) => {
                                                 <EyeIcon class="h-4 w-4 mr-1" />
                                                 View
                                             </Link>
-                                            <button @click="impersonate(landlord.id)"
+                                            <button v-if="can('access-admin')" @click="impersonate(landlord.id)"
                                                     class="text-gray-600 hover:text-gray-900 flex items-center">
                                                 <ArrowRightOnRectangleIcon class="h-4 w-4 mr-1" />
                                                 Login As

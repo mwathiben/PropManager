@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, router, usePage } from '@inertiajs/vue3';
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { useEcho } from '@/composables/useEcho';
+import { useAuth } from '@/composables/useAuth';
 import {
     EnvelopeIcon,
     PlusIcon,
@@ -16,6 +17,7 @@ import EmptyState from '@/Components/EmptyState.vue';
 import type { CaretakerInvitationsIndexPageProps, CaretakerInvitation } from '@/types';
 
 const props = defineProps<CaretakerInvitationsIndexPageProps>();
+const { can } = useAuth();
 
 const page = usePage();
 const { subscribePrivate, unsubscribe } = useEcho();
@@ -218,7 +220,7 @@ const copyInviteLink = (token) => {
 
                                     <!-- Cancel (for pending only) -->
                                     <button
-                                        v-if="invitation.status === 'pending'"
+                                        v-if="can('team:manage') && invitation.status === 'pending'"
                                         @click="cancelInvitation(invitation.id)"
                                         class="text-red-600 hover:text-red-900 inline-flex items-center gap-1"
                                         title="Cancel invitation"

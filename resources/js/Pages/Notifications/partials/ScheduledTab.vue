@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
+import { useAuth } from '@/composables/useAuth';
 import {
     PlusIcon,
     PencilSquareIcon,
@@ -17,6 +18,7 @@ import {
 import type { NotificationsScheduledTabProps } from '@/types';
 
 const { formatDateTime } = useFormatters();
+const { can } = useAuth();
 
 const props = withDefaults(defineProps<NotificationsScheduledTabProps>(), {
     schedules: () => [],
@@ -274,6 +276,7 @@ const getChannelBadges = (channelList) => {
                             <PencilSquareIcon class="w-5 h-5" />
                         </button>
                         <button
+                            v-if="can('templates:manage')"
                             @click="deleteSchedule(schedule)"
                             class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             title="Delete"

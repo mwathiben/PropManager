@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, router, Link } from '@inertiajs/vue3';
 import { ref, computed, watch, onMounted } from 'vue';
 import { useFormatters, useCurrency } from '@/composables';
+import { useAuth } from '@/composables/useAuth';
 import {
     UserPlusIcon,
     PaperAirplaneIcon,
@@ -31,6 +32,8 @@ const props = withDefaults(defineProps<TenantInvitationsIndexPageProps>(), {
     smsConfigured: false,
     whatsappConfigured: false,
 });
+
+const { can } = useAuth();
 
 const { formatMoney: formatCurrency, todayAsISODate } = useFormatters();
 const { currencyCode } = useCurrency();
@@ -370,7 +373,7 @@ const closeEditModal = () => {
                                             </button>
                                             <!-- Cancel -->
                                             <button
-                                                v-if="invitation.status === 'pending'"
+                                                v-if="can('tenants:manage') && invitation.status === 'pending'"
                                                 @click="cancelInvitation(invitation.id)"
                                                 class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg"
                                                 title="Cancel invitation"

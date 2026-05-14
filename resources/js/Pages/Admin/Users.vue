@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useFormatters } from '@/composables';
+import { useAuth } from '@/composables/useAuth';
 import type { AdminUsersPageProps } from '@/types';
 import {
     MagnifyingGlassIcon,
@@ -12,6 +13,7 @@ import {
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps<AdminUsersPageProps>();
+const { can } = useAuth();
 
 const searchQuery = ref(props.filters?.search || '');
 const selectedRole = ref(props.filters?.role || '');
@@ -136,7 +138,7 @@ const getRoleLabel = (role) => {
                                                     class="text-gray-600 hover:text-gray-900">
                                                 {{ user.email_verified_at ? 'Deactivate' : 'Activate' }}
                                             </button>
-                                            <button v-if="user.role !== 'super_admin'"
+                                            <button v-if="can('access-admin') && user.role !== 'super_admin'"
                                                     @click="impersonate(user.id)"
                                                     class="text-indigo-600 hover:text-indigo-900 flex items-center">
                                                 <ArrowRightOnRectangleIcon class="h-4 w-4 mr-1" />

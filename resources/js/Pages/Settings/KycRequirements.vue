@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Pagination from '@/Components/Pagination.vue';
 import { Head, useForm, router, Link } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
+import { useAuth } from '@/composables/useAuth';
 import {
     PlusIcon,
     PencilSquareIcon,
@@ -48,6 +49,8 @@ const props = defineProps<{
     buildings: Building[];
     canCreate: boolean;
 }>();
+
+const { can } = useAuth();
 
 const showModal = ref(false);
 const editingRequirement = ref<KycRequirement | null>(null);
@@ -299,6 +302,7 @@ const toggleActive = (req: KycRequirement) => {
                                                     <PencilSquareIcon class="w-5 h-5" />
                                                 </button>
                                                 <button
+                                                    v-if="can('templates:manage')"
                                                     type="button"
                                                     :data-testid="`delete-requirement-${req.id}`"
                                                     @click="deleteRequirement(req)"

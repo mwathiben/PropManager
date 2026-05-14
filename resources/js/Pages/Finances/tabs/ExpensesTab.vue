@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { useForm, router } from '@inertiajs/vue3';
 import { useTabFilters, useFormatters, useCurrency } from '@/composables';
+import { useAuth } from '@/composables/useAuth';
 import { Pagination, ExportDropdown } from '@/Components/Finances';
 import {
     PlusIcon,
@@ -67,6 +68,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const { formatMoney: formatCurrency, formatDate, todayAsISODate } = useFormatters();
 const { currencySymbol } = useCurrency();
+const { can } = useAuth();
 
 const activeTab = ref('expenses');
 const showExpenseForm = ref(false);
@@ -650,6 +652,7 @@ const executeDelete = () => {
                                             <PencilSquareIcon class="w-4 h-4" />
                                         </button>
                                         <button
+                                            v-if="can('finances:manage')"
                                             @click="confirmDelete(expense, 'expense')"
                                             class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
                                             title="Delete"
@@ -767,6 +770,7 @@ const executeDelete = () => {
                                     <PencilSquareIcon class="w-4 h-4" />
                                 </button>
                                 <button
+                                    v-if="can('finances:manage')"
                                     @click="confirmDelete(category, 'category')"
                                     class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
                                 >
@@ -921,6 +925,7 @@ const executeDelete = () => {
                                             <PencilSquareIcon class="w-4 h-4" />
                                         </button>
                                         <button
+                                            v-if="can('finances:manage')"
                                             @click="confirmDelete(vendor, 'vendor')"
                                             class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
                                             title="Delete"

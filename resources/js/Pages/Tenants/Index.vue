@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, Link } from '@inertiajs/vue3';
 import { ref, watch, computed } from 'vue';
 import { useFormatters } from '@/composables';
+import { useAuth } from '@/composables/useAuth';
 import type { TenantsIndexPageProps } from '@/types/finances';
 import {
     MagnifyingGlassIcon,
@@ -32,6 +33,7 @@ import EmptyState from '@/Components/EmptyState.vue';
 const props = defineProps<TenantsIndexPageProps>();
 
 const { formatMoney: formatCurrency, formatDate } = useFormatters();
+const { can } = useAuth();
 
 const search = ref(props.filters?.search || '');
 const currentTab = ref(props.tab || 'active');
@@ -440,6 +442,7 @@ const getLastLeaseInfo = (tenant) => {
                                             <PencilIcon class="w-5 h-5" />
                                         </Link>
                                         <button
+                                            v-if="can('tenants:manage')"
                                             @click="cancelInvitation(invitation.id)"
                                             class="text-red-600 hover:text-red-900 p-1"
                                             title="Cancel"
