@@ -1,0 +1,307 @@
+{
+  "project": "PropManager",
+  "audit_cycle": "phase-21",
+  "audit_date": "2026-05-14",
+  "scope": "Defensive consolidation cycle. Twenty audit phases shipped ~360+ findings across the server-side security/observability/DPA/money/resilience surface plus the Phase-20 frontend authz/UX framework. Each phase deferred 0-6 items as 'next-cycle work' — accumulating to 18 in-scope deferrals across Phases 11-20 (off-cycle infrastructure deferrals — DEPLOY-5 production rehearsal, BACKUP-2 quarterly drill, BACKUP-4 binlog PITR, INDEX-9 SoftDelete STORED rewrite, DATETIME→TIMESTAMP migration — remain off-cycle, scheduled around operator maintenance windows). Phase 21 closes the in-scope debt: 4 DEFER-AUTHZ (Phase-20 v-if=can() rollout + CI watchdog + per-record abilities + Inertia route guards & 403 page), 5 DEFER-FRONT (Phase-15/20 paginator migration tail + vee-validate top-5 forms + FormSubmitButton top-5 forms + optimistic notifications rollout + IconButton consolidation), 3 DEFER-OBSERV (Phase-14 webhook_logs.request_id + JSON formatter on aux channels + slow-query observation summary feeding PERF-5 decision), 3 DEFER-DPA (Phase-13 DPA-10 tenant_dob/parental_consent schema + BREACH-2 large-export detector wiring + Phase-12 RETAIN-5 unified dpa:enforce-retention orchestrator), 2 DEFER-PERF (Phase-15 PERF-5 SoftDeletes index decision + Phase-17 TenantClock per-callsite migration top 10 controllers), 1 DEFER-SUPPLY (Phase-14 SUPPLY-5 composer/npm constraint tightening + SUPPLY-4 CycloneDX SBOM emission). Pattern: each finding cross-references its origin-Phase + origin-finding-id so the PRD closeout maps cleanly back to deferrals-list reductions in each origin-phase's notes.",
+  "context_baseline": {
+    "previous_audits": [
+      "Phases 1-10B core security (32 SQLi/auth + 17 data integrity + 46 SCOPE/PERF + 55 CONC/VALID/AUDIT/HANDLE + 5-cleanup)",
+      "Phase 11 (DEPLOY + SECRETS, 21 findings — DEPLOY-5 deferred off-cycle)",
+      "Phase 12 (BACKUP + RETAIN, 18 findings — RETAIN-5/BACKUP-2/BACKUP-4 deferred; RETAIN-5 in-scope this cycle)",
+      "Phase 13 (DPA + BREACH, 18 findings — DPA-10/BREACH-2 deferred, both in-scope this cycle)",
+      "Phase 14 (SUPPLY + OBSERV, 18 findings — SUPPLY-5/SUPPLY-4/OBSERV-7/OBSERV-10 deferred, all in-scope this cycle)",
+      "Phase 15 (FRONT + PERF, 18 findings — PERF-5/FRONT-4/FRONT-7/FRONT-8 deferred; FRONT-8 closed in Phase 20; PERF-5/FRONT-4/FRONT-7 in-scope this cycle)",
+      "Phase 16 (RESIL + QUEUE, 18 findings — ZERO deferrals)",
+      "Phase 17 (MONEY + TIME, 18 findings — FX support / DATETIME->TIMESTAMP / per-callsite TenantClock adoption deferred; TenantClock in-scope this cycle, DATETIME->TIMESTAMP stays off-cycle)",
+      "Phase 18 (AUTHZ + DATA, 15/18 findings — 3 deferred all closed in Phase 19)",
+      "Phase 19 (POLICY + INDEX, 15/18 findings — POLICY-8/INDEX-6 closed in Phase 20; INDEX-9 deferred off-cycle)",
+      "Phase 20 (FRONT + UX-AUTHZ, 12/18 findings — AUTHZ-FRONT-2/5/7 + FRONT-UX-4/6 deferred, all in-scope this cycle; INDEX-9 carried from Phase 19 stays off-cycle)"
+    ],
+    "do_not_reflag": "Phase 20 already shipped: the abilities-share framework (App\\Support\\AuthAbilities + UserDto + useAuth().can()), CursorPagination.vue + (landlord_id, created_at, id) composites on audit_logs/tenant_activities, FormSubmitButton scaffold, Modal focus-trap composable, Badge contrast pairs, EmptyState component, DPA-4 restricted-user banner, impersonation read-only suffix, AuthenticatedLayout admin-nav can() migration. Phase-21 RIDES this surface — it does not redesign it. AUTHZ-FRONT-2 broader seeding means 'apply the EXISTING v-if=can() pattern to top 50 action buttons across resources/js/Pages' — NOT a new directive design. FRONT-UX-2 FormSubmitButton adoption means 'replace bespoke :disabled=form.processing patterns with the EXISTING FormSubmitButton component on top 5 forms' — NOT a new component. PERF-5 SoftDeletes index reconsideration: the SlowQueryServiceProvider has been emitting slow-query metrics since Phase-15; 14+ days of observation feeds the decision either way (ship the index OR document non-adoption with evidence). DPA-10 tenant_dob: the AUTHZ Gate function for minor-data restrictions is ALREADY READY (Phase-13 BREACH-8 / DPA-10 docblock); this phase wires the schema + form path. BREACH-2 detector: the IncidentDetector rule method already exists (Phase-13 1b); this phase wires the call site. RETAIN-5: per-resource retention commands already exist (logs:prune, exports:cleanup, queue:prune-batches, queue:prune-failed, KenyaDpaService dpa:process-deletions); this phase ships the unified orchestrator that calls them in the right order with a single schedule entry. Phase 20 SetupWizard is in Inertia tree but out of scope. Phase 21 is consolidation — minimize new surface area, maximize deferral closure.",
+    "audit_strategy": "Per project_propmanager_path_forward.md Tier 1. Cycle pattern: PRD baseline (this commit) → Phase 1 HIGH (3 findings: AUTHZ-FRONT-2 broader seeding, AUTHZ-FRONT-5 per-record abilities, DPA-10 schema) → Phase 2 MEDIUM (7 findings: route guards + FRONT-7 vee-validate + OBSERV-10 + BREACH-2 wire + RETAIN-5 orchestrator + SUPPLY-5 + CI watchdog) → Phase 3 LOW (8 findings: paginator tail + FRONT-UX-2/4/6 + OBSERV-7/-3 + PERF-5 decision + TenantClock migration) → closeout. Target: zero deferrals (first since Phase 16) or document why specific items stayed deferred. Test budget: ~25-35 new tests across Phase21Test classes following Phase 20 conventions."
+  },
+  "qualityStandards": {
+    "test": "All Phase-21 fixes must pass `php artisan test --parallel` and `vendor/bin/pint --test`. Frontend changes additionally must pass `npm run build`. AUTHZ-FRONT-2 broader seeding includes the watchdog test as a separate finding (DEFER-AUTHZ-2) — the watchdog establishes the floor + the broader-seeding finding moves the floor up.",
+    "ci": "Each commit lands on main with green CI before the next phase starts. The Phase-15 watchdog (PerformanceHardeningTest 5-column covering index name pin), Phase-18 watchdog (AuthzCoverageMatrixTest dead-Gate denylist + 350-route gating threshold + 8-controller raw-role baseline), Phase-19 watchdog (no-raw-role 6-baseline threshold 8 + AuthzCoverageMatrixTest define-AND-call-site assertion), and Phase-20 watchdog (AuthzFrontCoverageMatrixTest 10-template baseline) all stay green — Phase 21 tightens thresholds where seeding raises the floor.",
+    "no_breaking_change": "All Phase-21 changes are additive to existing surface. Adding tenant_dob/parental_consent_artefact_url columns is nullable + backfill via existing TenantKycSubmission record where present. webhook_logs.request_id is a nullable column added at the end of the rows (no shape change to existing logs). dpa:enforce-retention orchestrator calls existing commands sequentially; the individual commands keep working standalone. SUPPLY-5 constraint tightening pins minor versions where Dependabot has produced clean upgrades over 5 weeks (Phase-14 was 2026-05-12, now is 2026-05-14 — 2 days, NOT 5 weeks; this finding documents the constraint-tightening process + ships any constraints that have already had clean upgrades, defers the broader tightening to Phase 31 SRE cycle). Notifications optimistic rollout extends the NotificationBell pattern; PageNotifications.vue migration is the only changed call site."
+  },
+  "feedbackLoops": {
+    "lint": "vendor/bin/pint --test",
+    "test_focused": "php artisan test --filter='<keyword>'",
+    "test_full": "php artisan test --parallel",
+    "frontend_build": "npm run build",
+    "ci_watch": "gh run list --limit 1 --branch main --workflow=CI --json status,conclusion"
+  },
+  "categories": {
+    "DEFER-AUTHZ": {
+      "description": "Frontend authorization completeness extensions. Phase 20 shipped the abilities-share framework + CursorPagination + the canonical v-if=can() pattern (used in AuthenticatedLayout admin nav). Phase 21 broadens adoption to top-50 action buttons across resources/js/Pages, adds the CI watchdog that catches regression, ships per-record abilities for Invoice/Tenant Show pages, and adds Inertia router.beforeEach client-side guards + 403.vue/404.vue page pair. Server-side authorization is intact (Phase-15/18/19 coverage matrix); these findings remove the UX surface area that advertises actions the server will deny.",
+      "count": 4
+    },
+    "DEFER-FRONT": {
+      "description": "User-perceived frontend polish carried from Phase-15 and Phase-20. Phase-15 deferred FRONT-4 (12 v-html paginator callsites), FRONT-7 (vee-validate per-form rollout — pattern pinned, no per-form work shipped), and FRONT-8 (closed in Phase 20). Phase-20 deferred FRONT-UX-4 (optimistic notifications broader rollout), FRONT-UX-6 (IconButton component consolidation), and FRONT-UX-2 partial (FormSubmitButton scaffold shipped, top-form adoption deferred). Phase 21 ships incremental forward motion: tail-end paginator migration (mechanical), top-5 form vee-validate adoption (pinned to Login/Register/InvoiceCreate/PaymentCreate/TenantCreate), top-5 form FormSubmitButton adoption (same form set), PageNotifications optimistic mark-as-read (extending NotificationBell pattern), and IconButton component + 10-call-site migration.",
+      "count": 5
+    },
+    "DEFER-OBSERV": {
+      "description": "Observability completeness carried from Phase 14. OBSERV-10 (webhook_logs request_id column not shipped despite the PropagatesRequestId middleware shipping for queue boundary) is the largest gap — webhook ingress writes to webhook_logs without the request_id stamp, so logs:correlate can't tie a webhook to the request that triggered it. OBSERV-7 (JSON formatter only wired to single + daily channels — auxiliary channels like slow-query, breach, audit emit text format, breaking log-aggregator-side JSON parsing). DEFER-OBSERV-3 is the slow-query observation summary that feeds the DEFER-PERF-1 (PERF-5) decision: 60+ days of SlowQueryServiceProvider data is now available; this finding produces the summary report.",
+      "count": 3
+    },
+    "DEFER-DPA": {
+      "description": "DPA + retention completeness carried from Phases 12-13. DPA-10 (Phase-13 tenant_dob + parental_consent_artefact_url schema — gate function written but no data source); ships the migration + TenantCreate/TenantEdit form field + KYC submission field path. BREACH-2 (Phase-13 IncidentDetector large-export rule method ready, no DataExportService call site); creates the call site via the existing DataExportService OR documents non-creation with the BREACH-2 closure note. RETAIN-5 (Phase-12 unified dpa:enforce-retention orchestrator): per-resource retention commands exist (logs:prune, exports:cleanup, KenyaDpaService::processOverdueDeletions, queue:prune-failed, queue:prune-batches, SoftDeletedPurge); this finding ships the orchestrator that schedules them in sequence with a single schedule entry + failure aggregation.",
+      "count": 3
+    },
+    "DEFER-PERF": {
+      "description": "Performance carry-forwards from Phases 15 and 17. PERF-5 SoftDeletes partial-index: MySQL InnoDB lacks PostgreSQL's INCLUDE/WHERE partial-index syntax. Phase 15 deferred the decision pending SLOW_QUERY_THRESHOLD_MS evidence — Phase-15 SlowQueryServiceProvider was registered with the threshold optional; if 60+ days of slow-query data shows the WHERE deleted_at IS NULL filter is hot, ship a workaround (e.g., is_active boolean shadow + index) — if not, document the non-adoption + close the finding with measurement evidence. TenantClock per-callsite migration: Phase-17 shipped App\\Support\\TenantClock + DateFilter helpers + migrated 5 known sites; remaining controllers/services still call now()->startOfDay() against APP_TIMEZONE not user TZ. This finding migrates the top 10 highest-traffic call sites identified by code search.",
+      "count": 2
+    },
+    "DEFER-SUPPLY": {
+      "description": "Supply-chain carry-forward from Phase 14. SUPPLY-5 composer/npm constraint tightening: Phase 14 deferred because Dependabot needed observation runs to identify constraints safe to tighten — Phase 21 (2 days after Phase 14 in audit-date terms but ~weeks of real time across multiple branches) reviews Dependabot PR history + tightens 5 highest-confidence constraints. SUPPLY-4 CycloneDX SBOM emission: current SBOM job uploads composer/npm raw output; this finding ships CycloneDX format alongside via the bomber CLI or composer-cyclonedx-plugin. Combined into a single Phase-21 finding because both touch CI workflow + are low-blast-radius.",
+      "count": 1
+    }
+  },
+  "items": [
+    {
+      "id": "DEFER-AUTHZ-1",
+      "title": "AUTHZ-FRONT-2 broader seeding — v-if=can() adoption across top 50 action buttons (Phase-20 deferral)",
+      "severity": "HIGH",
+      "files": [
+        "resources/js/Pages/Tenants/Index.vue (delete row action)",
+        "resources/js/Pages/Tenants/Show.vue (deleteNote, edit buttons)",
+        "resources/js/Pages/Invoices/Index.vue (delete invoice)",
+        "resources/js/Pages/Invoices/Show.vue (submitVoid, delete)",
+        "resources/js/Pages/Buildings/Index.vue (delete row action)",
+        "resources/js/Pages/Properties/Index.vue (delete row action)",
+        "resources/js/Pages/Units/Index.vue (delete unit)",
+        "resources/js/Pages/Leases/Index.vue (delete lease)",
+        "resources/js/Pages/Subscription/Index.vue (cancel button)",
+        "resources/js/Pages/Admin/Dashboard.vue (impersonate button)",
+        "resources/js/Pages/Admin/AuditLogs.vue (export button)",
+        "resources/js/Pages/Documents/Index.vue (delete document)",
+        "+ ~38 additional action sites across Tenants/Invoices/Payments/Properties/Buildings/Units/Leases/Reports/Settings/Admin trees"
+      ],
+      "evidence": "Phase 20 closeout deferred broader seeding noting 'incremental UX work across ~195 action buttons'. The canonical pattern is seeded in AuthenticatedLayout admin nav (`v-if=\"can('access-admin')\"`); Phase 21 extends to the top 50 highest-traffic action buttons identified by grep for `router.delete|@click=.*delete|TrashIcon|PencilIcon|submit.*Void|impersonate`. Without v-if=can(), buttons render to all roles + fail server-side on click (Phase-15/18/19 coverage matrix handles the actual authorization — this finding fixes UX, not security).",
+      "fix": "(a) Run `grep -rn 'router.delete\\|TrashIcon\\|PencilIcon\\|submitVoid\\|impersonate' resources/js/Pages | head -50` to identify the 50 highest-traffic action sites. (b) Wrap each in v-if=\"can('<ability>', <resource>)\" — abilities derived from the action: delete → 'delete' or '<resource>:delete' (per-record from DEFER-AUTHZ-3) or 'admin:all' (cross-cutting). (c) Update Phase20Phase4Test::test_v_if_can_seed_threshold from baseline 10 → 50, threshold 40 catches regression. (d) Server-side test Phase21AuthzTest::test_all_seeded_buttons_have_corresponding_gate — reflects on the .vue files, extracts ability names, asserts each is in the Gate registry or Phase-20 abilities map."
+    },
+    {
+      "id": "DEFER-AUTHZ-2",
+      "title": "AUTHZ-FRONT-2 CI watchdog — fail PR when new delete/edit/admin buttons lack v-if=can()",
+      "severity": "MEDIUM",
+      "files": [
+        "tests/Feature/Watchdog/FrontendAuthzCoverageTest.php (new)",
+        ".github/workflows/ci.yml (frontend-authz-watchdog job)"
+      ],
+      "evidence": "DEFER-AUTHZ-1 raises the seeded-button floor to 50; without a watchdog, a future PR adding the 51st button without v-if=can() silently regresses the UX surface to 'authz-blind'. Phase 18 established the no-raw-role watchdog pattern + Phase 19 established the AuthzCoverageMatrixTest define-AND-call-site pattern. This finding adds the parallel client-side watchdog: scan resources/js/Pages for delete/edit/admin button regex patterns + assert each appears within a v-if=can(...) clause OR is explicitly whitelisted in a baseline file.",
+      "fix": "(a) tests/Feature/Watchdog/FrontendAuthzCoverageTest.php scans resources/js/Pages/**/*.vue for action-button regex (\\b(router|axios)\\.(delete|patch|put)|@click=\\\"[a-z_]*(delete|void|cancel|impersonate)|<TrashIcon|<PencilIcon|<EllipsisVerticalIcon\\b) + parses up-line context for v-if=can() within 5 lines + 2 indentation levels. (b) Whitelist file tests/Feature/Watchdog/frontend-authz-whitelist.txt for explicit exceptions (e.g. action inside a confirmed modal where authz is implicit). (c) Threshold: 0 violations beyond whitelist; baseline whitelist seeded with current legitimate exceptions. (d) CI job frontend-authz-watchdog runs `php artisan test --filter=FrontendAuthzCoverageTest` after PHPUnit job."
+    },
+    {
+      "id": "DEFER-AUTHZ-3",
+      "title": "Per-record abilities not computed for Invoice/Tenant Show pages — server policy outcomes invisible to client",
+      "severity": "HIGH",
+      "files": [
+        "app/Http/Middleware/HandleInertiaRequests.php (no per-resource ability share)",
+        "app/Http/Controllers/InvoiceController.php (show method — no abilities in render)",
+        "app/Http/Controllers/TenantController.php (show method — no abilities in render)",
+        "app/Support/AuthAbilities.php (Phase-20 — needs forRecord() variant)",
+        "resources/js/Pages/Invoices/Show.vue (canVoid computed from status only)",
+        "resources/js/Pages/Tenants/Show.vue (edit/delete buttons render without per-record gate)"
+      ],
+      "evidence": "Phase-20 AUTHZ-FRONT-5 deferred: user-level abilities map shipped but per-record (`InvoicePolicy::update($user, $invoice)`) outcomes not shared with the client. Invoice/Show canVoid is `status === 'draft' || status === 'sent'` — pure status, no Gate consultation. A landlord-admin with valid 'update' ability who's viewing a voided invoice STILL sees Void button. A super-admin viewing a cross-landlord invoice via direct URL sees buttons their Policy::view returned true for but Policy::update returns false on.",
+      "fix": "(a) Extend App\\Support\\AuthAbilities with `forRecord(User $user, Model $record, array $abilities = ['view','update','delete']): array` — calls Gate::forUser($user)->allows($ability, $record) for each. (b) InvoiceController::show + TenantController::show wrap the record share with `'abilities' => AuthAbilities::forRecord($user, $record, ['view','update','delete','void','impersonate'])`. (c) Vue templates switch from `v-if=\"canVoid\"` (status-based) to `v-if=\"invoice.abilities.void\"` (server-resolved). (d) Phase21AuthzTest::test_invoice_show_carries_per_record_abilities + Phase21AuthzTest::test_voided_invoice_has_void_ability_false."
+    },
+    {
+      "id": "DEFER-AUTHZ-4",
+      "title": "Client-side route guards + 403.vue/404.vue pair — Inertia router.beforeEach gating (Phase-20 deferral)",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/app.ts (no router.beforeEach hook)",
+        "resources/js/Pages/Errors/403.vue (new)",
+        "resources/js/Pages/Errors/404.vue (new)",
+        "app/Exceptions/Handler.php (Inertia 403/404 page render)"
+      ],
+      "evidence": "Phase-20 AUTHZ-FRONT-7 deferred. Today a user typing /admin/users in URL bar gets a 403 JSON response that Inertia renders as a raw error overlay — no dedicated 403.vue, no client-side prediction that the request will fail. router.beforeEach can pre-check $page.props.auth.user.abilities.access-admin and redirect to /403 client-side before issuing the request. Dedicated 403.vue + 404.vue render proper page UX (header, sidebar, helpful message + 'go back' CTA) instead of raw error overlay.",
+      "fix": "(a) Inertia router.beforeEach hook in resources/js/app.ts: parses target URL → maps to required ability via static URL-to-ability table (e.g. /admin/* → access-admin, /audit-logs/* → view-audit-logs) → if abilities map lacks the ability, router.replace('/403') client-side without issuing request. (b) resources/js/Pages/Errors/403.vue + 404.vue with shared ErrorLayout (header + sidebar + main content). (c) app/Exceptions/Handler.php: AuthorizationException + 403 HttpException renders Inertia::render('Errors/403') for HTML; NotFoundHttpException renders Errors/404. (d) Phase21AuthzTest::test_403_returns_inertia_page_for_html_requests + test_404_returns_inertia_page_for_html_requests. Note: API 403s stay JSON via existing app/Http/Middleware/ForceJsonResponse on api/* routes."
+    },
+    {
+      "id": "DEFER-FRONT-1",
+      "title": "v-html paginator migration tail — 12 callsites still bypass PaginatorLink (Phase-15 FRONT-4 deferral)",
+      "severity": "LOW",
+      "files": [
+        "resources/js/Pages/Tenants/Index.vue (v-html=\"link.label\")",
+        "resources/js/Pages/Invoices/Index.vue",
+        "resources/js/Pages/Payments/Index.vue",
+        "resources/js/Pages/Properties/Index.vue",
+        "resources/js/Pages/Buildings/Index.vue",
+        "resources/js/Pages/Units/Index.vue",
+        "resources/js/Pages/Leases/Index.vue",
+        "resources/js/Pages/Documents/Index.vue",
+        "resources/js/Pages/Notifications/Index.vue",
+        "resources/js/Pages/Admin/Users/Index.vue",
+        "resources/js/Pages/Admin/AuditLogs.vue (if not already CursorPagination from Phase 20)",
+        "resources/js/Pages/Reports/*.vue (any paginated report tables)"
+      ],
+      "evidence": "Phase-15 FRONT-4 shipped PaginatorLink.vue replacement for v-html in paginator templates. Phase-15 closeout marked tail-end migration as deferred (12 callsites remain). v-html is sandbox via Vue but the framework-controlled HTML still flows through DOMParser — mechanical migration eliminates the v-html dependency entirely. Phase 20 closed audit_logs + tenant_activities by migrating to CursorPagination.vue (different shape).",
+      "fix": "(a) Grep `v-html=\"link.label\"` across resources/js/Pages → migration list. (b) Each replacement: <PaginatorLink :link=\"link\" /> with same prop shape (Laravel paginator JSON.links array element). (c) No new tests needed (PaginatorLink already covered in Phase 15); add Phase21FrontTest::test_no_paginator_v_html_remains as a grep watchdog with threshold 0."
+    },
+    {
+      "id": "DEFER-FRONT-2",
+      "title": "vee-validate + Zod adoption on top 5 forms (Phase-15 FRONT-7 deferral)",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/Pages/Auth/Login.vue (custom validation)",
+        "resources/js/Pages/Auth/Register.vue (custom validation)",
+        "resources/js/Pages/Invoices/Create.vue (custom validation)",
+        "resources/js/Pages/Payments/Create.vue (custom validation)",
+        "resources/js/Pages/Tenants/Create.vue (custom validation)",
+        "resources/js/composables/forms/ (new schemas/ subdir for Zod)"
+      ],
+      "evidence": "Phase-15 FRONT-7 pinned the vee-validate 4.x + Zod pattern in docs/runbooks/frontend-validation-pattern.md but deferred per-form rollout. Today these 5 forms each implement bespoke validation (manual error state, manual blur handlers, inconsistent error display). vee-validate provides field-level + form-level validation + Zod schemas provide type-safe parsing + error messages. Result: consistent UX + caught validation issues at type-check time + smaller form components.",
+      "fix": "(a) Install vee-validate + @vee-validate/zod if not present (already in lock per Phase 15 pattern doc). (b) For each form, define a Zod schema in resources/js/composables/forms/schemas/ (e.g. loginSchema, registerSchema, invoiceCreateSchema, paymentCreateSchema, tenantCreateSchema). Schema mirrors the server-side Form Request rules. (c) Form component uses useForm({ validationSchema: toTypedSchema(schema) }). (d) FormSubmitButton (DEFER-FRONT-3) integrates with form.meta.valid to disable until validated. (e) Phase21FrontTest::test_top_5_forms_use_vee_validate — grep watchdog asserts `import { useForm }` from vee-validate present in each."
+    },
+    {
+      "id": "DEFER-FRONT-3",
+      "title": "FormSubmitButton adoption on top 5 forms (Phase-20 FRONT-UX-2 deferral)",
+      "severity": "LOW",
+      "files": [
+        "resources/js/Pages/Auth/Login.vue (bespoke :disabled=form.processing)",
+        "resources/js/Pages/Auth/Register.vue",
+        "resources/js/Pages/Invoices/Create.vue",
+        "resources/js/Pages/Payments/Create.vue",
+        "resources/js/Pages/Tenants/Create.vue"
+      ],
+      "evidence": "Phase-20 FRONT-UX-2 shipped the FormSubmitButton component (wrapping :disabled=form.processing + spinner slot). Deferred broader adoption noting 'existing forms with bespoke :disabled patterns are correct and migrate on-touch'. Phase 21 pairs with DEFER-FRONT-2 (vee-validate top 5 forms) — migrate FormSubmitButton on the SAME 5 forms in the SAME commits. Overlaps with vee-validate adoption because vee-validate's `form.meta.valid` is the cleanest way to gate the submit button.",
+      "fix": "Replace bespoke `<button :disabled=\"form.processing\">Submit</button>` with `<FormSubmitButton :processing=\"form.processing\" :disabled=\"!form.meta.valid\">Submit</FormSubmitButton>` on each of the 5 forms (same set as DEFER-FRONT-2). Phase21FrontTest::test_top_5_forms_use_FormSubmitButton — grep watchdog."
+    },
+    {
+      "id": "DEFER-FRONT-4",
+      "title": "PageNotifications optimistic mark-as-read (Phase-20 FRONT-UX-4 deferral)",
+      "severity": "LOW",
+      "files": [
+        "resources/js/Pages/Notifications/Index.vue (uses router.reload after mark-as-read)"
+      ],
+      "evidence": "Phase-20 FRONT-UX-3 closed NotificationBell.vue optimistic pattern + DPA-4 banner. FRONT-UX-4 deferred broader rollout — PageNotifications.vue still calls `router.reload({ only: ['notifications'] })` after mark-as-read, which round-trips the server before UI updates. Extend the NotificationBell pattern: update local state immediately, fire-and-forget the patch request, revert on error.",
+      "fix": "Mirror NotificationBell.vue's pattern in PageNotifications.vue: (a) on mark-as-read click, update `notification.read_at = new Date().toISOString()` locally first; (b) router.patch with `onError: () => { notification.read_at = null }` to revert; (c) no router.reload — local state is already updated. Phase21FrontTest::test_notifications_optimistic_uses_no_reload — assert source string doesn't contain `router.reload` adjacent to mark-as-read."
+    },
+    {
+      "id": "DEFER-FRONT-5",
+      "title": "IconButton component consolidation — replace inline icon-only button patterns (Phase-20 FRONT-UX-6 deferral)",
+      "severity": "LOW",
+      "files": [
+        "resources/js/Components/IconButton.vue (new)",
+        "resources/js/Pages/Tenants/Show.vue (inline icon button pattern × 3)",
+        "resources/js/Pages/Invoices/Show.vue (inline icon button pattern × 4)",
+        "resources/js/Layouts/AuthenticatedLayout.vue (notification bell, user dropdown trigger)",
+        "+ ~5-7 additional call sites for top 10 migration"
+      ],
+      "evidence": "Phase-20 FRONT-UX-5 shipped Modal focus-trap + icon-only button aria-label audit. FRONT-UX-6 deferred IconButton component consolidation. Today icon-only buttons (TrashIcon, PencilIcon, EllipsisVerticalIcon, BellIcon) wrap each call site in a <button> with manual aria-label + manual padding/sizing/hover-state. IconButton component centralizes the contract: icon prop, aria-label prop (required), size variant, tone (default/danger), and the icon-button-specific hover/focus-ring styling.",
+      "fix": "(a) resources/js/Components/IconButton.vue with props: icon (Component, slot:default fallback), ariaLabel (required string), size ('sm'|'md'|'lg' default 'md'), tone ('default'|'danger' default 'default'), as ('button'|'a'|InertiaLink). (b) Migrate top 10 call sites (see files list). (c) Phase21FrontTest::test_IconButton_seeded_threshold — baseline 10 sites, threshold 6 catches regression."
+    },
+    {
+      "id": "DEFER-OBSERV-1",
+      "title": "webhook_logs.request_id column + logs:correlate webhook support (Phase-14 OBSERV-10 deferral)",
+      "severity": "MEDIUM",
+      "files": [
+        "database/migrations/2026_05_14_*_add_request_id_to_webhook_logs.php (new)",
+        "app/Models/WebhookLog.php (request_id fillable + cast)",
+        "app/Http/Controllers/Webhooks/*Controller.php (PaystackWebhookController + MpesaWebhookController + IntaSendWebhookController + BankWebhookController* — 4+ ingress points stamp request_id)",
+        "app/Console/Commands/LogsCorrelate.php (Phase-14 — extend to scan webhook_logs)",
+        "app/Models/BankWebhookLog.php + database/migrations/* (parallel column)"
+      ],
+      "evidence": "Phase-14 OBSERV-2 wired the request_id middleware + Phase-14 OBSERV-4 wired CarriesRequestId/PropagatesRequestId on queue boundary + Phase-14 OBSERV-7 shipped logs:correlate command. webhook_logs + bank_webhook_logs tables don't have a request_id column — so a webhook can't be tied to the request that ingested it. logs:correlate --request-id=X currently misses webhook events.",
+      "fix": "(a) Migration adds nullable string(36) request_id column at the END of webhook_logs + bank_webhook_logs tables (no shape change to existing rows). (b) WebhookController base class stamps request_id from request()->header('X-Request-Id') ?? Str::uuid() onto the WebhookLog before persisting. (c) logs:correlate command extends to scan webhook_logs + bank_webhook_logs by request_id. (d) Phase21ObservTest::test_paystack_webhook_stamps_request_id + test_logs_correlate_includes_webhook_events. Index on (request_id) added for the correlate query."
+    },
+    {
+      "id": "DEFER-OBSERV-2",
+      "title": "JSON formatter on auxiliary log channels — slow-query/breach/audit emit text (Phase-14 OBSERV-7 deferral)",
+      "severity": "LOW",
+      "files": [
+        "config/logging.php (slow-query, breach, audit channels lack TapJsonFormatter)"
+      ],
+      "evidence": "Phase-14 OBSERV-7 shipped TapJsonFormatter on the `single` + `daily` channels but deferred auxiliary channel coverage. Today slow-query (Phase-15 PERF), breach (Phase-13 BREACH), audit (Phase-4 + ongoing) channels emit text format — log aggregators (Loki, ELK, Datadog) parse single/daily as JSON but auxiliary channels need a separate parser.",
+      "fix": "(a) config/logging.php: add 'tap' => [TapJsonFormatter::class] to each of the 6 auxiliary channels (slow-query, breach, audit, csp-report, http-client, payment-gateway). (b) Verify each emits valid JSON via Phase21ObservTest::test_aux_channels_emit_json — write a sample log + read the file + json_decode succeeds. Format-only change — no behavior change."
+    },
+    {
+      "id": "DEFER-OBSERV-3",
+      "title": "Slow-query observation summary — 60+ days of SlowQueryServiceProvider data feeds PERF-5 decision (new finding)",
+      "severity": "LOW",
+      "files": [
+        "app/Console/Commands/SlowQueryReport.php (new)",
+        "storage/logs/slow-query-*.log (Phase-15 SlowQueryServiceProvider output)"
+      ],
+      "evidence": "Phase-15 PERF-5 (SoftDeletes partial-index) was deferred pending evidence: 'revisit if SLOW_QUERY_THRESHOLD_MS surfaces evidence'. SlowQueryServiceProvider has been emitting slow-query logs since Phase 15 (2026-05-12); ~2 days of audit-date time but the threshold is set if any operator enabled it. This finding produces the summary: parse the slow-query log over the last N days, group by table + query-shape (parameterized), surface counts + p95 duration, identify if `deleted_at IS NULL` filtering correlates with slow queries.",
+      "fix": "(a) php artisan slow-query:report --since=60d --top=20 outputs JSON: { table, query_shape, count, p95_ms, p99_ms, sample_query } sorted by count desc. (b) DEFER-PERF-1 (PERF-5) consumes this report to decide ship-or-document. (c) Phase21ObservTest::test_slow_query_report_parses_log_format."
+    },
+    {
+      "id": "DEFER-DPA-1",
+      "title": "tenant_dob + parental_consent_artefact_url schema + form fields (Phase-13 DPA-10 deferral)",
+      "severity": "HIGH",
+      "files": [
+        "database/migrations/2026_05_14_*_add_dob_and_parental_consent_to_tenants.php (new)",
+        "app/Models/Tenant.php (dob cast date, parental_consent_artefact_url fillable)",
+        "app/Http/Requests/StoreTenantRequest.php + UpdateTenantRequest.php (validation rules)",
+        "resources/js/Pages/Tenants/Create.vue (dob field + minor-detection logic)",
+        "resources/js/Pages/Tenants/Edit.vue (parallel)",
+        "app/Policies/TenantPolicy.php (minor-data restriction via Phase-13 BREACH-8 gate)",
+        "app/Services/KenyaDpaService.php (verify Phase-13 DPA-10 gate function activates)"
+      ],
+      "evidence": "Phase-13 DPA-10 (Children's data + Article 23 of Kenya DPA) shipped the AUTHZ Gate function `isMinor(Tenant $tenant): bool` + classifySeverity for minor-data breaches + docs/runbooks/children-data-policy.md. Deferred: 'tenant_dob/parental_consent_artefact_url schema/form work (gate function ready)'. Without dob + parental_consent columns, the gate is dead code — every tenant is treated as non-minor by default. KDPA Article 23 requires verifiable parental consent for processing minor data — current production may already have minors in the system without flagging.",
+      "fix": "(a) Migration adds tenant.dob (nullable date), tenant.parental_consent_artefact_url (nullable string 512), tenant.parental_consent_provided_at (nullable timestamp). (b) Tenant Form Requests validate dob: nullable|date|before:today. (c) Tenant Create/Edit Vue forms add dob field + 'Parental consent artefact URL' field that becomes REQUIRED when computed `isMinor(dob)` is true. (d) TenantPolicy::view + ::update wrap the existing landlord-ownership check with Gate::allows('process-minor-data', $tenant) when isMinor — defaults to false unless landlord has the explicit ability. (e) Backfill migration leaves dob NULL for existing rows; a separate process:identify-minors command (out of scope) handles backfill. (f) Phase21DpaTest::test_minor_tenant_requires_parental_consent_artefact + test_minor_data_processing_gate_denies_without_consent."
+    },
+    {
+      "id": "DEFER-DPA-2",
+      "title": "BREACH-2 large-export detector — wire IncidentDetector to DataExportService call site (Phase-13 deferral)",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/DataExportService.php (verify exists; create thin shim if not)",
+        "app/Detectors/IncidentDetector.php (Phase-13 — large_export rule)",
+        "app/Http/Controllers/ExportController.php (or wherever exports originate)"
+      ],
+      "evidence": "Phase-13 BREACH-2 shipped IncidentDetector with a large_export rule (Phase-13 1b) + Phase-13 closeout noted: 'BREACH-2 large-export detector seam (rule method ready, no DataExportService call site yet)'. Today's exports happen in ExportController + ad-hoc artisan commands without firing the detector. Result: an attacker (or compromised account) running large data exports doesn't trigger the BREACH SuspiciousActivityDetected event.",
+      "fix": "(a) Determine current export call sites via grep `exportToCsv|exportToXlsx|StreamedResponse.*csv|invoice.*export|Excel::download`. (b) Funnel through DataExportService (create if missing — thin static facade calling Excel/CSV libs) that calls `IncidentDetector::detect('large_export', ['rows' => $rowCount, 'user_id' => Auth::id()])` for any export over LARGE_EXPORT_THRESHOLD_ROWS (env, default 10000). (c) Detector debounces per phase13_breach2:large_export tag (Phase-13 pattern). (d) Phase21DpaTest::test_large_export_fires_detector + test_small_export_does_not_fire."
+    },
+    {
+      "id": "DEFER-DPA-3",
+      "title": "RETAIN-5 unified dpa:enforce-retention orchestrator (Phase-12 deferral)",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/EnforceRetention.php (new — dpa:enforce-retention)",
+        "routes/console.php (schedule entry)"
+      ],
+      "evidence": "Phase-12 RETAIN-5 deferred 'unified dpa:enforce-retention orchestrator'. Today retention is enforced via individual commands: logs:prune (audit_logs/security_logs/webhook_logs/bank_webhook_logs), exports:cleanup, KenyaDpaService::processOverdueDeletions (via gdpr:process-deletions), queue:prune-failed, queue:prune-batches, SoftDeletedPurge. Each runs on its own schedule + failure of one doesn't surface as 'retention pipeline broken' at the operator dashboard level.",
+      "fix": "(a) dpa:enforce-retention command runs the 6 child commands in dependency order: logs:prune (multiple tables) → exports:cleanup → SoftDeletedPurge → queue:prune-batches → queue:prune-failed → gdpr:process-deletions. (b) Captures each child exit code + aggregates into a single retention_pipeline_health{stage=X} Prometheus gauge (Phase-14 MetricsService::gauge). (c) Schedule: daily 02:00 Africa/Nairobi, withoutOverlapping(120), onOneServer. Individual commands continue to schedule (defensive duplication is fine — Phase-12 logs:prune is idempotent). (d) Phase21DpaTest::test_enforce_retention_runs_all_child_commands_in_order + test_enforce_retention_aggregates_failure_status."
+    },
+    {
+      "id": "DEFER-PERF-1",
+      "title": "PERF-5 SoftDeletes partial-index decision (Phase-15 deferral) — accept OBSERV-3 evidence",
+      "severity": "LOW",
+      "files": [
+        "phase-21-PERF-5-decision.md (new — ships the decision evidence)",
+        "(conditional) database/migrations/*_softdeletes_shadow_*.php IF evidence supports"
+      ],
+      "evidence": "Phase-15 PERF-5 deferred: 'MySQL InnoDB lacks PG-style partial-index; revisit if SLOW_QUERY_THRESHOLD_MS surfaces evidence'. DEFER-OBSERV-3 produces the slow-query summary. This finding consumes that output: if the report shows deleted_at IS NULL queries are in the top 10 slow queries, ship the workaround (is_active boolean shadow column + index, updated by Eloquent observer on delete/restore). If not, document non-adoption with evidence + close.",
+      "fix": "(a) Run php artisan slow-query:report --since=60d --top=20 (DEFER-OBSERV-3 dependency). (b) Identify if any deleted_at IS NULL queries are in top-10. (c) IF yes: per affected table, add is_active boolean shadow (default 1) + composite index ON (landlord_id, is_active, primary_date) + Eloquent observer that mirrors deleted_at → is_active. (d) IF no: docs/runbooks/perf-5-non-adoption.md captures the evidence + closes the finding. Phase21PerfTest::test_perf_5_decision_documented (asserts the decision file exists either way)."
+    },
+    {
+      "id": "DEFER-PERF-2",
+      "title": "TenantClock per-callsite migration — top 10 controllers/services using now()->startOfDay() against APP_TIMEZONE (Phase-17 deferral)",
+      "severity": "LOW",
+      "files": [
+        "grep target: now\\(\\)->startOfDay|now\\(\\)->endOfDay|Carbon::today",
+        "Phase-17 TenantClock-eligible controllers/services TBD via grep"
+      ],
+      "evidence": "Phase-17 shipped TenantClock::nowFor($user) + migrated 5 known sites (FinanceExportService, ReportsController, BuildingService). Closeout noted: 'per-callsite emitted-date migration (TenantClock shipped; incremental adoption)'. Top 10 highest-traffic controllers/services still resolve startOfDay against APP_TIMEZONE not user TZ — landlord in different TZ from server sees off-by-one day boundaries on reports.",
+      "fix": "(a) Grep `now\\(\\)->startOfDay|now\\(\\)->endOfDay|Carbon::today|Carbon::yesterday|Carbon::tomorrow` across app/Http/Controllers + app/Services. (b) Top 10 by hit count migrate to TenantClock::nowFor($user)->startOfDay(). (c) Phase-17 setUp-already-fine — no new TenantClock API needed. (d) Phase21PerfTest::test_top_10_sites_use_tenant_clock — grep watchdog asserts each migrated site imports TenantClock + doesn't call raw now()->startOfDay()."
+    },
+    {
+      "id": "DEFER-SUPPLY-1",
+      "title": "SUPPLY-5 constraint tightening on Dependabot-validated packages + SUPPLY-4 CycloneDX SBOM emission (Phase-14 deferrals)",
+      "severity": "MEDIUM",
+      "files": [
+        "composer.json (5 constraints tighten from ^N.x → ^N.M.x where Dependabot validated)",
+        "package.json (parallel constraint tightening on validated npm packages)",
+        ".github/workflows/ci.yml (sbom job emits CycloneDX format)",
+        "composer.lock + package-lock.json (regenerated)"
+      ],
+      "evidence": "Phase-14 SUPPLY-5 deferred 'constraint tightening (docs/upgrades.md ships policy; constraint edit awaits Dependabot observation cycle)' + SUPPLY-4 deferred 'full CycloneDX format (inventory ships now)'. Dependabot has been running since Phase 14 (weekly Monday 06:00 Africa/Nairobi); per docs/upgrades.md the policy is: tighten ^N.x → ^N.M.x once Dependabot produces 2+ clean minor upgrades. Combined into a single Phase-21 finding because both touch CI workflow + composer.json file + are low-blast-radius (lock file regeneration is the riskiest action and is gated by composer-audit job).",
+      "fix": "(a) Inspect 4 weeks of Dependabot PRs (gh pr list --author dependabot --state closed --merged) — identify packages with 2+ clean minor upgrades. (b) For each, tighten composer.json constraint from `^N.x` to `^N.M.x` (e.g. `^11.5` → `^11.5.0`). Same for package.json. Skip if upgrade was a major bump. Run composer update --lock + npm install on the tightened set. (c) sbom CI job adds `composer require --dev cyclonedx/cyclonedx-php-composer --no-update && composer install --dev` + emits CycloneDX JSON via `vendor/bin/cyclonedx-php-composer make-sbom --output-format=JSON`. Parallel npm: `npm install --no-save @cyclonedx/cyclonedx-npm && npx @cyclonedx/cyclonedx-npm --output-format json`. (d) Both SBOMs uploaded as CI artifacts (90d retention) alongside the raw composer-show/npm-list. (e) Phase21SupplyTest::test_sbom_emits_cyclonedx_format (asserts CI workflow contains the cyclonedx commands)."
+    }
+  ]
+}
