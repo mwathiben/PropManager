@@ -1,0 +1,75 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Middleware;
+
+use App\Services\MetricsService;
+use Closure;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+/**
+ * Phase-22 PERF-SLO-1: per-request latency instrumentation. Pre-Phase-22
+ * the MetricsService histogram (Phase-14 OBSERV-9) was only fed by
+ * SlowQueryServiceProvider's db_query_ms — the app could not answer
+ * "what is our p95 page latency" because nothing measured end-to-end
+ * request time. This middleware emits `http_request_ms` so the SLO
+ * tooling (PERF-SLO-2/3) and the k6 load baseline (PERF-LOAD) have a
+ * real signal to work against.
+ *
+ * Label cardinality is deliberately bounded:
+ *   - route: the route NAME, not the URI. Raw URIs leak ids (PII) and
+ *     explode cardinality; an unnamed route falls back to 'unmatched'.
+ *   - status: bucketed to a class (2xx/3xx/4xx/5xx), never the raw code.
+ *   - method: the HTTP verb — already low-cardinality.
+ *
+ * Timing is emitted from terminate() so it covers the full request
+ * lifecycle including response send. The observe() call is fail-open:
+ * a Redis hiccup must never turn into a 500 (same posture as
+ * MetricsService internals).
+ */
+class RecordRequestLatency
+{
+    private const START_ATTR = 'perf_slo_start';
+
+    public function __construct(private readonly MetricsService $metrics) {}
+
+    public function handle(Request $request, Closure $next): Response
+    {
+        $request->attributes->set(self::START_ATTR, microtime(true));
+
+        return $next($request);
+    }
+
+    public function terminate(Request $request, Response $response): void
+    {
+        try {
+            $start = $request->attributes->get(self::START_ATTR);
+            if (! is_float($start)) {
+                return;
+            }
+
+            $elapsedMs = (microtime(true) - $start) * 1000;
+
+            $this->metrics->observe('http_request_ms', $elapsedMs, [
+                'route' => $request->route()?->getName() ?: 'unmatched',
+                'method' => $request->getMethod(),
+                'status' => $this->statusClass($response->getStatusCode()),
+            ]);
+        } catch (\Throwable) {
+            // Fail-open and SILENT. This runs in terminate(), after the
+            // response is already sent — the user is unaffected no matter
+            // what. Deliberately no logging here: MetricsService::observe
+            // already logs its own internal failures, and a second log
+            // call from terminate() is fragile (tests that mock the Log
+            // facade leave it in a state where Log::channel() can return
+            // null). A dropped latency sample is simply not worth the risk.
+        }
+    }
+
+    private function statusClass(int $status): string
+    {
+        return intdiv($status, 100).'xx';
+    }
+}

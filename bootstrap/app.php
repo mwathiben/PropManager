@@ -36,6 +36,14 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\BlockArchivedUsers::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
+            // Phase-22 PERF-SLO-1: emits http_request_ms from terminate().
+            \App\Http\Middleware\RecordRequestLatency::class,
+        ]);
+
+        // Phase-22 PERF-SLO-1: same latency instrumentation on the API
+        // surface (webhooks, the mobile/integration endpoints).
+        $middleware->api(append: [
+            \App\Http\Middleware\RecordRequestLatency::class,
         ]);
 
         // Exclude webhook routes from CSRF verification (they use signature verification)

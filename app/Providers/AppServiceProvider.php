@@ -39,8 +39,10 @@ use App\Services\AfricasTalkingService;
 use App\Services\MetricsService;
 use App\Services\PaymentGatewayManager;
 use App\Services\SecurityLogger;
+use App\Support\NPlusOneBaseline;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\LazyLoadingViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -134,21 +136,35 @@ class AppServiceProvider extends ServiceProvider
         Lease::observe(LeaseObserver::class);
         Refund::observe(RefundObserver::class);
 
-        // Prevent lazy loading in non-production to catch N+1 queries
-        // Violations are logged to security channel instead of throwing
+        // Prevent lazy loading in non-production to catch N+1 queries.
         // OBS-9: in production, sample 1% of requests so genuine N+1
         // regressions still surface in logs without hard-throwing on
         // every request. The handler always logs (never throws) in prod
         // so a lazy-load can't take a customer page down.
+        //
+        // Phase-22 PERF-NPLUS1-1: in the TESTING environment the handler
+        // THROWS (Laravel's default LazyLoadingViolationException) so an
+        // N+1 in a tested code path fails its test — turning the
+        // detector from a passive logger into a CI gate. Known
+        // pre-existing offenders on App\Support\NPlusOneBaseline::ALLOWED
+        // are logged-not-thrown so the gate is tractable; PERF-NPLUS1-2
+        // drives that list to empty.
+        $isTesting = app()->environment('testing');
         $shouldDetectLazyLoading = ! app()->environment('production')
             || (app()->runningInConsole() ? false : random_int(1, 100) === 1);
 
         if ($shouldDetectLazyLoading) {
             Model::preventLazyLoading();
 
-            Model::handleLazyLoadingViolationUsing(function ($model, $relation) {
+            Model::handleLazyLoadingViolationUsing(function ($model, $relation) use ($isTesting) {
+                $modelClass = get_class($model);
+
+                if ($isTesting && ! NPlusOneBaseline::isAllowed($modelClass, $relation)) {
+                    throw new LazyLoadingViolationException($model, $relation);
+                }
+
                 Log::channel('security')->warning('N+1 Query Detected', [
-                    'model' => get_class($model),
+                    'model' => $modelClass,
                     'relation' => $relation,
                     'environment' => app()->environment(),
                     'trace' => collect(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 10))

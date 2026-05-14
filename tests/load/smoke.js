@@ -1,0 +1,46 @@
+// Phase-22 PERF-LOAD-1: smoke load test. Short, low-VU — runs in CI on
+// every PR (see .github/workflows/ci.yml load-smoke job). The
+// thresholds in SMOKE_THRESHOLDS are the gate: a p95/error-rate breach
+// makes k6 exit non-zero and fails the job.
+//
+// Data safety: hits the unauthenticated health endpoint + the hot
+// authenticated READ paths for the seeded load-test landlord only.
+// No write paths — see baseline.js for the (still data-safe) webhook
+// ingress measurement.
+import http from 'k6/http';
+import { group, sleep } from 'k6';
+import { BASE_URL, LOAD_USER, SMOKE_THRESHOLDS } from './lib/config.js';
+import { login } from './lib/auth.js';
+
+export const options = {
+    vus: Number(__ENV.VUS || 5),
+    duration: __ENV.DURATION || '1m',
+    thresholds: SMOKE_THRESHOLDS,
+};
+
+export function setup() {
+    // Fail fast + loud if the target is not up, rather than reporting a
+    // 100% error rate as if it were a latency result.
+    const res = http.get(`${BASE_URL}/api/health`);
+    if (res.status === 0) {
+        throw new Error(`target ${BASE_URL} is unreachable — is the app running?`);
+    }
+}
+
+export default function () {
+    group('health', () => {
+        http.get(`${BASE_URL}/api/health`);
+    });
+
+    group('auth', () => {
+        login(BASE_URL, LOAD_USER.email, LOAD_USER.password);
+    });
+
+    group('hot read paths', () => {
+        http.get(`${BASE_URL}/dashboard`);
+        http.get(`${BASE_URL}/invoices`);
+        http.get(`${BASE_URL}/tenants`);
+    });
+
+    sleep(1);
+}
