@@ -6,7 +6,7 @@ use App\Http\Traits\WithLandlordScope;
 use App\Models\Document;
 use App\Models\Lease;
 use App\Models\TenantActivity;
-use Carbon\Carbon;
+use App\Support\TenantClock;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -199,16 +199,20 @@ class ArchiveHubController extends Controller
                 'label' => $this->getTypeLabel($type),
             ]);
 
+        // Phase-21 DEFER-PERF-2: TenantClock-anchored date stats so the
+        // ArchiveHub "today" / "this week" badges match the viewing user's
+        // local day boundary (Phase-17 pattern).
+        $userNow = TenantClock::nowFor(auth()->user());
         $stats = [
             'total_activities' => TenantActivity::where('landlord_id', $landlordId)->count(),
             'today' => TenantActivity::where('landlord_id', $landlordId)
-                ->whereDate('created_at', Carbon::today())
+                ->whereDate('created_at', $userNow->toDateString())
                 ->count(),
             'this_week' => TenantActivity::where('landlord_id', $landlordId)
-                ->where('created_at', '>=', Carbon::now()->startOfWeek())
+                ->where('created_at', '>=', $userNow->startOfWeek())
                 ->count(),
             'this_month' => TenantActivity::where('landlord_id', $landlordId)
-                ->where('created_at', '>=', Carbon::now()->startOfMonth())
+                ->where('created_at', '>=', $userNow->startOfMonth())
                 ->count(),
         ];
 

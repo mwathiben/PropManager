@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\InvoiceStatus;
 use App\Models\Invoice;
+use App\Support\TenantClock;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -51,8 +52,11 @@ class ArrearsController extends Controller
         }
 
         // Age filter (days overdue)
+        // Phase-21 DEFER-PERF-2: anchor "today" in the requesting user's
+        // timezone so the 0-30 / 31-60 / 61-90 buckets honor day-boundary
+        // expectations across TZs (Phase-17 TenantClock pattern).
         if ($request->filled('age')) {
-            $today = Carbon::today();
+            $today = TenantClock::nowFor($user)->startOfDay();
             switch ($request->age) {
                 case '0-30':
                     $query->where('due_date', '>=', $today->copy()->subDays(30))
@@ -79,10 +83,12 @@ class ArrearsController extends Controller
 
         $invoices = $query->paginate(20)->withQueryString();
 
-        // Add computed fields
-        $invoices->getCollection()->transform(function ($invoice) {
+        // Add computed fields. Phase-21 DEFER-PERF-2: days_overdue
+        // computed against user-TZ today, not server-TZ today.
+        $userToday = TenantClock::nowFor($user)->startOfDay();
+        $invoices->getCollection()->transform(function ($invoice) use ($userToday) {
             $invoice->amount_owed = $invoice->total_due - $invoice->amount_paid;
-            $invoice->days_overdue = Carbon::parse($invoice->due_date)->diffInDays(Carbon::today());
+            $invoice->days_overdue = Carbon::parse($invoice->due_date)->diffInDays($userToday);
 
             return $invoice;
         });
@@ -90,7 +96,8 @@ class ArrearsController extends Controller
         // PERF-Q1: collapse 7 separate aggregate queries into a single
         // CASE WHEN selectRaw. The pre-fix code re-scanned the same
         // arrears predicate seven times to produce $stats + $aging.
-        $today = Carbon::today();
+        // Phase-21 DEFER-PERF-2: aging cutoffs anchored in user TZ.
+        $today = $userToday;
         $cutoff30 = $today->copy()->subDays(30)->format('Y-m-d');
         $cutoff60 = $today->copy()->subDays(60)->format('Y-m-d');
         $cutoff90 = $today->copy()->subDays(90)->format('Y-m-d');

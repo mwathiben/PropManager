@@ -8,6 +8,7 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Unit;
 use App\Models\User;
+use App\Support\TenantClock;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -75,8 +76,12 @@ class ReportController extends Controller
     {
         $landlordId = $this->resolveLandlordId($request);
 
-        $startDate = $request->get('start_date', Carbon::now()->startOfMonth()->toDateString());
-        $endDate = $request->get('end_date', Carbon::now()->endOfMonth()->toDateString());
+        // Phase-21 DEFER-PERF-2: default report window anchored in the
+        // requesting user's timezone — an API consumer in a non-Kenya TZ
+        // gets their month boundary, not the server's (Phase-17 pattern).
+        $userNow = TenantClock::nowFor($request->user());
+        $startDate = $request->get('start_date', $userNow->startOfMonth()->toDateString());
+        $endDate = $request->get('end_date', $userNow->endOfMonth()->toDateString());
 
         $payments = Payment::where('landlord_id', $landlordId)
             ->whereBetween('payment_date', [$startDate, $endDate])

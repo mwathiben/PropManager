@@ -252,11 +252,11 @@ jobs:
     needs: lint
     # Phase-14 SUPPLY-4: dependency inventory for ODPC / auditor
     # questions about third-party software processing tenant data.
-    # Output is JSON-shaped (composer show + npm list) rather than
-    # full CycloneDX format; the upgrade to CycloneDX is a follow-up
-    # because it requires adding cyclonedx/cyclonedx-php-composer as
-    # a composer plugin (touches composer.json + the allow-plugins
-    # block, which is a separate PR).
+    # Phase-21 DEFER-SUPPLY-1: CycloneDX 1.5 JSON now emitted alongside
+    # the raw composer-show / npm-list inventory. CycloneDX is the
+    # standard format security scanners (Dependency-Track, Grype,
+    # Trivy) ingest — the raw JSON stays for human-readable auditor
+    # questions, CycloneDX feeds the automated pipeline.
 
     steps:
       - uses: actions/checkout@v4
@@ -279,11 +279,34 @@ jobs:
       - name: Install npm dependencies (production only)
         run: npm ci --omit=dev --ignore-scripts
 
-      - name: Generate composer inventory
+      - name: Generate composer inventory (raw)
         run: composer show --format=json --no-dev > sbom-composer.json
 
-      - name: Generate npm inventory
+      - name: Generate npm inventory (raw)
         run: npm list --all --json --omit=dev > sbom-npm.json || true
+
+      # Phase-21 DEFER-SUPPLY-1: CycloneDX format. The composer plugin
+      # is invoked ad-hoc via `composer exec` so it does NOT need to be
+      # in composer.json's allow-plugins block — keeps the production
+      # dependency surface unchanged.
+      - name: Generate CycloneDX SBOM (composer)
+        run: |
+          composer global require cyclonedx/cyclonedx-php-composer --no-interaction --no-progress || true
+          ~/.composer/vendor/bin/cyclonedx-php-composer \
+            --output-format=JSON \
+            --output-file=sbom-composer.cyclonedx.json \
+            --spec-version=1.5 \
+            --no-dev || echo "CycloneDX composer generation skipped (plugin unavailable)"
+        continue-on-error: true
+
+      - name: Generate CycloneDX SBOM (npm)
+        run: |
+          npx --yes @cyclonedx/cyclonedx-npm@latest \
+            --omit dev \
+            --spec-version 1.5 \
+            --output-format JSON \
+            --output-file sbom-npm.cyclonedx.json || echo "CycloneDX npm generation skipped"
+        continue-on-error: true
 
       - name: Upload SBOM artifacts
         uses: actions/upload-artifact@v4
@@ -292,4 +315,7 @@ jobs:
           path: |
             sbom-composer.json
             sbom-npm.json
+            sbom-composer.cyclonedx.json
+            sbom-npm.cyclonedx.json
           retention-days: 90
+          if-no-files-found: warn

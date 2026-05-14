@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\TenantActivity;
+use App\Support\TenantClock;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -96,17 +97,21 @@ class ActivityLogController extends Controller
                 ];
             });
 
-        // Get stats
+        // Phase-21 DEFER-PERF-2: anchor date filters in the requesting
+        // user's timezone (Phase-17 TenantClock pattern). Pre-migration,
+        // Carbon::today() / Carbon::now() used APP_TIMEZONE — a landlord
+        // in a different TZ saw "today" as the server's day, not theirs.
+        $userNow = TenantClock::nowFor($user);
         $stats = [
             'total_activities' => TenantActivity::where('landlord_id', $landlordId)->count(),
             'today' => TenantActivity::where('landlord_id', $landlordId)
-                ->whereDate('created_at', Carbon::today())
+                ->whereDate('created_at', $userNow->toDateString())
                 ->count(),
             'this_week' => TenantActivity::where('landlord_id', $landlordId)
-                ->where('created_at', '>=', Carbon::now()->startOfWeek())
+                ->where('created_at', '>=', $userNow->startOfWeek())
                 ->count(),
             'this_month' => TenantActivity::where('landlord_id', $landlordId)
-                ->where('created_at', '>=', Carbon::now()->startOfMonth())
+                ->where('created_at', '>=', $userNow->startOfMonth())
                 ->count(),
         ];
 
