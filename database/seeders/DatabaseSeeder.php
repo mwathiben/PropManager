@@ -21,7 +21,11 @@ class DatabaseSeeder extends Seeder
             PlatformFeeTierSeeder::class,
         ]);
 
-        if (app()->environment('local', 'testing')) {
+        // DevelopmentSeeder is committed (database/seeders/DevelopmentSeeder.php)
+        // and idempotent — but the class_exists guard keeps `db:seed`
+        // from fataling if it is ever absent again, so reference-data
+        // seeding still succeeds on its own.
+        if (app()->environment('local', 'testing') && class_exists(DevelopmentSeeder::class)) {
             $this->call(DevelopmentSeeder::class);
         }
     }
