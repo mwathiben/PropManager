@@ -53,15 +53,24 @@ const paymentProgress = computed(() => {
     return Math.round((props.invoice.amount_paid / props.invoice.total_due) * 100);
 });
 
-const canVoid = computed(() => {
-    return (props.invoice?.abilities?.update ?? false)
-        && ['draft', 'sent'].includes(props.invoice?.status)
-        && (props.invoice?.amount_paid || 0) === 0;
-});
-
+// Phase-21 DEFER-AUTHZ-3: server-resolved per-record gates. Each computed
+// mirrors a Policy method outcome from props.invoice.abilities so the UI
+// never advertises an action the InvoicePolicy will deny on click.
+const canUpdateInvoice = computed(() => props.invoice?.abilities?.update ?? false);
 const canDeleteInvoice = computed(() => props.invoice?.abilities?.delete ?? false);
 const canSendInvoice = computed(() => props.invoice?.abilities?.send ?? false);
 const canRecordPayment = computed(() => props.invoice?.abilities?.recordPayment ?? false);
+
+const canVoid = computed(() => {
+    // canVoid composes the update ability with business-state constraints
+    // (status + amount_paid). The ability gate prevents cross-landlord +
+    // restricted-user button rendering; the status/amount checks encode
+    // the operator workflow (voided is reachable only from draft/sent
+    // with no payments).
+    return canUpdateInvoice.value
+        && ['draft', 'sent'].includes(props.invoice?.status)
+        && (props.invoice?.amount_paid || 0) === 0;
+});
 
 const isVoided = computed(() => props.invoice?.status === 'voided');
 
@@ -258,7 +267,7 @@ const reissueInvoice = () => {
                             </button>
 
                             <button
-                                v-if="invoice?.status === 'draft'"
+                                v-if="canSendInvoice && invoice?.status === 'draft'"
                                 @click="updateStatus('sent')"
                                 class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                             >
@@ -267,7 +276,7 @@ const reissueInvoice = () => {
                             </button>
 
                             <button
-                                v-if="['sent', 'partial', 'overdue'].includes(invoice?.status)"
+                                v-if="canUpdateInvoice && ['sent', 'partial', 'overdue'].includes(invoice?.status)"
                                 @click="sendReminder"
                                 class="inline-flex items-center px-4 py-2 border border-blue-300 text-blue-700 rounded-md hover:bg-blue-50"
                             >
@@ -276,7 +285,7 @@ const reissueInvoice = () => {
                             </button>
 
                             <button
-                                v-if="['sent', 'partial', 'overdue'].includes(invoice?.status)"
+                                v-if="canRecordPayment && ['sent', 'partial', 'overdue'].includes(invoice?.status)"
                                 @click="showPaymentModal = true"
                                 class="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
                             >
@@ -294,7 +303,7 @@ const reissueInvoice = () => {
                             </button>
 
                             <button
-                                v-if="isVoided"
+                                v-if="canUpdateInvoice && isVoided"
                                 @click="reissueInvoice"
                                 class="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700"
                             >

@@ -104,6 +104,15 @@ $schedule('wallets:audit-balances', fn ($e) => $e->dailyAt('05:35'));
 // gauges don't race for the same Cache key write window.
 $schedule('latefees:audit-drift', fn ($e) => $e->dailyAt('05:40'));
 
+// Phase-21 DEFER-DPA-1: nightly minor-tenant consent drift audit.
+// Kenya DPA Article 8 / Section 33 — flags tenants with dob indicating
+// minor status BUT no parental_consent_provided_at. Same pattern as
+// MONEY-5 / DATA-2 / INDEX-1: log mismatches, emit
+// tenant_minor_missing_consent_count Prometheus gauge, FAILURE on
+// drift. Runs 5min after latefees:audit-drift to keep the
+// MetricsService gauge cadence collision-free.
+$schedule('tenants:audit-minor-consent', fn ($e) => $e->dailyAt('05:45'));
+
 // Phase-18 DATA-7: weekly orphan-row audit. Catches lease→trashed-unit,
 // invoice→trashed-lease, audit_logs/security_logs with missing
 // user_id. Emits data_orphan_row_count{kind=X} Prometheus gauges.

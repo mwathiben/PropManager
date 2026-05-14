@@ -43,13 +43,47 @@ const showWalletModal = ref(false);
 const editingNote = ref(null);
 const editingContact = ref(null);
 
+// Phase-21 DEFER-AUTHZ-3: server-resolved per-record gates. Each computed
+// mirrors a TenantPolicy method outcome from props.tenant.abilities so the
+// UI never advertises an action the policy will deny.
+const canViewTenant = computed(() => props.tenant?.abilities?.view ?? false);
+const canEditTenant = computed(() => props.tenant?.abilities?.update ?? false);
+const canViewLedger = computed(() => props.tenant?.abilities?.viewLedger ?? false);
+const canRestoreTenant = computed(() => props.tenant?.abilities?.restore ?? false);
+
 // Forms
 const editForm = useForm({
     name: props.tenant.name,
     email: props.tenant.email,
     phone: props.tenant.mobile_number,
     id_number: props.tenant.national_id,
+    // Phase-21 DEFER-DPA-1: Kenya DPA Article 8 / Section 33 — minor data.
+    dob: props.tenant.dob || '',
+    parental_consent_artefact_url: props.tenant.parental_consent_artefact_url || '',
+    parental_consent_provided_at: props.tenant.parental_consent_provided_at || '',
 });
+
+// Phase-21 DEFER-DPA-1: reactive minor detection. When the operator
+// enters a dob that resolves to under-18, the parental consent fields
+// become visually prominent + the artefact URL becomes required. Mirrors
+// KenyaDpaService::isMinor — UX preview of the server-side validation.
+const isMinorTenant = computed(() => {
+    if (!editForm.dob) {
+        return false;
+    }
+    const dob = new Date(editForm.dob);
+    if (isNaN(dob.getTime())) {
+        return false;
+    }
+    const today = new Date();
+    const age = today.getFullYear() - dob.getFullYear()
+        - (today < new Date(today.getFullYear(), dob.getMonth(), dob.getDate()) ? 1 : 0);
+    return age < 18;
+});
+
+const hasParentalConsent = computed(() =>
+    Boolean(editForm.parental_consent_artefact_url && editForm.parental_consent_provided_at),
+);
 
 const noteForm = useForm({
     content: '',
@@ -263,6 +297,7 @@ const getActivityIcon = (action) => {
                             </div>
                         </div>
                         <button
+                            v-if="canEditTenant"
                             @click="showEditModal = true"
                             class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                         >
@@ -799,9 +834,77 @@ const getActivityIcon = (action) => {
                             <label class="block text-sm font-medium text-gray-700 mb-1">ID Number</label>
                             <input v-model="editForm.id_number" type="text" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
                         </div>
+
+                        <!-- Phase-21 DEFER-DPA-1: Kenya DPA Article 8 / Section 33 children's data. -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Date of Birth
+                                <span class="text-gray-400 text-xs">(optional — required for minor consent flow)</span>
+                            </label>
+                            <input
+                                v-model="editForm.dob"
+                                type="date"
+                                :max="new Date().toISOString().split('T')[0]"
+                                class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                            />
+                            <p v-if="editForm.errors.dob" class="mt-1 text-sm text-red-600">{{ editForm.errors.dob }}</p>
+                        </div>
+
+                        <!-- Reactive minor-consent block — reveals when DOB resolves to under-18. -->
+                        <div
+                            v-if="isMinorTenant"
+                            class="rounded-lg border-2 border-amber-300 bg-amber-50 p-4 space-y-3"
+                        >
+                            <div class="flex items-start gap-2">
+                                <ExclamationTriangleIcon class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <p class="text-sm font-semibold text-amber-900">Minor — Parental Consent Required</p>
+                                    <p class="text-xs text-amber-800 mt-0.5">
+                                        Kenya DPA Article 8 / Section 33 requires verifiable parental consent before processing data for tenants under 18.
+                                    </p>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Parental Consent Artefact URL
+                                    <span class="text-red-600">*</span>
+                                </label>
+                                <input
+                                    v-model="editForm.parental_consent_artefact_url"
+                                    type="url"
+                                    placeholder="https://drive.example.com/consent.pdf"
+                                    :required="isMinorTenant"
+                                    class="w-full border-amber-300 rounded-lg focus:ring-amber-500 focus:border-amber-500"
+                                />
+                                <p v-if="editForm.errors.parental_consent_artefact_url" class="mt-1 text-sm text-red-600">
+                                    {{ editForm.errors.parental_consent_artefact_url }}
+                                </p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Consent Provided At</label>
+                                <input
+                                    v-model="editForm.parental_consent_provided_at"
+                                    type="datetime-local"
+                                    class="w-full border-amber-300 rounded-lg focus:ring-amber-500 focus:border-amber-500"
+                                />
+                                <p v-if="editForm.errors.parental_consent_provided_at" class="mt-1 text-sm text-red-600">
+                                    {{ editForm.errors.parental_consent_provided_at }}
+                                </p>
+                            </div>
+                            <p v-if="!hasParentalConsent" class="text-xs text-amber-700">
+                                Both artefact URL and timestamp must be provided before save.
+                            </p>
+                        </div>
+
                         <div class="flex justify-end gap-3 pt-4">
                             <button type="button" @click="showEditModal = false" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">Cancel</button>
-                            <button type="submit" :disabled="editForm.processing" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">Save Changes</button>
+                            <button
+                                type="submit"
+                                :disabled="editForm.processing || (isMinorTenant && !hasParentalConsent)"
+                                class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                            >
+                                Save Changes
+                            </button>
                         </div>
                     </form>
                 </div>

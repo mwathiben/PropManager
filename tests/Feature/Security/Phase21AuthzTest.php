@@ -108,6 +108,70 @@ class Phase21AuthzTest extends TestCase
         $this->assertTrue($abilities['restore'], 'Landlord can restore soft-deleted own tenant.');
     }
 
+    public function test_invoice_show_payload_carries_per_record_abilities(): void
+    {
+        // Integration test: InvoiceController::show must merge the
+        // abilities map into the 'invoice' Inertia prop so Vue can
+        // gate buttons via props.invoice.abilities.update without a
+        // separate round trip.
+        $landlord = User::factory()->create(['role' => 'landlord']);
+        $invoice = $this->makeOwnedInvoice($landlord, 'draft');
+
+        $response = $this->actingAs($landlord)->get(route('invoices.show', $invoice));
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page->component('Invoices/Show')
+            ->has('invoice.abilities', fn ($a) => $a->where('update', true)
+                ->where('delete', true)
+                ->where('recordPayment', true)
+                ->where('send', true)
+                ->where('pay', false)
+                ->where('restore', true)
+            )
+        );
+    }
+
+    public function test_invoice_show_abilities_reflect_status_constraint_for_non_draft(): void
+    {
+        // Sent invoice — owner update/recordPayment/restore all true,
+        // delete becomes false (InvoicePolicy::delete is draft-only),
+        // send becomes false (InvoicePolicy::send is draft-only too).
+        $landlord = User::factory()->create(['role' => 'landlord']);
+        $invoice = $this->makeOwnedInvoice($landlord, 'sent');
+
+        $response = $this->actingAs($landlord)->get(route('invoices.show', $invoice));
+
+        $response->assertInertia(fn ($page) => $page->has('invoice.abilities', fn ($a) => $a->where('update', true)
+            ->where('delete', false)
+            ->where('recordPayment', true)
+            ->where('send', false)
+            ->where('pay', false)
+            ->where('restore', true)
+        )
+        );
+    }
+
+    public function test_tenant_show_payload_carries_per_record_abilities(): void
+    {
+        $landlord = User::factory()->create(['role' => 'landlord']);
+        $tenant = User::factory()->create([
+            'role' => 'tenant',
+            'landlord_id' => $landlord->id,
+        ]);
+
+        $response = $this->actingAs($landlord)->get(route('tenants.show', $tenant));
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page->component('Tenants/Show')
+            ->has('tenant.abilities', fn ($a) => $a->where('view', true)
+                ->where('viewLedger', true)
+                ->where('update', true)
+                ->where('delete', false)
+                ->where('restore', true)
+            )
+        );
+    }
+
     private function makeOwnedInvoice(User $landlord, string $status = 'draft'): Invoice
     {
         $property = Property::factory()->create(['landlord_id' => $landlord->id]);

@@ -140,4 +140,66 @@ class Phase21DpaTest extends TestCase
         $response->assertSessionHasNoErrors();
         $this->assertNotNull($tenant->fresh()->dob);
     }
+
+    public function test_audit_minor_consent_command_succeeds_when_no_drift(): void
+    {
+        $landlord = User::factory()->create(['role' => 'landlord']);
+        User::factory()->create([
+            'role' => 'tenant',
+            'landlord_id' => $landlord->id,
+            'dob' => '1990-01-15',
+        ]);
+        User::factory()->create([
+            'role' => 'tenant',
+            'landlord_id' => $landlord->id,
+            'dob' => now()->subYears(10)->format('Y-m-d'),
+            'parental_consent_artefact_url' => 'https://drive.example.com/consent.pdf',
+            'parental_consent_provided_at' => now()->subDay(),
+        ]);
+
+        $exitCode = $this->artisan('tenants:audit-minor-consent')->run();
+
+        $this->assertSame(0, $exitCode, 'No drift = SUCCESS exit.');
+    }
+
+    public function test_audit_minor_consent_command_fails_when_minor_lacks_consent(): void
+    {
+        $landlord = User::factory()->create(['role' => 'landlord']);
+        $minor = User::factory()->create([
+            'role' => 'tenant',
+            'landlord_id' => $landlord->id,
+            'dob' => now()->subYears(10)->format('Y-m-d'),
+            'parental_consent_provided_at' => null,
+        ]);
+
+        $exitCode = $this->artisan('tenants:audit-minor-consent')->run();
+
+        $this->assertSame(1, $exitCode, 'Drift detected = FAILURE exit so cron monitoring alerts.');
+    }
+
+    public function test_audit_minor_consent_ignores_soft_deleted_and_non_tenant_users(): void
+    {
+        $landlord = User::factory()->create(['role' => 'landlord']);
+        // Soft-deleted minor without consent — must NOT trip the audit.
+        $deletedMinor = User::factory()->create([
+            'role' => 'tenant',
+            'landlord_id' => $landlord->id,
+            'dob' => now()->subYears(10)->format('Y-m-d'),
+            'parental_consent_provided_at' => null,
+        ]);
+        $deletedMinor->delete();
+
+        // Caretaker with minor dob (unusual but possible) — only role=tenant
+        // is in scope per Kenya DPA tenant-data definition.
+        User::factory()->create([
+            'role' => 'caretaker',
+            'landlord_id' => $landlord->id,
+            'dob' => now()->subYears(10)->format('Y-m-d'),
+            'parental_consent_provided_at' => null,
+        ]);
+
+        $exitCode = $this->artisan('tenants:audit-minor-consent')->run();
+
+        $this->assertSame(0, $exitCode, 'Soft-deleted + non-tenant minors must not trip the audit.');
+    }
 }

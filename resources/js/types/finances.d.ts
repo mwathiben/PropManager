@@ -68,6 +68,24 @@ export interface Tenant extends BaseEntity {
   email: string;
   phone?: string;
   national_id?: string;
+  // Phase-21 DEFER-DPA-1: Kenya DPA Article 8 / Section 33.
+  // dob feeds KenyaDpaService::isMinor; parental_consent_*
+  // gate downstream processing when tenant is a minor.
+  dob?: string | null;
+  parental_consent_artefact_url?: string | null;
+  parental_consent_provided_at?: string | null;
+  mobile_number?: string | null;
+}
+
+// Phase-21 DEFER-AUTHZ-3: per-record abilities resolved server-side via
+// AuthAbilities::forRecord() for TenantPolicy. Consumed in templates as
+// props.tenant.abilities.update.
+export interface TenantAbilities {
+  view: boolean;
+  viewLedger: boolean;
+  update: boolean;
+  delete: boolean;
+  restore: boolean;
 }
 
 // Lease
@@ -434,6 +452,7 @@ export interface TenantShowPageProps {
       phone: string;
       relationship: string;
     }>;
+    abilities: TenantAbilities;
   };
   activeLease: Lease | null;
   payments: Payment[];
@@ -650,6 +669,18 @@ export interface BuildingsEditPageProps {
   parentBuilding?: { id: number; name: string } | null;
 }
 
+// Phase-21 DEFER-AUTHZ-3: per-record abilities resolved server-side via
+// AuthAbilities::forRecord() and merged into the resource payload by the
+// show-controllers. Vue templates consume as props.invoice.abilities.update.
+export interface InvoiceAbilities {
+  update: boolean;
+  delete: boolean;
+  recordPayment: boolean;
+  send: boolean;
+  pay: boolean;
+  restore: boolean;
+}
+
 // Invoices Show Page Props
 export interface InvoicesShowPageProps {
   invoice: Invoice & {
@@ -661,6 +692,7 @@ export interface InvoicesShowPageProps {
         building?: Building;
       };
     };
+    abilities: InvoiceAbilities;
   };
 }
 

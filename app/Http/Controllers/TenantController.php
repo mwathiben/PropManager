@@ -167,6 +167,14 @@ class TenantController extends Controller
         // PRIV-12: centralised via TenantPolicy::view.
         $this->authorize('view', $tenant);
 
+        // Pre-existing bug surfaced by Phase-21 Inertia integration test:
+        // $landlordId was referenced at line 209 (VerificationTemplate query)
+        // but never defined in this method. Landlord-scoped resources here
+        // belong to the tenant's landlord, not the requesting user — same
+        // shape as TenantPolicy::view enforces. Sourced from the resolved
+        // tenant for canonical attribution.
+        $landlordId = (int) $tenant->landlord_id;
+
         // Load tenant with all relationships
         $tenant->load([
             'leases' => fn ($q) => $q->with([
