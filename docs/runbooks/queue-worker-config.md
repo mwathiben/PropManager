@@ -93,6 +93,26 @@ This signals running workers to exit gracefully at their next poll. supervisord 
 
 The Phase-11 `scripts/deploy.sh` calls `queue:restart` at the end of every deploy.
 
+## Graceful shutdown (Phase-22 PERF-SCALE-2)
+
+Autoscaling means app + worker instances are created and destroyed routinely — an instance going away mid-deploy or mid-scale-down must **drain** in-flight work, never drop it. The contract:
+
+**Queue workers — SIGTERM finishes the current job.** `queue:work` traps `SIGTERM` and exits *after* the in-flight job completes (Laravel default). The two ways a worker is told to stop both honour this:
+
+- `php artisan queue:restart` (deploy path) — sets a cache flag the worker checks at its next poll; an idle worker exits immediately, a busy one finishes its job first.
+- `SIGTERM` from supervisord/systemd on instance teardown — same in-job-completion behaviour.
+
+The **only** way to lose a job is `SIGKILL` before the job finishes. Two settings guard against that:
+
+- `stopwaitsecs=620` (supervisord) / `TimeoutStopSec` (systemd) **must exceed the longest job-level `$timeout`** — currently 600s on `SendBulkNotificationsJob`. The supervisor sends `SIGTERM`, waits this long, *then* `SIGKILL`s. If the margin is too small a long job gets killed mid-flight.
+- `--timeout=600` on `queue:work` is the per-job ceiling — a job exceeding it is killed, but `--tries`/backoff re-queues it. Keep `stopwaitsecs > --timeout`.
+
+Never configure the supervisor to `SIGKILL` directly, and never lower `stopwaitsecs` below `--timeout`.
+
+**HTTP requests — finite timeouts + load-balancer connection draining.** A terminating app instance must stop receiving new requests *before* it dies. Connection draining is load-balancer config (out of scope here), but the app-side contract is: every outbound call has a finite timeout (Phase-16 `Http::resilient()` — connectTimeout 5s, timeout 15s), so no request can hang an instance open indefinitely past the drain window.
+
+**Maintenance mode.** `php artisan down` (called by `scripts/deploy.sh` with `--retry=15 --refresh=15`) renders `resources/views/errors/503.blade.php` — a deliberately self-contained HTML page (no Vite/Inertia, since the asset pipeline may be mid-deploy). `--retry=15` tells load balancers + the Inertia client to retry after 15s rather than surfacing a hard error.
+
 ## Sizing
 
 Use the Phase-16 QUEUE-6 gauges:
