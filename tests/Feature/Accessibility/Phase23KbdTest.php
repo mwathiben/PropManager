@@ -59,4 +59,58 @@ class Phase23KbdTest extends TestCase
             'A11Y-KBD-1: <main> must carry id="main-content" + tabindex="-1" so the skip-link can move focus to it.',
         );
     }
+
+    public function test_dropdown_manages_focus(): void
+    {
+        $dropdown = file_get_contents(resource_path('js/Components/Dropdown.vue'));
+
+        $this->assertStringContainsString(
+            'requestAnimationFrame',
+            $dropdown,
+            'A11Y-KBD-2: Dropdown must move focus into the menu on open.',
+        );
+        foreach (['ArrowDown', 'ArrowUp', 'Home', 'End'] as $key) {
+            $this->assertStringContainsString(
+                "'{$key}'",
+                $dropdown,
+                "A11Y-KBD-2: Dropdown must handle the {$key} key for menu navigation.",
+            );
+        }
+        $this->assertStringContainsString(
+            'restoreFocusToTrigger',
+            $dropdown,
+            'A11Y-KBD-2: Dropdown must restore focus to the trigger on Escape.',
+        );
+        $this->assertStringContainsString(
+            'useEscapeKey',
+            $dropdown,
+            'A11Y-KBD-2: Dropdown must wire Escape-to-close.',
+        );
+    }
+
+    public function test_mobile_sidebar_is_a_trapped_modal(): void
+    {
+        $layout = $this->authenticatedLayout();
+
+        $this->assertStringContainsString(
+            'useFocusTrap(mobileSidebarRef',
+            $layout,
+            'A11Y-KBD-3: the mobile sidebar must apply a focus trap.',
+        );
+        $this->assertStringContainsString(
+            'useBodyScrollLock(showMobileSidebar)',
+            $layout,
+            'A11Y-KBD-3: the mobile sidebar must lock body scroll while open.',
+        );
+        $this->assertMatchesRegularExpression(
+            '/role="dialog"\s+aria-modal="true"/',
+            $layout,
+            'A11Y-KBD-3: the mobile sidebar overlay must carry role="dialog" + aria-modal="true".',
+        );
+        $this->assertStringContainsString(
+            'closeMobileSidebar',
+            $layout,
+            'A11Y-KBD-3: the mobile sidebar must close (with focus restore) via closeMobileSidebar.',
+        );
+    }
 }

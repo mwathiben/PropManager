@@ -1,5 +1,17 @@
 <script setup>
-import { computed, ref } from 'vue';
+/**
+ * Phase-23 A11Y-KBD-2: keyboard-operable dropdown (WCAG 2.1.1, 2.4.3).
+ * Pre-Phase-23 the menu opened on click and relied on the browser's
+ * default tab order — focus never moved into the menu, arrow keys did
+ * nothing, and Escape closed it but stranded focus. Now:
+ *   - on open, focus moves to the first menu item;
+ *   - Up/Down cycle between items (wrapping), Home/End jump to ends;
+ *   - Escape closes AND restores focus to the trigger.
+ * Callers MUST slot a real <button> into #trigger — the wrapper is a
+ * plain <div> and does not synthesise keyboard support for a
+ * non-interactive trigger.
+ */
+import { computed, ref, watch } from 'vue';
 import { useEscapeKey } from '@/composables/useEscapeKey';
 
 const props = defineProps({
@@ -22,8 +34,81 @@ const props = defineProps({
 });
 
 const open = ref(false);
+const contentRef = ref(null);
+let triggerElement = null;
 
-useEscapeKey(() => { open.value = false; }, open);
+const FOCUSABLE_SELECTOR = [
+    'a[href]',
+    'button:not([disabled])',
+    'input:not([disabled]):not([type="hidden"])',
+    'select:not([disabled])',
+    'textarea:not([disabled])',
+    '[tabindex]:not([tabindex="-1"])',
+].join(', ');
+
+function menuItems() {
+    const el = contentRef.value;
+    return el ? Array.from(el.querySelectorAll(FOCUSABLE_SELECTOR)) : [];
+}
+
+function restoreFocusToTrigger() {
+    if (triggerElement && typeof triggerElement.focus === 'function') {
+        triggerElement.focus();
+    }
+    triggerElement = null;
+}
+
+function close() {
+    open.value = false;
+}
+
+useEscapeKey(() => {
+    if (open.value) {
+        close();
+        restoreFocusToTrigger();
+    }
+}, open);
+
+watch(open, (isOpen) => {
+    if (isOpen) {
+        // Capture the element that opened the menu so Escape can
+        // return focus to it.
+        triggerElement = document.activeElement;
+        requestAnimationFrame(() => {
+            const items = menuItems();
+            if (items.length > 0) {
+                items[0].focus();
+            }
+        });
+    }
+});
+
+function onMenuKeydown(event) {
+    const items = menuItems();
+    if (items.length === 0) {
+        return;
+    }
+    const currentIndex = items.indexOf(document.activeElement);
+
+    switch (event.key) {
+        case 'ArrowDown':
+            event.preventDefault();
+            items[(currentIndex + 1) % items.length].focus();
+            break;
+        case 'ArrowUp':
+            event.preventDefault();
+            items[(currentIndex - 1 + items.length) % items.length].focus();
+            break;
+        case 'Home':
+            event.preventDefault();
+            items[0].focus();
+            break;
+        case 'End':
+            event.preventDefault();
+            items[items.length - 1].focus();
+            break;
+    }
+}
 
 const widthClass = computed(() => {
     return {
@@ -77,8 +162,10 @@ const positionClasses = computed(() => {
                 @click="open = false"
             >
                 <div
+                    ref="contentRef"
                     class="rounded-xl overflow-hidden"
                     :class="contentClasses"
+                    @keydown="onMenuKeydown"
                 >
                     <slot name="content" />
                 </div>

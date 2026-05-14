@@ -3,6 +3,9 @@ import { ref, computed, watch } from 'vue';
 import { usePage, Link, router } from '@inertiajs/vue3';
 import { useAuth } from '@/composables/useAuth';
 import { useAnnouncer } from '@/composables/useAnnouncer';
+import { useFocusTrap } from '@/composables/useFocusTrap';
+import { useEscapeKey } from '@/composables/useEscapeKey';
+import { useBodyScrollLock } from '@/composables/useBodyScrollLock';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import LiveAnnouncer from '@/Components/LiveAnnouncer.vue';
 import Dropdown from '@/Components/Dropdown.vue';
@@ -57,6 +60,26 @@ defineSlots<{
 }>();
 
 const showMobileSidebar = ref(false);
+
+// Phase-23 A11Y-KBD-3: the mobile sidebar is a full-screen overlay
+// over the page — functionally a modal — so it gets the same
+// treatment as Modal.vue: a focus trap, Escape-to-close, body
+// scroll lock, and focus restored to the hamburger on close.
+const mobileSidebarRef = ref(null);
+const hamburgerRef = ref(null);
+
+function closeMobileSidebar() {
+    showMobileSidebar.value = false;
+    requestAnimationFrame(() => hamburgerRef.value?.focus());
+}
+
+useFocusTrap(mobileSidebarRef, showMobileSidebar);
+useEscapeKey(() => {
+    if (showMobileSidebar.value) {
+        closeMobileSidebar();
+    }
+}, showMobileSidebar);
+useBodyScrollLock(showMobileSidebar);
 
 const page = usePage();
 const { user, isSuperAdmin, isLandlord, isCaretaker, isTenant, isRestricted, can } = useAuth();
@@ -405,14 +428,21 @@ const navigationItems = computed(() => {
 
             <!-- MOBILE SIDEBAR -->
             <div v-if="showMobileSidebar" class="fixed inset-0 z-50 lg:hidden">
-                <div class="fixed inset-0 bg-gray-900/50" @click="showMobileSidebar = false"></div>
-                <aside class="fixed inset-y-0 left-0 w-64 bg-white shadow-xl flex flex-col">
+                <div class="fixed inset-0 bg-gray-900/50" @click="closeMobileSidebar"></div>
+                <aside
+                    ref="mobileSidebarRef"
+                    id="mobile-sidebar"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Navigation menu"
+                    class="fixed inset-y-0 left-0 w-64 bg-white shadow-xl flex flex-col"
+                >
                     <div class="h-16 flex items-center justify-between px-4 border-b border-gray-200">
                         <Link :href="route('dashboard')" class="flex items-center">
                             <ApplicationLogo class="h-8 w-auto fill-current text-gray-800" />
                         </Link>
-                        <button @click="showMobileSidebar = false" class="p-2 rounded-md hover:bg-gray-100">
-                            <XMarkIcon class="h-5 w-5 text-gray-500" />
+                        <button @click="closeMobileSidebar" aria-label="Close navigation menu" class="p-2 rounded-md hover:bg-gray-100">
+                            <XMarkIcon class="h-5 w-5 text-gray-500" aria-hidden="true" />
                         </button>
                     </div>
 
@@ -529,8 +559,15 @@ const navigationItems = computed(() => {
                 <header class="sticky top-0 z-30 bg-white border-b border-gray-200 h-16 flex items-center px-4 lg:px-8"
                         :class="{ 'top-10': isImpersonating }">
                     <!-- Mobile Menu Button -->
-                    <button @click="showMobileSidebar = true" class="lg:hidden p-2 -ml-2 mr-2 rounded-md hover:bg-gray-100">
-                        <Bars3Icon class="h-6 w-6 text-gray-500" />
+                    <button
+                        ref="hamburgerRef"
+                        @click="showMobileSidebar = true"
+                        aria-label="Open navigation menu"
+                        aria-controls="mobile-sidebar"
+                        :aria-expanded="showMobileSidebar"
+                        class="lg:hidden p-2 -ml-2 mr-2 rounded-md hover:bg-gray-100"
+                    >
+                        <Bars3Icon class="h-6 w-6 text-gray-500" aria-hidden="true" />
                     </button>
 
                     <!-- Page Header Slot (for contextual sub-navigation) -->
