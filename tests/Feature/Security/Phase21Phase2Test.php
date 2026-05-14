@@ -226,15 +226,13 @@ class Phase21Phase2Test extends TestCase
         // exportUserData() makes end-to-end testing brittle.
         $source = file_get_contents(base_path('app/Services/DataExportService.php'));
 
+        // DataExportService and IncidentDetector both live in the
+        // App\Services namespace, so the call site resolves the detector
+        // via `app(IncidentDetector::class)` without a `use` import.
         $this->assertStringContainsString(
-            'use App\\Services\\IncidentDetector;',
+            'app(IncidentDetector::class)->checkLargeDataExport',
             $source,
-            'Phase-21 DEFER-DPA-2: DataExportService must import IncidentDetector.',
-        );
-        $this->assertStringContainsString(
-            'checkLargeDataExport',
-            $source,
-            'Phase-21 DEFER-DPA-2: DataExportService must call checkLargeDataExport.',
+            'Phase-21 DEFER-DPA-2: DataExportService must resolve and call IncidentDetector::checkLargeDataExport.',
         );
         $this->assertStringContainsString(
             "'gdpr_portability'",
