@@ -121,4 +121,29 @@ class Phase23CiTest extends TestCase
             'A11Y-CI-2: the a11y-smoke job must run `npm run test:a11y`.',
         );
     }
+
+    /**
+     * A11Y-CI-3: the source-level watchdog suite must stay coherent —
+     * every Phase-23 category contributes a Phase23*Test class under
+     * tests/Feature/Accessibility, and the conformance statement
+     * documents the maintenance commitment. This is the "glue" that
+     * keeps the structural wins of KBD/SR/FORM/VISUAL from silently
+     * regressing.
+     */
+    public function test_accessibility_watchdog_suite_is_complete(): void
+    {
+        foreach (['Kbd', 'Sr', 'Form', 'Visual', 'Ci', 'Docs'] as $category) {
+            $this->assertFileExists(
+                base_path("tests/Feature/Accessibility/Phase23{$category}Test.php"),
+                "A11Y-CI-3: the Phase23{$category}Test watchdog class must exist.",
+            );
+        }
+
+        $statement = file_get_contents(base_path('docs/runbooks/accessibility.md'));
+        $this->assertStringContainsString(
+            'Maintenance commitment',
+            $statement,
+            'A11Y-CI-3: the conformance statement must document the maintenance commitment (lint + watchdogs + axe).',
+        );
+    }
 }

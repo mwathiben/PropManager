@@ -90,7 +90,7 @@ const getBuildingOverrideIndex = (buildingId) => {
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Billing Method</label>
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <label
-                                        class="relative flex cursor-pointer rounded-lg border p-4 focus:outline-none"
+                                        class="relative flex cursor-pointer rounded-lg border p-4 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-indigo-500 has-[:focus-visible]:ring-offset-2"
                                         :class="form.water_billing_type === 'consumption' ? 'border-indigo-600 bg-indigo-50' : 'border-gray-200'"
                                     >
                                         <input
@@ -112,7 +112,7 @@ const getBuildingOverrideIndex = (buildingId) => {
                                     </label>
 
                                     <label
-                                        class="relative flex cursor-pointer rounded-lg border p-4 focus:outline-none"
+                                        class="relative flex cursor-pointer rounded-lg border p-4 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-indigo-500 has-[:focus-visible]:ring-offset-2"
                                         :class="form.water_billing_type === 'flat_rate' ? 'border-indigo-600 bg-indigo-50' : 'border-gray-200'"
                                     >
                                         <input
@@ -134,7 +134,7 @@ const getBuildingOverrideIndex = (buildingId) => {
                                     </label>
 
                                     <label
-                                        class="relative flex cursor-pointer rounded-lg border p-4 focus:outline-none"
+                                        class="relative flex cursor-pointer rounded-lg border p-4 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-indigo-500 has-[:focus-visible]:ring-offset-2"
                                         :class="form.water_billing_type === 'none' ? 'border-indigo-600 bg-indigo-50' : 'border-gray-200'"
                                     >
                                         <input

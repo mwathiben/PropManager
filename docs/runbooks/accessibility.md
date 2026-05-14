@@ -68,23 +68,68 @@ The conformance above does not decay silently:
 
 ## Testing
 
-> The manual keyboard-only and screen-reader checklist is expanded in
-> A11Y-DOC-2 (Phase-23, Phase 3). This section is the entry point.
+Automation catches roughly half of WCAG issues; the rest needs a
+human with a keyboard and a screen reader. Both halves are documented
+here so the manual pass actually happens consistently.
 
 ### Automated
 
+Run locally before pushing a11y-affecting changes:
+
 - `npm run lint` — static a11y lint (eslint-plugin-vuejs-accessibility).
-- `npm run test:a11y` — axe-core smoke test against rendered pages.
-- `php artisan test --filter=Phase23` — source-level a11y watchdogs.
+  Reads the `eslint.config.js` baseline; a new `error`-level finding
+  fails. Catches missing alt, label/control association, invalid
+  `aria-*`, click-without-keyboard.
+- `npm run test:a11y` — axe-core smoke (Playwright) against the login
+  page + the hot authenticated pages. Fails on `critical` violations;
+  `serious`/`moderate` are printed to the run log as the shrink-only
+  baseline. Needs the app running locally — see
+  `playwright.config.ts` for `A11Y_BASE_URL`.
+- `php artisan test --filter=Phase23` — the source-level watchdog
+  suite (`tests/Feature/Accessibility/Phase23*Test.php`).
 
-### Manual (required for any new page, layout change, or new
-interactive component)
+All three also run in CI (`npm run lint` blocks; `a11y-smoke` blocks
+on PR, warns on push).
 
-- **Keyboard-only pass** — Tab through the whole flow: the skip-link
-  works, focus is always visible, no keyboard trap, Escape closes every
-  overlay, and focus returns sensibly on close.
-- **Screen-reader pass** — NVDA (Windows) or VoiceOver (macOS): on a
-  form, the label + required state + error are all announced on the
-  field; on a table, the caption + column headers + sort state read
-  correctly; after a save, the flash message is announced without a
-  focus move.
+### Manual — keyboard-only pass
+
+Unplug the mouse. Tab through the whole flow and confirm:
+
+- The **skip-link** appears on the first Tab and jumps focus to the
+  main content.
+- Focus is **always visible** — every interactive element shows a
+  ring/border when focused; focus never "disappears".
+- **Tab order** follows reading order; no positive `tabindex`.
+- **No keyboard trap** — you can always Tab back out of a widget.
+- **Escape** closes every overlay (Modal, Dropdown, mobile sidebar)
+  and focus returns to the element that opened it.
+- **Dropdowns** — focus moves into the menu on open; Up/Down/Home/End
+  move between items.
+- Every action reachable by mouse is reachable by keyboard (Enter /
+  Space activate buttons).
+
+### Manual — screen-reader pass
+
+NVDA on Windows, VoiceOver on macOS (`Cmd+F5`). Confirm:
+
+- **Forms** — tabbing onto a field announces the label, the required
+  state, and (when present) the helper text; submitting an invalid
+  form announces the error on the field, not just visually.
+- **Tables** — the DataTable announces its caption, column headers
+  read as you move across cells, and a sortable column announces its
+  sort state.
+- **Flash messages** — after a save/redirect, the success or error
+  message is announced by the live region without a focus move.
+- **Landmarks** — the landmark list names each region (Primary nav,
+  Mobile primary nav, Breadcrumb, main, banner).
+- **Headings** — every page has exactly one `<h1>` and the heading
+  outline is sensible.
+- **Icons** — decorative icons are silent; icon-only buttons announce
+  a meaningful name.
+
+### When a manual pass is required
+
+- Any **new page** (or a page that gained a new interactive section).
+- Any **layout change** (`AuthenticatedLayout`, `GuestLayout`).
+- Any **new interactive component** (modal, dropdown, custom control).
+- Before promoting the `a11y-smoke` gate to also fail on `serious`.

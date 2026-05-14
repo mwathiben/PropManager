@@ -48,7 +48,9 @@ const submit = () => {
                     @click="setRating(star)"
                     @mouseenter="hoveredRating = star"
                     @mouseleave="hoveredRating = 0"
-                    class="focus:outline-none"
+                    :aria-label="`Rate ${star} star${star > 1 ? 's' : ''}`"
+                    :aria-pressed="star <= form.rating"
+                    class="rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
                 >
                     <StarIcon
                         v-if="star <= (hoveredRating || form.rating)"

@@ -101,4 +101,20 @@ class Phase23FormTest extends TestCase
             );
         }
     }
+
+    public function test_helper_text_is_associated(): void
+    {
+        $register = file_get_contents(resource_path('js/Pages/Auth/Register.vue'));
+
+        $this->assertStringContainsString(
+            'aria-describedby="role-helper"',
+            $register,
+            'A11Y-FORM-3: the role <select> must point at its helper text via aria-describedby.',
+        );
+        $this->assertStringContainsString(
+            'id="role-helper"',
+            $register,
+            'A11Y-FORM-3: the role helper-text element must carry the matching id="role-helper".',
+        );
+    }
 }

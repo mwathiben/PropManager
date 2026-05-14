@@ -72,15 +72,18 @@ const submit = () => {
                     id="role"
                     class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
                     v-model="form.role"
+                    aria-describedby="role-helper"
                     required
                 >
                     <option value="landlord">Property Owner / Landlord</option>
                     <option value="caretaker">Property Manager / Caretaker</option>
                     <option value="tenant">Tenant</option>
                 </select>
-                
-                <!-- Helper Text -->
-                <div class="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600 border border-gray-100">
+
+                <!-- Helper Text — Phase-23 A11Y-FORM-3: associated to the
+                     select via aria-describedby so a screen-reader user
+                     hears the role explanation (WCAG 1.3.1). -->
+                <div id="role-helper" class="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600 border border-gray-100">
                     <p v-if="form.role === 'landlord'">
                         <strong>Owner:</strong> You own properties and want to track rent, manage tenants, and view financial reports.
                     </p>

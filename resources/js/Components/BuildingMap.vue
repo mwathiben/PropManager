@@ -148,9 +148,19 @@ onUnmounted(() => {
 <template>
     <div class="relative">
         <!-- Map Container -->
+        <!--
+            Phase-23 A11Y-SR-4: Leaflet's tile/marker DOM is not
+            meaningfully navigable by a screen reader. The building's
+            address is always shown as text elsewhere on the page, so
+            the map is a visual aid only — aria-hidden + role=presentation
+            so AT skips it and uses the real text (WCAG 1.1.1). The
+            zoom controls remain Tab-reachable but are not a trap.
+        -->
         <div
             ref="mapContainer"
             :style="{ height: height }"
+            role="presentation"
+            aria-hidden="true"
             class="w-full rounded-lg overflow-hidden border border-gray-200"
         ></div>
 
@@ -178,10 +188,11 @@ onUnmounted(() => {
         <div v-if="coordinates?.lat && coordinates?.lng" class="absolute top-3 right-3 flex gap-2">
             <button
                 @click="openInGoogleMaps"
-                class="p-2 bg-white rounded-lg shadow-md hover:bg-gray-50 transition"
+                class="p-2 bg-white rounded-lg shadow-md hover:bg-gray-50 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                 title="Open in Google Maps"
+                aria-label="Open location in Google Maps"
             >
-                <ArrowTopRightOnSquareIcon class="w-5 h-5 text-gray-600" />
+                <ArrowTopRightOnSquareIcon class="w-5 h-5 text-gray-600" aria-hidden="true" />
             </button>
         </div>
 

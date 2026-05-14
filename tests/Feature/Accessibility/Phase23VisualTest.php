@@ -57,4 +57,49 @@ class Phase23VisualTest extends TestCase
             );
         }
     }
+
+    /**
+     * A11Y-VISUAL-3: `focus:outline-none` strips the native focus ring;
+     * it MUST be paired with a visible replacement on the same element
+     * (a focus ring, a focus-visible ring, a focus border/text change,
+     * or a has-[:focus-visible] ring on a wrapping label). This guards
+     * WCAG 2.4.7 — a sweep fixed every bare occurrence, this pins it.
+     */
+    public function test_no_unreplaced_focus_outline_none(): void
+    {
+        $replacements = ['focus:ring', 'focus-visible:', 'focus:border', 'focus:text', 'has-[:focus'];
+
+        $files = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator(resource_path('js'), \FilesystemIterator::SKIP_DOTS),
+        );
+
+        $offenders = [];
+        foreach ($files as $file) {
+            if ($file->getExtension() !== 'vue') {
+                continue;
+            }
+            foreach (file($file->getPathname()) as $lineNo => $line) {
+                if (! str_contains($line, 'outline-none')) {
+                    continue;
+                }
+                $hasReplacement = false;
+                foreach ($replacements as $replacement) {
+                    if (str_contains($line, $replacement)) {
+                        $hasReplacement = true;
+                        break;
+                    }
+                }
+                if (! $hasReplacement) {
+                    $rel = str_replace(resource_path('js').DIRECTORY_SEPARATOR, '', $file->getPathname());
+                    $offenders[] = str_replace('\\', '/', $rel).':'.($lineNo + 1);
+                }
+            }
+        }
+
+        $this->assertSame(
+            [],
+            $offenders,
+            "A11Y-VISUAL-3: `focus:outline-none` without a visible focus replacement:\n".implode("\n", $offenders),
+        );
+    }
 }

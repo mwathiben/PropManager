@@ -256,7 +256,9 @@ const toggleActive = (req: KycRequirement) => {
                                                 :data-testid="`toggle-required-${req.id}`"
                                                 :disabled="!canEdit(req)"
                                                 @click="toggleRequired(req)"
-                                                class="focus:outline-none disabled:cursor-not-allowed"
+                                                :aria-label="req.is_required ? 'Mark as not required' : 'Mark as required'"
+                                                :aria-pressed="req.is_required"
+                                                class="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed"
                                             >
                                                 <CheckCircleIcon
                                                     v-if="req.is_required"
@@ -276,7 +278,9 @@ const toggleActive = (req: KycRequirement) => {
                                                 :data-testid="`toggle-active-${req.id}`"
                                                 :disabled="!canEdit(req)"
                                                 @click="toggleActive(req)"
-                                                class="focus:outline-none disabled:cursor-not-allowed"
+                                                :aria-label="req.is_active ? 'Deactivate requirement' : 'Activate requirement'"
+                                                :aria-pressed="req.is_active"
+                                                class="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed"
                                             >
                                                 <CheckCircleIcon
                                                     v-if="req.is_active"

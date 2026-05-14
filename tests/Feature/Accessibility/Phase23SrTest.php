@@ -203,4 +203,25 @@ class Phase23SrTest extends TestCase
             );
         }
     }
+
+    public function test_building_map_has_a_text_alternative(): void
+    {
+        $map = file_get_contents(resource_path('js/Components/BuildingMap.vue'));
+
+        $this->assertStringContainsString(
+            'aria-hidden="true"',
+            $map,
+            'A11Y-SR-4: the Leaflet map container must be aria-hidden — the address is shown as text elsewhere.',
+        );
+        $this->assertStringContainsString(
+            'role="presentation"',
+            $map,
+            'A11Y-SR-4: the map container must carry role="presentation".',
+        );
+        $this->assertStringContainsString(
+            'aria-label="Open location in Google Maps"',
+            $map,
+            'A11Y-SR-4: the Google Maps action button must have an accessible name.',
+        );
+    }
 }
