@@ -322,7 +322,12 @@ const navigationItems = computed(() => {
                 </div>
 
                 <!-- Navigation -->
-                <nav class="flex-1 overflow-y-auto py-4 px-3">
+                <!--
+                    Phase-23 A11Y-SR-2: distinct aria-label so a screen
+                    reader's landmark list can tell the multiple <nav>s
+                    apart (desktop sidebar / mobile sidebar / breadcrumb).
+                -->
+                <nav aria-label="Primary" class="flex-1 overflow-y-auto py-4 px-3">
                     <template v-for="(item, index) in navigationItems" :key="index">
                         <!-- Divider -->
                         <div v-if="item.type === 'divider'" class="mt-6 mb-2">
@@ -473,7 +478,7 @@ const navigationItems = computed(() => {
                         </div>
                     </div>
 
-                    <nav class="flex-1 overflow-y-auto py-4 px-3">
+                    <nav aria-label="Mobile primary" class="flex-1 overflow-y-auto py-4 px-3">
                         <template v-for="(item, index) in navigationItems" :key="index">
                             <div v-if="item.type === 'divider'" class="mt-6 mb-2">
                                 <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{{ item.label }}</p>

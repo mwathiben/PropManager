@@ -66,9 +66,9 @@ const getEventBadgeClass = (color) => {
     <AuthenticatedLayout>
         <template #header>
             <div class="flex justify-between items-center">
-                <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+                <h1 class="font-semibold text-xl text-gray-800 leading-tight">
                     Audit Logs
-                </h2>
+                </h1>
                 <button
                     @click="exportLogs"
                     class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm"

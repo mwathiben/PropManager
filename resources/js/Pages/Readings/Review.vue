@@ -97,7 +97,7 @@ const getPhotoUrl = (reading) => {
                         <!-- Header -->
                         <div class="flex justify-between items-center mb-6">
                             <div>
-                                <h2 class="text-2xl font-bold text-gray-800">Review Water Readings</h2>
+                                <h1 class="text-2xl font-bold text-gray-800">Review Water Readings</h1>
                                 <p class="text-sm text-gray-600 mt-1">
                                     {{ pendingReadings.total }} pending reading(s) awaiting approval
                                 </p>

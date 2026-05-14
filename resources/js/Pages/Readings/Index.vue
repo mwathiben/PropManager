@@ -141,9 +141,9 @@ const getReadingEntry = (unitId) => {
                         
                         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                             <div>
-                                <h2 class="text-xl font-bold text-gray-800">
+                                <h1 class="text-xl font-bold text-gray-800">
                                     {{ isCaretaker ? 'Water Meter Input' : 'Record Water Readings' }}
-                                </h2>
+                                </h1>
                                 <p class="text-sm text-gray-600 mt-1">
                                     {{ isCaretaker ? 'Submit readings for landlord approval' : 'Enter meter readings for billing' }}
                                 </p>

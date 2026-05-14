@@ -35,9 +35,12 @@ const submit = () => {
     <GuestLayout>
         <Head title="Reset Password" />
 
+        <!-- Phase-23 A11Y-SR-2: sr-only page heading for the document outline. -->
+        <h1 class="sr-only">Reset Password</h1>
+
         <form @submit.prevent="submit">
             <div>
-                <InputLabel for="email" value="Email" />
+                <InputLabel required for="email" value="Email" />
 
                 <TextInput
                     id="email"
@@ -54,7 +57,7 @@ const submit = () => {
             </div>
 
             <div class="mt-4">
-                <InputLabel for="password" value="Password" />
+                <InputLabel required for="password" value="Password" />
 
                 <TextInput
                     id="password"
@@ -70,7 +73,7 @@ const submit = () => {
             </div>
 
             <div class="mt-4">
-                <InputLabel
+                <InputLabel required
                     for="password_confirmation"
                     value="Confirm Password"
                 />

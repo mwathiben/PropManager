@@ -87,7 +87,7 @@ const deleteReading = (readingId) => {
                     <div class="p-6 bg-white border-b border-gray-200">
 
                         <div class="flex justify-between items-center mb-6">
-                            <h2 class="text-xl font-bold text-gray-800">Water Reading History</h2>
+                            <h1 class="text-xl font-bold text-gray-800">Water Reading History</h1>
                             <Link :href="route('readings.index')" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
                                 Add Readings
                             </Link>

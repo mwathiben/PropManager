@@ -29,6 +29,8 @@ interface Props {
     itemHeight?: number;
     containerHeight?: number;
     overscan?: number;
+    // Phase-23 A11Y-SR-3: visually-hidden <caption> naming the table.
+    caption?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -78,6 +80,14 @@ const handleSort = (column: ColumnDefinition) => {
     emit('sort', { key: column.key, direction });
 };
 
+// Phase-23 A11Y-SR-3: reflect the current sort state on the <th> so a
+// screen reader can announce it (WCAG 1.3.1).
+const ariaSortFor = (column: ColumnDefinition): 'ascending' | 'descending' | 'none' | undefined => {
+    if (!column.sortable) return undefined;
+    if (props.sortBy !== column.key) return 'none';
+    return props.sortDirection === 'asc' ? 'ascending' : 'descending';
+};
+
 const handleSelectAll = () => {
     if (allSelected.value) {
         emit('selectAll', []);
@@ -110,42 +120,53 @@ const actualItemHeight = computed(() => props.compact ? 44 : 52);
         <!-- Header -->
         <div class="overflow-x-auto">
             <table class="min-w-full">
+                <caption v-if="caption" class="sr-only">{{ caption }}</caption>
                 <thead :class="['bg-gray-50 border-b border-gray-200', stickyHeader ? 'sticky top-0 z-10' : '']">
                     <tr>
-                        <th v-if="selectable" :class="[cellClasses, 'w-10']">
+                        <th v-if="selectable" scope="col" :class="[cellClasses, 'w-10']">
                             <input
                                 type="checkbox"
                                 :checked="allSelected"
                                 :indeterminate="someSelected"
                                 @change="handleSelectAll"
+                                aria-label="Select all rows"
                                 class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                             />
                         </th>
                         <th
                             v-for="column in columns"
                             :key="column.key"
+                            scope="col"
+                            :aria-sort="ariaSortFor(column)"
                             :class="[
                                 cellClasses,
                                 'text-left text-xs font-medium text-gray-500 uppercase tracking-wider',
                                 column.align === 'right' ? 'text-right' : column.align === 'center' ? 'text-center' : '',
                                 column.width ? column.width : '',
-                                column.sortable ? 'cursor-pointer hover:bg-gray-100 select-none' : '',
                             ]"
-                            @click="handleSort(column)"
                         >
-                            <div class="flex items-center gap-1" :class="[column.align === 'right' ? 'justify-end' : '']">
+                            <button
+                                v-if="column.sortable"
+                                type="button"
+                                @click="handleSort(column)"
+                                class="flex items-center gap-1 w-full uppercase tracking-wider cursor-pointer select-none hover:text-gray-700"
+                                :class="[column.align === 'right' ? 'justify-end' : '']"
+                            >
                                 <span>{{ column.label }}</span>
-                                <template v-if="column.sortable">
-                                    <ChevronUpIcon
-                                        v-if="sortBy === column.key && sortDirection === 'asc'"
-                                        class="h-3.5 w-3.5 text-indigo-600"
-                                    />
-                                    <ChevronDownIcon
-                                        v-else-if="sortBy === column.key && sortDirection === 'desc'"
-                                        class="h-3.5 w-3.5 text-indigo-600"
-                                    />
-                                    <span v-else class="h-3.5 w-3.5" />
-                                </template>
+                                <ChevronUpIcon
+                                    v-if="sortBy === column.key && sortDirection === 'asc'"
+                                    class="h-3.5 w-3.5 text-indigo-600"
+                                    aria-hidden="true"
+                                />
+                                <ChevronDownIcon
+                                    v-else-if="sortBy === column.key && sortDirection === 'desc'"
+                                    class="h-3.5 w-3.5 text-indigo-600"
+                                    aria-hidden="true"
+                                />
+                                <span v-else class="h-3.5 w-3.5" aria-hidden="true" />
+                            </button>
+                            <div v-else class="flex items-center gap-1" :class="[column.align === 'right' ? 'justify-end' : '']">
+                                <span>{{ column.label }}</span>
                             </div>
                         </th>
                     </tr>
@@ -203,6 +224,7 @@ const actualItemHeight = computed(() => props.compact ? 44 : 52);
                                     type="checkbox"
                                     :checked="isSelected(row)"
                                     @change="handleSelect(row)"
+                                    aria-label="Select row"
                                     class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                                 />
                             </td>

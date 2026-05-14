@@ -12,7 +12,7 @@ withDefaults(defineProps<{
 </script>
 
 <template>
-    <nav class="flex items-center space-x-2 text-sm">
+    <nav aria-label="Breadcrumb" class="flex items-center space-x-2 text-sm">
         <Link :href="route('dashboard')" class="text-gray-400 hover:text-gray-600 transition-colors">
             <HomeIcon class="h-4 w-4" />
         </Link>

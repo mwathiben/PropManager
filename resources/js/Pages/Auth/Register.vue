@@ -32,9 +32,12 @@ const submit = () => {
     <GuestLayout>
         <Head title="Register" />
 
+        <!-- Phase-23 A11Y-SR-2: sr-only page heading for the document outline. -->
+        <h1 class="sr-only">Register</h1>
+
         <form @submit.prevent="submit">
             <div>
-                <InputLabel for="name" value="Name" />
+                <InputLabel required for="name" value="Name" />
                 <TextInput
                     id="name"
                     type="text"
@@ -49,7 +52,7 @@ const submit = () => {
             </div>
 
             <div class="mt-4">
-                <InputLabel for="email" value="Email" />
+                <InputLabel required for="email" value="Email" />
                 <TextInput
                     id="email"
                     type="email"
@@ -64,7 +67,7 @@ const submit = () => {
 
             <!-- NEW: Role Selection with Tooltips -->
             <div class="mt-4">
-                <InputLabel for="role" value="I am a..." />
+                <InputLabel required for="role" value="I am a..." />
                 <select
                     id="role"
                     class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
@@ -92,7 +95,7 @@ const submit = () => {
             </div>
 
             <div class="mt-4">
-                <InputLabel for="password" value="Password" />
+                <InputLabel required for="password" value="Password" />
                 <TextInput
                     id="password"
                     type="password"
@@ -106,7 +109,7 @@ const submit = () => {
             </div>
 
             <div class="mt-4">
-                <InputLabel for="password_confirmation" value="Confirm Password" />
+                <InputLabel required for="password_confirmation" value="Confirm Password" />
                 <TextInput
                     id="password_confirmation"
                     type="password"

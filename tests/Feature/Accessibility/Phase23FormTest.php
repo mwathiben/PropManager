@@ -69,4 +69,36 @@ class Phase23FormTest extends TestCase
             }
         }
     }
+
+    public function test_required_label_has_visible_and_sr_marker(): void
+    {
+        $inputLabel = file_get_contents(resource_path('js/Components/InputLabel.vue'));
+
+        $this->assertStringContainsString(
+            'required',
+            $inputLabel,
+            'A11Y-FORM-2: InputLabel must accept a `required` prop.',
+        );
+        $this->assertStringContainsString(
+            '<span class="text-red-600" aria-hidden="true">*</span>',
+            $inputLabel,
+            'A11Y-FORM-2: InputLabel must render a visible (aria-hidden) asterisk marker.',
+        );
+        $this->assertStringContainsString(
+            '<span class="sr-only"> (required)</span>',
+            $inputLabel,
+            'A11Y-FORM-2: InputLabel must render sr-only " (required)" text so the cue is not symbol-only.',
+        );
+
+        // Every InputLabel in the Auth forms is for a required field —
+        // each must pass the `required` prop.
+        foreach (['Login', 'Register', 'ForgotPassword', 'ResetPassword', 'ConfirmPassword'] as $form) {
+            $contents = file_get_contents(resource_path("js/Pages/Auth/{$form}.vue"));
+            $this->assertSame(
+                substr_count($contents, '<InputLabel'),
+                substr_count($contents, '<InputLabel required'),
+                "A11Y-FORM-2: every InputLabel in {$form}.vue must pass `required` (all its fields are mandatory).",
+            );
+        }
+    }
 }

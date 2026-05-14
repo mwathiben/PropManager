@@ -160,7 +160,7 @@ const occupancyColor = computed(() => {
                             <span>/</span>
                             <span class="text-gray-900 font-medium">{{ building.name }}</span>
                         </div>
-                        <h2 class="font-semibold text-xl text-gray-800 leading-tight">Building Details</h2>
+                        <h1 class="font-semibold text-xl text-gray-800 leading-tight">Building Details</h1>
                     </div>
                 </div>
                 <div class="flex items-center gap-3">

@@ -38,9 +38,9 @@ const submit = () => {
         <template #header>
             <div class="flex items-center justify-between">
                 <div>
-                    <h2 class="text-xl font-semibold leading-tight text-gray-800">
+                    <h1 class="text-xl font-semibold leading-tight text-gray-800">
                         Water Settings
-                    </h2>
+                    </h1>
                     <p class="text-sm text-gray-500 mt-1">
                         Configure water billing for {{ building.name }}
                     </p>

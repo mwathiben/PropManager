@@ -97,7 +97,7 @@ const submitGenerate = () => {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">Invoices</h2>
+            <h1 class="font-semibold text-xl text-gray-800 leading-tight">Invoices</h1>
         </template>
 
         <div class="py-6">

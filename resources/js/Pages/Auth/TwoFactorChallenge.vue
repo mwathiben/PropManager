@@ -28,6 +28,9 @@ const toggleMode = () => {
     <GuestLayout>
         <Head title="Two-Factor Authentication" />
 
+        <!-- Phase-23 A11Y-SR-2: sr-only page heading for the document outline. -->
+        <h1 class="sr-only">Two-Factor Authentication</h1>
+
         <div class="mb-4 text-center">
             <div class="mx-auto h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center mb-4">
                 <svg class="h-6 w-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -76,7 +76,7 @@ const getOccupancyColor = (rate) => {
         <template #header>
             <div class="flex justify-between items-center">
                 <div>
-                    <h2 class="font-semibold text-xl text-gray-800 leading-tight">My Properties</h2>
+                    <h1 class="font-semibold text-xl text-gray-800 leading-tight">My Properties</h1>
                     <p class="text-sm text-gray-500 mt-1">Manage all your buildings and properties</p>
                 </div>
                 <button

@@ -25,6 +25,9 @@ const verificationLinkSent = computed(
     <GuestLayout>
         <Head title="Email Verification" />
 
+        <!-- Phase-23 A11Y-SR-2: sr-only page heading for the document outline. -->
+        <h1 class="sr-only">Email Verification</h1>
+
         <div class="mb-4 text-sm text-gray-600">
             Thanks for signing up! Before getting started, could you verify your
             email address by clicking on the link we just emailed to you? If you

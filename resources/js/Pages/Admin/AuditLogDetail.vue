@@ -39,9 +39,9 @@ const formatJson = (data) => {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                     </svg>
                 </Link>
-                <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+                <h1 class="font-semibold text-xl text-gray-800 leading-tight">
                     Audit Log #{{ log.id }}
-                </h2>
+                </h1>
             </div>
         </template>
 

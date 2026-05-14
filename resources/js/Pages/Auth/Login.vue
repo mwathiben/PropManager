@@ -40,13 +40,16 @@ const submit = () => {
     <GuestLayout>
         <Head title="Log in" />
 
+        <!-- Phase-23 A11Y-SR-2: sr-only page heading for the document outline. -->
+        <h1 class="sr-only">Log in</h1>
+
         <div v-if="status" class="mb-4 text-sm font-medium text-green-600">
             {{ status }}
         </div>
 
         <form @submit.prevent="submit">
             <div>
-                <InputLabel for="email" value="Email" />
+                <InputLabel required for="email" value="Email" />
 
                 <TextInput
                     id="email"
@@ -63,7 +66,7 @@ const submit = () => {
             </div>
 
             <div class="mt-4">
-                <InputLabel for="password" value="Password" />
+                <InputLabel required for="password" value="Password" />
 
                 <TextInput
                     id="password"

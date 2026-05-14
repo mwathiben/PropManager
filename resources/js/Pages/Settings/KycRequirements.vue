@@ -168,9 +168,9 @@ const toggleActive = (req: KycRequirement) => {
                         <ArrowLeftIcon class="w-4 h-4 mr-1" />
                         Back to Settings
                     </Link>
-                    <h2 class="text-xl font-semibold leading-tight text-gray-800">
+                    <h1 class="text-xl font-semibold leading-tight text-gray-800">
                         KYC Requirements
-                    </h2>
+                    </h1>
                 </div>
                 <button
                     v-if="canCreate"

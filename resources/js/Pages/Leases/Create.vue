@@ -89,9 +89,9 @@ const getChannelLabel = (channel) => {
                 <!-- HEADER -->
                 <div class="md:flex md:items-center md:justify-between mb-8">
                     <div class="flex-1 min-w-0">
-                        <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                        <h1 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
                             Invite Tenant: Unit {{ unit.unit_number }}
-                        </h2>
+                        </h1>
                         <p class="text-sm text-gray-500 mt-1">Send a lease invitation for Floor {{ unit.floor_number }}</p>
                     </div>
                 </div>

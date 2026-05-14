@@ -369,6 +369,9 @@ onUnmounted(() => {
     <AuthenticatedLayout>
         <!-- Top Bar: Location Dropdown + Actions -->
         <template #header>
+            <!-- Phase-23 A11Y-SR-2: page heading for the document outline.
+                 sr-only — the header bar is a property switcher, not a title. -->
+            <h1 class="sr-only">Dashboard</h1>
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
                 <div class="flex items-center gap-3 min-w-0">
                     <!-- Unified Property/Building Dropdown -->

@@ -105,7 +105,7 @@ const getBuildingTypeColor = (type: string) => {
         <template #header>
             <div class="flex items-center justify-between">
                 <div>
-                    <h2 class="font-semibold text-xl text-gray-800 leading-tight">My Buildings</h2>
+                    <h1 class="font-semibold text-xl text-gray-800 leading-tight">My Buildings</h1>
                     <p class="text-sm text-gray-500 mt-1">Manage all your properties in one place</p>
                 </div>
                 <button

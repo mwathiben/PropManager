@@ -25,6 +25,9 @@ const submit = () => {
     <GuestLayout>
         <Head title="Forgot Password" />
 
+        <!-- Phase-23 A11Y-SR-2: sr-only page heading for the document outline. -->
+        <h1 class="sr-only">Forgot Password</h1>
+
         <div class="mb-4 text-sm text-gray-600">
             Forgot your password? No problem. Just let us know your email
             address and we will email you a password reset link that will allow
@@ -40,7 +43,7 @@ const submit = () => {
 
         <form @submit.prevent="submit">
             <div>
-                <InputLabel for="email" value="Email" />
+                <InputLabel required for="email" value="Email" />
 
                 <TextInput
                     id="email"

@@ -100,4 +100,107 @@ class Phase23SrTest extends TestCase
             );
         }
     }
+
+    public function test_nav_landmarks_are_labelled(): void
+    {
+        $layout = file_get_contents(resource_path('js/Layouts/AuthenticatedLayout.vue'));
+        foreach (['aria-label="Primary"', 'aria-label="Mobile primary"'] as $label) {
+            $this->assertStringContainsString(
+                $label,
+                $layout,
+                "A11Y-SR-2: AuthenticatedLayout's <nav> landmarks must carry distinct aria-labels ({$label}).",
+            );
+        }
+
+        $breadcrumb = file_get_contents(resource_path('js/Components/Breadcrumb.vue'));
+        $this->assertStringContainsString(
+            'aria-label="Breadcrumb"',
+            $breadcrumb,
+            'A11Y-SR-2: the Breadcrumb <nav> must carry aria-label="Breadcrumb".',
+        );
+    }
+
+    /**
+     * A11Y-SR-2: every Inertia page must contribute an <h1> to the
+     * document outline. The allow-list covers files under resources/
+     * js/Pages that are NOT standalone pages — tab panels, modals,
+     * partials and sub-component directories render inside a parent
+     * page that already owns the <h1>. Welcome.vue is the full-bleed
+     * marketing splash. This list is shrink-only: removing an entry
+     * (because the file gained a real <h1>) is fine; adding one needs
+     * a justification here.
+     */
+    public function test_every_page_has_an_h1(): void
+    {
+        $allowedPatterns = [
+            '#/(tabs|modals|components)/#',
+            '#/Partials/#',
+            '#Tab\.vue$#',
+            '#Modal\.vue$#',
+            '#/Welcome\.vue$#',
+        ];
+
+        $pagesDir = resource_path('js/Pages');
+        $files = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($pagesDir, \FilesystemIterator::SKIP_DOTS),
+        );
+
+        $missing = [];
+        foreach ($files as $file) {
+            if ($file->getExtension() !== 'vue') {
+                continue;
+            }
+            $path = str_replace('\\', '/', $file->getPathname());
+
+            $allowed = false;
+            foreach ($allowedPatterns as $pattern) {
+                if (preg_match($pattern, $path)) {
+                    $allowed = true;
+                    break;
+                }
+            }
+            if ($allowed) {
+                continue;
+            }
+
+            if (! str_contains(file_get_contents($file->getPathname()), '<h1')) {
+                $missing[] = $path;
+            }
+        }
+
+        $this->assertSame(
+            [],
+            $missing,
+            'A11Y-SR-2: these standalone pages have no <h1> — add one (sr-only is fine) '
+                ."or, if it is genuinely not a page, allow-list it:\n".implode("\n", $missing),
+        );
+    }
+
+    public function test_datatable_exposes_table_semantics(): void
+    {
+        foreach (['DataTable', 'VirtualDataTable'] as $component) {
+            $contents = file_get_contents(resource_path("js/Components/Finances/{$component}.vue"));
+
+            $this->assertStringContainsString(
+                '<caption v-if="caption" class="sr-only">',
+                $contents,
+                "A11Y-SR-3: {$component} must render a <caption> when a caption prop is given.",
+            );
+            $this->assertStringContainsString(
+                'scope="col"',
+                $contents,
+                "A11Y-SR-3: {$component} header cells must carry scope=\"col\".",
+            );
+            $this->assertStringContainsString(
+                ':aria-sort="ariaSortFor(column)"',
+                $contents,
+                "A11Y-SR-3: {$component} must reflect sort state via aria-sort.",
+            );
+            $this->assertMatchesRegularExpression(
+                '/<button\s+v-if="column\.sortable"\s+type="button"/',
+                $contents,
+                "A11Y-SR-3: {$component} sortable columns must use a real <button>, not a click-on-<th>.",
+            );
+        }
+    }
 }

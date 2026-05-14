@@ -76,9 +76,9 @@ function closeModal() {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+            <h1 class="font-semibold text-xl text-gray-800 leading-tight">
                 KYC Pending Reviews
-            </h2>
+            </h1>
         </template>
 
         <div class="py-12">
