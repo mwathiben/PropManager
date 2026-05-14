@@ -25,6 +25,8 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 tmpclaude-*
+C:UsersbensonAppDataLocalTemp*
+/ci-result*.txt
 _ide_helper.php
 _ide_helper_models.php
 .phpstorm.meta.php
