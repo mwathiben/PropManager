@@ -174,6 +174,13 @@ return [
             'level' => 'debug',
             'days' => env('WHATSAPP_LOG_RETENTION_DAYS', 30),
             'replace_placeholders' => true,
+            // Phase-21 DEFER-OBSERV-2: auxiliary channel JSON formatter.
+            // When LOG_FORMATTER=json, the channel emits the same JSON
+            // shape as single/daily so log aggregators (Loki, Datadog)
+            // parse symmetrically. Phase-13 DPA-6 masking applied first.
+            'tap' => env('LOG_FORMATTER', 'line') === 'json'
+                ? [\App\Logging\TapMaskingProcessor::class, \App\Logging\TapJsonFormatter::class]
+                : [\App\Logging\TapMaskingProcessor::class],
         ],
 
         'cache' => [
@@ -182,6 +189,10 @@ return [
             'level' => env('CACHE_LOG_LEVEL', 'debug'),
             'days' => 7,
             'replace_placeholders' => true,
+            // Phase-21 DEFER-OBSERV-2.
+            'tap' => env('LOG_FORMATTER', 'line') === 'json'
+                ? [\App\Logging\TapMaskingProcessor::class, \App\Logging\TapJsonFormatter::class]
+                : [\App\Logging\TapMaskingProcessor::class],
         ],
 
         // Phase-15 PERF-6: slow-query channel. SlowQueryServiceProvider
@@ -192,8 +203,11 @@ return [
             'level' => 'warning',
             'days' => env('SLOW_QUERY_LOG_RETENTION_DAYS', 14),
             'replace_placeholders' => true,
-            // Mask any PII in slow-query log context (Phase-13 DPA-6).
-            'tap' => [\App\Logging\TapMaskingProcessor::class],
+            // Phase-21 DEFER-OBSERV-2: JSON formatter when configured;
+            // Phase-13 DPA-6 PII masking always applied.
+            'tap' => env('LOG_FORMATTER', 'line') === 'json'
+                ? [\App\Logging\TapMaskingProcessor::class, \App\Logging\TapJsonFormatter::class]
+                : [\App\Logging\TapMaskingProcessor::class],
         ],
 
         // OBS-5: per-domain channels for notification + payment +
@@ -207,6 +221,10 @@ return [
             'level' => env('NOTIFICATIONS_LOG_LEVEL', 'debug'),
             'days' => env('NOTIFICATIONS_LOG_RETENTION_DAYS', 30),
             'replace_placeholders' => true,
+            // Phase-21 DEFER-OBSERV-2.
+            'tap' => env('LOG_FORMATTER', 'line') === 'json'
+                ? [\App\Logging\TapMaskingProcessor::class, \App\Logging\TapJsonFormatter::class]
+                : [\App\Logging\TapMaskingProcessor::class],
         ],
 
         'payments' => [
@@ -215,6 +233,10 @@ return [
             'level' => env('PAYMENTS_LOG_LEVEL', 'debug'),
             'days' => env('PAYMENTS_LOG_RETENTION_DAYS', 90),
             'replace_placeholders' => true,
+            // Phase-21 DEFER-OBSERV-2.
+            'tap' => env('LOG_FORMATTER', 'line') === 'json'
+                ? [\App\Logging\TapMaskingProcessor::class, \App\Logging\TapJsonFormatter::class]
+                : [\App\Logging\TapMaskingProcessor::class],
         ],
 
         'schedule' => [
@@ -223,6 +245,10 @@ return [
             'level' => env('SCHEDULE_LOG_LEVEL', 'info'),
             'days' => env('SCHEDULE_LOG_RETENTION_DAYS', 30),
             'replace_placeholders' => true,
+            // Phase-21 DEFER-OBSERV-2.
+            'tap' => env('LOG_FORMATTER', 'line') === 'json'
+                ? [\App\Logging\TapMaskingProcessor::class, \App\Logging\TapJsonFormatter::class]
+                : [\App\Logging\TapMaskingProcessor::class],
         ],
 
         'metrics' => [
@@ -231,6 +257,10 @@ return [
             'level' => env('METRICS_LOG_LEVEL', 'warning'),
             'days' => 14,
             'replace_placeholders' => true,
+            // Phase-21 DEFER-OBSERV-2.
+            'tap' => env('LOG_FORMATTER', 'line') === 'json'
+                ? [\App\Logging\TapMaskingProcessor::class, \App\Logging\TapJsonFormatter::class]
+                : [\App\Logging\TapMaskingProcessor::class],
         ],
 
     ],

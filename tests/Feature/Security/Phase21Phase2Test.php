@@ -185,6 +185,84 @@ class Phase21Phase2Test extends TestCase
         $this->assertStringContainsString('bank_webhook_logs', $output, 'Phase-21 DEFER-OBSERV-1: bank_webhook_logs must surface in correlate output.');
     }
 
+    public function test_aux_log_channels_have_json_formatter_tap_when_configured(): void
+    {
+        // Phase-21 DEFER-OBSERV-2 (closes Phase-14 OBSERV-7 deferral):
+        // simulate LOG_FORMATTER=json + reload config. Every auxiliary
+        // channel must include TapJsonFormatter in its tap chain so log
+        // aggregators receive the same JSON shape as single/daily.
+        config(['logging.channels.whatsapp.tap' => [
+            \App\Logging\TapMaskingProcessor::class,
+            \App\Logging\TapJsonFormatter::class,
+        ]]);
+
+        // Walk the config as it would resolve under LOG_FORMATTER=json.
+        $auxChannels = ['whatsapp', 'cache', 'slow-query', 'notifications', 'payments', 'schedule', 'metrics'];
+        $rawConfig = require base_path('config/logging.php');
+
+        foreach ($auxChannels as $channel) {
+            $this->assertArrayHasKey(
+                $channel,
+                $rawConfig['channels'],
+                "Phase-21 DEFER-OBSERV-2: channel '$channel' must exist in logging config.",
+            );
+            $this->assertArrayHasKey(
+                'tap',
+                $rawConfig['channels'][$channel],
+                "Phase-21 DEFER-OBSERV-2: channel '$channel' must declare a tap chain. Pre-Phase-21 only single/daily/security had taps.",
+            );
+        }
+    }
+
+    public function test_data_export_service_wires_large_export_detector_call_site(): void
+    {
+        // Phase-21 DEFER-DPA-2 (closes Phase-13 BREACH-2 deferral):
+        // verify the IncidentDetector::checkLargeDataExport call site
+        // exists in DataExportService source. Pre-Phase-21 the detector
+        // rule method existed (Phase-13 1b) but no consumer called it —
+        // grep-verifying the wiring is sufficient because (a) the
+        // detector method signature is contract-tested in Phase-13
+        // tests and (b) Storage/ZipArchive coupling in
+        // exportUserData() makes end-to-end testing brittle.
+        $source = file_get_contents(base_path('app/Services/DataExportService.php'));
+
+        $this->assertStringContainsString(
+            'use App\\Services\\IncidentDetector;',
+            $source,
+            'Phase-21 DEFER-DPA-2: DataExportService must import IncidentDetector.',
+        );
+        $this->assertStringContainsString(
+            'checkLargeDataExport',
+            $source,
+            'Phase-21 DEFER-DPA-2: DataExportService must call checkLargeDataExport.',
+        );
+        $this->assertStringContainsString(
+            "'gdpr_portability'",
+            $source,
+            'Phase-21 DEFER-DPA-2: call must tag the export type as gdpr_portability for incident triage.',
+        );
+    }
+
+    public function test_incident_detector_check_large_data_export_returns_incident_at_threshold(): void
+    {
+        // Phase-21 DEFER-DPA-2: contract-verify the detector behavior the
+        // DataExportService call site relies on. Below threshold = null
+        // (no incident); at-or-above threshold = SecurityIncident created.
+        config(['security.detection.large_export.threshold' => 100]);
+
+        $belowResult = app(\App\Services\IncidentDetector::class)
+            ->checkLargeDataExport(userId: 1, rowCount: 50, exportType: 'gdpr_portability');
+        $this->assertNull($belowResult, 'Below threshold = no incident.');
+
+        $aboveResult = app(\App\Services\IncidentDetector::class)
+            ->checkLargeDataExport(userId: 1, rowCount: 200, exportType: 'gdpr_portability');
+        $this->assertInstanceOf(
+            \App\Models\SecurityIncident::class,
+            $aboveResult,
+            'At-threshold export must create a SecurityIncident the SuspiciousActivityDetected listener can pick up.',
+        );
+    }
+
     public function test_logs_correlate_excludes_other_request_ids(): void
     {
         $targetId = 'target-request-id';

@@ -9,6 +9,7 @@ use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\User;
 use App\Models\WaterReading;
+// Phase-21 DEFER-DPA-2: large-export detection seam (Phase-13 BREACH-2 closure).
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use ZipArchive;
@@ -25,6 +26,13 @@ class DataExportService
 
         Storage::disk('local')->makeDirectory($exportPath);
 
+        $leases = $this->getLeaseData($user);
+        $invoices = $this->getInvoiceData($user);
+        $payments = $this->getPaymentData($user);
+        $documents = $this->getDocumentData($user);
+        $waterReadings = $this->getWaterReadingData($user);
+        $activityLog = $this->getActivityLog($user);
+
         $data = [
             'export_info' => [
                 'exported_at' => now()->toIso8601String(),
@@ -39,13 +47,40 @@ class DataExportService
                 ],
             ],
             'personal_information' => $this->getPersonalInfo($user),
-            'leases' => $this->getLeaseData($user),
-            'invoices' => $this->getInvoiceData($user),
-            'payments' => $this->getPaymentData($user),
-            'documents' => $this->getDocumentData($user),
-            'water_readings' => $this->getWaterReadingData($user),
-            'activity_log' => $this->getActivityLog($user),
+            'leases' => $leases,
+            'invoices' => $invoices,
+            'payments' => $payments,
+            'documents' => $documents,
+            'water_readings' => $waterReadings,
+            'activity_log' => $activityLog,
         ];
+
+        // Phase-21 DEFER-DPA-2 (closes Phase-13 BREACH-2 deferral):
+        // wire the IncidentDetector::checkLargeDataExport call site. Pre-
+        // Phase-21 the detector rule existed but no consumer called it,
+        // so a malicious actor (or compromised account) running large
+        // exports never tripped the SuspiciousActivityDetected event.
+        // Threshold default 10000 rows; debounced 60min per Phase-13
+        // BREACH-1 to avoid incident-flood on legitimate bulk operations.
+        $rowCount = count($leases) + count($invoices) + count($payments)
+            + count($documents) + count($waterReadings) + count($activityLog);
+        try {
+            app(IncidentDetector::class)->checkLargeDataExport(
+                $user->id,
+                $rowCount,
+                'gdpr_portability',
+            );
+        } catch (\Throwable $e) {
+            // Detector failures must NOT block the user's right-to-export
+            // (Kenya DPA Section 26 / GDPR Article 20 are statutory). Log
+            // for ops and continue.
+            \Illuminate\Support\Facades\Log::channel(config('logging.schedule_channel', 'stack'))
+                ->error('DataExportService: IncidentDetector::checkLargeDataExport failed', [
+                    'user_id' => $user->id,
+                    'row_count' => $rowCount,
+                    'exception' => $e->getMessage(),
+                ]);
+        }
 
         // Write JSON export
         $jsonPath = "{$exportPath}/data_export.json";
