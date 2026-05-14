@@ -67,7 +67,14 @@
       "Bash(composer install:*)",
       "Bash(git config:*)",
       "Bash(.\\\\vendor\\\\bin\\\\pint:*)",
-      "Bash(git status:*)"
+      "Bash(git status:*)",
+      "Bash(cd:*)",
+      "Bash(\"C:/laragon/laragon.exe\" reload apache)",
+      "Bash(git -C c:/laragon/www/PropManager log --oneline -5)",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" pr create --base main --head master --title \"feat\\(PAY-V2.1-014\\): Replace hardcoded KES in email blade templates\" --body \"$\\(cat <<''EOF''\n## Summary\n\n- Update 12 email blade templates and 11 Mailable classes to pass dynamic `currency_symbol` instead of hardcoding `KES`\n- Follow the existing `PaymentReceived` pattern: resolve currency from Payment/Invoice model or Building''s `getEffectiveCurrency\\(\\)`, with `Currency::default\\(\\)` fallback\n- Clean `.env.example` of 13 phantom OAuth/OCR env vars that no config file reads\n- Remove hardcoded `''currency'' => ''KES''` from `config/mpesa.php` defaults\n\n## Changes\n\n### Mailable Classes \\(11 files\\)\nEach Mailable now passes `currency_symbol` via the `with:` array using null-safe currency resolution:\n- `InvoiceSent`, `InvoiceReminder` — from `$invoice->currency`\n- `RentHikeNotice` — from `$building->getEffectiveCurrency\\(\\)`\n- `DepositRefundNotification`, `TenantCredentials` — from `$lease->unit->building?->getEffectiveCurrency\\(\\)`\n- `TenantWelcome`, `TenantInvitationMail` — from `$invitation->unit->building->getEffectiveCurrency\\(\\)`\n- `OverpaymentNotification` — from `$payment->currency`\n- `CreditNoteIssued` — cascade: invoice currency → building currency → default\n- `PaymentVerificationApproved`, `PaymentVerificationRejected` — from `$lease->unit->building->getEffectiveCurrency\\(\\)`\n\n### Blade Templates \\(12 files\\)\nReplaced ~38 hardcoded `KES` occurrences with `{{ $currency_symbol }}` across all email templates.\n\n### Controller \\(1 file\\)\n`TenantController::emailStatement\\(\\)` — added `currency_symbol` to inline `Mail::send\\(\\)` data array.\n\n### Config Cleanup \\(2 files\\)\n- `.env.example` — removed 13 phantom env vars \\(OAuth social login + OCR\\) added by a previous AI session\n- `config/mpesa.php` — removed `''currency'' => ''KES''` from defaults \\(M-Pesa is KES-only by nature; currency is per-building via PaymentConfiguration\\)\n\n## Test plan\n\n- [x] 13 unit tests in `EmailCurrencySymbolTest` verify USD buildings render `$` not `KES`\n- [x] Full test suite passes \\(1330 tests, 0 failures\\)\n- [x] Laravel Pint passes clean\n- [x] Grep confirms zero `KES` remaining in `resources/views/emails/`\n- [x] DBP verification 8/8 checks pass\n- [x] Backward compatible — null currency falls back to `KSh` via `Currency::default\\(\\)`\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\nEOF\n\\)\")"
+    ],
+    "additionalDirectories": [
+      "c:\\laragon\\www\\PropManager"
     ]
   }
 }

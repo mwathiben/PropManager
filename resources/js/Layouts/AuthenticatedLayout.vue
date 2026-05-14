@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { usePage, Link, router } from '@inertiajs/vue3';
 import { useAuth } from '@/composables/useAuth';
+import { useAnnouncer } from '@/composables/useAnnouncer';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
+import LiveAnnouncer from '@/Components/LiveAnnouncer.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import NotificationBell from '@/Components/NotificationBell.vue';
@@ -63,6 +65,29 @@ const navBadges = computed(() => page.props.navBadges || {});
 const featureAccess = computed(() => page.props.featureAccess || {});
 
 const pendingInvitations = computed(() => page.props.pendingInvitations || []);
+
+// Phase-23 A11Y-SR-1: read Inertia flash messages into the live
+// announcer — success/info politely, errors assertively — so a
+// screen-reader user hears post-redirect status without a focus move.
+const { announce } = useAnnouncer();
+watch(
+    () => page.props.flash,
+    (flash) => {
+        if (!flash) {
+            return;
+        }
+        if (flash.success) {
+            announce(flash.success, 'polite');
+        }
+        if (flash.message) {
+            announce(flash.message, 'polite');
+        }
+        if (flash.error) {
+            announce(flash.error, 'assertive');
+        }
+    },
+    { immediate: true, deep: true },
+);
 
 const stopImpersonating = () => {
     router.post(route('admin.stopImpersonating'));
@@ -188,7 +213,26 @@ const navigationItems = computed(() => {
 
 <template>
     <div>
+        <!--
+            Phase-23 A11Y-SR-1: the live-region pair, mounted once for
+            the whole authenticated app.
+        -->
+        <LiveAnnouncer />
+
         <div class="min-h-screen bg-gray-100">
+            <!--
+                Phase-23 A11Y-KBD-1: skip-link (WCAG 2.4.1 Bypass
+                Blocks). First focusable element on every page — lets a
+                keyboard user jump past the sidebar nav straight to the
+                page content. Visually hidden until focused.
+            -->
+            <a
+                href="#main-content"
+                class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[100] focus:rounded-md focus:bg-indigo-600 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            >
+                Skip to main content
+            </a>
+
             <!--
                 Impersonation Banner.
                 Phase-20 AUTHZ-FRONT-9: when the impersonated target is
@@ -537,7 +581,13 @@ const navigationItems = computed(() => {
                 />
 
                 <!-- Page Content -->
-                <main>
+                <!--
+                    Phase-23 A11Y-KBD-1: skip-link target. tabindex="-1"
+                    makes <main> programmatically focusable so the
+                    skip-link can move focus here without making it a
+                    Tab stop.
+                -->
+                <main id="main-content" tabindex="-1">
                     <slot />
                 </main>
             </div>

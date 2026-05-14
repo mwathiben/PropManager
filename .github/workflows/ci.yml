@@ -142,6 +142,15 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      # Phase-23 A11Y-CI-1: static accessibility lint gate
+      # (eslint-plugin-vuejs-accessibility). Blocking, like Pint —
+      # catches a large class of template-level a11y regressions
+      # before they merge. Baselined rules (warn-level) live in
+      # eslint.config.js and ratchet toward error as later Phase-23
+      # findings land.
+      - name: Accessibility lint (ESLint)
+        run: npm run lint
+
       - name: Build assets
         run: npm run build
 

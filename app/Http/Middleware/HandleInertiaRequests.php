@@ -56,6 +56,15 @@ class HandleInertiaRequests extends Middleware
             ],
             'impersonating' => session('impersonating') !== null,
             'impersonating_name' => session('impersonating_name'),
+            // Phase-23 A11Y-SR-1: surface session flash so the layout's
+            // LiveAnnouncer can read it to a screen reader. Plain
+            // closures (always evaluated, like navBadges) — controllers
+            // already redirect with ->with('success'|'error'|'message').
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'error' => fn () => $request->session()->get('error'),
+                'message' => fn () => $request->session()->get('message'),
+            ],
             'currency' => fn () => $this->getEffectiveCurrency($request),
             'navBadges' => fn () => $this->getNavBadges($request),
             'featureAccess' => $this->getFeatureAccess($request),
