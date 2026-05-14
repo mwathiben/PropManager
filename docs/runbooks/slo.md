@@ -32,6 +32,60 @@ Phase-14 OBSERV-5: quantitative targets for `healthy`. The `/up` health probe (P
 - **Signals**: schedule channel log lines
 - **Paging rule**: missing run for 24h → page on-call
 
+## Route-class latency budgets (Phase-22 PERF-SLO)
+
+Phase-14 described SLOs in prose; Phase-22 made them measurable and
+enforceable. The numbers below are the **single source of truth's
+human-readable mirror** — the machine-readable definition lives in
+`config/observability.php` under `slo.latency_budgets_ms`. If this
+table and the config disagree, the config wins; fix the table.
+
+Every HTTP request is timed by the `RecordRequestLatency` middleware
+(PERF-SLO-1), which emits `http_request_ms{route,method,status}` into
+the Phase-14 MetricsService histogram. Each route is bucketed into a
+**route class** by `App\Support\RouteClassResolver`:
+
+| Route class  | What's in it | p95 budget | Env override |
+|--------------|--------------|-----------:|--------------|
+| `read_path`  | the common navigation case — index/show GETs | 500 ms | `SLO_READ_P95_MS` |
+| `write_path` | mutations — `*.store` / `*.update` / `*.destroy`, and any non-idempotent verb | 1000 ms | `SLO_WRITE_P95_MS` |
+| `webhook`    | webhook ingress (route name contains `webhook`) | 2000 ms | `SLO_WEBHOOK_P95_MS` |
+| `report`     | reports / exports — heavy aggregation | 3000 ms | `SLO_REPORT_P95_MS` |
+
+Global error-rate budget: **1%** 5xx (`SLO_ERROR_RATE_BUDGET`).
+
+### Reading SLO compliance
+
+```bash
+php artisan slo:report                      # p50/p95/p99 per class, IN/OUT-OF-SLO
+php artisan slo:report --since=7 --json      # last 7 day-buckets, machine output
+php artisan slo:report --route-class=write_path
+php artisan slo:report --fail-on-breach      # exit non-zero — usable in an alert cron
+```
+
+`slo:report` reads the `http_request_ms` histogram from the
+MetricsService snapshot, computes percentiles with Prometheus-style
+`histogram_quantile` interpolation, and compares each route class
+against its budget above.
+
+### Relationship to the k6 load thresholds
+
+The k6 baseline (`docs/runbooks/load-testing.md`) and these SLO budgets
+measure the same thing from two ends: the k6 thresholds are a
+synthetic pre-merge check, the `http_request_ms` histogram + `slo:report`
+are the production truth. When they disagree, production wins — adjust
+the k6 thresholds, not the SLO budgets.
+
+### When a route class goes OUT OF SLO
+
+1. `slo:report --route-class=<class>` to confirm + see the percentiles.
+2. `slow-query:report` (Phase-21) to check whether a DB query shape is
+   the cause.
+3. Check the recent deploy — Phase-14 OBSERV-2 Sentry release tags
+   attribute a latency regression to a commit.
+4. If it's a sustained breach, it consumes the tier's error budget
+   (below) and follows the escalation table.
+
 ## Error budget tracking
 
 Each tier consumes its monthly error budget from real incidents. The Phase-13 BREACH-6 drill template (`docs/runbooks/breach-drill.md`) includes an error-budget question — drills test detection without consuming budget; real incidents consume.
