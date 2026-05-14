@@ -130,4 +130,82 @@ class Phase22SloTest extends TestCase
             'PERF-SLO-1: RecordRequestLatency must be appended to BOTH the web and api middleware groups.',
         );
     }
+
+    public function test_slo_budgets_are_configured(): void
+    {
+        // PERF-SLO-2: SLO budgets must live in config as a machine-
+        // readable definition, not just in prose in slo.md.
+        $budgets = config('observability.slo.latency_budgets_ms');
+
+        $this->assertIsArray($budgets, 'PERF-SLO-2: observability.slo.latency_budgets_ms must be configured.');
+        foreach (['read_path', 'write_path', 'webhook', 'report'] as $class) {
+            $this->assertArrayHasKey($class, $budgets, "PERF-SLO-2: a p95 budget must be defined for the '{$class}' route class.");
+            $this->assertGreaterThan(0, $budgets[$class], "PERF-SLO-2: the '{$class}' budget must be a positive millisecond value.");
+        }
+
+        $this->assertIsFloat(config('observability.slo.error_rate_budget'), 'PERF-SLO-2: a global error-rate budget must be configured.');
+        $this->assertGreaterThan(0, config('observability.slo.evaluation_window_days'), 'PERF-SLO-2: an evaluation window must be configured.');
+    }
+
+    public function test_route_class_resolver_buckets_known_routes(): void
+    {
+        // PERF-SLO-2: the resolver is the single shared definition of
+        // what each route class means.
+        $this->assertSame('webhook', \App\Support\RouteClassResolver::classify('webhooks.paystack', 'POST'));
+        $this->assertSame('report', \App\Support\RouteClassResolver::classify('reports.arrears', 'GET'));
+        $this->assertSame('write_path', \App\Support\RouteClassResolver::classify('invoices.store', 'POST'));
+        $this->assertSame('write_path', \App\Support\RouteClassResolver::classify('invoices.update', 'PUT'));
+        $this->assertSame('read_path', \App\Support\RouteClassResolver::classify('invoices.index', 'GET'));
+        // Method fallback: a POST to a non-.store route is still a write.
+        $this->assertSame('write_path', \App\Support\RouteClassResolver::classify('payments.record', 'POST'));
+        // Unmatched routes default to read_path.
+        $this->assertSame('read_path', \App\Support\RouteClassResolver::classify(null, 'GET'));
+    }
+
+    public function test_slo_report_is_registered(): void
+    {
+        $this->assertArrayHasKey(
+            'slo:report',
+            \Illuminate\Support\Facades\Artisan::all(),
+            'PERF-SLO-3: slo:report must be a registered artisan command.',
+        );
+    }
+
+    public function test_slo_report_handles_no_samples_gracefully(): void
+    {
+        // No live Redis in CI -> snapshot() is empty -> the command must
+        // exit SUCCESS with an informative message, not crash.
+        $exit = \Illuminate\Support\Facades\Artisan::call('slo:report');
+        $this->assertSame(0, $exit, 'PERF-SLO-3: slo:report with no samples must exit SUCCESS.');
+    }
+
+    public function test_slo_report_flags_out_of_budget_route_class(): void
+    {
+        // PERF-SLO-3: seed a histogram where write_path p95 is well
+        // above its 1000ms budget; --fail-on-breach must exit non-zero.
+        $today = now()->format('Y-m-d');
+        $histogram = [
+            // cumulative buckets: nothing <= 1000ms, everything in the
+            // 1000-2500ms band -> p95 interpolates to ~2425ms.
+            'http_request_ms_bucket{le=1000,method=POST,route=invoices.store,status=2xx}' => 0,
+            'http_request_ms_bucket{le=2500,method=POST,route=invoices.store,status=2xx}' => 100,
+            'http_request_ms_bucket{le=+Inf,method=POST,route=invoices.store,status=2xx}' => 100,
+            'http_request_ms_count{method=POST,route=invoices.store,status=2xx}' => 100,
+        ];
+
+        $metrics = $this->createMock(MetricsService::class);
+        $metrics->method('snapshot')->willReturnCallback(
+            fn (?string $bucket = null) => $bucket === $today ? $histogram : [],
+        );
+        $this->app->instance(MetricsService::class, $metrics);
+
+        $exit = \Illuminate\Support\Facades\Artisan::call('slo:report', ['--fail-on-breach' => true]);
+
+        $this->assertSame(
+            1,
+            $exit,
+            'PERF-SLO-3: a route class above its p95 budget must make --fail-on-breach exit non-zero.',
+        );
+        $this->assertStringContainsString('OUT OF SLO', \Illuminate\Support\Facades\Artisan::output());
+    }
 }
