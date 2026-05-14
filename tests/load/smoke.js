@@ -19,8 +19,14 @@ export const options = {
 };
 
 export function setup() {
-    // Fail fast + loud if the target is not up, rather than reporting a
-    // 100% error rate as if it were a latency result.
+    // Readiness probe — fail fast + loud if the target is unreachable,
+    // rather than reporting a 100% error rate as if it were a latency
+    // result. NOTE: /api/health returns 503 when a dependency is
+    // degraded (e.g. no Redis in the CI load-smoke job) — that is
+    // still "reachable", so any non-zero status counts as up. The
+    // iteration body deliberately does NOT hit /api/health: it is a
+    // dependency aggregate, not a hot user path, and its 503-on-missing
+    // -Redis would be counted as request failures.
     const res = http.get(`${BASE_URL}/api/health`);
     if (res.status === 0) {
         throw new Error(`target ${BASE_URL} is unreachable — is the app running?`);
@@ -28,10 +34,6 @@ export function setup() {
 }
 
 export default function () {
-    group('health', () => {
-        http.get(`${BASE_URL}/api/health`);
-    });
-
     // Log in once per VU, then reuse the session — re-logging every
     // iteration would hammer the login throttle and measure auth, not
     // the read paths.
