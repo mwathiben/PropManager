@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Building;
+use App\Support\CacheMetrics;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Redis;
@@ -40,30 +41,42 @@ class BuildingCacheService
 
     public static function rememberConfig(int $landlordId, int $buildingId, callable $callback): mixed
     {
-        $key = self::configKey($landlordId, $buildingId);
-
-        return Cache::remember($key, self::BUILDING_TTL, $callback);
+        return self::rememberTracked('config', self::configKey($landlordId, $buildingId), $callback);
     }
 
     public static function rememberList(int $landlordId, callable $callback): mixed
     {
-        $key = self::listKey($landlordId);
-
-        return Cache::remember($key, self::BUILDING_TTL, $callback);
+        return self::rememberTracked('list', self::listKey($landlordId), $callback);
     }
 
     public static function rememberDetail(int $landlordId, int $buildingId, callable $callback): mixed
     {
-        $key = self::detailKey($landlordId, $buildingId);
-
-        return Cache::remember($key, self::BUILDING_TTL, $callback);
+        return self::rememberTracked('detail', self::detailKey($landlordId, $buildingId), $callback);
     }
 
     public static function rememberHierarchy(int $landlordId, int $buildingId, callable $callback): mixed
     {
-        $key = self::hierarchyKey($landlordId, $buildingId);
+        return self::rememberTracked('hierarchy', self::hierarchyKey($landlordId, $buildingId), $callback);
+    }
 
-        return Cache::remember($key, self::BUILDING_TTL, $callback);
+    /**
+     * Phase-22 PERF-CACHE-1: Cache::remember with hit/miss instrumentation.
+     * The &$hit flag flips to false only when the compute callback runs
+     * (a miss); a cached read leaves it true.
+     */
+    private static function rememberTracked(string $type, string $key, callable $callback): mixed
+    {
+        $hit = true;
+
+        $result = Cache::remember($key, self::BUILDING_TTL, function () use ($callback, &$hit) {
+            $hit = false;
+
+            return $callback();
+        });
+
+        CacheMetrics::record('building', $type, $hit);
+
+        return $result;
     }
 
     public static function invalidateBuilding(Building $building): void

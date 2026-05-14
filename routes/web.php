@@ -775,11 +775,19 @@ Route::middleware('auth')->group(function () {
         ->name('profile.destroy');
 
     // 16. Help Center (All Users)
-    Route::get('/help', [HelpController::class, 'index'])->name('help.index');
+    // Phase-22 PERF-CACHE-2: help pages are global reference content
+    // (not per-landlord) — safe to carry ETag + private cache headers
+    // via the cache.read middleware. The allow-list lives in
+    // config/observability.php read_cache.routes.
+    Route::get('/help', [HelpController::class, 'index'])
+        ->middleware('cache.read')
+        ->name('help.index');
     Route::get('/help/search', [HelpController::class, 'search'])
         ->middleware('throttle:search')
         ->name('help.search');
-    Route::get('/help/{article:slug}', [HelpController::class, 'show'])->name('help.show');
+    Route::get('/help/{article:slug}', [HelpController::class, 'show'])
+        ->middleware('cache.read')
+        ->name('help.show');
 
     // 17. Subscription Management (Landlords Only)
     Route::middleware('role:landlord')->prefix('subscription')->group(function () {

@@ -88,4 +88,28 @@ return [
         'evaluation_window_days' => (int) env('SLO_EVALUATION_WINDOW_DAYS', 1),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Read-route HTTP cache headers — Phase-22 PERF-CACHE-2
+    |--------------------------------------------------------------------------
+    |
+    | The SetReadCacheHeaders middleware (alias: cache.read) applies a
+    | content-based ETag + a `private, must-revalidate` Cache-Control to
+    | the routes listed below, keyed by route NAME => max-age seconds.
+    |
+    | ALLOW-LIST ONLY. A route gets cache headers solely by being here.
+    | Add only safe, non-per-landlord, non-auth-sensitive read routes —
+    | help/docs/reference pages. NEVER add dashboards (live counts),
+    | auth routes (CSRF tokens), or anything with per-request-fresh
+    | data. The Phase22CacheTest watchdog regression-locks that the
+    | sensitive routes stay absent.
+    |
+    */
+    'read_cache' => [
+        'routes' => [
+            'help.index' => (int) env('READ_CACHE_HELP_MAX_AGE', 300),
+            'help.show' => (int) env('READ_CACHE_HELP_MAX_AGE', 300),
+        ],
+    ],
+
 ];

@@ -67,6 +67,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'block.archived' => \App\Http\Middleware\BlockArchivedUsers::class,
             // RATE-9: single-use signed link enforcement (above + table).
             'signed.once' => \App\Http\Middleware\EnsureSignedLinkSingleUse::class,
+            // Phase-22 PERF-CACHE-2: ETag + private cache headers on the
+            // config-enumerated read routes (read_cache.routes).
+            'cache.read' => \App\Http\Middleware\SetReadCacheHeaders::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

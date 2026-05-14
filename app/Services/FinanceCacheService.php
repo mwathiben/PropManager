@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Jobs\WarmFinanceCacheJob;
+use App\Support\CacheMetrics;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -108,6 +109,8 @@ class FinanceCacheService
             'type' => 'stats',
         ]);
 
+        CacheMetrics::record('finance', 'stats', $hit);
+
         return $result;
     }
 
@@ -126,6 +129,8 @@ class FinanceCacheService
             'key' => $key,
             'type' => 'report',
         ]);
+
+        CacheMetrics::record('finance', 'report', $hit);
 
         self::registerReportKey($landlordId, $key);
 
