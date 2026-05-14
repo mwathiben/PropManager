@@ -142,6 +142,88 @@ class Phase21Phase3Test extends TestCase
         );
     }
 
+    public function test_auth_forms_use_form_submit_button(): void
+    {
+        // DEFER-FRONT-3 (closes Phase-19 FRONT-UX-3 deferral): the 5 auth
+        // forms must submit via <FormSubmitButton> (which centralises the
+        // :processing spinner + disabled-while-submitting contract), not a
+        // bare <PrimaryButton> that each page wired :disabled by hand.
+        $authForms = [
+            'resources/js/Pages/Auth/Login.vue',
+            'resources/js/Pages/Auth/Register.vue',
+            'resources/js/Pages/Auth/ForgotPassword.vue',
+            'resources/js/Pages/Auth/ResetPassword.vue',
+            'resources/js/Pages/Auth/ConfirmPassword.vue',
+        ];
+
+        foreach ($authForms as $relative) {
+            $source = file_get_contents(base_path($relative));
+            $this->assertStringContainsString(
+                "import FormSubmitButton from '@/Components/FormSubmitButton.vue';",
+                $source,
+                "DEFER-FRONT-3: $relative must import FormSubmitButton.",
+            );
+            $this->assertStringContainsString(
+                '<FormSubmitButton',
+                $source,
+                "DEFER-FRONT-3: $relative must submit via <FormSubmitButton>.",
+            );
+            $this->assertStringNotContainsString(
+                "import PrimaryButton from '@/Components/PrimaryButton.vue';",
+                $source,
+                "DEFER-FRONT-3: $relative must no longer import the bare PrimaryButton for submit.",
+            );
+        }
+    }
+
+    public function test_icon_button_component_enforces_aria_label(): void
+    {
+        // DEFER-FRONT-5 (closes Phase-20 FRONT-UX-6 deferral): IconButton
+        // centralises the icon-only button contract — ariaLabel is a
+        // REQUIRED prop (icon-only buttons have no text), so a11y can no
+        // longer be forgotten at the call site.
+        $path = base_path('resources/js/Components/IconButton.vue');
+        $this->assertFileExists($path, 'DEFER-FRONT-5: IconButton.vue must exist.');
+
+        $source = file_get_contents($path);
+        $this->assertStringContainsString(
+            'ariaLabel: string;',
+            $source,
+            'DEFER-FRONT-5: ariaLabel must be a required (non-optional) prop.',
+        );
+        $this->assertStringContainsString(
+            ':aria-label="ariaLabel"',
+            $source,
+            'DEFER-FRONT-5: IconButton must bind aria-label to the rendered element.',
+        );
+    }
+
+    public function test_icon_button_is_adopted_across_call_sites(): void
+    {
+        // DEFER-FRONT-5: the migration must actually land — each migrated
+        // page imports IconButton and renders it. Watchdog keeps adoption
+        // from silently regressing back to bare <button> + icon.
+        $adopters = [
+            'resources/js/Pages/Tenants/Show.vue',
+            'resources/js/Pages/MoveOuts/Show.vue',
+            'resources/js/Pages/Settings/PayoutAccounts.vue',
+        ];
+
+        foreach ($adopters as $relative) {
+            $source = file_get_contents(base_path($relative));
+            $this->assertStringContainsString(
+                "import IconButton from '@/Components/IconButton.vue';",
+                $source,
+                "DEFER-FRONT-5: $relative must import IconButton.",
+            );
+            $this->assertStringContainsString(
+                '<IconButton',
+                $source,
+                "DEFER-FRONT-5: $relative must render <IconButton> at its icon-only action sites.",
+            );
+        }
+    }
+
     public function test_ci_workflow_emits_cyclonedx_sbom(): void
     {
         // DEFER-SUPPLY-1: CycloneDX format alongside the raw inventory.

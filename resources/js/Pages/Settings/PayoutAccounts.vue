@@ -15,6 +15,7 @@ import {
     ArrowPathIcon,
 } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
+import IconButton from '@/Components/IconButton.vue';
 import type { PayoutAccountsPageProps } from '@/types';
 
 const { can } = useAuth();
@@ -237,29 +238,25 @@ const getStatusColor = (status) => {
                                         <span class="text-sm">{{ account.status_label }}</span>
                                     </div>
                                     <div class="flex space-x-2">
-                                        <button
+                                        <IconButton
                                             v-if="!account.is_primary && account.can_receive_payments"
+                                            :icon="StarIcon"
+                                            tone="primary"
+                                            aria-label="Set as primary payout account"
                                             @click="setPrimary(account.id)"
-                                            class="p-2 text-gray-500 hover:text-blue-600"
-                                            title="Set as Primary"
-                                        >
-                                            <StarIcon class="w-5 h-5" />
-                                        </button>
-                                        <button
+                                        />
+                                        <IconButton
+                                            :icon="ArrowPathIcon"
+                                            aria-label="Sync account status"
                                             @click="syncAccount(account.id)"
-                                            class="p-2 text-gray-500 hover:text-green-600"
-                                            title="Sync Status"
-                                        >
-                                            <ArrowPathIcon class="w-5 h-5" />
-                                        </button>
-                                        <button
+                                        />
+                                        <IconButton
                                             v-if="can('settings:manage') && !account.is_primary"
+                                            :icon="TrashIcon"
+                                            tone="danger"
+                                            aria-label="Deactivate payout account"
                                             @click="deleteAccount(account.id)"
-                                            class="p-2 text-gray-500 hover:text-red-600"
-                                            title="Deactivate"
-                                        >
-                                            <TrashIcon class="w-5 h-5" />
-                                        </button>
+                                        />
                                     </div>
                                 </div>
                             </div>

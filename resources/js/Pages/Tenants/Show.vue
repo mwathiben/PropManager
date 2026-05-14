@@ -28,6 +28,7 @@ import ArrowTrendingUpIcon from '@heroicons/vue/24/outline/ArrowTrendingUpIcon';
 import DocumentIcon from '@heroicons/vue/24/outline/DocumentIcon';
 import EyeIcon from '@heroicons/vue/24/outline/EyeIcon';
 import StarIconSolid from '@heroicons/vue/24/solid/StarIcon';
+import IconButton from '@/Components/IconButton.vue';
 
 const props = defineProps<TenantShowPageProps>();
 
@@ -691,12 +692,8 @@ const getActivityIcon = (action) => {
                                                 </span>
                                             </div>
                                             <div class="flex gap-1">
-                                                <button v-if="canEditTenant" @click="editNote(note)" class="p-1 text-gray-400 hover:text-gray-600">
-                                                    <PencilIcon class="w-4 h-4" />
-                                                </button>
-                                                <button v-if="canEditTenant" @click="deleteNote(note.id)" class="p-1 text-gray-400 hover:text-red-600">
-                                                    <TrashIcon class="w-4 h-4" />
-                                                </button>
+                                                <IconButton v-if="canEditTenant" :icon="PencilIcon" size="sm" aria-label="Edit note" @click="editNote(note)" />
+                                                <IconButton v-if="canEditTenant" :icon="TrashIcon" size="sm" tone="danger" aria-label="Delete note" @click="deleteNote(note.id)" />
                                             </div>
                                         </div>
                                         <p class="mt-2 text-sm text-gray-700 whitespace-pre-wrap">{{ note.content }}</p>
@@ -740,12 +737,8 @@ const getActivityIcon = (action) => {
                                                 </div>
                                             </div>
                                             <div class="flex gap-1">
-                                                <button v-if="canEditTenant" @click="editContact(contact)" class="p-1 text-gray-400 hover:text-gray-600">
-                                                    <PencilIcon class="w-4 h-4" />
-                                                </button>
-                                                <button v-if="canEditTenant" @click="deleteContact(contact.id)" class="p-1 text-gray-400 hover:text-red-600">
-                                                    <TrashIcon class="w-4 h-4" />
-                                                </button>
+                                                <IconButton v-if="canEditTenant" :icon="PencilIcon" size="sm" aria-label="Edit emergency contact" @click="editContact(contact)" />
+                                                <IconButton v-if="canEditTenant" :icon="TrashIcon" size="sm" tone="danger" aria-label="Delete emergency contact" @click="deleteContact(contact.id)" />
                                             </div>
                                         </div>
                                         <div class="mt-3 grid grid-cols-2 gap-4 text-sm">

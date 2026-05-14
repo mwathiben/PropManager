@@ -4,6 +4,7 @@ import { Head, useForm, router, Link } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { useFormatters, useCurrency } from '@/composables';
 import { useAuth } from '@/composables/useAuth';
+import IconButton from '@/Components/IconButton.vue';
 import type { MoveOutShowPageProps } from '@/types/finances';
 import {
     ArrowLeftIcon,
@@ -288,12 +289,8 @@ const statusInfo = computed(() => getStatusInfo());
                                     <div class="flex items-center gap-3">
                                         <span class="font-semibold text-red-600">-{{ formatCurrency(deduction.amount) }}</span>
                                         <div v-if="canAddDeductions && can('tenants:manage')" class="flex items-center gap-1">
-                                            <button @click="openDeductionModal(deduction)" class="p-1 text-gray-400 hover:text-gray-600">
-                                                <PencilIcon class="w-4 h-4" />
-                                            </button>
-                                            <button @click="deleteDeduction(deduction.id)" class="p-1 text-red-400 hover:text-red-600">
-                                                <TrashIcon class="w-4 h-4" />
-                                            </button>
+                                            <IconButton :icon="PencilIcon" size="sm" aria-label="Edit deduction" @click="openDeductionModal(deduction)" />
+                                            <IconButton :icon="TrashIcon" size="sm" tone="danger" aria-label="Delete deduction" @click="deleteDeduction(deduction.id)" />
                                         </div>
                                     </div>
                                 </div>
