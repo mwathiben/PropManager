@@ -65,11 +65,39 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
                 'message' => fn () => $request->session()->get('message'),
             ],
+            // Phase-24 I18N-INFRA-3: the active locale (resolved by the
+            // SetLocale middleware, which runs before this one), the
+            // supported-locale list for the selector UI, and the
+            // frontend message bundle vue-i18n hydrates from — sharing
+            // it inline avoids a second round-trip and guarantees the
+            // messages match the locale the server resolved.
+            'locale' => app()->getLocale(),
+            'availableLocales' => config('app.available_locales'),
+            'i18n' => fn () => $this->getI18nBundle(),
             'currency' => fn () => $this->getEffectiveCurrency($request),
             'navBadges' => fn () => $this->getNavBadges($request),
             'featureAccess' => $this->getFeatureAccess($request),
             'pendingInvitations' => Inertia::defer(fn () => $this->getPendingInvitations($request)),
         ];
+    }
+
+    /**
+     * Phase-24 I18N-INFRA-3: the frontend message bundle for the
+     * active locale (lang/<locale>.json), falling back to the
+     * fallback locale's bundle, then an empty array — never throws.
+     *
+     * @return array<string, mixed>
+     */
+    protected function getI18nBundle(): array
+    {
+        foreach ([app()->getLocale(), config('app.fallback_locale')] as $locale) {
+            $path = base_path("lang/{$locale}.json");
+            if (is_file($path)) {
+                return json_decode(file_get_contents($path), true) ?: [];
+            }
+        }
+
+        return [];
     }
 
     protected function getEffectiveCurrency(Request $request): ?array

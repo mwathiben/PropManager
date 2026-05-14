@@ -67,6 +67,7 @@ class User extends Authenticatable
         'profile_photo_path',
         'kyc_completed_at',
         'timezone',
+        'locale',
         'dob',
         'parental_consent_artefact_url',
         'parental_consent_provided_at',
@@ -109,6 +110,26 @@ class User extends Authenticatable
     public function isRestricted(): bool
     {
         return $this->restricted_at !== null;
+    }
+
+    /**
+     * Phase-24 I18N-INFRA-1: the user's resolved locale. `locale` is
+     * nullable (no preference) — callers should never have to deal
+     * with the null themselves. If the stored value is not a
+     * supported locale it falls through to the app default too, so a
+     * stale row can never leave the app in an unsupported locale.
+     */
+    public function effectiveLocale(): string
+    {
+        $supported = array_keys(config('app.available_locales', ['en' => 'English']));
+
+        // fallback_locale (not locale) is the stable base-language
+        // anchor — App::setLocale() mutates config('app.locale') for
+        // the rest of the request, which would make a no-preference
+        // user inherit whatever locale the request happens to be in.
+        return in_array($this->locale, $supported, true)
+            ? $this->locale
+            : config('app.fallback_locale');
     }
 
     public function isSuperAdmin(): bool

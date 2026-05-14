@@ -86,6 +86,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Supported Locales
+    |--------------------------------------------------------------------------
+    |
+    | Phase-24 I18N-INFRA-1: the single source of truth for which
+    | locales the app supports — code => native display name. The
+    | SetLocale middleware, the locale-switch endpoint's validation,
+    | the Inertia share, and the lang-key-parity CI watchdog all read
+    | THIS list; never hardcode the set anywhere else. Adding a locale
+    | is: add it here, add lang/<code>/*.php + lang/<code>.json, done.
+    |
+    */
+
+    'available_locales' => [
+        'en' => 'English',
+        'sw' => 'Kiswahili',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Encryption Key
     |--------------------------------------------------------------------------
     |

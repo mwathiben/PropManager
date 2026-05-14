@@ -5,6 +5,7 @@ import { createInertiaApp, router } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
 import { createPinia } from 'pinia';
+import { createI18n } from 'vue-i18n';
 import { ZiggyVue } from 'ziggy-js';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
@@ -65,9 +66,39 @@ createInertiaApp({
         currentAbilities =
             props.initialPage?.props?.auth?.user?.abilities ?? {};
         const pinia = createPinia();
+
+        /**
+         * Phase-24 I18N-FRONT-1: vue-i18n, hydrated from the
+         * Inertia-shared `locale` + `i18n` props (HandleInertiaRequests
+         * I18N-INFRA-3). Locale + messages come from the server so the
+         * first paint is already correct — no flash of untranslated
+         * content. The locale only changes via a full Inertia visit
+         * after the locale-switch endpoint, so a `success` listener
+         * keeps the i18n instance in sync with the new page props.
+         */
+        const initialLocale = props.initialPage?.props?.locale ?? 'en';
+        const i18n = createI18n({
+            legacy: false,
+            locale: initialLocale,
+            fallbackLocale: 'en',
+            messages: {
+                [initialLocale]: props.initialPage?.props?.i18n ?? {},
+            },
+        });
+
+        router.on('success', (event) => {
+            const pageProps = event.detail.page?.props;
+            const nextLocale = pageProps?.locale;
+            if (nextLocale && nextLocale !== i18n.global.locale.value) {
+                i18n.global.setLocaleMessage(nextLocale, pageProps.i18n ?? {});
+                i18n.global.locale.value = nextLocale;
+            }
+        });
+
         return createApp({ render: () => h(App, props) })
             .use(plugin)
             .use(pinia)
+            .use(i18n)
             .use(ZiggyVue)
             .mount(el);
     },

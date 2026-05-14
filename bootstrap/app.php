@@ -34,6 +34,10 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(append: [
             \App\Http\Middleware\BlockArchivedUsers::class,
+            // Phase-24 I18N-INFRA-2: resolve + apply the request locale.
+            // MUST come before HandleInertiaRequests so the Inertia
+            // share() sees the resolved App::getLocale().
+            \App\Http\Middleware\SetLocale::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
             // Phase-22 PERF-SLO-1: emits http_request_ms from terminate().
