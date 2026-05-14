@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import PaginatorLink from '@/Components/PaginatorLink.vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { useFormatters } from '@/composables';
@@ -256,13 +257,14 @@ const getPhotoUrl = (reading) => {
                                     v-for="link in pendingReadings.links"
                                     :key="link.label"
                                     :href="link.url"
-                                    v-html="link.label"
                                     :class="[
                                         'px-3 py-1 rounded-md text-sm',
                                         link.active ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                     ]"
                                     class="transition-colors"
-                                />
+                                >
+                                    <PaginatorLink :label="link.label" />
+                                </a>
                             </div>
                         </div>
 

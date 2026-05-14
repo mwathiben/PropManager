@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { router, Link } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
+import PaginatorLink from '@/Components/PaginatorLink.vue';
 import type { ArchiveLeasesTabProps } from '@/types';
 import {
     MagnifyingGlassIcon,
@@ -194,9 +195,10 @@ const hasActiveFilters = computed(() => {
                                 link.active ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50',
                                 'px-3 py-1 text-sm border rounded-md'
                             ]"
-                            v-html="link.label"
                             :disabled="!link.url"
-                        />
+                        >
+                            <PaginatorLink :label="link.label" />
+                        </Link>
                     </div>
                 </div>
             </div>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import PaginatorLink from '@/Components/PaginatorLink.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import TicketStatusBadge from '@/Components/TicketStatusBadge.vue';
@@ -301,9 +302,10 @@ const getTimeAgo = (dateString) => {
                                     link.active ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50',
                                     'px-3 py-1 text-sm border rounded-md'
                                 ]"
-                                v-html="link.label"
                                 :disabled="!link.url"
-                            />
+                            >
+                                <PaginatorLink :label="link.label" />
+                            </Link>
                         </div>
                     </div>
                 </div>

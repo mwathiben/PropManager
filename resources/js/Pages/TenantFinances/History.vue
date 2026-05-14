@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
+import PaginatorLink from '@/Components/PaginatorLink.vue';
 import { useFormatters } from '@/composables';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import type { TenantFinancesHistoryPageProps } from '@/types';
@@ -146,13 +147,15 @@ const downloadReceipt = (payment) => {
                                                     ? 'bg-emerald-600 text-white'
                                                     : 'text-gray-600 hover:bg-gray-100'
                                             ]"
-                                            v-html="link.label"
-                                        />
+                                        >
+                                            <PaginatorLink :label="link.label" />
+                                        </button>
                                         <span
                                             v-else
                                             class="px-3 py-1.5 text-sm text-gray-400"
-                                            v-html="link.label"
-                                        />
+                                        >
+                                            <PaginatorLink :label="link.label" />
+                                        </span>
                                     </template>
                                 </nav>
                             </div>
@@ -197,13 +200,15 @@ const downloadReceipt = (payment) => {
                                                     ? 'bg-emerald-600 text-white'
                                                     : 'text-gray-600 hover:bg-gray-100'
                                             ]"
-                                            v-html="link.label"
-                                        />
+                                        >
+                                            <PaginatorLink :label="link.label" />
+                                        </button>
                                         <span
                                             v-else
                                             class="px-3 py-1.5 text-sm text-gray-400"
-                                            v-html="link.label"
-                                        />
+                                        >
+                                            <PaginatorLink :label="link.label" />
+                                        </span>
                                     </template>
                                 </nav>
                             </div>

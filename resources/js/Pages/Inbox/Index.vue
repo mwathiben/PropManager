@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import PaginatorLink from '@/Components/PaginatorLink.vue';
 import { Head, router, Link } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import type { InboxIndexPageProps } from '@/types/operations';
@@ -299,8 +300,9 @@ const statusLabel = (status) => {
                                             link.label.includes('Previous') ? 'rounded-l-md' : '',
                                             link.label.includes('Next') ? 'rounded-r-md' : '',
                                         ]"
-                                        v-html="link.label"
-                                    />
+                                    >
+                                        <PaginatorLink :label="link.label" />
+                                    </Link>
                                 </nav>
                             </div>
                         </div>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import BuildingWingFilter from '@/Components/BuildingWingFilter.vue';
+import PaginatorLink from '@/Components/PaginatorLink.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { useStatusColors, useAuth } from '@/composables';
@@ -306,8 +307,9 @@ const getFileIcon = (document) => {
                                     !link.url ? 'opacity-50 cursor-not-allowed' : ''
                                 ]"
                                 :disabled="!link.url"
-                                v-html="link.label"
-                            />
+                            >
+                                <PaginatorLink :label="link.label" />
+                            </Link>
                         </div>
                     </div>
 

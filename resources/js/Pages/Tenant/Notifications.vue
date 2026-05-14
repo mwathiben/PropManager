@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import PaginatorLink from '@/Components/PaginatorLink.vue';
 import {
     BellIcon,
     ClockIcon,
@@ -69,35 +70,59 @@ const setFilter = (value) => {
     });
 };
 
+// Phase-21 DEFER-FRONT-4: optimistic mark-as-read. Update local state
+// FIRST, fire the request, revert on error. Pre-Phase-21 markAsRead
+// waited for the response before updating (perceptible lag on slow
+// Kenyan networks) and markAllAsRead did a full page refresh —
+// re-fetching the entire page payload for a state change the client
+// already knows the outcome of.
 const markAsRead = async (notification) => {
     if (notification.read_at) return;
 
+    const previous = notification.read_at;
+    notification.read_at = new Date().toISOString();
+
     try {
-        await fetch(route('tenant.notifications.read', notification.id), {
+        const response = await fetch(route('tenant.notifications.read', notification.id), {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
             },
         });
-        notification.read_at = new Date().toISOString();
+        if (!response.ok) {
+            throw new Error(`mark-as-read failed: ${response.status}`);
+        }
     } catch (error) {
+        notification.read_at = previous;
         logError(error, { component: 'TenantNotifications', action: 'markAsRead' });
     }
 };
 
 const markAllAsRead = async () => {
+    // Snapshot for revert-on-error, then optimistically flip every
+    // unread notification locally — no whole-page refresh round trip.
+    // markAsRead already mutates prop objects directly (Vue 3 props
+    // are reactive); markAllAsRead follows the same pattern.
+    const snapshot = props.notifications.data
+        .filter((n) => !n.read_at)
+        .map((n) => ({ ref: n, previous: n.read_at }));
+    const now = new Date().toISOString();
+    snapshot.forEach(({ ref }) => { ref.read_at = now; });
+
     try {
-        await fetch(route('tenant.notifications.read-all'), {
+        const response = await fetch(route('tenant.notifications.read-all'), {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
             },
         });
-        // Refresh the page to update the list
-        router.reload();
+        if (!response.ok) {
+            throw new Error(`mark-all-as-read failed: ${response.status}`);
+        }
     } catch (error) {
+        snapshot.forEach(({ ref, previous }) => { ref.read_at = previous; });
         logError(error, { component: 'TenantNotifications', action: 'markAllAsRead' });
     }
 };
@@ -354,8 +379,9 @@ const groupedNotifications = computed(() => {
                                         ? 'text-gray-700 bg-white border border-gray-200 hover:bg-gray-50'
                                         : 'text-gray-400 bg-gray-100 cursor-not-allowed'
                             ]"
-                            v-html="link.label"
-                        />
+                        >
+                            <PaginatorLink :label="link.label" />
+                        </Link>
                     </div>
                 </div>
             </div>

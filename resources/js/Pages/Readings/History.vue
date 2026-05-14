@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import PaginatorLink from '@/Components/PaginatorLink.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { ClipboardDocumentListIcon } from '@heroicons/vue/24/outline';
@@ -235,8 +236,8 @@ const deleteReading = (readingId) => {
                                         link.active ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50',
                                         !link.url ? 'opacity-50 cursor-not-allowed' : ''
                                     ]"
-                                    :disabled="!link.url"
-                                    v-html="link.label">
+                                    :disabled="!link.url">
+                                    <PaginatorLink :label="link.label" />
                                 </Link>
                             </div>
                         </div>

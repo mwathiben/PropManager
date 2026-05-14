@@ -80,6 +80,68 @@ class Phase21Phase3Test extends TestCase
         }
     }
 
+    public function test_no_v_html_paginator_labels_remain(): void
+    {
+        // DEFER-FRONT-1 (closes Phase-15 FRONT-4 deferral): every
+        // paginator label must render via <PaginatorLink>, not
+        // v-html="link.label". v-html on framework-controlled HTML is
+        // low-risk but desensitises maintainers to v-html safety — the
+        // watchdog keeps the count at 0.
+        $pagesPath = base_path('resources/js/Pages');
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($pagesPath, \RecursiveDirectoryIterator::SKIP_DOTS),
+        );
+
+        $offenders = [];
+        foreach ($iterator as $file) {
+            if (! $file->isFile() || $file->getExtension() !== 'vue') {
+                continue;
+            }
+            $contents = file_get_contents($file->getPathname());
+            if (preg_match('/v-html\s*=\s*"link\.label"/', $contents)) {
+                $offenders[] = str_replace($pagesPath.DIRECTORY_SEPARATOR, '', $file->getPathname());
+            }
+        }
+
+        $this->assertSame(
+            [],
+            $offenders,
+            'DEFER-FRONT-1: v-html="link.label" must be fully replaced by <PaginatorLink>. Offenders: '.implode(', ', $offenders),
+        );
+    }
+
+    public function test_tenant_notifications_use_optimistic_mark_as_read(): void
+    {
+        // DEFER-FRONT-4 (closes Phase-20 FRONT-UX-4 deferral): mark-as-read
+        // + mark-all-as-read must update local state optimistically and
+        // revert on error — NOT router.reload() the whole page.
+        $source = file_get_contents(base_path('resources/js/Pages/Tenant/Notifications.vue'));
+
+        // markAllAsRead must use the optimistic snapshot + revert pattern.
+        $this->assertStringContainsString(
+            'Snapshot for revert-on-error',
+            $source,
+            'DEFER-FRONT-4: markAllAsRead must use an optimistic snapshot + revert pattern.',
+        );
+        // markAsRead must update local state BEFORE the request (true
+        // optimistic), capturing the previous value for revert.
+        $this->assertStringContainsString(
+            'const previous = notification.read_at;',
+            $source,
+            'DEFER-FRONT-4: markAsRead must capture previous read_at for optimistic revert.',
+        );
+        // Isolate the markAllAsRead function body + assert it's
+        // router.reload-free (the whole-page refresh it replaced).
+        $start = (int) strpos($source, 'const markAllAsRead');
+        $end = (int) strpos($source, 'const acceptInvitation');
+        $markAllBody = substr($source, $start, $end - $start);
+        $this->assertStringNotContainsString(
+            'router.reload',
+            $markAllBody,
+            'DEFER-FRONT-4: markAllAsRead must no longer router.reload() — optimistic local update only.',
+        );
+    }
+
     public function test_ci_workflow_emits_cyclonedx_sbom(): void
     {
         // DEFER-SUPPLY-1: CycloneDX format alongside the raw inventory.

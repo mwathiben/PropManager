@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { router, Link } from '@inertiajs/vue3';
 import BuildingWingFilter from '@/Components/BuildingWingFilter.vue';
+import PaginatorLink from '@/Components/PaginatorLink.vue';
 import TicketStatusBadge from '@/Components/TicketStatusBadge.vue';
 import TicketPriorityBadge from '@/Components/TicketPriorityBadge.vue';
 import { useFormatters, useAuth } from '@/composables';
@@ -212,9 +213,10 @@ const { isLandlord, isTenant } = useAuth();
                                 link.active ? 'bg-orange-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50',
                                 'px-3 py-1 text-sm border rounded-md'
                             ]"
-                            v-html="link.label"
                             :disabled="!link.url"
-                        />
+                        >
+                            <PaginatorLink :label="link.label" />
+                        </Link>
                     </div>
                 </div>
             </div>
