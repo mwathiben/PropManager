@@ -653,6 +653,21 @@ class AppServiceProvider extends ServiceProvider
             $warnings[] = 'FILESYSTEM_DISK=local in production. Uploads (KYC, lease docs, payment proofs) live on a single host\'s filesystem and disappear on restart.';
         }
 
+        // Phase-22 PERF-SCALE-1: horizontal-scale readiness. Behind a
+        // load balancer with >1 app instance, file/array session +
+        // cache stores are per-host — a user's session vanishes when
+        // they hit a different instance, and cache hit-rate collapses.
+        // Production must externalise both (redis / database).
+        $sessionDriver = (string) config('session.driver', 'file');
+        if (in_array($sessionDriver, ['file', 'array'], true)) {
+            $warnings[] = 'SESSION_DRIVER='.$sessionDriver.' in production. Sessions are per-host — they break behind a load balancer (PERF-SCALE-1). Use redis or database.';
+        }
+
+        $cacheStore = (string) config('cache.default', 'file');
+        if (in_array($cacheStore, ['file', 'array'], true)) {
+            $warnings[] = 'CACHE_STORE='.$cacheStore.' in production. The cache is per-host — hit-rate collapses behind a load balancer and invalidation cannot reach other instances (PERF-SCALE-1). Use redis.';
+        }
+
         return $warnings;
     }
 
