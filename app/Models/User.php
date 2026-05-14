@@ -67,6 +67,9 @@ class User extends Authenticatable
         'profile_photo_path',
         'kyc_completed_at',
         'timezone',
+        'dob',
+        'parental_consent_artefact_url',
+        'parental_consent_provided_at',
     ];
 
     protected $hidden = [
@@ -92,6 +95,12 @@ class User extends Authenticatable
         // When non-null the account is read-only; the Gate::before
         // hook in AuthServiceProvider denies write-side abilities.
         'restricted_at' => 'datetime',
+        // Phase-21 DEFER-DPA-1: Kenya DPA Article 8 / Section 33 —
+        // children's data. dob feeds KenyaDpaService::isMinor; consent
+        // artefact + timestamp gate downstream processing when dob says
+        // the tenant is a minor.
+        'dob' => 'date',
+        'parental_consent_provided_at' => 'datetime',
     ];
 
     /**

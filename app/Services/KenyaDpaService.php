@@ -244,6 +244,35 @@ class KenyaDpaService
     }
 
     /**
+     * Phase-21 DEFER-DPA-1: gate predicate for processing minor data
+     * without parental consent. Returns true when a tenant has a dob
+     * indicating minor status BUT no parental_consent_provided_at
+     * timestamp — TenantPolicy::update + downstream operations call
+     * this to deny processing until the consent artefact is on file.
+     *
+     * Returns false when:
+     *   - dob is NULL (not enough info to determine — operator process)
+     *   - dob indicates adult
+     *   - dob indicates minor AND parental_consent_provided_at is set
+     */
+    public function minorRequiresConsent(User $tenant): bool
+    {
+        if ($tenant->dob === null) {
+            return false;
+        }
+
+        $dobString = $tenant->dob instanceof \DateTimeInterface
+            ? $tenant->dob->format('Y-m-d')
+            : (string) $tenant->dob;
+
+        if (! $this->isMinor($dobString)) {
+            return false;
+        }
+
+        return $tenant->parental_consent_provided_at === null;
+    }
+
+    /**
      * Phase-13 BREACH-4: notify affected data subjects per Kenya DPA
      * Section 43(2) / GDPR Article 34. Called by the operator (via
      * controller or dpa:notify-affected-subjects) when the breach is

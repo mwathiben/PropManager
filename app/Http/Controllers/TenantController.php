@@ -252,6 +252,12 @@ class TenantController extends Controller
             'email' => $validated['email'],
             'mobile_number' => $validated['phone'],
             'national_id' => $validated['id_number'],
+            // Phase-21 DEFER-DPA-1: optional minor/consent fields.
+            // Validation in UpdateTenantRequest requires parental_consent
+            // artefact whenever dob resolves to minor.
+            'dob' => $validated['dob'] ?? $tenant->dob,
+            'parental_consent_artefact_url' => $validated['parental_consent_artefact_url'] ?? $tenant->parental_consent_artefact_url,
+            'parental_consent_provided_at' => $validated['parental_consent_provided_at'] ?? $tenant->parental_consent_provided_at,
         ]);
 
         // Log activity

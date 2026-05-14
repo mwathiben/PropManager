@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Services\KenyaDpaService;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateTenantRequest extends FormRequest
@@ -33,6 +35,38 @@ class UpdateTenantRequest extends FormRequest
             'email' => 'required|email|max:255|unique:users,email,'.$tenantId,
             'phone' => 'required|string|max:20',
             'id_number' => 'nullable|string|max:20',
+            // Phase-21 DEFER-DPA-1: Kenya DPA Article 8 / Section 33.
+            'dob' => 'nullable|date|before:today',
+            'parental_consent_artefact_url' => 'nullable|url|max:512',
+            'parental_consent_provided_at' => 'nullable|date',
         ];
+    }
+
+    /**
+     * Phase-21 DEFER-DPA-1: when dob resolves to a minor, parental
+     * consent artefact must be provided. The KenyaDpaService::isMinor
+     * predicate is the canonical age check (treats malformed as minor
+     * for fail-safe).
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            $dob = $this->input('dob');
+            if (! $dob) {
+                return;
+            }
+
+            $isMinor = app(KenyaDpaService::class)->isMinor((string) $dob);
+            if (! $isMinor) {
+                return;
+            }
+
+            if (! $this->filled('parental_consent_artefact_url')) {
+                $validator->errors()->add(
+                    'parental_consent_artefact_url',
+                    'Parental consent artefact URL is required when the tenant is a minor (Kenya DPA Article 8).',
+                );
+            }
+        });
     }
 }
