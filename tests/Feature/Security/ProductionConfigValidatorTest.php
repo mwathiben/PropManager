@@ -59,6 +59,10 @@ class ProductionConfigValidatorTest extends TestCase
             'security.kenya_dpa.registration' => 'KE-DPA-12345',
             'hashing.bcrypt.rounds' => 12,
             'filesystems.default' => 's3',
+            // Phase-22 PERF-SCALE-1: a horizontal-scale-ready baseline
+            // must externalise session + cache off per-host drivers.
+            'session.driver' => 'redis',
+            'cache.default' => 'redis',
         ]);
     }
 

@@ -8,11 +8,17 @@
 // INVALID signature: it exercises the signature-validation middleware
 // (a real latency surface, bursty at month-start rent cycles) and is
 // 100% data-safe because the request is rejected before any handler
-// runs. Reads only ever touch the seeded load-test landlord.
+// runs. The rejection is the EXPECTED outcome, so those requests use a
+// responseCallback that treats the 4xx as success — otherwise the
+// intentional rejections would inflate http_req_failed.
 import http from 'k6/http';
 import { group, sleep } from 'k6';
 import { BASE_URL, LOAD_USER, BASELINE_THRESHOLDS } from './lib/config.js';
-import { login } from './lib/auth.js';
+import { ensureLoggedIn } from './lib/auth.js';
+
+// The webhook ingress is supposed to reject our invalid signature —
+// 401/403/422 are the SUCCESS case for that scenario.
+const webhookExpected = http.expectedStatuses(401, 403, 419, 422);
 
 export const options = {
     thresholds: BASELINE_THRESHOLDS,
@@ -44,7 +50,7 @@ export function setup() {
 }
 
 export function readPaths() {
-    login(BASE_URL, LOAD_USER.email, LOAD_USER.password);
+    ensureLoggedIn(BASE_URL, LOAD_USER.email, LOAD_USER.password);
 
     group('hot read paths', () => {
         http.get(`${BASE_URL}/dashboard`);
@@ -60,6 +66,7 @@ export function readPaths() {
 export function webhookIngress() {
     // Invalid signature on purpose — measures the validation-middleware
     // ingress cost without ever reaching a handler or mutating data.
+    // responseCallback marks the 4xx rejection as the expected success.
     group('webhook ingress (rejected)', () => {
         http.post(
             `${BASE_URL}/webhooks/paystack`,
@@ -69,6 +76,7 @@ export function webhookIngress() {
                     'Content-Type': 'application/json',
                     'x-paystack-signature': 'load-test-invalid-signature',
                 },
+                responseCallback: webhookExpected,
             },
         );
     });

@@ -145,6 +145,12 @@ jobs:
       - name: Build assets
         run: npm run build
 
+      # Phase-22 PERF-CI-3: fail the build if the JS bundle blows past
+      # its size budget. Budgets + re-baseline instructions live in the
+      # script header.
+      - name: Bundle-size budget check
+        run: node scripts/check-bundle-size.mjs
+
   config-cache-check:
     name: Config + Route Cache Validation (PERF-9)
     runs-on: ubuntu-latest
@@ -372,6 +378,11 @@ jobs:
           echo "DB_DATABASE=propmanager_test" >> .env
           echo "DB_USERNAME=root" >> .env
           echo "DB_PASSWORD=password" >> .env
+          # The load test logs in as one shared user from one IP — the
+          # 5/min login throttle would 429 the run. Lift it for the
+          # load-test box only; we are measuring read-path latency, not
+          # the auth throttle.
+          echo "RATE_LIMIT_LOGIN=1000,1" >> .env
 
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress --no-scripts
@@ -409,3 +420,10 @@ jobs:
           BASE_URL: http://127.0.0.1:8000
           VUS: '5'
           DURATION: '45s'
+          # CI runs `php artisan serve` — single-threaded, no opcache,
+          # NOT production-representative. The smoke gate here is "the
+          # app responds and isn't catastrophically broken/hung", not a
+          # production SLO. Real latency numbers come from an operator
+          # baseline.js run against php-fpm.
+          SMOKE_P95_MS: '3000'
+          SMOKE_ERROR_RATE: '0.05'

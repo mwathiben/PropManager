@@ -10,7 +10,7 @@
 import http from 'k6/http';
 import { group, sleep } from 'k6';
 import { BASE_URL, LOAD_USER, SMOKE_THRESHOLDS } from './lib/config.js';
-import { login } from './lib/auth.js';
+import { ensureLoggedIn } from './lib/auth.js';
 
 export const options = {
     vus: Number(__ENV.VUS || 5),
@@ -32,9 +32,10 @@ export default function () {
         http.get(`${BASE_URL}/api/health`);
     });
 
-    group('auth', () => {
-        login(BASE_URL, LOAD_USER.email, LOAD_USER.password);
-    });
+    // Log in once per VU, then reuse the session — re-logging every
+    // iteration would hammer the login throttle and measure auth, not
+    // the read paths.
+    ensureLoggedIn(BASE_URL, LOAD_USER.email, LOAD_USER.password);
 
     group('hot read paths', () => {
         http.get(`${BASE_URL}/dashboard`);

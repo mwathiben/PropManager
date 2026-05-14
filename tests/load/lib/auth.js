@@ -7,8 +7,17 @@
 //   2. POST /login with the decoded token in the X-XSRF-TOKEN header
 // After this the VU's cookie jar carries an authenticated session for
 // every subsequent request.
+//
+// IMPORTANT: call ensureLoggedIn() — not login() directly — from the VU
+// function. It logs in once per VU and reuses the session. Logging in
+// every iteration would (a) hammer the login throttle and (b) measure
+// auth latency instead of the read paths under test.
 import http from 'k6/http';
 import { check } from 'k6';
+
+// Module scope is per-VU in k6 (each VU is its own isolate), so this
+// flag tracks "has THIS VU logged in yet".
+let loggedIn = false;
 
 export function login(baseUrl, email, password) {
     http.get(`${baseUrl}/login`);
@@ -31,4 +40,12 @@ export function login(baseUrl, email, password) {
     });
 
     return res;
+}
+
+export function ensureLoggedIn(baseUrl, email, password) {
+    if (loggedIn) {
+        return;
+    }
+    login(baseUrl, email, password);
+    loggedIn = true;
 }
