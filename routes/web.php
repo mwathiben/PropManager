@@ -77,6 +77,33 @@ Route::get('/', function () {
 // Real server-side 403/404s render the same pages via bootstrap/app.php.
 Route::get('/403', fn () => Inertia::render('Errors/403'))->name('errors.403');
 
+// Phase-26 PWA-SHELL-2: branded offline page. The service worker's
+// navigation fallback (resources/js/sw-merged.ts NavigationRoute)
+// serves this when the network is unreachable. Rendered as an Inertia
+// page so it shares layout chrome.
+Route::get('/offline', fn () => Inertia::render('Offline'))->name('offline');
+
+// Phase-26 PWA-SHELL-1: service worker at root scope. Vite's
+// `vite-plugin-pwa` generates the SW into public/build/sw.js. Browsers
+// limit a SW's scope to its own URL path by default — to grant root
+// scope from a non-root path we must send `Service-Worker-Allowed: /`.
+// Keeping the registration path `/sw.js` (unchanged from pre-Phase-26)
+// means no client-side change. If the build hasn't run yet (fresh
+// clone), this route 404s and the SW registration in app.js fails
+// silently — non-fatal.
+Route::get('/sw.js', function () {
+    $path = public_path('build/sw.js');
+    if (! is_file($path)) {
+        abort(404);
+    }
+
+    return response()->file($path, [
+        'Content-Type' => 'application/javascript',
+        'Service-Worker-Allowed' => '/',
+        'Cache-Control' => 'no-cache, must-revalidate',
+    ]);
+})->name('sw.js');
+
 // --- PUBLIC INVITATION ROUTES (Guest Access) ---
 // Caretaker Invitations
 Route::get('/invitations/{token}', [InvitationController::class, 'show'])->name('invitations.show');
