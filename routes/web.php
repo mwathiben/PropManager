@@ -804,6 +804,19 @@ Route::middleware('auth')->group(function () {
         Route::delete('/{token}', [\App\Http\Controllers\ApiTokenController::class, 'destroy'])->name('destroy');
     });
 
+    // Phase-25 API-WEBHOOK-1/2/3: outbound webhook subscriptions.
+    // Landlords register integration endpoints to receive
+    // payment.received / invoice.created / lease.signed events.
+    Route::middleware('role:landlord')->prefix('settings/webhooks')->name('settings.webhooks.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\WebhookSubscriptionController::class, 'index'])->name('index');
+        Route::post('/', [\App\Http\Controllers\WebhookSubscriptionController::class, 'store'])->name('store');
+        Route::get('/{subscription}', [\App\Http\Controllers\WebhookSubscriptionController::class, 'show'])->name('show');
+        Route::patch('/{subscription}', [\App\Http\Controllers\WebhookSubscriptionController::class, 'update'])->name('update');
+        Route::delete('/{subscription}', [\App\Http\Controllers\WebhookSubscriptionController::class, 'destroy'])->name('destroy');
+        Route::post('/{subscription}/test', [\App\Http\Controllers\WebhookSubscriptionController::class, 'test'])->name('test');
+        Route::post('/deliveries/{delivery}/retry', [\App\Http\Controllers\WebhookSubscriptionController::class, 'retry'])->name('deliveries.retry');
+    });
+
     // 17. Subscription Management (Landlords Only)
     Route::middleware('role:landlord')->prefix('subscription')->group(function () {
         Route::get('/', [SubscriptionController::class, 'index'])->name('subscription.index');
