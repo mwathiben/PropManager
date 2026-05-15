@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api;
 
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Gate;
 use Tests\TestCase;
 
 /**
@@ -14,6 +17,8 @@ use Tests\TestCase;
  */
 class Phase25DocTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_scramble_package_is_a_dependency(): void
     {
         $composer = json_decode(file_get_contents(base_path('composer.json')), true);
@@ -80,5 +85,60 @@ class Phase25DocTest extends TestCase
         // best-covered surface today) are in the spec.
         $this->assertArrayHasKey('/v1/auth/login', $spec['paths']);
         $this->assertArrayHasKey('/v1/tenant/lease', $spec['paths']);
+    }
+
+    public function test_view_api_docs_gate_is_registered(): void
+    {
+        // API-DOC-2: Scramble's RestrictedDocsAccess middleware calls
+        // Gate::allows('viewApiDocs'). Without a Gate registration the
+        // call returns false and every non-local request to /docs/api
+        // would 403. Confirm the gate exists.
+        $this->assertTrue(
+            Gate::has('viewApiDocs'),
+            'API-DOC-2: a Gate named "viewApiDocs" must be registered so Scramble can gate /docs/api.',
+        );
+    }
+
+    public function test_view_api_docs_gate_grants_landlords_and_super_admins(): void
+    {
+        $landlord = User::factory()->create(['role' => 'landlord']);
+        $this->assertTrue(
+            Gate::forUser($landlord)->allows('viewApiDocs'),
+            'API-DOC-2: landlords must be able to view /docs/api.',
+        );
+
+        $admin = User::factory()->create(['role' => 'super_admin']);
+        $this->assertTrue(
+            Gate::forUser($admin)->allows('viewApiDocs'),
+            'API-DOC-2: super-admins must be able to view /docs/api.',
+        );
+    }
+
+    public function test_view_api_docs_gate_denies_tenants_and_caretakers(): void
+    {
+        $tenant = User::factory()->create(['role' => 'tenant']);
+        $this->assertFalse(
+            Gate::forUser($tenant)->allows('viewApiDocs'),
+            'API-DOC-2: tenants must NOT see /docs/api — the docs surface server routes that should not be browsable.',
+        );
+
+        $caretaker = User::factory()->create(['role' => 'caretaker']);
+        $this->assertFalse(
+            Gate::forUser($caretaker)->allows('viewApiDocs'),
+            'API-DOC-2: caretakers do not need API docs and should not see them either.',
+        );
+    }
+
+    public function test_scramble_middleware_includes_restricted_docs_access(): void
+    {
+        // API-DOC-2: the Gate is only enforced if RestrictedDocsAccess is
+        // actually wired into Scramble's middleware stack. If somebody
+        // removes it from config/scramble.php, the gate becomes dead
+        // code — this watchdog catches that.
+        $this->assertContains(
+            \Dedoc\Scramble\Http\Middleware\RestrictedDocsAccess::class,
+            config('scramble.middleware'),
+            'API-DOC-2: config/scramble.php middleware stack must include RestrictedDocsAccess.',
+        );
     }
 }

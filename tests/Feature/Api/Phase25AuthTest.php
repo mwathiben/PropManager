@@ -138,4 +138,41 @@ class Phase25AuthTest extends TestCase
             'API-AUTH-2: personal_access_tokens.last_used_ip column must exist.',
         );
     }
+
+    public function test_sanctum_default_expiration_is_twelve_months(): void
+    {
+        // API-AUTH-4: NIST + OWASP say long-lived tokens accumulate
+        // risk; 12 months is the conservative posture. To opt out for
+        // a never-expiring token, an operator sets SANCTUM_EXPIRATION_MINUTES=0.
+        $this->assertSame(
+            525600, // 60 minutes * 24 hours * 365 days
+            (int) config('sanctum.expiration'),
+            'API-AUTH-4: sanctum.expiration default must be 525600 (12 months).',
+        );
+    }
+
+    public function test_minted_token_expires_in_a_year(): void
+    {
+        $landlord = \App\Models\User::factory()->create(['role' => 'landlord']);
+
+        $this->actingAs($landlord)->post(route('settings.api-tokens.store'), [
+            'name' => 'expiry-test',
+            'scopes' => ['landlord:manage'],
+        ]);
+
+        $token = $landlord->tokens()->first();
+        $this->assertNotNull(
+            $token->expires_at,
+            'API-AUTH-4: minted token must carry an expires_at (12-month default).',
+        );
+        $this->assertTrue(
+            $token->expires_at->isFuture(),
+            'API-AUTH-4: expires_at must be in the future.',
+        );
+        $this->assertLessThanOrEqual(
+            365 * 24 * 60 + 60, // 12 months + 1h slack
+            $token->expires_at->diffInMinutes(now()),
+            'API-AUTH-4: expires_at must be ~12 months out (+/- 1h slack).',
+        );
+    }
 }

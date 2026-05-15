@@ -196,6 +196,15 @@ class AuthServiceProvider extends ServiceProvider
             return $user->isLandlord();
         });
 
+        // Phase-25 API-DOC-2: Scramble's `/docs/api` UI is gated by
+        // its RestrictedDocsAccess middleware which calls
+        // Gate::allows('viewApiDocs'). Allow landlords + super-admins
+        // — tenants don't need API docs and the docs surface our
+        // server routes which should not be browsable by tenants.
+        Gate::define('viewApiDocs', function ($user) {
+            return $user->isLandlord() || $user->isSuperAdmin();
+        });
+
         // Phase-19 POLICY-7 + Phase-20 AUTHZ-FRONT-8: every Sanctum
         // ability issued by AuthController::getAbilitiesForUser is
         // mirrored in the Gate registry so DPA-4 restriction

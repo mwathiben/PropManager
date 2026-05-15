@@ -84,6 +84,9 @@ return Application::configure(basePath: dirname(__DIR__))
             // Phase-22 PERF-CACHE-2: ETag + private cache headers on the
             // config-enumerated read routes (read_cache.routes).
             'cache.read' => \App\Http\Middleware\SetReadCacheHeaders::class,
+            // Phase-25 API-VERSION-2: route attribute-style deprecation
+            // header emitter. Apply via ->middleware('deprecated:YYYY-MM-DD').
+            'deprecated' => \App\Http\Middleware\ApiVersionHeaders::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -91,6 +94,17 @@ return Application::configure(basePath: dirname(__DIR__))
         // SENTRY_LARAVEL_DSN is empty (local dev, CI), the SDK is a
         // silent no-op — so this is safe to leave on globally.
         Integration::handles($exceptions);
+
+        // Phase-25 API-ERROR-1 + RATELIMIT-2: every /api/* error
+        // response conforms to RFC 7807 problem+json. Renderer
+        // returns null for non-API requests, letting Inertia/web
+        // error handling continue unchanged. Registered FIRST so it
+        // wins over the DomainException renderer below for any
+        // API-bound DomainException too (the renderer falls through
+        // to the default branch which preserves the message).
+        $exceptions->render(function (\Throwable $e, Request $request) {
+            return app(\App\Exceptions\ApiProblemRenderer::class)->render($request, $e);
+        });
 
         $exceptions->render(function (DomainException $e, Request $request) {
             if ($request->expectsJson()) {

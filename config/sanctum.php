@@ -47,7 +47,14 @@ return [
     |
     */
 
-    'expiration' => null,
+    // Phase-25 API-AUTH-4: 12-month default expiration. NIST + OWASP
+    // API Security Top 10 say long-lived tokens accumulate risk —
+    // mandatory rotation forces operators to review every integration
+    // at least once a year. Per-token expiration override is set via
+    // ApiTokenController::store($expiresAt) and trumps this default.
+    // To revert to never-expire, set SANCTUM_EXPIRATION_MINUTES=0
+    // in .env.
+    'expiration' => (int) env('SANCTUM_EXPIRATION_MINUTES', 525600) ?: null,
 
     /*
     |--------------------------------------------------------------------------
