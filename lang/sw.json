@@ -141,5 +141,12 @@
             "minutes_ago": "Dakika {count} iliyopita | Dakika {count} zilizopita",
             "hours_ago": "Saa {count} iliyopita | Masaa {count} yaliyopita"
         }
+    },
+    "offline": {
+        "indicator": {
+            "label": "Hauko mtandaoni",
+            "aria": "Kiashirio cha hali ya mtandao",
+            "tooltip": "Hauko mtandaoni. Kurasa ulizotembelea hivi karibuni bado zinafanya kazi kutoka kwa cache."
+        }
     }
 }

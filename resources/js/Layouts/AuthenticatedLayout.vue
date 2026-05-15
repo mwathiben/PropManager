@@ -13,6 +13,7 @@ import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import NotificationBell from '@/Components/NotificationBell.vue';
 import ConnectionStatus from '@/Components/ConnectionStatus.vue';
+import OnlineIndicator from '@/Components/OnlineIndicator.vue';
 import InvitationBanner from '@/Components/InvitationBanner.vue';
 import {
     HomeIcon,
@@ -586,6 +587,11 @@ const navigationItems = computed(() => {
 
                     <!-- Connection Status & Notification Bell -->
                     <div class="flex items-center gap-3">
+                        <!-- Phase-26 PWA-OFFLINE-3: HTTP-layer offline pill.
+                             Silent when online (the absence is the signal).
+                             Complementary to ConnectionStatus which tracks
+                             the WebSocket/Echo realtime channel. -->
+                        <OnlineIndicator />
                         <ConnectionStatus />
                         <NotificationBell />
                     </div>

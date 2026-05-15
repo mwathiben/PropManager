@@ -141,5 +141,12 @@
             "minutes_ago": "{count} minute ago | {count} minutes ago",
             "hours_ago": "{count} hour ago | {count} hours ago"
         }
+    },
+    "offline": {
+        "indicator": {
+            "label": "Offline",
+            "aria": "Offline indicator",
+            "tooltip": "You are offline. Recently viewed pages still work from cache."
+        }
     }
 }
