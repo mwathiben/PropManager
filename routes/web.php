@@ -524,6 +524,11 @@ Route::middleware('auth')->group(function () {
         ->get('/reports/noi', [\App\Http\Controllers\Reports\NoiController::class, 'index'])
         ->name('reports.noi');
 
+    // Phase-27 BI-FORECAST-1/2/3: rent-roll forecast + seasonality + vacancy.
+    Route::middleware('role:landlord')
+        ->get('/reports/forecast', [\App\Http\Controllers\Reports\ForecastController::class, 'index'])
+        ->name('reports.forecast');
+
     // 12. Notifications
     Route::get('/notifications', [\App\Http\Controllers\NotificationsController::class, 'index'])->name('notifications.index');
     Route::get('/notifications/overview', [\App\Http\Controllers\NotificationsController::class, 'overview'])->name('notifications.overview');

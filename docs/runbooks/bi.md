@@ -159,7 +159,70 @@ table is a three-point contract — drift between them is caught by
 
 ## Forecasting
 
-_Filled in by Phase 1c — BI-FORECAST-1/2/3._
+### Rent-roll forecast (BI-FORECAST-1)
+
+`ForecastService::rentRoll(landlordId, monthsAhead)` projects expected
+revenue 1-24 months out. For each month:
+
+| Column            | Formula                                                |
+|-------------------|--------------------------------------------------------|
+| `active_rent`     | Σ rent_amount for leases active that month             |
+| `low_estimate`    | `active_rent × collection_rate` (conservative)         |
+| `expected_revenue`| `low_estimate × seasonality_factor`                    |
+| `high_estimate`   | `active_rent + (vacant_units × avg_rent × fill_rate)`  |
+
+Lease lifecycle: a lease counts as active in month M when its
+`start_date <= M.last_day AND (end_date IS NULL OR end_date >= M.first_day)`.
+Mid-window endings drop off at their end-date month — no automatic
+renewal assumed.
+
+`collection_rate` is `Σ payments / Σ expected_rent` over the last
+12 months, clamped to `[0.5, 1.0]`. Falls back to 0.85 when there
+isn't enough history. The clamp prevents outliers from a fresh
+portfolio (where `Σ expected_rent` is small and noisy) from
+producing absurd rates.
+
+`vacancy_fill_rate` is `mean_leases_per_unit_per_year / 12` — the
+fraction of vacant units filled in any given month. Clamped to
+`[0.1, 0.9]` with a 0.4 default.
+
+### Seasonality (BI-FORECAST-2)
+
+`ForecastService::seasonalityFactor(landlordId, month)` computes the
+landlord's own seasonal multiplier from the last 3 years of payment
+history:
+
+```
+factor = mean(monthly_total) for the given month / mean(monthly_total) across all months
+```
+
+Returns 1.0 when there's <12 months of data — a thin sample produces
+worse forecasts than the naive flat assumption. Kenya-wide
+seasonality (Dec early-payment surge, Jan vacancy bump) emerges
+naturally from each landlord's own history without hardcoded
+overrides.
+
+### Vacancy projection (BI-FORECAST-3)
+
+`ForecastService::vacancyProjection(landlordId)` returns one row per
+vacant unit:
+
+| Column                | Source |
+|-----------------------|--------|
+| `unit_id`             | `units.id` |
+| `unit_number`         | `units.unit_number` |
+| `vacant_since`        | Last lease's `end_date` (null if never leased) |
+| `expected_fill_date`  | `today + mean_time_to_fill_days` |
+| `lost_revenue_kes`    | `(target_rent / 30) × days_to_fill` |
+
+`mean_time_to_fill_days` is computed from the landlord's history: for
+every lease in the last 12 months, find the prior lease on the same
+unit and take `DATEDIFF(current.start_date, prior.end_date)`. Clamped
+to `[7, 180]` days with a 45-day default when the landlord has no
+back-to-back lease history.
+
+Rows are sorted by `lost_revenue_kes DESC` so the highest-impact
+vacancies surface first.
 
 ## Custom report builder
 
