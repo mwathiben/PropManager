@@ -226,3 +226,13 @@ Schedule::call(function () use ($failureEmail) {
         );
     }
 })->name('failed-jobs-growth-monitor')->dailyAt('05:00')->timezone('Africa/Nairobi')->onOneServer();
+
+// Phase-27 BI-DELIVERY-2: dispatch scheduled reports daily at 06:00
+// Africa/Nairobi (after the failed-jobs sweep at 05:00, before
+// landlords start their day). onOneServer prevents duplicate sends in
+// a multi-node setup.
+Schedule::command('reports:send-scheduled')
+    ->dailyAt('06:00')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase27-bi-delivery2-scheduled-reports');

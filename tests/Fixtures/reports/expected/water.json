@@ -1,0 +1,12 @@
+{
+    "title": "Water Consumption Report",
+    "period": "__VARYING__",
+    "summary": {
+        "total_consumption": 0,
+        "total_cost": 0,
+        "average_consumption": 0,
+        "readings_count": 0,
+        "top_consumers": []
+    },
+    "top_consumers": []
+}

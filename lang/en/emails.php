@@ -123,6 +123,7 @@ return [
     ],
 
     'subjects' => [
+        'scheduled_report' => 'Scheduled report: :name',
         'invoice_sent' => 'Invoice :number - Payment Due',
         'payment_received' => 'Payment Received - :number',
         'invoice_reminder' => 'Payment Reminder - Invoice :number',

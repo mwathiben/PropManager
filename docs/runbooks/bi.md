@@ -309,11 +309,106 @@ Field references that would require such a join throw
 
 ## Scheduled delivery
 
-_Filled in by Phase 2 — BI-DELIVERY-1/2/3._
+### Real xlsx (BI-DELIVERY-1)
+
+`XlsxExportService::write(title, columns, rows, path)` writes proper
+xlsx via PhpSpreadsheet. Column types map to format masks:
+
+| Type       | Format mask          |
+|------------|---------------------|
+| `currency` | `[$KES] #,##0.00`   |
+| `integer`  | `#,##0`             |
+| `date`     | `dd-mmm-yyyy`       |
+| `string`   | _no mask_           |
+
+Header row is bold + filled with the brand theme color `#1F2937`.
+Columns auto-fit. Sheet title is truncated to 31 chars (xlsx limit).
+Empty-columns short-circuits to a "No rows." placeholder cell.
+
+Replaces the pre-Phase-27 CSV-renamed-to-xlsx hack — numeric cells
+now SUM correctly without re-typing, dates display as date types,
+the file passes `xlsxinfo` / `unzip -p` validation.
+
+### Cron + mailable (BI-DELIVERY-2)
+
+`scheduled_reports` table wires `(landlord_id, saved_report_id,
+cadence, recipient_email, next_due_at, last_sent_at)`. The
+`reports:send-scheduled` artisan command runs nightly at 06:00
+Africa/Nairobi (`routes/console.php`, `onOneServer()`):
+
+1. Find rows where `next_due_at <= now()`
+2. For each: re-run the saved config through `ReportBuilderService`
+   (revalidates against the SQLi allowlist on every send)
+3. Render rows to a temp xlsx via `XlsxExportService`
+4. Queue `ScheduledReportDelivery` mailable with the xlsx attached
+5. `ScheduledReport::markSent()` advances `next_due_at` by the cadence
+
+Failures per row are caught + logged; one bad config doesn't block
+the rest of the batch. Exit code is non-zero if any row failed —
+the operator's heartbeat tells them to investigate.
+
+`ScheduledReportDelivery` is a `ShouldQueue` mailable. Subject reads
+from `__('emails.subjects.scheduled_report', ['name' => ...])` so
+Phase-24 HasLocalePreference auto-localises to the recipient's
+locale when their User record exists.
+
+### Cadence + recipient self-serve UI (BI-DELIVERY-3)
+
+`/reports/scheduled` Inertia page (`Pages/Reports/Scheduled.vue`)
+lets a landlord pick a saved report + cadence + recipient from a
+server-emitted allowlist.
+
+**Recipient allowlist (PERSONAL-DATA-1)**: only the landlord's own
+email + their caretaker addresses. A third-party email is rejected
+by `ScheduledController::store` validation — the UI doesn't even
+offer it. Phase-13 PERSONAL-DATA-1 compliance: scheduled reports
+contain landlord data, so the delivery target is locked.
+
+Cadences: `weekly`, `monthly`, `quarterly`. Adding a cadence
+requires updating `ScheduledReport::CADENCES` constant + the
+`markSent()` switch + the `ScheduledController::nextDueAtFor()`
+switch — three sites, one contract.
 
 ## CI gates
 
-_Filled in by Phase 2 — BI-CI-1/2/3._
+### Golden-query regression (BI-CI-1)
+
+`Phase27GoldenQueriesTest` seeds `GoldenReportFixtureSeeder` (a
+deterministic dataset anchored to 2026-01-01 — never `Carbon::now`)
+and runs each `ReportService::supportedTypes()` entry. Output is
+roundtripped through `json_encode/decode` to normalise int-vs-float,
+then `assertSame` against the committed fixture at
+`tests/Fixtures/reports/expected/{type}.json`.
+
+Workflow when a report SQL changes intentionally:
+
+1. Make the SQL edit
+2. Run `php artisan reports:write-golden` (regenerates all 4 fixtures)
+3. Diff the JSON output — the diff IS the prose explanation
+4. Commit code + new fixtures together with a one-line rationale
+
+The watchdog test skips when a fixture is missing — it doesn't
+silently pass-as-green. The `BI-CI-3` coverage ratchet catches
+that case separately.
+
+### Per-endpoint perf budget (BI-CI-2)
+
+`config/perf.php['report_query_budget_ms']` is the per-type ceiling.
+`Phase27PerfTest` measures median over 5 runs and fails when median
+exceeds budget. Initial budgets are generous (5-10× local-dev
+measurement) to absorb CI's single-threaded `php artisan serve`
+variance; tighten over time as the metric stabilises.
+
+Re-baseline: edit `config/perf.php` with a one-line commit-message
+rationale. No corresponding test edit needed — the test reads
+config.
+
+### New-type ratchet (BI-CI-3)
+
+`Phase27CoverageTest` walks `ReportService::supportedTypes()` and
+asserts every entry has BOTH a golden fixture AND a perf budget.
+Adding a new report type without these is a CI failure — forces
+the Phase-27 discipline: golden first, perf budget always.
 
 ## Related runbooks
 

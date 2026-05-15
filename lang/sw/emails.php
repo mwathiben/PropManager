@@ -124,6 +124,7 @@ return [
     ],
 
     'subjects' => [
+        'scheduled_report' => 'Ripoti iliyopangwa: :name',
         'invoice_sent' => 'Ankara :number - Malipo Yanahitajika',
         'payment_received' => 'Malipo Yamepokelewa - :number',
         'invoice_reminder' => 'Kumbusho la Malipo - Ankara :number',

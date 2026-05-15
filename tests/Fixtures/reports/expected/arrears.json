@@ -1,0 +1,21 @@
+{
+    "title": "Arrears Analysis Report",
+    "summary": {
+        "total_arrears": 0,
+        "aging": {
+            "0-30": 0,
+            "31-60": 0,
+            "61-90": 0,
+            "90+": 0
+        },
+        "count": 0,
+        "details": []
+    },
+    "aging_breakdown": {
+        "0-30": 0,
+        "31-60": 0,
+        "61-90": 0,
+        "90+": 0
+    },
+    "details": []
+}

@@ -352,6 +352,20 @@ class ReportService
     /**
      * Export report data to array format (for PDF/Excel)
      */
+    /**
+     * Phase-27 BI-CI-3 contract: every report type returned here MUST
+     * have a golden fixture (tests/Fixtures/reports/expected/{type}.json)
+     * and a perf budget (config/perf.php['report_query_budget_ms']).
+     * Phase27CoverageTest enforces that contract — extending this list
+     * without updating the goldens + budgets fails CI.
+     *
+     * @return list<string>
+     */
+    public static function supportedTypes(): array
+    {
+        return ['financial', 'occupancy', 'arrears', 'water'];
+    }
+
     public function exportData(int $landlordId, string $reportType, ?string $period = 'month'): array
     {
         $analytics = $this->getDashboardAnalytics($landlordId, $period);

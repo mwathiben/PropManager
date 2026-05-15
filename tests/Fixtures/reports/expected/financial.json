@@ -1,0 +1,28 @@
+{
+    "title": "Financial Report",
+    "period": "__VARYING__",
+    "date_range": "__VARYING__",
+    "summary": {
+        "expected_rent": 0,
+        "collected_rent": 0,
+        "water_charges": 0,
+        "outstanding": 0,
+        "total_revenue": 0,
+        "revenue_breakdown": {
+            "rent": 0,
+            "water": 0,
+            "deposits": 0
+        },
+        "collection_percentage": 0
+    },
+    "revenue_trend": [],
+    "collection_rate": {
+        "total_billed": 0,
+        "total_collected": 0,
+        "collection_rate": 0,
+        "paid_count": 0,
+        "partial_count": 0,
+        "overdue_count": 0,
+        "total_invoices": 0
+    }
+}

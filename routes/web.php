@@ -539,6 +539,13 @@ Route::middleware('auth')->group(function () {
         Route::delete('/{report}', [\App\Http\Controllers\Reports\BuilderController::class, 'destroy'])->name('destroy');
     });
 
+    // Phase-27 BI-DELIVERY-2/3: scheduled report delivery self-serve.
+    Route::middleware('role:landlord')->prefix('reports/scheduled')->name('reports.scheduled.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Reports\ScheduledController::class, 'index'])->name('index');
+        Route::post('/', [\App\Http\Controllers\Reports\ScheduledController::class, 'store'])->name('store');
+        Route::delete('/{schedule}', [\App\Http\Controllers\Reports\ScheduledController::class, 'destroy'])->name('destroy');
+    });
+
     // 12. Notifications
     Route::get('/notifications', [\App\Http\Controllers\NotificationsController::class, 'index'])->name('notifications.index');
     Route::get('/notifications/overview', [\App\Http\Controllers\NotificationsController::class, 'overview'])->name('notifications.overview');

@@ -1,0 +1,19 @@
+{
+    "title": "Occupancy Report",
+    "summary": {
+        "total_units": 0,
+        "occupied": 0,
+        "vacant": 0,
+        "maintenance": 0,
+        "arrears": 0,
+        "occupancy_rate": 0,
+        "vacancy_rate": 0,
+        "status_breakdown": {
+            "occupied": 0,
+            "vacant": 0,
+            "maintenance": 0,
+            "arrears": 0
+        }
+    },
+    "top_performers": []
+}
