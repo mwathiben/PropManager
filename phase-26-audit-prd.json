@@ -1,0 +1,265 @@
+{
+  "project": "PropManager",
+  "audit_cycle": "phase-26",
+  "audit_date": "2026-05-15",
+  "scope": "Tier-3 platform + API excellence, cycle 2 of 3 (per project_propmanager_path_forward.md). Phase 25 [API-SURFACE] closed 2026-05-15 with 18/18 findings, zero deferrals; Phase 26 [MOBILE + PWA] takes PropManager from 'mobile-responsive website' to 'world-class PWA'. The Kenyan network reality is the binding constraint: 3G dominates urban use, 2G or worse in rural areas, and even landlords on fibre suffer from intermittent CBD power cuts (UPS/inverter handoff = ~30s offline window). Today the codebase has a public/sw.js that ONLY handles push notifications (install/activate/push/notificationclick/notificationclose/pushsubscriptionchange handlers — NO fetch handler, NO cache strategy, NO offline shell). The blade root has NO manifest <link>, there is NO manifest.json file, and the SW references /images/icon-192.png + /images/badge-72.png which DO NOT EXIST in the repo (push notifications today fall back to the OS default icon — silent UX regression). NO img tag in resources/js carries loading=\"lazy\" (6 img tags total: tenant profile photos on Dashboard, logos in InvoiceSettings/InvoiceTemplates/ReceiptTemplates/BrandingTab editors, QR code in ReceiptTemplates). The Vite config has manualChunks but NO bundle-size budget; nothing fails CI when a single chunk grows past a threshold. NO Lighthouse PWA score gate exists; the only frontend CI gates today are eslint + axe-core a11y (Phase 23). NO Network Information API usage anywhere (saveData / connection.effectiveType / NetworkInformation). NO background-sync registration. NO IndexedDB cache for offline-tolerant data. Web push backend infra DOES exist (push_subscriptions table 2025_12_29_195833, PushSubscription model, PushNotificationService, NotificationsController push endpoints, usePushNotifications composable) — the gap is on the client+manifest+SW side. Phase 26 makes PropManager a Progressive Web App: installable (manifest + icons + theme), offline-tolerant (app shell cache + view-only flows for lease/recent payments), network-aware (connection.effectiveType detection, background-sync for queued writes), and CI-gated (Lighthouse PWA >=90, bundle-size budget, install-prompt regression test). 18 findings across 6 categories: PWA-MANIFEST (3 — manifest.json + icons set + theme/background/display + apple-touch-icon), PWA-SHELL (3 — fetch handler + app shell cache + navigation fallback to /offline), PWA-OFFLINE (3 — offline view-only flow for lease+recent payments + IDB cache + /offline page), PWA-NETWORK (3 — background-sync for invoice creation + Network Info API connection awareness + retry queue UI), PWA-PERF (3 — loading=\"lazy\" sweep + bundle-size CI gate + runtime caching strategy doc), PWA-CI (3 — Lighthouse PWA score >=90 gate + service worker integration test + install-prompt display-mode regression test). Severity split 5H/8M/5L. Builds on Phase-15 PaginatorLink/bundle work, Phase-22 perf budgets + http_request_ms (PWA-PERF-2 extends PERF-CI gate pattern), Phase-23 axe-core Playwright job (PWA-CI-1 extends Lighthouse CI alongside), Phase-25 API surface (background-sync needs idempotent POSTs which RATELIMIT-3 + ERROR-1 problem+json envelope enable). Tools: vite-plugin-pwa with Workbox (Laravel-native, integrates with Vite manifest pipeline so cache versioning rides the build hash; lower friction than hand-rolling Workbox config). Lighthouse CI via @lhci/cli in a Playwright sibling job — re-uses the Phase-23 axe-core Playwright infrastructure so we don't duplicate browser-test plumbing.",
+  "context_baseline": {
+    "pwa_today": {
+      "service_worker": "public/sw.js exists",
+      "service_worker_scope": "push-notifications-only (install/activate/push/notificationclick/notificationclose/pushsubscriptionchange + message handlers — NO fetch handler, NO cache strategy)",
+      "manifest": "NONE — no manifest.json, no <link rel=\"manifest\"> in resources/views/app.blade.php",
+      "icons": "MISSING — sw.js references /images/icon-192.png + /images/badge-72.png which do not exist in public/",
+      "register_call_site": "resources/js/app.js:111-127 — registers /sw.js on window.load",
+      "vapid_backend": "PRESENT — push_subscriptions table, PushSubscription model, PushNotificationService, NotificationsController push endpoints, usePushNotifications.ts composable"
+    },
+    "offline_today": {
+      "fetch_handler": "NONE",
+      "app_shell_cache": "NONE",
+      "navigation_fallback": "NONE",
+      "offline_page": "NONE",
+      "idb_cache": "NONE"
+    },
+    "network_today": {
+      "background_sync_registration": "NONE",
+      "connection_aware_ui": "NONE (no saveData / connection.effectiveType / connection.downlink checks)",
+      "retry_queue": "NONE",
+      "idempotency_keys": "ScannedKey infrastructure exists for some POST endpoints (Phase-16) but client-side bg-sync queue does not consume it"
+    },
+    "perf_today": {
+      "vite_manualChunks": "vue-core, vendor, leaflet, marked (manual chunk hints in vite.config.js)",
+      "bundle_size_budget": "NONE — no CI gate fails on a chunk size threshold",
+      "loading_lazy_audit": "0/6 img tags carry loading=\"lazy\" (resources/js/Pages/Dashboard.vue, InvoiceSettings/Edit.vue, InvoiceTemplates/Edit.vue, ReceiptTemplates/Edit.vue × 2, Settings/partials/BrandingTab.vue)",
+      "image_optimisation": "NONE — uploaded tenant profile photos + logos served raw"
+    },
+    "ci_today": {
+      "lighthouse_gate": "NONE",
+      "pwa_score_gate": "NONE",
+      "install_prompt_test": "NONE",
+      "service_worker_test": "NONE",
+      "a11y_gate": "axe-core Playwright (Phase 23, CRITICAL-gated)"
+    },
+    "deps_today": {
+      "vite_plugin_pwa": "NOT INSTALLED",
+      "workbox": "NOT INSTALLED",
+      "lhci": "NOT INSTALLED",
+      "playwright": "INSTALLED (@playwright/test ^1.60.0)"
+    }
+  },
+  "tooling_choices": {
+    "pwa_plugin": "vite-plugin-pwa (wraps Workbox, integrates with Laravel Vite manifest, generates SW + injects manifest <link>). Alternative considered: hand-roll Workbox — rejected because manifest-versioning would drift from Vite asset hashes.",
+    "lighthouse_runner": "@lhci/cli in a Playwright sibling job. Alternative considered: pa11y CI — rejected because pa11y is a11y-only; LHCI covers PWA + a11y + best-practices + SEO + performance categories in one pass.",
+    "icon_generation": "manifest-aware sharp-cli script (build-time, run once). Alternative considered: pwa-asset-generator — rejected because it's a 800MB Puppeteer dependency; sharp-cli is ~30MB."
+  },
+  "findings": [
+    {
+      "id": "PWA-MANIFEST-1",
+      "title": "Ship a Web App Manifest (manifest.json) — installability prerequisite",
+      "severity": "HIGH",
+      "files": [
+        "public/manifest.json (new)",
+        "resources/views/app.blade.php (add <link rel=\"manifest\"> + theme-color meta)"
+      ],
+      "evidence": "Without a manifest, no browser will offer the Add-to-Home-Screen / Install prompt. Today's installability check (chrome://flags or Lighthouse PWA category) returns FAIL on first criterion. A landlord with 10 properties wanting one-tap PropManager from their phone homescreen today has to bookmark a URL.",
+      "fix": "(a) manifest.json with name + short_name + start_url=/dashboard + scope=/ + display=standalone + theme_color=#1f2937 + background_color=#ffffff + lang=en + dir=ltr; (b) <link rel=\"manifest\" href=\"/manifest.json\"> in app.blade.php; (c) <meta name=\"theme-color\" content=\"#1f2937\">; (d) Phase26ManifestTest::test_manifest_is_served + test_manifest_declares_required_fields + test_app_blade_links_manifest."
+    },
+    {
+      "id": "PWA-MANIFEST-2",
+      "title": "Ship 192/512 maskable icons referenced by manifest + SW",
+      "severity": "HIGH",
+      "files": [
+        "public/images/icon-192.png (new)",
+        "public/images/icon-512.png (new)",
+        "public/images/icon-maskable.png (new — 512×512, safe zone)",
+        "public/images/badge-72.png (new — monochrome, for push notifications)",
+        "scripts/generate-pwa-icons.mjs (new — sharp-cli driven, run via npm run icons:generate)"
+      ],
+      "evidence": "Manifest with no icons fails the installability check. The push SW (public/sw.js:37-38) already references /images/icon-192.png + /images/badge-72.png — they do not exist. Push notifications today silently fall back to the OS-default icon, which is a quality regression nobody noticed because there's no CI gate.",
+      "fix": "(a) Generate from a source SVG (resources/img/logo.svg, to be added or sourced from existing favicon) via sharp-cli; (b) maskable icon respects the 80% safe zone per W3C App Manifest spec; (c) badge is monochrome white-on-transparent per Material spec; (d) manifest.json icons[] entries with purpose='any' + purpose='maskable'; (e) Phase26ManifestTest::test_icon_files_exist_and_are_correct_dimensions."
+    },
+    {
+      "id": "PWA-MANIFEST-3",
+      "title": "Apple touch icon + iOS PWA meta tags",
+      "severity": "MEDIUM",
+      "files": [
+        "public/images/apple-touch-icon.png (new — 180×180)",
+        "resources/views/app.blade.php (apple-mobile-web-app-* meta tags)"
+      ],
+      "evidence": "iOS Safari does NOT read the manifest's icons[] array — it requires apple-touch-icon.png at the document root. Without it, iOS Add-to-Home-Screen renders a screenshot of the page, which looks unprofessional. iOS also reads apple-mobile-web-app-capable + apple-mobile-web-app-status-bar-style for standalone-mode styling.",
+      "fix": "(a) Generate apple-touch-icon.png (180×180) via the icon-generation script; (b) <link rel=\"apple-touch-icon\" href=\"/images/apple-touch-icon.png\"> in app.blade.php; (c) <meta name=\"apple-mobile-web-app-capable\" content=\"yes\"> + <meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\"> + <meta name=\"apple-mobile-web-app-title\" content=\"PropManager\">; (d) Phase26ManifestTest::test_app_blade_carries_apple_touch_meta."
+    },
+    {
+      "id": "PWA-SHELL-1",
+      "title": "Service worker fetch handler + app-shell cache (Workbox-managed)",
+      "severity": "HIGH",
+      "files": [
+        "vite.config.js (add VitePWA plugin)",
+        "public/sw.js (delete — replaced by Vite-generated SW + custom push handler module)",
+        "resources/js/sw-push.ts (new — extracted push handlers, injected into the generated SW)",
+        "package.json (add vite-plugin-pwa)"
+      ],
+      "evidence": "Today's sw.js has zero fetch handler — the SW does NOTHING for offline tolerance. A landlord losing connectivity mid-form gets the browser's default offline page (Chrome dinosaur). The fix is non-trivial because we must preserve the existing push-notification handlers while adding Workbox-managed precaching + runtime caching.",
+      "fix": "(a) vite-plugin-pwa in injectManifest mode so the existing push handlers ride along; (b) Workbox precache: app shell HTML + critical JS chunks (vue-core, vendor) + CSS + manifest + icons; (c) Workbox runtime caching: GET /api/v1/* StaleWhileRevalidate 5min; (d) /sw.js → /sw-merged.js generated path, manifest.json updated to reference it; (e) Phase26ShellTest::test_service_worker_registers_fetch_handler + test_app_shell_precache_includes_critical_chunks (assertions read the SW file content for the cache list)."
+    },
+    {
+      "id": "PWA-SHELL-2",
+      "title": "Navigation fallback to /offline when the network is down",
+      "severity": "MEDIUM",
+      "files": [
+        "vite.config.js (Workbox navigateFallback)",
+        "resources/js/Pages/Offline.vue (new)",
+        "routes/web.php (Route::get('/offline'))"
+      ],
+      "evidence": "Even with app shell cached, a navigation request (e.g. /invoices/create) that fails because the network is down today returns the browser's default offline screen — no PropManager branding, no 'we'll sync when you reconnect' messaging, no return-to-dashboard CTA. The fix is to register a navigateFallback in the SW that points at a pre-cached /offline page.",
+      "fix": "(a) Offline.vue with PropManager branding + last-known-state hint + 'Try again' button (window.location.reload) + 'Return to dashboard' (uses cached shell); (b) routes/web.php Route::get('/offline')->name('offline') returns Inertia::render('Offline'); (c) Workbox config navigateFallback='/offline' navigateFallbackDenylist=['/api/.*', '/docs/.*', '/admin/.*']; (d) Phase26ShellTest::test_offline_route_renders + test_navigate_fallback_is_configured."
+    },
+    {
+      "id": "PWA-SHELL-3",
+      "title": "vite-plugin-pwa baseline + injectManifest config",
+      "severity": "MEDIUM",
+      "files": [
+        "vite.config.js (VitePWA config block)",
+        "resources/js/sw-merged.ts (new — Workbox skeleton that imports the push handlers)",
+        "docs/runbooks/pwa.md (new — operator guide for SW versioning + cache invalidation)"
+      ],
+      "evidence": "Hand-rolling Workbox is a known footgun: cache-key rotation forgetting bumping CACHE_VERSION = phantom users on stale assets, especially after a build-hash-rotating deploy. vite-plugin-pwa wires Workbox into the Vite asset pipeline so the precache manifest IS the build manifest. Without this, every PWA-OFFLINE finding becomes load-bearing on engineer discipline.",
+      "fix": "(a) VitePWA({ strategies: 'injectManifest', srcDir: 'resources/js', filename: 'sw-merged.ts', registerType: 'autoUpdate' }); (b) sw-merged.ts imports precacheAndRoute from workbox-precaching + the existing push handlers; (c) pwa.md runbook covers: how the SW versions itself, how to force-update a stuck client (postMessage SKIP_WAITING), how to inspect Workbox cache via DevTools; (d) Phase26ShellTest::test_vite_plugin_pwa_is_a_dependency + test_injectManifest_strategy_is_configured."
+    },
+    {
+      "id": "PWA-OFFLINE-1",
+      "title": "Offline view-only flow for lease + recent payments (top-3 Kenyan-network use cases)",
+      "severity": "HIGH",
+      "files": [
+        "resources/js/composables/useOfflineData.ts (new — wraps fetch with IDB fallback)",
+        "resources/js/Pages/Dashboard.vue (use composable for last_payment + active_lease cards)",
+        "resources/js/Pages/Lease/Show.vue (use composable for lease detail)",
+        "resources/js/Pages/Payments/Index.vue (use composable for recent-payments table)"
+      ],
+      "evidence": "Tenant-side use case: tenant checks 'when's my next rent due / what was my last payment / what does my lease say' on a 2G connection that just dropped. Landlord-side: shows up at a building, opens app to confirm tenant X's recent payment status, network is patchy. These three views must render last-known-state from cache and surface a 'cached at TIME, refreshing...' indicator instead of an error.",
+      "fix": "(a) useOfflineData<T>(key, fetcher) returns { data, isFresh, cachedAt, refresh } and writes the latest fetch result to IDB under `propmanager.offline.${key}`; (b) on fetch failure (navigator.onLine === false OR fetch rejects), serves the IDB copy with isFresh=false; (c) UI shows a subtle ribbon when isFresh=false (uses Phase-24 i18n keys 'offline.cached_at', 'offline.refreshing'); (d) Phase26OfflineTest::test_use_offline_data_serves_cached_value_when_fetch_fails + test_idb_key_namespacing."
+    },
+    {
+      "id": "PWA-OFFLINE-2",
+      "title": "IndexedDB wrapper with TTL + per-landlord isolation",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/lib/offlineStore.ts (new — wraps idb-keyval)",
+        "package.json (add idb-keyval)"
+      ],
+      "evidence": "Raw IDB API is verbose enough that engineers reach for localStorage instead — and localStorage is a synchronous 5MB shared store that wedges the main thread under quota pressure. idb-keyval gives a get/set/del/keys API in <1KB. Per-landlord isolation matters because a landlord using two browser profiles (or impersonation) must not see each other's cached data — namespace by user.id + landlord.id.",
+      "fix": "(a) offlineStore.get<T>(key) / set(key, value, ttlMs?) / del(key) — wraps idb-keyval with TTL evict-on-read; (b) keys are prefixed `pm:${userId}:${landlordId}:${key}` resolved from the Inertia page.props.auth.user; (c) on logout, offlineStore.clearForCurrentUser() clears the prefix; (d) Phase26OfflineTest::test_ttl_evicts_stale_entries + test_keys_are_namespaced_by_user_and_landlord."
+    },
+    {
+      "id": "PWA-OFFLINE-3",
+      "title": "Last-synced indicator + manual-refresh affordance in the UI shell",
+      "severity": "LOW",
+      "files": [
+        "resources/js/Layouts/AuthenticatedLayout.vue (add OnlineIndicator slot in top bar)",
+        "resources/js/components/OnlineIndicator.vue (new)"
+      ],
+      "evidence": "Today the user has no signal whether they're online or seeing cached data. A persistent indicator (green dot = online, grey dot = cached, with 'last synced N min ago' tooltip) sets expectations and gives a manual refresh affordance. Kenyan-network reality: users routinely toggle airplane mode to release a stuck connection — they need to know whether to retry an action.",
+      "fix": "(a) OnlineIndicator reads navigator.onLine + listens for online/offline events; (b) Last-sync timestamp pulled from a Pinia store updated by useOfflineData; (c) Tooltip uses Phase-24 i18n 'offline.last_synced_minutes_ago' with vue-i18n plural form; (d) Phase26OfflineTest::test_indicator_reflects_offline_event."
+    },
+    {
+      "id": "PWA-NETWORK-1",
+      "title": "Background-sync queue for invoice creation (idempotent POST replay)",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/sw-merged.ts (BackgroundSyncPlugin route)",
+        "resources/js/composables/useBackgroundSync.ts (new — client-side queue interface)",
+        "resources/js/Pages/Invoices/Create.vue (wrap submit in useBackgroundSync)"
+      ],
+      "evidence": "Invoice creation is the most common landlord write action on flaky connections. Today a failed POST shows a toast and the user must remember to retry. With background-sync the request goes into a Workbox queue, replays automatically when connectivity returns, and the UI shows a 'queued' state instead of an error. This pattern hinges on the POST being idempotent — invoice creation already accepts an X-Idempotency-Key header (Phase-16 RESIL-3).",
+      "fix": "(a) Workbox BackgroundSyncPlugin routed on POST /invoices with queue name 'invoice-creation-queue' maxRetentionTime=1 day; (b) useBackgroundSync returns a submit() that resolves immediately if the request enqueued (even on offline) with a 'queued' status; (c) When the queue drains, post a message to clients which the composable surfaces as a toast 'Invoice queued offline was sent'; (d) X-Idempotency-Key is set from a client-side ULID per submit attempt so replay is safe; (e) Phase26NetworkTest::test_offline_invoice_post_enqueues + test_idempotency_header_is_attached."
+    },
+    {
+      "id": "PWA-NETWORK-2",
+      "title": "Network Information API — connection-aware UI (defer heavy charts on 2G/saveData)",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/composables/useConnection.ts (new — wraps navigator.connection)",
+        "resources/js/Pages/Dashboard.vue (defer occupancy chart + arrears trend chart on slow connections)",
+        "resources/js/Pages/Reports/* (skeleton state on slow connections)"
+      ],
+      "evidence": "navigator.connection exposes effectiveType ('slow-2g' | '2g' | '3g' | '4g') and saveData (Data-Saver browser setting). Today PropManager renders the full dashboard including two Chart.js panes on every device — a 2G user waits 8+ seconds for the chart bundle alone. The composable returns { effectiveType, saveData, isSlow } so pages can switch to a skeleton + 'tap to load chart' affordance.",
+      "fix": "(a) useConnection returns the reactive trio plus an isSlow = effectiveType in ['slow-2g', '2g'] || saveData boolean; (b) Dashboard v-if=!isSlow on chart panes, v-else a tap-to-load placeholder; (c) Reports list defers chart thumbnail rendering similarly; (d) Phase26NetworkTest::test_use_connection_emits_reactive_state + test_dashboard_defers_charts_on_slow_connection (jsdom mock of navigator.connection)."
+    },
+    {
+      "id": "PWA-NETWORK-3",
+      "title": "Retry-queue UI — visible list of operations queued for replay",
+      "severity": "LOW",
+      "files": [
+        "resources/js/components/QueuedOpsTray.vue (new — bottom-right tray opens on click)",
+        "resources/js/stores/queuedOps.ts (Pinia store fed by SW message events)"
+      ],
+      "evidence": "Background-sync (NETWORK-1) is invisible by default. A landlord who created 3 invoices offline + closed the tab without knowing the SW would replay them later loses trust the next time they try. The tray makes the queue auditable: 'Invoice #INV-2026-0042 (queued 3 minutes ago)'. Click an entry → retry or cancel.",
+      "fix": "(a) Pinia queuedOps store with { add, drain, cancel }; (b) Tray UI floats bottom-right when count > 0, badge with count; (c) Localised strings via Phase-24 i18n 'offline.queued_ops.*'; (d) Phase26NetworkTest::test_tray_renders_pending_ops + test_drain_event_clears_tray."
+    },
+    {
+      "id": "PWA-PERF-1",
+      "title": "loading=\"lazy\" sweep across the 6 img tags in resources/js",
+      "severity": "LOW",
+      "files": [
+        "resources/js/Pages/Dashboard.vue (tenant.profile_photo_url img)",
+        "resources/js/Pages/InvoiceSettings/Edit.vue (logo img)",
+        "resources/js/Pages/InvoiceTemplates/Edit.vue (logo img)",
+        "resources/js/Pages/ReceiptTemplates/Edit.vue (logo + QR img × 2)",
+        "resources/js/Pages/Settings/partials/BrandingTab.vue (logo preview img)"
+      ],
+      "evidence": "Native lazy-loading is a one-attribute change with zero JS cost. On Dashboard, the tenant photo grid in unitDetail modal is hidden behind a v-if but the img elements are below the fold even when visible. Logo previews in template editors are always below the fold. No reason to fetch eagerly.",
+      "fix": "(a) Add loading=\"lazy\" + decoding=\"async\" to all 6 sites; (b) Phase26PerfTest::test_every_img_tag_carries_loading_lazy (greps resources/js/**/*.vue for <img matches without loading=); (c) the test is a regression gate — new img tags without loading=lazy fail CI."
+    },
+    {
+      "id": "PWA-PERF-2",
+      "title": "Bundle-size CI gate per chunk (extends Phase-22 PERF-CI pattern)",
+      "severity": "MEDIUM",
+      "files": [
+        "tests/Feature/Performance/Phase26BundleBudgetTest.php (new)",
+        "config/perf.php (add bundle_budget_bytes map)"
+      ],
+      "evidence": "Phase-22 shipped a CI gate for slow-query and N+1 — the moral equivalent for the frontend is a per-chunk byte budget. Today vue-core sits at ~140KB gzipped + vendor ~80KB + leaflet ~60KB + app ~120KB. A regression that bundles a 200KB date-picker into the app chunk gets shipped invisibly. Budget gate alarms at threshold.",
+      "fix": "(a) Phase26BundleBudgetTest walks public/build/assets and asserts each chunk under its config budget — vue-core <=160KB gzip, vendor <=100KB, leaflet <=70KB, app <=150KB, others sum <=250KB; (b) config/perf.php['bundle_budget_bytes'] is the table; (c) Test reads public/build/manifest.json + measures chunk sizes; (d) Phase26BundleBudgetTest::test_every_chunk_is_within_budget — runs after the frontend build job."
+    },
+    {
+      "id": "PWA-PERF-3",
+      "title": "Runtime-caching strategy documented per route family",
+      "severity": "LOW",
+      "files": [
+        "docs/runbooks/pwa.md (caching-strategies section)"
+      ],
+      "evidence": "Workbox supports six caching strategies (CacheFirst, NetworkFirst, StaleWhileRevalidate, NetworkOnly, CacheOnly). Without a written contract, the next engineer adding a new endpoint guesses. The doc lays out the rules: GET /api/v1/* read-only data → StaleWhileRevalidate 5min; /docs/api.json → CacheFirst 1 day; mutation POSTs → NetworkOnly with BackgroundSync; assets → CacheFirst forever (Vite hash rotates the key).",
+      "fix": "(a) docs/runbooks/pwa.md section 'Runtime caching' with the per-family table + rationale + when to override; (b) Phase26ShellTest::test_pwa_runbook_documents_caching_strategies (regex-asserts the doc covers each strategy keyword)."
+    },
+    {
+      "id": "PWA-CI-1",
+      "title": "Lighthouse CI — PWA category score >=90 gate",
+      "severity": "HIGH",
+      "files": [
+        ".github/workflows/ci.yml (add Lighthouse job)",
+        "lighthouserc.cjs (new — LHCI config)",
+        "package.json (add @lhci/cli)"
+      ],
+      "evidence": "Phase 23 added axe-core a11y gating; Lighthouse PWA category is the equivalent for installability + offline + manifest correctness + service-worker registration. A score of 100 is achievable for a single-page Inertia app post-Phase-26; we set the gate at 90 to leave room for category penalties we don't fully control (HTTP/2 push, no-content-encoding-on-some-assets, etc.).",
+      "fix": "(a) lighthouserc.cjs runs against /dashboard with a logged-in cookie (mirrors the Phase-23 axe-core auth pattern); (b) assertions categories.pwa = ['error', {minScore: 0.9}]; (c) GitHub Actions job uploads the LHCI HTML report as artifact for diagnosis; (d) Phase26CiTest::test_lighthouserc_minScore_is_at_least_0_9 + test_github_workflow_has_lighthouse_job (yaml grep)."
+    },
+    {
+      "id": "PWA-CI-2",
+      "title": "Service-worker integration test — registration + scope + active state",
+      "severity": "LOW",
+      "files": [
+        "tests/e2e/pwa-sw.spec.ts (new — Playwright)"
+      ],
+      "evidence": "Lighthouse PWA category checks the SW registers; it does NOT check the SW handles a specific URL pattern correctly. A regression where the SW's runtime caching route doesn't match /api/v1/* would pass LHCI but silently break offline browsing. The Playwright test forces a navigation, asserts navigator.serviceWorker.controller is non-null, and asserts a known precached asset returns from cache when the network is throttled to offline.",
+      "fix": "(a) pwa-sw.spec.ts logs in → navigates /dashboard → asserts SW.controller; (b) page.context().setOffline(true) + reload → assert app shell renders (not the browser default offline page); (c) checks /offline returns the PropManager offline page; (d) runs in the existing Playwright job alongside axe-core."
+    },
+    {
+      "id": "PWA-CI-3",
+      "title": "Install-prompt regression test — display-mode + manifest link presence",
+      "severity": "LOW",
+      "files": [
+        "tests/e2e/pwa-install.spec.ts (new — Playwright)"
+      ],
+      "evidence": "A future engineer removes the manifest <link> from app.blade.php → no test fails because Lighthouse passes the registered SW criterion alone. The install-prompt test asserts the four installability criteria from Chrome's site-engagement spec: served over HTTPS (skipped in test env), valid manifest reachable, manifest has icons, SW registered. It also asserts matchMedia('(display-mode: browser)') in test mode so we don't false-pass when running inside an installed PWA.",
+      "fix": "(a) pwa-install.spec.ts asserts page.evaluate fetches /manifest.json and parses it; (b) asserts manifest.icons[].some(icon => icon.sizes === '192x192' || icon.sizes === '512x512'); (c) asserts document.querySelector('link[rel=manifest]') is present; (d) Phase26CiTest::test_install_prompt_spec_exists (lightweight presence check at the PHP level, so the spec can't be silently deleted)."
+    }
+  ]
+}
