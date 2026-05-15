@@ -241,5 +241,81 @@
       "evidence": "Six months from now a new contributor adds a 5th report type but skips the golden file. Phase27GoldenQueriesTest doesn't fail because the new type isn't iterated. This ratchet asserts every report_type returned by ReportService::supportedTypes() has a golden file — forces the discipline.",
       "fix": "(a) Phase27CoverageTest::test_every_supported_report_type_has_a_golden_fixture walks ReportService::supportedTypes() + asserts tests/Fixtures/reports/expected/{type}.json exists; (b) Phase27CoverageTest::test_every_supported_report_type_has_a_perf_budget walks supportedTypes() + asserts config/perf.php['report_query_budget_ms'] has the key; (c) the watchdog is the contract — extending it without these is a CI failure."
     }
-  ]
+  ],
+  "audit_closeout": {
+    "closed_at": "2026-05-16",
+    "status": "COMPLETE",
+    "findings_total": 18,
+    "findings_closed": 18,
+    "by_severity": {
+      "HIGH": "5/5",
+      "MEDIUM": "9/9",
+      "LOW": "4/4"
+    },
+    "commits": [
+      "1760cfe — PRD baseline (18 findings)",
+      "8dc99a2 — Phase 1a: BI-COHORT-1/2/3 (CohortService retentionMatrix + acquisitionTable + lifetimeValue)",
+      "4d50f4c — Phase 1b: BI-NOI-1/2/3 (NoiService byProperty + capRate + expense allocation methods)",
+      "45e6ede — Phase 1c: BI-FORECAST-1/2/3 (ForecastService rentRoll + seasonality + vacancyProjection)",
+      "a7fb1ca — Phase 1d: BI-BUILDER-1/2/3 (saved_reports + Builder.vue + SAFE SQL generator + 20-payload SQLi regression)",
+      "8b036a0 — Phase 2: BI-DELIVERY-1/2/3 + BI-CI-1/2/3 (PhpSpreadsheet xlsx + scheduled mailable + dailyAt cron + goldens + perf budget + ratchet)"
+    ],
+    "watchdog_suite": {
+      "test_classes": 9,
+      "test_classes_listing": [
+        "Phase27CohortTest (10 tests) — retentionMatrix shape + diagonal = 100% + acquisition table balances + LTV excludes refunds",
+        "Phase27NoiTest (11 tests) — NOI = revenue − expenses + per-property ranking + cap-rate Kenyan band + allocation method sums",
+        "Phase27ForecastTest (11 tests) — active lease full in month 1 + lease end falls off + seasonality default = 1.0 + vacancy fill date from history",
+        "Phase27BuilderInjectionTest (15 tests / 178 assertions) — 20+ classic SQLi payloads rejected at field/operator/value slots; UNION SELECT, DROP TABLE, comment-strip, time-based blind, etc.",
+        "Phase27BuilderTest (10 tests) — SavedReport TenantScope + policy + Builder.vue + field allowlist locked to runbook",
+        "Phase27XlsxTest (2 tests) — typed cells with currency/date masks + header bold + brand fill",
+        "Phase27ScheduledDeliveryTest (10 tests) — due rows queue mail + next_due_at advances + recipient allowlist (Phase-13 PERSONAL-DATA-1) + dry-run + console schedule registered",
+        "Phase27GoldenQueriesTest (4 tests) — each of {financial, occupancy, arrears, water} matches committed golden JSON (with __VARYING__ normalisation for date_range/period/generated_at)",
+        "Phase27PerfTest (4 tests) — median of 5 runs per report type within config/perf.php['report_query_budget_ms']",
+        "Phase27CoverageTest (2 tests) — every ReportService::supportedTypes() entry has a golden fixture + perf budget"
+      ],
+      "total_tests": 79,
+      "total_assertions": 476,
+      "duration_seconds": 133.5
+    },
+    "artifacts_shipped": {
+      "services": [
+        "app/Services/Reports/CohortService.php (retentionMatrix triangular + acquisitionTable identity + lifetimeValue excluding refunds)",
+        "app/Services/Reports/NoiService.php (byProperty + portfolio + capRate annualised + four allocation methods: direct, per_unit, per_revenue, per_floor_area)",
+        "app/Services/Reports/ForecastService.php (rentRoll low/expected/high + seasonalityFactor with 3-yr history + vacancyProjection with mean time-to-fill clamped [7,180])",
+        "app/Services/Reports/ReportBuilderService.php (SAFE SQL generator — allowlist tables/fields/operators + mandatory landlord_id WHERE + parameterised Eloquent only, never DB::raw with user input)",
+        "app/Services/Reports/XlsxExportService.php (PhpSpreadsheet — typed cells, KES currency mask '[$KES] #,##0.00', date 'dd-mmm-yyyy', bold #1F2937 header, auto-fit columns, 31-char title truncation, empty-columns short-circuit)"
+      ],
+      "controllers_pages": [
+        "app/Http/Controllers/Reports/{Cohort,Noi,Forecast,Builder,Scheduled}Controller.php",
+        "resources/js/Pages/Reports/{Cohort,Noi,Forecast,Builder,Scheduled}.vue",
+        "app/Mail/ScheduledReportDelivery.php (ShouldQueue + Phase-24 i18n subject) + resources/views/emails/scheduled-report.blade.php"
+      ],
+      "models_migrations": [
+        "app/Models/SavedReport.php (TenantScope, casts config as array, registered SavedReportPolicy)",
+        "app/Models/ScheduledReport.php (CADENCES = [weekly, monthly, quarterly] + markSent() advances next_due_at)",
+        "saved_reports table (landlord_id + name + type + config JSON)",
+        "scheduled_reports table (landlord_id + saved_report_id + cadence + recipient_email + next_due_at + last_sent_at)",
+        "properties.estimated_value decimal(14,2) nullable (cap-rate input)",
+        "expenses.allocation_method string(32) default 'direct'"
+      ],
+      "console_cron": [
+        "app/Console/Commands/SendScheduledReports.php (--dry-run + per-row try/catch + report() on failure)",
+        "app/Console/Commands/WriteReportGoldens.php (operator runs after intentional change, normalises date_range/period/generated_at → __VARYING__)",
+        "routes/console.php — Schedule::command('reports:send-scheduled')->dailyAt('06:00')->timezone('Africa/Nairobi')->onOneServer()"
+      ],
+      "fixtures_config": [
+        "database/seeders/GoldenReportFixtureSeeder.php (anchored to CarbonImmutable::parse('2026-01-01'), 2 properties × 2 units × 3 payments, deterministic)",
+        "tests/Fixtures/reports/expected/{financial,occupancy,arrears,water}.json (committed golden output)",
+        "config/perf.php['report_query_budget_ms'] = {financial: 600, occupancy: 600, arrears: 800, water: 600}",
+        "composer.json — phpoffice/phpspreadsheet ^1.30 installed"
+      ],
+      "i18n": "lang/{en,sw}/emails.php — scheduled_report subject keys with Swahili parity (Phase-24 gate verified green); reports.schedule.* + reports.builder.* prefixes in Builder.vue + Scheduled.vue",
+      "runbook": "docs/runbooks/bi.md — cohort methodology (LTV excludes refunds) + NOI allocation formulas + forecast clamps + builder allowlist contract + delivery cadence schema + CI gates (goldens + perf + ratchet)",
+      "security_posture": "Phase-1 SQLi cleanup (commit 03e17b7) standard maintained: ReportBuilderService validates every config entry against ALLOWED_TABLES + ALLOWED_FIELDS + operator allowlists at the boundary, then only emits parameterised ->where() calls. Phase27BuilderInjectionTest fires 20+ classic SQLi payloads (UNION SELECT, DROP TABLE, OR 1=1, comment-strip, time-based blind, stacked queries, encoded variants) at every input slot and asserts all reject. Phase-13 PERSONAL-DATA-1 compliance: ScheduledController allowlist rejects third-party recipient emails (landlord own + caretaker only)."
+    },
+    "deferrals": [],
+    "next_phase": "Phase 28 [TENANT-PORTAL] — Tier 4 cycle 1: dedicated tenant-facing surface (login, lease + balance, payment history, invoice download, maintenance request, document repository, push notifications). Per project_propmanager_path_forward.md Tier 4 (Product depth: tenant + caretaker + ops workflows).",
+    "tier_marker": "TIER 3 COMPLETE — Phase 25 [API-SURFACE] + Phase 26 [MOBILE + PWA] + Phase 27 [REPORTING + BI] all closed 18/18 with zero deferrals. Next: Tier 4 product-depth cycles."
+  }
 }
