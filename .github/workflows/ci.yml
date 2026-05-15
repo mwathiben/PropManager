@@ -526,3 +526,175 @@ jobs:
         run: npm run test:a11y
         env:
           A11Y_BASE_URL: http://127.0.0.1:8000
+
+  pwa-smoke:
+    name: PWA Smoke (PWA-CI-2 + PWA-CI-3)
+    runs-on: ubuntu-latest
+    needs: lint
+    # Phase-26 PWA-CI-2 + CI-3: Playwright specs that exercise the
+    # service worker (SW registers + navigation fallback to /offline)
+    # and the install-prompt criteria (manifest reachable + icons
+    # declared + Service-Worker-Allowed header). Same warn-on-main /
+    # block-on-PR pattern as load-smoke + a11y-smoke.
+    continue-on-error: ${{ github.event_name == 'push' }}
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: propmanager_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo, pdo_mysql, bcmath
+          tools: composer:v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Configure .env with valid APP_KEY
+        run: |
+          cp .env.example .env
+          php -r "file_put_contents('.env', preg_replace('/^APP_KEY=.*/m', 'APP_KEY=base64:'.base64_encode(random_bytes(32)), file_get_contents('.env')));"
+          echo "DB_CONNECTION=mysql" >> .env
+          echo "DB_HOST=127.0.0.1" >> .env
+          echo "DB_PORT=3306" >> .env
+          echo "DB_DATABASE=propmanager_test" >> .env
+          echo "DB_USERNAME=root" >> .env
+          echo "DB_PASSWORD=password" >> .env
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-scripts
+
+      - name: Discover packages
+        run: php artisan package:discover --ansi
+
+      - name: Build assets (manifest + SW required)
+        run: |
+          npm ci
+          npm run build
+
+      - name: Migrate + seed the load-test landlord
+        run: |
+          php artisan migrate --force
+          php artisan db:seed --class="Database\\Seeders\\LoadTestSeeder" --force
+
+      - name: Boot the app
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8000 &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8000/api/health > /dev/null; then
+              echo "app is up"; break
+            fi
+            sleep 1
+          done
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run PWA smoke specs
+        run: npm run test:pwa
+        env:
+          PWA_BASE_URL: http://127.0.0.1:8000
+
+  lighthouse-pwa:
+    name: Lighthouse PWA score >= 0.9 (PWA-CI-1)
+    runs-on: ubuntu-latest
+    needs: lint
+    # Phase-26 PWA-CI-1: Lighthouse CI runs the PWA + best-practices
+    # categories against /dashboard with an authenticated cookie. The
+    # gate is categories:pwa minScore 0.9. Reports upload to LHCI's
+    # temporary-public-storage for artifact inspection; the URL is
+    # printed to the run log. Warn-on-main / block-on-PR like the
+    # other smoke jobs.
+    continue-on-error: ${{ github.event_name == 'push' }}
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: propmanager_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo, pdo_mysql, bcmath
+          tools: composer:v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Configure .env with valid APP_KEY
+        run: |
+          cp .env.example .env
+          php -r "file_put_contents('.env', preg_replace('/^APP_KEY=.*/m', 'APP_KEY=base64:'.base64_encode(random_bytes(32)), file_get_contents('.env')));"
+          echo "DB_CONNECTION=mysql" >> .env
+          echo "DB_HOST=127.0.0.1" >> .env
+          echo "DB_PORT=3306" >> .env
+          echo "DB_DATABASE=propmanager_test" >> .env
+          echo "DB_USERNAME=root" >> .env
+          echo "DB_PASSWORD=password" >> .env
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-scripts
+
+      - name: Discover packages
+        run: php artisan package:discover --ansi
+
+      - name: Build assets
+        run: |
+          npm ci
+          npm run build
+
+      - name: Migrate + seed the load-test landlord
+        run: |
+          php artisan migrate --force
+          php artisan db:seed --class="Database\\Seeders\\LoadTestSeeder" --force
+
+      - name: Boot the app
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8000 &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8000/api/health > /dev/null; then
+              echo "app is up"; break
+            fi
+            sleep 1
+          done
+
+      - name: Run Lighthouse CI (PWA category)
+        run: npm run test:lhci
+        env:
+          LHCI_BASE_URL: http://127.0.0.1:8000
+          LHCI_USER_EMAIL: loadtest@propmanager.test
+          LHCI_USER_PASSWORD: password
