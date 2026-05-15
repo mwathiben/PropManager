@@ -5,6 +5,9 @@ import InputLabel from '@/Components/InputLabel.vue';
 import FormSubmitButton from '@/Components/FormSubmitButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, useForm } from '@inertiajs/vue3';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const form = useForm({
     password: '',
@@ -19,19 +22,18 @@ const submit = () => {
 
 <template>
     <GuestLayout>
-        <Head title="Confirm Password" />
+        <Head :title="t('auth.confirm.title')" />
 
         <!-- Phase-23 A11Y-SR-2: sr-only page heading for the document outline. -->
-        <h1 class="sr-only">Confirm Password</h1>
+        <h1 class="sr-only">{{ t('auth.confirm.title') }}</h1>
 
         <div class="mb-4 text-sm text-gray-600">
-            This is a secure area of the application. Please confirm your
-            password before continuing.
+            {{ t('auth.confirm.instructions') }}
         </div>
 
         <form @submit.prevent="submit">
             <div>
-                <InputLabel required for="password" value="Password" />
+                <InputLabel required for="password" :value="t('common.password')" />
                 <TextInput
                     id="password"
                     type="password"
@@ -47,7 +49,7 @@ const submit = () => {
 
             <div class="mt-4 flex justify-end">
                 <FormSubmitButton class="ms-4" :processing="form.processing">
-                    Confirm
+                    {{ t('auth.confirm.submit') }}
                 </FormSubmitButton>
             </div>
         </form>

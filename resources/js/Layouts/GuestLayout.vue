@@ -4,6 +4,9 @@ import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import LiveAnnouncer from '@/Components/LiveAnnouncer.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { useAnnouncer } from '@/composables/useAnnouncer';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 // Phase-23 A11Y-SR-1: guest pages (auth flows) also need flash
 // messages announced — "verification link sent", "credentials do not
@@ -41,7 +44,7 @@ watch(
         <div>
             <Link href="/" class="flex items-center">
                 <ApplicationLogo class="h-20 w-20 fill-current text-gray-500" aria-hidden="true" />
-                <span class="sr-only">PropManager — home</span>
+                <span class="sr-only">{{ t('brand.home') }}</span>
             </Link>
         </div>
 

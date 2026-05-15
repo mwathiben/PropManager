@@ -5,6 +5,9 @@ import InputLabel from '@/Components/InputLabel.vue';
 import FormSubmitButton from '@/Components/FormSubmitButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, useForm } from '@inertiajs/vue3';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
     email: {
@@ -33,14 +36,14 @@ const submit = () => {
 
 <template>
     <GuestLayout>
-        <Head title="Reset Password" />
+        <Head :title="t('auth.reset.title')" />
 
         <!-- Phase-23 A11Y-SR-2: sr-only page heading for the document outline. -->
-        <h1 class="sr-only">Reset Password</h1>
+        <h1 class="sr-only">{{ t('auth.reset.title') }}</h1>
 
         <form @submit.prevent="submit">
             <div>
-                <InputLabel required for="email" value="Email" />
+                <InputLabel required for="email" :value="t('common.email')" />
 
                 <TextInput
                     id="email"
@@ -57,7 +60,7 @@ const submit = () => {
             </div>
 
             <div class="mt-4">
-                <InputLabel required for="password" value="Password" />
+                <InputLabel required for="password" :value="t('common.password')" />
 
                 <TextInput
                     id="password"
@@ -75,7 +78,7 @@ const submit = () => {
             <div class="mt-4">
                 <InputLabel required
                     for="password_confirmation"
-                    value="Confirm Password"
+                    :value="t('common.confirm_password')"
                 />
 
                 <TextInput
@@ -97,7 +100,7 @@ const submit = () => {
 
             <div class="mt-4 flex items-center justify-end">
                 <FormSubmitButton :processing="form.processing">
-                    Reset Password
+                    {{ t('auth.reset.submit') }}
                 </FormSubmitButton>
             </div>
         </form>

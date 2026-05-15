@@ -2,6 +2,9 @@
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const useRecoveryCode = ref(false);
 
@@ -26,10 +29,10 @@ const toggleMode = () => {
 
 <template>
     <GuestLayout>
-        <Head title="Two-Factor Authentication" />
+        <Head :title="t('auth.tfa.title')" />
 
         <!-- Phase-23 A11Y-SR-2: sr-only page heading for the document outline. -->
-        <h1 class="sr-only">Two-Factor Authentication</h1>
+        <h1 class="sr-only">{{ t('auth.tfa.title') }}</h1>
 
         <div class="mb-4 text-center">
             <div class="mx-auto h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center mb-4">
@@ -37,13 +40,13 @@ const toggleMode = () => {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
             </div>
-            <h2 class="text-xl font-bold text-gray-900">Two-Factor Authentication</h2>
+            <h2 class="text-xl font-bold text-gray-900">{{ t('auth.tfa.title') }}</h2>
             <p class="mt-2 text-sm text-gray-600">
                 <template v-if="!useRecoveryCode">
-                    Enter the 6-digit code from your authenticator app.
+                    {{ t('auth.tfa.instructions_code') }}
                 </template>
                 <template v-else>
-                    Enter one of your emergency recovery codes.
+                    {{ t('auth.tfa.instructions_recovery') }}
                 </template>
             </p>
         </div>
@@ -51,7 +54,7 @@ const toggleMode = () => {
         <form @submit.prevent="submit">
             <!-- TOTP Code Input -->
             <div v-if="!useRecoveryCode">
-                <label for="code" class="sr-only">Authentication Code</label>
+                <label for="code" class="sr-only">{{ t('auth.tfa.code_label') }}</label>
                 <input
                     id="code"
                     v-model="form.code"
@@ -68,7 +71,7 @@ const toggleMode = () => {
 
             <!-- Recovery Code Input -->
             <div v-else>
-                <label for="recovery_code" class="sr-only">Recovery Code</label>
+                <label for="recovery_code" class="sr-only">{{ t('auth.tfa.recovery_label') }}</label>
                 <input
                     id="recovery_code"
                     v-model="form.recovery_code"
@@ -85,7 +88,7 @@ const toggleMode = () => {
                 :disabled="form.processing || (!useRecoveryCode && form.code.length !== 6) || (useRecoveryCode && !form.recovery_code)"
                 class="w-full mt-4 px-4 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 font-medium"
             >
-                {{ form.processing ? 'Verifying...' : 'Verify' }}
+                {{ form.processing ? t('auth.tfa.verifying') : t('auth.tfa.verify') }}
             </button>
         </form>
 
@@ -97,10 +100,10 @@ const toggleMode = () => {
                 class="text-sm text-indigo-600 hover:text-indigo-800"
             >
                 <template v-if="!useRecoveryCode">
-                    Use a recovery code instead
+                    {{ t('auth.tfa.use_recovery') }}
                 </template>
                 <template v-else>
-                    Use authenticator app code
+                    {{ t('auth.tfa.use_code') }}
                 </template>
             </button>
         </div>
@@ -109,10 +112,10 @@ const toggleMode = () => {
         <div class="mt-6 p-4 bg-gray-50 rounded-lg">
             <p class="text-xs text-gray-600 text-center">
                 <template v-if="!useRecoveryCode">
-                    Open your authenticator app (Google Authenticator, Authy, etc.) and enter the 6-digit code.
+                    {{ t('auth.tfa.help_code') }}
                 </template>
                 <template v-else>
-                    Recovery codes were provided when you enabled two-factor authentication. Each code can only be used once.
+                    {{ t('auth.tfa.help_recovery') }}
                 </template>
             </p>
         </div>

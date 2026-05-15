@@ -3,7 +3,132 @@
         "save": "Hifadhi",
         "cancel": "Ghairi",
         "loading": "Inapakia...",
-        "language": "Lugha"
+        "language": "Lugha",
+        "email": "Barua pepe",
+        "password": "Nenosiri",
+        "confirm_password": "Thibitisha Nenosiri",
+        "name": "Jina"
+    },
+    "brand": {
+        "home": "PropManager — nyumbani",
+        "go_to_dashboard": "PropManager — nenda kwenye dashibodi"
+    },
+    "nav": {
+        "skip_to_main": "Ruka hadi maudhui makuu",
+        "primary_label": "Msingi",
+        "mobile_primary_label": "Msingi wa simu",
+        "open_menu": "Fungua menyu ya urambazaji",
+        "close_menu": "Funga menyu ya urambazaji",
+        "navigation_menu": "Menyu ya urambazaji",
+        "dashboard": "Dashibodi",
+        "landlords": "Wenye Nyumba",
+        "all_users": "Watumiaji Wote",
+        "platform_billing": "Bili za Mfumo",
+        "system_settings": "Mipangilio ya Mfumo",
+        "properties_section": "Mali",
+        "buildings": "Majengo",
+        "add_property": "Ongeza Mali",
+        "tenants": "Wapangaji",
+        "finances": "Fedha",
+        "maintenance": "Matengenezo",
+        "water": "Maji",
+        "archive": "Kumbukumbu",
+        "operations": "Shughuli",
+        "settings": "Mipangilio",
+        "my_tickets": "Tiketi Zangu",
+        "water_readings": "Visomo vya Maji",
+        "my_finances": "Fedha Zangu",
+        "my_lease": "Mkataba Wangu",
+        "notifications": "Arifa",
+        "view_buildings": "Tazama Majengo"
+    },
+    "menu": {
+        "account": "Akaunti",
+        "support": "Msaada",
+        "billing": "Bili",
+        "settings": "Mipangilio",
+        "profile": "Wasifu Wangu",
+        "get_help": "Pata Msaada",
+        "payment_settings": "Mipangilio ya Malipo",
+        "invoice_settings": "Mipangilio ya Ankara",
+        "invoice_templates": "Violezo vya Ankara",
+        "subscription": "Usajili",
+        "log_out": "Toka"
+    },
+    "role": {
+        "system_admin": "Msimamizi wa Mfumo",
+        "landlord": "Mwenye Nyumba",
+        "caretaker": "Mlinzi",
+        "tenant": "Mpangaji",
+        "user": "Mtumiaji"
+    },
+    "banner": {
+        "viewing_as": "Unatazama kama:",
+        "read_only_article_18": "— soma tu (Kifungu cha 18)",
+        "stop_impersonating": "Acha Kuiga",
+        "restricted_title": "Akaunti yako sasa imewekewa vikwazo (Kifungu cha 18).",
+        "restricted_body": "Una ufikiaji wa kusoma tu. Hatua za kuandika (mabadiliko, malipo, kufuta) zitakataliwa.",
+        "manage_privacy": "Dhibiti mipangilio yako ya faragha"
+    },
+    "auth": {
+        "login": {
+            "title": "Ingia",
+            "remember_me": "Nikumbuke",
+            "forgot_password": "Umesahau nenosiri lako?",
+            "submit": "Ingia"
+        },
+        "forgot": {
+            "title": "Umesahau Nenosiri",
+            "instructions": "Umesahau nenosiri lako? Hakuna shida. Tuambie tu anwani yako ya barua pepe na tutakutumia kiungo cha kubadilisha nenosiri ili uchague jipya.",
+            "submit": "Tuma Kiungo cha Kubadilisha Nenosiri"
+        },
+        "register": {
+            "title": "Jisajili",
+            "role_label": "Mimi ni...",
+            "role_landlord": "Mmiliki wa Mali / Mwenye Nyumba",
+            "role_caretaker": "Meneja wa Mali / Mlinzi",
+            "role_tenant": "Mpangaji",
+            "role_landlord_lead": "Mmiliki:",
+            "role_landlord_body": "Unamiliki mali na unataka kufuatilia kodi, kusimamia wapangaji, na kuona ripoti za fedha.",
+            "role_caretaker_lead": "Meneja:",
+            "role_caretaker_body": "Unafanya kazi kwa ajili ya mwenye nyumba. Unaweka visomo vya mita na kushughulikia matengenezo, lakini una ufikiaji mdogo kwa data ya fedha.",
+            "role_tenant_lead": "Mkazi:",
+            "role_tenant_body": "Unaishi katika nyumba. Unataka kuona hali ya kodi yako, kulipa bili, na kuripoti masuala.",
+            "already_registered": "Tayari umesajiliwa?",
+            "submit": "Jisajili"
+        },
+        "verify": {
+            "title": "Uthibitisho wa Barua Pepe",
+            "instructions": "Asante kwa kujisajili! Kabla ya kuanza, je, unaweza kuthibitisha anwani yako ya barua pepe kwa kubofya kiungo tulichokutumia hivi punde? Kama hukupokea barua pepe, tutakutumia nyingine kwa furaha.",
+            "fresh_sent": "Kiungo kipya cha uthibitisho kimetumwa kwa anwani ya barua pepe uliyotoa wakati wa kujisajili.",
+            "resend": "Tuma Tena Barua Pepe ya Uthibitisho",
+            "log_out": "Toka"
+        },
+        "reset": {
+            "title": "Badilisha Nenosiri",
+            "submit": "Badilisha Nenosiri"
+        },
+        "confirm": {
+            "title": "Thibitisha Nenosiri",
+            "instructions": "Hii ni sehemu salama ya programu. Tafadhali thibitisha nenosiri lako kabla ya kuendelea.",
+            "submit": "Thibitisha"
+        },
+        "tfa": {
+            "title": "Uthibitisho wa Hatua Mbili",
+            "instructions_code": "Weka msimbo wa nambari 6 kutoka kwenye programu yako ya uthibitisho.",
+            "instructions_recovery": "Weka mojawapo ya misimbo yako ya dharura ya uokoaji.",
+            "code_label": "Msimbo wa Uthibitisho",
+            "recovery_label": "Msimbo wa Uokoaji",
+            "verifying": "Inathibitisha...",
+            "verify": "Thibitisha",
+            "use_recovery": "Tumia msimbo wa uokoaji badala yake",
+            "use_code": "Tumia msimbo wa programu ya uthibitisho",
+            "help_code": "Fungua programu yako ya uthibitisho (Google Authenticator, Authy, n.k.) na weka msimbo wa nambari 6.",
+            "help_recovery": "Misimbo ya uokoaji ulipewa wakati ulipowezesha uthibitisho wa hatua mbili. Kila msimbo unaweza kutumika mara moja tu."
+        }
+    },
+    "empty": {
+        "default_title": "Hakuna data iliyopatikana"
     },
     "format": {
         "relative": {

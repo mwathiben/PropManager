@@ -3,7 +3,132 @@
         "save": "Save",
         "cancel": "Cancel",
         "loading": "Loading...",
-        "language": "Language"
+        "language": "Language",
+        "email": "Email",
+        "password": "Password",
+        "confirm_password": "Confirm Password",
+        "name": "Name"
+    },
+    "brand": {
+        "home": "PropManager — home",
+        "go_to_dashboard": "PropManager — go to dashboard"
+    },
+    "nav": {
+        "skip_to_main": "Skip to main content",
+        "primary_label": "Primary",
+        "mobile_primary_label": "Mobile primary",
+        "open_menu": "Open navigation menu",
+        "close_menu": "Close navigation menu",
+        "navigation_menu": "Navigation menu",
+        "dashboard": "Dashboard",
+        "landlords": "Landlords",
+        "all_users": "All Users",
+        "platform_billing": "Platform Billing",
+        "system_settings": "System Settings",
+        "properties_section": "Properties",
+        "buildings": "Buildings",
+        "add_property": "Add Property",
+        "tenants": "Tenants",
+        "finances": "Finances",
+        "maintenance": "Maintenance",
+        "water": "Water",
+        "archive": "Archive",
+        "operations": "Operations",
+        "settings": "Settings",
+        "my_tickets": "My Tickets",
+        "water_readings": "Water Readings",
+        "my_finances": "My Finances",
+        "my_lease": "My Lease",
+        "notifications": "Notifications",
+        "view_buildings": "View Buildings"
+    },
+    "menu": {
+        "account": "Account",
+        "support": "Support",
+        "billing": "Billing",
+        "settings": "Settings",
+        "profile": "My Profile",
+        "get_help": "Get Help",
+        "payment_settings": "Payment Settings",
+        "invoice_settings": "Invoice Settings",
+        "invoice_templates": "Invoice Templates",
+        "subscription": "Subscription",
+        "log_out": "Log Out"
+    },
+    "role": {
+        "system_admin": "System Admin",
+        "landlord": "Landlord",
+        "caretaker": "Caretaker",
+        "tenant": "Tenant",
+        "user": "User"
+    },
+    "banner": {
+        "viewing_as": "Viewing as:",
+        "read_only_article_18": "— read-only (Article 18)",
+        "stop_impersonating": "Stop Impersonating",
+        "restricted_title": "Your account is currently restricted (Article 18).",
+        "restricted_body": "You have read-only access. Write actions (edits, payments, deletions) will be denied.",
+        "manage_privacy": "Manage your privacy settings"
+    },
+    "auth": {
+        "login": {
+            "title": "Log in",
+            "remember_me": "Remember me",
+            "forgot_password": "Forgot your password?",
+            "submit": "Log in"
+        },
+        "forgot": {
+            "title": "Forgot Password",
+            "instructions": "Forgot your password? No problem. Just let us know your email address and we will email you a password reset link that will allow you to choose a new one.",
+            "submit": "Email Password Reset Link"
+        },
+        "register": {
+            "title": "Register",
+            "role_label": "I am a...",
+            "role_landlord": "Property Owner / Landlord",
+            "role_caretaker": "Property Manager / Caretaker",
+            "role_tenant": "Tenant",
+            "role_landlord_lead": "Owner:",
+            "role_landlord_body": "You own properties and want to track rent, manage tenants, and view financial reports.",
+            "role_caretaker_lead": "Manager:",
+            "role_caretaker_body": "You work for a landlord. You input meter readings and handle maintenance, but have restricted access to financial data.",
+            "role_tenant_lead": "Resident:",
+            "role_tenant_body": "You live in a unit. You want to view your rent status, pay bills, and report issues.",
+            "already_registered": "Already registered?",
+            "submit": "Register"
+        },
+        "verify": {
+            "title": "Email Verification",
+            "instructions": "Thanks for signing up! Before getting started, could you verify your email address by clicking on the link we just emailed to you? If you didn't receive the email, we will gladly send you another.",
+            "fresh_sent": "A new verification link has been sent to the email address you provided during registration.",
+            "resend": "Resend Verification Email",
+            "log_out": "Log Out"
+        },
+        "reset": {
+            "title": "Reset Password",
+            "submit": "Reset Password"
+        },
+        "confirm": {
+            "title": "Confirm Password",
+            "instructions": "This is a secure area of the application. Please confirm your password before continuing.",
+            "submit": "Confirm"
+        },
+        "tfa": {
+            "title": "Two-Factor Authentication",
+            "instructions_code": "Enter the 6-digit code from your authenticator app.",
+            "instructions_recovery": "Enter one of your emergency recovery codes.",
+            "code_label": "Authentication Code",
+            "recovery_label": "Recovery Code",
+            "verifying": "Verifying...",
+            "verify": "Verify",
+            "use_recovery": "Use a recovery code instead",
+            "use_code": "Use authenticator app code",
+            "help_code": "Open your authenticator app (Google Authenticator, Authy, etc.) and enter the 6-digit code.",
+            "help_recovery": "Recovery codes were provided when you enabled two-factor authentication. Each code can only be used once."
+        }
+    },
+    "empty": {
+        "default_title": "No data found"
     },
     "format": {
         "relative": {

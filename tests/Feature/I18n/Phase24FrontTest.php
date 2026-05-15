@@ -61,6 +61,93 @@ class Phase24FrontTest extends TestCase
         );
     }
 
+    public function test_chrome_files_use_translation_keys(): void
+    {
+        $chromeFiles = [
+            'js/Layouts/AuthenticatedLayout.vue',
+            'js/Layouts/GuestLayout.vue',
+            'js/Pages/Auth/Login.vue',
+            'js/Pages/Auth/ForgotPassword.vue',
+            'js/Pages/Auth/Register.vue',
+            'js/Pages/Auth/ResetPassword.vue',
+            'js/Pages/Auth/ConfirmPassword.vue',
+            'js/Pages/Auth/VerifyEmail.vue',
+            'js/Pages/Auth/TwoFactorChallenge.vue',
+        ];
+
+        foreach ($chromeFiles as $rel) {
+            $contents = file_get_contents(resource_path($rel));
+            $this->assertStringContainsString(
+                "from '@/composables/useI18n'",
+                $contents,
+                "I18N-FRONT-3: {$rel} must import useI18n.",
+            );
+            $this->assertMatchesRegularExpression(
+                "/t\\(['\"][a-z._]+['\"]\\)/",
+                $contents,
+                "I18N-FRONT-3: {$rel} must use t('...') translation calls.",
+            );
+        }
+    }
+
+    public function test_register_role_help_strings_are_translation_keys(): void
+    {
+        // The Register page role-helper block uses role-specific
+        // copy that's a frequent contributor footgun: the easiest way
+        // to break i18n is to add a new role here and forget the key.
+        $contents = file_get_contents(resource_path('js/Pages/Auth/Register.vue'));
+
+        foreach (['role_landlord_body', 'role_caretaker_body', 'role_tenant_body'] as $key) {
+            $this->assertStringContainsString(
+                "auth.register.{$key}",
+                $contents,
+                "I18N-FRONT-3: Register must resolve auth.register.{$key} via t().",
+            );
+        }
+    }
+
+    public function test_chrome_bundle_keyspace_present_in_both_locales(): void
+    {
+        // The chrome key set must exist in BOTH locales — a Swahili
+        // user landing on /login or /dashboard cannot fall back to
+        // an English-only key without a flash of untranslated text.
+        $required = [
+            'common.email',
+            'common.password',
+            'nav.dashboard',
+            'nav.settings',
+            'nav.skip_to_main',
+            'menu.log_out',
+            'menu.account',
+            'role.landlord',
+            'role.tenant',
+            'auth.login.title',
+            'auth.login.submit',
+            'auth.register.title',
+            'auth.register.role_label',
+            'auth.forgot.title',
+            'auth.reset.title',
+            'auth.confirm.title',
+            'auth.verify.title',
+            'auth.tfa.title',
+            'banner.viewing_as',
+            'banner.restricted_title',
+            'empty.default_title',
+        ];
+
+        foreach (array_keys(config('app.available_locales')) as $locale) {
+            $bundle = json_decode(file_get_contents(lang_path("{$locale}.json")), true) ?: [];
+
+            foreach ($required as $key) {
+                $this->assertNotSame(
+                    null,
+                    data_get($bundle, $key),
+                    "I18N-FRONT-3 / I18N-SWAHILI-2: lang/{$locale}.json must define '{$key}'.",
+                );
+            }
+        }
+    }
+
     public function test_app_js_wires_vue_i18n(): void
     {
         $appJs = file_get_contents(resource_path('js/app.js'));

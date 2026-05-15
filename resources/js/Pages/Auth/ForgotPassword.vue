@@ -5,6 +5,9 @@ import InputLabel from '@/Components/InputLabel.vue';
 import FormSubmitButton from '@/Components/FormSubmitButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, useForm } from '@inertiajs/vue3';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 defineProps({
     status: {
@@ -23,15 +26,13 @@ const submit = () => {
 
 <template>
     <GuestLayout>
-        <Head title="Forgot Password" />
+        <Head :title="t('auth.forgot.title')" />
 
         <!-- Phase-23 A11Y-SR-2: sr-only page heading for the document outline. -->
-        <h1 class="sr-only">Forgot Password</h1>
+        <h1 class="sr-only">{{ t('auth.forgot.title') }}</h1>
 
         <div class="mb-4 text-sm text-gray-600">
-            Forgot your password? No problem. Just let us know your email
-            address and we will email you a password reset link that will allow
-            you to choose a new one.
+            {{ t('auth.forgot.instructions') }}
         </div>
 
         <div
@@ -43,7 +44,7 @@ const submit = () => {
 
         <form @submit.prevent="submit">
             <div>
-                <InputLabel required for="email" value="Email" />
+                <InputLabel required for="email" :value="t('common.email')" />
 
                 <TextInput
                     id="email"
@@ -61,7 +62,7 @@ const submit = () => {
 
             <div class="mt-4 flex items-center justify-end">
                 <FormSubmitButton :processing="form.processing">
-                    Email Password Reset Link
+                    {{ t('auth.forgot.submit') }}
                 </FormSubmitButton>
             </div>
         </form>

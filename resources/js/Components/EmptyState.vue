@@ -2,6 +2,9 @@
 import { computed, type Component } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { FolderOpenIcon } from '@heroicons/vue/24/outline';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 type Size = 'sm' | 'md' | 'lg';
 
@@ -16,12 +19,14 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
     icon: () => FolderOpenIcon,
-    title: 'No data found',
+    title: '',
     description: null,
     actionLabel: null,
     actionHref: null,
     size: 'md',
 });
+
+const resolvedTitle = computed(() => props.title || t('empty.default_title'));
 
 const emit = defineEmits<{
     action: [];
@@ -59,7 +64,7 @@ const sizeClasses = computed(() => {
             :class="['mx-auto text-gray-400', sizeClasses.icon]"
         />
         <h3 :class="['mt-3 font-medium text-gray-900', sizeClasses.title]">
-            {{ title }}
+            {{ resolvedTitle }}
         </h3>
         <p v-if="description" :class="['mt-1 text-gray-500', sizeClasses.description]">
             {{ description }}

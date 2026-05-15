@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue';
 import { usePage, Link, router } from '@inertiajs/vue3';
 import { useAuth } from '@/composables/useAuth';
 import { useAnnouncer } from '@/composables/useAnnouncer';
+import { useI18n } from '@/composables/useI18n';
 import { useFocusTrap } from '@/composables/useFocusTrap';
 import { useEscapeKey } from '@/composables/useEscapeKey';
 import { useBodyScrollLock } from '@/composables/useBodyScrollLock';
@@ -82,6 +83,7 @@ useEscapeKey(() => {
 useBodyScrollLock(showMobileSidebar);
 
 const page = usePage();
+const { t } = useI18n();
 const { user, isSuperAdmin, isLandlord, isCaretaker, isTenant, isRestricted, can } = useAuth();
 const isImpersonating = computed(() => page.props.impersonating || false);
 const navBadges = computed(() => page.props.navBadges || {});
@@ -116,15 +118,16 @@ const stopImpersonating = () => {
     router.post(route('admin.stopImpersonating'));
 };
 
-// Role display configuration
+// Role display configuration. Labels resolve through vue-i18n so the
+// role badge tracks the active locale (Phase-24 I18N-FRONT-3).
 const roleConfig = computed(() => {
     const configs = {
-        'super_admin': { label: 'System Admin', color: 'bg-purple-600', icon: KeyIcon },
-        'landlord': { label: 'Landlord', color: 'bg-blue-600', icon: BuildingOffice2Icon },
-        'caretaker': { label: 'Caretaker', color: 'bg-green-600', icon: WrenchScrewdriverIcon },
-        'tenant': { label: 'Tenant', color: 'bg-amber-600', icon: HomeIcon },
+        'super_admin': { label: t('role.system_admin'), color: 'bg-purple-600', icon: KeyIcon },
+        'landlord': { label: t('role.landlord'), color: 'bg-blue-600', icon: BuildingOffice2Icon },
+        'caretaker': { label: t('role.caretaker'), color: 'bg-green-600', icon: WrenchScrewdriverIcon },
+        'tenant': { label: t('role.tenant'), color: 'bg-amber-600', icon: HomeIcon },
     };
-    return configs[user.value?.role] || { label: 'User', color: 'bg-gray-600', icon: UserCircleIcon };
+    return configs[user.value?.role] || { label: t('role.user'), color: 'bg-gray-600', icon: UserCircleIcon };
 });
 
 // Navigation items based on role.
@@ -137,27 +140,27 @@ const roleConfig = computed(() => {
 const navigationItems = computed(() => {
     if (can('access-admin')) {
         return [
-            { name: 'Dashboard', href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard') },
-            { name: 'Landlords', href: route('admin.landlords'), icon: BuildingOffice2Icon, active: route().current('admin.landlords*') },
-            { name: 'All Users', href: route('admin.users'), icon: UserGroupIcon, active: route().current('admin.users*') },
-            { name: 'Platform Billing', href: route('admin.billing.index'), icon: CurrencyDollarIcon, active: route().current('admin.billing*') },
-            { name: 'System Settings', href: route('admin.settings'), icon: Cog6ToothIcon, active: route().current('admin.settings') },
+            { name: t('nav.dashboard'), href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard') },
+            { name: t('nav.landlords'), href: route('admin.landlords'), icon: BuildingOffice2Icon, active: route().current('admin.landlords*') },
+            { name: t('nav.all_users'), href: route('admin.users'), icon: UserGroupIcon, active: route().current('admin.users*') },
+            { name: t('nav.platform_billing'), href: route('admin.billing.index'), icon: CurrencyDollarIcon, active: route().current('admin.billing*') },
+            { name: t('nav.system_settings'), href: route('admin.settings'), icon: Cog6ToothIcon, active: route().current('admin.settings') },
         ];
     }
 
     const role = user.value?.role;
     if (role === 'landlord') {
         return [
-            { name: 'Dashboard', href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard') },
+            { name: t('nav.dashboard'), href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard') },
 
             // PROPERTIES
-            { type: 'divider', label: 'Properties' },
-            { name: 'Buildings', href: route('buildings.index'), icon: HomeModernIcon, active: route().current('buildings.*') },
-            { name: 'Add Property', href: route('onboarding.create'), icon: PlusCircleIcon, active: route().current('onboarding.*') },
+            { type: 'divider', label: t('nav.properties_section') },
+            { name: t('nav.buildings'), href: route('buildings.index'), icon: HomeModernIcon, active: route().current('buildings.*') },
+            { name: t('nav.add_property'), href: route('onboarding.create'), icon: PlusCircleIcon, active: route().current('onboarding.*') },
 
             // TENANTS HUB (Consolidated)
             {
-                name: 'Tenants',
+                name: t('nav.tenants'),
                 href: route('tenants.hub'),
                 icon: UsersIcon,
                 active: route().current('tenants.*') || route().current('tenant-invitations.*') || route().current('verifications.*') || route().current('payment-verifications.*') || route().current('move-outs.*'),
@@ -166,11 +169,11 @@ const navigationItems = computed(() => {
             },
 
             // FINANCES HUB (Already consolidated)
-            { name: 'Finances', href: route('finances.index'), icon: BanknotesIcon, active: route().current('finances.*'), badgeKey: 'invoices', badgeColor: 'bg-red-500' },
+            { name: t('nav.finances'), href: route('finances.index'), icon: BanknotesIcon, active: route().current('finances.*'), badgeKey: 'invoices', badgeColor: 'bg-red-500' },
 
             // MAINTENANCE HUB (Consolidated)
             {
-                name: 'Maintenance',
+                name: t('nav.maintenance'),
                 href: route('maintenance.hub'),
                 icon: WrenchScrewdriverIcon,
                 active: route().current('maintenance.*') || route().current('tickets.*') || route().current('complaints.*'),
@@ -180,7 +183,7 @@ const navigationItems = computed(() => {
 
             // WATER HUB (Conditional, Consolidated)
             ...(featureAccess.value.water_billing ? [{
-                name: 'Water',
+                name: t('nav.water'),
                 href: route('water.hub'),
                 icon: BeakerIcon,
                 active: route().current('water.*') || route().current('readings.*'),
@@ -190,7 +193,7 @@ const navigationItems = computed(() => {
 
             // ARCHIVE HUB (Consolidated)
             {
-                name: 'Archive',
+                name: t('nav.archive'),
                 href: route('archive.hub'),
                 icon: ArchiveBoxIcon,
                 active: route().current('archive.*') || route().current('documents.*') || route().current('leases.index') || route().current('activity-logs.*')
@@ -198,7 +201,7 @@ const navigationItems = computed(() => {
 
             // OPERATIONS HUB (Consolidated)
             {
-                name: 'Operations',
+                name: t('nav.operations'),
                 href: route('operations.hub'),
                 icon: Cog6ToothIcon,
                 active: route().current('operations.*') || route().current('notifications.*') || route().current('bulk.*') || route().current('invitations.*') || route().current('imports.*') || route().current('inbox.*'),
@@ -208,25 +211,25 @@ const navigationItems = computed(() => {
 
             // SETTINGS
             { type: 'divider', label: '' },
-            { name: 'Settings', href: route('settings.index'), icon: Cog6ToothIcon, active: route().current('settings.*') },
+            { name: t('nav.settings'), href: route('settings.index'), icon: Cog6ToothIcon, active: route().current('settings.*') },
         ];
     }
 
     if (role === 'caretaker') {
         return [
-            { name: 'Dashboard', href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard') },
-            { name: 'My Tickets', href: route('tickets.index'), icon: TicketIcon, active: route().current('tickets.*'), badgeKey: 'tickets', badgeColor: 'bg-yellow-500' },
-            ...(featureAccess.value.water_billing ? [{ name: 'Water Readings', href: route('readings.index'), icon: ClipboardDocumentListIcon, active: route().current('readings.*'), badgeKey: 'readings', badgeColor: 'bg-blue-500' }] : []),
+            { name: t('nav.dashboard'), href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard') },
+            { name: t('nav.my_tickets'), href: route('tickets.index'), icon: TicketIcon, active: route().current('tickets.*'), badgeKey: 'tickets', badgeColor: 'bg-yellow-500' },
+            ...(featureAccess.value.water_billing ? [{ name: t('nav.water_readings'), href: route('readings.index'), icon: ClipboardDocumentListIcon, active: route().current('readings.*'), badgeKey: 'readings', badgeColor: 'bg-blue-500' }] : []),
         ];
     }
 
     if (role === 'tenant') {
         return [
-            { name: 'Dashboard', href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard') },
-            { name: 'My Finances', href: route('tenant.finances.index'), icon: BanknotesIcon, active: route().current('tenant.finances.*'), badgeKey: 'invoices', badgeColor: 'bg-red-500' },
-            { name: 'My Tickets', href: route('tickets.index'), icon: TicketIcon, active: route().current('tickets.*'), badgeKey: 'tickets', badgeColor: 'bg-yellow-500' },
-            { name: 'My Lease', href: route('tenant.lease'), icon: DocumentTextIcon, active: route().current('tenant.lease') },
-            { name: 'Notifications', href: route('tenant.notifications'), icon: BellIcon, active: route().current('tenant.notifications'), badgeKey: 'notifications', badgeColor: 'bg-indigo-500' },
+            { name: t('nav.dashboard'), href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard') },
+            { name: t('nav.my_finances'), href: route('tenant.finances.index'), icon: BanknotesIcon, active: route().current('tenant.finances.*'), badgeKey: 'invoices', badgeColor: 'bg-red-500' },
+            { name: t('nav.my_tickets'), href: route('tickets.index'), icon: TicketIcon, active: route().current('tickets.*'), badgeKey: 'tickets', badgeColor: 'bg-yellow-500' },
+            { name: t('nav.my_lease'), href: route('tenant.lease'), icon: DocumentTextIcon, active: route().current('tenant.lease') },
+            { name: t('nav.notifications'), href: route('tenant.notifications'), icon: BellIcon, active: route().current('tenant.notifications'), badgeKey: 'notifications', badgeColor: 'bg-indigo-500' },
         ];
     }
 
@@ -253,7 +256,7 @@ const navigationItems = computed(() => {
                 href="#main-content"
                 class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[100] focus:rounded-md focus:bg-indigo-600 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
             >
-                Skip to main content
+                {{ t('nav.skip_to_main') }}
             </a>
 
             <!--
@@ -271,15 +274,15 @@ const navigationItems = computed(() => {
                     <div class="flex items-center">
                         <ExclamationTriangleIcon class="h-5 w-5 mr-2" />
                         <span class="font-medium">
-                            Viewing as: <strong>{{ user.name }}</strong> ({{ user.role }})
+                            {{ t('banner.viewing_as') }} <strong>{{ user.name }}</strong> ({{ user.role }})
                             <span v-if="isRestricted" class="ml-2 text-red-900 font-bold">
-                                — read-only (Article 18)
+                                {{ t('banner.read_only_article_18') }}
                             </span>
                         </span>
                     </div>
                     <button @click="stopImpersonating"
                             class="px-3 py-1 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 text-sm font-medium">
-                        Stop Impersonating
+                        {{ t('banner.stop_impersonating') }}
                     </button>
                 </div>
             </div>
@@ -292,7 +295,7 @@ const navigationItems = computed(() => {
                 <div class="h-16 flex items-center justify-between px-4 border-b border-gray-200">
                     <Link :href="route('dashboard')" class="flex items-center">
                         <ApplicationLogo class="h-8 w-auto fill-current text-gray-800" aria-hidden="true" />
-                        <span class="sr-only">PropManager — go to dashboard</span>
+                        <span class="sr-only">{{ t('brand.go_to_dashboard') }}</span>
                     </Link>
                 </div>
 
@@ -308,7 +311,7 @@ const navigationItems = computed(() => {
                         </div>
                         <div class="flex-1 min-w-0">
                             <p class="text-sm font-semibold text-gray-900 truncate group-hover:text-indigo-700 transition-colors">{{ user.name }}</p>
-                            <p class="text-xs text-gray-500 group-hover:text-indigo-500 transition-colors">View Buildings</p>
+                            <p class="text-xs text-gray-500 group-hover:text-indigo-500 transition-colors">{{ t('nav.view_buildings') }}</p>
                         </div>
                     </Link>
                     <div v-else class="flex items-center gap-3">
@@ -328,7 +331,7 @@ const navigationItems = computed(() => {
                     reader's landmark list can tell the multiple <nav>s
                     apart (desktop sidebar / mobile sidebar / breadcrumb).
                 -->
-                <nav aria-label="Primary" class="flex-1 overflow-y-auto py-4 px-3">
+                <nav :aria-label="t('nav.primary_label')" class="flex-1 overflow-y-auto py-4 px-3">
                     <template v-for="(item, index) in navigationItems" :key="index">
                         <!-- Divider -->
                         <div v-if="item.type === 'divider'" class="mt-6 mb-2">
@@ -376,48 +379,48 @@ const navigationItems = computed(() => {
                         <template #content>
                             <!-- Account Section -->
                             <div class="px-4 py-2">
-                                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Account</p>
+                                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">{{ t('menu.account') }}</p>
                             </div>
                             <DropdownLink :href="route('settings.index')">
                                 <Cog6ToothIcon class="h-5 w-5 text-gray-400" />
-                                <span>Settings</span>
+                                <span>{{ t('menu.settings') }}</span>
                             </DropdownLink>
                             <DropdownLink :href="route('profile.edit')">
                                 <UserCircleIcon class="h-5 w-5 text-gray-400" />
-                                <span>My Profile</span>
+                                <span>{{ t('menu.profile') }}</span>
                             </DropdownLink>
 
                             <!-- Support Section -->
                             <div class="my-1 mx-2 border-t border-gray-100"></div>
                             <div class="px-4 py-2">
-                                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Support</p>
+                                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">{{ t('menu.support') }}</p>
                             </div>
                             <DropdownLink :href="route('help.index')">
                                 <QuestionMarkCircleIcon class="h-5 w-5 text-gray-400" />
-                                <span>Get Help</span>
+                                <span>{{ t('menu.get_help') }}</span>
                             </DropdownLink>
 
                             <!-- Billing Section (Landlords only) -->
                             <template v-if="user.role === 'landlord'">
                                 <div class="my-1 mx-2 border-t border-gray-100"></div>
                                 <div class="px-4 py-2">
-                                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Billing</p>
+                                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">{{ t('menu.billing') }}</p>
                                 </div>
                                 <DropdownLink :href="route('finances.settings')">
                                     <BanknotesIcon class="h-5 w-5 text-gray-400" />
-                                    <span>Payment Settings</span>
+                                    <span>{{ t('menu.payment_settings') }}</span>
                                 </DropdownLink>
                                 <DropdownLink :href="route('invoice-settings.edit')">
                                     <DocumentTextIcon class="h-5 w-5 text-gray-400" />
-                                    <span>Invoice Settings</span>
+                                    <span>{{ t('menu.invoice_settings') }}</span>
                                 </DropdownLink>
                                 <DropdownLink :href="route('invoice-templates.index')">
                                     <DocumentDuplicateIcon class="h-5 w-5 text-gray-400" />
-                                    <span>Invoice Templates</span>
+                                    <span>{{ t('menu.invoice_templates') }}</span>
                                 </DropdownLink>
                                 <DropdownLink :href="route('subscription.index')">
                                     <SparklesIcon class="h-5 w-5 text-gray-400" />
-                                    <span>Subscription</span>
+                                    <span>{{ t('menu.subscription') }}</span>
                                 </DropdownLink>
                             </template>
 
@@ -425,7 +428,7 @@ const navigationItems = computed(() => {
                             <div class="my-1 mx-2 border-t border-gray-100"></div>
                             <DropdownLink :href="route('logout')" method="post" as="button" :danger="true">
                                 <ArrowRightStartOnRectangleIcon class="h-5 w-5" />
-                                <span>Log Out</span>
+                                <span>{{ t('menu.log_out') }}</span>
                             </DropdownLink>
                         </template>
                     </Dropdown>
@@ -440,14 +443,14 @@ const navigationItems = computed(() => {
                     id="mobile-sidebar"
                     role="dialog"
                     aria-modal="true"
-                    aria-label="Navigation menu"
+                    :aria-label="t('nav.navigation_menu')"
                     class="fixed inset-y-0 left-0 w-64 bg-white shadow-xl flex flex-col"
                 >
                     <div class="h-16 flex items-center justify-between px-4 border-b border-gray-200">
                         <Link :href="route('dashboard')" class="flex items-center">
                             <ApplicationLogo class="h-8 w-auto fill-current text-gray-800" />
                         </Link>
-                        <button @click="closeMobileSidebar" aria-label="Close navigation menu" class="p-2 rounded-md hover:bg-gray-100">
+                        <button @click="closeMobileSidebar" :aria-label="t('nav.close_menu')" class="p-2 rounded-md hover:bg-gray-100">
                             <XMarkIcon class="h-5 w-5 text-gray-500" aria-hidden="true" />
                         </button>
                     </div>
@@ -465,7 +468,7 @@ const navigationItems = computed(() => {
                             </div>
                             <div class="flex-1 min-w-0">
                                 <p class="text-sm font-semibold text-gray-900 truncate group-hover:text-indigo-700">{{ user.name }}</p>
-                                <p class="text-xs text-gray-500 group-hover:text-indigo-500">View Buildings</p>
+                                <p class="text-xs text-gray-500 group-hover:text-indigo-500">{{ t('nav.view_buildings') }}</p>
                             </div>
                         </Link>
                         <div v-else class="flex items-center gap-3">
@@ -479,7 +482,7 @@ const navigationItems = computed(() => {
                         </div>
                     </div>
 
-                    <nav aria-label="Mobile primary" class="flex-1 overflow-y-auto py-4 px-3">
+                    <nav :aria-label="t('nav.mobile_primary_label')" class="flex-1 overflow-y-auto py-4 px-3">
                         <template v-for="(item, index) in navigationItems" :key="index">
                             <div v-if="item.type === 'divider'" class="mt-6 mb-2">
                                 <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{{ item.label }}</p>
@@ -509,43 +512,43 @@ const navigationItems = computed(() => {
 
                     <div class="border-t border-gray-200 p-4 space-y-1">
                         <!-- Account -->
-                        <p class="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">Account</p>
+                        <p class="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">{{ t('menu.account') }}</p>
                         <Link :href="route('settings.index')" @click="showMobileSidebar = false" class="flex items-center gap-3 text-sm text-gray-700 py-2.5 px-3 rounded-lg hover:bg-gray-50 transition-colors">
                             <Cog6ToothIcon class="h-5 w-5 text-gray-400" />
-                            <span>Settings</span>
+                            <span>{{ t('menu.settings') }}</span>
                         </Link>
                         <Link :href="route('profile.edit')" @click="showMobileSidebar = false" class="flex items-center gap-3 text-sm text-gray-700 py-2.5 px-3 rounded-lg hover:bg-gray-50 transition-colors">
                             <UserCircleIcon class="h-5 w-5 text-gray-400" />
-                            <span>My Profile</span>
+                            <span>{{ t('menu.profile') }}</span>
                         </Link>
 
                         <!-- Support -->
                         <div class="my-2 border-t border-gray-100"></div>
-                        <p class="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">Support</p>
+                        <p class="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">{{ t('menu.support') }}</p>
                         <Link :href="route('help.index')" @click="showMobileSidebar = false" class="flex items-center gap-3 text-sm text-gray-700 py-2.5 px-3 rounded-lg hover:bg-gray-50 transition-colors">
                             <QuestionMarkCircleIcon class="h-5 w-5 text-gray-400" />
-                            <span>Get Help</span>
+                            <span>{{ t('menu.get_help') }}</span>
                         </Link>
 
                         <!-- Billing (Landlords only) -->
                         <template v-if="user.role === 'landlord'">
                             <div class="my-2 border-t border-gray-100"></div>
-                            <p class="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">Billing</p>
+                            <p class="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">{{ t('menu.billing') }}</p>
                             <Link :href="route('finances.settings')" @click="showMobileSidebar = false" class="flex items-center gap-3 text-sm text-gray-700 py-2.5 px-3 rounded-lg hover:bg-gray-50 transition-colors">
                                 <BanknotesIcon class="h-5 w-5 text-gray-400" />
-                                <span>Payment Settings</span>
+                                <span>{{ t('menu.payment_settings') }}</span>
                             </Link>
                             <Link :href="route('invoice-settings.edit')" @click="showMobileSidebar = false" class="flex items-center gap-3 text-sm text-gray-700 py-2.5 px-3 rounded-lg hover:bg-gray-50 transition-colors">
                                 <DocumentTextIcon class="h-5 w-5 text-gray-400" />
-                                <span>Invoice Settings</span>
+                                <span>{{ t('menu.invoice_settings') }}</span>
                             </Link>
                             <Link :href="route('invoice-templates.index')" @click="showMobileSidebar = false" class="flex items-center gap-3 text-sm text-gray-700 py-2.5 px-3 rounded-lg hover:bg-gray-50 transition-colors">
                                 <DocumentDuplicateIcon class="h-5 w-5 text-gray-400" />
-                                <span>Invoice Templates</span>
+                                <span>{{ t('menu.invoice_templates') }}</span>
                             </Link>
                             <Link :href="route('subscription.index')" @click="showMobileSidebar = false" class="flex items-center gap-3 text-sm text-gray-700 py-2.5 px-3 rounded-lg hover:bg-gray-50 transition-colors">
                                 <SparklesIcon class="h-5 w-5 text-gray-400" />
-                                <span>Subscription</span>
+                                <span>{{ t('menu.subscription') }}</span>
                             </Link>
                         </template>
 
@@ -553,7 +556,7 @@ const navigationItems = computed(() => {
                         <div class="my-2 border-t border-gray-100"></div>
                         <Link :href="route('logout')" method="post" as="button" class="flex items-center gap-3 text-sm text-red-600 py-2.5 px-3 rounded-lg hover:bg-red-50 w-full transition-colors">
                             <ArrowRightStartOnRectangleIcon class="h-5 w-5" />
-                            <span>Log Out</span>
+                            <span>{{ t('menu.log_out') }}</span>
                         </Link>
                     </div>
                 </aside>
@@ -568,7 +571,7 @@ const navigationItems = computed(() => {
                     <button
                         ref="hamburgerRef"
                         @click="showMobileSidebar = true"
-                        aria-label="Open navigation menu"
+                        :aria-label="t('nav.open_menu')"
                         aria-controls="mobile-sidebar"
                         :aria-expanded="showMobileSidebar"
                         class="lg:hidden p-2 -ml-2 mr-2 rounded-md hover:bg-gray-100"
@@ -605,13 +608,12 @@ const navigationItems = computed(() => {
                     <div class="flex items-start gap-3">
                         <ExclamationTriangleIcon class="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
                         <div class="flex-1 text-sm text-amber-900">
-                            <p class="font-semibold">Your account is currently restricted (Article 18).</p>
+                            <p class="font-semibold">{{ t('banner.restricted_title') }}</p>
                             <p class="mt-0.5">
-                                You have read-only access. Write actions (edits, payments, deletions) will be denied.
+                                {{ t('banner.restricted_body') }}
                                 <Link :href="route('gdpr.index')" class="underline font-medium hover:text-amber-700">
-                                    Manage your privacy settings
+                                    {{ t('banner.manage_privacy') }}
                                 </Link>
-                                to release the restriction.
                             </p>
                         </div>
                     </div>
