@@ -46,8 +46,13 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Phase-22 PERF-SLO-1: same latency instrumentation on the API
         // surface (webhooks, the mobile/integration endpoints).
+        // Phase-25 API-RATELIMIT-1: ensures every throttled response
+        // carries the full X-RateLimit envelope (Laravel sets Limit +
+        // Remaining; this middleware fills Reset on 200s too so
+        // consumers can pace themselves before hitting 429).
         $middleware->api(append: [
             \App\Http\Middleware\RecordRequestLatency::class,
+            \App\Http\Middleware\ApiRateLimitHeaders::class,
         ]);
 
         // Exclude webhook routes from CSRF verification (they use signature verification)
