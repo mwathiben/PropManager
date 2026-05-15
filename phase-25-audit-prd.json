@@ -1,0 +1,309 @@
+{
+  "project": "PropManager",
+  "audit_cycle": "phase-25",
+  "audit_date": "2026-05-15",
+  "scope": "Tier-3 platform + API excellence, cycle 1 of 3 (per project_propmanager_path_forward.md). Phases 22 (perf+load), 23 (a11y), 24 (i18n+swahili) closed Tier 2; Phase 25 [API-SURFACE] takes the API from 'functional internal contract' to 'world-class published contract'. The codebase today exposes a 57-route Sanctum-authenticated API (routes/api.php) across two versions (v1 broad + v2 single-endpoint), 9 Resource classes, 5 Api FormRequests, and 19 Api controllers — but it has ZERO machine-readable spec, NO documented versioning policy, NO Sunset/Deprecation header convention, NO API-key-management UI (Sanctum PATs exist server-side via createToken but landlords cannot self-serve), NO standardized rate-limit headers (Laravel throttles via 429 but no X-RateLimit-* envelope), NO webhook-subscription self-serve UI (the Mpesa/IntaSend/bank/WhatsApp webhooks are inbound from providers — landlords cannot register OUTbound webhooks for their own integrations), and NO standardized error response schema. A third-party integrator today reads routes/api.php + tries calls — the contract is the source code, not a published artifact. Phase 25 makes the API a first-class platform: spec generated and served, versioning policy documented, deprecation contract enforced via headers, landlord-facing API-key + webhook self-serve, X-RateLimit envelope standardized, error responses standardized to a single shape, and CI watchdogs that fail the build if routes drift from the spec. 18 findings across 7 categories: API-DOC (3 — OpenAPI spec source of truth, served Swagger/Redoc UI, generated changelog), API-VERSION (3 — versioning policy doc, Sunset+Deprecation headers, consumer-facing deprecation log), API-AUTH (4 — API-key management UI, last-used tracking, audit-log entries, expiration policy), API-RATELIMIT (3 — X-RateLimit headers, 429 problem+json body, per-token override policy), API-WEBHOOK (3 — webhook subscription self-serve, delivery log + retry UI, event catalog), API-ERROR (1 — standardized RFC 7807 problem+json error shape), API-CI (1 — routes-vs-spec drift watchdog). Severity split 5H/8M/5L. Builds on Phase 14 (Sanctum scopes), Phase 18 (Sanctum/Gate parity for ability:integration:webhook), Phase 15 (LimitsPerPage trait), Phase 19 (POLICY-7 Gate::define('integration:webhook')). Tools: dedoc/scramble for auto-generated OpenAPI from Form Requests + JsonResource return types (Laravel-native, lower friction than l5-swagger annotations).",
+  "context_baseline": {
+    "api_surface": {
+      "v1_routes": 56,
+      "v2_routes": 1,
+      "webhook_routes": 14,
+      "public_unauthenticated": ["/health", "/health/payments", "/metrics", "/v1/csp-reports", "/v1/auth/login", "/v1/auth/register", "/v1/auth/two-factor-challenge", "/v1/webhooks/*"],
+      "sanctum_protected": "everything under /v1/* except /v1/auth/{login,register,two-factor-challenge} + /v1/csp-reports + /v1/webhooks/*",
+      "scopes_in_use": ["tenant:read", "landlord:manage", "integration:webhook"]
+    },
+    "tooling_today": {
+      "openapi_generator": "NONE",
+      "docs_endpoint": "NONE",
+      "spec_artifact": "routes/api.php (source code)",
+      "form_requests_for_api": ["CheckMpesaStatusRequest", "InitiateMpesaPaymentRequest", "InitiateIntaSendPaymentRequest", "MpesaCheckStatusRequest", "InitiatePaystackPaymentRequest"],
+      "json_resources": ["PropertyResource", "BuildingResource", "UnitResource", "TenantResource", "NotificationResource", "WaterReadingResource", "LeaseResource", "PaymentResource", "InvoiceResource"]
+    },
+    "versioning_today": {
+      "url_prefix": "/api/v1/, /api/v2/ (v2 is a single-endpoint optimization for arrears report)",
+      "sunset_header": "NOT IN USE",
+      "deprecation_header": "NOT IN USE",
+      "policy_doc": "NONE"
+    },
+    "auth_today": {
+      "model": "Laravel Sanctum personal access tokens",
+      "creation": "$user->createToken('device-name', $abilities) called from AuthController::login + AuthController::register — there is no UI for landlords to mint a PAT for integration use",
+      "scopes_storage": "personal_access_tokens.abilities JSON column",
+      "last_used_at": "Sanctum tracks personal_access_tokens.last_used_at but no UI surfaces it",
+      "audit_log": "Phase-14 SecurityLog covers some auth events but token issue/revoke is NOT logged"
+    },
+    "rate_limit_today": {
+      "throttle_buckets": ["throttle:api (default 60/min)", "throttle:login (5/min)", "throttle:register (3/hour)", "throttle:two-factor (5/min)", "throttle:payment (10/min)", "throttle:csp-report (30/min)"],
+      "headers_emitted": "NONE in 200 responses — Laravel only emits Retry-After on 429 by default",
+      "body_shape_on_429": "Laravel default — { 'message': 'Too Many Attempts.' }"
+    },
+    "webhook_today": {
+      "inbound_only": "Mpesa C2B + STK + B2C, IntaSend, KCB/Equity/Coop bank, WhatsApp inbound + status — all PROVIDER-PUSHED to PropManager, IP/signature validated",
+      "outbound_to_landlord": "NONE — landlords cannot register their own integration webhook endpoints to receive payment/lease events",
+      "events_emitted_internally": "Laravel events (PaymentReceived, InvoiceCreated, LeaseExpired, etc.) — wired to listeners + jobs internally, NOT exposed as webhook payloads"
+    },
+    "error_shape_today": {
+      "validation_422": "Laravel default ValidationException — { 'message': '...', 'errors': { 'field': ['...'] } }",
+      "authentication_401": "Laravel default — { 'message': 'Unauthenticated.' }",
+      "authorization_403": "Laravel default — { 'message': 'This action is unauthorized.' }",
+      "rate_limit_429": "Laravel default — { 'message': 'Too Many Attempts.' }",
+      "server_error_500": "Laravel default — varies by environment",
+      "no_problem_json": "no RFC 7807 type/title/status/detail pattern; every endpoint shape may differ"
+    }
+  },
+  "qualityStandards": {
+    "spec_authoritative": "OpenAPI 3.1 spec must be GENERATED from code (FormRequest validation rules + JsonResource return types + route definitions). Manual hand-edits are forbidden — the spec is downstream of the code, not the other way around. Tooling: dedoc/scramble.",
+    "spec_published_at": "/api/v1/openapi.json (machine-readable) + /docs (interactive Swagger UI or Redoc).",
+    "versioning_url_prefix": "Major versions are URL-prefixed (/api/v1/, /api/v2/...). Minor/patch evolution is backwards-compatible WITHIN a major. A new major requires a deprecation cycle before the prior is removed.",
+    "deprecation_contract": "When a route or response field is deprecated: (1) Sunset header MUST point to the removal date (RFC 8594 IMF-fixdate); (2) Deprecation header MUST be 'true' OR a date; (3) the API-deprecations changelog gets an entry; (4) minimum 6 months between Deprecation flag and removal. Operator-facing runbook: docs/runbooks/api-deprecation.md.",
+    "ratelimit_headers": "Every throttled response (200 OR 429) MUST emit X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset (epoch seconds). 429 bodies MUST be problem+json (type=https://propmanager.test/errors/rate-limit-exceeded, title, status, detail, retry_after_seconds).",
+    "error_shape_authoritative": "All /api/v1/* error responses MUST conform to RFC 7807 problem+json: { type (absolute URI), title, status, detail, instance (request path) }. Validation errors extend with { errors: { field: [...] } } to preserve client compatibility. Documented in docs/runbooks/api-deprecation.md alongside versioning.",
+    "auth_self_serve": "Landlord UI MUST allow: list tokens (name, scopes, created_at, last_used_at, last_used_ip), mint new (name + scope set), revoke (immediate). Token issue + revoke MUST write a SecurityLog entry. Revoked tokens MUST 401 within one request (not waiting for cache TTL).",
+    "webhook_self_serve": "Landlord UI MUST allow: register a webhook (URL + secret + event-type filter + active toggle), view delivery log (event, URL, status, response code, attempt #, last error), manually retry a failed delivery. Outbound deliveries MUST be HMAC-SHA256-signed (X-PropManager-Signature header), retry with exponential backoff (the existing Phase-16 RESIL pattern), and dead-letter after 5 failures.",
+    "ci_drift_gate": "Phase25CiTest::test_routes_match_spec asserts (a) every /api/* GET/POST/PATCH/DELETE route is documented in the generated OpenAPI spec, (b) every spec-documented endpoint resolves to a real route, (c) every Api controller method has a JsonResource return type OR an explicit response schema. Runs on every CI push; shrink-only (a baseline allow-list captures known partial-coverage endpoints — auth.* + webhooks.* — but new endpoints joining the allow-list requires a PR-described justification)."
+  },
+  "feedbackLoops": {
+    "spec_generation_loop": "php artisan scramble:export emits openapi.json on every CI build; the artifact is uploaded so reviewers can download + diff against the previous build. PR description gets an auto-comment if the spec diff is non-empty.",
+    "deprecation_email_loop": "When a route gains a Deprecation header, the system reads its consumer list (personal_access_tokens that have hit that route in the last 30d) and queues an email — gives consumers minimum 6 months runway. dedoc/scramble's spec-diff feeds the trigger.",
+    "ratelimit_visibility_loop": "X-RateLimit-* headers are added by a single middleware ApiRateLimitHeaders (registered in bootstrap/app.php api group); operators can grep their access logs for X-RateLimit-Remaining=0 to find consumers that are bouncing off the bucket.",
+    "webhook_delivery_loop": "Failed webhook deliveries appear in the landlord UI's delivery log with a Retry button; retry uses the same job class as the original attempt + increments attempt count + writes another SecurityLog entry. After 5 attempts the delivery enters a dead-letter state (consistent with Phase-16 RESIL-8 WebhookDeadLetter pattern, but for OUTBOUND webhooks).",
+    "ci_routes_drift_loop": "Phase25CiTest watchdog catches a developer who adds a new route but forgets the JsonResource OR who removes a route but leaves it documented. Failure message names the exact route + missing/extra side."
+  },
+  "categories": {
+    "API-DOC": {
+      "description": "Machine-readable spec, served docs UI, generated changelog. Today's spec is the source code (routes/api.php + controllers + resources) — an integrator reads PHP to understand the API. This category installs dedoc/scramble (Laravel-native auto-generator), serves /api/v1/openapi.json + /docs interactive UI, and ratchets the spec quality via CI artifacts so spec drift is visible in PRs.",
+      "count": 3
+    },
+    "API-VERSION": {
+      "description": "Versioning policy + Sunset/Deprecation header enforcement + a public deprecations changelog. Today's two versions (v1, v2) coexist with no documented policy — when can a consumer expect v1 to die? With what notice? This category writes the policy, wires the headers, and publishes the consumer-facing deprecation log.",
+      "count": 3
+    },
+    "API-AUTH": {
+      "description": "API-key self-serve for landlords. Today only AuthController::login/register can mint a Sanctum PAT — there is no UI to create a PAT for an integration use case (e.g. landlord's QuickBooks sync). This category builds the management UI, tracks token last-used + IP, audit-logs issue/revoke, and documents the expiration/rotation policy.",
+      "count": 4
+    },
+    "API-RATELIMIT": {
+      "description": "Standardized rate-limit headers + 429 body shape. Today Laravel emits Retry-After on 429 but no envelope on 200 responses — consumers cannot pace themselves. This category adds X-RateLimit-Limit/Remaining/Reset to every throttled endpoint and standardizes the 429 body to problem+json with retry_after_seconds.",
+      "count": 3
+    },
+    "API-WEBHOOK": {
+      "description": "Landlord-facing outbound webhooks. Today PropManager only RECEIVES webhooks (from Mpesa/IntaSend/banks/WhatsApp); landlords cannot register their own integration endpoint to receive payment/lease events. This category builds the subscription model + UI + outbound dispatch with HMAC signing + delivery log + retry + dead-letter + event catalog.",
+      "count": 3
+    },
+    "API-ERROR": {
+      "description": "Standardized RFC 7807 problem+json error shape across /api/v1/*. Today each error class has its own envelope (Laravel default ValidationException differs from Authentication differs from Authorization differs from RateLimit) — integrator code needs N parsers. This category unifies the shape and documents it in docs/runbooks/api-deprecation.md.",
+      "count": 1
+    },
+    "API-CI": {
+      "description": "CI watchdogs — routes vs spec drift. The cheap source-level assertions (the Phase-22/23/24 pattern) that prevent a contributor from adding a new route without a Resource, or removing a route while leaving it documented.",
+      "count": 1
+    }
+  },
+  "items": [
+    {
+      "id": "API-DOC-1",
+      "title": "OpenAPI 3.1 spec as the source of truth — generated from code, served at /api/v1/openapi.json",
+      "severity": "HIGH",
+      "files": [
+        "composer.json (require dedoc/scramble)",
+        "config/scramble.php (publish + customise)",
+        "routes/api.php (no changes — Scramble reads it)",
+        "app/Http/Controllers/Api/*.php (typed return types where missing)",
+        "app/Http/Requests/Api/*.php (already provide validation schema)"
+      ],
+      "evidence": "The contract today is routes/api.php + 19 Api controllers + 9 Resources + 5 FormRequests — the integrator reads PHP source. No /api/v1/openapi.json endpoint exists. dedoc/scramble auto-generates the spec from FormRequest rules + JsonResource ->toArray() + route definitions + PHP return-type declarations, so PropManager gets the spec without hand-maintained annotations.",
+      "fix": "(a) composer require dedoc/scramble; publish config; (b) ensure every Api controller method has a JsonResource return type (and where it returns response()->json directly, add an explicit response()->json(...)->headers + a docblock describing the shape — there are ~6 such sites in AuthController/HealthCheckController/MpesaController that the audit identifies); (c) /api/v1/openapi.json endpoint serves the generated spec (Scramble provides the route); (d) Phase25DocTest::test_openapi_endpoint_returns_valid_3_1_spec (HTTP 200, content-type application/openapi+json, OpenAPI 3.1.x version, all 57 v1 routes present in paths)."
+    },
+    {
+      "id": "API-DOC-2",
+      "title": "Interactive docs UI served at /docs (Swagger UI or Redoc)",
+      "severity": "MEDIUM",
+      "files": [
+        "config/scramble.php (ui driver)",
+        "routes/web.php (add /docs route, gated to authenticated)"
+      ],
+      "evidence": "Even with the spec served, integrators want a clickable + try-it-out UI. Scramble ships with a Swagger UI variant out of the box. Auth question: today's API consumers are landlord/super-admin operators who already have Inertia auth, so gating /docs behind the existing web session is the right friction level (a publicly browsable docs UI is a Phase-27 BI/marketing decision, not Phase 25).",
+      "fix": "(a) enable Scramble's UI; (b) mount /docs in routes/web.php under auth + role:landlord|super_admin middleware; (c) Phase25DocTest::test_docs_endpoint_is_authenticated (HTTP 302 to /login when unauthenticated, HTTP 200 for an authenticated landlord, HTTP 403 for an authenticated tenant)."
+    },
+    {
+      "id": "API-DOC-3",
+      "title": "API changelog generated from spec diff in CI",
+      "severity": "LOW",
+      "files": [
+        ".github/workflows/api-spec-diff.yml (new)",
+        "docs/api/CHANGELOG.md (generated; tracked)"
+      ],
+      "evidence": "When v1 evolves, consumers want a changelog they can read. The spec diff between CI runs is the source of truth — a tool like openapi-diff produces a human-readable breaking-vs-non-breaking summary. The CI step writes the diff to PR comments AND appends to docs/api/CHANGELOG.md on main.",
+      "fix": "(a) new workflow that compares the generated spec against the merge-base spec; (b) breaking changes (removed paths/parameters, narrowed types) fail the build unless the PR title contains '[api-breaking]' (forcing explicit acknowledgement); (c) the on-main job appends a CHANGELOG entry. Phase25CiTest::test_api_changelog_format_is_valid (parses CHANGELOG.md, every entry has version + date + change-type)."
+    },
+    {
+      "id": "API-VERSION-1",
+      "title": "API versioning policy + 6-month deprecation contract documented",
+      "severity": "HIGH",
+      "files": [
+        "docs/runbooks/api-deprecation.md (new)"
+      ],
+      "evidence": "v1 and v2 coexist (v2 is the single arrears optimization). No policy doc says when v1 dies, what notice consumers get, what the upgrade path looks like. An integrator pulling from /api/v1/* TODAY has no contractual confidence the URL won't 410 next quarter.",
+      "fix": "(a) Write docs/runbooks/api-deprecation.md covering: URL-prefix major versioning, the Sunset+Deprecation header contract (RFC 8594), the 6-month minimum notice contract, the upgrade-path-must-be-documented rule, the parallel-version-support rule (v1 keeps running until Sunset date), and the consumer-notification process; (b) Phase25DocTest::test_api_deprecation_runbook_covers_the_contract (file exists + key sections present)."
+    },
+    {
+      "id": "API-VERSION-2",
+      "title": "Sunset + Deprecation headers wired via middleware",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Middleware/ApiVersionHeaders.php (new)",
+        "bootstrap/app.php (register in api group)"
+      ],
+      "evidence": "When a route is deprecated, the contract says Sunset + Deprecation headers MUST flow on every response — but Laravel has no built-in middleware for this. A new middleware reads a per-route attribute (e.g. via Route::middleware('deprecated:2026-12-01')) and emits both headers.",
+      "fix": "(a) Build ApiVersionHeaders middleware that reads route()->getAction('deprecated_at') and emits Sunset: <RFC1123 date> + Deprecation: true; (b) register on /api/v1/* routes; (c) Phase25VersionTest::test_deprecation_middleware_emits_both_headers (a route marked deprecated_at returns both headers in its 200 response, an undeprecated route does not)."
+    },
+    {
+      "id": "API-VERSION-3",
+      "title": "Consumer-facing API-deprecations changelog (docs/api/deprecations.md)",
+      "severity": "LOW",
+      "files": [
+        "docs/api/deprecations.md (new)"
+      ],
+      "evidence": "Operator-facing api-deprecation.md (VERSION-1) describes the policy; consumers need a separate consumer-facing changelog that lists every active deprecation with date-flagged + sunset-date + upgrade-path link. Today: empty (no deprecations) but the file exists with the schema documented + a baseline entry pointing at the v1→v2 arrears endpoint pattern.",
+      "fix": "(a) New docs/api/deprecations.md with a documented entry format (route, deprecated_at, sunset_at, replacement, upgrade_doc_url); (b) the API-VERSION-2 middleware writes an entry to this file via a make:command artisan invocation when a new deprecated_at is added; (c) Phase25DocTest::test_deprecations_log_is_parseable (each entry has the required fields)."
+    },
+    {
+      "id": "API-AUTH-1",
+      "title": "API key management UI for landlords — list / mint / revoke",
+      "severity": "HIGH",
+      "files": [
+        "app/Http/Controllers/Settings/ApiTokenController.php (new)",
+        "resources/js/Pages/Settings/ApiTokens/Index.vue (new)",
+        "routes/web.php (add resource routes under auth+role:landlord)"
+      ],
+      "evidence": "Today Sanctum PATs are minted only by AuthController::login (mobile-app flow with device_name). A landlord who wants to connect QuickBooks/Zapier has NO way to issue a token from the UI. Sanctum supports it natively ($user->createToken('label', $abilities)); the gap is the Vue UI + controller.",
+      "fix": "(a) ApiTokenController with index/store/destroy; store accepts name (1-50 chars) + scopes (subset of {landlord:manage, integration:webhook}); response includes plaintext token ONCE (Sanctum pattern) with a copy-button + UI warning that it cannot be retrieved again; (b) index lists current tokens with last_used_at + last_used_ip + scopes (NEVER the plaintext); (c) destroy revokes immediately and 401s subsequent requests within one tick; (d) Phase25AuthTest::test_landlord_can_mint_and_revoke_personal_access_token + test_revoked_token_401s_immediately + test_tenant_role_cannot_mint_token + test_token_plaintext_is_never_persisted_after_creation."
+    },
+    {
+      "id": "API-AUTH-2",
+      "title": "Token last-used-at + last-used-ip surfaced in UI",
+      "severity": "MEDIUM",
+      "files": [
+        "database/migrations/2026_xx_xx_add_last_used_ip_to_personal_access_tokens.php (new)",
+        "app/Http/Middleware/TrackTokenLastUsedIp.php (new)",
+        "resources/js/Pages/Settings/ApiTokens/Index.vue (display column)"
+      ],
+      "evidence": "Sanctum tracks personal_access_tokens.last_used_at automatically (its TokenAuth middleware updates it on every request). It does NOT track the IP that last used the token — but that's the security signal a landlord needs to spot a leaked token (token last used from an unfamiliar IP = compromise indicator).",
+      "fix": "(a) Add last_used_ip varchar(45) column to personal_access_tokens (nullable); (b) New TrackTokenLastUsedIp middleware writes $request->ip() to the active token's last_used_ip on each authenticated /api/* request (uses Sanctum's currentAccessToken()); (c) UI displays both columns. Phase25AuthTest::test_authenticated_api_call_updates_last_used_ip."
+    },
+    {
+      "id": "API-AUTH-3",
+      "title": "Token issue + revoke writes SecurityLog audit entries",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/Settings/ApiTokenController.php (store + destroy emit SecurityLog)",
+        "app/Models/SecurityLog.php (no change — already has event_type)"
+      ],
+      "evidence": "Phase-14 SecurityLog covers login/logout/password-reset but not token lifecycle. A landlord investigating 'who else is calling our API' needs an audit trail.",
+      "fix": "(a) store() writes SecurityLog(event_type='api_token_issued', user_id, metadata={token_id, name, scopes}); (b) destroy() writes SecurityLog(event_type='api_token_revoked', user_id, metadata={token_id, name, scopes}); (c) Phase25AuthTest::test_token_issue_and_revoke_write_security_log."
+    },
+    {
+      "id": "API-AUTH-4",
+      "title": "Token expiration policy + UI rotation reminder",
+      "severity": "LOW",
+      "files": [
+        "config/sanctum.php (expiration setting)",
+        "resources/js/Pages/Settings/ApiTokens/Index.vue (rotation banner)"
+      ],
+      "evidence": "Sanctum supports per-token expiration but PropManager's PATs today never expire. NIST + OWASP API Security Top 10 say long-lived tokens accumulate risk — a 12-month default expiration with UI reminder at 60d before expiry is the conservative posture.",
+      "fix": "(a) Set config('sanctum.expiration') = 60 * 24 * 365 (12 months); (b) ApiTokens/Index displays a banner when any active token's expires_at is within 60 days; (c) Phase25AuthTest::test_token_default_expiration_is_12_months."
+    },
+    {
+      "id": "API-RATELIMIT-1",
+      "title": "X-RateLimit-Limit / X-RateLimit-Remaining / X-RateLimit-Reset on every throttled response",
+      "severity": "HIGH",
+      "files": [
+        "app/Http/Middleware/ApiRateLimitHeaders.php (new)",
+        "bootstrap/app.php (register on api group)"
+      ],
+      "evidence": "Laravel's ThrottleRequests emits Retry-After on 429 but no headers on the successful 200 — consumers cannot pace themselves. Industry convention (GitHub, Stripe, Twilio) is X-RateLimit-Limit (bucket size), X-RateLimit-Remaining (remaining in window), X-RateLimit-Reset (epoch seconds when bucket refills). Laravel's RateLimiter::limiter() exposes the metadata; the middleware just adds the headers.",
+      "fix": "(a) Build ApiRateLimitHeaders middleware that reads RateLimiter::limiter($bucket)->attempts() + limit + decay and writes X-RateLimit-* on the response; (b) register globally on the /api/* group AFTER ThrottleRequests so 429s also get the envelope; (c) Phase25RateLimitTest::test_api_response_carries_ratelimit_headers + test_429_response_carries_full_envelope."
+    },
+    {
+      "id": "API-RATELIMIT-2",
+      "title": "429 response body conforms to RFC 7807 problem+json with retry_after_seconds",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Exceptions/Handler.php (render override for ThrottleRequestsException)"
+      ],
+      "evidence": "Laravel's default 429 body is { 'message': 'Too Many Attempts.' } — adequate but not standardised. RFC 7807 problem+json is the API-design industry consensus (Stripe + GitHub + Slack all follow it).",
+      "fix": "(a) Exception handler intercepts ThrottleRequestsException and returns response()->json([type, title, status, detail, retry_after_seconds, instance], 429, [Content-Type: application/problem+json]); (b) Phase25RateLimitTest::test_429_body_is_problem_json + test_retry_after_seconds_present_and_matches_header."
+    },
+    {
+      "id": "API-RATELIMIT-3",
+      "title": "Per-token rate-limit override policy (operator can raise the bucket for a trusted integrator)",
+      "severity": "LOW",
+      "files": [
+        "database/migrations/2026_xx_xx_add_rate_limit_multiplier_to_personal_access_tokens.php",
+        "app/Http/Middleware/ApiPerTokenRateLimit.php (resolves the multiplier)"
+      ],
+      "evidence": "Default throttle:api = 60/min works for individual operators but a high-volume integrator (QuickBooks Sync polling 200 tenants every 5min) needs a raised bucket. Industry pattern: per-token multiplier (1x, 5x, 10x).",
+      "fix": "(a) Add rate_limit_multiplier int column (default 1) to personal_access_tokens; (b) Middleware reads the active token's multiplier and adjusts the resolved bucket size; (c) UI displays multiplier (read-only for landlord; editable by super-admin); (d) Phase25RateLimitTest::test_token_with_5x_multiplier_gets_5x_bucket."
+    },
+    {
+      "id": "API-WEBHOOK-1",
+      "title": "Webhook subscription model + UI — landlords register their own integration endpoints",
+      "severity": "HIGH",
+      "files": [
+        "database/migrations/2026_xx_xx_create_webhook_subscriptions_table.php (new)",
+        "app/Models/WebhookSubscription.php (new)",
+        "app/Http/Controllers/Settings/WebhookSubscriptionController.php (new)",
+        "resources/js/Pages/Settings/Webhooks/Index.vue (new)",
+        "app/Jobs/DeliverWebhookJob.php (new — outbound dispatch with HMAC + retry)"
+      ],
+      "evidence": "PropManager today only INGESTS webhooks (Mpesa/IntaSend/banks/WhatsApp). Landlords integrating with QuickBooks/Zapier/their own ERP need to RECEIVE payment.created, invoice.created, lease.signed events. This category builds the subscription model (URL + secret + event filter + active flag), the outbound dispatcher with HMAC-SHA256 signing (X-PropManager-Signature header), and exponential backoff (Phase-16 RESIL pattern).",
+      "fix": "(a) Migration creates webhook_subscriptions (id, landlord_id FK, url, secret, events JSON, active bool, created_at); (b) UI list/create/edit/delete + 'Test delivery' button that POSTs a sample payload; (c) DeliverWebhookJob queued on payments queue (Phase-16 priority); (d) HMAC signature middleware on outbound; (e) Phase25WebhookTest::test_landlord_can_register_a_webhook + test_outbound_payload_is_hmac_signed + test_inactive_subscription_does_not_receive_events + test_event_filter_respects_subscription."
+    },
+    {
+      "id": "API-WEBHOOK-2",
+      "title": "Webhook delivery log + retry-from-UI",
+      "severity": "MEDIUM",
+      "files": [
+        "database/migrations/2026_xx_xx_create_webhook_deliveries_table.php (new)",
+        "app/Models/WebhookDelivery.php (new — mirrors Phase-16 WebhookDeadLetter pattern)",
+        "app/Jobs/DeliverWebhookJob.php (writes a row per attempt)",
+        "resources/js/Pages/Settings/Webhooks/Show.vue (delivery log UI + retry button)"
+      ],
+      "evidence": "Without a delivery log the landlord cannot diagnose a flaky integrator endpoint. The log records every attempt (request, response, status, timing), supports manual retry from the UI, and dead-letters after 5 failed attempts (consistent with Phase-16 inbound WebhookDeadLetter).",
+      "fix": "(a) Migration creates webhook_deliveries (id, subscription_id FK, event_type, payload JSON, attempt int, http_status, response_body, dispatched_at, completed_at, error nullable); (b) DeliverWebhookJob writes a row per attempt; (c) UI Show page lists deliveries with filter + retry button; (d) Phase25WebhookTest::test_failed_delivery_is_retryable + test_dead_letter_after_5_attempts."
+    },
+    {
+      "id": "API-WEBHOOK-3",
+      "title": "Event catalog — list of available webhook event types + payload schemas",
+      "severity": "LOW",
+      "files": [
+        "config/webhooks.php (event registry — event_type => description + payload_schema)",
+        "docs/api/webhook-events.md (consumer-facing event catalog)",
+        "app/Services/Webhook/WebhookEventRegistry.php (new)"
+      ],
+      "evidence": "An integrator registering a webhook needs to know what event types exist + what payload shape to expect. Without a catalog the landlord guesses. A registry + docs file + UI dropdown (sourced from the registry) makes it self-serve.",
+      "fix": "(a) WebhookEventRegistry exposes available event types (payment.received, payment.refunded, invoice.created, invoice.paid, lease.signed, lease.expired, tenant.invited, etc.); (b) docs/api/webhook-events.md documents each event's payload shape (JSON example + field meanings); (c) WebhookSubscriptionController's create UI dropdown is sourced from the registry; (d) Phase25WebhookTest::test_event_catalog_lists_all_registered_events + test_payload_shape_matches_documented_schema."
+    },
+    {
+      "id": "API-ERROR-1",
+      "title": "Standardized RFC 7807 problem+json error shape across /api/v1/*",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Exceptions/Handler.php (render() override for api/* routes)",
+        "app/Exceptions/ApiProblemRenderer.php (new — converts an exception to a problem+json response)"
+      ],
+      "evidence": "Today validation 422 + auth 401 + authz 403 + ratelimit 429 + 500 all have different envelopes. An integrator-side error parser needs N branches. RFC 7807 problem+json unifies the shape: { type (absolute URI), title, status, detail, instance, extensions...}.",
+      "fix": "(a) ApiProblemRenderer maps Laravel exceptions (ValidationException, AuthenticationException, AuthorizationException, ThrottleRequestsException, ModelNotFoundException, generic Throwable) to problem+json; (b) Handler::render() detects api/* paths and routes through the renderer; (c) ValidationException retains its 'errors' field for client backwards compat but adds type/title/status/instance; (d) Phase25ErrorTest::test_all_api_error_shapes_are_problem_json (drive each error class through and assert shape)."
+    },
+    {
+      "id": "API-CI-1",
+      "title": "CI watchdog — routes vs OpenAPI spec drift",
+      "severity": "MEDIUM",
+      "files": [
+        "tests/Feature/Api/Phase25CiTest.php (new)"
+      ],
+      "evidence": "A future contributor adds /api/v1/landlord/widgets without a JsonResource — Scramble can't document the response shape. Or removes /api/v1/landlord/buildings/{id}/units while leaving it in the spec — consumers 404. The watchdog catches both.",
+      "fix": "(a) Phase25CiTest::test_every_api_route_is_in_the_spec walks $router->getRoutes() filtered by /api/* and asserts each appears in the generated openapi.json paths; (b) test_every_spec_endpoint_resolves_to_a_real_route walks paths and asserts each resolves; (c) test_every_api_controller_method_returns_a_resource asserts every Api controller public method has a JsonResource or JsonResponse return type; (d) shrink-only baseline allows known-partial endpoints (auth/* + webhooks/* + health/* + metrics) via an explicit allow-list."
+    }
+  ]
+}
