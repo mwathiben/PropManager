@@ -1,0 +1,245 @@
+{
+  "project": "PropManager",
+  "audit_cycle": "phase-27",
+  "audit_date": "2026-05-15",
+  "scope": "Tier-3 platform + API excellence, cycle 3 of 3 (per project_propmanager_path_forward.md, closing Tier 3). Phase 25 [API-SURFACE] + Phase 26 [MOBILE + PWA] are closed (18/18 each, zero deferrals). Phase 27 [REPORTING + BI] takes PropManager's analytics from 'flat dashboard with 4 fixed report types' to 'world-class BI for institutional landlords'. Today's surface (ReportService + ReportsController + FinanceReportController + Api\\ReportController): 4 fixed report types (financial / occupancy / arrears / water), period selector {week/month/quarter/year}, CSV+PDF export, NO cohort analysis, NO NOI/cap-rate, NO forecasting, NO custom report builder, NO scheduled delivery, NO real xlsx (CSV with .xlsx extension is the closest), NO regression tests on the report SQL. Institutional landlords with 200+ units evaluate property management software on these missing capabilities — without them PropManager caps at the small-landlord segment. 18 findings across 6 categories: BI-COHORT (3 — tenant cohort retention curve, monthly acquisition cohort, lifetime-value calculation), BI-NOI (3 — NOI per property/portfolio, cap rate calculator, expense-to-property allocation methodology), BI-FORECAST (3 — rent-roll forecasting, seasonality adjustment, vacancy projection), BI-BUILDER (3 — saved-report library, drag-drop field picker, SQL generator with safety filter), BI-DELIVERY (3 — xlsx export via PhpSpreadsheet, scheduled email delivery, configurable daily/weekly/monthly cadence), BI-CI (3 — golden-query regression test, report query performance budget, new-report-type ratchet). Severity 5H/8M/5L. Builds on Phase-22 PERF-SLO (queries-budget pattern), Phase-25 ERROR-1 (problem+json for any failed report endpoint), Phase-26 OFFLINE (cached fallback when the landlord opens a saved report offline), Phase-24 i18n (xlsx column headers + scheduled email subjects localised). Tools: phpoffice/phpspreadsheet for real xlsx (writes formatting + formulas; CSV is not xlsx), Laravel Scheduler for cadence, existing Mail infra for delivery.",
+  "context_baseline": {
+    "today_reports": {
+      "fixed_types": ["financial", "occupancy", "arrears", "water"],
+      "periods": ["week", "month", "quarter", "year"],
+      "controllers": ["app/Http/Controllers/ReportsController.php", "app/Http/Controllers/Finance/FinanceReportController.php", "app/Http/Controllers/ArrearsController.php", "app/Http/Controllers/Api/ReportController.php"],
+      "service": "app/Services/ReportService.php (~700 lines, monolithic — all 4 report types in one class)"
+    },
+    "today_exports": {
+      "pdf": "barryvdh/laravel-dompdf, blade views in resources/views/reports/*.blade.php",
+      "xlsx": "FAUX — ReportsController::exportExcel uses fputcsv and renames to .xlsx; opens in Excel as CSV (no formatting, no formulas, no real cell types)",
+      "csv": "fputcsv-based, app/Services/FinanceExportService.php"
+    },
+    "today_missing": {
+      "cohort_analysis": "NONE",
+      "noi_cap_rate": "NONE",
+      "forecast": "NONE",
+      "saved_reports": "NONE — reports are query-on-demand, no persistence layer",
+      "custom_builder": "NONE — landlord cannot choose fields, can only pick from 4 fixed types",
+      "scheduled_delivery": "NONE — there is no SendScheduledReport mailable, no daily/weekly cron schedule for reports",
+      "regression_tests": "NONE — no Phase26-style watchdog asserts the SQL output shape for the 4 existing types"
+    },
+    "today_deps": {
+      "phpspreadsheet": "NOT INSTALLED (phpoffice/phpspreadsheet absent from composer.json)",
+      "laravel_excel": "NOT INSTALLED (maatwebsite/excel absent)",
+      "chart_lib": "Chart.js used in Vue (PWA-NETWORK-2 already gates this for slow connections)"
+    }
+  },
+  "findings": [
+    {
+      "id": "BI-COHORT-1",
+      "title": "Tenant cohort retention curve — survival rate by acquisition month",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/Reports/CohortService.php (new — extracted from monolithic ReportService)",
+        "app/Http/Controllers/Reports/CohortController.php (new)",
+        "resources/js/Pages/Reports/Cohort.vue (new)",
+        "routes/web.php (Route::get('/reports/cohort'))"
+      ],
+      "evidence": "Institutional landlords measure churn via cohort retention: 'of the tenants acquired in Jan 2025, what % are still active at month 3 / 6 / 12?'. Without this they can't tell if a building improvement campaign changed churn or if a new contract template improved retention. The query is a self-join on leases grouped by start_date YYYY-MM with COUNT alive at each (current_month - cohort_month) offset.",
+      "fix": "(a) CohortService::retentionMatrix(landlordId, lookbackMonths) returns matrix[cohortMonth][offsetMonth] = survivalPct; (b) Cohort.vue renders a triangular heatmap (vue-chartjs already in deps); (c) drilldown on each cell lists the leases that ended in that offset; (d) Phase27CohortTest::test_retention_matrix_shape + test_diagonal_is_one (self-month always 100%)."
+    },
+    {
+      "id": "BI-COHORT-2",
+      "title": "Monthly acquisition cohort table — net new + churned + reactivated",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/Reports/CohortService.php (acquisitionTable method)",
+        "resources/js/Pages/Reports/Cohort.vue (Acquisition tab)"
+      ],
+      "evidence": "Counter-balance to BI-COHORT-1: the absolute counts per month — how many new tenants started, how many churned, net delta. Surfaces growth trajectory the retention curve obscures (a 90% retention rate on a shrinking portfolio is still shrinking).",
+      "fix": "(a) acquisitionTable(landlordId, fromMonth, toMonth) returns [{month, new_leases, churned_leases, reactivated, net_delta}]; (b) UI sortable table + net-delta column conditional formatting; (c) Phase27CohortTest::test_acquisition_table_balances (sum(new) - sum(churned) + sum(reactivated) == active_at_end - active_at_start)."
+    },
+    {
+      "id": "BI-COHORT-3",
+      "title": "Tenant lifetime value (LTV) calculation per cohort",
+      "severity": "LOW",
+      "files": [
+        "app/Services/Reports/CohortService.php (lifetimeValue method)",
+        "docs/runbooks/bi.md (LTV methodology section)"
+      ],
+      "evidence": "LTV = sum(payments) per tenant over the lease lifetime, aggregated per acquisition cohort. Operators use this to evaluate the unit economics of marketing campaigns + tenant-acquisition cost. The methodology doc matters here — there's no single LTV formula; PropManager picks 'sum of all payments excluding refunds, attributed to the cohort month the lease started'.",
+      "fix": "(a) lifetimeValue(landlordId, cohortMonth) returns {tenants_count, total_payments_kes, mean_ltv_kes, median_ltv_kes}; (b) docs/runbooks/bi.md documents the calculation + edge cases (subletting, lease renewal, refunds); (c) Phase27CohortTest::test_ltv_excludes_refunds."
+    },
+    {
+      "id": "BI-NOI-1",
+      "title": "Net Operating Income (NOI) per property + portfolio",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/Reports/NoiService.php (new)",
+        "app/Http/Controllers/Reports/NoiController.php (new)",
+        "resources/js/Pages/Reports/Noi.vue (new)"
+      ],
+      "evidence": "NOI = (rental income - operating expenses) per property, the canonical real-estate operating metric. Today PropManager has revenue + expense data but no per-property NOI. Institutional landlords sort properties by NOI to identify under-performers; lenders demand NOI in covenant reports.",
+      "fix": "(a) NoiService::byProperty(landlordId, period) joins payments, expenses (per Phase-22 PERF-CACHE-1 query patterns), groups by property_id; (b) Portfolio-level NOI = sum across properties; (c) UI Noi.vue ranks properties + shows NOI margin + occupancy; (d) Phase27NoiTest::test_noi_matches_revenue_minus_expenses + test_unallocated_expenses_show_in_portfolio_only."
+    },
+    {
+      "id": "BI-NOI-2",
+      "title": "Cap rate calculator — NOI / property value, with comparable benchmark",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/Reports/NoiService.php (capRate method)",
+        "database/migrations/*_add_estimated_value_to_properties.php (new)",
+        "resources/js/Pages/Properties/Edit.vue (estimated_value field)",
+        "resources/js/Pages/Reports/Noi.vue (Cap rate tab)"
+      ],
+      "evidence": "Cap rate = NOI / property value, expressed as a percentage. 6-8% is typical for Kenyan residential, 8-12% commercial. Investors use it to compare property performance against alternative investments (T-bill yield, REIT dividends). Requires a property.estimated_value field which doesn't exist yet — adding it is in-scope for this finding.",
+      "fix": "(a) properties.estimated_value decimal(12,2) nullable + ALTER migration; (b) Properties/Edit.vue UI field (with i18n keys); (c) NoiService::capRate(landlordId) = annualised NOI / estimated_value per property; (d) UI displays cap rate with comparable benchmark band (6-8% green, <6% amber, >8% green); (e) Phase27NoiTest::test_cap_rate_annualises_partial_period_correctly."
+    },
+    {
+      "id": "BI-NOI-3",
+      "title": "Expense-to-property allocation methodology + UI",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/Reports/NoiService.php (allocation logic)",
+        "app/Models/Expense.php (allocation_method enum)",
+        "database/migrations/*_add_allocation_method_to_expenses.php",
+        "resources/js/Pages/Expenses/Edit.vue (allocation picker)"
+      ],
+      "evidence": "Expenses today are recorded against a building or 'general'. A general expense (e.g. landlord's accountant fee) must be allocated across properties for accurate per-property NOI. Three valid methods: per-unit (split by unit count), per-revenue (split by revenue share), per-floor-area (when applicable). Currently no allocation — general expenses inflate the portfolio NOI but understate per-property NOI.",
+      "fix": "(a) expenses.allocation_method enum {direct, per_unit, per_revenue, per_floor_area}; (b) UI picker on Expenses/Edit.vue; (c) NoiService allocates per the chosen method when grouping; (d) docs/runbooks/bi.md documents each method's formula + when to use which; (e) Phase27NoiTest::test_per_unit_allocation_sums_to_expense_total."
+    },
+    {
+      "id": "BI-FORECAST-1",
+      "title": "Rent-roll forecasting — 1/3/6/12 month expected revenue",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/Reports/ForecastService.php (new)",
+        "app/Http/Controllers/Reports/ForecastController.php (new)",
+        "resources/js/Pages/Reports/Forecast.vue (new)"
+      ],
+      "evidence": "Cash-flow forecasting is the #1 ask from landlords with >50 units (per the 2026-Q1 sales feedback log). Today the landlord adds it up mentally from lease rents. The forecast must reflect: (a) currently active leases, (b) leases ending in the forecast window (assume not renewed unless a renewal is signed), (c) vacant units (assume no income unless filled), (d) late-payer probability (collection rate from history).",
+      "fix": "(a) ForecastService::rentRoll(landlordId, months) returns [{month, expected_revenue, low_estimate, high_estimate}]; (b) low_estimate = active_leases * historical_collection_rate; high_estimate = active_leases + (vacant_units * avg_rent * vacancy_fill_rate); (c) UI Forecast.vue line chart + confidence band; (d) Phase27ForecastTest::test_active_lease_full_in_first_month + test_lease_ending_falls_off_at_end_date."
+    },
+    {
+      "id": "BI-FORECAST-2",
+      "title": "Seasonality adjustment — quarterly/holiday revenue patterns",
+      "severity": "LOW",
+      "files": [
+        "app/Services/Reports/ForecastService.php (seasonality method)"
+      ],
+      "evidence": "Kenya has December holiday + January 'tenant moves out' patterns. A naive forecast underestimates December revenue (tenants pay early for January before travelling) and overestimates January revenue (some units sit vacant). Apply a seasonality factor derived from the landlord's own 3-year history if available, else fall back to a Kenya-wide default.",
+      "fix": "(a) ForecastService::seasonalityFactor(landlordId, month) = mean(revenue / annualMean) for that month over last 3 years; (b) When < 12 months history, return 1.0; (c) Phase27ForecastTest::test_seasonality_factor_defaults_to_one_for_new_landlord."
+    },
+    {
+      "id": "BI-FORECAST-3",
+      "title": "Vacancy projection — empty units + expected fill date",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/Reports/ForecastService.php (vacancyProjection method)",
+        "resources/js/Pages/Reports/Forecast.vue (Vacancy tab)"
+      ],
+      "evidence": "Vacancy is the biggest revenue risk. Today the landlord sees the count of vacant units; they don't see expected fill date or lost-revenue projection. Use mean-time-to-fill from the past year (lease_start_date - unit_vacancy_start_date) to project fill date for each current vacancy.",
+      "fix": "(a) vacancyProjection(landlordId) returns [{unit_id, vacant_since, expected_fill_date, lost_revenue_kes}]; (b) UI Vacancy tab ranks units by lost-revenue; (c) Phase27ForecastTest::test_fill_date_uses_landlords_own_history."
+    },
+    {
+      "id": "BI-BUILDER-1",
+      "title": "Saved-report library — store landlord-configured reports",
+      "severity": "MEDIUM",
+      "files": [
+        "database/migrations/*_create_saved_reports_table.php (new)",
+        "app/Models/SavedReport.php (new — TenantScope)",
+        "app/Policies/SavedReportPolicy.php (new)"
+      ],
+      "evidence": "Today every report query runs ad-hoc. A landlord configuring 'arrears > 30 days, grouped by building, sorted by amount' must reconfigure on every visit. Saved reports persist {name, type, filters, group_by, sort_by, fields[]} so the landlord opens them with one click.",
+      "fix": "(a) saved_reports table (landlord_id FK, name, type, config JSON, created_at, updated_at); (b) SavedReport model with TenantScope; (c) SavedReportPolicy + registration in AuthServiceProvider; (d) Phase27BuilderTest::test_saved_reports_are_scoped_to_landlord."
+    },
+    {
+      "id": "BI-BUILDER-2",
+      "title": "Drag-drop field picker UI for custom report builder",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/Pages/Reports/Builder.vue (new)",
+        "resources/js/Components/Reports/FieldPicker.vue (new)"
+      ],
+      "evidence": "The landlord must be able to PICK which fields appear in a report without writing SQL. The picker offers a curated allowlist (lease.rent_amount, payment.amount, tenant.name, unit.number, etc.) and the user drags to the column or filter zones. SQL is GENERATED — never user-typed.",
+      "fix": "(a) Builder.vue with three zones (columns, filters, group_by); (b) FieldPicker.vue lists the allowlist with categories (Leases / Payments / Tenants / Units); (c) Drag-drop via SortableJS (already in deps via vueuse); (d) Phase27BuilderTest::test_field_allowlist_is_locked (a unit test on the PHP side that asserts the curated list matches docs/runbooks/bi.md)."
+    },
+    {
+      "id": "BI-BUILDER-3",
+      "title": "Safe SQL generator — no user-typed SQL ever reaches the DB",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/Reports/ReportBuilderService.php (new)",
+        "tests/Feature/Reports/Phase27BuilderInjectionTest.php (security regression)"
+      ],
+      "evidence": "Custom report builder is a classic SQL-injection surface. The defence-in-depth posture is: the user picks from an allowlist of fields/operators/values, the service generates parameterised Eloquent queries (never string-concat SQL), and a regression test asserts injection payloads are rejected at the validation layer. Phase-1 SQLi cleanup (commit 03e17b7) is the standard we maintain.",
+      "fix": "(a) ReportBuilderService::run(config) validates config against the allowlist + builds an Eloquent query (->where with bound parameters only); (b) ANY field/operator/value outside the allowlist throws ValidationException at the entrance; (c) Phase27BuilderInjectionTest fires 20+ classic injection payloads at the field/operator/value slots + asserts they all reject; (d) docs/runbooks/bi.md documents the allowlist as a contract — adding a field requires adding the allowlist entry."
+    },
+    {
+      "id": "BI-DELIVERY-1",
+      "title": "Real xlsx export via PhpSpreadsheet — formatting + formulas + cell types",
+      "severity": "HIGH",
+      "files": [
+        "composer.json (add phpoffice/phpspreadsheet)",
+        "app/Services/Reports/XlsxExportService.php (new)",
+        "app/Http/Controllers/ReportsController.php (exportExcel uses XlsxExportService)"
+      ],
+      "evidence": "Today's 'xlsx' export is CSV with a renamed extension. Excel opens it but treats every cell as text; KES amounts can't be summed without re-typing as Number; dates display as 'Apr 5 2026' string. Institutional landlords import these into existing dashboards and demand real xlsx (proper cell types + currency formatting + header styling).",
+      "fix": "(a) phpoffice/phpspreadsheet ^3.0 added; (b) XlsxExportService::write($report, $path) writes typed cells (Numeric + DateTimeImmutable + Currency format mask 'KES #,##0.00'); (c) Bold header row + auto-width columns; (d) Phase27ExportTest::test_xlsx_amount_column_is_numeric_type + test_currency_format_mask_is_kes."
+    },
+    {
+      "id": "BI-DELIVERY-2",
+      "title": "Scheduled report email delivery — Mailable + Schedule cadence",
+      "severity": "MEDIUM",
+      "files": [
+        "database/migrations/*_create_scheduled_reports_table.php (new)",
+        "app/Models/ScheduledReport.php (new)",
+        "app/Mail/ScheduledReportDelivery.php (new)",
+        "app/Console/Commands/SendScheduledReports.php (new)",
+        "routes/console.php (Schedule::command('reports:send-scheduled')->dailyAt('06:00'))"
+      ],
+      "evidence": "Landlord doesn't want to log in every Monday to see the weekly arrears report — they want it in their inbox at 06:00. Today no such infrastructure exists. The scheduled_reports table records {saved_report_id, cadence, delivery_email, last_sent_at, next_due_at}; the daily artisan command finds next_due_at <= now() and queues a job per report.",
+      "fix": "(a) scheduled_reports table; (b) ScheduledReport model with belongsTo(SavedReport); (c) ScheduledReportDelivery mailable (Phase-24 HasLocalePreference compliant — subject + body in recipient locale); (d) SendScheduledReports command iterates due reports + queues mailable with rendered xlsx attachment; (e) Schedule::command('reports:send-scheduled')->dailyAt('06:00'); (f) Phase27DeliveryTest::test_due_reports_send_xlsx_attachment + test_next_due_at_advances_correctly."
+    },
+    {
+      "id": "BI-DELIVERY-3",
+      "title": "Configurable cadence + recipient list per saved report",
+      "severity": "LOW",
+      "files": [
+        "resources/js/Pages/Reports/Scheduled.vue (new — landlord self-serve UI)",
+        "app/Http/Controllers/Reports/ScheduledController.php (new)",
+        "lang/{en,sw}.json (offline.report.* keys would parity-fail; new key prefix `reports.schedule.*`)"
+      ],
+      "evidence": "BI-DELIVERY-2 ships the cron + mailable; this finding is the landlord-facing UI to schedule {weekly/monthly/quarterly}, pick the saved report, set the recipient list. Without this UI an operator must edit DB rows directly.",
+      "fix": "(a) Scheduled.vue lists existing schedules with edit/cancel + 'New schedule' button; (b) Cadence picker {weekly, monthly, quarterly}; (c) Recipient list with email validation (Phase-13 PERSONAL-DATA-1 compliance — only landlord's own email or known caretaker emails); (d) i18n keys reports.schedule.{title, cadence_weekly, cadence_monthly, ...}; (e) Phase27DeliveryTest::test_recipient_list_rejects_third_party_emails."
+    },
+    {
+      "id": "BI-CI-1",
+      "title": "Golden-query regression watchdog — assert SQL output shape for each report type",
+      "severity": "MEDIUM",
+      "files": [
+        "tests/Feature/Reports/Phase27GoldenQueriesTest.php (new)",
+        "tests/Fixtures/reports/expected/*.json (new — committed golden output)"
+      ],
+      "evidence": "Today's 4 report types (financial / occupancy / arrears / water) have no regression tests. A refactor that drops a column or changes a join condition ships invisibly. The watchdog seeds a known dataset, runs each report, and asserts the JSON output matches the committed golden file. Diff = fail.",
+      "fix": "(a) Phase27GoldenQueriesTest::test_each_report_type_matches_golden_output; (b) Seeded dataset in the test creates 3 properties + 10 units + 8 leases + 20 payments with deterministic IDs; (c) Golden output committed at tests/Fixtures/reports/expected/{type}.json; (d) Re-baseline command: php artisan reports:write-golden (operator runs after an intentional change, commits the new goldens with a one-line why)."
+    },
+    {
+      "id": "BI-CI-2",
+      "title": "Report query performance budget — slow-query gate on report endpoints",
+      "severity": "MEDIUM",
+      "files": [
+        "tests/Feature/Reports/Phase27PerfTest.php (new)",
+        "config/perf.php (add report_query_budget_ms)"
+      ],
+      "evidence": "Phase-22 PERF-SLO ships an http_request_ms budget for general endpoints. Report endpoints have different SLOs because a 5-year cohort analysis is genuinely slower than a dashboard read. Per-report budgets: cohort 1.5s, NOI 1.0s, forecast 1.0s, builder-custom 2.5s. Test asserts each endpoint's median over 10 runs is under budget.",
+      "fix": "(a) config/perf.php['report_query_budget_ms'] map; (b) Phase27PerfTest::test_each_report_endpoint_is_within_budget seeds the dataset + measures median; (c) Failure surfaces which report regressed + by how much; (d) Re-baseline by editing config/perf.php with a one-line rationale in the commit."
+    },
+    {
+      "id": "BI-CI-3",
+      "title": "New-report-type ratchet — adding a report requires updating goldens",
+      "severity": "LOW",
+      "files": [
+        "tests/Feature/Reports/Phase27CoverageTest.php (new)"
+      ],
+      "evidence": "Six months from now a new contributor adds a 5th report type but skips the golden file. Phase27GoldenQueriesTest doesn't fail because the new type isn't iterated. This ratchet asserts every report_type returned by ReportService::supportedTypes() has a golden file — forces the discipline.",
+      "fix": "(a) Phase27CoverageTest::test_every_supported_report_type_has_a_golden_fixture walks ReportService::supportedTypes() + asserts tests/Fixtures/reports/expected/{type}.json exists; (b) Phase27CoverageTest::test_every_supported_report_type_has_a_perf_budget walks supportedTypes() + asserts config/perf.php['report_query_budget_ms'] has the key; (c) the watchdog is the contract — extending it without these is a CI failure."
+    }
+  ]
+}
