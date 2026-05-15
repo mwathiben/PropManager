@@ -794,6 +794,16 @@ Route::middleware('auth')->group(function () {
         ->middleware('cache.read')
         ->name('help.show');
 
+    // Phase-25 API-AUTH-1: API token self-serve for landlords
+    // (mint/list/revoke Sanctum PATs for integrations like
+    // QuickBooks Sync, Zapier, custom landlord ERPs). Super-admins
+    // pass the role gate via EnsureRole's bypass.
+    Route::middleware('role:landlord')->prefix('settings/api-tokens')->name('settings.api-tokens.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\ApiTokenController::class, 'index'])->name('index');
+        Route::post('/', [\App\Http\Controllers\ApiTokenController::class, 'store'])->name('store');
+        Route::delete('/{token}', [\App\Http\Controllers\ApiTokenController::class, 'destroy'])->name('destroy');
+    });
+
     // 17. Subscription Management (Landlords Only)
     Route::middleware('role:landlord')->prefix('subscription')->group(function () {
         Route::get('/', [SubscriptionController::class, 'index'])->name('subscription.index');

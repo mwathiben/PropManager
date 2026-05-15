@@ -53,6 +53,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(append: [
             \App\Http\Middleware\RecordRequestLatency::class,
             \App\Http\Middleware\ApiRateLimitHeaders::class,
+            // Phase-25 API-AUTH-2: stamp the requester's IP on every
+            // authenticated Sanctum token. Sanctum auto-updates
+            // last_used_at via TokenAuth; this complements with IP so
+            // landlords can spot a leaked token (unfamiliar IP signal).
+            \App\Http\Middleware\TrackTokenLastUsedIp::class,
         ]);
 
         // Exclude webhook routes from CSRF verification (they use signature verification)
