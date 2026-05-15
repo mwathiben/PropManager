@@ -261,12 +261,30 @@ class AppServiceProvider extends ServiceProvider
                 });
         });
 
-        // API rate limiter (general)
+        // API rate limiter (general).
+        //
+        // Phase-25 API-RATELIMIT-3: when the request is authenticated
+        // via a Sanctum personal access token, the token's
+        // rate_limit_multiplier scales the bucket. Trusted integration
+        // partners (multiplier 2.0) get 2x the headroom without
+        // mutating the global config; one-off abuse cases can be
+        // throttled by setting the multiplier <1.0 on a specific
+        // token. Multiplier <= 0 falls back to 1.0 (defensive — no
+        // legit value would zero a partner out; that's revoke's job).
         RateLimiter::for('api', function (Request $request) {
             $config = config('security.rate_limits.api', '60,1');
             [$maxAttempts, $decayMinutes] = explode(',', $config);
+            $maxAttempts = (int) $maxAttempts;
 
-            return Limit::perMinutes((int) $decayMinutes, (int) $maxAttempts)
+            $token = $request->user()?->currentAccessToken();
+            if ($token && isset($token->rate_limit_multiplier)) {
+                $multiplier = (float) $token->rate_limit_multiplier;
+                if ($multiplier > 0.0) {
+                    $maxAttempts = (int) max(1, round($maxAttempts * $multiplier));
+                }
+            }
+
+            return Limit::perMinutes((int) $decayMinutes, $maxAttempts)
                 ->by($request->user()?->id ?: $request->ip());
         });
 
