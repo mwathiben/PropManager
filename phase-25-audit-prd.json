@@ -305,5 +305,78 @@
       "evidence": "A future contributor adds /api/v1/landlord/widgets without a JsonResource — Scramble can't document the response shape. Or removes /api/v1/landlord/buildings/{id}/units while leaving it in the spec — consumers 404. The watchdog catches both.",
       "fix": "(a) Phase25CiTest::test_every_api_route_is_in_the_spec walks $router->getRoutes() filtered by /api/* and asserts each appears in the generated openapi.json paths; (b) test_every_spec_endpoint_resolves_to_a_real_route walks paths and asserts each resolves; (c) test_every_api_controller_method_returns_a_resource asserts every Api controller public method has a JsonResource or JsonResponse return type; (d) shrink-only baseline allows known-partial endpoints (auth/* + webhooks/* + health/* + metrics) via an explicit allow-list."
     }
-  ]
+  ],
+  "audit_closeout": {
+    "closed_at": "2026-05-15",
+    "status": "COMPLETE",
+    "findings_total": 18,
+    "findings_closed": 18,
+    "by_severity": {
+      "HIGH": "5/5",
+      "MEDIUM": "8/8",
+      "LOW": "5/5"
+    },
+    "commits": [
+      "fcbe862 — PRD baseline (18 findings)",
+      "7f08bef — Phase 1a: VERSION-1 runbook + RATELIMIT-1 X-RateLimit-Reset on 200s",
+      "996b87f — Phase 1b: DOC-1 dedoc/scramble OpenAPI generator",
+      "f29e5db — Phase 1c: AUTH-1/2/3 PAT self-serve UI + last-used-ip + audit log",
+      "b5f62c8 — Phase 1d: WEBHOOK-1/2/3 outbound webhooks + delivery log + event catalog",
+      "4fdfca1 — Phase 2: VERSION-2 Sunset+Deprecation header middleware, ERROR-1 RFC 7807 problem+json renderer, RATELIMIT-2 429 problem+json, CI-1 routes-vs-spec drift watchdog, AUTH-4 12-month token expiration, DOC-2 Scramble UI gating",
+      "dd1335d — Phase 3: DOC-3 spec-diff changelog generator, VERSION-3 deprecations audit command, RATELIMIT-3 per-token rate-limit multiplier"
+    ],
+    "watchdog_suite": {
+      "test_classes": 9,
+      "test_classes_listing": [
+        "Phase25DocTest (8 tests) — Scramble spec generation + viewApiDocs Gate (DOC-1, DOC-2)",
+        "Phase25VersionTest (3 tests) — runbook + 6-month contract + deprecations.md (VERSION-1)",
+        "Phase25VersionHeadersTest (4 tests) — Sunset/Deprecation middleware (VERSION-2)",
+        "Phase25AuthTest (10 tests) — PAT lifecycle + ip tracking + audit log + 12-month expiration (AUTH-1/2/3/4)",
+        "Phase25WebhookTest (9 tests) — subscriptions + HMAC + retry + dead-letter (WEBHOOK-1/2/3)",
+        "Phase25ErrorTest (5 tests) — problem+json shape for validation/401/403/429/non-API isolation (ERROR-1, RATELIMIT-2)",
+        "Phase25CiTest (3 tests) — routes-vs-spec drift (CI-1)",
+        "Phase25RateLimitTest (3 tests) — X-RateLimit-Reset emission (RATELIMIT-1)",
+        "Phase25ChangelogTest (5 tests) — api:changelog command + skeleton (DOC-3)",
+        "Phase25DeprecationsAuditTest (4 tests) — api:deprecations:audit command (VERSION-3)",
+        "Phase25RateLimitMultiplierTest (5 tests) — per-token bucket scaling (RATELIMIT-3)"
+      ],
+      "total_tests": "~59",
+      "phase_25_assertions_estimate": "~120+"
+    },
+    "artifacts_shipped": {
+      "openapi_spec": "/docs/api.json served live via Scramble; baseline snapshot at docs/api/openapi-baseline.json (59 paths)",
+      "consumer_docs": [
+        "docs/api/deprecations.md (deprecated routes list)",
+        "docs/api/changelog.md (release notes)",
+        "docs/api/webhook-events.md (event catalog)"
+      ],
+      "operator_docs": [
+        "docs/runbooks/api-deprecation.md (6-month deprecation contract)"
+      ],
+      "ui_surfaces": [
+        "/settings/api-tokens (landlord self-serve PAT management)",
+        "/settings/webhooks (landlord self-serve outbound webhook subscriptions)",
+        "/docs/api (Scramble UI, landlord+super-admin only)"
+      ],
+      "console_commands": [
+        "api:changelog (spec-diff release notes)",
+        "api:deprecations:audit (route table vs deprecations.md)"
+      ],
+      "middleware": [
+        "ApiRateLimitHeaders (X-RateLimit-Reset on 200s)",
+        "TrackTokenLastUsedIp (PAT IP forensics)",
+        "ApiVersionHeaders aka 'deprecated:YYYY-MM-DD' alias (Sunset+Deprecation headers)"
+      ],
+      "infra": [
+        "personal_access_tokens.last_used_ip column (AUTH-2)",
+        "personal_access_tokens.rate_limit_multiplier column (RATELIMIT-3)",
+        "webhook_subscriptions table (WEBHOOK-1)",
+        "webhook_deliveries table (WEBHOOK-2)",
+        "ApiProblemRenderer (ERROR-1, RATELIMIT-2)",
+        "DeliverWebhookJob with exponential backoff + dead-letter (WEBHOOK-2)",
+        "viewApiDocs Gate (DOC-2)"
+      ]
+    },
+    "next_phase": "Phase 26 [MOBILE + PWA] — install prompt, offline shell, push notifications, Lighthouse PWA score >=90. Per project_propmanager_path_forward.md Tier 3."
+  }
 }
