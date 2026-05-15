@@ -512,6 +512,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/reports/export/excel', fn () => redirect()->route('finances.reports.export', ['format' => 'xlsx']));
     Route::get('/reports/metrics', fn () => redirect()->route('finances.reports'));
 
+    // Phase-27 BI-COHORT-1/2/3: tenant retention + acquisition + LTV.
+    // role:landlord — same scope as finances.reports; tenant-facing
+    // analytics surface is a separate Phase 27 finding (BI-BUILDER).
+    Route::middleware('role:landlord')
+        ->get('/reports/cohort', [\App\Http\Controllers\Reports\CohortController::class, 'index'])
+        ->name('reports.cohort');
+
     // 12. Notifications
     Route::get('/notifications', [\App\Http\Controllers\NotificationsController::class, 'index'])->name('notifications.index');
     Route::get('/notifications/overview', [\App\Http\Controllers\NotificationsController::class, 'overview'])->name('notifications.overview');
