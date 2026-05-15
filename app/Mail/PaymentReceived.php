@@ -33,7 +33,7 @@ class PaymentReceived extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Payment Received - '.$this->invoice->invoice_number,
+            subject: __('emails.subjects.payment_received', ['number' => $this->invoice->invoice_number]),
         );
     }
 

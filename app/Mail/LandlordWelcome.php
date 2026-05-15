@@ -29,7 +29,7 @@ class LandlordWelcome extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Welcome to '.config('app.name').' - Let\'s Get You Started!',
+            subject: __('emails.subjects.landlord_welcome', ['app' => config('app.name')]),
         );
     }
 

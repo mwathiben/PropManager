@@ -29,7 +29,7 @@ class CaretakerInvitation extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Invitation to Join as Property Caretaker',
+            subject: __('emails.subjects.caretaker_invitation'),
         );
     }
 

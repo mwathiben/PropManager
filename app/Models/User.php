@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\KycSubmissionStatus;
 use App\Traits\Auditable;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -50,7 +51,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property-read \Illuminate\Database\Eloquent\Collection<Ticket> $assignedTickets
  * @property-read \Illuminate\Database\Eloquent\Collection<TenantKycSubmission> $kycSubmissions
  */
-class User extends Authenticatable
+class User extends Authenticatable implements HasLocalePreference
 {
     use Auditable, HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
@@ -130,6 +131,18 @@ class User extends Authenticatable
         return in_array($this->locale, $supported, true)
             ? $this->locale
             : config('app.fallback_locale');
+    }
+
+    /**
+     * Phase-24 I18N-BACKEND-1: HasLocalePreference contract. Laravel's
+     * mailer + notifier picks this up automatically for queued mail
+     * via `Mail::to($user)` — every notification destined for this
+     * user is rendered in their chosen language, with no send-site
+     * `Mail::locale(...)` wiring required.
+     */
+    public function preferredLocale(): string
+    {
+        return $this->effectiveLocale();
     }
 
     public function isSuperAdmin(): bool

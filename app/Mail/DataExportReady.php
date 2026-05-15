@@ -30,7 +30,7 @@ class DataExportReady extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Your Data Export is Ready - PropManager',
+            subject: __('emails.subjects.data_export_ready', ['app' => config('app.name', 'PropManager')]),
         );
     }
 

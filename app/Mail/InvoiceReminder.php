@@ -25,11 +25,11 @@ class InvoiceReminder extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         $isOverdue = $this->invoice->due_date->isPast();
-        $subject = $isOverdue
-            ? 'Payment Overdue - Invoice '.$this->invoice->invoice_number
-            : 'Payment Reminder - Invoice '.$this->invoice->invoice_number;
+        $key = $isOverdue ? 'emails.subjects.invoice_overdue' : 'emails.subjects.invoice_reminder';
 
-        return new Envelope(subject: $subject);
+        return new Envelope(
+            subject: __($key, ['number' => $this->invoice->invoice_number]),
+        );
     }
 
     public function content(): Content

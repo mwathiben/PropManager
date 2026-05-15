@@ -31,7 +31,7 @@ class TenantCredentials extends Mailable implements ShouldQueue
         $propertyName = $this->lease->unit->building?->property?->name ?? 'Your New Home';
 
         return new Envelope(
-            subject: "Welcome to {$propertyName} - Your Account Details",
+            subject: __('emails.subjects.tenant_credentials', ['property' => $propertyName]),
         );
     }
 

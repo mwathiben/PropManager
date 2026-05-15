@@ -24,14 +24,14 @@ class DepositRefundNotification extends Mailable implements ShouldQueue
 
     public function envelope(): Envelope
     {
-        $subject = match ($this->type) {
-            'refunded' => 'Your Security Deposit Has Been Refunded',
-            'partial_refund' => 'Your Security Deposit Has Been Partially Refunded',
-            'forfeited' => 'Security Deposit Forfeiture Notice',
-            default => 'Security Deposit Update',
+        $key = match ($this->type) {
+            'refunded' => 'emails.subjects.deposit_refunded',
+            'partial_refund' => 'emails.subjects.deposit_partial_refund',
+            'forfeited' => 'emails.subjects.deposit_forfeited',
+            default => 'emails.subjects.deposit_update',
         };
 
-        return new Envelope(subject: $subject);
+        return new Envelope(subject: __($key));
     }
 
     public function content(): Content

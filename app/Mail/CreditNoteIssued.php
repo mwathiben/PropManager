@@ -27,7 +27,7 @@ class CreditNoteIssued extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Credit Note Issued - '.$this->creditNote->credit_number,
+            subject: __('emails.subjects.credit_note_issued', ['number' => $this->creditNote->credit_number]),
         );
     }
 

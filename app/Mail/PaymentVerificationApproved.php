@@ -24,7 +24,7 @@ class PaymentVerificationApproved extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Payment Verified - Welcome to Your New Home',
+            subject: __('emails.subjects.payment_verification_approved'),
         );
     }
 

@@ -4,5 +4,17 @@
         "cancel": "Cancel",
         "loading": "Loading...",
         "language": "Language"
+    },
+    "format": {
+        "relative": {
+            "yesterday": "Yesterday",
+            "today": "Today",
+            "tomorrow": "Tomorrow",
+            "just_now": "Just now",
+            "days_ago": "{count} day ago | {count} days ago",
+            "in_days": "In {count} day | In {count} days",
+            "minutes_ago": "{count} minute ago | {count} minutes ago",
+            "hours_ago": "{count} hour ago | {count} hours ago"
+        }
     }
 }

@@ -4,5 +4,17 @@
         "cancel": "Ghairi",
         "loading": "Inapakia...",
         "language": "Lugha"
+    },
+    "format": {
+        "relative": {
+            "yesterday": "Jana",
+            "today": "Leo",
+            "tomorrow": "Kesho",
+            "just_now": "Sasa hivi",
+            "days_ago": "Siku {count} iliyopita | Siku {count} zilizopita",
+            "in_days": "Baada ya siku {count} | Baada ya siku {count}",
+            "minutes_ago": "Dakika {count} iliyopita | Dakika {count} zilizopita",
+            "hours_ago": "Saa {count} iliyopita | Masaa {count} yaliyopita"
+        }
     }
 }

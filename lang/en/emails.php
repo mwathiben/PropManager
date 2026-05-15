@@ -122,4 +122,27 @@ return [
         'currency' => 'KES',
     ],
 
+    'subjects' => [
+        'invoice_sent' => 'Invoice :number - Payment Due',
+        'payment_received' => 'Payment Received - :number',
+        'invoice_reminder' => 'Payment Reminder - Invoice :number',
+        'invoice_overdue' => 'Payment Overdue - Invoice :number',
+        'credit_note_issued' => 'Credit Note Issued - :number',
+        'data_export_ready' => 'Your Data Export is Ready - :app',
+        'deposit_refunded' => 'Your Security Deposit Has Been Refunded',
+        'deposit_partial_refund' => 'Your Security Deposit Has Been Partially Refunded',
+        'deposit_forfeited' => 'Security Deposit Forfeiture Notice',
+        'deposit_update' => 'Security Deposit Update',
+        'landlord_welcome' => "Welcome to :app - Let's Get You Started!",
+        'overpayment_notice' => 'Tenant Overpayment Notice - Ref :ref',
+        'payment_verification_approved' => 'Payment Verified - Welcome to Your New Home',
+        'payment_verification_rejected' => 'Payment Verification Issue - Action Required',
+        'rent_hike_notice' => 'Rent Adjustment Notice - Effective :date',
+        'tenant_credentials' => 'Welcome to :property - Your Account Details',
+        'tenant_welcome' => 'Welcome to :property - Your Lease is Active',
+        'tenant_invitation_existing' => 'New Lease Invitation - :property',
+        'tenant_invitation_new' => "You've Been Invited to :property",
+        'caretaker_invitation' => 'Invitation to Join as Property Caretaker',
+    ],
+
 ];

@@ -49,6 +49,23 @@ enum Currency: string
         };
     }
 
+    /**
+     * Phase-24 I18N-FORMAT-2: BCP-47 tag for the currency *and* the
+     * active application locale. When the user switches PropManager to
+     * Swahili, KES-denominated values should also format with the
+     * sw-KE tag (which yields a localised separator + currency name).
+     * Currencies without a registered Swahili variant fall back to the
+     * default locale() result.
+     */
+    public function localeFor(?string $appLocale): string
+    {
+        if ($appLocale === 'sw' && $this === self::KES) {
+            return 'sw-KE';
+        }
+
+        return $this->locale();
+    }
+
     public function minorUnitMultiplier(): int
     {
         return 100;

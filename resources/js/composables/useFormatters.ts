@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
 
 /**
  * Centralized composable for formatting currencies, dates, and numbers.
@@ -20,6 +21,11 @@ import { usePage } from '@inertiajs/vue3';
  * - formatNumber(value) - Format with thousands separator
  * - formatFileSize(bytes) - "1.2 MB", etc.
  * - todayAsISODate() - Returns "YYYY-MM-DD" for form defaults
+ *
+ * Phase-24 I18N-FORMAT-1/2: Intl locale arguments are derived from the
+ * shared Inertia `locale` prop (set by the SetLocale middleware), so
+ * dates / relative phrases / numbers track the user's chosen language.
+ * Relative-date phrasing comes from vue-i18n keys (format.relative.*).
  */
 
 export interface FormattersOptions {
@@ -48,23 +54,62 @@ export interface UseFormattersReturn {
     todayAsISODate: () => string;
 }
 
+/**
+ * Map the application locale code (en / sw) to a BCP-47 tag suitable
+ * for Intl.* APIs. KE region is the default because PropManager's
+ * audience is Kenyan landlords/tenants — overridable via `options`.
+ */
+const INTL_LOCALES: Record<string, { number: string; date: string }> = {
+    en: { number: 'en-KE', date: 'en-GB' },
+    sw: { number: 'sw-KE', date: 'sw-KE' },
+};
+
+function resolveIntlLocales(appLocale: string | undefined): { number: string; date: string } {
+    if (appLocale && INTL_LOCALES[appLocale]) {
+        return INTL_LOCALES[appLocale];
+    }
+    return INTL_LOCALES.en;
+}
+
 export function useFormatters(options: FormattersOptions = {}): UseFormattersReturn {
     let sharedCurrencyCode: string | undefined;
+    let sharedLocale: string | undefined;
     try {
         const page = usePage();
         const shared = page.props.currency as { code: string; symbol: string } | null | undefined;
         if (shared?.code) {
             sharedCurrencyCode = shared.code;
         }
+        const pageLocale = page.props.locale as string | undefined;
+        if (pageLocale) {
+            sharedLocale = pageLocale;
+        }
     } catch {
         // Outside Vue component context — use default
     }
 
+    // vue-i18n's t() is the source of truth for translated relative
+    // phrases. Outside a Vue setup context (rare — tests, ad-hoc
+    // formatters) it throws, so we fall back to English literals.
+    let t: ((key: string, named?: Record<string, unknown>, plural?: number) => string) | null = null;
+    try {
+        const i18n = useI18n();
+        t = (key, named, plural) => {
+            if (plural !== undefined) {
+                return i18n.t(key, named ?? {}, plural);
+            }
+            return named ? i18n.t(key, named) : i18n.t(key);
+        };
+    } catch {
+        t = null;
+    }
+
+    const intl = resolveIntlLocales(sharedLocale);
+
     const config = {
-        locale: options.locale || 'en-KE',
+        locale: options.locale || intl.number,
         currency: options.currency || sharedCurrencyCode || 'KES',
-        dateLocale: options.dateLocale || 'en-GB',
-        ...options
+        dateLocale: options.dateLocale || intl.date,
     };
 
     /**
@@ -118,6 +163,15 @@ export function useFormatters(options: FormattersOptions = {}): UseFormattersRet
         });
     };
 
+    const tr = (key: string, fallback: string, named?: Record<string, unknown>, plural?: number): string => {
+        if (!t) return fallback;
+        try {
+            return t(key, named, plural);
+        } catch {
+            return fallback;
+        }
+    };
+
     /**
      * Format a date relative to today (e.g., "2 days ago", "Tomorrow")
      */
@@ -131,11 +185,14 @@ export function useFormatters(options: FormattersOptions = {}): UseFormattersRet
         const diffTime = d.getTime() - now.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-        if (diffDays < -1) return `${Math.abs(diffDays)} days ago`;
-        if (diffDays === -1) return 'Yesterday';
-        if (diffDays === 0) return 'Today';
-        if (diffDays === 1) return 'Tomorrow';
-        return `In ${diffDays} days`;
+        if (diffDays < -1) {
+            const count = Math.abs(diffDays);
+            return tr('format.relative.days_ago', `${count} days ago`, { count }, count);
+        }
+        if (diffDays === -1) return tr('format.relative.yesterday', 'Yesterday');
+        if (diffDays === 0) return tr('format.relative.today', 'Today');
+        if (diffDays === 1) return tr('format.relative.tomorrow', 'Tomorrow');
+        return tr('format.relative.in_days', `In ${diffDays} days`, { count: diffDays }, diffDays);
     };
 
     /**
@@ -190,10 +247,16 @@ export function useFormatters(options: FormattersOptions = {}): UseFormattersRet
         const diffHour = Math.floor(diffMin / 60);
         const diffDay = Math.floor(diffHour / 24);
 
-        if (diffSec < 60) return 'Just now';
-        if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? '' : 's'} ago`;
-        if (diffHour < 24) return `${diffHour} hour${diffHour === 1 ? '' : 's'} ago`;
-        if (diffDay < 7) return `${diffDay} day${diffDay === 1 ? '' : 's'} ago`;
+        if (diffSec < 60) return tr('format.relative.just_now', 'Just now');
+        if (diffMin < 60) {
+            return tr('format.relative.minutes_ago', `${diffMin} minute${diffMin === 1 ? '' : 's'} ago`, { count: diffMin }, diffMin);
+        }
+        if (diffHour < 24) {
+            return tr('format.relative.hours_ago', `${diffHour} hour${diffHour === 1 ? '' : 's'} ago`, { count: diffHour }, diffHour);
+        }
+        if (diffDay < 7) {
+            return tr('format.relative.days_ago', `${diffDay} day${diffDay === 1 ? '' : 's'} ago`, { count: diffDay }, diffDay);
+        }
 
         return formatDate(date, 'short');
     };

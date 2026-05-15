@@ -34,7 +34,7 @@ class RentHikeNotice extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Rent Adjustment Notice - Effective '.$this->effectiveDate,
+            subject: __('emails.subjects.rent_hike_notice', ['date' => $this->effectiveDate]),
         );
     }
 

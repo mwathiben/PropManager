@@ -36,7 +36,7 @@ class TenantWelcome extends Mailable implements ShouldQueue
         $propertyName = $this->invitation->unit->building->property->name;
 
         return new Envelope(
-            subject: "Welcome to {$propertyName} - Your Lease is Active",
+            subject: __('emails.subjects.tenant_welcome', ['property' => $propertyName]),
         );
     }
 

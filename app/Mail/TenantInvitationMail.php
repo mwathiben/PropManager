@@ -30,10 +30,12 @@ class TenantInvitationMail extends Mailable implements ShouldQueue
     {
         $propertyName = $this->invitation->unit->building->property->name;
 
+        $key = $this->invitation->isForExistingUser()
+            ? 'emails.subjects.tenant_invitation_existing'
+            : 'emails.subjects.tenant_invitation_new';
+
         return new Envelope(
-            subject: $this->invitation->isForExistingUser()
-                ? "New Lease Invitation - {$propertyName}"
-                : "You've Been Invited to {$propertyName}",
+            subject: __($key, ['property' => $propertyName]),
         );
     }
 

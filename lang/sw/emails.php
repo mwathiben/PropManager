@@ -123,4 +123,27 @@ return [
         'currency' => 'KES',
     ],
 
+    'subjects' => [
+        'invoice_sent' => 'Ankara :number - Malipo Yanahitajika',
+        'payment_received' => 'Malipo Yamepokelewa - :number',
+        'invoice_reminder' => 'Kumbusho la Malipo - Ankara :number',
+        'invoice_overdue' => 'Malipo Yamepitwa na Wakati - Ankara :number',
+        'credit_note_issued' => 'Hati ya Mkopo Imetolewa - :number',
+        'data_export_ready' => 'Hifadhi Yako ya Data Iko Tayari - :app',
+        'deposit_refunded' => 'Amana Yako ya Usalama Imerejeshwa',
+        'deposit_partial_refund' => 'Amana Yako ya Usalama Imerejeshwa Sehemu',
+        'deposit_forfeited' => 'Notisi ya Kupoteza Amana ya Usalama',
+        'deposit_update' => 'Sasisho la Amana ya Usalama',
+        'landlord_welcome' => 'Karibu :app - Hebu Tuanze!',
+        'overpayment_notice' => 'Notisi ya Malipo ya Ziada ya Mpangaji - Kumbukumbu :ref',
+        'payment_verification_approved' => 'Malipo Yamethibitishwa - Karibu Nyumbani Kwako Kipya',
+        'payment_verification_rejected' => 'Tatizo la Uthibitisho wa Malipo - Hatua Inahitajika',
+        'rent_hike_notice' => 'Notisi ya Marekebisho ya Kodi - Itaanza :date',
+        'tenant_credentials' => 'Karibu :property - Maelezo ya Akaunti Yako',
+        'tenant_welcome' => 'Karibu :property - Mkataba Wako Umeanza',
+        'tenant_invitation_existing' => 'Mwaliko wa Mkataba Mpya - :property',
+        'tenant_invitation_new' => 'Umealikwa Kujiunga na :property',
+        'caretaker_invitation' => 'Mwaliko wa Kujiunga kama Mlinzi wa Jengo',
+    ],
+
 ];
