@@ -20,6 +20,7 @@ use App\Models\Payment;
 use App\Models\Property;
 use App\Models\ReceiptTemplate;
 use App\Models\Refund;
+use App\Models\SavedReport;
 use App\Models\TenantKycSubmission;
 use App\Models\TenantPaymentVerification;
 use App\Models\Ticket;
@@ -46,6 +47,7 @@ use App\Policies\PaymentPolicy;
 use App\Policies\PropertyPolicy;
 use App\Policies\ReceiptTemplatePolicy;
 use App\Policies\RefundPolicy;
+use App\Policies\SavedReportPolicy;
 use App\Policies\TenantKycSubmissionPolicy;
 use App\Policies\TenantPaymentVerificationPolicy;
 use App\Policies\TenantPolicy;
@@ -92,6 +94,9 @@ class AuthServiceProvider extends ServiceProvider
         // returned false and central authz audit was missing.
         Refund::class => RefundPolicy::class,
         Import::class => ImportPolicy::class,
+        // Phase-27 BI-BUILDER-1: only the owning landlord may view +
+        // modify their saved reports.
+        SavedReport::class => SavedReportPolicy::class,
         LandlordPayoutAccount::class => LandlordPayoutAccountPolicy::class,
         // PRIV-12: tenant-target authorization (User model represents
         // tenants in ledger/modalData/etc. contexts).

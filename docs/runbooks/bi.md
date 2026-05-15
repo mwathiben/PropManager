@@ -226,7 +226,86 @@ vacancies surface first.
 
 ## Custom report builder
 
-_Filled in by Phase 1d — BI-BUILDER-1/2/3._
+### Saved-report library (BI-BUILDER-1)
+
+`saved_reports` table persists `(landlord_id FK CASCADE, name,
+description, config JSON, timestamps)`. The `SavedReport` model uses
+`TenantScope` for read-side isolation; the FK cascade is the
+write-side cleanup. `SavedReportPolicy` requires:
+- viewAny: landlord or caretaker
+- view / update / delete: landlord whose id matches the row's
+  `landlord_id`
+- create: landlord (super-admin bypass + DPA-4 restriction apply
+  through `Gate::before` as usual)
+
+`config` JSON is the picker output, validated at write time by
+`ReportBuilderService::run()` — even after persistence we revalidate
+on every execution. The DB layer is NOT the trust boundary.
+
+### Drag-drop field picker UI (BI-BUILDER-2)
+
+`Pages/Reports/Builder.vue` reads `allowedTables` + `allowedFields` +
+`operatorMatrix` from the server (the BuilderController emits them
+from `ReportBuilderService::ALLOWED_*` constants). The UI cannot
+synthesise an unsafe field value even if a malicious actor edits
+the DOM — every picker option originates server-side.
+
+Today's UI is click-to-add (field → select → filter row → preview).
+Full drag-drop polish is a Phase-N follow-up; the safety contract is
+the picker output, not the interaction model.
+
+### Safe SQL generator (BI-BUILDER-3)
+
+`ReportBuilderService::run(config, landlordId)` is the
+**security-critical** code path. Two defence-in-depth rules govern
+the file:
+
+1. **Allowlist validation at the boundary**. Every field, table,
+   operator, sort direction, and group-by reference is checked
+   against an in-file constant (`ALLOWED_TABLES`, `ALLOWED_FIELDS`,
+   `NUMERIC_OPERATORS`, `DATE_OPERATORS`, `STRING_OPERATORS`,
+   `BOOLEAN_OPERATORS`, `SORT_DIRECTIONS`). Anything not on the
+   list throws `ValidationException` before the query is built.
+2. **Parameterised queries only**. Every user-supplied value flows
+   through Eloquent's `->where()` / `->whereIn()` / `->orderBy()`
+   bindings. The service NEVER calls `DB::raw()` with any value
+   that originates from the request.
+
+`Phase27BuilderInjectionTest` is the gate: 20+ classic SQL-injection
+payloads fired at every input slot (table, fields, filters.field,
+filters.op, filters.value, group_by, sort_by.field, sort_by.direction,
+limit). Every payload must reject. If any assertion fails, the
+builder is INSECURE — fix validation, don't loosen the test.
+
+### Field allowlist
+
+| Key                        | Table     | Column           | Type    |
+|----------------------------|-----------|------------------|---------|
+| `payment.amount`           | payments  | amount           | numeric |
+| `payment.payment_date`     | payments  | payment_date     | date    |
+| `payment.payment_method`   | payments  | payment_method   | string  |
+| `invoice.total_due`        | invoices  | total_due        | numeric |
+| `invoice.amount_paid`      | invoices  | amount_paid      | numeric |
+| `invoice.status`           | invoices  | status           | string  |
+| `invoice.due_date`         | invoices  | due_date         | date    |
+| `lease.rent_amount`        | leases    | rent_amount      | numeric |
+| `lease.start_date`         | leases    | start_date       | date    |
+| `lease.is_active`          | leases    | is_active        | boolean |
+
+**Adding a field**: edit `ReportBuilderService::ALLOWED_FIELDS`,
+update this table, run `Phase27BuilderInjectionTest`. The
+`test_field_allowlist_is_locked` assertion adapts automatically.
+
+### Allowed cross-table joins
+
+| Root table | Joinable to |
+|------------|-------------|
+| payments   | leases, invoices |
+| invoices   | leases       |
+
+Anything outside this table — e.g. payments → users — is forbidden.
+Field references that would require such a join throw
+`ValidationException` at the entrance.
 
 ## Scheduled delivery
 

@@ -529,6 +529,16 @@ Route::middleware('auth')->group(function () {
         ->get('/reports/forecast', [\App\Http\Controllers\Reports\ForecastController::class, 'index'])
         ->name('reports.forecast');
 
+    // Phase-27 BI-BUILDER-1/2/3: saved-report library + drag-drop builder.
+    // The SAFE SQL generator (ReportBuilderService) is the security-critical
+    // path here — see Phase27BuilderInjectionTest.
+    Route::middleware('role:landlord')->prefix('reports/builder')->name('reports.builder.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Reports\BuilderController::class, 'index'])->name('index');
+        Route::post('/run', [\App\Http\Controllers\Reports\BuilderController::class, 'run'])->name('run');
+        Route::post('/', [\App\Http\Controllers\Reports\BuilderController::class, 'store'])->name('store');
+        Route::delete('/{report}', [\App\Http\Controllers\Reports\BuilderController::class, 'destroy'])->name('destroy');
+    });
+
     // 12. Notifications
     Route::get('/notifications', [\App\Http\Controllers\NotificationsController::class, 'index'])->name('notifications.index');
     Route::get('/notifications/overview', [\App\Http\Controllers\NotificationsController::class, 'overview'])->name('notifications.overview');
