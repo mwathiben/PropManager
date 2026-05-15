@@ -774,6 +774,11 @@ Route::middleware('auth')->group(function () {
         ->middleware('throttle:sensitive')
         ->name('profile.destroy');
 
+    // Phase-24 I18N-INFRA-4: per-user locale switch. Persists to
+    // users.locale + the session; the SetLocale middleware applies it
+    // on the next request.
+    Route::patch('/locale', [\App\Http\Controllers\LocaleController::class, 'update'])->name('locale.update');
+
     // 16. Help Center (All Users)
     // Phase-22 PERF-CACHE-2: help pages are global reference content
     // (not per-landlord) — safe to carry ETag + private cache headers

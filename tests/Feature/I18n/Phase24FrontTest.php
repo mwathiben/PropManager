@@ -23,6 +23,44 @@ class Phase24FrontTest extends TestCase
         );
     }
 
+    public function test_use_i18n_composable_exists(): void
+    {
+        $path = resource_path('js/composables/useI18n.ts');
+        $this->assertFileExists($path, 'I18N-FRONT-2: useI18n.ts must exist.');
+
+        $contents = file_get_contents($path);
+        $this->assertStringContainsString(
+            'export function useI18n',
+            $contents,
+            'I18N-FRONT-2: useI18n must be exported as a composable.',
+        );
+        $this->assertStringContainsString(
+            'availableLocales',
+            $contents,
+            'I18N-FRONT-2: useI18n must expose the supported-locale list.',
+        );
+    }
+
+    public function test_locale_selector_is_mounted_in_personal_info(): void
+    {
+        $selectorPath = resource_path('js/Components/LocaleSelector.vue');
+        $this->assertFileExists($selectorPath, 'I18N-FRONT-2: LocaleSelector.vue must exist.');
+
+        $selector = file_get_contents($selectorPath);
+        $this->assertStringContainsString(
+            "router.patch(route('locale.update')",
+            $selector,
+            'I18N-FRONT-2: LocaleSelector must PATCH the locale.update endpoint.',
+        );
+
+        $tab = file_get_contents(resource_path('js/Pages/Profile/Partials/PersonalInfoTab.vue'));
+        $this->assertStringContainsString(
+            'LocaleSelector',
+            $tab,
+            'I18N-FRONT-2: LocaleSelector must be mounted in the Profile > PersonalInfo tab.',
+        );
+    }
+
     public function test_app_js_wires_vue_i18n(): void
     {
         $appJs = file_get_contents(resource_path('js/app.js'));

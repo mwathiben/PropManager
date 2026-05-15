@@ -5,6 +5,7 @@ import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import LocaleSelector from '@/Components/LocaleSelector.vue';
 import type { PersonalInfoTabProps } from '@/types';
 import {
     UserCircleIcon,
@@ -229,5 +230,15 @@ const roleLabel = computed(() => {
                 </div>
             </div>
         </form>
+
+        <!--
+            Phase-24 I18N-FRONT-2: language preference. Its own card —
+            switching locale uses the dedicated locale.update endpoint
+            (not the profile-update form), so the SetLocale middleware
+            picks it up on the reload.
+        -->
+        <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <LocaleSelector />
+        </div>
     </div>
 </template>

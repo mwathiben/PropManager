@@ -123,4 +123,33 @@ class Phase24InfraTest extends TestCase
         $this->assertStringContainsString("'i18n'", $middleware, 'I18N-INFRA-3: share() must expose the i18n bundle.');
         $this->assertStringContainsString('getI18nBundle', $middleware, 'I18N-INFRA-3: the i18n bundle must be sourced from getI18nBundle().');
     }
+
+    public function test_locale_switch_persists_to_user_and_session(): void
+    {
+        $user = User::factory()->create(['locale' => 'en']);
+
+        $response = $this->actingAs($user)
+            ->from('/dashboard')
+            ->patch(route('locale.update'), ['locale' => 'sw']);
+
+        $response->assertRedirect('/dashboard');
+        $this->assertSame('sw', $user->fresh()->locale, 'I18N-INFRA-4: user.locale must be updated.');
+        $this->assertSame('sw', session('locale'), 'I18N-INFRA-4: session(locale) must be set too.');
+    }
+
+    public function test_locale_switch_rejects_unsupported_locale(): void
+    {
+        $user = User::factory()->create(['locale' => 'en']);
+
+        $this->actingAs($user)
+            ->from('/dashboard')
+            ->patch(route('locale.update'), ['locale' => 'zz'])
+            ->assertSessionHasErrors('locale');
+
+        $this->assertSame(
+            'en',
+            $user->fresh()->locale,
+            'I18N-INFRA-4: rejected locales must NOT be persisted to users.locale.',
+        );
+    }
 }
