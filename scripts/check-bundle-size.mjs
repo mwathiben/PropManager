@@ -24,6 +24,26 @@ const ASSETS_DIR = 'public/build/assets';
 const TOTAL_JS_BUDGET_BYTES = 4_500_000; // ~4.5 MB
 const LARGEST_CHUNK_BUDGET_BYTES = 350_000; // ~350 KB
 
+// Phase-26 PWA-PERF-2: per-named-chunk byte budgets. The Phase-22
+// total + largest-only gate caught aggregate regressions but missed
+// the case where one named chunk balloons while another shrinks
+// (e.g. vendor doubles while leaflet halves — total + largest both
+// flat). Per-chunk budgets catch that.
+//
+// The matcher is a regex against the chunk's filename — Vite hashes
+// each chunk so the match is `^<chunk>-[A-Za-z0-9_-]+\.js$`. Budgets
+// are RAW bytes with ~50% headroom over current measurement (same
+// philosophy as TOTAL_JS_BUDGET_BYTES — catches regressions, not
+// growth). Re-baseline by reading the printed values and updating
+// this table with a one-line commit message explaining why.
+const PER_CHUNK_BUDGETS = [
+    { name: 'vue-core', pattern: /^vue-core-/, budgetBytes: 260_000 },
+    { name: 'vendor',   pattern: /^vendor-/,   budgetBytes: 110_000 },
+    { name: 'leaflet',  pattern: /^leaflet-/,  budgetBytes: 200_000 },
+    { name: 'app',      pattern: /^app-/,      budgetBytes: 220_000 },
+    { name: 'sw',       pattern: /^sw\.js$|^sw\.mjs$/, budgetBytes: 60_000 },
+];
+
 const kb = (b) => (b / 1000).toFixed(1);
 const mb = (b) => (b / 1_000_000).toFixed(2);
 
@@ -65,6 +85,27 @@ if (totalBytes > TOTAL_JS_BUDGET_BYTES) {
 if (largest.size > LARGEST_CHUNK_BUDGET_BYTES) {
     console.error(`  FAIL: chunk ${largest.name} (${kb(largest.size)} KB) exceeds the ${kb(LARGEST_CHUNK_BUDGET_BYTES)} KB single-chunk budget.`);
     failed = true;
+}
+
+// Phase-26 PWA-PERF-2: per-named-chunk budgets. Sum every JS file in
+// the build that matches each chunk's regex, then assert under budget.
+// A chunk pattern with NO matching files is silently OK — chunks may
+// legitimately not be emitted on a given build (e.g. leaflet only
+// emits when a page imports it).
+console.log('\nPer-chunk budget check:');
+for (const { name, pattern, budgetBytes } of PER_CHUNK_BUDGETS) {
+    const matches = jsFiles.filter((f) => pattern.test(f));
+    if (matches.length === 0) {
+        console.log(`  ${name}: (no matching chunks emitted)`);
+        continue;
+    }
+    const chunkSize = matches.reduce((acc, f) => acc + statSync(join(ASSETS_DIR, f)).size, 0);
+    const status = chunkSize > budgetBytes ? 'FAIL' : 'OK';
+    console.log(`  ${name}: ${kb(chunkSize)} KB  (budget ${kb(budgetBytes)} KB)  [${status}]  → ${matches.join(', ')}`);
+    if (chunkSize > budgetBytes) {
+        console.error(`    FAIL: ${name} chunk(s) total ${kb(chunkSize)} KB exceeds the ${kb(budgetBytes)} KB budget.`);
+        failed = true;
+    }
 }
 
 if (failed) {

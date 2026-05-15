@@ -489,7 +489,7 @@ const toggleGroups = props.toggleGroups || [
                                             <div :class="previewState.design === 'minimal' ? 'text-center' : 'flex justify-between items-start'">
                                                 <div :class="previewState.design === 'minimal' ? 'mb-4' : ''">
                                                     <div v-if="previewState.show_logo && getLogoUrl()" :class="previewState.design === 'minimal' ? 'mb-4 flex justify-center' : 'mb-3'">
-                                                        <img :src="getLogoUrl()" alt="Logo" class="h-12 object-contain" />
+                                                        <img :src="getLogoUrl()" alt="Logo" loading="lazy" decoding="async" class="h-12 object-contain" />
                                                     </div>
                                                     <div v-else-if="previewState.show_logo" :class="['w-24 h-12 rounded flex items-center justify-center text-xs', previewState.design === 'professional' ? 'bg-stone-200 text-stone-500 border border-stone-300' : 'bg-gray-200 text-gray-400', previewState.design === 'minimal' ? 'mx-auto mb-4' : 'mb-3']">
                                                         Logo
@@ -607,7 +607,7 @@ const toggleGroups = props.toggleGroups || [
                                         <!-- QR Code -->
                                         <div v-if="previewState.show_qr_code" class="px-6 py-4 flex justify-center">
                                             <div v-if="sampleReceipt.qr_code" :class="['p-2', previewState.design === 'modern' ? 'bg-gray-50 rounded-xl' : previewState.design === 'professional' ? 'bg-stone-50 border border-stone-200' : 'bg-white rounded']">
-                                                <img :src="sampleReceipt.qr_code" alt="QR Code" class="w-24 h-24" />
+                                                <img :src="sampleReceipt.qr_code" alt="QR Code" loading="lazy" decoding="async" class="w-24 h-24" />
                                             </div>
                                             <div v-else :class="['w-24 h-24 flex items-center justify-center text-xs text-gray-400', previewState.design === 'modern' ? 'bg-gray-100 rounded-xl' : previewState.design === 'professional' ? 'bg-stone-100 text-stone-500 border border-stone-300' : 'bg-gray-200 rounded']">
                                                 QR Code

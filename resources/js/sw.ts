@@ -23,8 +23,9 @@
 import { clientsClaim } from 'workbox-core';
 import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
 import { registerRoute, NavigationRoute } from 'workbox-routing';
-import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies';
+import { CacheFirst, NetworkFirst, NetworkOnly, StaleWhileRevalidate } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
+import { BackgroundSyncPlugin } from 'workbox-background-sync';
 
 declare const self: ServiceWorkerGlobalScope & {
     __WB_MANIFEST: Array<{ url: string; revision: string | null }>;
@@ -126,6 +127,33 @@ registerRoute(
             }),
         ],
     }),
+);
+
+// Phase-26 PWA-NETWORK-1: background-sync for invoice creation.
+// When the user submits POST /invoices offline, Workbox enqueues the
+// request and replays it (with backoff) when connectivity returns.
+// Safe to replay because invoice creation honours X-Idempotency-Key
+// (Phase-16 RESIL-3) — the client attaches a ULID per submit so the
+// server rejects duplicates if the queue replays after a partial
+// success.
+//
+// On drain, the SW posts { type: 'BG_SYNC_DRAINED', queue } to all
+// clients — the QueuedOpsTray (PWA-NETWORK-3) consumes that to clear
+// its "queued offline" badge.
+const invoiceSyncPlugin = new BackgroundSyncPlugin('pm-invoice-queue', {
+    maxRetentionTime: 24 * 60, // 24h — beyond this Workbox drops the request
+    onSync: async ({ queue }) => {
+        await queue.replayRequests();
+        const clientList = await self.clients.matchAll({ type: 'window' });
+        for (const client of clientList) {
+            client.postMessage({ type: 'BG_SYNC_DRAINED', queue: 'pm-invoice-queue' });
+        }
+    },
+});
+registerRoute(
+    ({ url, request }) => request.method === 'POST' && url.pathname.startsWith('/invoices'),
+    new NetworkOnly({ plugins: [invoiceSyncPlugin] }),
+    'POST',
 );
 
 // =========================================================================

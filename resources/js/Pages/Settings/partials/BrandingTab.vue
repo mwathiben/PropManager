@@ -111,6 +111,8 @@ const submit = () => {
                         <img
                             :src="logoPreview"
                             alt="Business logo"
+                            loading="lazy"
+                            decoding="async"
                             class="w-full h-full object-contain p-2"
                         >
                         <button
@@ -229,7 +231,7 @@ const submit = () => {
                         <div class="flex items-start justify-between">
                             <div>
                                 <div v-if="logoPreview" class="w-24 h-12 bg-white rounded border border-gray-200 overflow-hidden mb-2">
-                                    <img :src="logoPreview" alt="Logo" class="w-full h-full object-contain p-1">
+                                    <img :src="logoPreview" alt="Logo" loading="lazy" decoding="async" class="w-full h-full object-contain p-1">
                                 </div>
                                 <div v-else class="w-24 h-12 bg-gray-200 rounded flex items-center justify-center mb-2">
                                     <span class="text-xs text-gray-400">No Logo</span>

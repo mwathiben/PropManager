@@ -178,7 +178,7 @@ const getLogoUrl = () => {
                                             <label class="block text-sm font-medium text-gray-700 mb-2">Business Logo</label>
                                             <div class="flex items-center gap-4">
                                                 <div class="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center overflow-hidden bg-gray-50">
-                                                    <img v-if="getLogoUrl()" :src="getLogoUrl()" alt="Logo" class="w-full h-full object-contain" />
+                                                    <img v-if="getLogoUrl()" :src="getLogoUrl()" alt="Logo" loading="lazy" decoding="async" class="w-full h-full object-contain" />
                                                     <PhotoIcon v-else class="w-8 h-8 text-gray-400" />
                                                 </div>
                                                 <div class="flex flex-col gap-2">

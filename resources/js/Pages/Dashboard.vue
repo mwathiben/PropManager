@@ -1182,6 +1182,9 @@ onUnmounted(() => {
                                 <div class="h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden">
                                     <img v-if="unitDetail?.tenant?.profile_photo_url"
                                          :src="unitDetail.tenant.profile_photo_url"
+                                         loading="lazy"
+                                         decoding="async"
+                                         alt=""
                                          class="h-full w-full object-cover" />
                                     <span v-else class="text-indigo-700 font-bold text-lg">
                                         {{ selectedUnit.active_lease.tenant?.name?.charAt(0) || '?' }}

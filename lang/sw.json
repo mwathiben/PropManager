@@ -147,6 +147,14 @@
             "label": "Hauko mtandaoni",
             "aria": "Kiashirio cha hali ya mtandao",
             "tooltip": "Hauko mtandaoni. Kurasa ulizotembelea hivi karibuni bado zinafanya kazi kutoka kwa cache."
+        },
+        "queue": {
+            "title": "Imepangwa nje ya mtandao",
+            "aria": "Operesheni zilizopangwa nje ya mtandao",
+            "badge": "{count} imepangwa nje ya mtandao | {count} zimepangwa nje ya mtandao",
+            "collapse": "Kunja foleni",
+            "queued_secs_ago": "imepangwa sekunde {seconds} zilizopita",
+            "footer": "Hizi zitatumwa kiotomatiki utakapounganishwa tena."
         }
     }
 }

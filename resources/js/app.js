@@ -107,7 +107,15 @@ createInertiaApp({
     },
 });
 
-// Register Service Worker for Push Notifications
+// Register Service Worker.
+// Phase-26 PWA-SHELL-1: served by Laravel route /sw.js with
+//   Service-Worker-Allowed: / so the SW gets root scope despite living
+//   at public/build/sw.js. Registered at window.load so we don't
+//   compete with first-paint.
+// Phase-26 PWA-NETWORK-1+3: when the SW posts BG_SYNC_DRAINED after
+//   replaying queued POSTs, route that to the queuedOps Pinia store
+//   so the QueuedOpsTray clears its badge. The handler is attached
+//   ONCE at register time — multiple add/remove cycles would leak.
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js')
@@ -123,5 +131,14 @@ if ('serviceWorker' in navigator) {
                     console.error('Service Worker registration failed:', error);
                 }
             });
+
+        navigator.serviceWorker.addEventListener('message', (event) => {
+            const data = event.data;
+            if (data && data.type === 'BG_SYNC_DRAINED' && typeof data.queue === 'string') {
+                import('@/stores/queuedOps').then(({ useQueuedOpsStore }) => {
+                    useQueuedOpsStore().drain(data.queue);
+                });
+            }
+        });
     });
 }

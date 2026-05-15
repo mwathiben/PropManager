@@ -147,6 +147,14 @@
             "label": "Offline",
             "aria": "Offline indicator",
             "tooltip": "You are offline. Recently viewed pages still work from cache."
+        },
+        "queue": {
+            "title": "Queued offline",
+            "aria": "Queued offline operations",
+            "badge": "{count} queued offline | {count} queued offline",
+            "collapse": "Collapse queue",
+            "queued_secs_ago": "queued {seconds}s ago",
+            "footer": "These will send automatically when you reconnect."
         }
     }
 }

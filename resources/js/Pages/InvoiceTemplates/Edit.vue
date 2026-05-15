@@ -492,7 +492,7 @@ const designStyles = computed(() => {
                                             <div class="flex justify-between items-start">
                                                 <div>
                                                     <div v-if="previewState.show_logo && getLogoUrl()" class="mb-3">
-                                                        <img :src="getLogoUrl()" alt="Logo" class="h-12 object-contain" />
+                                                        <img :src="getLogoUrl()" alt="Logo" loading="lazy" decoding="async" class="h-12 object-contain" />
                                                     </div>
                                                     <div v-else-if="previewState.show_logo" :class="['w-24 h-12 rounded mb-3 flex items-center justify-center text-xs', previewState.design === 'professional' ? 'bg-stone-200 text-stone-500 border border-stone-300' : 'bg-gray-200 text-gray-400']">
                                                         Logo

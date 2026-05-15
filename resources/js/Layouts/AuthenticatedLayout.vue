@@ -14,6 +14,7 @@ import DropdownLink from '@/Components/DropdownLink.vue';
 import NotificationBell from '@/Components/NotificationBell.vue';
 import ConnectionStatus from '@/Components/ConnectionStatus.vue';
 import OnlineIndicator from '@/Components/OnlineIndicator.vue';
+import QueuedOpsTray from '@/Components/QueuedOpsTray.vue';
 import InvitationBanner from '@/Components/InvitationBanner.vue';
 import {
     HomeIcon,
@@ -643,5 +644,9 @@ const navigationItems = computed(() => {
                 </main>
             </div>
         </div>
+
+        <!-- Phase-26 PWA-NETWORK-3: tray for ops queued for offline replay.
+             Renders nothing while the store is empty (Pinia + v-if). -->
+        <QueuedOpsTray />
     </div>
 </template>
