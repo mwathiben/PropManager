@@ -113,7 +113,7 @@ class InvoicePdfService
         $items = [];
 
         if ($invoice->rent_due > 0) {
-            $period = $invoice->billing_period_start?->format('F Y') ?? 'Current Period';
+            $period = $invoice->billing_period_start?->translatedFormat('F Y') ?? 'Current Period';
             $items[] = [
                 'description' => "Monthly Rent - {$period}",
                 'quantity' => 1,

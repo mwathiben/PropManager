@@ -106,6 +106,46 @@ class Phase24FrontTest extends TestCase
         }
     }
 
+    public function test_date_inputs_are_native_or_locale_aware(): void
+    {
+        // I18N-FRONT-4: PropManager uses the native browser
+        // <input type="date"> exclusively — no custom date picker
+        // exists. Native inputs are locale-aware out of the box
+        // (the browser uses the OS/document locale for the month
+        // names + date order). The watchdog enforces this: if a
+        // future contributor adds a custom date-picker wrapper, the
+        // test fails and forces the contributor to route locale
+        // through useFormatters (Phase-24 I18N-FORMAT-1).
+        $componentsRoot = resource_path('js/Components');
+
+        $candidates = [];
+        $iter = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($componentsRoot));
+        foreach ($iter as $file) {
+            $name = $file->getFilename();
+            if (preg_match('/Date(Picker|Range|Input)\.vue$/i', $name)) {
+                $candidates[] = $file->getPathname();
+            }
+        }
+
+        if ($candidates === []) {
+            $this->assertTrue(true, 'No custom date pickers — native <input type="date"> is browser-localised, locale handling is correct by default.');
+
+            return;
+        }
+
+        foreach ($candidates as $path) {
+            $contents = file_get_contents($path);
+            $this->assertStringContainsString(
+                '@/composables/useFormatters',
+                $contents,
+                sprintf(
+                    'I18N-FRONT-4: %s is a custom date component — it MUST use useFormatters (which is locale-aware via I18N-FORMAT-1).',
+                    basename($path),
+                ),
+            );
+        }
+    }
+
     public function test_chrome_bundle_keyspace_present_in_both_locales(): void
     {
         // The chrome key set must exist in BOTH locales — a Swahili

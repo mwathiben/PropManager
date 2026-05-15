@@ -98,7 +98,7 @@ class SchedulerService
             }
 
             $context = $this->templateService->buildTenantContext($tenant, $lease, [
-                'due_date' => $nextDueDate->format('F j, Y'),
+                'due_date' => $nextDueDate->translatedFormat('F j, Y'),
                 'days_until_due' => $schedule->days_offset,
             ]);
 
@@ -199,7 +199,7 @@ class SchedulerService
             }
 
             $context = $this->templateService->buildTenantContext($lease->tenant, $lease, [
-                'expiry_date' => $lease->end_date->format('F j, Y'),
+                'expiry_date' => $lease->end_date->translatedFormat('F j, Y'),
                 'days_until_expiry' => $schedule->days_offset,
             ]);
 

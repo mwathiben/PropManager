@@ -45,7 +45,7 @@ class CaretakerInvitation extends Mailable implements ShouldQueue
                 'landlordName' => $this->invitation->landlord->name,
                 'propertyName' => $this->invitation->property->name,
                 'acceptUrl' => route('invitations.show', $this->invitation->token),
-                'expiresAt' => $this->invitation->created_at->addDays(30)->format('F d, Y'),
+                'expiresAt' => $this->invitation->created_at->addDays(30)->translatedFormat('F d, Y'),
             ],
         );
     }

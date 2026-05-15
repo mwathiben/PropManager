@@ -451,7 +451,13 @@ class NotificationService
         }
 
         try {
-            Mail::to($recipient->email)->send(new NotificationMail(
+            // Phase-24 I18N-BACKEND-3: pass the User object (not just
+            // the email string) so Laravel honours HasLocalePreference
+            // and renders the notification under the recipient's
+            // chosen locale — even when the dispatcher is running in
+            // an admin or system request whose App::getLocale() is
+            // different.
+            Mail::to($recipient)->send(new NotificationMail(
                 $notification->subject,
                 $notification->message,
                 $notification->data,

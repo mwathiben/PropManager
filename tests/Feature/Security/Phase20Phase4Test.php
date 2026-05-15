@@ -26,10 +26,20 @@ class Phase20Phase4Test extends TestCase
             $contents,
             'AUTHZ-FRONT-9: AuthenticatedLayout must render an isRestricted-keyed read-only indicator.',
         );
+        // Phase-24 I18N-FRONT-3: the label resolves via vue-i18n now.
+        // Assert the binding + that the key resolves to the Article 18
+        // marker in the English bundle (Swahili equivalent is asserted
+        // by Phase24CiTest key parity).
         $this->assertStringContainsString(
-            'read-only (Article 18)',
+            "t('banner.read_only_article_18')",
             $contents,
-            'AUTHZ-FRONT-9: impersonation banner must surface the Article 18 read-only label when target is restricted.',
+            'AUTHZ-FRONT-9 + I18N-FRONT-3: impersonation banner must surface the read-only label via t("banner.read_only_article_18").',
+        );
+        $en = json_decode(file_get_contents(lang_path('en.json')), true) ?: [];
+        $this->assertStringContainsString(
+            'Article 18',
+            (string) data_get($en, 'banner.read_only_article_18'),
+            'AUTHZ-FRONT-9: lang/en.json banner.read_only_article_18 must reference Article 18 explicitly.',
         );
     }
 

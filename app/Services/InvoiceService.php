@@ -311,7 +311,7 @@ class InvoiceService
         $startDate = $lease->start_date;
 
         if (! $shouldProrate || $startDate->day === 1) {
-            return 'First Month Rent ('.$startDate->format('F Y').')';
+            return 'First Month Rent ('.$startDate->translatedFormat('F Y').')';
         }
 
         $endOfMonth = $startDate->copy()->endOfMonth();

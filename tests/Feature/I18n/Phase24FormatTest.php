@@ -94,6 +94,54 @@ class Phase24FormatTest extends TestCase
         }
     }
 
+    public function test_setlocale_middleware_sets_carbon_locale(): void
+    {
+        // The chain is: HTTP middleware -> Carbon::setLocale -> server-side
+        // date renderers (->translatedFormat / ->isoFormat) pick up the
+        // active locale. Source-level + behavioural: drive the request
+        // through with a sw-locale user and check Carbon agrees.
+        $user = \App\Models\User::factory()->create(['locale' => 'sw']);
+        $middleware = new \App\Http\Middleware\SetLocale;
+
+        $request = \Illuminate\Http\Request::create('/');
+        $request->setUserResolver(fn () => $user);
+
+        $captured = 'unset';
+        $middleware->handle($request, function () use (&$captured) {
+            $captured = \Carbon\Carbon::now()->locale;
+
+            return response('');
+        });
+
+        $this->assertSame('sw', $captured, 'I18N-FORMAT-3: SetLocale must call Carbon::setLocale alongside App::setLocale.');
+    }
+
+    public function test_user_facing_dates_use_translatedformat(): void
+    {
+        // Source-level guard: every user-facing mailable that renders
+        // a long-month date (->format('F ...)) MUST go through
+        // ->translatedFormat so Carbon's locale governs the rendering.
+        // Without this a Swahili user's invoice email still says "January"
+        // even though the rest of the email is Swahili.
+        $userFacingMailables = [
+            'InvoiceSent.php',
+            'InvoiceReminder.php',
+            'TenantWelcome.php',
+            'TenantInvitationMail.php',
+            'CaretakerInvitation.php',
+            'DataExportReady.php',
+        ];
+
+        foreach ($userFacingMailables as $file) {
+            $source = file_get_contents(app_path("Mail/{$file}"));
+            $this->assertDoesNotMatchRegularExpression(
+                "/->format\\('F[\\sjdY,\\s]/",
+                $source,
+                "I18N-FORMAT-3: {$file} must use ->translatedFormat() for long-month renders, not ->format().",
+            );
+        }
+    }
+
     public function test_currency_enum_has_swahili_locale_branch(): void
     {
         // KES drives the Kenyan landlord/tenant default — when the

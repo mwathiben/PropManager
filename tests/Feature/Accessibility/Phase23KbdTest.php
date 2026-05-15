@@ -32,11 +32,21 @@ class Phase23KbdTest extends TestCase
             $layout,
             'A11Y-KBD-1: AuthenticatedLayout must render a skip-link targeting #main-content.',
         );
+        // Phase-24 I18N-FRONT-3: the skip-link text now resolves via
+        // vue-i18n; assert the binding + the key, instead of the literal.
         $this->assertStringContainsString(
-            'Skip to main content',
+            "t('nav.skip_to_main')",
             $layout,
-            'A11Y-KBD-1: the skip-link must carry visible (when focused) text.',
+            'A11Y-KBD-1 + I18N-FRONT-3: the skip-link must call t("nav.skip_to_main").',
         );
+        foreach (['en', 'sw'] as $locale) {
+            $bundle = json_decode(file_get_contents(lang_path("{$locale}.json")), true) ?: [];
+            $this->assertNotSame(
+                null,
+                data_get($bundle, 'nav.skip_to_main'),
+                "A11Y-KBD-1: lang/{$locale}.json must define nav.skip_to_main.",
+            );
+        }
         $this->assertStringContainsString(
             'sr-only',
             $layout,

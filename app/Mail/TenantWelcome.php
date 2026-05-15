@@ -58,7 +58,7 @@ class TenantWelcome extends Mailable implements ShouldQueue
                 'unitNumber' => $this->invitation->unit->unit_number,
                 'rentAmount' => number_format($this->lease->rent_amount, 2),
                 'depositAmount' => number_format($this->lease->deposit_amount, 2),
-                'startDate' => $this->lease->start_date->format('F d, Y'),
+                'startDate' => $this->lease->start_date->translatedFormat('F d, Y'),
                 'dashboardUrl' => route('dashboard'),
                 'currency_symbol' => $this->invitation->unit->building->getEffectiveCurrency()->symbol(),
                 // CRYPTO-2: bound the URL so a forwarded welcome email

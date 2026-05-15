@@ -141,6 +141,28 @@ class Phase24BackendTest extends TestCase
         }
     }
 
+    public function test_notification_email_dispatches_to_user_for_locale_preference(): void
+    {
+        // I18N-BACKEND-3: NotificationService dispatches via Mail::to($recipient)
+        // — passing the User object, not the email string. The User
+        // instance carries HasLocalePreference, so Laravel renders the
+        // mailable under the recipient's locale, even when the
+        // dispatcher is running in an admin/system request whose
+        // App::getLocale() points elsewhere.
+        $source = file_get_contents(app_path('Services/NotificationService.php'));
+
+        $this->assertStringContainsString(
+            'Mail::to($recipient)->send(new NotificationMail(',
+            $source,
+            'I18N-BACKEND-3: NotificationService must pass the User model to Mail::to() so HasLocalePreference is honoured.',
+        );
+        $this->assertStringNotContainsString(
+            'Mail::to($recipient->email)->send(new NotificationMail(',
+            $source,
+            'I18N-BACKEND-3: NotificationService must NOT pass the email string — that bypasses HasLocalePreference.',
+        );
+    }
+
     private function makeInvoice(User $tenant): Invoice
     {
         $landlord = User::factory()->create(['role' => 'landlord']);

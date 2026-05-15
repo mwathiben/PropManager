@@ -44,7 +44,7 @@ class DataExportReady extends Mailable implements ShouldQueue
             with: [
                 'userName' => $this->user->name,
                 'downloadUrl' => route('gdpr.download-export', ['path' => base64_encode($this->exportPath)]),
-                'expiresAt' => now()->addDays(7)->format('F j, Y'),
+                'expiresAt' => now()->addDays(7)->translatedFormat('F j, Y'),
             ],
         );
     }

@@ -104,12 +104,25 @@ class Phase23SrTest extends TestCase
     public function test_nav_landmarks_are_labelled(): void
     {
         $layout = file_get_contents(resource_path('js/Layouts/AuthenticatedLayout.vue'));
-        foreach (['aria-label="Primary"', 'aria-label="Mobile primary"'] as $label) {
+
+        // Phase-24 I18N-FRONT-3: nav aria-labels now resolve via
+        // vue-i18n (the screen-reader announces them in the user's
+        // locale). Assert the binding + that the key resolves in
+        // every supported bundle.
+        foreach (['nav.primary_label', 'nav.mobile_primary_label'] as $key) {
             $this->assertStringContainsString(
-                $label,
+                "t('{$key}')",
                 $layout,
-                "A11Y-SR-2: AuthenticatedLayout's <nav> landmarks must carry distinct aria-labels ({$label}).",
+                "A11Y-SR-2 + I18N-FRONT-3: AuthenticatedLayout's <nav> landmarks must bind aria-label to t('{$key}').",
             );
+            foreach (array_keys(config('app.available_locales')) as $locale) {
+                $bundle = json_decode(file_get_contents(lang_path("{$locale}.json")), true) ?: [];
+                $this->assertNotSame(
+                    null,
+                    data_get($bundle, $key),
+                    "A11Y-SR-2: lang/{$locale}.json must define '{$key}'.",
+                );
+            }
         }
 
         $breadcrumb = file_get_contents(resource_path('js/Components/Breadcrumb.vue'));
