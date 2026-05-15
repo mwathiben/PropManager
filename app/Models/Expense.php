@@ -18,6 +18,10 @@ class Expense extends Model
         'property_id',
         'building_id',
         'unit_id',
+        // Phase-27 BI-NOI-3: how to attribute this expense to
+        // properties when computing NOI. Defaults to 'direct' (the
+        // pre-Phase-27 behaviour) so existing data is unchanged.
+        'allocation_method',
         'description',
         'amount',
         'expense_date',
@@ -28,6 +32,13 @@ class Expense extends Model
         'is_recurring',
         'recurring_frequency',
     ];
+
+    /**
+     * Phase-27 BI-NOI-3: allowed allocation methods. Validation +
+     * UI picker source this constant; NoiService::byProperty switches
+     * on it.
+     */
+    public const ALLOCATION_METHODS = ['direct', 'per_unit', 'per_revenue', 'per_floor_area'];
 
     protected $casts = [
         'amount' => 'decimal:2',

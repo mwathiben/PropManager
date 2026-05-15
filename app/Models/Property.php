@@ -17,6 +17,13 @@ class Property extends Model
         'name',
         'type',
         'address',
+        // Phase-27 BI-NOI-2: cap-rate denominator. Nullable; pages
+        // render N/A when absent.
+        'estimated_value',
+    ];
+
+    protected $casts = [
+        'estimated_value' => 'decimal:2',
     ];
 
     // --- RELATIONSHIPS ---
@@ -24,6 +31,16 @@ class Property extends Model
     public function buildings()
     {
         return $this->hasMany(Building::class);
+    }
+
+    /**
+     * Phase-27 BI-NOI-1: convenience join — every unit under this
+     * property via the buildings table. Used by NoiService per-property
+     * unit-count aggregation.
+     */
+    public function units()
+    {
+        return $this->hasManyThrough(Unit::class, Building::class);
     }
 
     public function landlord()

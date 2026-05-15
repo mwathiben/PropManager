@@ -519,6 +519,11 @@ Route::middleware('auth')->group(function () {
         ->get('/reports/cohort', [\App\Http\Controllers\Reports\CohortController::class, 'index'])
         ->name('reports.cohort');
 
+    // Phase-27 BI-NOI-1/2/3: NOI per property + cap rate + expense allocation.
+    Route::middleware('role:landlord')
+        ->get('/reports/noi', [\App\Http\Controllers\Reports\NoiController::class, 'index'])
+        ->name('reports.noi');
+
     // 12. Notifications
     Route::get('/notifications', [\App\Http\Controllers\NotificationsController::class, 'index'])->name('notifications.index');
     Route::get('/notifications/overview', [\App\Http\Controllers\NotificationsController::class, 'overview'])->name('notifications.overview');

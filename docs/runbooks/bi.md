@@ -79,7 +79,83 @@ representation of "we don't know yet").
 
 ## NOI + cap rate
 
-_Filled in by Phase 1b — BI-NOI-1/2/3._
+### NOI per property (BI-NOI-1)
+
+`NoiService::byProperty(landlordId, start, end)` returns one row per
+property plus a portfolio total:
+
+```
+{ property_id, name, revenue, direct_expenses, allocated_expenses, noi, noi_margin }
+```
+
+- **revenue** — sum of non-voided payments whose lease's unit's
+  building belongs to this property, within the window.
+- **direct_expenses** — expenses with `allocation_method='direct'`
+  attached to this property (directly via `expenses.property_id`,
+  or indirectly via `expenses.building_id`/`expenses.unit_id`).
+- **allocated_expenses** — pro-rata share of non-direct expenses
+  (see BI-NOI-3 below).
+- **noi** — revenue − direct_expenses − allocated_expenses.
+- **noi_margin** — noi ÷ revenue, or null when revenue is zero.
+
+Portfolio total is the sum across all properties — including
+allocated expenses, so the portfolio NOI equals
+`Σ revenue − Σ all_expenses` regardless of how allocation distributes
+them across properties.
+
+### Cap rate (BI-NOI-2)
+
+`NoiService::capRate(landlordId, start, end)` returns:
+
+```
+{ property_id, name, annualised_noi, estimated_value, cap_rate, band }
+```
+
+- **annualised_noi** — period NOI scaled to a full year by
+  `365 / period_days`. A 3-month NOI multiplies by ~4.
+- **estimated_value** — `properties.estimated_value`. Nullable;
+  cap_rate is null when absent (UI shows N/A).
+- **cap_rate** — annualised_noi ÷ estimated_value as a decimal
+  (0.075 = 7.5%).
+- **band** — Kenyan residential market convention:
+  - `< 6%` → amber (underperforming or overvalued)
+  - `6%-9%` → green (typical residential)
+  - `> 9%` → emerald (commercial-tier yield)
+  - null → unknown (gray, no value declared)
+
+The annualisation handles short reporting windows correctly. A
+landlord viewing the 1-month NOI gets a 1-month NOI value in the
+NOI table AND an annualised cap rate that's directly comparable to
+T-bill yield or REIT dividends.
+
+### Expense allocation methodology (BI-NOI-3)
+
+`expenses.allocation_method` is an enum-like string column with four
+values:
+
+| Method            | Formula                                       | When to use |
+|-------------------|-----------------------------------------------|-------------|
+| `direct`          | Attribute to `property_id` field directly     | Property-specific expense (repair on building X) |
+| `per_unit`        | `expense × (property_units / total_units)`    | Operating expense not tied to a property (insurance) |
+| `per_revenue`     | `expense × (property_revenue / total_revenue)`| Revenue-driven expense (payment-processor fees) |
+| `per_floor_area`  | _Currently aliased to `per_unit`_             | Future: needs `units.floor_area_m2` column |
+
+The `per_floor_area` method is reserved for a future migration that
+adds floor area to units. Today it falls back to `per_unit` so
+operators can already pick it and revisit when the data lands.
+
+**Why pre-Phase-27 NOI was wrong**: every general expense (accountant
+fee, software, marketing) had `property_id=NULL` and got attributed
+only at the portfolio level. Per-property NOI looked artificially
+high. Now operators pick an allocation method per expense; the UI
+on `Expenses/Edit.vue` exposes the picker (Phase-N follow-up wires
+the UI).
+
+**Adding a new method**: append to `Expense::ALLOCATION_METHODS`,
+extend the switch in `NoiService::allocatedExpensesPerProperty()`,
+add a row to the table above. The constant + the switch + the doc
+table is a three-point contract — drift between them is caught by
+`Phase27NoiTest::test_every_allocation_method_is_documented`.
 
 ## Forecasting
 
