@@ -1,0 +1,197 @@
+{
+  "phase": 38,
+  "title": "[DEFER-CLEANUP-2] Laravel-11 + build + observability + test-suite health stabilization — 16-cycle debt sweep",
+  "opened_at": "2026-05-16",
+  "tier": "7",
+  "scope": "Tier-7 cycle 2 — stabilization sweep catching the latent bugs that 16 audit cycles (Phases 22-37) missed. Triggered by two visible production-class incidents on 2026-05-16: (1) Phase-30 Pages/Finances/{Accounting/Export, Periods/Index}.vue imported a non-existent @/Layouts/AppLayout.vue, silently breaking `npm run build` since Phase 30 landed and freezing the dev-served bundle for ~36h until the user clicked a button that needed a Phase-36+ Vue page; (2) AdminController.php:36 used Laravel-9 `$this->middleware()` controller-side declaration which Laravel 11 removed, 500ing every /admin/* request during controller construction. Both were dormant — caught by humans clicking buttons, not by CI. Additional debt surfaced during the scout: duplicate `help.search` route name (Phase-31 ONB-HELP-1 vs Phase-21 cycle-1 HelpController) breaks `php artisan route:cache` entirely so production deploys lose the route-cache 10-50ms-per-request optimization; MetricsService unconditionally calls Redis::connection regardless of cache driver and spams 'Class \"Redis\" not found' on every request in dev (and prod if phpredis not installed) — fail-closed catch prevents outages but log spam masks real signal; resources/js/Components/Help/HelpDrawer.vue imports `@/Composables/useHelpDrawer` (capital C) while the directory is `composables/` (lowercase) — works on Windows case-insensitive FS, breaks on Linux production; 2633-test suite has 90 errors + 9 failures (3.8% red rate) including FK constraint violations in PaymentObserverTest and unasserted TransactionRollbackTest, indicating per-cycle test additions didn't ratchet existing tests; 2 Phase-37 migrations were 'Pending' in migrate:status (already-run in this audit pass but the gap proves nobody ran migrations post-phase-close); no precommit / local-CI gate enforces `npm run build` succeeds before push — the precommit hook (.husky/, lefthook, captainhook) was apparently never added so a layout typo can silently freeze the bundle. 18 findings across 6 categories: DEFER-ROUTE-CONFLICT (3 — dedupe help.search + cached-route guard + route-collision watchdog), DEFER-METRICS-FALLBACK (3 — Redis class existence check + cache driver awareness + null gauge instance fallback), DEFER-CASE-SENSITIVITY (3 — useHelpDrawer rename + case-aware import scan + linux-style fs ci probe), DEFER-TEST-HEALTH (3 — fix top-N test errors + dedup factory bugs + reds-only CI ratchet), DEFER-BUILD-CI (3 — precommit npm-build gate + bundle freshness watchdog + Vite/Vue config validation), DEFER-CI (3 — Phase38CleanupSurfaceTest watchdog + lang/cleanup.php + docs/runbooks/cleanup.md). Severity 5H/8M/5L. Sets up Phase 39 [GROWTH-VENDORS-2] on a stable foundation — Tier-7 cycle 2 wraps the deck before Amplitude/Stripe/Bayesian stats work begins. NOT in scope: Composer/npm dependency major-version updates (Tier-7 cycle 4+ candidate; 18 outdated packages but zero security issues), .env.example drift audit (low priority), OpenAPI scramble baseline regeneration (Phase 25's drift watchdog should catch this), CI workflow file edits beyond the precommit hook (CI runs on GitHub Actions per scout — out of band for this cycle).",
+  "categories": [
+    "DEFER-ROUTE-CONFLICT",
+    "DEFER-METRICS-FALLBACK",
+    "DEFER-CASE-SENSITIVITY",
+    "DEFER-TEST-HEALTH",
+    "DEFER-BUILD-CI",
+    "DEFER-CI"
+  ],
+  "findings": [
+    {
+      "id": "DEFER-ROUTE-CONFLICT-1",
+      "title": "Dedupe duplicate `help.search` route name — currently breaks route:cache",
+      "severity": "HIGH",
+      "files": [
+        "routes/web.php"
+      ],
+      "evidence": "routes/web.php:218 (Phase-31 ONB-HELP-1) and routes/web.php:956 (pre-Phase-31 HelpController) both register `->name('help.search')` — `php artisan route:cache` fails with `LogicException: Unable to prepare route [help/search] for serialization. Another route has already been assigned name [help.search]`. Result: production cannot cache routes, every request rebuilds the full table (~10-50ms regression per request). CI route:cache gate at .github/workflows/ci.yml line 189-196 fails.",
+      "fix": "(a) Identify which Help controller is the source-of-truth — Phase-31 ONB-HELP-1 ships HelpSearchController under /api/help/search for the in-app help drawer; the pre-Phase-31 /help/search via HelpController is legacy and may be unused. (b) Inventory all references to `route('help.search')` across resources/js/**/*.vue + Vue components — if any reference the legacy /help/search path, migrate them to the API endpoint. (c) Remove the legacy `->name('help.search')` from the second registration OR rename to `help.legacy.search` with deprecation comment. (d) Verify `php artisan route:cache && php artisan route:clear` succeeds clean."
+    },
+    {
+      "id": "DEFER-METRICS-FALLBACK-1",
+      "title": "MetricsService unconditional Redis::connection — log-spam on every request",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/MetricsService.php"
+      ],
+      "evidence": "MetricsService::increment line 30, observe line 56, gauge line 96, snapshot line 111, gaugeSnapshot line 151 all call `Redis::connection($this->connection)` regardless of whether phpredis extension is loaded. Fail-closed try/catch prevents outages but logs `WARNING: metrics observe failed {error: 'Class \\\"Redis\\\" not found'}` on every request handled by RecordRequestLatency middleware. Yesterday's laravel.log shows ~50+ such warnings in 5 minutes, dominating signal.",
+      "fix": "(a) Cache the Redis-class-existence check once in static property — `MetricsService::redisAvailable()` returns class_exists('Redis') OR (extension_loaded('redis') AND interface_exists('\\\\Redis\\\\Client')) depending on which client is configured. (b) All five public methods return early (no log, no work) when redisAvailable() is false. (c) Log once on first miss via Cache::add('metrics-redis-unavailable', true, 86400) noting the install instruction — operator sees ONE entry per day, not thousands. (d) Verify env('METRICS_DRIVER', 'redis') env var added to .env.example and config/observability.php for explicit disable."
+    },
+    {
+      "id": "DEFER-CASE-SENSITIVITY-1",
+      "title": "useHelpDrawer import uses wrong case — breaks Linux production bundler",
+      "severity": "HIGH",
+      "files": [
+        "resources/js/Components/Help/HelpDrawer.vue"
+      ],
+      "evidence": "HelpDrawer.vue:4 imports `from '@/Composables/useHelpDrawer'` (capital C) but the directory is `resources/js/composables/` (lowercase per existing convention — `usePushNotifications`, `useWebPush`, etc. all under lowercase). Windows is case-insensitive so Vite + dev server resolve fine, but Linux production deploy fails at bundle time with 'Module not found'. Identical to Phase 30's AppLayout typo class — case-sensitivity drift not caught by Windows-only build.",
+      "fix": "(a) Rename the import in HelpDrawer.vue:4 to `from '@/composables/useHelpDrawer'`. (b) Audit every Vue/TS file for `@/Composables/`, `@/Layouts/` (already-fixed), `@/Pages/`, `@/Components/` mixed-case drift via grep `from '@/[A-Z]` versus filesystem reality. (c) Document the convention in docs/runbooks/cleanup.md: every `@/` import path matches the actual directory case, no exceptions."
+    },
+    {
+      "id": "DEFER-TEST-HEALTH-1",
+      "title": "Fix top-N test errors — 90 errors + 9 failures across 2633 tests",
+      "severity": "HIGH",
+      "files": [
+        "tests/Unit/Observers/PaymentObserverTest.php",
+        "tests/Feature/TransactionRollbackTest.php"
+      ],
+      "evidence": "php artisan test --parallel reports `Tests: 2633, Assertions: 9279, Errors: 90, Failures: 9, Skipped: 14`. PaymentObserverTest fast-fails with `SQLSTATE[23000]: foreign key constraint fails (\\`propmanager_test\\`.\\`onboarding_milestones\\`, CONSTRAINT \\`onboarding_milestones_landlord_id_foreign\\`)` — the OnboardingMilestoneRecorder is invoked from PaymentObserver but the landlord_id user doesn't exist in the test fixture. TransactionRollbackTest::test_lease_creation_creates_tenant_lease_and_updates_unit_atomically is risky (no assertions performed). Both pre-existing — test debt accumulated across audit cycles 22-37 without ratchet.",
+      "fix": "(a) Fix the FK violation in PaymentObserverTest by ensuring landlord_id user exists OR by making OnboardingMilestoneRecorder::record fail-soft when the landlord User can't be loaded. (b) Convert TransactionRollbackTest::test_lease_creation_creates_tenant_lease_and_updates_unit_atomically to perform assertions (the test name implies atomicity which should be assert-able via row counts before/after). (c) Triage remaining 88+8 errors into 5 buckets (factory misalignment / enum vs string drift / route name regression / schema drift / FK violations) and ship a follow-up sweep — too large for one finding."
+    },
+    {
+      "id": "DEFER-BUILD-CI-1",
+      "title": "Add precommit + CI gate for `npm run build` — Phase 30 AppLayout typo froze bundle for 36h",
+      "severity": "HIGH",
+      "files": [
+        ".husky/pre-commit (new)",
+        "package.json"
+      ],
+      "evidence": "Phase 30 Pages/Finances/{Accounting/Export, Periods/Index}.vue imported a non-existent layout. Build silently broke on May 14. Bundle dated May 15 16:14 was served until 2026-05-16 ~16:00 when the user clicked a Phase-37 button. No CI / precommit gate caught it. CI workflows exist (.github/workflows/ci.yml runs `npm run build` per scout) but the gate is GitHub-side, not local — and per cadence likely runs on PR not on every commit/push.",
+      "fix": "(a) Install husky + lint-staged via `npm install --save-dev husky lint-staged` if not already present. (b) Add .husky/pre-commit running `npm run build` (or at minimum `vite build --mode production --skipDist` validation) before commit. (c) Add a CHEAP `vite build --check-only` script to package.json that validates imports without writing files — runnable in <10s. (d) Document in docs/runbooks/cleanup.md when to bypass via --no-verify (only for hotfix backports)."
+    },
+    {
+      "id": "DEFER-ROUTE-CONFLICT-2",
+      "title": "Phase38CleanupSurfaceTest::test_route_cache_succeeds — drift watchdog",
+      "severity": "MEDIUM",
+      "files": [
+        "tests/Feature/Cleanup/Phase38CleanupSurfaceTest.php (new — also covers other DEFER-CI checks)"
+      ],
+      "evidence": "Phase-25 API-DEPLOY established a routes-vs-spec drift watchdog. Phase 38 needs a route-cache invariant watchdog: `php artisan route:cache` must succeed without LogicException. A test that runs the cache builder catches future duplicate-name regressions before deploy.",
+      "fix": "(a) Phase38CleanupSurfaceTest::test_route_cache_compiles_without_collision invokes `\\\\Illuminate\\\\Routing\\\\RouteCollection::toSymfonyRouteCollection` against the full route list — asserts no LogicException thrown. (b) Same test runs `php artisan route:list --json | jq` shape check counting routes with duplicate `name` properties — emits diagnostic with collision list."
+    },
+    {
+      "id": "DEFER-METRICS-FALLBACK-2",
+      "title": "Cache-driver awareness in MetricsService — log once with install hint",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/MetricsService.php",
+        "config/observability.php"
+      ],
+      "evidence": "Per METRICS-FALLBACK-1 fix, the noop fallback must also include OPERATIONAL TELEMETRY — operators need to know metrics are silently dark, not just stop the spam. Without that hint they will wonder why /api/metrics endpoint returns empty data.",
+      "fix": "(a) When redisAvailable() returns false for the FIRST request after process start, log ONE notice with: detected cache.default driver, presence of REDIS_CLIENT env, instruction to `pecl install redis` OR `composer require predis/predis` AND set METRICS_DRIVER=predis. (b) Add 'observability.metrics_driver' config key reading env('METRICS_DRIVER') with fallback 'redis'. (c) /api/metrics endpoint surfaces a 503 health-check style response when driver unavailable, not empty 200 (avoids silently green metrics scrapers)."
+    },
+    {
+      "id": "DEFER-METRICS-FALLBACK-3",
+      "title": "Optional Predis fallback for envs without phpredis extension",
+      "severity": "MEDIUM",
+      "files": [
+        "config/database.php"
+      ],
+      "evidence": "Dev environments (Laragon on Windows) rarely have phpredis installed. The Composer-pure `predis/predis` package is a drop-in for `Redis::connection`. Adding it to require-dev with REDIS_CLIENT=predis in .env.example gives every dev a working metrics path without compiling a PECL extension.",
+      "fix": "(a) `composer require predis/predis --dev` (DEV only — production sticks with phpredis for perf). (b) .env.example gets `REDIS_CLIENT=predis` commented suggestion for dev + `REDIS_CLIENT=phpredis` for prod. (c) config/database.php redis.client reads REDIS_CLIENT with predis fallback only when phpredis not detected. (d) Document the dev-vs-prod split in docs/runbooks/cleanup.md."
+    },
+    {
+      "id": "DEFER-CASE-SENSITIVITY-2",
+      "title": "Case-aware import scanner — block future @/Composables / @/Layouts typos",
+      "severity": "MEDIUM",
+      "files": [
+        "scripts/check-import-case.mjs (new)",
+        "package.json"
+      ],
+      "evidence": "The Composables-vs-composables drift is the THIRD case-sensitivity bug shipped (AppLayout in Phase 30, useHelpDrawer in Phase 31, possibly more). A small Node script can scan every TS/Vue import for `from '@/...'` and check the path against actual filesystem case — runs in 1-2 seconds.",
+      "fix": "(a) scripts/check-import-case.mjs: walks resources/js/**/*.{ts,vue}, regex-extracts `from '@/(.+)'` paths, resolves to filesystem, checks each segment matches actual case via fs.readdirSync. (b) Exit code 1 on first mismatch with file:line offender. (c) Wire as `npm run check:imports` AND into pre-build hook. (d) CI workflow runs it — current Windows-friendly bundler doesn't catch but Linux deploy would."
+    },
+    {
+      "id": "DEFER-TEST-HEALTH-2",
+      "title": "PHPUnit test:health-ratchet CI gate — error count cannot grow",
+      "severity": "MEDIUM",
+      "files": [
+        "scripts/test-health-ratchet.php (new)",
+        "tests/Feature/Cleanup/Phase38CleanupSurfaceTest.php"
+      ],
+      "evidence": "90 errors crept in across 16 audit cycles without ratchet. The PRD for each cycle counted NEW tests shipped, not OVERALL suite health. A ratchet that caps `tests-with-errors-or-failures` at the current count (99) and refuses any commit that adds more catches regression cheaply.",
+      "fix": "(a) tests/Feature/Cleanup/Phase38CleanupSurfaceTest::test_suite_error_count_at_or_below_baseline reads the latest junit.xml or test JSON output, asserts `errors + failures <= 99`. (b) Baseline 99 stored as const in the test — every fix-the-test PR lowers it. (c) Once baseline reaches 0, the test asserts `===0` and stays there forever as a regression guard."
+    },
+    {
+      "id": "DEFER-TEST-HEALTH-3",
+      "title": "Fix PaymentObserverTest FK violation + TransactionRollbackTest assertions",
+      "severity": "MEDIUM",
+      "files": [
+        "tests/Unit/Observers/PaymentObserverTest.php",
+        "tests/Feature/TransactionRollbackTest.php",
+        "app/Services/Onboarding/OnboardingMilestoneRecorder.php"
+      ],
+      "evidence": "Per TEST-HEALTH-1, two specific tests block fast-fail runs. PaymentObserverTest:165 calls PaymentObserver::saved → OnboardingMilestoneRecorder::record → INSERT onboarding_milestones with landlord_id referencing a non-existent user. TransactionRollbackTest:80 asserts nothing.",
+      "fix": "(a) OnboardingMilestoneRecorder::record gains User::find($landlordId) guard returning early if user missing (consistent with TenantScope's defensive-soft pattern). (b) PaymentObserverTest fixture either creates the landlord User explicitly OR sets up factory to satisfy the FK. (c) TransactionRollbackTest::test_lease_creation_creates_tenant_lease_and_updates_unit_atomically gets assertions for: Lease row exists, Unit.is_occupied=true, Lease.tenant_id matches, transaction succeeded without rollback."
+    },
+    {
+      "id": "DEFER-BUILD-CI-2",
+      "title": "Lefthook precommit alternative + per-changed-file build gate",
+      "severity": "MEDIUM",
+      "files": [
+        "lefthook.yml (new) OR .husky/pre-commit",
+        "scripts/precommit-build-check.sh (new)"
+      ],
+      "evidence": "Husky has performance overhead on Windows. Lefthook (Go binary, no Node startup tax) is a faster alternative for dev environments where the precommit must run in <5 seconds. Either tool works — pick one and document.",
+      "fix": "(a) Choose lefthook (faster on Windows) OR husky (more ecosystem familiarity); for PropManager's Vue-heavy stack Lefthook recommended. (b) lefthook.yml runs `vite build --mode production` ONLY on TS/Vue file changes (via {staged_files} matcher). (c) Skip-able via SKIP_VITE=1 git commit env var for non-FE-touching commits. (d) Document install instruction in docs/runbooks/cleanup.md + add to onboarding-dev/setup checklist."
+    },
+    {
+      "id": "DEFER-BUILD-CI-3",
+      "title": "Bundle freshness watchdog — alert when public/build/ older than 24h with FE changes",
+      "severity": "MEDIUM",
+      "files": [
+        "tests/Feature/Cleanup/Phase38CleanupSurfaceTest.php",
+        "app/Console/Commands/BundleFreshnessAudit.php (new)"
+      ],
+      "evidence": "Even with the precommit gate, the bundle CAN go stale between commit and serve if developers `php artisan serve` against a pre-built `public/build/` from days ago. A daily watchdog comparing `git log --since='1 day' resources/js/` against `public/build/manifest.json` mtime catches this drift in dev environments.",
+      "fix": "(a) `bundle:freshness-audit` artisan command runs daily 04:00 Africa/Nairobi (slots before Phase-33 cost:attribute 03:30 nope; tuck at 04:55 between Phase-36 cron:budget-audit 04:30 and existing 05:00 slot). (b) Reads git log for newest commit touching resources/js/, compares to filemtime(public_path('build/manifest.json')). (c) Emits `bundle_age_hours_since_last_fe_commit` gauge + fires `stale_bundle_warning` (sev4) when gap > 24h. (d) In CI: same check fails the build job if stale."
+    },
+    {
+      "id": "DEFER-CI-1",
+      "title": "Phase38CleanupSurfaceTest watchdog — single test class anchoring 5 stabilization invariants",
+      "severity": "LOW",
+      "files": [
+        "tests/Feature/Cleanup/Phase38CleanupSurfaceTest.php (new — extends prior 5 findings)"
+      ],
+      "evidence": "Established pattern. Cleanup tests need a HOME so they don't get scattered. Phase38CleanupSurfaceTest consolidates: route-cache compiles, MetricsService noops when Redis unavailable, no @/CapitalCase imports, test-error-count baseline, bundle freshness — all locked in one class with shared setUp.",
+      "fix": "(a) Phase38CleanupSurfaceTest tests test_route_cache_compiles_without_collision, test_metrics_service_noops_when_redis_unavailable, test_no_capital_case_import_paths, test_suite_error_count_at_or_below_baseline (99), test_bundle_freshness_within_24h_of_fe_commits. (b) Each test references the relevant DEFER-* finding in docblock for traceability. (c) Class lives under tests/Feature/Cleanup/ — new namespace dedicated to defensive-debt watchdogs."
+    },
+    {
+      "id": "DEFER-CI-2",
+      "title": "lang/{en,sw}/cleanup.php — operator-facing strings for cleanup affordances",
+      "severity": "LOW",
+      "files": [
+        "lang/en/cleanup.php (new)",
+        "lang/sw/cleanup.php (new)"
+      ],
+      "evidence": "If MetricsService surfaces a 503 'metrics_unavailable' health response (METRICS-FALLBACK-2) or the bundle-stale alert renders a user-facing nag banner, those need en/sw parity. Per Phase24CiTest convention, ship the lang file upfront so parity holds.",
+      "fix": "Sections: metrics (driver_unavailable_heading, install_phpredis_helper, install_predis_helper), bundle (stale_warning_heading, last_built_label, rebuild_cta), route_cache (cache_compile_failed_heading, run_artisan_route_clear_helper), test_health (failure_baseline_label, ratchet_violation_helper)."
+    },
+    {
+      "id": "DEFER-CI-3",
+      "title": "docs/runbooks/cleanup.md — DEFER-CLEANUP-2 operator reference + future-cycle playbook",
+      "severity": "LOW",
+      "files": [
+        "docs/runbooks/cleanup.md (new)"
+      ],
+      "evidence": "Phase 21 [DEFER-CLEANUP-1] never shipped a runbook because it was a one-off. Phase 38 is the SECOND cleanup cycle; the next one will be Phase ~54. Documenting the audit pattern + the categories + the ratchets means future cleanup cycles take 1/3 the time.",
+      "fix": "Sections: Overview (cleanup cycle cadence + trigger criteria), Route conflict detection (route:cache invariant + watchdog), Metrics-driver fallback (Redis vs Predis vs noop matrix + diagnostics), Case-sensitivity hygiene (import-scanner + Linux deploy contract), Test-health ratchet (baseline + ratchet flow + per-PR diagnostic), Build-time freshness (precommit + staleness audit + skip mechanics), CI gates (5 watchdog tests + how to update baselines), Phase 21 + Phase 38 retrospective (what worked, what didn't), Tier-7 next-cycle [GROWTH-VENDORS-2] handoff notes."
+    },
+    {
+      "id": "DEFER-CASE-SENSITIVITY-3",
+      "title": "Kaspersky / AV CSP-noise FAQ entry — stop debugging operator AV injection",
+      "severity": "LOW",
+      "files": [
+        "docs/runbooks/cleanup.md"
+      ],
+      "evidence": "The user spent ~30 minutes investigating CSP errors from `gc.kis.v2.scr.kaspersky-labs.com` injected by Kaspersky AV into the browser. The injected scripts violate CSP nonce policy and produce alarming red console errors that look like our app's bug. Documenting this once stops every future operator from re-debugging.",
+      "fix": "Runbook section 'Cosmetic noise: Kaspersky / Norton / Avast AV CSP violations' explaining: AV extensions add their tracking origin to `script-src` via HTTP header rewrite BUT inject inline scripts that don't carry the per-request nonce → browser blocks → console error. Action: identify the offending origin in the script-src directive (kaspersky-labs.com / norton.com / etc.), confirm it's NOT our domain, ignore. Optionally disable the AV web-shield extension for localhost development."
+    }
+  ]
+}
