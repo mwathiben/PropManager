@@ -552,6 +552,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/invoices/{invoice}/paystack/initialize', [PaymentController::class, 'initializePaystack'])
         ->middleware('throttle:payment')
         ->name('payments.paystack.initialize');
+
+    // Phase-41 GATEWAY-CHECKOUT-2: gateway-agnostic checkout (Paystack OR Stripe).
+    Route::post('/invoices/{invoice}/checkout/initialize', [PaymentController::class, 'initializeCheckout'])
+        ->middleware('throttle:payment')
+        ->name('payments.checkout.initialize');
     Route::get('/payments/callback', [PaymentController::class, 'handleCallback'])->name('payments.callback');
     Route::get('/payments/public-key', [PaymentController::class, 'getPublicKey'])->name('payments.publicKey');
     Route::get('/payments/{payment}/receipt', [PaymentController::class, 'downloadReceipt'])->name('payments.downloadReceipt');

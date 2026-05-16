@@ -295,6 +295,88 @@ class PaymentController extends Controller
     }
 
     /**
+     * Phase-41 GATEWAY-CHECKOUT-2: gateway-agnostic checkout. Routes
+     * via PaymentGatewayManager::routeForUser based on the landlord's
+     * payment_gateway_preference + invoice currency. Returns the same
+     * envelope shape as initializePaystack — downstream Vue can handle
+     * authorization_url (Paystack hosted) OR client_secret (Stripe
+     * PaymentIntent for stripe.js confirm flow).
+     */
+    public function initializeCheckout(InitializePaystackRequest $request, Invoice $invoice)
+    {
+        $validated = $request->validated();
+
+        $lease = $invoice->lease;
+        if (! $lease || ! $lease->tenant) {
+            return response()->json(['status' => 'error', 'message' => 'Invoice has no associated lease or tenant'], 400);
+        }
+
+        $landlord = User::find($invoice->landlord_id);
+        if (! $landlord) {
+            return response()->json(['status' => 'error', 'message' => 'Landlord not found'], 400);
+        }
+
+        $currency = $invoice->currency?->value ?? 'KES';
+        $manager = app(\App\Services\PaymentGatewayManager::class);
+        $gateway = $manager->routeForUser($landlord, $currency);
+
+        if (! $gateway->isConfigured()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Selected gateway ('.$gateway->getIdentifier().') is not configured for this landlord.',
+            ], 400);
+        }
+
+        $reference = $gateway->generateReference('INV');
+        $paymentRequest = new \App\ValueObjects\Payment\PaymentRequest(
+            amount: \App\ValueObjects\Payment\Money::fromFloat((float) $request->amount, $currency),
+            email: $lease->tenant->email,
+            reference: $reference,
+            callbackUrl: route('payments.callback'),
+            metadata: [
+                'invoice_id' => (string) $invoice->id,
+                'landlord_id' => (string) $landlord->id,
+                'lease_id' => (string) $lease->id,
+                'tenant_name' => $lease->tenant->name,
+            ],
+        );
+
+        // Per-landlord credentials: Paystack reads from PaymentConfiguration
+        // via PaystackService::withConfig; Stripe does the same via
+        // StripeService::withConfig. Done at the service level when the
+        // gateway's underlying service is hydrated.
+        $paymentConfig = PaymentConfiguration::where('landlord_id', $landlord->id)->first();
+        if ($paymentConfig) {
+            if ($gateway->getIdentifier() === 'paystack' && $paymentConfig->hasPaystackConfig()) {
+                $gateway->getService()->withConfig($paymentConfig);
+            }
+            if ($gateway->getIdentifier() === 'stripe' && $paymentConfig->hasStripeConfig()) {
+                $gateway->getService()->withConfig($paymentConfig);
+            }
+        }
+
+        $result = $gateway->initializePayment($paymentRequest);
+
+        if (! $result->success) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $result->error ?? 'Failed to initialize payment',
+                'gateway' => $gateway->getIdentifier(),
+            ], 500);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'gateway' => $gateway->getIdentifier(),
+            'data' => [
+                'reference' => $result->reference,
+                'authorization_url' => $result->authorizationUrl,
+                'client_secret' => $result->accessCode,
+            ],
+        ]);
+    }
+
+    /**
      * Handle Paystack callback (browser redirect after payment)
      */
     public function handleCallback(Request $request, PaystackCallbackHandler $handler)
