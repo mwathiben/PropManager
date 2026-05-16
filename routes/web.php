@@ -202,6 +202,14 @@ Route::middleware('auth')->group(function () {
     // Phase-31 ONB-WIZARD-2: dashboard ResumeBanner status feed
     Route::get('/api/onboarding/status', [\App\Http\Controllers\Onboarding\OnboardingResumeController::class, 'status'])
         ->name('onboarding.status');
+
+    // Phase-31 ONB-SAMPLE-2: prospect demo dataset toggle
+    Route::middleware('role:landlord')->group(function () {
+        Route::post('/onboarding/sample-data/populate', [\App\Http\Controllers\Onboarding\SampleDataController::class, 'populate'])
+            ->name('onboarding.sample.populate');
+        Route::post('/onboarding/sample-data/reset', [\App\Http\Controllers\Onboarding\SampleDataController::class, 'reset'])
+            ->name('onboarding.sample.reset');
+    });
     // Legacy routes for backward compatibility
     Route::get('/onboarding/create', [OnboardingController::class, 'create'])->name('onboarding.create');
     Route::post('/onboarding/store', [OnboardingController::class, 'store'])->name('onboarding.store');
