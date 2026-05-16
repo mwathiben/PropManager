@@ -426,3 +426,21 @@ Schedule::command('cache:hit-rate-audit')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase33-cost-cache13-audit');
+
+// Phase-33 COST-STORAGE-2: weekly filesystem walk per active policy —
+// heavy, so weekly not daily. Sunday 04:30 Africa/Nairobi (low-traffic
+// window).
+Schedule::command('storage:tier-policy')
+    ->weeklyOn(0, '04:30')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase33-cost-storage2-tier-policy');
+
+// Phase-33 COST-STORAGE-3: weekly KES projection per tier — must run
+// AFTER storage:tier-policy (reads the gauges it wrote). 30 min later
+// to give the filesystem walk room to finish on slow disks.
+Schedule::command('storage:cost-audit')
+    ->weeklyOn(0, '05:00')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase33-cost-storage3-cost-audit');
