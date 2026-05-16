@@ -290,5 +290,98 @@
       "evidence": "Phase-26 docs/runbooks/pwa.md + Phase-27 docs/runbooks/bi.md establish the runbook pattern: route tree, middleware chain, ability matrix, schema additions, CI gates, ops procedures. Phase 28 lacks the same. Without it, a new contributor adding a tenant feature must reverse-engineer the conventions. The runbook also serves as the contract for TENANT-CI-2 (ability matrix keys).",
       "fix": "(a) Sections: Overview, Route tree (under /tenant prefix), Middleware chain (auth -> payment.verified -> kyc.complete -> role:tenant), Ability matrix table (key, condition, page using it), Schema additions (user_notification_preferences, documents.expires_at, tickets.sla_due_at + first_response_at, payment_plans, payment_plan_installments, deposit_refund_requests), CI gates (Phase28TenantSurfaceTest + Phase28ProfileTest + Phase28StatementTest + Phase28DocsTest + Phase28MaintTest + Phase28PayTest + Phase28CiTest), Ops procedures (tickets:audit-sla, payment-plan-allocations:audit), i18n keys added (tenant.*, notifications.category.*, payment_plan.*, deposit_refund.*); (b) Phase28CiTest::test_runbook_lists_every_phase28_test_class (parses .md, asserts class name appears) + test_runbook_documents_every_new_table (parses .md, asserts table name appears)."
     }
-  ]
+  ],
+  "audit_closeout": {
+    "closed_at": "2026-05-16",
+    "status": "COMPLETE_WITH_DEFERRAL",
+    "findings_total": 18,
+    "findings_closed": 17,
+    "findings_deferred": 1,
+    "by_severity": {
+      "HIGH": "5/5",
+      "MEDIUM": "8/9",
+      "LOW": "4/4"
+    },
+    "commits": [
+      "0a6bda0 — PRD baseline (18 findings)",
+      "eb48d8f — Phase 1a: TENANT-PROFILE-1/2/3 (TenantProfileController + Tenant/Profile.vue + NotificationPreference matrix surface + locale picker)",
+      "c1d7a9a — Phase 1b: TENANT-STATEMENT-1/2/3 (StatementService::forTenant + Statement.vue + PDF/xlsx export + email-me Phase-13 PERSONAL-DATA-1)",
+      "1832ba5 — Phase 1c: TENANT-DOCS-1/2/3 (Documents.vue repository + receipt PDF via existing route + expires_at + DocumentExpiryBanner)",
+      "343d70a — Phase 1d: TENANT-MAINT-1/2/3 (ticket SLA + tickets:audit-sla nightly + multi-photo + TicketSlaBreached event + Phase-16 backoff listener)",
+      "5b1e7d9 — Phase 2: TENANT-PAY-1/3 + TENANT-CI-1/2/3 batch (payment plans + installments + deposit refunds + Phase28TenantSurfaceTest + TenantAbilities + runbook)"
+    ],
+    "watchdog_suite": {
+      "test_classes": 7,
+      "test_classes_listing": [
+        "Phase28ProfileTest (9 tests / 50 assertions) — dedicated tenant profile surface + landlord redirect + notification matrix persistence + locale picker + cross-role isolation",
+        "Phase28StatementTest (8 tests / 37 assertions) — running balance walks chronologically + opening balance reflects pre-period + voided rows excluded + xlsx mime + email recipient lock to authenticated tenant + unknown period rebound + landlord cannot reach",
+        "Phase28DocsTest (6 tests / 69 assertions) — categorised index + tenant downloads own lease + cross-tenant DocumentPolicy block + expiringSoon scope window + shared tenantExpiringDocs prop tenant-only + landlord cannot reach",
+        "Phase28MaintTest (10 tests / 26 assertions) — sla_due_at per priority + first_response_at gated to landlord|caretaker + no advance on second response + breachedSla scope + audit command idempotency + dry-run + Phase-16 backoff array + multi-photo cap + non-image rejected + schedule at 07:00 Nairobi",
+        "Phase28PayTest (8 tests / ~30 assertions) — payment plan request + installment splitting with remainder + duplicate plan blocked + cross-tenant invoice rejected + deposit refund M-Pesa happy path + non-Kenyan phone rejected + duplicate refund blocked + cross-tenant lease rejected",
+        "Phase28TenantSurfaceTest (2 tests / 2 assertions) — every /tenant/* URI carries role:tenant + whitelist sanity",
+        "Phase28CiTest (4 tests / ~15 assertions) — TenantAbilities runtime keys match constant + shared auth.tenant_abilities tenant-only + runbook documents every ability key + runbook lists every Phase28 test class"
+      ],
+      "total_tests": 47,
+      "total_assertions": 679,
+      "duration_seconds": 114.86
+    },
+    "artifacts_shipped": {
+      "controllers": [
+        "app/Http/Controllers/TenantProfileController.php (edit/update/updatePassword/updateNotificationPrefs — tenant-only via isTenant() authorize)",
+        "app/Http/Controllers/TenantStatementController.php (index/pdf/xlsx/email — period enum gated, PERSONAL-DATA-1 self-email)",
+        "app/Http/Controllers/TenantDocumentsController.php (index/download — DocumentPolicy::view authorisation)",
+        "app/Http/Controllers/Tenant/PaymentPlanRequestController.php (store — Rule::exists landlord scope + abort_unless tenant ownership + duplicate plan block + cent-remainder installment split)",
+        "app/Http/Controllers/Tenant/DepositRefundController.php (store — Rule::exists tenant scope + payment_details shape gate + duplicate request block)"
+      ],
+      "models_migrations": [
+        "App\\Models\\PaymentPlan (TenantScope, STATUSES const, isActive(), installments hasMany)",
+        "App\\Models\\PaymentPlanInstallment (status const, isFullyPaid())",
+        "App\\Models\\DepositRefundRequest (TenantScope, status + method const, payment_details JSON cast)",
+        "documents.expires_at DATE NULL + index (Document::scopeExpiringSoon)",
+        "tickets.sla_due_at + first_response_at + composite tickets_sla_idx (Ticket::SLA_SECONDS + scopeBreachedSla + booted creating hook)",
+        "payment_plans + payment_plan_installments tables (new)",
+        "deposit_refund_requests table (new)"
+      ],
+      "events_listeners_commands": [
+        "App\\Events\\TicketSlaBreached (Ticket + breachedAt CarbonImmutable)",
+        "App\\Listeners\\NotifyOnTicketSlaBreach (ShouldQueue, $tries=4, $backoff=[30,60,300,1800] Phase-16 RESIL pattern; notifies landlord + every caretaker via NotificationService)",
+        "App\\Console\\Commands\\TicketsAuditSla (--dry-run flag; emits ticket_sla_breach_count{priority} gauge; Cache::add idempotency 24h)",
+        "routes/console.php — Schedule::command('tickets:audit-sla')->dailyAt('07:00')->timezone('Africa/Nairobi')->onOneServer()",
+        "TicketActivity::booted() created hook stamps parent first_response_at on first landlord|caretaker non-'created' activity"
+      ],
+      "frontend": [
+        "resources/js/Pages/Tenant/Profile.vue (5 tabs — personal, password, locale, notifications matrix, emergency contact)",
+        "resources/js/Pages/Tenant/Statement.vue (period selector + table + PDF/xlsx/email buttons + closing balance card)",
+        "resources/js/Pages/Tenant/Documents.vue (4-tab categorised list — All/Lease/Receipts/KYC with download links per row)",
+        "resources/js/Components/Tenant/DocumentExpiryBanner.vue (amber alert, dismissed via shared prop fetch, mounted on Tenant/Dashboard)",
+        "resources/js/Pages/Tickets/Create.vue (multi-photo input + client-side 5×5MB cap + forceFormData on submit)",
+        "App\\Support\\TenantAbilities (6-key abilities map shared on auth.tenant_abilities for tenant requests, null for landlord)"
+      ],
+      "views_mail": [
+        "resources/views/tenant/statement.blade.php (DomPDF template)",
+        "resources/views/emails/tenant/statement.blade.php (mailable view, subdir to avoid clobbering existing landlord-side tenant-statement.blade.php)",
+        "App\\Mail\\TenantStatementMail (ShouldQueue + HasLocalePreference-aware subject)"
+      ],
+      "i18n": "lang/{en,sw}/tenant.php — profile.*, statement.* (18 keys), ticket_sla.{subject,body}, payment_plan.submitted, deposit_refund.submitted. Phase24CiTest parity at 434 assertions green.",
+      "runbook": "docs/runbooks/tenant-portal.md — overview + route tree (12 new routes table) + ability matrix (6 keys × condition) + schema additions (5 tables/columns) + CI gates (7 watchdog classes) + ops procedures (tickets:audit-sla cron) + deferrals + memory pointer.",
+      "security_posture": "DocumentPolicy::view cross-tenant tested (other-tenant lease document returns 403). PaymentPlan request rejects cross-tenant invoice via Rule::exists scoped to landlord_id + abort_unless on tenant_id. DepositRefund request rejects cross-tenant lease via Rule::exists scoped to tenant_id. M-Pesa phone format validated against +254[17]\\d{8} regex. Payment + refund routes carry throttle:sensitive. NotificationPreference::canReceive() still gates Notification dispatch — tenant SMS opt-out remains effective. Phase28TenantSurfaceTest enforces role:tenant on every /tenant/* route."
+    },
+    "deferrals": [
+      {
+        "id": "TENANT-PAY-2",
+        "severity": "MEDIUM",
+        "summary": "Auto-allocate payment to active plan installments (oldest unpaid first) + nightly payment-plan-allocations:audit drift detector",
+        "why": "The PaymentAllocationService extension touches the existing money reconciliation path (Phase-17 Money + Phase-19 drift audit). Doing it safely requires a dedicated commit with its own golden fixture + drift baseline + audit_command watchdog. Bundling it into Phase 2's tenant-portal batch would either rush the math or balloon the commit beyond reviewable size.",
+        "next_action": "Phase 21-style consolidation cycle OR Phase 30 [INTEGRATIONS] (which already touches the payment allocation path). Carry forward in [[project_propmanager_path_forward]] deferral list."
+      },
+      {
+        "id": "TENANT-PAY-1 + TENANT-PAY-3 landlord approval UIs (partial)",
+        "severity": "MEDIUM (sub-scope)",
+        "summary": "Landlord-side approve/reject/mark-paid UI for both payment plans and deposit refunds",
+        "why": "Phase 28 scope is the tenant-self-service surface. The tenant request flow + data model + policies ship in this cycle; landlord approval flow is a property-management workflow concern. Splitting keeps each cycle reviewable.",
+        "next_action": "Phase 29 [WORKFLOW-AUTOMATION] is the natural home — landlord approval is part of the rules engine for rent reminders + lease renewal + late fee escalation."
+      }
+    ],
+    "next_phase": "Phase 29 [WORKFLOW-AUTOMATION] — Tier 4 cycle 2: rules engine for landlord-defined automation (rent reminder cadence per tier, lease renewal 60d/30d/7d, late-fee escalation Day 5 SMS/Day 10 call/Day 30 eviction notice draft, vacancy alert when lease ends without renewal, occupancy-rate target with breach alert). Naturally absorbs the deferred landlord approval UIs for payment plans + deposit refunds."
+  }
 }
