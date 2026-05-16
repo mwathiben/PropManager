@@ -14,6 +14,7 @@ class SubscriptionPlan extends Model
         'name',
         'slug',
         'paystack_plan_code',
+        'stripe_plan_code',
         'description',
         'price_monthly',
         'price_yearly',

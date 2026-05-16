@@ -132,4 +132,21 @@ class PaymentGatewayManager
         /** @var StripeGateway */
         return $this->gateway('stripe');
     }
+
+    /**
+     * Phase-40 GATEWAY-CURRENCY-3: route to the correct gateway based
+     * on currency. KES → Paystack (Kenyan domestic), USD/EUR/GBP →
+     * Stripe (international cards). Centralised so callers don't
+     * hand-code the if/else at N sites.
+     *
+     * Override per-user via $user->payment_gateway_preference (Phase 1f).
+     */
+    public function routeFor(Currency|string $currency): PaymentGatewayInterface
+    {
+        $code = $currency instanceof Currency ? $currency->value : strtoupper($currency);
+
+        $name = $code === Currency::KES->value ? 'paystack' : 'stripe';
+
+        return $this->gateway($name);
+    }
 }

@@ -72,6 +72,17 @@ final readonly class Money
     }
 
     /**
+     * Convert to Stripe format (minor currency unit — cents for USD,
+     * pence for GBP, etc.). Identical to Paystack — both gateways
+     * already speak minor units, so this is a 1:1 passthrough that
+     * exists for symmetry and API clarity at the callsite.
+     */
+    public function toStripeAmount(): int
+    {
+        return $this->amount;
+    }
+
+    /**
      * Format as currency string.
      */
     public function format(): string
