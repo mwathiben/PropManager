@@ -255,3 +255,12 @@ Schedule::command('rent-reminders:dispatch')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase29-wf-rent-remind1-dispatch');
+
+// Phase-29 WF-LEASE-RENEW-1: nightly lease end_date scan emitting at
+// T-60/30/7 day buckets. Runs between tickets:audit-sla (07:00) and
+// rent-reminders:dispatch (08:00).
+Schedule::command('leases:scan-renewals')
+    ->dailyAt('07:30')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase29-wf-lease-renew1-scan');

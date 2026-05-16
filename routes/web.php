@@ -1022,6 +1022,23 @@ Route::middleware(['auth', 'role:tenant', 'payment.verified', 'kyc.complete'])->
     Route::post('/deposit-refunds', [\App\Http\Controllers\Tenant\DepositRefundController::class, 'store'])
         ->middleware('throttle:sensitive')
         ->name('tenant.deposit-refunds.store');
+
+    // Phase-29 WF-LEASE-RENEW-3: tenant accept/reject of a landlord-
+    // proposed renewal.
+    Route::post('/renewals/{renewal}/accept', [\App\Http\Controllers\Tenant\RenewalResponseController::class, 'accept'])
+        ->middleware('throttle:sensitive')
+        ->name('tenant.renewals.accept');
+    Route::post('/renewals/{renewal}/reject', [\App\Http\Controllers\Tenant\RenewalResponseController::class, 'reject'])
+        ->middleware('throttle:sensitive')
+        ->name('tenant.renewals.reject');
+});
+
+// Phase-29 WF-LEASE-RENEW-2: landlord-side renewal initiate + confirm.
+Route::middleware(['auth', 'role:landlord'])->group(function () {
+    Route::post('/leases/{lease}/renewals', [\App\Http\Controllers\LeaseRenewalController::class, 'store'])
+        ->name('leases.renewals.store');
+    Route::post('/renewals/{renewal}/confirm', [\App\Http\Controllers\LeaseRenewalController::class, 'confirm'])
+        ->name('renewals.confirm');
 });
 
 // --- LEGAL DOCUMENTS (Public) ---

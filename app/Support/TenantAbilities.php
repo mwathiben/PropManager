@@ -26,6 +26,9 @@ class TenantAbilities
         'tickets:create',
         'payment_plan:request',
         'deposit:request_refund',
+        // Phase-29 WF-LEASE-RENEW-3: tenant has an open renewal on
+        // their active lease in 'proposed' status.
+        'renewal:respond',
     ];
 
     /**
@@ -57,6 +60,12 @@ class TenantAbilities
             ->whereIn('status', [PaymentPlan::STATUS_REQUESTED, PaymentPlan::STATUS_APPROVED])
             ->exists();
 
+        $hasOpenRenewal = $activeLease
+            ? \App\Models\LeaseRenewal::where('lease_id', $activeLease->id)
+                ->where('status', \App\Models\LeaseRenewal::STATUS_PROPOSED)
+                ->exists()
+            : false;
+
         return [
             'statement:download' => true,
             'statement:email' => true,
@@ -64,6 +73,7 @@ class TenantAbilities
             'tickets:create' => true,
             'payment_plan:request' => $hasUnpaidInvoice && ! $hasActivePlan,
             'deposit:request_refund' => $moveOutComplete && ! $hasActiveRefund,
+            'renewal:respond' => $hasOpenRenewal,
         ];
     }
 }

@@ -58,6 +58,7 @@ contract — adding a new key requires updating `TenantAbilities::ABILITY_KEYS`
 | `tickets:create` | always |
 | `payment_plan:request` | active lease has an unpaid invoice AND no active plan |
 | `deposit:request_refund` | move-out is `completed` AND no active refund request |
+| `renewal:respond` | (Phase-29) tenant has an open lease renewal in `proposed` status on their active lease |
 
 Tenant Vue pages consume via `usePage().props.auth.tenant_abilities[key]`.
 
