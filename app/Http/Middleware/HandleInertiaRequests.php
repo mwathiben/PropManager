@@ -78,7 +78,61 @@ class HandleInertiaRequests extends Middleware
             'navBadges' => fn () => $this->getNavBadges($request),
             'featureAccess' => $this->getFeatureAccess($request),
             'pendingInvitations' => Inertia::defer(fn () => $this->getPendingInvitations($request)),
+            // Phase-28 TENANT-DOCS-3: tenant-only banner data for
+            // documents within 30 days of expiry.
+            'tenantExpiringDocs' => fn () => $this->getTenantExpiringDocs($request),
         ];
+    }
+
+    /**
+     * Phase-28 TENANT-DOCS-3: documents within 30 days of expires_at
+     * for the authenticated tenant. Returns [] for non-tenants so the
+     * banner short-circuits on landlord pages. Joins through
+     * TenantKycSubmission/Lease via the polymorphic documentable
+     * relation; per-tenant cap of 10 entries to keep the prop bounded.
+     *
+     * @return array<int, array{
+     *     id: int,
+     *     title: string,
+     *     document_type: string,
+     *     expires_at: string,
+     *     days_remaining: int
+     * }>
+     */
+    protected function getTenantExpiringDocs(Request $request): array
+    {
+        $user = $request->user();
+        if (! $user || ! $user->isTenant()) {
+            return [];
+        }
+
+        $leaseIds = $user->leases()->pluck('id');
+        $kycIds = \App\Models\TenantKycSubmission::query()
+            ->where('user_id', $user->id)
+            ->pluck('id');
+
+        return \App\Models\Document::query()
+            ->expiringSoon(30)
+            ->where(function ($query) use ($leaseIds, $kycIds) {
+                $query->where(function ($inner) use ($leaseIds) {
+                    $inner->where('documentable_type', \App\Models\Lease::class)
+                        ->whereIn('documentable_id', $leaseIds);
+                })->orWhere(function ($inner) use ($kycIds) {
+                    $inner->where('documentable_type', \App\Models\TenantKycSubmission::class)
+                        ->whereIn('documentable_id', $kycIds);
+                });
+            })
+            ->orderBy('expires_at')
+            ->limit(10)
+            ->get(['id', 'title', 'document_type', 'expires_at'])
+            ->map(fn ($doc) => [
+                'id' => $doc->id,
+                'title' => $doc->title,
+                'document_type' => $doc->document_type,
+                'expires_at' => $doc->expires_at?->toDateString(),
+                'days_remaining' => (int) now()->startOfDay()->diffInDays($doc->expires_at, false),
+            ])
+            ->all();
     }
 
     /**

@@ -58,12 +58,14 @@ class Document extends Model
         'mime_type',
         'file_size',
         'document_type',
+        'expires_at',
         'description',
         'uploaded_by',
     ];
 
     protected $casts = [
         'file_size' => 'integer',
+        'expires_at' => 'date',
     ];
 
     protected $appends = ['file_size_formatted'];
@@ -156,5 +158,19 @@ class Document extends Model
     public function scopeForModel(Builder $query, string $modelType): Builder
     {
         return $query->where('documentable_type', 'App\\Models\\'.$modelType);
+    }
+
+    /**
+     * Phase-28 TENANT-DOCS-3: documents within $days of expiry (negative
+     * days_remaining means already expired). Pure scope — caller filters
+     * by tenant via the documentable join.
+     *
+     * @param  Builder<Document>  $query
+     */
+    public function scopeExpiringSoon(Builder $query, int $days = 30): Builder
+    {
+        return $query
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '<=', now()->addDays($days)->toDateString());
     }
 }

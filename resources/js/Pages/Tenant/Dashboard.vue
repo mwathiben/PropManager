@@ -5,6 +5,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import ActionItemCard from '@/Components/ActionItemCard.vue';
 import MetricCard from '@/Components/MetricCard.vue';
 import PushNotificationPrompt from '@/Components/PushNotificationPrompt.vue';
+import DocumentExpiryBanner from '@/Components/Tenant/DocumentExpiryBanner.vue';
 import { useFormatters, useStatusColors, useEcho } from '@/composables';
 import type { TenantDashboardPageProps } from '@/types';
 import {
@@ -132,6 +133,9 @@ onUnmounted(() => {
         <div class="p-6 lg:p-8">
             <!-- Push Notification Prompt -->
             <PushNotificationPrompt class="mb-6" />
+
+            <!-- Phase-28 TENANT-DOCS-3: 30-day document expiry banner. -->
+            <DocumentExpiryBanner class="mb-6" />
 
             <!-- No Lease State -->
             <div v-if="!hasLease">

@@ -1008,6 +1008,10 @@ Route::middleware(['auth', 'role:tenant', 'payment.verified', 'kyc.complete'])->
     Route::get('/statement.pdf', [\App\Http\Controllers\TenantStatementController::class, 'pdf'])->name('tenant.statement.pdf');
     Route::get('/statement.xlsx', [\App\Http\Controllers\TenantStatementController::class, 'xlsx'])->name('tenant.statement.xlsx');
     Route::post('/statement/email', [\App\Http\Controllers\TenantStatementController::class, 'email'])->name('tenant.statement.email');
+
+    // Phase-28 TENANT-DOCS-1/2/3: tenant document repository + downloads.
+    Route::get('/documents', [\App\Http\Controllers\TenantDocumentsController::class, 'index'])->name('tenant.documents.index');
+    Route::get('/documents/{document}/download', [\App\Http\Controllers\TenantDocumentsController::class, 'download'])->name('tenant.documents.download');
 });
 
 // --- LEGAL DOCUMENTS (Public) ---
