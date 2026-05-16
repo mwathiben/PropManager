@@ -139,4 +139,44 @@ class Phase38CleanupSurfaceTest extends TestCase
             "check-import-case.mjs reported mismatched directory case:\n".implode("\n", $output),
         );
     }
+
+    /**
+     * Phase-38 DEFER-TEST-HEALTH-2: ratchet on total error+failure
+     * count across the full suite. Phase-38 scout measured 90 errors
+     * + 9 failures = 99 total at the start of this cycle. The ratchet
+     * caps future regressions at this baseline; every fix-the-test
+     * PR lowers the constant. Once 0 is reached, the assertion stays
+     * there forever as a regression guard.
+     *
+     * This test does NOT re-run the suite (would deadlock) — it reads
+     * the last `php artisan test --log-junit storage/app/junit.xml`
+     * artifact when present, and skips with a notice when not. CI
+     * always emits the artifact before running this test class.
+     */
+    public function test_suite_error_count_at_or_below_baseline(): void
+    {
+        $baseline = 99;
+        $junitPath = storage_path('app/junit.xml');
+
+        if (! file_exists($junitPath)) {
+            $this->markTestSkipped(
+                'No junit.xml artifact found at storage/app/junit.xml. '
+                .'CI emits this via `php artisan test --log-junit storage/app/junit.xml`. '
+                .'Skipping ratchet check on local runs.',
+            );
+        }
+
+        $xml = simplexml_load_file($junitPath);
+        $errors = (int) ($xml['errors'] ?? 0);
+        $failures = (int) ($xml['failures'] ?? 0);
+        $actual = $errors + $failures;
+
+        $this->assertLessThanOrEqual(
+            $baseline,
+            $actual,
+            "Test suite has {$actual} errors+failures, baseline is {$baseline}. "
+            ."New test failures violate the Phase-38 DEFER-TEST-HEALTH-2 ratchet. "
+            .'Fix the failing tests OR raise the baseline (only on legitimate xfail).',
+        );
+    }
 }

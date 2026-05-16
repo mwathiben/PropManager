@@ -6,6 +6,7 @@ namespace App\Services\Onboarding;
 
 use App\Events\MilestoneRecorded;
 use App\Models\OnboardingMilestone;
+use App\Models\User;
 
 /**
  * Phase-31 ONB-TTFI-1: write-once recorder for activation milestones.
@@ -17,33 +18,55 @@ use App\Models\OnboardingMilestone;
  * Designed to be called from model observers (PropertyObserver
  * created, UnitObserver created, etc.) so the recorder never needs
  * to be sprinkled across controllers.
+ *
+ * Phase-38 DEFER-TEST-HEALTH-1/3: returns null when the landlord
+ * User row doesn't exist — protects against FK violations when a
+ * Payment / Property / Invoice with a stale landlord_id is created
+ * (legitimate in delete-cascading edge cases and test fixtures
+ * that haven't seeded the User row). Consistent with TenantScope's
+ * defensive-soft pattern.
  */
 class OnboardingMilestoneRecorder
 {
-    public function record(int $landlordId, string $milestone, array $metadata = []): OnboardingMilestone
+    public function record(int $landlordId, string $milestone, array $metadata = []): ?OnboardingMilestone
     {
         if (! in_array($milestone, OnboardingMilestone::FUNNEL, true)) {
             throw new \InvalidArgumentException("Unknown milestone: {$milestone}");
         }
 
-        $row = OnboardingMilestone::query()
-            ->withoutGlobalScopes()
-            ->where('landlord_id', $landlordId)
-            ->where('milestone', $milestone)
-            ->first();
-
-        if ($row !== null) {
-            return $row;
+        if (! User::query()->whereKey($landlordId)->exists()) {
+            return null;
         }
 
-        $row = OnboardingMilestone::create([
-            'landlord_id' => $landlordId,
-            'milestone' => $milestone,
-            'reached_at' => now(),
-            'metadata' => $metadata,
-        ]);
+        // Phase-38 DEFER-TEST-HEALTH-1/3: firstOrCreate is NOT
+        // atomic in Laravel (SELECT then INSERT), so a race between
+        // concurrent observers — e.g. landlord-creation
+        // signed_up + a near-simultaneous first-tenant signup that
+        // touches the same milestone — can still throw
+        // UniqueConstraintViolationException. Catch + reload makes
+        // the recorder truly idempotent.
+        try {
+            $row = OnboardingMilestone::query()->withoutGlobalScopes()->firstOrCreate(
+                [
+                    'landlord_id' => $landlordId,
+                    'milestone' => $milestone,
+                ],
+                [
+                    'reached_at' => now(),
+                    'metadata' => $metadata,
+                ],
+            );
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            $row = OnboardingMilestone::query()
+                ->withoutGlobalScopes()
+                ->where('landlord_id', $landlordId)
+                ->where('milestone', $milestone)
+                ->firstOrFail();
+        }
 
-        MilestoneRecorded::dispatch($row);
+        if ($row->wasRecentlyCreated) {
+            MilestoneRecorded::dispatch($row);
+        }
 
         return $row;
     }
