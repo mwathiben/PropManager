@@ -104,5 +104,17 @@ return [
             'paging' => 'email',
             'description' => '8-30 day stall bucket exceeded threshold — onboarding UX friction signal.',
         ],
+
+        // Phase-33 COST-QUERY-3
+        [
+            'key' => 'high_query_scan_ratio',
+            'severity' => 'sev3',
+            'threshold' => 1000,
+            'window' => '24h',
+            'gauge' => 'query_scan_to_return_ratio_p90',
+            'runbook' => 'docs/runbooks/n-plus-one.md',
+            'paging' => 'email',
+            'description' => 'Per-route-class scan-to-return ratio p90 exceeded threshold — likely N+1 or missing index.',
+        ],
     ],
 ];

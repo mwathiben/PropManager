@@ -408,3 +408,12 @@ Schedule::command('cost:attribute')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase33-cost-attrib2-attribute');
+
+// Phase-33 COST-QUERY-2/3: per-route-class scan-to-return ratio gauges
+// + high_query_scan_ratio alert. Runs at 03:45 — after cost:attribute
+// 03:30 and before the 04:00-05:00 backup cluster.
+Schedule::command('query:cost-audit')
+    ->dailyAt('03:45')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase33-cost-query23-audit');
