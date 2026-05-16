@@ -46,4 +46,21 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Stripe (system-wide webhook secret only)
+    |--------------------------------------------------------------------------
+    |
+    | Phase-40 GATEWAY-WEBHOOK-1: per-tenant Stripe credentials live on
+    | PaymentConfiguration (same pattern as Paystack). Only the SYSTEM-WIDE
+    | webhook secret + publishable key for the PropManager SaaS billing
+    | path live here — see docs/runbooks/payments.md for the boundary rule.
+    |
+    */
+    'stripe' => [
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET', ''),
+        'publishable_key' => env('STRIPE_PUBLISHABLE_KEY', ''),
+        'secret_key' => env('STRIPE_SECRET_KEY', ''),
+    ],
+
 ];

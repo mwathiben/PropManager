@@ -138,6 +138,10 @@ Route::post('/webhooks/paystack', [PaymentController::class, 'handleWebhook'])
 Route::post('/webhooks/v2/paystack', [\App\Http\Controllers\Webhooks\PaystackWebhookController::class, 'handle'])
     ->name('webhooks.v2.paystack');
 
+// Phase-40 GATEWAY-WEBHOOK-2: Stripe-Signature verified Stripe receiver.
+Route::post('/webhooks/v2/stripe', \App\Http\Controllers\Webhooks\StripeWebhookController::class)
+    ->name('webhooks.v2.stripe');
+
 Route::prefix('webhooks/mpesa')->name('webhooks.mpesa.')->middleware('webhook.mpesa')->group(function () {
     Route::post('/stk-callback', [\App\Http\Controllers\Api\MpesaWebhookController::class, 'stkCallback'])
         ->name('stk-callback');

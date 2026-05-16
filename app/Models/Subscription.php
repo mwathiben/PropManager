@@ -30,6 +30,8 @@ class Subscription extends Model
         'ends_at',
         'paystack_subscription_code',
         'paystack_customer_code',
+        'stripe_subscription_code',
+        'stripe_customer_code',
     ];
 
     public const CANCEL_REASONS = [
