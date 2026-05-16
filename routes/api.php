@@ -95,6 +95,18 @@ Route::prefix('v1')->group(function () {
 
         // Landlord/Caretaker routes
         Route::prefix('landlord')->middleware('ability:landlord:manage')->group(function () {
+            // Phase-36 INSIGHT-API-1/2/3: landlord-scoped growth surface
+            Route::get('/engagement', [\App\Http\Controllers\Api\Landlord\EngagementController::class, 'index'])
+                ->name('api.v1.landlord.engagement.index');
+            Route::get('/engagement/export.csv', [\App\Http\Controllers\Api\Landlord\EngagementController::class, 'export'])
+                ->name('api.v1.landlord.engagement.export');
+            Route::get('/usage', [\App\Http\Controllers\Api\Landlord\UsageController::class, 'index'])
+                ->name('api.v1.landlord.usage.index');
+            Route::get('/referrals', [\App\Http\Controllers\Api\Landlord\ReferralApiController::class, 'index'])
+                ->name('api.v1.landlord.referrals.index');
+            Route::get('/insights/summary', [\App\Http\Controllers\Api\Landlord\InsightSummaryController::class, 'index'])
+                ->name('api.v1.landlord.insights.summary');
+
             // Properties
             Route::get('/properties', [\App\Http\Controllers\Api\PropertyController::class, 'index']);
             Route::get('/properties/{property}', [\App\Http\Controllers\Api\PropertyController::class, 'show']);
