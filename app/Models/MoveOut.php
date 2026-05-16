@@ -44,6 +44,40 @@ class MoveOut extends Model
     ];
 
     /**
+     * Phase-29 WF-VACANCY-2: when MoveOut.status transitions TO
+     * Completed and the unit has no future-dated active lease, fire
+     * VacancyDetected so the listener can create the list-unit task.
+     */
+    protected static function booted(): void
+    {
+        static::updated(function (self $moveOut) {
+            if (! $moveOut->wasChanged('status')) {
+                return;
+            }
+            if ($moveOut->status !== MoveOutStatus::Completed) {
+                return;
+            }
+            $unit = $moveOut->lease?->unit;
+            if (! $unit) {
+                return;
+            }
+            $hasFutureLease = Lease::query()
+                ->withoutGlobalScope('landlord')
+                ->where('unit_id', $unit->id)
+                ->where('start_date', '>', now()->toDateString())
+                ->exists();
+            if ($hasFutureLease) {
+                return;
+            }
+            \App\Events\VacancyDetected::dispatch(
+                $unit,
+                $moveOut,
+                \Carbon\CarbonImmutable::now(),
+            );
+        });
+    }
+
+    /**
      * Get the landlord
      */
     public function landlord(): BelongsTo

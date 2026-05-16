@@ -274,3 +274,12 @@ Schedule::command('invoices:escalate-overdue')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase29-wf-late-fee1-escalate');
+
+// Phase-29 WF-VACANCY-1/3: nightly per-building occupancy aggregation
+// + breach detection. Runs between reports:send-scheduled (06:00) and
+// tickets:audit-sla (07:00).
+Schedule::command('occupancy:audit')
+    ->dailyAt('06:30')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase29-wf-vacancy1-audit');

@@ -68,6 +68,9 @@ class Building extends Model
         'coordinates',
         'amenities',
         'photos',
+        // Phase-29 WF-VACANCY-3: NULL = no alerting; numeric =
+        // occupancy:audit alerts when current rate drops below.
+        'target_occupancy_rate',
         'auto_generate_invoices',
         'invoice_generation_day',
         'auto_send_invoices',

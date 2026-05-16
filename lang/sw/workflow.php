@@ -14,6 +14,14 @@ return [
         'body_due_today' => 'Malipo yako ya kodi ya KES :amount kwenye ankara :number yanadaiwa leo.',
         'body_after' => 'Malipo yako ya kodi ya KES :amount kwenye ankara :number yamechelewa kwa siku :days. Tafadhali lipa haraka iwezekanavyo ili kuepuka adhabu.',
     ],
+    'vacancy' => [
+        'task_title' => 'Tangaza nyumba :number kwa mpangaji mpya',
+        'task_description' => 'Nyumba :number sasa haina mpangaji. Sasisha tangazo, picha na vigezo vya uchunguzi.',
+    ],
+    'occupancy' => [
+        'breach_subject' => 'Ujazo wa wapangaji uko chini ya lengo — :name',
+        'breach_body' => 'Jengo :name liko na ujazo wa :current%, chini ya lengo la :target%. Fikiria kuangalia bei au matangazo.',
+    ],
     'late_fee' => [
         'sms_subject' => 'Haraka: ankara :number imechelewa',
         'sms_body' => 'Ankara :number yenye salio KES :amount imechelewa. Tafadhali lipa leo ili kuepuka hatua zaidi.',

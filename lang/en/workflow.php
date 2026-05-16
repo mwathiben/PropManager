@@ -14,6 +14,14 @@ return [
         'body_due_today' => 'Your rent payment of KES :amount on invoice :number is due today.',
         'body_after' => 'Your rent payment of KES :amount on invoice :number is :days day(s) overdue. Please pay as soon as possible to avoid late fees.',
     ],
+    'vacancy' => [
+        'task_title' => 'List unit :number for a new tenant',
+        'task_description' => 'Unit :number is now vacant. Update the listing, photos, and screening criteria.',
+    ],
+    'occupancy' => [
+        'breach_subject' => 'Occupancy below target — :name',
+        'breach_body' => 'Building :name is at :current% occupancy, below the target of :target%. Consider reviewing pricing or marketing.',
+    ],
     'late_fee' => [
         'sms_subject' => 'Urgent: invoice :number overdue',
         'sms_body' => 'Invoice :number with balance KES :amount is overdue. Please pay today to avoid further action.',
