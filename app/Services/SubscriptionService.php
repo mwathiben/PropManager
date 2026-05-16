@@ -45,16 +45,97 @@ class SubscriptionService
     }
 
     /**
-     * Change subscription plan
+     * Change subscription plan with optional proration.
+     *
+     * Phase-35 PLATFORM-BILLING-1: writes a subscription_changes
+     * audit row so Phase-34 MrrSnapshotService can populate the
+     * expansion/contraction waterfall columns it currently ships at 0.
+     *
+     * Proration formula (only applied when $prorate=true and change
+     * is an upgrade): prorated_amount_kes = (new.monthly - old.monthly)
+     * × (remaining_days / total_days). Downgrades default to 0 — the
+     * customer keeps the higher tier until period end.
      */
-    public function changePlan(Subscription $subscription, SubscriptionPlan $newPlan): Subscription
-    {
-        // For now, changes take effect immediately
-        $subscription->update([
-            'plan_id' => $newPlan->id,
-        ]);
+    public function changePlan(
+        Subscription $subscription,
+        SubscriptionPlan $newPlan,
+        bool $prorate = true,
+    ): Subscription {
+        $oldPlan = $subscription->plan()->first();
+        $changeType = $this->classifyChange($oldPlan, $newPlan);
+
+        $proratedAmount = 0.0;
+        if ($prorate && $changeType === \App\Models\SubscriptionChange::TYPE_UPGRADE && $oldPlan) {
+            $proratedAmount = $this->computeProratedAmount($subscription, $oldPlan, $newPlan);
+        }
+
+        \DB::transaction(function () use ($subscription, $oldPlan, $newPlan, $changeType, $proratedAmount) {
+            \App\Models\SubscriptionChange::create([
+                'subscription_id' => $subscription->id,
+                'from_plan_id' => $oldPlan?->id ?? $newPlan->id,
+                'to_plan_id' => $newPlan->id,
+                'change_type' => $changeType,
+                'prorated_amount_kes' => $proratedAmount,
+                'effective_at' => now(),
+            ]);
+
+            $subscription->update([
+                'plan_id' => $newPlan->id,
+            ]);
+        });
 
         return $subscription->fresh();
+    }
+
+    /**
+     * Phase-35 PLATFORM-BILLING-2: register a downgrade for the
+     * current period boundary instead of applying immediately.
+     * Customer keeps premium until period_end; the apply-downgrades
+     * cron flips plan_id at that boundary.
+     */
+    public function scheduleDowngradeAtPeriodEnd(
+        Subscription $subscription,
+        SubscriptionPlan $newPlan,
+    ): \App\Models\SubscriptionChange {
+        $oldPlan = $subscription->plan()->first();
+
+        return \App\Models\SubscriptionChange::create([
+            'subscription_id' => $subscription->id,
+            'from_plan_id' => $oldPlan?->id ?? $newPlan->id,
+            'to_plan_id' => $newPlan->id,
+            'change_type' => \App\Models\SubscriptionChange::TYPE_DOWNGRADE,
+            'prorated_amount_kes' => 0,
+            'scheduled_for' => $subscription->current_period_end ?? now()->endOfMonth(),
+            'effective_at' => null,
+        ]);
+    }
+
+    private function classifyChange(?SubscriptionPlan $oldPlan, SubscriptionPlan $newPlan): string
+    {
+        if (! $oldPlan || $oldPlan->id === $newPlan->id) {
+            return \App\Models\SubscriptionChange::TYPE_SAME;
+        }
+
+        if ((float) $newPlan->price_monthly > (float) $oldPlan->price_monthly) {
+            return \App\Models\SubscriptionChange::TYPE_UPGRADE;
+        }
+
+        return \App\Models\SubscriptionChange::TYPE_DOWNGRADE;
+    }
+
+    private function computeProratedAmount(
+        Subscription $subscription,
+        SubscriptionPlan $oldPlan,
+        SubscriptionPlan $newPlan,
+    ): float {
+        $periodStart = $subscription->current_period_start ?? now()->startOfMonth();
+        $periodEnd = $subscription->current_period_end ?? now()->endOfMonth();
+        $totalDays = max(1, (int) $periodStart->diffInDays($periodEnd));
+        $remainingDays = max(0, (int) now()->diffInDays($periodEnd, false));
+
+        $delta = (float) $newPlan->price_monthly - (float) $oldPlan->price_monthly;
+
+        return round($delta * ($remainingDays / $totalDays), 2);
     }
 
     /**

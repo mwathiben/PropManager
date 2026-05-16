@@ -535,3 +535,12 @@ Schedule::command('product:rollup')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase35-platform-analytics3-rollup');
+
+// Phase-35 PLATFORM-BILLING-2: apply scheduled downgrades at period
+// boundary. Runs at 02:00 — earliest in the day so Phase-30
+// finance:close-month 02:30 sees the new plan_id.
+Schedule::command('subscriptions:apply-downgrades')
+    ->dailyAt('02:00')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase35-platform-billing2-apply-downgrades');

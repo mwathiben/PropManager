@@ -64,6 +64,7 @@ class MrrSnapshotService
 
             $newMrr = $this->newMrrForDay($plan, $day);
             $churnedMrr = $this->churnedMrrForDay($plan, $day);
+            [$expansionMrr, $contractionMrr] = $this->waterfallForDay($plan, $day);
 
             $row = MrrSnapshot::updateOrCreate(
                 ['day' => $dayStr, 'plan_id' => $plan->id],
@@ -71,8 +72,8 @@ class MrrSnapshotService
                     'mrr_kes' => round($mrr, 2),
                     'active_subscriptions' => $active->count(),
                     'new_mrr_kes' => round($newMrr, 2),
-                    'expansion_mrr_kes' => 0.0,
-                    'contraction_mrr_kes' => 0.0,
+                    'expansion_mrr_kes' => round($expansionMrr, 2),
+                    'contraction_mrr_kes' => round($contractionMrr, 2),
                     'churned_mrr_kes' => round($churnedMrr, 2),
                 ],
             );
@@ -126,5 +127,43 @@ class MrrSnapshotService
         }
 
         return $mrr;
+    }
+
+    /**
+     * Phase-35 PLATFORM-BILLING-3: walks subscription_changes rows
+     * with effective_at on day D, classifies as expansion (upgrade
+     * INTO this plan) or contraction (downgrade AWAY from this plan,
+     * i.e. from_plan_id = this plan).
+     *
+     * Returns [expansion_mrr_kes, contraction_mrr_kes] both positive.
+     */
+    private function waterfallForDay(SubscriptionPlan $plan, Carbon $day): array
+    {
+        $start = $day->copy()->startOfDay();
+        $end = $day->copy()->endOfDay();
+
+        $rows = \App\Models\SubscriptionChange::query()
+            ->whereBetween('effective_at', [$start, $end])
+            ->whereIn('change_type', [\App\Models\SubscriptionChange::TYPE_UPGRADE, \App\Models\SubscriptionChange::TYPE_DOWNGRADE])
+            ->where(function ($q) use ($plan) {
+                $q->where('to_plan_id', $plan->id)->orWhere('from_plan_id', $plan->id);
+            })
+            ->with(['fromPlan:id,price_monthly', 'toPlan:id,price_monthly'])
+            ->get();
+
+        $expansion = 0.0;
+        $contraction = 0.0;
+        foreach ($rows as $row) {
+            $fromPrice = (float) ($row->fromPlan?->price_monthly ?? 0);
+            $toPrice = (float) ($row->toPlan?->price_monthly ?? 0);
+
+            if ($row->change_type === \App\Models\SubscriptionChange::TYPE_UPGRADE && $row->to_plan_id === $plan->id) {
+                $expansion += ($toPrice - $fromPrice);
+            } elseif ($row->change_type === \App\Models\SubscriptionChange::TYPE_DOWNGRADE && $row->from_plan_id === $plan->id) {
+                $contraction += ($fromPrice - $toPrice);
+            }
+        }
+
+        return [$expansion, $contraction];
     }
 }
