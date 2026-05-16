@@ -1,0 +1,206 @@
+{
+  "phase": 40,
+  "title": "[STRIPE-GATEWAY] PaymentGatewayInterface fills the third slot — Stripe parity for non-KES collections + SaaS billing + webhook + reconciliation + landlord routing preference",
+  "opened_at": "2026-05-16",
+  "tier": "7",
+  "scope": "Tier-7 cycle 4 — operationalising the second payment rail that the abstraction layer has been waiting for since 2025-12. Phase 39 closeout handoff notes (docs/runbooks/vendors.md) and scout report both confirm: PaymentGatewayInterface + PaymentGatewayManager + Money/Currency value objects + db-level payment_method enum accepting 'stripe' are ALREADY in place — the third slot is carved, just empty. tests/Unit/Services/PaymentGatewayManagerTest.php:88 literally asserts gateway('stripe') currently throws 'Unknown payment gateway: stripe' and supports('stripe') is false. Scout also surfaced PaymentMethod app-enum drift (missing Stripe case despite DB enum allowing it) + dual credential pattern (PaystackService per-tenant via PaymentConfiguration vs PaystackSubscriptionService system-wide via Setting::getSystem) that StripeService must mirror. Phase 39's 1500-LOC estimate is correct; 80% of work is parallel-class implementation following the established Paystack-shaped pattern, NOT architectural design. 18 findings across 6 categories: GATEWAY-CONTRACT (3 — register stripe in supportedGateways() + match() arm, add PaymentMethod::Stripe enum case fixing the schema/app-enum drift, document the per-landlord vs system-wide credential boundary for StripeService vs StripeSubscriptionService), GATEWAY-STRIPE (4 — StripeService following PaystackService template with per-PaymentConfiguration withConfig() + retry/backoff from config/payments.php gateways.stripe block, StripeSubscriptionService following PaystackSubscriptionService template for SaaS billing, payment_configurations table gains stripe_enabled/stripe_public_key/stripe_secret_key encrypted columns, composer require stripe/stripe-php ^15.0), GATEWAY-WEBHOOK (3 — StripeWebhookController mirroring PaystackWebhookController with Stripe\\WebhookSignature::verifyHeader + 24h Cache::add idempotency on event.id, route /webhooks/v2/stripe under same web group, lifecycle event handlers for payment_intent.succeeded + charge.refunded + customer.subscription.{created,updated,deleted}), GATEWAY-CURRENCY (3 — subscription_plans.stripe_plan_code + subscriptions.{stripe_subscription_code,stripe_customer_code} parallel-column migration following paystack_* naming, Money::toStripeAmount() one-liner returning $amount unchanged since both gateways use minor-units, gateway routing logic — Paystack for KES domestic, Stripe for USD/EUR/GBP — encapsulated in PaymentGatewayManager::routeFor(Currency $currency)), GATEWAY-RECONCILE (3 — refactor PaymentReconciliationService::reconcilePaystack() into reconcile(string $gateway) accepting any PaymentGatewayInterface, rename cron from reconciliation:run-daily to payments:gateway-reconcile keeping daily 05:45 slot AND adding stripe leg, gateway_drift sev3 alert when |paystack_ledger - app_payments| OR |stripe_ledger - app_payments| > drift threshold), GATEWAY-PREF (2 — users.payment_gateway_preference enum (paystack|stripe|auto, default auto), Pages/Admin/Gateways/Index.vue super_admin gateway switcher per landlord). Severity 5H/8M/5L. NOT in scope: refactoring paystack_* hardcoded column names into generic gateway+gateway_reference (would touch payments, subscriptions, subscription_payments, archived_payments, subscription_plans — too large; deferred to a future schema-cleanup cycle, parallel-column pattern preserves backward compat), per-tenant Stripe Connect/express accounts for split payments (current Paystack subaccount equivalent is PaystackSubaccountService — Stripe Connect equivalent deferred until at least one landlord requests USD subaccount split), IntaSend gateway parity (third gateway with M-Pesa fallback path — separate cycle when IntaSend pricing case-study completes), landlord-facing currency picker on rent collection (current default uses landlord's preferred currency from PaymentConfiguration — UI for tenant currency selection deferred), automatic Stripe-side plan creation when subscription plan KES price changes (manual sync via StripeSubscriptionService::createOrUpdatePlan today; full bidirectional sync deferred to future cycle).",
+  "categories": [
+    "GATEWAY-CONTRACT",
+    "GATEWAY-STRIPE",
+    "GATEWAY-WEBHOOK",
+    "GATEWAY-CURRENCY",
+    "GATEWAY-RECONCILE",
+    "GATEWAY-PREF"
+  ],
+  "findings": [
+    {
+      "id": "GATEWAY-CONTRACT-1",
+      "title": "PaymentGatewayManager registers 'stripe' in supportedGateways() + match() arm",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/PaymentGatewayManager.php"
+      ],
+      "evidence": "PaymentGatewayManager.php:82 returns ['paystack', 'mpesa']. Scout confirmed tests/Unit/Services/PaymentGatewayManagerTest.php:88 asserts gateway('stripe') currently throws 'Unknown payment gateway: stripe' AND supports('stripe') === false AND isConfigured('stripe') === false. Until the slot is registered, no downstream code can resolve a Stripe instance.",
+      "fix": "(a) supportedGateways() returns ['paystack', 'mpesa', 'stripe']; (b) gateway() match adds 'stripe' => $this->stripe() arm; (c) new stripe() singleton accessor calling app(StripeGateway::class); (d) update PaymentGatewayManagerTest to flip the previously-failing-by-design assertions: gateway('stripe') instanceof StripeGateway, supports('stripe') === true."
+    },
+    {
+      "id": "GATEWAY-CONTRACT-2",
+      "title": "PaymentMethod app-enum drift — add Stripe case",
+      "severity": "HIGH",
+      "files": [
+        "app/Enums/PaymentMethod.php"
+      ],
+      "evidence": "Scout confirmed db-level payment_method enum already accepts 'stripe' (2025_12_16_093818_create_payments_table.php:21) but app-side PaymentMethod enum (app/Enums/PaymentMethod.php) lacks the case — only Cash/BankTransfer/MobileMoney/Paystack/IntaSendMpesa. Inserting a Stripe payment today via Eloquent would silently corrupt the cast (BackedEnum::from would throw on hydrate-back).",
+      "fix": "Add `case Stripe = 'stripe';` to the enum. No DB migration required — column enum already permits the value. Update any switch/match exhaustiveness elsewhere by following PaymentMethod usages."
+    },
+    {
+      "id": "GATEWAY-CONTRACT-3",
+      "title": "Document per-landlord vs system-wide credential boundary",
+      "severity": "MEDIUM",
+      "files": [
+        "docs/runbooks/payments.md (or vendors.md update)"
+      ],
+      "evidence": "Scout flagged dual-pattern: PaystackService loads credentials per-landlord via PaymentConfiguration (used for tenant rent collection), while PaystackSubscriptionService loads system-wide via Setting::getSystem (used for PropManager's SaaS billing). StripeService + StripeSubscriptionService MUST mirror — confusing the two boundaries leaks credentials cross-tenant or breaks SaaS billing.",
+      "fix": "Add 'Per-landlord vs system-wide gateway credentials' subsection to docs/runbooks/vendors.md (or a new payments.md). Decision matrix: rent collection from tenants → per-landlord (each landlord's own Stripe account), SaaS subscription billing → system-wide (PropManager's own Stripe account). Document which service belongs to which boundary."
+    },
+    {
+      "id": "GATEWAY-STRIPE-1",
+      "title": "StripeService implements PaymentGatewayInterface following PaystackService template",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/StripeService.php (new)",
+        "app/Services/Gateways/StripeGateway.php (new)",
+        "app/Exceptions/Integration/StripeException.php (new)"
+      ],
+      "evidence": "PaystackService is ~600 LOC with withConfig(PaymentConfiguration), Currency-aware Money handling, LogsExternalRequests trait, retry/backoff from config('payments.gateways.paystack.*'). StripeService mirrors this 1:1 — same shape, swap base URL + signature + currency conversion. StripeGateway implements PaymentGatewayInterface contract delegating to StripeService for per-config calls.",
+      "fix": "(a) StripeService::withConfig(PaymentConfiguration) loading stripe_secret_key (encrypted), initializing \\Stripe\\StripeClient; (b) initializePayment(PaymentRequest) creates PaymentIntent with currency + amount in minor-units via Money::toStripeAmount(); (c) verifyPayment(reference) retrieves PaymentIntent by id; (d) refundPayment(payment, amount) creates Refund; (e) generateReference() returns 'pi_'-prefixed nonce or uses Stripe-generated id post-create; (f) StripeException extends PaymentGatewayUnreachableException for retry; (g) StripeGateway wraps StripeService for the interface — getIdentifier()='stripe', getPublicKey() reads stripe_public_key from PaymentConfiguration."
+    },
+    {
+      "id": "GATEWAY-STRIPE-2",
+      "title": "StripeSubscriptionService for SaaS billing (system-wide credentials)",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/StripeSubscriptionService.php (new)"
+      ],
+      "evidence": "PaystackSubscriptionService reads Setting::getSystem('paystack_secret_key') for PropManager's own SaaS billing. Stripe equivalent needed for landlords who want to pay their PropManager subscription via Stripe (USD card) instead of Paystack (KES). Mirrors PaystackSubscriptionService surface: initializePayment, verifyPayment, createPlan, updateSubscription, disableSubscription, syncFromGateway.",
+      "fix": "(a) StripeSubscriptionService::__construct reads Setting::getSystem('stripe_secret_key') + ('stripe_publishable_key'); (b) createPlan(SubscriptionPlan) maps to Stripe Price/Product (price.recurring.interval = 'month'); (c) initializeCheckout(user, plan) creates Checkout Session returning hosted-checkout URL; (d) syncFromGateway(subscriptionCode) calls subscriptions.retrieve, returns {success, status, current_period_end, raw}; (e) updateSubscription(code, newPlanCode) for upgrade flow + disableSubscription(code) for cancellation."
+    },
+    {
+      "id": "GATEWAY-STRIPE-3",
+      "title": "payment_configurations table gains Stripe credential columns",
+      "severity": "MEDIUM",
+      "files": [
+        "database/migrations/2026_05_17_000010_phase40_gateway_stripe_add_stripe_creds_to_payment_configurations.php (new)",
+        "app/Models/PaymentConfiguration.php"
+      ],
+      "evidence": "Per-landlord Stripe credentials must live on payment_configurations (same place as Paystack creds — per scout: services.php was intentionally emptied of Paystack with comment 'Per-tenant credentials must come from PaymentConfiguration, not .env'). Stripe needs same encrypted-at-rest pattern.",
+      "fix": "(a) Migration adds stripe_enabled boolean default false, stripe_public_key string nullable, stripe_secret_key string encrypted nullable, stripe_webhook_secret string encrypted nullable; (b) PaymentConfiguration model casts stripe_secret_key + stripe_webhook_secret as 'encrypted', fillable list updated."
+    },
+    {
+      "id": "GATEWAY-STRIPE-4",
+      "title": "composer require stripe/stripe-php ^15.0",
+      "severity": "LOW",
+      "files": [
+        "composer.json",
+        "composer.lock"
+      ],
+      "evidence": "PropManager has zero Stripe dep today. stripe-php ^15.0 is the current GA major (PHP 8.2+ matches our floor) with namespaced classes (\\Stripe\\StripeClient, \\Stripe\\Webhook, \\Stripe\\PaymentIntent).",
+      "fix": "composer require stripe/stripe-php:^15.0 — commit lockfile."
+    },
+    {
+      "id": "GATEWAY-WEBHOOK-1",
+      "title": "StripeWebhookController mirrors PaystackWebhookController structure",
+      "severity": "HIGH",
+      "files": [
+        "app/Http/Controllers/Webhooks/StripeWebhookController.php (new)"
+      ],
+      "evidence": "PaystackWebhookController is the reference impl: HMAC-SHA512 + hash_equals + 24h Cache::add on event+reference + dispatches to local Subscription state mutations + structured 200/duplicate/401/422/503 taxonomy. StripeWebhookController needs parallel structure with Stripe-specific signature scheme.",
+      "fix": "(a) Reads stripe_webhook_secret from Setting::getSystem (system webhook) or per-landlord config (where landlord-scoped); (b) verification via \\Stripe\\Webhook::constructEvent($rawBody, $sigHeader, $secret) — throws \\Stripe\\Exception\\SignatureVerificationException on bad sig → return 401; (c) idempotency key 'stripe-webhook-'.$event->type.'-'.$event->id, 24h Cache::add; (d) match on event.type for payment_intent.succeeded / charge.refunded / customer.subscription.created/updated/deleted; (e) dispatch local Subscription state mutations; (f) return 200 on duplicate (idempotency), 503 if secret unconfigured."
+    },
+    {
+      "id": "GATEWAY-WEBHOOK-2",
+      "title": "Route /webhooks/v2/stripe registered next to /webhooks/v2/paystack",
+      "severity": "MEDIUM",
+      "files": [
+        "routes/web.php"
+      ],
+      "evidence": "Existing /webhooks/v2/paystack at routes/web.php:138. Stripe needs sibling route in the same group (probably WithoutCsrf middleware, since webhooks come from outside).",
+      "fix": "Route::post('/webhooks/v2/stripe', [StripeWebhookController::class, '__invoke']) in the same group as PaystackWebhookController. No auth, no CSRF — signature verification IS the auth."
+    },
+    {
+      "id": "GATEWAY-WEBHOOK-3",
+      "title": "Subscription lifecycle event handlers for Stripe events",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/Webhooks/StripeWebhookController.php (new)"
+      ],
+      "evidence": "Phase 37 PaystackWebhookController extends to dispatch subscription.create/disable/not_renew to local Subscription state mutations dedup'd on subscription_code. Stripe equivalents: customer.subscription.created → mark subscription active, .updated → resync from gateway (StripeSubscriptionService::syncFromGateway), .deleted → mark cancelled.",
+      "fix": "Inside StripeWebhookController, match event types: customer.subscription.created → Subscription::where('stripe_subscription_code', $event->data->object->id)->markActive(); customer.subscription.updated → SubscriptionService::syncFromStripe($code); customer.subscription.deleted → cancel. All dedup'd via the parent idempotency key."
+    },
+    {
+      "id": "GATEWAY-CURRENCY-1",
+      "title": "stripe_* parallel-column migration for subscription_plans + subscriptions",
+      "severity": "HIGH",
+      "files": [
+        "database/migrations/2026_05_17_000020_phase40_gateway_currency_add_stripe_codes_to_subscription_tables.php (new)"
+      ],
+      "evidence": "Phase 37 added subscription_plans.paystack_plan_code following the existing subscriptions.paystack_subscription_code + paystack_customer_code pattern. Stripe parity needs stripe_subscription_code + stripe_customer_code on subscriptions, stripe_plan_code (Stripe Price id, e.g. price_xxx) on subscription_plans. Parallel-column pattern preserves backward compat AND lets a landlord be billed via either gateway depending on currency.",
+      "fix": "(a) ALTER TABLE subscription_plans ADD stripe_plan_code VARCHAR(64) NULLABLE; (b) ALTER TABLE subscriptions ADD stripe_subscription_code VARCHAR(64) NULLABLE, stripe_customer_code VARCHAR(64) NULLABLE; (c) update Subscription + SubscriptionPlan models fillable arrays."
+    },
+    {
+      "id": "GATEWAY-CURRENCY-2",
+      "title": "Money::toStripeAmount() — minor-units identical to Paystack",
+      "severity": "MEDIUM",
+      "files": [
+        "app/ValueObjects/Payment/Money.php"
+      ],
+      "evidence": "Both Stripe + Paystack use minor-units (cents/kobo). Money::toPaystackAmount() already returns $this->amount (already in minor units). Stripe needs same accessor for API ergonomics + symmetry.",
+      "fix": "Add `public function toStripeAmount(): int { return (int) $this->amount; }`. One-liner. Currency-aware via the underlying Money $currency."
+    },
+    {
+      "id": "GATEWAY-CURRENCY-3",
+      "title": "PaymentGatewayManager::routeFor(Currency) routes KES→Paystack, USD/EUR/GBP→Stripe",
+      "severity": "LOW",
+      "files": [
+        "app/Services/PaymentGatewayManager.php"
+      ],
+      "evidence": "Without an explicit routing rule, callers would hand-code 'if currency=KES then paystack else stripe' at N callsites. Centralising in the manager is one method that returns the correct PaymentGatewayInterface for a Currency.",
+      "fix": "Add `public function routeFor(Currency $currency): PaymentGatewayInterface { return $this->gateway($currency === Currency::KES ? 'paystack' : 'stripe'); }`. Override per-landlord via user.payment_gateway_preference (auto = this routing, paystack/stripe = forced)."
+    },
+    {
+      "id": "GATEWAY-RECONCILE-1",
+      "title": "PaymentReconciliationService::reconcile(string $gateway) replaces reconcilePaystack()",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/Reconciliation/PaymentReconciliationService.php"
+      ],
+      "evidence": "Scout: 'Reconciliation service is structurally Paystack-shaped (reconcilePaystack() constructor takes PaystackService directly).' Refactor to accept any PaymentGatewayInterface so Stripe (and any future gateway) reconciles via the same code path.",
+      "fix": "(a) Constructor takes PaymentGatewayManager; (b) reconcile(string $gateway) replaces reconcilePaystack — fetches PaymentGatewayInterface via manager; (c) keep reconcilePaystack() as deprecated wrapper calling reconcile('paystack') for one cycle (preserves callsite back-compat); (d) add reconcileStripe() sibling for clarity at command-line invocation."
+    },
+    {
+      "id": "GATEWAY-RECONCILE-2",
+      "title": "Rename cron reconciliation:run-daily → payments:gateway-reconcile + add stripe leg",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/DailyPaymentReconciliation.php",
+        "routes/console.php"
+      ],
+      "evidence": "Existing cron is Paystack-only. New name reflects gateway-agnostic shape. Daily 05:45 slot is free (no Phase 39 cron there). Command iterates configured landlords, calls reconcile() for each enabled gateway.",
+      "fix": "(a) Rename signature to 'payments:gateway-reconcile'; (b) loop over PaymentGatewayManager::available() per landlord; (c) Schedule::command('payments:gateway-reconcile')->dailyAt('05:45')->timezone('Africa/Nairobi')->onOneServer()->name('phase40-payments-gateway-reconcile'); (d) emit gateway_reconcile_drift_count{gateway} gauge."
+    },
+    {
+      "id": "GATEWAY-RECONCILE-3",
+      "title": "gateway_drift sev3 alert when ledger drift > threshold",
+      "severity": "LOW",
+      "files": [
+        "config/alerts.php",
+        "app/Console/Commands/DailyPaymentReconciliation.php"
+      ],
+      "evidence": "Without an alert, drift accumulates silently. Phase 39 set the precedent with vendor_flap sev4 + threshold + gauge + runbook. gateway_drift one severity higher (sev3) because payment ledger mismatch is money correctness, not vendor cosmetic.",
+      "fix": "(a) config/alerts.php gains gateway_drift sev3, threshold 5 (drift count per day), gauge gateway_reconcile_drift_count, runbook docs/runbooks/payments.md; (b) command fires via AlertFiringRecorder when any gateway's per-day drift_count > threshold, auto-resolves on next clean run."
+    },
+    {
+      "id": "GATEWAY-PREF-1",
+      "title": "users.payment_gateway_preference enum migration",
+      "severity": "LOW",
+      "files": [
+        "database/migrations/2026_05_17_000030_phase40_gateway_pref_add_payment_gateway_preference_to_users.php (new)",
+        "app/Models/User.php"
+      ],
+      "evidence": "Phase 39 closeout runbook handoff: 'landlord.payment_gateway_preference enum (paystack | stripe | auto)' lets landlords override the Currency-based auto-routing. Persisted on users (landlord_id-scoped for tenant_id rows naturally inherits via FK).",
+      "fix": "(a) ALTER TABLE users ADD payment_gateway_preference ENUM('paystack','stripe','auto') DEFAULT 'auto'; (b) User model fillable + cast; (c) PaymentGatewayManager::routeForUser($user, $currency) reads preference, falls back to routeFor($currency) when 'auto'."
+    },
+    {
+      "id": "GATEWAY-PREF-2",
+      "title": "Pages/Admin/Gateways/Index.vue super_admin gateway switcher",
+      "severity": "LOW",
+      "files": [
+        "app/Http/Controllers/Admin/AdminGatewaysController.php (new)",
+        "resources/js/Pages/Admin/Gateways/Index.vue (new)",
+        "routes/web.php"
+      ],
+      "evidence": "Per-landlord override needs an admin UI for support cases (e.g. landlord says 'force my account to Stripe for the next transaction'). Mirrors the existing super_admin landlord-management pattern.",
+      "fix": "(a) AdminGatewaysController @ /admin/gateways under role:super_admin: GET lists landlords + current preference + currently-configured gateways; POST /admin/gateways/{user}/preference updates payment_gateway_preference; (b) Vue page table with select per row + save button + flash; (c) routes registered alongside other admin routes."
+    }
+  ]
+}
