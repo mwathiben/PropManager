@@ -128,5 +128,17 @@ return [
             'paging' => 'email',
             'description' => 'A cache bucket (cache,type) dropped below the configured hit-rate floor — wasted compute.',
         ],
+
+        // Phase-33 COST-LOGS-3
+        [
+            'key' => 'high_landlord_log_volume',
+            'severity' => 'sev4',
+            'threshold' => 5,
+            'window' => '24h',
+            'gauge' => 'landlord_log_bytes_24h',
+            'runbook' => 'docs/runbooks/cost.md',
+            'paging' => 'email',
+            'description' => 'One landlord exceeds 5x median log volume — investigate noisy webhook or error loop.',
+        ],
     ],
 ];

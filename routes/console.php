@@ -444,3 +444,12 @@ Schedule::command('storage:cost-audit')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase33-cost-storage3-cost-audit');
+
+// Phase-33 COST-LOGS-2/3: per-landlord log-volume audit + skew alert.
+// Runs at 03:55 — last in the Phase-33 03:30-03:55 cluster, just
+// before the 04:00 backup window.
+Schedule::command('log:volume-audit')
+    ->dailyAt('03:55')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase33-cost-logs23-audit');
