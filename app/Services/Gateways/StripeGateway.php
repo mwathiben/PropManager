@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Gateways;
 
 use App\Contracts\PaymentGatewayInterface;
+use App\Exceptions\Integration\PaymentGatewayUnreachableException;
 use App\Services\StripeService;
 use App\ValueObjects\Payment\Money;
 use App\ValueObjects\Payment\PaymentRequest;
@@ -12,11 +13,8 @@ use App\ValueObjects\Payment\PaymentResult;
 use Illuminate\Http\Request;
 
 /**
- * Phase-40 GATEWAY-CONTRACT-1 shell. Real PaymentIntent /
- * webhook signature / refund logic lands in Phase 1b —
- * GATEWAY-STRIPE-1. Until then, every operational method returns
- * a 'gateway not yet implemented' failure result so callers see a
- * deterministic error instead of a 500.
+ * Phase-40 GATEWAY-STRIPE-1: PaymentGatewayInterface adapter
+ * delegating to StripeService (per-landlord credentials).
  */
 class StripeGateway implements PaymentGatewayInterface
 {
@@ -36,31 +34,88 @@ class StripeGateway implements PaymentGatewayInterface
 
     public function initializePayment(PaymentRequest $request): PaymentResult
     {
-        return PaymentResult::failed(
-            error: 'Stripe gateway not yet implemented — Phase 40 [GATEWAY-STRIPE-1] in progress.',
-            reference: $request->reference,
+        try {
+            $response = $this->service->createPaymentIntent([
+                'amount' => $request->amount->toSmallestUnit(),
+                'currency' => $request->amount->currency,
+                'reference' => $request->reference,
+                'metadata' => $request->metadata ?? [],
+                'receipt_email' => $request->email,
+            ]);
+        } catch (PaymentGatewayUnreachableException $e) {
+            return PaymentResult::failed(
+                error: $e->getMessage(),
+                errorCode: $e->getErrorCode(),
+                reference: $request->reference,
+            );
+        }
+
+        if ($response === null || ! ($response['status'] ?? false)) {
+            return PaymentResult::failed(
+                error: $response['message'] ?? 'Failed to initialize Stripe PaymentIntent',
+                reference: $request->reference,
+                rawResponse: $response,
+            );
+        }
+
+        $data = $response['data'] ?? [];
+
+        return PaymentResult::initialized(
+            reference: $data['reference'] ?? $request->reference,
+            authorizationUrl: '',
+            accessCode: $data['client_secret'] ?? null,
+            rawResponse: $response,
         );
     }
 
     public function verifyPayment(string $reference): PaymentResult
     {
-        return PaymentResult::failed(
-            error: 'Stripe gateway not yet implemented — Phase 40 [GATEWAY-STRIPE-1] in progress.',
-            reference: $reference,
+        $response = $this->service->retrievePaymentIntent($reference);
+
+        if ($response === null || ! ($response['status'] ?? false)) {
+            return PaymentResult::failed(
+                error: $response['message'] ?? 'Failed to verify Stripe PaymentIntent',
+                reference: $reference,
+                rawResponse: $response,
+            );
+        }
+
+        $data = $response['data'] ?? [];
+
+        return PaymentResult::verified(
+            reference: $data['reference'] ?? $reference,
+            status: $data['status'] ?? 'failed',
+            amount: Money::fromSmallestUnit((int) ($data['amount'] ?? 0), $data['currency'] ?? 'USD'),
+            transactionId: $data['reference'] ?? null,
+            rawResponse: $response,
         );
     }
 
     public function refundPayment(string $reference, ?Money $amount = null): PaymentResult
     {
-        return PaymentResult::failed(
-            error: 'Stripe gateway not yet implemented — Phase 40 [GATEWAY-STRIPE-1] in progress.',
-            reference: $reference,
+        $response = $this->service->refund($reference, $amount?->toSmallestUnit());
+
+        if ($response === null || ! ($response['status'] ?? false)) {
+            return PaymentResult::failed(
+                error: $response['message'] ?? 'Failed to process Stripe refund',
+                reference: $reference,
+                rawResponse: $response,
+            );
+        }
+
+        return PaymentResult::refunded(
+            reference: $response['reference'] ?? $reference,
+            amount: Money::fromSmallestUnit((int) ($response['amount'] ?? 0), $response['currency'] ?? 'USD'),
+            transactionId: $response['reference'] ?? null,
+            rawResponse: $response,
         );
     }
 
     public function validateWebhook(Request $request): bool
     {
-        return false;
+        $sigHeader = $request->header('Stripe-Signature', '');
+
+        return $this->service->verifyWebhookSignature($request->getContent(), (string) $sigHeader);
     }
 
     public function getPublicKey(): ?string

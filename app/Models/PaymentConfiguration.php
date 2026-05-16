@@ -47,6 +47,10 @@ class PaymentConfiguration extends Model
         'intasend_secret_key',
         'intasend_webhook_challenge',
         'intasend_environment',
+        'stripe_enabled',
+        'stripe_public_key',
+        'stripe_secret_key',
+        'stripe_webhook_secret',
     ];
 
     protected $casts = [
@@ -65,6 +69,9 @@ class PaymentConfiguration extends Model
         'intasend_enabled' => 'boolean',
         'intasend_secret_key' => 'encrypted',
         'intasend_webhook_challenge' => 'encrypted',
+        'stripe_enabled' => 'boolean',
+        'stripe_secret_key' => 'encrypted',
+        'stripe_webhook_secret' => 'encrypted',
         'bank_account_number' => 'encrypted',
         'coop_webhook_secret' => 'encrypted',
         'equity_webhook_secret' => 'encrypted',

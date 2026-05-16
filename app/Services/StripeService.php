@@ -4,30 +4,44 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\Currency;
+use App\Exceptions\Integration\PaymentGatewayUnreachableException;
 use App\Models\PaymentConfiguration;
+use App\Traits\LogsExternalRequests;
+use Illuminate\Support\Facades\Log;
+use Stripe\Exception\ApiErrorException;
+use Stripe\Exception\SignatureVerificationException;
+use Stripe\PaymentIntent;
+use Stripe\Refund;
+use Stripe\StripeClient;
+use Stripe\Webhook;
 
 /**
- * Phase-40 GATEWAY-CONTRACT-1 shell. StripeService::withConfig +
- * isConfigured + ensureConfigured land in Phase 1a so the slot in
- * PaymentGatewayManager can resolve without crashing. The real
- * Stripe SDK calls (initializeTransaction, verifyTransaction,
- * refundTransaction, webhook signature verification) land in
- * Phase 1b — GATEWAY-STRIPE-1.
+ * Phase-40 GATEWAY-STRIPE-1: per-landlord Stripe SDK client wrapper.
+ * Credentials load from PaymentConfiguration (NOT from .env — follows
+ * the Paystack pattern documented in docs/runbooks/payments.md).
+ *
+ * The system-wide SaaS billing path lives in StripeSubscriptionService
+ * (loads from Setting::getSystem) — the two services MUST stay
+ * separate to preserve credential isolation between landlord-facing
+ * rent collection and PropManager's own subscription revenue.
  */
 class StripeService
 {
+    use LogsExternalRequests;
+
     protected string $secretKey = '';
 
     protected string $publicKey = '';
 
     protected string $webhookSecret = '';
 
+    protected ?StripeClient $client = null;
+
     public function __construct(?PaymentConfiguration $config = null)
     {
         if ($config !== null && $config->hasStripeConfig()) {
-            $this->secretKey = (string) $config->stripe_secret_key;
-            $this->publicKey = (string) $config->stripe_public_key;
-            $this->webhookSecret = (string) ($config->stripe_webhook_secret ?? '');
+            $this->loadCredentials($config);
         }
     }
 
@@ -40,11 +54,36 @@ class StripeService
             );
         }
 
+        $this->loadCredentials($config);
+
+        return $this;
+    }
+
+    private function loadCredentials(PaymentConfiguration $config): void
+    {
         $this->secretKey = (string) $config->stripe_secret_key;
         $this->publicKey = (string) $config->stripe_public_key;
         $this->webhookSecret = (string) ($config->stripe_webhook_secret ?? '');
+        $this->client = null;
+    }
 
-        return $this;
+    protected function ensureConfigured(): void
+    {
+        if (! $this->isConfigured()) {
+            throw new \InvalidArgumentException(
+                'StripeService requires Stripe credentials. Call withConfig() first or construct with PaymentConfiguration.'
+            );
+        }
+    }
+
+    protected function client(): StripeClient
+    {
+        $this->ensureConfigured();
+        if ($this->client === null) {
+            $this->client = new StripeClient($this->secretKey);
+        }
+
+        return $this->client;
     }
 
     public function isConfigured(): bool
@@ -57,12 +96,112 @@ class StripeService
         return $this->publicKey === '' ? null : $this->publicKey;
     }
 
-    protected function ensureConfigured(): void
+    public function getWebhookSecret(): ?string
     {
-        if (! $this->isConfigured()) {
-            throw new \InvalidArgumentException(
-                'StripeService requires Stripe credentials. Call withConfig() first or construct with PaymentConfiguration.'
-            );
+        return $this->webhookSecret === '' ? null : $this->webhookSecret;
+    }
+
+    /**
+     * Create a PaymentIntent for the given amount.
+     *
+     * @param  array{amount: int, currency: string, reference: string, metadata?: array, receipt_email?: string}  $data
+     * @return array|null
+     */
+    public function createPaymentIntent(array $data): ?array
+    {
+        $this->ensureConfigured();
+
+        try {
+            $intent = $this->timedHttpRequest('stripe', '/v1/payment_intents', fn () => $this->client()->paymentIntents->create([
+                'amount' => (int) $data['amount'],
+                'currency' => strtolower($data['currency']),
+                'metadata' => array_merge($data['metadata'] ?? [], ['reference' => $data['reference']]),
+                'receipt_email' => $data['receipt_email'] ?? null,
+                'automatic_payment_methods' => ['enabled' => true],
+            ]));
+
+            return [
+                'status' => true,
+                'data' => [
+                    'reference' => $intent->id,
+                    'client_secret' => $intent->client_secret,
+                    'amount' => $intent->amount,
+                    'currency' => strtoupper($intent->currency),
+                    'status' => $intent->status,
+                ],
+            ];
+        } catch (ApiErrorException $e) {
+            Log::warning('stripe createPaymentIntent failed', [
+                'error' => $e->getMessage(),
+                'stripe_code' => $e->getStripeCode(),
+            ]);
+
+            return ['status' => false, 'message' => $e->getMessage()];
+        } catch (\Throwable $e) {
+            throw new PaymentGatewayUnreachableException('stripe', $e->getMessage(), 'unreachable');
+        }
+    }
+
+    public function retrievePaymentIntent(string $paymentIntentId): ?array
+    {
+        $this->ensureConfigured();
+
+        try {
+            $intent = $this->client()->paymentIntents->retrieve($paymentIntentId);
+
+            return [
+                'status' => true,
+                'data' => [
+                    'reference' => $intent->id,
+                    'status' => $intent->status,
+                    'amount' => $intent->amount,
+                    'currency' => strtoupper($intent->currency),
+                ],
+            ];
+        } catch (ApiErrorException $e) {
+            return ['status' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    public function refund(string $paymentIntentId, ?int $amountMinorUnits = null): ?array
+    {
+        $this->ensureConfigured();
+
+        try {
+            $payload = ['payment_intent' => $paymentIntentId];
+            if ($amountMinorUnits !== null) {
+                $payload['amount'] = $amountMinorUnits;
+            }
+            $refund = $this->client()->refunds->create($payload);
+
+            return [
+                'status' => true,
+                'amount' => $refund->amount,
+                'currency' => strtoupper($refund->currency),
+                'reference' => $refund->id,
+                'payment_intent' => $refund->payment_intent,
+            ];
+        } catch (ApiErrorException $e) {
+            return ['status' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Verify Stripe webhook signature using the configured webhook secret.
+     */
+    public function verifyWebhookSignature(string $rawPayload, string $sigHeader): bool
+    {
+        if ($this->webhookSecret === '') {
+            return false;
+        }
+        try {
+            Webhook::constructEvent($rawPayload, $sigHeader, $this->webhookSecret);
+
+            return true;
+        } catch (SignatureVerificationException) {
+            return false;
+        } catch (\Throwable) {
+            return false;
         }
     }
 
