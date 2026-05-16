@@ -69,8 +69,9 @@ class SubscriptionService
             $proratedAmount = $this->computeProratedAmount($subscription, $oldPlan, $newPlan);
         }
 
-        \DB::transaction(function () use ($subscription, $oldPlan, $newPlan, $changeType, $proratedAmount) {
-            \App\Models\SubscriptionChange::create([
+        $change = null;
+        \DB::transaction(function () use ($subscription, $oldPlan, $newPlan, $changeType, $proratedAmount, &$change) {
+            $change = \App\Models\SubscriptionChange::create([
                 'subscription_id' => $subscription->id,
                 'from_plan_id' => $oldPlan?->id ?? $newPlan->id,
                 'to_plan_id' => $newPlan->id,
@@ -83,6 +84,34 @@ class SubscriptionService
                 'plan_id' => $newPlan->id,
             ]);
         });
+
+        // Phase-37 PWA-GATEWAY-1: push the plan change to Paystack on
+        // upgrade when the subscription is wired to a gateway code.
+        // Gateway failures are swallowed here so the user-facing
+        // operation stays atomic on the DB side; gateway:proration-
+        // audit nightly reconciliation catches drift via the
+        // gateway_response audit column.
+        if (
+            $change
+            && $changeType === \App\Models\SubscriptionChange::TYPE_UPGRADE
+            && ! empty($subscription->paystack_subscription_code)
+            && ! empty($newPlan->paystack_plan_code)
+        ) {
+            try {
+                $paystack = app(\App\Services\PaystackSubscriptionService::class);
+                $response = $paystack->updateSubscription(
+                    $subscription->paystack_subscription_code,
+                    $newPlan->paystack_plan_code,
+                );
+                $change->update(['gateway_response' => $response]);
+            } catch (\Throwable $e) {
+                $change->update(['gateway_response' => [
+                    'success' => false,
+                    'http_status' => 0,
+                    'message' => $e->getMessage(),
+                ]]);
+            }
+        }
 
         return $subscription->fresh();
     }

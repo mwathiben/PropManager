@@ -188,5 +188,17 @@ return [
             'paging' => 'email',
             'description' => 'Total daily cron runtime exceeded 60 minutes — investigate per-command profiling.',
         ],
+
+        // Phase-37 PWA-GATEWAY-3
+        [
+            'key' => 'high_gateway_proration_drift',
+            'severity' => 'sev3',
+            'threshold' => 5,
+            'window' => '24h',
+            'gauge' => 'subscription_proration_drift_count_24h',
+            'runbook' => 'docs/runbooks/pwa-depth.md',
+            'paging' => 'email',
+            'description' => 'More than threshold UPGRADE subscription_changes rows could not be reconciled with Paystack in the last 24h.',
+        ],
     ],
 ];

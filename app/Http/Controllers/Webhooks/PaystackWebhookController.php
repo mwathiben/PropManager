@@ -50,22 +50,78 @@ class PaystackWebhookController extends Controller
 
         $payload = json_decode($rawBody, true) ?? [];
         $event = (string) ($payload['event'] ?? '');
-        $reference = (string) ($payload['data']['reference'] ?? '');
 
-        if ($event === '' || $reference === '') {
+        // Phase-37 PWA-GATEWAY-2: subscription lifecycle events carry
+        // subscription_code instead of reference. Charge events still
+        // dedup on reference; sub events dedup on subscription_code.
+        $isSubscriptionEvent = str_starts_with($event, 'subscription.');
+        $dedupId = $isSubscriptionEvent
+            ? (string) ($payload['data']['subscription_code'] ?? '')
+            : (string) ($payload['data']['reference'] ?? '');
+
+        if ($event === '' || $dedupId === '') {
             return response()->json(['error' => 'invalid_payload'], 422);
         }
 
-        $dedupKey = 'paystack-webhook-'.$event.'-'.$reference;
+        $dedupKey = 'paystack-webhook-'.$event.'-'.$dedupId;
         if (! Cache::add($dedupKey, true, now()->addHours(24))) {
             return response()->json(['status' => 'duplicate'], 200);
         }
 
+        if ($isSubscriptionEvent) {
+            $this->handleSubscriptionEvent($event, $payload['data'] ?? []);
+        }
+
         Log::info('Paystack webhook accepted', [
             'event' => $event,
-            'reference' => $reference,
+            'dedup_id' => $dedupId,
         ]);
 
         return response()->json(['status' => 'accepted'], 200);
+    }
+
+    /**
+     * Phase-37 PWA-GATEWAY-2: route subscription.* events to local
+     * Subscription state mutations so Paystack-driven changes stay
+     * in sync without polling. Failures are logged but do NOT 5xx
+     * — Paystack retries on non-2xx and we already deduped, so a
+     * 5xx would silently leak the event on the second delivery.
+     */
+    private function handleSubscriptionEvent(string $event, array $data): void
+    {
+        $code = (string) ($data['subscription_code'] ?? '');
+        if ($code === '') {
+            return;
+        }
+
+        $subscription = \App\Models\Subscription::query()
+            ->where('paystack_subscription_code', $code)
+            ->first();
+        if (! $subscription) {
+            Log::info('Paystack subscription event for unknown code', [
+                'event' => $event,
+                'code' => $code,
+            ]);
+
+            return;
+        }
+
+        switch ($event) {
+            case 'subscription.create':
+                $subscription->update(['status' => 'active']);
+                break;
+            case 'subscription.disable':
+                $subscription->update([
+                    'status' => 'cancelled',
+                    'cancelled_at' => now(),
+                ]);
+                break;
+            case 'subscription.not_renew':
+                $subscription->update([
+                    'status' => 'non_renewing',
+                    'cancel_reason' => 'paystack_not_renew',
+                ]);
+                break;
+        }
     }
 }

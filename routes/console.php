@@ -571,3 +571,14 @@ Schedule::command('insight:weekly-digest')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase37-pwa-digest1-weekly-insight-digest');
+
+// Phase-37 PWA-GATEWAY-3: reconcile last-24h UPGRADE
+// SubscriptionChange rows against Paystack. Fires
+// high_gateway_proration_drift sev3 when unreconciled count
+// exceeds threshold. Daily 05:30 — slots in the growth cluster
+// after Phase-30 bank-reconciliation:audit 05:50.
+Schedule::command('gateway:proration-audit')
+    ->dailyAt('05:30')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase37-pwa-gateway3-proration-audit');

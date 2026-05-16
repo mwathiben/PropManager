@@ -21,12 +21,14 @@ class SubscriptionChange extends Model
         'prorated_amount_kes',
         'scheduled_for',
         'effective_at',
+        'gateway_response',
     ];
 
     protected $casts = [
         'prorated_amount_kes' => 'decimal:2',
         'scheduled_for' => 'datetime',
         'effective_at' => 'datetime',
+        'gateway_response' => 'array',
     ];
 
     public function subscription(): BelongsTo

@@ -209,4 +209,137 @@ class PaystackSubscriptionService
     {
         return ! empty($this->secretKey) && ! empty($this->publicKey);
     }
+
+    /**
+     * Phase-37 PWA-GATEWAY-1: change the active plan on an existing
+     * Paystack subscription. PUT /subscription/:code/plan, returns
+     * the full Paystack envelope ({status, message, data}) so the
+     * SubscriptionChange.gateway_response audit row can capture it.
+     */
+    public function updateSubscription(string $subscriptionCode, string $newPlanCode): array
+    {
+        try {
+            $response = $this->timedHttpRequest(
+                'paystack',
+                '/subscription/'.$subscriptionCode.'/plan',
+                fn () => Http::timeout($this->timeoutSeconds())
+                    ->withHeaders([
+                        'Authorization' => 'Bearer '.$this->secretKey,
+                        'Content-Type' => 'application/json',
+                    ])->put($this->baseUrl.'/subscription/'.$subscriptionCode.'/plan', [
+                        'plan' => $newPlanCode,
+                    ]),
+            );
+
+            $body = $response->json();
+
+            return [
+                'success' => $response->successful() && ($body['status'] ?? false),
+                'http_status' => $response->status(),
+                'message' => $body['message'] ?? null,
+                'data' => $body['data'] ?? null,
+                'requested_plan' => $newPlanCode,
+            ];
+        } catch (\Throwable $e) {
+            Log::error('Paystack updateSubscription error', [
+                'error' => $e->getMessage(),
+                'subscription_code' => $subscriptionCode,
+                'plan_code' => $newPlanCode,
+            ]);
+
+            return [
+                'success' => false,
+                'http_status' => 0,
+                'message' => $e->getMessage(),
+                'data' => null,
+                'requested_plan' => $newPlanCode,
+            ];
+        }
+    }
+
+    /**
+     * Phase-37 PWA-GATEWAY-1: disable a Paystack subscription
+     * (POST /subscription/disable with {code, token}). The
+     * Paystack-provided email_token is read from sub.metadata so
+     * callers don't have to plumb it.
+     */
+    public function disableSubscription(string $subscriptionCode, string $emailToken): array
+    {
+        try {
+            $response = $this->timedHttpRequest(
+                'paystack',
+                '/subscription/disable',
+                fn () => Http::timeout($this->timeoutSeconds())
+                    ->withHeaders([
+                        'Authorization' => 'Bearer '.$this->secretKey,
+                        'Content-Type' => 'application/json',
+                    ])->post($this->baseUrl.'/subscription/disable', [
+                        'code' => $subscriptionCode,
+                        'token' => $emailToken,
+                    ]),
+            );
+
+            $body = $response->json();
+
+            return [
+                'success' => $response->successful() && ($body['status'] ?? false),
+                'http_status' => $response->status(),
+                'message' => $body['message'] ?? null,
+            ];
+        } catch (\Throwable $e) {
+            Log::error('Paystack disableSubscription error', [
+                'error' => $e->getMessage(),
+                'subscription_code' => $subscriptionCode,
+            ]);
+
+            return [
+                'success' => false,
+                'http_status' => 0,
+                'message' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Phase-37 PWA-GATEWAY-1: read the current Paystack-side state
+     * of a subscription. The gateway:proration-audit reconciliation
+     * cron compares the returned plan code vs the local to_plan_id
+     * on the latest SubscriptionChange row.
+     */
+    public function syncFromGateway(string $subscriptionCode): array
+    {
+        try {
+            $response = $this->timedHttpRequest(
+                'paystack',
+                '/subscription/'.$subscriptionCode,
+                fn () => Http::timeout($this->timeoutSeconds())
+                    ->withHeaders([
+                        'Authorization' => 'Bearer '.$this->secretKey,
+                    ])->get($this->baseUrl.'/subscription/'.$subscriptionCode),
+            );
+
+            $body = $response->json();
+
+            return [
+                'success' => $response->successful() && ($body['status'] ?? false),
+                'http_status' => $response->status(),
+                'status' => $body['data']['status'] ?? null,
+                'plan_code' => $body['data']['plan']['plan_code'] ?? null,
+                'data' => $body['data'] ?? null,
+            ];
+        } catch (\Throwable $e) {
+            Log::error('Paystack syncFromGateway error', [
+                'error' => $e->getMessage(),
+                'subscription_code' => $subscriptionCode,
+            ]);
+
+            return [
+                'success' => false,
+                'http_status' => 0,
+                'status' => null,
+                'plan_code' => null,
+                'data' => null,
+            ];
+        }
+    }
 }

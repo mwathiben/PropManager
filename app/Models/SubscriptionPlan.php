@@ -13,6 +13,7 @@ class SubscriptionPlan extends Model
     protected $fillable = [
         'name',
         'slug',
+        'paystack_plan_code',
         'description',
         'price_monthly',
         'price_yearly',
