@@ -164,5 +164,17 @@ return [
             'paging' => 'email',
             'description' => 'A paying landlord dropped below engagement score 30 — customer-success outreach recommended.',
         ],
+
+        // Phase-35 PLATFORM-METER-3
+        [
+            'key' => 'high_metered_overage',
+            'severity' => 'sev4',
+            'threshold' => 1.5,
+            'window' => '24h',
+            'gauge' => 'metered_usage_ratio',
+            'runbook' => 'docs/runbooks/platform.md',
+            'paging' => 'email',
+            'description' => 'A paying landlord exceeded 1.5x plan limit on a metered feature — overage outreach recommended.',
+        ],
     ],
 ];

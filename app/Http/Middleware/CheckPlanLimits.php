@@ -80,6 +80,59 @@ class CheckPlanLimits
     }
 
     /**
+     * Phase-35 PLATFORM-METER-1: record successful WRITE-class usage
+     * AFTER the response is sent. We only count POST/PUT/PATCH/
+     * DELETE since reads aren't billable. terminate() fires after
+     * the response is dispatched so the recording I/O doesn't add
+     * to user-perceived latency.
+     */
+    public function terminate(Request $request, Response $response): void
+    {
+        try {
+            $user = $request->user();
+            if (! $user || $user->role !== 'landlord' || $user->isSuperAdmin()) {
+                return;
+            }
+            if (! in_array($request->method(), ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
+                return;
+            }
+            if ($response->getStatusCode() >= 400) {
+                return;
+            }
+
+            $route = $request->route();
+            // Pull the feature name from the middleware parameter on the
+            // matched route — Laravel renders `plan:units` as parameters
+            // ['units']. Falls back to null if the resolver can't find one.
+            $feature = $this->resolveFeatureFromRoute($route);
+            if ($feature === null) {
+                return;
+            }
+
+            app(\App\Services\Platform\MeteredUsageRecorder::class)
+                ->record($user->id, $feature, 1);
+        } catch (\Throwable) {
+            // Fail-open: metering MUST NEVER bubble out of terminate.
+        }
+    }
+
+    private function resolveFeatureFromRoute($route): ?string
+    {
+        if (! $route) {
+            return null;
+        }
+        foreach ($route->middleware() as $entry) {
+            if (str_starts_with($entry, 'plan:')) {
+                $feature = substr($entry, 5);
+
+                return $feature !== '' ? $feature : null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Map feature to limit feature name.
      */
     protected function getLimitFeature(string $feature): ?string

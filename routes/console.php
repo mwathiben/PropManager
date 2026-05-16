@@ -517,3 +517,12 @@ Schedule::command('landlords:activation-nudge')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase34-growth-lifecycle3-activation-nudge');
+
+// Phase-35 PLATFORM-METER-2/3: per-landlord metered usage ratio +
+// overage alert. Runs at 04:20 — fourth in the 04:00 growth cluster,
+// after engagement:rollup 04:15.
+Schedule::command('metered:soft-cap-audit')
+    ->dailyAt('04:20')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase35-platform-meter23-soft-cap-audit');
