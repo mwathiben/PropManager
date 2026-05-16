@@ -62,9 +62,16 @@ class StripeWebhookController extends Controller
             return response()->json(['status' => 'duplicate'], 200);
         }
 
-        if (str_starts_with($type, 'customer.subscription.')) {
-            $this->handleSubscriptionEvent($type, $event->data->object->toArray());
-        }
+        $payload = $event->data->object->toArray();
+
+        match (true) {
+            str_starts_with($type, 'customer.subscription.') => $this->handleSubscriptionEvent($type, $payload),
+            $type === 'payment_intent.succeeded' => $this->handlePaymentIntentSucceeded($payload),
+            $type === 'charge.refunded' => $this->handleChargeRefunded($payload),
+            $type === 'invoice.payment_failed' => $this->handleInvoicePaymentFailed($payload),
+            $type === 'charge.dispute.created' => $this->handleChargeDisputeCreated($payload),
+            default => null,
+        };
 
         Log::info('Stripe webhook accepted', [
             'type' => $type,
@@ -112,6 +119,129 @@ class StripeWebhookController extends Controller
             ]),
             default => null,
         };
+    }
+
+    /**
+     * Phase-41 GATEWAY-WEBHOOK-DEEP-1: create Payment row when Stripe
+     * confirms a PaymentIntent succeeded. Idempotent via the dedup key
+     * in the parent handler — a duplicate webhook delivery returns
+     * 'duplicate' before getting here.
+     */
+    private function handlePaymentIntentSucceeded(array $payload): void
+    {
+        $intentId = (string) ($payload['id'] ?? '');
+        if ($intentId === '') {
+            return;
+        }
+
+        $existing = \App\Models\Payment::query()
+            ->where('paystack_reference', $intentId)
+            ->first();
+        if ($existing) {
+            return;
+        }
+
+        $metadata = $payload['metadata'] ?? [];
+        $landlordId = (int) ($metadata['landlord_id'] ?? 0);
+        $leaseId = (int) ($metadata['lease_id'] ?? 0);
+        $invoiceId = (int) ($metadata['invoice_id'] ?? 0);
+
+        // SaaS-billing intents carry no landlord_id/lease_id metadata —
+        // those are handled by customer.subscription.* events. Tenant
+        // rent-collection intents MUST include both; if missing, log
+        // and skip so the row never violates the lease_id FK.
+        if ($landlordId === 0 || $leaseId === 0) {
+            Log::info('Stripe payment_intent.succeeded missing rent-collection metadata', [
+                'intent' => $intentId,
+                'landlord_id' => $landlordId,
+                'lease_id' => $leaseId,
+            ]);
+
+            return;
+        }
+
+        \App\Models\Payment::create([
+            'invoice_id' => $invoiceId ?: null,
+            'lease_id' => $leaseId,
+            'landlord_id' => $landlordId,
+            'amount' => (int) ($payload['amount'] ?? 0) / 100,
+            'currency' => strtoupper((string) ($payload['currency'] ?? 'usd')),
+            'payment_method' => 'stripe',
+            'payment_date' => now(),
+            'reference' => $intentId,
+            'paystack_reference' => $intentId,
+            'notes' => 'Stripe payment_intent.succeeded webhook',
+        ]);
+    }
+
+    /**
+     * Phase-41 GATEWAY-WEBHOOK-DEEP-2: flip Payment.is_voided when Stripe
+     * refund posts (dispute reversal, customer-service goodwill).
+     */
+    private function handleChargeRefunded(array $payload): void
+    {
+        $intentId = (string) ($payload['payment_intent'] ?? '');
+        if ($intentId === '') {
+            return;
+        }
+
+        $payment = \App\Models\Payment::query()
+            ->where('paystack_reference', $intentId)
+            ->first();
+        if (! $payment) {
+            return;
+        }
+
+        $payment->update([
+            'is_voided' => true,
+            'voided_at' => now(),
+            'void_reason' => 'stripe_refund',
+        ]);
+
+        \App\Events\PaymentRefundedExternal::dispatch($payment, 'stripe');
+    }
+
+    /**
+     * Phase-41 GATEWAY-WEBHOOK-DEEP-3: flip Subscription.status to
+     * past_due so Phase-34 dunning-emails cron picks it up.
+     */
+    private function handleInvoicePaymentFailed(array $payload): void
+    {
+        $subscriptionCode = (string) ($payload['subscription'] ?? '');
+        if ($subscriptionCode === '') {
+            return;
+        }
+
+        \App\Models\Subscription::query()
+            ->where('stripe_subscription_code', $subscriptionCode)
+            ->update([
+                'status' => 'past_due',
+            ]);
+    }
+
+    /**
+     * Phase-41 GATEWAY-WEBHOOK-DEEP-4: log Stripe disputes to
+     * operational_incidents so they surface on the ops dashboard.
+     */
+    private function handleChargeDisputeCreated(array $payload): void
+    {
+        $chargeId = (string) ($payload['charge'] ?? $payload['id'] ?? '');
+
+        \App\Models\OperationalIncident::create([
+            'severity' => 'sev3',
+            'title' => 'Stripe dispute on charge '.$chargeId,
+            'status' => 'open',
+            'opened_at' => now(),
+            'affected_services' => ['stripe', 'payments'],
+            'summary' => sprintf(
+                'Dispute %s on charge %s — amount=%s %s, reason=%s',
+                (string) ($payload['id'] ?? ''),
+                $chargeId,
+                (string) ($payload['amount'] ?? ''),
+                strtoupper((string) ($payload['currency'] ?? '')),
+                (string) ($payload['reason'] ?? ''),
+            ),
+        ]);
     }
 
     private function mapStripeStatus(string $stripeStatus): string
