@@ -93,6 +93,7 @@ class User extends Authenticatable implements HasLocalePreference
         'kyc_completed_at' => 'datetime',
         'is_archived' => 'boolean',
         'archived_at' => 'datetime',
+        'onboarding_checklist_dismissed_at' => 'datetime',
         // Phase-13 DPA-4: Article 18 restriction-of-processing flag.
         // When non-null the account is read-only; the Gate::before
         // hook in AuthServiceProvider denies write-side abilities.

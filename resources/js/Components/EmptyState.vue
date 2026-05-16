@@ -15,6 +15,10 @@ interface Props {
     actionLabel?: string | null;
     actionHref?: string | null;
     size?: Size;
+    // Phase-31 ONB-EMPTY-1: optional onboarding-checklist mode.
+    showChecklist?: boolean;
+    // Phase-31 ONB-EMPTY-2: optional embedded video walkthrough.
+    videoUrl?: string | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -24,6 +28,8 @@ const props = withDefaults(defineProps<Props>(), {
     actionLabel: null,
     actionHref: null,
     size: 'md',
+    showChecklist: false,
+    videoUrl: null,
 });
 
 const resolvedTitle = computed(() => props.title || t('empty.default_title'));
@@ -85,6 +91,13 @@ const sizeClasses = computed(() => {
                 {{ actionLabel }}
             </button>
         </div>
+        <MilestoneChecklist v-if="showChecklist" class="mt-6" />
+        <VideoSlot v-if="videoUrl" :url="videoUrl" class="mt-6" />
         <slot />
     </div>
 </template>
+
+<script lang="ts">
+import MilestoneChecklist from '@/Components/Onboarding/MilestoneChecklist.vue';
+import VideoSlot from '@/Components/Onboarding/VideoSlot.vue';
+</script>
