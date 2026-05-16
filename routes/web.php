@@ -255,6 +255,10 @@ Route::middleware('auth')->group(function () {
             ->name('referrals.redeem');
         Route::get('/referrals/mine', [\App\Http\Controllers\Growth\ReferralController::class, 'mine'])
             ->name('referrals.mine');
+
+        // Phase-36 INSIGHT-LANDLORD-3: deeper-dive growth surface
+        Route::get('/growth', [\App\Http\Controllers\Insight\LandlordGrowthController::class, 'index'])
+            ->name('landlord.growth');
     });
     // Legacy routes for backward compatibility
     Route::get('/onboarding/create', [OnboardingController::class, 'create'])->name('onboarding.create');

@@ -10,6 +10,10 @@ import MassHikeModal from '@/Components/Modals/MassHikeModal.vue';
 import ActionItemCard from '@/Components/ActionItemCard.vue';
 import MetricCard from '@/Components/MetricCard.vue';
 import Dropdown from '@/Components/Dropdown.vue';
+// Phase-36 INSIGHT-LANDLORD-2: growth widgets
+import EngagementScoreCard from '@/Components/Insight/EngagementScoreCard.vue';
+import ReferralCountCard from '@/Components/Insight/ReferralCountCard.vue';
+import UsageRatioCard from '@/Components/Insight/UsageRatioCard.vue';
 import { useFormatters } from '@/composables';
 import type {
     DashboardPageProps,
@@ -670,6 +674,13 @@ onUnmounted(() => {
                     color="indigo"
                     :href="route('dashboard', { status: 'vacant' })"
                 />
+            </div>
+
+            <!-- Phase-36 INSIGHT-LANDLORD-1/2: growth widgets -->
+            <div v-if="growth" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <EngagementScoreCard :score="growth.engagement_score" :delta="growth.engagement_score_delta_7d" />
+                <ReferralCountCard :count="growth.referral_count_30d" />
+                <UsageRatioCard :ratios="growth.usage_ratios" />
             </div>
 
             <!-- === PLATFORM FEE TIER (conditionally rendered) === -->

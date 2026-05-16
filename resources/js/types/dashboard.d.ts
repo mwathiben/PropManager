@@ -295,6 +295,17 @@ export interface DashboardPageProps {
   currentTier?: PlatformFeeTier | null;
   mtdVolume?: number;
   allTiers?: PlatformFeeTier[];
+  // Phase-36 INSIGHT-LANDLORD-1: composite growth signals.
+  growth?: LandlordGrowthSummary | null;
+}
+
+export interface LandlordGrowthSummary {
+  engagement_score: number;
+  engagement_score_delta_7d: number;
+  engagement_components: Record<string, number>;
+  referral_count_30d: number;
+  current_plan_slug: string | null;
+  usage_ratios: Array<{ feature: string; usage: number; limit: number; ratio: number }>;
 }
 
 // ===== BUILDINGS DASHBOARD TYPES =====

@@ -231,7 +231,25 @@ class DashboardService
             'currentTier' => $currentTier,
             'mtdVolume' => $mtdVolume,
             'allTiers' => $allTiers,
+            // Phase-36 INSIGHT-LANDLORD-1: composite growth signals
+            // (engagement / referrals / usage ratios). Fail-soft —
+            // any error here returns null so the dashboard never
+            // 500s on a missing engagement row.
+            'growth' => $this->landlordGrowthSummary($landlord),
         ];
+    }
+
+    /**
+     * Phase-36 INSIGHT-LANDLORD-1: delegate to InsightDashboardService.
+     */
+    private function landlordGrowthSummary(User $landlord): ?array
+    {
+        try {
+            return app(\App\Services\Insight\InsightDashboardService::class)
+                ->landlordSummary($landlord->id);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     public function getCaretakerDashboardData(User $caretaker): array
