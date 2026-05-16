@@ -263,6 +263,14 @@ Route::middleware('auth')->group(function () {
         // Phase-36 INSIGHT-LANDLORD-3: deeper-dive growth surface
         Route::get('/growth', [\App\Http\Controllers\Insight\LandlordGrowthController::class, 'index'])
             ->name('landlord.growth');
+
+        // Phase-37 PWA-FRONTEND-ADMIN-1: notification preferences page.
+        // Stub registered here in Phase 1b so route('settings.notifications')
+        // resolves for the digest mailable + tests; Phase 1d swaps the
+        // closure for an Inertia render.
+        Route::get('/settings/notifications', function () {
+            return redirect()->route('settings.index');
+        })->name('settings.notifications');
     });
     // Legacy routes for backward compatibility
     Route::get('/onboarding/create', [OnboardingController::class, 'create'])->name('onboarding.create');

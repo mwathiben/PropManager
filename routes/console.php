@@ -562,3 +562,12 @@ Schedule::command('cron:budget-audit')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase36-insight-cron23-budget-audit');
+
+// Phase-37 PWA-DIGEST-1: weekly insight digest emailed to paying,
+// lifecycle-opted-in landlords. Monday 07:00 — slots after Phase-32
+// mttr:audit Mon 06:45 and Phase-34 churn:audit Mon 06:00.
+Schedule::command('insight:weekly-digest')
+    ->weeklyOn(1, '07:00')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase37-pwa-digest1-weekly-insight-digest');
