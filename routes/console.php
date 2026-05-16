@@ -398,3 +398,13 @@ Schedule::command('outbound:health-check')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase32-sre-deps2-health-check');
+
+// Phase-33 COST-ATTRIB-2: per-landlord estimated_cost_kes gauge from
+// rolling 30-day landlord_usage_metrics. Runs at 03:30 — after
+// dpa:enforce-retention 02:00 and finance:close-month 02:30, before
+// the cluster of 03:40-04:00 prunes.
+Schedule::command('cost:attribute')
+    ->dailyAt('03:30')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase33-cost-attrib2-attribute');

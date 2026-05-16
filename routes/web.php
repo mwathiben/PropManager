@@ -233,6 +233,10 @@ Route::middleware('auth')->group(function () {
             ->name('ops.incidents.set-status');
         Route::post('/ops/incidents/{incident}/post-mortem', [\App\Http\Controllers\Sre\OpsIncidentController::class, 'setPostMortem'])
             ->name('ops.incidents.post-mortem');
+
+        // Phase-33 COST-ATTRIB-3: top-N costliest landlords for ops dashboard
+        Route::get('/ops/landlord-cost', [\App\Http\Controllers\Cost\LandlordCostController::class, 'topN'])
+            ->name('ops.landlord-cost.top-n');
     });
     // Legacy routes for backward compatibility
     Route::get('/onboarding/create', [OnboardingController::class, 'create'])->name('onboarding.create');
