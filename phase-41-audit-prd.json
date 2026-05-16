@@ -1,0 +1,203 @@
+{
+  "phase": 41,
+  "title": "[GATEWAY-DEEP] Stripe charges.list reconcile loop + generic compareLedgers + Stripe Connect Express + payment_intent.succeeded/charge.refunded handlers + tenant currency picker + plan sync",
+  "opened_at": "2026-05-17",
+  "tier": "7",
+  "scope": "Tier-7 cycle 5 — closes the deferral list captured in Phase 40 closeout + docs/runbooks/payments.md 'Phase 41 [GATEWAY-DEEP] handoff notes'. Phase 40 shipped the Stripe slot (StripeService + StripeGateway + StripeSubscriptionService + StripeWebhookController + payments:gateway-reconcile + per-user routing) but consciously deferred: (a) remote Stripe charges.list integration so reconcileStripe still ships local-only audits, (b) generic compareLedgers helper still hand-rolled per-gateway, (c) Stripe Connect Express equivalent of PaystackSubaccountService so non-KES landlords can't accept split-payments, (d) StripeWebhookController only handles customer.subscription.* — payment_intent.succeeded/charge.refunded/charge.dispute.created/invoice.payment_failed all fall through, (e) PaymentController + payment-make UI hardcode Paystack so landlords with payment_gateway_preference=stripe still get routed via Paystack at checkout, (f) SubscriptionPlan ↔ Stripe Price drift goes undetected. This cycle ships all six. PaystackSubaccountService is the proven reference for Stripe Connect parity. Phase 40 left runbook:coverage-audit at 19/19; new alerts in this cycle push to 20/20. 18 findings across 6 categories: GATEWAY-RECONCILE-DEEP (3 — Stripe\\Charge::list paginated fetch implementing the remote leg of reconcileStripe, hoist compare/discrepancy loop out of reconcilePaystack into PaymentReconciliationService::compareLedgers(array $local, array $remote): ReconciliationResult shared helper, per-gateway transaction-row adapter normalising Paystack txn array / Stripe Charge object → {reference, amount_minor, currency, status} canonical shape), GATEWAY-WEBHOOK-DEEP (4 — payment_intent.succeeded handler creating Payment row + flipping status=paid via PaymentAllocationService, charge.refunded handler flipping Payment.is_voided + firing PaymentRefundedExternal event, invoice.payment_failed handler flipping Subscription→past_due, charge.dispute.created handler logging to operational_incidents sev3), GATEWAY-CONNECT (3 — StripeConnectService::createExpressAccount + onboardingLink + syncAccountStatus mirroring PaystackSubaccountService surface, stripe_connect_account_id column on payment_configurations encrypted, account.updated webhook handler updating LandlordPayoutAccount.stripe_status), GATEWAY-CHECKOUT (3 — tenant currency picker on Payments/Make.vue (filtered by landlord's enabled gateways + accepted currencies), PaymentController::store uses PaymentGatewayManager::routeForUser instead of hardcoded Paystack so user.payment_gateway_preference=stripe actually routes to Stripe, receipt PDF + invoice template show currency code next to amount), GATEWAY-PLAN-SYNC (3 — stripe:plan-sync command pushes app SubscriptionPlan changes to Stripe Prices (one-way today, bidirectional via price.updated webhook lands here), price.updated webhook detects Stripe-side drift + emits subscription_plan_drift gauge, stripe:plan-sync runs weekly Mon 04:35 Africa/Nairobi), GATEWAY-DEEP-CI (2 — Phase41GatewayDeepSurfaceTest watchdog + docs/runbooks/payments.md expansion with payment_intent webhook flow + Connect onboarding flow + checkout routing + plan-sync playbook). Severity 5H/7M/6L. NOT in scope: full bidirectional plan sync where Stripe-side price changes auto-write back to SubscriptionPlan.price_monthly (defer — risks pricing-decision drift across systems; this cycle ships drift DETECTION, not auto-resolution), Stripe Connect Standard (full-account-takeover variant — Express is enough for split-payment parity with Paystack subaccounts; Standard adds tax-handling complexity Kenyan landlords don't need yet), per-tenant Stripe payment method save + reuse (out of scope — first ship one-time PaymentIntent checkout), tax/VAT line items on PaymentIntent (Phase-42 candidate — needs Kenya VAT registry integration), multi-currency single-checkout (each PaymentIntent is single-currency; cart-style multi-currency handling deferred), payouts:stripe-balance-audit cron (deferred until production Stripe Connect volume justifies it).",
+  "categories": [
+    "GATEWAY-RECONCILE-DEEP",
+    "GATEWAY-WEBHOOK-DEEP",
+    "GATEWAY-CONNECT",
+    "GATEWAY-CHECKOUT",
+    "GATEWAY-PLAN-SYNC",
+    "GATEWAY-DEEP-CI"
+  ],
+  "findings": [
+    {
+      "id": "GATEWAY-RECONCILE-DEEP-1",
+      "title": "Stripe\\Charge::list paginated fetch closes reconcileStripe remote leg",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/StripeService.php",
+        "app/Services/Reconciliation/PaymentReconciliationService.php"
+      ],
+      "evidence": "Phase 40 shipped reconcileStripe as local-only audit (counts local stripe-method payments, returns 0 discrepancies). Without remote charges, drift is undetectable — silent money-leak risk if Stripe webhook misses a charge.succeeded event.",
+      "fix": "(a) StripeService::listCharges(CarbonImmutable $from, CarbonImmutable $to): array — paginated via $client->charges->all([created => [gte, lte], limit => 100, starting_after => cursor]) until !has_more, returns array indexed by charge.id; (b) reconcileStripe loads stripe_method local payments + calls listCharges + delegates to compareLedgers (RECONCILE-DEEP-2)."
+    },
+    {
+      "id": "GATEWAY-RECONCILE-DEEP-2",
+      "title": "PaymentReconciliationService::compareLedgers hoisted out of reconcilePaystack",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/Reconciliation/PaymentReconciliationService.php"
+      ],
+      "evidence": "Phase 40 left the per-gateway impl methods hand-rolling identical compare logic. Two impls = two divergence risks. Hoist into compareLedgers(array $localKeyed, array $remoteKeyed, string $gateway): ReconciliationResult so reconcilePaystack + reconcileStripe both delegate.",
+      "fix": "Extract the foreach-remote → missingLocally + amount-mismatch + foreach-local → missingRemotely loop from reconcilePaystack into compareLedgers. Inputs already normalised by the adapter (RECONCILE-DEEP-3). Output ReconciliationResult unchanged."
+    },
+    {
+      "id": "GATEWAY-RECONCILE-DEEP-3",
+      "title": "Per-gateway transaction adapter normalises Paystack vs Stripe shapes",
+      "severity": "LOW",
+      "files": [
+        "app/Services/Reconciliation/TransactionAdapter.php (new)"
+      ],
+      "evidence": "Paystack returns array with snake_case keys (reference/amount/currency/status); Stripe returns objects with camelCase (id/amount/currency/status). compareLedgers needs both shaped to {reference, amount_minor, currency, status}.",
+      "fix": "TransactionAdapter::fromPaystack(array $row): array + ::fromStripe(\\Stripe\\Charge $charge): array — both return the same canonical 4-key shape. Per-gateway listers call the adapter before returning to compareLedgers."
+    },
+    {
+      "id": "GATEWAY-WEBHOOK-DEEP-1",
+      "title": "payment_intent.succeeded handler creates local Payment + marks paid",
+      "severity": "HIGH",
+      "files": [
+        "app/Http/Controllers/Webhooks/StripeWebhookController.php"
+      ],
+      "evidence": "Without this handler, Stripe-side charge success doesn't create a Payment row — landlord can't reconcile, tenant can't get receipt. Phase 40 only handled customer.subscription.*.",
+      "fix": "Match arm 'payment_intent.succeeded' → resolves Payment by reference from metadata, creates if missing with payment_method=stripe + paystack_reference=$intent->id (column shared) + amount/currency from intent, then PaymentAllocationService::allocate if linked to lease."
+    },
+    {
+      "id": "GATEWAY-WEBHOOK-DEEP-2",
+      "title": "charge.refunded handler flips Payment.is_voided",
+      "severity": "HIGH",
+      "files": [
+        "app/Http/Controllers/Webhooks/StripeWebhookController.php",
+        "app/Events/PaymentRefundedExternal.php (new)"
+      ],
+      "evidence": "Stripe-initiated refunds (dispute reversal, customer-service goodwill) need to back-flow into local Payment.is_voided. Otherwise the daily payments:gateway-reconcile gateway_drift alert fires incorrectly because remote=refunded vs local=active.",
+      "fix": "Match arm 'charge.refunded' → resolves Payment by charge.payment_intent → flips is_voided=true + voided_at=now() + fires PaymentRefundedExternal event so listeners can notify tenant/landlord."
+    },
+    {
+      "id": "GATEWAY-WEBHOOK-DEEP-3",
+      "title": "invoice.payment_failed handler flips Subscription.status → past_due",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/Webhooks/StripeWebhookController.php"
+      ],
+      "evidence": "PropManager's SaaS billing (StripeSubscriptionService) needs to know when a landlord's monthly charge fails so the Phase-34 dunning flow can fire. Without this handler, Stripe retries silently and dunning never starts.",
+      "fix": "Match arm 'invoice.payment_failed' → look up Subscription by stripe_subscription_code on invoice.subscription → update status='past_due' + emit SubscriptionPastDue event so Phase-34 dunning-emails cron picks up the row."
+    },
+    {
+      "id": "GATEWAY-WEBHOOK-DEEP-4",
+      "title": "charge.dispute.created handler logs to operational_incidents",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/Webhooks/StripeWebhookController.php"
+      ],
+      "evidence": "Stripe disputes are sev3 events — chargeback fee + potential clawback of funds. Surface to Phase-32 operational_incidents so it shows on the ops dashboard + triggers a post-mortem template.",
+      "fix": "Match arm 'charge.dispute.created' → OperationalIncident::create(['severity' => 'sev3', 'title' => 'Stripe dispute on charge X', 'status' => 'open', 'affected_services' => ['stripe', 'payments']])."
+    },
+    {
+      "id": "GATEWAY-CONNECT-1",
+      "title": "StripeConnectService::createExpressAccount + onboardingLink + syncStatus",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/StripeConnectService.php (new)"
+      ],
+      "evidence": "Phase 30 PaystackSubaccountService lets a landlord receive split-payments (PropManager keeps fee %, landlord gets rest). Stripe Connect Express is the equivalent — without it, USD/EUR/GBP-receiving landlords can't take payments at all (Stripe needs an account context for the destination).",
+      "fix": "(a) createExpressAccount(User $landlord): array — calls $client->accounts->create(['type' => 'express', 'country' => $landlord->country ?? 'US', 'capabilities' => ['transfers']]); (b) onboardingLink(string $accountId, string $returnUrl): string — accountLinks->create returns hosted-onboarding URL; (c) syncAccountStatus(LandlordPayoutAccount $account) — refetches account, updates stripe_status + charges_enabled + payouts_enabled."
+    },
+    {
+      "id": "GATEWAY-CONNECT-2",
+      "title": "payment_configurations.stripe_connect_account_id encrypted column",
+      "severity": "MEDIUM",
+      "files": [
+        "database/migrations/2026_05_17_010000_phase41_gateway_connect_add_stripe_connect_account_id_to_payment_configurations.php (new)",
+        "app/Models/PaymentConfiguration.php"
+      ],
+      "evidence": "Persistence layer for the Connect account id returned by createExpressAccount. Encrypted because account ids gate access to Stripe's per-account API.",
+      "fix": "ALTER TABLE payment_configurations ADD stripe_connect_account_id TEXT NULLABLE (encrypted cast in model fillable + casts). Defaults NULL; populated by /admin/connect-accounts onboarding flow."
+    },
+    {
+      "id": "GATEWAY-CONNECT-3",
+      "title": "account.updated webhook updates LandlordPayoutAccount.stripe_status",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/Webhooks/StripeWebhookController.php"
+      ],
+      "evidence": "Stripe pushes account.updated when KYC documents are reviewed (or rejected). Without handling, LandlordPayoutAccount.stripe_status stays stale and operators can't tell why payouts are blocked.",
+      "fix": "Match arm 'account.updated' → resolves LandlordPayoutAccount by stripe_connect_account_id → calls StripeConnectService::syncAccountStatus."
+    },
+    {
+      "id": "GATEWAY-CHECKOUT-1",
+      "title": "Tenant currency picker on Payments/Make.vue",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/Pages/Payments/Make.vue (or equivalent — explore current naming)",
+        "app/Http/Controllers/PaymentController.php"
+      ],
+      "evidence": "Today the checkout form assumes KES. International tenants paying USD have no way to select currency at checkout — they get billed KES which their card may reject.",
+      "fix": "PaymentController::create passes available currencies (intersection of landlord's enabled gateways' supported currencies). Vue gains <select v-model='form.currency'> defaulted to landlord's default_currency. On submit, server uses PaymentGatewayManager::routeForUser(landlord, currency) to pick the gateway."
+    },
+    {
+      "id": "GATEWAY-CHECKOUT-2",
+      "title": "PaymentController::store uses routeForUser instead of hardcoded Paystack",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/PaymentController.php"
+      ],
+      "evidence": "Even after Phase 40 shipped payment_gateway_preference + routeForUser, the actual checkout controller still hardcodes PaystackService at the call site. Forced-Stripe landlords don't actually get Stripe.",
+      "fix": "Replace `app(PaystackService::class)->initialize...` in PaymentController::store with `app(PaymentGatewayManager::class)->routeForUser($landlord, $currency)->initializePayment($paymentRequest)`. Result envelope is the same PaymentResult shape — downstream Vue handler unchanged."
+    },
+    {
+      "id": "GATEWAY-CHECKOUT-3",
+      "title": "Receipt PDF + invoice template show currency code next to amount",
+      "severity": "LOW",
+      "files": [
+        "resources/views/receipts/*.blade.php",
+        "resources/views/invoices/*.blade.php"
+      ],
+      "evidence": "Templates hardcode 'KES' or have no currency prefix. International tenants get receipts that look wrong (e.g. '50.00' with no currency).",
+      "fix": "Replace hardcoded 'KES' with @{{ $payment->currency?->value ?? 'KES' }} OR @{{ $invoice->currency ?? 'KES' }}. One scan + edit pass over receipts/invoices Blade views."
+    },
+    {
+      "id": "GATEWAY-PLAN-SYNC-1",
+      "title": "stripe:plan-sync command pushes SubscriptionPlan changes to Stripe Prices",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/StripePlanSync.php (new)",
+        "routes/console.php"
+      ],
+      "evidence": "StripeSubscriptionService::createOrUpdatePlan exists but has no callers. Whenever a landlord updates SubscriptionPlan.price_monthly, Stripe-side Price stays stale → next billing cycle charges the old price → revenue leak or overcharge.",
+      "fix": "(a) stripe:plan-sync iterates SubscriptionPlan rows where stripe_plan_code IS NOT NULL OR is_active=true; per-plan calls StripeSubscriptionService::createOrUpdatePlan (creates new Price + writes new stripe_plan_code; old Prices stay valid for existing subs); (b) Schedule weekly Mon 04:35 Africa/Nairobi onOneServer."
+    },
+    {
+      "id": "GATEWAY-PLAN-SYNC-2",
+      "title": "price.updated webhook detects Stripe-side drift",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/Webhooks/StripeWebhookController.php"
+      ],
+      "evidence": "Operator may edit a Price in Stripe Dashboard for support reasons (e.g. legacy customer pricing). PropManager needs to know so the SubscriptionPlan.price_monthly doesn't quietly diverge.",
+      "fix": "Match arm 'price.updated' → look up SubscriptionPlan by stripe_plan_code on price.id → if price.unit_amount/100 != plan.price_monthly emit subscription_plan_drift gauge with {plan_id, app_price, stripe_price}. Auto-resolution intentionally deferred — operator decides which side wins."
+    },
+    {
+      "id": "GATEWAY-PLAN-SYNC-3",
+      "title": "subscription_plan_drift gauge surface",
+      "severity": "LOW",
+      "files": [
+        "app/Services/MetricsService.php (or just usage)"
+      ],
+      "evidence": "Without an exported gauge, the drift-detection signal from PLAN-SYNC-2 is invisible. Operators rely on the gauge in their Phase-36 ops dashboard.",
+      "fix": "Webhook handler calls $metrics->gauge('subscription_plan_drift', $delta, ['plan_id' => $plan->id]). Phase-36 ops dashboard already plots arbitrary {plan_id} gauges so no UI change needed."
+    },
+    {
+      "id": "GATEWAY-DEEP-CI-1",
+      "title": "Phase41GatewayDeepSurfaceTest watchdog",
+      "severity": "LOW",
+      "files": [
+        "tests/Feature/Gateway/Phase41GatewayDeepSurfaceTest.php (new)"
+      ],
+      "evidence": "Cycle pattern: every Phase ships a watchdog locking down the new surface. Phase 41 needs schedule (stripe:plan-sync Mon 04:35), webhook handler coverage (payment_intent + charge.refunded + invoice.payment_failed + charge.dispute.created + account.updated + price.updated), Connect service binding, payment_configurations.stripe_connect_account_id column, runbook ref existence.",
+      "fix": "Schedule assertion + class_exists(StripeConnectService) + schema column assertion + Route::has webhook + at least one handler-match arm test per webhook event type."
+    },
+    {
+      "id": "GATEWAY-DEEP-CI-2",
+      "title": "docs/runbooks/payments.md expansion + Phase 42 handoff notes",
+      "severity": "LOW",
+      "files": [
+        "docs/runbooks/payments.md"
+      ],
+      "evidence": "Phase 40 runbook covered the top-level surface. Phase 41 adds payment_intent webhook flow, Connect onboarding playbook, checkout routing, plan-sync drift response. Each needs a section.",
+      "fix": "Sections: 'Stripe webhook event coverage' table (event → handler → side-effect), 'Connect Express onboarding flow' (super_admin → /admin/connect-accounts → onboarding link → status sync), 'Checkout routing' (Currency × preference truth table), 'Plan-sync drift playbook' (when subscription_plan_drift fires, decide app-wins or Stripe-wins). Plus 'Phase 42 [PAYMENTS-INTL] handoff notes' (tax/VAT line items, full bidirectional plan sync, Stripe Connect Standard, multi-currency cart, payment-method save+reuse)."
+    }
+  ]
+}
