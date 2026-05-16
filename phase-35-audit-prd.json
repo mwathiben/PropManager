@@ -1,216 +1,278 @@
 {
-  "phase": 35,
-  "title": "[PLATFORM] A/B experiments + metered billing writer + product analytics stream + subscription proration + lifecycle opt-out",
-  "opened_at": "2026-05-16",
-  "tier": "6",
-  "scope": "Tier-6 cycle 2 — closing the platform-infrastructure debt that Phase 34's growth-loop work surfaced. Phase 34 shipped the OUTCOME layer (MRR/ARR snapshots + churn cohorts + referral attribution + engagement scoring + lifecycle email campaigns) but the MECHANISM layer underneath has gaps: (1) config/features.php holds ONE flag (whatsapp_payment_links_enabled), there is no experiments table, no variant assignment, no exposure tracking — meaning we cannot A/B test a price change, a feature rollout, or a copy variant; (2) usage_records table + UsageRecord::setUsage/incrementUsage writers exist (committed 2025-12-27) but NOTHING in production calls them — feature-gate decisions in CheckPlanLimits middleware enforce hard caps but never RECORD usage for metered billing or for the overage soft-cap that Paystack supports; (3) zero product_events table — we have OBS audit_logs for security-relevant mutations and Phase-29 workflow_runs_log for system actions but no append-only event stream for product analytics (page views, button clicks, feature adoption) which is the foundation any later Amplitude/Mixpanel/Heap integration would replay into; (4) SubscriptionService::changePlan is a no-op stub (// 'For now, changes take effect immediately' comment in code) — no proration, no scheduled downgrade-at-period-end, no subscription_changes audit table — meaning an upgrade mid-cycle gives the customer 30 days of premium for the prorated cost of N days, AND Phase-34 MrrSnapshotService's expansion_mrr_kes + contraction_mrr_kes columns ship at 0 forever because there is no audit trail to diff against; (5) Phase-34 lifecycle Mailables (TrialEnding, DunningReminder, Winback, ActivationNudge) ship without NotificationPreference integration — landlords cannot opt out without unsubscribing from transactional invoices too, violating the Phase-28 NOTIF-MATRIX-1 contract that EVERY notification type respects the user's preference matrix; (6) no Phase35PlatformSurfaceTest watchdog. No lang/{en,sw}/platform.php namespace for opt-out UI strings. No docs/runbooks/platform.md. 18 findings across 6 categories: PLATFORM-EXP (3 — experiments table holding active variants + ExperimentService::variantFor($user, $experimentKey) with sticky-hash assignment that survives session expiry + experiment_exposures append-only table writing one row per (user, experiment, variant, fired_at) for funnel attribution), PLATFORM-METER (3 — UsageRecord writers hooked into actual feature usage paths via existing CheckPlanLimits middleware terminate phase + per-feature soft-cap detection emitting metered_usage_soft_cap_breached gauge + high_metered_overage alert when a landlord exceeds plan limit by 50%+), PLATFORM-ANALYTICS (3 — product_events table append-only landlord_id/event_name/properties_json/created_at with hash partitioning hint for future scale + ProductEventTracker::track helper called from Phase-22 RecordRequestLatency terminate seam + product:rollup nightly cron computing per-event 24h count gauges), PLATFORM-BILLING (3 — SubscriptionService::changePlan signature gains $prorate=true param computing cent-accurate prorated difference + scheduleDowngradeAtPeriodEnd helper writing subscription_changes audit row + MrrSnapshotService::snapshotForDate reads subscription_changes to populate expansion_mrr_kes / contraction_mrr_kes columns Phase 34 ships at 0), PLATFORM-NOTIF (3 — NotificationPreference 'lifecycle' type added to the Phase-28 12-type matrix + all 4 Phase-34 lifecycle Mailables gated on prefers('lifecycle', 'email') + per-channel /api/notifications/preferences POST endpoint enforces matrix consistency), PLATFORM-CI (3 — Phase35PlatformSurfaceTest watchdog covering 2 new crons + 1 new alert key + lang parity, lang/{en,sw}/platform.php with sections for experiments dashboard + metered usage tier + analytics event browser + billing proration receipt + opt-out preferences form, docs/runbooks/platform.md operator reference). Severity 5H/8M/5L. Builds on Phase-25 OBS-7 Auditable trail (subscription_changes), Phase-28 NotificationPreference matrix (lifecycle channel addition), Phase-29 WorkflowLogger (analytics:rollup silent-failure surfacing), Phase-32 AlertRegistry + AlertFiringRecorder (overage alert wiring), Phase-33 LandlordUsageMetric (analogous atomic counter pattern), Phase-34 lifecycle Mailables (opt-out target) + MrrSnapshotService (waterfall column population) + ChurnService (Auditable diff classification pattern). NOT in scope: actual Amplitude/Mixpanel/Heap SDK integration (config decision, not audit), real billing payment-processor proration call (Paystack-specific work — Phase 36 candidate), experiment statistical significance computation (out of scope — operator reads raw counts).",
-  "categories": [
-    "PLATFORM-EXP",
-    "PLATFORM-METER",
-    "PLATFORM-ANALYTICS",
-    "PLATFORM-BILLING",
-    "PLATFORM-NOTIF",
-    "PLATFORM-CI"
-  ],
-  "findings": [
-    {
-      "id": "PLATFORM-EXP-1",
-      "title": "experiments table + experiment_exposures append-only audit",
-      "severity": "HIGH",
-      "files": [
-        "database/migrations/.../create_experiments_and_exposures.php (new)",
-        "app/Models/Experiment.php (new)",
-        "app/Models/ExperimentExposure.php (new)"
-      ],
-      "evidence": "config/features.php holds exactly ONE flag (whatsapp_payment_links_enabled, Phase-26 era). There is no first-class A/B testing infrastructure — meaning we cannot run a price-change experiment, a feature-rollout cohort, or a copy variant test. Every growth-team hypothesis becomes a one-off feature flag rollout with no exposure tracking, no variant lookup contract, no funnel attribution. Industry standard: experiments table (key, name, status enum [draft|running|paused|concluded], variants json, allocation json, started_at, concluded_at) + experiment_exposures append-only ledger for funnel-tracking joins (which variant did this converted user see when?).",
-      "fix": "(a) Migration experiments(experiment_key string unique, name, status enum, variants json [array of {key, weight}], starts_at, ends_at, created_at, updated_at) + experiment_exposures(user_id, experiment_key, variant_key, fired_at) unique on (user_id, experiment_key) — sticky exposure means the same user always sees the same variant; (b) Experiment model with castVariantsToArray; (c) ExperimentExposure model — append-only, no updates after insert."
-    },
-    {
-      "id": "PLATFORM-EXP-2",
-      "title": "ExperimentService::variantFor with deterministic-hash assignment",
-      "severity": "MEDIUM",
-      "files": [
-        "app/Services/Platform/ExperimentService.php (new)"
-      ],
-      "evidence": "Table without service is metadata. Variant assignment needs: (a) sticky (same user always sees same variant within an experiment), (b) survives session expiry (deterministic hash of user_id + experiment_key, NOT session-stored), (c) records exposure on first-call only (subsequent calls return the same variant without re-writing the audit row), (d) respects experiment status (paused = control always, concluded = winning variant always).",
-      "fix": "(a) ExperimentService::variantFor(User $user, string $experimentKey): ?string — returns variant_key (or null if no active experiment); (b) Internally: short-circuit return existing exposure if found; otherwise compute deterministic hash via crc32($user->id . ':' . $experimentKey) mod 100, walk variants/weights, write exposure row; (c) Experiment::isActive() guard rejects draft / paused / concluded; (d) Fail-open: any error returns null (control variant — never blocks the user request)."
-    },
-    {
-      "id": "PLATFORM-EXP-3",
-      "title": "Inertia share + frontend variantFor helper",
-      "severity": "LOW",
-      "files": [
-        "app/Http/Middleware/HandleInertiaRequests.php"
-      ],
-      "evidence": "Backend variant resolution is internal. Vue components need a server-resolved variant in the Inertia share so the page render reflects the assigned variant (zero flicker, server-side rendered choice).",
-      "fix": "(a) HandleInertiaRequests::share appends 'experiments' => array of active experiment_key => variant_key for the auth user (or empty array if guest); (b) Loads only experiments with status=running, caches the snapshot via Cache::remember 60s to avoid per-request DB hit; (c) Frontend usage pattern: page.props.experiments['plan-upgrade-flow-2026q2'] === 'variant-b'."
-    },
-    {
-      "id": "PLATFORM-METER-1",
-      "title": "MeteredUsageRecorder wiring into request-terminate seam",
-      "severity": "HIGH",
-      "files": [
-        "app/Services/Platform/MeteredUsageRecorder.php (new)",
-        "app/Http/Middleware/CheckPlanLimits.php"
-      ],
-      "evidence": "usage_records table + UsageRecord::setUsage/incrementUsage writers exist (committed 2025-12-27) but production has ZERO callers wiring feature usage into the table. CheckPlanLimits middleware enforces hard caps (max_properties / max_units / etc.) but never RECORDS each usage event — meaning we cannot bill metered features (e.g. SMS quota, document storage, API calls) on a per-use basis. The existing UsageRecord writer infrastructure is unused infrastructure.",
-      "fix": "(a) MeteredUsageRecorder::record(int $userId, string $feature, int $delta = 1) wraps UsageRecord::incrementUsage with try/catch fail-open + current period detection (start of current calendar month); (b) Replaces direct UsageRecord calls; (c) CheckPlanLimits middleware terminate() phase calls record() for the inspected feature when the request was allowed; (d) Sampling: only record on writes (POST/PUT/PATCH/DELETE), skip reads (no metering for GET)."
-    },
-    {
-      "id": "PLATFORM-METER-2",
-      "title": "metered:soft-cap-audit cron + per-landlord soft-cap gauge",
-      "severity": "MEDIUM",
-      "files": [
-        "app/Console/Commands/MeteredSoftCapAudit.php (new)",
-        "routes/console.php"
-      ],
-      "evidence": "Recording usage is half the loop — the other half is detecting when a landlord crosses 80% (soft warning) and 100% (hard cap) of their plan limit. Without an audit cron the operator dashboard has no signal. Same shape as Phase-33 log:volume-audit.",
-      "fix": "(a) artisan metered:soft-cap-audit walks active subscriptions, for each (user, feature) where the plan has a numeric limit, computes ratio = usage_records.quantity / plan.limit; emits metered_usage_ratio{feature=X, plan_slug=Y} gauge for top 50 landlords-per-feature; (b) Schedule dailyAt 04:20 Africa/Nairobi onOneServer (fourth in Phase-34 growth cluster, after engagement:rollup 04:15)."
-    },
-    {
-      "id": "PLATFORM-METER-3",
-      "title": "high_metered_overage alert wiring",
-      "severity": "MEDIUM",
-      "files": [
-        "config/alerts.php",
-        "app/Console/Commands/MeteredSoftCapAudit.php"
-      ],
-      "evidence": "Audit emits gauges but nobody is paged when a landlord ratios past 1.5x their plan limit — that is the trigger for the customer-success outreach 'either upgrade to the next tier or face overage charges' conversation.",
-      "fix": "(a) New entry in config/alerts.php key 'high_metered_overage' severity sev4 threshold 1.5 gauge 'metered_usage_ratio' runbook 'docs/runbooks/platform.md' paging email description 'A paying landlord exceeded 1.5x plan limit on a metered feature — overage outreach recommended'; (b) Audit collects landlords with ratio > 1.5 AND active subscription, fires via AlertFiringRecorder; resolves when no offender."
-    },
-    {
-      "id": "PLATFORM-ANALYTICS-1",
-      "title": "product_events table + ProductEventTracker",
-      "severity": "HIGH",
-      "files": [
-        "database/migrations/.../create_product_events.php (new)",
-        "app/Models/ProductEvent.php (new)",
-        "app/Services/Platform/ProductEventTracker.php (new)"
-      ],
-      "evidence": "Zero product analytics event stream exists. Phase-25 OBS-7 audit_logs captures security-relevant Auditable mutations and Phase-29 workflow_runs_log captures system-action runs, but neither captures the product-analytics events (button clicks, feature adoption, page-context conversions) that any later Amplitude/Mixpanel/Heap integration would replay. A first-class append-only product_events table now means a SDK integration in Phase 36+ just batch-exports rows.",
-      "fix": "(a) Migration product_events(id, user_id nullable, landlord_id nullable, event_name string, properties json, created_at) — index on (event_name, created_at) for query patterns + (landlord_id, created_at) for funnel slices; (b) Model with TenantScope on landlord_id (multi-tenant by design); (c) ProductEventTracker::track($eventName, array $properties = [], ?int $userId = null) — single-write append, fail-open on DB error (analytics never blocks request)."
-    },
-    {
-      "id": "PLATFORM-ANALYTICS-2",
-      "title": "Phase-22 RecordRequestLatency calls ProductEventTracker on conversion routes",
-      "severity": "MEDIUM",
-      "files": [
-        "app/Http/Middleware/RecordRequestLatency.php"
-      ],
-      "evidence": "ProductEventTracker without callers is infrastructure debt. The cleanest wiring: extend the existing Phase-22 RecordRequestLatency middleware (already on every web + api request) to fire a 'page_view' event with route_name + landlord_id properties for any successful 200/302 response. Cost: one DB insert per request on a high-cardinality table — but our request volume is low enough (small Kenya SaaS) that this is tractable.",
-      "fix": "(a) RecordRequestLatency::terminate appends ProductEventTracker::track('page_view', ['route_name' => $request->route()?->getName(), 'method' => $request->method(), 'status' => $response->status()]); (b) Sampled to 10% by default via config('platform.analytics_sample_rate'); (c) Skip events for /api/v1/health + /api/health (noise)."
-    },
-    {
-      "id": "PLATFORM-ANALYTICS-3",
-      "title": "product:rollup nightly cron + per-event gauge",
-      "severity": "LOW",
-      "files": [
-        "app/Console/Commands/ProductAnalyticsRollup.php (new)",
-        "routes/console.php"
-      ],
-      "evidence": "Event stream is operator-facing but Grafana panels need numeric gauges. A nightly rollup groups events by name + counts the last 24h, emits product_event_count_24h{event=X} gauge for the top 30 event names.",
-      "fix": "(a) artisan product:rollup reads last 24h of product_events grouped by event_name, emits product_event_count_24h{event=X} gauge top 30; (b) Schedule dailyAt 04:25 Africa/Nairobi onOneServer (fifth in Phase-34 growth cluster, after metered:soft-cap-audit 04:20)."
-    },
-    {
-      "id": "PLATFORM-BILLING-1",
-      "title": "SubscriptionService::changePlan proration + subscription_changes audit",
-      "severity": "HIGH",
-      "files": [
-        "database/migrations/.../create_subscription_changes.php (new)",
-        "app/Models/SubscriptionChange.php (new)",
-        "app/Services/SubscriptionService.php"
-      ],
-      "evidence": "SubscriptionService::changePlan is a no-op stub — comment in code reads 'For now, changes take effect immediately' and the body just swaps plan_id. A mid-cycle upgrade gives the customer 30 days of premium for the prorated cost of N days (revenue leakage). Worse: without an audit trail of the change, Phase-34 MrrSnapshotService's expansion_mrr_kes + contraction_mrr_kes columns ship at 0 forever — we cannot reconstruct the upgrade history retroactively.",
-      "fix": "(a) Migration subscription_changes(subscription_id, from_plan_id, to_plan_id, change_type enum [upgrade|downgrade|same], prorated_amount_kes decimal(12,2), effective_at, scheduled_for nullable, created_at) — append-only audit trail; (b) Model with belongsTo subscription/fromPlan/toPlan; (c) SubscriptionService::changePlan(sub, newPlan, prorate=true) computes prorated_amount_kes = (newPlan.price - oldPlan.price) * (remainingDaysInCycle / totalDaysInCycle), writes subscription_changes row, updates plan_id under DB::transaction."
-    },
-    {
-      "id": "PLATFORM-BILLING-2",
-      "title": "scheduleDowngradeAtPeriodEnd helper + subscriptions:apply-downgrades cron",
-      "severity": "MEDIUM",
-      "files": [
-        "app/Services/SubscriptionService.php",
-        "app/Console/Commands/ApplyScheduledDowngrades.php (new)",
-        "routes/console.php"
-      ],
-      "evidence": "Downgrades should always take effect AT THE END of the current billing period, never mid-cycle — the customer has already paid for the current period at the higher tier and revoking immediately is bad UX. Without a scheduling primitive, downgrade requests today either (a) take effect immediately + refund (refund infrastructure does not exist) or (b) are blocked entirely.",
-      "fix": "(a) SubscriptionService::scheduleDowngradeAtPeriodEnd(sub, newPlan) writes subscription_changes row with scheduled_for=sub.current_period_end (NOT yet applying the change); (b) artisan subscriptions:apply-downgrades runs daily, finds subscription_changes rows where scheduled_for <= now AND effective_at IS NULL, applies the plan_id change + sets effective_at + fires SubscriptionDowngraded event; (c) Schedule dailyAt 02:00 Africa/Nairobi onOneServer (before all other 02:30+ finance crons)."
-    },
-    {
-      "id": "PLATFORM-BILLING-3",
-      "title": "MrrSnapshotService expansion/contraction waterfall fix",
-      "severity": "LOW",
-      "files": [
-        "app/Services/Growth/MrrSnapshotService.php"
-      ],
-      "evidence": "Phase-34 MrrSnapshotService ships expansion_mrr_kes + contraction_mrr_kes at 0 (PLATFORM-BILLING-1 closes this gap). Once subscription_changes audit trail exists, the waterfall can be populated by reading subscription_changes rows on day D where change_type IN [upgrade|downgrade].",
-      "fix": "(a) MrrSnapshotService::snapshotForDate reads SubscriptionChange where effective_at within [D start, D end] for the plan_id of the snapshot; (b) Sum (toPlan.price - fromPlan.price) for upgrades into expansion_mrr_kes; sum (fromPlan.price - toPlan.price) for downgrades into contraction_mrr_kes; (c) Add a test asserting both columns are non-zero after a changePlan call."
-    },
-    {
-      "id": "PLATFORM-NOTIF-1",
-      "title": "NotificationPreference 'lifecycle' channel + Phase-34 Mailables gated",
-      "severity": "MEDIUM",
-      "files": [
-        "database/migrations/.../add_lifecycle_to_notification_preferences.php (new)",
-        "app/Mail/TrialEndingMailable.php",
-        "app/Mail/DunningReminderMailable.php",
-        "app/Mail/WinbackMailable.php",
-        "app/Mail/ActivationNudgeMailable.php"
-      ],
-      "evidence": "Phase-28 NOTIF-MATRIX-1 contract requires EVERY notification type to respect the user's preference matrix. Phase-34 shipped 4 lifecycle Mailables (TrialEnding/Dunning/Winback/ActivationNudge) but they fire unconditionally — meaning a landlord who wants to suppress lifecycle nudges has to unsubscribe from transactional invoices too (which legally we cannot suppress). Violates the matrix contract and the GDPR-adjacent expectation that marketing-class email can be opted out independently.",
-      "fix": "(a) Migration adds 'lifecycle' to the NotificationPreference type enum (or adds a row per existing user defaulted to email=true); (b) Each of the 4 Mailables checks $sub->user->notificationPreferences->prefers('lifecycle', 'email') in the cron's loop — skip dispatch if false; (c) Default is opt-in (email=true) since the user is paying — opt-out is explicit."
-    },
-    {
-      "id": "PLATFORM-NOTIF-2",
-      "title": "POST /api/notifications/preferences enforces matrix consistency",
-      "severity": "MEDIUM",
-      "files": [
-        "app/Http/Controllers/Settings/NotificationPreferenceController.php",
-        "routes/api.php"
-      ],
-      "evidence": "Landlord-facing opt-out UI needs an API endpoint. Phase-28 shipped the read-side (matrix Vue component) but the write-side is missing on landlord (Phase-28 wrote tenant-side only). Without it the opt-out is only theoretical — the database accepts a row but no controller can write it from a landlord-authenticated request.",
-      "fix": "(a) POST /api/notifications/preferences accepts {type, channel, enabled} body, validates type IS IN the 13-type enum + channel IS IN [email, sms, in_app, push, whatsapp], upserts the preference row; (b) Validates the user can write the type (some types are transactional-only — billing receipts MUST remain on); (c) Returns 200 with the full updated matrix; (d) Wired under auth middleware (works for landlord + tenant)."
-    },
-    {
-      "id": "PLATFORM-NOTIF-3",
-      "title": "notifications:preference-drift-audit watchdog",
-      "severity": "LOW",
-      "files": [
-        "app/Console/Commands/NotificationPreferenceDriftAudit.php (new)",
-        "routes/console.php"
-      ],
-      "evidence": "Once landlords can opt-out individually, we need a sanity check: nobody should have ZERO channels enabled for transactional types (billing receipts, security alerts) — that is a misconfiguration we silently created. A weekly audit catches drift.",
-      "fix": "(a) artisan notifications:preference-drift-audit walks users with at-least-one preference row, checks that transactional types (billing_receipt, security_alert, payment_received) have at-least-one channel enabled; (b) Emits notification_preference_drift_count gauge; (c) Schedule weeklyOn Sunday 06:30 Africa/Nairobi onOneServer (after Phase-32 runbook:coverage-audit 06:00)."
-    },
-    {
-      "id": "PLATFORM-CI-1",
-      "title": "Phase35PlatformSurfaceTest watchdog",
-      "severity": "HIGH",
-      "files": [
-        "tests/Feature/Platform/Phase35PlatformSurfaceTest.php (new)"
-      ],
-      "evidence": "Phase 29-34 established the surface-watchdog pattern. Phase 35 ships 4 new crons (metered:soft-cap-audit, product:rollup, subscriptions:apply-downgrades, notifications:preference-drift-audit) + 1 new alert key (high_metered_overage). Without the watchdog a future refactor can silently drop one.",
-      "fix": "(a) test_every_phase35_scheduler_is_registered_with_correct_cadence: EXPECTED_SCHEDULES asserts 4 crons with cron expression + Africa/Nairobi; (b) test_phase35_alert_registry_contains_required_keys asserts high_metered_overage is present in config/alerts.php; (c) test_phase35_platform_lang_namespace_exists_with_parity asserts lang/{en,sw}/platform.php loadable + identical key sets."
-    },
-    {
-      "id": "PLATFORM-CI-2",
-      "title": "lang/{en,sw}/platform.php namespace + Phase24CiTest parity",
-      "severity": "MEDIUM",
-      "files": [
-        "lang/en/platform.php (new)",
-        "lang/sw/platform.php (new)"
-      ],
-      "evidence": "Operator + landlord-facing UI labels need en/sw pairs. Phase24CiTest key-set identity check requires the sw file to mirror en's order — built upfront.",
-      "fix": "Mirror sections for: experiments (dashboard_heading, status_running, status_paused, status_concluded), metered (usage_heading, limit_label, ratio_label, overage_warning), analytics (event_browser_heading, event_count_label, top_events_label), billing (proration_label, scheduled_downgrade_label, change_history_heading), notifications (preferences_heading, lifecycle_label, transactional_locked_label)."
-    },
-    {
-      "id": "PLATFORM-CI-3",
-      "title": "docs/runbooks/platform.md operator reference",
-      "severity": "LOW",
-      "files": [
-        "docs/runbooks/platform.md (new)"
-      ],
-      "evidence": "Phase 29-34 established the runbook cadence. Phase 35 closes a lot of platform infrastructure — its runbook needs the experiment lifecycle (draft → running → concluded), the metered billing flow (record → soft-cap → overage outreach), the analytics event taxonomy + how to add an event, the subscription proration formula + scheduled-downgrade contract, the notification preferences matrix + which types are transactional-locked.",
-      "fix": "Sections: Overview (Phase 35 surface map), Experiments (lifecycle + variantFor contract + concluded variant freezing), Metered billing (record point + soft-cap + overage outreach playbook + KES math), Product analytics (event taxonomy + sample rate + retention), Billing (proration formula worked example + scheduled-downgrade flow + audit trail), Notification preferences (12+1 types + transactional locks), Crons table, CI gates, Deferrals."
+    "phase": 35,
+    "title": "[PLATFORM] A/B experiments + metered billing writer + product analytics stream + subscription proration + lifecycle opt-out",
+    "opened_at": "2026-05-16",
+    "tier": "6",
+    "scope": "Tier-6 cycle 2 — closing the platform-infrastructure debt that Phase 34's growth-loop work surfaced. Phase 34 shipped the OUTCOME layer (MRR/ARR snapshots + churn cohorts + referral attribution + engagement scoring + lifecycle email campaigns) but the MECHANISM layer underneath has gaps: (1) config/features.php holds ONE flag (whatsapp_payment_links_enabled), there is no experiments table, no variant assignment, no exposure tracking — meaning we cannot A/B test a price change, a feature rollout, or a copy variant; (2) usage_records table + UsageRecord::setUsage/incrementUsage writers exist (committed 2025-12-27) but NOTHING in production calls them — feature-gate decisions in CheckPlanLimits middleware enforce hard caps but never RECORD usage for metered billing or for the overage soft-cap that Paystack supports; (3) zero product_events table — we have OBS audit_logs for security-relevant mutations and Phase-29 workflow_runs_log for system actions but no append-only event stream for product analytics (page views, button clicks, feature adoption) which is the foundation any later Amplitude/Mixpanel/Heap integration would replay into; (4) SubscriptionService::changePlan is a no-op stub (// 'For now, changes take effect immediately' comment in code) — no proration, no scheduled downgrade-at-period-end, no subscription_changes audit table — meaning an upgrade mid-cycle gives the customer 30 days of premium for the prorated cost of N days, AND Phase-34 MrrSnapshotService's expansion_mrr_kes + contraction_mrr_kes columns ship at 0 forever because there is no audit trail to diff against; (5) Phase-34 lifecycle Mailables (TrialEnding, DunningReminder, Winback, ActivationNudge) ship without NotificationPreference integration — landlords cannot opt out without unsubscribing from transactional invoices too, violating the Phase-28 NOTIF-MATRIX-1 contract that EVERY notification type respects the user's preference matrix; (6) no Phase35PlatformSurfaceTest watchdog. No lang/{en,sw}/platform.php namespace for opt-out UI strings. No docs/runbooks/platform.md. 18 findings across 6 categories: PLATFORM-EXP (3 — experiments table holding active variants + ExperimentService::variantFor($user, $experimentKey) with sticky-hash assignment that survives session expiry + experiment_exposures append-only table writing one row per (user, experiment, variant, fired_at) for funnel attribution), PLATFORM-METER (3 — UsageRecord writers hooked into actual feature usage paths via existing CheckPlanLimits middleware terminate phase + per-feature soft-cap detection emitting metered_usage_soft_cap_breached gauge + high_metered_overage alert when a landlord exceeds plan limit by 50%+), PLATFORM-ANALYTICS (3 — product_events table append-only landlord_id/event_name/properties_json/created_at with hash partitioning hint for future scale + ProductEventTracker::track helper called from Phase-22 RecordRequestLatency terminate seam + product:rollup nightly cron computing per-event 24h count gauges), PLATFORM-BILLING (3 — SubscriptionService::changePlan signature gains $prorate=true param computing cent-accurate prorated difference + scheduleDowngradeAtPeriodEnd helper writing subscription_changes audit row + MrrSnapshotService::snapshotForDate reads subscription_changes to populate expansion_mrr_kes / contraction_mrr_kes columns Phase 34 ships at 0), PLATFORM-NOTIF (3 — NotificationPreference 'lifecycle' type added to the Phase-28 12-type matrix + all 4 Phase-34 lifecycle Mailables gated on prefers('lifecycle', 'email') + per-channel /api/notifications/preferences POST endpoint enforces matrix consistency), PLATFORM-CI (3 — Phase35PlatformSurfaceTest watchdog covering 2 new crons + 1 new alert key + lang parity, lang/{en,sw}/platform.php with sections for experiments dashboard + metered usage tier + analytics event browser + billing proration receipt + opt-out preferences form, docs/runbooks/platform.md operator reference). Severity 5H/8M/5L. Builds on Phase-25 OBS-7 Auditable trail (subscription_changes), Phase-28 NotificationPreference matrix (lifecycle channel addition), Phase-29 WorkflowLogger (analytics:rollup silent-failure surfacing), Phase-32 AlertRegistry + AlertFiringRecorder (overage alert wiring), Phase-33 LandlordUsageMetric (analogous atomic counter pattern), Phase-34 lifecycle Mailables (opt-out target) + MrrSnapshotService (waterfall column population) + ChurnService (Auditable diff classification pattern). NOT in scope: actual Amplitude/Mixpanel/Heap SDK integration (config decision, not audit), real billing payment-processor proration call (Paystack-specific work — Phase 36 candidate), experiment statistical significance computation (out of scope — operator reads raw counts).",
+    "categories": [
+        "PLATFORM-EXP",
+        "PLATFORM-METER",
+        "PLATFORM-ANALYTICS",
+        "PLATFORM-BILLING",
+        "PLATFORM-NOTIF",
+        "PLATFORM-CI"
+    ],
+    "findings": [
+        {
+            "id": "PLATFORM-EXP-1",
+            "title": "experiments table + experiment_exposures append-only audit",
+            "severity": "HIGH",
+            "files": [
+                "database/migrations/.../create_experiments_and_exposures.php (new)",
+                "app/Models/Experiment.php (new)",
+                "app/Models/ExperimentExposure.php (new)"
+            ],
+            "evidence": "config/features.php holds exactly ONE flag (whatsapp_payment_links_enabled, Phase-26 era). There is no first-class A/B testing infrastructure — meaning we cannot run a price-change experiment, a feature-rollout cohort, or a copy variant test. Every growth-team hypothesis becomes a one-off feature flag rollout with no exposure tracking, no variant lookup contract, no funnel attribution. Industry standard: experiments table (key, name, status enum [draft|running|paused|concluded], variants json, allocation json, started_at, concluded_at) + experiment_exposures append-only ledger for funnel-tracking joins (which variant did this converted user see when?).",
+            "fix": "(a) Migration experiments(experiment_key string unique, name, status enum, variants json [array of {key, weight}], starts_at, ends_at, created_at, updated_at) + experiment_exposures(user_id, experiment_key, variant_key, fired_at) unique on (user_id, experiment_key) — sticky exposure means the same user always sees the same variant; (b) Experiment model with castVariantsToArray; (c) ExperimentExposure model — append-only, no updates after insert.",
+            "status": "closed",
+            "closed_commit": "0789f70"
+        },
+        {
+            "id": "PLATFORM-EXP-2",
+            "title": "ExperimentService::variantFor with deterministic-hash assignment",
+            "severity": "MEDIUM",
+            "files": [
+                "app/Services/Platform/ExperimentService.php (new)"
+            ],
+            "evidence": "Table without service is metadata. Variant assignment needs: (a) sticky (same user always sees same variant within an experiment), (b) survives session expiry (deterministic hash of user_id + experiment_key, NOT session-stored), (c) records exposure on first-call only (subsequent calls return the same variant without re-writing the audit row), (d) respects experiment status (paused = control always, concluded = winning variant always).",
+            "fix": "(a) ExperimentService::variantFor(User $user, string $experimentKey): ?string — returns variant_key (or null if no active experiment); (b) Internally: short-circuit return existing exposure if found; otherwise compute deterministic hash via crc32($user->id . ':' . $experimentKey) mod 100, walk variants/weights, write exposure row; (c) Experiment::isActive() guard rejects draft / paused / concluded; (d) Fail-open: any error returns null (control variant — never blocks the user request).",
+            "status": "closed",
+            "closed_commit": "0789f70"
+        },
+        {
+            "id": "PLATFORM-EXP-3",
+            "title": "Inertia share + frontend variantFor helper",
+            "severity": "LOW",
+            "files": [
+                "app/Http/Middleware/HandleInertiaRequests.php"
+            ],
+            "evidence": "Backend variant resolution is internal. Vue components need a server-resolved variant in the Inertia share so the page render reflects the assigned variant (zero flicker, server-side rendered choice).",
+            "fix": "(a) HandleInertiaRequests::share appends 'experiments' => array of active experiment_key => variant_key for the auth user (or empty array if guest); (b) Loads only experiments with status=running, caches the snapshot via Cache::remember 60s to avoid per-request DB hit; (c) Frontend usage pattern: page.props.experiments['plan-upgrade-flow-2026q2'] === 'variant-b'.",
+            "status": "closed",
+            "closed_commit": "0789f70"
+        },
+        {
+            "id": "PLATFORM-METER-1",
+            "title": "MeteredUsageRecorder wiring into request-terminate seam",
+            "severity": "HIGH",
+            "files": [
+                "app/Services/Platform/MeteredUsageRecorder.php (new)",
+                "app/Http/Middleware/CheckPlanLimits.php"
+            ],
+            "evidence": "usage_records table + UsageRecord::setUsage/incrementUsage writers exist (committed 2025-12-27) but production has ZERO callers wiring feature usage into the table. CheckPlanLimits middleware enforces hard caps (max_properties / max_units / etc.) but never RECORDS each usage event — meaning we cannot bill metered features (e.g. SMS quota, document storage, API calls) on a per-use basis. The existing UsageRecord writer infrastructure is unused infrastructure.",
+            "fix": "(a) MeteredUsageRecorder::record(int $userId, string $feature, int $delta = 1) wraps UsageRecord::incrementUsage with try/catch fail-open + current period detection (start of current calendar month); (b) Replaces direct UsageRecord calls; (c) CheckPlanLimits middleware terminate() phase calls record() for the inspected feature when the request was allowed; (d) Sampling: only record on writes (POST/PUT/PATCH/DELETE), skip reads (no metering for GET).",
+            "status": "closed",
+            "closed_commit": "e46e8c1"
+        },
+        {
+            "id": "PLATFORM-METER-2",
+            "title": "metered:soft-cap-audit cron + per-landlord soft-cap gauge",
+            "severity": "MEDIUM",
+            "files": [
+                "app/Console/Commands/MeteredSoftCapAudit.php (new)",
+                "routes/console.php"
+            ],
+            "evidence": "Recording usage is half the loop — the other half is detecting when a landlord crosses 80% (soft warning) and 100% (hard cap) of their plan limit. Without an audit cron the operator dashboard has no signal. Same shape as Phase-33 log:volume-audit.",
+            "fix": "(a) artisan metered:soft-cap-audit walks active subscriptions, for each (user, feature) where the plan has a numeric limit, computes ratio = usage_records.quantity / plan.limit; emits metered_usage_ratio{feature=X, plan_slug=Y} gauge for top 50 landlords-per-feature; (b) Schedule dailyAt 04:20 Africa/Nairobi onOneServer (fourth in Phase-34 growth cluster, after engagement:rollup 04:15).",
+            "status": "closed",
+            "closed_commit": "e46e8c1"
+        },
+        {
+            "id": "PLATFORM-METER-3",
+            "title": "high_metered_overage alert wiring",
+            "severity": "MEDIUM",
+            "files": [
+                "config/alerts.php",
+                "app/Console/Commands/MeteredSoftCapAudit.php"
+            ],
+            "evidence": "Audit emits gauges but nobody is paged when a landlord ratios past 1.5x their plan limit — that is the trigger for the customer-success outreach 'either upgrade to the next tier or face overage charges' conversation.",
+            "fix": "(a) New entry in config/alerts.php key 'high_metered_overage' severity sev4 threshold 1.5 gauge 'metered_usage_ratio' runbook 'docs/runbooks/platform.md' paging email description 'A paying landlord exceeded 1.5x plan limit on a metered feature — overage outreach recommended'; (b) Audit collects landlords with ratio > 1.5 AND active subscription, fires via AlertFiringRecorder; resolves when no offender.",
+            "status": "closed",
+            "closed_commit": "e46e8c1"
+        },
+        {
+            "id": "PLATFORM-ANALYTICS-1",
+            "title": "product_events table + ProductEventTracker",
+            "severity": "HIGH",
+            "files": [
+                "database/migrations/.../create_product_events.php (new)",
+                "app/Models/ProductEvent.php (new)",
+                "app/Services/Platform/ProductEventTracker.php (new)"
+            ],
+            "evidence": "Zero product analytics event stream exists. Phase-25 OBS-7 audit_logs captures security-relevant Auditable mutations and Phase-29 workflow_runs_log captures system-action runs, but neither captures the product-analytics events (button clicks, feature adoption, page-context conversions) that any later Amplitude/Mixpanel/Heap integration would replay. A first-class append-only product_events table now means a SDK integration in Phase 36+ just batch-exports rows.",
+            "fix": "(a) Migration product_events(id, user_id nullable, landlord_id nullable, event_name string, properties json, created_at) — index on (event_name, created_at) for query patterns + (landlord_id, created_at) for funnel slices; (b) Model with TenantScope on landlord_id (multi-tenant by design); (c) ProductEventTracker::track($eventName, array $properties = [], ?int $userId = null) — single-write append, fail-open on DB error (analytics never blocks request).",
+            "status": "closed",
+            "closed_commit": "49b248a"
+        },
+        {
+            "id": "PLATFORM-ANALYTICS-2",
+            "title": "Phase-22 RecordRequestLatency calls ProductEventTracker on conversion routes",
+            "severity": "MEDIUM",
+            "files": [
+                "app/Http/Middleware/RecordRequestLatency.php"
+            ],
+            "evidence": "ProductEventTracker without callers is infrastructure debt. The cleanest wiring: extend the existing Phase-22 RecordRequestLatency middleware (already on every web + api request) to fire a 'page_view' event with route_name + landlord_id properties for any successful 200/302 response. Cost: one DB insert per request on a high-cardinality table — but our request volume is low enough (small Kenya SaaS) that this is tractable.",
+            "fix": "(a) RecordRequestLatency::terminate appends ProductEventTracker::track('page_view', ['route_name' => $request->route()?->getName(), 'method' => $request->method(), 'status' => $response->status()]); (b) Sampled to 10% by default via config('platform.analytics_sample_rate'); (c) Skip events for /api/v1/health + /api/health (noise).",
+            "status": "closed",
+            "closed_commit": "49b248a"
+        },
+        {
+            "id": "PLATFORM-ANALYTICS-3",
+            "title": "product:rollup nightly cron + per-event gauge",
+            "severity": "LOW",
+            "files": [
+                "app/Console/Commands/ProductAnalyticsRollup.php (new)",
+                "routes/console.php"
+            ],
+            "evidence": "Event stream is operator-facing but Grafana panels need numeric gauges. A nightly rollup groups events by name + counts the last 24h, emits product_event_count_24h{event=X} gauge for the top 30 event names.",
+            "fix": "(a) artisan product:rollup reads last 24h of product_events grouped by event_name, emits product_event_count_24h{event=X} gauge top 30; (b) Schedule dailyAt 04:25 Africa/Nairobi onOneServer (fifth in Phase-34 growth cluster, after metered:soft-cap-audit 04:20).",
+            "status": "closed",
+            "closed_commit": "49b248a"
+        },
+        {
+            "id": "PLATFORM-BILLING-1",
+            "title": "SubscriptionService::changePlan proration + subscription_changes audit",
+            "severity": "HIGH",
+            "files": [
+                "database/migrations/.../create_subscription_changes.php (new)",
+                "app/Models/SubscriptionChange.php (new)",
+                "app/Services/SubscriptionService.php"
+            ],
+            "evidence": "SubscriptionService::changePlan is a no-op stub — comment in code reads 'For now, changes take effect immediately' and the body just swaps plan_id. A mid-cycle upgrade gives the customer 30 days of premium for the prorated cost of N days (revenue leakage). Worse: without an audit trail of the change, Phase-34 MrrSnapshotService's expansion_mrr_kes + contraction_mrr_kes columns ship at 0 forever — we cannot reconstruct the upgrade history retroactively.",
+            "fix": "(a) Migration subscription_changes(subscription_id, from_plan_id, to_plan_id, change_type enum [upgrade|downgrade|same], prorated_amount_kes decimal(12,2), effective_at, scheduled_for nullable, created_at) — append-only audit trail; (b) Model with belongsTo subscription/fromPlan/toPlan; (c) SubscriptionService::changePlan(sub, newPlan, prorate=true) computes prorated_amount_kes = (newPlan.price - oldPlan.price) * (remainingDaysInCycle / totalDaysInCycle), writes subscription_changes row, updates plan_id under DB::transaction.",
+            "status": "closed",
+            "closed_commit": "42cc012"
+        },
+        {
+            "id": "PLATFORM-BILLING-2",
+            "title": "scheduleDowngradeAtPeriodEnd helper + subscriptions:apply-downgrades cron",
+            "severity": "MEDIUM",
+            "files": [
+                "app/Services/SubscriptionService.php",
+                "app/Console/Commands/ApplyScheduledDowngrades.php (new)",
+                "routes/console.php"
+            ],
+            "evidence": "Downgrades should always take effect AT THE END of the current billing period, never mid-cycle — the customer has already paid for the current period at the higher tier and revoking immediately is bad UX. Without a scheduling primitive, downgrade requests today either (a) take effect immediately + refund (refund infrastructure does not exist) or (b) are blocked entirely.",
+            "fix": "(a) SubscriptionService::scheduleDowngradeAtPeriodEnd(sub, newPlan) writes subscription_changes row with scheduled_for=sub.current_period_end (NOT yet applying the change); (b) artisan subscriptions:apply-downgrades runs daily, finds subscription_changes rows where scheduled_for <= now AND effective_at IS NULL, applies the plan_id change + sets effective_at + fires SubscriptionDowngraded event; (c) Schedule dailyAt 02:00 Africa/Nairobi onOneServer (before all other 02:30+ finance crons).",
+            "status": "closed",
+            "closed_commit": "42cc012"
+        },
+        {
+            "id": "PLATFORM-BILLING-3",
+            "title": "MrrSnapshotService expansion/contraction waterfall fix",
+            "severity": "LOW",
+            "files": [
+                "app/Services/Growth/MrrSnapshotService.php"
+            ],
+            "evidence": "Phase-34 MrrSnapshotService ships expansion_mrr_kes + contraction_mrr_kes at 0 (PLATFORM-BILLING-1 closes this gap). Once subscription_changes audit trail exists, the waterfall can be populated by reading subscription_changes rows on day D where change_type IN [upgrade|downgrade].",
+            "fix": "(a) MrrSnapshotService::snapshotForDate reads SubscriptionChange where effective_at within [D start, D end] for the plan_id of the snapshot; (b) Sum (toPlan.price - fromPlan.price) for upgrades into expansion_mrr_kes; sum (fromPlan.price - toPlan.price) for downgrades into contraction_mrr_kes; (c) Add a test asserting both columns are non-zero after a changePlan call.",
+            "status": "closed",
+            "closed_commit": "42cc012"
+        },
+        {
+            "id": "PLATFORM-NOTIF-1",
+            "title": "NotificationPreference 'lifecycle' channel + Phase-34 Mailables gated",
+            "severity": "MEDIUM",
+            "files": [
+                "database/migrations/.../add_lifecycle_to_notification_preferences.php (new)",
+                "app/Mail/TrialEndingMailable.php",
+                "app/Mail/DunningReminderMailable.php",
+                "app/Mail/WinbackMailable.php",
+                "app/Mail/ActivationNudgeMailable.php"
+            ],
+            "evidence": "Phase-28 NOTIF-MATRIX-1 contract requires EVERY notification type to respect the user's preference matrix. Phase-34 shipped 4 lifecycle Mailables (TrialEnding/Dunning/Winback/ActivationNudge) but they fire unconditionally — meaning a landlord who wants to suppress lifecycle nudges has to unsubscribe from transactional invoices too (which legally we cannot suppress). Violates the matrix contract and the GDPR-adjacent expectation that marketing-class email can be opted out independently.",
+            "fix": "(a) Migration adds 'lifecycle' to the NotificationPreference type enum (or adds a row per existing user defaulted to email=true); (b) Each of the 4 Mailables checks $sub->user->notificationPreferences->prefers('lifecycle', 'email') in the cron's loop — skip dispatch if false; (c) Default is opt-in (email=true) since the user is paying — opt-out is explicit.",
+            "status": "closed",
+            "closed_commit": "869f533"
+        },
+        {
+            "id": "PLATFORM-NOTIF-2",
+            "title": "POST /api/notifications/preferences enforces matrix consistency",
+            "severity": "MEDIUM",
+            "files": [
+                "app/Http/Controllers/Settings/NotificationPreferenceController.php",
+                "routes/api.php"
+            ],
+            "evidence": "Landlord-facing opt-out UI needs an API endpoint. Phase-28 shipped the read-side (matrix Vue component) but the write-side is missing on landlord (Phase-28 wrote tenant-side only). Without it the opt-out is only theoretical — the database accepts a row but no controller can write it from a landlord-authenticated request.",
+            "fix": "(a) POST /api/notifications/preferences accepts {type, channel, enabled} body, validates type IS IN the 13-type enum + channel IS IN [email, sms, in_app, push, whatsapp], upserts the preference row; (b) Validates the user can write the type (some types are transactional-only — billing receipts MUST remain on); (c) Returns 200 with the full updated matrix; (d) Wired under auth middleware (works for landlord + tenant).",
+            "status": "closed",
+            "closed_commit": "869f533"
+        },
+        {
+            "id": "PLATFORM-NOTIF-3",
+            "title": "notifications:preference-drift-audit watchdog",
+            "severity": "LOW",
+            "files": [
+                "app/Console/Commands/NotificationPreferenceDriftAudit.php (new)",
+                "routes/console.php"
+            ],
+            "evidence": "Once landlords can opt-out individually, we need a sanity check: nobody should have ZERO channels enabled for transactional types (billing receipts, security alerts) — that is a misconfiguration we silently created. A weekly audit catches drift.",
+            "fix": "(a) artisan notifications:preference-drift-audit walks users with at-least-one preference row, checks that transactional types (billing_receipt, security_alert, payment_received) have at-least-one channel enabled; (b) Emits notification_preference_drift_count gauge; (c) Schedule weeklyOn Sunday 06:30 Africa/Nairobi onOneServer (after Phase-32 runbook:coverage-audit 06:00).",
+            "status": "closed",
+            "closed_commit": "869f533"
+        },
+        {
+            "id": "PLATFORM-CI-1",
+            "title": "Phase35PlatformSurfaceTest watchdog",
+            "severity": "HIGH",
+            "files": [
+                "tests/Feature/Platform/Phase35PlatformSurfaceTest.php (new)"
+            ],
+            "evidence": "Phase 29-34 established the surface-watchdog pattern. Phase 35 ships 4 new crons (metered:soft-cap-audit, product:rollup, subscriptions:apply-downgrades, notifications:preference-drift-audit) + 1 new alert key (high_metered_overage). Without the watchdog a future refactor can silently drop one.",
+            "fix": "(a) test_every_phase35_scheduler_is_registered_with_correct_cadence: EXPECTED_SCHEDULES asserts 4 crons with cron expression + Africa/Nairobi; (b) test_phase35_alert_registry_contains_required_keys asserts high_metered_overage is present in config/alerts.php; (c) test_phase35_platform_lang_namespace_exists_with_parity asserts lang/{en,sw}/platform.php loadable + identical key sets.",
+            "status": "closed",
+            "closed_commit": "869f533"
+        },
+        {
+            "id": "PLATFORM-CI-2",
+            "title": "lang/{en,sw}/platform.php namespace + Phase24CiTest parity",
+            "severity": "MEDIUM",
+            "files": [
+                "lang/en/platform.php (new)",
+                "lang/sw/platform.php (new)"
+            ],
+            "evidence": "Operator + landlord-facing UI labels need en/sw pairs. Phase24CiTest key-set identity check requires the sw file to mirror en's order — built upfront.",
+            "fix": "Mirror sections for: experiments (dashboard_heading, status_running, status_paused, status_concluded), metered (usage_heading, limit_label, ratio_label, overage_warning), analytics (event_browser_heading, event_count_label, top_events_label), billing (proration_label, scheduled_downgrade_label, change_history_heading), notifications (preferences_heading, lifecycle_label, transactional_locked_label).",
+            "status": "closed",
+            "closed_commit": "869f533"
+        },
+        {
+            "id": "PLATFORM-CI-3",
+            "title": "docs/runbooks/platform.md operator reference",
+            "severity": "LOW",
+            "files": [
+                "docs/runbooks/platform.md (new)"
+            ],
+            "evidence": "Phase 29-34 established the runbook cadence. Phase 35 closes a lot of platform infrastructure — its runbook needs the experiment lifecycle (draft → running → concluded), the metered billing flow (record → soft-cap → overage outreach), the analytics event taxonomy + how to add an event, the subscription proration formula + scheduled-downgrade contract, the notification preferences matrix + which types are transactional-locked.",
+            "fix": "Sections: Overview (Phase 35 surface map), Experiments (lifecycle + variantFor contract + concluded variant freezing), Metered billing (record point + soft-cap + overage outreach playbook + KES math), Product analytics (event taxonomy + sample rate + retention), Billing (proration formula worked example + scheduled-downgrade flow + audit trail), Notification preferences (12+1 types + transactional locks), Crons table, CI gates, Deferrals.",
+            "status": "closed",
+            "closed_commit": "869f533"
+        }
+    ],
+    "audit_closeout": {
+        "closed_at": "2026-05-16",
+        "total_findings": 18,
+        "closed": 18,
+        "deferrals": 0,
+        "commits": [
+            "7d581e3",
+            "0789f70",
+            "e46e8c1",
+            "49b248a",
+            "42cc012",
+            "869f533"
+        ],
+        "tier_milestone": "TIER 6 cycle 2 of N (Phase 35 [PLATFORM]) — closes Phase 34 follow-ons + opens experiments/metering/analytics primitives",
+        "test_summary": {
+            "phase_35_added": 43,
+            "breakdown": {
+                "Phase35ExperimentTest": 9,
+                "Phase35MeteredUsageTest": 8,
+                "Phase35ProductAnalyticsTest": 8,
+                "Phase35BillingTest": 9,
+                "Phase35NotificationPreferenceTest": 9,
+                "Phase35PlatformSurfaceTest": 3
+            }
+        }
     }
-  ]
 }
