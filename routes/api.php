@@ -180,6 +180,9 @@ Route::prefix('webhooks')->group(function () {
     Route::post('/bank/equity', [\App\Http\Controllers\Api\BankWebhookController::class, 'equityWebhook']);
     Route::post('/bank/kcb', [\App\Http\Controllers\Api\BankWebhookController::class, 'kcbWebhook']);
     Route::post('/bank/coop', [\App\Http\Controllers\Api\BankWebhookController::class, 'coopWebhook']);
+    // Phase-30 INT-BANK-PARITY-1/2
+    Route::post('/bank/postbank', [\App\Http\Controllers\Api\BankWebhookController::class, 'postBankWebhook']);
+    Route::post('/bank/familybank', [\App\Http\Controllers\Api\BankWebhookController::class, 'familyBankWebhook']);
 
     // WhatsApp webhooks (Twilio signature validated)
     Route::post('/whatsapp/status', [\App\Http\Controllers\Api\WhatsAppWebhookController::class, 'statusCallback']);

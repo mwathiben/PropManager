@@ -302,3 +302,12 @@ Schedule::command('mpesa:reconcile-status')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase30-int-mpesa-deep2-reconcile');
+
+// Phase-30 INT-BANK-PARITY-3: nightly per-bank drift audit. Emits
+// bank_webhook_unmatched_count, bank_webhook_error_count, and
+// bank_webhook_silence_hours gauges per bank for Prometheus.
+Schedule::command('bank-reconciliation:audit')
+    ->dailyAt('05:50')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase30-int-bank-parity3-audit');

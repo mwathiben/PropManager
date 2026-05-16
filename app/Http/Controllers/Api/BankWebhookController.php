@@ -15,8 +15,10 @@ use App\Models\User;
 use App\Services\Banking\BankServiceInterface;
 use App\Services\Banking\CoopBankService;
 use App\Services\Banking\EquityBankService;
+use App\Services\Banking\FamilyBankService;
 use App\Services\Banking\KcbBankService;
 use App\Services\Banking\PaymentNotification;
+use App\Services\Banking\PostBankService;
 use App\Services\BillingModelService;
 use App\Services\IdempotencyService;
 use App\Services\IncidentDetector;
@@ -45,6 +47,16 @@ class BankWebhookController extends Controller
     public function coopWebhook(Request $request, CoopBankService $service)
     {
         return $this->processWebhook($request, $service, 'coop');
+    }
+
+    public function postBankWebhook(Request $request, PostBankService $service)
+    {
+        return $this->processWebhook($request, $service, 'postbank');
+    }
+
+    public function familyBankWebhook(Request $request, FamilyBankService $service)
+    {
+        return $this->processWebhook($request, $service, 'familybank');
     }
 
     private function processWebhook(Request $request, BankServiceInterface $service, string $bankCode)
