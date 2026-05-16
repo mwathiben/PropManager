@@ -1012,6 +1012,16 @@ Route::middleware(['auth', 'role:tenant', 'payment.verified', 'kyc.complete'])->
     // Phase-28 TENANT-DOCS-1/2/3: tenant document repository + downloads.
     Route::get('/documents', [\App\Http\Controllers\TenantDocumentsController::class, 'index'])->name('tenant.documents.index');
     Route::get('/documents/{document}/download', [\App\Http\Controllers\TenantDocumentsController::class, 'download'])->name('tenant.documents.download');
+
+    // Phase-28 TENANT-PAY-1: tenant-initiated payment plan request.
+    Route::post('/payment-plans/request', [\App\Http\Controllers\Tenant\PaymentPlanRequestController::class, 'store'])
+        ->middleware('throttle:sensitive')
+        ->name('tenant.payment-plans.request');
+
+    // Phase-28 TENANT-PAY-3: tenant-initiated deposit refund request.
+    Route::post('/deposit-refunds', [\App\Http\Controllers\Tenant\DepositRefundController::class, 'store'])
+        ->middleware('throttle:sensitive')
+        ->name('tenant.deposit-refunds.store');
 });
 
 // --- LEGAL DOCUMENTS (Public) ---

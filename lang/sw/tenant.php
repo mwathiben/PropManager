@@ -17,6 +17,12 @@ return [
         'subject' => 'SLA imevuka: :title',
         'body' => 'Tiketi ":title" (:priority) imevuka SLA saa :breached_at na bado haijapata jibu la kwanza.',
     ],
+    'payment_plan' => [
+        'submitted' => 'Ombi la mpango wa malipo limewasilishwa (:count awamu). Linasubiri idhini ya mwenye nyumba.',
+    ],
+    'deposit_refund' => [
+        'submitted' => 'Ombi la kurudisha amana limewasilishwa. Mwenye nyumba atalipitia hivi karibuni.',
+    ],
     'statement' => [
         'title' => 'Taarifa Yangu',
         'period_label' => 'Kipindi :from hadi :to',

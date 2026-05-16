@@ -17,6 +17,12 @@ return [
         'subject' => 'SLA breach: :title',
         'body' => 'Ticket ":title" (:priority) breached its SLA at :breached_at and has not yet had a first response.',
     ],
+    'payment_plan' => [
+        'submitted' => 'Payment plan request submitted (:count installments). Awaiting landlord approval.',
+    ],
+    'deposit_refund' => [
+        'submitted' => 'Deposit refund request submitted. Your landlord will review it shortly.',
+    ],
     'statement' => [
         'title' => 'My Statement',
         'period_label' => 'Period :from to :to',

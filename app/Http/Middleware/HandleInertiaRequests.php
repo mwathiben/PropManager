@@ -53,6 +53,13 @@ class HandleInertiaRequests extends Middleware
                 // see App\Support\UserDto for the explicit field list +
                 // App\Support\AuthAbilities for the computed gate map.
                 'user' => $user ? UserDto::from($user) : null,
+                // Phase-28 TENANT-CI-2: per-tenant abilities map for
+                // Vue conditional rendering. Returns null on landlord
+                // pages so the Vue layer doesn't accidentally
+                // interpret an empty map as a tenant context.
+                'tenant_abilities' => $user && $user->isTenant()
+                    ? \App\Support\TenantAbilities::for($user)
+                    : null,
             ],
             'impersonating' => session('impersonating') !== null,
             'impersonating_name' => session('impersonating_name'),
