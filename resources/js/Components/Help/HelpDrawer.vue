@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useHelpDrawer } from '@/Composables/useHelpDrawer'
+import { useHelpDrawer } from '@/composables/useHelpDrawer'
 
 interface Article {
   id: number

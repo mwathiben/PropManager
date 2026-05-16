@@ -3,9 +3,10 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "vite build",
+        "build": "node scripts/check-import-case.mjs && vite build",
         "dev": "vite",
         "lint": "eslint resources/js",
+        "check:imports": "node scripts/check-import-case.mjs",
         "test:a11y": "playwright test",
         "test:pwa": "playwright test --config playwright.pwa.config.ts",
         "test:lhci": "lhci autorun --config=lighthouserc.cjs"

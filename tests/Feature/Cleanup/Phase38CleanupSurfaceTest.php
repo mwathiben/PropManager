@@ -116,4 +116,27 @@ class Phase38CleanupSurfaceTest extends TestCase
         );
         MetricsService::resetRedisAvailabilityCache();
     }
+
+    /**
+     * Phase-38 DEFER-CASE-SENSITIVITY-2: scripts/check-import-case.mjs
+     * walks every @/... import and asserts the directory case matches
+     * the filesystem. Windows is case-insensitive so wrong-case
+     * imports build locally but break on Linux production. The script
+     * runs as part of `npm run build` AND is invoked here so test
+     * runs catch regressions even without a build.
+     */
+    public function test_no_capital_case_import_paths(): void
+    {
+        $projectRoot = base_path();
+        $command = sprintf('node %s 2>&1', escapeshellarg($projectRoot.'/scripts/check-import-case.mjs'));
+        $output = [];
+        $exitCode = 0;
+        exec($command, $output, $exitCode);
+
+        $this->assertSame(
+            0,
+            $exitCode,
+            "check-import-case.mjs reported mismatched directory case:\n".implode("\n", $output),
+        );
+    }
 }
