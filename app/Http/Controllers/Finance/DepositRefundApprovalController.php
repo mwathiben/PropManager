@@ -9,6 +9,7 @@ use App\Events\DepositRefundPaid;
 use App\Events\DepositRefundRejected;
 use App\Http\Controllers\Controller;
 use App\Models\DepositRefundRequest;
+use App\Services\Mpesa\DepositRefundPayoutService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -101,5 +102,37 @@ class DepositRefundApprovalController extends Controller
         DepositRefundPaid::dispatch($refund);
 
         return Redirect::back()->with('success', __('workflow.deposit_refund.paid'));
+    }
+
+    /**
+     * Phase-30 INT-MPESA-DEEP-1: pay the approved refund via M-Pesa
+     * B2C. Idempotent — repeated calls return the same MpesaB2cRequest
+     * row; the DepositRefundRequest does NOT flip to PAID here. It is
+     * flipped to PAID when the B2C ResultURL callback or the
+     * mpesa:reconcile-status poll confirms 'succeeded'.
+     */
+    public function payViaMpesa(
+        Request $request,
+        DepositRefundRequest $refund,
+        DepositRefundPayoutService $payoutService,
+    ): RedirectResponse {
+        Gate::forUser($request->user())->authorize('manage', $refund);
+        abort_unless(
+            $refund->status === DepositRefundRequest::STATUS_APPROVED,
+            422,
+            'Only approved refunds can be paid via M-Pesa B2C.',
+        );
+
+        $data = $request->validate([
+            'phone' => ['required', 'string', 'regex:/^\+?254[0-9]{9}$/'],
+        ]);
+
+        try {
+            $b2c = $payoutService->payout($refund, $data['phone']);
+        } catch (\DomainException $e) {
+            abort(422, $e->getMessage());
+        }
+
+        return Redirect::back()->with('success', __('workflow.deposit_refund.b2c_'.$b2c->status));
     }
 }

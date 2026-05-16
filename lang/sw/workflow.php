@@ -56,5 +56,10 @@ return [
         'rejected_body' => 'Ombi lako la kurudisha amana limekataliwa. Sababu: :reason',
         'paid_subject' => 'Kurudisha amana yako kumelipwa',
         'paid_body' => 'Kurudisha amana yako kumelipwa. Kumbukumbu ya malipo: :reference',
+        'b2c_queued' => 'Marejesho yamepangwa kwa malipo ya M-Pesa B2C.',
+        'b2c_sent' => 'Malipo ya M-Pesa B2C yameanzishwa. Tunasubiri uthibitisho.',
+        'b2c_succeeded' => 'Malipo ya M-Pesa B2C yamefanikiwa.',
+        'b2c_failed' => 'Malipo ya M-Pesa B2C yameshindwa.',
+        'b2c_timed_out' => 'Malipo ya M-Pesa B2C yamechelewa — usawazishaji unasubiriwa.',
     ],
 ];

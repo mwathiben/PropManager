@@ -134,6 +134,10 @@ Route::post('/webhooks/paystack', [PaymentController::class, 'handleWebhook'])
     ->middleware('webhook.paystack')
     ->name('webhooks.paystack');
 
+// Phase-30 INT-MPESA-DEEP-3: HMAC-SHA512 verified Paystack receiver.
+Route::post('/webhooks/v2/paystack', [\App\Http\Controllers\Webhooks\PaystackWebhookController::class, 'handle'])
+    ->name('webhooks.v2.paystack');
+
 Route::prefix('webhooks/mpesa')->name('webhooks.mpesa.')->middleware('webhook.mpesa')->group(function () {
     Route::post('/stk-callback', [\App\Http\Controllers\Api\MpesaWebhookController::class, 'stkCallback'])
         ->name('stk-callback');
@@ -1062,6 +1066,9 @@ Route::middleware(['auth', 'role:landlord'])->group(function () {
         ->name('finance.deposit-refunds.reject');
     Route::post('/deposit-refunds/{refund}/mark-paid', [\App\Http\Controllers\Finance\DepositRefundApprovalController::class, 'markPaid'])
         ->name('finance.deposit-refunds.mark-paid');
+    // Phase-30 INT-MPESA-DEEP-1: B2C payout for approved refund
+    Route::post('/deposit-refunds/{refund}/pay-mpesa', [\App\Http\Controllers\Finance\DepositRefundApprovalController::class, 'payViaMpesa'])
+        ->name('finance.deposit-refunds.pay-mpesa');
 });
 
 // --- LEGAL DOCUMENTS (Public) ---

@@ -55,5 +55,10 @@ return [
         'rejected_body' => 'Your deposit refund request was rejected. Reason: :reason',
         'paid_subject' => 'Your deposit refund has been paid',
         'paid_body' => 'Your deposit refund has been paid. Payment reference: :reference',
+        'b2c_queued' => 'Refund queued for M-Pesa B2C payout.',
+        'b2c_sent' => 'M-Pesa B2C payout initiated. Awaiting confirmation.',
+        'b2c_succeeded' => 'M-Pesa B2C payout succeeded.',
+        'b2c_failed' => 'M-Pesa B2C payout failed.',
+        'b2c_timed_out' => 'M-Pesa B2C payout timed out — reconciliation pending.',
     ],
 ];

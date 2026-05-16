@@ -292,3 +292,13 @@ Schedule::command('workflow:health')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase29-wf-ci2-health');
+
+// Phase-30 INT-MPESA-DEEP-2: poll Daraja every 30 minutes for
+// in-flight B2C payout status (rows in 'sent' or 'queued' older than
+// 5 minutes). Closes the silent-failure gap when the ResultURL
+// callback never arrives.
+Schedule::command('mpesa:reconcile-status')
+    ->everyThirtyMinutes()
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase30-int-mpesa-deep2-reconcile');
