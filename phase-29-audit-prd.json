@@ -266,5 +266,94 @@
       "evidence": "Phase-26 pwa.md + Phase-27 bi.md + Phase-28 tenant-portal.md establish the runbook convention. Phase 29 needs the same: scheduler table (command name + cadence + timezone + finding id), event-listener map, ops procedures (how to disable a workflow per-landlord, how to inspect workflow_runs_log, how to re-fire a missed run), CI gate references, deferrals.",
       "fix": "(a) Sections: Overview, Scheduler table (5 new commands), Event-listener map (8 events), Schema additions (rent_reminder_policies, leases.reminder_tier, lease_renewals, landlord_tasks, eviction_notice_drafts, buildings.target_occupancy_rate, workflow_runs_log), Ability matrix entries (renewal:respond), Ops procedures (disable workflow per-landlord, inspect workflow_runs_log, manual re-fire), CI gates (Phase29WorkflowSurfaceTest + Phase29CiTest + per-finding watchdogs), Deferrals; (b) Phase29CiTest::test_runbook_lists_every_phase29_scheduler + test_runbook_lists_every_phase29_event + test_runbook_lists_every_phase29_test_class."
     }
-  ]
+  ],
+  "audit_closeout": {
+    "closed_at": "2026-05-16",
+    "status": "COMPLETE",
+    "findings_total": 18,
+    "findings_closed": 18,
+    "findings_deferred": 0,
+    "by_severity": {
+      "HIGH": "5/5",
+      "MEDIUM": "9/9",
+      "LOW": "4/4"
+    },
+    "commits": [
+      "689ef70 — PRD baseline (18 findings)",
+      "5c92334 — Phase 1a: WF-RENT-REMIND-1/2/3 (RentReminderPolicy table with offset templates + RentRemindersDispatch nightly + leases.reminder_tier + NotificationPreference opt-out path verified)",
+      "0b10c87 — Phase 1b: WF-LEASE-RENEW-1/2/3 (leases:scan-renewals 60/30/7-day buckets + LeaseRenewal model with proposed/accepted/confirmed/rejected/expired status machine + landlord initiate/confirm + tenant accept/reject + renewal:respond ability key)",
+      "b1e189c — Phase 1c: WF-LATE-FEE-1/2/3 (invoices:escalate-overdue Day 5 SMS / Day 10 LandlordTask / Day 30 EvictionNoticeDraft chain + polymorphic LandlordTask model + EvictionNoticeDraft never-auto-sent invariant)",
+      "c287bd1 — Phase 1d: WF-VACANCY-1/2/3 (OccupancyService aggregator + occupancy:audit emitting occupancy_rate{building} + vacancy_count{building} gauges + VacancyDetected event with auto-task listener + buildings.target_occupancy_rate breach alert)",
+      "9fb3249 — Phase 2: WF-PAY-APPROVE-1/2/3 + WF-CI-1/2/3 (PaymentPlanApprovalController + DepositRefundApprovalController closing Phase-28 deferred landlord UIs + 5 tenant notification listeners + Phase29WorkflowSurfaceTest + workflow_runs_log + workflow:health + runbook)"
+    ],
+    "watchdog_suite": {
+      "test_classes": 7,
+      "test_classes_listing": [
+        "Phase29RentReminderTest (11 tests / 23 assertions) — offset matching {0, +3} fires, non-matching does not, idempotency, dry-run, aggressive tier picks matching policy, fallback to default, custom offsets_json, paid invoice skipped, NotificationPreference opt-out blocks dispatch, Schedule registered at 08:00",
+        "Phase29LeaseRenewTest (15 tests / 51 assertions) — 60/30/7-day buckets fire event, non-bucket day does not, same-month idempotency, inactive lease never fires, landlord propose/cannot-propose-second, cross-landlord 403, tenant accept own, tenant cannot respond to other tenants, confirm writes lease.end_date + rent atomically, confirm rejected when not accepted, renewal:respond ability gate, Schedule at 07:30",
+        "Phase29LateFeeEscalationTest (8 tests / 30 assertions) — Day 5 fires arrears SMS, Day 10 creates landlord_task with high priority, Day 30 creates EvictionNoticeDraft NEVER auto-sent (status=draft + sent_at NULL + draft body contains tenant name + DRAFT), non-bucket day no-op, paid invoice skipped, idempotency lock, dry-run no-op, Schedule at 00:30",
+        "Phase29VacancyTest (10 tests / 26 assertions) — byBuilding 0% empty + 25% with 2/8 occupied, breach NOT emitted when target NULL, breach IS emitted when current < target, breach NOT emitted when current >= target, same-month idempotency, MoveOut → Completed fires VacancyDetected when no future lease, MoveOut → Completed does NOT fire when future lease exists, listener creates 'list_unit' high-priority task on Unit, Schedule at 06:30",
+        "Phase29PayApproveTest (9 tests / ~30 assertions) — landlord approves plan fires event + advances status + records approved_by, rejection captures reason, cross-landlord 403, already-approved 422, landlord approves refund with final_amount_cents, rejection captures reason, markPaid requires approved (422 otherwise), markPaid happy path captures payment_reference, cross-landlord 403",
+        "Phase29WorkflowSurfaceTest (2 tests / 2 assertions) — EXPECTED_SCHEDULES const asserts every Phase29 command has the right cron expression + Africa/Nairobi timezone; EXPECTED_EVENTS const asserts every Phase29 event has at least one registered listener",
+        "Phase29CiTest (6 tests / ~25 assertions) — WorkflowLogger writes row with full metadata; workflow:health runs successfully + emits silent count; detects silent expected workflow (zero rows in last 24h for EXPECTED_DAILY); runbook lists every Phase29 scheduler + every Phase29 event class + every Phase29 test class"
+      ],
+      "total_tests": 61,
+      "total_assertions": 188,
+      "duration_seconds": 132.14
+    },
+    "artifacts_shipped": {
+      "schedulers": [
+        "rent-reminders:dispatch dailyAt 08:00 Africa/Nairobi onOneServer (after invoices:automate 06:00)",
+        "leases:scan-renewals dailyAt 07:30 Africa/Nairobi onOneServer (between tickets:audit-sla 07:00 and rent-reminders 08:00)",
+        "invoices:escalate-overdue dailyAt 00:30 Africa/Nairobi onOneServer (after invoices:mark-overdue 00:05 and apply-late-fees 00:10)",
+        "occupancy:audit dailyAt 06:30 Africa/Nairobi onOneServer (between reports:send-scheduled 06:00 and tickets:audit-sla 07:00)",
+        "workflow:health dailyAt 04:30 Africa/Nairobi onOneServer (silent-failure detector for Phase-29 workflows)"
+      ],
+      "events_listeners": [
+        "LeaseRenewalApproaching → NotifyOnLeaseRenewalApproaching (ShouldQueue + Phase-16 backoff, notifies tenant + landlord)",
+        "VacancyDetected → CreateTaskOnVacancyDetected (creates 'list_unit' high-priority LandlordTask)",
+        "OccupancyTargetBreached → NotifyOnOccupancyTargetBreached (ShouldQueue + Phase-16 backoff, notifies landlord)",
+        "PaymentPlanApproved → NotifyTenantOnPaymentPlanApproved (ShouldQueue + Phase-16 backoff)",
+        "PaymentPlanRejected → NotifyTenantOnPaymentPlanRejected (notifies tenant with rejection_reason)",
+        "DepositRefundApproved → NotifyTenantOnDepositRefundApproved (notifies tenant with final_amount)",
+        "DepositRefundRejected → NotifyTenantOnDepositRefundRejected (notifies tenant with rejection_reason)",
+        "DepositRefundPaid → NotifyTenantOnDepositRefundPaid (notifies tenant with payment_reference)"
+      ],
+      "models_tables": [
+        "App\\Models\\RentReminderPolicy (TenantScope + TEMPLATE_OFFSETS const) + rent_reminder_policies table",
+        "leases.reminder_tier enum (standard|aggressive|lenient|custom) DEFAULT 'standard'",
+        "App\\Models\\LeaseRenewal (TenantScope + STATUSES + OPEN_STATUSES + isOpen()) + lease_renewals table",
+        "App\\Models\\LandlordTask (TenantScope + STATUSES + polymorphic relatedTo()) + landlord_tasks table",
+        "App\\Models\\EvictionNoticeDraft (TenantScope + STATUSES) + eviction_notice_drafts table",
+        "buildings.target_occupancy_rate decimal(5,2) NULL",
+        "App\\Models\\WorkflowRunLog (forWorkflow + inLast24h scopes) + workflow_runs_log table",
+        "App\\Services\\OccupancyService::byBuilding(User) + portfolioRate(User)",
+        "App\\Services\\WorkflowLogger::log(workflowName, action, landlordId?, targetType?, targetId?, metadata?)",
+        "App\\Policies\\PaymentPlanPolicy::manage + App\\Policies\\DepositRefundRequestPolicy::manage (registered in AuthServiceProvider)"
+      ],
+      "frontend": "Tenant/Renewals/Show.vue + Tasks/Index.vue + EvictionNotices/Show.vue Vue surfaces DEFERRED (data + API + ability key all ship; dedicated landlord-facing UIs land in Phase 31 [ONBOARDING] or earlier follow-up). App\\Support\\TenantAbilities adds 'renewal:respond' key consumed via existing usePage().props.auth.tenant_abilities path.",
+      "i18n": "lang/{en,sw}/workflow.php — rent_reminder.{4 keys} + vacancy.{2 keys} + occupancy.{2 keys} + late_fee.{5 keys} + lease_renewal.{6 keys} + payment_plan.{6 keys} + deposit_refund.{9 keys} = 34 keys × 2 locales. Phase24CiTest parity at 472 assertions green (identity comparison on array_keys not just set comparison — KEY ORDER must match).",
+      "runbook": "docs/runbooks/workflow-automation.md — overview + scheduler table (5 commands with cadence + why-this-slot) + event-listener map (8 events) + schema additions (7 tables) + ability matrix entries + CI gates (7 watchdog classes) + ops procedures (disable per landlord, inspect workflow_runs_log, re-fire missed run) + deferrals + memory pointer.",
+      "security_posture": "Cross-landlord access universally blocked: PaymentPlanPolicy::manage and DepositRefundRequestPolicy::manage both gate on user.isLandlord() && resource.landlord_id === user.id (asserted by 'other landlord cannot' tests in Phase29PayApproveTest). LeaseRenewalController::store and ::confirm enforce the same. Tenant\\RenewalResponseController guards both lease ownership (tenant.id === lease.tenant_id) and status (only proposed → accepted/rejected). EvictionNoticeDraft is NEVER auto-sent — Phase29LateFeeEscalationTest asserts status='draft' and sent_at=NULL on creation. All approval endpoints carry no throttle:sensitive (landlord-only routes — abuse surface is the landlord's own portfolio)."
+    },
+    "deferrals": [],
+    "sub_scope_deferrals": [
+      {
+        "summary": "Landlord-side Tasks/Index.vue + EvictionNotices/Show.vue UI",
+        "why": "Phase 29 ships LandlordTask + EvictionNoticeDraft data models + the auto-creation pipelines. Dedicated landlord-facing triage UI is a different surface than the data-layer automation that defines Phase 29. Bundling would either rush the Vue or balloon the commit.",
+        "next_action": "Phase 31 [ONBOARDING] is the natural home — task triage maps to the in-app help center workflow. May also land earlier as a focused UI follow-up commit."
+      },
+      {
+        "summary": "EvictionNoticeDraft sendManual + edit + withdraw flow",
+        "why": "Same follow-up UI commit as the Tasks board. Drafts are queryable + auditable via the existing admin tooling; the landlord-facing review/edit/send page waits for the broader landlord UI cycle.",
+        "next_action": "Same as above."
+      },
+      {
+        "summary": "Tenant Vue surfaces for renewal (Tenant/Renewals/Show.vue)",
+        "why": "Tenant\\RenewalResponseController + the renewal:respond ability key ship in Phase 29. The dedicated Vue page is a small surface that can land separately to keep Phase 29 scoped to data + automation.",
+        "next_action": "Phase 30 or a focused Tenant-portal follow-up commit."
+      }
+    ],
+    "next_phase": "Phase 30 [INTEGRATIONS] — Tier 4 cycle 3: QuickBooks Online Kenya export (chart-of-accounts mapping), Sage cloud export, deeper M-Pesa STK + B2C (currently C2B/paybill only — push payments + tenant refunds), Equity Bank Eazzy API depth, Postbank/Family Bank parity with KCB/Coop, accounting period locking (close-of-month). Natural home for the deferred TENANT-PAY-2 auto-allocation (Phase 28 carry-forward) since PaymentAllocationService is in scope."
+  }
 }
