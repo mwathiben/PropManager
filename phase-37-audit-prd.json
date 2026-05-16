@@ -1,0 +1,223 @@
+{
+  "phase": 37,
+  "title": "[PWA-DEPTH] frontend activation of push + insight email digest + Paystack subscription sync + admin frontends + retention + analytics SDK — Tier-7 cycle 1",
+  "opened_at": "2026-05-16",
+  "tier": "7",
+  "scope": "Tier-7 cycle 1 — closing the FE/gateway/retention/admin debt that 35 phases of backend work has accumulated. Scouting confirmed: Phase 26 already shipped a full push subscription stack (push_subscriptions table + minishlink/web-push composer dep + PushNotificationService 345 LOC + sw.ts push event handler + 4 routes /notifications/push/{subscribe,unsubscribe,key,generate-keys}) but there is NO frontend ever calling /notifications/push/subscribe (no useWebPush composable, no permission UX, no settings toggle); Phase 35 shipped notification_preferences + GET/POST /api/v1/notifications/preferences + transactional-locked enum but NO Vue settings page (Settings/ has Index/TwoFactor/Privacy/KycRequirements/PayoutAccounts — no Notifications.vue); Phase 35 also shipped ExperimentService::variantFor + experiments/experiment_exposures tables but NO admin UI (no Pages/Ops/Experiments/ or Pages/Admin/Experiments/) and NO statistical-significance compute method on the service; Phase 36 shipped InsightDashboardService::landlordSummary but NO weekly email digest reusing the lifecycle Mailable pattern (TrialEndingMailable etc); SubscriptionService::changePlan ships local KES proration math + SubscriptionChange audit row (Phase 35) but never calls Paystack — PaystackSubscriptionService has initializePayment + createPlan, NO updateSubscription, NO disableSubscription, NO syncFromGateway reconciliation; product_events table (Phase 35, append-only, TenantScope) has NO retention cron or cold-storage rollover and will grow unbounded; no Amplitude/Mixpanel/Heap/PostHog SDK in package.json and no AnalyticsForwarder/ProductEventStreamer class for external SDK replay. Untouchable: resources/js/composables/useHelpDrawer.ts is pre-existing uncommitted user work outside Phase 37 scope. 18 findings across 6 categories: PWA-PUSH-FE (3 — useWebPush composable + permission flow + topbar SettingsBell push toggle + service-worker registration handshake; Settings/Notifications.vue 12-type matrix with push column; server-driven re-subscription on VAPID key rotation via /notifications/push/key polling), PWA-DIGEST (3 — WeeklyInsightDigestMailable reusing TrialEndingMailable pattern + markdown template under emails/insight/ with en/sw subject lines + insight:weekly-digest cron Monday 07:00 Africa/Nairobi reading InsightDashboardService::landlordSummary per landlord + lifecycle opt-in gate via existing LifecycleOptInChecker::allows; insight:weekly-digest emits insight_digest_sent_count + insight_digest_skipped_optin_count gauges + 7-day Cache::add idempotency per landlord_id+ISO-week), PWA-GATEWAY (3 — PaystackSubscriptionService gains updateSubscription(subscription_code, plan_code) + disableSubscription(subscription_code) + syncFromGateway(subscription_code) methods + HMAC-signed POST /webhooks/v2/paystack/subscription handler for subscription.create / subscription.disable / charge.success / invoice.create events; SubscriptionService::changePlan after the DB transaction calls PaystackSubscriptionService::updateSubscription on UPGRADE + records gateway_response on SubscriptionChange audit row + ProrationException on gateway failure rolls back the DB change; gateway:proration-audit nightly 05:30 reconciliation walks last-24h SubscriptionChange rows where gateway_response IS NULL OR gateway_response->success=false firing high_gateway_proration_drift sev3 alert), PWA-FRONTEND-ADMIN (3 — Settings/Notifications.vue 12-type × 5-channel matrix UI consuming GET /api/v1/notifications/preferences + POST toggles + transactional-locked enum (invoice/receipt cannot disable) + push channel light row showing browser permission state + push subscribe/unsubscribe button; Pages/Ops/Experiments/Index.vue super_admin list with status filter (draft|running|paused|concluded) + exposure counts per variant via ExperimentExposure::groupBy + create/edit links; Pages/Ops/Experiments/Show.vue per-experiment dashboard with exposure-by-variant table + ExperimentController::store/update/conclude with super_admin gating + experiments:create / experiments:flip-status policies), PWA-RETENTION-STATS (3 — product:prune cron weekly Sunday 03:00 deletes product_events older than 180 days (config('platform.product_events_retention_days')) in chunks of 5000 with progress logging + emits product_events_pruned_total{days_old=181..360..>360} gauge; product:cold-storage-rollover monthly 1st 03:30 dumps product_events older than 90 days to compressed JSONL on Storage::disk('archive') keyed by landlord_id/YYYY-MM/events.jsonl.gz before product:prune touches them + emits archive_jsonl_bytes_total{landlord_id} gauge; ExperimentService::computeSignificance(experiment_key, success_metric_callback) returning {variant_a, variant_b, z_score, p_value, is_significant} two-proportion z-test against α=0.05 for 2-variant boolean conversion metrics + ExperimentController::Show consumes when experiment is concluded), PWA-CI (3 — Phase37PwaDepthSurfaceTest watchdog covering 3 new crons (insight:weekly-digest, gateway:proration-audit, product:prune, product:cold-storage-rollover — 4 commands actually) + 1 new alert key + 4 new routes + lang parity; lang/{en,sw}/pwa.php with sections for push (permission_blocked_heading, subscribe_cta, unsubscribe_cta, manage_via_browser_helper), digest (mail_subject, opt_out_link, weekly_summary_heading), gateway (proration_failed_heading, dunning_inline_helper), admin (experiments_index_heading, create_experiment_cta, conclude_experiment_cta, significance_table_caption), retention (cold_storage_rollover_heading); docs/runbooks/pwa-depth.md operator reference for the 5 incident playbooks (push subscription failures, digest delivery silence, gateway proration drift, retention prune lag, admin experiment race conditions)). Severity 5H/8M/5L. Builds on Phase-26 PWA stack (sw.ts + push subscription scaffolding), Phase-27 XlsxExportService (digest mail attaches xlsx summary), Phase-30 PaystackWebhookController + HMAC verification pattern (PWA-GATEWAY-2 webhook handler models after it), Phase-32 AlertRegistry + AlertFiringRecorder (gateway drift alert), Phase-34 lifecycle Mailable pattern + LifecycleOptInChecker (PWA-DIGEST mailable + opt-in gate), Phase-35 SubscriptionService + ExperimentService + product_events (the surfaces this phase activates + extends), Phase-36 InsightDashboardService::landlordSummary (data source for weekly digest). NOT in scope: Amplitude/Mixpanel/Heap SDK INSTALLATION (deferred — PRD scope kept tight; AnalyticsForwarder scaffolding lands later if growth team commits to a vendor), full Stripe gateway parity (KE market is Paystack-first), real-time experiment Bayesian updating (z-test is sufficient for 2-variant boolean — sequential analysis is Phase 38+ candidate), historical product_events cold-storage rehydration (read path against S3 glacier — currently no read use case), browser-side push test runner under /ops/push (manual ops smoke via existing send-push admin endpoint sufficient), iOS Safari push (iOS 16.4+ supports web push but requires installed PWA + per-domain user gesture — out of band for Tier-7 cycle 1, document as known limitation in runbook).",
+  "categories": [
+    "PWA-PUSH-FE",
+    "PWA-DIGEST",
+    "PWA-GATEWAY",
+    "PWA-FRONTEND-ADMIN",
+    "PWA-RETENTION-STATS",
+    "PWA-CI"
+  ],
+  "findings": [
+    {
+      "id": "PWA-PUSH-FE-1",
+      "title": "useWebPush composable + permission flow + auto re-subscribe on VAPID rotation",
+      "severity": "HIGH",
+      "files": [
+        "resources/js/composables/useWebPush.ts (new)",
+        "resources/js/app.ts",
+        "resources/js/Pages/Settings/Notifications.vue (new — also for FRONTEND-ADMIN-1)"
+      ],
+      "evidence": "Phase-26 shipped push_subscriptions table + PushNotificationService::storeSubscription + sw.ts push event handler + POST /notifications/push/{subscribe,unsubscribe,key} routes but NO frontend ever calls them. Operator-side push send works (composer minishlink/web-push installed + send endpoint exists) but no landlord can opt IN — the whole stack is dark. Scout confirmed: zero useWebPush, zero permission UX, zero topbar push toggle.",
+      "fix": "(a) resources/js/composables/useWebPush.ts exposing reactive {permission: 'default'|'granted'|'denied', isSubscribed, isLoading, error, subscribe(), unsubscribe(), refreshPermission()}; (b) On mount, GETs /notifications/push/key for VAPID public key (with 60s in-memory cache so re-mounts don't poll); converts base64url → Uint8Array; calls navigator.serviceWorker.ready then PushManager.subscribe({userVisibleOnly: true, applicationServerKey}); POSTs the subscription to /notifications/push/subscribe with the user's CSRF token; (c) On unsubscribe(), calls subscription.unsubscribe() then POST /notifications/push/unsubscribe with endpoint payload; (d) Handle VAPID key mismatch — if /notifications/push/key returns a different public key than the cached subscription was created with, automatically unsubscribe + re-subscribe (server-driven rotation handling); (e) Permission='denied' surfaces the manage_via_browser_helper i18n string with a 'Manage in browser settings' instruction; (f) Stores last-error in localStorage with 1h TTL so re-mounts don't flap."
+    },
+    {
+      "id": "PWA-DIGEST-1",
+      "title": "WeeklyInsightDigestMailable + insight:weekly-digest cron + LifecycleOptInChecker gate",
+      "severity": "HIGH",
+      "files": [
+        "app/Mail/WeeklyInsightDigestMailable.php (new)",
+        "app/Console/Commands/InsightWeeklyDigest.php (new)",
+        "resources/views/emails/insight/weekly-digest.blade.php (new)",
+        "routes/console.php"
+      ],
+      "evidence": "Phase-36 InsightDashboardService::landlordSummary() returns {engagement_score, delta_7d, components, referral_count_30d, plan_slug, usage_ratios} — perfect digest payload but NO email yet. Phase-34 lifecycle pattern (TrialEndingMailable + ShouldQueue + afterCommit=true + markdown view) is the template. Phase-35 LifecycleOptInChecker is the opt-in gate (defaults true for paying landlords, opt-out explicit).",
+      "fix": "(a) WeeklyInsightDigestMailable extends Mailable implements ShouldQueue with Queueable + SerializesModels; ctor (User $landlord, array $summary); afterCommit=true; envelope subject from lang('pwa.digest.mail_subject'); content uses markdown emails.insight.weekly-digest; (b) InsightWeeklyDigest::handle iterates User::where role=landlord active subscription chunks of 100; calls InsightDashboardService::landlordSummary for each; SKIPS when LifecycleOptInChecker::allows(landlord, 'lifecycle')=false; SKIPS when summary returns null (rollup failure); sends via Mail::to($landlord)->locale($landlord->locale)->send(...) so en/sw is per-landlord; (c) Cache::add('insight:digest:'.$landlordId.':'.now()->format('o-W'), true, 8*86400) idempotency on ISO-week — protects against double-send on cron retries; (d) Schedule weekly Mon 07:00 Africa/Nairobi onOneServer in routes/console.php — slots after Phase-32 mttr:audit 06:45 and Phase-34 churn:audit 06:00; (e) Emits MetricsService::counter insight_digest_sent_count + insight_digest_skipped_optin_count + insight_digest_skipped_no_summary_count gauges."
+    },
+    {
+      "id": "PWA-GATEWAY-1",
+      "title": "PaystackSubscriptionService::updateSubscription + disableSubscription + SubscriptionService::changePlan hookup",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/PaystackSubscriptionService.php",
+        "app/Services/SubscriptionService.php",
+        "database/migrations/2026_05_16_300000_add_gateway_response_to_subscription_changes.php (new)"
+      ],
+      "evidence": "Phase-35 SubscriptionService::changePlan ships local KES proration + SubscriptionChange audit row but NEVER touches Paystack. Result: a landlord upgrading on PropManager keeps paying the OLD price on Paystack's side until manual ops intervention. The local DB and the gateway diverge silently. PaystackSubscriptionService has initializePayment + createPlan but NO updateSubscription, NO disable.",
+      "fix": "(a) subscription_changes gains gateway_response json nullable column + index on (subscription_id, effective_at) for the reconciliation cron; (b) PaystackSubscriptionService::updateSubscription(string $subscriptionCode, string $newPlanCode): array — PUT /subscription/:code/plan with bearer auth, parses {status, message, data}, throws PaystackSubscriptionException on non-2xx; (c) PaystackSubscriptionService::disableSubscription(string $subscriptionCode): array — POST /subscription/disable with {code, token}; (d) PaystackSubscriptionService::syncFromGateway(string $subscriptionCode): array — GET /subscription/:code returning plan_code + status (active|attention|completed|cancelled|non-renewing); (e) SubscriptionService::changePlan after the DB::transaction, when changeType=UPGRADE AND $subscription->paystack_subscription_code is set, calls $paystack->updateSubscription(...) and records gateway_response on the SubscriptionChange row; on gateway failure logs but does NOT throw — drift gets caught by the reconciliation cron in PWA-GATEWAY-3 so the user-facing operation succeeds atomically on the DB side; (f) Phase-32 alert key high_gateway_proration_drift sev3 threshold 5 (>5 unreconciled rows in last 24h) added to config/alerts.php with runbook docs/runbooks/pwa-depth.md."
+    },
+    {
+      "id": "PWA-FRONTEND-ADMIN-1",
+      "title": "Settings/Notifications.vue — 12-type × 5-channel matrix + push browser-permission row",
+      "severity": "HIGH",
+      "files": [
+        "resources/js/Pages/Settings/Notifications.vue (new)",
+        "resources/js/Pages/Settings/Index.vue",
+        "routes/web.php"
+      ],
+      "evidence": "Phase-35 NotificationPreferenceController GET/POST /api/v1/notifications/preferences ships but Settings/ has zero entry point. Landlords cannot toggle their lifecycle/insight digest/push preferences without a postman call — a regression vs Phase-28 tenant portal which already has notification matrix UI. Settings/Index.vue does not link to a notifications page because it doesn't exist.",
+      "fix": "(a) Settings/Notifications.vue Inertia page rendered at /settings/notifications under role:landlord — fetches GET /api/v1/notifications/preferences server-side via Inertia props (initial payload) + uses Inertia router.patch for toggles (no axios); (b) Matrix UI 12 rows (one per type — invoice, receipt, lifecycle, dunning, trial_ending, winback, insight_digest, push_marketing, sla_breach, milestone_unlock, referral_attributed, system_announcement) × 5 columns (email, sms, in_app, push, webhook) with checkbox per cell; transactional types (invoice + receipt) rendered as locked (gray) with tooltip; (c) Top-of-page push permission card consumes useWebPush() (from PUSH-FE-1) showing permission state + Subscribe/Unsubscribe CTA + manage_via_browser_helper when denied; (d) Save behavior — debounced 500ms POST {type, channel, enabled}; surfaces 422 transactional-locked error via Inertia errors prop; (e) Settings/Index.vue gains card linking to /settings/notifications below the existing 2FA card; (f) routes/web.php gains GET /settings/notifications under auth+verified+role:landlord."
+    },
+    {
+      "id": "PWA-RETENTION-STATS-1",
+      "title": "product:prune cron — 180-day retention preventing unbounded product_events growth",
+      "severity": "HIGH",
+      "files": [
+        "app/Console/Commands/ProductEventsPrune.php (new)",
+        "config/platform.php",
+        "routes/console.php"
+      ],
+      "evidence": "Phase-35 product_events table ships append-only with TenantScope on landlord_id, written by Phase-22 RecordRequestLatency::terminate's maybeRecordPageView + ProductEventTracker::track. No retention cron means it grows by ~N requests × tenants × days unbounded. At ~1k events/day/landlord × 100 landlords × 365 days = 36M rows in year one. config/platform.php exists from Phase 35 but has no retention setting.",
+      "fix": "(a) config/platform.php gains 'product_events_retention_days' => env('PRODUCT_EVENTS_RETENTION_DAYS', 180); (b) ProductEventsPrune command 'product:prune {--days=} {--chunk=5000} {--dry-run}' reads retention threshold from config (overridable via --days); deletes product_events where created_at < now()->subDays($threshold) in chunks of 5000 using ProductEvent::query()->withoutGlobalScopes()->where('created_at', '<', $cutoff)->limit($chunk)->delete() loop until 0 rows affected; (c) Per-iteration emits 'product_events_pruned_count' counter; (d) Wraps deletion in try/catch logging exceptions but continues (idempotent + retryable on next cron); (e) Schedule weeklyOn(0, '03:00') Africa/Nairobi onOneServer in routes/console.php — Sunday slot before Phase-33 storage:tier-policy 04:30; (f) --dry-run reports counts without deletion for first-run validation."
+    },
+    {
+      "id": "PWA-PUSH-FE-2",
+      "title": "Push channel column in Settings/Notifications.vue matrix + browser permission state",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/Pages/Settings/Notifications.vue",
+        "resources/js/composables/useWebPush.ts"
+      ],
+      "evidence": "Without surfacing permission state per-row, users will toggle the push column on but receive nothing because the browser permission is still 'default' or 'denied'. The matrix UI MUST show the disconnect between server-side preference and browser-side capability.",
+      "fix": "(a) Push column header has a status pill showing permission state (granted = green check, denied = red X with link, default = yellow ! with 'Click to enable'); (b) When permission != 'granted' all push checkboxes render disabled with tooltip 'Enable browser notifications first'; (c) The subscribe button auto-enables push column toggles for non-transactional types after permission grants successfully (UX convenience — user expects 'I enabled push → notifications work')."
+    },
+    {
+      "id": "PWA-PUSH-FE-3",
+      "title": "SW push handler i18n + notification click→deep link routing",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/sw.ts"
+      ],
+      "evidence": "Phase-26 sw.ts:172 push handler shows the notification but the title/body are passed as raw strings from the server payload (Laravel-side per-locale rendering). Click handling exists but doesn't deep-link to the relevant resource (always opens '/'). For payment-related pushes, users expect a click → /invoices/{id} or /payments/{id}.",
+      "fix": "(a) sw.ts notificationclick handler reads event.notification.data.url and event.waitUntil(clients.openWindow(url)) — falls back to '/' when url missing; (b) Server-side PushNotificationService::send signature gains 'click_url' parameter; (c) Phase-29 NotifyOnLeaseRenewalApproaching, Phase-30 DepositRefundPaid, and Phase-32 AlertFiringRecorded listeners pass click_url to push payloads when applicable (lease renewal → /leases/{id}/renewal, refund paid → /tenant/refunds, alert → /ops/incidents)."
+    },
+    {
+      "id": "PWA-DIGEST-2",
+      "title": "Weekly digest markdown template + en/sw subject line + lifecycle opt-in inline footer",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/views/emails/insight/weekly-digest.blade.php (new)",
+        "lang/en/pwa.php (new)",
+        "lang/sw/pwa.php (new)"
+      ],
+      "evidence": "Phase-34 lifecycle emails use Laravel x-mail::message markdown components. Phase-37 digest must follow the same convention so brand styling + Phase-13 PERSONAL-DATA-1 unsubscribe footer auto-applies. en/sw subject lines need parity per Phase24CiTest.",
+      "fix": "(a) emails/insight/weekly-digest.blade.php uses x-mail::message with three sections: greeting + engagement_score panel (color-coded by tier — green > 70, yellow 31-70, red ≤ 30), usage_ratios x-mail::table with feature/usage/limit rows, referrals + MRR contribution one-liner; (b) Footer carries inline link to /settings/notifications#lifecycle for opt-out (per Phase-13 unsubscribe-by-link convention) AND mailto:unsubscribe@ fallback; (c) lang/{en,sw}/pwa.php 'digest' section keys: mail_subject ('Your weekly PropManager insight, {landlord}'), weekly_summary_heading, engagement_score_label, usage_ratios_heading, referrals_label, mrr_contribution_label, opt_out_link_label, opt_out_link_helper."
+    },
+    {
+      "id": "PWA-GATEWAY-2",
+      "title": "POST /webhooks/v2/paystack/subscription HMAC-verified handler for sub events",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/Api/PaystackSubscriptionWebhookController.php (new)",
+        "routes/api.php"
+      ],
+      "evidence": "Phase-30 already shipped POST /webhooks/v2/paystack for charge.success with HMAC-SHA512 hash_equals verification. Phase-37 needs a SIBLING endpoint for subscription lifecycle events (subscription.create / subscription.disable / subscription.not_renew / invoice.create) so when Paystack auto-renews, cancels for failed payment, or fires the dunning-trigger invoice, we sync the local Subscription row without polling.",
+      "fix": "(a) Reuse the Phase-30 PaystackWebhookController pattern verbatim — same HMAC-SHA512 hash_equals over raw body + 24h Cache::add(event_id + reference) dedup + 503 when secret unconfigured; (b) Event router: subscription.create → upserts subscriptions row by paystack_subscription_code with status=active + plan_id resolved from plan_code; subscription.disable → flips Subscription.status=cancelled + cancelled_at=now; subscription.not_renew → flips status=non_renewing + cancel_reason='paystack_not_renew'; invoice.create → fires Phase-34 DunningReminderMailable when invoice.status='failed' (Paystack-driven dunning replaces local guess); (c) routes/api.php under prefix('webhooks') gains POST /v2/paystack/subscription with middleware webhook.paystack (existing); (d) Test fixture: every event type round-trips status correctly."
+    },
+    {
+      "id": "PWA-FRONTEND-ADMIN-2",
+      "title": "Pages/Ops/Experiments/Index.vue super_admin list with exposure counts per variant",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/Pages/Ops/Experiments/Index.vue (new)",
+        "app/Http/Controllers/Ops/ExperimentController.php (new)",
+        "routes/web.php"
+      ],
+      "evidence": "Phase-35 shipped experiments + experiment_exposures tables + ExperimentService::variantFor sticky deterministic assignment but NO admin UI. Result: super_admin cannot see what experiments are running, cannot conclude one, cannot create new ones — every experiment lifecycle action requires raw SQL today.",
+      "fix": "(a) ExperimentController under role:super_admin: index() Inertia::render('Ops/Experiments/Index', ['experiments' => Experiment::query()->withCount('exposures')->orderByDesc('starts_at')->get()->map(fn($e) => $e->toArray() + ['exposures_by_variant' => ExperimentExposure::where('experiment_key', $e->experiment_key)->groupBy('variant_key')->selectRaw('variant_key, count(*) as c')->pluck('c', 'variant_key')->all()])]); store(), update(), conclude(); (b) Pages/Ops/Experiments/Index.vue table with status badge (draft|running|paused|concluded), exposure totals + per-variant breakdown sparkline (reuse Phase-27 CSS-table heatmap pattern), New Experiment button + status flip dropdown per row; (c) routes/web.php under prefix('/ops/experiments')->middleware('role:super_admin') with GET '/' index + POST '/' store + PATCH '/{experiment}' update + POST '/{experiment}/conclude' conclude routes."
+    },
+    {
+      "id": "PWA-FRONTEND-ADMIN-3",
+      "title": "Pages/Ops/Experiments/Show.vue with variant CRUD + status flip + winning variant UI",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/Pages/Ops/Experiments/Show.vue (new)",
+        "app/Http/Controllers/Ops/ExperimentController.php",
+        "resources/js/Pages/Ops/Experiments/Index.vue"
+      ],
+      "evidence": "Per-experiment dashboard needs to surface exposure-by-variant breakdown + (when concluded) the significance computation from RETENTION-STATS-3. Status flip controls: draft→running, running→paused, paused→running, running→concluded.",
+      "fix": "(a) Show.vue at /ops/experiments/{experiment}: header with experiment metadata + status pill + Conclude / Pause / Resume buttons; exposure-by-variant x-table showing user_count + variant weight; (b) When status=concluded: significance panel shows {variant_a, variant_b, z_score, p_value, is_significant} from ExperimentService::computeSignificance with green badge 'significant at α=0.05' when p<0.05 else amber 'not significant'; (c) Variant editor when status=draft (form fields for variants[].key + .weight + .label, JSON-validated server-side); (d) ExperimentController::conclude takes optional winning_variant_key, sets status=concluded + winning_variant_key + ends_at=now."
+    },
+    {
+      "id": "PWA-RETENTION-STATS-2",
+      "title": "product:cold-storage-rollover monthly archive to Storage::disk('archive') JSONL.gz",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/ProductEventsColdStorageRollover.php (new)",
+        "config/filesystems.php",
+        "routes/console.php"
+      ],
+      "evidence": "Even with 180-day retention (RETENTION-STATS-1), compliance + analytics workflows want historical data accessible. Cold-storage rollover to S3 glacier (or local equivalent on dev) preserves it cheaply BEFORE the prune cron deletes it. JSONL.gz format is grep-friendly + amenable to athena/duckdb query later.",
+      "fix": "(a) config/filesystems.php gains 'archive' disk (S3 standard for prod, local fallback for dev); (b) ProductEventsColdStorageRollover 'product:cold-storage-rollover {--month=} {--dry-run}' walks product_events where created_at month < $month (defaults to last month); per landlord_id writes a Storage::disk('archive')->put(\"product-events/{landlord_id}/YYYY-MM/events.jsonl.gz\", gzencode(json_encode lines)); (c) Idempotent — checks if path already exists before regenerating; (d) Emits archive_jsonl_bytes_total{landlord_id} + archive_files_written gauges; (e) Schedule monthlyOn(1, '03:30') Africa/Nairobi onOneServer — runs BEFORE product:prune so archives are written first; (f) Documents in runbook that S3 LIFECYCLE rule on the archive bucket should transition to Glacier Deep Archive after 365 days."
+    },
+    {
+      "id": "PWA-RETENTION-STATS-3",
+      "title": "ExperimentService::computeSignificance two-proportion z-test for 2-variant conversion metrics",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/Platform/ExperimentService.php",
+        "tests/Unit/Platform/ExperimentSignificanceTest.php (new)"
+      ],
+      "evidence": "Phase-35 stopped at variant assignment — operators conclude experiments by eyeballing exposure counts. For 2-variant boolean conversion metrics (variant_a: 47/1000 vs variant_b: 71/1000) a two-proportion z-test against α=0.05 is the minimum statistical rigor required to call winning_variant_key. Bayesian + multi-variant land in Phase 38+.",
+      "fix": "(a) computeSignificance(string $experimentKey, callable $isSuccessForUser): array — returns {variant_a, variant_b, n_a, n_b, conversions_a, conversions_b, p_a, p_b, p_pooled, z_score, p_value, is_significant}; (b) Two-proportion z-test formula: z = (p_a - p_b) / sqrt(p_pooled * (1 - p_pooled) * (1/n_a + 1/n_b)); p_value = 2 * (1 - Φ(|z|)) two-tailed; (c) Throws InvalidArgumentException when experiment has != 2 variants; (d) ExperimentSignificanceTest: known scenarios (47/1000 vs 71/1000 ⇒ z ≈ 2.187, p ≈ 0.0287, significant), tied conversions (50/1000 vs 50/1000 ⇒ z = 0, p = 1, not significant), tiny sample (5/10 vs 6/10 ⇒ not significant), one-variant throw."
+    },
+    {
+      "id": "PWA-DIGEST-3",
+      "title": "Insight digest opt-out inline link + Settings/Notifications.vue toggle",
+      "severity": "LOW",
+      "files": [
+        "resources/views/emails/insight/weekly-digest.blade.php",
+        "resources/js/Pages/Settings/Notifications.vue"
+      ],
+      "evidence": "Lifecycle opt-out today is all-or-nothing (one lifecycle_enabled flag in notification_preferences). Phase-37 insight_digest type should be independently toggleable so a landlord can stay on Dunning + Trial Ending but turn off the weekly digest without losing payment-critical comms.",
+      "fix": "(a) notification_preferences gains 'insight_digest' as a NEW type (already covered by 12-type matrix in PWA-FRONTEND-ADMIN-1 — this finding just wires the cron to read the per-type pref instead of the bulk lifecycle_enabled flag); (b) InsightWeeklyDigest::handle calls notificationPreferenceService->isEnabledFor($landlord, 'insight_digest', 'email') instead of LifecycleOptInChecker::allows; (c) Email footer opt-out link goes directly to /settings/notifications#insight-digest with hash-anchored row highlight."
+    },
+    {
+      "id": "PWA-GATEWAY-3",
+      "title": "gateway:proration-audit nightly drift reconciliation cron",
+      "severity": "LOW",
+      "files": [
+        "app/Console/Commands/GatewayProrationAudit.php (new)",
+        "config/alerts.php",
+        "routes/console.php"
+      ],
+      "evidence": "PWA-GATEWAY-1 swallows gateway failures in changePlan so user-facing operations stay atomic on the DB side. The drift catcher (this cron) reconciles by reading SubscriptionChange rows with gateway_response IS NULL OR gateway_response->success=false in the last 24h and either retries the gateway call or fires high_gateway_proration_drift sev3.",
+      "fix": "(a) GatewayProrationAudit::handle queries SubscriptionChange where change_type=UPGRADE AND effective_at >= now()->subDay() AND (gateway_response IS NULL OR gateway_response::json->>'success' = 'false'); (b) For each row, calls PaystackSubscriptionService::syncFromGateway($subscription->paystack_subscription_code) and compares Paystack's current plan_code vs the local to_plan_id; on mismatch fires high_gateway_proration_drift via AlertFiringRecorder with metadata {subscription_id, expected_plan_id, paystack_plan_code}; (c) Records 'reconciled' + 'failed' counters; (d) Schedule daily 05:30 Africa/Nairobi onOneServer — slots in the growth cluster after Phase-30 bank-reconciliation:audit 05:50; (e) config/alerts.php adds high_gateway_proration_drift sev3 threshold 5 gauge subscription_proration_drift_count_24h runbook docs/runbooks/pwa-depth.md."
+    },
+    {
+      "id": "PWA-CI-1",
+      "title": "Phase37PwaDepthSurfaceTest watchdog — 4 crons + 1 alert + push routes + lang parity",
+      "severity": "LOW",
+      "files": [
+        "tests/Feature/PwaDepth/Phase37PwaDepthSurfaceTest.php (new)"
+      ],
+      "evidence": "Established pattern: every phase ships a SurfaceTest asserting EXPECTED_SCHEDULES + EXPECTED_ALERT_KEYS + lang parity. Phase 37 needs: insight:weekly-digest + gateway:proration-audit + product:prune + product:cold-storage-rollover (4 crons) + high_gateway_proration_drift (1 alert) + lang/{en,sw}/pwa.php key parity + /settings/notifications + /ops/experiments + /webhooks/v2/paystack/subscription route existence checks.",
+      "fix": "(a) EXPECTED_SCHEDULES: insight:weekly-digest '0 7 * * 1', gateway:proration-audit '30 5 * * *', product:prune '0 3 * * 0', product:cold-storage-rollover '30 3 1 * *' all Africa/Nairobi; (b) EXPECTED_ALERT_KEYS: ['high_gateway_proration_drift']; (c) EXPECTED_ROUTES (existence by name): settings.notifications, ops.experiments.index, webhooks.paystack.subscription; (d) lang parity via $this->flatten() comparison on pwa.php; (e) tests run under RefreshDatabase."
+    },
+    {
+      "id": "PWA-CI-2",
+      "title": "lang/{en,sw}/pwa.php namespace + Phase24CiTest parity",
+      "severity": "LOW",
+      "files": [
+        "lang/en/pwa.php (new)",
+        "lang/sw/pwa.php (new)"
+      ],
+      "evidence": "5 sections (push, digest, gateway, admin, retention) all need en/sw pairs with identical key order. Phase24CiTest key-set identity check requires sw mirror — built upfront so key drift doesn't appear during a Phase 1 fix commit.",
+      "fix": "Sections: push (permission_default_helper, permission_denied_helper, permission_granted_helper, subscribe_cta, unsubscribe_cta, manage_via_browser_helper, push_disabled_until_permission_helper), digest (mail_subject, weekly_summary_heading, engagement_score_label, usage_ratios_heading, referrals_label, mrr_contribution_label, opt_out_link_label, opt_out_link_helper), gateway (proration_failed_heading, dunning_inline_helper, sync_pending_label), admin (experiments_index_heading, create_experiment_cta, conclude_experiment_cta, significance_table_caption, variant_weight_label, variant_users_assigned_label, status_draft_label, status_running_label, status_paused_label, status_concluded_label), retention (cold_storage_rollover_heading, prune_window_label, archive_disk_label)."
+    },
+    {
+      "id": "PWA-CI-3",
+      "title": "docs/runbooks/pwa-depth.md operator reference + 5 incident playbooks",
+      "severity": "LOW",
+      "files": [
+        "docs/runbooks/pwa-depth.md (new)"
+      ],
+      "evidence": "Phase 29-36 established the runbook cadence. Phase 37 surfaces 4 crons + 1 alert + 3 new user-facing flows (push subscribe, digest opt-out, gateway proration). Operator needs documented playbooks for: push subscription failures (VAPID rotation), digest delivery silence (cron not running OR lifecycle opt-out drift), gateway proration drift (Paystack returning errors), retention prune lag (chunk size too small for table growth), admin experiment race conditions (two super_admin users editing the same draft).",
+      "fix": "Sections: Overview (Phase 37 surface map), Push notifications (subscription flow + VAPID rotation playbook + iOS Safari limitation note), Insight digest (cron cadence + opt-in resolution table + dry-run mailable command), Paystack proration (sync flow diagram + high_gateway_proration_drift sev3 playbook + manual gateway-CLI fallback), Admin experiments (status state machine + conclude flow + significance interpretation guide), Retention + cold storage (prune cron behavior + JSONL.gz archive shape + Athena query example), CI gates, Deferrals (Amplitude SDK, Stripe parity, Bayesian sequential analysis, iOS push, browser-side push test runner)."
+    }
+  ]
+}
