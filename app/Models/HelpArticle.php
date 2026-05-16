@@ -14,6 +14,7 @@ class HelpArticle extends Model
         'slug',
         'content',
         'category',
+        'help_key',
         'roles',
         'order',
         'is_published',

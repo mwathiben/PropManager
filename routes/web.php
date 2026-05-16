@@ -210,6 +210,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/onboarding/sample-data/reset', [\App\Http\Controllers\Onboarding\SampleDataController::class, 'reset'])
             ->name('onboarding.sample.reset');
     });
+
+    // Phase-31 ONB-HELP-2/3: HelpDrawer backing endpoints
+    Route::get('/api/help/contextual', [\App\Http\Controllers\Onboarding\HelpSearchController::class, 'contextual'])
+        ->name('help.contextual');
+    Route::get('/api/help/search', [\App\Http\Controllers\Onboarding\HelpSearchController::class, 'search'])
+        ->name('help.search');
     // Legacy routes for backward compatibility
     Route::get('/onboarding/create', [OnboardingController::class, 'create'])->name('onboarding.create');
     Route::post('/onboarding/store', [OnboardingController::class, 'store'])->name('onboarding.store');
