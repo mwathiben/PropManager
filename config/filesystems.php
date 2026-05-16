@@ -63,6 +63,21 @@ return [
             'report' => false,
         ],
 
+        // Phase-37 PWA-RETENTION-STATS-2: cold storage for
+        // product:cold-storage-rollover. Local in dev; in prod
+        // operators point ARCHIVE_DISK at an S3 bucket with a
+        // LIFECYCLE rule transitioning >365 day objects to
+        // Glacier Deep Archive. Defaults to local so dev/test
+        // environments don't fail when the cron runs.
+        'archive' => [
+            'driver' => env('ARCHIVE_DISK_DRIVER', 'local'),
+            'root' => storage_path('app/archive'),
+            'bucket' => env('ARCHIVE_BUCKET'),
+            'region' => env('AWS_DEFAULT_REGION'),
+            'throw' => false,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

@@ -582,3 +582,21 @@ Schedule::command('gateway:proration-audit')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase37-pwa-gateway3-proration-audit');
+
+// Phase-37 PWA-RETENTION-STATS-1: weekly product_events prune.
+// Sunday 03:00 — runs before Phase-33 storage:tier-policy Sun 04:30
+// so the freshly-pruned table doesn't get scanned by the tier audit.
+Schedule::command('product:prune')
+    ->weeklyOn(0, '03:00')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase37-pwa-retention1-product-prune');
+
+// Phase-37 PWA-RETENTION-STATS-2: monthly cold-storage rollover.
+// 1st of month 03:30 — runs BEFORE product:prune on the next
+// Sunday so historical data is archived before retention deletion.
+Schedule::command('product:cold-storage-rollover')
+    ->monthlyOn(1, '03:30')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase37-pwa-retention2-product-cold-storage-rollover');
