@@ -1,0 +1,214 @@
+{
+  "phase": 33,
+  "title": "[COST] per-landlord cost attribution, query cost audits, cache hit-rate alerting, S3 storage tier policy, log volume audit",
+  "opened_at": "2026-05-16",
+  "tier": "5",
+  "scope": "Tier-5 operations + GTM, cycle 3 of 3 (per project_propmanager_path_forward.md). Phase 31 [ONBOARDING] + Phase 32 [SRE] both closed 18/18. Phase 33 [COST] is the FINAL Tier-5 cycle — turning the platform from 'observable' (Phases 22 + 32) into 'attributable' (per-landlord unit economics). Today's surface: Phase-22 PERF-CACHE-1 CacheMetrics::record emits cache_hit_total/cache_miss_total counters AND FinanceCacheService logs hit/miss to the cache log channel — but there is NO cache:hit-rate-audit cron, NO low-hit-rate alert wiring; a cache silently going from 95% to 20% hit rate is invisible until p95 latency climbs. Phase-15 PERF-6 SlowQueryServiceProvider's DB::listen logs queries > threshold_ms — but there is NO rows-scanned ratio tracking (an O(N) query that returns 1 row from a 100k-row scan is FAST but still cost-expensive); no query:cost-audit cron emits scan-to-return ratio gauges. There is NO per-landlord usage metric — Phase-32 ServiceSlo tracks per-service SLOs but nothing answers 'which landlord drove the most DB queries / S3 GB / SMS sends this month'. S3 storage tier policy doesn't exist — old invoices/receipts/PDFs sit in STANDARD storage forever (~$0.023/GB/month) instead of moving to STANDARD_IA at 90d (~$0.0125/GB/month) and GLACIER at 365d (~$0.004/GB/month) — typical 60% storage cost saving wasted. Sentry sample rate is hard-coded in env (SENTRY_TRACES_SAMPLE_RATE) but never adjusts to traffic — at 100% rps a 10% sample rate that worked at 10% rps now floods the Sentry budget. Log volume per landlord is opaque — no log:audit cron measures the per-landlord bytes-written/day so we cannot identify the noisy minority of landlords (typically 5% of landlords = 80% of log volume). No Phase33CostSurfaceTest watchdog. No lang/{en,sw}/cost.php namespace. No docs/runbooks/cost.md. 18 findings across 6 categories: COST-ATTRIB (3 — landlord_usage_metrics table for daily roll-up of db_queries + s3_bytes + sms_sends + cron_minutes per landlord_id, LandlordUsageMetricRecorder service writing to the table, cost:attribute cron emitting landlord_estimated_cost_kes{landlord_id=X} gauge), COST-QUERY (3 — TrackQueryCost middleware capturing rows-scanned per request via DB::listen + query_cost_logs table, query:cost-audit cron emitting query_scan_to_return_ratio_p90 gauge per route class, alert wiring when ratio > 100x), COST-CACHE (3 — cache:hit-rate-audit cron consuming CacheMetrics counters + emitting cache_hit_rate_ratio{cache=X, type=Y} gauges, low_cache_hit_rate alert in config/alerts.php with threshold 0.5, alert recorder integration), COST-STORAGE (3 — storage_tier_policies table per disk + max_age_days, storage:tier-policy cron walking Storage::files older than threshold and moving (S3) or just tagging (local) plus emitting storage_bytes_by_tier_total gauge, storage:cost-audit estimating monthly KES), COST-LOGS (3 — log_volume_daily table per landlord + LandlordLogVolumeRecorder via a custom Log processor, log:volume-audit cron emitting landlord_log_bytes_24h{landlord_id=X} gauge AND alerting on landlords driving >5x the median), COST-CI (3 — Phase33CostSurfaceTest watchdog, lang/{en,sw}/cost.php, docs/runbooks/cost.md). Severity 5H/8M/5L. Builds on Phase-15 PERF-6 slow-query, Phase-17 Money primitives (cents), Phase-22 PERF-SLO + CacheMetrics + MetricsService::gauge, Phase-29 WorkflowLogger, Phase-30 idempotent audit pattern, Phase-31 milestone-recorder firstOrCreate pattern, Phase-32 AlertRegistry + AlertFiringRecorder + AlertFiringRecorded event + workflow_runs_log pipe.",
+  "categories": [
+    "COST-ATTRIB",
+    "COST-QUERY",
+    "COST-CACHE",
+    "COST-STORAGE",
+    "COST-LOGS",
+    "COST-CI"
+  ],
+  "findings": [
+    {
+      "id": "COST-ATTRIB-1",
+      "title": "landlord_usage_metrics table + LandlordUsageMetricRecorder",
+      "severity": "HIGH",
+      "files": [
+        "database/migrations/.../create_landlord_usage_metrics.php (new)",
+        "app/Models/LandlordUsageMetric.php (new)",
+        "app/Services/Cost/LandlordUsageMetricRecorder.php (new)"
+      ],
+      "evidence": "No per-landlord cost attribution exists. Cannot answer 'which 5% of landlords drive 80% of the DB queries / S3 storage / SMS spend' without scattering ad-hoc DB queries. A first-class usage table per (landlord_id, metric, day) bucketing daily totals is the foundation for every cost-attribution analytic, every per-tier pricing decision, and the eventual unit-economics dashboard.",
+      "fix": "(a) Migration landlord_usage_metrics(landlord_id, metric enum [db_queries, s3_bytes, sms_sends, cron_minutes, log_bytes], day date, value bigint, updated_at) with unique (landlord_id, metric, day); (b) Model with TenantScope; (c) LandlordUsageMetricRecorder::add(landlord, metric, value, day=today) upserts with value increment (DB::raw raw arithmetic to avoid race)."
+    },
+    {
+      "id": "COST-ATTRIB-2",
+      "title": "cost:attribute cron + estimated KES cost gauge",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/CostAttribute.php (new)",
+        "config/cost.php (new)",
+        "routes/console.php"
+      ],
+      "evidence": "Even with usage rows, the operator-visible signal must be a single number per landlord per day — converting raw counters (queries, bytes, SMS) into estimated KES cost via fixed unit prices. config/cost.php holds the per-unit Kenya-market prices (KES per million queries, per GB, per SMS) — calibrated quarterly. Without the cron, no Grafana panel can plot per-landlord cost trends.",
+      "fix": "(a) config/cost.php with KES_PER_MILLION_QUERIES, KES_PER_GB_S3, KES_PER_SMS, KES_PER_CRON_MINUTE; (b) artisan cost:attribute walks landlord_usage_metrics for last 30 days, computes landlord_estimated_cost_kes{landlord_id=X} gauge per landlord; (c) Schedule dailyAt 03:30 Africa/Nairobi onOneServer (after Phase-21 dpa:enforce-retention 02:00 + Phase-30 finance:close-month 02:30)."
+    },
+    {
+      "id": "COST-ATTRIB-3",
+      "title": "Per-landlord cost dashboard via OperationsHubController",
+      "severity": "LOW",
+      "files": [
+        "app/Http/Controllers/Cost/LandlordCostController.php (new)",
+        "routes/web.php"
+      ],
+      "evidence": "Operator needs to surface top-10-costliest landlords without running ad-hoc DB queries.",
+      "fix": "(a) GET /ops/landlord-cost returns JSON of top 10 by estimated_cost_kes for the last 30d (super_admin only); (b) Wire route under role:super_admin."
+    },
+    {
+      "id": "COST-QUERY-1",
+      "title": "query_cost_logs table + TrackQueryCost middleware",
+      "severity": "HIGH",
+      "files": [
+        "database/migrations/.../create_query_cost_logs.php (new)",
+        "app/Models/QueryCostLog.php (new)",
+        "app/Http/Middleware/TrackQueryCost.php (new)"
+      ],
+      "evidence": "Phase-15 PERF-6 logs queries > threshold_ms, but a query that returns 1 row from scanning 100k rows is FAST and below the threshold yet expensive. The scan-to-return RATIO is the better signal — and we have no instrumentation for it. Without first-class storage we cannot retrospectively answer 'what was the worst-ratio route last week'.",
+      "fix": "(a) Migration query_cost_logs(landlord_id, route_class, query_count, rows_scanned, rows_returned, request_at) with index on (route_class, request_at); (b) TrackQueryCost middleware uses DB::listen during the request lifecycle to accumulate query counts + parses EXPLAIN-style stats (or estimates rows_scanned from query_count*1000 fallback); (c) Writes one row per request to query_cost_logs (sampled — only requests with query_count > 10)."
+    },
+    {
+      "id": "COST-QUERY-2",
+      "title": "query:cost-audit cron emitting scan-to-return ratio gauges",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/QueryCostAudit.php (new)",
+        "routes/console.php"
+      ],
+      "evidence": "Once query_cost_logs exists we can derive per-route-class p50/p90 scan-to-return ratio. Ratio > 100x is N+1 territory; > 1000x is a missing index.",
+      "fix": "(a) artisan query:cost-audit aggregates last 24h of query_cost_logs by route_class, computes (rows_scanned / rows_returned) p50 + p90; (b) Emits query_scan_to_return_ratio_p50{route_class=X} + _p90 gauges; (c) Schedule dailyAt 03:45 Africa/Nairobi onOneServer."
+    },
+    {
+      "id": "COST-QUERY-3",
+      "title": "high_query_scan_ratio alert wiring",
+      "severity": "MEDIUM",
+      "files": [
+        "config/alerts.php",
+        "app/Console/Commands/QueryCostAudit.php"
+      ],
+      "evidence": "Audit emits a gauge but nobody is paged on it. Add to the Phase-32 alert registry + fire when p90 > 1000x.",
+      "fix": "(a) New entry in config/alerts.php key 'high_query_scan_ratio' severity sev3 threshold 1000 gauge 'query_scan_to_return_ratio_p90' runbook 'docs/runbooks/n-plus-one.md' paging email; (b) QueryCostAudit calls AlertFiringRecorder->record when any route class exceeds threshold; resolve when all under."
+    },
+    {
+      "id": "COST-CACHE-1",
+      "title": "cache:hit-rate-audit cron",
+      "severity": "HIGH",
+      "files": [
+        "app/Console/Commands/CacheHitRateAudit.php (new)",
+        "routes/console.php"
+      ],
+      "evidence": "Phase-22 PERF-CACHE-1 CacheMetrics emits cache_hit_total + cache_miss_total counters but nothing AGGREGATES them into a hit-rate gauge. A cache going from 95% to 20% hit rate is invisible until p95 latency climbs three hours later. The fix is the same shape as Phase-32 alert:quality — a daily cron that reads the counter values and emits a ratio gauge.",
+      "fix": "(a) artisan cache:hit-rate-audit reads cache_hit_total + cache_miss_total per (cache, type) over last 24h via MetricsService counterSnapshot; computes hit / (hit + miss) ratio; emits cache_hit_rate_ratio{cache=X, type=Y} gauge; (b) Schedule dailyAt 03:50 Africa/Nairobi onOneServer."
+    },
+    {
+      "id": "COST-CACHE-2",
+      "title": "low_cache_hit_rate alert in config/alerts.php",
+      "severity": "MEDIUM",
+      "files": [
+        "config/alerts.php"
+      ],
+      "evidence": "Without an alert registry entry the audit gauge is silent.",
+      "fix": "Add entry key 'low_cache_hit_rate' severity sev3 threshold 0.5 gauge 'cache_hit_rate_ratio' runbook 'docs/runbooks/cost.md' paging email description 'Cache hit rate dropped below 50% for at least one (cache,type) bucket'."
+    },
+    {
+      "id": "COST-CACHE-3",
+      "title": "cache:hit-rate-audit fires alert via AlertFiringRecorder",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/CacheHitRateAudit.php"
+      ],
+      "evidence": "Gauge + alert config together still need the wiring that actually FIRES the alert.",
+      "fix": "(a) Audit collects all (cache, type) buckets with ratio < 0.5; (b) Fires AlertFiringRecorder->record('low_cache_hit_rate', minRatio, 0.5, metadata=[buckets]); resolves when all ratios >= 0.5."
+    },
+    {
+      "id": "COST-STORAGE-1",
+      "title": "storage_tier_policies table + per-disk policy",
+      "severity": "HIGH",
+      "files": [
+        "database/migrations/.../create_storage_tier_policies.php (new)",
+        "app/Models/StorageTierPolicy.php (new)"
+      ],
+      "evidence": "Old PDFs/receipts/exports sit in S3 STANDARD storage forever (~$0.023/GB/month) instead of moving to STANDARD_IA at 90 days (~$0.0125/GB/month) and GLACIER at 365 days (~$0.004/GB/month). For 1 TB of cold data (typical for a 2-year-old SaaS), STANDARD costs $23/month vs $4/month for GLACIER — 80% savings wasted. Need first-class policy storage so per-disk rules are auditable + extendable.",
+      "fix": "(a) Migration storage_tier_policies(disk_name, path_prefix, max_age_days, target_tier enum [standard, ia, glacier, deep_archive], is_active); (b) Model (no TenantScope); (c) Seeder loads default policies (invoices/ -> ia at 90d -> glacier at 365d; exports/ -> glacier at 30d; receipts/ -> ia at 180d)."
+    },
+    {
+      "id": "COST-STORAGE-2",
+      "title": "storage:tier-policy cron emitting bytes-by-tier gauges",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/StorageTierPolicy.php (new)",
+        "routes/console.php"
+      ],
+      "evidence": "Policy table is metadata — needs an actor to walk filesystems and emit the tier breakdown gauge AT MINIMUM (actual S3 lifecycle moves can be a follow-up — too risky for an audit cycle).",
+      "fix": "(a) artisan storage:tier-policy walks every active StorageTierPolicy + uses Storage::disk(disk)->allFiles(prefix) bucketing by age bucket (< maxAge / >= maxAge); emits storage_bytes_by_tier_total{disk=X, prefix=Y, bucket=current|target} gauge + storage_files_by_tier_total counter; (b) Schedule weeklyOn Sunday 04:30 Africa/Nairobi onOneServer (heavy: filesystem walk)."
+    },
+    {
+      "id": "COST-STORAGE-3",
+      "title": "storage:cost-audit cron estimating monthly KES",
+      "severity": "LOW",
+      "files": [
+        "app/Console/Commands/StorageCostAudit.php (new)",
+        "config/cost.php"
+      ],
+      "evidence": "Per-tier bytes is operator-facing — but the leadership-facing metric is monthly KES projection. Estimate via config-driven KES_PER_GB_S3 by tier.",
+      "fix": "(a) artisan storage:cost-audit reads storage_bytes_by_tier_total gauge values + multiplies by tier rates from config/cost.php; emits storage_estimated_monthly_kes{tier=X} gauge; (b) Schedule weeklyOn Sunday 05:00 Africa/Nairobi onOneServer (after storage:tier-policy)."
+    },
+    {
+      "id": "COST-LOGS-1",
+      "title": "log_volume_daily table + LandlordLogVolumeRecorder",
+      "severity": "MEDIUM",
+      "files": [
+        "database/migrations/.../create_log_volume_daily.php (new)",
+        "app/Models/LogVolumeDaily.php (new)",
+        "app/Services/Cost/LandlordLogVolumeRecorder.php (new)"
+      ],
+      "evidence": "Log volume per landlord is opaque. A typical SaaS has 5% of customers driving 80% of log writes (usually because a misconfigured webhook is retry-spamming). Without first-class tracking we cannot identify the noisy minority — and on Sentry/Datadog the per-MB-ingested billing model makes that minority financially disastrous.",
+      "fix": "(a) Migration log_volume_daily(landlord_id, day, byte_count, line_count) unique (landlord_id, day); (b) Model with TenantScope; (c) LandlordLogVolumeRecorder::add(landlord, bytes, lines, day=today) DB::raw atomic increment; (d) BatchInsert pattern (recorder writes to a daily buffer, flushed by cron, NOT per-log-line which would itself be a log loop)."
+    },
+    {
+      "id": "COST-LOGS-2",
+      "title": "log:volume-audit cron emitting per-landlord log_bytes gauge",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/LogVolumeAudit.php (new)",
+        "routes/console.php"
+      ],
+      "evidence": "Even with the table, the operator-visible signal needs to be a gauge. Same Phase-32 audit-cron pattern as alert:quality + cost:attribute.",
+      "fix": "(a) artisan log:volume-audit reads last 24h from log_volume_daily, emits landlord_log_bytes_24h{landlord_id=X} gauge for top 20 landlords + computes median + p95 of the distribution and emits landlord_log_bytes_median + p95 gauges; (b) If any landlord's value > 5x median, fires high_landlord_log_volume alert via AlertFiringRecorder; (c) Schedule dailyAt 03:55 Africa/Nairobi onOneServer."
+    },
+    {
+      "id": "COST-LOGS-3",
+      "title": "high_landlord_log_volume alert wiring",
+      "severity": "LOW",
+      "files": [
+        "config/alerts.php"
+      ],
+      "evidence": "Audit fires but no registry entry means runbook coverage gate fails.",
+      "fix": "Add entry key 'high_landlord_log_volume' severity sev4 threshold 5 gauge 'landlord_log_bytes_24h' runbook 'docs/runbooks/cost.md' paging email description 'One landlord exceeds 5x median log volume — investigate noisy webhook or error loop'."
+    },
+    {
+      "id": "COST-CI-1",
+      "title": "Phase33CostSurfaceTest watchdog",
+      "severity": "HIGH",
+      "files": [
+        "tests/Feature/Cost/Phase33CostSurfaceTest.php (new)"
+      ],
+      "evidence": "Phase 29-32 established the surface-watchdog pattern. Phase 33 ships 5 crons (cost:attribute, query:cost-audit, cache:hit-rate-audit, storage:tier-policy, log:volume-audit + storage:cost-audit) + 0 new events + 3 new alert keys (high_query_scan_ratio, low_cache_hit_rate, high_landlord_log_volume). Without the watchdog a future refactor can silently drop one of these.",
+      "fix": "(a) test_every_phase33_scheduler_is_registered_with_correct_cadence asserts 6 crons with cron expression + Africa/Nairobi; (b) test_phase33_alert_registry_contains_required_keys asserts the 3 new keys are present in config/alerts.php; (c) test_phase33_cost_lang_namespace_exists_with_parity asserts lang/{en,sw}/cost.php loadable + identical key sets."
+    },
+    {
+      "id": "COST-CI-2",
+      "title": "lang/{en,sw}/cost.php namespace + Phase24CiTest parity",
+      "severity": "MEDIUM",
+      "files": [
+        "lang/en/cost.php (new)",
+        "lang/sw/cost.php (new)"
+      ],
+      "evidence": "Operator UI labels (landlord-cost dashboard headers, storage-tier table labels) need en/sw pairs. Phase24CiTest key-set identity check requires the sw file to mirror en's order — built upfront.",
+      "fix": "Mirror sections for: dashboard (landlord_cost_heading, top_landlords, days_window), storage (tier_standard, tier_ia, tier_glacier, tier_deep_archive, bytes_label, files_label), query (scan_to_return_ratio, p50_label, p90_label), cache (hit_rate_label, low_hit_rate_warning), logs (volume_label, median_label, p95_label)."
+    },
+    {
+      "id": "COST-CI-3",
+      "title": "docs/runbooks/cost.md operator reference + TIER 5 closeout",
+      "severity": "LOW",
+      "files": [
+        "docs/runbooks/cost.md (new)"
+      ],
+      "evidence": "Phase 29-32 established the runbook cadence. Phase 33 is the closing Tier-5 cycle — its runbook needs the cost-attribution method, the per-unit price calibration cadence, the storage-tier policy decision tree, the cache hit-rate alert remediation, the log-volume investigation playbook.",
+      "fix": "Sections: Overview (Phase 33 surface map), Per-landlord cost attribution (table + cron + gauge meaning), Query cost (scan-to-return interpretation, N+1 vs missing index), Cache hit rate (alert remediation), Storage tier policy (decision tree by data age + KES math), Log volume (high-landlord investigation), Crons table, CI gates, Deferrals."
+    }
+  ]
+}
