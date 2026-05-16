@@ -388,3 +388,13 @@ Schedule::command('mttr:audit')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase32-sre-incident3-mttr');
+
+// Phase-32 SRE-DEPS-2: every 5 minutes probe each upstream dependency.
+// Emits dependency_up{dep=X} + dependency_latency_ms{dep=X}, fires
+// DegradationDetected on transitions, fires dependency_down alert when
+// any dep is down.
+Schedule::command('outbound:health-check')
+    ->everyFiveMinutes()
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase32-sre-deps2-health-check');
