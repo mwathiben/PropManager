@@ -9,6 +9,7 @@ enum PaymentMethod: string
     case MobileMoney = 'mobile_money';
     case Paystack = 'paystack';
     case IntaSendMpesa = 'intasend_mpesa';
+    case Stripe = 'stripe';
 
     public function label(): string
     {
@@ -18,6 +19,7 @@ enum PaymentMethod: string
             self::MobileMoney => 'M-Pesa',
             self::Paystack => 'Paystack (Online)',
             self::IntaSendMpesa => 'M-Pesa (IntaSend)',
+            self::Stripe => 'Stripe (USD/EUR/GBP)',
         };
     }
 

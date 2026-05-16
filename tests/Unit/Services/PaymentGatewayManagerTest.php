@@ -7,9 +7,11 @@ use App\Models\PaymentConfiguration;
 use App\Models\User;
 use App\Services\Gateways\MpesaGateway;
 use App\Services\Gateways\PaystackGateway;
+use App\Services\Gateways\StripeGateway;
 use App\Services\MpesaService;
 use App\Services\PaymentGatewayManager;
 use App\Services\PaystackService;
+use App\Services\StripeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
 use Tests\TestCase;
@@ -44,7 +46,8 @@ class PaymentGatewayManagerTest extends TestCase
 
         $this->manager = new PaymentGatewayManager(
             new PaystackService($this->config),
-            new MpesaService($this->config)
+            new MpesaService($this->config),
+            new StripeService(null),
         );
     }
 
@@ -85,9 +88,18 @@ class PaymentGatewayManagerTest extends TestCase
     public function test_throws_exception_for_unknown_gateway(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Unknown payment gateway: stripe');
+        $this->expectExceptionMessage('Unknown payment gateway: nope');
 
-        $this->manager->gateway('stripe');
+        $this->manager->gateway('nope');
+    }
+
+    public function test_gets_stripe_gateway(): void
+    {
+        $gateway = $this->manager->gateway('stripe');
+
+        $this->assertInstanceOf(StripeGateway::class, $gateway);
+        $this->assertInstanceOf(PaymentGatewayInterface::class, $gateway);
+        $this->assertEquals('stripe', $gateway->getIdentifier());
     }
 
     public function test_caches_gateway_instances(): void
@@ -122,20 +134,23 @@ class PaymentGatewayManagerTest extends TestCase
 
         $this->assertContains('paystack', $supported);
         $this->assertContains('mpesa', $supported);
-        $this->assertCount(2, $supported);
+        $this->assertContains('stripe', $supported);
+        $this->assertCount(3, $supported);
     }
 
     public function test_checks_if_gateway_is_supported(): void
     {
         $this->assertTrue($this->manager->supports('paystack'));
         $this->assertTrue($this->manager->supports('mpesa'));
-        $this->assertFalse($this->manager->supports('stripe'));
+        $this->assertTrue($this->manager->supports('stripe'));
+        $this->assertFalse($this->manager->supports('square'));
     }
 
     public function test_checks_if_gateway_is_configured(): void
     {
         $this->assertTrue($this->manager->isConfigured('paystack'));
         $this->assertTrue($this->manager->isConfigured('mpesa'));
+        // Stripe is registered but no credentials yet (Phase 1b lands creds).
         $this->assertFalse($this->manager->isConfigured('stripe'));
     }
 
@@ -143,7 +158,8 @@ class PaymentGatewayManagerTest extends TestCase
     {
         $manager = new PaymentGatewayManager(
             new PaystackService(null),
-            new MpesaService($this->config)
+            new MpesaService($this->config),
+            new StripeService(null),
         );
 
         $this->assertFalse($manager->isConfigured('paystack'));
@@ -175,7 +191,8 @@ class PaymentGatewayManagerTest extends TestCase
     {
         $manager = new PaymentGatewayManager(
             new PaystackService(null),
-            new MpesaService($this->config)
+            new MpesaService($this->config),
+            new StripeService(null),
         );
 
         $available = $manager->available();

@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Contracts\PaymentGatewayInterface;
+use App\Enums\Currency;
 use App\Services\Gateways\MpesaGateway;
 use App\Services\Gateways\PaystackGateway;
+use App\Services\Gateways\StripeGateway;
 use InvalidArgumentException;
 
 class PaymentGatewayManager
@@ -17,6 +19,7 @@ class PaymentGatewayManager
     public function __construct(
         protected PaystackService $paystackService,
         protected MpesaService $mpesaService,
+        protected StripeService $stripeService,
     ) {}
 
     /**
@@ -35,6 +38,7 @@ class PaymentGatewayManager
         $gateway = match ($name) {
             'paystack' => new PaystackGateway($this->paystackService),
             'mpesa', 'm-pesa' => new MpesaGateway($this->mpesaService),
+            'stripe' => new StripeGateway($this->stripeService),
             default => throw new InvalidArgumentException("Unknown payment gateway: {$name}"),
         };
 
@@ -79,7 +83,7 @@ class PaymentGatewayManager
      */
     public function supportedGateways(): array
     {
-        return ['paystack', 'mpesa'];
+        return ['paystack', 'mpesa', 'stripe'];
     }
 
     /**
@@ -118,5 +122,14 @@ class PaymentGatewayManager
     {
         /** @var MpesaGateway */
         return $this->gateway('mpesa');
+    }
+
+    /**
+     * Get the Stripe gateway directly.
+     */
+    public function stripe(): StripeGateway
+    {
+        /** @var StripeGateway */
+        return $this->gateway('stripe');
     }
 }

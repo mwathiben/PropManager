@@ -209,6 +209,23 @@ class PaymentConfiguration extends Model
     }
 
     /**
+     * Phase-40 GATEWAY-STRIPE-3: per-tenant Stripe credentials live on
+     * payment_configurations alongside Paystack. Columns may not exist
+     * yet pre-Phase-1b migration — guard with array-key check before
+     * touching $this->attributes.
+     */
+    public function hasStripeConfig(): bool
+    {
+        if (! array_key_exists('stripe_enabled', $this->attributes ?? [])) {
+            return false;
+        }
+
+        return (bool) $this->stripe_enabled
+            && ! empty($this->stripe_public_key)
+            && ! empty($this->stripe_secret_key);
+    }
+
+    /**
      * Get the M-Pesa command ID based on shortcode type
      */
     public function getMpesaCommandId(): string
