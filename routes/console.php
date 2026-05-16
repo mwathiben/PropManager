@@ -471,3 +471,12 @@ Schedule::command('churn:audit')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase34-growth-churn3-audit');
+
+// Phase-34 GROWTH-REFERRAL-3: per-landlord attribution rollup. Runs
+// at 04:10 — second in the Phase-34 growth cluster (after 04:05
+// mrr:snapshot, before 04:15 engagement:rollup).
+Schedule::command('referrals:rollup')
+    ->dailyAt('04:10')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase34-growth-referral3-rollup');

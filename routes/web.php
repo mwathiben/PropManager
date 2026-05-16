@@ -242,6 +242,16 @@ Route::middleware('auth')->group(function () {
         Route::get('/ops/mrr', [\App\Http\Controllers\Growth\MrrController::class, 'trend'])
             ->name('ops.mrr.trend');
     });
+
+    // Phase-34 GROWTH-REFERRAL-2: landlord self-serve referral surface.
+    // NOT super_admin gated — every landlord sees their own code +
+    // their own ledger.
+    Route::middleware('role:landlord')->group(function () {
+        Route::post('/referrals/redeem', [\App\Http\Controllers\Growth\ReferralController::class, 'redeem'])
+            ->name('referrals.redeem');
+        Route::get('/referrals/mine', [\App\Http\Controllers\Growth\ReferralController::class, 'mine'])
+            ->name('referrals.mine');
+    });
     // Legacy routes for backward compatibility
     Route::get('/onboarding/create', [OnboardingController::class, 'create'])->name('onboarding.create');
     Route::post('/onboarding/store', [OnboardingController::class, 'store'])->name('onboarding.store');

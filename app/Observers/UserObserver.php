@@ -26,6 +26,11 @@ class UserObserver
         $user->refresh();
         if ($user->role === 'landlord') {
             $this->createDefaultSchedules($user);
+            // Phase-34 GROWTH-REFERRAL-1: assign a viral-loop code to
+            // landlords on signup. Idempotent — service returns the
+            // existing code if one is already set.
+            app(\App\Services\Growth\ReferralAttributionService::class)
+                ->generateCodeFor($user);
         }
         $this->recordRoleMilestone($user);
     }
