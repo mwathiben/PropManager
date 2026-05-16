@@ -249,6 +249,18 @@ Route::middleware('auth')->group(function () {
         // Phase-36 INSIGHT-EXPORTS-1: MRR snapshot xlsx download
         Route::get('/ops/mrr/export', [\App\Http\Controllers\Insight\MrrExportController::class, 'export'])
             ->name('ops.mrr.export');
+
+        // Phase-37 PWA-FRONTEND-ADMIN-2/3: experiments admin CRUD
+        Route::get('/ops/experiments', [\App\Http\Controllers\Ops\ExperimentController::class, 'index'])
+            ->name('ops.experiments.index');
+        Route::post('/ops/experiments', [\App\Http\Controllers\Ops\ExperimentController::class, 'store'])
+            ->name('ops.experiments.store');
+        Route::get('/ops/experiments/{experiment}', [\App\Http\Controllers\Ops\ExperimentController::class, 'show'])
+            ->name('ops.experiments.show');
+        Route::patch('/ops/experiments/{experiment}', [\App\Http\Controllers\Ops\ExperimentController::class, 'update'])
+            ->name('ops.experiments.update');
+        Route::post('/ops/experiments/{experiment}/conclude', [\App\Http\Controllers\Ops\ExperimentController::class, 'conclude'])
+            ->name('ops.experiments.conclude');
     });
 
     // Phase-34 GROWTH-REFERRAL-2: landlord self-serve referral surface.
@@ -264,13 +276,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/growth', [\App\Http\Controllers\Insight\LandlordGrowthController::class, 'index'])
             ->name('landlord.growth');
 
-        // Phase-37 PWA-FRONTEND-ADMIN-1: notification preferences page.
-        // Stub registered here in Phase 1b so route('settings.notifications')
-        // resolves for the digest mailable + tests; Phase 1d swaps the
-        // closure for an Inertia render.
-        Route::get('/settings/notifications', function () {
-            return redirect()->route('settings.index');
-        })->name('settings.notifications');
+        // Phase-37 PWA-FRONTEND-ADMIN-1: notification preferences page
+        // backed by Settings\NotificationPreferenceController::page.
+        Route::get('/settings/notifications', [
+            \App\Http\Controllers\Settings\NotificationPreferenceController::class,
+            'page',
+        ])->name('settings.notifications');
     });
     // Legacy routes for backward compatibility
     Route::get('/onboarding/create', [OnboardingController::class, 'create'])->name('onboarding.create');

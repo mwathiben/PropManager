@@ -8,6 +8,8 @@ use App\Http\Controllers\Controller;
 use App\Models\NotificationPreference;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 
 /**
  * Phase-35 PLATFORM-NOTIF-2: landlord self-serve write endpoint.
@@ -41,6 +43,29 @@ class NotificationPreferenceController extends Controller
     ];
 
     public const CHANNELS = ['email', 'sms', 'whatsapp', 'push', 'in_app'];
+
+    /**
+     * Phase-37 PWA-FRONTEND-ADMIN-1: Inertia render of the landlord
+     * notification matrix at /settings/notifications. Server-renders
+     * the same payload show() emits as JSON so the page mounts with
+     * zero extra round-trip.
+     */
+    public function page(Request $request): InertiaResponse
+    {
+        $user = $request->user();
+        $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
+        $pref = NotificationPreference::getOrCreate($user->id, (int) $landlordId);
+
+        return Inertia::render('Settings/Notifications', [
+            'preferences' => $pref->only(array_merge(
+                array_map(fn ($t) => $t.'_enabled', array_merge(self::TOGGLEABLE_TYPES, self::TRANSACTIONAL_LOCKED_TYPES)),
+                array_map(fn ($c) => $c.'_enabled', self::CHANNELS),
+            )),
+            'transactional_locked' => self::TRANSACTIONAL_LOCKED_TYPES,
+            'toggleable_types' => self::TOGGLEABLE_TYPES,
+            'channels' => self::CHANNELS,
+        ]);
+    }
 
     public function show(Request $request): JsonResponse
     {
