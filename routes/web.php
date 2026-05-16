@@ -1002,6 +1002,12 @@ Route::middleware(['auth', 'role:tenant', 'payment.verified', 'kyc.complete'])->
         ->middleware('throttle:sensitive')
         ->name('tenant.profile.password');
     Route::patch('/profile/notification-prefs', [\App\Http\Controllers\TenantProfileController::class, 'updateNotificationPrefs'])->name('tenant.profile.notification-prefs');
+
+    // Phase-28 TENANT-STATEMENT-1/2/3: tenant-facing statement viewer + exports.
+    Route::get('/statement', [\App\Http\Controllers\TenantStatementController::class, 'index'])->name('tenant.statement.index');
+    Route::get('/statement.pdf', [\App\Http\Controllers\TenantStatementController::class, 'pdf'])->name('tenant.statement.pdf');
+    Route::get('/statement.xlsx', [\App\Http\Controllers\TenantStatementController::class, 'xlsx'])->name('tenant.statement.xlsx');
+    Route::post('/statement/email', [\App\Http\Controllers\TenantStatementController::class, 'email'])->name('tenant.statement.email');
 });
 
 // --- LEGAL DOCUMENTS (Public) ---
