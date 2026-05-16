@@ -14,6 +14,13 @@ return [
         'body_due_today' => 'Your rent payment of KES :amount on invoice :number is due today.',
         'body_after' => 'Your rent payment of KES :amount on invoice :number is :days day(s) overdue. Please pay as soon as possible to avoid late fees.',
     ],
+    'late_fee' => [
+        'sms_subject' => 'Urgent: invoice :number overdue',
+        'sms_body' => 'Invoice :number with balance KES :amount is overdue. Please pay today to avoid further action.',
+        'task_title' => 'Call :tenant about overdue invoice :number',
+        'task_description' => 'Tenant has not paid invoice :number despite reminders. Place a call to confirm payment intent.',
+        'eviction_draft_body' => "NOTICE TO TENANT :tenant\n\nThe rent under invoice :number (due :due_date) remains unpaid for more than 30 days. The total amount currently owed is KES :amount.\n\nUnless payment is received within seven (7) days from the date of this notice, the landlord may commence proceedings under the relevant Kenyan tenancy law for recovery of the premises and outstanding arrears.\n\nThis is a DRAFT pending landlord review.",
+    ],
     'lease_renewal' => [
         'subject' => 'Lease renewal — :days day(s) remaining',
         'body' => 'Your lease ends on :end_date — :days day(s) from today. Please review the renewal terms.',

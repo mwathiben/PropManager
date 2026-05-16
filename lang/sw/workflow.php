@@ -14,6 +14,13 @@ return [
         'body_due_today' => 'Malipo yako ya kodi ya KES :amount kwenye ankara :number yanadaiwa leo.',
         'body_after' => 'Malipo yako ya kodi ya KES :amount kwenye ankara :number yamechelewa kwa siku :days. Tafadhali lipa haraka iwezekanavyo ili kuepuka adhabu.',
     ],
+    'late_fee' => [
+        'sms_subject' => 'Haraka: ankara :number imechelewa',
+        'sms_body' => 'Ankara :number yenye salio KES :amount imechelewa. Tafadhali lipa leo ili kuepuka hatua zaidi.',
+        'task_title' => 'Mpigie :tenant simu kuhusu ankara :number iliyochelewa',
+        'task_description' => 'Mpangaji hajalipa ankara :number licha ya vikumbusho. Pigia simu ili kuthibitisha nia ya malipo.',
+        'eviction_draft_body' => "ILANI KWA MPANGAJI :tenant\n\nKodi chini ya ankara :number (iliyodaiwa :due_date) haijalipwa kwa zaidi ya siku 30. Jumla ya kiasi kinachodaiwa ni KES :amount.\n\nIsipokuwa malipo yatapokelewa ndani ya siku saba (7) kutoka tarehe ya ilani hii, mwenye nyumba anaweza kuanza taratibu chini ya sheria ya upangaji ya Kenya kwa ajili ya kurudisha jumba na malipo yaliyosalia.\n\nHii ni RASIMU inayosubiri uhakiki wa mwenye nyumba.",
+    ],
     'lease_renewal' => [
         'subject' => 'Kuongezewa kwa mkataba — siku :days zinabaki',
         'body' => 'Mkataba wako unakwisha tarehe :end_date — siku :days kutoka leo. Tafadhali angalia masharti mapya.',

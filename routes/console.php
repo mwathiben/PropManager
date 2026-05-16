@@ -264,3 +264,13 @@ Schedule::command('leases:scan-renewals')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase29-wf-lease-renew1-scan');
+
+// Phase-29 WF-LATE-FEE-1: nightly escalation for chronically overdue
+// invoices. Runs after invoices:mark-overdue (00:05) and
+// invoices:apply-late-fees (00:10) so the freshly-updated overdue
+// corpus is what gets escalated.
+Schedule::command('invoices:escalate-overdue')
+    ->dailyAt('00:30')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase29-wf-late-fee1-escalate');
