@@ -17,4 +17,18 @@ return [
         'format' => 'Format',
         'download' => 'Download',
     ],
+    'period' => [
+        'title' => 'Accounting Periods',
+        'close_heading' => 'Close a month',
+        'month' => 'Month',
+        'notes' => 'Notes',
+        'close_button' => 'Close month',
+        'period' => 'Period',
+        'status' => 'Status',
+        'closed_at' => 'Closed at',
+        'reopen' => 'Reopen',
+        'reopen_confirm' => 'Reopen this period? Writes to dates in this window will be allowed again.',
+        'closed' => 'Accounting period closed.',
+        'reopened' => 'Accounting period reopened.',
+    ],
 ];

@@ -3,13 +3,19 @@
 namespace App\Models;
 
 use App\Traits\Auditable;
+use App\Traits\EnforcesAccountingPeriodLock;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Expense extends Model
 {
-    use Auditable, TenantScope;
+    use Auditable, EnforcesAccountingPeriodLock, TenantScope;
+
+    protected function accountingPeriodDateColumn(): string
+    {
+        return 'expense_date';
+    }
 
     protected $fillable = [
         'landlord_id',

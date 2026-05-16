@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\Currency;
 use App\Traits\Auditable;
+use App\Traits\EnforcesAccountingPeriodLock;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -11,7 +12,12 @@ use Illuminate\Support\Facades\DB;
 
 class Payment extends Model
 {
-    use Auditable, TenantScope;
+    use Auditable, EnforcesAccountingPeriodLock, TenantScope;
+
+    protected function accountingPeriodDateColumn(): string
+    {
+        return 'payment_date';
+    }
 
     /**
      * Phase-13 DPA-3: payment processing has two stacked lawful bases —

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\Currency;
 use App\Enums\InvoiceStatus;
 use App\Traits\Auditable;
+use App\Traits\EnforcesAccountingPeriodLock;
 use App\Traits\TenantScope;
 use App\ValueObjects\Money;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -15,7 +16,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Invoice extends Model
 {
-    use Auditable, HasFactory, SoftDeletes, TenantScope;
+    use Auditable, EnforcesAccountingPeriodLock, HasFactory, SoftDeletes, TenantScope;
+
+    protected function accountingPeriodDateColumn(): string
+    {
+        return 'created_at';
+    }
 
     /**
      * Phase-13 DPA-3: invoices are processed on the lawful basis of

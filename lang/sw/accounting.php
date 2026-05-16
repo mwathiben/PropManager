@@ -17,4 +17,18 @@ return [
         'format' => 'Muundo',
         'download' => 'Pakua',
     ],
+    'period' => [
+        'title' => 'Vipindi vya Uhasibu',
+        'close_heading' => 'Funga mwezi',
+        'month' => 'Mwezi',
+        'notes' => 'Maelezo',
+        'close_button' => 'Funga mwezi',
+        'period' => 'Kipindi',
+        'status' => 'Hali',
+        'closed_at' => 'Imefungwa tarehe',
+        'reopen' => 'Fungua tena',
+        'reopen_confirm' => 'Fungua kipindi hiki tena? Mabadiliko ya tarehe ndani ya dirisha hili yataruhusiwa tena.',
+        'closed' => 'Kipindi cha uhasibu kimefungwa.',
+        'reopened' => 'Kipindi cha uhasibu kimefunguliwa tena.',
+    ],
 ];

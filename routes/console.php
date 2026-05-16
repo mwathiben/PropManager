@@ -311,3 +311,13 @@ Schedule::command('bank-reconciliation:audit')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase30-int-bank-parity3-audit');
+
+// Phase-30 INT-PERIOD-LOCK-1: monthly accounting close — closes the
+// previous full calendar month for every landlord. Runs on the 1st
+// at 02:30 (after dpa:enforce-retention at 02:00, before the rest of
+// the nightly maintenance window).
+Schedule::command('finance:close-month')
+    ->monthlyOn(1, '02:30')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase30-int-period-lock1-close-month');

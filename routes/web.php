@@ -740,6 +740,14 @@ Route::middleware('auth')->group(function () {
             ->middleware('throttle:export')
             ->name('accounting.export.download');
 
+        // Phase-30 INT-PERIOD-LOCK-1/3: accounting period management
+        Route::get('/periods', [\App\Http\Controllers\Finance\AccountingPeriodController::class, 'index'])
+            ->name('periods.index');
+        Route::post('/periods/close', [\App\Http\Controllers\Finance\AccountingPeriodController::class, 'close'])
+            ->name('periods.close');
+        Route::post('/periods/{period}/reopen', [\App\Http\Controllers\Finance\AccountingPeriodController::class, 'reopen'])
+            ->name('periods.reopen');
+
         // Templates
         Route::get('/templates', [FinanceTemplateController::class, 'index'])->name('templates');
         Route::get('/templates/invoices', [FinanceTemplateController::class, 'invoices'])->name('templates.invoices');
