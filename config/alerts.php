@@ -189,6 +189,18 @@ return [
             'description' => 'Total daily cron runtime exceeded 60 minutes — investigate per-command profiling.',
         ],
 
+        // Phase-39 VENDOR-OBSERV-2
+        [
+            'key' => 'vendor_flap',
+            'severity' => 'sev4',
+            'threshold' => 0.10,
+            'window' => '5m',
+            'gauge' => 'analytics_forwarder_error_rate',
+            'runbook' => 'docs/runbooks/vendors.md',
+            'paging' => 'email',
+            'description' => 'Analytics vendor (PostHog or future) returning >10% error rate over the last batch — data loss accumulating.',
+        ],
+
         // Phase-38 DEFER-BUILD-CI-3
         [
             'key' => 'stale_bundle_warning',

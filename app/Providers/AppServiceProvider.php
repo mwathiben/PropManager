@@ -85,6 +85,30 @@ class AppServiceProvider extends ServiceProvider
         // Register SMS service (Africa's Talking adapter)
         $this->app->bind(SmsServiceInterface::class, AfricasTalkingService::class);
 
+        // Phase-39 VENDOR-ANALYTICS-1: bind AnalyticsForwarderInterface
+        // to the configured vendor implementation. PostHog is the only
+        // implementation today; future vendors (Mixpanel/Heap/Amplitude)
+        // pick up here when their adapter ships.
+        $this->app->singleton(
+            \App\Services\Vendors\AnalyticsForwarderInterface::class,
+            function () {
+                if (config('vendors.posthog.enabled') && config('vendors.posthog.api_key')) {
+                    return new \App\Services\Vendors\PostHogForwarder(
+                        apiKey: (string) config('vendors.posthog.api_key'),
+                        host: (string) config('vendors.posthog.host'),
+                    );
+                }
+
+                // Null-object forwarder so callers don't have to null-check.
+                return new class implements \App\Services\Vendors\AnalyticsForwarderInterface {
+                    public function vendor(): string { return 'noop'; }
+                    public function flush(array $events): array {
+                        return ['accepted' => 0, 'rejected' => 0, 'retryable' => 0, 'vendor' => 'noop'];
+                    }
+                };
+            },
+        );
+
         // Register payment gateway manager as singleton
         $this->app->singleton(PaymentGatewayManager::class);
 

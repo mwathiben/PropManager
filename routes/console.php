@@ -610,3 +610,13 @@ Schedule::command('bundle:freshness-audit')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase38-defer-build-ci3-bundle-freshness-audit');
+
+// Phase-39 VENDOR-ANALYTICS-2: forward yesterday's product_events
+// to the configured analytics vendor (PostHog default; noop when
+// disabled). Daily 04:45 — between Phase-36 cron:budget-audit
+// 04:30 and Phase-38 bundle:freshness-audit 04:55.
+Schedule::command('analytics:replay-batch')
+    ->dailyAt('04:45')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase39-vendor-analytics2-replay-batch');
