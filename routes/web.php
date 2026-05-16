@@ -261,6 +261,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/ops/push', [\App\Http\Controllers\Ops\PushTestRunnerController::class, 'send'])
             ->name('ops.push.send');
 
+        // Phase-39 RETENTION-READ-3: archive search + rehydrate UI.
+        Route::get('/ops/archive/search', [\App\Http\Controllers\Ops\ArchiveSearchController::class, 'show'])
+            ->name('ops.archive.show');
+        Route::post('/ops/archive/rehydrate', [\App\Http\Controllers\Ops\ArchiveSearchController::class, 'rehydrate'])
+            ->name('ops.archive.rehydrate');
+
         // Phase-37 PWA-FRONTEND-ADMIN-2/3: experiments admin CRUD
         Route::get('/ops/experiments', [\App\Http\Controllers\Ops\ExperimentController::class, 'index'])
             ->name('ops.experiments.index');
