@@ -994,6 +994,14 @@ Route::middleware(['auth', 'role:tenant', 'payment.verified', 'kyc.complete'])->
     Route::get('/notifications/api', [\App\Http\Controllers\TenantNotificationController::class, 'getNotifications'])->name('tenant.notifications.api');
     Route::patch('/notifications/{notification}/read', [\App\Http\Controllers\TenantNotificationController::class, 'markAsRead'])->name('tenant.notifications.read');
     Route::patch('/notifications/read-all', [\App\Http\Controllers\TenantNotificationController::class, 'markAllAsRead'])->name('tenant.notifications.read-all');
+
+    // Phase-28 TENANT-PROFILE-1/2/3: dedicated tenant profile surface.
+    Route::get('/profile', [\App\Http\Controllers\TenantProfileController::class, 'edit'])->name('tenant.profile.edit');
+    Route::patch('/profile', [\App\Http\Controllers\TenantProfileController::class, 'update'])->name('tenant.profile.update');
+    Route::patch('/profile/password', [\App\Http\Controllers\TenantProfileController::class, 'updatePassword'])
+        ->middleware('throttle:sensitive')
+        ->name('tenant.profile.password');
+    Route::patch('/profile/notification-prefs', [\App\Http\Controllers\TenantProfileController::class, 'updateNotificationPrefs'])->name('tenant.profile.notification-prefs');
 });
 
 // --- LEGAL DOCUMENTS (Public) ---

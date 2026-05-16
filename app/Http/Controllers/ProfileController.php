@@ -19,9 +19,16 @@ class ProfileController extends Controller
     /**
      * Display the user's profile form.
      */
-    public function edit(Request $request): Response
+    public function edit(Request $request): Response|RedirectResponse
     {
         $user = $request->user();
+
+        // Phase-28 TENANT-PROFILE-1: tenants render the dedicated
+        // Tenant/Profile.vue surface instead of the landlord-shaped
+        // page that exposes business + danger-zone tabs.
+        if ($user->isTenant()) {
+            return Redirect::route('tenant.profile.edit');
+        }
 
         // Build user data with role-specific information
         $userData = [
