@@ -6,9 +6,9 @@ namespace App\Http\Controllers\Cost;
 
 use App\Http\Controllers\Controller;
 use App\Models\LandlordUsageMetric;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
 
 /**
  * Phase-33 COST-ATTRIB-3: top-N costliest landlords surface for the
@@ -17,7 +17,21 @@ use Illuminate\Support\Facades\DB;
  */
 class LandlordCostController extends Controller
 {
-    public function topN(Request $request): JsonResponse
+    public function topN(Request $request)
+    {
+        $payload = $this->buildPayload($request);
+
+        // Phase-36 INSIGHT-OPS-1: Inertia render for HTML requests,
+        // JSON for API clients. Same payload either way — single
+        // source of truth.
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json($payload);
+        }
+
+        return Inertia::render('Ops/LandlordCost', $payload);
+    }
+
+    private function buildPayload(Request $request): array
     {
         $days = max(1, min(90, (int) $request->query('days', 30)));
         $limit = max(1, min(50, (int) $request->query('limit', 10)));
@@ -50,10 +64,10 @@ class LandlordCostController extends Controller
             ];
         }
 
-        return response()->json([
+        return [
             'window_days' => $days,
             'landlords' => $data,
-        ]);
+        ];
     }
 
     private function kesFor(string $metric, int $value, array $rates): float

@@ -241,6 +241,10 @@ Route::middleware('auth')->group(function () {
         // Phase-34 GROWTH-MRR-3: MRR trend + per-plan breakdown
         Route::get('/ops/mrr', [\App\Http\Controllers\Growth\MrrController::class, 'trend'])
             ->name('ops.mrr.trend');
+
+        // Phase-36 INSIGHT-OPS-2: super-admin operator dashboard
+        Route::get('/ops', [\App\Http\Controllers\Insight\OpsDashboardController::class, 'index'])
+            ->name('ops.index');
     });
 
     // Phase-34 GROWTH-REFERRAL-2: landlord self-serve referral surface.

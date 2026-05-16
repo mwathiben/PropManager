@@ -6,9 +6,9 @@ namespace App\Http\Controllers\Growth;
 
 use App\Http\Controllers\Controller;
 use App\Models\MrrSnapshot;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Inertia\Inertia;
 
 /**
  * Phase-34 GROWTH-MRR-3: super_admin-only MRR trend endpoint.
@@ -19,7 +19,7 @@ use Illuminate\Support\Carbon;
  */
 class MrrController extends Controller
 {
-    public function trend(Request $request): JsonResponse
+    public function trend(Request $request)
     {
         $days = max(7, min(365, (int) $request->input('days', 90)));
         $since = Carbon::today()->subDays($days);
@@ -57,9 +57,16 @@ class MrrController extends Controller
             ];
         }
 
-        return response()->json([
+        $payload = [
             'window_days' => $days,
             'days' => array_values($byDay),
-        ]);
+        ];
+
+        // Phase-36 INSIGHT-OPS-1: Inertia for HTML, JSON for API.
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json($payload);
+        }
+
+        return Inertia::render('Ops/MrrTrend', $payload);
     }
 }

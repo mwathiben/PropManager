@@ -94,6 +94,17 @@ class HandleInertiaRequests extends Middleware
             'experiments' => fn () => $user
                 ? app(\App\Services\Platform\ExperimentService::class)->activeFor($user)
                 : (object) [],
+            // Phase-36 INSIGHT-OPS-3: super-admin operator nav. Null
+            // for non-super_admin so the Vue layout short-circuits the
+            // render. Static array — no DB hit.
+            'opsNav' => fn () => $user && $user->isSuperAdmin()
+                ? [
+                    ['label' => 'Overview', 'route' => 'ops.index'],
+                    ['label' => 'MRR', 'route' => 'ops.mrr.trend'],
+                    ['label' => 'Landlord cost', 'route' => 'ops.landlord-cost.top-n'],
+                    ['label' => 'Incidents', 'route' => 'ops.incidents.index'],
+                ]
+                : null,
         ];
     }
 
