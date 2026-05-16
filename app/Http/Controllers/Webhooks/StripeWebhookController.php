@@ -71,6 +71,7 @@ class StripeWebhookController extends Controller
             $type === 'invoice.payment_failed' => $this->handleInvoicePaymentFailed($payload),
             $type === 'charge.dispute.created' => $this->handleChargeDisputeCreated($payload),
             $type === 'account.updated' => $this->handleAccountUpdated($payload),
+            $type === 'price.updated' => $this->handlePriceUpdated($payload),
             default => null,
         };
 
@@ -257,6 +258,45 @@ class StripeWebhookController extends Controller
             return;
         }
         app(\App\Services\StripeConnectService::class)->syncAccountStatus($accountId);
+    }
+
+    /**
+     * Phase-41 GATEWAY-PLAN-SYNC-2/3: detect Stripe-side Price edits
+     * that diverge from local SubscriptionPlan.price_monthly. Emit
+     * subscription_plan_drift gauge so operators see the divergence
+     * in the Phase-36 ops dashboard. Auto-resolution intentionally
+     * deferred — operator decides which side wins.
+     */
+    private function handlePriceUpdated(array $payload): void
+    {
+        $priceId = (string) ($payload['id'] ?? '');
+        $unitAmount = (int) ($payload['unit_amount'] ?? 0);
+        if ($priceId === '') {
+            return;
+        }
+
+        $plan = \App\Models\SubscriptionPlan::query()
+            ->where('stripe_plan_code', $priceId)
+            ->first();
+        if (! $plan) {
+            return;
+        }
+
+        $stripeMajor = $unitAmount / 100;
+        $appMajor = (float) $plan->price_monthly;
+        $delta = abs($stripeMajor - $appMajor);
+
+        if ($delta > 0.01) {
+            app(\App\Services\MetricsService::class)->gauge('subscription_plan_drift', $delta, [
+                'plan_id' => (string) $plan->id,
+            ]);
+            Log::warning('Stripe Price drift detected', [
+                'plan_id' => $plan->id,
+                'app_price' => $appMajor,
+                'stripe_price' => $stripeMajor,
+                'delta' => $delta,
+            ]);
+        }
     }
 
     private function mapStripeStatus(string $stripeStatus): string

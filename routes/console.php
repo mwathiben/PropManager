@@ -640,3 +640,13 @@ Schedule::command('payments:gateway-reconcile')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase40-payments-gateway-reconcile');
+
+// Phase-41 GATEWAY-PLAN-SYNC-1: weekly push of SubscriptionPlan
+// price changes to Stripe Prices. Mon 04:35 — slots between
+// Phase-36 cron:budget-audit 04:30 and Phase-39 analytics:replay-batch
+// 04:45.
+Schedule::command('stripe:plan-sync')
+    ->weeklyOn(1, '04:35')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase41-gateway-plan-sync');
