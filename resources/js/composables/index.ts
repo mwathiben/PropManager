@@ -18,6 +18,9 @@ export type { UseAuthReturn } from './useAuth';
 export { usePushNotifications } from './usePushNotifications';
 export type { UsePushNotificationsReturn } from './usePushNotifications';
 
+export { useWebPush } from './useWebPush';
+export type { UseWebPushReturn } from './useWebPush';
+
 export { usePayments } from './usePayments';
 export type { UsePaymentsReturn } from './usePayments';
 
