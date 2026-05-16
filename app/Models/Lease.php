@@ -53,6 +53,8 @@ class Lease extends Model
         'deposit_deduction_reason',
         'deposit_processed_at',
         'deposit_processed_by',
+        // Phase-29 WF-RENT-REMIND-2: which RentReminderPolicy applies.
+        'reminder_tier',
     ];
 
     protected $casts = [

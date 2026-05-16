@@ -246,3 +246,12 @@ Schedule::command('tickets:audit-sla')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase28-tenant-maint1-sla-audit');
+
+// Phase-29 WF-RENT-REMIND-1: tiered rent reminder dispatcher. Runs
+// after invoices:automate (06:00) and before tickets:audit-sla (07:00)
+// so newly-generated invoices land in the same overnight cycle.
+Schedule::command('rent-reminders:dispatch')
+    ->dailyAt('08:00')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase29-wf-rent-remind1-dispatch');
