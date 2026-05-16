@@ -26,6 +26,30 @@ class TicketActivity extends Model
         'created_at' => 'datetime',
     ];
 
+    /**
+     * Phase-28 TENANT-MAINT-1: when a landlord or caretaker posts the
+     * first activity (other than the tenant's own 'created' event),
+     * stamp the parent ticket's first_response_at. Cheap noop when the
+     * ticket already has first_response_at set or when the actor is the
+     * tenant reporter — keeps the SLA breach detector accurate.
+     */
+    protected static function booted(): void
+    {
+        static::created(function (self $activity) {
+            $actor = \App\Models\User::find($activity->user_id);
+            if (! $actor || $actor->isTenant()) {
+                return;
+            }
+            if ($activity->action === self::ACTION_CREATED) {
+                return;
+            }
+            $ticket = $activity->ticket()->first();
+            if ($ticket && $ticket->first_response_at === null) {
+                $ticket->forceFill(['first_response_at' => $activity->created_at ?? now()])->save();
+            }
+        });
+    }
+
     // --- RELATIONSHIPS ---
 
     public function ticket()

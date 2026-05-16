@@ -60,12 +60,28 @@ class Ticket extends Model
         'resolution_notes',
         'resolved_at',
         'closed_at',
+        'sla_due_at',
+        'first_response_at',
     ];
 
     protected $casts = [
         'status' => TicketStatus::class,
         'resolved_at' => 'datetime',
         'closed_at' => 'datetime',
+        'sla_due_at' => 'datetime',
+        'first_response_at' => 'datetime',
+    ];
+
+    /**
+     * Phase-28 TENANT-MAINT-1: SLA window per priority, in seconds.
+     * urgent=4h, high=24h, medium=72h, low=168h. boot()->creating sets
+     * sla_due_at = created_at + matching seconds.
+     */
+    public const SLA_SECONDS = [
+        'urgent' => 14400,
+        'high' => 86400,
+        'medium' => 259200,
+        'low' => 604800,
     ];
 
     public function building(): BelongsTo
@@ -106,6 +122,33 @@ class Ticket extends Model
     public function attachments(): MorphMany
     {
         return $this->morphMany(Document::class, 'documentable');
+    }
+
+    /**
+     * Phase-28 TENANT-MAINT-1: set sla_due_at on create from the
+     * priority's SLA window. The boot() block must call parent::boot()
+     * because TenantScope's boot also runs creating hooks.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $ticket) {
+            if ($ticket->sla_due_at !== null) {
+                return;
+            }
+            $seconds = self::SLA_SECONDS[$ticket->priority] ?? self::SLA_SECONDS['medium'];
+            $base = $ticket->created_at ?? now();
+            $ticket->sla_due_at = $base->copy()->addSeconds($seconds);
+        });
+    }
+
+    /**
+     * @param  Builder<Ticket>  $query
+     */
+    public function scopeBreachedSla(Builder $query): Builder
+    {
+        return $query->whereNotNull('sla_due_at')
+            ->where('sla_due_at', '<', now())
+            ->whereNull('first_response_at');
     }
 
     /**

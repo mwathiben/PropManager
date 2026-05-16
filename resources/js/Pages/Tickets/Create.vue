@@ -24,8 +24,22 @@ const form = useForm({
     title: '',
     description: '',
     location: '',
-    priority: 'medium'
+    priority: 'medium',
+    photos: [] as File[],
 });
+
+// Phase-28 TENANT-MAINT-2: cap multi-photo upload at 5 files × 5MB.
+const onPhotosSelected = (event: Event) => {
+    const input = event.target as HTMLInputElement;
+    if (!input.files) return;
+    const accepted: File[] = [];
+    for (const file of Array.from(input.files).slice(0, 5)) {
+        if (file.size <= 5 * 1024 * 1024) {
+            accepted.push(file);
+        }
+    }
+    form.photos = accepted;
+};
 
 const availableUnits = ref(props.units || []);
 
@@ -58,7 +72,8 @@ const submit = () => {
         return;
     }
     form.post(route('tickets.store'), {
-        preserveScroll: true
+        preserveScroll: true,
+        forceFormData: true,
     });
 };
 </script>
@@ -250,6 +265,28 @@ const submit = () => {
                                 <span class="font-medium">Medium:</span> Standard issues.
                                 <span class="font-medium">Low:</span> Minor issues.
                             </p>
+                        </div>
+
+                        <!-- Phase-28 TENANT-MAINT-2: multi-photo upload -->
+                        <div>
+                            <label for="photos" class="block text-sm font-medium text-gray-700 mb-1">
+                                Photos (optional)
+                            </label>
+                            <input
+                                id="photos"
+                                type="file"
+                                multiple
+                                accept="image/jpeg,image/png,image/webp"
+                                class="block w-full text-sm text-gray-700 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                                @change="onPhotosSelected"
+                            />
+                            <p class="mt-1 text-xs text-gray-500">
+                                Up to 5 photos, max 5MB each. JPEG, PNG, or WebP.
+                            </p>
+                            <p v-if="form.photos.length" class="mt-1 text-xs text-emerald-700">
+                                {{ form.photos.length }} {{ form.photos.length === 1 ? 'photo' : 'photos' }} attached
+                            </p>
+                            <p v-if="form.errors.photos" class="mt-1 text-sm text-red-600">{{ form.errors.photos }}</p>
                         </div>
 
                         <!-- Submit Button -->

@@ -13,6 +13,10 @@ return [
         'password_updated' => 'Nenosiri limesasishwa.',
         'notifications_updated' => 'Mapendeleo ya arifa yamehifadhiwa.',
     ],
+    'ticket_sla' => [
+        'subject' => 'SLA imevuka: :title',
+        'body' => 'Tiketi ":title" (:priority) imevuka SLA saa :breached_at na bado haijapata jibu la kwanza.',
+    ],
     'statement' => [
         'title' => 'Taarifa Yangu',
         'period_label' => 'Kipindi :from hadi :to',

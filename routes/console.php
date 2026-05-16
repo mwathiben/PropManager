@@ -236,3 +236,13 @@ Schedule::command('reports:send-scheduled')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase27-bi-delivery2-scheduled-reports');
+
+// Phase-28 TENANT-MAINT-1: nightly SLA breach detector. Runs at
+// 07:00 Africa/Nairobi (after failed-jobs sweep + scheduled-reports
+// dispatch). Emits ticket_sla_breach_count{priority=...} gauges +
+// fires TicketSlaBreached event for each row (idempotent via cache).
+Schedule::command('tickets:audit-sla')
+    ->dailyAt('07:00')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase28-tenant-maint1-sla-audit');

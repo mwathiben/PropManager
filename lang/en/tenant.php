@@ -13,6 +13,10 @@ return [
         'password_updated' => 'Password updated.',
         'notifications_updated' => 'Notification preferences saved.',
     ],
+    'ticket_sla' => [
+        'subject' => 'SLA breach: :title',
+        'body' => 'Ticket ":title" (:priority) breached its SLA at :breached_at and has not yet had a first response.',
+    ],
     'statement' => [
         'title' => 'My Statement',
         'period_label' => 'Period :from to :to',

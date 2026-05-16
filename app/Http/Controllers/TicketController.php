@@ -152,11 +152,29 @@ class TicketController extends Controller
     public function store(StoreTicketRequest $request): RedirectResponse
     {
         $validated = $request->validated();
+        $photos = $request->file('photos', []);
+        unset($validated['photos']);
 
         DB::beginTransaction();
 
         try {
             $ticket = Ticket::create($validated);
+
+            // Phase-28 TENANT-MAINT-2: persist multi-photo upload (up
+            // to 5 × 5MB) as polymorphic Document attachments.
+            foreach ($photos as $photo) {
+                $path = $photo->store('tickets/'.$ticket->id, 'local');
+                $ticket->attachments()->create([
+                    'landlord_id' => $ticket->landlord_id,
+                    'title' => $photo->getClientOriginalName(),
+                    'file_name' => $photo->getClientOriginalName(),
+                    'file_path' => $path,
+                    'mime_type' => $photo->getMimeType(),
+                    'file_size' => $photo->getSize(),
+                    'document_type' => 'other',
+                    'uploaded_by' => auth()->id(),
+                ]);
+            }
 
             DB::commit();
 

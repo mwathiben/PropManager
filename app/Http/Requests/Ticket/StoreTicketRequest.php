@@ -22,6 +22,9 @@ class StoreTicketRequest extends FormRequest
             'description' => 'required|string|max:2000',
             'location' => 'nullable|string|max:255',
             'priority' => 'required|in:low,medium,high,urgent',
+            // Phase-28 TENANT-MAINT-2: up to 5 photos × 5MB each.
+            'photos' => 'sometimes|array|max:5',
+            'photos.*' => 'image|mimes:jpeg,png,webp|max:5120',
         ];
     }
 }
