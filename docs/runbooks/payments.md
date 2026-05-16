@@ -175,33 +175,120 @@ Use cases:
 - `lang/{en,sw}/payments.php` parity.
 - Stripe PHP SDK installed (`Stripe\StripeClient` + `Stripe\Webhook`).
 
-## Phase 41 [GATEWAY-DEEP] handoff notes
+## Stripe webhook event coverage (Phase 41 GATEWAY-WEBHOOK-DEEP)
 
-Stripe gateway is functionally complete but several deeper-end items
-defer to the next cycle:
+| Event | Handler | Side effect |
+|-------|---------|-------------|
+| `customer.subscription.created` | `handleSubscriptionEvent` | Subscription.status = active (Phase 40) |
+| `customer.subscription.updated` | `handleSubscriptionEvent` | Subscription.status = mapped from Stripe (Phase 40) |
+| `customer.subscription.deleted` | `handleSubscriptionEvent` | Subscription.status = cancelled + cancelled_at (Phase 40) |
+| `payment_intent.succeeded` | `handlePaymentIntentSucceeded` | Idempotent Payment row creation (lands when `landlord_id` + `lease_id` in metadata); skips for SaaS-billing intents |
+| `charge.refunded` | `handleChargeRefunded` | Payment.is_voided = true + dispatches PaymentRefundedExternal event |
+| `invoice.payment_failed` | `handleInvoicePaymentFailed` | Subscription.status = past_due (Phase-34 dunning picks it up) |
+| `charge.dispute.created` | `handleChargeDisputeCreated` | OperationalIncident sev3 row with affected_services=[stripe, payments] |
+| `account.updated` | `handleAccountUpdated` | StripeConnectService::syncAccountStatus refreshes PaymentConfiguration.stripe_connect_* columns |
+| `price.updated` | `handlePriceUpdated` | Detects Stripe-side Price drift vs SubscriptionPlan.price_monthly; emits subscription_plan_drift gauge |
 
-- **Remote charge fetch for Stripe reconcile**: `reconcileStripe` is
-  local-only today. When the first landlord enables Stripe rent
-  collection in production, wire `Stripe\Charge::list` for the
-  remote diff loop (mirrors `PaystackService::listTransactions`).
-- **PaymentReconciliationService::reconcile generic compare loop**:
-  per-gateway impl methods still hand-roll the indexing. Once Stripe
-  has a real remote fetcher, hoist the compare/discrepancy loop into
-  a gateway-agnostic helper.
-- **Stripe Connect per-tenant subaccounts**: Phase 30 shipped
-  `PaystackSubaccountService` for split-payments. Stripe Connect
-  Express equivalent deferred until at least one landlord asks for
-  USD subaccount split.
-- **`payment_intent.succeeded` + `charge.refunded` handlers**:
-  StripeWebhookController only handles `customer.subscription.*` today.
-  Add these handlers in the same `match` once the first landlord
-  takes a USD/EUR/GBP payment via Stripe in production.
-- **Tenant-facing currency picker**: defaults to landlord's
-  preferred currency from `PaymentConfiguration`. UI for tenant to
-  select currency at checkout deferred until international tenants
-  land.
-- **Bidirectional SubscriptionPlan ↔ Stripe Price sync**:
-  `StripeSubscriptionService::createOrUpdatePlan` is one-way only
-  (PropManager pushes to Stripe). Stripe-side price edits don't
-  back-sync. Defer until product team needs Stripe-driven plan
-  experimentation.
+All handlers dedup on `event.id` via 24h `Cache::add` — duplicate
+deliveries return `{status: duplicate}` without re-executing.
+
+## Stripe Connect Express onboarding flow (Phase 41 GATEWAY-CONNECT)
+
+For landlords accepting USD/EUR/GBP via Stripe:
+
+1. Super_admin invokes `StripeConnectService::createExpressAccount($landlord, $country)`.
+   Returns `{success: true, account_id: acct_xxx, status: pending_onboarding}`.
+2. Service persists `acct_xxx` → `payment_configurations.stripe_connect_account_id`
+   (encrypted) with status `pending_onboarding`.
+3. UI generates hosted onboarding URL via
+   `onboardingLink($accountId, $returnUrl, $refreshUrl)`. Landlord
+   completes KYC + bank details on Stripe-hosted page.
+4. Stripe posts `account.updated` webhook → handler calls
+   `syncAccountStatus` → updates `stripe_connect_status`
+   (`pending_onboarding` → `pending_verification` → `active`) +
+   `stripe_connect_charges_enabled` + `stripe_connect_payouts_enabled`.
+
+`isConfigured()` checks `secret_key` only — Connect onboarding is
+gated separately by `stripe_connect_charges_enabled`.
+
+## Checkout routing (Phase 41 GATEWAY-CHECKOUT-2)
+
+Endpoint: `POST /invoices/{invoice}/checkout/initialize`
+
+Routing decision (in order):
+
+| Landlord preference | Invoice currency | Gateway picked |
+|---------------------|------------------|----------------|
+| `paystack` (forced) | any              | Paystack       |
+| `stripe` (forced)   | any              | Stripe         |
+| `auto`              | KES              | Paystack       |
+| `auto`              | USD/EUR/GBP      | Stripe         |
+
+Response envelope shape (both gateways):
+
+```json
+{
+  "status": "success",
+  "gateway": "stripe" | "paystack",
+  "data": {
+    "reference": "pi_... | INV_...",
+    "authorization_url": "...",  // Paystack hosted-checkout URL
+    "client_secret": "pi_..._secret_..."  // Stripe stripe.js confirm flow
+  }
+}
+```
+
+Frontend renders the appropriate flow based on `gateway` field.
+
+## Plan-sync drift playbook (Phase 41 GATEWAY-PLAN-SYNC)
+
+`stripe:plan-sync` runs weekly Mon 04:35 Africa/Nairobi — pushes
+active `SubscriptionPlan` rows to Stripe Prices and writes the new
+`price.id` to `plan.stripe_plan_code`.
+
+Stripe-side edits (operator changes a Price in the Stripe Dashboard
+for support reasons) trigger `price.updated` webhook →
+`subscription_plan_drift` gauge fires.
+
+**When the gauge fires:**
+
+1. Inspect `subscription_plan_drift{plan_id}` in the ops dashboard.
+2. Decide which side wins:
+   - **App wins** (default): run `php artisan stripe:plan-sync` to
+     overwrite the Stripe Price with the app's value.
+   - **Stripe wins** (rare — usually only for one-off support pricing):
+     manually update `SubscriptionPlan.price_monthly` to match Stripe.
+3. Gauge value should return to 0 on next `price.updated` after
+   resolution.
+
+Auto-resolution is intentionally NOT shipped — pricing decisions
+involve revenue, manual review is the right default.
+
+## Phase 42 [PAYMENTS-INTL] handoff notes
+
+Phase 41 closed the Phase-40 deferral list. Phase 42's surface
+candidates from the Stripe + cross-border surface:
+
+- **Tax/VAT line items on PaymentIntent**: Kenyan VAT registry
+  integration + Stripe Tax for international charges. Material for a
+  full cycle (KRA iTax integration alone is non-trivial).
+- **Full bidirectional plan sync**: `price.updated` webhook drift
+  detection lands in Phase 41. Phase 42 candidate: opt-in
+  auto-resolve mode (operator selects "always app-wins" /
+  "always stripe-wins" / "manual review" per plan).
+- **Stripe Connect Standard**: Express is enough for split-payment
+  parity with Paystack subaccounts; Standard adds direct-charge
+  capability that landlords with their own Stripe accounts need for
+  tax-reporting independence.
+- **Multi-currency cart**: each PaymentIntent is single-currency
+  today. Cart-style checkout (e.g., tenant pays rent in KES + a
+  service add-on priced in USD in the same checkout) deferred.
+- **Payment-method save + reuse**: today every checkout is a fresh
+  PaymentIntent. Stripe Customers + saved cards for reuse-without-
+  re-entering deferred.
+- **payouts:stripe-balance-audit cron**: detect Stripe Connect
+  payout failures + emit `stripe_payout_failure_count` gauge.
+- **Stripe-side Customer ↔ User mapping table**: today the link is
+  implicit via metadata.user_id. A first-class table would let
+  StripeSubscriptionService::initializeCheckout reuse existing
+  Customers (lower friction for returning landlords).
