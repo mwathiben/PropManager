@@ -620,3 +620,12 @@ Schedule::command('analytics:replay-batch')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase39-vendor-analytics2-replay-batch');
+
+// Phase-39 VENDOR-OBSERV-1: emit push_click_through_rate_24h gauge.
+// Daily 05:10 — after replay-batch + bundle:freshness-audit so the
+// metrics emit slot doesn't compete with vendor work.
+Schedule::command('push:click-through-audit')
+    ->dailyAt('05:10')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase39-vendor-observ1-push-click-through-audit');
