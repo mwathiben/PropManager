@@ -219,5 +219,76 @@
       "evidence": "Phase 29-36 established the runbook cadence. Phase 37 surfaces 4 crons + 1 alert + 3 new user-facing flows (push subscribe, digest opt-out, gateway proration). Operator needs documented playbooks for: push subscription failures (VAPID rotation), digest delivery silence (cron not running OR lifecycle opt-out drift), gateway proration drift (Paystack returning errors), retention prune lag (chunk size too small for table growth), admin experiment race conditions (two super_admin users editing the same draft).",
       "fix": "Sections: Overview (Phase 37 surface map), Push notifications (subscription flow + VAPID rotation playbook + iOS Safari limitation note), Insight digest (cron cadence + opt-in resolution table + dry-run mailable command), Paystack proration (sync flow diagram + high_gateway_proration_drift sev3 playbook + manual gateway-CLI fallback), Admin experiments (status state machine + conclude flow + significance interpretation guide), Retention + cold storage (prune cron behavior + JSONL.gz archive shape + Athena query example), CI gates, Deferrals (Amplitude SDK, Stripe parity, Bayesian sequential analysis, iOS push, browser-side push test runner)."
     }
-  ]
+  ],
+  "audit_closeout": {
+    "closed_at": "2026-05-16",
+    "closing_commit": "4c2f40d",
+    "findings_total": 18,
+    "findings_shipped": 18,
+    "findings_deferred": 0,
+    "phase_commits": [
+      "c3d3b37 docs(phase-37): [PWA-DEPTH] audit PRD baseline (18 findings)",
+      "9f4c93b feat(phase-37): [PWA-DEPTH] Phase 1a — PWA-PUSH-FE-1 useWebPush composable",
+      "c9a71f4 feat(phase-37): [PWA-DEPTH] Phase 1b — PWA-DIGEST-1/2/3 weekly insight digest",
+      "e86ad3d feat(phase-37): [PWA-DEPTH] Phase 1c — PWA-GATEWAY-1/2/3 Paystack subscription sync + drift reconciliation",
+      "d13efb9 feat(phase-37): [PWA-DEPTH] Phase 1d — PWA-FRONTEND-ADMIN-1/2/3 settings notifications + experiments admin",
+      "9fa7048 feat(phase-37): [PWA-DEPTH] Phase 1e — PWA-RETENTION-STATS-1/2/3 product retention + cold storage + significance",
+      "4c2f40d feat(phase-37): [PWA-DEPTH] Phase 2 — PWA-CI-1/2/3 — Phase 37 COMPLETE"
+    ],
+    "tests_added": [
+      "tests/Feature/PwaDepth/Phase37PushSubscriptionTest.php — 7 tests (backend contract useWebPush relies on)",
+      "tests/Feature/PwaDepth/Phase37WeeklyDigestTest.php — 8 tests",
+      "tests/Feature/PwaDepth/Phase37GatewayTest.php — 9 tests",
+      "tests/Feature/PwaDepth/Phase37FrontendAdminTest.php — 8 tests",
+      "tests/Feature/PwaDepth/Phase37RetentionStatsTest.php — 8 tests",
+      "tests/Feature/PwaDepth/Phase37PwaDepthSurfaceTest.php — 4 tests (CI watchdog)"
+    ],
+    "tests_total": 44,
+    "schema_changes": [
+      "subscription_changes: +gateway_response json nullable",
+      "subscription_plans: +paystack_plan_code string(64) nullable"
+    ],
+    "new_crons": {
+      "insight:weekly-digest": "0 7 * * 1 Africa/Nairobi onOneServer — weekly insight digest to paying lifecycle-opted-in landlords",
+      "gateway:proration-audit": "30 5 * * * Africa/Nairobi onOneServer — Paystack drift reconciliation + high_gateway_proration_drift alert",
+      "product:prune": "0 3 * * 0 Africa/Nairobi onOneServer — weekly product_events deletion past retention",
+      "product:cold-storage-rollover": "30 3 1 * * Africa/Nairobi onOneServer — monthly JSONL.gz archive to Storage::disk('archive')"
+    },
+    "new_alerts": {
+      "high_gateway_proration_drift": "sev3, threshold 5, gauge subscription_proration_drift_count_24h, runbook docs/runbooks/pwa-depth.md"
+    },
+    "new_routes_web": [
+      "GET /settings/notifications (landlord) — Inertia notification preference matrix",
+      "GET /ops/experiments (super_admin) — Experiments admin index",
+      "POST /ops/experiments (super_admin) — create draft experiment",
+      "GET /ops/experiments/{id} (super_admin) — experiment detail",
+      "PATCH /ops/experiments/{id} (super_admin) — status flip",
+      "POST /ops/experiments/{id}/conclude (super_admin) — conclude with winning variant"
+    ],
+    "new_webhook_handlers": [
+      "POST /webhooks/v2/paystack now routes subscription.create / subscription.disable / subscription.not_renew events to local Subscription state mutations"
+    ],
+    "new_composables_js": [
+      "resources/js/composables/useWebPush.ts — VAPID key auto-fetch + rotation auto-resubscribe wrapper around Phase-26 usePushNotifications"
+    ],
+    "new_vue_pages": [
+      "resources/js/Pages/Settings/Notifications.vue — 12-type × 5-channel preference matrix + push permission card",
+      "resources/js/Pages/Ops/Experiments/Index.vue — super_admin experiment list + status flip",
+      "resources/js/Pages/Ops/Experiments/Show.vue — per-experiment detail + conclude form"
+    ],
+    "new_services": [
+      "PaystackSubscriptionService::updateSubscription / disableSubscription / syncFromGateway — gateway-side subscription mutation + read",
+      "ExperimentService::computeSignificance — two-proportion pooled z-test (alpha=0.05) for 2-variant boolean conversion metrics"
+    ],
+    "new_mailables": [
+      "App\\Mail\\WeeklyInsightDigestMailable — reuses Phase-34 lifecycle pattern (ShouldQueue + afterCommit + markdown view)"
+    ],
+    "config_additions": [
+      "platform.product_events_retention_days (default 180)",
+      "platform.product_events_cold_storage_days (default 90)",
+      "filesystems.disks.archive (local in dev, S3 in prod via ARCHIVE_DISK_DRIVER + ARCHIVE_BUCKET)"
+    ],
+    "deferrals": [],
+    "tier_status": "Tier-7 cycle 1 closed. 18/18 findings shipped, zero deferrals to backlog. Sets up Tier-7 cycle 2 candidates: Amplitude/Mixpanel SDK integration, Stripe gateway parity, Bayesian sequential analysis, multi-variant experiment significance, iOS Safari push, cold-storage rehydration read path."
+  }
 }
