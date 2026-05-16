@@ -1,0 +1,223 @@
+{
+  "phase": 34,
+  "title": "[GROWTH] MRR/ARR + churn cohorts + referral attribution + engagement scoring + lifecycle campaigns",
+  "opened_at": "2026-05-16",
+  "tier": "6",
+  "scope": "Tier-6 cycle 1 — net-new domain opening after Tier 5 [ONBOARDING + SRE + COST] closed 2026-05-16. Phase 33 turned the platform 'attributable' (per-landlord cost in KES); Phase 34 turns it 'optimizable' (growth-loop instrumentation on the revenue + retention side). Today's surface: subscription_plans + subscriptions + subscription_payments + usage_records tables already exist (committed 2025-12-27) plus SubscriptionService + PaystackSubscriptionService + subscribe/cancel/resume/callback routes — but ZERO test coverage for any of it, no MRR/ARR computation anywhere, no proration on changePlan(), no scheduled downgrade-at-period-end. cancel_reason capture missing on subscriptions table (we record WHEN but not WHY a landlord churned). No referrals table, no referral_code column on users, no Marketing controller dir — viral loop completely absent despite Kenyan WhatsApp-driven referral culture being a strong PMF signal in the market. Phase 27 CohortService computes retention triangular matrix + LTV but keyed on LEASES (tenants of landlords), not on subscriptions; same algorithm needs re-pointing for SaaS churn cohorts. usage_records table exists with (user_id, feature, quantity, period_start, period_end) but has NO writer beyond the import in SubscriptionService — scaffolding for metered billing sits idle. No landlord_engagement_score / health-score / activity-rollup despite OnboardingMilestone (Phase 31) tracking the acquisition funnel + landlord_usage_metrics (Phase 33) tracking cost — both are perfect inputs for an engagement composite. app/Mail/ has 23 transactional mailers but zero drip/nudge/winback/trial-ending — no lifecycle email infrastructure. config/features.php has exactly ONE flag (whatsapp_payment_links_enabled), no A/B experiment framework. 18 findings across 6 categories: GROWTH-MRR (3 — mrr_snapshots table + MrrSnapshotService + mrr:snapshot cron + per-landlord landlord_mrr_kes gauge), GROWTH-CHURN (3 — cancel_reason column + ChurnService re-pointing CohortService at subscriptions + churn:audit cron emitting subscription_cohort_retention gauge + high_churn_rate alert), GROWTH-REFERRAL (3 — referrals table tracking (referrer_user_id, referred_user_id, referral_code, status, attributed_at) + referral_code column on users with auto-generated 8-char slug + ReferralController POST /referrals/redeem applying reward + landlord_referrals_count_30d gauge), GROWTH-ENGAGEMENT (3 — landlord_engagement_scores table (landlord_id, day, score, components) + EngagementScoreService composing weighted signals from OnboardingMilestone progress + landlord_usage_metrics recency + login frequency + property/unit/tenant counts + engagement:rollup cron emitting landlord_engagement_score{landlord_id} gauge + low_engagement_landlord alert when score drops below threshold), GROWTH-LIFECYCLE (3 — subscriptions:trial-ending-reminder cron firing TrialEndingMailable at trial day -3 / -1 / 0 + subscriptions:churn-winback cron 7 + 30 days post-cancel firing WinbackMailable with discount code + landlords:activation-nudge cron when OnboardingMilestone progress stalls > 3 days), GROWTH-CI (3 — Phase34GrowthSurfaceTest watchdog covering 5 new crons + 3 new alert keys + lang parity, lang/{en,sw}/growth.php with sections for MRR dashboard + churn cohort UI + referral landing copy + engagement score labels + lifecycle email subjects, docs/runbooks/growth.md operator reference). Severity 5H/8M/5L. Builds on Phase-27 CohortService (retention algorithm), Phase-31 OnboardingMilestone (engagement input + activation-stall detection), Phase-32 AlertRegistry + AlertFiringRecorder + WorkflowLogger pipe, Phase-33 LandlordUsageMetric (engagement input + per-landlord cost denominator for LTV/CAC computation), existing SubscriptionService + Paystack integration. NOT in scope: A/B experiment framework (deferred to Phase 35), metered billing writer wiring (separate Phase 35 cycle), product analytics SDK (Amplitude/Mixpanel/Heap integration is a config decision not an audit cycle).",
+  "categories": [
+    "GROWTH-MRR",
+    "GROWTH-CHURN",
+    "GROWTH-REFERRAL",
+    "GROWTH-ENGAGEMENT",
+    "GROWTH-LIFECYCLE",
+    "GROWTH-CI"
+  ],
+  "findings": [
+    {
+      "id": "GROWTH-MRR-1",
+      "title": "mrr_snapshots table + MrrSnapshotService",
+      "severity": "HIGH",
+      "files": [
+        "database/migrations/.../create_mrr_snapshots.php (new)",
+        "app/Models/MrrSnapshot.php (new)",
+        "app/Services/Growth/MrrSnapshotService.php (new)"
+      ],
+      "evidence": "Zero MRR/ARR computation exists anywhere in the codebase (grep negative across app/). SubscriptionService records individual subscription_payments but nothing aggregates them into the canonical SaaS metric. Leadership cannot answer 'what was our MRR on the 1st of last month' without a manual SQL query, and there is no time-series for the trend line. Industry standard: a daily snapshot row keyed on (day, plan_id) capturing new MRR + expansion MRR + contraction MRR + churned MRR = net MRR change. The same shape any SaaS investor deck expects.",
+      "fix": "(a) Migration mrr_snapshots(day date, plan_id, mrr_kes_cents bigint, active_subscriptions int, new_mrr_kes_cents bigint, expansion_mrr_kes_cents bigint, contraction_mrr_kes_cents bigint, churned_mrr_kes_cents bigint) unique on (day, plan_id); (b) Model with cents->KES Money primitive cast (Phase-17); (c) MrrSnapshotService::snapshotForDate(day): walks active subscriptions, sums plan.price_kes_cents, classifies movement vs prior day (new = no prior subscription, expansion = upgrade, contraction = downgrade, churned = cancelled_at on prior day), upserts one row per plan."
+    },
+    {
+      "id": "GROWTH-MRR-2",
+      "title": "mrr:snapshot cron + per-landlord MRR gauge",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/MrrSnapshot.php (new)",
+        "routes/console.php"
+      ],
+      "evidence": "Service is internal — the operator-visible signal is a daily snapshot row + a Prometheus gauge feeding Grafana. Same daily-cron pattern as Phase-33 cost:attribute.",
+      "fix": "(a) artisan mrr:snapshot {--date=today} calls MrrSnapshotService::snapshotForDate; emits mrr_total_kes gauge (sum across plans) + mrr_by_plan_kes{plan_slug=X} gauge + active_subscriptions_count{plan_slug=X} gauge; (b) Schedule dailyAt 04:05 Africa/Nairobi onOneServer (after Phase-33 03:55 log:volume-audit, before 04:30 backup window)."
+    },
+    {
+      "id": "GROWTH-MRR-3",
+      "title": "Operator-facing MRR dashboard endpoint",
+      "severity": "LOW",
+      "files": [
+        "app/Http/Controllers/Growth/MrrController.php (new)",
+        "routes/web.php"
+      ],
+      "evidence": "Operator needs to surface MRR trend without running ad-hoc DB queries. Same shape as Phase-33 LandlordCostController.",
+      "fix": "(a) GET /ops/mrr (super_admin only) returns JSON of last 90 days mrr_snapshots grouped by day with per-plan breakdown + waterfall (new/expansion/contraction/churned); (b) Wire under role:super_admin middleware."
+    },
+    {
+      "id": "GROWTH-CHURN-1",
+      "title": "cancel_reason column + cancel-survey capture",
+      "severity": "HIGH",
+      "files": [
+        "database/migrations/.../add_cancel_reason_to_subscriptions.php (new)",
+        "app/Services/SubscriptionService.php",
+        "app/Http/Controllers/SubscriptionController.php"
+      ],
+      "evidence": "subscriptions.cancelled_at exists but we record WHEN not WHY. Without cancel_reason we cannot distinguish involuntary churn (failed payment) from voluntary churn (too expensive / missing features / switching to competitor) — fixing each requires a different playbook. A 6-option enum on the cancel form is the minimum viable signal.",
+      "fix": "(a) Migration adds cancel_reason enum [too_expensive, missing_features, switching_competitor, business_closing, technical_issues, other] nullable + cancel_feedback text nullable; (b) SubscriptionService::cancel signature gains $reason, $feedback params; (c) Cancel form Vue component requires cancel_reason select before submit (existing /subscriptions/cancel route accepts both params)."
+    },
+    {
+      "id": "GROWTH-CHURN-2",
+      "title": "ChurnService re-pointing CohortService at subscriptions",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/Growth/ChurnService.php (new)"
+      ],
+      "evidence": "Phase-27 CohortService::retentionMatrix computes triangular cohort retention but keyed on LEASES (tenant retention for a landlord). The same algorithm re-pointed at subscriptions.created_at + cancelled_at gives SaaS cohort retention — the canonical churn analysis. Wrapping it as a dedicated service surface lets Grafana panels + the operator dashboard call a single method.",
+      "fix": "(a) ChurnService::subscriptionCohorts(monthsBack=12) returns array shaped [{cohort_month, size, retention: [m0, m1, m2, ...]}]; (b) ChurnService::monthlyChurnRate(month) returns churned/active at month-start ratio; (c) Internally delegates to CohortService::retentionMatrix(subscriptions, created_at, cancelled_at) — extending CohortService rather than copying."
+    },
+    {
+      "id": "GROWTH-CHURN-3",
+      "title": "churn:audit cron + high_churn_rate alert wiring",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/ChurnAudit.php (new)",
+        "config/alerts.php",
+        "routes/console.php"
+      ],
+      "evidence": "Service + table exist but nobody is paged on a churn spike. Monthly churn > 5% in B2B SaaS is bad news; > 10% is a fire. Add to Phase-32 alert registry + fire weekly.",
+      "fix": "(a) artisan churn:audit reads last 30 days, emits subscription_monthly_churn_rate gauge + subscription_cohort_m1_retention + m3 + m6 gauges; (b) Fires high_churn_rate alert via AlertFiringRecorder when monthly rate exceeds threshold (default 5%); (c) New entry in config/alerts.php key 'high_churn_rate' severity sev2 threshold 0.05 gauge 'subscription_monthly_churn_rate' runbook 'docs/runbooks/growth.md' paging email; (d) Schedule weeklyOn Monday 06:00 Africa/Nairobi onOneServer (after Phase-32 mttr:audit Mon 06:45 — actually before that, at 06:00)."
+    },
+    {
+      "id": "GROWTH-REFERRAL-1",
+      "title": "referrals table + referral_code on users",
+      "severity": "HIGH",
+      "files": [
+        "database/migrations/.../create_referrals_and_codes.php (new)",
+        "app/Models/Referral.php (new)",
+        "app/Models/User.php"
+      ],
+      "evidence": "No referrals infrastructure exists despite Kenyan WhatsApp-driven referral being a strong PMF signal. Without first-class storage we cannot attribute new signups to a referring landlord — and without attribution we cannot reward referrers (which is the entire viral loop mechanism).",
+      "fix": "(a) Migration adds users.referral_code char(8) unique nullable + creates referrals(referrer_user_id, referred_user_id, referral_code, status enum [pending, attributed, rewarded, expired], attributed_at, rewarded_at) unique on referred_user_id (a user can only be referred once); (b) User booted creating hook auto-generates referral_code via Str::upper(Str::random(8)) collision-retry; (c) Referral model with belongsTo referrer + referred relations; (d) RefreshDatabase-safe: no global TenantScope (cross-landlord by design)."
+    },
+    {
+      "id": "GROWTH-REFERRAL-2",
+      "title": "ReferralController + redemption + attribution",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/Growth/ReferralController.php (new)",
+        "app/Services/Growth/ReferralAttributionService.php (new)",
+        "routes/web.php"
+      ],
+      "evidence": "Table is metadata — needs an actor to (a) accept a referral code at signup, (b) write the pending row, (c) flip to attributed when the referred landlord completes a Phase-31 milestone (typically first_invoice).",
+      "fix": "(a) ReferralController::redeem POST /referrals/redeem accepts code param, validates code exists + referred user hasn't been referred before + referrer != referred, writes pending referrals row; (b) ReferralAttributionService::attribute(User $referred) called from MilestoneRecorded listener when milestone == first_invoice, flips pending->attributed, fires ReferralAttributed event; (c) Landlord referral landing page GET /ops/referrals returns my-referral-code + my-referrals-list (per-landlord, NOT super-admin)."
+    },
+    {
+      "id": "GROWTH-REFERRAL-3",
+      "title": "Per-landlord landlord_referrals_count_30d gauge",
+      "severity": "LOW",
+      "files": [
+        "app/Console/Commands/ReferralRollup.php (new)",
+        "routes/console.php"
+      ],
+      "evidence": "Aggregate signal is useful in the operator dashboard — which 5% of landlords are driving 80% of referrals. Same shape as Phase-33 log:volume-audit per-landlord distribution.",
+      "fix": "(a) artisan referrals:rollup reads last 30 days of attributed referrals grouped by referrer_user_id, emits landlord_referrals_count_30d{landlord_id=X} gauge for top 20; (b) Schedule dailyAt 04:10 Africa/Nairobi onOneServer (after mrr:snapshot 04:05)."
+    },
+    {
+      "id": "GROWTH-ENGAGEMENT-1",
+      "title": "landlord_engagement_scores table + EngagementScoreService",
+      "severity": "HIGH",
+      "files": [
+        "database/migrations/.../create_landlord_engagement_scores.php (new)",
+        "app/Models/LandlordEngagementScore.php (new)",
+        "app/Services/Growth/EngagementScoreService.php (new)"
+      ],
+      "evidence": "Phase-31 OnboardingMilestone tracks the activation funnel but not post-activation health. Phase-33 LandlordUsageMetric tracks COST not engagement. There is no composite product-health signal — meaning a landlord who completes activation then ghosts the app for 60 days is indistinguishable from a power user in Grafana. A daily engagement score (0-100) composing weighted signals enables churn prediction + low-engagement nudge campaigns.",
+      "fix": "(a) Migration landlord_engagement_scores(landlord_id, day, score tinyint 0-100, components json) unique on (landlord_id, day); (b) Model with TenantScope; (c) EngagementScoreService::compute($landlordId, $day) returns weighted composite: 30% recent_login (within 7d=100, 8-14d=70, 15-30d=30, >30d=0), 25% milestone_completion (count completed of 6 onboarding milestones), 20% usage_recency (1+ landlord_usage_metrics row in last 7d), 15% property_growth (vs 30 days ago), 10% tenant_activity (any TenantActivity in last 7d). All five inputs already exist."
+    },
+    {
+      "id": "GROWTH-ENGAGEMENT-2",
+      "title": "engagement:rollup cron + per-landlord gauge",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/EngagementRollup.php (new)",
+        "routes/console.php"
+      ],
+      "evidence": "Service is internal — needs daily cron writing one row per active landlord + emitting per-landlord gauge for the top 50 (operator dashboard). Same shape as Phase-33 cost:attribute.",
+      "fix": "(a) artisan engagement:rollup walks all active landlords, calls EngagementScoreService::compute, upserts a row per (landlord, today), emits landlord_engagement_score{landlord_id=X} gauge for top 50 by descending score; (b) Schedule dailyAt 04:15 Africa/Nairobi onOneServer (after referrals:rollup 04:10)."
+    },
+    {
+      "id": "GROWTH-ENGAGEMENT-3",
+      "title": "low_engagement_landlord alert wiring",
+      "severity": "MEDIUM",
+      "files": [
+        "config/alerts.php",
+        "app/Console/Commands/EngagementRollup.php"
+      ],
+      "evidence": "Score gauge without alert means low-engagement landlords are invisible until they churn. Fire when ANY paying landlord drops below score 30 — that is the early-warning signal for proactive customer-success outreach.",
+      "fix": "(a) New entry in config/alerts.php key 'low_engagement_landlord' severity sev4 threshold 30 gauge 'landlord_engagement_score' runbook 'docs/runbooks/growth.md' paging email description 'Paying landlord engagement score dropped below 30 — customer-success outreach recommended'; (b) engagement:rollup collects landlords whose score dropped below threshold AND who have an active subscription, fires alert with metadata=[landlord_ids]; (c) Resolves when no paying landlord below threshold."
+    },
+    {
+      "id": "GROWTH-LIFECYCLE-1",
+      "title": "subscriptions:trial-ending-reminder cron + TrialEndingMailable",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/TrialEndingReminder.php (new)",
+        "app/Mail/TrialEndingMailable.php (new)",
+        "routes/console.php"
+      ],
+      "evidence": "14-day trial hardcoded in SubscriptionService but no reminder ships. Industry conversion benchmark: trial-end reminder at day -3 + day -1 lifts trial->paid conversion by 8-12 percentage points. Without it, landlords who started a trial then forgot about it churn silently.",
+      "fix": "(a) artisan subscriptions:trial-ending-reminder runs daily, queries subscriptions where status=trialing AND (trial_ends_at within +1 day OR within +3 days); (b) Dispatches TrialEndingMailable (en/sw via Phase-24 i18n) with days_remaining + plan upgrade URL; (c) Cache::add idempotency keyed on (subscription_id, days_remaining) so the same email isn't sent twice if cron runs twice; (d) Schedule dailyAt 09:00 Africa/Nairobi onOneServer (matches Phase-29 rent-reminders:dispatch 08:00 cluster)."
+    },
+    {
+      "id": "GROWTH-LIFECYCLE-2",
+      "title": "subscriptions:dunning-emails cron for past_due subscriptions",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/DunningEmails.php (new)",
+        "app/Mail/DunningReminderMailable.php (new)",
+        "routes/console.php"
+      ],
+      "evidence": "subscriptions.status=past_due exists in SubscriptionStatus enum but no dunning campaign retries payment / nudges card update. Involuntary churn (failed payment) is typically 20-40% of total churn — easiest to recover with a 3-touch dunning sequence (day 1, day 4, day 7) before auto-cancellation.",
+      "fix": "(a) artisan subscriptions:dunning-emails runs daily, queries past_due subscriptions, dispatches DunningReminderMailable on day-since-past-due 1/4/7 with Paystack card-update URL; (b) Day 14 auto-cancellation with cancel_reason='technical_issues' + Paystack subscription cancel call; (c) Cache::add idempotency keyed on (subscription_id, dunning_day); (d) Schedule dailyAt 09:15 Africa/Nairobi onOneServer."
+    },
+    {
+      "id": "GROWTH-LIFECYCLE-3",
+      "title": "subscriptions:churn-winback cron + activation-nudge cron",
+      "severity": "LOW",
+      "files": [
+        "app/Console/Commands/ChurnWinback.php (new)",
+        "app/Console/Commands/ActivationNudge.php (new)",
+        "app/Mail/WinbackMailable.php (new)",
+        "app/Mail/ActivationNudgeMailable.php (new)",
+        "routes/console.php"
+      ],
+      "evidence": "Two adjacent lifecycle touches: (1) winback fires 7 days + 30 days post-cancel with discount code (industry benchmark 5-10% reactivation rate), (2) activation-nudge fires when OnboardingMilestone progress stalls > 3 days at any non-terminal step (Phase-31 ActivationAudit measures it but doesn't dispatch).",
+      "fix": "(a) artisan subscriptions:churn-winback finds subscriptions cancelled exactly 7 or 30 days ago, dispatches WinbackMailable with WINBACK10 or WINBACK20 discount code; (b) artisan landlords:activation-nudge reads OnboardingProgress where last_touched_at older than 3 days AND current_step != last, dispatches ActivationNudgeMailable with deep link to current_step; (c) Both Cache::add idempotent; (d) Schedule dailyAt 09:30 Africa/Nairobi onOneServer (winback) + dailyAt 09:45 (activation nudge)."
+    },
+    {
+      "id": "GROWTH-CI-1",
+      "title": "Phase34GrowthSurfaceTest watchdog",
+      "severity": "HIGH",
+      "files": [
+        "tests/Feature/Growth/Phase34GrowthSurfaceTest.php (new)"
+      ],
+      "evidence": "Phase 29-33 established the surface-watchdog pattern. Phase 34 ships 8 new crons (mrr:snapshot, referrals:rollup, engagement:rollup, churn:audit, trial-ending-reminder, dunning-emails, churn-winback, activation-nudge) + 1 new event (ReferralAttributed) + 2 new alert keys (high_churn_rate, low_engagement_landlord). Without the watchdog a future refactor can silently drop one.",
+      "fix": "(a) test_every_phase34_scheduler_is_registered_with_correct_cadence: EXPECTED_SCHEDULES asserts 8 crons with cron expression + Africa/Nairobi; (b) test_phase34_alert_registry_contains_required_keys asserts the 2 new keys are present in config/alerts.php; (c) test_phase34_growth_lang_namespace_exists_with_parity asserts lang/{en,sw}/growth.php loadable + identical key sets; (d) test_phase34_referral_attributed_event_has_listener asserts ReferralAttributed has at least one listener."
+    },
+    {
+      "id": "GROWTH-CI-2",
+      "title": "lang/{en,sw}/growth.php namespace + Phase24CiTest parity",
+      "severity": "MEDIUM",
+      "files": [
+        "lang/en/growth.php (new)",
+        "lang/sw/growth.php (new)"
+      ],
+      "evidence": "Operator UI labels (MRR dashboard headers, churn cohort table headers, referral landing page copy, engagement score labels) + landlord-facing email subjects (trial ending, dunning, winback, activation nudge) need en/sw pairs. Phase24CiTest key-set identity check requires the sw file to mirror en's order — built upfront.",
+      "fix": "Mirror sections for: mrr (heading, total_label, by_plan_label, waterfall_new, waterfall_expansion, waterfall_contraction, waterfall_churned), churn (cohort_heading, retention_label, monthly_rate_label), referral (your_code_heading, your_referrals_heading, redeem_form_heading, status_pending, status_attributed, status_rewarded), engagement (score_label, score_explanation, low_engagement_warning), lifecycle (trial_ending_subject, dunning_subject, winback_subject, activation_nudge_subject)."
+    },
+    {
+      "id": "GROWTH-CI-3",
+      "title": "docs/runbooks/growth.md operator reference",
+      "severity": "LOW",
+      "files": [
+        "docs/runbooks/growth.md (new)"
+      ],
+      "evidence": "Phase 29-33 established the runbook cadence. Phase 34 opens Tier-6 — its runbook needs the MRR snapshot interpretation, the churn cohort decision tree (involuntary vs voluntary remediation paths), the referral attribution flow + reward criteria, the engagement score formula + intervention playbook, the lifecycle email cadence + idempotency contract.",
+      "fix": "Sections: Overview (Phase 34 surface map), MRR snapshots (waterfall meaning + plan break-down), Churn cohorts (retention triangular matrix reading, involuntary vs voluntary split via cancel_reason), Referrals (attribution flow, reward criteria, fraud guardrails), Engagement scores (formula + components + intervention thresholds), Lifecycle campaigns (cadence table, idempotency, opt-out integration via Phase-28 NotificationPreference), Crons table, CI gates, Deferrals."
+    }
+  ]
+}
