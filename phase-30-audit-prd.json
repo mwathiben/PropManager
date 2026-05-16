@@ -1,0 +1,248 @@
+{
+  "project": "PropManager",
+  "audit_cycle": "phase-30",
+  "audit_date": "2026-05-16",
+  "scope": "Tier-4 product depth, cycle 3 of 3 (per project_propmanager_path_forward.md). Tier 3 closed COMPLETE; Phase 28 [TENANT-PORTAL] closed 17/18 (1 deferral); Phase 29 [WORKFLOW-AUTOMATION] closed 18/18 zero deferrals. Phase 30 [INTEGRATIONS] addresses the institutional-grade integration depth gap and CLOSES the Phase-28 deferred TENANT-PAY-2 auto-allocation. Today's surface: MpesaService has STK Push (tenant-initiated checkout) + B2C (landlord-initiated refund payouts) + C2B paybill registration ALL working — but B2C is not WIRED into the Phase-28 DepositRefundApprovalController::markPaid flow (landlord must manually trigger it from somewhere else). FinanceExportService ships xlsx/csv/pdf for invoices/payments/deposits but NO QuickBooks IIF, NO Sage CSV, NO chart of accounts mapping. Banks: KcbBankService + EquityBankService + CoopBankService all wired to webhook endpoints; PostBank + Family Bank NOT wired — institutional landlords with diversified banking expect parity. No accounting_periods table exists at all — a landlord can edit any historical month silently, breaking audit trails + KRA filing reconciliation. PaymentPlan + PaymentPlanInstallment models exist (Phase-28) but NO PaymentAllocationService — when payment lands via webhook, it goes to invoice.amount_paid; plan installments never tick to paid. WorkflowLogger was created in Phase 29 (WF-CI-2) but NOT WIRED to ANY of the four Phase-29 commands — workflow:health silent-failure detector has nothing to read. 18 findings across 6 categories: INT-ACCT-EXPORT (3 — chart_of_accounts mapping table, QuickBooks Online IIF + Sage cloud CSV exports, AccountingExportController), INT-MPESA-DEEP (3 — wire B2C into DepositRefund markPaid, M-Pesa transaction status reconciliation cron, Paystack webhook handler with signature verification), INT-BANK-PARITY (3 — PostBankService + FamilyBankService + unified reconciliation audit), INT-PERIOD-LOCK (3 — accounting_periods table + finance:close-month + period-locked write guards), INT-PAY-ALLOC (3 — PaymentAllocationService::allocate auto-allocate to oldest unpaid installment + payment-plan-allocations:audit drift detector + PaymentAllocated event ABSORBING the Phase-28 TENANT-PAY-2 deferral), INT-CI (3 — Phase29 WorkflowLogger wiring across all 4 commands, Phase30IntegrationSurfaceTest, docs/runbooks/integrations.md). Severity 5H/9M/4L. Builds on Phase-13 PERSONAL-DATA-1, Phase-16 RESIL backoff, Phase-17 Money primitives (cents), Phase-19 drift audit pattern, Phase-21 DEFER-OBSERV-1 (X-Request-Id correlation in webhook logs), Phase-22 PERF-SLO gauges, Phase-24 i18n, Phase-27 MetricsService::gauge pattern, Phase-28 PaymentPlan + DepositRefundRequest models, Phase-29 WorkflowLogger + Phase29WorkflowSurfaceTest patterns.",
+  "context_baseline": {
+    "today_payment_gateways": {
+      "mpesa": "MpesaService.php — STK Push (tenant initiate), B2C (landlord refund payouts), C2B paybill registration; per-landlord credentials via PaymentConfiguration; OAuth2 token cached 3500s; B2C explicitly NO RETRY (financial operation must not be duplicated). Webhook IP allowlist + 15min staleness in ValidateMpesaWebhook.",
+      "intasend": "IntaSendService.php — M-Pesa STK Push only (no card, no bank transfers); webhook validation via challenge string (hash_equals, not HMAC).",
+      "paystack": "PaystackService.php — initializeTransaction only; webhook handler MISSING. ValidatePaystackWebhook middleware exists but no controller invokes it."
+    },
+    "today_banks": {
+      "wired": ["KcbBankService (HMAC SHA256 webhook)", "EquityBankService", "CoopBankService"],
+      "not_wired": ["PostBank", "Family Bank"],
+      "interface": "App\\Services\\Banking\\BankServiceInterface — validateWebhook(signature, payload, overrideSecret), parsePaymentNotification(payload), getTransactionHistory(account, from, to)",
+      "reconciliation": "BankReconciliationService::processQueue() iterates BankReconciliationQueue rows, attempts invoice match, records payment or marks unmatched. No cross-bank unified audit."
+    },
+    "today_export_infra": {
+      "finance_export_service": "App\\Services\\FinanceExportService — exportInvoices/exportPayments/exportDeposits in xlsx|csv|pdf via Maatwebsite/Excel; 10K row streaming threshold; NO QuickBooks IIF, NO Sage CSV format",
+      "chart_of_accounts": "NONE — no chart_of_accounts table, no account_code field outside LandlordPayoutAccount.subaccount_code (Paystack-specific)"
+    },
+    "today_payment_allocation": {
+      "service_class": "NONE — App\\Services\\PaymentAllocationService.php does not exist",
+      "audit_command": "payments:audit-allocations exists (Phase-17 MONEY-5) — drift detector only, compares invoice.amount_paid vs SUM(payments.amount) WHERE invoice_id=N",
+      "plan_installments": "PaymentPlan + PaymentPlanInstallment models (Phase-28) exist but NO auto-allocator — webhook payments hit invoice.amount_paid; installment.paid_amount_cents never advances; PaymentPlanInstallment::isFullyPaid() never becomes true via normal payment flow"
+    },
+    "today_accounting_periods": {
+      "tracking": "NONE — zero references to accounting_period, period_lock, close_of_month, book_close in finance context",
+      "implications": "Landlord can backdate edits to any historical Invoice/Payment row with no audit trail or lock. KRA filing reconciliation has no canonical period boundary."
+    },
+    "today_workflow_logger_wiring": "App\\Services\\WorkflowLogger (Phase-29 WF-CI-2) exists with log() method. NONE of the four Phase-29 commands (RentRemindersDispatch, LeasesScanRenewals, InvoicesEscalateOverdue, OccupancyAudit) call it. workflow:health (Phase-29 WF-CI-2) detector reads workflow_runs_log but the table is empty — silent failure detection is currently no-op.",
+    "phase_28_deferred_tenant_pay_2": "Phase-28 closeout deferred TENANT-PAY-2 (auto-allocate payment to plan installments oldest-first + nightly payment-plan-allocations:audit drift detector) explicitly to Phase 30 or Phase 21-style consolidation. Phase 30 INT-PAY-ALLOC-1/2/3 absorbs this."
+  },
+  "findings": [
+    {
+      "id": "INT-ACCT-EXPORT-1",
+      "title": "QuickBooks Online IIF + Sage cloud CSV exports — institutional accounting handoff",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/Accounting/QuickBooksExportService.php (new)",
+        "app/Services/Accounting/SageExportService.php (new)",
+        "app/Http/Controllers/Finance/AccountingExportController.php (new)",
+        "routes/web.php (finance.accounting-export.{quickbooks,sage} routes under role:landlord)"
+      ],
+      "evidence": "Institutional landlords reconcile rent collection into QuickBooks Online (Kenya market default) and Sage cloud. Today FinanceExportService ships xlsx/csv/pdf that requires manual reformatting — every monthly close burns hours of bookkeeper time, and that friction caps PropManager at small-portfolio operators. QuickBooks Online IIF format expects TRNS/SPL/ENDTRNS triplets with named accounts; Sage cloud CSV expects 8-column transaction format with debit/credit per row. Both formats require a chart-of-accounts mapping (rent income → '4000 Rental Income', deposits → '2300 Deposit Liability', expenses → expense category codes). The mapping table itself is INT-ACCT-EXPORT-2; this finding ships the two exporters that consume it.",
+      "fix": "(a) QuickBooksExportService::write(landlordId, periodStart, periodEnd, outputPath) — query Invoice + Payment + Expense rows within period, look up chart_of_accounts mapping per row, emit IIF text with TRNS+SPL+ENDTRNS triplets; (b) SageExportService::write same shape but 8-col CSV (Date, Type, Reference, Account, Description, Department, Debit, Credit); (c) AccountingExportController::quickbooks($landlord, $year_month) + ::sage($landlord, $year_month) — Gate::authorize on landlord, period range query params, returns BinaryFileResponse with appropriate Content-Type (application/iif vs text/csv); (d) Phase30AcctExportTest::test_quickbooks_iif_emits_trns_spl_endtrns + test_sage_csv_has_debit_credit_columns + test_landlord_cannot_export_other_landlords_data + test_unmapped_account_uses_default_uncategorised_code."
+    },
+    {
+      "id": "INT-ACCT-EXPORT-2",
+      "title": "chart_of_accounts table + ChartOfAccount model + AccountMappingService — GL category to QB/Sage account code",
+      "severity": "MEDIUM",
+      "files": [
+        "database/migrations/*_create_chart_of_accounts_table.php (new)",
+        "app/Models/ChartOfAccount.php (new — TenantScope)",
+        "app/Services/Accounting/AccountMappingService.php (new — resolve PropManager row → GL code)"
+      ],
+      "evidence": "QuickBooks/Sage exports need a deterministic way to map a PropManager Invoice row to '4000 Rental Income' and a Payment row to '1000 Bank Account' etc. The table is landlord-scoped (TenantScope) so each landlord can choose their own chart numbering (some follow KRA-aligned defaults, some have custom). Default seeded set on landlord creation: 1000 Cash, 1100 Bank, 1200 Mpesa Float, 2000 Tenant Deposits Held (liability), 2300 Deposit Refunds Payable, 4000 Rental Income, 4100 Late Fees, 4200 Service Charge Income, 5000 Maintenance Expense, 5100 Utilities Expense, 5200 Property Taxes, 6000 Uncategorised. AccountMappingService picks the right code for each export row type.",
+      "fix": "(a) chart_of_accounts (id, landlord_id FK CASCADE, account_code VARCHAR(32), account_name, account_type enum('asset','liability','equity','revenue','expense'), is_default_for VARCHAR(64) NULL, is_active boolean, timestamps + unique(landlord_id, account_code) + index(landlord_id, is_default_for)); (b) ChartOfAccount with TenantScope + scopes byCode + defaultFor; (c) AccountMappingService::resolveForRevenueRow(Invoice|Payment) + ::resolveForExpenseRow(Expense) + ::resolveForDepositRow(DepositTransaction) + ::seedDefaultsForLandlord(User) called from a landlord-creation observer (or a one-off seeder for existing landlords); (d) Phase30AcctExportTest::test_default_chart_seeded_on_landlord_create + test_mapping_falls_back_to_uncategorised_when_no_default + test_landlord_chart_is_isolated."
+    },
+    {
+      "id": "INT-ACCT-EXPORT-3",
+      "title": "Vue landlord export trigger UI + route — Finance/Accounting/Export.vue",
+      "severity": "LOW",
+      "files": [
+        "resources/js/Pages/Finance/Accounting/Export.vue (new)",
+        "app/Http/Controllers/Finance/AccountingExportController.php (extend with index action)"
+      ],
+      "evidence": "INT-ACCT-EXPORT-1 ships the exporters; without a Vue surface the landlord has to hit the URL by hand. Minimal page: pick period (current_month / last_month / custom_range), pick format (quickbooks / sage), pick chart mapping mode (defaults / custom — links to chart editor as a follow-up), Download button hits the existing route. NO chart-of-accounts editor UI in this finding — that's a Phase 31 [ONBOARDING] concern when the landlord is set up.",
+      "fix": "(a) Finance/Accounting/Export.vue with the three pickers + download button hitting routes from INT-ACCT-EXPORT-1; (b) AccountingExportController::index renders the page with available periods (last 12 months) + format options; (c) Phase30AcctExportTest::test_index_renders_with_available_periods."
+    },
+    {
+      "id": "INT-MPESA-DEEP-1",
+      "title": "Wire M-Pesa B2C into DepositRefundApprovalController::markPaid — auto-payout when method=mpesa",
+      "severity": "HIGH",
+      "files": [
+        "app/Http/Controllers/Finance/DepositRefundApprovalController.php (extend markPaid to auto-trigger B2C)",
+        "app/Services/Payment/DepositRefundPayoutService.php (new — orchestrator wrapping MpesaService::initiateB2C)"
+      ],
+      "evidence": "MpesaService::initiateB2C exists and works, but the Phase-28 DepositRefundApprovalController::markPaid currently requires the landlord to manually trigger B2C from somewhere else and paste the payment_reference back. The flow is brittle and silently bypassable. INT-MPESA-DEEP-1 wires the controller: when payment_method='mpesa' and the request body lacks payment_reference, the controller calls DepositRefundPayoutService which calls MpesaService::initiateB2C with the tenant's phone from payment_details['phone'], records the B2C conversation_id as the payment_reference, advances status=paid + paid_at. NO RETRY on B2C (financial operation invariant from MpesaService). If B2C fails the controller returns 422 with the gateway error; refund stays in approved state for landlord to retry or fall back to manual.",
+      "fix": "(a) DepositRefundPayoutService::payoutViaMpesa(DepositRefundRequest $refund): string — extracts phone from payment_details, calls MpesaService::initiateB2C with final_amount_cents/100 + reference={$refund->id}, returns the conversation_id; throws MpesaGatewayException on failure; (b) DepositRefundApprovalController::markPaid — if payment_method=mpesa AND no payment_reference supplied, call DepositRefundPayoutService and use the returned conversation_id as payment_reference; otherwise existing manual flow (bank_transfer + cheque) stays unchanged; (c) Phase30MpesaDeepTest::test_mpesa_refund_triggers_b2c_and_captures_conversation_id + test_b2c_failure_keeps_refund_in_approved_state_returns_422 + test_bank_transfer_refund_still_requires_manual_payment_reference."
+    },
+    {
+      "id": "INT-MPESA-DEEP-2",
+      "title": "mpesa:reconcile-status nightly — query Daraja transaction status for pending payments older than 1h",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/MpesaReconcileStatus.php (new)",
+        "routes/console.php (Schedule::command('mpesa:reconcile-status')->everyThirtyMinutes()->onOneServer())"
+      ],
+      "evidence": "M-Pesa callbacks occasionally drop — Daraja is unreliable in production. Today a payment can sit in 'pending' state forever because the callback never landed and nothing polls for the actual status. The new command queries MpesaService::querySTKStatus for every Payment where status='pending' AND created_at < now()->subHour(); applies the gateway's actual state (success → mark paid, failure → mark failed, still pending → leave); emits mpesa_status_reconcile_count{outcome} gauge for Grafana. Runs every 30 minutes (not nightly — payment finality matters).",
+      "fix": "(a) MpesaReconcileStatus iterates Payment::where('status', 'pending')->where('payment_method', 'mpesa')->where('created_at', '<', now()->subHour())->where('mpesa_checkout_request_id', '!=', null)->limit(200) — bounded batch to avoid Daraja rate limits; per row call MpesaService::querySTKStatus(checkoutRequestId), classify outcome via existing helpers (isComplete/isFailed/isPending); update Payment.status accordingly; idempotent via Cache::add(payment_id, 30min); writes WorkflowLogger row workflow='INT-MPESA-DEEP-2'; (b) Schedule::command('mpesa:reconcile-status')->everyThirtyMinutes()->onOneServer()->withoutOverlapping(15); (c) Phase30MpesaDeepTest::test_pending_payment_older_than_1h_is_reconciled + test_status_complete_advances_to_paid + test_status_failure_advances_to_failed + test_recent_pending_payment_skipped."
+    },
+    {
+      "id": "INT-MPESA-DEEP-3",
+      "title": "Paystack webhook handler with signature verification — close the gap",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/Api/PaystackWebhookController.php (new)",
+        "app/Services/PaystackService.php (extend with verifyWebhookSignature)",
+        "routes/api.php (Route::post('/webhooks/paystack', ...))"
+      ],
+      "evidence": "PaystackService::initializeTransaction works; the webhook side is missing entirely. ValidatePaystackWebhook middleware exists (IP allowlist) but no controller invokes it. Result: Paystack-initiated payments stay in 'pending' status forever, relying on manual reconciliation. Webhook signature uses HMAC-SHA512 of the raw body with Paystack secret key (per docs). Handler updates Payment by paystack_reference, records event as type='charge.success' or 'charge.failed', logs via WebhookLogService (existing).",
+      "fix": "(a) PaystackService::verifyWebhookSignature(string $payload, string $signature, string $secretKey): bool — hash_equals(hash_hmac('sha512', $payload, $secretKey), $signature); (b) PaystackWebhookController::handle — middleware: webhook.paystack + signature header verification; on charge.success update Payment by paystack_reference; logs WebhookLog row; metrics 'webhook.received{provider=paystack,event=...,outcome=...}'; (c) bootstrap/app.php middleware alias 'webhook.paystack' => existing ValidatePaystackWebhook; (d) Phase30MpesaDeepTest::test_paystack_webhook_signature_valid_advances_payment + test_invalid_signature_returns_401 + test_unknown_event_logs_and_succeeds."
+    },
+    {
+      "id": "INT-BANK-PARITY-1",
+      "title": "PostBankService implementing BankServiceInterface + webhook endpoint",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/Banking/PostBankService.php (new)",
+        "app/Http/Controllers/Api/BankWebhookController.php (extend with postbankWebhook)",
+        "app/Http/Middleware/ValidatePostBankWebhook.php (new — same shape as KCB/Equity/Coop validators)",
+        "routes/api.php (Route::post('/webhooks/bank/postbank', ...))"
+      ],
+      "evidence": "Today's three wired banks (KCB, Equity, Coop) cover ~70% of the Kenyan landlord market. PostBank is the parastatal player and notably serves the lower-income tenant cohort that pays rent at PostBank branches. Without a parity service, those payments are reconciled by manually entering them — a meaningful operational cost. PostBank's payment notification API uses HMAC-SHA256 over a JSON payload with TransactionReference, Amount, Account, Narration fields (same shape as KCB, different secret).",
+      "fix": "(a) PostBankService implements BankServiceInterface — validateWebhook with HMAC-SHA256 + per-landlord overrideSecret (CRYPTO-11 pattern), parsePaymentNotification returning array{reference, amount_cents, debit_account, narration, paid_at}, getTransactionHistory stubbed (statement download is Phase-31 follow-up); (b) BankWebhookController::postbankWebhook same shape as kcbWebhook — logs BankWebhookLog row, hands to BankReconciliationService::queueForMatching; (c) middleware: webhook.postbank alias; (d) Phase30BankParityTest::test_postbank_webhook_signature_valid + test_invalid_signature_401 + test_payment_notification_queued_for_reconciliation."
+    },
+    {
+      "id": "INT-BANK-PARITY-2",
+      "title": "FamilyBankService implementing BankServiceInterface + webhook endpoint",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/Banking/FamilyBankService.php (new)",
+        "app/Http/Controllers/Api/BankWebhookController.php (extend with familyBankWebhook)",
+        "app/Http/Middleware/ValidateFamilyBankWebhook.php (new)",
+        "routes/api.php (Route::post('/webhooks/bank/family-bank', ...))"
+      ],
+      "evidence": "Same rationale as INT-BANK-PARITY-1 but for Family Bank — the SME-focused player popular with mid-tier landlords. Family Bank's webhook uses Bearer token verification (not HMAC) per their developer docs; the token is per-merchant and stored in PaymentConfiguration. Otherwise identical payload shape and reconciliation path.",
+      "fix": "(a) FamilyBankService implements BankServiceInterface — validateWebhook via Bearer token comparison (hash_equals on token from PaymentConfiguration.family_bank_webhook_token), parsePaymentNotification + getTransactionHistory same shape as PostBank; (b) BankWebhookController::familyBankWebhook; (c) middleware webhook.family-bank alias; (d) Phase30BankParityTest::test_family_bank_webhook_bearer_valid + test_missing_bearer_returns_401 + test_payment_notification_queued."
+    },
+    {
+      "id": "INT-BANK-PARITY-3",
+      "title": "bank-reconciliation:audit nightly — unified across all 5 banks + Prometheus gauges per bank",
+      "severity": "LOW",
+      "files": [
+        "app/Console/Commands/BankReconciliationAudit.php (new)",
+        "routes/console.php (Schedule::command('bank-reconciliation:audit')->dailyAt('05:50')->onOneServer())"
+      ],
+      "evidence": "Once 5 banks are wired (KCB, Equity, Coop, PostBank, Family) the operator needs visibility into reconciliation queue health per bank. BankReconciliationAudit walks BankReconciliationQueue grouped by bank, emits bank_reconciliation_pending_count{bank} + bank_reconciliation_unmatched_count{bank} gauges per bank, writes a single audit_logs summary row, alerts via schedule log channel when any bank has >50 pending entries (indicates webhook backup OR matcher failure).",
+      "fix": "(a) BankReconciliationAudit iterates Bank::KNOWN_BANKS = ['kcb','equity','coop','postbank','family_bank'] (defined in BankServiceInterface as const); for each emits two gauges and logs a structured warning if pending count > 50; (b) Schedule entry dailyAt('05:50') Africa/Nairobi onOneServer (slot between latefees:audit-drift 05:40 and tenants:audit-minor-consent 05:45 — wait, slot conflict, use 05:55); (c) Phase30BankParityTest::test_audit_emits_gauges_for_every_known_bank + test_audit_warns_when_pending_above_threshold."
+    },
+    {
+      "id": "INT-PERIOD-LOCK-1",
+      "title": "accounting_periods table + finance:close-month command — month-end audit boundary",
+      "severity": "HIGH",
+      "files": [
+        "database/migrations/*_create_accounting_periods_table.php (new)",
+        "app/Models/AccountingPeriod.php (new — TenantScope)",
+        "app/Console/Commands/FinanceCloseMonth.php (new — landlord-triggered or scheduled)",
+        "routes/web.php (POST /finance/periods/{period}/close under role:landlord)"
+      ],
+      "evidence": "Today's PropManager has no canonical 'month closed' state — a landlord (or a buggy migration) can rewrite any historical Payment or Invoice row silently, breaking KRA filing reconciliation + investor audit trails. INT-PERIOD-LOCK-1 ships the boundary: one AccountingPeriod row per landlord per year-month, with status enum (open|closed|reopened). On close: status=closed + closed_at + closed_by_user_id; locks all Invoice + Payment + Expense write paths for that period (INT-PERIOD-LOCK-2 is the actual guards). Reopen is a high-friction operation: requires explicit reason + writes audit_logs row event='accounting_period_reopened'. finance:close-month auto-closes the previous month on the 1st of each month at 02:00 (idempotent — skips already-closed periods). Landlord can also close manually via the POST route at any time after the period end.",
+      "fix": "(a) accounting_periods (id, landlord_id, period_year SMALLINT, period_month TINYINT, status enum('open','closed','reopened'), closed_at NULL, closed_by_user_id NULL, reopened_at NULL, reopened_by_user_id NULL, reopen_reason TEXT NULL, timestamps + unique(landlord_id, period_year, period_month)); (b) AccountingPeriod model with TenantScope + STATUSES + isClosed() + scope forPeriod(year, month); (c) FinanceCloseMonth command iterates landlords (--landlord-id scope option), upserts AccountingPeriod for previous month with status=closed if not already; emits accounting_periods_closed_total{outcome} gauge; (d) Schedule::command('finance:close-month')->monthlyOn(1, '02:00')->timezone('Africa/Nairobi')->onOneServer(); (e) AccountingPeriodController::close POST route + Gate authorise; reopen route requires reopen_reason min 20 chars + writes audit_logs; (f) Phase30PeriodLockTest::test_close_month_creates_closed_period + test_scheduled_close_skips_already_closed + test_reopen_requires_reason + test_reopen_writes_audit_log + test_landlord_cannot_close_other_landlords_period."
+    },
+    {
+      "id": "INT-PERIOD-LOCK-2",
+      "title": "Period-locked write guards on Invoice + Payment + Expense models — saving() hook blocks edits in closed periods",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Models/Invoice.php (booted() saving() hook checks AccountingPeriod)",
+        "app/Models/Payment.php (same hook)",
+        "app/Models/Expense.php (same hook)",
+        "app/Exceptions/AccountingPeriodLockedException.php (new)"
+      ],
+      "evidence": "The accounting_periods table is metadata; without enforcement it's just documentation. The model hook: on saving(), determine the period (Invoice.billing_period_start → year-month, Payment.payment_date → year-month, Expense.expense_date → year-month), query AccountingPeriod::forPeriod(landlord_id, year, month); if status === STATUS_CLOSED throw AccountingPeriodLockedException with a clear message. EXCEPTIONS: super_admin role bypasses (rare emergency fix), and a feature flag config('finance.allow_locked_period_writes') for migrations (default false). The hook is gated by `wasRecentlyCreated === false` so the row's INITIAL creation in an open period still works but subsequent updates after lock are blocked.",
+      "fix": "(a) AccountingPeriodLockedException extends DomainException with period info; (b) booted() saving() hook on each of Invoice/Payment/Expense — early-return on wasRecentlyCreated || super_admin || config flag; otherwise look up AccountingPeriod and throw if closed; (c) Phase30PeriodLockTest::test_update_to_invoice_in_closed_period_throws + test_create_invoice_in_closed_period_throws + test_super_admin_can_edit_closed_period + test_open_period_writes_unblocked + test_feature_flag_allows_writes_when_set."
+    },
+    {
+      "id": "INT-PERIOD-LOCK-3",
+      "title": "Finance/Periods/Index.vue landlord UI — surface period close state + manual close button",
+      "severity": "LOW",
+      "files": [
+        "resources/js/Pages/Finance/Periods/Index.vue (new)",
+        "app/Http/Controllers/Finance/AccountingPeriodController.php (extend with index action)"
+      ],
+      "evidence": "INT-PERIOD-LOCK-1 ships the boundary + the scheduled monthly close; without a Vue page the landlord can't see which months are closed/reopened. Minimal table: last 24 months × {year-month, status badge, closed_at, closed_by, actions [close|reopen]}. Reopen modal requires reason text. Page guarded by Gate::authorize on landlord owning the period.",
+      "fix": "(a) Finance/Periods/Index.vue table with 24-month window + action buttons; (b) AccountingPeriodController::index queries AccountingPeriod::where('landlord_id', auth()->id())->where('period_year', '>=', now()->year - 1)->orderBy('period_year', 'desc')->orderBy('period_month', 'desc'); (c) Phase30PeriodLockTest::test_index_renders_with_24_month_window."
+    },
+    {
+      "id": "INT-PAY-ALLOC-1",
+      "title": "PaymentAllocationService::allocate — auto-allocate to plan installments oldest-first (Phase-28 TENANT-PAY-2 absorbed)",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/Payment/PaymentAllocationService.php (new)",
+        "app/Events/PaymentAllocated.php (new)",
+        "app/Http/Controllers/Api/MpesaWebhookController.php (wire allocator after Payment created)",
+        "app/Http/Controllers/Api/IntaSendWebhookController.php (same wiring)"
+      ],
+      "evidence": "PaymentPlan + PaymentPlanInstallment models shipped in Phase-28 but the auto-allocation hook to incoming payments was deferred (TENANT-PAY-2). Today: tenant has approved plan with 3 installments, pays installment 1 via M-Pesa → webhook lands → Payment row created against the original invoice → invoice.amount_paid advances → but installment.paid_amount_cents stays 0 → plan never advances to completed. Result: drift between plan state and actual money received. The allocator: on Payment::created (post-webhook), look up active PaymentPlan for invoice_id; if none, return; otherwise walk installments where status=pending order by due_date ASC, allocate min(remaining_payment, installment.amount - installment.paid_amount); update each installment; mark plan completed when all installments are paid; fire PaymentAllocated event with breakdown. Idempotent: re-running allocate on same Payment is a noop (the installments are already updated).",
+      "fix": "(a) PaymentAllocationService::allocate(Payment $payment): void — DB transaction wrapping the walk; uses Phase-17 Money cents arithmetic exclusively (no float drift); fires PaymentAllocated; (b) PaymentAllocated event with public Payment + array of (installment_id, allocated_cents) entries; (c) Mpesa + IntaSend webhook controllers call PaymentAllocationService::allocate($payment) AFTER persisting the Payment row; bank webhooks reconciliation flow also calls it after BankReconciliationQueue::manualMatch creates the Payment; (d) Phase30PayAllocTest::test_payment_allocates_to_oldest_unpaid_installment_first + test_partial_payment_partially_pays + test_overpayment_carries_to_next_installment + test_overpayment_beyond_plan_total_does_not_overflow + test_plan_marked_completed_when_all_installments_paid + test_no_active_plan_returns_noop + test_allocation_is_idempotent."
+    },
+    {
+      "id": "INT-PAY-ALLOC-2",
+      "title": "payment-plan-allocations:audit nightly — drift detector for plan installment paid_amount vs sum(allocated payments)",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/PaymentPlanAllocationsAudit.php (new)",
+        "routes/console.php (Schedule::command('payment-plan-allocations:audit')->dailyAt('05:25')->onOneServer())"
+      ],
+      "evidence": "Phase-19 drift audit pattern (AuditPaymentAllocations.php template). For PaymentPlan + installments: sum of installment.paid_amount_cents must equal sum of Payment.amount_cents where the Payment's allocations reference the plan (we'll track allocations via Phase 30 metadata on Payment OR by re-running PaymentAllocationService in audit mode and comparing). Emits payment_plan_allocation_drift_count{landlord_id} gauge; exits FAILURE if any plan drifts (Phase-19 hard-gate pattern). Runs at 05:25 — between payments:audit-allocations 05:30 and wallets:audit-balances 05:35 — wait, slot conflict. Use 05:50 or 05:55 — but 05:50 is taken by INT-BANK-PARITY-3 in this PRD. Final slot: 05:25 (before payments:audit-allocations 05:30, conceptually correct since this audits plan-level drift which is upstream of invoice-level drift).",
+      "fix": "(a) PaymentPlanAllocationsAudit walks PaymentPlan::where('status', PaymentPlan::STATUS_APPROVED)->orWhere('status', PaymentPlan::STATUS_COMPLETED)->chunk(100); per plan compares sum(installments.paid_amount_cents) vs PaymentAllocationService::computeAllocatedTotalForPlan($plan); reports drift > 1 cent; emits gauge + Log::warning per drift row; exits FAILURE if any drift; (b) Schedule entry dailyAt('05:25') Africa/Nairobi onOneServer withoutOverlapping; (c) Phase30PayAllocTest::test_audit_passes_when_no_drift + test_audit_detects_drift_and_emits_gauge + test_audit_dry_run_does_not_fail_command."
+    },
+    {
+      "id": "INT-PAY-ALLOC-3",
+      "title": "PaymentAllocated event + WorkflowLogger row — observability for plan installment movements",
+      "severity": "LOW",
+      "files": [
+        "app/Listeners/LogPaymentAllocated.php (new — writes workflow_runs_log row)",
+        "app/Providers/EventServiceProvider.php (already auto-discovered)"
+      ],
+      "evidence": "PaymentAllocated fires from PaymentAllocationService::allocate (INT-PAY-ALLOC-1). The listener writes a workflow_runs_log row per allocation event so 'why did this installment tick paid?' is queryable. Uses Phase-29 WorkflowLogger best-effort pattern.",
+      "fix": "(a) LogPaymentAllocated implements ShouldQueue handler: WorkflowLogger::log('INT-PAY-ALLOC-1', 'payment_allocated', landlordId, 'App\\\\Models\\\\Payment', payment.id, ['allocations' => $event->allocations]); (b) Phase30PayAllocTest::test_payment_allocated_event_writes_workflow_runs_log_row + test_metadata_contains_allocations_breakdown."
+    },
+    {
+      "id": "INT-CI-1",
+      "title": "WorkflowLogger wiring — close the Phase-29 silent-failure detector gap by wiring all four Phase-29 commands",
+      "severity": "HIGH",
+      "files": [
+        "app/Console/Commands/RentRemindersDispatch.php (call WorkflowLogger after each successful send)",
+        "app/Console/Commands/LeasesScanRenewals.php (call WorkflowLogger after each event dispatch)",
+        "app/Console/Commands/InvoicesEscalateOverdue.php (call WorkflowLogger per level action)",
+        "app/Console/Commands/OccupancyAudit.php (call WorkflowLogger per building processed)"
+      ],
+      "evidence": "Phase-29 WF-CI-2 shipped WorkflowLogger + workflow:health silent-failure detector. The detector reads workflow_runs_log expecting rows from the four Phase-29 commands. None of them call WorkflowLogger today — so workflow:health alerts that EVERY workflow is silent (false-positive). This finding fixes the wiring: each command injects WorkflowLogger and writes one row per outcome — the row's workflow_name matches the constants the detector reads (WF-RENT-REMIND-1, WF-LEASE-RENEW-1, WF-LATE-FEE-1, WF-VACANCY-1). HIGH severity because it closes a falsely-alerting CI gate — a noisy detector gets ignored.",
+      "fix": "(a) RentRemindersDispatch: $logger->log('WF-RENT-REMIND-1', 'reminder_dispatched', landlordId, 'App\\\\Models\\\\Invoice', invoice.id, ['offset' => $offset, 'days_until_due' => $daysUntilDue]) per successful send; (b) LeasesScanRenewals: log('WF-LEASE-RENEW-1', 'event_dispatched', landlordId, 'App\\\\Models\\\\Lease', lease.id, ['bucket_days' => $daysRemaining]) per event; (c) InvoicesEscalateOverdue: log('WF-LATE-FEE-1', level, landlordId, 'App\\\\Models\\\\Invoice', invoice.id, ['days_overdue' => $daysOverdue]) per level taken; (d) OccupancyAudit: log('WF-VACANCY-1', 'building_audited', landlordId, 'App\\\\Models\\\\Building', building.id, ['rate' => $rate, 'is_below_target' => $isBelowTarget]) per building (so workflow:health's EXPECTED_DAILY check has at least one row even on quiet portfolios); (e) Phase30CiTest::test_rent_reminders_writes_workflow_log + test_leases_scan_writes_log + test_invoices_escalate_writes_log_per_level + test_occupancy_audit_writes_log_per_building + test_workflow_health_no_longer_alerts_when_commands_run."
+    },
+    {
+      "id": "INT-CI-2",
+      "title": "Phase30IntegrationSurfaceTest — every Phase-30 scheduler registered + every Phase-30 event has a listener",
+      "severity": "MEDIUM",
+      "files": [
+        "tests/Feature/Integrations/Phase30IntegrationSurfaceTest.php (new)"
+      ],
+      "evidence": "Mirrors Phase-29 WF-CI-1 (Phase29WorkflowSurfaceTest). Phase 30 ships 5 new scheduled commands + 1 new event (PaymentAllocated). Without a surface watchdog a future contributor can delete a Schedule entry or remove a listener silently. EXPECTED_SCHEDULES = {mpesa:reconcile-status, bank-reconciliation:audit, finance:close-month, payment-plan-allocations:audit, finance:audit-period-locks (Phase-31 follow-up)} — wait, finance:audit-period-locks doesn't exist in this PRD. Final list: mpesa:reconcile-status, bank-reconciliation:audit, finance:close-month, payment-plan-allocations:audit. EXPECTED_EVENTS = [PaymentAllocated::class].",
+      "fix": "(a) Phase30IntegrationSurfaceTest::test_every_phase30_scheduler_registered iterates EXPECTED_SCHEDULES const, asserts each in Schedule::events() with matching cron expression + Africa/Nairobi timezone; (b) ::test_every_phase30_event_has_a_listener iterates EXPECTED_EVENTS, asserts Event::getListeners non-empty."
+    },
+    {
+      "id": "INT-CI-3",
+      "title": "docs/runbooks/integrations.md — integrations + GL + period lock + reconciliation runbook",
+      "severity": "LOW",
+      "files": [
+        "docs/runbooks/integrations.md (new)"
+      ],
+      "evidence": "Phase-26 pwa.md + Phase-27 bi.md + Phase-28 tenant-portal.md + Phase-29 workflow-automation.md establish the runbook cadence. Phase 30 needs: gateway inventory (M-Pesa, Paystack, IntaSend, KCB, Equity, Coop, PostBank, Family — each with creds source + webhook path + status), accounting export catalogue (QuickBooks IIF + Sage CSV + chart_of_accounts schema), accounting period close procedure (how to close manually, how to reopen with reason, what writes block), payment plan auto-allocation algorithm (oldest-first walk, drift audit cron), Phase-29 WorkflowLogger wiring status (now closed), CI gates list, deferrals.",
+      "fix": "(a) Sections: Overview, Gateway inventory table (8 providers × creds source × webhook path × signature scheme), Schema additions (chart_of_accounts, accounting_periods), Ops procedures (close-month manual, reopen with reason, mpesa:reconcile-status manual re-run, payment plan drift investigation), CI gates (Phase30AcctExportTest + MpesaDeepTest + BankParityTest + PeriodLockTest + PayAllocTest + IntegrationSurfaceTest + CiTest), Deferrals; (b) Phase30CiTest::test_runbook_lists_every_phase30_scheduler + test_runbook_lists_every_phase30_event + test_runbook_lists_every_phase30_test_class."
+    }
+  ]
+}
