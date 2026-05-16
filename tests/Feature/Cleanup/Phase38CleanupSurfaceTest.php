@@ -210,4 +210,39 @@ class Phase38CleanupSurfaceTest extends TestCase
             .'Fix the failing tests OR raise the baseline (only on legitimate xfail).',
         );
     }
+
+    /**
+     * Phase-38 DEFER-CI-2: lang/{en,sw}/cleanup.php key parity per
+     * Phase24CiTest convention. Operator-facing strings for metrics
+     * driver fallback, bundle staleness, route-cache errors, and
+     * test-health ratchet violations must mirror between locales.
+     */
+    public function test_cleanup_lang_namespace_has_parity(): void
+    {
+        $en = require lang_path('en/cleanup.php');
+        $sw = require lang_path('sw/cleanup.php');
+
+        $this->assertIsArray($en);
+        $this->assertIsArray($sw);
+        $this->assertSame(
+            array_keys($this->flatten($en)),
+            array_keys($this->flatten($sw)),
+            'lang/{en,sw}/cleanup.php key order must match.',
+        );
+    }
+
+    private function flatten(array $arr, string $prefix = ''): array
+    {
+        $out = [];
+        foreach ($arr as $k => $v) {
+            $key = $prefix === '' ? (string) $k : "{$prefix}.{$k}";
+            if (is_array($v)) {
+                $out += $this->flatten($v, $key);
+            } else {
+                $out[$key] = $v;
+            }
+        }
+
+        return $out;
+    }
 }
