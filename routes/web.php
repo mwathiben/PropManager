@@ -211,11 +211,16 @@ Route::middleware('auth')->group(function () {
             ->name('onboarding.sample.reset');
     });
 
-    // Phase-31 ONB-HELP-2/3: HelpDrawer backing endpoints
+    // Phase-31 ONB-HELP-2/3: HelpDrawer backing endpoints. Phase-38
+    // DEFER-ROUTE-CONFLICT-1: renamed from help.{contextual,search}
+    // to help.api.* to free the legacy public help portal's name —
+    // duplicate help.search names broke `php artisan route:cache`.
+    // HelpDrawer.vue uses hardcoded /api/help/* URLs, not route(),
+    // so no JS consumer changes needed.
     Route::get('/api/help/contextual', [\App\Http\Controllers\Onboarding\HelpSearchController::class, 'contextual'])
-        ->name('help.contextual');
+        ->name('help.api.contextual');
     Route::get('/api/help/search', [\App\Http\Controllers\Onboarding\HelpSearchController::class, 'search'])
-        ->name('help.search');
+        ->name('help.api.search');
 
     // Phase-31 ONB-EMPTY-1/3: milestone-checklist surface + dismiss flag
     Route::get('/api/onboarding/milestones', [\App\Http\Controllers\Onboarding\MilestoneStatusController::class, 'status'])
