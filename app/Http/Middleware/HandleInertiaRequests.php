@@ -88,6 +88,12 @@ class HandleInertiaRequests extends Middleware
             // Phase-28 TENANT-DOCS-3: tenant-only banner data for
             // documents within 30 days of expiry.
             'tenantExpiringDocs' => fn () => $this->getTenantExpiringDocs($request),
+            // Phase-35 PLATFORM-EXP-3: map of active experiment_key =>
+            // variant_key for the auth user. Cached 60s in the service
+            // so this doesn't hit DB per request.
+            'experiments' => fn () => $user
+                ? app(\App\Services\Platform\ExperimentService::class)->activeFor($user)
+                : (object) [],
         ];
     }
 
