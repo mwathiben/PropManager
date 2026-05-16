@@ -363,3 +363,12 @@ Schedule::command('runbook:staleness-audit')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase32-sre-runbook3-staleness');
+
+// Phase-32 SRE-ALERT-2: signal-to-noise ratio per alert key over the
+// last 30 days. Emits alert_signal_to_noise_ratio{alert_key=X} +
+// alert_fatigue_count gauges.
+Schedule::command('alert:quality')
+    ->dailyAt('06:00')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase32-sre-alert2-quality');
