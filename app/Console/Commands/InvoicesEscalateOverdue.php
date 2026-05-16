@@ -44,7 +44,7 @@ class InvoicesEscalateOverdue extends Command
         30 => self::LEVEL_DRAFT,
     ];
 
-    public function handle(NotificationService $notifications): int
+    public function handle(NotificationService $notifications, \App\Services\WorkflowLogger $workflowLogger): int
     {
         $dryRun = (bool) $this->option('dry-run');
         $today = CarbonImmutable::now()->startOfDay();
@@ -93,6 +93,12 @@ class InvoicesEscalateOverdue extends Command
             $counts['draft'],
             $dryRun ? ' (dry-run)' : '',
         ));
+
+        $workflowLogger->log(
+            workflowName: 'invoices:escalate-overdue',
+            action: 'completed',
+            metadata: $counts + ['dry_run' => $dryRun],
+        );
 
         return self::SUCCESS;
     }

@@ -38,7 +38,7 @@ class RentRemindersDispatch extends Command
 
     protected $description = 'Phase-29 WF-RENT-REMIND-1: tiered rent reminder dispatcher.';
 
-    public function handle(NotificationService $notifications): int
+    public function handle(NotificationService $notifications, \App\Services\WorkflowLogger $workflowLogger): int
     {
         $dryRun = (bool) $this->option('dry-run');
         $today = CarbonImmutable::now()->startOfDay();
@@ -109,6 +109,13 @@ class RentRemindersDispatch extends Command
         }
 
         $this->info("rent-reminders:dispatch: {$dispatched} reminder(s) dispatched".($dryRun ? ' (dry-run)' : ''));
+
+        // Phase-30 INT-CI-1: WorkflowLogger silent-failure audit trail.
+        $workflowLogger->log(
+            workflowName: 'rent-reminders:dispatch',
+            action: 'completed',
+            metadata: ['dispatched' => $dispatched, 'dry_run' => $dryRun],
+        );
 
         return self::SUCCESS;
     }

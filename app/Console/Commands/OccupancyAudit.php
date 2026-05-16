@@ -34,7 +34,7 @@ class OccupancyAudit extends Command
         parent::__construct();
     }
 
-    public function handle(MetricsService $metrics): int
+    public function handle(MetricsService $metrics, \App\Services\WorkflowLogger $workflowLogger): int
     {
         $dryRun = (bool) $this->option('dry-run');
         $scopedLandlordId = $this->option('landlord-id');
@@ -97,6 +97,12 @@ class OccupancyAudit extends Command
             $breached,
             $dryRun ? ' (dry-run)' : '',
         ));
+
+        $workflowLogger->log(
+            workflowName: 'occupancy:audit',
+            action: 'completed',
+            metadata: ['rows' => $totalRows, 'breached' => $breached, 'dry_run' => $dryRun],
+        );
 
         return self::SUCCESS;
     }

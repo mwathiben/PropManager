@@ -29,7 +29,7 @@ class LeasesScanRenewals extends Command
     /** @var int[] */
     public const BUCKETS = [60, 30, 7];
 
-    public function handle(): int
+    public function handle(\App\Services\WorkflowLogger $workflowLogger): int
     {
         $dryRun = (bool) $this->option('dry-run');
         $today = CarbonImmutable::now()->startOfDay();
@@ -71,6 +71,12 @@ class LeasesScanRenewals extends Command
         }
 
         $this->info("leases:scan-renewals: {$fired} renewal event(s) fired".($dryRun ? ' (dry-run)' : ''));
+
+        $workflowLogger->log(
+            workflowName: 'leases:scan-renewals',
+            action: 'completed',
+            metadata: ['fired' => $fired, 'dry_run' => $dryRun],
+        );
 
         return self::SUCCESS;
     }

@@ -321,3 +321,12 @@ Schedule::command('finance:close-month')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase30-int-period-lock1-close-month');
+
+// Phase-30 INT-PAY-ALLOC-2: nightly PaymentPlan drift audit. Emits
+// payment_plan_allocation_total_drift_count + status_drift_count
+// gauges. Runs at 05:45 — between the other 05:30-05:50 audits.
+Schedule::command('payment-plan-allocations:audit')
+    ->dailyAt('05:45')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase30-int-pay-alloc2-audit');
