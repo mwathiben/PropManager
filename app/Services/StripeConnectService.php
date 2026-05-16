@@ -1,0 +1,168 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services;
+
+use App\Models\PaymentConfiguration;
+use App\Models\User;
+use Illuminate\Support\Facades\Log;
+use Stripe\Exception\ApiErrorException;
+use Stripe\StripeClient;
+
+/**
+ * Phase-41 GATEWAY-CONNECT-1: Stripe Connect Express equivalent of
+ * PaystackSubaccountService — lets landlords receive USD/EUR/GBP
+ * settlements via Stripe with PropManager keeping its application
+ * fee on top of the Stripe charge.
+ *
+ * System-wide PropManager credentials (Setting::getSystem) — the
+ * platform account owns the Connect relationship, individual
+ * landlords just authorise their account to receive funds.
+ */
+class StripeConnectService
+{
+    protected string $secretKey;
+
+    protected ?StripeClient $client = null;
+
+    public function __construct()
+    {
+        $this->secretKey = (string) (\App\Models\Setting::getSystem('stripe_secret_key') ?? '');
+    }
+
+    public function isConfigured(): bool
+    {
+        return $this->secretKey !== '';
+    }
+
+    protected function client(): StripeClient
+    {
+        if (! $this->isConfigured()) {
+            throw new \RuntimeException(
+                'StripeConnectService is not configured. Set system stripe_secret_key.'
+            );
+        }
+        if ($this->client === null) {
+            $this->client = new StripeClient($this->secretKey);
+        }
+
+        return $this->client;
+    }
+
+    public function createExpressAccount(User $landlord, string $country = 'US'): ?array
+    {
+        if (! $this->isConfigured()) {
+            return null;
+        }
+
+        try {
+            $account = $this->client()->accounts->create([
+                'type' => 'express',
+                'country' => $country,
+                'email' => $landlord->email,
+                'capabilities' => [
+                    'transfers' => ['requested' => true],
+                    'card_payments' => ['requested' => true],
+                ],
+                'metadata' => [
+                    'landlord_id' => $landlord->id,
+                    'platform' => 'PropManager',
+                ],
+            ]);
+
+            $this->persistAccountId($landlord, $account->id);
+
+            return [
+                'success' => true,
+                'account_id' => $account->id,
+                'status' => 'pending_onboarding',
+            ];
+        } catch (ApiErrorException $e) {
+            Log::warning('stripe createExpressAccount failed', [
+                'landlord_id' => $landlord->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    public function onboardingLink(string $accountId, string $returnUrl, string $refreshUrl): ?string
+    {
+        if (! $this->isConfigured()) {
+            return null;
+        }
+
+        try {
+            $link = $this->client()->accountLinks->create([
+                'account' => $accountId,
+                'return_url' => $returnUrl,
+                'refresh_url' => $refreshUrl,
+                'type' => 'account_onboarding',
+            ]);
+
+            return $link->url;
+        } catch (ApiErrorException $e) {
+            Log::warning('stripe accountLinks->create failed', [
+                'account_id' => $accountId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    public function syncAccountStatus(string $accountId): ?array
+    {
+        if (! $this->isConfigured()) {
+            return null;
+        }
+
+        try {
+            $account = $this->client()->accounts->retrieve($accountId);
+        } catch (ApiErrorException $e) {
+            Log::warning('stripe accounts->retrieve failed', ['account_id' => $accountId, 'error' => $e->getMessage()]);
+
+            return null;
+        }
+
+        $config = PaymentConfiguration::query()
+            ->where('stripe_connect_account_id', $accountId)
+            ->first();
+        if ($config !== null) {
+            $config->update([
+                'stripe_connect_status' => $this->statusFor($account),
+                'stripe_connect_charges_enabled' => (bool) $account->charges_enabled,
+                'stripe_connect_payouts_enabled' => (bool) $account->payouts_enabled,
+            ]);
+        }
+
+        return [
+            'status' => $this->statusFor($account),
+            'charges_enabled' => (bool) $account->charges_enabled,
+            'payouts_enabled' => (bool) $account->payouts_enabled,
+            'details_submitted' => (bool) ($account->details_submitted ?? false),
+        ];
+    }
+
+    private function persistAccountId(User $landlord, string $accountId): void
+    {
+        $config = PaymentConfiguration::query()->firstOrCreate(['landlord_id' => $landlord->id]);
+        $config->update([
+            'stripe_connect_account_id' => $accountId,
+            'stripe_connect_status' => 'pending_onboarding',
+            'stripe_connect_charges_enabled' => false,
+            'stripe_connect_payouts_enabled' => false,
+        ]);
+    }
+
+    private function statusFor(\Stripe\Account $account): string
+    {
+        return match (true) {
+            (bool) $account->charges_enabled && (bool) $account->payouts_enabled => 'active',
+            (bool) ($account->details_submitted ?? false) => 'pending_verification',
+            default => 'pending_onboarding',
+        };
+    }
+}

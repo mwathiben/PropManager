@@ -51,6 +51,10 @@ class PaymentConfiguration extends Model
         'stripe_public_key',
         'stripe_secret_key',
         'stripe_webhook_secret',
+        'stripe_connect_account_id',
+        'stripe_connect_status',
+        'stripe_connect_charges_enabled',
+        'stripe_connect_payouts_enabled',
     ];
 
     protected $casts = [
@@ -72,6 +76,9 @@ class PaymentConfiguration extends Model
         'stripe_enabled' => 'boolean',
         'stripe_secret_key' => 'encrypted',
         'stripe_webhook_secret' => 'encrypted',
+        'stripe_connect_account_id' => 'encrypted',
+        'stripe_connect_charges_enabled' => 'boolean',
+        'stripe_connect_payouts_enabled' => 'boolean',
         'bank_account_number' => 'encrypted',
         'coop_webhook_secret' => 'encrypted',
         'equity_webhook_secret' => 'encrypted',

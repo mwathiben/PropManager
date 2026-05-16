@@ -70,6 +70,7 @@ class StripeWebhookController extends Controller
             $type === 'charge.refunded' => $this->handleChargeRefunded($payload),
             $type === 'invoice.payment_failed' => $this->handleInvoicePaymentFailed($payload),
             $type === 'charge.dispute.created' => $this->handleChargeDisputeCreated($payload),
+            $type === 'account.updated' => $this->handleAccountUpdated($payload),
             default => null,
         };
 
@@ -242,6 +243,20 @@ class StripeWebhookController extends Controller
                 (string) ($payload['reason'] ?? ''),
             ),
         ]);
+    }
+
+    /**
+     * Phase-41 GATEWAY-CONNECT-3: refresh PaymentConfiguration's
+     * Connect-status columns when Stripe posts account state changes
+     * (KYC review outcome, capabilities granted/lost, etc.).
+     */
+    private function handleAccountUpdated(array $payload): void
+    {
+        $accountId = (string) ($payload['id'] ?? '');
+        if ($accountId === '') {
+            return;
+        }
+        app(\App\Services\StripeConnectService::class)->syncAccountStatus($accountId);
     }
 
     private function mapStripeStatus(string $stripeStatus): string
