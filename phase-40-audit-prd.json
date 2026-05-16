@@ -202,5 +202,83 @@
       "evidence": "Per-landlord override needs an admin UI for support cases (e.g. landlord says 'force my account to Stripe for the next transaction'). Mirrors the existing super_admin landlord-management pattern.",
       "fix": "(a) AdminGatewaysController @ /admin/gateways under role:super_admin: GET lists landlords + current preference + currently-configured gateways; POST /admin/gateways/{user}/preference updates payment_gateway_preference; (b) Vue page table with select per row + save button + flash; (c) routes registered alongside other admin routes."
     }
-  ]
+  ],
+  "audit_closeout": {
+    "closed_at": "2026-05-16",
+    "closing_commit": "728c70f",
+    "findings_total": 18,
+    "findings_shipped": 18,
+    "findings_deferred": 0,
+    "phase_commits": [
+      "dd2253a docs(phase-40): [STRIPE-GATEWAY] audit PRD baseline (18 findings)",
+      "723358e Phase 40 Phase 1a — GATEWAY-CONTRACT-1/2/3",
+      "5ea3b4c Phase 40 Phase 1b — GATEWAY-STRIPE-1/2/3/4 (composer require stripe/stripe-php)",
+      "03099c7 Phase 40 Phase 1c — GATEWAY-WEBHOOK-1/2/3",
+      "0f66e64 Phase 40 Phase 1d — GATEWAY-CURRENCY-1/2/3",
+      "3bc15c0 Phase 40 Phase 1e — GATEWAY-RECONCILE-1/2/3",
+      "ad9ff00 Phase 40 Phase 1f — GATEWAY-PREF-1/2",
+      "728c70f Phase 40 Phase 2 — GATEWAY-CI watchdog + lang + runbook — Phase 40 COMPLETE"
+    ],
+    "tests_added": [
+      "tests/Feature/Gateway/Phase40GatewayContractTest.php — 6 tests (PaymentMethod enum + Stripe slot registration)",
+      "tests/Feature/Gateway/Phase40StripeServiceTest.php — 8 tests (SDK + schema + hasStripeConfig truth table)",
+      "tests/Feature/Gateway/Phase40StripeWebhookTest.php — 7 tests (route + 503/401/200/duplicate envelope + subscription state mutations)",
+      "tests/Feature/Gateway/Phase40CurrencyRoutingTest.php — 6 tests (stripe_plan_code column + Money helper + routeFor)",
+      "tests/Feature/Gateway/Phase40ReconcileTest.php — 5 tests (dispatcher + cron schedule + gateway_drift alert + clean-run)",
+      "tests/Feature/Gateway/Phase40GatewayPrefTest.php — 9 tests (preference column + routeForUser truth table + admin controller)",
+      "tests/Feature/Gateway/Phase40GatewaySurfaceTest.php — 12 tests (cycle watchdog: every Phase-40 invariant)",
+      "tests/Unit/Services/PaymentGatewayManagerTest.php — updated 21 tests for 3-arg ctor + flipped stripe assertions"
+    ],
+    "tests_total": 53,
+    "schema_changes": [
+      "payment_configurations: stripe_enabled boolean + stripe_public_key string + stripe_secret_key encrypted text + stripe_webhook_secret encrypted text",
+      "subscriptions: stripe_subscription_code string(64) + stripe_customer_code string(64) + index on stripe_subscription_code",
+      "subscription_plans: stripe_plan_code string(64) (Stripe Price id, e.g. price_xxx)",
+      "users: payment_gateway_preference enum(paystack|stripe|auto) default 'auto'"
+    ],
+    "new_crons": {
+      "payments:gateway-reconcile": "45 5 * * * Africa/Nairobi onOneServer — iterates landlords × enabled gateways (Paystack + Stripe), emits gateway_reconcile_drift_count{gateway,landlord_id} + gateway_reconcile_drift_total{gateway} gauges, fires gateway_drift alert when total > 5 per gateway per day"
+    },
+    "new_alerts": {
+      "gateway_drift": "sev3, threshold 5, gauge gateway_reconcile_drift_total, runbook docs/runbooks/payments.md — payment gateway ledger drifted from local payments table by more than threshold in last 24h"
+    },
+    "new_routes_web": [
+      "POST /webhooks/v2/stripe          webhooks.v2.stripe        public (signature verified) (Phase-40 GATEWAY-WEBHOOK-2)",
+      "GET  /admin/gateways              admin.gateways.index      super_admin (Phase-40 GATEWAY-PREF-2)",
+      "POST /admin/gateways/{user}/preference admin.gateways.update super_admin (Phase-40 GATEWAY-PREF-2)"
+    ],
+    "behavior_changes": {
+      "PaymentGatewayManager constructor": "now requires StripeService (3rd arg); manager.supportedGateways() now returns ['paystack', 'mpesa', 'stripe']; .stripe() shortcut accessor added.",
+      "PaymentGatewayManager::routeFor(Currency|string)": "centralised Currency-based routing — KES→Paystack, everything else→Stripe.",
+      "PaymentGatewayManager::routeForUser(User, Currency)": "per-user override; 'auto' preference falls back to routeFor(currency), forced preference always wins.",
+      "PaymentMethod enum": "Stripe case added — fixes schema/app-enum drift (DB column has allowed 'stripe' since 2025-12 but app enum was missing the case).",
+      "PaymentReconciliationService": "reconcile(string $gateway, ...) dispatcher; reconcileStripe local-only audit lands now, remote charges.list deferred to Phase 41.",
+      "AnalyticsReplayBatch + PaystackWebhookController": "unchanged; new flow lives in parallel files."
+    },
+    "new_services": [
+      "App\\Services\\StripeService — per-landlord PaymentConfiguration-bound (rent collection)",
+      "App\\Services\\StripeSubscriptionService — system-wide Setting::getSystem-bound (SaaS billing)",
+      "App\\Services\\Gateways\\StripeGateway — PaymentGatewayInterface adapter"
+    ],
+    "new_controllers": [
+      "App\\Http\\Controllers\\Webhooks\\StripeWebhookController — POST /webhooks/v2/stripe with Stripe\\Webhook::constructEvent signature verification + 24h Cache::add dedup",
+      "App\\Http\\Controllers\\Admin\\AdminGatewaysController — super_admin per-landlord preference switcher"
+    ],
+    "new_commands": [
+      "payments:gateway-reconcile [--gateway=] [--landlord=] — iterate landlords × enabled gateways"
+    ],
+    "new_composer_deps": [
+      "stripe/stripe-php (PHP SDK 15.x) — required dep"
+    ],
+    "config_additions": [
+      "config/services.php gains stripe block (system-wide webhook + publishable + secret keys, .env-driven)",
+      "config/alerts.php gains gateway_drift (sev3)"
+    ],
+    "pre_existing_bugs_caught": [
+      "PaymentMethod enum case mismatch with DB enum (caught + fixed in GATEWAY-CONTRACT-2)",
+      "settings table NOT NULL constraint on landlord_id incompatible with Setting::setSystem (documented; webhook controller switched to config() pattern to sidestep — pre-Phase-40 latent bug in Setting model)"
+    ],
+    "deferrals": [],
+    "tier_status": "Tier-7 cycle 4 closed. 18/18 findings shipped, zero deferrals to backlog. Stripe gateway now functionally complete and dark-launched (per-landlord credentials default-disabled; system-wide subscription billing ready when STRIPE_* env vars set). All 4 gateway-extension points operational: contract (PaymentGatewayInterface), implementation (StripeService + StripeGateway), webhook (StripeWebhookController), routing (routeFor + routeForUser). Phase 41 [GATEWAY-DEEP] queued: remote Stripe charges.list reconciliation + generic compare loop hoisted out of per-gateway impls + Stripe Connect for per-tenant subaccount splits + payment_intent.succeeded + charge.refunded webhook handlers + tenant-facing currency picker + bidirectional plan sync. Handoff notes in docs/runbooks/payments.md."
+  }
 }
