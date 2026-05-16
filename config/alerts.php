@@ -116,5 +116,17 @@ return [
             'paging' => 'email',
             'description' => 'Per-route-class scan-to-return ratio p90 exceeded threshold — likely N+1 or missing index.',
         ],
+
+        // Phase-33 COST-CACHE-3
+        [
+            'key' => 'low_cache_hit_rate',
+            'severity' => 'sev3',
+            'threshold' => 0.5,
+            'window' => 'instantaneous',
+            'gauge' => 'cache_hit_rate_ratio',
+            'runbook' => 'docs/runbooks/policy-and-index.md',
+            'paging' => 'email',
+            'description' => 'A cache bucket (cache,type) dropped below the configured hit-rate floor — wasted compute.',
+        ],
     ],
 ];

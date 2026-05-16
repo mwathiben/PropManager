@@ -417,3 +417,12 @@ Schedule::command('query:cost-audit')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase33-cost-query23-audit');
+
+// Phase-33 COST-CACHE-1/3: per-bucket cache hit-rate gauge + low-hit
+// alert. Runs at 03:50 — after query:cost-audit 03:45, before
+// bank-reconciliation:audit 05:50.
+Schedule::command('cache:hit-rate-audit')
+    ->dailyAt('03:50')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase33-cost-cache13-audit');
