@@ -216,5 +216,58 @@
       "evidence": "Phase 29-35 established the runbook cadence. Phase 36 needs to document: the operator dashboard composition (which gauge feeds which card), the landlord-facing API contract (rate limits, ability requirements, response shapes), the export filename conventions + retention, the cron-budget threshold rationale + remediation playbook, the WorkflowLogger::measure adoption guide (when to wrap vs when to log).",
       "fix": "Sections: Overview (Phase 36 surface map), Operator dashboard (KPI sources + nav), Landlord dashboard widgets (engagement/referrals/usage), Self-serve API (endpoint table + rate limits + ability requirements), Exports (mrr/engagement/product-events filename conventions), Cron budget (measure adoption guide + threshold playbook), CI gates, Deferrals."
     }
-  ]
+  ],
+  "audit_closeout": {
+    "closed_at": "2026-05-16",
+    "closing_commit": "8362185",
+    "findings_total": 18,
+    "findings_shipped": 18,
+    "findings_deferred": 0,
+    "phase_commits": [
+      "2b03aee docs(phase-36): [INSIGHT] audit PRD baseline (18 findings)",
+      "94a10df feat(phase-36): [INSIGHT] Phase 1a — INSIGHT-OPS-1/2/3",
+      "170e5c1 feat(phase-36): [INSIGHT] Phase 1b — INSIGHT-LANDLORD-1/2/3",
+      "cdf09c0 feat(phase-36): [INSIGHT] Phase 1c — INSIGHT-API-1/2/3",
+      "55fe571 feat(phase-36): [INSIGHT] Phase 1d — INSIGHT-EXPORTS-1/3 (EXPORTS-2 shipped in 1c)",
+      "6ddd274 feat(phase-36): [INSIGHT] Phase 1e — INSIGHT-CRON-1/2/3",
+      "8362185 feat(phase-36): [INSIGHT] Phase 2 — INSIGHT-CI-1/2/3 — Phase 36 COMPLETE"
+    ],
+    "tests_added": [
+      "tests/Feature/Insight/Phase36OpsDashboardTest.php — 8 tests",
+      "tests/Feature/Insight/Phase36LandlordGrowthTest.php — 6 tests",
+      "tests/Feature/Insight/Phase36LandlordApiTest.php — 8 tests",
+      "tests/Feature/Insight/Phase36ExportsTest.php — 4 tests",
+      "tests/Feature/Insight/Phase36CronBudgetTest.php — 8 tests",
+      "tests/Feature/Insight/Phase36InsightSurfaceTest.php — 4 tests (CI watchdog)"
+    ],
+    "tests_total": 38,
+    "schema_changes": [
+      "workflow_runs_log: +duration_ms unsignedInteger nullable, +started_at timestamp nullable, +index (workflow_name, started_at)"
+    ],
+    "new_crons": {
+      "cron:budget-audit": "30 4 * * * Africa/Nairobi onOneServer — per-command + total 24h runtime gauge + high_cron_runtime alert"
+    },
+    "new_alerts": {
+      "high_cron_runtime": "sev3, threshold 60 minutes, gauge cron_runtime_total_minutes_24h, runbook docs/runbooks/insight.md"
+    },
+    "new_routes_web": [
+      "GET /ops/insight (super_admin)",
+      "GET /growth (landlord)",
+      "GET /ops/exports/mrr.xlsx (super_admin)"
+    ],
+    "new_routes_api": [
+      "GET /api/v1/landlord/engagement (sanctum landlord:manage)",
+      "GET /api/v1/landlord/engagement/export.csv (sanctum landlord:manage)",
+      "GET /api/v1/landlord/usage (sanctum landlord:manage)",
+      "GET /api/v1/landlord/referrals (sanctum landlord:manage)",
+      "GET /api/v1/landlord/insights/summary (sanctum landlord:manage, 5-min Cache::remember)",
+      "GET /api/v1/landlord/product-events/export (sanctum landlord:manage)"
+    ],
+    "new_services": [
+      "App\\Services\\Insight\\InsightDashboardService — operatorSummary + landlordSummary composition",
+      "App\\Services\\WorkflowLogger::measure() — Closure-wrapping timing-aware logger (legacy log() unchanged)"
+    ],
+    "deferrals": [],
+    "tier_status": "Tier-6 cycle 3 closed. 18/18 findings shipped, zero deferrals to backlog."
+  }
 }
