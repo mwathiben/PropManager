@@ -1,0 +1,270 @@
+{
+  "project": "PropManager",
+  "audit_cycle": "phase-29",
+  "audit_date": "2026-05-16",
+  "scope": "Tier-4 product depth, cycle 2 of 3 (per project_propmanager_path_forward.md). Tier 3 closed COMPLETE; Phase 28 [TENANT-PORTAL] closed 17/18 with 1 deferral (TENANT-PAY-2 auto-allocation). Phase 29 [WORKFLOW-AUTOMATION] addresses landlord-driven workflow gaps and absorbs the Phase-28 deferred landlord-approval UIs for payment plans + deposit refunds. Today's automation surface is partial: nightly invoices:mark-overdue + invoices:apply-late-fees + invoices:automate run, NotificationService dispatches 13 hardcoded TYPE_* constants, MoveOut status enum tracks vacancy state — but there is NO lease renewal dispatcher (TYPE_LEASE_EXPIRY / TYPE_LEASE_RENEWAL constants exist with URGENCY_URGENT but nothing fires them), NO tiered rent reminder cadence (one-size-fits-all), NO escalation chain for chronically overdue rent (late fees apply but no Day-5 SMS / Day-10 call task / Day-30 eviction notice draft), NO occupancy_rate metric (vacancy is implicit via MoveOut.status + Lease.is_active), NO landlord approval UI for the Phase-28 tenant-side PaymentPlanRequest / DepositRefundRequest flows, NO WorkflowRunsLog observability for scheduler health. Landlords manage these flows in spreadsheets + manual reminders today — the resulting churn (missed renewal windows, unresponded overdue tenants, vacancy days that pile up before anyone notices) caps PropManager at small-portfolio operators. 18 findings across 6 categories: WF-RENT-REMIND (3 — RentReminderPolicy table, tenant tier on leases.reminder_tier, per-tenant opt-out + runbook), WF-LEASE-RENEW (3 — leases:scan-renewals nightly 60/30/7-day cadence, LeaseRenewal model + landlord initiate/extend, tenant accept UI), WF-LATE-FEE (3 — invoices:escalate-overdue Day 5/10/30 chain, LandlordTask model + Tasks/Index.vue, EvictionNoticeDraft model + preview UI), WF-VACANCY (3 — occupancy:audit gauge emitter, VacancyDetected event with auto-task listener, buildings.target_occupancy_rate + breach alert), WF-PAY-APPROVE (3 — Phase-28 deferred PaymentPlanApprovalController + DepositRefundApprovalController + tenant approval notifications), WF-CI (3 — Phase29WorkflowSurfaceTest watchdog, workflow_runs_log + workflow:health command, docs/runbooks/workflow-automation.md). Severity 5H/9M/4L. Builds on Phase-13 PERSONAL-DATA-1 (recipient allowlist), Phase-16 RESIL backoff, Phase-17 Money primitives, Phase-19 drift audit pattern, Phase-20 AuthAbilities, Phase-22 PERF-SLO gauges, Phase-24 i18n, Phase-27 MetricsService::gauge pattern, Phase-28 NotificationPreference + Ticket SLA + Phase28TenantSurfaceTest patterns.",
+  "context_baseline": {
+    "today_scheduled_commands": [
+      "invoices:mark-overdue dailyAt 00:05 Africa/Nairobi (MarkOverdueInvoices — bulk UPDATE status to overdue)",
+      "invoices:apply-late-fees dailyAt 00:10 (ApplyLateFees → LateFeeService::processAllOverdueInvoices)",
+      "invoices:automate dailyAt 06:00 (InvoiceAutomationService — auto-generate invoices for buildings with auto_generate_invoices=true)",
+      "notifications:process-schedules every 5 minutes (NotificationSchedule due rows)",
+      "notifications:process-failed every 15 minutes (retry with fallback channel)",
+      "payments:audit-allocations dailyAt 05:30 (Phase-17 MONEY-5 drift audit)",
+      "wallets:audit-balances dailyAt 05:35",
+      "latefees:audit-drift dailyAt 05:40",
+      "tenants:audit-minor-consent dailyAt 05:45",
+      "reports:send-scheduled dailyAt 06:00 (Phase-27 BI-DELIVERY-2)",
+      "tickets:audit-sla dailyAt 07:00 (Phase-28 TENANT-MAINT-1)",
+      "data:audit-orphans weekly Sunday 06:00",
+      "breach:escalate-overdue hourly (Phase-13 BREACH-3 ODPC 72h)",
+      "breach:review-overdue weekly Monday 07:00"
+    ],
+    "today_automation_models": [
+      "App\\Models\\LateFeePolicy (landlord-scoped — grace_period_days, fee_type[percentage|fixed], fee_percentage, fee_amount, is_compounding, compounding_frequency, max_fee_cap, is_active, priority)",
+      "App\\Services\\InvoiceAutomationService (buildings.auto_generate_invoices + invoice_generation_day enforcement, auto_send_invoices toggle)",
+      "App\\Services\\LateFeeService::processAllOverdueInvoices (applies LateFeePolicy nightly)"
+    ],
+    "today_notification_types": "13 hardcoded constants in App\\Models\\Notification (rent_reminder, arrears_notice, invoice, receipt, rent_hike, lease_expiry, lease_renewal, maintenance_notice, general, eviction_notice, caretaker_invitation, tenant_invitation) + TYPE_URGENCY_MAP (line 91-104) maps each to {critical|urgent|important|informational}. Adding a new type requires code change to both arrays.",
+    "today_lease_lifecycle": {
+      "fields": "Lease.start_date + Lease.end_date (cast as date), Lease.is_active scope, NO renewal_date or LeaseRenewal model",
+      "expiry_handling": "TYPE_LEASE_EXPIRY + TYPE_LEASE_RENEWAL constants defined with URGENCY_URGENT mapping, but NO scheduled command detects approaching end_date and fires notifications",
+      "tenant_action": "tenant cannot request renewal today; landlord cannot initiate renewal flow"
+    },
+    "today_vacancy_state": {
+      "tracking": "MoveOut.status enum (NoticeGiven, InspectionPending, InspectionComplete, SettlementPending, Completed, Cancelled). Vacancy is implicit via MoveOut.status + Lease.is_active=false.",
+      "metric": "NO occupancy_rate metric, NO vacancy_count gauge, NO scheduled command to aggregate per-property/per-building occupancy",
+      "alert": "NO breach alert when occupancy drops below a configured target"
+    },
+    "today_landlord_approval_surface": {
+      "payment_plan": "Phase-28 TENANT-PAY-1 ships tenant-side PaymentPlanRequestController::store. NO landlord-side approve/reject/mark-completed flow.",
+      "deposit_refund": "Phase-28 TENANT-PAY-3 ships tenant-side DepositRefundController::store. NO landlord-side approve/reject/mark-paid flow.",
+      "eviction": "Notification::TYPE_EVICTION_NOTICE constant exists with URGENCY_CRITICAL; NO EvictionNoticeDraft model, NO landlord UI to initiate or track evictions."
+    },
+    "today_workflow_observability": "metrics:capture-queue-depth (Phase-16 QUEUE-6) plus per-command Prometheus gauges. NO workflow_runs_log table to track which workflows fired which actions for which tenants — when a landlord asks 'why was this tenant notified?', the answer requires tailing schedule.log."
+  },
+  "findings": [
+    {
+      "id": "WF-RENT-REMIND-1",
+      "title": "RentReminderPolicy table + nightly rent_reminders:dispatch command with per-tier cadence offsets",
+      "severity": "HIGH",
+      "files": [
+        "database/migrations/*_create_rent_reminder_policies_table.php (new)",
+        "app/Models/RentReminderPolicy.php (new — TenantScope, OFFSETS const)",
+        "app/Console/Commands/RentRemindersDispatch.php (new)",
+        "routes/console.php (Schedule::command('rent-reminders:dispatch')->dailyAt('08:00')->timezone('Africa/Nairobi'))"
+      ],
+      "evidence": "Today rent reminders fire only via tenant manual request OR landlord ad-hoc trigger — there is no per-tenant tiered cadence (e.g., reliable-payer tier = day-of only, problem-payer tier = T-3 + day-of + T+3 + T+7). Result: every tenant gets the same 'invoice generated' email + nothing else, and chronic late-payers don't receive the escalating nudge that converts to payment. The policy table is landlord-scoped (TenantScope auto-filters by landlord_id) with offsets stored as a JSON array of signed integers (negative = days before due_date, positive = days after). OFFSETS const documents the supported cadence templates: standard=[0, +3, +7], aggressive=[-3, 0, +1, +5], lenient=[+5, +10], custom=null (uses the offsets_json column verbatim).",
+      "fix": "(a) rent_reminder_policies (id, landlord_id, name, cadence_template enum{standard, aggressive, lenient, custom}, offsets_json JSON, channels JSON, is_default boolean, is_active boolean, timestamps); (b) RentReminderPolicy::resolveOffsets() returns the integer array from the template or offsets_json; (c) RentRemindersDispatch nightly iterates Invoice::where('status', InvoiceStatus::Sent|Partial|Overdue), looks up the lease.reminder_tier (WF-RENT-REMIND-2), finds the matching RentReminderPolicy, computes days_until_due = invoice.due_date - now(), if days_until_due matches one of the offsets fires NotificationService::send(type='rent_reminder', recipientId=tenant_id); Cache::add idempotency keyed on invoice_id + offset to prevent duplicate on a re-run; (d) Schedule entry dailyAt('08:00') Africa/Nairobi onOneServer (deliberate slot after 06:00 invoice auto-generation so newly-created invoices land in the same run); (e) Phase29RentReminderTest::test_offset_minus_three_fires_three_days_before_due + test_offset_zero_fires_on_due_date + test_idempotency_prevents_double_fire + test_dry_run_does_not_fire + test_custom_template_uses_offsets_json."
+    },
+    {
+      "id": "WF-RENT-REMIND-2",
+      "title": "leases.reminder_tier — pick which policy applies per-tenant",
+      "severity": "MEDIUM",
+      "files": [
+        "database/migrations/*_add_reminder_tier_to_leases.php (new)",
+        "app/Models/Lease.php (cast + scope)",
+        "resources/js/Pages/Tenants/Show.vue (reminder tier picker in landlord-side tenant detail)"
+      ],
+      "evidence": "WF-RENT-REMIND-1 ships the cadence library; without a per-lease tier selector, every tenant gets the same default policy. The tier is on the LEASE (not the user) because a tenant who renews with new payment-history evidence may move tiers. Default 'standard' for new leases; landlord can edit. Reminder dispatcher resolves tier → landlord's matching RentReminderPolicy (cadence_template = tier) → falls back to is_default=true policy when no exact match.",
+      "fix": "(a) ALTER leases ADD reminder_tier enum('standard','aggressive','lenient','custom') DEFAULT 'standard' AFTER is_active; (b) Lease::$fillable + casts['reminder_tier' => 'string']; (c) Tenants/Show.vue adds a Reminder Tier select on the lease card (landlord-side only — tenants see the resulting cadence read-only on Tenant/Profile.vue); (d) PATCH /tenants/{tenant}/lease/reminder-tier route + LeaseReminderTierController; (e) Phase29RentReminderTest::test_lease_tier_selects_matching_policy + test_missing_policy_falls_back_to_default + test_tier_change_takes_effect_on_next_dispatch."
+    },
+    {
+      "id": "WF-RENT-REMIND-3",
+      "title": "Per-tenant opt-out + runbook entry for rent reminder cadence",
+      "severity": "LOW",
+      "files": [
+        "app/Services/NotificationService.php (consult NotificationPreference::canReceive('rent_reminder', ...) before dispatch)",
+        "docs/runbooks/workflow-automation.md (rent reminder section)"
+      ],
+      "evidence": "Tenant who opted out of rent_reminder via NotificationPreference (Phase-28 TENANT-PROFILE-2 surface) must NOT receive the new tiered reminders either — the policy IS the type, not a channel. NotificationService already consults preferences but RentRemindersDispatch must NOT bypass it. Runbook documents the per-template offsets + the opt-out semantics + the integration with NotificationPreference matrix.",
+      "fix": "(a) RentRemindersDispatch wraps NotificationService::send (preference check is already inside .send — no change needed; verify with test); (b) Phase29RentReminderTest::test_tenant_who_disabled_rent_reminder_type_receives_nothing; (c) docs/runbooks/workflow-automation.md rent-reminder-cadence section: cadence templates + landlord configuration + tenant opt-out priority + the lease.reminder_tier → policy → offsets resolution."
+    },
+    {
+      "id": "WF-LEASE-RENEW-1",
+      "title": "leases:scan-renewals nightly — T-60/30/7 day notifications + state advancement",
+      "severity": "HIGH",
+      "files": [
+        "app/Console/Commands/LeasesScanRenewals.php (new)",
+        "routes/console.php (Schedule::command('leases:scan-renewals')->dailyAt('07:30')->timezone('Africa/Nairobi'))",
+        "app/Events/LeaseRenewalApproaching.php (new)",
+        "app/Listeners/NotifyOnLeaseRenewalApproaching.php (new — ShouldQueue + Phase-16 backoff)"
+      ],
+      "evidence": "Notification::TYPE_LEASE_EXPIRY + TYPE_LEASE_RENEWAL exist with URGENCY_URGENT but no command fires them. Landlords manually scan upcoming end_dates in spreadsheets, miss renewal windows, and end up with avoidable vacancies on day 1 after expiry. The command scans leases.end_date and computes days_until_expiry; emits at exactly 60, 30, 7 days remaining (idempotent via Cache::add keyed on lease_id + offset bucket). 60-day notification = 'renewal window opens — confirm intent'; 30-day = 'reminder, prepare addendum'; 7-day = 'urgent, lease expires next week'. All notifications go to BOTH tenant + landlord.",
+      "fix": "(a) LeasesScanRenewals walks Lease::where('is_active', true)->whereNotNull('end_date')->whereBetween('end_date', [now(), now()->addDays(70)]); for each, days_remaining = ceil(diffInDays(now(), end_date)); if days_remaining ∈ [60, 30, 7], fires LeaseRenewalApproaching event with the matching bucket; (b) NotifyOnLeaseRenewalApproaching implements ShouldQueue with Phase-16 backoff, calls NotificationService::send(type='lease_renewal' for both tenant_id and landlord_id); (c) Cache::add idempotency keyed on lease_id + bucket + month (prevents re-firing on the same day across re-runs while still allowing next year's renewal to fire); (d) Schedule entry dailyAt('07:30') Africa/Nairobi onOneServer (between tickets:audit-sla 07:00 and rent-reminders 08:00); (e) Phase29LeaseRenewTest::test_60_day_bucket_fires_at_exactly_60_days + test_30_day + test_7_day + test_idempotency_within_same_day + test_lease_already_renewed_skips_remaining_buckets + test_inactive_lease_never_fires."
+    },
+    {
+      "id": "WF-LEASE-RENEW-2",
+      "title": "LeaseRenewal model + landlord initiate/extend flow",
+      "severity": "MEDIUM",
+      "files": [
+        "database/migrations/*_create_lease_renewals_table.php (new)",
+        "app/Models/LeaseRenewal.php (new — TenantScope)",
+        "app/Http/Controllers/LeaseRenewalController.php (new — landlord-side initiate/extend)",
+        "resources/js/Pages/Leases/Renewals/Index.vue (new — landlord dashboard of upcoming renewals)"
+      ],
+      "evidence": "Today extending a lease means editing the lease end_date in place — destroying the historical record of the original term + renewal sequence. LeaseRenewal model persists each renewal as a discrete row referencing the original lease so the audit trail survives. Landlord initiates via the dashboard (status=proposed), tenant accepts via WF-LEASE-RENEW-3 (status=accepted), landlord confirms with new lease end_date + rent_amount (status=confirmed) which atomically writes the new Lease.end_date + Lease.rent_amount via DB transaction.",
+      "fix": "(a) lease_renewals (id, landlord_id, lease_id, proposed_end_date, proposed_rent_amount_cents, status enum('proposed','accepted','rejected','confirmed','expired'), notes, proposed_at, responded_at, confirmed_at, timestamps + index on (lease_id, status)); (b) LeaseRenewal model with TenantScope + STATUSES const + isOpen() = status ∈ [proposed, accepted]; (c) LeaseRenewalController::store (landlord initiates), ::confirm (landlord finalizes — writes Lease.end_date in DB transaction); (d) Renewals/Index.vue lists upcoming renewals (lease end_date within 90d) with status badges + actions; (e) Phase29LeaseRenewTest::test_landlord_initiates_renewal_with_proposed_values + test_confirm_writes_lease_end_date_and_rent + test_renewal_history_preserved_after_confirm + test_only_one_open_renewal_per_lease."
+    },
+    {
+      "id": "WF-LEASE-RENEW-3",
+      "title": "Tenant-side renewal acceptance Vue page + ability key",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/Pages/Tenant/Renewals/Show.vue (new — accept/reject)",
+        "app/Http/Controllers/Tenant/RenewalResponseController.php (new)",
+        "app/Support/TenantAbilities.php (add 'renewal:respond' key)"
+      ],
+      "evidence": "WF-LEASE-RENEW-2 ships the data model + landlord initiation; without a tenant accept surface the renewal never advances past 'proposed'. The Tenant/Renewals/Show page surfaces the open renewal (status=proposed) for the tenant's active lease, shows proposed_end_date + proposed_rent_amount, accept/reject buttons. On accept, status → 'accepted' and LeaseRenewalAccepted event fires (landlord notification). On reject, status → 'rejected' with optional reason; landlord gets notified to negotiate.",
+      "fix": "(a) Tenant/Renewals/Show.vue (status badge, proposed terms, accept/reject buttons with reason textarea); (b) RenewalResponseController::accept + ::reject — verifies tenant owns the lease + the renewal is in 'proposed' status (abort_unless guards); writes status + responded_at; fires LeaseRenewalResponded event; (c) TenantAbilities::ABILITY_KEYS adds 'renewal:respond' = has open renewal for active lease; runbook documents the key; (d) Routes under existing /tenant prefix: GET /tenant/renewals/{renewal} + POST /tenant/renewals/{renewal}/respond; (e) Phase29LeaseRenewTest::test_tenant_can_accept_open_renewal + test_tenant_cannot_respond_to_other_tenants_renewal + test_double_accept_rejected + test_ability_key_reflects_open_renewal_state."
+    },
+    {
+      "id": "WF-LATE-FEE-1",
+      "title": "invoices:escalate-overdue nightly — Day 5 SMS / Day 10 task / Day 30 eviction notice draft",
+      "severity": "HIGH",
+      "files": [
+        "app/Console/Commands/InvoicesEscalateOverdue.php (new)",
+        "routes/console.php (Schedule::command('invoices:escalate-overdue')->dailyAt('00:30')->timezone('Africa/Nairobi'))",
+        "app/Events/InvoiceEscalated.php (new — carries the escalation level)"
+      ],
+      "evidence": "Today late fees apply automatically but no human action escalates. Result: chronically overdue tenants accumulate late fees silently and either pay 90 days later OR vanish (eviction with arrears nobody can collect). The escalation chain: Day 5 overdue = SMS reminder (type='arrears_notice', force SMS channel); Day 10 = create LandlordTask 'Call tenant {name} re invoice {number}' (WF-LATE-FEE-2); Day 30 = generate EvictionNoticeDraft for landlord review (WF-LATE-FEE-3 — DRAFT only, never auto-send). Each level is idempotent via Cache::add keyed on invoice_id + level_bucket. Runs at 00:30 (after invoices:mark-overdue at 00:05 and invoices:apply-late-fees at 00:10).",
+      "fix": "(a) InvoicesEscalateOverdue walks Invoice::where('status', InvoiceStatus::Overdue)->whereDate('due_date', '<', now()->subDays(5)); per row compute days_overdue = diffInDays(now(), due_date); switch on days_overdue: 5 = fires InvoiceEscalated event with level='reminder_sms', listener calls NotificationService::send forcing SMS channel; 10 = level='create_task' creates LandlordTask row; 30 = level='draft_eviction_notice' creates EvictionNoticeDraft row; (b) Idempotency Cache::add keyed on invoice_id + level for 60 days (a 30-day eviction notice must NOT re-create the draft every day after day 30); (c) Phase29LateFeeEscalationTest::test_day_5_fires_sms + test_day_10_creates_task + test_day_30_creates_eviction_draft + test_paid_invoice_skipped + test_idempotency_prevents_repeated_draft + test_disabled_landlord_escalation_skips_all."
+    },
+    {
+      "id": "WF-LATE-FEE-2",
+      "title": "LandlordTask model + Tasks/Index.vue for landlord call-tasks",
+      "severity": "MEDIUM",
+      "files": [
+        "database/migrations/*_create_landlord_tasks_table.php (new)",
+        "app/Models/LandlordTask.php (new — TenantScope)",
+        "app/Http/Controllers/LandlordTaskController.php (new)",
+        "resources/js/Pages/Tasks/Index.vue (new — landlord task board)"
+      ],
+      "evidence": "WF-LATE-FEE-1 creates LandlordTask rows at Day 10; without a task surface those rows sit invisible. The Tasks/Index.vue page lists pending + in-progress + completed tasks with filter (priority, due_date, related_to_type), action buttons (mark complete, snooze, dismiss). Tasks are also created by other workflows (WF-VACANCY-2 vacancy alert auto-task, future Phase 30 integrations). The model is generic — task_type + related_to polymorphic relation + status + assigned_to_user_id + priority.",
+      "fix": "(a) landlord_tasks (id, landlord_id, assigned_to_user_id NULL, task_type, related_to_id NULL, related_to_type NULL, title, description, priority enum('low','medium','high','urgent'), status enum('pending','in_progress','completed','dismissed','snoozed'), due_date NULL, snoozed_until NULL, completed_at NULL, dismissed_reason NULL, source_workflow VARCHAR(64), timestamps + index on (landlord_id, status, due_date)); (b) LandlordTask model with TenantScope + polymorphic relatedTo() + STATUSES const + scopes pending(), overdue(); (c) Tasks/Index.vue with status tabs + filters + bulk-action footer; (d) LandlordTaskController::index + ::update (status transitions) + ::destroy; (e) Phase29LateFeeEscalationTest::test_task_created_with_correct_polymorphic_relation + test_task_status_transitions_enforced + Phase29TasksTest::test_landlord_sees_own_tasks_only."
+    },
+    {
+      "id": "WF-LATE-FEE-3",
+      "title": "EvictionNoticeDraft model + preview UI (never auto-sent)",
+      "severity": "LOW",
+      "files": [
+        "database/migrations/*_create_eviction_notice_drafts_table.php (new)",
+        "app/Models/EvictionNoticeDraft.php (new — TenantScope)",
+        "app/Http/Controllers/EvictionNoticeDraftController.php (new — show + send-manual)",
+        "resources/js/Pages/EvictionNotices/Show.vue (new — landlord preview + manual send)"
+      ],
+      "evidence": "Day 30 overdue fires an eviction notice DRAFT — never auto-sent. The draft is a pre-populated form (tenant name + lease address + invoice numbers + total arrears + standard Kenya notice language). Landlord reviews, optionally edits, and decides to send (writes a TenantActivity, queues eviction email). Hard requirement: the system NEVER sends the eviction notice without landlord confirmation — eviction has legal consequences and PropManager must not be the actor. EvictionNoticeDraftPolicy gates all access to landlord + admin only.",
+      "fix": "(a) eviction_notice_drafts (id, landlord_id, lease_id, tenant_id, related_invoice_ids JSON, total_arrears_cents, draft_body TEXT, status enum('draft','sent','withdrawn'), sent_at NULL, withdrawn_at NULL, withdrawn_reason NULL, source_workflow VARCHAR(64), created_at, updated_at); (b) EvictionNoticeDraft model with TenantScope + scopes draft(), sent(); (c) EvictionNoticeDraftController::show renders preview; ::sendManual sends mail via NotificationService::send(type='eviction_notice', force WhatsApp + SMS + Email channels for URGENCY_CRITICAL), advances status to sent; (d) EvictionNotices/Show.vue preview with edit button + 'Confirm and send' button (requires re-typing 'CONFIRM' to enable); (e) Phase29LateFeeEscalationTest::test_draft_created_with_arrears_total + test_no_auto_send + test_send_manual_advances_status + test_landlord_only_authorisation."
+    },
+    {
+      "id": "WF-VACANCY-1",
+      "title": "occupancy:audit nightly — emit occupancy_rate{property,building} + vacancy_count{building} gauges",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/OccupancyAudit.php (new)",
+        "routes/console.php (Schedule::command('occupancy:audit')->dailyAt('06:30')->timezone('Africa/Nairobi'))",
+        "app/Services/OccupancyService.php (new — aggregator)"
+      ],
+      "evidence": "Today no metric tracks portfolio occupancy. A landlord with 200 units cannot answer 'what's my current occupancy?' without manually counting active leases per unit. The nightly audit aggregates: per-property occupancy_rate = (units with active_lease) / total_units; per-building same; emits Prometheus gauges occupancy_rate{property_id} and vacancy_count{building_id} for Grafana dashboards. Phase-22 PERF-SLO pattern: gauge emit per row including 0 to keep the time series continuous.",
+      "fix": "(a) OccupancyService::byProperty(Landlord) returns [{property_id, total_units, occupied_units, vacant_units, occupancy_rate_pct}]; ::byBuilding($landlord, $propertyId = null) same shape per building; (b) OccupancyAudit command iterates landlords (or --landlord-id scope), calls OccupancyService, emits MetricsService::gauge('occupancy_rate', $pct, ['property_id'=>$id]) + ::gauge('vacancy_count', $count, ['building_id'=>$id]); writes a single audit_logs row event='occupancy_audit' summarising counts; (c) Schedule entry dailyAt('06:30') Africa/Nairobi onOneServer (between reports:send-scheduled 06:00 and tickets:audit-sla 07:00); (d) Phase29VacancyTest::test_full_occupancy_returns_100pct + test_partial_returns_correct_fraction + test_audit_command_emits_gauges_per_property + test_dry_run_emits_no_gauges."
+    },
+    {
+      "id": "WF-VACANCY-2",
+      "title": "VacancyDetected event + auto-task listener when MoveOut completes without next-lease scheduled",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Events/VacancyDetected.php (new)",
+        "app/Listeners/CreateTaskOnVacancyDetected.php (new — ShouldQueue)",
+        "app/Models/MoveOut.php (booted updated() hook — fires event on status → Completed when no future lease exists)"
+      ],
+      "evidence": "When a MoveOut completes, the unit is vacant — landlord must list, screen new tenant, sign lease. Today nothing triggers that action chain — the landlord might not notice for days. VacancyDetected event fires when MoveOut.status transitions to Completed AND no Lease exists with start_date > today() AND unit_id = the unit being vacated. Listener creates a LandlordTask 'List unit {number} for new tenant' (priority='high', due_date=now+7d). Other future listeners (auto-market integration in Phase 30) can subscribe to the same event without modifying the dispatcher.",
+      "fix": "(a) VacancyDetected event (Unit $unit, MoveOut $moveOut, CarbonImmutable $vacatedAt); (b) MoveOut::booted() updated hook — when isDirty('status') AND status === MoveOutStatus::Completed, check Lease::where('unit_id', $this->lease->unit_id)->where('start_date', '>', today())->doesntExist() and if so dispatch VacancyDetected; (c) CreateTaskOnVacancyDetected creates LandlordTask with task_type='list_unit', related_to=Unit, source_workflow='WF-VACANCY-2'; (d) Phase29VacancyTest::test_move_out_completed_fires_event_when_no_future_lease + test_move_out_completed_does_not_fire_when_future_lease_exists + test_listener_creates_high_priority_task + test_event_idempotent_on_re_save_of_completed_status."
+    },
+    {
+      "id": "WF-VACANCY-3",
+      "title": "buildings.target_occupancy_rate + breach alert when occupancy drops below target",
+      "severity": "MEDIUM",
+      "files": [
+        "database/migrations/*_add_target_occupancy_rate_to_buildings.php (new)",
+        "app/Models/Building.php (cast + accessor isOccupancyBelowTarget())",
+        "app/Console/Commands/OccupancyAudit.php (extend — emit breach event when below target)",
+        "app/Events/OccupancyTargetBreached.php (new)",
+        "app/Listeners/NotifyOnOccupancyTargetBreached.php (new — ShouldQueue + Phase-16 backoff)"
+      ],
+      "evidence": "Landlord configures buildings.target_occupancy_rate (e.g., 85%); when monthly audit shows occupancy below target, OccupancyAudit fires OccupancyTargetBreached event. Listener notifies landlord (one-shot per month — Cache::add idempotency for 30d to prevent daily spam). Target NULL means no alerting (default). Without this, low occupancy is invisible until quarterly review.",
+      "fix": "(a) ALTER buildings ADD target_occupancy_rate decimal(5,2) NULL AFTER building_type; (b) Building::isOccupancyBelowTarget(float $current) = target_occupancy_rate !== null AND $current < target_occupancy_rate; (c) OccupancyAudit walks buildings, computes current rate, if isOccupancyBelowTarget fires OccupancyTargetBreached; (d) NotifyOnOccupancyTargetBreached implements ShouldQueue with Phase-16 backoff, notifies landlord via NotificationService::send(type='general', URGENCY_IMPORTANT); Cache::add keyed on building_id + year-month for 30d idempotency; (e) Phase29VacancyTest::test_target_null_never_fires_breach + test_above_target_does_not_fire + test_below_target_fires_event + test_idempotency_within_month + test_listener_notifies_landlord_only (not tenants)."
+    },
+    {
+      "id": "WF-PAY-APPROVE-1",
+      "title": "PaymentPlanApprovalController + Finance/PaymentPlans/Index.vue — close Phase-28 deferred landlord approval UI",
+      "severity": "HIGH",
+      "files": [
+        "app/Http/Controllers/Finance/PaymentPlanApprovalController.php (new)",
+        "resources/js/Pages/Finance/PaymentPlans/Index.vue (new)",
+        "app/Policies/PaymentPlanPolicy.php (new — manage gate)"
+      ],
+      "evidence": "Phase-28 TENANT-PAY-1 shipped tenant-side PaymentPlanRequestController (creates PaymentPlan in status=requested) but the landlord cannot approve, reject, or mark completed. The plans pile up invisible. This finding completes the loop: landlord lists requested plans + can approve (status → approved, installments become payable) or reject with reason (status → rejected, tenant notified). On approve, NotificationService dispatches type='general' (informational) to the tenant.",
+      "fix": "(a) PaymentPlanApprovalController::index lists PaymentPlan::where('status', PaymentPlan::STATUS_REQUESTED) for the landlord; ::approve($plan, $request) authorise via PaymentPlanPolicy::manage, sets status=approved + approved_at + approved_by_user_id, fires PaymentPlanApproved event; ::reject($plan, $request) sets status=rejected + rejection_reason, fires PaymentPlanRejected event; (b) PaymentPlanPolicy::manage(User, PaymentPlan) gates on user.isLandlord() && plan.landlord_id === user.id; (c) Finance/PaymentPlans/Index.vue lists requests with tenant + invoice + installment count + reason; approve/reject buttons + reject reason modal; (d) Phase29PayApproveTest::test_landlord_approves_advances_status_and_notifies_tenant + test_landlord_rejects_records_reason_and_notifies + test_other_landlord_cannot_approve + test_tenant_cannot_approve_own_plan."
+    },
+    {
+      "id": "WF-PAY-APPROVE-2",
+      "title": "DepositRefundApprovalController + Finance/DepositRefunds/Index.vue — approve / reject / mark-paid flow",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/Finance/DepositRefundApprovalController.php (new — approve/reject/markPaid)",
+        "resources/js/Pages/Finance/DepositRefunds/Index.vue (new)",
+        "app/Policies/DepositRefundRequestPolicy.php (new)"
+      ],
+      "evidence": "Phase-28 TENANT-PAY-3 shipped tenant-side DepositRefundController; landlord cannot review or process refunds. This finding ships the landlord-side approve (with final_amount_cents which may differ from requested when deductions apply) → reject (with rejection_reason) → markPaid (records payment_reference, advances status to paid). MoveOut deduction model is read-only context; this UI surfaces those deductions but does not duplicate the calculation.",
+      "fix": "(a) DepositRefundApprovalController::index lists active requests with their MoveOut deduction summary; ::approve($request, $payload) sets status=approved + final_amount_cents + reviewed_at + fires DepositRefundApproved event; ::reject($request, $payload) sets status=rejected + rejection_reason; ::markPaid($request, $payload) requires status=approved, sets status=paid + paid_at + payment_reference + fires DepositRefundPaid event; (b) DepositRefundRequestPolicy::manage same shape as PaymentPlanPolicy::manage; (c) Finance/DepositRefunds/Index.vue with tabs (submitted / under_review / approved / paid / rejected) and approve modal capturing final_amount_cents + reviewed_at; (d) Phase29PayApproveTest::test_landlord_approves_with_final_amount + test_mark_paid_requires_approved_status + test_status_transitions_one_way + test_other_landlord_cannot_process."
+    },
+    {
+      "id": "WF-PAY-APPROVE-3",
+      "title": "Tenant approval/rejection notifications via existing NotificationService",
+      "severity": "LOW",
+      "files": [
+        "app/Listeners/NotifyTenantOnPaymentPlanApproved.php (new)",
+        "app/Listeners/NotifyTenantOnPaymentPlanRejected.php (new)",
+        "app/Listeners/NotifyTenantOnDepositRefundApproved.php (new)",
+        "app/Listeners/NotifyTenantOnDepositRefundRejected.php (new)",
+        "app/Listeners/NotifyTenantOnDepositRefundPaid.php (new)"
+      ],
+      "evidence": "WF-PAY-APPROVE-1 and -2 fire 5 events; without listeners the tenant has no idea their request was processed. Each listener implements ShouldQueue + Phase-16 backoff, calls NotificationService::send(recipientId=tenant_id, type='general', URGENCY_IMPORTANT) with templated subject + body. Listeners respect NotificationPreference matrix (Phase-28 TENANT-PROFILE-2). Tenants who opted out of general notifications still see in-app on Tenant/Dashboard (in_app channel is default-on for system types in NotificationPreference).",
+      "fix": "(a) 5 listener classes, each one wraps a single NotificationService::send call with the appropriate subject + body from lang/{en,sw}/tenant.php new keys (payment_plan.approved, payment_plan.rejected, deposit_refund.approved, deposit_refund.rejected, deposit_refund.paid); (b) listeners auto-discovered via Laravel 11+ event-listener auto-discovery (handle method type-hints the event); (c) Phase29PayApproveTest::test_approval_listener_notifies_tenant + test_rejection_listener_includes_reason + test_tenant_opt_out_via_notification_preference_blocks_dispatch (uses NotificationPreference to opt out of 'general' type)."
+    },
+    {
+      "id": "WF-CI-1",
+      "title": "Phase29WorkflowSurfaceTest — every Phase-29 scheduler is registered + every event has at least one listener",
+      "severity": "HIGH",
+      "files": [
+        "tests/Feature/Workflow/Phase29WorkflowSurfaceTest.php (new)"
+      ],
+      "evidence": "Mirrors Phase-28 TENANT-CI-1 pattern. Tomorrow a contributor adds a new Workflow event (e.g., LandlordTask::Completed) but forgets to register the listener. Or a scheduler command is deleted but the Schedule::command entry remains. Watchdog asserts: (a) every Phase29 scheduled command name (rent-reminders:dispatch, leases:scan-renewals, invoices:escalate-overdue, occupancy:audit) is present in Schedule::events() with the expected timezone; (b) every Phase29 event class (LeaseRenewalApproaching, InvoiceEscalated, VacancyDetected, OccupancyTargetBreached, PaymentPlan/DepositRefund Approved|Rejected|Paid) has at least one listener registered via Event::getListeners. Failure surfaces the missing registration with a helpful message.",
+      "fix": "(a) Phase29WorkflowSurfaceTest::test_every_phase29_scheduler_is_registered iterates the EXPECTED_SCHEDULES const ({command_name => {expression, timezone}}), asserts each entry exists in Schedule::events() with matching expression + timezone; (b) ::test_every_phase29_event_has_a_listener iterates the EXPECTED_EVENTS const (event class names array), asserts Event::getListeners($eventClass) is non-empty; (c) failure message lists the offending entry + the EXPECTED_SCHEDULES/EVENTS const it came from so the fix is obvious."
+    },
+    {
+      "id": "WF-CI-2",
+      "title": "workflow_runs_log table + workflow:health command — observability for which workflow fired what for whom",
+      "severity": "MEDIUM",
+      "files": [
+        "database/migrations/*_create_workflow_runs_log_table.php (new)",
+        "app/Models/WorkflowRunLog.php (new)",
+        "app/Services/WorkflowLogger.php (new — log(workflowName, target, action, metadata))",
+        "app/Console/Commands/WorkflowHealth.php (new)",
+        "routes/console.php (Schedule::command('workflow:health')->dailyAt('05:00')->timezone('Africa/Nairobi'))"
+      ],
+      "evidence": "When a landlord asks 'why did this tenant get this notification?', the answer requires tailing schedule.log + cross-referencing timestamps. The workflow_runs_log table records every workflow firing — workflow name (e.g., 'WF-RENT-REMIND-1'), target type + id (Lease/Invoice/Tenant), action taken (notification dispatched, task created, draft generated), metadata JSON. Each Phase-29 command + listener writes one row per firing. workflow:health command counts firings in the last 24h per workflow and alerts if any expected scheduler shows zero rows (silent failure).",
+      "fix": "(a) workflow_runs_log (id, landlord_id, workflow_name, target_type, target_id, action, metadata JSON, fired_at, timestamps + index on (landlord_id, workflow_name, fired_at) + index on (target_type, target_id)); (b) WorkflowLogger::log() helper called from each Phase-29 command/listener; (c) WorkflowRunLog model + scopeForWorkflow + scopeInLast24h; (d) WorkflowHealth command lists last_24h count per workflow, alerts via Log channel if expected workflow has zero rows; emits workflow_runs_total{workflow} gauge for Grafana; (e) Phase29CiTest::test_workflow_logger_writes_row + test_workflow_health_detects_silent_command + test_workflow_health_emits_gauge_per_workflow."
+    },
+    {
+      "id": "WF-CI-3",
+      "title": "docs/runbooks/workflow-automation.md — schedulers + events + listeners + ops procedures",
+      "severity": "LOW",
+      "files": [
+        "docs/runbooks/workflow-automation.md (new)"
+      ],
+      "evidence": "Phase-26 pwa.md + Phase-27 bi.md + Phase-28 tenant-portal.md establish the runbook convention. Phase 29 needs the same: scheduler table (command name + cadence + timezone + finding id), event-listener map, ops procedures (how to disable a workflow per-landlord, how to inspect workflow_runs_log, how to re-fire a missed run), CI gate references, deferrals.",
+      "fix": "(a) Sections: Overview, Scheduler table (5 new commands), Event-listener map (8 events), Schema additions (rent_reminder_policies, leases.reminder_tier, lease_renewals, landlord_tasks, eviction_notice_drafts, buildings.target_occupancy_rate, workflow_runs_log), Ability matrix entries (renewal:respond), Ops procedures (disable workflow per-landlord, inspect workflow_runs_log, manual re-fire), CI gates (Phase29WorkflowSurfaceTest + Phase29CiTest + per-finding watchdogs), Deferrals; (b) Phase29CiTest::test_runbook_lists_every_phase29_scheduler + test_runbook_lists_every_phase29_event + test_runbook_lists_every_phase29_test_class."
+    }
+  ]
+}
