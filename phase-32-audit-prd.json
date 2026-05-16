@@ -1,9 +1,9 @@
 {
   "phase": 32,
-  "title": "[SRE] operational excellence — alert-runbook coverage, alert quality, error budgets, operational incidents, dependency health",
+  "title": "[SRE] operational excellence \u00e2\u20ac\u201d alert-runbook coverage, alert quality, error budgets, operational incidents, dependency health",
   "opened_at": "2026-05-16",
   "tier": "5",
-  "scope": "Tier-5 operations + GTM, cycle 2 of 3 (per project_propmanager_path_forward.md). Phase 31 [ONBOARDING] closed 18/18; Phase 32 [SRE] is the operational-maturity cycle that turns the existing alert + SLO surface into a runnable on-call program. Today's surface: 29 runbooks under docs/runbooks/ (workflow-automation, integrations, onboarding, etc.) but NO machine-readable mapping of alert -> runbook; an alert fires, the on-call person has to grep docs/. config/observability.php defines slo.evaluation_window_days + per-route-class p95 budgets; slo:report aggregates http_request_ms but there is NO error-budget burn rate calculation, NO budget remaining gauge, NO multi-window burn-rate alert pattern. SecurityIncident model covers ATTACKS (failed logins, webhook signature floods, large exports) but there is NO operational incident model for non-security outages (DB slowdown, queue wedge, third-party Daraja outage). MetricsService emits ~30 gauges via Phase-22 + Phase-29 + Phase-30 + Phase-31 cadence but nothing tracks WHICH gauges actually trip thresholds (alert_firings table missing) — we cannot compute signal-to-noise per alert to identify the noisy ones that contribute to fatigue. failed-jobs-growth-monitor (Phase-5 OBS-13) pages on email-blast but there is NO structured alert registry to centralise on-call routing, severity, runbook link. Phase-13 BREACH-7 mentions 'post-incident review template' but no actual blameless-postmortem document exists. DependencyHealthService doesn't exist — no machine-checked status for Daraja/Paystack/IntaSend/SMTP/SMS/Redis upstream dependencies; if Daraja is down the only signal is failed M-Pesa transactions. No Phase32SreSurfaceTest watchdog. No lang/{en,sw}/sre.php (would Phase24CiTest reject the new keys). No docs/runbooks/sre.md (the runbook ABOUT runbooks). 18 findings across 6 categories: SRE-RUNBOOK (3 — alerts.yaml registry as single source of truth, RunbookCoverageAudit cron flagging alerts without a linked runbook, runbook-staleness audit comparing last-edited vs production fire frequency), SRE-ALERT (3 — alert_firings table + AlertFiringRecorder + alert:quality cron emitting alert_signal_to_noise_ratio gauges and alert_fatigue_count), SRE-BUDGET (3 — service_slos table per-tier, ErrorBudgetCalculator over rolling 30-day window, slo:budget-audit cron emitting service_slo_budget_remaining_pct + multi-window burn-rate gauges), SRE-INCIDENT (3 — operational_incidents table separate from SecurityIncident, blameless post-mortem markdown template + OpsIncidentController CRUD, mttr:audit cron emitting MTTR p50/p90 by severity), SRE-DEPS (3 — DependencyHealthService periodic poll of Daraja/Paystack/Redis/SMTP/SMS + dependency_health_status enum + outbound:health cron emitting dependency_up gauge + DegradationDetected event), SRE-CI (3 — Phase32SreSurfaceTest watchdog, lang/{en,sw}/sre.php namespace, docs/runbooks/sre.md). Severity 5H/8M/5L. Builds on Phase-13 SecurityIncident, Phase-14 OBSERV alert-thresholds.md, Phase-22 PERF-SLO + slo:report + MetricsService::gauge continuous-time-series, Phase-29 workflow:health silent-failure pattern, Phase-30 audit pattern, Phase-31 milestone-recorder idempotent-write pattern.",
+  "scope": "Tier-5 operations + GTM, cycle 2 of 3 (per project_propmanager_path_forward.md). Phase 31 [ONBOARDING] closed 18/18; Phase 32 [SRE] is the operational-maturity cycle that turns the existing alert + SLO surface into a runnable on-call program. Today's surface: 29 runbooks under docs/runbooks/ (workflow-automation, integrations, onboarding, etc.) but NO machine-readable mapping of alert -> runbook; an alert fires, the on-call person has to grep docs/. config/observability.php defines slo.evaluation_window_days + per-route-class p95 budgets; slo:report aggregates http_request_ms but there is NO error-budget burn rate calculation, NO budget remaining gauge, NO multi-window burn-rate alert pattern. SecurityIncident model covers ATTACKS (failed logins, webhook signature floods, large exports) but there is NO operational incident model for non-security outages (DB slowdown, queue wedge, third-party Daraja outage). MetricsService emits ~30 gauges via Phase-22 + Phase-29 + Phase-30 + Phase-31 cadence but nothing tracks WHICH gauges actually trip thresholds (alert_firings table missing) \u00e2\u20ac\u201d we cannot compute signal-to-noise per alert to identify the noisy ones that contribute to fatigue. failed-jobs-growth-monitor (Phase-5 OBS-13) pages on email-blast but there is NO structured alert registry to centralise on-call routing, severity, runbook link. Phase-13 BREACH-7 mentions 'post-incident review template' but no actual blameless-postmortem document exists. DependencyHealthService doesn't exist \u00e2\u20ac\u201d no machine-checked status for Daraja/Paystack/IntaSend/SMTP/SMS/Redis upstream dependencies; if Daraja is down the only signal is failed M-Pesa transactions. No Phase32SreSurfaceTest watchdog. No lang/{en,sw}/sre.php (would Phase24CiTest reject the new keys). No docs/runbooks/sre.md (the runbook ABOUT runbooks). 18 findings across 6 categories: SRE-RUNBOOK (3 \u00e2\u20ac\u201d alerts.yaml registry as single source of truth, RunbookCoverageAudit cron flagging alerts without a linked runbook, runbook-staleness audit comparing last-edited vs production fire frequency), SRE-ALERT (3 \u00e2\u20ac\u201d alert_firings table + AlertFiringRecorder + alert:quality cron emitting alert_signal_to_noise_ratio gauges and alert_fatigue_count), SRE-BUDGET (3 \u00e2\u20ac\u201d service_slos table per-tier, ErrorBudgetCalculator over rolling 30-day window, slo:budget-audit cron emitting service_slo_budget_remaining_pct + multi-window burn-rate gauges), SRE-INCIDENT (3 \u00e2\u20ac\u201d operational_incidents table separate from SecurityIncident, blameless post-mortem markdown template + OpsIncidentController CRUD, mttr:audit cron emitting MTTR p50/p90 by severity), SRE-DEPS (3 \u00e2\u20ac\u201d DependencyHealthService periodic poll of Daraja/Paystack/Redis/SMTP/SMS + dependency_health_status enum + outbound:health cron emitting dependency_up gauge + DegradationDetected event), SRE-CI (3 \u00e2\u20ac\u201d Phase32SreSurfaceTest watchdog, lang/{en,sw}/sre.php namespace, docs/runbooks/sre.md). Severity 5H/8M/5L. Builds on Phase-13 SecurityIncident, Phase-14 OBSERV alert-thresholds.md, Phase-22 PERF-SLO + slo:report + MetricsService::gauge continuous-time-series, Phase-29 workflow:health silent-failure pattern, Phase-30 audit pattern, Phase-31 milestone-recorder idempotent-write pattern.",
   "categories": [
     "SRE-RUNBOOK",
     "SRE-ALERT",
@@ -15,35 +15,41 @@
   "findings": [
     {
       "id": "SRE-RUNBOOK-1",
-      "title": "config/alerts.php registry — single source of truth for alerts",
+      "title": "config/alerts.php registry \u00e2\u20ac\u201d single source of truth for alerts",
       "severity": "HIGH",
       "files": [
         "config/alerts.php (new)"
       ],
       "evidence": "Today, alert metadata (name, severity, threshold, runbook URL) is spread across docs/runbooks/alert-thresholds.md (markdown table), config/observability.php (per-route budgets), and inline values in IncidentDetector + various artisan commands. Nobody can answer 'what is the canonical list of alerts and which runbook does each map to' without reading prose. The on-call person hit by 'failed_jobs growth alert' shouldn't have to grep code to find the runbook section.",
-      "fix": "(a) config/alerts.php returns array of alert definitions: ['key' => 'failed_jobs_growth', 'severity' => 'high', 'threshold' => 25, 'window' => '24h', 'gauge' => 'failed_jobs_count', 'runbook' => 'docs/runbooks/queue-triage.md#failed-jobs-growth', 'paging' => 'email|page', 'description' => '...']; (b) AlertRegistry::all() service returns the parsed array; (c) inventory the 20-ish alerts currently scattered."
+      "fix": "(a) config/alerts.php returns array of alert definitions: ['key' => 'failed_jobs_growth', 'severity' => 'high', 'threshold' => 25, 'window' => '24h', 'gauge' => 'failed_jobs_count', 'runbook' => 'docs/runbooks/queue-triage.md#failed-jobs-growth', 'paging' => 'email|page', 'description' => '...']; (b) AlertRegistry::all() service returns the parsed array; (c) inventory the 20-ish alerts currently scattered.",
+      "status": "closed",
+      "closed_commit": "ef09d56"
     },
     {
       "id": "SRE-RUNBOOK-2",
-      "title": "RunbookCoverageAudit cron — flag alerts with broken runbook links",
+      "title": "RunbookCoverageAudit cron \u00e2\u20ac\u201d flag alerts with broken runbook links",
       "severity": "MEDIUM",
       "files": [
         "app/Console/Commands/RunbookCoverageAudit.php (new)",
         "routes/console.php"
       ],
-      "evidence": "An alert with a runbook link pointing to a missing markdown anchor is silently broken — the on-call person clicks, gets a 404 or the wrong section, and improvises. Without an audit nobody notices until they're paged at 3am.",
-      "fix": "(a) artisan runbook:coverage-audit walks AlertRegistry::all() and for each entry verifies the runbook file exists AND the anchor (everything after #) matches a heading in the markdown; (b) emits runbook_coverage_broken_links_count gauge; (c) prints a table of broken refs to stdout for CI mode; (d) Schedule weeklyOn Sunday 06:00 Africa/Nairobi."
+      "evidence": "An alert with a runbook link pointing to a missing markdown anchor is silently broken \u00e2\u20ac\u201d the on-call person clicks, gets a 404 or the wrong section, and improvises. Without an audit nobody notices until they're paged at 3am.",
+      "fix": "(a) artisan runbook:coverage-audit walks AlertRegistry::all() and for each entry verifies the runbook file exists AND the anchor (everything after #) matches a heading in the markdown; (b) emits runbook_coverage_broken_links_count gauge; (c) prints a table of broken refs to stdout for CI mode; (d) Schedule weeklyOn Sunday 06:00 Africa/Nairobi.",
+      "status": "closed",
+      "closed_commit": "ef09d56"
     },
     {
       "id": "SRE-RUNBOOK-3",
-      "title": "Runbook staleness gauge — runbooks not edited in 180 days that back active alerts",
+      "title": "Runbook staleness gauge \u00e2\u20ac\u201d runbooks not edited in 180 days that back active alerts",
       "severity": "LOW",
       "files": [
         "app/Console/Commands/RunbookStalenessAudit.php (new)",
         "routes/console.php"
       ],
-      "evidence": "A runbook that hasn't been touched in 180 days while its alert fires monthly is suspicious — either the runbook is wrong or the alert is. Either way an operator should look.",
-      "fix": "(a) artisan runbook:staleness-audit walks AlertRegistry, stat()s each runbook file, computes days since modification; emits runbook_staleness_days{runbook=X} gauge AND runbook_stale_count (count where days > 180); (b) Schedule weeklyOn Sunday 06:30."
+      "evidence": "A runbook that hasn't been touched in 180 days while its alert fires monthly is suspicious \u00e2\u20ac\u201d either the runbook is wrong or the alert is. Either way an operator should look.",
+      "fix": "(a) artisan runbook:staleness-audit walks AlertRegistry, stat()s each runbook file, computes days since modification; emits runbook_staleness_days{runbook=X} gauge AND runbook_stale_count (count where days > 180); (b) Schedule weeklyOn Sunday 06:30.",
+      "status": "closed",
+      "closed_commit": "ef09d56"
     },
     {
       "id": "SRE-ALERT-1",
@@ -55,7 +61,9 @@
         "app/Services/Sre/AlertFiringRecorder.php (new)"
       ],
       "evidence": "Currently a gauge crossing a threshold dispatches an alert (email or queue check) but there is no PERSISTED log of which alerts fired, when, with what value. Cannot compute alert-fatigue metrics, cannot answer 'how often does the failed_jobs alert fire false-positive vs true-positive', cannot do post-mortem retrospectives on alert behaviour. The log is the foundation for SRE-ALERT-2 (signal-to-noise) and SRE-BUDGET-3 (multi-window burn rate alerts).",
-      "fix": "(a) Migration alert_firings(alert_key, severity, value, threshold, fired_at, resolved_at, acknowledged_by, acknowledgement_note, metadata json); (b) Model with no TenantScope (system-wide); (c) AlertFiringRecorder::record(alertKey, value, threshold, metadata) + ::resolve(alertKey) + ::acknowledge(alertKey, userId, note); (d) refactor IncidentDetector + failed-jobs-growth-monitor to call the recorder."
+      "fix": "(a) Migration alert_firings(alert_key, severity, value, threshold, fired_at, resolved_at, acknowledged_by, acknowledgement_note, metadata json); (b) Model with no TenantScope (system-wide); (c) AlertFiringRecorder::record(alertKey, value, threshold, metadata) + ::resolve(alertKey) + ::acknowledge(alertKey, userId, note); (d) refactor IncidentDetector + failed-jobs-growth-monitor to call the recorder.",
+      "status": "closed",
+      "closed_commit": "7e9e4d4"
     },
     {
       "id": "SRE-ALERT-2",
@@ -65,8 +73,10 @@
         "app/Console/Commands/AlertQualityAudit.php (new)",
         "routes/console.php"
       ],
-      "evidence": "Once alert_firings exists we can score each alert's quality: signal_count = fires resolved by operator action; noise_count = fires auto-resolved within 5min (probably transient blip); ratio = signal / (signal+noise). A ratio below 0.5 is alert fatigue territory and the threshold should be retuned. Without this, on-call people learn to ignore the noisy alerts — exactly the muscle memory you don't want.",
-      "fix": "(a) artisan alert:quality emits alert_signal_to_noise_ratio{alert_key=X} for each alert over the last 30 days, AND alert_fatigue_count (count of alerts where ratio < 0.5); (b) Schedule dailyAt 06:00 Africa/Nairobi onOneServer."
+      "evidence": "Once alert_firings exists we can score each alert's quality: signal_count = fires resolved by operator action; noise_count = fires auto-resolved within 5min (probably transient blip); ratio = signal / (signal+noise). A ratio below 0.5 is alert fatigue territory and the threshold should be retuned. Without this, on-call people learn to ignore the noisy alerts \u00e2\u20ac\u201d exactly the muscle memory you don't want.",
+      "fix": "(a) artisan alert:quality emits alert_signal_to_noise_ratio{alert_key=X} for each alert over the last 30 days, AND alert_fatigue_count (count of alerts where ratio < 0.5); (b) Schedule dailyAt 06:00 Africa/Nairobi onOneServer.",
+      "status": "closed",
+      "closed_commit": "7e9e4d4"
     },
     {
       "id": "SRE-ALERT-3",
@@ -77,7 +87,9 @@
         "app/Listeners/LogAlertFiring.php (new)"
       ],
       "evidence": "Alert fires should flow into the same workflow_runs_log pipe as Phase-29 workflows + Phase-31 milestones so workflow:health surfaces alert volume alongside cron health.",
-      "fix": "(a) AlertFiringRecorded event fired by recorder; (b) LogAlertFiring listener auto-discovered, writes WorkflowLogger row workflowName='alert:fired' action=alert_key."
+      "fix": "(a) AlertFiringRecorded event fired by recorder; (b) LogAlertFiring listener auto-discovered, writes WorkflowLogger row workflowName='alert:fired' action=alert_key.",
+      "status": "closed",
+      "closed_commit": "7e9e4d4"
     },
     {
       "id": "SRE-BUDGET-1",
@@ -88,8 +100,10 @@
         "app/Models/ServiceSlo.php (new)",
         "app/Services/Sre/ErrorBudgetCalculator.php (new)"
       ],
-      "evidence": "slo.md documents target uptime per tier (99.5%, 99.9%, etc.) but those numbers live in markdown only — not in the database, not enforced, not measured. ErrorBudgetCalculator needs a typed source: per-service window + objective + good/bad indicator queries. Without first-class storage, budget calculations are fragile to refactors.",
-      "fix": "(a) Migration service_slos(service_key, tier, window_days, objective_pct, good_indicator_metric, bad_indicator_metric, is_active); (b) Model (no TenantScope, system-wide); (c) ErrorBudgetCalculator::compute(serviceKey) returns ['target_pct', 'achieved_pct', 'budget_total_minutes', 'budget_consumed_minutes', 'budget_remaining_pct', 'burn_rate_1h', 'burn_rate_6h']; (d) seed the 4 tiers from slo.md as the initial rows."
+      "evidence": "slo.md documents target uptime per tier (99.5%, 99.9%, etc.) but those numbers live in markdown only \u00e2\u20ac\u201d not in the database, not enforced, not measured. ErrorBudgetCalculator needs a typed source: per-service window + objective + good/bad indicator queries. Without first-class storage, budget calculations are fragile to refactors.",
+      "fix": "(a) Migration service_slos(service_key, tier, window_days, objective_pct, good_indicator_metric, bad_indicator_metric, is_active); (b) Model (no TenantScope, system-wide); (c) ErrorBudgetCalculator::compute(serviceKey) returns ['target_pct', 'achieved_pct', 'budget_total_minutes', 'budget_consumed_minutes', 'budget_remaining_pct', 'burn_rate_1h', 'burn_rate_6h']; (d) seed the 4 tiers from slo.md as the initial rows.",
+      "status": "closed",
+      "closed_commit": "c7989ec"
     },
     {
       "id": "SRE-BUDGET-2",
@@ -99,8 +113,10 @@
         "app/Console/Commands/SloBudgetAudit.php (new)",
         "routes/console.php"
       ],
-      "evidence": "ErrorBudgetCalculator is internal — the operator-visible signal is a Prometheus gauge. Without continuous emission the budget remaining is unknown until someone runs slo:report manually.",
-      "fix": "(a) artisan slo:budget-audit walks active ServiceSlos, calls ErrorBudgetCalculator::compute, emits service_slo_budget_remaining_pct{service=X} + service_slo_burn_rate_1h{service=X} + service_slo_burn_rate_6h{service=X} gauges; (b) Schedule everyFifteenMinutes Africa/Nairobi onOneServer (matches Phase-22 PERF-SLO cadence)."
+      "evidence": "ErrorBudgetCalculator is internal \u00e2\u20ac\u201d the operator-visible signal is a Prometheus gauge. Without continuous emission the budget remaining is unknown until someone runs slo:report manually.",
+      "fix": "(a) artisan slo:budget-audit walks active ServiceSlos, calls ErrorBudgetCalculator::compute, emits service_slo_budget_remaining_pct{service=X} + service_slo_burn_rate_1h{service=X} + service_slo_burn_rate_6h{service=X} gauges; (b) Schedule everyFifteenMinutes Africa/Nairobi onOneServer (matches Phase-22 PERF-SLO cadence).",
+      "status": "closed",
+      "closed_commit": "c7989ec"
     },
     {
       "id": "SRE-BUDGET-3",
@@ -110,19 +126,23 @@
         "app/Services/Sre/ErrorBudgetCalculator.php",
         "app/Services/Sre/AlertFiringRecorder.php"
       ],
-      "evidence": "Google's SRE Workbook multi-window burn rate (1h fast, 6h slow) is the industry standard for SLO alerting — fires only when budget is being consumed fast AND sustained. Single-window (1h) alone produces too many false positives. The Phase-32 path stitches the burn-rate calculator (SRE-BUDGET-1) to the alert recorder (SRE-ALERT-1).",
-      "fix": "(a) SloBudgetAudit cron computes 1h + 6h burn rates per service; (b) if 1h burn > 14.4x AND 6h burn > 6x for any service, fires AlertFiringRecorder->record('slo_budget_fast_burn', value, threshold, metadata=[service, ratio_1h, ratio_6h]); (c) entry in config/alerts.php registry."
+      "evidence": "Google's SRE Workbook multi-window burn rate (1h fast, 6h slow) is the industry standard for SLO alerting \u00e2\u20ac\u201d fires only when budget is being consumed fast AND sustained. Single-window (1h) alone produces too many false positives. The Phase-32 path stitches the burn-rate calculator (SRE-BUDGET-1) to the alert recorder (SRE-ALERT-1).",
+      "fix": "(a) SloBudgetAudit cron computes 1h + 6h burn rates per service; (b) if 1h burn > 14.4x AND 6h burn > 6x for any service, fires AlertFiringRecorder->record('slo_budget_fast_burn', value, threshold, metadata=[service, ratio_1h, ratio_6h]); (c) entry in config/alerts.php registry.",
+      "status": "closed",
+      "closed_commit": "c7989ec"
     },
     {
       "id": "SRE-INCIDENT-1",
-      "title": "operational_incidents table — non-security operational events",
+      "title": "operational_incidents table \u00e2\u20ac\u201d non-security operational events",
       "severity": "HIGH",
       "files": [
         "database/migrations/.../create_operational_incidents.php (new)",
         "app/Models/OperationalIncident.php (new)"
       ],
       "evidence": "SecurityIncident (Phase-13) covers attacks (failed logins, webhook signature floods, large exports). It does NOT cover OPERATIONAL incidents: queue wedge, DB slowdown, Daraja outage, dependency degradation. Today an op-incident lives only in the slack message + the operator's memory. Without first-class storage, MTTR cannot be measured, post-mortems cannot be linked, repeat incidents cannot be detected.",
-      "fix": "(a) Migration operational_incidents(title, severity enum [sev1, sev2, sev3, sev4], status enum [open, investigating, mitigated, resolved], opened_at, mitigated_at, resolved_at, opened_by_user_id, resolved_by_user_id, affected_services json, summary, root_cause, post_mortem_url); (b) Model (system-wide, no TenantScope); (c) status machine guard methods (canMitigate, canResolve)."
+      "fix": "(a) Migration operational_incidents(title, severity enum [sev1, sev2, sev3, sev4], status enum [open, investigating, mitigated, resolved], opened_at, mitigated_at, resolved_at, opened_by_user_id, resolved_by_user_id, affected_services json, summary, root_cause, post_mortem_url); (b) Model (system-wide, no TenantScope); (c) status machine guard methods (canMitigate, canResolve).",
+      "status": "closed",
+      "closed_commit": "1fbf1a5"
     },
     {
       "id": "SRE-INCIDENT-2",
@@ -134,7 +154,9 @@
         "routes/web.php"
       ],
       "evidence": "Phase-13 BREACH-7 mentions a 30-day review for SecurityIncidents but there is no actual template document landlords/ops can use. Industry-standard blameless post-mortem (summary, timeline, root cause, contributing factors, customer impact, action items with owners + due dates) is the artefact every Tier-5 SaaS produces. Need both the template AND the controller to record the URL + status against an OperationalIncident.",
-      "fix": "(a) post-mortem-template.md with the 7 standard sections; (b) OpsIncidentController::index|store|show|update|setPostMortem — admin-only middleware; (c) routes under /ops/incidents/*."
+      "fix": "(a) post-mortem-template.md with the 7 standard sections; (b) OpsIncidentController::index|store|show|update|setPostMortem \u00e2\u20ac\u201d admin-only middleware; (c) routes under /ops/incidents/*.",
+      "status": "closed",
+      "closed_commit": "1fbf1a5"
     },
     {
       "id": "SRE-INCIDENT-3",
@@ -145,17 +167,21 @@
         "routes/console.php"
       ],
       "evidence": "MTTR (mean time to resolve) is the canonical SRE leadership metric. Without it leadership cannot see whether incident response is getting better or worse over quarters.",
-      "fix": "(a) artisan mttr:audit walks operational_incidents resolved in last 90 days; computes mttr_minutes per severity; emits operational_incident_mttr_p50_minutes{severity=X} + operational_incident_mttr_p90_minutes{severity=X} gauges; (b) Schedule weeklyOn Monday 06:45 Africa/Nairobi."
+      "fix": "(a) artisan mttr:audit walks operational_incidents resolved in last 90 days; computes mttr_minutes per severity; emits operational_incident_mttr_p50_minutes{severity=X} + operational_incident_mttr_p90_minutes{severity=X} gauges; (b) Schedule weeklyOn Monday 06:45 Africa/Nairobi.",
+      "status": "closed",
+      "closed_commit": "1fbf1a5"
     },
     {
       "id": "SRE-DEPS-1",
-      "title": "DependencyHealthService — periodic upstream poll",
+      "title": "DependencyHealthService \u00e2\u20ac\u201d periodic upstream poll",
       "severity": "HIGH",
       "files": [
         "app/Services/Sre/DependencyHealthService.php (new)"
       ],
-      "evidence": "If Daraja goes down, our only signal is failed M-Pesa transactions piling up — minutes-to-hours later. A dedicated health-check service that pings each upstream every 5 minutes catches degradations BEFORE they show as customer impact. Industry pattern: every SaaS at scale has a 'status page checker' for its dependencies.",
-      "fix": "(a) DependencyHealthService::check(depKey) returns ['status' => 'up|degraded|down', 'latency_ms' => N, 'checked_at' => now]; supports 'daraja', 'paystack', 'intasend', 'smtp' (via Mail::raw to a test address blackholed), 'sms', 'redis' (ping); (b) per-dep timeout = 5s, no retry (the check itself should not hide degradation); (c) idempotent via short Cache::add (60s) so multiple invocations within a minute coalesce."
+      "evidence": "If Daraja goes down, our only signal is failed M-Pesa transactions piling up \u00e2\u20ac\u201d minutes-to-hours later. A dedicated health-check service that pings each upstream every 5 minutes catches degradations BEFORE they show as customer impact. Industry pattern: every SaaS at scale has a 'status page checker' for its dependencies.",
+      "fix": "(a) DependencyHealthService::check(depKey) returns ['status' => 'up|degraded|down', 'latency_ms' => N, 'checked_at' => now]; supports 'daraja', 'paystack', 'intasend', 'smtp' (via Mail::raw to a test address blackholed), 'sms', 'redis' (ping); (b) per-dep timeout = 5s, no retry (the check itself should not hide degradation); (c) idempotent via short Cache::add (60s) so multiple invocations within a minute coalesce.",
+      "status": "closed",
+      "closed_commit": "7b97378"
     },
     {
       "id": "SRE-DEPS-2",
@@ -165,8 +191,10 @@
         "app/Console/Commands/OutboundHealthCheck.php (new)",
         "routes/console.php"
       ],
-      "evidence": "Service is internal — need a cron that walks the dep list every 5 minutes and emits a Prometheus gauge so Grafana can alert on outages.",
-      "fix": "(a) artisan outbound:health-check walks configured dependencies; emits dependency_up{dep=X} (1 = up, 0.5 = degraded, 0 = down) + dependency_latency_ms{dep=X}; (b) Schedule everyFiveMinutes Africa/Nairobi onOneServer; (c) on transition from up->down, fires DegradationDetected event."
+      "evidence": "Service is internal \u00e2\u20ac\u201d need a cron that walks the dep list every 5 minutes and emits a Prometheus gauge so Grafana can alert on outages.",
+      "fix": "(a) artisan outbound:health-check walks configured dependencies; emits dependency_up{dep=X} (1 = up, 0.5 = degraded, 0 = down) + dependency_latency_ms{dep=X}; (b) Schedule everyFiveMinutes Africa/Nairobi onOneServer; (c) on transition from up->down, fires DegradationDetected event.",
+      "status": "closed",
+      "closed_commit": "7b97378"
     },
     {
       "id": "SRE-DEPS-3",
@@ -177,7 +205,9 @@
         "app/Listeners/LogDegradationDetected.php (new)"
       ],
       "evidence": "Degradation events must flow into the unified workflow_runs_log so workflow:health and the operator dashboard surface them alongside other operational events.",
-      "fix": "(a) DegradationDetected dispatched from OutboundHealthCheck on transition; (b) LogDegradationDetected listener auto-discovered, writes WorkflowLogger row workflowName='dependency:degradation' action='up_to_down|down_to_up', metadata with previous + current status."
+      "fix": "(a) DegradationDetected dispatched from OutboundHealthCheck on transition; (b) LogDegradationDetected listener auto-discovered, writes WorkflowLogger row workflowName='dependency:degradation' action='up_to_down|down_to_up', metadata with previous + current status.",
+      "status": "closed",
+      "closed_commit": "7b97378"
     },
     {
       "id": "SRE-CI-1",
@@ -187,7 +217,9 @@
         "tests/Feature/Sre/Phase32SreSurfaceTest.php (new)"
       ],
       "evidence": "Phase 29-31 established the surface-watchdog pattern. Phase 32 ships 6 crons (runbook:coverage-audit, runbook:staleness-audit, alert:quality, slo:budget-audit, mttr:audit, outbound:health-check) + 2 events (AlertFiringRecorded, DegradationDetected) + 1 i18n namespace (sre). Without the watchdog, a future refactor can silently drop a cron.",
-      "fix": "(a) test_every_phase32_scheduler_is_registered_with_correct_cadence: EXPECTED_SCHEDULES asserts all 6 crons with cron expression + Africa/Nairobi; (b) test_every_phase32_event_has_a_listener: EXPECTED_EVENTS = [AlertFiringRecorded, DegradationDetected]; (c) test_phase32_sre_lang_namespace_exists_with_parity asserts lang/{en,sw}/sre.php loadable + key sets identical."
+      "fix": "(a) test_every_phase32_scheduler_is_registered_with_correct_cadence: EXPECTED_SCHEDULES asserts all 6 crons with cron expression + Africa/Nairobi; (b) test_every_phase32_event_has_a_listener: EXPECTED_EVENTS = [AlertFiringRecorded, DegradationDetected]; (c) test_phase32_sre_lang_namespace_exists_with_parity asserts lang/{en,sw}/sre.php loadable + key sets identical.",
+      "status": "closed",
+      "closed_commit": "7b97378"
     },
     {
       "id": "SRE-CI-2",
@@ -198,7 +230,9 @@
         "lang/sw/sre.php (new)"
       ],
       "evidence": "Every new user-facing string (incident creation UI labels, post-mortem template headers, alert acknowledgement form) must have an English + Swahili pair. Phase24CiTest enforces key-set identity (ORDER must match); the sw file is built mirror-of-en upfront.",
-      "fix": "Mirror sections for: incident (status_open, status_investigating, status_mitigated, status_resolved, severity_sev1, severity_sev2, severity_sev3, severity_sev4), alert (acknowledge_button, acknowledged_success), post_mortem (heading, sections.summary, sections.timeline, sections.root_cause, sections.contributing_factors, sections.customer_impact, sections.action_items, sections.lessons_learned), dependency (status_up, status_degraded, status_down)."
+      "fix": "Mirror sections for: incident (status_open, status_investigating, status_mitigated, status_resolved, severity_sev1, severity_sev2, severity_sev3, severity_sev4), alert (acknowledge_button, acknowledged_success), post_mortem (heading, sections.summary, sections.timeline, sections.root_cause, sections.contributing_factors, sections.customer_impact, sections.action_items, sections.lessons_learned), dependency (status_up, status_degraded, status_down).",
+      "status": "closed",
+      "closed_commit": "7b97378"
     },
     {
       "id": "SRE-CI-3",
@@ -207,8 +241,37 @@
       "files": [
         "docs/runbooks/sre.md (new)"
       ],
-      "evidence": "Phase 28-31 established the runbook cadence. Phase 32 IS the SRE phase — it needs its own runbook that lists the alert registry behaviour, the error-budget burn-rate decision tree, when to declare an OperationalIncident vs a SecurityIncident, how to file a blameless post-mortem, dependency-health interpretation.",
-      "fix": "Sections: Overview (Phase 32 surface map), Alert registry (config/alerts.php contract + how to add an alert), Error budgets (how the burn-rate calculation works, multi-window rationale, when to halt deploys), Operational incidents (sev1-4 definitions, declaring vs resolving, post-mortem cadence), Dependency health (5-minute poll cadence, upstream-by-upstream remediation), CI gates (Phase32SreSurfaceTest + alert:quality + slo:budget-audit + runbook:coverage-audit), Deferrals."
+      "evidence": "Phase 28-31 established the runbook cadence. Phase 32 IS the SRE phase \u00e2\u20ac\u201d it needs its own runbook that lists the alert registry behaviour, the error-budget burn-rate decision tree, when to declare an OperationalIncident vs a SecurityIncident, how to file a blameless post-mortem, dependency-health interpretation.",
+      "fix": "Sections: Overview (Phase 32 surface map), Alert registry (config/alerts.php contract + how to add an alert), Error budgets (how the burn-rate calculation works, multi-window rationale, when to halt deploys), Operational incidents (sev1-4 definitions, declaring vs resolving, post-mortem cadence), Dependency health (5-minute poll cadence, upstream-by-upstream remediation), CI gates (Phase32SreSurfaceTest + alert:quality + slo:budget-audit + runbook:coverage-audit), Deferrals.",
+      "status": "closed",
+      "closed_commit": "7b97378"
     }
-  ]
+  ],
+  "audit_closeout": {
+    "closed_at": "2026-05-16",
+    "total_findings": 18,
+    "closed": 18,
+    "deferrals": 0,
+    "commits": [
+      "b5339f6",
+      "ef09d56",
+      "7e9e4d4",
+      "c7989ec",
+      "1fbf1a5",
+      "7b97378"
+    ],
+    "tier_milestone": "TIER 5 cycle 2 of 3 (Phase 32 [SRE])",
+    "test_summary": {
+      "phase_32_added": 35,
+      "breakdown": {
+        "Phase32RunbookCoverageTest": 8,
+        "Phase32AlertFiringTest": 7,
+        "Phase32ErrorBudgetTest": 5,
+        "Phase32IncidentTest": 6,
+        "Phase32DependencyHealthTest": 6,
+        "Phase32SreSurfaceTest": 3,
+        "regression_phase24_i18n": 2
+      }
+    }
+  }
 }
