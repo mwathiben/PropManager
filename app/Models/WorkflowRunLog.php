@@ -22,6 +22,8 @@ class WorkflowRunLog extends Model
         'target_type',
         'target_id',
         'action',
+        'duration_ms',
+        'started_at',
         'metadata',
         'fired_at',
     ];
@@ -29,6 +31,8 @@ class WorkflowRunLog extends Model
     protected $casts = [
         'metadata' => 'array',
         'fired_at' => 'datetime',
+        'started_at' => 'datetime',
+        'duration_ms' => 'integer',
     ];
 
     public function scopeForWorkflow(Builder $query, string $workflowName): Builder

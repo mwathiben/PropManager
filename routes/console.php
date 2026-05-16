@@ -553,3 +553,12 @@ Schedule::command('notifications:preference-drift-audit')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase35-platform-notif3-drift-audit');
+
+// Phase-36 INSIGHT-CRON-2/3: per-command + total cron runtime
+// gauge + high_cron_runtime alert. Runs at 04:30 — sixth in the
+// Phase 34-35 growth cluster, after Phase-35 product:rollup 04:25.
+Schedule::command('cron:budget-audit')
+    ->dailyAt('04:30')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase36-insight-cron23-budget-audit');

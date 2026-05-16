@@ -176,5 +176,17 @@ return [
             'paging' => 'email',
             'description' => 'A paying landlord exceeded 1.5x plan limit on a metered feature — overage outreach recommended.',
         ],
+
+        // Phase-36 INSIGHT-CRON-3
+        [
+            'key' => 'high_cron_runtime',
+            'severity' => 'sev3',
+            'threshold' => 60,
+            'window' => '24h',
+            'gauge' => 'cron_runtime_total_minutes_24h',
+            'runbook' => 'docs/runbooks/insight.md',
+            'paging' => 'email',
+            'description' => 'Total daily cron runtime exceeded 60 minutes — investigate per-command profiling.',
+        ],
     ],
 ];
