@@ -216,6 +216,24 @@ Route::middleware('auth')->group(function () {
         ->name('help.contextual');
     Route::get('/api/help/search', [\App\Http\Controllers\Onboarding\HelpSearchController::class, 'search'])
         ->name('help.search');
+
+    // Phase-31 ONB-EMPTY-1/3: milestone-checklist surface + dismiss flag
+    Route::get('/api/onboarding/milestones', [\App\Http\Controllers\Onboarding\MilestoneStatusController::class, 'status'])
+        ->name('onboarding.milestones.status');
+    Route::post('/api/onboarding/checklist/dismiss', [\App\Http\Controllers\Onboarding\MilestoneStatusController::class, 'dismiss'])
+        ->name('onboarding.checklist.dismiss');
+
+    // Phase-32 SRE-INCIDENT-2: operational incident CRUD (super_admin only)
+    Route::middleware('role:super_admin')->group(function () {
+        Route::get('/ops/incidents', [\App\Http\Controllers\Sre\OpsIncidentController::class, 'index'])
+            ->name('ops.incidents.index');
+        Route::post('/ops/incidents', [\App\Http\Controllers\Sre\OpsIncidentController::class, 'store'])
+            ->name('ops.incidents.store');
+        Route::post('/ops/incidents/{incident}/status', [\App\Http\Controllers\Sre\OpsIncidentController::class, 'setStatus'])
+            ->name('ops.incidents.set-status');
+        Route::post('/ops/incidents/{incident}/post-mortem', [\App\Http\Controllers\Sre\OpsIncidentController::class, 'setPostMortem'])
+            ->name('ops.incidents.post-mortem');
+    });
     // Legacy routes for backward compatibility
     Route::get('/onboarding/create', [OnboardingController::class, 'create'])->name('onboarding.create');
     Route::post('/onboarding/store', [OnboardingController::class, 'store'])->name('onboarding.store');

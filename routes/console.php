@@ -381,3 +381,10 @@ Schedule::command('slo:budget-audit')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase32-sre-budget23-audit');
+
+// Phase-32 SRE-INCIDENT-3: weekly MTTR (p50/p90) per-severity emission.
+Schedule::command('mttr:audit')
+    ->weeklyOn(1, '06:45')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase32-sre-incident3-mttr');
