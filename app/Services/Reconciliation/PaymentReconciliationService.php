@@ -58,7 +58,31 @@ class PaymentReconciliationService
             return $this->emptyResult();
         }
 
-        $localPayments = $this->paymentsForLandlord($landlordId)
+        if ($this->stripeService === null) {
+            return $this->emptyResult();
+        }
+        $this->stripeService->withConfig($config);
+
+        $localPayments = $this->fetchLocalStripePayments($landlordId, $from, $to);
+        $remoteCharges = $this->stripeService->listCharges($from, $to);
+
+        $remoteNormalised = [];
+        foreach ($remoteCharges as $id => $charge) {
+            $remoteNormalised[$id] = TransactionAdapter::fromStripe($charge);
+        }
+
+        return $this->compareLedgers($localPayments, $remoteNormalised, 'stripe');
+    }
+
+    /**
+     * @return array<string, Payment>
+     */
+    protected function fetchLocalStripePayments(
+        int $landlordId,
+        CarbonImmutable $from,
+        CarbonImmutable $to,
+    ): array {
+        $payments = $this->paymentsForLandlord($landlordId)
             ->where('payment_method', 'stripe')
             ->whereNotNull('paystack_reference')
             ->where('is_voided', false)
@@ -66,12 +90,76 @@ class PaymentReconciliationService
             ->select(['id', 'paystack_reference', 'amount', 'currency', 'payment_date', 'landlord_id'])
             ->get();
 
-        // Phase 1e ships local-only audit; remote diff arrives in Phase 41.
+        $keyed = [];
+        foreach ($payments as $payment) {
+            $ref = $payment->paystack_reference;
+            if (! isset($keyed[$ref])) {
+                $keyed[$ref] = $payment;
+            }
+        }
+
+        return $keyed;
+    }
+
+    /**
+     * Phase-41 GATEWAY-RECONCILE-DEEP-2: gateway-agnostic compare loop.
+     * Inputs are already normalised — local Payment[] keyed by reference,
+     * remote canonical {reference,amount_minor,currency,status}[] also
+     * keyed by reference. Used by reconcilePaystack + reconcileStripe.
+     */
+    protected function compareLedgers(array $localPayments, array $remoteNormalised, string $gateway): ReconciliationResult
+    {
+        $discrepancies = [];
+        $matchedCount = 0;
+
+        foreach ($remoteNormalised as $reference => $remote) {
+            $remoteAmountMajor = ($currency = Currency::tryFrom($remote['currency']))
+                ? $currency->fromMinorUnits($remote['amount_minor'])
+                : ($remote['amount_minor'] / 100);
+
+            if (! isset($localPayments[$reference])) {
+                $discrepancies[] = ReconciliationDiscrepancy::missingLocally(
+                    reference: $reference,
+                    remoteAmount: $remoteAmountMajor,
+                    currency: $remote['currency'],
+                    remoteStatus: $remote['status'],
+                );
+
+                continue;
+            }
+
+            $localAmount = (float) $localPayments[$reference]->amount;
+
+            if (abs($localAmount - $remoteAmountMajor) > ReconciliationResult::TOLERANCE) {
+                $discrepancies[] = ReconciliationDiscrepancy::amountMismatch(
+                    reference: $reference,
+                    localAmount: $localAmount,
+                    remoteAmount: $remoteAmountMajor,
+                    currency: $remote['currency'],
+                    remoteStatus: $remote['status'],
+                );
+
+                continue;
+            }
+
+            $matchedCount++;
+        }
+
+        foreach ($localPayments as $reference => $localPayment) {
+            if (! isset($remoteNormalised[$reference])) {
+                $discrepancies[] = ReconciliationDiscrepancy::missingRemotely(
+                    reference: $reference,
+                    localAmount: (float) $localPayment->amount,
+                    currency: $localPayment->currency?->value ?? 'KES',
+                );
+            }
+        }
+
         return new ReconciliationResult(
-            discrepancies: [],
-            localCount: $localPayments->count(),
-            remoteCount: 0,
-            matchedCount: 0,
+            discrepancies: $discrepancies,
+            localCount: count($localPayments),
+            remoteCount: count($remoteNormalised),
+            matchedCount: $matchedCount,
             reconciledAt: now()->toIso8601String(),
         );
     }
@@ -96,7 +184,14 @@ class PaymentReconciliationService
         $remoteTransactions = $this->fetchAllPaystackTransactions($from, $to);
         $localPayments = $this->fetchLocalPaystackPayments($landlordId, $from, $to);
 
-        return $this->compare($localPayments, $remoteTransactions);
+        // Phase-41 GATEWAY-RECONCILE-DEEP-2 + 3: normalise via adapter then
+        // delegate to gateway-agnostic compareLedgers.
+        $remoteNormalised = [];
+        foreach ($remoteTransactions as $ref => $txn) {
+            $remoteNormalised[$ref] = TransactionAdapter::fromPaystack($txn);
+        }
+
+        return $this->compareLedgers($localPayments, $remoteNormalised, 'paystack');
     }
 
     /**
@@ -177,81 +272,6 @@ class PaymentReconciliationService
         }
 
         return $keyed;
-    }
-
-    /**
-     * @param  array<string, Payment>  $localPayments
-     * @param  array<string, array<string, mixed>>  $remoteTransactions
-     */
-    protected function compare(array $localPayments, array $remoteTransactions): ReconciliationResult
-    {
-        $discrepancies = [];
-        $matchedCount = 0;
-
-        foreach ($remoteTransactions as $reference => $remoteTxn) {
-            $remoteAmountMajor = $this->toMajorUnits($remoteTxn);
-            $remoteCurrency = $remoteTxn['currency'] ?? 'KES';
-            $remoteStatus = $remoteTxn['status'] ?? 'unknown';
-
-            if (! isset($localPayments[$reference])) {
-                $discrepancies[] = ReconciliationDiscrepancy::missingLocally(
-                    reference: $reference,
-                    remoteAmount: $remoteAmountMajor,
-                    currency: $remoteCurrency,
-                    remoteStatus: $remoteStatus,
-                );
-
-                continue;
-            }
-
-            $localAmount = (float) $localPayments[$reference]->amount;
-
-            if (abs($localAmount - $remoteAmountMajor) > ReconciliationResult::TOLERANCE) {
-                $discrepancies[] = ReconciliationDiscrepancy::amountMismatch(
-                    reference: $reference,
-                    localAmount: $localAmount,
-                    remoteAmount: $remoteAmountMajor,
-                    currency: $remoteCurrency,
-                    remoteStatus: $remoteStatus,
-                );
-
-                continue;
-            }
-
-            $matchedCount++;
-        }
-
-        foreach ($localPayments as $reference => $localPayment) {
-            if (! isset($remoteTransactions[$reference])) {
-                $discrepancies[] = ReconciliationDiscrepancy::missingRemotely(
-                    reference: $reference,
-                    localAmount: (float) $localPayment->amount,
-                    currency: $localPayment->currency?->value ?? 'KES',
-                );
-            }
-        }
-
-        return new ReconciliationResult(
-            discrepancies: $discrepancies,
-            localCount: count($localPayments),
-            remoteCount: count($remoteTransactions),
-            matchedCount: $matchedCount,
-            reconciledAt: now()->toIso8601String(),
-        );
-    }
-
-    protected function toMajorUnits(array $remoteTxn): float
-    {
-        $amountMinor = (int) ($remoteTxn['amount'] ?? 0);
-        $currencyCode = $remoteTxn['currency'] ?? 'KES';
-
-        $currency = Currency::tryFrom($currencyCode);
-
-        if ($currency) {
-            return $currency->fromMinorUnits($amountMinor);
-        }
-
-        return $amountMinor / 100;
     }
 
     // SCOPE-D4: a single funnel for any per-landlord Payment query in this

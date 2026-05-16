@@ -14,6 +14,7 @@ use Stripe\Exception\SignatureVerificationException;
 use Stripe\PaymentIntent;
 use Stripe\Refund;
 use Stripe\StripeClient;
+use Carbon\CarbonImmutable;
 use Stripe\Webhook;
 
 /**
@@ -161,6 +162,47 @@ class StripeService
         } catch (ApiErrorException $e) {
             return ['status' => false, 'message' => $e->getMessage()];
         }
+    }
+
+    /**
+     * Phase-41 GATEWAY-RECONCILE-DEEP-1: paginated remote charge fetch
+     * for reconciliation. Returns array keyed by charge.id with the
+     * raw Stripe Charge objects so PaymentReconciliationService can
+     * normalise via TransactionAdapter::fromStripe.
+     */
+    public function listCharges(CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        $this->ensureConfigured();
+
+        $result = [];
+        $startingAfter = null;
+        do {
+            $params = [
+                'created' => ['gte' => $from->getTimestamp(), 'lte' => $to->getTimestamp()],
+                'limit' => 100,
+            ];
+            if ($startingAfter !== null) {
+                $params['starting_after'] = $startingAfter;
+            }
+
+            try {
+                $page = $this->client()->charges->all($params);
+            } catch (ApiErrorException $e) {
+                Log::warning('stripe listCharges failed', ['error' => $e->getMessage()]);
+                break;
+            }
+
+            foreach ($page->data as $charge) {
+                $result[$charge->id] = $charge;
+            }
+
+            $hasMore = (bool) ($page->has_more ?? false);
+            $startingAfter = $hasMore && ! empty($page->data)
+                ? end($page->data)->id
+                : null;
+        } while ($startingAfter !== null);
+
+        return $result;
     }
 
     public function refund(string $paymentIntentId, ?int $amountMinorUnits = null): ?array
