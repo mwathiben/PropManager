@@ -11,33 +11,47 @@ use App\Models\User;
 use App\Services\IncidentDetector;
 use App\Services\SecurityLogger;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
-class AdminController extends Controller
+class AdminController extends Controller implements HasMiddleware
 {
+    /**
+     * Phase-18 AUTHZ-3: route through Gate::authorize('access-admin')
+     * instead of inline isSuperAdmin() checks scattered across each
+     * action. Two effects:
+     *   - Phase-13 DPA-4 Gate::before restriction now applies (a
+     *     DPA-restricted super-admin was previously NOT actually
+     *     restricted because the inline check bypassed the Gate
+     *     layer)
+     *   - Future authorization concerns (2FA, IP allowlist, etc.)
+     *     attach to one Gate definition rather than 10+ inline
+     *     checks
+     * The 'impersonate' / 'admin.disable-impersonate' paths retain
+     * their own per-action Gate::allows('impersonate', $target)
+     * because they pass a target.
+     *
+     * Laravel 11 removed the controller-side $this->middleware() method;
+     * HasMiddleware + static middleware() is the supported replacement.
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(function ($request, $next) {
+                Gate::authorize('access-admin');
+
+                return $next($request);
+            }, except: ['stopImpersonating']),
+        ];
+    }
+
     public function __construct(private readonly SecurityLogger $securityLogger)
     {
-        // Phase-18 AUTHZ-3: route through Gate::authorize('access-admin')
-        // instead of inline isSuperAdmin() checks scattered across each
-        // action. Two effects:
-        //   - Phase-13 DPA-4 Gate::before restriction now applies (a
-        //     DPA-restricted super-admin was previously NOT actually
-        //     restricted because the inline check bypassed the Gate
-        //     layer)
-        //   - Future authorization concerns (2FA, IP allowlist, etc.)
-        //     attach to one Gate definition rather than 10+ inline
-        //     checks
-        // The 'impersonate' / 'admin.disable-impersonate' paths retain
-        // their own per-action Gate::allows('impersonate', $target)
-        // because they pass a target.
-        $this->middleware(function ($request, $next) {
-            \Illuminate\Support\Facades\Gate::authorize('access-admin');
-
-            return $next($request);
-        })->except(['stopImpersonating']);
     }
 
     /**
