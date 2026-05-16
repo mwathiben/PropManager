@@ -1071,6 +1071,12 @@ Route::middleware(['auth', 'verified', 'role:super_admin'])->prefix('admin')->gr
         Route::get('/history', [AdminBillingController::class, 'history'])->name('history');
         Route::post('/preview-fee', [AdminBillingController::class, 'previewFee'])->name('preview-fee');
     });
+
+    // Phase-40 GATEWAY-PREF-2: super_admin per-landlord gateway switcher.
+    Route::get('/gateways', [\App\Http\Controllers\Admin\AdminGatewaysController::class, 'index'])
+        ->name('admin.gateways.index');
+    Route::post('/gateways/{user}/preference', [\App\Http\Controllers\Admin\AdminGatewaysController::class, 'update'])
+        ->name('admin.gateways.update');
 });
 
 // Stop impersonating (available to anyone being impersonated)

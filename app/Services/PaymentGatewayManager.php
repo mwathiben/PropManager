@@ -149,4 +149,19 @@ class PaymentGatewayManager
 
         return $this->gateway($name);
     }
+
+    /**
+     * Phase-40 GATEWAY-PREF-1: per-user override of currency-based
+     * routing. payment_gateway_preference = 'auto' falls back to
+     * routeFor(currency); explicit paystack/stripe forces that gateway.
+     */
+    public function routeForUser(\App\Models\User $user, Currency|string $currency): PaymentGatewayInterface
+    {
+        $pref = $user->payment_gateway_preference ?? 'auto';
+        if ($pref === 'auto') {
+            return $this->routeFor($currency);
+        }
+
+        return $this->gateway($pref);
+    }
 }
