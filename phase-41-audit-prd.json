@@ -199,5 +199,71 @@
       "evidence": "Phase 40 runbook covered the top-level surface. Phase 41 adds payment_intent webhook flow, Connect onboarding playbook, checkout routing, plan-sync drift response. Each needs a section.",
       "fix": "Sections: 'Stripe webhook event coverage' table (event → handler → side-effect), 'Connect Express onboarding flow' (super_admin → /admin/connect-accounts → onboarding link → status sync), 'Checkout routing' (Currency × preference truth table), 'Plan-sync drift playbook' (when subscription_plan_drift fires, decide app-wins or Stripe-wins). Plus 'Phase 42 [PAYMENTS-INTL] handoff notes' (tax/VAT line items, full bidirectional plan sync, Stripe Connect Standard, multi-currency cart, payment-method save+reuse)."
     }
-  ]
+  ],
+  "audit_closeout": {
+    "closed_at": "2026-05-17",
+    "closing_commit": "f82113b",
+    "findings_total": 18,
+    "findings_shipped": 18,
+    "findings_deferred": 0,
+    "phase_commits": [
+      "cb687fc docs(phase-41): [GATEWAY-DEEP] audit PRD baseline (18 findings)",
+      "11e3563 Phase 41 Phase 1a — GATEWAY-RECONCILE-DEEP-1/2/3 (Stripe charges.list + compareLedgers + TransactionAdapter)",
+      "00f8822 Phase 41 Phase 1b — GATEWAY-WEBHOOK-DEEP-1/2/3/4 (4 new webhook handlers + PaymentRefundedExternal event)",
+      "3f5c1d1 Phase 41 Phase 1c — GATEWAY-CONNECT-1/2/3 (StripeConnectService + stripe_connect_* columns + account.updated)",
+      "d00ac59 Phase 41 Phase 1d — GATEWAY-CHECKOUT-1/2/3 (initializeCheckout routeForUser + receipt currency assertion)",
+      "3cd1432 Phase 41 Phase 1e — GATEWAY-PLAN-SYNC-1/2/3 (stripe:plan-sync cron + price.updated webhook + drift gauge)",
+      "f82113b Phase 41 Phase 2 — GATEWAY-DEEP-CI watchdog + runbook expansion — Phase 41 COMPLETE"
+    ],
+    "tests_added": [
+      "tests/Feature/Gateway/Phase41ReconcileDeepTest.php — 6 tests (TransactionAdapter normalisation + listCharges signature + compareLedgers presence)",
+      "tests/Feature/Gateway/Phase41WebhookDeepTest.php — 6 tests (4 handler arms + intent-level idempotency + unknown event fallthrough)",
+      "tests/Feature/Gateway/Phase41ConnectTest.php — 7 tests (schema columns + service unconfigured fallback + webhook acceptance + defaults)",
+      "tests/Feature/Gateway/Phase41CheckoutTest.php — 3 tests (route registration + unconfigured-gateway rejection + receipt KES literal invariant)",
+      "tests/Feature/Gateway/Phase41PlanSyncTest.php — 4 tests (unconfigured noop + schedule binding + drift webhook + unknown-plan silent)",
+      "tests/Feature/Gateway/Phase41GatewayDeepSurfaceTest.php — 9 tests (cycle watchdog: every Phase-41 surface element)"
+    ],
+    "tests_total": 35,
+    "schema_changes": [
+      "payment_configurations: stripe_connect_account_id (encrypted text) + stripe_connect_status string + stripe_connect_charges_enabled boolean + stripe_connect_payouts_enabled boolean"
+    ],
+    "new_crons": {
+      "stripe:plan-sync": "35 4 * * 1 Africa/Nairobi onOneServer — weekly Monday push of active SubscriptionPlan rows to Stripe Prices via StripeSubscriptionService::createOrUpdatePlan; emits stripe_plan_sync_count + stripe_plan_sync_failed_count gauges"
+    },
+    "new_alerts": {},
+    "new_routes_web": [
+      "POST /invoices/{invoice}/checkout/initialize payments.checkout.initialize tenant+landlord (Phase-41 GATEWAY-CHECKOUT-2 — gateway-agnostic checkout)"
+    ],
+    "behavior_changes": {
+      "PaymentReconciliationService": "reconcileStripe now does a real remote-vs-local diff via StripeService::listCharges + compareLedgers; compare() and toMajorUnits() removed as dead code after the hoist into the shared compareLedgers helper.",
+      "StripeWebhookController": "match-arm dispatch grew from str_starts_with-only to 6 event-type branches (customer.subscription.*, payment_intent.succeeded, charge.refunded, invoice.payment_failed, charge.dispute.created, account.updated, price.updated).",
+      "PaymentController::initializeCheckout": "new gateway-agnostic endpoint replacing the call-site choice between PaystackService/StripeService — picks via PaymentGatewayManager::routeForUser($landlord, $currency). Legacy initializePaystack stays for back-compat.",
+      "PaymentConfiguration::hasStripeConfig": "unchanged; adjacent stripe_connect_* columns hydrated by StripeConnectService::syncAccountStatus."
+    },
+    "new_services": [
+      "App\\Services\\StripeConnectService — system-wide Express-account onboarding + status sync",
+      "App\\Services\\Reconciliation\\TransactionAdapter — canonical {reference,amount_minor,currency,status} shape for Paystack arrays + Stripe Charge objects"
+    ],
+    "new_events": [
+      "App\\Events\\PaymentRefundedExternal — dispatched by handleChargeRefunded when a gateway-initiated refund flips a local Payment to voided"
+    ],
+    "new_commands": [
+      "stripe:plan-sync [--billing-cycle=monthly] — weekly app→Stripe Price sync"
+    ],
+    "new_webhook_handlers": [
+      "payment_intent.succeeded (idempotent Payment row creation)",
+      "charge.refunded (Payment.is_voided + PaymentRefundedExternal event)",
+      "invoice.payment_failed (Subscription.status → past_due)",
+      "charge.dispute.created (OperationalIncident sev3 row)",
+      "account.updated (Connect status sync via StripeConnectService)",
+      "price.updated (subscription_plan_drift gauge emission)"
+    ],
+    "config_additions": [],
+    "pre_existing_bugs_caught": [
+      "PaymentObserver enforces lease.landlord_id == payment.landlord_id — caught during webhook test fixture setup; documented as a required invariant for Stripe-side payment_intent metadata.",
+      "Settings table NOT-NULL landlord_id incompatible with Setting::setSystem (carried from Phase 40 — already documented; webhook tests stay on config() pattern)."
+    ],
+    "deferrals": [],
+    "tier_status": "Tier-7 cycle 5 closed. 18/18 findings shipped, zero deferrals to backlog. Stripe gateway is now production-ready end-to-end: real remote-vs-local reconciliation diff, 6 webhook event types covered, Connect Express onboarding wired, gateway-agnostic checkout endpoint, weekly plan-sync, drift detection. Phase 42 [PAYMENTS-INTL] queued: Kenya VAT/tax line items, opt-in auto-resolve for plan drift, Stripe Connect Standard, multi-currency cart, payment-method save+reuse, stripe-balance-audit cron, Stripe Customer ↔ User mapping table. Handoff notes in docs/runbooks/payments.md."
+  }
 }
