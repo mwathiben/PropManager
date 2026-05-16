@@ -38,6 +38,9 @@ class ActivationNudge extends Command
             if (! $landlord?->email || $landlord->role !== 'landlord') {
                 continue;
             }
+            if (! app(\App\Services\Platform\LifecycleOptInChecker::class)->allows($landlord)) {
+                continue;
+            }
             // One nudge per 7-day window per landlord (don't spam).
             $cacheKey = sprintf('activation_nudge:%d:%s', $landlord->id, now()->format('Y-W'));
             if (! Cache::add($cacheKey, true, now()->addDays(7))) {

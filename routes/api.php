@@ -57,6 +57,12 @@ Route::prefix('v1')->group(function () {
         Route::post('/auth/logout', [\App\Http\Controllers\Api\AuthController::class, 'logout']);
         Route::get('/auth/user', [\App\Http\Controllers\Api\AuthController::class, 'user']);
 
+        // Phase-35 PLATFORM-NOTIF-2: notification preferences self-serve
+        Route::get('/notifications/preferences', [\App\Http\Controllers\Settings\NotificationPreferenceController::class, 'show'])
+            ->name('api.v1.notifications.preferences.show');
+        Route::post('/notifications/preferences', [\App\Http\Controllers\Settings\NotificationPreferenceController::class, 'update'])
+            ->name('api.v1.notifications.preferences.update');
+
         // Tenant routes (mobile app)
         Route::prefix('tenant')->middleware('ability:tenant:read')->group(function () {
             // Current lease

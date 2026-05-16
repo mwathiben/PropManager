@@ -46,6 +46,9 @@ class TrialEndingReminder extends Command
                 if (! $sub->user || ! $sub->user->email) {
                     continue;
                 }
+                if (! $this->lifecycleOptedIn($sub->user)) {
+                    continue;
+                }
                 Mail::to($sub->user->email)->queue(new TrialEndingMailable($sub, $daysRemaining));
                 $sent++;
             }
@@ -54,5 +57,10 @@ class TrialEndingReminder extends Command
         $this->info(sprintf('Queued %d trial-ending reminder(s).', $sent));
 
         return self::SUCCESS;
+    }
+
+    private function lifecycleOptedIn(\App\Models\User $user): bool
+    {
+        return app(\App\Services\Platform\LifecycleOptInChecker::class)->allows($user);
     }
 }

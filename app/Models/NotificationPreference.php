@@ -27,6 +27,10 @@ class NotificationPreference extends Model
         'eviction_notice_enabled',
         'caretaker_invitation_enabled',
         'tenant_invitation_enabled',
+        // Phase-35 PLATFORM-NOTIF-1: landlord-facing lifecycle email
+        // campaigns (trial-ending, dunning, winback, activation nudge).
+        // Default true — opt-out is explicit.
+        'lifecycle_enabled',
         // Channel preferences
         'email_enabled',
         'sms_enabled',
@@ -57,6 +61,7 @@ class NotificationPreference extends Model
         'eviction_notice_enabled' => 'boolean',
         'caretaker_invitation_enabled' => 'boolean',
         'tenant_invitation_enabled' => 'boolean',
+        'lifecycle_enabled' => 'boolean',
         // Channel casts
         'email_enabled' => 'boolean',
         'sms_enabled' => 'boolean',

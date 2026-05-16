@@ -52,6 +52,9 @@ class DunningEmails extends Command
                 if (! $sub->user?->email) {
                     continue;
                 }
+                if (! app(\App\Services\Platform\LifecycleOptInChecker::class)->allows($sub->user)) {
+                    continue;
+                }
                 Mail::to($sub->user->email)->queue(new DunningReminderMailable($sub, $daysSince));
                 $sent++;
 

@@ -544,3 +544,12 @@ Schedule::command('subscriptions:apply-downgrades')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase35-platform-billing2-apply-downgrades');
+
+// Phase-35 PLATFORM-NOTIF-3: weekly preference-drift audit. Runs
+// Sunday 07:00 Africa/Nairobi onOneServer — after the Phase-32
+// 06:00/06:30 Sunday cluster.
+Schedule::command('notifications:preference-drift-audit')
+    ->weeklyOn(0, '07:00')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase35-platform-notif3-drift-audit');
