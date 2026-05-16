@@ -1,0 +1,108 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Phase-32 SRE-RUNBOOK-1: single source of truth for every alert that
+ * pages or emails the on-call rotation. Every entry must have:
+ *
+ *   - key         : stable machine identifier (snake_case)
+ *   - severity    : sev1|sev2|sev3|sev4 — drives paging policy
+ *   - threshold   : numeric value the gauge must cross to fire
+ *   - window      : human-readable window (matches the gauge's window)
+ *   - gauge       : the Prometheus gauge name this alert reads
+ *   - runbook     : path-and-anchor pointing at docs/runbooks/X.md#anchor
+ *   - paging      : email|page|both (page = real pager / phone)
+ *   - description : one-line operator-facing summary
+ *
+ * SRE-RUNBOOK-2 (runbook:coverage-audit) walks this list and verifies
+ * every runbook reference resolves to an existing markdown file and
+ * heading. SRE-ALERT-1 (AlertFiringRecorder) records firings keyed on
+ * `key`. SRE-CI-1 (Phase32SreSurfaceTest) asserts the registry is
+ * loadable + has at least one entry per category.
+ */
+
+return [
+    'alerts' => [
+        [
+            'key' => 'failed_jobs_growth',
+            'severity' => 'sev3',
+            'threshold' => 25,
+            'window' => '24h',
+            'gauge' => 'failed_jobs_count_24h',
+            'runbook' => 'docs/runbooks/queue-triage.md',
+            'paging' => 'email',
+            'description' => 'failed_jobs table grew by more than threshold rows in last 24h.',
+        ],
+        [
+            'key' => 'queue_depth_high',
+            'severity' => 'sev2',
+            'threshold' => 1000,
+            'window' => 'instantaneous',
+            'gauge' => 'queue_depth',
+            'runbook' => 'docs/runbooks/queue-triage.md',
+            'paging' => 'page',
+            'description' => 'Workers not keeping up with queue depth.',
+        ],
+        [
+            'key' => 'webhook_dead_letter_unresolved',
+            'severity' => 'sev2',
+            'threshold' => 50,
+            'window' => 'instantaneous',
+            'gauge' => 'webhook_dead_letter_unresolved_count',
+            'runbook' => 'docs/runbooks/integrations.md#how-to-investigate',
+            'paging' => 'page',
+            'description' => 'Webhook dead-letter backlog exceeded threshold.',
+        ],
+        [
+            'key' => 'backup_age_overdue',
+            'severity' => 'sev2',
+            'threshold' => 24,
+            'window' => 'instantaneous',
+            'gauge' => 'backup_age_hours',
+            'runbook' => 'docs/runbooks/disaster-recovery.md',
+            'paging' => 'page',
+            'description' => 'Most recent successful backup is older than threshold hours.',
+        ],
+        [
+            'key' => 'slo_budget_fast_burn',
+            'severity' => 'sev1',
+            'threshold' => 14.4,
+            'window' => '1h',
+            'gauge' => 'service_slo_burn_rate_1h',
+            'runbook' => 'docs/runbooks/slo.md',
+            'paging' => 'page',
+            'description' => 'Multi-window burn-rate alert: 1h burn > 14.4x AND 6h burn > 6x.',
+        ],
+        [
+            'key' => 'dependency_down',
+            'severity' => 'sev2',
+            'threshold' => 0,
+            'window' => 'instantaneous',
+            'gauge' => 'dependency_up',
+            'runbook' => 'docs/runbooks/circuit-breaker.md',
+            'paging' => 'page',
+            'description' => 'An upstream dependency (Daraja, Paystack, Redis, SMTP, SMS) is down.',
+        ],
+        [
+            'key' => 'workflow_silent_failure',
+            'severity' => 'sev3',
+            'threshold' => 0,
+            'window' => '24h',
+            'gauge' => 'workflow_runs_total',
+            'runbook' => 'docs/runbooks/workflow-automation.md',
+            'paging' => 'email',
+            'description' => 'A Phase-29 workflow command produced zero workflow_runs_log rows in the last 24h.',
+        ],
+        [
+            'key' => 'onboarding_stalled_users_spike',
+            'severity' => 'sev4',
+            'threshold' => 25,
+            'window' => '24h',
+            'gauge' => 'onboarding_stalled_count',
+            'runbook' => 'docs/runbooks/onboarding.md#how-to-investigate',
+            'paging' => 'email',
+            'description' => '8-30 day stall bucket exceeded threshold — onboarding UX friction signal.',
+        ],
+    ],
+];

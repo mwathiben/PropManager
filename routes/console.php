@@ -348,3 +348,18 @@ Schedule::command('activation:audit')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase31-onb-ttfi2-audit');
+
+// Phase-32 SRE-RUNBOOK-2: weekly validation that every alert in
+// config/alerts.php points at an existing runbook file + heading.
+Schedule::command('runbook:coverage-audit')
+    ->weeklyOn(0, '06:00')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase32-sre-runbook2-coverage');
+
+// Phase-32 SRE-RUNBOOK-3: weekly per-runbook staleness gauge.
+Schedule::command('runbook:staleness-audit')
+    ->weeklyOn(0, '06:30')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase32-sre-runbook3-staleness');
