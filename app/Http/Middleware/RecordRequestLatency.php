@@ -51,12 +51,18 @@ class RecordRequestLatency
             }
 
             $elapsedMs = (microtime(true) - $start) * 1000;
+            $routeName = $request->route()?->getName() ?: 'unmatched';
 
             $this->metrics->observe('http_request_ms', $elapsedMs, [
-                'route' => $request->route()?->getName() ?: 'unmatched',
+                'route' => $routeName,
                 'method' => $request->getMethod(),
                 'status' => $this->statusClass($response->getStatusCode()),
             ]);
+
+            // Phase-35 PLATFORM-ANALYTICS-2: fire a page_view product
+            // event sampled by config('platform.analytics_sample_rate',
+            // 0.1). Skip health endpoints (noise) + non-2xx responses.
+            $this->maybeRecordPageView($request, $response, $routeName);
         } catch (\Throwable) {
             // Fail-open and SILENT. This runs in terminate(), after the
             // response is already sent — the user is unaffected no matter
@@ -66,6 +72,38 @@ class RecordRequestLatency
             // facade leave it in a state where Log::channel() can return
             // null). A dropped latency sample is simply not worth the risk.
         }
+    }
+
+    private function maybeRecordPageView(Request $request, Response $response, string $routeName): void
+    {
+        $status = $response->getStatusCode();
+        if ($status >= 400) {
+            return;
+        }
+        if (in_array($routeName, ['unmatched', 'api.health', 'api.v1.health'], true)) {
+            return;
+        }
+        if (str_contains($routeName, 'health')) {
+            return;
+        }
+
+        $sampleRate = (float) config('platform.analytics_sample_rate', 0.1);
+        if ($sampleRate <= 0.0) {
+            return;
+        }
+        if ($sampleRate < 1.0 && mt_rand(1, 10000) > (int) ($sampleRate * 10000)) {
+            return;
+        }
+
+        app(\App\Services\Platform\ProductEventTracker::class)->track(
+            'page_view',
+            [
+                'route_name' => $routeName,
+                'method' => $request->getMethod(),
+                'status' => $this->statusClass($status),
+            ],
+            $request->user(),
+        );
     }
 
     private function statusClass(int $status): string

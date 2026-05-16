@@ -526,3 +526,12 @@ Schedule::command('metered:soft-cap-audit')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase35-platform-meter23-soft-cap-audit');
+
+// Phase-35 PLATFORM-ANALYTICS-3: nightly product-event rollup. Runs
+// at 04:25 — fifth in the 04:00 growth cluster, after metered:
+// soft-cap-audit 04:20.
+Schedule::command('product:rollup')
+    ->dailyAt('04:25')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase35-platform-analytics3-rollup');
