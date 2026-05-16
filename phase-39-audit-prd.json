@@ -201,5 +201,71 @@
       "evidence": "Phase 39 surfaces 3 new subsystems (analytics forwarder, exp stats v2, archive read path) + extends 2 (push, observability). Each needs an operator playbook. Plus Phase 40 STRIPE-GATEWAY handoff notes so the next cycle picks up cleanly.",
       "fix": "Sections: Overview (Phase 39 surface map), Analytics forwarder (PostHog setup + replay flow + flap playbook), Experimentation v2 (multi-variant chi-square + Bayesian posterior + alpha-spending opt-in via metadata + interpretation guide), Push deep-link contract (clickUrl parameter migration guide + iOS install-first FAQ + /ops/push test runner howto), Archive read path (rehydrate command + manifest cache + /ops/archive/search), Observability (vendor metrics + flap alert response), CI gates, Tier-7 cycle 4 = Phase 40 [STRIPE-GATEWAY] handoff (PaymentGatewayContract interface boundary, KES↔USD currency mapping, dual-gateway operator pivot strategy)."
     }
-  ]
+  ],
+  "audit_closeout": {
+    "closed_at": "2026-05-16",
+    "closing_commit": "c6bd1d6",
+    "findings_total": 18,
+    "findings_shipped": 18,
+    "findings_deferred": 0,
+    "phase_commits": [
+      "841bea3 docs(phase-39): [GROWTH-VENDORS-2] audit PRD baseline (18 findings)",
+      "8211f3f feat(phase-39): Phase 1a — VENDOR-ANALYTICS-1/2/3 + VENDOR-OBSERV-2 alert",
+      "533e2d7 feat(phase-39): Phase 1b — EXP-STATS-2-1/2/3 (chi-square + Bayesian + alpha-spending)",
+      "3edbff7 feat(phase-39): Phase 1c — PUSH-EXTEND-1/2/3 (clickUrl + iOS guide + /ops/push)",
+      "a19fcfd feat(phase-39): Phase 1d — RETENTION-READ-1/2/3 (rehydrate + manifest + search UI)",
+      "e768a0e feat(phase-39): Phase 1e — VENDOR-OBSERV-1/2 (click-through audit + flap)",
+      "c6bd1d6 feat(phase-39): Phase 2 — VENDOR-CI-1/2/3 — Phase 39 COMPLETE"
+    ],
+    "tests_added": [
+      "tests/Feature/Vendors/Phase39AnalyticsForwarderTest.php — 6 tests (PostHog adapter, replay batch, config defaults)",
+      "tests/Feature/Vendors/Phase39ExperimentStatsTest.php — 6 tests (chi-square + Bayesian + alpha-spending)",
+      "tests/Feature/Vendors/Phase39PushExtendTest.php — 5 tests (clickUrl signature + /ops/push gating + validation)",
+      "tests/Feature/Vendors/Phase39RetentionReadTest.php — 9 tests (rehydrate + manifest + search UI)",
+      "tests/Feature/Vendors/Phase39VendorObservTest.php — 5 tests (click-through audit + alert config + schedule)",
+      "tests/Feature/Vendors/Phase39VendorSurfaceTest.php — 6 tests (cycle watchdog: schedules + alerts + routes + lang parity)"
+    ],
+    "tests_total": 37,
+    "schema_changes": [
+      "rehydrated_product_events (new): id + original_id + user_id + landlord_id + event_name + properties + original_created_at + rehydrated_at + source_path; indexes (landlord_id, original_created_at) + (rehydrated_at) — scratch table for archive rehydrate"
+    ],
+    "new_crons": {
+      "analytics:replay-batch": "45 4 * * * Africa/Nairobi onOneServer — forwards product_events to AnalyticsForwarderInterface (PostHog when enabled, noop otherwise); fires vendor_flap when error_rate > 0.10",
+      "push:click-through-audit": "10 5 * * * Africa/Nairobi onOneServer — emits push_click_through_rate_24h, push_notifications_sent_24h, push_notifications_clicked_24h gauges from notifications channel=push"
+    },
+    "new_alerts": {
+      "vendor_flap": "sev4, threshold 0.10, gauge analytics_forwarder_error_rate, runbook docs/runbooks/vendors.md — fired when analytics forwarder rejection+retryable rate > 10% in current run (attempted >= 10)"
+    },
+    "new_routes_web": [
+      "GET  /ops/push           ops.push.show          super_admin (Phase-39 PUSH-EXTEND-3)",
+      "POST /ops/push           ops.push.send          super_admin (Phase-39 PUSH-EXTEND-3)",
+      "GET  /ops/archive/search ops.archive.show       super_admin (Phase-39 RETENTION-READ-3)",
+      "POST /ops/archive/rehydrate ops.archive.rehydrate super_admin (Phase-39 RETENTION-READ-3)"
+    ],
+    "behavior_changes": {
+      "PushNotificationService::send": "signature gained `?string $clickUrl = null` parameter; when provided, sets data.url which the SW notificationclick handler reads to deep-link the tab.",
+      "NotifyOnLeaseRenewalApproaching + NotifyTenantOnDepositRefundPaid": "data array now includes 'url' key so taps land on /leases/{id} and /tenant/refunds instead of /dashboard.",
+      "ExperimentService": "gained 3 statistical methods: computeChiSquareSignificance(N-arm), computeBayesianPosterior(Beta MC), computeAlphaSpendingBoundary(O'Brien-Fleming).",
+      "AnalyticsReplayBatch": "advances vendors:analytics:last-replayed-at cursor only when chunk.retryable === 0; preserves at-least-once semantics on partial failure."
+    },
+    "new_services": [
+      "app/Services/Vendors/AnalyticsForwarderInterface — flush(array): array {accepted, rejected, retryable, vendor}",
+      "app/Services/Vendors/PostHogForwarder — POST /batch with api_key envelope, 5xx → retryable, 4xx → rejected",
+      "app/Services/Vendors/NoopAnalyticsForwarder — bound when posthog.enabled=false; always returns 0/0/0",
+      "app/Services/Archive/ArchiveManifestService — Cache::remember-backed manifest of archive files per landlord/month"
+    ],
+    "new_commands": [
+      "archive:rehydrate --landlord= --month= [--clear-first] — gunzips product-events/{landlord}/{month}/events.jsonl.gz into rehydrated_product_events",
+      "analytics:replay-batch --chunk=100 --max-runtime-seconds=180 — forwards product_events to bound forwarder",
+      "push:click-through-audit — emits push_click_through_rate_24h gauges"
+    ],
+    "config_additions": [
+      "config/vendors.php (new) — posthog { enabled, api_key, host, sample_rate } block, default disabled",
+      "config/alerts.php gains vendor_flap (sev4)",
+      ".env.example documents VENDORS_POSTHOG_* env vars with safe defaults"
+    ],
+    "pre_existing_bugs_caught": [],
+    "deferrals": [],
+    "tier_status": "Tier-7 cycle 3 closed. 18/18 findings shipped, zero deferrals to backlog. Vendor analytics dark-launch ready (PostHog disabled by default — operator flips VENDORS_POSTHOG_ENABLED=true once project key provisioned). Multi-variant + Bayesian + alpha-spending statistics available for /ops/experiments. Push deep-link contract migrated for 4 listener paths. Archive read path covers RETENTION cycle. Next cycle Phase 40 [STRIPE-GATEWAY] queued: PaymentGatewayContract + StripeGateway impl + KES↔USD mapping + reconciliation cron — handoff notes in docs/runbooks/vendors.md."
+  }
 }
