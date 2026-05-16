@@ -372,3 +372,12 @@ Schedule::command('alert:quality')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase32-sre-alert2-quality');
+
+// Phase-32 SRE-BUDGET-2/3: per-service budget remaining + multi-window
+// burn-rate emission. Every 15 minutes matches Phase-22 PERF-SLO cadence
+// so the burn-rate gauge time series is dense enough for a 1h window.
+Schedule::command('slo:budget-audit')
+    ->everyFifteenMinutes()
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase32-sre-budget23-audit');
