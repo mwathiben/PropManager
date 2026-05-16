@@ -235,8 +235,19 @@ class SubscriptionController extends Controller
             return back()->with('error', 'No active subscription found.');
         }
 
-        $immediately = $request->boolean('immediately', false);
-        $this->subscriptionService->cancel($subscription, $immediately);
+        $validated = $request->validate([
+            'immediately' => 'sometimes|boolean',
+            'cancel_reason' => 'nullable|in:'.implode(',', \App\Models\Subscription::CANCEL_REASONS),
+            'cancel_feedback' => 'nullable|string|max:2000',
+        ]);
+
+        $immediately = (bool) ($validated['immediately'] ?? false);
+        $this->subscriptionService->cancel(
+            $subscription,
+            $immediately,
+            $validated['cancel_reason'] ?? null,
+            $validated['cancel_feedback'] ?? null,
+        );
 
         $message = $immediately
             ? 'Subscription cancelled immediately.'

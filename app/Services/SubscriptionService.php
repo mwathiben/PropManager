@@ -58,12 +58,26 @@ class SubscriptionService
     }
 
     /**
-     * Cancel subscription
+     * Cancel subscription.
+     *
+     * Phase-34 GROWTH-CHURN-1: $reason + $feedback capture the
+     * voluntary/involuntary split. Unknown reasons throw — the form
+     * MUST send a valid enum value (no silent NULL persistence).
      */
-    public function cancel(Subscription $subscription, bool $immediately = false): Subscription
-    {
+    public function cancel(
+        Subscription $subscription,
+        bool $immediately = false,
+        ?string $reason = null,
+        ?string $feedback = null,
+    ): Subscription {
+        if ($reason !== null && ! in_array($reason, Subscription::CANCEL_REASONS, true)) {
+            throw new \InvalidArgumentException("Unknown cancel_reason: {$reason}");
+        }
+
         $updateData = [
             'cancelled_at' => now(),
+            'cancel_reason' => $reason,
+            'cancel_feedback' => $feedback,
             'ends_at' => $immediately ? now() : $subscription->current_period_end,
         ];
 

@@ -462,3 +462,12 @@ Schedule::command('mrr:snapshot')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase34-growth-mrr2-snapshot');
+
+// Phase-34 GROWTH-CHURN-3: weekly churn + cohort retention audit +
+// high_churn_rate alert. Runs Monday 06:00 — before Phase-32 mttr:
+// audit Monday 06:45 so both surface in the same operator review.
+Schedule::command('churn:audit')
+    ->weeklyOn(1, '06:00')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase34-growth-churn3-audit');

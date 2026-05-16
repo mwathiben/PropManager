@@ -25,9 +25,20 @@ class Subscription extends Model
         'current_period_start',
         'current_period_end',
         'cancelled_at',
+        'cancel_reason',
+        'cancel_feedback',
         'ends_at',
         'paystack_subscription_code',
         'paystack_customer_code',
+    ];
+
+    public const CANCEL_REASONS = [
+        'too_expensive',
+        'missing_features',
+        'switching_competitor',
+        'business_closing',
+        'technical_issues',
+        'other',
     ];
 
     protected $casts = [

@@ -140,5 +140,17 @@ return [
             'paging' => 'email',
             'description' => 'One landlord exceeds 5x median log volume — investigate noisy webhook or error loop.',
         ],
+
+        // Phase-34 GROWTH-CHURN-3
+        [
+            'key' => 'high_churn_rate',
+            'severity' => 'sev2',
+            'threshold' => 0.05,
+            'window' => '30d',
+            'gauge' => 'subscription_monthly_churn_rate',
+            'runbook' => 'docs/runbooks/growth.md',
+            'paging' => 'email',
+            'description' => 'Monthly subscription churn rate exceeded 5% — investigate cancel_reason distribution.',
+        ],
     ],
 ];
