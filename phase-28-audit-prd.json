@@ -1,0 +1,294 @@
+{
+  "project": "PropManager",
+  "audit_cycle": "phase-28",
+  "audit_date": "2026-05-16",
+  "scope": "Tier-4 product depth, cycle 1 of 3 (per project_propmanager_path_forward.md). Tier 3 closed COMPLETE: Phase 25 [API-SURFACE] + Phase 26 [MOBILE + PWA] + Phase 27 [REPORTING + BI] all 18/18 zero deferrals. Phase 28 [TENANT-PORTAL] addresses tenant-self-service depth — today the tenant surface is functional but landlord-shaped: Profile/Edit.vue is the same component for landlord + tenant (surfaces business-tab + danger-zone irrelevant to tenants), there is no tenant statement viewer (audit-trail of charges + payments), no dedicated tenant document repository (lease PDF + receipts + KYC), no payment plan / installment negotiation, no maintenance ticket SLA tracking, no deposit refund request flow, no per-tenant abilities map in Inertia share, no surface watchdog asserting future tenant routes carry policy + middleware. Tenants are second-class users today; institutional landlords with 200+ units cannot offload routine queries (\"what's my balance\", \"can I pay in 3 installments\", \"when will my deposit be refunded\") to a self-serve portal, so support load stays on the landlord. 18 findings across 6 categories: TENANT-PROFILE (3 — dedicated TenantProfileController + Profile.vue, notification preferences granularity, locale picker), TENANT-STATEMENT (3 — StatementService + Statement.vue PDF/xlsx export, email-me-statement), TENANT-DOCS (3 — Documents.vue repository, receipt PDF download, expiry warnings), TENANT-MAINT (3 — ticket SLA tracking + nightly audit, multi-photo upload, escalation event), TENANT-PAY (3 — payment_plans + installments tables, auto-allocate to oldest plan installment, deposit refund flow), TENANT-CI (3 — Phase28TenantSurfaceTest authz watchdog, per-tenant abilities map in HandleInertiaRequests, runbook). Severity 5H/9M/4L. Builds on Phase-13 PERSONAL-DATA-1 (recipient allowlist for email), Phase-16 RESIL backoff (escalation), Phase-17 Money (payment plan amounts), Phase-19 drift audit (payment_plan_allocations nightly), Phase-20 AuthAbilities::for (per-user can map), Phase-24 i18n (Swahili keys for new strings), Phase-22 PERF-SLO (gates on new pages), Phase-27 XlsxExportService (statement export). Tools: existing Document/DocumentPolicy + Ticket/TicketActivity/TicketComment + MoveOut deduction infrastructure + PaymentAllocationService + HandleInertiaRequests.",
+  "context_baseline": {
+    "today_tenant_pages": [
+      "resources/js/Pages/Tenant/Dashboard.vue",
+      "resources/js/Pages/Tenant/CompleteKyc.vue",
+      "resources/js/Pages/Tenant/Lease.vue",
+      "resources/js/Pages/Tenant/Notifications.vue",
+      "resources/js/Pages/Tenant/PaymentRequired.vue",
+      "resources/js/Pages/TenantFinances/{Index,Pay,History}.vue",
+      "resources/js/Pages/TenantInvitations/Accept.vue",
+      "resources/js/Pages/Tickets/{Create,Index,Show}.vue",
+      "resources/js/Pages/Profile/Edit.vue (mixed-role tabs — landlord-shaped, SHARED with tenant)"
+    ],
+    "today_tenant_controllers": [
+      "app/Http/Controllers/TenantPortalController.php (legacy)",
+      "app/Http/Controllers/TenantFinancesController.php",
+      "app/Http/Controllers/TenantKycController.php",
+      "app/Http/Controllers/TenantPaymentVerificationController.php",
+      "app/Http/Controllers/TenantNotificationController.php",
+      "app/Http/Controllers/TenantInvitationController.php (+ landlord side)",
+      "app/Http/Controllers/TicketController.php",
+      "app/Http/Controllers/Api/Tenant{Lease,Invoice,Payment,Notification}Controller.php"
+    ],
+    "today_tenant_models": [
+      "TenantActivity, TenantInvitation, TenantKycSubmission, TenantPaymentVerification, TenantNote, TenantMessage (unused), TenantVerification, EmergencyContact",
+      "VerificationTemplate/Item, MoveOut*, Ticket/TicketActivity/TicketComment"
+    ],
+    "today_api_endpoints": {
+      "ability:tenant:read": "15 READ endpoints",
+      "ability:tenant:payment": "4 payment-initiation POST endpoints",
+      "gap": "NO tenant-facing WRITE endpoints for non-payment operations"
+    },
+    "today_middleware_chain": "auth -> payment.verified -> kyc.complete (tiered gates on web)",
+    "today_tests": [
+      "TenantIsolationTest",
+      "TenantPolicyLedgerAccessTest",
+      "TenantScopeMassAssignmentTest",
+      "TenantKycControllerTest",
+      "Api/TenantApiTest",
+      "TenantKycSubmissionTest",
+      "Browser/EmailFlows/TenantCredentialsFlowTest",
+      "ABSENT: tests/Feature/TenantPortal/ umbrella for Phase 28 watchdogs"
+    ],
+    "today_missing": {
+      "dedicated_tenant_profile": "NONE — tenants navigate landlord-shaped Profile/Edit.vue with business-tab + danger-zone visible",
+      "notification_preferences": "NONE — all-or-nothing per-channel flags only, no per-category granularity",
+      "tenant_locale_picker": "NONE — Phase-24 LocaleController only surfaced in landlord profile",
+      "tenant_statement_viewer": "NONE — TenantFinances/History.vue lists payments only, no charges + running balance",
+      "statement_export": "NONE — no PDF, no xlsx, no email-me",
+      "tenant_documents_repo": "NONE — lease PDF + receipts + KYC docs are not browseable by the tenant",
+      "receipt_pdf_download": "NONE — payments page shows the row, no per-payment receipt PDF",
+      "document_expiry": "NONE — no documents.expires_at column, no banner",
+      "ticket_sla": "NONE — no tickets.sla_due_at, no first_response_at, no escalation",
+      "multi_photo_upload": "NONE — Tickets/Create.vue accepts a single photo",
+      "payment_plan": "NONE — no payment_plans table, no installments",
+      "deposit_refund_request": "NONE — MoveOut deduction exists, no tenant-side request",
+      "tenant_abilities_map": "NONE — HandleInertiaRequests::share does not expose per-tenant can map",
+      "tenant_surface_watchdog": "NONE — no Phase28TenantSurfaceTest enforcing role:tenant on tenant routes",
+      "tenant_portal_runbook": "NONE — docs/runbooks/tenant-portal.md absent"
+    }
+  },
+  "findings": [
+    {
+      "id": "TENANT-PROFILE-1",
+      "title": "Dedicated TenantProfileController + Tenant/Profile.vue — stop sharing landlord-shaped Profile/Edit.vue",
+      "severity": "HIGH",
+      "files": [
+        "app/Http/Controllers/TenantProfileController.php (new)",
+        "resources/js/Pages/Tenant/Profile.vue (new)",
+        "routes/web.php (Route::middleware(['auth','role:tenant'])->get('/tenant/profile', ...))",
+        "resources/js/Pages/Profile/Edit.vue (tenant-redirect when auth()->user()->isTenant())"
+      ],
+      "evidence": "Profile/Edit.vue today is the same Vue page for landlord + tenant — it surfaces a business-tab (company branding, default invoice template, payment-provider keys) and a danger-zone delete-account button that, for a tenant, would orphan their lease + payment history. The conditional template logic toggles tabs based on role, but the danger-zone delete-account flow is not gated and a tenant clicking it triggers landlord-only logic paths (App\\Services\\AccountDeletionService::deleteLandlord) that throw under TenantScope. A dedicated tenant page eliminates the role-conditional rendering surface area + lets us ship tenant-only tabs (statement preferences, language, emergency contacts) without bloating the landlord page.",
+      "fix": "(a) TenantProfileController with show/update/updatePassword/updateLocale/updateNotificationPrefs methods (TenantScope automatic via auth()->user()); (b) Tenant/Profile.vue with tabs {personal, password, locale, notifications, emergency_contacts}; (c) Route::middleware(['auth','role:tenant'])->prefix('tenant')->group()->get('/profile', ...); (d) Profile/Edit.vue redirects to tenant route when isTenant(); (e) Phase28ProfileTest::test_tenant_profile_route_is_tenant_only + test_tenant_cannot_reach_landlord_profile_edit + test_tenant_can_update_personal_fields_without_business_tab."
+    },
+    {
+      "id": "TENANT-PROFILE-2",
+      "title": "Notification preferences granularity — per-channel × per-category opt-in",
+      "severity": "MEDIUM",
+      "files": [
+        "database/migrations/*_create_user_notification_preferences_table.php (new)",
+        "app/Models/UserNotificationPreference.php (new — TenantScope via user_id)",
+        "app/Services/NotificationService.php (consult preferences before queue dispatch)",
+        "resources/js/Pages/Tenant/Profile.vue (Notifications tab — matrix UI)"
+      ],
+      "evidence": "Today notifications are all-or-nothing per channel (the user has email_notifications + sms_notifications bool columns on users). A tenant who wants rent_due via SMS but doesn't want payment_received emails has no way to express that. Result: tenants opt out of the entire channel, missing critical messages. The new table is (user_id, channel ∈ [email, sms, push, in_app], category ∈ [rent_due, payment_received, maintenance_update, lease_renewal, system], enabled bool, unique(user_id, channel, category)).",
+      "fix": "(a) user_notification_preferences table with the unique index; (b) UserNotificationPreference model with TenantScope (scoped by user_id->landlord_id); (c) NotificationService::shouldSend($user, $channel, $category) consults the table — DEFAULT for missing row: rent_due+payment_received ON across all channels; maintenance_update+lease_renewal ON in_app+email, OFF sms+push; system ON in_app only; (d) Tenant/Profile.vue Notifications tab is a channel × category checkbox matrix with i18n keys notifications.category.* + notifications.channel.*; (e) Phase28ProfileTest::test_notification_preference_blocks_dispatch + test_default_when_no_row_for_rent_due_is_send."
+    },
+    {
+      "id": "TENANT-PROFILE-3",
+      "title": "Tenant locale picker on Tenant/Profile.vue — surface Phase-24 LocaleController",
+      "severity": "LOW",
+      "files": [
+        "resources/js/Pages/Tenant/Profile.vue (Locale tab)"
+      ],
+      "evidence": "Phase-24 LocaleController exists with en + sw support but is only surfaced from the landlord profile. Tenants — half the Kenyan market preferring Swahili — currently inherit the browser-detected default and have no UI to override. Picker on the Locale tab POSTs to the existing /locale route (already validated against config('app.supported_locales')). Phase24CiTest already enforces translation parity so adding the picker requires no new lang keys beyond the tab label.",
+      "fix": "(a) Tenant/Profile.vue Locale tab: <select> bound to user.locale, options from supportedLocales prop (added to HandleInertiaRequests::share); (b) on submit POST /locale with _token + locale; (c) success flash via Phase-23 LiveAnnouncer; (d) Phase28ProfileTest::test_locale_picker_persists_to_users_table + test_picker_options_match_supported_locales."
+    },
+    {
+      "id": "TENANT-STATEMENT-1",
+      "title": "StatementService::forTenant — chronological charges + payments + running balance",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/Tenant/StatementService.php (new)",
+        "tests/Feature/TenantPortal/Phase28StatementTest.php (new)"
+      ],
+      "evidence": "TenantFinances/History.vue today lists payments only — no charges, no opening balance, no running balance line. A tenant cannot reconstruct \"what do I owe and why\" without phoning the landlord, the #1 support call per the 2026-Q1 support log. StatementService merges Invoice (charges with sign +1) + Payment (with sign -1), orders by created_at ASC, computes running_balance row-by-row in PHP (cannot use SQL window function — MySQL 5.7 floor in deployment env, see Phase-17 PERF-3 deferral note). Reuses Phase-17 Money primitives for arithmetic, returns Collection of StatementRow DTOs.",
+      "fix": "(a) StatementService::forTenant(User $user, CarbonImmutable $from, CarbonImmutable $to): Collection - merges invoices + payments within [from, to], opening_balance = sum(charges) - sum(payments) before $from, walks rows accumulating running_balance; (b) StatementRow DTO {date, description, charge_amount, payment_amount, running_balance, kind ∈ [opening, invoice, payment, closing]}; (c) Phase28StatementTest::test_running_balance_matches_per_row + test_opening_balance_reflects_pre_period + test_period_with_no_activity_returns_opening_equals_closing + test_money_arithmetic_uses_cents (no float drift)."
+    },
+    {
+      "id": "TENANT-STATEMENT-2",
+      "title": "Tenant/Statement.vue page + PDF + xlsx export routes",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/Pages/Tenant/Statement.vue (new)",
+        "app/Http/Controllers/TenantStatementController.php (new — index/pdf/xlsx)",
+        "routes/web.php (3 routes under tenant prefix)",
+        "resources/views/tenant/statement.blade.php (DomPDF view)"
+      ],
+      "evidence": "StatementService is the engine; this is the surface. Tenant picks a period {current_month, last_month, last_3_months, year_to_date, custom_range} and sees the table inline + Download PDF + Download xlsx buttons. PDF uses barryvdh/laravel-dompdf (already in deps from Phase-27). xlsx reuses Phase-27 App\\Services\\Reports\\XlsxExportService — typed cells, KES currency mask '[$KES] #,##0.00', date 'dd-mmm-yyyy', bold #1F2937 header. File names: tenant-statement-{tenant_id}-{from}-{to}.{pdf,xlsx}.",
+      "fix": "(a) TenantStatementController::index renders Tenant/Statement.vue with rows from StatementService; (b) ::pdf returns DomPDF of resources/views/tenant/statement.blade.php; (c) ::xlsx calls XlsxExportService::write([{header}, ...$rows], $path) + return as download response; (d) routes/web.php Route::middleware(['auth','role:tenant'])->prefix('tenant')->group()->{get('/statement', [TenantStatementController::class, 'index']), get('/statement.pdf', ...), get('/statement.xlsx', ...)}; (e) Phase28StatementTest::test_pdf_route_returns_application_pdf + test_xlsx_route_returns_xlsx_mime + test_period_query_params_validated + test_other_tenant_cannot_request_statement_via_param_injection."
+    },
+    {
+      "id": "TENANT-STATEMENT-3",
+      "title": "Email-me-this-statement — Phase-13 PERSONAL-DATA-1 self-email pattern",
+      "severity": "LOW",
+      "files": [
+        "app/Mail/TenantStatementMail.php (new — ShouldQueue + HasLocalePreference)",
+        "resources/views/emails/tenant-statement.blade.php (new)",
+        "app/Http/Controllers/TenantStatementController.php (email method)"
+      ],
+      "evidence": "Tenants on poor connectivity (rural Kenya — 30% of users per Q1 logs) struggle with large PDF downloads. Self-email pattern (recipient = auth()->user()->email only, per Phase-13 PERSONAL-DATA-1) queues a mailable with the xlsx attached so the tenant can download from their inbox later when on stronger signal. ShouldQueue keeps the request snappy. Email subject + body localised via HasLocalePreference (Phase-24).",
+      "fix": "(a) TenantStatementMail with ShouldQueue + HasLocalePreference (returns $tenant->locale); (b) view emails/tenant-statement.blade.php in lang/{en,sw} prefix tenant_statement.*; (c) TenantStatementController::email(Request $req) validates from+to, queues Mail::to(auth()->user())->queue(new TenantStatementMail($rows, $from, $to)); (d) POST /tenant/statement/email returns 202 with flash; (e) Phase28StatementTest::test_email_only_to_authenticated_tenant (RecipientAllowlist rejects passed-in email param) + test_subject_in_swahili_when_user_locale_sw."
+    },
+    {
+      "id": "TENANT-DOCS-1",
+      "title": "Tenant/Documents.vue repository page — lease + receipts + KYC categorised",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/Pages/Tenant/Documents.vue (new)",
+        "app/Http/Controllers/TenantDocumentsController.php (new — index + download)",
+        "routes/web.php (under tenant prefix)"
+      ],
+      "evidence": "Tenant documents today are scattered: lease PDF lives at Tenant/Lease.vue, receipts are not exposed at all, KYC documents are uploaded but not viewable post-submission. A repository page categorised by type {lease, receipt, kyc, other} gives the tenant a single audit trail. Backend reuses existing Document model + DocumentPolicy::view (already scoped to documentable->tenant_id check). No new auth surface — DocumentPolicy is unchanged.",
+      "fix": "(a) TenantDocumentsController::index queries Document::where('documentable_type', Lease|Payment|TenantKycSubmission)->whereHas via tenant ownership; categorises by type; returns to Tenant/Documents.vue; (b) Documents.vue tabs {All, Lease, Receipts, KYC, Other} with file rows {name, type, uploaded_at, size, download_url}; (c) ::download(Document $document) authorises via Gate::authorize('view', $document); returns Storage::download($document->path); (d) Phase28DocsTest::test_tenant_sees_own_lease_pdf + test_tenant_cannot_download_other_tenants_document + test_kyc_documents_only_appear_after_submission + test_categorisation_groups_match_documentable_type."
+    },
+    {
+      "id": "TENANT-DOCS-2",
+      "title": "Receipt PDF download from past payments",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/PaymentReceiptService.php (new)",
+        "app/Http/Controllers/TenantPaymentReceiptController.php (new)",
+        "resources/views/tenant/receipt.blade.php (new — DomPDF)",
+        "routes/web.php (Route::get('/tenant/payments/{payment}/receipt.pdf', ...))"
+      ],
+      "evidence": "Tenants requesting receipts today email the landlord, who generates them ad-hoc — slow + error-prone. PaymentReceiptService renders a deterministic receipt (header with landlord branding, payment details, amount in words, signature line) as PDF via DomPDF. Authorisation via PaymentPolicy::view (tenant must own the payment); 404 for cross-tenant attempts to satisfy Phase-1 isolation contract.",
+      "fix": "(a) PaymentReceiptService::generate(Payment $p): array - returns view data; (b) TenantPaymentReceiptController::show(Payment $payment) authorises via Gate::authorize('view', $payment), generates DomPDF::loadView('tenant.receipt', $data)->download(\"receipt-{$payment->id}.pdf\"); (c) Receipt blade includes amount-in-words via NumberFormatter or fallback Phase-17 MoneyFormatter::toWords (KES); (d) Phase28DocsTest::test_receipt_pdf_returns_pdf_mime + test_cross_tenant_payment_receipt_returns_404 + test_amount_in_words_matches_amount."
+    },
+    {
+      "id": "TENANT-DOCS-3",
+      "title": "Document expiry warnings — documents.expires_at migration + 30d dashboard banner",
+      "severity": "LOW",
+      "files": [
+        "database/migrations/*_add_expires_at_to_documents_table.php (new)",
+        "app/Models/Document.php (cast + scope expiringSoon)",
+        "resources/js/Pages/Tenant/Dashboard.vue (DocumentExpiryBanner.vue)",
+        "resources/js/Components/Tenant/DocumentExpiryBanner.vue (new)"
+      ],
+      "evidence": "Tenants with expired ID uploads or expired lease addenda silently lose KYC compliance. expires_at column lets a dashboard banner warn 30 days ahead: \"Your national_id expires in 12 days. Please upload a renewal.\" Default NULL (no expiry). Populated only for documents with known expiry (national_id, alien_id, passport, lease_addendum). Banner dismissible per-document via localStorage cache key (no schema state).",
+      "fix": "(a) ALTER documents ADD expires_at DATE NULL; (b) Document::cast['expires_at' => 'date'] + scopeExpiringSoon($q, $days = 30); (c) DocumentExpiryBanner queries via inertia-shared 'tenantExpiringDocs' prop (added to HandleInertiaRequests when isTenant()); (d) banner shows category + name + days-remaining; (e) Phase28DocsTest::test_expiring_doc_appears_in_shared_props_when_within_30d + test_expired_doc_shows_negative_days + test_null_expires_at_never_warns."
+    },
+    {
+      "id": "TENANT-MAINT-1",
+      "title": "Ticket SLA tracking — sla_due_at + first_response_at + nightly tickets:audit-sla",
+      "severity": "HIGH",
+      "files": [
+        "database/migrations/*_add_sla_to_tickets_table.php (new)",
+        "app/Models/Ticket.php (severity_seconds + scopes)",
+        "app/Console/Commands/TicketsAuditSla.php (new)",
+        "routes/console.php (Schedule::command('tickets:audit-sla')->dailyAt('07:00')->timezone('Africa/Nairobi'))",
+        "app/Services/Metrics/PrometheusGauges.php (ticket_sla_breach_count{priority})"
+      ],
+      "evidence": "Tickets today track status (open/in_progress/resolved/closed) but have no SLA — a landlord can let an emergency leak sit for 5 days with no signal. SLA matrix per priority: emergency=4h, high=24h, normal=72h, low=168h. sla_due_at is computed on create as created_at + severity_seconds. first_response_at captures the timestamp of the first TicketActivity by a landlord/caretaker — the tenant's own create activity does NOT count. tickets:audit-sla runs nightly, counts breaches (sla_due_at < now() AND first_response_at IS NULL), emits Prometheus gauge ticket_sla_breach_count{priority='...'}. Phase-22 PERF-SLO uses the same nightly pattern.",
+      "fix": "(a) ALTER tickets ADD sla_due_at TIMESTAMP NULL, ADD first_response_at TIMESTAMP NULL, ADD INDEX (sla_due_at, first_response_at); (b) Ticket::SEVERITY_SECONDS = [emergency=>14400, high=>86400, normal=>259200, low=>604800]; Ticket::boot creating hook sets sla_due_at; scopes breachedSla() + respondedWithinSla(); (c) TicketActivity::created hook sets parent->first_response_at when by_user is landlord|caretaker AND first_response_at IS NULL; (d) TicketsAuditSla command groups breached by priority, emits gauge, also writes audit_logs row event=ticket_sla_audit; (e) Schedule::command('tickets:audit-sla')->dailyAt('07:00')->timezone('Africa/Nairobi')->onOneServer(); (f) Phase28MaintTest::test_sla_due_at_set_on_create_per_priority + test_first_response_at_set_by_landlord_activity_only + test_tenant_comment_does_not_count_as_first_response + test_audit_command_emits_gauge_per_priority + test_schedule_registered."
+    },
+    {
+      "id": "TENANT-MAINT-2",
+      "title": "Multi-photo upload on Tickets/Create.vue — 5 photos × 5MB cap",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/Pages/Tickets/Create.vue (multi-file input)",
+        "app/Http/Requests/StoreTicketRequest.php (photos.*.max:5120, max:5 photos)",
+        "app/Http/Controllers/TicketController.php (store iterates photos)"
+      ],
+      "evidence": "Tickets/Create.vue today accepts a single photo (input type=file without multiple). Tenants reporting damage often need to send a wide-shot + 2-3 close-ups + a video frame. Cap at 5 photos × 5MB each, total 25MB request. Reuse Phase-22 storage policy (s3 disk, ULID filenames, mime whitelist [jpeg, png, webp]). Photo records stored as TicketAttachment polymorphic against Ticket.",
+      "fix": "(a) Create.vue <input type='file' multiple accept='image/jpeg,image/png,image/webp'> with client-side count + size validation; (b) StoreTicketRequest::rules() adds 'photos' => 'array|max:5', 'photos.*' => 'image|mimes:jpeg,png,webp|max:5120'; (c) TicketController::store iterates photos -> Storage::disk('s3')->putFileAs('tickets/'.Str::ulid(), $photo, $photo->getClientOriginalName()) -> $ticket->attachments()->create([...]); (d) Tickets/Show.vue gallery (lightbox); (e) Phase28MaintTest::test_six_photos_rejected + test_oversize_photo_rejected + test_attachments_persisted_under_tenant_landlord + test_non_image_mime_rejected."
+    },
+    {
+      "id": "TENANT-MAINT-3",
+      "title": "Ticket escalation event — TicketSlaBreached fires NotificationService (Phase-16 RESIL backoff)",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Events/TicketSlaBreached.php (new)",
+        "app/Listeners/NotifyOnTicketSlaBreach.php (new — ShouldQueue + Phase-16 backoff)",
+        "app/Console/Commands/TicketsAuditSla.php (fire event per breach)",
+        "app/Providers/EventServiceProvider.php (register listener)"
+      ],
+      "evidence": "TENANT-MAINT-1 detects breach; this fires the notification. Listener notifies landlord + caretaker via NotificationService (consults TENANT-PROFILE-2 preferences for landlord side). Phase-16 RESIL pattern: 4 retries, exponential backoff 30s/60s/300s/1800s, dead-letter to failed_jobs after final retry. Idempotency key = ticket_id + sla_due_at to prevent re-notifying after a re-audit run within the same window (events are emitted once per breach detection, deduped by Cache::remember(key, 24h)).",
+      "fix": "(a) TicketSlaBreached event with public Ticket $ticket + CarbonImmutable $breachedAt; (b) NotifyOnTicketSlaBreach implements ShouldQueue with public $tries=4, $backoff=[30,60,300,1800] - delegates to NotificationService::send([landlord, caretakers], 'ticket.sla_breached', context); (c) TicketsAuditSla::handle() fires event for each row with Cache::add(\"ticket:sla_breach:{$id}:{$slaDueAt}\", true, now()->addDay()) idempotency gate; (d) EventServiceProvider listen mapping; (e) Phase28MaintTest::test_breach_fires_event + test_listener_calls_notification_service_for_landlord_and_caretakers + test_idempotency_blocks_second_fire_within_24h + test_listener_respects_backoff_array."
+    },
+    {
+      "id": "TENANT-PAY-1",
+      "title": "Payment plans + installments — tenant requests, landlord approves",
+      "severity": "HIGH",
+      "files": [
+        "database/migrations/*_create_payment_plans_table.php (new)",
+        "database/migrations/*_create_payment_plan_installments_table.php (new)",
+        "app/Models/PaymentPlan.php (new — TenantScope, STATUSES enum)",
+        "app/Models/PaymentPlanInstallment.php (new — TenantScope via plan)",
+        "app/Policies/PaymentPlanPolicy.php (new)",
+        "app/Http/Controllers/Tenant/PaymentPlanRequestController.php (new — store)",
+        "app/Http/Controllers/Finance/PaymentPlanApprovalController.php (new — approve/reject)",
+        "resources/js/Pages/Tenant/PaymentPlan/Request.vue (new)",
+        "resources/js/Pages/Finance/PaymentPlans/Index.vue (new)"
+      ],
+      "evidence": "Tenants with a temporary income shock (job loss, school fees, hospital) today have only two options: pay in full or default. Result: avoidable defaults that turn into evictions + bad debt. Payment plans formalise the negotiation: tenant requests N installments against a specific invoice, landlord approves or rejects with a reason. Status machine: requested -> approved | rejected; approved plans progress through paying as installments are paid; completed when sum(paid_amount) == total_amount; defaulted when an installment misses due_date by >7d. Approved plans satisfy late-fee suppression (no new late fees while plan is active and current).",
+      "fix": "(a) payment_plans (id, landlord_id, tenant_id, invoice_id, total_amount BIGINT cents, status enum(requested, approved, rejected, completed, defaulted), reason TEXT NULL, approved_at, approved_by_user_id, rejected_reason TEXT NULL, created_at, updated_at, INDEX (tenant_id, status), INDEX (invoice_id), INDEX (status, defaulted_at)); (b) payment_plan_installments (id, payment_plan_id FK CASCADE, due_date DATE, amount BIGINT cents, paid_amount BIGINT cents DEFAULT 0, status enum(pending, paid, defaulted), paid_at NULL, INDEX (payment_plan_id, due_date)); (c) PaymentPlan::STATUSES const + status transitions enforced via setStatusAttribute; (d) PaymentPlanPolicy::request(User $user, Invoice $i) - tenant owns invoice + invoice has no active plan; ::approve(User $user, PaymentPlan $p) - user is landlord of $p->landlord_id; (e) Tenant/PaymentPlan/Request.vue posts {invoice_id, installment_count, first_due_date} -> service computes installments (total_amount / count, last one absorbs cents remainder per Phase-17 Money); (f) Finance/PaymentPlans/Index.vue lists requested plans + approve/reject buttons; (g) Phase28PayTest::test_tenant_can_request_plan_for_own_invoice + test_other_tenants_invoice_rejected + test_installments_sum_to_total_with_remainder_on_last + test_landlord_approves_transitions_status + test_active_plan_blocks_second_request_for_same_invoice."
+    },
+    {
+      "id": "TENANT-PAY-2",
+      "title": "Auto-allocate payment to active plan installments (oldest unpaid first) + nightly drift audit",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/PaymentAllocationService.php (extend with plan-installment-first allocator)",
+        "app/Console/Commands/PaymentPlanAllocationsAudit.php (new — Phase-19 drift audit pattern)",
+        "routes/console.php (Schedule::command('payment-plan-allocations:audit')->dailyAt('02:00')->timezone('Africa/Nairobi'))"
+      ],
+      "evidence": "When tenant pays while an approved plan exists, payment must allocate to installments (oldest unpaid first) before the broader invoice. Without this, payments float against the invoice + the plan installments never tick to paid, breaking the status machine + the default detector. Phase-17 Money primitives for arithmetic. Phase-19 drift audit pattern: nightly artisan compares sum(installment.paid_amount) vs sum(payments allocated to plan) per plan, emits prometheus gauge payment_plan_allocation_drift_cents{plan_id}, writes audit_logs event=payment_plan_allocation_drift if any drift > 0.",
+      "fix": "(a) PaymentAllocationService::allocate(Payment $payment): on entry, find active PaymentPlan for $payment->invoice_id; if exists, walk installments order by due_date ASC where status != paid; allocate min(remaining_payment, installment.amount - installment.paid_amount) into installment; mark installment paid when paid_amount >= amount; recurse with remaining payment into invoice generic allocation; (b) PaymentPlanAllocationsAudit::handle iterates plans, compares sum(installments.paid_amount) vs sum(payment_allocations WHERE plan_id=$plan->id), drifts written to audit_logs + gauge emitted; (c) Schedule::command(...)->dailyAt('02:00')->timezone('Africa/Nairobi')->onOneServer(); (d) Phase28PayTest::test_payment_allocates_to_oldest_unpaid_installment_first + test_partial_payment_partially_pays_installment + test_overpayment_flows_to_next_installment_then_invoice + test_audit_command_emits_drift_gauge_when_mismatched + test_no_drift_path_is_silent."
+    },
+    {
+      "id": "TENANT-PAY-3",
+      "title": "Deposit refund request flow — tenant-side request reusing MoveOut deduction infrastructure",
+      "severity": "MEDIUM",
+      "files": [
+        "database/migrations/*_create_deposit_refund_requests_table.php (new)",
+        "app/Models/DepositRefundRequest.php (new — TenantScope)",
+        "app/Http/Controllers/Tenant/DepositRefundController.php (new — store + show)",
+        "app/Http/Controllers/Finance/DepositRefundApprovalController.php (new)",
+        "resources/js/Pages/Tenant/Deposit/RequestRefund.vue (new)",
+        "resources/js/Pages/Finance/DepositRefunds/Index.vue (new)"
+      ],
+      "evidence": "Today deposit refund is informal — tenant emails landlord post-vacate, landlord uses MoveOut deduction worksheet, sends remainder via M-Pesa B2C. Tenant has no visibility into status. The new flow: post-MoveOut (status=completed) the tenant can submit a deposit_refund_requests row with bank_or_mpesa details; landlord reviews against MoveOut deductions, approves (status=approved + final_amount_kes); on disbursement (status=paid + payment_reference). Uses existing MoveOut deduction model for the amount basis — does NOT duplicate the deduction calculation logic.",
+      "fix": "(a) deposit_refund_requests (id, landlord_id, tenant_id, lease_id, move_out_id NULL, requested_amount_cents BIGINT, payment_method enum(mpesa, bank_transfer, cheque), payment_details JSON, status enum(submitted, under_review, approved, rejected, paid), final_amount_cents NULL, rejection_reason TEXT NULL, payment_reference TEXT NULL, submitted_at, reviewed_at NULL, paid_at NULL, INDEX (tenant_id, status), INDEX (move_out_id)); (b) DepositRefundRequest model with TenantScope + casts; (c) Tenant/Deposit/RequestRefund.vue accepts payment_method + details (M-Pesa: phone; bank_transfer: bank_name + account_number + branch; cheque: name); (d) Finance/DepositRefunds/Index.vue lists submitted requests with link to associated MoveOut + approve/reject/mark_paid; (e) Phase28PayTest::test_tenant_can_submit_refund_after_move_out_complete + test_cannot_submit_before_move_out + test_landlord_approves_with_final_amount + test_status_transitions_enforced + test_mpesa_phone_validates_kenyan_format."
+    },
+    {
+      "id": "TENANT-CI-1",
+      "title": "Phase28TenantSurfaceTest — every tenant route has policy/middleware coverage",
+      "severity": "HIGH",
+      "files": [
+        "tests/Feature/TenantPortal/Phase28TenantSurfaceTest.php (new)"
+      ],
+      "evidence": "Mirrors AuthzCoverageMatrixTest pattern (Phase-20 AUTHZ-FRONT). Tomorrow a contributor adds Route::get('/tenant/secret-data', ...) without ['auth','role:tenant'] middleware. Without a watchdog, the route silently exposes the data to landlords or anonymous users. The test iterates Route::getRoutes() filtered to URIs starting with 'tenant/' OR controller in TenantPortalController|TenantFinancesController|TenantKycController|TenantStatementController|TenantDocumentsController|TenantProfileController|Tenant\\*Controller; asserts each has middleware containing 'role:tenant' (or 'ability:tenant:*' for API routes). Whitelisted exceptions documented inline: tenant/invitation/accept (pre-auth route).",
+      "fix": "(a) Phase28TenantSurfaceTest::test_every_tenant_route_carries_tenant_middleware iterates Route::getRoutes(), filters per criteria above, asserts middleware - has role:tenant OR ability:tenant:* OR is in whitelist; failure message lists offending route + URI + missing middleware; (b) Phase28TenantSurfaceTest::test_whitelist_is_explicit — whitelist array is a const in the test class, asserts each entry has a why-comment via a parallel WHITELIST_REASONS const; (c) Phase28TenantSurfaceTest::test_no_tenant_route_uses_role_landlord (defence against typo); (d) Watchdog runs in CI under quality gates."
+    },
+    {
+      "id": "TENANT-CI-2",
+      "title": "Per-tenant abilities map in HandleInertiaRequests::share — mirrors Phase-20 AuthAbilities::for",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Middleware/HandleInertiaRequests.php (extend share() with tenantAbilities)",
+        "app/Services/Auth/TenantAbilities.php (new — for(User $user): array)",
+        "resources/js/composables/useTenantAbilities.ts (new)"
+      ],
+      "evidence": "Phase-20 AuthAbilities::for ships landlord per-user can map (v-if='can(...)' on action buttons). Tenants today have no equivalent — Tenant/Dashboard.vue + Tenant/Statement.vue + Tenant/Documents.vue all need to conditionally show {statement:download, statement:email, documents:view_kyc, tickets:create, payment_plan:request, deposit:request_refund}. The map is computed once per request from policies (no N+1 — uses Gate::forUser($user)->allows or a static method matching against role+lease state).",
+      "fix": "(a) TenantAbilities::for(User $user): array - returns {'statement:download' => Gate::forUser($user)->allows('download', Statement::class), 'statement:email' => true, 'documents:view_kyc' => $user->has_completed_kyc, 'tickets:create' => true, 'payment_plan:request' => $user->activeLease()?->has_unpaid_invoice ?? false, 'deposit:request_refund' => $user->activeLease()?->move_out?->status === 'completed'}; (b) HandleInertiaRequests::share returns ['auth' => ['user' => ..., 'tenant_abilities' => $user?->isTenant() ? TenantAbilities::for($user) : null]]; (c) useTenantAbilities composable wraps usePage().props.auth.tenant_abilities + exposes can(key) helper; (d) Tenant/*.vue replace hard-coded v-if with v-if='can(key)'; (e) Phase28CiTest::test_tenant_abilities_map_keys_match_runbook_contract (compares keys to docs/runbooks/tenant-portal.md listing) + test_landlord_request_returns_null_tenant_abilities + test_kyc_incomplete_blocks_documents_view_kyc."
+    },
+    {
+      "id": "TENANT-CI-3",
+      "title": "docs/runbooks/tenant-portal.md — route tree + middleware chain + ability matrix + new tables",
+      "severity": "LOW",
+      "files": [
+        "docs/runbooks/tenant-portal.md (new)"
+      ],
+      "evidence": "Phase-26 docs/runbooks/pwa.md + Phase-27 docs/runbooks/bi.md establish the runbook pattern: route tree, middleware chain, ability matrix, schema additions, CI gates, ops procedures. Phase 28 lacks the same. Without it, a new contributor adding a tenant feature must reverse-engineer the conventions. The runbook also serves as the contract for TENANT-CI-2 (ability matrix keys).",
+      "fix": "(a) Sections: Overview, Route tree (under /tenant prefix), Middleware chain (auth -> payment.verified -> kyc.complete -> role:tenant), Ability matrix table (key, condition, page using it), Schema additions (user_notification_preferences, documents.expires_at, tickets.sla_due_at + first_response_at, payment_plans, payment_plan_installments, deposit_refund_requests), CI gates (Phase28TenantSurfaceTest + Phase28ProfileTest + Phase28StatementTest + Phase28DocsTest + Phase28MaintTest + Phase28PayTest + Phase28CiTest), Ops procedures (tickets:audit-sla, payment-plan-allocations:audit), i18n keys added (tenant.*, notifications.category.*, payment_plan.*, deposit_refund.*); (b) Phase28CiTest::test_runbook_lists_every_phase28_test_class (parses .md, asserts class name appears) + test_runbook_documents_every_new_table (parses .md, asserts table name appears)."
+    }
+  ]
+}
