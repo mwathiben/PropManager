@@ -1,0 +1,52 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'mrr' => [
+        'heading' => 'MRR — mapato ya kila mwezi',
+        'total_label' => 'MRR jumla',
+        'by_plan_label' => 'MRR kwa kila mpango',
+        'waterfall_new' => 'Mpya',
+        'waterfall_expansion' => 'Ongezeko',
+        'waterfall_contraction' => 'Punguzo',
+        'waterfall_churned' => 'Walioondoka',
+    ],
+    'churn' => [
+        'cohort_heading' => 'Uhifadhi wa kundi la wateja wa kujisajili',
+        'retention_label' => 'Uhifadhi',
+        'monthly_rate_label' => 'Kiwango cha kuondoka kila mwezi',
+    ],
+    'referral' => [
+        'your_code_heading' => 'Msimbo wako wa rufaa',
+        'your_referrals_heading' => 'Rufaa zako',
+        'redeem_form_heading' => 'Tumia msimbo wa rufaa',
+        'status_pending' => 'Inasubiri',
+        'status_attributed' => 'Imethibitishwa',
+        'status_rewarded' => 'Imezawadiwa',
+    ],
+    'engagement' => [
+        'score_label' => 'Alama ya ushiriki',
+        'score_explanation' => 'Mchanganyiko wa uingiaji wa hivi karibuni, hatua zilizofikiwa, matumizi, ukuaji wa mali, na shughuli za wapangaji.',
+        'low_engagement_warning' => 'Alama yako ya ushiriki ni ndogo — tutakusaidia kupata zaidi kutoka kwa jukwaa.',
+    ],
+    'lifecycle' => [
+        'trial_ending_subject' => 'Jaribio lako linaisha katika siku :days',
+        'trial_ending_heading' => 'Jaribio lako linaisha hivi karibuni',
+        'trial_ending_body' => 'Una siku :days zilizobaki kuchagua mpango. Boresha sasa ili kuendelea bila kuingilia kati.',
+        'upgrade_cta' => 'Chagua mpango',
+        'dunning_subject' => 'Hatukuweza kuchakata malipo yako (siku :days)',
+        'dunning_heading' => 'Tatizo la malipo',
+        'dunning_body' => 'Imepita siku :days tangu tushindwe kuchakata malipo yako. Tafadhali sasisha kadi yako ili kuepuka kupoteza ufikiaji.',
+        'update_card_cta' => 'Sasisha njia ya malipo',
+        'winback_subject' => 'Tungependa urudi',
+        'winback_heading' => 'Rudi na punguzo',
+        'winback_body' => 'Tumia msimbo :code wakati wa malipo kupata punguzo cha kurudi kwenye jukwaa.',
+        'see_plans_cta' => 'Tazama mipango',
+        'activation_nudge_subject' => 'Endelea kutoka pale ulipoachia',
+        'activation_nudge_heading' => 'Endelea na usanidi wako',
+        'activation_nudge_body' => 'Mchakato wako wa kuanzisha akaunti ulisimama siku chache zilizopita. Tuko hapa kukusaidia kukamilisha kwa dakika chache.',
+        'resume_cta' => 'Endelea na usanidi',
+        'signature' => 'Asante, timu ya :app',
+    ],
+];

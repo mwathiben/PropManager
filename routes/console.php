@@ -489,3 +489,31 @@ Schedule::command('engagement:rollup')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase34-growth-engagement23-rollup');
+
+// Phase-34 GROWTH-LIFECYCLE-1/2/3: landlord lifecycle email cluster
+// runs in business-hour adjacent window (09:00-09:45 Africa/Nairobi)
+// — slightly after Phase-29 rent-reminders:dispatch 08:00 so the
+// inboxes aren't all hit simultaneously.
+Schedule::command('subscriptions:trial-ending-reminder')
+    ->dailyAt('09:00')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase34-growth-lifecycle1-trial-ending');
+
+Schedule::command('subscriptions:dunning-emails')
+    ->dailyAt('09:15')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase34-growth-lifecycle2-dunning');
+
+Schedule::command('subscriptions:churn-winback')
+    ->dailyAt('09:30')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase34-growth-lifecycle3-winback');
+
+Schedule::command('landlords:activation-nudge')
+    ->dailyAt('09:45')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase34-growth-lifecycle3-activation-nudge');
