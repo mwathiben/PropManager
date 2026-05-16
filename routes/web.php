@@ -1039,6 +1039,22 @@ Route::middleware(['auth', 'role:landlord'])->group(function () {
         ->name('leases.renewals.store');
     Route::post('/renewals/{renewal}/confirm', [\App\Http\Controllers\LeaseRenewalController::class, 'confirm'])
         ->name('renewals.confirm');
+
+    // Phase-29 WF-PAY-APPROVE-1: landlord approves/rejects tenant-
+    // requested payment plans (closes Phase-28 deferred UI).
+    Route::post('/payment-plans/{plan}/approve', [\App\Http\Controllers\Finance\PaymentPlanApprovalController::class, 'approve'])
+        ->name('finance.payment-plans.approve');
+    Route::post('/payment-plans/{plan}/reject', [\App\Http\Controllers\Finance\PaymentPlanApprovalController::class, 'reject'])
+        ->name('finance.payment-plans.reject');
+
+    // Phase-29 WF-PAY-APPROVE-2: landlord processes tenant-requested
+    // deposit refunds (closes Phase-28 deferred UI).
+    Route::post('/deposit-refunds/{refund}/approve', [\App\Http\Controllers\Finance\DepositRefundApprovalController::class, 'approve'])
+        ->name('finance.deposit-refunds.approve');
+    Route::post('/deposit-refunds/{refund}/reject', [\App\Http\Controllers\Finance\DepositRefundApprovalController::class, 'reject'])
+        ->name('finance.deposit-refunds.reject');
+    Route::post('/deposit-refunds/{refund}/mark-paid', [\App\Http\Controllers\Finance\DepositRefundApprovalController::class, 'markPaid'])
+        ->name('finance.deposit-refunds.mark-paid');
 });
 
 // --- LEGAL DOCUMENTS (Public) ---

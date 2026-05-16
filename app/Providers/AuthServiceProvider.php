@@ -101,6 +101,9 @@ class AuthServiceProvider extends ServiceProvider
         // PRIV-12: tenant-target authorization (User model represents
         // tenants in ledger/modalData/etc. contexts).
         User::class => TenantPolicy::class,
+        // Phase-29 WF-PAY-APPROVE-1/2: landlord approval gates.
+        \App\Models\PaymentPlan::class => \App\Policies\PaymentPlanPolicy::class,
+        \App\Models\DepositRefundRequest::class => \App\Policies\DepositRefundRequestPolicy::class,
     ];
 
     /**

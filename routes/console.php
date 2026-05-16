@@ -283,3 +283,12 @@ Schedule::command('occupancy:audit')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase29-wf-vacancy1-audit');
+
+// Phase-29 WF-CI-2: silent-failure detector for Phase-29 workflows.
+// Runs at 04:30 — after all overnight workflow commands have had a
+// chance to fire and well before the next 24h window opens at 00:05.
+Schedule::command('workflow:health')
+    ->dailyAt('04:30')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase29-wf-ci2-health');

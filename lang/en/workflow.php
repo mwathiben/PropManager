@@ -37,4 +37,23 @@ return [
         'tenant_accepted' => 'You accepted the proposed renewal. Awaiting landlord confirmation.',
         'tenant_rejected' => 'You rejected the proposed renewal. The landlord will be notified.',
     ],
+    'payment_plan' => [
+        'approved' => 'Payment plan approved. The tenant has been notified.',
+        'rejected' => 'Payment plan rejected. The tenant has been notified.',
+        'approved_subject' => 'Your payment plan was approved',
+        'approved_body' => 'Your landlord approved your payment plan request. Installment due dates and amounts are now in effect.',
+        'rejected_subject' => 'Your payment plan was rejected',
+        'rejected_body' => 'Your landlord rejected the payment plan request. Reason: :reason',
+    ],
+    'deposit_refund' => [
+        'approved' => 'Deposit refund approved. The tenant has been notified.',
+        'rejected' => 'Deposit refund rejected. The tenant has been notified.',
+        'paid' => 'Deposit refund marked paid. The tenant has been notified.',
+        'approved_subject' => 'Your deposit refund was approved',
+        'approved_body' => 'Your deposit refund of KES :amount has been approved and will be processed shortly.',
+        'rejected_subject' => 'Your deposit refund was rejected',
+        'rejected_body' => 'Your deposit refund request was rejected. Reason: :reason',
+        'paid_subject' => 'Your deposit refund has been paid',
+        'paid_body' => 'Your deposit refund has been paid. Payment reference: :reference',
+    ],
 ];

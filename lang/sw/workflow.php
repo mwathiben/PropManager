@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 /*
  * Phase-29 [WORKFLOW-AUTOMATION] i18n keys for landlord-driven
- * workflow notifications. Swahili parity enforced by Phase24CiTest.
+ * workflow notifications. Swahili parity enforced by Phase24CiTest —
+ * key ORDER must match lang/en/workflow.php exactly.
  */
 
 return [
@@ -36,5 +37,24 @@ return [
         'confirmed' => 'Kuongezewa kumethibitishwa. Tarehe ya mwisho na kodi zimesasishwa.',
         'tenant_accepted' => 'Umekubali masharti ya kuongezewa. Inasubiri uthibitisho wa mwenye nyumba.',
         'tenant_rejected' => 'Umekataa masharti ya kuongezewa. Mwenye nyumba atataarifiwa.',
+    ],
+    'payment_plan' => [
+        'approved' => 'Mpango wa malipo umekubaliwa. Mpangaji amejulishwa.',
+        'rejected' => 'Mpango wa malipo umekataliwa. Mpangaji amejulishwa.',
+        'approved_subject' => 'Mpango wako wa malipo umekubaliwa',
+        'approved_body' => 'Mwenye nyumba amekubali ombi lako la mpango wa malipo. Tarehe na kiasi cha awamu sasa ziko mbioni.',
+        'rejected_subject' => 'Mpango wako wa malipo umekataliwa',
+        'rejected_body' => 'Mwenye nyumba amekataa ombi la mpango wa malipo. Sababu: :reason',
+    ],
+    'deposit_refund' => [
+        'approved' => 'Kurudisha amana kumekubaliwa. Mpangaji amejulishwa.',
+        'rejected' => 'Kurudisha amana kumekataliwa. Mpangaji amejulishwa.',
+        'paid' => 'Kurudisha amana kumewekwa alama ya kulipwa. Mpangaji amejulishwa.',
+        'approved_subject' => 'Kurudisha amana yako kumekubaliwa',
+        'approved_body' => 'Kurudisha amana yako ya KES :amount kumekubaliwa na kutaprocessitiwa hivi karibuni.',
+        'rejected_subject' => 'Kurudisha amana yako kumekataliwa',
+        'rejected_body' => 'Ombi lako la kurudisha amana limekataliwa. Sababu: :reason',
+        'paid_subject' => 'Kurudisha amana yako kumelipwa',
+        'paid_body' => 'Kurudisha amana yako kumelipwa. Kumbukumbu ya malipo: :reference',
     ],
 ];
