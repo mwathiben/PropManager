@@ -8,6 +8,7 @@ use App\Enums\Currency;
 use App\Models\Payment;
 use App\Models\PaymentConfiguration;
 use App\Services\PaystackService;
+use App\Services\StripeService;
 use App\ValueObjects\ReconciliationDiscrepancy;
 use App\ValueObjects\ReconciliationResult;
 use Carbon\CarbonImmutable;
@@ -17,7 +18,63 @@ class PaymentReconciliationService
 {
     public function __construct(
         protected PaystackService $paystackService,
+        protected ?StripeService $stripeService = null,
     ) {}
+
+    /**
+     * Phase-40 GATEWAY-RECONCILE-1: gateway-agnostic dispatcher.
+     * For now this just routes to the per-gateway impl methods;
+     * a fully unified compare loop lives in reconcilePaystack and
+     * (when populated) reconcileStripe — the value here is a single
+     * surface for cron + admin tooling.
+     */
+    public function reconcile(
+        string $gateway,
+        int $landlordId,
+        CarbonImmutable $from,
+        CarbonImmutable $to,
+    ): ReconciliationResult {
+        return match (strtolower($gateway)) {
+            'paystack' => $this->reconcilePaystack($landlordId, $from, $to),
+            'stripe' => $this->reconcileStripe($landlordId, $from, $to),
+            default => throw new \InvalidArgumentException("Unknown gateway for reconcile: {$gateway}"),
+        };
+    }
+
+    /**
+     * Phase-40 GATEWAY-RECONCILE-1: Stripe-side reconciliation.
+     * Lists local stripe-method payments against (eventually) Stripe
+     * charges.list. Local-only diff today — remote charge fetch lands
+     * in the next cycle when the first paying landlord enables Stripe
+     * for rent collection (currently no production load on this path).
+     */
+    public function reconcileStripe(
+        int $landlordId,
+        CarbonImmutable $from,
+        CarbonImmutable $to,
+    ): ReconciliationResult {
+        $config = PaymentConfiguration::where('landlord_id', $landlordId)->first();
+        if (! $config || ! $config->hasStripeConfig()) {
+            return $this->emptyResult();
+        }
+
+        $localPayments = $this->paymentsForLandlord($landlordId)
+            ->where('payment_method', 'stripe')
+            ->whereNotNull('paystack_reference')
+            ->where('is_voided', false)
+            ->whereBetween('payment_date', [$from->startOfDay(), $to->endOfDay()])
+            ->select(['id', 'paystack_reference', 'amount', 'currency', 'payment_date', 'landlord_id'])
+            ->get();
+
+        // Phase 1e ships local-only audit; remote diff arrives in Phase 41.
+        return new ReconciliationResult(
+            discrepancies: [],
+            localCount: $localPayments->count(),
+            remoteCount: 0,
+            matchedCount: 0,
+            reconciledAt: now()->toIso8601String(),
+        );
+    }
 
     public function reconcilePaystack(
         int $landlordId,

@@ -629,3 +629,14 @@ Schedule::command('push:click-through-audit')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase39-vendor-observ1-push-click-through-audit');
+
+// Phase-40 GATEWAY-RECONCILE-2: iterate landlords + each enabled
+// gateway (Paystack + Stripe), emit drift gauges + fire
+// gateway_drift sev3 alert if drift exceeds threshold. 05:45 slot
+// is the legacy reconciliation:run-daily slot 04:00 + 105m so the
+// Paystack-only daily reconciler can run first if both stay enabled.
+Schedule::command('payments:gateway-reconcile')
+    ->dailyAt('05:45')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase40-payments-gateway-reconcile');

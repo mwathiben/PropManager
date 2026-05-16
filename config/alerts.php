@@ -224,5 +224,17 @@ return [
             'paging' => 'email',
             'description' => 'More than threshold UPGRADE subscription_changes rows could not be reconciled with Paystack in the last 24h.',
         ],
+
+        // Phase-40 GATEWAY-RECONCILE-3
+        [
+            'key' => 'gateway_drift',
+            'severity' => 'sev3',
+            'threshold' => 5,
+            'window' => '24h',
+            'gauge' => 'gateway_reconcile_drift_total',
+            'runbook' => 'docs/runbooks/payments.md',
+            'paging' => 'email',
+            'description' => 'Payment gateway ledger (Paystack or Stripe) drifted from local payments table by more than the threshold count in the last 24h. Investigate via payments:gateway-reconcile.',
+        ],
     ],
 ];
