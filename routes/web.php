@@ -729,6 +729,13 @@ Route::middleware('auth')->group(function () {
             ->middleware('throttle:export')
             ->name('reports.export');
 
+        // Phase-30 INT-ACCT-EXPORT-1/3: accountant-facing QuickBooks IIF + Sage CSV export
+        Route::get('/accounting/export', [\App\Http\Controllers\Finance\AccountingExportController::class, 'index'])
+            ->name('accounting.export.index');
+        Route::get('/accounting/export/download', [\App\Http\Controllers\Finance\AccountingExportController::class, 'export'])
+            ->middleware('throttle:export')
+            ->name('accounting.export.download');
+
         // Templates
         Route::get('/templates', [FinanceTemplateController::class, 'index'])->name('templates');
         Route::get('/templates/invoices', [FinanceTemplateController::class, 'invoices'])->name('templates.invoices');
