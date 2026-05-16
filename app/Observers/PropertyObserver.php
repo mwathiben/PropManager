@@ -26,6 +26,19 @@ use App\Models\Property;
  */
 class PropertyObserver
 {
+    public function created(Property $property): void
+    {
+        // Phase-31 ONB-TTFI-1: first property = activation funnel step 2.
+        if ($property->landlord_id !== null) {
+            app(\App\Services\Onboarding\OnboardingMilestoneRecorder::class)
+                ->record(
+                    landlordId: (int) $property->landlord_id,
+                    milestone: \App\Models\OnboardingMilestone::FIRST_PROPERTY,
+                    metadata: ['property_id' => $property->id],
+                );
+        }
+    }
+
     public function deleting(Property $property): void
     {
         $liveBuildings = Building::withoutGlobalScope('landlord')

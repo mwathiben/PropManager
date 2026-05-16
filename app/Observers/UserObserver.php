@@ -13,8 +13,49 @@ class UserObserver
      */
     public function created(User $user): void
     {
+        // Phase-31 ONB-TTFI-1 quirk: users.role + users.landlord_id are NOT
+        // in User::$fillable (Phase-13 PRIV-1 guarded list). UserFactory works
+        // around that by stripping them from the mass-assignment array and
+        // re-saving them AFTER insertion — which means the `created` event
+        // fires with role=null. The DB default for role is 'landlord' but the
+        // in-memory model hasn't refreshed yet.
+        //
+        // We re-route the milestone recording into recordRoleMilestone() and
+        // also call it from `updated` so the factory's post-insert role-set
+        // pattern is covered. The recorder is idempotent.
+        $user->refresh();
         if ($user->role === 'landlord') {
             $this->createDefaultSchedules($user);
+        }
+        $this->recordRoleMilestone($user);
+    }
+
+    public function updated(User $user): void
+    {
+        // Fires after the factory's post-insert role/landlord_id save.
+        if ($user->wasChanged(['role', 'landlord_id'])) {
+            $this->recordRoleMilestone($user);
+        }
+    }
+
+    private function recordRoleMilestone(User $user): void
+    {
+        $recorder = app(\App\Services\Onboarding\OnboardingMilestoneRecorder::class);
+
+        if ($user->role === 'landlord') {
+            $recorder->record(
+                landlordId: (int) $user->id,
+                milestone: \App\Models\OnboardingMilestone::SIGNED_UP,
+                metadata: ['user_id' => $user->id],
+            );
+        }
+
+        if ($user->role === 'tenant' && $user->landlord_id !== null) {
+            $recorder->record(
+                landlordId: (int) $user->landlord_id,
+                milestone: \App\Models\OnboardingMilestone::FIRST_TENANT,
+                metadata: ['tenant_id' => $user->id],
+            );
         }
     }
 

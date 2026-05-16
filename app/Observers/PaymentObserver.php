@@ -43,6 +43,16 @@ class PaymentObserver
     {
         $this->invalidateAndWarmCache($payment);
         $this->revokePaymentLinks($payment);
+
+        // Phase-31 ONB-TTFI-1: first payment = activation funnel step 6.
+        if ($payment->landlord_id) {
+            app(\App\Services\Onboarding\OnboardingMilestoneRecorder::class)
+                ->record(
+                    landlordId: (int) $payment->landlord_id,
+                    milestone: \App\Models\OnboardingMilestone::FIRST_PAYMENT,
+                    metadata: ['payment_id' => $payment->id],
+                );
+        }
     }
 
     public function updated(Payment $payment): void

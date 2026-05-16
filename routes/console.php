@@ -340,3 +340,11 @@ Schedule::command('onboarding-wizard:audit')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase31-onb-wizard3-audit');
+
+// Phase-31 ONB-TTFI-2: emit activation funnel gauges (signups,
+// per-milestone counters, time-to-first-invoice p50/p90).
+Schedule::command('activation:audit')
+    ->dailyAt('04:15')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase31-onb-ttfi2-audit');

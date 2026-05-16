@@ -12,6 +12,16 @@ class UnitObserver
     public function created(Unit $unit): void
     {
         $this->invalidateBuildingCache($unit);
+
+        // Phase-31 ONB-TTFI-1: first unit = activation funnel step 3.
+        if ($unit->landlord_id !== null) {
+            app(\App\Services\Onboarding\OnboardingMilestoneRecorder::class)
+                ->record(
+                    landlordId: (int) $unit->landlord_id,
+                    milestone: \App\Models\OnboardingMilestone::FIRST_UNIT,
+                    metadata: ['unit_id' => $unit->id],
+                );
+        }
     }
 
     public function updated(Unit $unit): void

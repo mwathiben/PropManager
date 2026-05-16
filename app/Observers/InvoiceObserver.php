@@ -11,6 +11,14 @@ class InvoiceObserver
     {
         if ($invoice->landlord_id) {
             FinanceCacheService::invalidateAndWarm($invoice->landlord_id);
+
+            // Phase-31 ONB-TTFI-1: first invoice = activation funnel step 5.
+            app(\App\Services\Onboarding\OnboardingMilestoneRecorder::class)
+                ->record(
+                    landlordId: (int) $invoice->landlord_id,
+                    milestone: \App\Models\OnboardingMilestone::FIRST_INVOICE,
+                    metadata: ['invoice_id' => $invoice->id],
+                );
         }
     }
 
