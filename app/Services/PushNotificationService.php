@@ -114,8 +114,19 @@ class PushNotificationService
         string $title,
         string $body,
         ?array $data = null,
-        ?int $landlordId = null
+        ?int $landlordId = null,
+        ?string $clickUrl = null,
     ): bool {
+        // Phase-39 PUSH-EXTEND-1: explicit clickUrl parameter overrides
+        // (or sets) data.url so listeners don't have to remember the
+        // implicit data['url'] convention. SW notificationclick handler
+        // (Phase 26 sw.ts:222) reads event.notification.data.url and
+        // navigates there; defaults to /dashboard when unset.
+        if ($clickUrl !== null) {
+            $data = ($data ?? []);
+            $data['url'] = $clickUrl;
+        }
+
         $subscriptions = PushSubscription::forUser($userId)->active()->get();
 
         if ($subscriptions->isEmpty()) {

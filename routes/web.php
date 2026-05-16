@@ -255,6 +255,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/ops/mrr/export', [\App\Http\Controllers\Insight\MrrExportController::class, 'export'])
             ->name('ops.mrr.export');
 
+        // Phase-39 PUSH-EXTEND-3: super_admin manual push test runner.
+        Route::get('/ops/push', [\App\Http\Controllers\Ops\PushTestRunnerController::class, 'show'])
+            ->name('ops.push.show');
+        Route::post('/ops/push', [\App\Http\Controllers\Ops\PushTestRunnerController::class, 'send'])
+            ->name('ops.push.send');
+
         // Phase-37 PWA-FRONTEND-ADMIN-2/3: experiments admin CRUD
         Route::get('/ops/experiments', [\App\Http\Controllers\Ops\ExperimentController::class, 'index'])
             ->name('ops.experiments.index');

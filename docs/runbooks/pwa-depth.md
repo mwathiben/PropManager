@@ -52,13 +52,43 @@ detects the delta against the cached `lastSubscribedKey`, calls
 `unsubscribe()` + `subscribe()` automatically. Operators do NOT
 need to push a global re-subscribe message.
 
-### iOS Safari limitation
+### iOS Safari push: install-first prerequisite (Phase 39)
 
-iOS 16.4+ supports web push but ONLY for PWAs installed via "Add
-to Home Screen" and ONLY after a user gesture on the same domain.
-Operators should document this in landlord-facing FAQ; the
-composable surfaces `permission === 'default'` until install +
-gesture which can be confusing.
+iOS 16.4+ Safari supports web push but enforces THREE
+prerequisites:
+
+1. **iOS 16.4 or newer** — older versions silently lack the
+   PushManager API. `useWebPush.isSupported` returns false.
+2. **PWA installed via Share → Add to Home Screen** — Safari
+   does NOT prompt for notification permission when the page is
+   open as a regular tab. The user MUST open PropManager from
+   the Home Screen icon (display-mode: standalone).
+3. **Same-domain user gesture** — after install, opening the
+   PWA the FIRST time + tapping a button (any click anywhere on
+   the page) unlocks `Notification.requestPermission()`. Without
+   the gesture the call resolves to 'denied' immediately.
+
+**Landlord-facing FAQ entry** (link from Settings/Notifications.vue's
+push card when iOS device detected): "On iPhone/iPad, tap the
+Share button in Safari → 'Add to Home Screen' → open PropManager
+from your Home Screen → then enable push notifications from
+Settings."
+
+Phase-39 PUSH-EXTEND-2 plans for an inline helper banner in
+Settings/Notifications.vue that checks
+`/iPhone|iPad/.test(navigator.userAgent) && !window.matchMedia('
+(display-mode: standalone)').matches` and surfaces the install
+instruction before the subscribe button.
+
+### Browser-side push test runner (Phase 39 PUSH-EXTEND-3)
+
+`/ops/push` (super_admin only) renders a form for manual end-to-
+end push validation: pick recipient user, type title + body +
+clickUrl, hit Send. The controller calls
+`PushNotificationService::send(..., clickUrl: $clickUrl)` and
+returns a result line with the delivered-to-N-subscriptions
+count. Replaces tinker-script-based testing for incident
+debugging.
 
 ## Insight weekly digest
 

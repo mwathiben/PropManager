@@ -37,9 +37,13 @@ class NotifyOnLeaseRenewalApproaching implements ShouldQueue
             'days' => $event->bucketDays,
             'end_date' => $lease->end_date?->toDateString(),
         ]);
+        // Phase-39 PUSH-EXTEND-1: data.url drives the SW notification
+        // click handler — tapping the push lands the user on the
+        // specific lease page instead of /dashboard.
         $data = [
             'lease_id' => $lease->id,
             'bucket_days' => $event->bucketDays,
+            'url' => "/leases/{$lease->id}",
         ];
 
         // Tenant first.

@@ -30,7 +30,11 @@ class NotifyTenantOnDepositRefundPaid implements ShouldQueue
             message: __('workflow.deposit_refund.paid_body', [
                 'reference' => $refund->payment_reference ?? '',
             ]),
-            data: ['deposit_refund_id' => $refund->id],
+            data: [
+                'deposit_refund_id' => $refund->id,
+                // Phase-39 PUSH-EXTEND-1: tap → tenant refund page.
+                'url' => '/tenant/refunds',
+            ],
             landlordId: $refund->landlord_id,
         );
     }
