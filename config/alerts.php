@@ -189,6 +189,18 @@ return [
             'description' => 'Total daily cron runtime exceeded 60 minutes — investigate per-command profiling.',
         ],
 
+        // Phase-38 DEFER-BUILD-CI-3
+        [
+            'key' => 'stale_bundle_warning',
+            'severity' => 'sev4',
+            'threshold' => 24,
+            'window' => 'instantaneous',
+            'gauge' => 'bundle_age_hours_since_last_fe_commit',
+            'runbook' => 'docs/runbooks/cleanup.md',
+            'paging' => 'email',
+            'description' => 'public/build/manifest.json is older than the newest FE commit — the dev/prod server is serving a stale bundle. Rebuild via `npm run build`.',
+        ],
+
         // Phase-37 PWA-GATEWAY-3
         [
             'key' => 'high_gateway_proration_drift',

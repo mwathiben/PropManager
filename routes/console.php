@@ -600,3 +600,13 @@ Schedule::command('product:cold-storage-rollover')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase37-pwa-retention2-product-cold-storage-rollover');
+
+// Phase-38 DEFER-BUILD-CI-3: alert when public/build/manifest.json
+// is older than the newest commit touching resources/js/. Daily
+// 04:55 — slots between Phase-36 cron:budget-audit 04:30 and
+// Phase-30 bank-reconciliation:audit 05:50.
+Schedule::command('bundle:freshness-audit')
+    ->dailyAt('04:55')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase38-defer-build-ci3-bundle-freshness-audit');

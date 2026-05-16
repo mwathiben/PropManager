@@ -1,0 +1,33 @@
+# Phase-38 DEFER-BUILD-CI-1/2: pre-commit gates.
+#
+# Install lefthook (https://github.com/evilmartians/lefthook):
+#   - Windows:  choco install lefthook   OR  scoop install lefthook
+#   - macOS:    brew install lefthook
+#   - Linux:    asdf plugin add lefthook  OR  see release page
+#
+# After install, run `lefthook install` once at the repo root to
+# write .git/hooks/pre-commit. Hooks run on every `git commit`.
+#
+# Skip mechanics:
+#   - SKIP_VITE=1 git commit ...    skip the build check (FE-untouched commits)
+#   - LEFTHOOK=0 git commit ...     skip all hooks (only for hotfix backports)
+#
+# The build check runs ONLY when staged files touch resources/js,
+# vite.config.js, package.json, or tsconfig*.json — non-FE commits
+# (PHP-only, lang/, docs/) skip the build entirely so commits stay
+# fast for backend-only work.
+
+pre-commit:
+  parallel: true
+  commands:
+    import-case:
+      glob: "resources/js/**/*.{ts,tsx,vue,js}"
+      run: node scripts/check-import-case.mjs
+    vite-build:
+      glob: "{resources/js/**,vite.config.js,package.json,tsconfig*.json}"
+      run: |
+        if [ "$SKIP_VITE" = "1" ]; then
+          echo "SKIP_VITE=1 — skipping vite build check"
+          exit 0
+        fi
+        npm run build

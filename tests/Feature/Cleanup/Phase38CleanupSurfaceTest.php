@@ -141,6 +141,37 @@ class Phase38CleanupSurfaceTest extends TestCase
     }
 
     /**
+     * Phase-38 DEFER-BUILD-CI-3: the bundle freshness audit cron is
+     * scheduled at the expected cadence + timezone. Stale bundles
+     * silently break dashboards (yesterday's Phase-30 layout typo
+     * froze the build for 36h), so the daily watchdog is critical.
+     */
+    public function test_bundle_freshness_audit_is_scheduled(): void
+    {
+        $events = collect(\Illuminate\Support\Facades\Schedule::events());
+        $entry = $events->first(fn ($e) => str_contains((string) $e->command, 'bundle:freshness-audit'));
+
+        $this->assertNotNull($entry, 'bundle:freshness-audit is not scheduled.');
+        $this->assertSame('55 4 * * *', $entry->expression);
+        $this->assertSame('Africa/Nairobi', $entry->timezone);
+    }
+
+    /**
+     * Phase-38 DEFER-BUILD-CI-3: the alert registry contains the
+     * stale_bundle_warning key so AlertFiringRecorder calls don't
+     * surface "unknown alert key" warnings.
+     */
+    public function test_stale_bundle_warning_alert_registered(): void
+    {
+        $registry = collect(config('alerts.alerts'))->pluck('key')->all();
+        $this->assertContains(
+            'stale_bundle_warning',
+            $registry,
+            'stale_bundle_warning missing from config/alerts.php',
+        );
+    }
+
+    /**
      * Phase-38 DEFER-TEST-HEALTH-2: ratchet on total error+failure
      * count across the full suite. Phase-38 scout measured 90 errors
      * + 9 failures = 99 total at the start of this cycle. The ratchet
