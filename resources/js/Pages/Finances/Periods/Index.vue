@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { router } from '@inertiajs/vue3'
 import { useI18n } from 'vue-i18n'
-import AppLayout from '@/Layouts/AppLayout.vue'
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Head } from '@inertiajs/vue3'
 
 defineProps<{
@@ -35,7 +35,7 @@ const reopen = (periodId: number) => {
 
 <template>
   <Head :title="t('accounting.period.title')" />
-  <AppLayout>
+  <AuthenticatedLayout>
     <div class="p-6 space-y-6">
       <h1 class="text-2xl font-semibold">{{ t('accounting.period.title') }}</h1>
 
@@ -91,5 +91,5 @@ const reopen = (periodId: number) => {
         </table>
       </section>
     </div>
-  </AppLayout>
+  </AuthenticatedLayout>
 </template>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import AppLayout from '@/Layouts/AppLayout.vue'
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Head } from '@inertiajs/vue3'
 
 defineProps<{
@@ -29,7 +29,7 @@ const exportUrl = () => {
 
 <template>
   <Head :title="t('accounting.export.title')" />
-  <AppLayout>
+  <AuthenticatedLayout>
     <div class="p-6 space-y-6">
       <h1 class="text-2xl font-semibold">{{ t('accounting.export.title') }}</h1>
 
@@ -78,5 +78,5 @@ const exportUrl = () => {
         </a>
       </section>
     </div>
-  </AppLayout>
+  </AuthenticatedLayout>
 </template>
