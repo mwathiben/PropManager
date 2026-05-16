@@ -168,10 +168,34 @@ class HandleInertiaRequests extends Middleware
      */
     protected function getI18nBundle(): array
     {
+        // Front-end vue-i18n bundle = top-level lang/{locale}.json (basic UI
+        // strings, validation, simple keys) MERGED with namespaced PHP files
+        // (insight.*, growth.*, payments.*, …) so $t('insight.landlord_growth.X')
+        // resolves on the client. Without the merge, namespaced keys silently
+        // fall back to rendering the literal key path — caught when Phase-36
+        // dashboard growth cards displayed
+        // 'insight.landlord_growth.engagement_card_heading' instead of headings.
         foreach ([app()->getLocale(), config('app.fallback_locale')] as $locale) {
-            $path = base_path("lang/{$locale}.json");
-            if (is_file($path)) {
-                return json_decode(file_get_contents($path), true) ?: [];
+            if (! is_string($locale) || $locale === '') {
+                continue;
+            }
+            $bundle = [];
+
+            $jsonPath = base_path("lang/{$locale}.json");
+            if (is_file($jsonPath)) {
+                $bundle = json_decode(file_get_contents($jsonPath), true) ?: [];
+            }
+
+            $namespaceDir = base_path("lang/{$locale}");
+            if (is_dir($namespaceDir)) {
+                foreach (glob($namespaceDir.'/*.php') ?: [] as $file) {
+                    $namespace = basename($file, '.php');
+                    $bundle[$namespace] = require $file;
+                }
+            }
+
+            if ($bundle !== []) {
+                return $bundle;
             }
         }
 
