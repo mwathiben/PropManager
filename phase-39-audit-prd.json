@@ -1,0 +1,205 @@
+{
+  "phase": 39,
+  "title": "[GROWTH-VENDORS-2] PostHog analytics forwarder + experimentation stats v2 (multi-variant chi-square + Bayesian) + push deep-link surface + cold-storage rehydration",
+  "opened_at": "2026-05-16",
+  "tier": "7",
+  "scope": "Tier-7 cycle 3 — turning the dark-by-default vendor surface that Phase 35 + 37 wired into actionable signal. Phase 35 shipped `product_events` (append-only TenantScope ledger) + Phase 37 shipped per-month cold-storage rollover to Storage::disk('archive') as JSONL.gz — but neither phase shipped a vendor forwarder (no AnalyticsForwarder service exists, no SDK installed) or a rehydration read path (operators cannot search archived events without raw S3 / disk access). Phase 37 also shipped ExperimentService::computeSignificance for 2-variant boolean conversion (pooled z-test, α=0.05) but stops there — multi-variant experiments (3+ arms) need ANOVA/χ², and continuous-monitoring teams need Bayesian sequential analysis with proper alpha-spending so early peeks don't inflate false-positive rate. PushNotificationService::send already supports `data.url` deep-link via the SW notificationclick handler (Phase 26 + 37) but the contract is implicit — only NotificationService's general-purpose send path uses it; the 8+ listener-driven push paths (Phase-29 NotifyOnLeaseRenewalApproaching, Phase-30 DepositRefundPaid, Phase-32 AlertFiringRecorded, Phase-37 weekly digest reminder, etc.) all pass `data` without standardizing the `url` key — so users get a notification but tapping it opens /dashboard instead of the specific lease/refund/incident page. iOS Safari requires special handling (16.4+ supports web push but ONLY for PWAs installed via 'Add to Home Screen' WITH a prior user gesture on the same domain) and the runbook needs landlord-facing FAQ. /ops/push as a browser-side test runner is also missing — operators today cannot validate VAPID + payload + click_url end-to-end without writing tinker scripts. 18 findings across 6 categories: VENDOR-ANALYTICS (3 — AnalyticsForwarderInterface + PostHog implementation + analytics:replay-batch cron iterating product_events in chunks of 100 with PostHog batch API + config/vendors.php with per-vendor enable flag + sample rate), EXP-STATS-2 (3 — ExperimentService::computeChiSquareSignificance multi-variant N-arm χ² test of independence + ::computeBayesianPosterior beta-distribution-based posterior probability of variant-B-better-than-A + alpha-spending sequential analysis early-stopping detector with O'Brien-Fleming boundaries), PUSH-EXTEND (3 — PushNotificationService::send signature gains explicit `?string $clickUrl` parameter that overrides data.url + 4 listener migrations to pass clickUrl explicitly + iOS Safari PWA install + permission guide section in docs/runbooks/pwa-depth.md), RETENTION-READ (3 — `archive:rehydrate` artisan command reading product-events/{landlord_id}/YYYY-MM/events.jsonl.gz back into a temporary scratch table for ad-hoc query + ArchiveManifestService building lazy index of available archive files per landlord+month + /ops/archive/search super_admin endpoint), VENDOR-OBSERV (3 — analytics_events_forwarded_total{vendor} + analytics_forwarder_lag_seconds + push_click_through_rate_24h gauges + vendor_flap alert (sev4) when forwarder error rate > 10% over 5 minutes + flap reset auto-resolves), VENDOR-CI (3 — Phase39VendorSurfaceTest watchdog + lang/{en,sw}/vendors.php + docs/runbooks/vendors.md). Severity 5H/8M/5L. NOT in scope: Stripe gateway parity (deferred to Phase 40 [STRIPE-GATEWAY] — 1500+ LOC including PaymentGatewayContract interface + StripeGateway impl + webhook + KES→USD currency mapping + reconciliation cron; too large for an audit cycle), Amplitude/Mixpanel/Heap vendor SDKs (PostHog chosen for cycle 3 because of generous free tier + open-source + EU GDPR posture matches PropManager; other vendors can be added by implementing AnalyticsForwarderInterface in follow-up), browser-side push test runner UI under /ops/push (deferred — manual tinker-based test runner is sufficient until vendor signups happen).",
+  "categories": [
+    "VENDOR-ANALYTICS",
+    "EXP-STATS-2",
+    "PUSH-EXTEND",
+    "RETENTION-READ",
+    "VENDOR-OBSERV",
+    "VENDOR-CI"
+  ],
+  "findings": [
+    {
+      "id": "VENDOR-ANALYTICS-1",
+      "title": "AnalyticsForwarderInterface + PostHog implementation",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/Vendors/AnalyticsForwarderInterface.php (new)",
+        "app/Services/Vendors/PostHogForwarder.php (new)",
+        "app/Providers/AppServiceProvider.php"
+      ],
+      "evidence": "Phase 35 shipped product_events append-only ledger but no vendor forwarder exists. Operators see daily rollup gauges (product_event_count_24h{event=X}) but cannot do funnel/cohort analysis without exporting to a vendor. AnalyticsForwarderInterface + PostHogForwarder lets us add Mixpanel/Heap later by implementing the interface (closed-extension principle).",
+      "fix": "(a) AnalyticsForwarderInterface contract: `flush(array $events): array` returning {accepted, rejected, retryable} counts; (b) PostHogForwarder::flush batches up to 100 events via POST https://app.posthog.com/batch with project API key; respects Retry-After header; per-event distinct_id = landlord_id ?? user_id; properties stay opaque (no PII filter at vendor boundary — caller is responsible); (c) bind via AppServiceProvider when config('vendors.posthog.enabled') is true."
+    },
+    {
+      "id": "EXP-STATS-2-1",
+      "title": "ExperimentService::computeChiSquareSignificance multi-variant N-arm test",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/Platform/ExperimentService.php"
+      ],
+      "evidence": "Phase-37 RETENTION-STATS-3 stopped at 2-variant boolean z-test. Multi-variant experiments (3+ arms — common in onboarding-CTA-color tests, plan-pricing tiers) need χ² test of independence: chi² = Σ ((O - E)² / E) with degrees of freedom (rows-1)(cols-1). Throws today on != 2 variants.",
+      "fix": "(a) `computeChiSquareSignificance(string $experimentKey, callable $isSuccessForUser): array` returning {variants[], n_per_variant[], conversions_per_variant[], chi_square, df, p_value, is_significant}; (b) builds 2×N contingency table (success vs failure per variant); (c) χ² = Σ ((O-E)²/E) across all 2N cells; df = (2-1)(N-1) = N-1; (d) p_value from chi² survival function — use Abramowitz & Stegun 26.4.4 approximation for general df (analogous to the Phase-37 normal CDF approximation); (e) is_significant when p_value < 0.05; (f) throws on < 2 variants but accepts any N >= 2."
+    },
+    {
+      "id": "PUSH-EXTEND-1",
+      "title": "PushNotificationService::send explicit clickUrl parameter + 4 listener migrations",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/PushNotificationService.php",
+        "app/Listeners/NotifyOnLeaseRenewalApproaching.php",
+        "app/Listeners/NotifyOnDepositRefundPaid.php",
+        "app/Listeners/Sre/LogAlertFiring.php",
+        "app/Console/Commands/InsightWeeklyDigest.php"
+      ],
+      "evidence": "Push send signature today: `send(int $userId, string $title, string $body, ?array $data = null, ?int $landlordId = null)`. Callers must remember `$data['url'] = ...` to enable deep-linking on tap (Phase-37 PWA-PUSH-FE-3 wired the SW side). Implicit contract — listener authors miss it, users tap notifications and land on /dashboard instead of the relevant resource.",
+      "fix": "(a) send(...) signature gains `?string $clickUrl = null` as explicit 6th parameter; non-null value writes into the payload's data.url before createPayload; (b) NotifyOnLeaseRenewalApproaching passes `clickUrl: route('leases.show', $event->lease)`; (c) NotifyOnDepositRefundPaid passes `clickUrl: route('tenant.refunds.show', $event->refund)`; (d) LogAlertFiring passes `clickUrl: route('ops.incidents.index')`; (e) InsightWeeklyDigest reminder push (when added) passes `clickUrl: route('dashboard').'#growth'`. Each migration is a 3-line change."
+    },
+    {
+      "id": "RETENTION-READ-1",
+      "title": "archive:rehydrate command — read JSONL.gz back into a scratch table",
+      "severity": "HIGH",
+      "files": [
+        "app/Console/Commands/ArchiveRehydrate.php (new)",
+        "database/migrations/2026_05_16_320000_phase39_retention1_create_rehydrated_product_events.php (new)"
+      ],
+      "evidence": "Phase-37 cold-storage rollover writes product-events/{landlord_id}/YYYY-MM/events.jsonl.gz to Storage::disk('archive') but no read path exists. To answer 'show me all checkout-failed events for landlord 42 in 2026-Q1' an operator must manually gunzip the file. archive:rehydrate loads the JSONL back into a temporary `rehydrated_product_events` table for ad-hoc query.",
+      "fix": "(a) rehydrated_product_events table (mirror of product_events shape + `rehydrated_at` timestamp + `source_path` varchar for traceability + TenantScope) — auto-truncates rows older than 7 days via separate cleanup; (b) ArchiveRehydrate command: `archive:rehydrate {--landlord=} {--month=YYYY-MM} {--clear-first}` — reads Storage::disk('archive')->get('product-events/{landlord}/{month}/events.jsonl.gz'), gunzips, parses JSONL line by line, batch-inserts 1000 at a time, logs progress; (c) emits `archive_rows_rehydrated_count` gauge + on-success line: 'Rehydrated N rows from path/to/file. Query SELECT * FROM rehydrated_product_events WHERE landlord_id = X.'"
+    },
+    {
+      "id": "VENDOR-ANALYTICS-2",
+      "title": "analytics:replay-batch cron iterating product_events in chunks",
+      "severity": "HIGH",
+      "files": [
+        "app/Console/Commands/AnalyticsReplayBatch.php (new)",
+        "routes/console.php"
+      ],
+      "evidence": "Once AnalyticsForwarderInterface exists (VENDOR-ANALYTICS-1), need a daily cron to replay yesterday's product_events to the configured vendor. Without a cron, only real-time path (which doesn't exist yet — would require event-listener integration) sends data, and cold history never arrives at the vendor.",
+      "fix": "(a) AnalyticsReplayBatch::handle reads `last_replayed_at` from setting cache, fetches product_events created_at > last_replayed_at && < now()-5min (5min buffer so late writes aren't missed) in chunks of 100, calls AnalyticsForwarderInterface::flush; (b) updates last_replayed_at on success; on partial failure (retryable > 0) keeps the marker where it is so next run retries; (c) Schedule: daily 04:45 Africa/Nairobi (slots after Phase-37 product:cold-storage-rollover 03:30 + Phase-38 bundle:freshness-audit 04:55); (d) emits analytics_events_forwarded_total{vendor} counter + analytics_replay_batch_duration_seconds gauge."
+    },
+    {
+      "id": "EXP-STATS-2-2",
+      "title": "ExperimentService::computeBayesianPosterior beta-distribution posterior P(B>A)",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/Platform/ExperimentService.php"
+      ],
+      "evidence": "Frequentist z-test (Phase 37) tells you 'is the difference statistically significant', but product teams operating experiments want 'what's the probability variant B is better than A given the data so far'. Bayesian beta-distribution posterior gives that directly: Beta(α=conversions+1, β=non-conversions+1) per variant, then P(θ_B > θ_A) via Monte Carlo simulation or closed-form.",
+      "fix": "(a) `computeBayesianPosterior(string $experimentKey, callable $isSuccessForUser, int $monteCarloSamples = 50000): array` returning {p_b_better_than_a, p_a_better_than_b, expected_lift_pct, credible_interval_95_low, credible_interval_95_high}; (b) for each variant, draws monteCarloSamples from Beta(c+1, n-c+1) using Marsaglia & Tsang gamma generator; (c) counts samples where θ_B > θ_A; (d) credible interval = 2.5th + 97.5th percentile of (θ_B - θ_A) distribution; (e) test fixture: 47/1000 vs 71/1000 → p_b_better_than_a ≈ 0.985, expected_lift ≈ +5pp, CI95 ≈ [0.5pp, 10pp]."
+    },
+    {
+      "id": "EXP-STATS-2-3",
+      "title": "Alpha-spending sequential analysis with O'Brien-Fleming boundaries",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/Platform/ExperimentService.php"
+      ],
+      "evidence": "Continuous-monitoring experiments (peek at significance every day) inflate false-positive rate from 5% to ~30% over 30 peeks. O'Brien-Fleming alpha-spending boundaries adjust the per-peek significance threshold so total α across the experiment lifetime stays ≤ 0.05. Without it, every experiment is a false-positive factory.",
+      "fix": "(a) `computeAlphaSpendingBoundary(int $peekNumber, int $maxPeeks, float $alpha = 0.05): float` returning the z-threshold for THIS peek under O'Brien-Fleming. Formula: z* = z_{α / (4 * (peek/maxPeeks)²)} approximation; (b) caller uses: if abs(z_score) > computeAlphaSpendingBoundary(...) → declare significant; (c) test fixtures: peek=1 of 10 needs much-larger boundary than peek=10 of 10; (d) NOT auto-applied — operators opt in via experiment metadata `alpha_spending: { schedule: 'obrien_fleming', max_peeks: 14 }` so traditional fixed-N experiments still work."
+    },
+    {
+      "id": "PUSH-EXTEND-2",
+      "title": "iOS Safari PWA push enablement guide + landlord FAQ section",
+      "severity": "MEDIUM",
+      "files": [
+        "docs/runbooks/pwa-depth.md",
+        "resources/views/help/articles/ios-push-enable.blade.php (new — or markdown fragment)"
+      ],
+      "evidence": "iOS 16.4+ supports web push but ONLY for PWAs installed via Add-to-Home-Screen AND ONLY after a same-domain user gesture. Without this guide, iOS landlords enable push in Settings/Notifications.vue (Phase 37 UI), see permission go to 'granted', but receive zero notifications because the PWA was never installed. Operator-time-sink in user support tickets.",
+      "fix": "(a) Runbook section in pwa-depth.md adds 'iOS Safari push: install-first prerequisite' covering: iOS 16.4+ Safari only / 'Share → Add to Home Screen' / open the PWA from the icon (not Safari directly) / settings shows the permission prompt only at that point; (b) help article markdown at resources/views/help/articles/ios-push-enable.blade.php (HelpDrawer can surface) explains it in landlord-friendly language; (c) Settings/Notifications.vue's push card detects /iPhone|iPad/.test(navigator.userAgent) AND not standalone display-mode AND surfaces an 'iOS users: install PropManager to your Home Screen first' helper before the subscribe button."
+    },
+    {
+      "id": "PUSH-EXTEND-3",
+      "title": "/ops/push browser-side test runner — manual send + click-flow validation",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/Ops/PushTestRunnerController.php (new)",
+        "resources/js/Pages/Ops/PushTester.vue (new)",
+        "routes/web.php"
+      ],
+      "evidence": "Today operators validate push end-to-end by writing tinker scripts (run `PushNotificationService->send(...)` then check the browser). For incident debugging this is slow. /ops/push gives super_admin a form: pick recipient user, type title + body + clickUrl, click Send, see the push fire on their own browser (or recipient's) within seconds.",
+      "fix": "(a) PushTestRunnerController @ /ops/push role:super_admin: GET renders Pages/Ops/PushTester.vue with users list; POST validates + calls PushNotificationService->send + returns success/failure with subscription count; (b) Vue page form: recipient user select + title input + body textarea + clickUrl input (default /dashboard) + Send button; on success shows 'Push delivered to N subscriptions'; on failure surfaces error; (c) routes/web.php gets GET /ops/push + POST /ops/push under role:super_admin."
+    },
+    {
+      "id": "RETENTION-READ-2",
+      "title": "ArchiveManifestService — lazy index of available landlord+month archives",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/Archive/ArchiveManifestService.php (new)"
+      ],
+      "evidence": "Storage::disk('archive') is content-addressable by path but listing 'all available months for landlord 42' currently requires `disk->allFiles('product-events/42/')` which can be slow on S3 (one HTTP request per 1000 keys). ArchiveManifestService caches the result for 1 hour so /ops/archive/search loads fast.",
+      "fix": "(a) ArchiveManifestService::availableMonthsForLandlord(int $landlordId): array returning [['month' => '2026-04', 'size_bytes' => 12345, 'object_count_estimate' => N], ...] via Cache::remember(key=`archive:manifest:{landlord_id}`, ttl=3600, fn() => disk->allFiles); (b) availableLandlordsForMonth(string $monthYYYYMM): array returning [landlord_id, ...]; (c) all-archive summary: `summary()` returning total bytes + total files + per-landlord row count."
+    },
+    {
+      "id": "RETENTION-READ-3",
+      "title": "/ops/archive/search super_admin endpoint + Vue page",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/Ops/ArchiveSearchController.php (new)",
+        "resources/js/Pages/Ops/ArchiveSearch.vue (new)",
+        "routes/web.php"
+      ],
+      "evidence": "Operators investigating a landlord's funnel ('show me everything Y user did in 2026-Q1') need an archive search UI. Without it they `grep` JSONL files manually. Builds on ArchiveManifestService (RETENTION-READ-2) and ArchiveRehydrate (RETENTION-READ-1).",
+      "fix": "(a) ArchiveSearchController @ /ops/archive/search role:super_admin: GET renders ArchiveSearch.vue with availableLandlordsForMonth dropdown + month picker + rehydrate button; POST triggers ArchiveRehydrate command (queued so it doesn't block the request); (b) Vue page table queries rehydrated_product_events filtered by selected landlord + month; (c) routes/web.php under role:super_admin: GET /ops/archive/search + POST /ops/archive/rehydrate."
+    },
+    {
+      "id": "VENDOR-ANALYTICS-3",
+      "title": "config/vendors.php with per-vendor enable flag + API key resolution",
+      "severity": "MEDIUM",
+      "files": [
+        "config/vendors.php (new)",
+        ".env.example"
+      ],
+      "evidence": "AnalyticsForwarderInterface + PostHogForwarder need a config entry point for project API key + enabled flag (not all environments forward). config/vendors.php is the home for all future vendor settings (PostHog, future Amplitude/Mixpanel, Stripe — Phase 40 builds on this).",
+      "fix": "(a) config/vendors.php: ['posthog' => ['enabled' => env('VENDORS_POSTHOG_ENABLED', false), 'api_key' => env('VENDORS_POSTHOG_API_KEY'), 'host' => env('VENDORS_POSTHOG_HOST', 'https://app.posthog.com'), 'sample_rate' => env('VENDORS_POSTHOG_SAMPLE_RATE', 1.0)]]; (b) .env.example documents the four env vars with safe defaults (disabled = true)."
+    },
+    {
+      "id": "VENDOR-OBSERV-1",
+      "title": "analytics_events_forwarded_total + lag + push_click_through_rate gauges",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/AnalyticsReplayBatch.php",
+        "app/Console/Commands/PushClickThroughAudit.php (new)",
+        "routes/console.php"
+      ],
+      "evidence": "Vendor forwarder + push subsystem need observability so SRE knows when integration breaks. Without metrics: forwarder silently fails → vendor dashboards go dark → growth team doesn't notice.",
+      "fix": "(a) AnalyticsReplayBatch emits `analytics_events_forwarded_total{vendor}` + `analytics_replay_batch_duration_seconds` per run; (b) `push:click-through-audit` command runs nightly 05:10, computes push_click_through_rate_24h = clicks/sent from Notification rows where channel='push' AND status='sent' in last 24h; (c) emits push_click_through_rate_24h gauge; (d) routes/console.php schedules the new audit."
+    },
+    {
+      "id": "VENDOR-OBSERV-2",
+      "title": "vendor_flap alert (sev4) when forwarder error rate > 10% over 5 minutes",
+      "severity": "LOW",
+      "files": [
+        "app/Console/Commands/AnalyticsReplayBatch.php",
+        "config/alerts.php"
+      ],
+      "evidence": "When PostHog (or any future vendor) returns 5xx for several minutes, we should fire a low-severity alert so on-call knows vendor degradation is in play. Otherwise data loss accumulates silently.",
+      "fix": "(a) AnalyticsReplayBatch tracks {accepted, rejected} per run, computes error_rate = rejected / (accepted + rejected); fires vendor_flap alert via AlertFiringRecorder when error_rate > 0.10 OR last 5 consecutive runs all > 0.05; (b) config/alerts.php gains vendor_flap sev4 threshold 0.10 gauge analytics_forwarder_error_rate_5min runbook docs/runbooks/vendors.md."
+    },
+    {
+      "id": "VENDOR-CI-1",
+      "title": "Phase39VendorSurfaceTest watchdog",
+      "severity": "LOW",
+      "files": [
+        "tests/Feature/Vendors/Phase39VendorSurfaceTest.php (new)"
+      ],
+      "evidence": "Phase pattern: watchdog asserts EXPECTED_SCHEDULES + EXPECTED_ALERT_KEYS + lang parity for the cycle's surface. Phase 39 needs: analytics:replay-batch (daily 04:45) + push:click-through-audit (daily 05:10), vendor_flap alert, lang/vendors.php parity, and the new /ops/push + /ops/archive/search routes existence.",
+      "fix": "(a) EXPECTED_SCHEDULES: analytics:replay-batch '45 4 * * *' Africa/Nairobi, push:click-through-audit '10 5 * * *' Africa/Nairobi; (b) EXPECTED_ALERT_KEYS: ['vendor_flap']; (c) EXPECTED_ROUTE_NAMES: ['ops.push.show', 'ops.push.send', 'ops.archive.search', 'ops.archive.rehydrate']; (d) lang/{en,sw}/vendors.php parity via flatten() comparison."
+    },
+    {
+      "id": "VENDOR-CI-2",
+      "title": "lang/{en,sw}/vendors.php namespace",
+      "severity": "LOW",
+      "files": [
+        "lang/en/vendors.php (new)",
+        "lang/sw/vendors.php (new)"
+      ],
+      "evidence": "5 sections covering: analytics (forwarder error helpers), exp_stats (multi-variant + Bayesian + sequential method labels), push (iOS install banner + test-runner labels), archive (search UI + rehydrate progress messages), observ (vendor flap alert + click-through-rate labels). Phase24CiTest parity required.",
+      "fix": "Sections: analytics (forwarder_unavailable_heading, vendor_disabled_helper, replay_batch_progress_label), exp_stats (chi_square_label, bayesian_posterior_label, sequential_alpha_spending_label, credible_interval_label), push (ios_install_first_heading, ios_install_helper, test_runner_heading, send_test_cta), archive (search_landlord_label, search_month_label, rehydrate_cta, rows_loaded_label), observ (vendor_flap_heading, click_through_rate_label)."
+    },
+    {
+      "id": "VENDOR-CI-3",
+      "title": "docs/runbooks/vendors.md operator reference + Phase 40 [STRIPE-GATEWAY] handoff notes",
+      "severity": "LOW",
+      "files": [
+        "docs/runbooks/vendors.md (new)"
+      ],
+      "evidence": "Phase 39 surfaces 3 new subsystems (analytics forwarder, exp stats v2, archive read path) + extends 2 (push, observability). Each needs an operator playbook. Plus Phase 40 STRIPE-GATEWAY handoff notes so the next cycle picks up cleanly.",
+      "fix": "Sections: Overview (Phase 39 surface map), Analytics forwarder (PostHog setup + replay flow + flap playbook), Experimentation v2 (multi-variant chi-square + Bayesian posterior + alpha-spending opt-in via metadata + interpretation guide), Push deep-link contract (clickUrl parameter migration guide + iOS install-first FAQ + /ops/push test runner howto), Archive read path (rehydrate command + manifest cache + /ops/archive/search), Observability (vendor metrics + flap alert response), CI gates, Tier-7 cycle 4 = Phase 40 [STRIPE-GATEWAY] handoff (PaymentGatewayContract interface boundary, KES↔USD currency mapping, dual-gateway operator pivot strategy)."
+    }
+  ]
+}
