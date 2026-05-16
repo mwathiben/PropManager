@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
 
@@ -17,13 +18,76 @@ use Illuminate\Support\Facades\Redis;
  * dependency on a metrics SaaS. Fail-closed: a Redis hiccup must
  * never break the actual payment flow, so all errors are logged
  * and swallowed.
+ *
+ * Phase-38 DEFER-METRICS-FALLBACK-1/2: noop-on-noredis. Before this
+ * pass, every public method called Redis::connection unconditionally,
+ * which logged 'Class "Redis" not found' on every request in envs
+ * without phpredis. Now redisAvailable() short-circuits all five
+ * methods to NOOP and logs ONCE per day (Cache::add with 24h TTL)
+ * with install instructions, so the log surface stays usable.
  */
 class MetricsService
 {
+    /**
+     * Static cache for the redisAvailable() check — avoids re-probing
+     * the Redis facade on every increment() call within a process.
+     */
+    private static ?bool $redisAvailable = null;
+
     public function __construct(private readonly string $connection = 'cache') {}
+
+    /**
+     * Phase-38 DEFER-METRICS-FALLBACK-1: detect whether a Redis client
+     * is actually loadable in this process. Returns true when phpredis
+     * extension is installed OR predis/predis composer package is
+     * present. Cached statically so subsequent calls are O(1).
+     */
+    public static function redisAvailable(): bool
+    {
+        if (self::$redisAvailable !== null) {
+            return self::$redisAvailable;
+        }
+
+        $hasPhpRedis = extension_loaded('redis');
+        $hasPredis = class_exists(\Predis\Client::class);
+
+        self::$redisAvailable = $hasPhpRedis || $hasPredis;
+
+        if (! self::$redisAvailable) {
+            // Log ONCE per day with install hint, not on every request.
+            // Cache::add returns true exactly once until the TTL expires.
+            try {
+                if (Cache::add('metrics:driver-unavailable-notice', true, 86400)) {
+                    Log::channel(config('logging.metrics_channel', 'stack'))->notice(
+                        'metrics driver unavailable — phpredis extension and predis/predis package both missing. '
+                        .'Install with `pecl install redis` (prod) or `composer require predis/predis --dev` '
+                        .'(dev). MetricsService is no-op until then; the /api/metrics endpoint returns empty.',
+                    );
+                }
+            } catch (\Throwable) {
+                // If Cache itself is broken (eg first request before
+                // anything is wired) just swallow — we are already in
+                // a fail-soft path and must not throw upstream.
+            }
+        }
+
+        return self::$redisAvailable;
+    }
+
+    /**
+     * Test helper: reset the static cache so per-test environment
+     * switching (with vs without Redis) doesn't carry over.
+     */
+    public static function resetRedisAvailabilityCache(): void
+    {
+        self::$redisAvailable = null;
+    }
 
     public function increment(string $name, int $by = 1, array $labels = []): void
     {
+        if (! self::redisAvailable()) {
+            return;
+        }
         try {
             $key = $this->bucketKey();
             $field = $this->fieldName($name, $labels);
@@ -51,6 +115,9 @@ class MetricsService
      */
     public function observe(string $name, float $valueMs, array $labels = []): void
     {
+        if (! self::redisAvailable()) {
+            return;
+        }
         try {
             $key = $this->bucketKey();
             $client = Redis::connection($this->connection);
@@ -89,6 +156,9 @@ class MetricsService
      */
     public function gauge(string $name, float $value, array $labels = []): void
     {
+        if (! self::redisAvailable()) {
+            return;
+        }
         try {
             $key = $this->gaugeKey();
             $field = $this->fieldName($name, $labels);
@@ -105,6 +175,9 @@ class MetricsService
 
     public function snapshot(?string $bucket = null): array
     {
+        if (! self::redisAvailable()) {
+            return [];
+        }
         try {
             $key = $bucket ? "metrics:{$bucket}" : $this->bucketKey();
 
@@ -147,6 +220,9 @@ class MetricsService
 
     public function gaugeSnapshot(): array
     {
+        if (! self::redisAvailable()) {
+            return [];
+        }
         try {
             return Redis::connection($this->connection)->hgetall($this->gaugeKey()) ?: [];
         } catch (\Throwable) {
