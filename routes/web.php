@@ -237,6 +237,10 @@ Route::middleware('auth')->group(function () {
         // Phase-33 COST-ATTRIB-3: top-N costliest landlords for ops dashboard
         Route::get('/ops/landlord-cost', [\App\Http\Controllers\Cost\LandlordCostController::class, 'topN'])
             ->name('ops.landlord-cost.top-n');
+
+        // Phase-34 GROWTH-MRR-3: MRR trend + per-plan breakdown
+        Route::get('/ops/mrr', [\App\Http\Controllers\Growth\MrrController::class, 'trend'])
+            ->name('ops.mrr.trend');
     });
     // Legacy routes for backward compatibility
     Route::get('/onboarding/create', [OnboardingController::class, 'create'])->name('onboarding.create');

@@ -453,3 +453,12 @@ Schedule::command('log:volume-audit')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase33-cost-logs23-audit');
+
+// Phase-34 GROWTH-MRR-2: daily MRR snapshot + per-plan gauges. Runs
+// at 04:05 — first in the Phase-34 growth cluster (04:05-04:15),
+// after the Phase-33 cost cluster finishes at 03:55.
+Schedule::command('mrr:snapshot')
+    ->dailyAt('04:05')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase34-growth-mrr2-snapshot');
