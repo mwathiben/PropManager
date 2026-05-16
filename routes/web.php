@@ -199,6 +199,9 @@ Route::middleware('auth')->group(function () {
             ->middleware('throttle:file-upload')
             ->name('profile-photo');
     });
+    // Phase-31 ONB-WIZARD-2: dashboard ResumeBanner status feed
+    Route::get('/api/onboarding/status', [\App\Http\Controllers\Onboarding\OnboardingResumeController::class, 'status'])
+        ->name('onboarding.status');
     // Legacy routes for backward compatibility
     Route::get('/onboarding/create', [OnboardingController::class, 'create'])->name('onboarding.create');
     Route::post('/onboarding/store', [OnboardingController::class, 'store'])->name('onboarding.store');

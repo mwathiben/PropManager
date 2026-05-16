@@ -15,17 +15,21 @@ class OnboardingProgress extends Model
         'total_steps',
         'step_data',
         'completed_steps',
+        'skipped_steps',
         'is_complete',
         'started_at',
         'completed_at',
+        'last_touched_at',
     ];
 
     protected $casts = [
         'step_data' => 'array',
         'completed_steps' => 'array',
+        'skipped_steps' => 'array',
         'is_complete' => 'boolean',
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
+        'last_touched_at' => 'datetime',
         'current_step' => 'integer',
         'total_steps' => 'integer',
     ];
@@ -112,11 +116,17 @@ class OnboardingProgress extends Model
             $this->current_step = $step + 1;
         }
 
+        // Phase-31 ONB-WIZARD-3: wizard-stall detector signal.
+        $this->last_touched_at = now();
+
         $this->save();
     }
 
     /**
-     * Skip a step (only for optional steps)
+     * Skip a step (only for optional steps). Phase-31 ONB-WIZARD-1:
+     * records the step in skipped_steps so it stays distinguishable
+     * from a fully-completed step in activation analytics, and bumps
+     * last_touched_at so onboarding-wizard:audit can detect stalls.
      */
     public function skipStep(int $step): bool
     {
@@ -124,7 +134,15 @@ class OnboardingProgress extends Model
             return false;
         }
 
+        $skipped = $this->skipped_steps ?? [];
+        if (! in_array($step, $skipped, true)) {
+            $skipped[] = $step;
+            sort($skipped);
+            $this->skipped_steps = $skipped;
+        }
+
         $this->completeStep($step);
+        $this->touch('last_touched_at');
 
         return true;
     }

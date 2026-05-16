@@ -330,3 +330,13 @@ Schedule::command('payment-plan-allocations:audit')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase30-int-pay-alloc2-audit');
+
+// Phase-31 ONB-WIZARD-3: bucket users stalled mid-wizard by days
+// inactive. Emits onboarding_stalled_count{bucket=1-3|4-7|8-30|30+}
+// gauges. Runs 04:45 between workflow:health (04:30) and the
+// activation:audit cron added by ONB-TTFI-2 (04:15).
+Schedule::command('onboarding-wizard:audit')
+    ->dailyAt('04:45')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase31-onb-wizard3-audit');
