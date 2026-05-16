@@ -245,6 +245,10 @@ Route::middleware('auth')->group(function () {
         // Phase-36 INSIGHT-OPS-2: super-admin operator dashboard
         Route::get('/ops', [\App\Http\Controllers\Insight\OpsDashboardController::class, 'index'])
             ->name('ops.index');
+
+        // Phase-36 INSIGHT-EXPORTS-1: MRR snapshot xlsx download
+        Route::get('/ops/mrr/export', [\App\Http\Controllers\Insight\MrrExportController::class, 'export'])
+            ->name('ops.mrr.export');
     });
 
     // Phase-34 GROWTH-REFERRAL-2: landlord self-serve referral surface.

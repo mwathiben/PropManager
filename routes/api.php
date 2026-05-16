@@ -107,6 +107,10 @@ Route::prefix('v1')->group(function () {
             Route::get('/insights/summary', [\App\Http\Controllers\Api\Landlord\InsightSummaryController::class, 'index'])
                 ->name('api.v1.landlord.insights.summary');
 
+            // Phase-36 INSIGHT-EXPORTS-3: per-landlord product events xlsx
+            Route::get('/product-events/export', [\App\Http\Controllers\Api\Landlord\ProductEventExportController::class, 'export'])
+                ->name('api.v1.landlord.product-events.export');
+
             // Properties
             Route::get('/properties', [\App\Http\Controllers\Api\PropertyController::class, 'index']);
             Route::get('/properties/{property}', [\App\Http\Controllers\Api\PropertyController::class, 'show']);
