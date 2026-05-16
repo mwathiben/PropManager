@@ -480,3 +480,12 @@ Schedule::command('referrals:rollup')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase34-growth-referral3-rollup');
+
+// Phase-34 GROWTH-ENGAGEMENT-2/3: per-landlord engagement score
+// rollup + low-engagement alert. Runs at 04:15 — third in the
+// Phase-34 growth cluster (after referrals:rollup 04:10).
+Schedule::command('engagement:rollup')
+    ->dailyAt('04:15')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase34-growth-engagement23-rollup');

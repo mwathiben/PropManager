@@ -152,5 +152,17 @@ return [
             'paging' => 'email',
             'description' => 'Monthly subscription churn rate exceeded 5% — investigate cancel_reason distribution.',
         ],
+
+        // Phase-34 GROWTH-ENGAGEMENT-3
+        [
+            'key' => 'low_engagement_landlord',
+            'severity' => 'sev4',
+            'threshold' => 30,
+            'window' => '24h',
+            'gauge' => 'landlord_engagement_score',
+            'runbook' => 'docs/runbooks/growth.md',
+            'paging' => 'email',
+            'description' => 'A paying landlord dropped below engagement score 30 — customer-success outreach recommended.',
+        ],
     ],
 ];
