@@ -1,0 +1,217 @@
+{
+  "phase": 31,
+  "title": "[ONBOARDING] activation depth — guided setup, time-to-first-invoice instrumentation, sample data, contextual help, empty-state checklists",
+  "opened_at": "2026-05-16",
+  "tier": "5",
+  "scope": "Tier-5 operations + GTM, cycle 1 of 3 (per project_propmanager_path_forward.md). Tier 4 closed COMPLETE: Phase 28 + 29 + 30 all 18/18. Phase 31 [ONBOARDING] addresses the landlord-activation gap that converts prospects into paying customers. Today's surface: OnboardingController + OnboardingService + Onboarding/Index.vue exist (8-step wizard skeleton from pre-Phase-11 work, last modified during Phase 1-2 cycles); OnboardingProgress model has welcome/profile/property/structure/units/team/first_tenant/done step constants but the wizard has NO 'skip and resume later' UX, NO activation metric (time-to-first-invoice unknown), NO drop-off telemetry. HelpController + HelpArticle + Help/Index.vue exist but help is a separate /help destination — not contextual; pressing '?' anywhere goes nowhere, and there is no per-route helpKey mapping. EmptyState.vue exists (Phase-20 FRONT-UX-9) but renders just title + description + one CTA — no onboarding-checklist superpowers, no embedded video slot, no progress visualisation. There is NO SampleDataSeederService — a prospect signing up cannot one-click populate a demo dataset; they see empty screens. No `activation:audit` cron, no onboarding_milestones table to instrument the funnel (sign-up → property → unit → tenant → first invoice → first payment), no MetricsService gauges to track stalls. No Phase31OnboardingSurfaceTest watchdog. No lang/en/onboarding.php namespace (would Phase24CiTest reject the new keys). No docs/runbooks/onboarding.md. 18 findings across 6 categories: ONB-WIZARD (3 — Resumable wizard with skip support, OnboardingResumeController surfacing 'pick up where you left off' on dashboard, wizard:audit cron flagging users stuck >7 days), ONB-TTFI (3 — onboarding_milestones table + OnboardingMilestoneRecorder service hooks + activation:audit cron emitting time_to_first_invoice_p50 gauge), ONB-SAMPLE (3 — SampleDataSeederService idempotent populates 1 property+1 building+4 units+2 tenants+3 months invoices for a prospect, SampleDataController toggle, Reset action), ONB-HELP (3 — HelpDrawer Vue overlay with '?' global hotkey, contextual helpKey per Inertia route mapped to HelpArticle slug, search-as-you-type), ONB-EMPTY (3 — EmptyState onboarding-checklist mode showing 5 milestone steps, video tutorial slot via YouTube/Vimeo embed, dismissible per-user), ONB-CI (3 — Phase31OnboardingSurfaceTest watchdog, lang/{en,sw}/onboarding.php namespace, docs/runbooks/onboarding.md). Severity 5H/9M/4L. Builds on Phase-9 OnboardingProgress + Phase-20 EmptyState + Phase-22 MetricsService::gauge + Phase-24 i18n + Phase-27 ScheduledReport cron pattern + Phase-29 WorkflowLogger + Phase-30 audit-pattern shape.",
+  "categories": [
+    "ONB-WIZARD",
+    "ONB-TTFI",
+    "ONB-SAMPLE",
+    "ONB-HELP",
+    "ONB-EMPTY",
+    "ONB-CI"
+  ],
+  "findings": [
+    {
+      "id": "ONB-WIZARD-1",
+      "title": "Resumable onboarding wizard with skip+continue support",
+      "severity": "HIGH",
+      "files": [
+        "app/Http/Controllers/OnboardingController.php",
+        "app/Services/OnboardingService.php",
+        "resources/js/Pages/Onboarding/Index.vue"
+      ],
+      "evidence": "Existing wizard advances linearly and re-enters at current_step on next visit; there is no first-class 'skip this step' action that records the skip and unblocks the next step, and no resume CTA on the dashboard surfacing 'Welcome back — pick up at unit setup'. A landlord who closes the tab on step 3 has no friction-free path back; many never return.",
+      "fix": "(a) Add OnboardingProgress::skip(step) writing skipped_steps array + advancing current_step; (b) OnboardingController::skip route POST /onboarding/{step}/skip; (c) Dashboard inertia share: onboarding_resume = { next_step, completion_pct, time_since_start } when progress is not complete; (d) Onboarding/Index.vue exposes 'Skip for now' button per step (gated by isOptionalStep + the new skip route)."
+    },
+    {
+      "id": "ONB-WIZARD-2",
+      "title": "OnboardingResumeController + dashboard banner",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/OnboardingResumeController.php (new)",
+        "resources/js/Components/Onboarding/ResumeBanner.vue (new)",
+        "resources/js/Pages/Dashboard.vue"
+      ],
+      "evidence": "Dashboard renders the same for a never-onboarded landlord as for an onboarded one; there is no banner saying 'You're 3 of 8 steps in — continue setup'. Activation friction.",
+      "fix": "(a) OnboardingResumeController::status returns { current_step, total_steps, completion_pct, last_touched_at }; (b) ResumeBanner.vue dismissible per session via localStorage, links to /onboarding; (c) wire into Dashboard.vue header slot."
+    },
+    {
+      "id": "ONB-WIZARD-3",
+      "title": "wizard:audit nightly stall detector",
+      "severity": "LOW",
+      "files": [
+        "app/Console/Commands/OnboardingWizardAudit.php (new)",
+        "routes/console.php"
+      ],
+      "evidence": "No silent-failure detection for users stalled mid-wizard. A landlord who started but never finished (>7 days since last_touched_at) is invisible to ops — they should appear as onboarding_stalled_count{days_bucket=X} gauge.",
+      "fix": "(a) artisan onboarding-wizard:audit walks OnboardingProgress where is_complete=false; emits onboarding_stalled_count{bucket} gauge for 1-3 / 4-7 / 8-30 / 30+ day buckets; (b) Schedule dailyAt 04:45 Africa/Nairobi onOneServer."
+    },
+    {
+      "id": "ONB-TTFI-1",
+      "title": "onboarding_milestones table + OnboardingMilestoneRecorder service",
+      "severity": "HIGH",
+      "files": [
+        "database/migrations/2026_05_16_230000_phase31_ttfi1_create_onboarding_milestones.php (new)",
+        "app/Models/OnboardingMilestone.php (new)",
+        "app/Services/Onboarding/OnboardingMilestoneRecorder.php (new)"
+      ],
+      "evidence": "The activation funnel (sign-up → first property → first unit → first tenant → first invoice → first payment) is not instrumented. Cannot answer 'what % of new landlords issue an invoice within 7 days' without parsing scattered timestamps across users, properties, units, tenants, invoices, payments — expensive and brittle. A first-class milestone log is the foundation for every activation metric and A/B test.",
+      "fix": "(a) Migration: onboarding_milestones(landlord_id, milestone enum [signed_up, first_property, first_unit, first_tenant, first_invoice, first_payment], reached_at, metadata json) with unique (landlord_id, milestone); (b) Model with TenantScope; (c) OnboardingMilestoneRecorder::record(landlord, milestone, metadata) firstOrCreate idempotent; (d) hook into Property/Unit/Tenant/Invoice/Payment model observers (booted created hooks) — each fires its first row's recorder."
+    },
+    {
+      "id": "ONB-TTFI-2",
+      "title": "activation:audit cron + Prometheus gauges",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/ActivationAudit.php (new)",
+        "routes/console.php"
+      ],
+      "evidence": "Even with the milestone log, nobody reads the table — the activation funnel needs the same gauge-emission pattern as Phase-22 PERF-SLO + Phase-30 INT-BANK-PARITY-3 audit. Without gauges Grafana cannot alert on a drop in 7-day activation rate.",
+      "fix": "(a) artisan activation:audit emits gauges for: activation_signups_count{period=24h|7d|30d}, activation_milestone_count{milestone=X,period=Y}, activation_time_to_first_invoice_p50_hours, activation_time_to_first_invoice_p90_hours (computed from milestone deltas); (b) Schedule dailyAt 04:15 Africa/Nairobi onOneServer between dpa:enforce-retention 02:00 and workflow:health 04:30."
+    },
+    {
+      "id": "ONB-TTFI-3",
+      "title": "MilestoneRecorded event + workflow_runs_log integration",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Events/MilestoneRecorded.php (new)",
+        "app/Listeners/LogMilestoneRecorded.php (new)"
+      ],
+      "evidence": "Milestone writes need to flow into workflow_runs_log so workflow:health surfaces them in the unified silent-failure detector. Without this the milestone log is invisible to ops dashboards.",
+      "fix": "(a) MilestoneRecorded event fired by OnboardingMilestoneRecorder::record; (b) LogMilestoneRecorded listener auto-discovered via handle() type-hint convention, writes WorkflowLogger row workflowName='onboarding:milestone' action=milestone-name."
+    },
+    {
+      "id": "ONB-SAMPLE-1",
+      "title": "SampleDataSeederService for prospect demo dataset",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/Onboarding/SampleDataSeederService.php (new)"
+      ],
+      "evidence": "A prospect who signs up sees empty Dashboard/Invoices/Tenants — they have no concrete sense of what the product looks like populated. Existing DevelopmentSeeder is gitignored-meant only for local dev; nothing exposes 'load sample data' to authenticated landlords. Conversion friction.",
+      "fix": "(a) SampleDataSeederService::populate(landlord) idempotent (skip if landlord already has Property rows); creates 1 Property, 1 Building, 4 Units, 2 Tenants with Leases, 3 months of paid Invoices + 1 unpaid + 1 overdue + 2 Payments; tags every row with metadata.is_sample=true via a sample_data_seeded_at column on user OR a separate sample_data_runs log row; (b) SampleDataSeederService::reset(landlord) deletes all rows tagged is_sample=true; (c) Hard-cap: cannot populate if landlord has Lease.is_active=true rows."
+    },
+    {
+      "id": "ONB-SAMPLE-2",
+      "title": "SampleDataController toggle endpoint + dashboard CTA",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/Onboarding/SampleDataController.php (new)",
+        "routes/web.php"
+      ],
+      "evidence": "The service is internal — needs a landlord-facing HTTP endpoint and a 'Load demo data' button on the dashboard empty state.",
+      "fix": "(a) POST /onboarding/sample-data/populate -> SampleDataController::populate; (b) POST /onboarding/sample-data/reset -> SampleDataController::reset; (c) both guarded by 'role:landlord' middleware; (d) idempotent + flash success/error via Inertia."
+    },
+    {
+      "id": "ONB-SAMPLE-3",
+      "title": "Sample-data audit trail + Phase-13 PERSONAL-DATA-1 isolation",
+      "severity": "LOW",
+      "files": [
+        "app/Services/Onboarding/SampleDataSeederService.php"
+      ],
+      "evidence": "Sample tenants are fake but they get created as User rows — if the seeder accidentally writes real-looking PII or sends real notifications, that's a Phase-13 violation. Need an explicit invariant + audit row.",
+      "fix": "(a) Sample tenants get email like 'sample-{landlord_id}-{n}@propmanager.demo' (DEMO TLD, not deliverable); (b) NotificationPreference for sample tenants seeded with everything disabled so even an accidental send is blocked; (c) Phase31SampleDataTest test_sample_seeder_never_creates_deliverable_email assertion."
+    },
+    {
+      "id": "ONB-HELP-1",
+      "title": "HelpDrawer Vue overlay triggered by '?' global hotkey",
+      "severity": "HIGH",
+      "files": [
+        "resources/js/Components/Help/HelpDrawer.vue (new)",
+        "resources/js/Composables/useHelpDrawer.ts (new)",
+        "resources/js/Layouts/AppLayout.vue"
+      ],
+      "evidence": "Existing Help/Index.vue is a separate page — users must navigate AWAY from their task to read docs, then navigate BACK to apply them. A drawer overlay triggered by '?' is the industry pattern (Linear, Notion, Stripe Dashboard) and 5x faster than route navigation.",
+      "fix": "(a) HelpDrawer.vue right-side overlay with backdrop, ESC-to-close, focus trap (Phase-23 A11Y pattern); (b) useHelpDrawer composable provides open/close + currentHelpKey state; (c) Global keydown handler in AppLayout.vue: '?' opens drawer when not in input field (matches Linear behaviour); (d) Initial state shows search input + getting-started articles for landlord role."
+    },
+    {
+      "id": "ONB-HELP-2",
+      "title": "Per-route helpKey to HelpArticle slug mapping",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/Pages/Invoices/Index.vue",
+        "resources/js/Pages/Tenants/Index.vue",
+        "resources/js/Pages/Finances/Index.vue",
+        "app/Http/Middleware/HandleInertiaRequests.php"
+      ],
+      "evidence": "Drawer opens but is route-blind — needs to show 'Help for invoices' when on /invoices, not generic getting-started. Per-route helpKey wiring is the value-add.",
+      "fix": "(a) Define helpKey constant on each Inertia page via defineOptions or shared Inertia prop; (b) HelpDrawer reads helpKey + fetches HelpArticle::where('help_key', $key); (c) help_articles.help_key column added via migration; (d) seed 10 articles keyed to top routes."
+    },
+    {
+      "id": "ONB-HELP-3",
+      "title": "Help article search index + scope by user role",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/Onboarding/HelpSearchController.php (new)",
+        "routes/web.php"
+      ],
+      "evidence": "Even with contextual articles, users sometimes want full-text search ('how do I refund a deposit'). HelpArticle already exists with title/content/category but no search endpoint surfaces it to the drawer.",
+      "fix": "(a) GET /api/help/search?q=X returns top 10 HelpArticle scoped to user role with title + slug + excerpt; (b) HelpDrawer.vue debounced 250ms search calling the endpoint; (c) results clickable -> opens HelpArticle inline in drawer without navigation."
+    },
+    {
+      "id": "ONB-EMPTY-1",
+      "title": "EmptyState onboarding-checklist mode",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/Components/EmptyState.vue",
+        "resources/js/Components/Onboarding/MilestoneChecklist.vue (new)"
+      ],
+      "evidence": "EmptyState today is generic — title + description + one CTA. When a landlord lands on /invoices with zero invoices, the empty state is the perfect surface to surface the milestone checklist ('Add a tenant → Generate first invoice'). Conversion uplift point.",
+      "fix": "(a) MilestoneChecklist.vue: 5 milestone steps (first_property, first_unit, first_tenant, first_invoice, first_payment) read from OnboardingMilestone, each linkable; (b) EmptyState gains optional checklist prop that renders MilestoneChecklist below the description."
+    },
+    {
+      "id": "ONB-EMPTY-2",
+      "title": "Empty-state video tutorial slot",
+      "severity": "LOW",
+      "files": [
+        "resources/js/Components/EmptyState.vue",
+        "resources/js/Components/Onboarding/VideoSlot.vue (new)"
+      ],
+      "evidence": "Self-serve onboarding without video is a friction point — most landlords don't read documentation. EmptyState should host an optional YouTube embed slot for a 60s walkthrough.",
+      "fix": "(a) VideoSlot.vue iframe with YouTube nocookie embed; (b) Per-page videoUrl prop on EmptyState; (c) seed 5 placeholder videos as YouTube nocookie URLs in lang/onboarding.php (replaceable later)."
+    },
+    {
+      "id": "ONB-EMPTY-3",
+      "title": "Dismissible-per-user empty-state checklist",
+      "severity": "LOW",
+      "files": [
+        "resources/js/Components/Onboarding/MilestoneChecklist.vue",
+        "app/Http/Controllers/Onboarding/MilestoneChecklistDismissController.php (new)"
+      ],
+      "evidence": "Once a landlord completes a milestone the checklist should not appear forever. Dismiss-per-user persists in users.checklist_dismissed_at column.",
+      "fix": "(a) Add users.onboarding_checklist_dismissed_at nullable timestamp; (b) POST /onboarding/checklist/dismiss controller updates it; (c) MilestoneChecklist.vue hides if dismissed OR if all 5 milestones complete."
+    },
+    {
+      "id": "ONB-CI-1",
+      "title": "Phase31OnboardingSurfaceTest watchdog",
+      "severity": "HIGH",
+      "files": [
+        "tests/Feature/Onboarding/Phase31OnboardingSurfaceTest.php (new)"
+      ],
+      "evidence": "Phase-29 + Phase-30 established the surface-watchdog pattern (every cron has correct cadence, every event has a listener). Phase 31 ships 2 crons (onboarding-wizard:audit, activation:audit) + 1 event (MilestoneRecorded) + 2 i18n namespaces (en/sw/onboarding.php). Without the watchdog a future refactor can silently drop the cron from console.php.",
+      "fix": "(a) test_every_phase31_scheduler_is_registered_with_correct_cadence: EXPECTED_SCHEDULES asserts both crons with expression + Africa/Nairobi timezone; (b) test_every_phase31_event_has_a_listener: EXPECTED_EVENTS = [MilestoneRecorded]; (c) test_phase31_onboarding_lang_namespace_exists asserts lang/en/onboarding.php + lang/sw/onboarding.php loadable + same key set."
+    },
+    {
+      "id": "ONB-CI-2",
+      "title": "lang/{en,sw}/onboarding.php namespace + Phase24CiTest parity",
+      "severity": "MEDIUM",
+      "files": [
+        "lang/en/onboarding.php (new)",
+        "lang/sw/onboarding.php (new)"
+      ],
+      "evidence": "Every new user-facing string (resume banner, sample-data buttons, help drawer, checklist labels) must have an English + Swahili pair. Phase24CiTest enforces key-set identity (ORDER must match), so the sw file is built mirror-of-en up front to avoid the rebuild-step that bit Phase 29.",
+      "fix": "Mirror sections for: resume_banner (continue, skip, dismiss), sample_data (populate, reset, populated_success, reset_success), help (drawer_title, search_placeholder, no_results), checklist (heading, dismiss, steps.first_property, steps.first_unit, steps.first_tenant, steps.first_invoice, steps.first_payment), wizard (skip_button, resume_cta)."
+    },
+    {
+      "id": "ONB-CI-3",
+      "title": "docs/runbooks/onboarding.md operator reference",
+      "severity": "LOW",
+      "files": [
+        "docs/runbooks/onboarding.md (new)"
+      ],
+      "evidence": "Phase 28-30 established the runbook cadence (tenant-portal.md, workflow-automation.md, integrations.md). Phase 31 needs: activation-funnel definition (which 5 milestones count, in what order), how to read the Prometheus gauges, how to investigate a 7-day-activation-rate drop, sample-data toggle semantics, help-drawer extension procedure.",
+      "fix": "Sections: Overview, Activation milestones (5-step funnel + DB shape), Prometheus gauges (the 4 activation_* + onboarding_stalled_count), Sample-data toggle (when to use, isolation invariants), Help drawer (per-route helpKey wiring procedure, how to add a new article), Crons (onboarding-wizard:audit + activation:audit), CI gates, Deferrals."
+    }
+  ]
+}
