@@ -1,0 +1,220 @@
+{
+  "phase": 36,
+  "title": "[INSIGHT] operator + landlord dashboards + self-serve API + cron runtime budget — bring 35 phases of telemetry to the surface",
+  "opened_at": "2026-05-16",
+  "tier": "6",
+  "scope": "Tier-6 cycle 3 — taking the massive telemetry stream shipped across Phases 31-35 (LandlordUsageMetric + OnboardingMilestone + AlertFiring + ServiceSlo + OperationalIncident + MrrSnapshot + Referral + LandlordEngagementScore + Experiment + ProductEvent + SubscriptionChange) and turning it into actual operator + landlord-facing surface. Today every Phase 33-35 metric lives behind a Prometheus gauge endpoint or a single super_admin JSON route (/ops/landlord-cost, /ops/mrr) — there is NO Inertia dashboard composition, NO landlord-facing growth widget on Dashboard.vue, NO self-serve API for the new tables, NO csv/xlsx exports, NO cron runtime budgeting despite Phase 34 adding 8 daily crons and Phase 35 adding 4 more (the daily cron cluster is now 25+ commands). Scout confirmed: Pages/Admin/Dashboard.vue exists but is mostly KPI cards driven by AdminController props (not consuming Phase 33-35 data); landlord Pages/Dashboard.vue is fed by DashboardService and includes financialMetrics + arrearsAging + recentPayments but ZERO growth signals; XlsxExportService (Phase-27 BI-DELIVERY-1) exists with [{label,key,type}] column descriptor + PhpSpreadsheet writer ready to reuse; no chart library installed (CSS-based heatmap pattern already proven in Pages/Reports/Cohort.vue and Forecast.vue — Phase 36 reuses that pattern instead of adding chart.js dependency); workflow_runs_log table has NO duration_ms column (Phase 29 stored only landlord_id+workflow_name+target+action+metadata+fired_at) so cron timing is invisible. 18 findings across 6 categories: INSIGHT-OPS (3 — promote /ops/landlord-cost + /ops/mrr from JSON-only to Inertia pages under Pages/Ops/, build Ops/Index.vue dashboard composition combining MRR trend + churn rate + active incidents + alert firing timeline + dependency health, super_admin navigation menu under /ops/), INSIGHT-LANDLORD (3 — extend DashboardService to provide engagement score + referral counts + current period usage ratio props to Dashboard.vue, add EngagementScoreCard + ReferralCountCard + UsageRatioCard components, /growth subpage with deeper-dive trend table for landlords who want more than the dashboard summary), INSIGHT-API (3 — GET /api/v1/landlord/engagement returning last 30 days of landlord_engagement_scores rows with components breakdown, GET /api/v1/landlord/usage returning current-period usage_records + plan limits + ratios + GET /api/v1/landlord/referrals migrating /referrals/mine from web context to API parity, GET /api/v1/landlord/insights/summary aggregate endpoint combining engagement + usage + referrals + last MRR contribution in one round-trip for power users + Zapier-style integrations), INSIGHT-EXPORTS (3 — MRR snapshots xlsx export super_admin-only via XlsxExportService routed at GET /ops/mrr/export, landlord engagement scores csv export landlord-scoped at GET /api/v1/landlord/engagement/export, product events xlsx landlord-scoped last 90 days with properties JSON column flattened to columns), INSIGHT-CRON (3 — workflow_runs_log gains duration_ms unsignedInteger + started_at timestamp columns + WorkflowLogger::measure wrapper recording around any Closure + cron:budget-audit nightly cron computing per-command 24h total runtime emitting cron_runtime_total_minutes_24h and cron_runtime_per_command_minutes_24h{command} gauges + high_cron_runtime alert sev3 when daily total exceeds threshold default 60 minutes), INSIGHT-CI (3 — Phase36InsightSurfaceTest watchdog covering 1 new cron + 1 new alert key + Vue page existence assertion + lang parity, lang/{en,sw}/insight.php with sections for ops dashboard / landlord growth widgets / API endpoint titles / export filenames / cron budget warnings, docs/runbooks/insight.md operator reference). Severity 5H/8M/5L. Builds on Phase-27 XlsxExportService (export writer), Phase-28 NotificationPreference + TenantPortal Inertia patterns (landlord widget composition), Phase-29 WorkflowLogger + workflow_runs_log (cron timing append), Phase-32 AlertRegistry + AlertFiringRecorder (cron budget alert), Phase-33 LandlordUsageMetric + cost:attribute (landlord cost API source), Phase-34 MrrSnapshotService + ChurnService + EngagementScoreService + ReferralAttributionService (the data this phase visualises), Phase-35 SubscriptionChange + ProductEvent + NotificationPreferenceController (additional API resources). NOT in scope: adding a JavaScript chart library (chart.js / apexcharts deliberately deferred — extend the CSS-table heatmap pattern from Pages/Reports/Cohort.vue), real-time WebSocket dashboard updates (out of band for an audit cycle, future PWA Phase 37 candidate), email digest of insight summary to landlords (Phase-37 candidate alongside push notifications), historical product_events archival policy (currently keeps everything — Phase 37 retention candidate).",
+  "categories": [
+    "INSIGHT-OPS",
+    "INSIGHT-LANDLORD",
+    "INSIGHT-API",
+    "INSIGHT-EXPORTS",
+    "INSIGHT-CRON",
+    "INSIGHT-CI"
+  ],
+  "findings": [
+    {
+      "id": "INSIGHT-OPS-1",
+      "title": "Promote /ops/landlord-cost + /ops/mrr from JSON to Inertia pages",
+      "severity": "HIGH",
+      "files": [
+        "app/Http/Controllers/Cost/LandlordCostController.php",
+        "app/Http/Controllers/Growth/MrrController.php",
+        "resources/js/Pages/Ops/LandlordCost.vue (new)",
+        "resources/js/Pages/Ops/MrrTrend.vue (new)",
+        "routes/web.php"
+      ],
+      "evidence": "Both controllers ship today as JSON-only endpoints — operators must run curl + jq to see their own platform health. The data is rich (top-N landlords by cost, 90-day MRR waterfall) but unsurfaced. Promoting to Inertia pages takes the same controller method and renders it under Pages/Ops/ — pattern matches the Phase-32 OpsIncidentController approach.",
+      "fix": "(a) LandlordCostController::topN returns either JSON (when request->wantsJson()) or Inertia::render('Ops/LandlordCost', ['landlords' => ..., 'window_days' => ...]); (b) Same shape for MrrController::trend; (c) Pages/Ops/LandlordCost.vue + Pages/Ops/MrrTrend.vue render the table + CSS sparkline (reuse Phase-27 Cohort.vue heatmap cell pattern); (d) Routes /ops/landlord-cost + /ops/mrr respond to GET with HTML for Inertia + JSON for API clients."
+    },
+    {
+      "id": "INSIGHT-OPS-2",
+      "title": "Ops/Index.vue dashboard composition + InsightDashboardService",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/Insight/InsightDashboardService.php (new)",
+        "app/Http/Controllers/Insight/OpsDashboardController.php (new)",
+        "resources/js/Pages/Ops/Index.vue (new)",
+        "routes/web.php"
+      ],
+      "evidence": "Operators today have to navigate to 5+ different pages (incidents, MRR, cost, alerts) to assemble a complete picture. A single Ops/Index.vue dashboard composes the top-of-funnel KPIs in one view — same shape Stripe's super_admin dashboard takes. Single GET request, single Vue render.",
+      "fix": "(a) InsightDashboardService::operatorSummary returns array of [mrr_total_kes_today, mrr_delta_30d, monthly_churn_rate, active_incident_count, last_24h_alert_count, dependency_up_pct]; (b) OpsDashboardController::index reads via InsightDashboardService + renders Pages/Ops/Index.vue with the props; (c) Pages/Ops/Index.vue renders KPI grid (MetricCard component reuse from landlord dashboard) + nav cards linking to /ops/mrr + /ops/incidents + /ops/landlord-cost + /ops/alerts."
+    },
+    {
+      "id": "INSIGHT-OPS-3",
+      "title": "Super-admin /ops/ navigation menu",
+      "severity": "LOW",
+      "files": [
+        "resources/js/Layouts/AdminLayout.vue (if exists, else AppLayout extension)",
+        "app/Http/Middleware/HandleInertiaRequests.php"
+      ],
+      "evidence": "Discoverable navigation matters — without a left-nav grouping the new /ops/* pages, operators forget they exist. Inertia share is the cleanest insertion point.",
+      "fix": "(a) HandleInertiaRequests::share appends 'opsNav' => null for non-super_admin, array of {label, href} for super_admin pointing at /ops/, /ops/mrr, /ops/landlord-cost, /ops/incidents, /ops/alerts; (b) AdminLayout (or AppLayout for super_admin route group) renders the opsNav prop as a horizontal pill nav above the page content."
+    },
+    {
+      "id": "INSIGHT-LANDLORD-1",
+      "title": "DashboardService extended with growth widget props",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/DashboardService.php",
+        "resources/js/Pages/Dashboard.vue"
+      ],
+      "evidence": "Landlord Dashboard.vue today shows financialMetrics + arrearsAging + recentPayments but ZERO growth signals — the landlord has no idea what their engagement score is, how many referrals they've sent, or where they sit on plan limits. Phase 34-35 shipped the data; Phase 36 brings it to the dashboard.",
+      "fix": "(a) DashboardService::landlordSummary appends 'growth' => array of [engagement_score, engagement_score_delta_7d, referral_count_30d, current_plan_slug, usage_ratios_top_3]; (b) Dashboard.vue accepts new growth prop, renders three new MetricCards (Engagement, Referrals, Plan usage) in the existing 2-column grid."
+    },
+    {
+      "id": "INSIGHT-LANDLORD-2",
+      "title": "EngagementScoreCard + ReferralCountCard + UsageRatioCard components",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/Components/Insight/EngagementScoreCard.vue (new)",
+        "resources/js/Components/Insight/ReferralCountCard.vue (new)",
+        "resources/js/Components/Insight/UsageRatioCard.vue (new)"
+      ],
+      "evidence": "Three small components keep the dashboard composable. Each shows a single KPI (score / count / ratio) plus a sparkline-style accent (CSS, no chart lib).",
+      "fix": "(a) EngagementScoreCard takes {score, delta} props, colour-codes by tier (>70 green, 31-70 yellow, <=30 red); (b) ReferralCountCard takes {count_30d} prop, links to /referrals/mine; (c) UsageRatioCard takes {ratios:[{feature, ratio}]} prop, renders horizontal bars with the same colour coding."
+    },
+    {
+      "id": "INSIGHT-LANDLORD-3",
+      "title": "Landlord /growth subpage with deeper-dive trend table",
+      "severity": "LOW",
+      "files": [
+        "app/Http/Controllers/Insight/LandlordGrowthController.php (new)",
+        "resources/js/Pages/Insight/LandlordGrowth.vue (new)",
+        "routes/web.php"
+      ],
+      "evidence": "Dashboard widgets surface the headline numbers; landlords who want to see the 90-day engagement-score history or the per-day referral attribution table need a dedicated /growth page.",
+      "fix": "(a) LandlordGrowthController::index returns Inertia::render('Insight/LandlordGrowth') with 90-day engagement scores + referral history + usage trends; (b) Pages/Insight/LandlordGrowth.vue renders three tables (engagement trend, referrals received, usage history); (c) Route GET /growth under role:landlord."
+    },
+    {
+      "id": "INSIGHT-API-1",
+      "title": "GET /api/v1/landlord/engagement endpoint",
+      "severity": "HIGH",
+      "files": [
+        "app/Http/Controllers/Api/Landlord/EngagementController.php (new)",
+        "routes/api.php"
+      ],
+      "evidence": "There is no programmatic way for a landlord (or their integration) to fetch the engagement score Phase-34 computes daily. Without an API endpoint we cannot support Zapier-style integrations or third-party Grafana scrape-from-landlord-account.",
+      "fix": "(a) GET /api/v1/landlord/engagement?days=30 returns array of last N days of LandlordEngagementScore rows {day, score, components} filtered by request user's id; (b) Default days=30, clamped 1-365; (c) Wired under auth:sanctum + ability:landlord:read."
+    },
+    {
+      "id": "INSIGHT-API-2",
+      "title": "GET /api/v1/landlord/usage + GET /api/v1/landlord/referrals",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/Api/Landlord/UsageController.php (new)",
+        "app/Http/Controllers/Api/Landlord/ReferralApiController.php (new)",
+        "routes/api.php"
+      ],
+      "evidence": "Companion endpoints to /engagement. /usage returns current-period UsageRecord rows + plan limits + ratios for every billable feature. /referrals migrates the existing /referrals/mine web-context endpoint to API parity at /api/v1/landlord/referrals.",
+      "fix": "(a) UsageController::index returns {features: [{feature, usage, limit, ratio}], period_start, period_end}; (b) ReferralApiController::index returns same shape as /referrals/mine but under /api/v1/landlord/ (web endpoint stays for the existing Vue page); (c) Both wired under auth:sanctum + ability:landlord:read."
+    },
+    {
+      "id": "INSIGHT-API-3",
+      "title": "GET /api/v1/landlord/insights/summary aggregate endpoint",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/Api/Landlord/InsightSummaryController.php (new)",
+        "routes/api.php"
+      ],
+      "evidence": "Power-user clients want one round-trip with the full picture — engagement + usage + referrals + last MRR contribution. Otherwise mobile + Zapier-style integrations need 4 sequential calls per landlord per polling cycle.",
+      "fix": "(a) InsightSummaryController::index returns {engagement: {current_score, delta_7d}, usage: {features: ...}, referrals: {count_30d, attributed_count, pending_count}, mrr_contribution: {current_period_kes}}; (b) Internally delegates to InsightDashboardService::landlordSummary; (c) Cached 5min via Cache::remember (key=landlord_id) so the synchronous endpoint stays fast under polling."
+    },
+    {
+      "id": "INSIGHT-EXPORTS-1",
+      "title": "MRR snapshots xlsx export (super_admin)",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/Insight/MrrExportController.php (new)",
+        "routes/web.php"
+      ],
+      "evidence": "Leadership wants the MRR trend in their spreadsheet for the monthly review. XlsxExportService (Phase-27) is ready to reuse — column descriptors {day, plan, mrr_kes, new_mrr, ...} + StreamedResponse.",
+      "fix": "(a) GET /ops/mrr/export (super_admin only) streams xlsx with last 90 days of mrr_snapshots grouped by day with per-plan columns; (b) Filename mrr-snapshot-YYYY-MM-DD.xlsx; (c) Reuses XlsxExportService::stream pattern."
+    },
+    {
+      "id": "INSIGHT-EXPORTS-2",
+      "title": "Landlord engagement scores csv export (landlord-scoped)",
+      "severity": "LOW",
+      "files": [
+        "app/Http/Controllers/Api/Landlord/EngagementController.php"
+      ],
+      "evidence": "Some landlords (the analytical ones running their own BI) want their engagement timeline as a csv to drop into Excel. CSV is the simpler format for power users than xlsx — no library needed, just StreamedResponse with header row + data rows.",
+      "fix": "(a) GET /api/v1/landlord/engagement/export.csv returns text/csv with columns [day, score, login_score, milestone_score, usage_score, property_score, tenant_score]; (b) Filename engagement-YYYY-MM-DD.csv; (c) Last 90 days default."
+    },
+    {
+      "id": "INSIGHT-EXPORTS-3",
+      "title": "Product events xlsx export (landlord-scoped, last 90 days)",
+      "severity": "LOW",
+      "files": [
+        "app/Http/Controllers/Api/Landlord/ProductEventExportController.php (new)",
+        "routes/api.php"
+      ],
+      "evidence": "Landlords occasionally want to see their own product_events stream for ad-hoc analysis. 90 days is the bounded window — large enough to be useful, small enough to fit in xlsx without crashing Excel.",
+      "fix": "(a) GET /api/v1/landlord/product-events/export returns xlsx of last 90 days of product_events filtered by landlord_id; (b) properties JSON flattened to columns (top 10 most-frequent keys become explicit columns, rest collapsed into 'properties_json' column); (c) Filename product-events-YYYY-MM-DD.xlsx."
+    },
+    {
+      "id": "INSIGHT-CRON-1",
+      "title": "workflow_runs_log gains duration_ms + started_at + WorkflowLogger::measure",
+      "severity": "HIGH",
+      "files": [
+        "database/migrations/.../add_duration_and_started_at_to_workflow_runs_log.php (new)",
+        "app/Services/WorkflowLogger.php"
+      ],
+      "evidence": "Phase 29 stored workflow_runs_log rows with WHAT-and-WHEN but not HOW-LONG. We have 25+ scheduled commands now (Phase 34 added 8, Phase 35 added 4) — without per-command runtime tracking, a runaway cron can dominate the box without detection. The fix is additive (new columns + helper wrapper).",
+      "fix": "(a) Migration adds workflow_runs_log.duration_ms unsignedInteger nullable + started_at timestamp nullable; (b) WorkflowLogger::measure(string $workflow, string $action, Closure $body, ?int $landlordId = null) wraps the closure body with microtime(true) capture before+after, writes one row with the timing; (c) Existing log() method unchanged (backwards-compat — only the new measure() helper writes timing)."
+    },
+    {
+      "id": "INSIGHT-CRON-2",
+      "title": "cron:budget-audit cron + per-command runtime gauge",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/CronBudgetAudit.php (new)",
+        "routes/console.php"
+      ],
+      "evidence": "Runtime data is internal — operator-visible signal is daily Prometheus gauges. Same Phase-32 audit-cron pattern as alert:quality + mttr:audit.",
+      "fix": "(a) artisan cron:budget-audit reads last 24h of workflow_runs_log where duration_ms IS NOT NULL, sums per workflow_name, emits cron_runtime_per_command_minutes_24h{command=X} gauge for top 30 + cron_runtime_total_minutes_24h aggregate; (b) Schedule dailyAt 04:30 Africa/Nairobi onOneServer (sixth in the Phase 34-35 growth cluster, after Phase-35 product:rollup 04:25)."
+    },
+    {
+      "id": "INSIGHT-CRON-3",
+      "title": "high_cron_runtime alert wiring",
+      "severity": "LOW",
+      "files": [
+        "config/alerts.php",
+        "app/Console/Commands/CronBudgetAudit.php"
+      ],
+      "evidence": "Gauge without alert means a misbehaving cron goes unnoticed until p95 latency or queue depth tells us indirectly. Sev3 because a single bloated cron rarely takes the whole platform down (Phase-30 finance:close-month is the heaviest, ~1min) but >60min/day total is a sign that we need to investigate per-command profiling.",
+      "fix": "(a) New entry config/alerts.php key 'high_cron_runtime' severity sev3 threshold 60 (minutes) gauge 'cron_runtime_total_minutes_24h' runbook 'docs/runbooks/insight.md' paging email description 'Total daily cron runtime exceeded 60 minutes — investigate per-command profiling'; (b) CronBudgetAudit fires via AlertFiringRecorder when total > threshold; resolves when below."
+    },
+    {
+      "id": "INSIGHT-CI-1",
+      "title": "Phase36InsightSurfaceTest watchdog",
+      "severity": "HIGH",
+      "files": [
+        "tests/Feature/Insight/Phase36InsightSurfaceTest.php (new)"
+      ],
+      "evidence": "Phase 29-35 established the surface-watchdog pattern. Phase 36 ships 1 new cron (cron:budget-audit) + 1 new alert key (high_cron_runtime) + 6 new API endpoints + 3 new Inertia pages. Without the watchdog a future refactor can silently drop one.",
+      "fix": "(a) test_phase36_scheduler_registered asserts cron:budget-audit cron expression + Africa/Nairobi; (b) test_phase36_alert_registry_contains_high_cron_runtime asserts the alert key present; (c) test_phase36_landlord_api_endpoints_return_200 asserts /api/v1/landlord/engagement|usage|referrals|insights/summary all 200 for an auth'd landlord with sanctum ability; (d) test_phase36_insight_lang_parity asserts lang/{en,sw}/insight.php key sets match."
+    },
+    {
+      "id": "INSIGHT-CI-2",
+      "title": "lang/{en,sw}/insight.php namespace + Phase24CiTest parity",
+      "severity": "MEDIUM",
+      "files": [
+        "lang/en/insight.php (new)",
+        "lang/sw/insight.php (new)"
+      ],
+      "evidence": "Ops dashboard headers + landlord growth widget labels + API endpoint titles + export filenames + cron-budget warning copy all need en/sw pairs. Phase24CiTest key-set identity check requires the sw file to mirror en's order — built upfront.",
+      "fix": "Mirror sections for: ops_dashboard (heading, mrr_total_label, churn_label, incidents_label, alerts_label, dependency_label, nav_links), landlord_growth (engagement_card_heading, referrals_card_heading, usage_card_heading, deep_dive_link), api (engagement_endpoint_description, summary_endpoint_description), exports (mrr_filename_prefix, engagement_filename_prefix, product_events_filename_prefix), cron_budget (warning_heading, total_minutes_label, per_command_label)."
+    },
+    {
+      "id": "INSIGHT-CI-3",
+      "title": "docs/runbooks/insight.md operator reference",
+      "severity": "LOW",
+      "files": [
+        "docs/runbooks/insight.md (new)"
+      ],
+      "evidence": "Phase 29-35 established the runbook cadence. Phase 36 needs to document: the operator dashboard composition (which gauge feeds which card), the landlord-facing API contract (rate limits, ability requirements, response shapes), the export filename conventions + retention, the cron-budget threshold rationale + remediation playbook, the WorkflowLogger::measure adoption guide (when to wrap vs when to log).",
+      "fix": "Sections: Overview (Phase 36 surface map), Operator dashboard (KPI sources + nav), Landlord dashboard widgets (engagement/referrals/usage), Self-serve API (endpoint table + rate limits + ability requirements), Exports (mrr/engagement/product-events filename conventions), Cron budget (measure adoption guide + threshold playbook), CI gates, Deferrals."
+    }
+  ]
+}
