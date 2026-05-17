@@ -254,6 +254,49 @@ class User extends Authenticatable implements HasLocalePreference
     }
 
     /**
+     * Phase-46 CANONICAL-FIX-1: read-through accessor for the verified-at
+     * timestamp. Returns the MAX(approved_at) across this user's approved
+     * KYC submissions, or NULL if none are approved. Replaces the
+     * deprecated users.kyc_completed_at column (mirror_exempt, remove_at
+     * 2026-08-17). Cached 1h per user-id to avoid re-aggregating per
+     * page render.
+     */
+    public function kycVerifiedAt(): ?\Carbon\Carbon
+    {
+        $cacheKey = "user:{$this->id}:kyc_verified_at";
+
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addHour(), function (): ?\Carbon\Carbon {
+            $reviewedAt = $this->kycSubmissions()
+                ->where('status', \App\Enums\KycSubmissionStatus::Approved)
+                ->max('reviewed_at');
+
+            return $reviewedAt ? \Carbon\Carbon::parse($reviewedAt) : null;
+        });
+    }
+
+    /**
+     * Phase-46 CANONICAL-FIX-3: dedupe-aware national_id read.
+     * Prefers the latest APPROVED tenant_kyc_submissions row with
+     * requirement_type='national_id' (the audit-grade record);
+     * falls back to users.national_id only when no submission exists.
+     * Cached 1h per user-id.
+     */
+    public function canonicalNationalId(): ?string
+    {
+        $cacheKey = "user:{$this->id}:canonical_national_id";
+
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addHour(), function (): ?string {
+            $submitted = $this->kycSubmissions()
+                ->whereHas('requirement', fn ($q) => $q->where('requirement_type', 'national_id'))
+                ->where('status', \App\Enums\KycSubmissionStatus::Approved)
+                ->orderByDesc('reviewed_at')
+                ->value('submission_value');
+
+            return $submitted ?? $this->national_id;
+        });
+    }
+
+    /**
      * Get the URL for the user's profile photo.
      */
     public function getProfilePhotoUrlAttribute(): ?string

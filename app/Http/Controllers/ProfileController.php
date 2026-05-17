@@ -137,9 +137,10 @@ class ProfileController extends Controller
         $user = $request->user();
         $user->update($request->validated());
 
-        if ($user->hasCompletedKyc() && ! $user->kyc_completed_at) {
-            $user->update(['kyc_completed_at' => now()]);
-        }
+        // Phase-46 CANONICAL-FIX-1: stopped writing kyc_completed_at —
+        // it's deprecated (mirror_exempt; remove_at 2026-08-17). Callers
+        // that need the verified-at timestamp use User::kycVerifiedAt(),
+        // which reads MAX(approved_at) from tenant_kyc_submissions.
 
         return Redirect::route('profile.edit')->with('success', 'Verification information updated.');
     }

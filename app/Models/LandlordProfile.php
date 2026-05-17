@@ -29,6 +29,22 @@ class LandlordProfile extends Model
     }
 
     /**
+     * Phase-46 CANONICAL-FIX-2: LandlordProfile is canonical for
+     * profile_photo_path on landlord/caretaker accounts; users.profile_photo_path
+     * is a denormalised mirror. On save, fan the canonical value into
+     * the User row so downstream readers (avatar URLs, nav badges) see
+     * a consistent value.
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (LandlordProfile $profile): void {
+            User::query()
+                ->where('id', $profile->user_id)
+                ->update(['profile_photo_path' => $profile->profile_photo_path]);
+        });
+    }
+
+    /**
      * Get the profile photo URL
      */
     public function getProfilePhotoUrlAttribute(): ?string
