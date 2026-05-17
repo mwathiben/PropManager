@@ -668,6 +668,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/{report}/drill', [\App\Http\Controllers\Reports\BuilderController::class, 'drill'])->name('drill');
     });
 
+    // Phase-50 TEMPLATE-MARKETPLACE-3: platform-curated report templates
+    // gallery + one-click clone into a per-landlord SavedReport.
+    Route::middleware('role:landlord')->prefix('reports/templates')->name('reports.templates.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Reports\ReportTemplateController::class, 'index'])->name('index');
+        Route::post('/{template}/clone', [\App\Http\Controllers\Reports\ReportTemplateController::class, 'clone'])->name('clone');
+    });
+
     // Phase-27 BI-DELIVERY-2/3: scheduled report delivery self-serve.
     Route::middleware('role:landlord')->prefix('reports/scheduled')->name('reports.scheduled.')->group(function () {
         Route::get('/', [\App\Http\Controllers\Reports\ScheduledController::class, 'index'])->name('index');
