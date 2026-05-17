@@ -17,6 +17,9 @@ return [
         'subject' => 'SLA imevuka: :title',
         'body' => 'Tiketi ":title" (:priority) imevuka SLA saa :breached_at na bado haijapata jibu la kwanza.',
     ],
+    'tickets' => [
+        'annotation_saved' => 'Maelezo yameokolewa.',
+    ],
     'payment_plan' => [
         'submitted' => 'Ombi la mpango wa malipo limewasilishwa (:count awamu). Linasubiri idhini ya mwenye nyumba.',
     ],

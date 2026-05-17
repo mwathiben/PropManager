@@ -7,6 +7,7 @@ use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
@@ -52,6 +53,8 @@ class Document extends Model
         'landlord_id',
         'documentable_id',
         'documentable_type',
+        'annotates_document_id',
+        'annotation_data',
         'title',
         'file_name',
         'file_path',
@@ -66,6 +69,7 @@ class Document extends Model
     protected $casts = [
         'file_size' => 'integer',
         'expires_at' => 'date',
+        'annotation_data' => 'array',
     ];
 
     protected $appends = ['file_size_formatted'];
@@ -83,6 +87,28 @@ class Document extends Model
     public function uploader(): BelongsTo
     {
         return $this->belongsTo(User::class, 'uploaded_by');
+    }
+
+    /**
+     * Phase-45 TICKET-PHOTOS-2: this Document's parent (the original
+     * image, if this row is an annotated copy). NULL for originals.
+     */
+    public function annotates(): BelongsTo
+    {
+        return $this->belongsTo(Document::class, 'annotates_document_id');
+    }
+
+    /**
+     * Phase-45 TICKET-PHOTOS-2: annotated sibling copies of THIS document.
+     */
+    public function annotations(): HasMany
+    {
+        return $this->hasMany(Document::class, 'annotates_document_id');
+    }
+
+    public function isAnnotation(): bool
+    {
+        return $this->annotates_document_id !== null;
     }
 
     public function getFileSizeFormattedAttribute(): string

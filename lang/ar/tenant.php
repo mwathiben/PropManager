@@ -12,6 +12,9 @@ return [
         'subject' => '[TODO-ar] SLA breach: :title',
         'body' => '[TODO-ar] Ticket ":title" (:priority) breached its SLA at :breached_at and has not yet had a first response.',
     ],
+    'tickets' => [
+        'annotation_saved' => '[TODO-ar] Annotation saved.',
+    ],
     'payment_plan' => [
         'submitted' => '[TODO-ar] Payment plan request submitted (:count installments). Awaiting landlord approval.',
     ],

@@ -767,6 +767,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/tickets/{ticket}/close', [TicketController::class, 'close'])->name('tickets.close');
     Route::post('/tickets/{ticket}/feedback', [TicketController::class, 'submitFeedback'])->name('tickets.feedback');
     Route::delete('/tickets/{ticket}', [TicketController::class, 'destroy'])->name('tickets.destroy');
+    // Phase-45 TICKET-PHOTOS-1/2: annotated copy of a photo attachment.
+    Route::post('/tickets/{ticket}/attachments/{document}/annotation', [\App\Http\Controllers\TicketAnnotationController::class, 'store'])
+        ->name('tickets.attachments.annotation');
     Route::get('/buildings/{building}/units', [TicketController::class, 'getUnits'])->name('buildings.units');
 
     // 14b. Complaints (Alias to Tickets with category filter)
