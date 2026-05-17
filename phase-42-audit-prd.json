@@ -1,0 +1,244 @@
+{
+  "phase": 42,
+  "title": "[PAYMENTS-INTL] KRA VAT + Stripe Tax line items + plan-sync auto-resolve + Stripe Connect Standard + multi-currency cart + saved-card reuse + payouts balance audit",
+  "opened_at": "2026-05-17",
+  "tier": "7",
+  "scope": "Tier-7 cycle 6 — closes the deferral list captured in Phase 41 closeout + docs/runbooks/payments.md 'Phase 42 [PAYMENTS-INTL] handoff notes' (lines 267-295). Phase 41 [GATEWAY-DEEP] shipped Stripe charges.list remote-leg reconciliation, generic compareLedgers, Stripe Connect Express, deep webhook coverage (payment_intent.succeeded / charge.refunded / invoice.payment_failed / charge.dispute.created / account.updated / price.updated), tenant currency picker, and one-way SubscriptionPlan→Stripe Price sync with drift gauge. Phase 42 ships six surfaces the GATEWAY-DEEP scope explicitly deferred: (a) KRA VAT + Stripe Tax line items on invoices and PaymentIntents — Phase 42 ships VAT TRACKING (schema, rate, landlord VAT registration field, Stripe Tax automatic_tax opt-in) but explicitly defers the KRA iTax filing/submission integration to Phase 43 since iTax onboarding alone is multi-week regulatory work; (b) opt-in plan-sync auto-resolve mode consuming the subscription_plan_drift gauge so operators can pick always-app-wins, always-stripe-wins, or manual-review per plan; (c) Stripe Connect Standard sibling to Phase 41 Express, giving landlords with their own Stripe tax-reporting independence direct-charge capability; (d) multi-currency cart so a tenant can pay rent in KES + an add-on priced in USD in a single checkout via N grouped PaymentIntents; (e) first-class stripe_customers table mapping users.id ↔ cus_xxx so StripeSubscriptionService::initializeCheckout reuses Customers for returning landlords and saved-card reuse is possible; (f) payouts:stripe-balance-audit cron + payout.failed webhook handler emitting stripe_payout_failure_count gauge + sev3 alert. 18 findings across 6 categories: TAX (3 — invoice_items tax columns + landlord KRA PIN registration field + StripeTaxService VAT computation + Stripe Tax automatic_tax opt-in per landlord), PLAN-SYNC-AUTO (3 — subscription_plans.drift_resolve_mode enum + PlanDriftResolver service consuming subscription_plan_drift gauge + admin UI selector + drift history), CONNECT-STANDARD (3 — StripeConnectStandardService::createStandardAccount mirroring Express + payment_configurations.stripe_connect_account_type enum + on_behalf_of vs transfer_data destination routing in createPaymentIntent), CART (3 — checkout_sessions + checkout_session_items polymorphic table + CartCheckoutService grouping items by currency into N PaymentIntents + Cart/Show.vue tenant view), METHODS (3 — stripe_customers table + StripeCustomerService::ensureCustomer idempotent + customer.* webhook handlers + landlord saved-card UI with SetupIntent), PAYOUT-AUDIT (2 — payouts:stripe-balance-audit twice-daily cron + payout.failed webhook handler + sev3 alert at 5 failures over 24h), CI (1 — Phase42PaymentsSurfaceTest watchdog + payments.md runbook expansion + lang en/sw parity). Severity 5H/8M/5L. NOT in scope: KRA iTax filing/submission integration (Phase 43 candidate — multi-week regulatory work covering certificate of tax exemption, withholding-VAT filer registration, iTax XML schema mapping), full bidirectional plan sync with rate-limit aware retry on webhook failure (PLAN-SYNC-AUTO ships the resolver but conflict-resolution audit log; rate-limit retry deferred), Stripe Issuing (card issuance for landlords — out of scope for tenant-rent SaaS), recurring tenant rent via Stripe Subscription (each rent payment stays a one-off PaymentIntent today; the SaaS billing surface uses StripeSubscriptionService for PropManager's own subscription revenue only), tax-jurisdiction lookup beyond Kenya/Stripe Tax-supported countries (Phase 42 ships Kenya VAT 16% + Stripe Tax for everything else; explicit per-county Kenya VAT variation deferred until KRA confirms there is any variation), multi-currency conversion at checkout (Phase 42 cart ships one PaymentIntent per currency, not a single multi-currency intent with FX).",
+  "categories": [
+    "TAX",
+    "PLAN-SYNC-AUTO",
+    "CONNECT-STANDARD",
+    "CART",
+    "METHODS",
+    "PAYOUT-AUDIT",
+    "CI"
+  ],
+  "findings": [
+    {
+      "id": "TAX-1",
+      "title": "invoice_items.tax_amount_cents + tax_rate_bps + InvoiceItem::taxAmount accessor",
+      "severity": "HIGH",
+      "files": [
+        "database/migrations/2026_05_17_020000_phase42_tax_add_tax_columns_to_invoice_items.php (new)",
+        "app/Models/InvoiceItem.php",
+        "app/Services/Tax/StripeTaxService.php (new)"
+      ],
+      "evidence": "invoice_items today has unit_price + quantity + total but no tax tracking — Kenyan invoices that should show '16% VAT' separately can't because the schema doesn't capture it. Phase 17 MONEY work pinned the bcmath Money value object as canonical; tax computation must use Money::multiply, not float arithmetic.",
+      "fix": "(a) Migration adds invoice_items.tax_amount_cents BIGINT UNSIGNED NULL + tax_rate_bps INT UNSIGNED NULL (basis points: 1600 = 16% VAT). Both NULL means 'untaxed' so existing rows stay valid. (b) InvoiceItem::taxAmount(): \\App\\ValueObjects\\Money accessor + InvoiceItem::subtotalExclusiveOfTax(): Money. (c) StripeTaxService::computeKenyanVat(Money $subtotal): Money — bcmath multiply by '0.16' with banker's-rounding scale 2."
+    },
+    {
+      "id": "TAX-2",
+      "title": "payment_configurations.kra_pin + vat_rate_bps_override + landlord VAT registration UI",
+      "severity": "MEDIUM",
+      "files": [
+        "database/migrations/2026_05_17_020010_phase42_tax_add_kra_fields_to_payment_configurations.php (new)",
+        "app/Http/Controllers/Admin/AdminGatewaysController.php",
+        "app/Models/PaymentConfiguration.php",
+        "app/Support/ProductionConfigValidator.php"
+      ],
+      "evidence": "Kenyan-registered landlords need to surface KRA PIN on invoices for VAT compliance (Section 42, Kenya VAT Act 2013). Today no field exists. ProductionConfigValidator should warn if a landlord with KES currency + active invoices is missing KRA PIN.",
+      "fix": "(a) Migration adds payment_configurations.kra_pin VARCHAR(16) NULL (encrypted) + vat_rate_bps_override INT UNSIGNED NULL (NULL means use 1600 default). (b) PaymentConfiguration model adds casts['kra_pin' => 'encrypted'] + isVatRegistered() accessor returning kra_pin !== null. (c) /admin/gateways form gains KRA PIN input + VAT rate override (validated regex /^[AP]\\d{9}[A-Z]$/ per KRA PIN format). (d) ProductionConfigValidator::check emits 'kra_pin_missing' warning if landlord has KES invoices in last 30d + null kra_pin."
+    },
+    {
+      "id": "TAX-3",
+      "title": "StripeService::createPaymentIntent passes automatic_tax + stripe_tax_enabled landlord opt-in",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/StripeService.php",
+        "database/migrations/2026_05_17_020010_phase42_tax_add_kra_fields_to_payment_configurations.php",
+        "app/Services/Tax/StripeTaxService.php",
+        "lang/en/payments.php",
+        "lang/sw/payments.php"
+      ],
+      "evidence": "Landlords accepting USD/EUR/GBP via Stripe today get raw amounts on PaymentIntent — no tax calculation. Stripe Tax API (automatic_tax: { enabled: true }) computes destination-based tax automatically when opted in. Today's opt-in is implicit; should be a per-landlord boolean toggle.",
+      "fix": "(a) Migration adds payment_configurations.stripe_tax_enabled BOOLEAN DEFAULT false. (b) StripeService::createPaymentIntent reads $this->config->stripe_tax_enabled and appends automatic_tax => ['enabled' => true] + customer_details when true. (c) StripeTaxService::vatLineItem(Money $subtotal, Currency $currency): array returns ['description' => __('payments.tax.vat_label'), 'amount_cents' => $vat->toMinorUnits()] for KES (Kenya hardcoded 16%) and defers to Stripe Tax for everything else. (d) lang/{en,sw}/payments.php new tax.* subtree: vat_heading, vat_rate_label, vat_amount_label, kra_pin_label, stripe_tax_enabled_label, vat_inclusive_disclaimer."
+    },
+    {
+      "id": "PLAN-SYNC-AUTO-1",
+      "title": "subscription_plans.drift_resolve_mode enum + PlanDriftResolver service",
+      "severity": "HIGH",
+      "files": [
+        "database/migrations/2026_05_17_020020_phase42_plan_sync_add_drift_resolve_mode.php (new)",
+        "app/Models/SubscriptionPlan.php",
+        "app/Services/Subscriptions/PlanDriftResolver.php (new)",
+        "app/Enums/DriftResolveMode.php (new)"
+      ],
+      "evidence": "Phase 41 GATEWAY-PLAN-SYNC-2 emits subscription_plan_drift gauge on price.updated webhook but resolution is 100% manual — operator reads gauge → opens Stripe Dashboard → manually updates SubscriptionPlan.price_monthly. For plans where pricing decisions live exclusively in Stripe (revenue ops control), always_stripe_wins is safe and shaves the manual step. For plans where pricing lives exclusively in app config, always_app_wins re-pushes the canonical price. Manual is the safe default.",
+      "fix": "(a) Migration adds subscription_plans.drift_resolve_mode ENUM('manual_review','always_app_wins','always_stripe_wins') DEFAULT 'manual_review'. (b) DriftResolveMode string-backed enum in App\\Enums. (c) SubscriptionPlan model adds casts['drift_resolve_mode' => DriftResolveMode::class]. (d) PlanDriftResolver::resolve(SubscriptionPlan $plan, array $stripePrice): array — branches on plan.drift_resolve_mode: always_app_wins → re-push via StripeSubscriptionService::createOrUpdatePlan; always_stripe_wins → updates plan.price_monthly to stripe_price unit_amount / 100; manual_review → no-op, only logs to subscription_plan_drift_log."
+    },
+    {
+      "id": "PLAN-SYNC-AUTO-2",
+      "title": "StripeWebhookController::handlePriceUpdated branches via PlanDriftResolver + drift history table",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/Webhooks/StripeWebhookController.php",
+        "database/migrations/2026_05_17_020030_phase42_create_subscription_plan_drift_log.php (new)",
+        "app/Models/SubscriptionPlanDriftLog.php (new)"
+      ],
+      "evidence": "Phase 41 emits subscription_plan_drift gauge once per drift detection — no historical record of what drifted, when, by how much, and what was resolved. Operators investigating after-the-fact have only Sentry logs to reconstruct.",
+      "fix": "(a) Migration creates subscription_plan_drift_log table (id, subscription_plan_id FK, stripe_price_id, app_price_cents, stripe_price_cents, drift_resolve_mode_at_time, resolution ENUM('pending','resolved_app_wins','resolved_stripe_wins','manual_pending'), detected_at TIMESTAMP, resolved_at TIMESTAMP NULL, with indexes spdl_plan_id_detected_at and spdl_resolution_detected_at). (b) handlePriceUpdated logs every drift detection then delegates to PlanDriftResolver::resolve which mutates the log row's resolution column."
+    },
+    {
+      "id": "PLAN-SYNC-AUTO-3",
+      "title": "/admin/gateways extension — drift_resolve_mode selector + drift history table view",
+      "severity": "LOW",
+      "files": [
+        "app/Http/Controllers/Admin/AdminGatewaysController.php",
+        "resources/js/Pages/Admin/Gateways/Index.vue",
+        "lang/en/payments.php",
+        "lang/sw/payments.php"
+      ],
+      "evidence": "PLAN-SYNC-AUTO-1/2 ship the data + behaviour; operators need a UI to set per-plan drift_resolve_mode and a history table to audit past drift events. Without UI, the enum is settable only via tinker or DB shell.",
+      "fix": "(a) AdminGatewaysController::index passes subscription_plans + drift_log_recent (last 30d) to Inertia. (b) Gateways/Index.vue gains 'Plan sync' tab with one row per SubscriptionPlan: name + drift_resolve_mode select (3 options) + last_drift_detected_at + resolution badge. (c) POST /admin/gateways/plan-drift-mode updates drift_resolve_mode (Gate::authorize('access-admin')). (d) Lang plan_sync.* keys: drift_mode_label, manual_review_option, always_app_wins_option, always_stripe_wins_option, drift_history_heading, drift_resolved_badge."
+    },
+    {
+      "id": "CONNECT-STANDARD-1",
+      "title": "StripeConnectStandardService + payment_configurations.stripe_connect_account_type enum",
+      "severity": "HIGH",
+      "files": [
+        "app/Services/StripeConnectStandardService.php (new)",
+        "database/migrations/2026_05_17_020040_phase42_connect_add_account_type_to_payment_configurations.php (new)",
+        "app/Models/PaymentConfiguration.php",
+        "app/Enums/StripeConnectAccountType.php (new)"
+      ],
+      "evidence": "Phase 41 StripeConnectService ships Express (PropManager-managed onboarding, capabilities limited to transfers). Landlords with their own Stripe account need Standard (full account control, direct-charge capability, independent tax reporting). Express vs Standard pick is a permanent landlord decision — column on PaymentConfiguration not LandlordPayoutAccount because it co-locates with the rest of the Stripe Connect state.",
+      "fix": "(a) Migration adds payment_configurations.stripe_connect_account_type ENUM('express','standard') DEFAULT 'express'. (b) StripeConnectAccountType string-backed enum. (c) StripeConnectStandardService::createStandardAccount(User $landlord) — calls $client->accounts->create(['type' => 'standard', 'country' => ..., 'capabilities' => ['transfers', 'card_payments']]); onboardingLink works identically to Express (accountLinks->create); syncAccountStatus identical contract. (d) PaymentConfiguration model casts['stripe_connect_account_type' => StripeConnectAccountType::class]."
+    },
+    {
+      "id": "CONNECT-STANDARD-2",
+      "title": "StripeService::createPaymentIntent branches on connect_account_type — on_behalf_of vs transfer_data",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/StripeService.php",
+        "app/Services/StripeConnectStandardService.php"
+      ],
+      "evidence": "Express landlords use Stripe's 'destination charges' model: PropManager is the platform, landlord is the destination, transfer_data => ['destination' => account_id]. Standard landlords use 'direct charges': landlord is the merchant of record, on_behalf_of => account_id with the charge happening on their account directly. Mixing the two silently routes funds to the wrong place.",
+      "fix": "StripeService::createPaymentIntent reads $this->config->stripe_connect_account_type and the connect_account_id; for express appends transfer_data + application_fee_amount; for standard appends on_behalf_of + Stripe-Account header on the SDK call (via $client->setStripeAccount). Tests: PaymentIntent payload assertion for both branches."
+    },
+    {
+      "id": "CONNECT-STANDARD-3",
+      "title": "docs/runbooks/payments.md Connect Standard section + onboarding-flow diff vs Express",
+      "severity": "LOW",
+      "files": [
+        "docs/runbooks/payments.md"
+      ],
+      "evidence": "Phase 41 added an Express onboarding section. Operators picking Standard for a landlord need a parallel section explaining the tax-reporting independence, the direct-charge model, and the additional Stripe Standard onboarding fields (legal entity, bank account, identity verification — Express auto-skips these).",
+      "fix": "Append 'Stripe Connect Standard (Phase 42 CONNECT-STANDARD)' section covering: when to recommend Standard over Express (landlord has own Stripe + own tax filing), capability differences (card_payments adds Issuing eligibility too), onboarding-flow steps, on_behalf_of vs transfer_data routing diagram, common failure modes (capability not active → charges fail with reason='requirements_past_due')."
+    },
+    {
+      "id": "CART-1",
+      "title": "checkout_sessions + checkout_session_items polymorphic tables",
+      "severity": "HIGH",
+      "files": [
+        "database/migrations/2026_05_17_020050_phase42_create_checkout_sessions.php (new)",
+        "app/Models/CheckoutSession.php (new)",
+        "app/Models/CheckoutSessionItem.php (new)"
+      ],
+      "evidence": "Today PaymentController::store creates exactly one PaymentIntent for one invoice (or one rent allocation). A tenant who owes rent (KES) + a one-off service add-on priced in USD has no way to bundle them — must check out twice with two separate confirmations. A first-class checkout-session model is the prerequisite for multi-currency cart.",
+      "fix": "(a) Migration creates checkout_sessions table (id, landlord_id FK, tenant_id FK NULL, status ENUM('open','submitted','succeeded','failed','expired'), total_amount_cents BIGINT, currency_breakdown JSON, created_at, expires_at, succeeded_at NULL with indexes cs_landlord_status + cs_tenant_status). (b) checkout_session_items polymorphic table (id, checkout_session_id FK CASCADE, line_type VARCHAR(64) — 'invoice','add_on','deposit', line_id BIGINT NULL — polymorphic, amount_cents BIGINT, currency VARCHAR(3), description, sort_order). (c) Models with TenantScope + relationship + scopes (open, expiringSoon)."
+    },
+    {
+      "id": "CART-2",
+      "title": "CartCheckoutService groups items by currency into N PaymentIntents",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Services/Checkout/CartCheckoutService.php (new)",
+        "app/Http/Controllers/CartCheckoutController.php (new)",
+        "routes/web.php"
+      ],
+      "evidence": "Once checkout_sessions exists, currency-grouping logic is the second prerequisite. The simplest implementation: groupBy(currency) → for each group call StripeService::createPaymentIntent → return [{currency, client_secret, amount}]. Tenant's frontend renders one Stripe Elements form per group. Phase 42 does NOT ship FX/conversion (different problem entirely).",
+      "fix": "CartCheckoutService::initialize(CheckoutSession $session): array — for each currency group calls StripeService (via PaymentGatewayManager::routeForUser to honour user.payment_gateway_preference), persists PaymentIntent.id back into the corresponding line items as a stripe_payment_intent_id column on checkout_session_items, returns array<currency, ['client_secret' => ..., 'amount' => ..., 'payment_intent_id' => ...]>. POST /checkout/sessions/{session}/initialize routed via Gate::authorize('view-checkout-session', $session)."
+    },
+    {
+      "id": "CART-3",
+      "title": "Cart/Show.vue tenant view + Inertia checkout flow",
+      "severity": "LOW",
+      "files": [
+        "resources/js/Pages/Tenant/Cart/Show.vue (new)",
+        "app/Http/Controllers/Tenant/TenantCartController.php (new)",
+        "lang/en/payments.php",
+        "lang/sw/payments.php"
+      ],
+      "evidence": "CART-1/2 ship the model + service. Tenants need a Vue page to actually use it — list of line items grouped by currency, one Stripe Elements form per currency group, individual confirm-and-pay per form. Without this, the cart exists only at the API layer.",
+      "fix": "(a) TenantCartController::show resolves auth tenant's active CheckoutSession (or 404). (b) Cart/Show.vue renders one Card per currency group with line items + total + Stripe.js Elements bound to the group's client_secret; on confirm calls Stripe.confirmPayment + reports back via POST /tenant/cart/{session}/payment-result/{currency}. (c) Lang cart.* keys: heading, total_label, currency_section_heading, confirm_payment_button, payment_succeeded_message, payment_failed_message, expired_session_message."
+    },
+    {
+      "id": "METHODS-1",
+      "title": "stripe_customers table + StripeCustomerService::ensureCustomer idempotent",
+      "severity": "HIGH",
+      "files": [
+        "database/migrations/2026_05_17_020060_phase42_create_stripe_customers.php (new)",
+        "app/Models/StripeCustomer.php (new)",
+        "app/Services/StripeCustomerService.php (new)"
+      ],
+      "evidence": "Phase 41 StripeSubscriptionService::initializeCheckout creates a fresh Stripe Checkout Session every time — Customer is auto-created by Stripe but never persisted on our side, so the second time a landlord pays we create a duplicate Stripe Customer (which Stripe Dashboard treats as a separate human). For saved-card reuse to work, we need a first-class mapping table.",
+      "fix": "(a) Migration creates stripe_customers (id, user_id FK UNIQUE, stripe_customer_id VARCHAR(64) UNIQUE, default_payment_method_id VARCHAR(64) NULL, created_at, updated_at). (b) StripeCustomer model + belongsTo(User). (c) StripeCustomerService::ensureCustomer(User $user): string — atomic upsert: if row exists return stripe_customer_id, else $client->customers->create([...]) + DB::transaction insert + return new id. ensurePaymentMethodAttached(StripeCustomer $customer, string $paymentMethodId): void. detachPaymentMethod(string $paymentMethodId)."
+    },
+    {
+      "id": "METHODS-2",
+      "title": "customer.created + customer.updated + customer.deleted webhook handlers",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/Webhooks/StripeWebhookController.php"
+      ],
+      "evidence": "If a Stripe Customer is created via Stripe Dashboard (operator manual) or deleted (PII removal request handled directly in Stripe), our stripe_customers table drifts. Webhook handlers keep us in sync.",
+      "fix": "Match arms added to handle() dispatch: 'customer.created' → upsert stripe_customers row if user can be resolved from metadata.user_id; 'customer.updated' → sync default_payment_method_id; 'customer.deleted' → soft-delete stripe_customers row (Phase 13 DPA-3 retention pattern — keep audit trail). All three handlers register in lang/payments.php webhook.* keys."
+    },
+    {
+      "id": "METHODS-3",
+      "title": "Landlord Billing/Subscriptions.vue saved-cards section + SetupIntent flow",
+      "severity": "LOW",
+      "files": [
+        "resources/js/Pages/Billing/Subscriptions.vue",
+        "app/Http/Controllers/Billing/PaymentMethodController.php (new)",
+        "app/Services/StripeCustomerService.php",
+        "lang/en/payments.php",
+        "lang/sw/payments.php"
+      ],
+      "evidence": "METHODS-1/2 ship the data + sync. Landlords need UI to add a card (via Stripe SetupIntent), see saved cards (last4 + brand), remove a card, and set default. Without UI, saved-card reuse is purely API-driven.",
+      "fix": "(a) PaymentMethodController::index returns saved methods for auth landlord; create returns SetupIntent client_secret for new-card collection; destroy calls StripeCustomerService::detachPaymentMethod. (b) Subscriptions.vue adds 'Saved payment methods' section listing methods + add-card modal with Stripe Elements + per-row remove + default toggle. (c) Lang methods.* keys: saved_cards_heading, add_card_button, last4_label, brand_label, default_badge, remove_card_button, setup_intent_failed."
+    },
+    {
+      "id": "PAYOUT-AUDIT-1",
+      "title": "payouts:stripe-balance-audit twice-daily cron + stripe_payout_failure_count gauge",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/StripeBalanceAudit.php (new)",
+        "routes/console.php",
+        "app/Support/MetricsService.php"
+      ],
+      "evidence": "Phase 41 ships Stripe Connect Express + Standard handoff, but Stripe-side payout failures (insufficient available balance, bank account closed, identity verification expired) are surfaced only via Stripe Dashboard or email — PropManager has no automated detection. Twice-daily polling against $client->payouts->all(status='failed') closes the loop.",
+      "fix": "(a) StripeBalanceAudit command iterates every PaymentConfiguration with stripe_connect_account_id; per landlord calls Stripe API in landlord-account context to list payouts with status=failed in last 24h; emits MetricsService::gauge('stripe_payout_failure_count', count, ['landlord_id' => $id]). (b) Schedule::command('payouts:stripe-balance-audit')->twiceDailyAt(3, 15, 15)->timezone('Africa/Nairobi')->onOneServer()->name('phase42-payout-audit'). (c) Failures over 1 emit OperationalIncident sev3."
+    },
+    {
+      "id": "PAYOUT-AUDIT-2",
+      "title": "payout.failed webhook handler + alert-thresholds.md sev3 row",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Http/Controllers/Webhooks/StripeWebhookController.php",
+        "docs/runbooks/alert-thresholds.md"
+      ],
+      "evidence": "Twice-daily polling has up to 12h latency. payout.failed webhook gives real-time signal. Pair the webhook handler with the cron — webhook gives speed, cron gives completeness in case webhook is lost.",
+      "fix": "Match arm 'payout.failed' → increment stripe_payout_failure_count gauge synchronously + create OperationalIncident sev3 referencing payout.id + failure_message + landlord (resolved via Account.id reverse lookup in payment_configurations.stripe_connect_account_id). alert-thresholds.md gains row: signal=stripe_payout_failure_count, threshold=5/24h, source=phase42-payout-audit + payout.failed webhook, on-call action."
+    },
+    {
+      "id": "CI-1",
+      "title": "Phase42PaymentsSurfaceTest watchdog + payments.md runbook expansion + lang en/sw parity",
+      "severity": "LOW",
+      "files": [
+        "tests/Feature/Gateway/Phase42PaymentsSurfaceTest.php (new)",
+        "tests/Feature/Gateway/Phase42TaxTest.php (new)",
+        "tests/Feature/Gateway/Phase42PlanSyncAutoTest.php (new)",
+        "tests/Feature/Gateway/Phase42ConnectStandardTest.php (new)",
+        "tests/Feature/Gateway/Phase42CartTest.php (new)",
+        "tests/Feature/Gateway/Phase42MethodsTest.php (new)",
+        "tests/Feature/Gateway/Phase42PayoutAuditTest.php (new)",
+        "docs/runbooks/payments.md",
+        "lang/en/payments.php",
+        "lang/sw/payments.php"
+      ],
+      "evidence": "Phase 41 set the convention: every cycle ships a SurfaceTest enforcing the scheduled commands + webhook handlers + tables it added. Phase 42 adds 1 new cron + 4 new webhook handlers (customer.created/updated/deleted, payout.failed) + 6 new tables (subscription_plan_drift_log, checkout_sessions, checkout_session_items, stripe_customers) + 1 modified table (subscription_plans drift_resolve_mode), all of which need watchdogs.",
+      "fix": "Phase42PaymentsSurfaceTest::EXPECTED_SCHEDULES (1 entry: payouts:stripe-balance-audit at 3,15 Africa/Nairobi); EXPECTED_WEBHOOK_HANDLERS (4 new arms: customer.created/customer.updated/customer.deleted/payout.failed); EXPECTED_TABLES (6 new + 1 altered). Per-category sub-tests assert behaviour. payments.md gains 6 new top-level sections (one per category). lang/{en,sw}/payments.php parity verified by Phase24CiTest assertion-count bump."
+    }
+  ]
+}
