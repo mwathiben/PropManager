@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\I18n\TranslationCostTracker;
+use App\Services\I18n\TranslationDriverFactory;
 use App\Services\I18n\TranslationSuggestionService;
 use App\Support\LangBundleLoader;
 use Illuminate\Console\Command;
@@ -41,9 +43,10 @@ class LangSuggest extends Command
         $target = $loader->load($targetLocale);
         $targetSection = is_array($target[$namespace] ?? null) ? $target[$namespace] : [];
 
+        $factory = new TranslationDriverFactory(new TranslationCostTracker());
         $service = $driverOverride !== null
-            ? new TranslationSuggestionService(driver: (string) $driverOverride)
-            : TranslationSuggestionService::fromConfig();
+            ? new TranslationSuggestionService($factory->make((string) $driverOverride))
+            : TranslationSuggestionService::fromConfig($factory);
 
         $sourceKeys = $loader->flatten($sourceSection, $namespace);
         $targetKeys = $loader->flatten($targetSection, $namespace);

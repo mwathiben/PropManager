@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace App\Services\I18n;
 
+use App\Services\I18n\Contracts\TranslationDriverInterface;
+use App\Services\I18n\Drivers\StubTranslationDriver;
+
 /**
- * Phase-43 LANG-AUDIT-3: pluggable translation-suggestion
- * source. The default Stub driver returns
- * `[TODO:locale] <english>` placeholders — safe for any
- * environment, no creds required. Google + DeepL drivers can
- * graft on later behind config('i18n.suggestion_driver') without
- * touching caller code.
+ * Phase-43 LANG-AUDIT-3: pluggable translation-suggestion source.
+ *
+ * Phase-52 DRIVER-INTERFACE-2 refactored the service to hold a
+ * TranslationDriverInterface reference instead of switching on a
+ * driver string. The match-on-driver logic moved into
+ * TranslationDriverFactory::make.
  *
  * Used by App\Console\Commands\LangSuggest to seed missing-key
  * lang/<locale>/<namespace>.php fills.
@@ -18,52 +21,24 @@ namespace App\Services\I18n;
 final class TranslationSuggestionService
 {
     public function __construct(
-        private readonly string $driver = 'stub',
-        private readonly ?string $googleApiKey = null,
-        private readonly ?string $deeplApiKey = null,
+        private readonly TranslationDriverInterface $driver = new StubTranslationDriver(),
     ) {}
 
-    public static function fromConfig(): self
+    public static function fromConfig(?TranslationDriverFactory $factory = null): self
     {
-        return new self(
-            driver: (string) config('i18n.suggestion_driver', 'stub'),
-            googleApiKey: config('i18n.google_api_key'),
-            deeplApiKey: config('i18n.deepl_api_key'),
-        );
+        $factory ??= new TranslationDriverFactory(new TranslationCostTracker());
+        $key = (string) config('i18n.suggestion_driver', 'stub');
+
+        return new self($factory->make($key));
     }
 
     public function suggest(string $sourceText, string $sourceLocale, string $targetLocale): string
     {
-        return match ($this->driver) {
-            'google' => $this->google($sourceText, $sourceLocale, $targetLocale),
-            'deepl' => $this->deepl($sourceText, $sourceLocale, $targetLocale),
-            default => $this->stub($sourceText, $targetLocale),
-        };
+        return $this->driver->translate($sourceText, $sourceLocale, $targetLocale);
     }
 
-    private function stub(string $sourceText, string $targetLocale): string
+    public function driverName(): string
     {
-        return sprintf('[TODO:%s] %s', $targetLocale, $sourceText);
-    }
-
-    private function google(string $sourceText, string $sourceLocale, string $targetLocale): string
-    {
-        if ($this->googleApiKey === null || $this->googleApiKey === '') {
-            return $this->stub($sourceText, $targetLocale);
-        }
-
-        // Real implementation deferred. Scope of LANG-AUDIT-3 in
-        // Phase 43 is the plug-in surface; Phase 44+ wires the
-        // actual API once the workflow proves out via Stub.
-        return $this->stub($sourceText, $targetLocale);
-    }
-
-    private function deepl(string $sourceText, string $sourceLocale, string $targetLocale): string
-    {
-        if ($this->deeplApiKey === null || $this->deeplApiKey === '') {
-            return $this->stub($sourceText, $targetLocale);
-        }
-
-        return $this->stub($sourceText, $targetLocale);
+        return $this->driver->name();
     }
 }
