@@ -147,20 +147,12 @@ class Ticket extends Model
      */
     protected static function booted(): void
     {
-        static::creating(function (self $ticket) {
-            $base = $ticket->created_at ?? now();
-
-            if ($ticket->sla_due_at === null) {
-                $seconds = self::SLA_SECONDS[$ticket->priority] ?? self::SLA_SECONDS['medium'];
-                $ticket->sla_due_at = $base->copy()->addSeconds($seconds);
-            }
-
-            // Phase-49 TICKETS-SLA-DEEP-1: also stamp resolution_due_at.
-            if ($ticket->resolution_due_at === null) {
-                $resolutionSeconds = self::RESOLUTION_SLA_SECONDS[$ticket->priority] ?? self::RESOLUTION_SLA_SECONDS['medium'];
-                $ticket->resolution_due_at = $base->copy()->addSeconds($resolutionSeconds);
-            }
-        });
+        // Phase-49 SLA-PER-CATEGORY-2: SLA stamping moved to
+        // TicketObserver::creating so it can use SlaDefinitionService
+        // (which needs landlord_id, set by the observer first). The
+        // service has SLA_SECONDS / RESOLUTION_SLA_SECONDS as fallback,
+        // so the constants on this model remain the source of truth
+        // when no override row matches.
     }
 
     /**

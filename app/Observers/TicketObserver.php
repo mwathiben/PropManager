@@ -7,6 +7,7 @@ use App\Jobs\SendNotificationJob;
 use App\Models\Ticket;
 use App\Models\TicketActivity;
 use App\Models\User;
+use App\Services\Maintenance\SlaDefinitionService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -39,6 +40,26 @@ class TicketObserver
             $building = $ticket->building;
             if ($building && $building->caretaker_id) {
                 $ticket->assigned_to = $building->caretaker_id;
+            }
+        }
+
+        // Phase-49 SLA-PER-CATEGORY-2: stamp sla_due_at + resolution_due_at
+        // using the per-(landlord, category, subcategory, priority) cascade.
+        // Service has Ticket::SLA_SECONDS / RESOLUTION_SLA_SECONDS as fallback.
+        if ($ticket->sla_due_at === null || $ticket->resolution_due_at === null) {
+            $seconds = app(SlaDefinitionService::class)->resolveFor(
+                (string) $ticket->category,
+                $ticket->subcategory,
+                (string) $ticket->priority,
+                $ticket->landlord_id,
+            );
+            $base = $ticket->created_at ?? now();
+
+            if ($ticket->sla_due_at === null) {
+                $ticket->sla_due_at = $base->copy()->addSeconds($seconds['response_seconds']);
+            }
+            if ($ticket->resolution_due_at === null) {
+                $ticket->resolution_due_at = $base->copy()->addSeconds($seconds['resolution_seconds']);
             }
         }
     }
