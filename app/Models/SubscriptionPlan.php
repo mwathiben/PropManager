@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\DriftResolveMode;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -15,6 +16,7 @@ class SubscriptionPlan extends Model
         'slug',
         'paystack_plan_code',
         'stripe_plan_code',
+        'drift_resolve_mode',
         'description',
         'price_monthly',
         'price_yearly',
@@ -37,6 +39,7 @@ class SubscriptionPlan extends Model
     ];
 
     protected $casts = [
+        'drift_resolve_mode' => DriftResolveMode::class,
         'price_monthly' => 'decimal:2',
         'price_yearly' => 'decimal:2',
         'water_billing_enabled' => 'boolean',

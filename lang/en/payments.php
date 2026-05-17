@@ -28,6 +28,17 @@ return [
         'kes_to_paystack_hint' => 'KES payments route to Paystack.',
         'usd_to_stripe_hint' => 'USD/EUR/GBP payments route to Stripe.',
     ],
+    'plan_sync' => [
+        'drift_mode_label' => 'Drift resolution mode',
+        'manual_review_option' => 'Manual review',
+        'always_app_wins_option' => 'Always app wins',
+        'always_stripe_wins_option' => 'Always Stripe wins',
+        'drift_history_heading' => 'Recent drift events',
+        'drift_resolved_badge' => 'Resolved',
+        'drift_pending_badge' => 'Pending',
+        'drift_manual_pending_badge' => 'Awaiting manual review',
+        'drift_mode_updated_flash' => 'Drift resolution mode for :plan updated.',
+    ],
     'tax' => [
         'vat_heading' => 'VAT & tax registration',
         'vat_label' => 'VAT',

@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\DriftResolveMode;
 use App\Http\Controllers\Controller;
 use App\Models\PaymentConfiguration;
+use App\Models\SubscriptionPlan;
+use App\Models\SubscriptionPlanDriftLog;
 use App\Models\User;
 use App\Services\PaymentGatewayManager;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -51,8 +55,24 @@ class AdminGatewaysController extends Controller
             ];
         });
 
+        // Phase-42 PLAN-SYNC-AUTO-3: per-plan drift_resolve_mode +
+        // last 30d drift history feed the Plan-sync tab.
+        $plans = SubscriptionPlan::query()
+            ->whereNotNull('stripe_plan_code')
+            ->orderBy('name')
+            ->get(['id', 'name', 'price_monthly', 'stripe_plan_code', 'drift_resolve_mode']);
+
+        $driftLogRecent = SubscriptionPlanDriftLog::query()
+            ->where('detected_at', '>=', CarbonImmutable::now()->subDays(30))
+            ->orderByDesc('detected_at')
+            ->limit(50)
+            ->get();
+
         return Inertia::render('Admin/Gateways/Index', [
             'rows' => $rows,
+            'plans' => $plans,
+            'driftLogRecent' => $driftLogRecent,
+            'driftResolveModes' => DriftResolveMode::values(),
         ]);
     }
 
@@ -102,5 +122,21 @@ class AdminGatewaysController extends Controller
         $config->saveQuietly();
 
         return back()->with('success', __('payments.tax.updated_flash', ['name' => $user->name]));
+    }
+
+    /**
+     * Phase-42 PLAN-SYNC-AUTO-3: super_admin sets the drift_resolve_mode
+     * a SubscriptionPlan follows when Stripe price.updated fires.
+     */
+    public function updateDriftResolveMode(Request $request, SubscriptionPlan $plan): RedirectResponse
+    {
+        $validated = $request->validate([
+            'drift_resolve_mode' => ['required', 'string', 'in:'.implode(',', DriftResolveMode::values())],
+        ]);
+
+        $plan->drift_resolve_mode = $validated['drift_resolve_mode'];
+        $plan->save();
+
+        return back()->with('success', __('payments.plan_sync.drift_mode_updated_flash', ['plan' => $plan->name]));
     }
 }

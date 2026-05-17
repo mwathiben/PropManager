@@ -28,6 +28,17 @@ return [
         'kes_to_paystack_hint' => 'Malipo ya KES yanaenda Paystack.',
         'usd_to_stripe_hint' => 'Malipo ya USD/EUR/GBP yanaenda Stripe.',
     ],
+    'plan_sync' => [
+        'drift_mode_label' => 'Hali ya kutatua mteremko',
+        'manual_review_option' => 'Ukaguzi wa mwongozo',
+        'always_app_wins_option' => 'Programu inashinda kila wakati',
+        'always_stripe_wins_option' => 'Stripe inashinda kila wakati',
+        'drift_history_heading' => 'Matukio ya hivi karibuni ya mteremko',
+        'drift_resolved_badge' => 'Imetatuliwa',
+        'drift_pending_badge' => 'Inasubiri',
+        'drift_manual_pending_badge' => 'Inasubiri ukaguzi wa mwongozo',
+        'drift_mode_updated_flash' => 'Hali ya kutatua mteremko kwa :plan imesasishwa.',
+    ],
     'tax' => [
         'vat_heading' => 'VAT na usajili wa kodi',
         'vat_label' => 'VAT',

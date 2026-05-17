@@ -1087,6 +1087,11 @@ Route::middleware(['auth', 'verified', 'role:super_admin'])->prefix('admin')->gr
     // for a single landlord's PaymentConfiguration.
     Route::post('/gateways/{user}/tax-config', [\App\Http\Controllers\Admin\AdminGatewaysController::class, 'updateTaxConfig'])
         ->name('admin.gateways.tax-config');
+
+    // Phase-42 PLAN-SYNC-AUTO-3: per-plan drift_resolve_mode setter
+    // consumed by handlePriceUpdated -> PlanDriftResolver.
+    Route::post('/gateways/plan-drift-mode/{plan}', [\App\Http\Controllers\Admin\AdminGatewaysController::class, 'updateDriftResolveMode'])
+        ->name('admin.gateways.plan-drift-mode');
 });
 
 // Stop impersonating (available to anyone being impersonated)

@@ -261,11 +261,13 @@ class StripeWebhookController extends Controller
     }
 
     /**
-     * Phase-41 GATEWAY-PLAN-SYNC-2/3: detect Stripe-side Price edits
-     * that diverge from local SubscriptionPlan.price_monthly. Emit
-     * subscription_plan_drift gauge so operators see the divergence
-     * in the Phase-36 ops dashboard. Auto-resolution intentionally
-     * deferred — operator decides which side wins.
+     * Phase-41 GATEWAY-PLAN-SYNC-2/3 + Phase-42 PLAN-SYNC-AUTO-1/2:
+     * detect Stripe-side Price edits diverging from local
+     * SubscriptionPlan.price_monthly, emit subscription_plan_drift
+     * gauge, append a row to subscription_plan_drift_log, then
+     * delegate to PlanDriftResolver which branches on the plan's
+     * drift_resolve_mode (manual_review default | always_app_wins
+     * | always_stripe_wins).
      */
     private function handlePriceUpdated(array $payload): void
     {
@@ -296,6 +298,9 @@ class StripeWebhookController extends Controller
                 'stripe_price' => $stripeMajor,
                 'delta' => $delta,
             ]);
+
+            app(\App\Services\Subscriptions\PlanDriftResolver::class)
+                ->resolve($plan, $unitAmount, $priceId);
         }
     }
 
