@@ -4,8 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\OnboardingProgress;
 use App\Models\OnboardingSession;
+use App\Models\User;
 use App\Onboarding\OnboardingFlow;
+use App\Services\Onboarding\CaretakerOnboardingService;
 use App\Services\Onboarding\OnboardingSessionService;
+use App\Services\Onboarding\OnboardingStepProcessor;
+use App\Services\Onboarding\TenantOnboardingService;
 use App\Services\OnboardingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,8 +20,19 @@ class OnboardingController extends Controller
 {
     public function __construct(
         protected OnboardingService $onboardingService,
+        protected TenantOnboardingService $tenantOnboardingService,
+        protected CaretakerOnboardingService $caretakerOnboardingService,
         protected OnboardingSessionService $sessionService,
     ) {}
+
+    private function processorForUser(User $user): OnboardingStepProcessor
+    {
+        return match ($user->role) {
+            'tenant' => $this->tenantOnboardingService,
+            'caretaker' => $this->caretakerOnboardingService,
+            default => $this->onboardingService,
+        };
+    }
 
     public function index()
     {
@@ -71,7 +86,9 @@ class OnboardingController extends Controller
         // the session nor commit half-canonical state. The session helper
         // wraps the writer in DB::transaction; on success the wizard cursor
         // moves forward + step_history captures the transition.
-        $writer = fn () => $this->onboardingService->processStep($step, $validated, $user, $progress);
+        // Phase-47 ROLE-DISPATCH-2/3: route to the per-role step processor.
+        $processor = $this->processorForUser($user);
+        $writer = fn () => $processor->processStep($step, $validated, $user, $progress);
         $nextStep = $flow->nextStep($step);
 
         try {
@@ -205,6 +222,14 @@ class OnboardingController extends Controller
 
     private function validateStep(Request $request, int $step): array
     {
+        $role = auth()->user()->role ?? 'landlord';
+        if ($role === 'tenant') {
+            return $this->validateTenantStep($request, $step);
+        }
+        if ($role === 'caretaker') {
+            return $this->validateCaretakerStep($request, $step);
+        }
+
         $rules = match ($step) {
             2 => [
                 'name' => 'required|string|max:255',
@@ -271,6 +296,56 @@ class OnboardingController extends Controller
                 'rent_amount' => ['required', 'decimal:0,2', 'min:0', 'max:9999999.99'],
                 'deposit_amount' => ['required', 'decimal:0,2', 'min:0', 'max:9999999.99'],
                 'start_date' => 'required|date|after_or_equal:today',
+            ],
+            default => [],
+        };
+
+        if (empty($rules)) {
+            return $request->only([]);
+        }
+
+        return $request->validate($rules);
+    }
+
+    private function validateTenantStep(Request $request, int $step): array
+    {
+        $rules = match ($step) {
+            1 => [
+                'name' => 'required|string|max:255',
+                'mobile_number' => 'nullable|string|max:20',
+                'national_id' => 'nullable|string|max:32',
+            ],
+            2 => [
+                'acknowledged' => 'nullable|boolean',
+            ],
+            3 => [
+                'acknowledged' => 'nullable|boolean',
+            ],
+            default => [],
+        };
+
+        if (empty($rules)) {
+            return $request->only([]);
+        }
+
+        return $request->validate($rules);
+    }
+
+    private function validateCaretakerStep(Request $request, int $step): array
+    {
+        $rules = match ($step) {
+            1 => [
+                'name' => 'required|string|max:255',
+                'mobile_number' => 'nullable|string|max:20',
+            ],
+            2 => [
+                'acknowledged' => 'nullable|boolean',
+            ],
+            3 => [
+                'email_enabled' => 'nullable|boolean',
+                'sms_enabled' => 'nullable|boolean',
+                'whatsapp_enabled' => 'nullable|boolean',
+                'push_enabled' => 'nullable|boolean',
             ],
             default => [],
         };

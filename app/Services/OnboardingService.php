@@ -11,10 +11,11 @@ use App\Models\Property;
 use App\Models\TenantInvitation;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\Onboarding\OnboardingStepProcessor;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
-class OnboardingService
+class OnboardingService implements OnboardingStepProcessor
 {
     public const STEPS = [
         1 => 'welcome',
