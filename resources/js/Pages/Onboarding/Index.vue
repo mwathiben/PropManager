@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { Head, useForm, router } from '@inertiajs/vue3';
+import { Head, useForm, router, usePage } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
+import TenantSteps from './TenantSteps.vue';
+import CaretakerSteps from './CaretakerSteps.vue';
 import { useFormatters, useCurrency } from '@/composables';
 const { formatMoney: formatCurrency, todayAsISODate } = useFormatters();
 const { currencyCode, currencySymbol } = useCurrency();
@@ -72,6 +74,14 @@ const props = withDefaults(defineProps<{
     vacantUnits: () => [],
     summary: undefined,
 });
+
+// Phase-47 WIZARD-VUE-1: top-level role dispatch. A tenant or caretaker
+// reaching this page now renders the role-appropriate scaffold instead of
+// landing on the landlord profile form (which 422s on submit because the
+// validation expects landlord-shaped fields).
+const page = usePage();
+const role = computed(() => (page.props as { auth?: { user?: { role?: string } } }).auth?.user?.role ?? 'landlord');
+
 
 // Step definitions with icons and descriptions
 const steps = [
@@ -276,7 +286,11 @@ function completeOnboarding() {
 <template>
     <Head title="Setup Your Property" />
 
-    <div class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <!-- Phase-47 WIZARD-VUE-1: tenant + caretaker scaffold dispatch. -->
+    <TenantSteps v-if="role === 'tenant'" :current-step="currentStep" :completed-steps="completedSteps" />
+    <CaretakerSteps v-else-if="role === 'caretaker'" :current-step="currentStep" :completed-steps="completedSteps" />
+
+    <div v-else class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
         <!-- Progress Header -->
         <div class="bg-white border-b border-gray-200 sticky top-0 z-10">
             <div class="max-w-4xl mx-auto px-4 py-4">
