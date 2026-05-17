@@ -3,9 +3,20 @@ import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import WizardProgressBar from './Components/WizardProgressBar.vue';
 
+type KycProgress = {
+    required: number;
+    submitted: number;
+    approved: number;
+    pending: number;
+    rejected: number;
+    percent: number;
+    remaining_labels: string[];
+};
+
 const props = defineProps<{
     currentStep: number;
     completedSteps?: number[];
+    kycProgress?: KycProgress | null;
 }>();
 
 const form = useForm<Record<string, unknown>>({
@@ -62,6 +73,28 @@ function submit() {
                 </template>
 
                 <template v-else-if="currentStep === 2">
+                    <!-- Phase-51 TENANT-WIZARD-POLISH-3: KYC progress indicator -->
+                    <div v-if="kycProgress" class="rounded-lg border border-indigo-100 bg-indigo-50/60 px-4 py-3">
+                        <div class="flex items-baseline justify-between">
+                            <p class="text-sm font-medium text-indigo-900">
+                                KYC documents: {{ kycProgress.submitted }} of {{ kycProgress.required }} uploaded
+                            </p>
+                            <p class="text-xs text-indigo-700">{{ kycProgress.percent }}%</p>
+                        </div>
+                        <div class="mt-2 h-1.5 w-full rounded-full bg-white/80">
+                            <div
+                                class="h-full rounded-full bg-indigo-500 transition-all"
+                                :style="{ width: kycProgress.percent + '%' }"
+                            ></div>
+                        </div>
+                        <p
+                            v-if="kycProgress.remaining_labels.length > 0"
+                            class="mt-2 text-xs text-indigo-700"
+                        >
+                            Still to upload: {{ kycProgress.remaining_labels.join(', ') }}
+                        </p>
+                    </div>
+
                     <p class="text-gray-700">
                         KYC documents are uploaded from the
                         <a :href="route('tenant.kyc.show')" class="text-indigo-600 underline">KYC verification</a> page.
@@ -75,13 +108,65 @@ function submit() {
 
                 <template v-else-if="currentStep === 3">
                     <p class="text-gray-700">Optionally save a payment method so your landlord can auto-debit rent.</p>
+                    <!-- Phase-51 TENANT-WIZARD-POLISH-2: per-type SVG icon card-grid picker -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700">Payment type</label>
-                        <select v-model="form.type" class="mt-1 w-full rounded-md border-gray-300 shadow-sm">
-                            <option value="">No saved method</option>
-                            <option value="mpesa">M-Pesa</option>
-                            <option value="bank">Bank account</option>
-                        </select>
+                        <div class="mt-2 grid grid-cols-3 gap-2">
+                            <button
+                                v-for="option in [
+                                    { value: '', label: 'None' },
+                                    { value: 'mpesa', label: 'M-Pesa' },
+                                    { value: 'bank', label: 'Bank' },
+                                ]"
+                                :key="option.value"
+                                type="button"
+                                class="flex flex-col items-center gap-1 rounded-lg border px-3 py-3 text-xs font-medium transition"
+                                :class="
+                                    form.type === option.value
+                                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-100'
+                                        : 'border-gray-200 bg-white text-gray-600 hover:border-indigo-200'
+                                "
+                                @click="form.type = option.value"
+                            >
+                                <svg
+                                    v-if="option.value === 'mpesa'"
+                                    class="h-6 w-6 text-indigo-500"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.5"
+                                >
+                                    <rect x="7" y="2" width="10" height="20" rx="2" />
+                                    <circle cx="12" cy="18" r="0.8" fill="currentColor" />
+                                </svg>
+                                <svg
+                                    v-else-if="option.value === 'bank'"
+                                    class="h-6 w-6 text-indigo-500"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.5"
+                                >
+                                    <path d="M3 10 L12 4 L21 10 V11 H3 Z" />
+                                    <rect x="5" y="11" width="2" height="8" />
+                                    <rect x="11" y="11" width="2" height="8" />
+                                    <rect x="17" y="11" width="2" height="8" />
+                                    <line x1="3" y1="20" x2="21" y2="20" />
+                                </svg>
+                                <svg
+                                    v-else
+                                    class="h-6 w-6 text-gray-300"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.5"
+                                >
+                                    <circle cx="12" cy="12" r="9" />
+                                    <line x1="6" y1="18" x2="18" y2="6" />
+                                </svg>
+                                <span>{{ option.label }}</span>
+                            </button>
+                        </div>
                     </div>
                     <div v-if="form.type === 'mpesa'">
                         <label class="block text-sm font-medium text-gray-700">M-Pesa phone</label>

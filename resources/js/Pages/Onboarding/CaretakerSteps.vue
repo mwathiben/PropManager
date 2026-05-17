@@ -3,9 +3,17 @@ import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import WizardProgressBar from './Components/WizardProgressBar.vue';
 
+type PendingAssignment = {
+    id: number;
+    building_id: number;
+    building_name: string;
+    created_at: string | null;
+};
+
 const props = defineProps<{
     currentStep: number;
     completedSteps?: number[];
+    pendingAssignments?: PendingAssignment[];
 }>();
 
 const form = useForm<Record<string, unknown>>({
@@ -24,6 +32,30 @@ const form = useForm<Record<string, unknown>>({
     tenant_invitation_enabled: false,
     lease_expiry_enabled: false,
 });
+
+const MAX_DECLINE_REASON_LENGTH = 200;
+
+const assignments = computed<PendingAssignment[]>(() => props.pendingAssignments ?? []);
+
+function isDeclined(assignmentId: number): boolean {
+    return (form.decline as number[]).includes(assignmentId);
+}
+
+function toggleDecline(assignmentId: number): void {
+    const list = form.decline as number[];
+    if (list.includes(assignmentId)) {
+        form.decline = list.filter((id) => id !== assignmentId);
+        const reasons = { ...(form.decline_reason as Record<number, string>) };
+        delete reasons[assignmentId];
+        form.decline_reason = reasons;
+    } else {
+        form.decline = [...list, assignmentId];
+    }
+}
+
+function reasonLength(assignmentId: number): number {
+    return ((form.decline_reason as Record<number, string>)[assignmentId] ?? '').length;
+}
 
 const page = usePage();
 const flashError = computed(() => (page.props as { flash?: { error?: string } }).flash?.error ?? '');
@@ -64,13 +96,62 @@ function submit() {
 
                 <template v-else-if="currentStep === 2">
                     <p class="text-gray-700">
-                        Your landlord has invited you to manage one or more buildings. Accept by default; click decline next to a building you cannot cover.
+                        Your landlord has invited you to manage one or more buildings. Confirm acceptance below; expand decline to skip a building you cannot cover.
                     </p>
-                    <p class="text-sm text-gray-500">
-                        Pending assignments are surfaced via the
-                        <code class="text-xs">/api/v1/caretaker/assignments</code> endpoint
-                        (deepened in a follow-up cycle); this wizard step flips them to accepted by default.
+
+                    <p v-if="assignments.length === 0" class="rounded-md border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                        No pending building assignments. You can advance to the next step.
                     </p>
+
+                    <ul v-else class="space-y-3">
+                        <li
+                            v-for="assignment in assignments"
+                            :key="assignment.id"
+                            class="rounded-lg border border-gray-200 bg-white px-4 py-3"
+                        >
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="font-medium text-gray-900">{{ assignment.building_name }}</p>
+                                    <p class="text-xs text-gray-500">Invited {{ assignment.created_at?.slice(0, 10) ?? '—' }}</p>
+                                </div>
+                                <div class="flex items-center gap-2 text-sm">
+                                    <label class="inline-flex items-center gap-1">
+                                        <input
+                                            type="radio"
+                                            :name="'assignment-' + assignment.id"
+                                            :checked="!isDeclined(assignment.id)"
+                                            @change="isDeclined(assignment.id) && toggleDecline(assignment.id)"
+                                            class="text-emerald-600 focus:ring-emerald-500"
+                                        />
+                                        <span class="text-emerald-700">Accept</span>
+                                    </label>
+                                    <label class="inline-flex items-center gap-1">
+                                        <input
+                                            type="radio"
+                                            :name="'assignment-' + assignment.id"
+                                            :checked="isDeclined(assignment.id)"
+                                            @change="!isDeclined(assignment.id) && toggleDecline(assignment.id)"
+                                            class="text-rose-600 focus:ring-rose-500"
+                                        />
+                                        <span class="text-rose-700">Decline</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div v-if="isDeclined(assignment.id)" class="mt-3">
+                                <label class="block text-xs font-medium text-gray-700">Reason (optional)</label>
+                                <textarea
+                                    v-model="(form.decline_reason as Record<number, string>)[assignment.id]"
+                                    :maxlength="MAX_DECLINE_REASON_LENGTH"
+                                    rows="2"
+                                    class="mt-1 w-full rounded-md border-gray-300 text-sm focus:border-rose-500 focus:ring-rose-500"
+                                    placeholder="Why you cannot cover this building"
+                                ></textarea>
+                                <p class="mt-1 text-end text-xs text-gray-400">
+                                    {{ reasonLength(assignment.id) }} / {{ MAX_DECLINE_REASON_LENGTH }}
+                                </p>
+                            </div>
+                        </li>
+                    </ul>
                 </template>
 
                 <template v-else-if="currentStep === 3">

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CaretakerAssignment;
 use App\Models\OnboardingProgress;
 use App\Models\OnboardingSession;
 use App\Models\User;
@@ -62,6 +63,27 @@ class OnboardingController extends Controller
         }
 
         $props = $this->onboardingService->getStepProps($step, $user, $progress);
+
+        // Phase-51 TENANT-WIZARD-POLISH-1/3: inject role-specific step props
+        // the role-dispatched Vue components need (caretaker step 2 pending
+        // assignments list; tenant step 2 KYC progress snapshot).
+        if ($user->role === 'caretaker' && $step === 2) {
+            $props['pendingAssignments'] = CaretakerAssignment::query()
+                ->where('caretaker_id', $user->id)
+                ->where('status', CaretakerAssignment::STATUS_PENDING)
+                ->with('building:id,name')
+                ->get(['id', 'building_id', 'created_at'])
+                ->map(fn ($a) => [
+                    'id' => $a->id,
+                    'building_id' => $a->building_id,
+                    'building_name' => $a->building?->name ?? "Building #{$a->building_id}",
+                    'created_at' => $a->created_at?->toIso8601String(),
+                ])->all();
+        }
+
+        if ($user->role === 'tenant' && $step === 2) {
+            $props['kycProgress'] = $user->kycProgress();
+        }
 
         return Inertia::render('Onboarding/Index', $props);
     }
