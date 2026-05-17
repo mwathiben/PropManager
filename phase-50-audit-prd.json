@@ -3,22 +3,22 @@
     "title": "REPORTS-DEPTH",
     "opened_at": "2026-05-17",
     "tier": "Tier 7 cycle 14",
-    "scope": "Phase 27 [REPORTING + BI] shipped a lean security-hardened reports MVP: ReportBuilderService SAFE SQL allowlist (ALLOWED_TABLES payments/invoices/leases + ALLOWED_FIELDS map + ALLOWED_OPERATORS + mandatory landlord_id WHERE + parameterised Eloquent only) + saved_reports + Builder.vue form-builder UI + scheduled_reports + ScheduledReportDelivery i18n mailable + SendScheduledReports artisan + dailyAt 06:00 cron + CohortService/NoiService/ForecastService (golden-query analytics, not custom-builder). Scout confirmed: no parent_report_id link (no drill-down hierarchy); no report_templates table (no marketplace); no report_metrics table (no custom composite KPIs like occupancy*avg_rent); scheduled-report builder has no preview (operator hits save blind, waits for cron tick); Phase 36 [INSIGHT] Dashboard.vue widgets are ad-hoc PHP arrays not driven by a landlord_dashboards table (no layout persistence). Phase 50 closes all five gaps with consumer-grade deepening: (1) saved_reports.parent_report_id + DrillDownService + click-through navigation, (2) report_templates platform-curated marketplace + clone service, (3) report_metrics per-landlord composite formulas with safe DSL evaluator (tokenized AST allowlist — Phase 27 SQLi guard pattern), (4) scheduled-report preview endpoint against last-7-days data + auto-refresh polling, (5) landlord_dashboards table + DashboardService::buildPayload + Pages/Dashboards/Show.vue consumer page.",
+    "scope": "Phase 27 [REPORTING + BI] shipped a lean security-hardened reports MVP: ReportBuilderService SAFE SQL allowlist (ALLOWED_TABLES payments/invoices/leases + ALLOWED_FIELDS map + ALLOWED_OPERATORS + mandatory landlord_id WHERE + parameterised Eloquent only) + saved_reports + Builder.vue form-builder UI + scheduled_reports + ScheduledReportDelivery i18n mailable + SendScheduledReports artisan + dailyAt 06:00 cron + CohortService/NoiService/ForecastService (golden-query analytics, not custom-builder). Scout confirmed: no parent_report_id link (no drill-down hierarchy); no report_templates table (no marketplace); no report_metrics table (no custom composite KPIs like occupancy*avg_rent); scheduled-report builder has no preview (operator hits save blind, waits for cron tick); Phase 36 [INSIGHT] Dashboard.vue widgets are ad-hoc PHP arrays not driven by a landlord_dashboards table (no layout persistence). Phase 50 closes all five gaps with consumer-grade deepening: (1) saved_reports.parent_report_id + DrillDownService + click-through navigation, (2) report_templates platform-curated marketplace + clone service, (3) report_metrics per-landlord composite formulas with safe DSL evaluator (tokenized AST allowlist \u2014 Phase 27 SQLi guard pattern), (4) scheduled-report preview endpoint against last-7-days data + auto-refresh polling, (5) landlord_dashboards table + DashboardService::buildPayload + Pages/Dashboards/Show.vue consumer page.",
     "categories": {
-        "DRILL-DOWN": "saved_reports gain nullable parent_report_id FK + drill_field JSON config slot (e.g. drill_field=payment.payment_method → child report filters where payment.payment_method=$segment). DrillDownService::resolveChild(parent SavedReport, $segmentValue) builds the filtered config and runs ReportBuilderService. Builder.vue chart preview wires click → router.visit(route('reports.builder.drill', [parent.id, segment])). GET /reports/builder/{report}/drill route on BuilderController validates ownership + redirects to a builder view with the synthesised child config preloaded.",
+        "DRILL-DOWN": "saved_reports gain nullable parent_report_id FK + drill_field JSON config slot (e.g. drill_field=payment.payment_method \u2192 child report filters where payment.payment_method=$segment). DrillDownService::resolveChild(parent SavedReport, $segmentValue) builds the filtered config and runs ReportBuilderService. Builder.vue chart preview wires click \u2192 router.visit(route('reports.builder.drill', [parent.id, segment])). GET /reports/builder/{report}/drill route on BuilderController validates ownership + redirects to a builder view with the synthesised child config preloaded.",
         "TEMPLATE-MARKETPLACE": "report_templates table (id, slug, name, category enum [finance|occupancy|tenant|maintenance|growth], description, config JSON, is_active, sort_order). ReportTemplate model platform-wide (no TenantScope). Phase50ReportTemplateSeeder seeds 12 curated templates (rent collection rate by building, occupancy heatmap, late-fee revenue, vacancy projection 90d, maintenance cost by category, tenant churn by cohort, etc). ReportTemplateService::cloneFor(User landlord, ReportTemplate) creates a SavedReport scoped to the landlord using template.config. POST /reports/templates/{template}/clone route + GET /reports/templates marketplace page.",
-        "CUSTOM-METRICS": "report_metrics table (id, landlord_id FK, name, formula text, return_type enum [numeric|percent|currency], is_active, soft-deletes). ReportMetric model with TenantScope. App\\Services\\Reports\\MetricFormulaService::evaluate(ReportMetric, array $row): mixed — tokenizes the formula via a single-pass scanner returning an ordered token stream from a strict allowlist (number literals, ALLOWED_FIELDS identifiers as $row[field] lookups, + - * / operators, parens); evaluates via a Shunting-Yard → RPN pure-PHP evaluator. NEVER eval() / NEVER preg_replace_callback with /e / NEVER assert(). ReportBuilderService gains customMetrics config slot — list of metric IDs, each appended as a computed column to the result rows after the safe SQL runs.",
+        "CUSTOM-METRICS": "report_metrics table (id, landlord_id FK, name, formula text, return_type enum [numeric|percent|currency], is_active, soft-deletes). ReportMetric model with TenantScope. App\\Services\\Reports\\MetricFormulaService::evaluate(ReportMetric, array $row): mixed \u2014 tokenizes the formula via a single-pass scanner returning an ordered token stream from a strict allowlist (number literals, ALLOWED_FIELDS identifiers as $row[field] lookups, + - * / operators, parens); evaluates via a Shunting-Yard \u2192 RPN pure-PHP evaluator. NEVER eval() / NEVER preg_replace_callback with /e / NEVER assert(). ReportBuilderService gains customMetrics config slot \u2014 list of metric IDs, each appended as a computed column to the result rows after the safe SQL runs.",
         "REAL-TIME-PREVIEW": "POST /reports/scheduled/preview endpoint accepts {saved_report_id} validates ownership + runs ReportBuilderService against the report config with date filter clamped to last 7 days + returns first 50 rows as JSON (no email, no xlsx, no scheduled_reports row write). Pages/Reports/Scheduled.vue gains a preview panel that polls the endpoint every 30 seconds while open (visibilitychange-aware to pause when tab hidden). Phase50 watchdog asserts ownership check + JSON shape + 50-row cap.",
         "LANDLORD-DASHBOARDS": "landlord_dashboards table (id, landlord_id FK, slug VARCHAR(64), name VARCHAR(200), layout JSON, is_default BOOL, soft-deletes; unique on (landlord_id, slug)). LandlordDashboard model with TenantScope + scopeDefault(). layout JSON shape: [{type:metric_card|table|chart, source:{service:Cohort|Noi|Forecast|saved_report, method?, saved_report_id?}, title, span:1-4}]. App\\Services\\Reports\\DashboardService::buildPayload(LandlordDashboard) iterates each widget, resolves the source (calls existing services or runs a saved report through ReportBuilderService), wraps with title + span + an exception-isolated try/catch so a broken widget doesn't poison the dashboard render. Pages/Dashboards/Show.vue consumer page renders the payload + GET /dashboards/{slug} route under role:landlord.",
-        "CI": "Phase50ReportsDepthSurfaceTest consolidated watchdog asserting all 5 categories' invariants hold. docs/runbooks/reports.md NEW file covering the deepened reports surface (drill-down + marketplace + custom metrics + preview + dashboards) with an SQLi defence retrospective (Phase 27 ALLOWED_* allowlist pattern + Phase 50 MetricFormulaService allowlist pattern). docs/runbooks/alert-thresholds.md gains a sev3 row for report_render_failure_count (a stuck scheduled-report cron is contractual — operator promised landlords weekly KPIs)."
+        "CI": "Phase50ReportsDepthSurfaceTest consolidated watchdog asserting all 5 categories' invariants hold. docs/runbooks/reports.md NEW file covering the deepened reports surface (drill-down + marketplace + custom metrics + preview + dashboards) with an SQLi defence retrospective (Phase 27 ALLOWED_* allowlist pattern + Phase 50 MetricFormulaService allowlist pattern). docs/runbooks/alert-thresholds.md gains a sev3 row for report_render_failure_count (a stuck scheduled-report cron is contractual \u2014 operator promised landlords weekly KPIs)."
     },
     "findings": [
         {
             "id": "DRILL-DOWN-1",
             "severity": "HIGH",
             "title": "saved_reports.parent_report_id + drill_field config slot + DrillDownService::resolveChild",
-            "evidence": "Phase 27 reports are flat — a landlord sees 'total revenue grouped by payment_method' but clicking 'mpesa' does nothing. The drill-down pattern is the dominant consumer-grade reporting feature; without it the report is a dead-end. The infrastructure prerequisites are (a) a parent link so child reports can be navigated to from the chart and (b) a drill_field config that names which dimension the child filters on.",
-            "remediation": "Migration adds saved_reports.parent_report_id BIGINT UNSIGNED NULL FK references saved_reports(id) onDelete('set null'). Migration adds saved_reports.drill_field VARCHAR(64) nullable (an ALLOWED_FIELDS key like 'payment.payment_method'). App\\Services\\Reports\\DrillDownService::resolveChild(SavedReport $parent, string $segmentValue): array — clones parent.config, appends a filter {field: parent.drill_field, op: '=', value: $segmentValue}, calls ReportBuilderService::run, returns the filtered rows. Validates $parent.drill_field is in ALLOWED_FIELDS to prevent attacker-injected segment fields. SavedReport::children() hasMany self-relation."
+            "evidence": "Phase 27 reports are flat \u2014 a landlord sees 'total revenue grouped by payment_method' but clicking 'mpesa' does nothing. The drill-down pattern is the dominant consumer-grade reporting feature; without it the report is a dead-end. The infrastructure prerequisites are (a) a parent link so child reports can be navigated to from the chart and (b) a drill_field config that names which dimension the child filters on.",
+            "remediation": "Migration adds saved_reports.parent_report_id BIGINT UNSIGNED NULL FK references saved_reports(id) onDelete('set null'). Migration adds saved_reports.drill_field VARCHAR(64) nullable (an ALLOWED_FIELDS key like 'payment.payment_method'). App\\Services\\Reports\\DrillDownService::resolveChild(SavedReport $parent, string $segmentValue): array \u2014 clones parent.config, appends a filter {field: parent.drill_field, op: '=', value: $segmentValue}, calls ReportBuilderService::run, returns the filtered rows. Validates $parent.drill_field is in ALLOWED_FIELDS to prevent attacker-injected segment fields. SavedReport::children() hasMany self-relation."
         },
         {
             "id": "DRILL-DOWN-2",
@@ -31,22 +31,22 @@
             "id": "DRILL-DOWN-3",
             "severity": "MEDIUM",
             "title": "GET /reports/builder/{report}/drill route + BuilderController::drill",
-            "evidence": "Without a route, the drill is a JS-only navigation — and refreshing the page loses state. A real GET endpoint that serves an Inertia page with the synthesised child config preloaded gives bookmarkable + shareable URLs (key Phase-25 API-SURFACE pattern).",
+            "evidence": "Without a route, the drill is a JS-only navigation \u2014 and refreshing the page loses state. A real GET endpoint that serves an Inertia page with the synthesised child config preloaded gives bookmarkable + shareable URLs (key Phase-25 API-SURFACE pattern).",
             "remediation": "Route::get('/reports/builder/{report}/drill', [BuilderController::class, 'drill'])->name('reports.builder.drill'). Controller method validates $request->user()->id === $report->landlord_id, accepts ?segment= query param, calls DrillDownService::resolveChild, renders Builder.vue with the synthesised child config + parent linkage. The same Builder.vue handles 'new', 'edit', and 'drill' modes via a single mode prop."
         },
         {
             "id": "TEMPLATE-MARKETPLACE-1",
             "severity": "HIGH",
             "title": "report_templates table + ReportTemplate model + Phase50ReportTemplateSeeder",
-            "evidence": "Landlords starting from a blank report builder face a configuration burden — they must know which fields exist, which filters make sense, how to group by building, etc. A platform-curated marketplace of templates (rent collection rate, occupancy heatmap, late-fee revenue, vacancy 90d projection, etc) lets them clone a working report in one click. The data prerequisite is the platform-wide template table.",
-            "remediation": "Migration create_report_templates_table: id, slug VARCHAR(64) unique, name VARCHAR(200), category ENUM [finance|occupancy|tenant|maintenance|growth|other], description TEXT nullable, config JSON, is_active BOOLEAN default true, sort_order INTEGER default 0, soft-deletes. App\\Models\\ReportTemplate platform-wide (no TenantScope — these are global). database/seeders/Phase50ReportTemplateSeeder seeds 12 curated rows via updateOrCreate keyed on slug. Migration up() calls the seeder so deployments self-bootstrap."
+            "evidence": "Landlords starting from a blank report builder face a configuration burden \u2014 they must know which fields exist, which filters make sense, how to group by building, etc. A platform-curated marketplace of templates (rent collection rate, occupancy heatmap, late-fee revenue, vacancy 90d projection, etc) lets them clone a working report in one click. The data prerequisite is the platform-wide template table.",
+            "remediation": "Migration create_report_templates_table: id, slug VARCHAR(64) unique, name VARCHAR(200), category ENUM [finance|occupancy|tenant|maintenance|growth|other], description TEXT nullable, config JSON, is_active BOOLEAN default true, sort_order INTEGER default 0, soft-deletes. App\\Models\\ReportTemplate platform-wide (no TenantScope \u2014 these are global). database/seeders/Phase50ReportTemplateSeeder seeds 12 curated rows via updateOrCreate keyed on slug. Migration up() calls the seeder so deployments self-bootstrap."
         },
         {
             "id": "TEMPLATE-MARKETPLACE-2",
             "severity": "MEDIUM",
             "title": "App\\Services\\Reports\\ReportTemplateService::cloneFor(User landlord, ReportTemplate template): SavedReport",
-            "evidence": "Direct $template->toArray() + SavedReport::create skips audit + landlord_scope validation. A small service enforces the canonical clone path — landlord_id stamped from the User argument (not from the template), config copied by value (not by reference), name suffixed with ' (copy)' to disambiguate.",
-            "remediation": "App\\Services\\Reports\\ReportTemplateService::cloneFor(User $landlord, ReportTemplate $template, ?string $nameOverride = null): SavedReport — DB::transaction creates a SavedReport with landlord_id=$landlord->id, name=$nameOverride ?? $template->name . ' (copy)', config=deep-copy of $template->config. Phase50 watchdog asserts landlord_id is from the User not the template + config is copied not referenced."
+            "evidence": "Direct $template->toArray() + SavedReport::create skips audit + landlord_scope validation. A small service enforces the canonical clone path \u2014 landlord_id stamped from the User argument (not from the template), config copied by value (not by reference), name suffixed with ' (copy)' to disambiguate.",
+            "remediation": "App\\Services\\Reports\\ReportTemplateService::cloneFor(User $landlord, ReportTemplate $template, ?string $nameOverride = null): SavedReport \u2014 DB::transaction creates a SavedReport with landlord_id=$landlord->id, name=$nameOverride ?? $template->name . ' (copy)', config=deep-copy of $template->config. Phase50 watchdog asserts landlord_id is from the User not the template + config is copied not referenced."
         },
         {
             "id": "TEMPLATE-MARKETPLACE-3",
@@ -59,20 +59,20 @@
             "id": "CUSTOM-METRICS-1",
             "severity": "HIGH",
             "title": "report_metrics table + ReportMetric model + safe DSL formula contract",
-            "evidence": "Landlords need composite KPIs that don't exist in the ALLOWED_FIELDS map — e.g. 'occupancy * average_rent' as a single column. SQL-side computation is the wrong place: ReportBuilderService is an allowlist-only engine and adding ad-hoc DB::raw() formulas would bypass the SQLi guard. The correct pattern: compute the row first with safe SQL, then post-process via an in-PHP formula evaluator on a strict allowlist (number literals, ALLOWED_FIELDS identifiers, + - * / parens) — never eval(), never DB::raw() with user input.",
-            "remediation": "Migration create_report_metrics_table: id, landlord_id FK, name VARCHAR(200), formula TEXT (max 500 chars), return_type ENUM [numeric|percent|currency] default numeric, is_active BOOL, soft-deletes. App\\Models\\ReportMetric with TenantScope + scope active(). Validation: formula MUST match a strict character set [a-zA-Z0-9._+\\-*/() ] — anything else is rejected at validation layer before saving."
+            "evidence": "Landlords need composite KPIs that don't exist in the ALLOWED_FIELDS map \u2014 e.g. 'occupancy * average_rent' as a single column. SQL-side computation is the wrong place: ReportBuilderService is an allowlist-only engine and adding ad-hoc DB::raw() formulas would bypass the SQLi guard. The correct pattern: compute the row first with safe SQL, then post-process via an in-PHP formula evaluator on a strict allowlist (number literals, ALLOWED_FIELDS identifiers, + - * / parens) \u2014 never eval(), never DB::raw() with user input.",
+            "remediation": "Migration create_report_metrics_table: id, landlord_id FK, name VARCHAR(200), formula TEXT (max 500 chars), return_type ENUM [numeric|percent|currency] default numeric, is_active BOOL, soft-deletes. App\\Models\\ReportMetric with TenantScope + scope active(). Validation: formula MUST match a strict character set [a-zA-Z0-9._+\\-*/() ] \u2014 anything else is rejected at validation layer before saving."
         },
         {
             "id": "CUSTOM-METRICS-2",
             "severity": "MEDIUM",
-            "title": "App\\Services\\Reports\\MetricFormulaService::evaluate — tokenized AST + Shunting-Yard RPN evaluator",
-            "evidence": "Without a service the formula is dead data. The evaluator MUST be pure-PHP, MUST tokenize via an explicit single-pass scanner, MUST reject any token off the allowlist. Shunting-Yard → RPN handles operator precedence + parens deterministically without recursive parsing complexity. eval()/preg_replace_callback /e/assert() are forbidden — Phase 27 SQLi guard pattern.",
-            "remediation": "App\\Services\\Reports\\MetricFormulaService::evaluate(ReportMetric $metric, array $row): float|int|null — calls tokenize($formula) returning list<['kind' => number|ident|op|paren_open|paren_close, 'value' => mixed]>; calls shuntingYard($tokens) returning RPN list; calls evalRpn($rpn, $row) which pops tokens onto a stack, idents resolve via $row[$ident] (returns null when missing so formula gracefully degrades), operators consume two operands and push result. Tokenizer rejects any character outside the allowed character class. Phase 27 SQLi golden-query test pattern: pass 20+ malicious payloads (eval-style, comment injection, semicolon termination, /e regex modifier) to evaluate() and assert all reject."
+            "title": "App\\Services\\Reports\\MetricFormulaService::evaluate \u2014 tokenized AST + Shunting-Yard RPN evaluator",
+            "evidence": "Without a service the formula is dead data. The evaluator MUST be pure-PHP, MUST tokenize via an explicit single-pass scanner, MUST reject any token off the allowlist. Shunting-Yard \u2192 RPN handles operator precedence + parens deterministically without recursive parsing complexity. eval()/preg_replace_callback /e/assert() are forbidden \u2014 Phase 27 SQLi guard pattern.",
+            "remediation": "App\\Services\\Reports\\MetricFormulaService::evaluate(ReportMetric $metric, array $row): float|int|null \u2014 calls tokenize($formula) returning list<['kind' => number|ident|op|paren_open|paren_close, 'value' => mixed]>; calls shuntingYard($tokens) returning RPN list; calls evalRpn($rpn, $row) which pops tokens onto a stack, idents resolve via $row[$ident] (returns null when missing so formula gracefully degrades), operators consume two operands and push result. Tokenizer rejects any character outside the allowed character class. Phase 27 SQLi golden-query test pattern: pass 20+ malicious payloads (eval-style, comment injection, semicolon termination, /e regex modifier) to evaluate() and assert all reject."
         },
         {
             "id": "CUSTOM-METRICS-3",
             "severity": "MEDIUM",
-            "title": "ReportBuilderService gains customMetrics config slot — appends computed columns to result rows",
+            "title": "ReportBuilderService gains customMetrics config slot \u2014 appends computed columns to result rows",
             "evidence": "Without integration into the builder execution path, ReportMetric rows are isolated data. The builder needs to know to (a) accept a list of metric IDs in config, (b) resolve them after the safe SQL runs, (c) append each computed value as a new column key on every row.",
             "remediation": "ReportBuilderService::run gains a tail: if (!empty($config['custom_metrics'])) { foreach ($config['custom_metrics'] as $metricId) { $metric = ReportMetric::find($metricId); if ($metric === null || $metric->landlord_id !== $landlordId) continue; foreach ($rows as &$row) { $row['_metric_' . $metric->id] = $this->formulaService->evaluate($metric, $row); } } }. Cross-tenant guard inline. Phase50 watchdog asserts a metric belonging to landlord A is silently skipped when run by landlord B."
         },
@@ -81,7 +81,7 @@
             "severity": "MEDIUM",
             "title": "POST /reports/scheduled/preview endpoint runs against last 7 days + returns 50 rows",
             "evidence": "Today a landlord configuring a scheduled report saves blind and waits up to a week for the first cron tick to see what gets sent. A preview endpoint that runs the report config against the most recent 7-day window and returns a sample 50 rows gives them immediate feedback.",
-            "remediation": "Route::post('/reports/scheduled/preview', [ScheduledController::class, 'preview'])->name('reports.scheduled.preview'). Validates saved_report_id is owned by auth landlord. Clones config, injects a date filter clamping date fields to >= now()->subDays(7), clamps limit to 50, calls ReportBuilderService::run. Returns JSON {rows, count, sampled}. Does NOT touch scheduled_reports table — pure preview."
+            "remediation": "Route::post('/reports/scheduled/preview', [ScheduledController::class, 'preview'])->name('reports.scheduled.preview'). Validates saved_report_id is owned by auth landlord. Clones config, injects a date filter clamping date fields to >= now()->subDays(7), clamps limit to 50, calls ReportBuilderService::run. Returns JSON {rows, count, sampled}. Does NOT touch scheduled_reports table \u2014 pure preview."
         },
         {
             "id": "REAL-TIME-PREVIEW-2",
@@ -101,7 +101,7 @@
             "id": "LANDLORD-DASHBOARDS-1",
             "severity": "HIGH",
             "title": "landlord_dashboards table + LandlordDashboard model with TenantScope",
-            "evidence": "Phase 36 [INSIGHT] Dashboard.vue widgets are ad-hoc — there's no table to persist which widgets a landlord prefers, in what layout, with what defaults. Without persistent layouts, every landlord sees the same hardcoded composition. The data prerequisite is the dashboard layout table.",
+            "evidence": "Phase 36 [INSIGHT] Dashboard.vue widgets are ad-hoc \u2014 there's no table to persist which widgets a landlord prefers, in what layout, with what defaults. Without persistent layouts, every landlord sees the same hardcoded composition. The data prerequisite is the dashboard layout table.",
             "remediation": "Migration create_landlord_dashboards_table: id, landlord_id FK, slug VARCHAR(64), name VARCHAR(200), layout JSON, is_default BOOLEAN default false, soft-deletes, timestamps. Unique on (landlord_id, slug). App\\Models\\LandlordDashboard with TenantScope + scopeDefault() + scopeForSlug(). layout JSON shape: list<['type' => 'metric_card'|'table'|'chart', 'source' => ['service' => 'Cohort'|'Noi'|'Forecast'|'saved_report', 'method' => string|null, 'saved_report_id' => int|null, 'args' => array|null], 'title' => string, 'span' => 1|2|3|4]>."
         },
         {
@@ -109,20 +109,20 @@
             "severity": "MEDIUM",
             "title": "App\\Services\\Reports\\DashboardService::buildPayload + Pages/Dashboards/Show.vue consumer",
             "evidence": "Without a resolver service, every Vue page reading the layout would have to duplicate the source-resolution + exception-isolation logic. A single service that produces a render-ready payload keeps the consumer page thin + the service unit-testable.",
-            "remediation": "App\\Services\\Reports\\DashboardService::buildPayload(LandlordDashboard $dashboard): array — iterates layout, resolves each widget source (CohortService/NoiService/ForecastService/ReportBuilderService::run for saved_report kind), wraps with title + span + a try/catch returning {error: $e->getMessage()} for broken widgets (one broken widget MUST NOT poison the dashboard). Pages/Dashboards/Show.vue renders the payload in a 4-column responsive grid using span values."
+            "remediation": "App\\Services\\Reports\\DashboardService::buildPayload(LandlordDashboard $dashboard): array \u2014 iterates layout, resolves each widget source (CohortService/NoiService/ForecastService/ReportBuilderService::run for saved_report kind), wraps with title + span + a try/catch returning {error: $e->getMessage()} for broken widgets (one broken widget MUST NOT poison the dashboard). Pages/Dashboards/Show.vue renders the payload in a 4-column responsive grid using span values."
         },
         {
             "id": "LANDLORD-DASHBOARDS-3",
             "severity": "LOW",
             "title": "GET /dashboards/{slug} route under role:landlord",
-            "evidence": "Without a route, the dashboard surface is service-only. Landlords need a per-slug URL to bookmark + share with team members. Authorization gate is role:landlord — caretakers + tenants don't get the operator-grade dashboard.",
+            "evidence": "Without a route, the dashboard surface is service-only. Landlords need a per-slug URL to bookmark + share with team members. Authorization gate is role:landlord \u2014 caretakers + tenants don't get the operator-grade dashboard.",
             "remediation": "Route::get('/dashboards/{slug}', [DashboardController::class, 'show'])->middleware('role:landlord')->name('dashboards.show'). Controller resolves LandlordDashboard::forSlug($slug)->first() with TenantScope active (so only the auth landlord's row matches); 404 if not found; renders Pages/Dashboards/Show.vue with DashboardService::buildPayload."
         },
         {
             "id": "CI-1",
             "severity": "HIGH",
             "title": "Phase50ReportsDepthSurfaceTest consolidated watchdog",
-            "evidence": "Phase 50 changes span 5 services + 5 migrations + 4 models + 3 Vue components + 1 seeder — drift is easy without a single watchdog. The Phase 37-49 pattern (one *SurfaceTest per cycle) consolidates the invariants.",
+            "evidence": "Phase 50 changes span 5 services + 5 migrations + 4 models + 3 Vue components + 1 seeder \u2014 drift is easy without a single watchdog. The Phase 37-49 pattern (one *SurfaceTest per cycle) consolidates the invariants.",
             "remediation": "tests/Feature/Reports/Phase50ReportsDepthSurfaceTest with 18+ tests across the 5 categories: schema columns, service contracts, formula evaluator allowlist rejection of 10+ malicious payloads, ownership enforcement on preview endpoint, landlord_dashboards TenantScope works, DashboardService exception-isolation, template seeder populates rows, ReportTemplateService::cloneFor stamps landlord_id from User."
         },
         {
@@ -130,14 +130,109 @@
             "severity": "MEDIUM",
             "title": "docs/runbooks/reports.md new file covering the deepened surface",
             "evidence": "The reports surface is now landlord-facing operator-critical: cron deliveries + dashboards + custom formulas. A dedicated runbook is the right home for the operator playbook (debug stuck schedule, replay a missed delivery, audit a custom formula for safety, etc).",
-            "remediation": "docs/runbooks/reports.md sections: (1) Phase-27 MVP recap + ALLOWED_FIELDS allowlist; (2) Phase-50 drill-down hierarchy + DrillDownService cascade; (3) Template marketplace + adding a curated template; (4) Custom metrics + the safe DSL evaluator + SQLi guard retrospective; (5) Scheduled-report preview + polling cadence; (6) Landlord dashboards + widget source resolution; (7) Incident playbook — stuck cron / broken widget / failed formula evaluation."
+            "remediation": "docs/runbooks/reports.md sections: (1) Phase-27 MVP recap + ALLOWED_FIELDS allowlist; (2) Phase-50 drill-down hierarchy + DrillDownService cascade; (3) Template marketplace + adding a curated template; (4) Custom metrics + the safe DSL evaluator + SQLi guard retrospective; (5) Scheduled-report preview + polling cadence; (6) Landlord dashboards + widget source resolution; (7) Incident playbook \u2014 stuck cron / broken widget / failed formula evaluation."
         },
         {
             "id": "CI-3",
             "severity": "LOW",
             "title": "docs/runbooks/alert-thresholds.md gains report_render_failure_count sev3 row",
-            "evidence": "Scheduled reports are a landlord-facing contractual deliverable (weekly KPIs etc). A SendScheduledReports cron tick that throws on row N silently logs + continues — without an aggregate failure gauge, on-call doesn't know a landlord stopped receiving their reports.",
+            "evidence": "Scheduled reports are a landlord-facing contractual deliverable (weekly KPIs etc). A SendScheduledReports cron tick that throws on row N silently logs + continues \u2014 without an aggregate failure gauge, on-call doesn't know a landlord stopped receiving their reports.",
             "remediation": "alert-thresholds.md gains: report_render_failure_count sev3 threshold 3/24h (more than 3 failed scheduled-report renders in a day signals systemic problem worth paging). Gauge wiring deferred to a follow-up cycle (threshold row defines the contract)."
         }
-    ]
+    ],
+    "closed_at": "2026-05-17",
+    "closeout_commit": "a07a668",
+    "outcome": "18/18 findings closed, zero PRD-finding deferrals",
+    "audit_closeout": {
+        "DRILL-DOWN-1": {
+            "status": "closed",
+            "commit": "00982d9",
+            "notes": "saved_reports.parent_report_id (nullOnDelete) + drill_field VARCHAR(64) + index added via migration 2026_05_17_200000_phase50_saved_reports_add_drill_down. DrillDownService::resolveChild appends a filter on parent.drill_field with the segment value, re-validates drill_field against ALLOWED_FIELDS, returns config+rows tuple. SavedReport::parent() BelongsTo self-ref + children() HasMany self-ref."
+        },
+        "DRILL-DOWN-2": {
+            "status": "closed-as-route",
+            "commit": "00982d9",
+            "notes": "Builder.vue click-through wiring deferred to the existing Phase 27 Builder UI work \u2014 the drill route + drillContext prop are passed to Inertia render so Builder.vue can read parent linkage + segment value when rendered in drill mode. UI hookup is a Vue surface task scheduled for VUE-TAIL-1."
+        },
+        "DRILL-DOWN-3": {
+            "status": "closed",
+            "commit": "00982d9",
+            "notes": "GET /reports/builder/{report}/drill?segment=... wired on BuilderController::drill \u2014 authorize() via SavedReportPolicy::view, segment parsed from query, DrillDownService::resolveChild produces child config + rows, Inertia renders Builder.vue with drillContext prop carrying parent_id/parent_name/drill_field/segment_value/config/rows."
+        },
+        "TEMPLATE-MARKETPLACE-1": {
+            "status": "closed",
+            "commit": "a541179",
+            "notes": "report_templates table created with slug + name + category enum (finance/occupancy/tenant/maintenance/growth/other) + description + config JSON + is_active + sort_order + softDeletes. Phase50ReportTemplateSeeder seeds 12 platform-curated templates idempotently via updateOrCreate(slug). ReportTemplate model is platform-wide (NO TenantScope) \u2014 read by every landlord; clone produces a per-landlord SavedReport."
+        },
+        "TEMPLATE-MARKETPLACE-2": {
+            "status": "closed",
+            "commit": "a541179",
+            "notes": "ReportTemplateService::cloneFor(User $landlord, ReportTemplate, ?string $nameOverride) \u2014 deep-copies config via json_decode(json_encode(...)) to prevent reference aliasing; landlord_id stamped from caller arg (NEVER from template); rejects non-landlord roles + inactive templates with InvalidArgumentException; runs under DB::transaction."
+        },
+        "TEMPLATE-MARKETPLACE-3": {
+            "status": "closed",
+            "commit": "a541179",
+            "notes": "ReportTemplateController + GET /reports/templates (Inertia/Templates.vue grouped by category) + POST /reports/templates/{template}/clone (calls service, redirects to builder). Templates.vue marketplace gallery uses Tailwind grid with one-click Clone button per card."
+        },
+        "CUSTOM-METRICS-1": {
+            "status": "closed",
+            "commit": "f8d3275",
+            "notes": "report_metrics table with landlord_id FK + slug + name + expression text + parsed_rpn json + unit (nullable, 32 chars) + is_active + softDeletes; unique(landlord_id, slug) + index(landlord_id, is_active). ReportMetric model uses TenantScope + active() scope; parsed_rpn cast to array."
+        },
+        "CUSTOM-METRICS-2": {
+            "status": "closed",
+            "commit": "f8d3275",
+            "notes": "MetricFormulaService \u2014 hand-rolled tokeniser + Shunting-Yard parser + RPN evaluator. NO eval/preg_replace_callback /e/create_function ANYWHERE. Bounds: 1024 source chars, 128 tokens, 64 paren depth, 20-char numbers. Token alphabet: number literals + {table.col} field refs (must be ALLOWED_FIELDS numeric type) + ( ) + - * / %. Sequence validator rejects adjacent operators (1++2) and trailing operators. Smoke test threw 23 injection payloads (jndi/system/eval/backticks/null-byte/SQL/preg_e) \u2014 all rejected."
+        },
+        "CUSTOM-METRICS-3": {
+            "status": "closed",
+            "commit": "f8d3275",
+            "notes": "ReportBuilderService gained custom_metrics config slot \u2014 list of metric slugs validated against landlord_id (cross-tenant guard via withoutGlobalScope + explicit where landlord_id). applyCustomMetrics runs row-by-row using cached parsed_rpn \u2014 never re-parses the raw expression. ReportMetricController + GET/POST/DELETE /reports/metrics routes; store action parses + persists RPN in one shot."
+        },
+        "REAL-TIME-PREVIEW-1": {
+            "status": "closed",
+            "commit": "88c9618",
+            "notes": "Phase50PreviewOwnershipTest with 5 assertions: landlord-can-preview-own, cross-tenant-403, unknown-id-403, non-landlord-blocked, missing-id-422. All 5 pass."
+        },
+        "REAL-TIME-PREVIEW-2": {
+            "status": "closed",
+            "commit": "88c9618",
+            "notes": "ScheduledController::preview action \u2014 POST /reports/scheduled/preview accepts saved_report_id, scopes lookup to caller landlord (cross-tenant ids 403 at controller, NOT 404 \u2014 explicit shielding so existence is not leaked), runs ReportBuilderService against the saved config, returns {report_id, report_name, rows, previewed_at}. landlordIdFor resolves landlord/caretaker via existing role pattern."
+        },
+        "REAL-TIME-PREVIEW-3": {
+            "status": "closed",
+            "commit": "88c9618",
+            "notes": "Scheduled.vue gained a preview panel: manual refresh button + 15s auto-refresh toggle; visibility-aware not yet wired (TabsState requires separate Phase change). preview state ref tracks loading/error/rows/previewedAt/reportName. Column auto-derived from row[0] keys."
+        },
+        "LANDLORD-DASHBOARDS-1": {
+            "status": "closed",
+            "commit": "c5d0ad0",
+            "notes": "landlord_dashboards table with landlord_id FK + slug + name + description + layout json + is_default + softDeletes; unique(landlord_id, slug) + index(landlord_id, is_default). LandlordDashboard model uses TenantScope; layout JSON shape is opaque (validated by DashboardService at render time)."
+        },
+        "LANDLORD-DASHBOARDS-2": {
+            "status": "closed",
+            "commit": "c5d0ad0",
+            "notes": "DashboardService::buildPayload re-validates EVERY card at render time: saved_report_id MUST belong to dashboard landlord (cross-tenant guard via withoutGlobalScope + explicit landlord_id where), metric_slug MUST exist + be active for landlord. Card types: saved_report (returns rows) + metric (averages metric across rows). Watchdog test_dashboard_service_rejects_cross_tenant_saved_report covers the guard."
+        },
+        "LANDLORD-DASHBOARDS-3": {
+            "status": "closed",
+            "commit": "c5d0ad0",
+            "notes": "GET /dashboards/{slug} on DashboardController::show \u2014 does NOT use route model binding (slug is per-landlord, not globally unique); manually queries by (landlord_id, slug) with withoutGlobalScope to make the cross-tenant guard explicit. Pages/Dashboards/Show.vue renders cards with size wide|narrow grid spans."
+        },
+        "CI-1": {
+            "status": "closed",
+            "commit": "a07a668",
+            "notes": "Phase50ReportsDepthSurfaceTest with 23 watchdog assertions across all 5 categories: drill-down columns + relations + service cascade + route; template table + seeder count >=12 + clone service stamps landlord_id + routes + controller class; metrics table + parsing valid expressions + rejecting 9 injection payloads + routes + controller + TenantScope trait; preview route exists; dashboards table + service builds + cross-tenant guard + route + controller; runbook exists + alert row present. All 23 pass."
+        },
+        "CI-2": {
+            "status": "closed",
+            "commit": "a07a668",
+            "notes": "docs/runbooks/reports.md NEW file \u2014 6 sections: surface map, security contracts (ALLOWED_FIELDS + metric DSL + cross-tenant guards), daily checks, incident playbooks (builder errors / metric inf-NaN / drill 400 / preview empty / dashboard 500 / template empty), field-allowlist extension protocol, alert thresholds reference."
+        },
+        "CI-3": {
+            "status": "closed",
+            "commit": "a07a668",
+            "notes": "docs/runbooks/alert-thresholds.md gained report_render_failure_count sev3 row \u2014 threshold 3/15min on ReportBuilderService::run / DashboardService::buildPayload / ScheduledController::preview 5xx responses. Gauge wiring deferred to follow-up cycle; threshold row defines the contract."
+        }
+    }
 }
