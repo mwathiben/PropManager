@@ -1,0 +1,217 @@
+{
+  "phase": 43,
+  "title": "[I18N-DEPTH] lang-coverage watchdog + en/sw parity audit + locale-switcher polish + RTL-prep scaffolding + Intl.NumberFormat alignment + ESLint hardcoded-text rule + i18n_missing_keys_count gauge",
+  "opened_at": "2026-05-17",
+  "tier": "7",
+  "scope": "Tier-7 cycle 7 — opened by the Phase-42 pre-cycle hot-fix `16cbafd` (i18n bundle namespace merge — Phase-36 dashboard growth cards were rendering literal $t() key paths because HandleInertiaRequests::getI18nBundle() loaded only the JSON file and ignored namespaced lang/{locale}/*.php files). That hot-fix exposed a structural gap: nothing in CI asserts that $t() calls in Vue components resolve against the merged bundle, nothing enforces en/sw key parity beyond Phase24CiTest's hand-maintained assertion-count, no ESLint rule prevents new hardcoded English strings sliding into templates, and the codebase has only 4 $t() call sites today — meaning ~99% of Vue templates carry English literals that won't translate when a tenant or landlord flips locale. Phase 43 fills the i18n pipeline holes without forcing immediate template cleanup: it ships the safety net (coverage watchdog + ESLint rule with shrink-only baseline + lang:audit drift detection), polishes the locale-switcher UX (sticky preference verification + html lang + hreflang), scaffolds RTL support (dir attribute + Tailwind logical-properties codemod — full RTL audit deferred to Phase 44 per scout recommendation since class migration spans 60+ components), aligns numeric formatting on Intl.NumberFormat (useCurrency hand-rolled symbol map → Intl, DateFilter locale-aware, usePhoneFormat scaffold), and lands the operator runbook + sev3 alert + Phase43I18nSurfaceTest watchdog. 18 findings across 6 categories: LANG-COVERAGE (3 — lang:coverage artisan walks resources/js/**/*.vue, regex-extracts $t('...') calls, asserts every key resolves in merged bundle, fails CI on missing keys; ESLint custom rule rejecting new hardcoded English with shrink-only baseline; i18n runbook), LANG-AUDIT (3 — lang:audit en/sw diff + i18n_missing_keys_count{namespace} gauge + sev3 alert; lang:check CI gate; lang:suggest CLI scaffold for off-the-shelf-translation API integration), LOCALE-SWITCHER (3 — sticky preference verification + HasLocalePreference adoption sweep on queued mailables; html[lang] + hreflang + locale-aware page title; locale switcher a11y pass), RTL-PREP (3 — dir attribute on html bound to LocaleHelper::isRtl; Tailwind v4 logical-properties codemod tool; runbook RTL section + Phase 44 deferral note), NUMERIC-FORMATTING (3 — useCurrency Intl.NumberFormat migration with currency-locale matrix test; useFormatters formatDate locale alignment; usePhoneFormat composable scaffold), CI (3 — Phase43I18nSurfaceTest watchdog; docs/runbooks/i18n.md operator playbook; alert-thresholds.md i18n_missing_keys_count sev3 row + Phase24CiTest assertion-count sync). Severity 5H/8M/5L. NOT in scope: full RTL audit + Tailwind ml-/pr-/etc → ms-/pe-/etc migration across 60+ components (Phase 44 [I18N-RTL] candidate — scoped at multi-day work by scout); full hardcoded-English-string template migration (the ESLint baseline catches NEW regressions; existing literals become incremental cleanup; Phase 43 just seeds the catalogue with high-traffic templates AuthenticatedLayout + GuestLayout + 404/403 error pages); third-language additions beyond en/sw (Arabic ar-KE locale planning + machine-translation onboarding is Phase 44+ work after RTL lands); per-currency Intl formatting for cryptocurrencies (KES/USD/EUR/GBP cover 100% of today's payment volume); SMS template localisation (queued for after Phase 45+ when SMS volume grows enough to justify per-locale templates)."
+,
+  "categories": [
+    "LANG-COVERAGE",
+    "LANG-AUDIT",
+    "LOCALE-SWITCHER",
+    "RTL-PREP",
+    "NUMERIC-FORMATTING",
+    "CI"
+  ],
+  "findings": [
+    {
+      "id": "LANG-COVERAGE-1",
+      "title": "lang:coverage artisan command + Phase43LangCoverageTest watchdog asserting every $t() resolves",
+      "severity": "HIGH",
+      "files": [
+        "app/Console/Commands/LangCoverage.php (new)",
+        "app/Support/I18nKeyExtractor.php (new)",
+        "tests/Feature/I18n/Phase43LangCoverageTest.php (new)"
+      ],
+      "evidence": "Phase-42 hot-fix 16cbafd was caught visually because Vue rendered the literal key 'insight.landlord_growth.engagement_card_heading' instead of translated text. No CI check prevents this — the Inertia bundle merger could lose another namespace tomorrow and we'd ship green. Today only 4 $t() call sites exist (3 Vue files under landlord_growth) so the cost of the check is microscopic; the cost of NOT having it is a recurring class of silent bugs as $t() adoption grows.",
+      "fix": "(a) App\\Support\\I18nKeyExtractor::extractFromDirectory(string $dir): array<string> — regex-extracts $t('...') + $t(\"...\") calls from .vue/.ts/.js files, returns flat de-duplicated key list. Regex anchors on word-boundary plus optional Vue template context. (b) App\\Console\\Commands\\LangCoverage ('lang:coverage') — loads the en bundle the same way HandleInertiaRequests::getI18nBundle() does (json + namespaced php files merged), walks resources/js/, asserts every extracted key resolves via array_get / data_get; emits one-line-per-missing-key report; --json flag returns machine output; exits 1 on any miss. (c) Phase43LangCoverageTest::test_every_vue_t_call_resolves invokes the command + asserts exitCode === 0 + empty stderr."
+    },
+    {
+      "id": "LANG-COVERAGE-2",
+      "title": "ESLint custom rule no-hardcoded-english-strings + shrink-only baseline",
+      "severity": "MEDIUM",
+      "files": [
+        "eslint.config.js",
+        "eslint-rules/no-hardcoded-english-strings.js (new)",
+        "tests/Feature/I18n/Phase43HardcodedStringBaselineTest.php (new)"
+      ],
+      "evidence": "Only 4 $t() call sites exist in Vue today out of ~200+ components. Most templates carry English literals that won't translate. Phase 43 doesn't force a mass migration but it MUST prevent the gap from growing — new components must use $t(). The Phase-22 PERF-NPLUS1-1 shrink-only baseline pattern (NPlusOneBaseline allow-list) fits perfectly: capture today's count as a hard ratchet, fail CI if it grows.",
+      "fix": "(a) eslint-rules/no-hardcoded-english-strings.js: custom rule walking template AST nodes; flags `<element>literal text</element>` patterns where text matches /[A-Za-z]{4,}/ unless wrapped in $t() or v-i18n or t() call. Whitelist: data-test-id values, code blocks, intentionally-untranslated strings tagged with /* i18n-ignore */ comment. (b) eslint.config.js gains the rule with severity='error' on resources/js/**/*.vue. (c) Phase43HardcodedStringBaselineTest::test_hardcoded_english_baseline_does_not_grow — runs eslint via PHP exec, parses error count, asserts <= baseline (initial value frozen at first run; Phase 43 deliberately doesn't migrate existing literals)."
+    },
+    {
+      "id": "LANG-COVERAGE-3",
+      "title": "docs/runbooks/i18n.md operator playbook covering the coverage contract",
+      "severity": "LOW",
+      "files": [
+        "docs/runbooks/i18n.md (new)"
+      ],
+      "evidence": "Operators + new contributors need a single document explaining: where lang files live, how the merged bundle is built (the namespace-merge bit hot-fix 16cbafd added), how to add a new key without breaking parity, what the watchdog catches, how to silence the ESLint rule for intentional literals, how to handle locale-switch testing.",
+      "fix": "i18n.md sections: 'Lang file layout (json + namespaced php)', 'Adding a new translation key (en + sw + Phase24CiTest sync)', 'The merge contract (HandleInertiaRequests::getI18nBundle)', 'Coverage watchdog (lang:coverage)', 'ESLint hardcoded-text rule + how to whitelist', 'lang:audit + missing keys gauge', 'Locale switcher behaviour (session vs users.locale vs Accept-Language)', 'HasLocalePreference contract for mailables', 'RTL prep (Phase 43) vs full RTL (Phase 44 deferral)'."
+    },
+    {
+      "id": "LANG-AUDIT-1",
+      "title": "lang:audit command + i18n_missing_keys_count{namespace} gauge + sev3 alert",
+      "severity": "HIGH",
+      "files": [
+        "app/Console/Commands/LangAudit.php (new)",
+        "routes/console.php",
+        "app/Support/MetricsService.php",
+        "docs/runbooks/alert-thresholds.md"
+      ],
+      "evidence": "Phase24CiTest enforces en/sw key parity at PR time but cron-time drift can sneak in via hot-fixes or rebase glitches. A scheduled audit emitting a Prometheus gauge gives on-call early warning before users see fall-through-to-English. Threshold needs to be 0 for pinned namespaces (auth, common, validation) and a soft 10/24h for everything else.",
+      "fix": "(a) App\\Console\\Commands\\LangAudit ('lang:audit') — diffs key sets between en and every other locale (sw today; ar-KE Phase-44+), per namespace; emits MetricsService::gauge('i18n_missing_keys_count', count, ['namespace' => $ns, 'locale' => $locale]) per namespace. (b) Schedule::command('lang:audit')->dailyAt('04:15')->timezone('Africa/Nairobi')->onOneServer()->name('phase43-i18n-audit') — runs before lang:coverage to catch drift before the coverage walker fires. (c) alert-thresholds.md gains 'i18n missing keys (pinned namespaces)' row threshold=0, sev3."
+    },
+    {
+      "id": "LANG-AUDIT-2",
+      "title": "lang:check CI gate fails build on missing pinned-namespace keys",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/LangCheck.php (new)",
+        ".github/workflows/ci.yml"
+      ],
+      "evidence": "lang:audit is a runtime gauge; CI needs a hard gate so a PR can't merge with missing pinned-namespace keys. Pinned set = auth, common, validation, payments — top of the user-visible blast radius. Loose namespaces (insight, vendors etc.) stay under the gauge.",
+      "fix": "(a) lang:check {--pinned-only} — exits 1 with diff report on first missing key in pinned namespaces. (b) CI: new job 'lang-check' between phpstan + tests that runs lang:check --pinned-only. Pinned namespaces declared in config/i18n.php."
+    },
+    {
+      "id": "LANG-AUDIT-3",
+      "title": "lang:suggest CLI scaffold for off-the-shelf translation API",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Console/Commands/LangSuggest.php (new)",
+        "app/Services/I18n/TranslationSuggestionService.php (new)"
+      ],
+      "evidence": "When LangAudit surfaces 50+ missing sw keys after a Phase 28-style cycle, manual translation is the friction point. A CLI that diffs en→sw, calls Google Translate / DeepL with the en source, and prints a seed sw lang array is a 20-minute UX investment that saves hours per cycle. Phase 43 ships the scaffold; the actual API integration is opt-in behind a config flag and falls back to placeholder strings.",
+      "fix": "(a) TranslationSuggestionService::suggest(string $sourceText, string $sourceLocale, string $targetLocale): string — interface with three impls (Google, DeepL, Stub). Stub returns sprintf('[TODO:%s] %s', $targetLocale, $source) for use without API creds. (b) lang:suggest {namespace} {--api=stub|google|deepl} — emits a ready-to-paste PHP array for the missing-key fill."
+    },
+    {
+      "id": "LOCALE-SWITCHER-1",
+      "title": "HasLocalePreference adoption sweep on queued mailables + sticky preference verification",
+      "severity": "HIGH",
+      "files": [
+        "app/Mail/*.php (audit)",
+        "app/Models/User.php",
+        "tests/Feature/I18n/Phase43LocaleStickinessTest.php (new)"
+      ],
+      "evidence": "Scout found only 3 mailables (TenantStatementMail, TrialEndingMailable, ScheduledReportDelivery) call $this->tenant->preferredLocale(). Every other queued mailable renders in the app's active locale (whichever worker thread happened to pick it up), NOT the recipient's locale preference. Phase-24 wired the User->HasLocalePreference but never enforced adoption across mailables.",
+      "fix": "(a) Audit every class under app/Mail/ + every Notification — confirm User model implements HasLocalePreference correctly (preferredLocale() returns users.locale). (b) Add a watchdog test: reflect on app/Mail/, assert every class either calls Mail::to(...)->locale($recipient->preferredLocale()) OR implements ShouldQueue with HasLocalePreference recipient.  (c) Phase43LocaleStickinessTest: spin up a sw-preferring user, queue+render a mailable, assert subject contains sw text not en."
+    },
+    {
+      "id": "LOCALE-SWITCHER-2",
+      "title": "html[lang] attribute + hreflang link tags + locale-aware page title",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/views/app.blade.php",
+        "resources/js/Layouts/AuthenticatedLayout.vue",
+        "resources/js/Layouts/GuestLayout.vue"
+      ],
+      "evidence": "Scout: app.blade.php has no dir attribute and no dynamic lang attribute. Browsers + screen readers need `<html lang=\"en\"` or `lang=\"sw\"` for proper hyphenation, voice selection, and form-field language hints. hreflang link tags are SEO basics for multi-locale sites and Google Search Console will flag their absence.",
+      "fix": "(a) app.blade.php: `<html lang=\"{{ app()->getLocale() }}\" dir=\"{{ app('App\\Support\\LocaleHelper')->dir() }}\">`. (b) `<link rel=\"alternate\" hreflang=\"en\" href=\"{{ url()->current() }}?locale=en\">` per supported locale. (c) Vue page title via useHead-equivalent (Inertia head helper) renders locale-aware brand suffix."
+    },
+    {
+      "id": "LOCALE-SWITCHER-3",
+      "title": "LocaleSelector.vue a11y pass + keyboard nav + aria-current",
+      "severity": "LOW",
+      "files": [
+        "resources/js/Components/LocaleSelector.vue"
+      ],
+      "evidence": "Scout: locale switcher is a button-list. Today's component likely lacks aria-current on the selected locale + arrow-key navigation + role='menu'/role='menuitem' semantics. Phase-20 FRONT-UX hit similar dropdowns; this is the locale-selector instance.",
+      "fix": "LocaleSelector.vue gains role='menu', each option role='menuitem', aria-current='true' on the active locale, ArrowUp/ArrowDown listeners that move focus within the list."
+    },
+    {
+      "id": "RTL-PREP-1",
+      "title": "dir attribute on html + LocaleHelper::isRtl + Tailwind v4 logical-properties config",
+      "severity": "MEDIUM",
+      "files": [
+        "app/Support/LocaleHelper.php (new)",
+        "resources/views/app.blade.php",
+        "config/i18n.php (new)"
+      ],
+      "evidence": "Scout flagged RTL as multi-day work spanning 60+ components — Phase 43 ships the scaffolding only and defers the ml-/pr-/etc → ms-/pe-/etc migration to Phase 44 [I18N-RTL]. The scaffolding is small: a helper that tells you whether the active locale is RTL + the dir attribute hookup + a config entry pinning which locales are RTL.",
+      "fix": "(a) App\\Support\\LocaleHelper::isRtl(string $locale): bool — reads config('i18n.rtl_locales'). config/i18n.php: `'rtl_locales' => ['ar', 'he', 'fa', 'ur']`. (b) LocaleHelper::dir(): 'rtl' | 'ltr'. (c) app.blade.php binds dir + lang attributes; Tailwind v4 already supports logical properties (ms-/pe-/start/end), no plugin install needed."
+    },
+    {
+      "id": "RTL-PREP-2",
+      "title": "scripts/migrate-to-logical-properties.mjs codemod scaffold",
+      "severity": "MEDIUM",
+      "files": [
+        "scripts/migrate-to-logical-properties.mjs (new)"
+      ],
+      "evidence": "60+ components with ml-/pr-/etc need mechanical migration to ms-/pe-/etc. A codemod is the right tool — sed regex is too brittle for Tailwind's prefix variants (hover:ml-2, sm:ml-2, etc.). Scoping this to Phase 43 keeps the migration trigger-able when Phase 44 lands.",
+      "fix": "scripts/migrate-to-logical-properties.mjs: walks resources/js/**/*.vue + **/*.tsx + **/*.css, applies the canonical map (ml→ms, mr→me, pl→ps, pr→pe, left-→start-, right-→end-, text-left→text-start, text-right→text-end), respects Tailwind variants (hover:, sm:, dark:), --dry-run mode emits a per-file diff. Phase 43 ships the script in scripts/ but does NOT run it across the codebase — that's Phase 44's mass change."
+    },
+    {
+      "id": "RTL-PREP-3",
+      "title": "docs/runbooks/i18n.md RTL section + Phase 44 deferral note",
+      "severity": "LOW",
+      "files": [
+        "docs/runbooks/i18n.md"
+      ],
+      "evidence": "Operators + the next phase's owner need to know: RTL is opt-in via config('i18n.rtl_locales'); the codemod exists at scripts/migrate-to-logical-properties.mjs; running it is Phase 44's job; today's components remain LTR-only and will visibly break under dir='rtl' until the migration lands.",
+      "fix": "i18n.md gains 'RTL support' section covering current state (scaffolding only), the codemod, the Phase 44 [I18N-RTL] mass-migration plan, and the testing approach (add ar locale to dev env, flip dir='rtl', visual-regression any new component before it ships)."
+    },
+    {
+      "id": "NUMERIC-FORMATTING-1",
+      "title": "useCurrency Intl.NumberFormat migration + currency-locale matrix test",
+      "severity": "HIGH",
+      "files": [
+        "resources/js/composables/useCurrency.ts",
+        "tests/Feature/I18n/Phase43CurrencyFormattingTest.php (new)"
+      ],
+      "evidence": "Scout: useCurrency.ts has a hand-rolled symbol map (KES→'KSh', USD→'$') and does NOT route through Intl.NumberFormat. Side-effect: 'KSh 1500.00' renders with the same separator and grouping for an English-locale and a Swahili-locale user — sw-KE convention is 'KSh 1,500.00' (US-style grouping) but the hand-rolled formatter never gets the chance. useFormatters.ts already uses Intl.NumberFormat (correctly), so the gap is just useCurrency.",
+      "fix": "(a) useCurrency.ts: replace symbol map with `new Intl.NumberFormat(localeFor(currency), {style: 'currency', currency, currencyDisplay: 'narrowSymbol'}).format(value)`. (b) Keep the existing `currencySymbol()` accessor for the symbol-only case (e.g., input adornments) but route through `Intl.NumberFormat.formatToParts`. (c) Phase43CurrencyFormattingTest: 4 currencies × 2 locales = 8 expected-output matrix asserted via a Vue-test-utils mounted component."
+    },
+    {
+      "id": "NUMERIC-FORMATTING-2",
+      "title": "useFormatters.formatDate locale alignment + DateFilter parity",
+      "severity": "MEDIUM",
+      "files": [
+        "resources/js/composables/useFormatters.ts",
+        "app/Support/DateFilter.php"
+      ],
+      "evidence": "Scout: useFormatters.ts INTL_LOCALES map already maps en→en-GB and sw→sw-KE for date locales, which is correct. The PHP-side DateFilter helper (Phase-17 TIME-2) probably doesn't follow the same map — passing $invoice->created_at to DateFilter::format gets PHP's default formatter which ignores locale.",
+      "fix": "(a) Audit DateFilter.php — if not already locale-aware, add a formatFor(Carbon, ?locale) method that uses IntlDateFormatter::create($locale, ...). (b) Vue formatDate already uses toLocaleDateString — verify INTL_LOCALES map is current vs locale list. (c) Add a parity test asserting equivalent inputs produce equivalent outputs across PHP + JS layers."
+    },
+    {
+      "id": "NUMERIC-FORMATTING-3",
+      "title": "usePhoneFormat composable scaffold + libphonenumber-js dependency",
+      "severity": "LOW",
+      "files": [
+        "resources/js/composables/usePhoneFormat.ts (new)",
+        "package.json"
+      ],
+      "evidence": "Scout: no phone formatter exists. Today phone numbers display as raw strings ('+254712345678' instead of '+254 712 345 678'). Kenya is the primary market — formatted phone display is a small but visible UX win, and libphonenumber-js is the standard.",
+      "fix": "(a) `npm install libphonenumber-js` (~150KB but tree-shakable to ~40KB if only formatNumber is imported). (b) usePhoneFormat.ts: `format(rawPhone: string, format: 'international' | 'national' = 'international')` wrapping libphonenumber-js. (c) Adopt at one site (Tenant/Profile.vue Show tab) as a seed; rest of codebase is incremental cleanup."
+    },
+    {
+      "id": "CI-1",
+      "title": "Phase43I18nSurfaceTest watchdog asserts new commands/services/routes/columns/runbooks",
+      "severity": "HIGH",
+      "files": [
+        "tests/Feature/I18n/Phase43I18nSurfaceTest.php (new)"
+      ],
+      "evidence": "Phase 41 set the convention: every cycle ships a SurfaceTest enforcing the invariants it added. Phase 43 adds 4 commands (lang:coverage, lang:audit, lang:check, lang:suggest) + 1 scheduled cron (lang:audit) + 2 services (I18nKeyExtractor, TranslationSuggestionService) + 1 helper (LocaleHelper) + 4 new test classes + 1 ESLint rule + 1 codemod script + 1 runbook + 1 new alert row.",
+      "fix": "Phase43I18nSurfaceTest::EXPECTED_COMMANDS (4 entries), EXPECTED_SCHEDULES (lang:audit at 04:15 Africa/Nairobi), EXPECTED_SERVICES (I18nKeyExtractor, TranslationSuggestionService, LocaleHelper), EXPECTED_RUNBOOK_SECTIONS, EXPECTED_ESLINT_RULE_FILE. Per-section sub-tests assert behaviour."
+    },
+    {
+      "id": "CI-2",
+      "title": "docs/runbooks/i18n.md operator playbook (consolidated)",
+      "severity": "MEDIUM",
+      "files": [
+        "docs/runbooks/i18n.md"
+      ],
+      "evidence": "i18n knowledge today is scattered across HandleInertiaRequests, Phase 24 commit messages, lang/ directory layout convention, useI18n composable docs. A consolidated runbook is the operator + new-contributor entry point.",
+      "fix": "Sections beyond what LANG-COVERAGE-3 ships: 'Translation submission workflow' (how non-engineer translators interact with the codebase), 'Adding a new locale' (config + lang files + Phase24CiTest + Currency::localeFor entry), 'Common bugs + fixes' (the namespace-merge bug 16cbafd caught + how to spot it on a fresh feature)."
+    },
+    {
+      "id": "CI-3",
+      "title": "Phase24CiTest assertion-count sync + alert-thresholds.md i18n_missing_keys_count row",
+      "severity": "LOW",
+      "files": [
+        "tests/Feature/I18n/Phase24CiTest.php",
+        "docs/runbooks/alert-thresholds.md"
+      ],
+      "evidence": "Every previous phase ratcheted Phase24CiTest's assertion count via the new lang keys (Phase 42 closeout noted 'Phase24CiTest lang parity holds'). Phase 43 adds keys to lang/*.php (validation messages for the new commands, error messages for ESLint rule output, runbook references) — assertion count needs a bump if hardcoded. alert-thresholds.md gains the gauge row LANG-AUDIT-1 introduces.",
+      "fix": "(a) Phase24CiTest assertion count adjustment if needed (test reads glob() so likely auto-counts). (b) alert-thresholds.md 'i18n missing keys (pinned namespaces)' row + 'i18n missing keys (loose namespaces)' row at sev3 / sev4 respectively."
+    }
+  ]
+}
