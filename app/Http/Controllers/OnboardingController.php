@@ -319,6 +319,19 @@ class OnboardingController extends Controller
                 'acknowledged' => 'nullable|boolean',
             ],
             3 => [
+                // Phase-48 TENANT-PAYMENT-METHOD-3: persistable shape.
+                // type + details required-together; absence means
+                // acknowledgement-only (still advances).
+                'type' => 'nullable|in:mpesa,bank,card',
+                'details' => 'nullable|required_with:type|array',
+                'details.phone' => 'required_if:type,mpesa|string|max:20',
+                'details.bank_name' => 'required_if:type,bank|string|max:255',
+                'details.account_number' => 'required_if:type,bank|string|max:50',
+                'details.account_name' => 'required_if:type,bank|string|max:255',
+                'details.brand' => 'nullable|string|max:50',
+                'details.last4' => 'nullable|string|size:4',
+                'details.stripe_payment_method_id' => 'nullable|string|max:64',
+                'is_default' => 'nullable|boolean',
                 'acknowledged' => 'nullable|boolean',
             ],
             default => [],

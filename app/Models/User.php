@@ -503,6 +503,15 @@ class User extends Authenticatable implements HasLocalePreference
         return $this->hasOne(InvoiceSetting::class, 'landlord_id');
     }
 
+    /**
+     * Phase-48 TENANT-PAYMENT-METHOD-1: stored M-Pesa/bank/card credentials
+     * for tenants to enable auto-debit + recurring payments.
+     */
+    public function tenantPaymentMethods(): HasMany
+    {
+        return $this->hasMany(TenantPaymentMethod::class);
+    }
+
     public function invoiceTemplates(): HasMany
     {
         return $this->hasMany(InvoiceTemplate::class, 'landlord_id');

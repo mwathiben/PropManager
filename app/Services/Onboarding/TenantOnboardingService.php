@@ -6,6 +6,7 @@ namespace App\Services\Onboarding;
 
 use App\Models\OnboardingProgress;
 use App\Models\User;
+use App\Services\Tenant\TenantPaymentMethodService;
 
 /**
  * Phase-47 ROLE-DISPATCH-2: tenant onboarding step processor.
@@ -23,12 +24,17 @@ use App\Models\User;
  */
 class TenantOnboardingService implements OnboardingStepProcessor
 {
+    public function __construct(
+        protected TenantPaymentMethodService $paymentMethodService,
+    ) {
+    }
+
     public function processStep(int $step, array $data, User $user, OnboardingProgress $progress): bool
     {
         return match ($step) {
             1 => $this->processProfile($data, $user),
             2 => $this->processKycAcknowledgement($data, $user),
-            3 => $this->processPaymentMethodAcknowledgement($data, $user),
+            3 => $this->processPaymentMethod($data, $user),
             default => false,
         };
     }
@@ -56,10 +62,25 @@ class TenantOnboardingService implements OnboardingStepProcessor
         return $progress['submitted'] >= $progress['required'];
     }
 
-    private function processPaymentMethodAcknowledgement(array $data, User $user): bool
+    private function processPaymentMethod(array $data, User $user): bool
     {
-        // Tenant confirms they understand which payment channels their
-        // landlord accepts. Stored payment methods land in a later cycle.
+        // Phase-48 TENANT-PAYMENT-METHOD-3: persist real method when the
+        // tenant provides type + details. Acknowledgement-only path stays
+        // (no details = no persistence, step still advances).
+        $type = $data['type'] ?? null;
+        $details = $data['details'] ?? null;
+
+        if ($type === null || $details === null || ! is_array($details) || empty($details)) {
+            return true;
+        }
+
+        $this->paymentMethodService->store(
+            $user,
+            $type,
+            $details,
+            (bool) ($data['is_default'] ?? false),
+        );
+
         return true;
     }
 }
