@@ -683,6 +683,12 @@ Route::middleware('auth')->group(function () {
         Route::delete('/{metric}', [\App\Http\Controllers\Reports\ReportMetricController::class, 'destroy'])->name('destroy');
     });
 
+    // Phase-50 LANDLORD-DASHBOARDS-3: composable dashboard show route.
+    // Slug is per-landlord — the controller scopes by (landlord_id, slug).
+    Route::middleware('role:landlord')
+        ->get('/dashboards/{slug}', [\App\Http\Controllers\Reports\DashboardController::class, 'show'])
+        ->name('dashboards.show');
+
     // Phase-27 BI-DELIVERY-2/3: scheduled report delivery self-serve.
     Route::middleware('role:landlord')->prefix('reports/scheduled')->name('reports.scheduled.')->group(function () {
         Route::get('/', [\App\Http\Controllers\Reports\ScheduledController::class, 'index'])->name('index');
