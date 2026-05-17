@@ -68,3 +68,5 @@ export type { UsePaymentFormReturn } from './usePaymentForm';
 
 export { useDashboardStats } from './useDashboardStats';
 export type { UseDashboardStatsReturn, DashboardStatsData } from './useDashboardStats';
+
+export { useRtlAware } from './useRtlAware';
