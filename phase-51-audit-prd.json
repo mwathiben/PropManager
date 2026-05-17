@@ -1,0 +1,143 @@
+{
+    "phase": 51,
+    "title": "VUE-TAIL-1",
+    "opened_at": "2026-05-17",
+    "tier": "Tier 7 cycle 15",
+    "scope": "Phases 42 + 45 + 46 + 47 + 48 + 50 each shipped backend-heavy cycles that left small Vue-side tails. Phase 51 bundles those tails into a single coherent UI-polish cycle so Vue work doesn't scatter across 6 cycles. Scout confirmed: Builder.vue does NOT yet read the drillContext prop the Phase-50 BuilderController::drill passes (drill banner + row click + column highlight all missing); Scheduled.vue 15s auto-refresh polls regardless of tab visibility (no document.visibilitychange listener), preview errors have no retry, no column-sort; CaretakerSteps step 2 is wireframe-only (Phase 48 added the service-layer accept/decline flow but the Vue surface never rendered decline UI / reason / char counter); TenantSteps step 3 payment-method picker is text labels only (no per-type icons); Register.vue role dropdown is a plain HTML select (no Phase-31 branded gradient); no lease-renewal counter-offer Vue components exist anywhere in resources/js (status badge + countdown + history timeline are greenfield); OnboardingResumeMailable has the markdown view but no resume.text.blade.php plain-text fallback. Phase 51 closes all 6 surfaces with 18 findings (5H/9M/4L).",
+    "categories": {
+        "REPORTS-DRILL-UI": "Builder.vue reads drillContext prop and renders a parent-report banner; rows in the preview pane gain @click handler that navigates to reports.builder.drill route when parent.drill_field is set; the drill_field column gets a subtle highlight so the user knows which dimension is the click target.",
+        "SCHEDULED-PREVIEW-UX": "Scheduled.vue preview pane gains a document.visibilitychange listener that pauses polling when the tab is hidden (saves bandwidth); transient fetch errors are retried with exponential backoff (1s → 2s → 4s, max 3 attempts); preview table columns become click-sortable so landlords can prioritise high-value rows before scheduling.",
+        "TENANT-WIZARD-POLISH": "CaretakerSteps step 2 gains a real decline UI — list of pending caretaker_assignments rows with accept/decline radio + decline-reason textarea + 200-char counter; TenantSteps step 3 payment-method picker gets inline SVG icons per type (mpesa / bank / card) sourced from the public icons lib; TenantSteps step 2 explicitly renders a KYC progress indicator above the form pulling from User::kycProgress().",
+        "PHASE-46-WIZARD-STYLE": "Register.vue role dropdown swapped for a custom card-grid picker with Phase-31 indigo/purple gradient (matches the rest of Auth styling); the role-help card below gains the same gradient treatment instead of plain bg-gray-50; OnboardingResumeMailable gets a resume.text.blade.php plain-text fallback view for clients that reject HTML.",
+        "LEASE-COUNTER-UI": "Three new shared Vue components under resources/js/Components/LeaseCounter/: CounterOfferStatusBadge.vue (color-coded by lease_renewals.status), CounterOfferCountdown.vue (live 14-day expiry countdown reading counter_expires_at), CounterOfferHistory.vue (timeline of lease_renewal_counter_history rows with chevron expand). These slot into landlord + tenant lease pages — Phase 45 [LEASE-COUNTER] shipped the backend but no Vue surface ever consumed it.",
+        "CI": "Phase51VueTailSurfaceTest watchdog asserting all the Vue files and Mailable views exist and reference the right props/composables; docs/runbooks/frontend-polish.md NEW file covering the polling/visibility/retry contract + lease-counter component slot conventions + how to add a new wizard step icon; docs/runbooks/alert-thresholds.md gains a visibility-only vue_preview_poll_pause_count entry to track how often the polling pauses for visibility (informs whether the visibility-aware behaviour is actually helping)."
+    },
+    "findings": [
+        {
+            "id": "REPORTS-DRILL-UI-1",
+            "severity": "HIGH",
+            "title": "Builder.vue reads drillContext prop + renders parent-report banner",
+            "evidence": "Phase 50 BuilderController::drill passes a drillContext prop with parent_id, parent_name, drill_field, segment_value, config, rows. Scout confirmed Builder.vue does NOT define this prop in defineProps. The backend renders but the Vue surface ignores the prop — landlords on the drill route see no indication they're viewing a filtered child report (URL is the only signal).",
+            "remediation": "Builder.vue defineProps gains drillContext (optional Object). When drillContext != null: render a banner at the top of the page (`<div class=\"rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3\">`) reading 'Drill-down from {{ drillContext.parent_name }} where {{ drillContext.drill_field }} = {{ drillContext.segment_value }}' with a 'Back to parent' link calling router.visit(route('reports.builder.index')). The banner is read-only — the saved-report config underneath becomes the synthesised child."
+        },
+        {
+            "id": "REPORTS-DRILL-UI-2",
+            "severity": "MEDIUM",
+            "title": "Preview rows gain @click handler navigating to drill route",
+            "evidence": "Without row click-through, drill mode is bookmarkable but not navigable from the chart UI itself. Landlords must hand-craft the URL with a segment value. Standard consumer-grade reporting UIs make rows clickable.",
+            "remediation": "Builder.vue preview <tr> gains :class for cursor-pointer when hasDrillField is truthy; @click handler reads row[drillFieldColumn] and calls router.visit(route('reports.builder.drill', {report: savedReport.id, segment: row[drillFieldColumn]})). hasDrillField computed checks props.savedReports.find(r => r.id === currentReportId)?.drill_field exists. Skip @click when no parent saved-report selected."
+        },
+        {
+            "id": "REPORTS-DRILL-UI-3",
+            "severity": "MEDIUM",
+            "title": "drill_field column highlighted in preview to show click target",
+            "evidence": "Without column emphasis, the user doesn't know which dimension they should click on. A subtle background tint + a header annotation eliminates guesswork.",
+            "remediation": "Builder.vue preview table: when hasDrillField, the matching `<th>` and `<td>` get class='bg-indigo-50/50' (light indigo tint) + the <th> gets a small chevron icon. Tailwind utility classes only — no new component needed."
+        },
+        {
+            "id": "SCHEDULED-PREVIEW-UX-1",
+            "severity": "MEDIUM",
+            "title": "Scheduled.vue preview pane pauses polling on tab hidden via visibilitychange",
+            "evidence": "Current Scheduled.vue setInterval polls every 15s regardless of tab visibility. Landlord tabs hidden for an hour produce 240 wasted /reports/scheduled/preview requests + 240 DB roundtrips. Phase 35 [PLATFORM] established cost discipline; this is the kind of waste cost-audit gauges flag.",
+            "remediation": "Scheduled.vue gains pollHidden ref; document.visibilitychange listener (registered in onMounted, unregistered in onUnmounted) flips pollHidden + clears interval when document.visibilityState === 'hidden', re-creates it on 'visible'. The auto-refresh toggle becomes (enabled AND !pollHidden) — the user toggle stays sticky across visibility changes."
+        },
+        {
+            "id": "SCHEDULED-PREVIEW-UX-2",
+            "severity": "MEDIUM",
+            "title": "Preview fetch errors retry with exponential backoff (3 attempts, 1s/2s/4s)",
+            "evidence": "Current fetch() in Scheduled.vue logs the error to preview.error and stops. Transient blip (mobile cellular signal, deploy bounce) means the user has to manually click Refresh to recover. Standard pattern is 3-attempt exponential backoff for idempotent reads.",
+            "remediation": "fetchPreview gains internal retry loop: 1st failure waits 1000ms, 2nd 2000ms, 3rd 4000ms. After 3 failed attempts, surfaces the original error. Retries skipped on 4xx responses (validation errors are permanent — don't waste cycles)."
+        },
+        {
+            "id": "SCHEDULED-PREVIEW-UX-3",
+            "severity": "MEDIUM",
+            "title": "Preview table columns become click-sortable",
+            "evidence": "Landlord wants to spot the biggest invoice before scheduling a delivery — currently rows are in whatever order ReportBuilderService returned. Adding client-side sort on row arrays is two refs + a computed.",
+            "remediation": "Scheduled.vue: sortKey + sortDir refs default {null, 'asc'}; clicking a <th> sets sortKey to its column + flips dir if same column; sortedRows computed sorts preview.rows by sortKey numerically when all values numeric, else lexicographically; arrow icon (▲ / ▼) annotates the active sort column."
+        },
+        {
+            "id": "TENANT-WIZARD-POLISH-1",
+            "severity": "HIGH",
+            "title": "CaretakerSteps step 2 gains real decline UI with 200-char reason counter",
+            "evidence": "Phase 48 [CARETAKER-ASSIGNMENT-UX] shipped the backend service (CaretakerAssignmentService::accept/decline + processBuildingAssignmentAck walks pending) but CaretakerSteps step 2 was left as a wireframe stub. Scout confirmed lines 65–74 is placeholder text. Caretaker can't actually decline a building assignment from the wizard — they hit an invisible default-accept flow.",
+            "remediation": "CaretakerSteps step 2: list of pending caretaker_assignments rendered with assignment.building.name + per-row radio (accept / decline) + when decline, expanded <textarea> for decline_reason with live char counter `{{ form.decline_reason[assignment.id]?.length ?? 0 }} / 200`. Form posts via existing onboarding.step.save route — backend already accepts decline[] + decline_reason[] arrays."
+        },
+        {
+            "id": "TENANT-WIZARD-POLISH-2",
+            "severity": "MEDIUM",
+            "title": "TenantSteps step 3 payment-method picker gets per-type inline SVG icons",
+            "evidence": "Step 3 currently labels payment methods with plain text 'M-Pesa' / 'Bank account' / 'Card'. Visual polish is a 30-minute job — inline SVGs from heroicons/lucide cover all three types. Without icons, the wizard feels generic; with them, it feels branded.",
+            "remediation": "TenantSteps step 3: each payment-method radio gets a leading 24x24 SVG. M-Pesa: smartphone icon. Bank: building-columns icon. Card: credit-card icon. Inline SVG (no asset import) so they ship with the bundle. Tailwind class 'h-6 w-6 text-indigo-500'."
+        },
+        {
+            "id": "TENANT-WIZARD-POLISH-3",
+            "severity": "LOW",
+            "title": "TenantSteps step 2 renders explicit KYC progress indicator from User::kycProgress()",
+            "evidence": "Phase 48 added User::kycProgress() accessor (returns {required, submitted, percent, remaining_labels}); Phase 47 TenantSteps shows the global WizardProgressBar but no KYC-specific progress on step 2 where it would actually mean something to the tenant. Step 2 gates advance on submitted>=required, so the user should see exactly how close they are.",
+            "remediation": "TenantSteps step 2 reads $page.props.auth.user.kyc_progress (Inertia share) — renders a 'KYC documents: 2 of 3 uploaded' line above the form with a small progress bar derived from kyc_progress.percent. Falls back gracefully when prop missing."
+        },
+        {
+            "id": "PHASE-46-WIZARD-STYLE-1",
+            "severity": "MEDIUM",
+            "title": "Register.vue role dropdown becomes a card-grid picker with Phase-31 gradient",
+            "evidence": "Plain <select> is a visual stand-out vs. the rest of the auth surface which uses card-grids. The 3 roles (landlord / caretaker / tenant) are small enough to render as 3 picker cards instead of a dropdown — better UX + better visual consistency with the gradient theme.",
+            "remediation": "Register.vue role section becomes a 3-card grid; each card has indigo/purple gradient bg, role icon, title + 1-line description. v-model wires to form.role; selected card gains ring-2 ring-indigo-500. Hidden when invitation prefills role."
+        },
+        {
+            "id": "PHASE-46-WIZARD-STYLE-2",
+            "severity": "LOW",
+            "title": "Register.vue role-help card gets the same gradient treatment",
+            "evidence": "Current role-help below the dropdown is bg-gray-50 — visually orphaned from the rest of the gradient form. Consistent gradient across the whole form makes it feel coherent.",
+            "remediation": "Role-help wrapper class changes from `bg-gray-50 border border-gray-100` to `bg-gradient-to-br from-indigo-50 via-white to-purple-50 ring-1 ring-indigo-100/50`. Same rounded-lg + padding."
+        },
+        {
+            "id": "PHASE-46-WIZARD-STYLE-3",
+            "severity": "LOW",
+            "title": "OnboardingResumeMailable gets a resume.text.blade.php plain-text fallback",
+            "evidence": "Mailable currently only defines a markdown view. Laravel auto-generates plain-text from markdown but the auto-conversion isn't accessibility-optimized (no logical reading order for headings, no link-context). Email clients without HTML support (text-only mail readers, accessibility tools) get a worse experience.",
+            "remediation": "Create resources/views/emails/onboarding/resume.text.blade.php with explicit plain-text formatting + same i18n keys. Mailable->content() returns Content with markdown + text both set."
+        },
+        {
+            "id": "LEASE-COUNTER-UI-1",
+            "severity": "HIGH",
+            "title": "CounterOfferStatusBadge.vue — color-coded status badge",
+            "evidence": "Phase 45 [LEASE-COUNTER] shipped lease_renewals.status enum (counter_proposed, accepted, declined, expired) + lease_renewal_counter_history audit table. No Vue surface ever consumed it — landlord/tenant lease pages don't show the counter status. Backend → UI gap.",
+            "remediation": "resources/js/Components/LeaseCounter/CounterOfferStatusBadge.vue — :status prop, renders a small rounded badge with status-keyed color + i18n label. counter_proposed → indigo, accepted → emerald, declined → rose, expired → gray. Tailwind utility classes only."
+        },
+        {
+            "id": "LEASE-COUNTER-UI-2",
+            "severity": "HIGH",
+            "title": "CounterOfferCountdown.vue — live 14-day expiry countdown",
+            "evidence": "Phase 45 lease_renewals.counter_expires_at + 14-day expiry cron exist but the tenant doesn't see how many days are left before the offer auto-expires. Standard consumer pattern is a live countdown to drive urgency.",
+            "remediation": "resources/js/Components/LeaseCounter/CounterOfferCountdown.vue — :expiresAt prop (ISO string), reactive computed daysLeft + hoursLeft + redClass when <72h. Updates every minute via setInterval (cleared on unmount). Shows 'Expires in 12 days' / 'Expires in 4 hours' / 'Expired' based on remaining time."
+        },
+        {
+            "id": "LEASE-COUNTER-UI-3",
+            "severity": "MEDIUM",
+            "title": "CounterOfferHistory.vue — timeline of lease_renewal_counter_history rows",
+            "evidence": "Phase 45 lease_renewal_counter_history captures every counter-proposal exchange. Without a Vue surface the audit is invisible to the parties; both landlord and tenant want to see the negotiation history.",
+            "remediation": "resources/js/Components/LeaseCounter/CounterOfferHistory.vue — :history prop (array of {actor_role, action, proposed_rent, created_at}), renders a vertical timeline with role-keyed icon, action label, KES-formatted rent, relative time. Most recent first."
+        },
+        {
+            "id": "CI-1",
+            "severity": "HIGH",
+            "title": "Phase51VueTailSurfaceTest consolidated watchdog",
+            "evidence": "Phase 51 touches 8+ Vue files + 3 new components + 1 new mailable view + 1 new runbook. Without a single watchdog, a future refactor could silently drop a file. Pattern from Phase 37-50.",
+            "remediation": "tests/Feature/Frontend/Phase51VueTailSurfaceTest with file_exists asserts + grep-style asserts (file contents contain specific tokens — drillContext / visibilitychange / decline_reason / CounterOfferStatusBadge / etc). Asserts runbook + alert row presence. Vue compile isn't tested by PHPUnit; the file-shape assertion is the contract."
+        },
+        {
+            "id": "CI-2",
+            "severity": "MEDIUM",
+            "title": "docs/runbooks/frontend-polish.md NEW",
+            "evidence": "The polling/visibility/retry contract isn't documented anywhere. A future engineer adding a new polling surface won't know to wire visibilitychange + retry. Lease-counter component slot conventions need a home.",
+            "remediation": "docs/runbooks/frontend-polish.md sections: (1) Polling contract (15s + visibility-aware + 3-attempt backoff); (2) Lease-counter component slots — where Badge/Countdown/History plug in; (3) Wizard styling conventions (Phase-31 gradient + ring); (4) Plain-text email fallback recipe; (5) Adding a new payment-method icon."
+        },
+        {
+            "id": "CI-3",
+            "severity": "LOW",
+            "title": "alert-thresholds.md adds vue_preview_poll_pause_count visibility-only row",
+            "evidence": "Without a metric, you can't prove the visibility-aware polling is actually firing. A simple gauge tells ops 'our visibility-aware polling pauses N times/day' so we know whether the optimisation is delivering.",
+            "remediation": "alert-thresholds.md gains vue_preview_poll_pause_count visibility-only row — no threshold, no paging. Gauge wiring deferred to a follow-up cycle (frontend telemetry isn't infrastructure yet); the row defines the contract."
+        }
+    ]
+}
