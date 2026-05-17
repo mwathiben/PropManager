@@ -660,3 +660,12 @@ Schedule::command('payouts:stripe-balance-audit')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase42-payout-audit');
+
+// Phase-43 LANG-AUDIT-1: daily diff of every locale bundle against
+// the English baseline. Emits i18n_missing_keys_count{namespace,locale}
+// gauge for the ops dashboard + sev3 alert on pinned-namespace drift.
+Schedule::command('lang:audit')
+    ->dailyAt('04:15')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase43-i18n-audit');

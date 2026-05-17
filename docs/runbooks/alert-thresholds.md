@@ -22,6 +22,8 @@ When tuning, edit here first + record the rationale; then change the env var. Th
 | Unresolved webhook dead-letter rows | 50 | `DEAD_LETTER_ALERT_THRESHOLD` | (count) | Payment reconciliation backlog. Phase-12 RETAIN-7/8. | Process DLQ rows; investigate root cause |
 | Payment-config change | 1 | (no threshold — always logs) | per-event | OBS-6. | Verify actor is authorised |
 | Stripe Connect payout failures | 5 | `stripe_payout_failure_count` gauge from `payouts:stripe-balance-audit` + `payout.failed` webhook | 24h | Landlord payout delivery has stalled (closed bank account, identity-verification expired, Connect status drift). Phase-42 PAYOUT-AUDIT-1/2. | Open Stripe Dashboard → Payouts; verify landlord's bank account; run `StripeConnectService::syncAccountStatus`; check stripe_connect_status column |
+| i18n missing keys — pinned namespace | 0 | `i18n_missing_keys_count{namespace,locale}` gauge from `lang:audit` (config('i18n.pinned_namespaces')) | per-cron | Pinned-namespace drift (`auth`/`common`/`validation`/`payments`) means a fall-through to English for a critical user flow. Phase-43 LANG-AUDIT-1 / sev3. | Run `php artisan lang:check --pinned-only` locally; raise PR with the missing-key fills; CI gates the merge |
+| i18n missing keys — loose namespace | 10 | same gauge for non-pinned namespaces | 24h | Translator backlog. Less urgent; soft signal. Phase-43 LANG-AUDIT-1 / sev4. | Queue translator work; use `php artisan lang:suggest <namespace>` for stub fills |
 
 ## Compliance / breach
 
