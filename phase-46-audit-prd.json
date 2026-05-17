@@ -1,0 +1,143 @@
+{
+    "phase": 46,
+    "title": "ONBOARDING-CANONICAL",
+    "opened_at": "2026-05-17",
+    "tier": "Tier 7 cycle 10",
+    "scope": "The user flagged on 2026-05-17 that onboarding data is denormalised across multiple tables and the onboarding flow itself needs a rebuild. Phase 45 EMERGENCY-CONTACT-SMS-3 fixed the specific emergency_contacts↔users.emergency_contact_* case via EmergencyContact saving listener + backfill; Phase 46 audits the broader pattern + lays the wizard rebuild foundation. Concrete gaps surfaced by scout: (1) users.kyc_completed_at is write-only — User::hasCompletedKyc() reads dynamically from kyc_requirements + tenant_kyc_submissions, so the column is silent tech debt; (2) users.profile_photo_path mirrors landlord_profiles.profile_photo_path with no listener; (3) users.national_id is editable on Profile.vue but tenant_kyc_submissions captures it again per-submission with no sync; (4) OnboardingProgress.step_data is a JSON blob that mirrors PaymentConfiguration / LandlordProfile / Property columns — when a landlord clicks Back, step_data is read but the child tables are NOT rolled back, leaving stale-sibling state; (5) RegisteredUserController hardcodes role='tenant' so landlord signup is impossible without admin intervention; (6) onboarding routes lack a 'verified' middleware gate so landlords can skip email verification and reach the wizard.",
+    "categories": {
+        "CANONICAL-AUDIT": "Mirror Registry config + onboarding:dedupe-audit scanner + canonical_mirror_drift_count gauge + CI watchdog asserting no NEW mirror columns slip in without a saving listener.",
+        "CANONICAL-FIX": "Resolve the 3 highest-confidence users.* mirror columns surfaced by scout: kyc_completed_at (deprecate — write-only), profile_photo_path (declare LandlordProfile canonical for landlords + saving listener + backfill), national_id (canonical in canonical-source — dedupe-aware accessor with cache).",
+        "WIZARD-INFRA": "onboarding_sessions table replaces ad-hoc OnboardingProgress.step_data JSON blob for wizard-only state (real data lives in canonical models); OnboardingFlow value object dispatches step sequences per role; OnboardingSessionService enforces transactional write semantics so Back-navigation does not orphan canonical rows.",
+        "ROLE-PATHS": "RegisteredUserController accepts role from form/invitation rather than hardcoding 'tenant'; OnboardingFlow::forRole() defines distinct sequences for landlord vs caretaker vs tenant; email-verified middleware enforced on onboarding routes; tenant onboarding bridges into the existing KYC flow (instead of being a separate /tenant/complete-profile dead-end).",
+        "PROGRESS-RESUME": "OnboardingResumeService issues signed 7-day-expiry URLs tied to onboarding_sessions.id; onboarding_resume_links audit table; onboarding:nudge-stalled cron daily 09:00 emails landlords with mid-wizard status >3 days + emits onboarding_session_abandoned_count gauge.",
+        "CI": "Phase46OnboardingCanonicalSurfaceTest consolidated source-grep watchdog + docs/runbooks/onboarding.md (new file) + docs/runbooks/alert-thresholds.md sev3/sev4 rows for canonical_mirror_drift_count + onboarding_session_abandoned_count."
+    },
+    "findings": [
+        {
+            "id": "CANONICAL-AUDIT-1",
+            "severity": "HIGH",
+            "title": "Mirror Registry config + App\\Services\\Onboarding\\MirrorAuditService scanner",
+            "evidence": "Scout found 6+ users.* columns that look like denormalised mirrors of child-table rows. Phase-45 EMERGENCY-CONTACT-SMS-3 resolved emergency_contact_name/phone via a saving listener but the pattern repeats. Without a central registry + scanner, future mirrors get added silently — the next denormalisation problem won't surface until production drift breaks something. config/onboarding.php is the natural home for the manifest (Phase-24 I18N-INFRA-1 pattern: declare-once-in-config, read-everywhere).",
+            "remediation": "config/onboarding.php gains 'mirrors' => [['column' => 'users.profile_photo_path', 'canonical' => 'landlord_profiles.profile_photo_path', 'key' => 'user_id'], ...]. App\\Services\\Onboarding\\MirrorAuditService::scan(): Collection<MirrorDriftRow> joins users to each canonical table on the manifest key + diffs the column. App\\Console\\Commands\\OnboardingDedupeAudit (signature `onboarding:dedupe-audit`) emits canonical_mirror_drift_count{mirror} gauge per registered mirror. Phase46MirrorAuditServiceTest exercises drift + parity scenarios."
+        },
+        {
+            "id": "CANONICAL-AUDIT-2",
+            "severity": "MEDIUM",
+            "title": "Daily onboarding:dedupe-audit cron + sev3 alert at canonical_mirror_drift_count > 0 for pinned mirrors",
+            "evidence": "A weekly mirror-drift audit is too slow to catch a code regression that breaks a saving listener — by the time it fires the prod database has 7 days of drift. Daily 03:30 Africa/Nairobi (off-peak, after the 03:15 stripe-balance-audit) gives same-day signal.",
+            "remediation": "Schedule::command('onboarding:dedupe-audit') daily 03:30. config/onboarding.php gains 'pinned_mirrors' => ['users.profile_photo_path', ...] — these are sev3 alert at threshold 0 (any drift = page). Loose mirrors are sev4 at threshold N. AlertFiringRecorder integration matches the Phase-43 LANG-AUDIT-1 pattern."
+        },
+        {
+            "id": "CANONICAL-AUDIT-3",
+            "severity": "LOW",
+            "title": "Phase46OnboardingMirrorRegistryTest watchdog asserts no NEW users.* string column without a registered listener or allow-list entry",
+            "evidence": "The scout pattern (users.* with a name suggesting a child-table source: *_photo_*, *_name, *_phone, address_*, default_*) is mechanically detectable. A test that walks the users table schema + cross-references config('onboarding.mirrors') prevents the next denormalisation from slipping in.",
+            "remediation": "Phase46OnboardingMirrorRegistryTest::test_no_unregistered_mirror_columns walks Schema::getColumnListing('users'), filters by a regex of suspicious patterns, intersects with config('onboarding.mirrors') ∪ config('onboarding.mirror_exempt') (the deprecation allow-list for kyc_completed_at), asserts the diff is empty."
+        },
+        {
+            "id": "CANONICAL-FIX-1",
+            "severity": "HIGH",
+            "title": "Deprecate users.kyc_completed_at — write-only column with no reader; User::hasCompletedKyc() is the dynamic source-of-truth",
+            "evidence": "Phase-13 BREACH-2 added users.kyc_completed_at (2026-01-08 migration) but User::hasCompletedKyc() reads dynamically from kyc_requirements + tenant_kyc_submissions. The timestamp is set by TenantKycController on approval but never read by gates — middleware 'kyc.complete' calls the dynamic method. This is silent tech debt: a stale value reads as 'completed' but the gate disagrees, and any code that DOES read the column gets a wrong answer.",
+            "remediation": "Step 1 (Phase 46): add the column to config('onboarding.mirror_exempt') with deprecated_at = '2026-05-17' + remove_at = '2026-08-17' (3-month deprecation window per the Phase-13 BREACH retirement cadence). Stop writing it from TenantKycController. Step 2 (future cycle): drop the column. Phase46KycCompletedAtDeprecationTest asserts the writer is gone + the dynamic accessor still returns the right value."
+        },
+        {
+            "id": "CANONICAL-FIX-2",
+            "severity": "HIGH",
+            "title": "users.profile_photo_path canonical-via-LandlordProfile + saving listener + backfill",
+            "evidence": "landlord_profiles.profile_photo_path (Phase-28 era) and users.profile_photo_path (Phase-KYC era) carry the same data with no synchronisation. OnboardingController::saveStep step 2 uploads to users.profile_photo_path; nothing fans to LandlordProfile. The two surfaces diverge whenever a user uploads via Profile.vue (writes users) vs via Onboarding step 2 (also writes users, but LandlordProfile is what /landlords/{id} reads).",
+            "remediation": "Declare LandlordProfile.profile_photo_path canonical for landlords (tenants don't have a LandlordProfile row, so users.profile_photo_path stays the source for them). LandlordProfile::saving listener writes users.profile_photo_path from the canonical row (mirroring Phase-45 EmergencyContact). Backfill migration walks every landlord and writes the LandlordProfile value into users (where LandlordProfile has a non-null path). config/onboarding.php registers the mirror."
+        },
+        {
+            "id": "CANONICAL-FIX-3",
+            "severity": "MEDIUM",
+            "title": "users.national_id dedupe-aware accessor — canonical row is tenant_kyc_submissions.value where requirement_type='national_id' (latest approved)",
+            "evidence": "users.national_id is editable on Profile.vue but tenant_kyc_submissions captures it again per-submission with the actual scan document, and a tenant who edits users.national_id after submission divergences from the proof of identity their landlord approved. The KYC submission is the audit-grade record; the User column is a convenience for non-KYC contexts (e.g., display in a landlord directory).",
+            "remediation": "Add User::canonicalNationalId() accessor: prefers the latest APPROVED tenant_kyc_submissions row with requirement_type='national_id'; falls back to users.national_id only when no submission exists. Cache::remember 1h per user. Profile.vue field becomes read-only when an approved submission exists (with a 'submit a KYC update' link to TenantKycController). Phase46NationalIdAccessorTest covers both branches."
+        },
+        {
+            "id": "WIZARD-INFRA-1",
+            "severity": "HIGH",
+            "title": "onboarding_sessions table — narrow wizard-only state replacing OnboardingProgress.step_data JSON blob",
+            "evidence": "OnboardingProgress.step_data is a JSON blob that mirrors PaymentConfiguration / LandlordProfile / Property columns. When a landlord hits Back in the wizard, step_data is read but the child tables are NOT rolled back — old payment_configurations.bank_account_number survives even after the landlord moves on without saving step 5. The data should live in the canonical models; the wizard state should track only {current_step, step_history, started_at, abandoned_at, completed_at}.",
+            "remediation": "Migration creates onboarding_sessions (id, user_id FK UNIQUE, role enum, current_step int, step_history JSON: list of step transitions with timestamps, started_at, last_touched_at, completed_at, abandoned_at, timestamps). Phase 46 ships the table + OnboardingSession model + service; the OnboardingController migration to writing canonical models directly (step 5 writes PaymentConfiguration via PaymentConfigurationService — no step_data) lands in Phase 47 [WIZARD-MIGRATE]. OnboardingProgress.step_data stays around in deprecation but is no longer the source of truth."
+        },
+        {
+            "id": "WIZARD-INFRA-2",
+            "severity": "MEDIUM",
+            "title": "OnboardingFlow value object dispatches step sequences per role (landlord, caretaker, tenant)",
+            "evidence": "Today OnboardingController hardcodes the 8-step landlord sequence. Caretakers have no onboarding flow; tenants have a separate /tenant/complete-profile flow that doesn't share infrastructure. A value object lets the controller delegate 'next step', 'previous step', 'first step', 'is complete' to a per-role policy.",
+            "remediation": "App\\Onboarding\\OnboardingFlow value object: ::forRole(string $role): self → returns a flow with a definite step list. Methods: ::firstStep(): int, ::nextStep(int $current): ?int, ::isComplete(OnboardingSession $session): bool, ::allSteps(): array. Three concrete subclasses: LandlordOnboardingFlow (8 steps as today), CaretakerOnboardingFlow (3 steps: profile, building-assignment, notification-preferences), TenantOnboardingFlow (3 steps: profile, KYC, payment method). Phase46OnboardingFlowTest exercises the dispatch."
+        },
+        {
+            "id": "WIZARD-INFRA-3",
+            "severity": "MEDIUM",
+            "title": "OnboardingSessionService enforces transactional Back-navigation — step_history audit, no orphan canonical writes",
+            "evidence": "Back-navigation today on OnboardingController::step reads step_data and re-renders the form. The Phase 47 [WIZARD-MIGRATE] cycle will move data writes to canonical models; Phase 46 must ship the service contract that those writes will go through so the transactional semantics are right from day one.",
+            "remediation": "App\\Services\\Onboarding\\OnboardingSessionService::advance(OnboardingSession, int $targetStep, callable $writer): void → wraps $writer in DB::transaction, on success updates current_step + appends step_history entry. ::back(OnboardingSession, int $targetStep): void → updates current_step + appends step_history{action: 'back'} entry; NEVER touches canonical models (canonical rows are not rolled back; user re-edits in the canonical-model UI if needed). Phase46OnboardingSessionServiceTest exercises advance + back transitions."
+        },
+        {
+            "id": "ROLE-PATHS-1",
+            "severity": "HIGH",
+            "title": "RegisteredUserController accepts role from form/invitation rather than hardcoding 'tenant'",
+            "evidence": "RegisteredUserController::store line 46 has $user->role = 'tenant' regardless of input. The Auth/Register.vue page (Phase-24 lang block shows role_landlord/role_caretaker/role_tenant labels) clearly expects a role choice but the controller drops it. Result: every signup creates a tenant; landlords have to be manually promoted by a super_admin or invited via an admin-only flow.",
+            "remediation": "RegisteredUserController validates 'role' in ['landlord', 'caretaker', 'tenant'] from the form. If an Invitation token is present in the request, override the form choice with the invitation's role (invitations encode the role the landlord meant for the invitee). After User::create, dispatch OnboardingSession::firstFor($user). Phase46RegistrationRoleTest covers all three signup paths + invitation override."
+        },
+        {
+            "id": "ROLE-PATHS-2",
+            "severity": "MEDIUM",
+            "title": "Email-verified middleware enforced on onboarding routes",
+            "evidence": "OnboardingController routes (line 194 group) don't have middleware('verified'). A landlord can complete the 8-step wizard, configure payments, and invite tenants — all before clicking the verification link. Email reachability is a baseline trust signal; bypassing it lets a typo'd email proceed to first contact with tenants.",
+            "remediation": "Group the onboarding routes under middleware(['auth', 'verified']) (same pattern as dashboard.index). If a user is unverified, hitting the wizard redirects to verification.notice. Phase46OnboardingVerificationGateTest covers both signed-in-unverified and signed-in-verified paths."
+        },
+        {
+            "id": "ROLE-PATHS-3",
+            "severity": "MEDIUM",
+            "title": "Tenant onboarding bridges into existing KYC flow via TenantOnboardingFlow step 2",
+            "evidence": "Tenants have /tenant/complete-profile (TenantKycController) which is separate from the landlord wizard. A tenant who registers (will be possible after ROLE-PATHS-1) lands on /dashboard with no first-time-user prompt to complete KYC. The two flows need a bridge: TenantOnboardingFlow step 2 dispatches to TenantKycController's UI; step completion mirrors the kyc.complete gate.",
+            "remediation": "TenantOnboardingFlow::stepUrl(2) returns route('tenant.kyc.show'). OnboardingSession::current_step=2 with TenantKycController::pendingRequirements() empty marks step 2 complete + advances. Phase46TenantOnboardingBridgeTest covers the bridge."
+        },
+        {
+            "id": "PROGRESS-RESUME-1",
+            "severity": "MEDIUM",
+            "title": "OnboardingResumeService issues signed 7-day URLs tied to onboarding_session.id + onboarding_resume_links audit table",
+            "evidence": "Without a resume mechanism, a landlord interrupted mid-wizard (lost connection, switched devices, came back next week) starts over from step 1. Laravel's signed URL with explicit expiry is the standard pattern (URL::temporarySignedRoute), backed by an audit table so re-issuance is observable.",
+            "remediation": "App\\Services\\Onboarding\\OnboardingResumeService::generate(OnboardingSession): string → URL::temporarySignedRoute('onboarding.resume', now()->addDays(7), ['session' => $session->id]); persists an onboarding_resume_links row {id, onboarding_session_id, signed_until, generated_at, generated_by_user_id, consumed_at, consumed_from_ip}. OnboardingResumeController validates the signed URL (Laravel's built-in middleware), checks the audit row hasn't been consumed, marks it consumed, redirects to the session's current_step. Phase46OnboardingResumeServiceTest covers signed-URL flow + replay refusal + expiry."
+        },
+        {
+            "id": "PROGRESS-RESUME-2",
+            "severity": "MEDIUM",
+            "title": "onboarding:nudge-stalled cron daily 09:00 emails landlords with mid-wizard sessions >3 days old",
+            "evidence": "Onboarding abandonment is a quiet failure — the landlord intended to complete signup but life intervened. Nudge emails at 3, 7, 14 days with a resume link recover meaningful fraction of intent.",
+            "remediation": "App\\Console\\Commands\\NudgeStalledOnboarding (signature 'onboarding:nudge-stalled'): walks OnboardingSession::where(completed_at NULL).where(abandoned_at NULL).where(last_touched_at <, today-3-days); dispatches OnboardingNudgeMail with the resume URL; updates last_nudge_sent_at on the session (rate-limit: 1 nudge per 24h). Emits onboarding_session_abandoned_count gauge (counted as sessions where last_touched_at < today-14-days). Schedule::command('onboarding:nudge-stalled') daily 09:00 Africa/Nairobi."
+        },
+        {
+            "id": "PROGRESS-RESUME-3",
+            "severity": "LOW",
+            "title": "OnboardingSession.abandoned_at sealed at 30 days; subsequent registration creates a fresh session",
+            "evidence": "A session that's been idle for 30 days has effectively been abandoned. The data lives forever in onboarding_sessions; a stale current_step would confuse the next attempt. Sealing the session lets a future Register.vue submit create a new one cleanly.",
+            "remediation": "NudgeStalledOnboarding extended to also flip abandoned_at = now() on sessions with last_touched_at < today-30-days. OnboardingSession::firstFor(User) creates a new session if no non-abandoned-non-completed row exists. Phase46AbandonmentSealTest covers the 30-day boundary."
+        },
+        {
+            "id": "CI-1",
+            "severity": "HIGH",
+            "title": "Phase46OnboardingCanonicalSurfaceTest consolidated source-grep watchdog",
+            "evidence": "Per-finding tests cover individual surfaces. The integration assertion ensures every Phase-46 invariant holds at once — same role Phase24CiTest, Phase44I18nRtlSurfaceTest, Phase45TenantDepthSurfaceTest play.",
+            "remediation": "tests/Feature/Onboarding/Phase46OnboardingCanonicalSurfaceTest source-grep asserts: config('onboarding.mirrors') has profile_photo_path entry + mirror_exempt has kyc_completed_at entry; MirrorAuditService exists + onboarding:dedupe-audit cron scheduled; onboarding_sessions table + columns; OnboardingFlow + 3 concrete role flows; RegisteredUserController validates 'role' input; onboarding routes carry middleware('verified'); OnboardingResumeService + signed-URL controller + onboarding_resume_links table; onboarding:nudge-stalled cron scheduled. ~14 assertions."
+        },
+        {
+            "id": "CI-2",
+            "severity": "MEDIUM",
+            "title": "docs/runbooks/onboarding.md (new) covers Mirror Registry + wizard flow + role dispatch + resume + nudge",
+            "evidence": "No central operator reference exists for onboarding. Future operators inheriting the wizard need to know which columns are mirrors (and what 'canonical' means for each), how to add a new mirror, how the OnboardingFlow value object dispatches steps, the signed-URL resume contract, and the nudge cron's behaviour.",
+            "remediation": "docs/runbooks/onboarding.md: Mirror Registry section listing every column + canonical source + listener; 'Adding a new mirror' recipe (config entry + saving listener + backfill migration); OnboardingFlow section explaining role dispatch; signed-URL resume section + audit; nudge cron section + alert; troubleshooting table (mirror-drift cron fired → fix recipe; resume URL invalid → likely 7-day expiry; nudge email not received → check OnboardingNudgeMail queue)."
+        },
+        {
+            "id": "CI-3",
+            "severity": "LOW",
+            "title": "docs/runbooks/alert-thresholds.md sev3 + sev4 rows for canonical_mirror_drift_count + onboarding_session_abandoned_count",
+            "evidence": "Both gauges need oncall guidance. canonical_mirror_drift_count > 0 for a pinned mirror means a listener regressed silently — sev3. onboarding_session_abandoned_count signals product-level dropout — sev4, treated as a growth signal not a fire.",
+            "remediation": "alert-thresholds.md under Operational: canonical_mirror_drift_count{mirror} sev3 threshold 0 (pinned) / sev4 threshold 5/24h (loose); on-call action documented (run onboarding:dedupe-audit verbose; identify the regressed listener; ship a backfill + listener fix). onboarding_session_abandoned_count sev4 threshold 20/week (signal for the growth team)."
+        }
+    ]
+}
