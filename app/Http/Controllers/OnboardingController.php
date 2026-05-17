@@ -3,14 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Models\OnboardingProgress;
+use App\Models\OnboardingSession;
+use App\Onboarding\OnboardingFlow;
+use App\Services\Onboarding\OnboardingSessionService;
 use App\Services\OnboardingService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Throwable;
 
 class OnboardingController extends Controller
 {
     public function __construct(
-        protected OnboardingService $onboardingService
+        protected OnboardingService $onboardingService,
+        protected OnboardingSessionService $sessionService,
     ) {}
 
     public function index()
@@ -31,8 +37,12 @@ class OnboardingController extends Controller
     {
         $user = auth()->user();
         $progress = $user->getOrCreateOnboardingProgress();
+        // Phase-47 ROLE-DISPATCH-1: validate step bounds against the user's
+        // per-role OnboardingFlow rather than the legacy hardcoded
+        // OnboardingProgress.total_steps (which is always 8).
+        $flow = OnboardingFlow::forRole($user->role ?? 'landlord');
 
-        if ($step < 1 || $step > $progress->total_steps) {
+        if (! $flow->isValidStep($step)) {
             return redirect()->route('onboarding.index');
         }
 
@@ -45,14 +55,42 @@ class OnboardingController extends Controller
     {
         $user = auth()->user();
         $progress = $user->getOrCreateOnboardingProgress();
+        $session = OnboardingSession::firstFor($user);
+        $flow = OnboardingFlow::forRole($user->role ?? 'landlord');
+
+        if (! $flow->isValidStep($step)) {
+            return redirect()->route('onboarding.index');
+        }
 
         // VALID-3: pass only the validated subset to the service so unknown
         // attacker-injected fields can't ride along into model creation.
-        // Falls back to $request->all() only on steps that have no rules
-        // defined (e.g. step 1 — no fields).
         $validated = $this->validateStep($request, $step);
 
-        $result = $this->onboardingService->processStep($step, $validated, $user, $progress);
+        // Phase-47 LANDLORD-MIGRATE-1: canonical writes are routed through
+        // OnboardingSessionService so a writer that throws does NOT advance
+        // the session nor commit half-canonical state. The session helper
+        // wraps the writer in DB::transaction; on success the wizard cursor
+        // moves forward + step_history captures the transition.
+        $writer = fn () => $this->onboardingService->processStep($step, $validated, $user, $progress);
+        $nextStep = $flow->nextStep($step);
+
+        try {
+            if ($nextStep !== null && $step >= $session->current_step) {
+                // Forward progress: advance the session to next step.
+                $result = true;
+                $this->sessionService->advance($session, $nextStep, function () use ($writer, &$result) {
+                    $result = $writer();
+                    if ($result === false) {
+                        throw new \RuntimeException('writer returned false');
+                    }
+                });
+            } else {
+                // Re-edit a past step OR final step: write but don't advance.
+                $result = $this->sessionService->writeAt($session, $writer);
+            }
+        } catch (Throwable $e) {
+            return back()->withErrors(['error' => 'Failed to save step data.']);
+        }
 
         if ($result === false) {
             return back()->withErrors(['error' => 'Failed to save step data.']);
@@ -60,19 +98,23 @@ class OnboardingController extends Controller
 
         $progress->completeStep($step);
 
-        if ($step >= $progress->total_steps) {
+        if ($step >= $flow->lastStep()) {
             $progress->markComplete();
+            if ($session->isActive()) {
+                $this->sessionService->complete($session);
+            }
 
             return redirect()->route('dashboard');
         }
 
-        return redirect()->route('onboarding.step', ['step' => $step + 1]);
+        return redirect()->route('onboarding.step', ['step' => $nextStep ?? $step + 1]);
     }
 
     public function skip(int $step)
     {
         $user = auth()->user();
         $progress = $user->getOrCreateOnboardingProgress();
+        $flow = OnboardingFlow::forRole($user->role ?? 'landlord');
 
         if (! OnboardingProgress::isStepOptional($step)) {
             return back()->withErrors(['error' => 'This step cannot be skipped.']);
@@ -80,13 +122,15 @@ class OnboardingController extends Controller
 
         $progress->skipStep($step);
 
-        if ($step >= $progress->total_steps) {
+        if ($step >= $flow->lastStep()) {
             $progress->markComplete();
 
             return redirect()->route('dashboard');
         }
 
-        return redirect()->route('onboarding.step', ['step' => $step + 1]);
+        $nextStep = $flow->nextStep($step) ?? $step + 1;
+
+        return redirect()->route('onboarding.step', ['step' => $nextStep]);
     }
 
     public function complete()

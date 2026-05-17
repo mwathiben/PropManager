@@ -43,13 +43,11 @@ class OnboardingService
     public function getStepProps(int $step, User $user, OnboardingProgress $progress): array
     {
         $stepName = self::STEPS[$step] ?? 'unknown';
-        $stepData = $progress->getStepData($step);
 
         $props = [
             'currentStep' => $step,
             'totalSteps' => $progress->total_steps,
             'completedSteps' => $progress->completed_steps ?? [],
-            'stepData' => $stepData,
             'stepName' => $stepName,
             'isOptionalStep' => OnboardingProgress::isStepOptional($step),
         ];
@@ -57,7 +55,7 @@ class OnboardingService
         return match ($step) {
             2 => $this->getProfileStepProps($props, $user),
             3 => $this->getPropertyStepProps($props, $user),
-            4 => $this->getStructureStepProps($props, $stepData, $progress),
+            4 => $this->getStructureStepProps($props, $user),
             5 => $this->getFinancialStepProps($props, $user),
             6 => $this->getTeamStepProps($props, $user),
             7 => $this->getFirstTenantStepProps($props, $user),
@@ -115,13 +113,12 @@ class OnboardingService
         $progress = $user->getOrCreateOnboardingProgress();
 
         DB::transaction(function () use ($data, $user, $progress) {
-            $property = Property::create([
+            Property::create([
                 'landlord_id' => $user->id,
                 'name' => $data['propertyName'],
                 'type' => $data['propertyType'],
             ]);
-
-            $progress->saveStepData(3, ['property_id' => $property->id]);
+            // Phase-47 STEP-DATA-DEPRECATE-2: Property is canonical.
 
             $hasWings = ($data['hasWings'] ?? false) && ! empty($data['wings']);
 
@@ -199,10 +196,14 @@ class OnboardingService
         return $props;
     }
 
-    private function getStructureStepProps(array $props, array $stepData, OnboardingProgress $progress): array
+    private function getStructureStepProps(array $props, User $user): array
     {
-        $propertyId = $stepData['property_id'] ?? $progress->getStepData(3)['property_id'] ?? null;
-        $props['property'] = $propertyId ? Property::find($propertyId) : null;
+        // Phase-47 STEP-DATA-DEPRECATE-2: read the canonical Property instead
+        // of the step_data(3) JSON mirror. Onboarding creates exactly one
+        // Property per landlord in step 3, so latest('id') is unambiguous.
+        $props['property'] = Property::where('landlord_id', $user->id)
+            ->latest('id')
+            ->first();
 
         return $props;
     }
@@ -253,13 +254,17 @@ class OnboardingService
 
     private function processWelcome(OnboardingProgress $progress): bool
     {
-        $progress->saveStepData(1, ['acknowledged' => true]);
-
+        // Phase-47 LANDLORD-MIGRATE-5: no-op writer. The step is "acknowledged"
+        // by virtue of OnboardingSessionService::advance moving the session
+        // forward + OnboardingProgress::completeStep recording it.
         return true;
     }
 
     private function processProfile(array $data, User $user, OnboardingProgress $progress): bool
     {
+        // Phase-47 LANDLORD-MIGRATE-2: canonical writes only. The User row +
+        // LandlordProfile row are the source of truth; getProfileStepProps
+        // reads them directly to repopulate the form on re-entry.
         $user->update([
             'name' => $data['name'],
             'mobile_number' => $data['mobile_number'] ?? null,
@@ -276,17 +281,15 @@ class OnboardingService
             ]
         );
 
-        $progress->saveStepData(2, array_intersect_key($data, array_flip([
-            'name', 'mobile_number', 'company_name', 'business_registration_number',
-            'address', 'city', 'country',
-        ])));
-
         return true;
     }
 
     private function processProperty(array $data, User $user, OnboardingProgress $progress): bool
     {
-        $property = Property::updateOrCreate(
+        // Phase-47 LANDLORD-MIGRATE-3: Property is canonical. processStructure
+        // resolves the Property via Property::latest('id') instead of
+        // step_data(3).
+        Property::updateOrCreate(
             [
                 'landlord_id' => $user->id,
                 'name' => $data['property_name'],
@@ -297,26 +300,18 @@ class OnboardingService
             ]
         );
 
-        $progress->saveStepData(3, [
-            'property_id' => $property->id,
-            'property_name' => $data['property_name'],
-            'property_type' => $data['property_type'],
-            'address' => $data['property_address'] ?? null,
-        ]);
-
         return true;
     }
 
     private function processStructure(array $data, User $user, OnboardingProgress $progress): bool
     {
-        $stepData = $progress->getStepData(3);
-        $propertyId = $stepData['property_id'] ?? null;
+        // Phase-47 STEP-DATA-DEPRECATE-2: read canonical Property instead of
+        // step_data(3)['property_id']. Onboarding writes exactly one Property
+        // per landlord at step 3, so latest('id') is unambiguous.
+        $property = Property::where('landlord_id', $user->id)
+            ->latest('id')
+            ->first();
 
-        if (! $propertyId) {
-            return false;
-        }
-
-        $property = Property::find($propertyId);
         if (! $property) {
             return false;
         }
@@ -332,7 +327,9 @@ class OnboardingService
             }
 
             $hasWings = ($data['has_wings'] ?? false) && ! empty($data['wings']);
-            $baseRent = $progress->getStepData(5)['default_rent'] ?? 10000;
+            // Phase-47 STEP-DATA-DEPRECATE-3: canonical default_rent.
+            $baseRent = PaymentConfiguration::where('landlord_id', $user->id)
+                ->value('default_rent') ?? 10000;
 
             if ($hasWings) {
                 $mainBuilding = Building::create([
@@ -387,19 +384,20 @@ class OnboardingService
                 );
             }
 
-            $progress->saveStepData(4, [
-                'has_wings' => $hasWings,
-                'floors' => $data['floors'] ?? null,
-                'units_per_floor' => $data['units_per_floor'] ?? null,
-                'wings' => $data['wings'] ?? null,
-            ]);
-
+            // Phase-47 LANDLORD-MIGRATE-3: canonical Building + Unit rows are
+            // the source of truth; the step_data(4) mirror is removed.
             return true;
         });
     }
 
     private function processFinancial(array $data, User $user, OnboardingProgress $progress): bool
     {
+        // Phase-47 STEP-DATA-DEPRECATE-3: capture old rent from canonical
+        // PaymentConfiguration BEFORE the updateOrCreate so the Unit bulk
+        // update sees the actual previous value.
+        $oldRent = PaymentConfiguration::where('landlord_id', $user->id)
+            ->value('default_rent') ?? 10000;
+
         PaymentConfiguration::updateOrCreate(
             ['landlord_id' => $user->id],
             [
@@ -415,16 +413,9 @@ class OnboardingService
             ]
         );
 
-        $oldRent = $progress->getStepData(5)['default_rent'] ?? 10000;
         Unit::where('landlord_id', $user->id)
             ->where('target_rent', $oldRent)
             ->update(['target_rent' => $data['default_rent']]);
-
-        $progress->saveStepData(5, array_intersect_key($data, array_flip([
-            'default_rent', 'water_billing_type', 'flat_water_rate', 'water_unit_rate',
-            'accepted_payment_methods', 'bank_name', 'bank_account_name',
-            'bank_account_number', 'mpesa_paybill',
-        ])));
 
         return true;
     }
@@ -449,10 +440,7 @@ class OnboardingService
             }
         }
 
-        $progress->saveStepData(6, [
-            'invitations_sent' => count($invitations),
-        ]);
-
+        // Phase-47 LANDLORD-MIGRATE-5: Invitation rows are canonical.
         return true;
     }
 
@@ -483,12 +471,7 @@ class OnboardingService
             'notification_channels' => ['email'],
         ]);
 
-        $progress->saveStepData(7, [
-            'invitation_sent' => true,
-            'unit_id' => $unit->id,
-            'tenant_email' => $data['tenant_email'],
-        ]);
-
+        // Phase-47 LANDLORD-MIGRATE-5: TenantInvitation rows are canonical.
         return true;
     }
 

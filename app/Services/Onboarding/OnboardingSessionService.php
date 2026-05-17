@@ -63,6 +63,29 @@ class OnboardingSessionService
         });
     }
 
+    /**
+     * Phase-47 LANDLORD-MIGRATE-1: re-edit / current-step write semantics.
+     *
+     * Used when the caller wants the canonical writes wrapped in DB::transaction
+     * but does NOT want to advance current_step — either because the user is
+     * re-editing a past step (session.current_step > targetStep) or because
+     * they are saving the final step (no next step exists).
+     *
+     * Bumps last_touched_at because the user is still active even if the
+     * wizard cursor doesn't move. step_history is NOT appended (only forward
+     * navigation creates audit entries; re-edits don't).
+     */
+    public function writeAt(OnboardingSession $session, Closure $writer): mixed
+    {
+        return DB::transaction(function () use ($session, $writer) {
+            $result = $writer($session);
+            $session->refresh();
+            $session->update(['last_touched_at' => now()]);
+
+            return $result;
+        });
+    }
+
     public function back(OnboardingSession $session, int $targetStep): OnboardingSession
     {
         $flow = OnboardingFlow::forRole($session->role);
