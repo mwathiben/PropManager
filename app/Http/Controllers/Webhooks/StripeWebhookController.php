@@ -72,6 +72,9 @@ class StripeWebhookController extends Controller
             $type === 'charge.dispute.created' => $this->handleChargeDisputeCreated($payload),
             $type === 'account.updated' => $this->handleAccountUpdated($payload),
             $type === 'price.updated' => $this->handlePriceUpdated($payload),
+            $type === 'customer.created' => $this->handleCustomerCreated($payload),
+            $type === 'customer.updated' => $this->handleCustomerUpdated($payload),
+            $type === 'customer.deleted' => $this->handleCustomerDeleted($payload),
             default => null,
         };
 
@@ -302,6 +305,49 @@ class StripeWebhookController extends Controller
             app(\App\Services\Subscriptions\PlanDriftResolver::class)
                 ->resolve($plan, $unitAmount, $priceId);
         }
+    }
+
+    /**
+     * Phase-42 METHODS-2: keep stripe_customers in sync with
+     * Stripe-side mutations (operator created via Dashboard,
+     * tenant deleted PII directly in Stripe, etc.).
+     */
+    private function handleCustomerCreated(array $payload): void
+    {
+        $customerId = (string) ($payload['id'] ?? '');
+        $userId = (int) ($payload['metadata']['user_id'] ?? 0);
+        if ($customerId === '' || $userId === 0) {
+            return;
+        }
+        \App\Models\StripeCustomer::query()->updateOrCreate(
+            ['user_id' => $userId],
+            ['stripe_customer_id' => $customerId],
+        );
+    }
+
+    private function handleCustomerUpdated(array $payload): void
+    {
+        $customerId = (string) ($payload['id'] ?? '');
+        if ($customerId === '') {
+            return;
+        }
+        $defaultPm = $payload['invoice_settings']['default_payment_method'] ?? null;
+        \App\Models\StripeCustomer::query()
+            ->where('stripe_customer_id', $customerId)
+            ->update(['default_payment_method_id' => $defaultPm]);
+    }
+
+    private function handleCustomerDeleted(array $payload): void
+    {
+        $customerId = (string) ($payload['id'] ?? '');
+        if ($customerId === '') {
+            return;
+        }
+        // Soft-delete preserves the audit trail (Phase-13 DPA-3
+        // 7-year retention) while preventing further use.
+        \App\Models\StripeCustomer::query()
+            ->where('stripe_customer_id', $customerId)
+            ->delete();
     }
 
     private function mapStripeStatus(string $stripeStatus): string

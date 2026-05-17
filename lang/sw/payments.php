@@ -28,6 +28,17 @@ return [
         'kes_to_paystack_hint' => 'Malipo ya KES yanaenda Paystack.',
         'usd_to_stripe_hint' => 'Malipo ya USD/EUR/GBP yanaenda Stripe.',
     ],
+    'methods' => [
+        'saved_cards_heading' => 'Njia za malipo zilizohifadhiwa',
+        'add_card_button' => 'Ongeza kadi',
+        'last4_label' => 'Kadi inayoishia kwa :last4',
+        'brand_label' => 'Aina ya kadi',
+        'default_badge' => 'Chaguo-msingi',
+        'remove_card_button' => 'Ondoa kadi',
+        'setup_intent_failed' => 'Imeshindwa kuanzisha usanidi wa kadi — jaribu tena.',
+        'card_attached_flash' => 'Kadi imehifadhiwa.',
+        'card_removed_flash' => 'Kadi imeondolewa.',
+    ],
     'cart' => [
         'heading' => 'Kikapu cha malipo',
         'total_label' => 'Jumla',

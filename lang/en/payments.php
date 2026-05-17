@@ -28,6 +28,17 @@ return [
         'kes_to_paystack_hint' => 'KES payments route to Paystack.',
         'usd_to_stripe_hint' => 'USD/EUR/GBP payments route to Stripe.',
     ],
+    'methods' => [
+        'saved_cards_heading' => 'Saved payment methods',
+        'add_card_button' => 'Add card',
+        'last4_label' => 'Card ending in :last4',
+        'brand_label' => 'Card type',
+        'default_badge' => 'Default',
+        'remove_card_button' => 'Remove card',
+        'setup_intent_failed' => 'Could not initialise card setup — please retry.',
+        'card_attached_flash' => 'Card saved.',
+        'card_removed_flash' => 'Card removed.',
+    ],
     'cart' => [
         'heading' => 'Checkout cart',
         'total_label' => 'Total',
