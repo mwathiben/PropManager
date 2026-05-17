@@ -37,8 +37,11 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
-const PROJECT_ROOT = path.resolve(new URL('.', import.meta.url).pathname, '..');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PROJECT_ROOT = path.resolve(__dirname, '..');
 const SOURCE_ROOT = path.join(PROJECT_ROOT, 'resources');
 
 const SUBSTITUTIONS = [
@@ -118,9 +121,7 @@ async function main() {
 }
 
 // Only run main() when invoked directly. Lets tests import {transform}.
-const entryPath = path.resolve(process.argv[1] ?? '');
-const thisPath = path.resolve(new URL(import.meta.url).pathname);
-if (entryPath === thisPath) {
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
   main().catch((err) => {
     console.error(err);
     process.exit(1);
