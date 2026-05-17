@@ -131,6 +131,16 @@ class Ticket extends Model
         return $this->belongsTo(\App\Models\Vendor::class);
     }
 
+    /**
+     * Phase-49 PARTS-INVENTORY-2: parts consumed resolving this ticket,
+     * captured via the ticket_parts pivot at the moment of recording.
+     */
+    public function parts(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(\App\Models\Part::class, 'ticket_parts')
+            ->withPivot(['qty_used', 'cost_allocated_cents', 'recorded_by', 'recorded_at']);
+    }
+
     public function activities(): HasMany
     {
         return $this->hasMany(TicketActivity::class)->orderBy('created_at');

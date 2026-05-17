@@ -236,5 +236,17 @@ return [
             'paging' => 'email',
             'description' => 'Payment gateway ledger (Paystack or Stripe) drifted from local payments table by more than the threshold count in the last 24h. Investigate via payments:gateway-reconcile.',
         ],
+
+        // Phase-49 PARTS-INVENTORY-3
+        [
+            'key' => 'parts_below_threshold',
+            'severity' => 'sev4',
+            'threshold' => 1,
+            'window' => '24h',
+            'gauge' => 'parts_below_threshold_count',
+            'runbook' => 'docs/runbooks/maintenance.md',
+            'paging' => 'email',
+            'description' => 'One or more parts have qty_available <= reorder_threshold. Operational signal — landlord should reorder before the next ticket needs the part.',
+        ],
     ],
 ];

@@ -247,6 +247,17 @@ Schedule::command('tickets:audit-sla')
     ->onOneServer()
     ->name('phase28-tenant-maint1-sla-audit');
 
+// Phase-49 PARTS-INVENTORY-3: daily parts stock audit. Walks
+// parts.qty_available <= reorder_threshold, emits
+// parts_below_threshold_count{landlord_id} gauge + fires
+// parts_below_threshold sev4 alert. 06:30 sits before
+// tickets:audit-sla (07:00).
+Schedule::command('parts:audit-stock')
+    ->dailyAt('06:30')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase49-parts-inventory3-stock-audit');
+
 // Phase-29 WF-RENT-REMIND-1: tiered rent reminder dispatcher. Runs
 // after invoices:automate (06:00) and before tickets:audit-sla (07:00)
 // so newly-generated invoices land in the same overnight cycle.
