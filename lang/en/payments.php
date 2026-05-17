@@ -28,6 +28,17 @@ return [
         'kes_to_paystack_hint' => 'KES payments route to Paystack.',
         'usd_to_stripe_hint' => 'USD/EUR/GBP payments route to Stripe.',
     ],
+    'cart' => [
+        'heading' => 'Checkout cart',
+        'total_label' => 'Total',
+        'currency_section_heading' => 'Pay in :currency',
+        'confirm_payment_button' => 'Confirm payment',
+        'payment_succeeded_message' => 'Payment succeeded.',
+        'payment_failed_message' => 'Payment failed. Please retry.',
+        'expired_session_message' => 'This checkout session has expired or already completed.',
+        'line_description' => 'Cart session :session — :currency group',
+        'unsupported_currency_pair' => 'No gateway available for currency :currency.',
+    ],
     'plan_sync' => [
         'drift_mode_label' => 'Drift resolution mode',
         'manual_review_option' => 'Manual review',

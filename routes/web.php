@@ -1094,6 +1094,14 @@ Route::middleware(['auth', 'verified', 'role:super_admin'])->prefix('admin')->gr
         ->name('admin.gateways.plan-drift-mode');
 });
 
+// Phase-42 CART-2: cart checkout initialization. Auth-gated +
+// ownership-checked inside the controller because both tenant and
+// landlord may legitimately submit.
+Route::middleware(['auth'])->group(function () {
+    Route::post('/checkout/sessions/{session}/initialize', [\App\Http\Controllers\CartCheckoutController::class, 'initialize'])
+        ->name('checkout.sessions.initialize');
+});
+
 // Stop impersonating (available to anyone being impersonated)
 Route::post('/admin/stop-impersonating', [AdminController::class, 'stopImpersonating'])
     ->middleware('auth')

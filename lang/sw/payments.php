@@ -28,6 +28,17 @@ return [
         'kes_to_paystack_hint' => 'Malipo ya KES yanaenda Paystack.',
         'usd_to_stripe_hint' => 'Malipo ya USD/EUR/GBP yanaenda Stripe.',
     ],
+    'cart' => [
+        'heading' => 'Kikapu cha malipo',
+        'total_label' => 'Jumla',
+        'currency_section_heading' => 'Lipa kwa :currency',
+        'confirm_payment_button' => 'Thibitisha malipo',
+        'payment_succeeded_message' => 'Malipo yamefanikiwa.',
+        'payment_failed_message' => 'Malipo yameshindwa. Jaribu tena.',
+        'expired_session_message' => 'Kipindi hiki cha malipo kimeisha au kimeshakamilika.',
+        'line_description' => 'Kikapu :session — kundi la :currency',
+        'unsupported_currency_pair' => 'Hakuna lango la malipo kwa sarafu :currency.',
+    ],
     'plan_sync' => [
         'drift_mode_label' => 'Hali ya kutatua mteremko',
         'manual_review_option' => 'Ukaguzi wa mwongozo',
