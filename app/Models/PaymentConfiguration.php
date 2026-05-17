@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\Currency;
 use App\Enums\PaymentMethod;
+use App\Enums\StripeConnectAccountType;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -55,6 +56,7 @@ class PaymentConfiguration extends Model
         'stripe_connect_status',
         'stripe_connect_charges_enabled',
         'stripe_connect_payouts_enabled',
+        'stripe_connect_account_type',
         'kra_pin',
         'vat_rate_bps_override',
         'stripe_tax_enabled',
@@ -82,6 +84,7 @@ class PaymentConfiguration extends Model
         'stripe_connect_account_id' => 'encrypted',
         'stripe_connect_charges_enabled' => 'boolean',
         'stripe_connect_payouts_enabled' => 'boolean',
+        'stripe_connect_account_type' => StripeConnectAccountType::class,
         'kra_pin' => 'encrypted',
         'vat_rate_bps_override' => 'integer',
         'stripe_tax_enabled' => 'boolean',

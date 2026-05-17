@@ -134,8 +134,40 @@ class StripeService
             $payload['automatic_tax'] = ['enabled' => true];
         }
 
+        // Phase-42 CONNECT-STANDARD-2: route the PaymentIntent based on
+        // the landlord's Connect account type. Express uses destination
+        // charges (transfer_data.destination); Standard uses direct
+        // charges (on_behalf_of) executed in the landlord's account
+        // context via the Stripe-Account header. Untyped or missing
+        // account_id stays the legacy direct-to-platform behaviour.
+        $useStandardDirectCharge = false;
+        if ($this->config !== null && ! empty($this->config->stripe_connect_account_id)) {
+            $accountId = (string) $this->config->stripe_connect_account_id;
+            $type = $this->config->stripe_connect_account_type instanceof \App\Enums\StripeConnectAccountType
+                ? $this->config->stripe_connect_account_type
+                : \App\Enums\StripeConnectAccountType::Express;
+
+            if ($type === \App\Enums\StripeConnectAccountType::Standard) {
+                $payload['on_behalf_of'] = $accountId;
+                $useStandardDirectCharge = true;
+            } else {
+                $payload['transfer_data'] = ['destination' => $accountId];
+            }
+        }
+
         try {
-            $intent = $this->timedHttpRequest('stripe', '/v1/payment_intents', fn () => $this->client()->paymentIntents->create($payload));
+            $intent = $this->timedHttpRequest('stripe', '/v1/payment_intents', function () use ($payload, $useStandardDirectCharge) {
+                if ($useStandardDirectCharge) {
+                    // Standard accounts charge in the landlord's account
+                    // context — Stripe-Account header is the wire-level
+                    // signal that routes the API call appropriately.
+                    return $this->client()->paymentIntents->create($payload, [
+                        'stripe_account' => $payload['on_behalf_of'],
+                    ]);
+                }
+
+                return $this->client()->paymentIntents->create($payload);
+            });
 
             return [
                 'status' => true,
