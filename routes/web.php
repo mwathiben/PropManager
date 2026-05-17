@@ -191,7 +191,10 @@ Route::middleware('auth')->group(function () {
     });
 
     // 1. Onboarding (Multi-Step Wizard)
-    Route::prefix('onboarding')->name('onboarding.')->group(function () {
+    // Phase-46 ROLE-PATHS-2: 'verified' middleware enforced — landlords
+    // cannot complete the wizard before clicking the email verification
+    // link, matching the dashboard.index gate.
+    Route::prefix('onboarding')->middleware('verified')->name('onboarding.')->group(function () {
         Route::get('/', [OnboardingController::class, 'index'])->name('index');
         Route::get('/step/{step}', [OnboardingController::class, 'step'])->name('step');
         Route::post('/step/{step}', [OnboardingController::class, 'saveStep'])->name('step.save');

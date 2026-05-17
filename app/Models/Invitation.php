@@ -13,6 +13,7 @@ class Invitation extends Model
     protected $fillable = [
         'landlord_id',
         'email',
+        'role',
         'target_user_id',
         'token',
         'property_id',
