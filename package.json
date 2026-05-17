@@ -9,6 +9,8 @@
         "check:imports": "node scripts/check-import-case.mjs",
         "test:a11y": "playwright test",
         "test:pwa": "playwright test --config playwright.pwa.config.ts",
+        "test:rtl": "playwright test --config playwright.rtl.config.ts",
+        "test:rtl:update": "playwright test --config playwright.rtl.config.ts --update-snapshots",
         "test:lhci": "lhci autorun --config=lighthouserc.cjs"
     },
     "devDependencies": {
