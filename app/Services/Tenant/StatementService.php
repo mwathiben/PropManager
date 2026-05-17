@@ -27,6 +27,14 @@ use Illuminate\Support\Collection;
 class StatementService
 {
     /**
+     * Phase-45 STATEMENT-DEPTH-2: optional row-level filters supported
+     * via the $filters parameter. {types: ['charge','payment']} restricts
+     * the chronological event stream; {min_amount, max_amount} clamp on
+     * the absolute amount (charge OR payment whichever is non-zero).
+     * Opening/closing rows always render so the running balance stays
+     * intact even under filtering.
+     *
+     * @param  array{types?: list<string>, min_amount?: float, max_amount?: float}  $filters
      * @return Collection<int, array{
      *     date: string,
      *     description: string,
@@ -37,7 +45,7 @@ class StatementService
      *     kind: 'opening'|'invoice'|'payment'|'closing',
      * }>
      */
-    public function forTenant(User $tenant, CarbonImmutable $from, CarbonImmutable $to): Collection
+    public function forTenant(User $tenant, CarbonImmutable $from, CarbonImmutable $to, array $filters = []): Collection
     {
         $leaseIds = $tenant->leases()->pluck('id');
 
@@ -90,8 +98,32 @@ class StatementService
         $balance = $openingBalance;
         $rows = collect([$this->openingRow($from, $openingBalance)]);
 
+        $allowedKinds = ! empty($filters['types']) ? array_intersect(
+            ['invoice', 'payment'],
+            array_map(static fn (string $t): string => match ($t) {
+                'charge' => 'invoice',
+                default => $t,
+            }, $filters['types']),
+        ) : null;
+        $minAmount = isset($filters['min_amount']) ? (float) $filters['min_amount'] : null;
+        $maxAmount = isset($filters['max_amount']) ? (float) $filters['max_amount'] : null;
+
         foreach ($events as $event) {
             $balance += $event['charge'] - $event['payment'];
+
+            // Running balance must walk EVERY event to stay correct,
+            // but only events matching the filter are emitted.
+            if ($allowedKinds !== null && ! in_array($event['kind'], $allowedKinds, true)) {
+                continue;
+            }
+            $amount = $event['charge'] !== 0.0 ? $event['charge'] : $event['payment'];
+            if ($minAmount !== null && $amount < $minAmount) {
+                continue;
+            }
+            if ($maxAmount !== null && $amount > $maxAmount) {
+                continue;
+            }
+
             $rows->push([
                 'date' => $event['date'],
                 'description' => $event['description'],
@@ -106,6 +138,66 @@ class StatementService
         $rows->push($this->closingRow($to, $balance));
 
         return $rows;
+    }
+
+    /**
+     * Phase-45 STATEMENT-DEPTH-1: monthly subtotals for a multi-period
+     * window. Used by the xlsx export "Monthly Summary" sheet. Returns
+     * one row per calendar month in [$from, $to] with charges, payments,
+     * net (charges - payments), and the running closing balance at month-end.
+     *
+     * @return Collection<int, array{
+     *     month: string,
+     *     charges: float,
+     *     payments: float,
+     *     net: float,
+     *     closing_balance: float,
+     * }>
+     */
+    public function monthlySubtotals(User $tenant, CarbonImmutable $from, CarbonImmutable $to): Collection
+    {
+        $leaseIds = $tenant->leases()->pluck('id');
+        if ($leaseIds->isEmpty()) {
+            return collect();
+        }
+
+        $openingBalance = $this->chargeTotalBefore($leaseIds, $from)
+            - $this->paymentTotalBefore($leaseIds, $from);
+
+        $balance = $openingBalance;
+        $months = collect();
+        $cursor = $from->startOfMonth();
+        $end = $to->startOfMonth();
+
+        while ($cursor->lessThanOrEqualTo($end)) {
+            $monthStart = $cursor->startOfMonth();
+            $monthEnd = $cursor->endOfMonth();
+            $clampedTo = $monthEnd->greaterThan($to) ? $to : $monthEnd;
+
+            $charges = (float) Invoice::whereIn('lease_id', $leaseIds)
+                ->whereNull('voided_at')
+                ->whereBetween('billing_period_start', [$monthStart->toDateString(), $clampedTo->toDateString()])
+                ->sum('total_due');
+
+            $payments = (float) Payment::whereIn('lease_id', $leaseIds)
+                ->where('is_voided', false)
+                ->whereBetween('payment_date', [$monthStart->toDateString(), $clampedTo->toDateString()])
+                ->sum('amount');
+
+            $balance += $charges - $payments;
+
+            $months->push([
+                'month' => $monthStart->format('Y-m'),
+                'charges' => round($charges, 2),
+                'payments' => round($payments, 2),
+                'net' => round($charges - $payments, 2),
+                'closing_balance' => round($balance, 2),
+            ]);
+
+            $cursor = $cursor->addMonth();
+        }
+
+        return $months;
     }
 
     private function chargeTotalBefore(Collection $leaseIds, CarbonImmutable $from): float

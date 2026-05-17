@@ -50,30 +50,45 @@ class XlsxExportService
      */
     public function write(string $title, array $columns, array $rows, string $outputPath): void
     {
+        $this->writeMultiSheet(
+            [['title' => $title, 'columns' => $columns, 'rows' => $rows]],
+            $outputPath,
+        );
+    }
+
+    /**
+     * Phase-45 STATEMENT-DEPTH-1: multi-sheet output for rollup reports.
+     * Each sheet has its own title + columns + rows. Use this when a
+     * report has both a detail view (line items) and a roll-up view
+     * (monthly subtotals) that belong in one workbook.
+     *
+     * @param  list<array{title: string, columns: list<array{label: string, key: string, type: 'string'|'currency'|'integer'|'date'}>, rows: list<array<string, mixed>>}>  $sheets
+     */
+    public function writeMultiSheet(array $sheets, string $outputPath): void
+    {
         $spreadsheet = new Spreadsheet;
-        $sheet = $spreadsheet->getActiveSheet();
 
-        // Truncate sheet title to xlsx limit (31 chars) — exceeding
-        // throws InvalidArgumentException at save time.
-        $sheet->setTitle(mb_substr($title, 0, 31));
+        // PhpSpreadsheet ships one default sheet; reuse it for the
+        // first input sheet and createSheet() for the rest.
+        $count = count($sheets);
+        for ($i = 0; $i < $count; $i++) {
+            $input = $sheets[$i];
+            $sheet = $i === 0
+                ? $spreadsheet->getActiveSheet()
+                : $spreadsheet->createSheet();
+            $sheet->setTitle(mb_substr($input['title'], 0, 31));
 
-        // Empty-columns + empty-rows is a legitimate state (a report
-        // that returned zero rows yields zero inferred columns).
-        // Write a placeholder cell and short-circuit before building
-        // the styling pipeline, which would otherwise produce an
-        // invalid "A1:1" cell range.
-        if ($columns === []) {
-            $sheet->setCellValue('A1', 'No rows.');
-            $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
-            $writer->save($outputPath);
+            if ($input['columns'] === []) {
+                $sheet->setCellValue('A1', 'No rows.');
+                continue;
+            }
 
-            return;
+            $this->writeHeader($sheet, $input['columns']);
+            $this->writeRows($sheet, $input['columns'], $input['rows']);
+            $this->autoSizeColumns($sheet, $input['columns']);
         }
 
-        $this->writeHeader($sheet, $columns);
-        $this->writeRows($sheet, $columns, $rows);
-        $this->autoSizeColumns($sheet, $columns);
-
+        $spreadsheet->setActiveSheetIndex(0);
         $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
         $writer->save($outputPath);
     }
