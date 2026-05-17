@@ -83,16 +83,26 @@ class CaretakerOnboardingService implements OnboardingStepProcessor
 
     private function processNotificationPreferences(array $data, User $user): bool
     {
+        // Phase-48 CARETAKER-NOTIF-PREFS-1: writes per-type columns in
+        // addition to channel toggles. The caretaker-relevant type subset
+        // comes from NotificationPreference::caretakerTypes() so the Vue
+        // form + service stay in sync.
         $landlordId = $user->landlord_id ?? $user->id;
+
+        $writes = [
+            'email_enabled' => $data['email_enabled'] ?? null,
+            'sms_enabled' => $data['sms_enabled'] ?? null,
+            'whatsapp_enabled' => $data['whatsapp_enabled'] ?? null,
+            'push_enabled' => $data['push_enabled'] ?? null,
+        ];
+
+        foreach (NotificationPreference::caretakerTypes() as $typeCol) {
+            $writes[$typeCol] = $data[$typeCol] ?? null;
+        }
 
         NotificationPreference::withoutGlobalScopes()->updateOrCreate(
             ['user_id' => $user->id, 'landlord_id' => $landlordId],
-            array_filter([
-                'email_enabled' => $data['email_enabled'] ?? null,
-                'sms_enabled' => $data['sms_enabled'] ?? null,
-                'whatsapp_enabled' => $data['whatsapp_enabled'] ?? null,
-                'push_enabled' => $data['push_enabled'] ?? null,
-            ], fn ($v) => $v !== null)
+            array_filter($writes, fn ($v) => $v !== null)
         );
 
         return true;

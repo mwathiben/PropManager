@@ -202,4 +202,23 @@ class NotificationPreference extends Model
 
         return app(\App\Services\QuietHoursService::class)->getNextDeliveryTime($config);
     }
+
+    /**
+     * Phase-48 CARETAKER-NOTIF-PREFS-3: the per-type boolean columns
+     * relevant to a caretaker. Used by the wizard step 3 form to render
+     * the right toggle subset (vs. rent-reminder/invoice flags which are
+     * tenant-facing).
+     *
+     * @return list<string>
+     */
+    public static function caretakerTypes(): array
+    {
+        return [
+            'maintenance_notice_enabled',
+            'general_enabled',
+            'caretaker_invitation_enabled',
+            'tenant_invitation_enabled',
+            'lease_expiry_enabled',
+        ];
+    }
 }
