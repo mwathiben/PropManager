@@ -62,7 +62,14 @@ class StripeWebhookController extends Controller
             return response()->json(['status' => 'duplicate'], 200);
         }
 
-        $payload = $event->data->object->toArray();
+        // Stripe SDK normally hydrates $event->data->object as a
+        // \Stripe\StripeObject with ->toArray(); when the request body
+        // sends `data.object` as a literal PHP array (test pings, some
+        // edge events), it stays an array. Either shape is acceptable.
+        $dataObject = $event->data->object ?? null;
+        $payload = is_object($dataObject) && method_exists($dataObject, 'toArray')
+            ? $dataObject->toArray()
+            : (array) ($dataObject ?? []);
 
         match (true) {
             str_starts_with($type, 'customer.subscription.') => $this->handleSubscriptionEvent($type, $payload),
