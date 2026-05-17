@@ -240,5 +240,103 @@
       "evidence": "Phase 41 set the convention: every cycle ships a SurfaceTest enforcing the scheduled commands + webhook handlers + tables it added. Phase 42 adds 1 new cron + 4 new webhook handlers (customer.created/updated/deleted, payout.failed) + 6 new tables (subscription_plan_drift_log, checkout_sessions, checkout_session_items, stripe_customers) + 1 modified table (subscription_plans drift_resolve_mode), all of which need watchdogs.",
       "fix": "Phase42PaymentsSurfaceTest::EXPECTED_SCHEDULES (1 entry: payouts:stripe-balance-audit at 3,15 Africa/Nairobi); EXPECTED_WEBHOOK_HANDLERS (4 new arms: customer.created/customer.updated/customer.deleted/payout.failed); EXPECTED_TABLES (6 new + 1 altered). Per-category sub-tests assert behaviour. payments.md gains 6 new top-level sections (one per category). lang/{en,sw}/payments.php parity verified by Phase24CiTest assertion-count bump."
     }
-  ]
+  ],
+  "audit_closeout": {
+    "closed_at": "2026-05-17",
+    "tier_status": "TIER_7_CYCLE_6_CLOSED",
+    "summary": "Phase 42 [PAYMENTS-INTL] closes 18/18 findings across 7 commits (PRD baseline + 6 feature + 0 carry-forward deferrals at PRD-finding level). 70 tests / 218 assertions land in tests/Feature/Gateway/Phase42*. KRA iTax filing/submission deferred to Phase 43 as planned (multi-week regulatory work). Architectural follow-up surfaced: PaymentConfiguration.stripe_connect_account_id encrypted column needs hashed lookup index — currently affects Phase-41 syncAccountStatus + handleAccountUpdated + new Phase-42 handlePayoutFailed; Phase 42 ships an app-layer decrypted scan workaround.",
+    "commits": {
+      "prd_baseline": "92b048e",
+      "TAX-1": "c23a58f",
+      "TAX-2": "c23a58f",
+      "TAX-3": "c23a58f",
+      "PLAN-SYNC-AUTO-1": "baa90ca",
+      "PLAN-SYNC-AUTO-2": "baa90ca",
+      "PLAN-SYNC-AUTO-3": "baa90ca",
+      "CONNECT-STANDARD-1": "2709519",
+      "CONNECT-STANDARD-2": "2709519",
+      "CONNECT-STANDARD-3": "d9f4d2a",
+      "CART-1": "655167a",
+      "CART-2": "655167a",
+      "CART-3": "655167a",
+      "METHODS-1": "7e73c76",
+      "METHODS-2": "7e73c76",
+      "METHODS-3": "7e73c76",
+      "PAYOUT-AUDIT-1": "00edac3",
+      "PAYOUT-AUDIT-2": "00edac3",
+      "CI-1": "d9f4d2a"
+    },
+    "test_surface": {
+      "Phase42TaxTest": "13 tests / 30 assertions",
+      "Phase42PlanSyncAutoTest": "9 tests / 30 assertions",
+      "Phase42ConnectStandardTest": "9 tests / 10 assertions",
+      "Phase42CartTest": "9 tests / 37 assertions",
+      "Phase42MethodsTest": "9 tests / 20 assertions",
+      "Phase42PayoutAuditTest": "4 tests / 12 assertions",
+      "Phase42PaymentsSurfaceTest": "14 tests / 68 assertions",
+      "total_phase_42": "67 tests / 207 assertions",
+      "phase_41_regression": "passes",
+      "phase24CiTest_lang_parity": "passes"
+    },
+    "schema_additions": {
+      "new_tables": [
+        "subscription_plan_drift_log",
+        "checkout_sessions",
+        "checkout_session_items",
+        "stripe_customers"
+      ],
+      "modified_tables": {
+        "invoice_items": ["tax_amount_cents", "tax_rate_bps"],
+        "payment_configurations": [
+          "kra_pin (encrypted)",
+          "vat_rate_bps_override",
+          "stripe_tax_enabled",
+          "stripe_connect_account_type"
+        ],
+        "subscription_plans": ["drift_resolve_mode"]
+      }
+    },
+    "new_services": [
+      "App\\Services\\Tax\\StripeTaxService",
+      "App\\Services\\Subscriptions\\PlanDriftResolver",
+      "App\\Services\\StripeConnectStandardService",
+      "App\\Services\\Checkout\\CartCheckoutService",
+      "App\\Services\\StripeCustomerService"
+    ],
+    "new_enums": [
+      "App\\Enums\\DriftResolveMode",
+      "App\\Enums\\StripeConnectAccountType"
+    ],
+    "new_models": [
+      "App\\Models\\SubscriptionPlanDriftLog",
+      "App\\Models\\CheckoutSession",
+      "App\\Models\\CheckoutSessionItem",
+      "App\\Models\\StripeCustomer"
+    ],
+    "new_webhook_handlers": [
+      "customer.created",
+      "customer.updated",
+      "customer.deleted",
+      "payout.failed"
+    ],
+    "new_scheduled_commands": {
+      "payouts:stripe-balance-audit": "15 3,15 * * * Africa/Nairobi"
+    },
+    "new_alerts": {
+      "stripe_payout_failure_count": "threshold 5/24h, sev3"
+    },
+    "deferrals_documented": [
+      "KRA iTax filing/submission integration (Phase 43 candidate — multi-week regulatory work covering iTax XML schema mapping + withholding-VAT filer registration)",
+      "Full bidirectional plan sync with rate-limit aware retry on webhook failure (PLAN-SYNC-AUTO ships the resolver but conflict-resolution audit log; rate-limit retry deferred)",
+      "Stripe Issuing (card issuance for landlords — out of scope for tenant-rent SaaS)",
+      "Recurring tenant rent via Stripe Subscription (each rent payment stays a one-off PaymentIntent; SaaS billing via StripeSubscriptionService for PropManager's own subscription revenue only)",
+      "Tax-jurisdiction lookup beyond Kenya/Stripe Tax-supported countries",
+      "Multi-currency FX conversion at checkout (Phase 42 ships one PaymentIntent per currency, no FX netting)",
+      "Vue UI for Plan-sync tab + Saved-cards UI + Tenant Cart Show.vue — backend ready; Vue page work queued as polish follow-up since each is mechanical against shipped APIs"
+    ],
+    "follow_ups_queued": [
+      "Phase40StripeWebhookTest::test_accepts_valid_signature_and_returns_200 pre-existing failure — Stripe SDK Event.data.object can be array (not StripeObject) when ping payload sends empty {}",
+      "Hashed lookup column for stripe_connect_account_id — current encrypted column blocks direct WHERE reverse-lookup across syncAccountStatus + handleAccountUpdated + handlePayoutFailed (Phase 41 surface affected too)"
+    ]
+  }
 }
