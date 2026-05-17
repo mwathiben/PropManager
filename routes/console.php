@@ -293,6 +293,15 @@ Schedule::command('onboarding:dedupe-audit')
     ->onOneServer()
     ->name('phase46-canonical-audit-mirror-drift');
 
+// Phase-46 PROGRESS-RESUME-2/3: nudge stalled onboarding sessions +
+// seal 30-day-abandoned ones. Runs at 09:00 — during business hours
+// so the nudge email lands when the recipient is likely to read it.
+Schedule::command('onboarding:nudge-stalled')
+    ->dailyAt('09:00')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase46-progress-resume-nudge');
+
 // Phase-29 WF-LATE-FEE-1: nightly escalation for chronically overdue
 // invoices. Runs after invoices:mark-overdue (00:05) and
 // invoices:apply-late-fees (00:10) so the freshly-updated overdue

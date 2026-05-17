@@ -210,6 +210,15 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/onboarding/status', [\App\Http\Controllers\Onboarding\OnboardingResumeController::class, 'status'])
         ->name('onboarding.status');
 
+    // Phase-46 PROGRESS-RESUME-1: signed-URL resume entrypoint. Sits inside
+    // the 'auth' group so an unauthenticated hit redirects to login (the
+    // resume controller will pick up where the user left off after they
+    // sign back in). The 'signed' middleware verifies Laravel's URL
+    // signature; OnboardingResumeService::consume() handles replay defence.
+    Route::get('/onboarding/resume/{session}', \App\Http\Controllers\Onboarding\OnboardingResumeRedirectController::class)
+        ->middleware('signed')
+        ->name('onboarding.resume');
+
     // Phase-31 ONB-SAMPLE-2: prospect demo dataset toggle
     Route::middleware('role:landlord')->group(function () {
         Route::post('/onboarding/sample-data/populate', [\App\Http\Controllers\Onboarding\SampleDataController::class, 'populate'])
