@@ -41,14 +41,16 @@ class Phase46MirrorAuditServiceTest extends TestCase
 
     public function test_landlord_profile_photo_drift_is_detected(): void
     {
-        $landlord = User::factory()->create([
-            'role' => 'landlord',
-            'profile_photo_path' => 'old/photo.jpg',
-        ]);
-
+        $landlord = User::factory()->create(['role' => 'landlord']);
         LandlordProfile::create([
             'user_id' => $landlord->id,
-            'profile_photo_path' => 'new/photo.jpg',
+            'profile_photo_path' => 'canonical/photo.jpg',
+        ]);
+        // The Phase 1b saved listener wrote 'canonical/photo.jpg' into
+        // users.profile_photo_path. Now simulate a regression: bypass the
+        // listener with a raw DB write so users drifts away from canonical.
+        DB::table('users')->where('id', $landlord->id)->update([
+            'profile_photo_path' => 'drifted/photo.jpg',
         ]);
 
         $row = app(MirrorAuditService::class)->scanOne([
@@ -110,15 +112,13 @@ class Phase46MirrorAuditServiceTest extends TestCase
 
     public function test_null_vs_value_counts_as_drift(): void
     {
-        $landlord = User::factory()->create([
-            'role' => 'landlord',
-            'profile_photo_path' => null,
-        ]);
-
+        $landlord = User::factory()->create(['role' => 'landlord']);
         LandlordProfile::create([
             'user_id' => $landlord->id,
             'profile_photo_path' => 'set/photo.jpg',
         ]);
+        // Phase 1b listener fired — sync the user back to NULL via raw write.
+        DB::table('users')->where('id', $landlord->id)->update(['profile_photo_path' => null]);
 
         $row = app(MirrorAuditService::class)->scanOne([
             'column' => 'users.profile_photo_path',
