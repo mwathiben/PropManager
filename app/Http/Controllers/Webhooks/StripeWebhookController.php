@@ -365,12 +365,22 @@ class StripeWebhookController extends Controller
         $failureMessage = (string) ($payload['failure_message'] ?? 'unknown');
         $destinationAccountId = (string) ($payload['destination'] ?? '');
 
+        // payment_configurations.stripe_connect_account_id is encrypted
+        // (Phase-41 GATEWAY-CONNECT-2) — a raw WHERE clause can't match.
+        // Scan + decrypt at the app layer; expected fleet size is low
+        // (10-100 Connect accounts) so O(n) is acceptable. A hashed
+        // lookup column is queued as a follow-up.
         $landlordId = 0;
         if ($destinationAccountId !== '') {
-            $config = \App\Models\PaymentConfiguration::query()
-                ->where('stripe_connect_account_id', $destinationAccountId)
-                ->first();
-            $landlordId = (int) ($config?->landlord_id ?? 0);
+            $configs = \App\Models\PaymentConfiguration::query()
+                ->whereNotNull('stripe_connect_account_id')
+                ->get(['id', 'landlord_id', 'stripe_connect_account_id']);
+            foreach ($configs as $cfg) {
+                if ((string) $cfg->stripe_connect_account_id === $destinationAccountId) {
+                    $landlordId = (int) $cfg->landlord_id;
+                    break;
+                }
+            }
         }
 
         app(\App\Services\MetricsService::class)->gauge('stripe_payout_failure_count', 1, [

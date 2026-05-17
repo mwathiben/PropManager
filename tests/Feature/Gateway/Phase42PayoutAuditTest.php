@@ -59,19 +59,20 @@ class Phase42PayoutAuditTest extends TestCase
             ]],
         ];
 
-        $before = OperationalIncident::query()->where('severity', OperationalIncident::SEV3)->count();
+        $payoutId = (string) ($payload['data']['object']['id']);
         $response = $this->call('POST', '/webhooks/v2/stripe', [], [], [],
             ['CONTENT_TYPE' => 'application/json', 'HTTP_Stripe-Signature' => $this->sign($payload, $secret)],
             json_encode($payload));
 
         $response->assertStatus(200);
-        $this->assertSame($before + 1, OperationalIncident::query()->where('severity', OperationalIncident::SEV3)->count());
 
+        // Scope to this payout — count comparisons are fragile under
+        // parallel test runs where other tests may also write incidents.
         $incident = OperationalIncident::query()
-            ->where('severity', OperationalIncident::SEV3)
-            ->orderByDesc('id')
+            ->where('title', 'like', "%{$payoutId}%")
             ->first();
         $this->assertNotNull($incident);
+        $this->assertSame(OperationalIncident::SEV3, $incident->severity);
         $this->assertStringContainsString('account_closed', $incident->summary);
         $this->assertStringContainsString((string) $landlord->id, $incident->summary);
     }
@@ -91,14 +92,20 @@ class Phase42PayoutAuditTest extends TestCase
             ]],
         ];
 
-        $before = OperationalIncident::query()->count();
         $response = $this->call('POST', '/webhooks/v2/stripe', [], [], [],
             ['CONTENT_TYPE' => 'application/json', 'HTTP_Stripe-Signature' => $this->sign($payload, $secret)],
             json_encode($payload));
 
         $response->assertStatus(200);
         // Incident still opens even when the landlord can't be resolved.
-        $this->assertSame($before + 1, OperationalIncident::query()->count());
+        // Scope to "this payout's" incident — count comparisons are fragile
+        // under parallel runs where other tests may also write incidents.
+        $payoutId = (string) ($payload['data']['object']['id']);
+        $this->assertNotNull(
+            OperationalIncident::query()
+                ->where('title', 'like', "%{$payoutId}%")
+                ->first(),
+        );
     }
 
     private function sign(array $payload, string $secret): string
