@@ -101,6 +101,7 @@ return [
     'available_locales' => [
         'en' => 'English',
         'sw' => 'Kiswahili',
+        'ar' => 'العربية',
     ],
 
     /*

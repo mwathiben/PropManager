@@ -1,0 +1,161 @@
+{
+    "common": {
+        "save": "حفظ",
+        "cancel": "إلغاء",
+        "close": "إغلاق",
+        "loading": "جارٍ التحميل...",
+        "language": "اللغة",
+        "email": "البريد الإلكتروني",
+        "password": "كلمة المرور",
+        "confirm_password": "تأكيد كلمة المرور",
+        "name": "الاسم"
+    },
+    "brand": {
+        "home": "PropManager — الرئيسية",
+        "go_to_dashboard": "PropManager — الذهاب إلى لوحة التحكم"
+    },
+    "nav": {
+        "skip_to_main": "تخطي إلى المحتوى الرئيسي",
+        "primary_label": "رئيسي",
+        "mobile_primary_label": "[TODO-ar] Mobile primary",
+        "open_menu": "[TODO-ar] Open navigation menu",
+        "close_menu": "[TODO-ar] Close navigation menu",
+        "navigation_menu": "قائمة التنقل",
+        "dashboard": "لوحة التحكم",
+        "landlords": "الملاك",
+        "all_users": "جميع المستخدمين",
+        "platform_billing": "[TODO-ar] Platform Billing",
+        "system_settings": "[TODO-ar] System Settings",
+        "properties_section": "العقارات",
+        "buildings": "المباني",
+        "add_property": "إضافة عقار",
+        "tenants": "المستأجرون",
+        "finances": "الشؤون المالية",
+        "maintenance": "الصيانة",
+        "water": "المياه",
+        "archive": "الأرشيف",
+        "operations": "العمليات",
+        "settings": "الإعدادات",
+        "my_tickets": "تذاكري",
+        "water_readings": "قراءات المياه",
+        "my_finances": "شؤوني المالية",
+        "my_lease": "عقد الإيجار الخاص بي",
+        "notifications": "الإشعارات",
+        "view_buildings": "عرض المباني"
+    },
+    "menu": {
+        "account": "الحساب",
+        "support": "الدعم",
+        "billing": "الفواتير",
+        "settings": "الإعدادات",
+        "profile": "ملفي الشخصي",
+        "get_help": "الحصول على المساعدة",
+        "payment_settings": "إعدادات الدفع",
+        "invoice_settings": "إعدادات الفاتورة",
+        "invoice_templates": "قوالب الفاتورة",
+        "subscription": "الاشتراك",
+        "log_out": "تسجيل الخروج"
+    },
+    "role": {
+        "system_admin": "مدير النظام",
+        "landlord": "المالك",
+        "caretaker": "الحارس",
+        "tenant": "المستأجر",
+        "user": "المستخدم"
+    },
+    "banner": {
+        "viewing_as": "[TODO-ar] Viewing as:",
+        "read_only_article_18": "[TODO-ar] — read-only (Article 18)",
+        "stop_impersonating": "[TODO-ar] Stop Impersonating",
+        "restricted_title": "[TODO-ar] Your account is currently restricted (Article 18).",
+        "restricted_body": "[TODO-ar] You have read-only access. Write actions (edits, payments, deletions) will be denied.",
+        "manage_privacy": "[TODO-ar] Manage your privacy settings"
+    },
+    "auth": {
+        "login": {
+            "title": "[TODO-ar] Log in",
+            "remember_me": "[TODO-ar] Remember me",
+            "forgot_password": "[TODO-ar] Forgot your password?",
+            "submit": "[TODO-ar] Log in"
+        },
+        "forgot": {
+            "title": "[TODO-ar] Forgot Password",
+            "instructions": "[TODO-ar] Forgot your password? No problem. Just let us know your email address and we will email you a password reset link that will allow you to choose a new one.",
+            "submit": "[TODO-ar] Email Password Reset Link"
+        },
+        "register": {
+            "title": "[TODO-ar] Register",
+            "role_label": "[TODO-ar] I am a...",
+            "role_landlord": "[TODO-ar] Property Owner \/ Landlord",
+            "role_caretaker": "[TODO-ar] Property Manager \/ Caretaker",
+            "role_tenant": "[TODO-ar] Tenant",
+            "role_landlord_lead": "[TODO-ar] Owner:",
+            "role_landlord_body": "[TODO-ar] You own properties and want to track rent, manage tenants, and view financial reports.",
+            "role_caretaker_lead": "[TODO-ar] Manager:",
+            "role_caretaker_body": "[TODO-ar] You work for a landlord. You input meter readings and handle maintenance, but have restricted access to financial data.",
+            "role_tenant_lead": "[TODO-ar] Resident:",
+            "role_tenant_body": "[TODO-ar] You live in a unit. You want to view your rent status, pay bills, and report issues.",
+            "already_registered": "[TODO-ar] Already registered?",
+            "submit": "[TODO-ar] Register"
+        },
+        "verify": {
+            "title": "[TODO-ar] Email Verification",
+            "instructions": "[TODO-ar] Thanks for signing up! Before getting started, could you verify your email address by clicking on the link we just emailed to you? If you didn't receive the email, we will gladly send you another.",
+            "fresh_sent": "[TODO-ar] A new verification link has been sent to the email address you provided during registration.",
+            "resend": "[TODO-ar] Resend Verification Email",
+            "log_out": "[TODO-ar] Log Out"
+        },
+        "reset": {
+            "title": "[TODO-ar] Reset Password",
+            "submit": "[TODO-ar] Reset Password"
+        },
+        "confirm": {
+            "title": "[TODO-ar] Confirm Password",
+            "instructions": "[TODO-ar] This is a secure area of the application. Please confirm your password before continuing.",
+            "submit": "[TODO-ar] Confirm"
+        },
+        "tfa": {
+            "title": "[TODO-ar] Two-Factor Authentication",
+            "instructions_code": "[TODO-ar] Enter the 6-digit code from your authenticator app.",
+            "instructions_recovery": "[TODO-ar] Enter one of your emergency recovery codes.",
+            "code_label": "[TODO-ar] Authentication Code",
+            "recovery_label": "[TODO-ar] Recovery Code",
+            "verifying": "[TODO-ar] Verifying...",
+            "verify": "[TODO-ar] Verify",
+            "use_recovery": "[TODO-ar] Use a recovery code instead",
+            "use_code": "[TODO-ar] Use authenticator app code",
+            "help_code": "[TODO-ar] Open your authenticator app (Google Authenticator, Authy, etc.) and enter the 6-digit code.",
+            "help_recovery": "[TODO-ar] Recovery codes were provided when you enabled two-factor authentication. Each code can only be used once."
+        }
+    },
+    "empty": {
+        "default_title": "[TODO-ar] No data found"
+    },
+    "format": {
+        "relative": {
+            "yesterday": "[TODO-ar] Yesterday",
+            "today": "[TODO-ar] Today",
+            "tomorrow": "[TODO-ar] Tomorrow",
+            "just_now": "[TODO-ar] Just now",
+            "days_ago": "[TODO-ar] {count} day ago | {count} days ago",
+            "in_days": "[TODO-ar] In {count} day | In {count} days",
+            "minutes_ago": "[TODO-ar] {count} minute ago | {count} minutes ago",
+            "hours_ago": "[TODO-ar] {count} hour ago | {count} hours ago"
+        }
+    },
+    "offline": {
+        "indicator": {
+            "label": "[TODO-ar] Offline",
+            "aria": "[TODO-ar] Offline indicator",
+            "tooltip": "[TODO-ar] You are offline. Recently viewed pages still work from cache."
+        },
+        "queue": {
+            "title": "[TODO-ar] Queued offline",
+            "aria": "[TODO-ar] Queued offline operations",
+            "badge": "[TODO-ar] {count} queued offline | {count} queued offline",
+            "collapse": "[TODO-ar] Collapse queue",
+            "queued_secs_ago": "[TODO-ar] queued {seconds}s ago",
+            "footer": "[TODO-ar] These will send automatically when you reconnect."
+        }
+    }
+}
