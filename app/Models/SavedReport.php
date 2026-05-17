@@ -25,6 +25,8 @@ class SavedReport extends Model
         'name',
         'description',
         'config',
+        'parent_report_id',
+        'drill_field',
     ];
 
     protected $casts = [
@@ -34,5 +36,20 @@ class SavedReport extends Model
     public function landlord(): BelongsTo
     {
         return $this->belongsTo(User::class, 'landlord_id');
+    }
+
+    /**
+     * Phase-50 DRILL-DOWN-1: hierarchical parent (the report this child
+     * was drilled FROM) and reciprocal children (reports drilled from this
+     * one). Self-referential FK keyed on parent_report_id.
+     */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_report_id');
+    }
+
+    public function children(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(self::class, 'parent_report_id');
     }
 }

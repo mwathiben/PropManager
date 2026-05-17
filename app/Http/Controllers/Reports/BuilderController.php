@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Reports;
 
 use App\Http\Controllers\Controller;
 use App\Models\SavedReport;
+use App\Services\Reports\DrillDownService;
 use App\Services\Reports\ReportBuilderService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,7 +28,10 @@ use Inertia\Response;
  */
 class BuilderController extends Controller
 {
-    public function __construct(private ReportBuilderService $builder) {}
+    public function __construct(
+        private ReportBuilderService $builder,
+        private DrillDownService $drillService,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -92,6 +96,46 @@ class BuilderController extends Controller
 
         return redirect()->route('reports.builder.index')
             ->with('success', "Deleted: {$report->name}");
+    }
+
+    /**
+     * Phase-50 DRILL-DOWN-3: synthesise a filtered child report from the
+     * parent's drill_field + the segment value supplied in ?segment=.
+     * Returns the same Builder.vue page but with synthesised child
+     * config + parent linkage so the operator sees the filtered subset.
+     */
+    public function drill(Request $request, SavedReport $report): Response
+    {
+        $this->authorize('view', $report);
+
+        $segment = (string) $request->query('segment', '');
+        if ($segment === '') {
+            abort(400, 'segment query parameter required');
+        }
+
+        $result = $this->drillService->resolveChild($report, $segment);
+
+        return Inertia::render('Reports/Builder', [
+            'savedReports' => SavedReport::query()
+                ->orderByDesc('updated_at')
+                ->get(['id', 'name', 'description', 'config', 'updated_at']),
+            'allowedTables' => ReportBuilderService::ALLOWED_TABLES,
+            'allowedFields' => ReportBuilderService::ALLOWED_FIELDS,
+            'operatorMatrix' => [
+                'numeric' => ReportBuilderService::NUMERIC_OPERATORS,
+                'date' => ReportBuilderService::DATE_OPERATORS,
+                'string' => ReportBuilderService::STRING_OPERATORS,
+                'boolean' => ReportBuilderService::BOOLEAN_OPERATORS,
+            ],
+            'drillContext' => [
+                'parent_id' => $report->id,
+                'parent_name' => $report->name,
+                'drill_field' => $report->drill_field,
+                'segment_value' => $segment,
+                'config' => $result['config'],
+                'rows' => $result['rows'],
+            ],
+        ]);
     }
 
     private function landlordIdFor(Request $request): int

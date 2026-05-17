@@ -663,6 +663,9 @@ Route::middleware('auth')->group(function () {
         Route::post('/run', [\App\Http\Controllers\Reports\BuilderController::class, 'run'])->name('run');
         Route::post('/', [\App\Http\Controllers\Reports\BuilderController::class, 'store'])->name('store');
         Route::delete('/{report}', [\App\Http\Controllers\Reports\BuilderController::class, 'destroy'])->name('destroy');
+        // Phase-50 DRILL-DOWN-3: navigate from a parent report row to the
+        // filtered child synthesised by DrillDownService.
+        Route::get('/{report}/drill', [\App\Http\Controllers\Reports\BuilderController::class, 'drill'])->name('drill');
     });
 
     // Phase-27 BI-DELIVERY-2/3: scheduled report delivery self-serve.
