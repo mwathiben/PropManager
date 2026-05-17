@@ -274,6 +274,15 @@ Schedule::command('lease-renewal:expire-stale-counters')
     ->onOneServer()
     ->name('phase45-lease-counter3-expire-stale');
 
+// Phase-45 PAY-PLAN-MOD-3: emit payment_plan_modification_pending_24h
+// gauges so oncall sees ghosted modification requests. Sev4 alert opens
+// at 7-day threshold via docs/runbooks/alert-thresholds.md.
+Schedule::command('payment-plans:audit-stale-modifications')
+    ->dailyAt('06:15')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase45-payplan-mod3-audit-stale');
+
 // Phase-29 WF-LATE-FEE-1: nightly escalation for chronically overdue
 // invoices. Runs after invoices:mark-overdue (00:05) and
 // invoices:apply-late-fees (00:10) so the freshly-updated overdue

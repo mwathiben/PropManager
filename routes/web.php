@@ -1175,6 +1175,10 @@ Route::middleware(['auth', 'role:tenant', 'payment.verified', 'kyc.complete'])->
     Route::post('/payment-plans/request', [\App\Http\Controllers\Tenant\PaymentPlanRequestController::class, 'store'])
         ->middleware('throttle:sensitive')
         ->name('tenant.payment-plans.request');
+    // Phase-45 PAY-PLAN-MOD-1: tenant proposes new installment schedule after approval.
+    Route::post('/payment-plans/{plan}/modifications', [\App\Http\Controllers\Tenant\PaymentPlanModificationController::class, 'store'])
+        ->middleware('throttle:sensitive')
+        ->name('tenant.payment-plans.modifications.store');
 
     // Phase-28 TENANT-PAY-3: tenant-initiated deposit refund request.
     Route::post('/deposit-refunds', [\App\Http\Controllers\Tenant\DepositRefundController::class, 'store'])
@@ -1221,6 +1225,11 @@ Route::middleware(['auth', 'role:landlord'])->group(function () {
         ->name('finance.payment-plans.approve');
     Route::post('/payment-plans/{plan}/reject', [\App\Http\Controllers\Finance\PaymentPlanApprovalController::class, 'reject'])
         ->name('finance.payment-plans.reject');
+    // Phase-45 PAY-PLAN-MOD-2: landlord-side approve/reject of a tenant modification request.
+    Route::post('/payment-plan-modifications/{modification}/approve', [\App\Http\Controllers\PaymentPlanModificationReviewController::class, 'approve'])
+        ->name('finance.payment-plan-modifications.approve');
+    Route::post('/payment-plan-modifications/{modification}/reject', [\App\Http\Controllers\PaymentPlanModificationReviewController::class, 'reject'])
+        ->name('finance.payment-plan-modifications.reject');
 
     // Phase-29 WF-PAY-APPROVE-2: landlord processes tenant-requested
     // deposit refunds (closes Phase-28 deferred UI).

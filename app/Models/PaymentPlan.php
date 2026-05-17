@@ -25,6 +25,8 @@ class PaymentPlan extends Model
 
     public const STATUS_REJECTED = 'rejected';
 
+    public const STATUS_MODIFIED_PENDING = 'modified_pending';
+
     public const STATUS_COMPLETED = 'completed';
 
     public const STATUS_DEFAULTED = 'defaulted';
@@ -33,6 +35,7 @@ class PaymentPlan extends Model
         self::STATUS_REQUESTED,
         self::STATUS_APPROVED,
         self::STATUS_REJECTED,
+        self::STATUS_MODIFIED_PENDING,
         self::STATUS_COMPLETED,
         self::STATUS_DEFAULTED,
     ];
@@ -71,6 +74,15 @@ class PaymentPlan extends Model
 
     public function isActive(): bool
     {
-        return in_array($this->status, [self::STATUS_REQUESTED, self::STATUS_APPROVED], true);
+        return in_array(
+            $this->status,
+            [self::STATUS_REQUESTED, self::STATUS_APPROVED, self::STATUS_MODIFIED_PENDING],
+            true,
+        );
+    }
+
+    public function modifications(): HasMany
+    {
+        return $this->hasMany(PaymentPlanModification::class)->orderByDesc('created_at');
     }
 }

@@ -42,6 +42,11 @@ return [
         'counter_rejected' => 'Umekataa pendekezo la mpangaji. Kuongezewa kumefungwa.',
         'counter_re_proposed' => 'Umependekeza upya na masharti mapya. Mpangaji atataarifiwa.',
     ],
+    'payment_plan_mod' => [
+        'proposed' => 'Ombi la marekebisho limewasilishwa. Inasubiri ukaguzi wa mwenye nyumba.',
+        'approved' => 'Marekebisho yamekubaliwa. Ratiba mpya ya malipo iko tayari.',
+        'rejected' => 'Marekebisho yamekataliwa. Ratiba ya awali bado iko tayari.',
+    ],
     'payment_plan' => [
         'approved' => 'Mpango wa malipo umekubaliwa. Mpangaji amejulishwa.',
         'rejected' => 'Mpango wa malipo umekataliwa. Mpangaji amejulishwa.',

@@ -42,6 +42,11 @@ This is a DRAFT pending landlord review.',
         'counter_rejected' => '[TODO-ar] You rejected the tenant counter-offer. The renewal is now closed.',
         'counter_re_proposed' => '[TODO-ar] You re-proposed the renewal with new terms. The tenant will be notified.',
     ],
+    'payment_plan_mod' => [
+        'proposed' => '[TODO-ar] Modification request submitted. Awaiting landlord review.',
+        'approved' => '[TODO-ar] Modification approved. New installment schedule is in effect.',
+        'rejected' => '[TODO-ar] Modification rejected. Original installment schedule remains in effect.',
+    ],
     'payment_plan' => [
         'approved' => '[TODO-ar] Payment plan approved. The tenant has been notified.',
         'rejected' => '[TODO-ar] Payment plan rejected. The tenant has been notified.',

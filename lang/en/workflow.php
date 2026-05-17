@@ -41,6 +41,11 @@ return [
         'counter_rejected' => 'You rejected the tenant counter-offer. The renewal is now closed.',
         'counter_re_proposed' => 'You re-proposed the renewal with new terms. The tenant will be notified.',
     ],
+    'payment_plan_mod' => [
+        'proposed' => 'Modification request submitted. Awaiting landlord review.',
+        'approved' => 'Modification approved. New installment schedule is in effect.',
+        'rejected' => 'Modification rejected. Original installment schedule remains in effect.',
+    ],
     'payment_plan' => [
         'approved' => 'Payment plan approved. The tenant has been notified.',
         'rejected' => 'Payment plan rejected. The tenant has been notified.',
