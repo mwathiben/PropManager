@@ -353,12 +353,23 @@ class OnboardingController extends Controller
             ],
             2 => [
                 'acknowledged' => 'nullable|boolean',
+                // Phase-48 CARETAKER-ASSIGNMENT-UX-3: explicit accept/decline.
+                'decline' => 'nullable|array',
+                'decline.*' => 'integer',
+                'decline_reason' => 'nullable|array',
+                'decline_reason.*' => 'nullable|string|max:255',
             ],
             3 => [
                 'email_enabled' => 'nullable|boolean',
                 'sms_enabled' => 'nullable|boolean',
                 'whatsapp_enabled' => 'nullable|boolean',
                 'push_enabled' => 'nullable|boolean',
+                // Phase-48 CARETAKER-NOTIF-PREFS-2: per-type granularity.
+                'maintenance_notice_enabled' => 'nullable|boolean',
+                'general_enabled' => 'nullable|boolean',
+                'caretaker_invitation_enabled' => 'nullable|boolean',
+                'tenant_invitation_enabled' => 'nullable|boolean',
+                'lease_expiry_enabled' => 'nullable|boolean',
             ],
             default => [],
         };

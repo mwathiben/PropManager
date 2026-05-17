@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Services\Onboarding;
 
 use App\Models\Building;
+use App\Models\CaretakerAssignment;
 use App\Models\NotificationPreference;
 use App\Models\OnboardingProgress;
 use App\Models\User;
+use App\Services\Caretaker\CaretakerAssignmentService;
 
 /**
  * Phase-47 ROLE-DISPATCH-3: caretaker onboarding step processor.
@@ -24,6 +26,11 @@ use App\Models\User;
  */
 class CaretakerOnboardingService implements OnboardingStepProcessor
 {
+    public function __construct(
+        protected CaretakerAssignmentService $assignmentService,
+    ) {
+    }
+
     public function processStep(int $step, array $data, User $user, OnboardingProgress $progress): bool
     {
         return match ($step) {
@@ -46,16 +53,29 @@ class CaretakerOnboardingService implements OnboardingStepProcessor
 
     private function processBuildingAssignmentAck(array $data, User $user): bool
     {
-        // Caretaker confirms the buildings their landlord assigned. The
-        // canonical state is buildings.caretaker_id (set landlord-side by
-        // the invitation accept flow); this step just records that the
-        // caretaker has seen the assignment.
-        $assignedCount = Building::where('caretaker_id', $user->id)->count();
+        // Phase-48 CARETAKER-ASSIGNMENT-UX-3: walk pending assignments,
+        // flip to accepted/declined based on form input. Acceptance is
+        // the default — only explicitly-declined ids hit decline().
+        // If no pending rows exist, the step is a no-op (advance).
+        $pending = CaretakerAssignment::query()
+            ->where('caretaker_id', $user->id)
+            ->pending()
+            ->get();
 
-        if ($assignedCount === 0) {
-            // No buildings assigned yet — the caretaker can still progress,
-            // their landlord will assign buildings post-onboarding.
+        if ($pending->isEmpty()) {
             return true;
+        }
+
+        $declineIds = collect($data['decline'] ?? [])->map(fn ($v) => (int) $v)->all();
+        $reasons = $data['decline_reason'] ?? [];
+
+        foreach ($pending as $assignment) {
+            if (in_array($assignment->building_id, $declineIds, true)) {
+                $reason = $reasons[$assignment->building_id] ?? null;
+                $this->assignmentService->decline($assignment, $reason);
+            } else {
+                $this->assignmentService->accept($assignment);
+            }
         }
 
         return true;
