@@ -265,6 +265,15 @@ Schedule::command('leases:scan-renewals')
     ->onOneServer()
     ->name('phase29-wf-lease-renew1-scan');
 
+// Phase-45 LEASE-COUNTER-3: expire counter-offers older than 14 days.
+// Runs at 06:00 — before tickets:audit-sla (07:00) so any expiry
+// notification email is already in the queue when the day's batch fires.
+Schedule::command('lease-renewal:expire-stale-counters')
+    ->dailyAt('06:00')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase45-lease-counter3-expire-stale');
+
 // Phase-29 WF-LATE-FEE-1: nightly escalation for chronically overdue
 // invoices. Runs after invoices:mark-overdue (00:05) and
 // invoices:apply-late-fees (00:10) so the freshly-updated overdue

@@ -37,6 +37,10 @@ return [
         'confirmed' => 'Kuongezewa kumethibitishwa. Tarehe ya mwisho na kodi zimesasishwa.',
         'tenant_accepted' => 'Umekubali masharti ya kuongezewa. Inasubiri uthibitisho wa mwenye nyumba.',
         'tenant_rejected' => 'Umekataa masharti ya kuongezewa. Mwenye nyumba atataarifiwa.',
+        'tenant_countered' => 'Pendekezo lako jipya limetumwa kwa mwenye nyumba kwa ukaguzi.',
+        'counter_accepted' => 'Umekubali pendekezo la mpangaji. Kuongezewa sasa kiko katika hali ya kukubaliwa.',
+        'counter_rejected' => 'Umekataa pendekezo la mpangaji. Kuongezewa kumefungwa.',
+        'counter_re_proposed' => 'Umependekeza upya na masharti mapya. Mpangaji atataarifiwa.',
     ],
     'payment_plan' => [
         'approved' => 'Mpango wa malipo umekubaliwa. Mpangaji amejulishwa.',

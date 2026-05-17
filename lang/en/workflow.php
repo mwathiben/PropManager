@@ -36,6 +36,10 @@ return [
         'confirmed' => 'Renewal confirmed. Lease end date and rent updated.',
         'tenant_accepted' => 'You accepted the proposed renewal. Awaiting landlord confirmation.',
         'tenant_rejected' => 'You rejected the proposed renewal. The landlord will be notified.',
+        'tenant_countered' => 'Your counter-offer has been sent to your landlord for review.',
+        'counter_accepted' => 'You accepted the tenant counter-offer. The renewal is now in accepted status.',
+        'counter_rejected' => 'You rejected the tenant counter-offer. The renewal is now closed.',
+        'counter_re_proposed' => 'You re-proposed the renewal with new terms. The tenant will be notified.',
     ],
     'payment_plan' => [
         'approved' => 'Payment plan approved. The tenant has been notified.',

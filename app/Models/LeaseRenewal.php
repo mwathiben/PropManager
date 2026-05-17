@@ -20,6 +20,8 @@ class LeaseRenewal extends Model
 
     public const STATUS_PROPOSED = 'proposed';
 
+    public const STATUS_COUNTER_PROPOSED = 'counter_proposed';
+
     public const STATUS_ACCEPTED = 'accepted';
 
     public const STATUS_REJECTED = 'rejected';
@@ -28,7 +30,14 @@ class LeaseRenewal extends Model
 
     public const STATUS_EXPIRED = 'expired';
 
-    public const OPEN_STATUSES = [self::STATUS_PROPOSED, self::STATUS_ACCEPTED];
+    public const OPEN_STATUSES = [
+        self::STATUS_PROPOSED,
+        self::STATUS_COUNTER_PROPOSED,
+        self::STATUS_ACCEPTED,
+    ];
+
+    /** Phase-45 LEASE-COUNTER-3: counter-offers older than this expire. */
+    public const COUNTER_EXPIRY_DAYS = 14;
 
     protected $fillable = [
         'landlord_id',
@@ -38,6 +47,10 @@ class LeaseRenewal extends Model
         'status',
         'notes',
         'rejection_reason',
+        'counter_rent_amount_cents',
+        'counter_end_date',
+        'counter_message',
+        'counter_submitted_at',
         'proposed_at',
         'responded_at',
         'confirmed_at',
@@ -46,6 +59,9 @@ class LeaseRenewal extends Model
     protected $casts = [
         'proposed_end_date' => 'date',
         'proposed_rent_amount_cents' => 'integer',
+        'counter_rent_amount_cents' => 'integer',
+        'counter_end_date' => 'date',
+        'counter_submitted_at' => 'datetime',
         'proposed_at' => 'datetime',
         'responded_at' => 'datetime',
         'confirmed_at' => 'datetime',
@@ -59,5 +75,10 @@ class LeaseRenewal extends Model
     public function isOpen(): bool
     {
         return in_array($this->status, self::OPEN_STATUSES, true);
+    }
+
+    public function history()
+    {
+        return $this->hasMany(LeaseRenewalCounterHistory::class)->orderBy('created_at');
     }
 }

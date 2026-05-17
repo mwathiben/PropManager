@@ -1189,6 +1189,23 @@ Route::middleware(['auth', 'role:tenant', 'payment.verified', 'kyc.complete'])->
     Route::post('/renewals/{renewal}/reject', [\App\Http\Controllers\Tenant\RenewalResponseController::class, 'reject'])
         ->middleware('throttle:sensitive')
         ->name('tenant.renewals.reject');
+    // Phase-45 LEASE-COUNTER-1: tenant submits a counter-offer.
+    Route::post('/renewals/{renewal}/counter', [\App\Http\Controllers\Tenant\RenewalResponseController::class, 'counter'])
+        ->middleware('throttle:sensitive')
+        ->name('tenant.renewals.counter');
+});
+
+// Phase-45 LEASE-COUNTER-2: landlord-side review of a tenant counter-offer.
+Route::middleware(['auth', 'verified', 'role:landlord,caretaker'])->group(function () {
+    Route::post('/landlords/renewals/{renewal}/counter/accept', [\App\Http\Controllers\LeaseRenewalCounterReviewController::class, 'accept'])
+        ->middleware('throttle:sensitive')
+        ->name('landlords.renewals.counter.accept');
+    Route::post('/landlords/renewals/{renewal}/counter/reject', [\App\Http\Controllers\LeaseRenewalCounterReviewController::class, 'reject'])
+        ->middleware('throttle:sensitive')
+        ->name('landlords.renewals.counter.reject');
+    Route::post('/landlords/renewals/{renewal}/counter/re-propose', [\App\Http\Controllers\LeaseRenewalCounterReviewController::class, 'rePropose'])
+        ->middleware('throttle:sensitive')
+        ->name('landlords.renewals.counter.re_propose');
 });
 
 // Phase-29 WF-LEASE-RENEW-2: landlord-side renewal initiate + confirm.

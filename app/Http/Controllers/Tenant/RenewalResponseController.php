@@ -6,8 +6,10 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
 use App\Models\LeaseRenewal;
+use App\Models\LeaseRenewalCounterHistory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 
 /**
@@ -39,14 +41,65 @@ class RenewalResponseController extends Controller
 
         $this->guard($request, $renewal);
 
-        $renewal->update([
-            'status' => LeaseRenewal::STATUS_REJECTED,
-            'responded_at' => now(),
-            'rejection_reason' => $data['rejection_reason'] ?? null,
-        ]);
+        DB::transaction(function () use ($renewal, $request, $data): void {
+            $renewal->update([
+                'status' => LeaseRenewal::STATUS_REJECTED,
+                'responded_at' => now(),
+                'rejection_reason' => $data['rejection_reason'] ?? null,
+            ]);
+
+            LeaseRenewalCounterHistory::create([
+                'lease_renewal_id' => $renewal->id,
+                'actor_user_id' => $request->user()->id,
+                'action' => LeaseRenewalCounterHistory::ACTION_REJECTED,
+                'rent_amount_cents' => $renewal->proposed_rent_amount_cents,
+                'end_date' => $renewal->proposed_end_date,
+                'message' => $data['rejection_reason'] ?? null,
+            ]);
+        });
 
         return Redirect::route('tenant.finances.index')
             ->with('success', __('workflow.lease_renewal.tenant_rejected'));
+    }
+
+    /**
+     * Phase-45 LEASE-COUNTER-1: tenant submits a counter-offer with
+     * alternative rent + end_date + optional message. The renewal
+     * transitions proposed → counter_proposed; the landlord-side
+     * controller owns the next decision.
+     */
+    public function counter(Request $request, LeaseRenewal $renewal): RedirectResponse
+    {
+        $data = $request->validate([
+            'counter_rent_amount_cents' => ['required', 'integer', 'min:1'],
+            'counter_end_date' => ['required', 'date', 'after:today'],
+            'counter_message' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $this->guard($request, $renewal);
+
+        DB::transaction(function () use ($renewal, $request, $data): void {
+            $renewal->update([
+                'status' => LeaseRenewal::STATUS_COUNTER_PROPOSED,
+                'counter_rent_amount_cents' => $data['counter_rent_amount_cents'],
+                'counter_end_date' => $data['counter_end_date'],
+                'counter_message' => $data['counter_message'] ?? null,
+                'counter_submitted_at' => now(),
+                'responded_at' => now(),
+            ]);
+
+            LeaseRenewalCounterHistory::create([
+                'lease_renewal_id' => $renewal->id,
+                'actor_user_id' => $request->user()->id,
+                'action' => LeaseRenewalCounterHistory::ACTION_COUNTERED,
+                'rent_amount_cents' => $data['counter_rent_amount_cents'],
+                'end_date' => $data['counter_end_date'],
+                'message' => $data['counter_message'] ?? null,
+            ]);
+        });
+
+        return Redirect::route('tenant.finances.index')
+            ->with('success', __('workflow.lease_renewal.tenant_countered'));
     }
 
     private function guard(Request $request, LeaseRenewal $renewal): void
