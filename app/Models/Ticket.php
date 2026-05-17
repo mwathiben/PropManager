@@ -141,6 +141,26 @@ class Ticket extends Model
             ->withPivot(['qty_used', 'cost_allocated_cents', 'recorded_by', 'recorded_at']);
     }
 
+    /**
+     * Phase-49 MAINTENANCE-COSTS-1: per-ticket cost rows (parts auto-seeded
+     * by TicketResolutionService; vendor/labor/other captured via the
+     * TicketCostService write path).
+     */
+    public function costs(): HasMany
+    {
+        return $this->hasMany(\App\Models\TicketCost::class);
+    }
+
+    /**
+     * Phase-49 MAINTENANCE-COSTS-2: total maintenance cost in cents
+     * across all categories. Reads from ticket_costs (parts-category
+     * row is kept in sync with ticket_parts pivot by TicketResolutionService).
+     */
+    public function totalMaintenanceCost(): int
+    {
+        return (int) $this->costs()->sum('amount_cents');
+    }
+
     public function activities(): HasMany
     {
         return $this->hasMany(TicketActivity::class)->orderBy('created_at');

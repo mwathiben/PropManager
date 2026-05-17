@@ -258,6 +258,16 @@ Schedule::command('parts:audit-stock')
     ->onOneServer()
     ->name('phase49-parts-inventory3-stock-audit');
 
+// Phase-49 MAINTENANCE-COSTS-3: weekly per-landlord maintenance
+// spend rollup (last 30 days). Visibility-only gauge for ops
+// dashboards. Sundays at 05:00 sits in the existing Phase-33
+// Sunday cost-cluster (storage:cost-audit at 05:00).
+Schedule::command('maintenance:cost-rollup')
+    ->weeklyOn(0, '05:00')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase49-maintenance-costs3-rollup');
+
 // Phase-29 WF-RENT-REMIND-1: tiered rent reminder dispatcher. Runs
 // after invoices:automate (06:00) and before tickets:audit-sla (07:00)
 // so newly-generated invoices land in the same overnight cycle.
