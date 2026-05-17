@@ -650,3 +650,13 @@ Schedule::command('stripe:plan-sync')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase41-gateway-plan-sync');
+
+// Phase-42 PAYOUT-AUDIT-1: twice-daily poll for Stripe Connect
+// payout failures. 03:15 + 15:15 Africa/Nairobi — covers a Stripe
+// payout lifecycle in under 12h with completeness in case the
+// payout.failed webhook is dropped.
+Schedule::command('payouts:stripe-balance-audit')
+    ->twiceDailyAt(3, 15, 15)
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase42-payout-audit');

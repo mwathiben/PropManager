@@ -28,6 +28,12 @@ return [
         'kes_to_paystack_hint' => 'Malipo ya KES yanaenda Paystack.',
         'usd_to_stripe_hint' => 'Malipo ya USD/EUR/GBP yanaenda Stripe.',
     ],
+    'payout' => [
+        'balance_audit_heading' => 'Afya ya malipo ya Stripe',
+        'payout_failure_alert' => 'Malipo ya Stripe yameshindwa — :reason',
+        'balance_threshold_label' => 'Kizingiti cha kushindwa (saa 24)',
+        'incident_summary_template' => 'Malipo :count yameshindwa katika masaa 24 yaliyopita kwa mwenye nyumba :landlord_id.',
+    ],
     'methods' => [
         'saved_cards_heading' => 'Njia za malipo zilizohifadhiwa',
         'add_card_button' => 'Ongeza kadi',

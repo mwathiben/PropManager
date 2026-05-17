@@ -21,6 +21,7 @@ When tuning, edit here first + record the rationale; then change the env var. Th
 | Webhook signature failures from one IP | 10 | `DETECTION_WEBHOOK_SIGNATURE_THRESHOLD` | 1m | Replay attack or misconfigured upstream integration. Phase-13 BREACH-2/5. | Add IP to deny-list; investigate intent |
 | Unresolved webhook dead-letter rows | 50 | `DEAD_LETTER_ALERT_THRESHOLD` | (count) | Payment reconciliation backlog. Phase-12 RETAIN-7/8. | Process DLQ rows; investigate root cause |
 | Payment-config change | 1 | (no threshold — always logs) | per-event | OBS-6. | Verify actor is authorised |
+| Stripe Connect payout failures | 5 | `stripe_payout_failure_count` gauge from `payouts:stripe-balance-audit` + `payout.failed` webhook | 24h | Landlord payout delivery has stalled (closed bank account, identity-verification expired, Connect status drift). Phase-42 PAYOUT-AUDIT-1/2. | Open Stripe Dashboard → Payouts; verify landlord's bank account; run `StripeConnectService::syncAccountStatus`; check stripe_connect_status column |
 
 ## Compliance / breach
 

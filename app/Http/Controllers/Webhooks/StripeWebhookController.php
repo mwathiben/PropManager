@@ -75,6 +75,7 @@ class StripeWebhookController extends Controller
             $type === 'customer.created' => $this->handleCustomerCreated($payload),
             $type === 'customer.updated' => $this->handleCustomerUpdated($payload),
             $type === 'customer.deleted' => $this->handleCustomerDeleted($payload),
+            $type === 'payout.failed' => $this->handlePayoutFailed($payload),
             default => null,
         };
 
@@ -348,6 +349,49 @@ class StripeWebhookController extends Controller
         \App\Models\StripeCustomer::query()
             ->where('stripe_customer_id', $customerId)
             ->delete();
+    }
+
+    /**
+     * Phase-42 PAYOUT-AUDIT-2: real-time signal when a Stripe Connect
+     * payout fails. Increments stripe_payout_failure_count gauge
+     * immediately + opens a sev3 OperationalIncident so on-call can
+     * investigate the landlord's bank account / Connect status. The
+     * twice-daily cron (PAYOUT-AUDIT-1) catches anything this webhook
+     * drops.
+     */
+    private function handlePayoutFailed(array $payload): void
+    {
+        $payoutId = (string) ($payload['id'] ?? '');
+        $failureMessage = (string) ($payload['failure_message'] ?? 'unknown');
+        $destinationAccountId = (string) ($payload['destination'] ?? '');
+
+        $landlordId = 0;
+        if ($destinationAccountId !== '') {
+            $config = \App\Models\PaymentConfiguration::query()
+                ->where('stripe_connect_account_id', $destinationAccountId)
+                ->first();
+            $landlordId = (int) ($config?->landlord_id ?? 0);
+        }
+
+        app(\App\Services\MetricsService::class)->gauge('stripe_payout_failure_count', 1, [
+            'landlord_id' => (string) $landlordId,
+            'source' => 'webhook',
+        ]);
+
+        \App\Models\OperationalIncident::create([
+            'title' => sprintf('Stripe payout failed — payout_id=%s', $payoutId),
+            'severity' => \App\Models\OperationalIncident::SEV3,
+            'status' => \App\Models\OperationalIncident::STATUS_OPEN,
+            'opened_at' => \Illuminate\Support\Carbon::now(),
+            'affected_services' => ['stripe', 'payouts'],
+            'summary' => sprintf(
+                'Stripe payout.failed webhook: payout %s on Connect account %s failed (landlord %d). failure_message: %s',
+                $payoutId,
+                $destinationAccountId,
+                $landlordId,
+                $failureMessage,
+            ),
+        ]);
     }
 
     private function mapStripeStatus(string $stripeStatus): string

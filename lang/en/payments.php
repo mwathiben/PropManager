@@ -28,6 +28,12 @@ return [
         'kes_to_paystack_hint' => 'KES payments route to Paystack.',
         'usd_to_stripe_hint' => 'USD/EUR/GBP payments route to Stripe.',
     ],
+    'payout' => [
+        'balance_audit_heading' => 'Stripe payout health',
+        'payout_failure_alert' => 'Stripe payout failed — :reason',
+        'balance_threshold_label' => 'Failure threshold (24h)',
+        'incident_summary_template' => ':count payouts failed in the last 24 hours for landlord :landlord_id.',
+    ],
     'methods' => [
         'saved_cards_heading' => 'Saved payment methods',
         'add_card_button' => 'Add card',
