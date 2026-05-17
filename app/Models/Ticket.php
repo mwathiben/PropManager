@@ -63,6 +63,7 @@ class Ticket extends Model
         'sla_due_at',
         'first_response_at',
         'resolution_due_at',
+        'vendor_id',
     ];
 
     protected $casts = [
@@ -118,6 +119,16 @@ class Ticket extends Model
     public function assignee(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    /**
+     * Phase-49 VENDOR-MARKETPLACE-1: external contractor doing the work.
+     * Not mutually exclusive with assignee — caretaker can oversee while
+     * vendor executes.
+     */
+    public function vendor(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Vendor::class);
     }
 
     public function activities(): HasMany

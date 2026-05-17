@@ -774,6 +774,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/tickets/{ticket}', [TicketController::class, 'show'])->name('tickets.show');
     Route::put('/tickets/{ticket}', [TicketController::class, 'update'])->name('tickets.update');
     Route::post('/tickets/{ticket}/assign', [TicketController::class, 'assign'])->name('tickets.assign');
+    Route::post('/tickets/{ticket}/assign-vendor', [\App\Http\Controllers\TicketVendorAssignmentController::class, 'store'])
+        ->middleware('role:landlord')
+        ->name('tickets.assign-vendor');
     Route::post('/tickets/{ticket}/comment', [TicketController::class, 'addComment'])->name('tickets.comment');
     Route::post('/tickets/{ticket}/resolve', [TicketController::class, 'resolve'])->name('tickets.resolve');
     Route::post('/tickets/{ticket}/close', [TicketController::class, 'close'])->name('tickets.close');
