@@ -62,6 +62,7 @@ class Ticket extends Model
         'closed_at',
         'sla_due_at',
         'first_response_at',
+        'resolution_due_at',
     ];
 
     protected $casts = [
@@ -70,6 +71,7 @@ class Ticket extends Model
         'closed_at' => 'datetime',
         'sla_due_at' => 'datetime',
         'first_response_at' => 'datetime',
+        'resolution_due_at' => 'datetime',
     ];
 
     /**
@@ -82,6 +84,20 @@ class Ticket extends Model
         'high' => 86400,
         'medium' => 259200,
         'low' => 604800,
+    ];
+
+    /**
+     * Phase-49 TICKETS-SLA-DEEP-1: resolution SLA window per priority.
+     * urgent=24h, high=7d, medium=14d, low=30d — longer than response
+     * windows because resolution often needs parts/vendors. booted()
+     * creating sets resolution_due_at; tickets:audit-sla detects breach
+     * separately from first-response breach.
+     */
+    public const RESOLUTION_SLA_SECONDS = [
+        'urgent' => 86400,
+        'high' => 604800,
+        'medium' => 1209600,
+        'low' => 2592000,
     ];
 
     public function building(): BelongsTo
@@ -132,12 +148,18 @@ class Ticket extends Model
     protected static function booted(): void
     {
         static::creating(function (self $ticket) {
-            if ($ticket->sla_due_at !== null) {
-                return;
-            }
-            $seconds = self::SLA_SECONDS[$ticket->priority] ?? self::SLA_SECONDS['medium'];
             $base = $ticket->created_at ?? now();
-            $ticket->sla_due_at = $base->copy()->addSeconds($seconds);
+
+            if ($ticket->sla_due_at === null) {
+                $seconds = self::SLA_SECONDS[$ticket->priority] ?? self::SLA_SECONDS['medium'];
+                $ticket->sla_due_at = $base->copy()->addSeconds($seconds);
+            }
+
+            // Phase-49 TICKETS-SLA-DEEP-1: also stamp resolution_due_at.
+            if ($ticket->resolution_due_at === null) {
+                $resolutionSeconds = self::RESOLUTION_SLA_SECONDS[$ticket->priority] ?? self::RESOLUTION_SLA_SECONDS['medium'];
+                $ticket->resolution_due_at = $base->copy()->addSeconds($resolutionSeconds);
+            }
         });
     }
 
@@ -149,6 +171,20 @@ class Ticket extends Model
         return $query->whereNotNull('sla_due_at')
             ->where('sla_due_at', '<', now())
             ->whereNull('first_response_at');
+    }
+
+    /**
+     * Phase-49 TICKETS-SLA-DEEP-2: resolution-stage breach. A ticket
+     * that's past resolution_due_at AND not yet resolved.
+     *
+     * @param  Builder<Ticket>  $query
+     */
+    public function scopeBreachedResolutionSla(Builder $query): Builder
+    {
+        return $query->whereNotNull('resolution_due_at')
+            ->where('resolution_due_at', '<', now())
+            ->whereNull('resolved_at')
+            ->whereNotIn('status', ['resolved', 'closed', 'cancelled']);
     }
 
     /**
