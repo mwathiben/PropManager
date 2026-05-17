@@ -171,10 +171,72 @@ Emits `onboarding_session_abandoned_count` gauge (sealed in the last 7 days; gro
 | Tenant edits profile but landlord sees stale data | New `users.*` mirror without a listener | Add to `config('onboarding.mirrors')` + listener + backfill |
 | Landlord signup fails "role is invalid" | Form submitted an unexpected role value | Verify Register.vue role dropdown only offers landlord/caretaker/tenant |
 | Resume link returns 403 | Replay — link already consumed | Re-issue a fresh URL via the cron (next 24h tick) |
-| Nudge email missing | Phase 47 mail dispatch not yet shipped | `[onboarding:nudge-stalled] resume URL` line is logged with session_id; copy + send manually if needed |
+| Nudge email queued but not delivered | Queue worker stopped | Check `php artisan queue:failed`; restart worker; retry via `php artisan queue:retry all` |
+
+---
+
+# Phase-47 WIZARD-MIGRATE extensions (2026-05-17)
+
+Phase 47 finishes the consumer migration Phase 46 laid the groundwork for. The
+result: a single transactional write path, no JSON-blob duplication, role-aware
+dispatch, and real nudge emails.
+
+## OnboardingSessionService is now the only wizard write path
+
+`OnboardingController::saveStep` routes every step write through
+`OnboardingSessionService::advance($session, $nextStep, $writer)` (forward
+progress) or `::writeAt($session, $writer)` (re-edit of a past step / final
+step). Either way the writer runs inside a `DB::transaction` — a thrown writer
+does not advance the session AND does not commit half-canonical state.
+
+A new tiny interface `App\Services\Onboarding\OnboardingStepProcessor` formalises
+the writer contract; `OnboardingService` (landlord — 8 steps),
+`TenantOnboardingService` (3 steps), and `CaretakerOnboardingService` (3 steps)
+all implement it. The controller resolves the right implementation from the
+authenticated user's role.
+
+## step_data is dead — remove on or after 2026-08-17
+
+`OnboardingProgress.step_data` (JSON column) is the Phase 47 deprecation
+target. `OnboardingService` no longer writes it; the 3 historical read callsites
+(processStructure step 3 `property_id`, processStructure step 5 `default_rent`,
+processFinancial step 5 `default_rent`) now read canonical rows
+(`Property::latest('id')`, `PaymentConfiguration::value('default_rent')`).
+
+`config('onboarding.mirror_exempt')` lists the column with `remove_at` of
+**2026-08-17** (matching the kyc_completed_at retirement window). When the
+column drops, also remove `saveStepData`/`getStepData` from
+`OnboardingProgress` model.
+
+## Nudge cron emails resume URLs via `OnboardingResumeMailable`
+
+`onboarding:nudge-stalled` now dispatches `Mail::to($user->email)->queue(new
+OnboardingResumeMailable($url, $session))`. The Mailable is
+`ShouldQueue + afterCommit` so transaction rollbacks don't fire orphan emails.
+`onboarding_nudge_mail_sent_count` gauge gives ops visibility (sample value, not
+sev-paging).
+
+Failure modes:
+- **Queued but not delivered** → `php artisan queue:failed` + retry.
+- **No queue worker** → cron writes the row to `last_nudge_sent_at` regardless,
+  so the user is rate-limited at 24h. Fix the worker, then `queue:retry all`.
+- **VAPID push** is a separate Phase-26 surface — the nudge cron only does
+  email, not push.
+
+## Role-aware wizard dispatch
+
+`Pages/Onboarding/Index.vue` reads `auth.user.role` and dispatches:
+- `tenant` → `TenantSteps.vue` (3 steps: profile, KYC ack, payment-method ack)
+- `caretaker` → `CaretakerSteps.vue` (3 steps: profile, building-assignment ack,
+  notification preferences)
+- (default) → existing landlord 8-step branches
+
+The tenant + caretaker scaffolds are intentionally minimal — Phase 48+ deepens
+the UX, KYC integration, and per-building assignment ergonomics.
 
 ## Cross-references
 
 - `docs/runbooks/alert-thresholds.md` — sev3/sev4 rows for `canonical_mirror_drift_count` + `onboarding_session_abandoned_count`
 - `docs/runbooks/tenant.md` — Phase 45 [TENANT-DEPTH] including EMERGENCY-CONTACT-SMS-3 (the specific case Phase 46 generalises)
 - `phase-46-audit-prd.json` — full PRD + audit_closeout
+- `phase-47-audit-prd.json` — full PRD + audit_closeout
