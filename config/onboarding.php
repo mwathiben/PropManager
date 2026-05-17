@@ -70,6 +70,12 @@ return [
             'remove_at' => '2026-08-17',
             'reason' => 'Write-only ghost column — User::hasCompletedKyc() reads dynamically from kyc_requirements + tenant_kyc_submissions; the column is set but never read.',
         ],
+        [
+            'column' => 'onboarding_progress.step_data',
+            'deprecated_at' => '2026-05-17',
+            'remove_at' => '2026-08-17',
+            'reason' => 'Phase-47 WIZARD-MIGRATE: canonical models (LandlordProfile, Property, PaymentConfiguration, Invitation, TenantInvitation) hold the truth. OnboardingSession.step_history captures wizard navigation. step_data is wizard-only mirror state that no read path needs after Phase 47.',
+        ],
     ],
 
     /*
