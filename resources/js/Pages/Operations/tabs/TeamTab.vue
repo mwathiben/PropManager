@@ -144,7 +144,7 @@ const getStatusColor = (status) => {
                 @click="showInviteModal = true"
                 class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium"
             >
-                <UserPlusIcon class="w-5 h-5 mr-1" />
+                <UserPlusIcon class="w-5 h-5 me-1" />
                 Invite Caretaker
             </button>
         </div>
@@ -323,7 +323,7 @@ const getStatusColor = (status) => {
             <div
                 v-if="toast.show"
                 :class="[
-                    'fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 z-50',
+                    'fixed bottom-4 end-4 px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 z-50',
                     toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
                 ]"
             >

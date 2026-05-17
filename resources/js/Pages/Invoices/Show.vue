@@ -248,7 +248,7 @@ const reissueInvoice = () => {
                                 @click="previewInvoice"
                                 class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                             >
-                                <EyeIcon class="w-5 h-5 mr-2" />
+                                <EyeIcon class="w-5 h-5 me-2" />
                                 Preview PDF
                             </button>
 
@@ -262,7 +262,7 @@ const reissueInvoice = () => {
                                         : 'border-gray-300 text-gray-700 hover:bg-gray-50'
                                 ]"
                             >
-                                <ArrowDownTrayIcon class="w-5 h-5 mr-2" />
+                                <ArrowDownTrayIcon class="w-5 h-5 me-2" />
                                 {{ pdfGenerating ? 'Generating...' : 'Download PDF' }}
                             </button>
 
@@ -271,7 +271,7 @@ const reissueInvoice = () => {
                                 @click="updateStatus('sent')"
                                 class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                             >
-                                <EnvelopeIcon class="w-5 h-5 mr-2" />
+                                <EnvelopeIcon class="w-5 h-5 me-2" />
                                 Mark as Sent
                             </button>
 
@@ -280,7 +280,7 @@ const reissueInvoice = () => {
                                 @click="sendReminder"
                                 class="inline-flex items-center px-4 py-2 border border-blue-300 text-blue-700 rounded-md hover:bg-blue-50"
                             >
-                                <EnvelopeIcon class="w-5 h-5 mr-2" />
+                                <EnvelopeIcon class="w-5 h-5 me-2" />
                                 Send Reminder
                             </button>
 
@@ -289,7 +289,7 @@ const reissueInvoice = () => {
                                 @click="showPaymentModal = true"
                                 class="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
                             >
-                                <CreditCardIcon class="w-5 h-5 mr-2" />
+                                <CreditCardIcon class="w-5 h-5 me-2" />
                                 Record Payment
                             </button>
 
@@ -298,7 +298,7 @@ const reissueInvoice = () => {
                                 @click="showVoidModal = true"
                                 class="inline-flex items-center px-4 py-2 border border-red-300 text-red-700 rounded-md hover:bg-red-50"
                             >
-                                <XCircleIcon class="w-5 h-5 mr-2" />
+                                <XCircleIcon class="w-5 h-5 me-2" />
                                 Void Invoice
                             </button>
 
@@ -307,7 +307,7 @@ const reissueInvoice = () => {
                                 @click="reissueInvoice"
                                 class="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700"
                             >
-                                <ArrowPathIcon class="w-5 h-5 mr-2" />
+                                <ArrowPathIcon class="w-5 h-5 me-2" />
                                 Reissue Invoice
                             </button>
                         </div>

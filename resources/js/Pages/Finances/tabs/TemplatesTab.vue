@@ -116,18 +116,18 @@ const setDefaultReceiptTemplate = (templateId: number) => {
                         class="h-24 relative"
                         :style="{ background: `linear-gradient(135deg, ${template.primary_color} 0%, ${template.secondary_color} 100%)` }"
                     >
-                        <div class="absolute top-3 left-3">
+                        <div class="absolute top-3 start-3">
                             <span class="px-2 py-1 text-xs font-medium rounded bg-white/90 text-gray-700">
                                 {{ getDesignLabel(template.design) }}
                             </span>
                         </div>
-                        <div v-if="template.is_default" class="absolute top-3 right-3">
+                        <div v-if="template.is_default" class="absolute top-3 end-3">
                             <span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded bg-amber-100 text-amber-700">
                                 <StarIconSolid class="w-3 h-3" />
                                 Default
                             </span>
                         </div>
-                        <div class="absolute bottom-3 right-3">
+                        <div class="absolute bottom-3 end-3">
                             <DocumentTextIcon class="w-12 h-12 text-white/30" />
                         </div>
                     </div>
@@ -200,18 +200,18 @@ const setDefaultReceiptTemplate = (templateId: number) => {
                         class="h-24 relative"
                         :style="{ background: `linear-gradient(135deg, ${template.primary_color} 0%, ${template.secondary_color} 100%)` }"
                     >
-                        <div class="absolute top-3 left-3">
+                        <div class="absolute top-3 start-3">
                             <span class="px-2 py-1 text-xs font-medium rounded bg-white/90 text-gray-700">
                                 {{ getDesignLabel(template.design) }}
                             </span>
                         </div>
-                        <div v-if="template.is_default" class="absolute top-3 right-3">
+                        <div v-if="template.is_default" class="absolute top-3 end-3">
                             <span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded bg-amber-100 text-amber-700">
                                 <StarIconSolid class="w-3 h-3" />
                                 Default
                             </span>
                         </div>
-                        <div class="absolute bottom-3 right-3">
+                        <div class="absolute bottom-3 end-3">
                             <ReceiptPercentIcon class="w-12 h-12 text-white/30" />
                         </div>
                     </div>

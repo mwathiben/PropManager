@@ -95,7 +95,7 @@ const calculatePreview = async () => {
                     <div class="bg-white rounded-lg shadow p-6">
                         <div class="flex items-center">
                             <CurrencyDollarIcon class="w-8 h-8 text-green-600" />
-                            <div class="ml-4">
+                            <div class="ms-4">
                                 <p class="text-sm text-gray-500">This Month Revenue</p>
                                 <p class="text-xl font-bold text-gray-900">{{ formatCurrency(monthlyAnalytics.totals.platform_fees) }}</p>
                             </div>
@@ -104,7 +104,7 @@ const calculatePreview = async () => {
                     <div class="bg-white rounded-lg shadow p-6">
                         <div class="flex items-center">
                             <ChartBarIcon class="w-8 h-8 text-blue-600" />
-                            <div class="ml-4">
+                            <div class="ms-4">
                                 <p class="text-sm text-gray-500">Transactions</p>
                                 <p class="text-xl font-bold text-gray-900">{{ monthlyAnalytics.totals.transaction_count }}</p>
                             </div>
@@ -113,7 +113,7 @@ const calculatePreview = async () => {
                     <div class="bg-white rounded-lg shadow p-6">
                         <div class="flex items-center">
                             <CalculatorIcon class="w-8 h-8 text-purple-600" />
-                            <div class="ml-4">
+                            <div class="ms-4">
                                 <p class="text-sm text-gray-500">Avg Fee %</p>
                                 <p class="text-xl font-bold text-gray-900">{{ monthlyAnalytics.totals.average_fee_percentage }}%</p>
                             </div>
@@ -122,7 +122,7 @@ const calculatePreview = async () => {
                     <div class="bg-white rounded-lg shadow p-6">
                         <div class="flex items-center">
                             <CurrencyDollarIcon class="w-8 h-8 text-gray-600" />
-                            <div class="ml-4">
+                            <div class="ms-4">
                                 <p class="text-sm text-gray-500">Total Processed</p>
                                 <p class="text-xl font-bold text-gray-900">{{ formatCurrency(monthlyAnalytics.totals.gross_amount) }}</p>
                             </div>
@@ -143,7 +143,7 @@ const calculatePreview = async () => {
                                         : 'border-transparent text-gray-500 hover:text-gray-700'
                                 ]"
                             >
-                                <Cog6ToothIcon class="w-5 h-5 inline mr-2" />
+                                <Cog6ToothIcon class="w-5 h-5 inline me-2" />
                                 Settings
                             </button>
                             <button
@@ -155,7 +155,7 @@ const calculatePreview = async () => {
                                         : 'border-transparent text-gray-500 hover:text-gray-700'
                                 ]"
                             >
-                                <ClockIcon class="w-5 h-5 inline mr-2" />
+                                <ClockIcon class="w-5 h-5 inline me-2" />
                                 Change History
                             </button>
                         </nav>
@@ -351,7 +351,7 @@ const calculatePreview = async () => {
                                             Reason: {{ change.reason }}
                                         </p>
                                     </div>
-                                    <div class="text-right">
+                                    <div class="text-end">
                                         <p class="text-sm text-gray-500">{{ change.changed_by }}</p>
                                         <p class="text-xs text-gray-400">{{ change.effective_date }}</p>
                                     </div>

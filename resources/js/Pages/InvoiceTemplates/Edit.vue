@@ -145,7 +145,7 @@ const designStyles = computed(() => {
             classic: 'border-2 border-gray-300 rounded-none shadow-md',
             modern: 'rounded-2xl shadow-2xl border-0',
             minimal: 'shadow-sm border border-gray-100 rounded-lg',
-            professional: 'rounded-none shadow-xl border-l-4 border-l-slate-800 border border-slate-300',
+            professional: 'rounded-none shadow-xl border-s-4 border-s-slate-800 border border-slate-300',
         }[design] || 'rounded-lg shadow-lg',
 
         header: {
@@ -173,7 +173,7 @@ const designStyles = computed(() => {
             classic: 'bg-gray-100 border-y-2 border-gray-200',
             modern: 'bg-gradient-to-r from-gray-50 to-white',
             minimal: 'bg-white border-b border-gray-100',
-            professional: 'bg-slate-50 border-l-4 border-l-slate-800',
+            professional: 'bg-slate-50 border-s-4 border-s-slate-800',
         }[design] || 'bg-gray-50',
 
         billToTextColor: {
@@ -222,7 +222,7 @@ const designStyles = computed(() => {
             classic: 'bg-yellow-100 border-y-2 border-yellow-200',
             modern: 'bg-yellow-50 border-t border-yellow-100 rounded-lg mx-4',
             minimal: 'bg-yellow-50 border-t border-yellow-100',
-            professional: 'bg-slate-50 border-l-4 border-l-amber-600',
+            professional: 'bg-slate-50 border-s-4 border-s-amber-600',
         }[design] || 'bg-yellow-50',
 
         lateWarningText: {
@@ -236,7 +236,7 @@ const designStyles = computed(() => {
             classic: 'bg-gray-100 border-t-2 border-gray-200',
             modern: 'bg-gradient-to-r from-gray-50 to-white border-t border-gray-100',
             minimal: 'bg-white border-t border-gray-100',
-            professional: 'bg-slate-50 border-l-2 border-l-amber-600',
+            professional: 'bg-slate-50 border-s-2 border-s-amber-600',
         }[design] || 'bg-gray-50 border-t',
 
         bankDetailsTextColor: {
@@ -502,7 +502,7 @@ const designStyles = computed(() => {
                                                     <p v-if="settings?.business_phone" :class="['text-sm', designStyles.headerSubTextColor]">{{ settings.business_phone }}</p>
                                                     <p v-if="previewState.show_tax_number && settings?.tax_number" :class="['text-sm', designStyles.headerSubTextColor]">Tax: {{ settings.tax_number }}</p>
                                                 </div>
-                                                <div class="text-right">
+                                                <div class="text-end">
                                                     <h2
                                                         :class="previewState.design === 'professional' ? 'text-2xl font-bold tracking-wide' : 'text-2xl font-bold'"
                                                         :style="{ color: previewState.primary_color }"
@@ -543,20 +543,20 @@ const designStyles = computed(() => {
                                             <table class="w-full text-sm">
                                                 <thead>
                                                     <tr :class="designStyles.tableHeader">
-                                                        <th :class="['text-left py-2 font-medium', designStyles.tableHeaderTextColor]">Description</th>
-                                                        <th :class="['text-right py-2 font-medium', designStyles.tableHeaderTextColor]">Amount</th>
+                                                        <th :class="['text-start py-2 font-medium', designStyles.tableHeaderTextColor]">Description</th>
+                                                        <th :class="['text-end py-2 font-medium', designStyles.tableHeaderTextColor]">Amount</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     <tr v-for="(item, index) in sampleInvoice.items" :key="index" class="border-b border-gray-100">
                                                         <td class="py-2 text-gray-900">{{ item.description }}</td>
-                                                        <td class="py-2 text-right text-gray-900">{{ formatCurrency(item.total) }}</td>
+                                                        <td class="py-2 text-end text-gray-900">{{ formatCurrency(item.total) }}</td>
                                                     </tr>
                                                 </tbody>
                                                 <tfoot>
                                                     <tr class="font-bold">
                                                         <td class="py-3 text-gray-900">Total Due</td>
-                                                        <td class="py-3 text-right" :style="{ color: previewState.primary_color }">{{ formatCurrency(sampleInvoice.total_due) }}</td>
+                                                        <td class="py-3 text-end" :style="{ color: previewState.primary_color }">{{ formatCurrency(sampleInvoice.total_due) }}</td>
                                                     </tr>
                                                 </tfoot>
                                             </table>

@@ -107,11 +107,11 @@ const submit = () => {
                             </span>
                             <span
                                 v-if="channel.isPrimary"
-                                class="ml-1.5 px-1.5 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700 rounded"
+                                class="ms-1.5 px-1.5 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700 rounded"
                             >
                                 Primary
                             </span>
-                            <div class="ml-auto">
+                            <div class="ms-auto">
                                 <div :class="[
                                     'w-5 h-5 rounded-full border-2 flex items-center justify-center',
                                     form[channel.key] ? 'border-indigo-600 bg-indigo-600' : 'border-gray-300'
@@ -150,7 +150,7 @@ const submit = () => {
                                 v-model="form[type.key]"
                                 class="sr-only peer"
                             >
-                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                         </label>
                     </div>
                 </div>

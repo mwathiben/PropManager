@@ -79,7 +79,7 @@ const getLeaseDuration = (startDate, endDate) => {
                             <div class="p-3 bg-indigo-100 rounded-full">
                                 <DocumentDuplicateIcon class="w-6 h-6 text-indigo-600" />
                             </div>
-                            <div class="ml-4">
+                            <div class="ms-4">
                                 <p class="text-sm font-medium text-gray-500">Total Leases</p>
                                 <p class="text-2xl font-bold text-gray-900">{{ stats.total_leases }}</p>
                             </div>
@@ -90,7 +90,7 @@ const getLeaseDuration = (startDate, endDate) => {
                             <div class="p-3 bg-green-100 rounded-full">
                                 <CheckCircleIcon class="w-6 h-6 text-green-600" />
                             </div>
-                            <div class="ml-4">
+                            <div class="ms-4">
                                 <p class="text-sm font-medium text-gray-500">Active Leases</p>
                                 <p class="text-2xl font-bold text-green-600">{{ stats.active_leases }}</p>
                             </div>
@@ -101,7 +101,7 @@ const getLeaseDuration = (startDate, endDate) => {
                             <div class="p-3 bg-gray-100 rounded-full">
                                 <XCircleIcon class="w-6 h-6 text-gray-600" />
                             </div>
-                            <div class="ml-4">
+                            <div class="ms-4">
                                 <p class="text-sm font-medium text-gray-500">Terminated Leases</p>
                                 <p class="text-2xl font-bold text-gray-600">{{ stats.terminated_leases }}</p>
                             </div>
@@ -120,9 +120,9 @@ const getLeaseDuration = (startDate, endDate) => {
                                     @keyup.enter="applyFilters"
                                     type="text"
                                     placeholder="Search by tenant name or unit..."
-                                    class="w-full pl-10 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                                    class="w-full ps-10 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                 >
-                                <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
+                                <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute start-3 top-2.5" />
                             </div>
                         </div>
 
@@ -169,13 +169,13 @@ const getLeaseDuration = (startDate, endDate) => {
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rent</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Documents</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Rent</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Documents</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">

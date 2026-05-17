@@ -75,7 +75,7 @@ watch(() => props.endDate, (val) => { localEndDate.value = val || ''; });
         <!-- Dropdown -->
         <div
             v-if="isOpen"
-            class="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden"
+            class="absolute end-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden"
         >
             <!-- Period Options -->
             <div class="p-2">
@@ -83,7 +83,7 @@ watch(() => props.endDate, (val) => { localEndDate.value = val || ''; });
                     v-for="period in periods"
                     :key="period.value"
                     @click="selectPeriod(period.value)"
-                    class="w-full px-3 py-2 text-left text-sm rounded-lg transition"
+                    class="w-full px-3 py-2 text-start text-sm rounded-lg transition"
                     :class="modelValue === period.value
                         ? 'bg-indigo-50 text-indigo-700 font-medium'
                         : 'text-gray-700 hover:bg-gray-50'"

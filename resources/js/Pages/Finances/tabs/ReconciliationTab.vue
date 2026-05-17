@@ -235,7 +235,7 @@ const processQueue = () => {
                 </div>
                 <span class="text-xs text-gray-500 whitespace-nowrap">{{ formatDate(paystackReport.reconciled_at) }}</span>
             </div>
-            <div v-if="paystackReport.status === 'completed'" class="mt-3 ml-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div v-if="paystackReport.status === 'completed'" class="mt-3 ms-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div class="text-center">
                     <p class="text-lg font-semibold text-gray-900">{{ paystackReport.matched_count }}</p>
                     <p class="text-xs text-gray-500">Matched</p>
@@ -281,7 +281,7 @@ const processQueue = () => {
                             type="file"
                             accept=".csv,.xlsx,.xls"
                             @change="handleFileChange"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 file:me-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
                             required
                         />
                         <p class="mt-1 text-xs text-gray-500">Max 5MB. Supported: CSV, XLSX, XLS</p>

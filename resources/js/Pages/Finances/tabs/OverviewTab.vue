@@ -134,7 +134,7 @@ const monthTrendClass = computed(() => {
                         :href="route('invoices.generate')"
                         method="post"
                         as="button"
-                        class="flex items-center gap-2 p-3 bg-white rounded-lg border border-gray-200 hover:border-emerald-300 hover:bg-emerald-50 transition-colors text-left"
+                        class="flex items-center gap-2 p-3 bg-white rounded-lg border border-gray-200 hover:border-emerald-300 hover:bg-emerald-50 transition-colors text-start"
                     >
                         <div class="p-2 bg-emerald-100 rounded-lg">
                             <DocumentTextIcon class="h-4 w-4 text-emerald-600" />
@@ -160,7 +160,7 @@ const monthTrendClass = computed(() => {
 
                     <button
                         @click="store.openModal('sendReminders')"
-                        class="flex items-center gap-2 p-3 bg-white rounded-lg border border-gray-200 hover:border-orange-300 hover:bg-orange-50 transition-colors text-left"
+                        class="flex items-center gap-2 p-3 bg-white rounded-lg border border-gray-200 hover:border-orange-300 hover:bg-orange-50 transition-colors text-start"
                     >
                         <div class="p-2 bg-orange-100 rounded-lg">
                             <BellIcon class="h-4 w-4 text-orange-600" />
@@ -229,7 +229,7 @@ const monthTrendClass = computed(() => {
                                 :style="{ width: `${Math.min(100, (month.collected / (month.invoiced || 1)) * 100)}%` }"
                             />
                         </div>
-                        <span class="text-xs font-medium text-gray-900 w-20 text-right">
+                        <span class="text-xs font-medium text-gray-900 w-20 text-end">
                             {{ formatMoney(month.collected, { maximumFractionDigits: 0 }) }}
                         </span>
                     </div>
@@ -266,7 +266,7 @@ const monthTrendClass = computed(() => {
                                 <p class="text-xs text-gray-500">{{ payment.unit }} - {{ payment.building }}</p>
                             </div>
                         </div>
-                        <div class="text-right">
+                        <div class="text-end">
                             <AmountDisplay :amount="payment.amount" size="sm" />
                             <div class="mt-0.5">
                                 <PaymentMethodBadge :method="payment.payment_method" size="sm" :show-icon="false" />
@@ -306,7 +306,7 @@ const monthTrendClass = computed(() => {
                                 <p class="text-xs text-gray-500">{{ invoice.tenant_name }}</p>
                             </div>
                         </div>
-                        <div class="text-right">
+                        <div class="text-end">
                             <AmountDisplay :amount="invoice.total_due" size="sm" />
                             <div class="mt-0.5">
                                 <InvoiceStatusBadge :status="invoice.status" size="sm" />

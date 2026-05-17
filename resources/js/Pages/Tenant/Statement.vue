@@ -110,7 +110,7 @@ const closingBalance = computed(() => {
                             Excel
                         </Link>
                         <PrimaryButton type="button" @click="emailMe">
-                            <EnvelopeIcon class="w-4 h-4 mr-2" />
+                            <EnvelopeIcon class="w-4 h-4 me-2" />
                             Email me
                         </PrimaryButton>
                     </div>
@@ -141,12 +141,12 @@ const closingBalance = computed(() => {
                         <caption class="sr-only">Tenant statement from {{ props.from }} to {{ props.to }}</caption>
                         <thead class="bg-gray-900">
                             <tr>
-                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-white">Date</th>
-                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-white">Description</th>
-                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-white">Reference</th>
-                                <th scope="col" class="px-4 py-2 text-right text-xs font-semibold text-white">Charge</th>
-                                <th scope="col" class="px-4 py-2 text-right text-xs font-semibold text-white">Payment</th>
-                                <th scope="col" class="px-4 py-2 text-right text-xs font-semibold text-white">Balance</th>
+                                <th scope="col" class="px-4 py-2 text-start text-xs font-semibold text-white">Date</th>
+                                <th scope="col" class="px-4 py-2 text-start text-xs font-semibold text-white">Description</th>
+                                <th scope="col" class="px-4 py-2 text-start text-xs font-semibold text-white">Reference</th>
+                                <th scope="col" class="px-4 py-2 text-end text-xs font-semibold text-white">Charge</th>
+                                <th scope="col" class="px-4 py-2 text-end text-xs font-semibold text-white">Payment</th>
+                                <th scope="col" class="px-4 py-2 text-end text-xs font-semibold text-white">Balance</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
@@ -158,9 +158,9 @@ const closingBalance = computed(() => {
                                 <td class="px-4 py-2 text-sm text-gray-700">{{ row.date }}</td>
                                 <td class="px-4 py-2 text-sm text-gray-700">{{ row.description }}</td>
                                 <td class="px-4 py-2 text-sm text-gray-500">{{ row.reference ?? '' }}</td>
-                                <td class="px-4 py-2 text-sm text-right tabular-nums text-gray-700">{{ formatMoney(row.charge) }}</td>
-                                <td class="px-4 py-2 text-sm text-right tabular-nums text-emerald-700">{{ formatMoney(row.payment) }}</td>
-                                <td class="px-4 py-2 text-sm text-right tabular-nums text-gray-900">{{ formatBalance(row.running_balance) }}</td>
+                                <td class="px-4 py-2 text-sm text-end tabular-nums text-gray-700">{{ formatMoney(row.charge) }}</td>
+                                <td class="px-4 py-2 text-sm text-end tabular-nums text-emerald-700">{{ formatMoney(row.payment) }}</td>
+                                <td class="px-4 py-2 text-sm text-end tabular-nums text-gray-900">{{ formatBalance(row.running_balance) }}</td>
                             </tr>
                         </tbody>
                     </table>

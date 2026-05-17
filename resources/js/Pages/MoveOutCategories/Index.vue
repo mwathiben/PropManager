@@ -298,24 +298,24 @@ const breadcrumbs = [
                 <!-- Search + Filter Bar -->
                 <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                     <div class="relative flex-1 max-w-sm">
-                        <MagnifyingGlassIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <MagnifyingGlassIcon class="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
                             v-model="search"
                             type="text"
                             placeholder="Search categories..."
-                            class="w-full pl-9 pr-8 py-2 text-sm rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+                            class="w-full ps-9 pe-8 py-2 text-sm rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
                         />
                         <button
                             v-if="search"
                             @click="clearSearch"
-                            class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            class="absolute end-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                         >
                             <XMarkIcon class="w-4 h-4" />
                         </button>
                     </div>
                     <select
                         v-model="scopeFilter"
-                        class="text-sm rounded-lg border border-gray-300 py-2 pr-8 focus:border-indigo-500 focus:ring-indigo-500"
+                        class="text-sm rounded-lg border border-gray-300 py-2 pe-8 focus:border-indigo-500 focus:ring-indigo-500"
                     >
                         <option value="">All Scopes</option>
                         <option value="platform">Platform Defaults</option>
@@ -368,7 +368,7 @@ const breadcrumbs = [
                                     <h3 class="font-medium text-gray-900 truncate">{{ category.name }}</h3>
                                     <p v-if="category.description" class="text-xs text-gray-500 mt-0.5 line-clamp-2">{{ category.description }}</p>
                                 </div>
-                                <div class="text-right ml-3 shrink-0">
+                                <div class="text-end ms-3 shrink-0">
                                     <div class="text-lg font-semibold text-gray-900">{{ formatCurrency(category.default_amount) }}</div>
                                 </div>
                             </div>
@@ -433,7 +433,7 @@ const breadcrumbs = [
                                     <h3 class="font-medium text-gray-900 truncate">{{ category.name }}</h3>
                                     <p v-if="category.description" class="text-xs text-gray-500 mt-0.5 line-clamp-2">{{ category.description }}</p>
                                 </div>
-                                <div class="text-right ml-3 shrink-0">
+                                <div class="text-end ms-3 shrink-0">
                                     <div class="text-lg font-semibold text-gray-900">{{ formatCurrency(category.default_amount) }}</div>
                                 </div>
                             </div>
@@ -528,7 +528,7 @@ const breadcrumbs = [
                                     <h3 class="font-medium text-gray-900 truncate">{{ category.name }}</h3>
                                     <p v-if="category.description" class="text-xs text-gray-500 mt-0.5 line-clamp-2">{{ category.description }}</p>
                                 </div>
-                                <div class="text-right ml-3 shrink-0">
+                                <div class="text-end ms-3 shrink-0">
                                     <div class="text-lg font-semibold text-gray-900">{{ formatCurrency(category.default_amount) }}</div>
                                 </div>
                             </div>

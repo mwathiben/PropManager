@@ -154,11 +154,11 @@ const canApproveOrReject = props.verification.status === 'payment_submitted' || 
                         <!-- Action Buttons -->
                         <div v-if="canApproveOrReject" class="flex items-center gap-2">
                             <DangerButton @click="showRejectModal = true" class="!py-2">
-                                <XCircleIcon class="w-4 h-4 mr-1" />
+                                <XCircleIcon class="w-4 h-4 me-1" />
                                 Reject
                             </DangerButton>
                             <PrimaryButton @click="showApproveModal = true" class="!py-2">
-                                <CheckCircleIcon class="w-4 h-4 mr-1" />
+                                <CheckCircleIcon class="w-4 h-4 me-1" />
                                 Approve
                             </PrimaryButton>
                         </div>

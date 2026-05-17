@@ -402,21 +402,21 @@ onUnmounted(() => {
                                         :key="building.id"
                                         @click="switchLocation(prop.id, building.id)"
                                         :class="[
-                                            'w-full text-left px-4 py-2 pl-6 text-sm transition-colors flex items-center gap-2',
+                                            'w-full text-start px-4 py-2 ps-6 text-sm transition-colors flex items-center gap-2',
                                             isActiveBuilding(prop.id, building.id)
                                                 ? 'bg-indigo-50 text-indigo-700 font-medium'
                                                 : 'text-gray-700 hover:bg-gray-50'
                                         ]"
                                     >
                                         <CheckCircleIcon v-if="isActiveBuilding(prop.id, building.id)" class="w-4 h-4" />
-                                        <span :class="{ 'ml-6': !isActiveBuilding(prop.id, building.id) }">{{ building.name }}</span>
+                                        <span :class="{ 'ms-6': !isActiveBuilding(prop.id, building.id) }">{{ building.name }}</span>
                                     </button>
                                 </template>
                                 <!-- Add Wing option -->
                                 <div class="border-t border-gray-100 mt-1 pt-1">
                                     <button
                                         @click="showAddWingModal = true"
-                                        class="w-full text-left px-4 py-2 text-sm text-indigo-600 hover:bg-indigo-50 flex items-center gap-2"
+                                        class="w-full text-start px-4 py-2 text-sm text-indigo-600 hover:bg-indigo-50 flex items-center gap-2"
                                     >
                                         <PlusIcon class="w-4 h-4" />
                                         Add Wing
@@ -431,11 +431,11 @@ onUnmounted(() => {
                 <div class="flex items-center gap-2 flex-wrap shrink-0">
                     <button @click="showMassHikeModal = true"
                             class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
-                        <MegaphoneIcon class="w-4 h-4 mr-1.5" /> Rent Hike
+                        <MegaphoneIcon class="w-4 h-4 me-1.5" /> Rent Hike
                     </button>
                     <Link :href="route('buildings.edit', activeBuilding.id)"
                           class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors">
-                        <WrenchScrewdriverIcon class="w-4 h-4 mr-1.5" /> Architect
+                        <WrenchScrewdriverIcon class="w-4 h-4 me-1.5" /> Architect
                     </Link>
                 </div>
             </div>
@@ -478,7 +478,7 @@ onUnmounted(() => {
                 </div>
 
                 <!-- Floor Filter Dropdown -->
-                <div v-if="allFloors && allFloors.length > 1" class="flex items-center gap-2 ml-4">
+                <div v-if="allFloors && allFloors.length > 1" class="flex items-center gap-2 ms-4">
                     <span class="text-sm text-gray-500">Floor:</span>
                     <select
                         :value="activeFloorFilter"
@@ -496,7 +496,7 @@ onUnmounted(() => {
                 <button
                     v-if="hasActiveFilters"
                     @click="clearFilters"
-                    class="ml-auto flex items-center gap-1 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                    class="ms-auto flex items-center gap-1 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                     <XMarkIcon class="w-4 h-4" />
                     Clear Filters
@@ -693,7 +693,7 @@ onUnmounted(() => {
                             at <span class="font-semibold">{{ currentTier.fee_percentage }}%</span> per transaction
                         </p>
                     </div>
-                    <div class="text-right">
+                    <div class="text-end">
                         <p class="text-sm text-gray-500">MTD Payment Volume</p>
                         <p class="text-xl font-bold text-gray-900">{{ formatMoney(mtdVolume ?? 0) }}</p>
                     </div>
@@ -808,7 +808,7 @@ onUnmounted(() => {
                                     ]"
                                 >
                                     All Wings
-                                    <span class="ml-1.5 text-xs opacity-75">({{ allUnits?.length }})</span>
+                                    <span class="ms-1.5 text-xs opacity-75">({{ allUnits?.length }})</span>
                                 </button>
                                 <button
                                     v-for="wing in wings"
@@ -822,7 +822,7 @@ onUnmounted(() => {
                                     ]"
                                 >
                                     {{ wing.name }}
-                                    <span class="ml-1.5 text-xs opacity-75">({{ wing.units?.length || unitsByWing.find(w => w.wing.id === wing.id)?.units?.length || 0 }})</span>
+                                    <span class="ms-1.5 text-xs opacity-75">({{ wing.units?.length || unitsByWing.find(w => w.wing.id === wing.id)?.units?.length || 0 }})</span>
                                 </button>
                             </div>
 
@@ -862,7 +862,7 @@ onUnmounted(() => {
                                         <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                             Floor {{ floorGroup.floor }}
                                         </span>
-                                        <span class="text-xs text-gray-400 ml-2">
+                                        <span class="text-xs text-gray-400 ms-2">
                                             {{ floorGroup.units.filter(u => u.status === 'occupied').length }}/{{ floorGroup.units.length }} occupied
                                         </span>
                                     </div>
@@ -911,7 +911,7 @@ onUnmounted(() => {
                                         :key="unit.id"
                                         @click="selectUnit(unit)"
                                         :class="selectedUnit?.id === unit.id ? 'bg-indigo-50' : 'hover:bg-gray-50'"
-                                        class="w-full px-4 sm:px-6 py-3 flex items-center justify-between text-left transition-colors"
+                                        class="w-full px-4 sm:px-6 py-3 flex items-center justify-between text-start transition-colors"
                                     >
                                         <div class="flex items-center gap-3">
                                             <div :class="[
@@ -954,7 +954,7 @@ onUnmounted(() => {
                 <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                     <h3 class="text-lg font-bold text-gray-800 mb-6">
                         Arrears Aging
-                        <span v-if="activeWingFilter" class="text-sm font-normal text-indigo-600 ml-1">({{ activeWingName }})</span>
+                        <span v-if="activeWingFilter" class="text-sm font-normal text-indigo-600 ms-1">({{ activeWingName }})</span>
                     </h3>
 
                     <div v-if="totalArrears > 0" class="space-y-4">
@@ -1038,10 +1038,10 @@ onUnmounted(() => {
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-bold text-gray-800">
                             Recent Payments
-                            <span v-if="activeWingFilter" class="text-sm font-normal text-indigo-600 ml-1">({{ activeWingName }})</span>
+                            <span v-if="activeWingFilter" class="text-sm font-normal text-indigo-600 ms-1">({{ activeWingName }})</span>
                         </h3>
                         <Link :href="route('invoices.index')" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center">
-                            View All <ChevronRightIcon class="w-4 h-4 ml-1" />
+                            View All <ChevronRightIcon class="w-4 h-4 ms-1" />
                         </Link>
                     </div>
 
@@ -1058,7 +1058,7 @@ onUnmounted(() => {
                                     <p class="text-xs text-gray-500">{{ payment.invoice?.lease?.unit?.unit_number || '-' }} • {{ formatDate(payment.payment_date) }}</p>
                                 </div>
                             </div>
-                            <div class="text-right">
+                            <div class="text-end">
                                 <p
                                     class="font-bold text-green-600"
                                     :title="payment.platform_fee ? `Net: ${formatMoney(payment.landlord_amount)} (Fee: ${formatMoney(payment.platform_fee)})` : undefined"
@@ -1080,10 +1080,10 @@ onUnmounted(() => {
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-bold text-gray-800">
                             Recent Tickets
-                            <span v-if="activeWingFilter" class="text-sm font-normal text-indigo-600 ml-1">({{ activeWingName }})</span>
+                            <span v-if="activeWingFilter" class="text-sm font-normal text-indigo-600 ms-1">({{ activeWingName }})</span>
                         </h3>
                         <Link :href="route('tickets.index')" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center">
-                            View All <ChevronRightIcon class="w-4 h-4 ml-1" />
+                            View All <ChevronRightIcon class="w-4 h-4 ms-1" />
                         </Link>
                     </div>
 
@@ -1107,7 +1107,7 @@ onUnmounted(() => {
                                     </p>
                                 </div>
                             </div>
-                            <div class="text-right">
+                            <div class="text-end">
                                 <span :class="[
                                     'text-xs px-2 py-1 rounded-full font-medium',
                                     ticket.status === 'open' ? 'bg-yellow-100 text-yellow-800' :
@@ -1132,7 +1132,7 @@ onUnmounted(() => {
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-bold text-gray-800">
                             Expiring Leases
-                            <span v-if="activeWingFilter" class="text-sm font-normal text-indigo-600 ml-1">({{ activeWingName }})</span>
+                            <span v-if="activeWingFilter" class="text-sm font-normal text-indigo-600 ms-1">({{ activeWingName }})</span>
                         </h3>
                         <span class="text-sm text-gray-500">Next 60 days</span>
                     </div>
@@ -1140,7 +1140,7 @@ onUnmounted(() => {
                     <div v-if="expiringLeases && expiringLeases.length > 0" class="space-y-3">
                         <button v-for="lease in expiringLeases" :key="lease.id"
                              @click="selectUnitById(lease.unit?.id)"
-                             class="w-full flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-100 hover:bg-orange-100 cursor-pointer transition-colors text-left">
+                             class="w-full flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-100 hover:bg-orange-100 cursor-pointer transition-colors text-start">
                             <div class="flex items-center gap-3">
                                 <div class="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
                                     <CalendarDaysIcon class="w-5 h-5" />
@@ -1150,7 +1150,7 @@ onUnmounted(() => {
                                     <p class="text-xs text-gray-500">{{ lease.unit?.building?.name }} - {{ lease.unit?.unit_number }}</p>
                                 </div>
                             </div>
-                            <div class="text-right">
+                            <div class="text-end">
                                 <p class="font-semibold text-orange-600">{{ formatRelativeDate(lease.end_date) }}</p>
                                 <p class="text-xs text-gray-500">{{ formatDate(lease.end_date) }}</p>
                             </div>

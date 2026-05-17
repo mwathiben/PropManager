@@ -152,12 +152,12 @@ const deleteReading = (readingId) => {
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
-                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Previous</th>
-                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Current</th>
-                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Consumption</th>
-                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+                                        <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                        <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
+                                        <th class="px-4 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">Previous</th>
+                                        <th class="px-4 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">Current</th>
+                                        <th class="px-4 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">Consumption</th>
+                                        <th class="px-4 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
                                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                     </tr>
@@ -169,12 +169,12 @@ const deleteReading = (readingId) => {
                                                 <input type="date" v-model="editForm.reading_date" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm">
                                             </td>
                                             <td class="px-4 py-3 text-sm text-gray-900">{{ reading.unit.unit_number }}</td>
-                                            <td class="px-4 py-3 text-right text-sm text-gray-900 font-mono">{{ reading.previous_reading }}</td>
+                                            <td class="px-4 py-3 text-end text-sm text-gray-900 font-mono">{{ reading.previous_reading }}</td>
                                             <td class="px-4 py-3">
-                                                <input type="number" v-model="editForm.current_reading" class="w-24 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-right font-mono text-sm">
+                                                <input type="number" v-model="editForm.current_reading" class="w-24 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-end font-mono text-sm">
                                             </td>
                                             <td colspan="4" class="px-4 py-3 text-center">
-                                                <button @click="saveEdit(reading.id)" class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 mr-2">
+                                                <button @click="saveEdit(reading.id)" class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 me-2">
                                                     Save
                                                 </button>
                                                 <button @click="cancelEdit" class="px-3 py-1 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400">
@@ -189,16 +189,16 @@ const deleteReading = (readingId) => {
                                             <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                                                 {{ reading.unit.unit_number }}
                                             </td>
-                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-mono">
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-end font-mono">
                                                 {{ reading.previous_reading }}
                                             </td>
-                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-mono">
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-end font-mono">
                                                 {{ reading.current_reading }}
                                             </td>
-                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-mono">
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-end font-mono">
                                                 {{ reading.consumption }}
                                             </td>
-                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-mono">
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-end font-mono">
                                                 {{ reading.cost ? formatMoney(reading.cost) : 'N/A' }}
                                             </td>
                                             <td class="px-4 py-3 whitespace-nowrap text-center">
@@ -210,7 +210,7 @@ const deleteReading = (readingId) => {
                                                 </span>
                                             </td>
                                             <td class="px-4 py-3 whitespace-nowrap text-center text-sm">
-                                                <button v-if="!reading.is_invoiced" @click="startEdit(reading)" class="text-indigo-600 hover:text-indigo-900 mr-3">
+                                                <button v-if="!reading.is_invoiced" @click="startEdit(reading)" class="text-indigo-600 hover:text-indigo-900 me-3">
                                                     Edit
                                                 </button>
                                                 <button v-if="can('finances:manage') && !reading.is_invoiced" @click="deleteReading(reading.id)" class="text-red-600 hover:text-red-900">

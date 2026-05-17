@@ -73,7 +73,7 @@ const impersonateLandlord = (landlordId) => {
                 <div class="flex items-center gap-2">
                     <Link :href="route('admin.settings')"
                           class="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium text-sm">
-                        <Cog6ToothIcon class="w-4 h-4 mr-2" />
+                        <Cog6ToothIcon class="w-4 h-4 me-2" />
                         Settings
                     </Link>
                 </div>
@@ -199,7 +199,7 @@ const impersonateLandlord = (landlordId) => {
                     <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                         <h3 class="font-bold text-gray-900">Recent Landlords</h3>
                         <Link :href="route('admin.landlords')" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center">
-                            View All <ChevronRightIcon class="w-4 h-4 ml-1" />
+                            View All <ChevronRightIcon class="w-4 h-4 ms-1" />
                         </Link>
                     </div>
 
@@ -212,11 +212,11 @@ const impersonateLandlord = (landlordId) => {
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Landlord</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Portfolio</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Occupancy</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Landlord</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Portfolio</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Occupancy</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
+                                    <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100 bg-white">
@@ -252,7 +252,7 @@ const impersonateLandlord = (landlordId) => {
                                         <p class="text-sm font-semibold text-gray-900">{{ formatCurrency(landlord.monthly_revenue) }}</p>
                                         <p class="text-xs text-gray-500">This month</p>
                                     </td>
-                                    <td class="px-6 py-4 text-right">
+                                    <td class="px-6 py-4 text-end">
                                         <div class="flex items-center justify-end gap-2">
                                             <Link :href="route('admin.landlords.show', landlord.id)"
                                                   class="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition">
@@ -301,7 +301,7 @@ const impersonateLandlord = (landlordId) => {
                             </div>
 
                             <!-- Revenue -->
-                            <div class="text-right">
+                            <div class="text-end">
                                 <p class="font-semibold text-gray-900">{{ formatCurrency(landlord.monthly_revenue) }}</p>
                             </div>
                         </div>
@@ -310,7 +310,7 @@ const impersonateLandlord = (landlordId) => {
                     <div class="mt-6 pt-4 border-t border-gray-100">
                         <Link :href="route('admin.landlords')"
                               class="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center justify-center">
-                            View All Landlords <ChevronRightIcon class="w-4 h-4 ml-1" />
+                            View All Landlords <ChevronRightIcon class="w-4 h-4 ms-1" />
                         </Link>
                     </div>
                 </div>
@@ -327,7 +327,7 @@ const impersonateLandlord = (landlordId) => {
                         <p class="font-semibold text-gray-900">Manage Landlords</p>
                         <p class="text-sm text-gray-500">View and manage all landlord accounts</p>
                     </div>
-                    <ChevronRightIcon class="w-5 h-5 text-gray-400 ml-auto" />
+                    <ChevronRightIcon class="w-5 h-5 text-gray-400 ms-auto" />
                 </Link>
 
                 <Link :href="route('admin.users')"
@@ -339,7 +339,7 @@ const impersonateLandlord = (landlordId) => {
                         <p class="font-semibold text-gray-900">All Users</p>
                         <p class="text-sm text-gray-500">Search and manage all user accounts</p>
                     </div>
-                    <ChevronRightIcon class="w-5 h-5 text-gray-400 ml-auto" />
+                    <ChevronRightIcon class="w-5 h-5 text-gray-400 ms-auto" />
                 </Link>
 
                 <Link :href="route('admin.settings')"
@@ -351,7 +351,7 @@ const impersonateLandlord = (landlordId) => {
                         <p class="font-semibold text-gray-900">System Settings</p>
                         <p class="text-sm text-gray-500">Configure system-wide settings</p>
                     </div>
-                    <ChevronRightIcon class="w-5 h-5 text-gray-400 ml-auto" />
+                    <ChevronRightIcon class="w-5 h-5 text-gray-400 ms-auto" />
                 </Link>
             </div>
         </div>

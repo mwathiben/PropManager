@@ -48,17 +48,17 @@ defineProps<{
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Day</th>
-                                <th scope="col" class="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-600">Score</th>
-                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Components</th>
+                                <th scope="col" class="px-4 py-2 text-start text-xs font-semibold uppercase tracking-wide text-gray-600">Day</th>
+                                <th scope="col" class="px-4 py-2 text-end text-xs font-semibold uppercase tracking-wide text-gray-600">Score</th>
+                                <th scope="col" class="px-4 py-2 text-start text-xs font-semibold uppercase tracking-wide text-gray-600">Components</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             <tr v-for="row in engagement_history" :key="row.day">
                                 <td class="px-4 py-2 text-sm text-gray-900">{{ row.day }}</td>
-                                <td class="px-4 py-2 text-right text-sm font-medium text-gray-900">{{ row.score }}</td>
+                                <td class="px-4 py-2 text-end text-sm font-medium text-gray-900">{{ row.score }}</td>
                                 <td class="px-4 py-2 text-xs text-gray-700">
-                                    <span v-for="(value, key) in row.components || {}" :key="key" class="mr-3 inline-block">
+                                    <span v-for="(value, key) in row.components || {}" :key="key" class="me-3 inline-block">
                                         {{ key }}: <span class="font-medium">{{ value }}</span>
                                     </span>
                                 </td>
@@ -77,10 +77,10 @@ defineProps<{
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">ID</th>
-                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Status</th>
-                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Created</th>
-                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Attributed</th>
+                                <th scope="col" class="px-4 py-2 text-start text-xs font-semibold uppercase tracking-wide text-gray-600">ID</th>
+                                <th scope="col" class="px-4 py-2 text-start text-xs font-semibold uppercase tracking-wide text-gray-600">Status</th>
+                                <th scope="col" class="px-4 py-2 text-start text-xs font-semibold uppercase tracking-wide text-gray-600">Created</th>
+                                <th scope="col" class="px-4 py-2 text-start text-xs font-semibold uppercase tracking-wide text-gray-600">Attributed</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">

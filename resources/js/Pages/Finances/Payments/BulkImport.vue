@@ -274,7 +274,7 @@ const totalValidAmount = computed(() => {
                             'flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium',
                             step >= 1 ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'
                         ]">1</span>
-                        <span class="ml-2 font-medium" :class="step >= 1 ? 'text-gray-900' : 'text-gray-500'">Upload</span>
+                        <span class="ms-2 font-medium" :class="step >= 1 ? 'text-gray-900' : 'text-gray-500'">Upload</span>
                     </div>
                     <div class="flex-1 mx-4 h-0.5" :class="step >= 2 ? 'bg-emerald-600' : 'bg-gray-200'"></div>
                     <div class="flex items-center text-sm">
@@ -282,7 +282,7 @@ const totalValidAmount = computed(() => {
                             'flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium',
                             step >= 2 ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'
                         ]">2</span>
-                        <span class="ml-2 font-medium" :class="step >= 2 ? 'text-gray-900' : 'text-gray-500'">Preview</span>
+                        <span class="ms-2 font-medium" :class="step >= 2 ? 'text-gray-900' : 'text-gray-500'">Preview</span>
                     </div>
                     <div class="flex-1 mx-4 h-0.5" :class="step >= 3 ? 'bg-emerald-600' : 'bg-gray-200'"></div>
                     <div class="flex items-center text-sm">
@@ -290,7 +290,7 @@ const totalValidAmount = computed(() => {
                             'flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium',
                             step >= 3 ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'
                         ]">3</span>
-                        <span class="ml-2 font-medium" :class="step >= 3 ? 'text-gray-900' : 'text-gray-500'">Results</span>
+                        <span class="ms-2 font-medium" :class="step >= 3 ? 'text-gray-900' : 'text-gray-500'">Results</span>
                     </div>
                 </div>
             </div>
@@ -474,11 +474,11 @@ const totalValidAmount = computed(() => {
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Row</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tenant</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Errors</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Row</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Unit</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Tenant</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Errors</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
@@ -518,11 +518,11 @@ const totalValidAmount = computed(() => {
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Row</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tenant</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Row</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Unit</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Tenant</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">
                                         {{ previewData.mode === 'historical' ? 'Status' : 'Allocation' }}
                                     </th>
                                 </tr>
@@ -617,7 +617,7 @@ const totalValidAmount = computed(() => {
                 <div v-if="resultData.archived_tenants_created > 0" class="max-w-md mx-auto mb-6">
                     <div class="bg-amber-50 rounded-lg p-4 flex items-center justify-center gap-3">
                         <UserPlusIcon class="h-6 w-6 text-amber-600" />
-                        <div class="text-left">
+                        <div class="text-start">
                             <p class="text-lg font-bold text-amber-700">{{ resultData.archived_tenants_created }}</p>
                             <p class="text-sm text-amber-600">Archived Tenants Created</p>
                         </div>
@@ -631,7 +631,7 @@ const totalValidAmount = computed(() => {
                     </div>
                 </div>
 
-                <div v-if="resultData.errors && resultData.errors.length > 0" class="mb-6 text-left max-w-md mx-auto">
+                <div v-if="resultData.errors && resultData.errors.length > 0" class="mb-6 text-start max-w-md mx-auto">
                     <p class="text-sm font-medium text-red-700 mb-2">Errors:</p>
                     <ul class="text-sm text-red-600 list-disc list-inside">
                         <li v-for="(error, index) in resultData.errors" :key="index">{{ error.error }}</li>

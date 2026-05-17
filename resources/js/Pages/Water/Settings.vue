@@ -78,7 +78,7 @@ const getBuildingOverrideIndex = (buildingId) => {
                             <div class="p-2 bg-blue-100 rounded-lg">
                                 <Cog6ToothIcon class="w-6 h-6 text-blue-600" />
                             </div>
-                            <h2 class="ml-3 text-lg font-semibold text-gray-900">Global Water Billing Settings</h2>
+                            <h2 class="ms-3 text-lg font-semibold text-gray-900">Global Water Billing Settings</h2>
                         </div>
                         <p class="text-sm text-gray-500 mb-6">
                             These settings apply to all buildings unless overridden at the building level.
@@ -193,7 +193,7 @@ const getBuildingOverrideIndex = (buildingId) => {
                             <div class="p-2 bg-green-100 rounded-lg">
                                 <HomeModernIcon class="w-6 h-6 text-green-600" />
                             </div>
-                            <h2 class="ml-3 text-lg font-semibold text-gray-900">Building-Specific Settings</h2>
+                            <h2 class="ms-3 text-lg font-semibold text-gray-900">Building-Specific Settings</h2>
                         </div>
                         <p class="text-sm text-gray-500 mb-6">
                             Override global settings for specific buildings. Set to "Use Global Settings" to inherit from above.
@@ -226,7 +226,7 @@ const getBuildingOverrideIndex = (buildingId) => {
                                 <!-- Building-specific rate inputs -->
                                 <div
                                     v-if="form.building_overrides[getBuildingOverrideIndex(building.id)].water_billing_type === 'consumption'"
-                                    class="mt-3 pl-4 border-l-2 border-indigo-200"
+                                    class="mt-3 ps-4 border-s-2 border-indigo-200"
                                 >
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Rate per Unit ({{ currencyCode }})</label>
                                     <input
@@ -241,7 +241,7 @@ const getBuildingOverrideIndex = (buildingId) => {
 
                                 <div
                                     v-if="form.building_overrides[getBuildingOverrideIndex(building.id)].water_billing_type === 'flat_rate'"
-                                    class="mt-3 pl-4 border-l-2 border-indigo-200"
+                                    class="mt-3 ps-4 border-s-2 border-indigo-200"
                                 >
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Monthly Flat Rate ({{ currencyCode }})</label>
                                     <input

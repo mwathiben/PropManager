@@ -180,7 +180,7 @@ const getInitials = () => {
                         {{ tab.label }}
                         <span
                             v-if="tab.id === 'documents' && documents.length"
-                            class="ml-1.5 inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600"
+                            class="ms-1.5 inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600"
                         >
                             {{ documents.length }}
                         </span>

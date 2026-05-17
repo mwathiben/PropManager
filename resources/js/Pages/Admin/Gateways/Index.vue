@@ -56,11 +56,11 @@ function updatePreference(row: Row, preference: string): void {
                     <table class="min-w-full text-sm">
                         <thead class="bg-gray-50 text-xs uppercase text-gray-500">
                             <tr>
-                                <th class="px-4 py-2 text-left">Landlord</th>
-                                <th class="px-4 py-2 text-left">Email</th>
+                                <th class="px-4 py-2 text-start">Landlord</th>
+                                <th class="px-4 py-2 text-start">Email</th>
                                 <th class="px-4 py-2 text-center">Paystack</th>
                                 <th class="px-4 py-2 text-center">Stripe</th>
-                                <th class="px-4 py-2 text-left">Preference</th>
+                                <th class="px-4 py-2 text-start">Preference</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200">

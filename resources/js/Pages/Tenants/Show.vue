@@ -546,7 +546,7 @@ const getActivityIcon = (action) => {
                                                 <div class="font-medium text-gray-900">Unit {{ lease.unit?.unit_number }}</div>
                                                 <div class="text-sm text-gray-500">{{ lease.unit?.building?.name }}</div>
                                             </div>
-                                            <div class="text-right">
+                                            <div class="text-end">
                                                 <div class="text-sm text-gray-500">{{ formatDate(lease.start_date) }} - {{ formatDate(lease.end_date) }}</div>
                                                 <div class="text-sm font-medium text-gray-900">{{ formatCurrency(lease.rent_amount) }}/mo</div>
                                             </div>
@@ -565,10 +565,10 @@ const getActivityIcon = (action) => {
                                     <table class="min-w-full divide-y divide-gray-200">
                                         <thead class="bg-gray-50">
                                             <tr>
-                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Invoice #</th>
-                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                                <th class="px-4 py-2 text-start text-xs font-medium text-gray-500 uppercase">Invoice #</th>
+                                                <th class="px-4 py-2 text-start text-xs font-medium text-gray-500 uppercase">Date</th>
+                                                <th class="px-4 py-2 text-start text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                                <th class="px-4 py-2 text-start text-xs font-medium text-gray-500 uppercase">Status</th>
                                             </tr>
                                         </thead>
                                         <tbody class="divide-y divide-gray-200">
@@ -604,7 +604,7 @@ const getActivityIcon = (action) => {
                                             <div class="text-sm font-medium text-gray-900">{{ formatCurrency(payment.amount) }}</div>
                                             <div class="text-xs text-gray-500">{{ payment.payment_method }}</div>
                                         </div>
-                                        <div class="text-right">
+                                        <div class="text-end">
                                             <div class="text-sm text-gray-500">{{ formatDate(payment.created_at) }}</div>
                                             <div class="text-xs text-gray-400">{{ payment.reference }}</div>
                                         </div>
@@ -769,7 +769,7 @@ const getActivityIcon = (action) => {
                                     <ul role="list" class="-mb-8">
                                         <li v-for="(activity, idx) in tenant.activities" :key="activity.id">
                                             <div class="relative pb-8">
-                                                <span v-if="idx !== tenant.activities.length - 1" class="absolute left-4 top-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true"></span>
+                                                <span v-if="idx !== tenant.activities.length - 1" class="absolute start-4 top-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true"></span>
                                                 <div class="relative flex space-x-3">
                                                     <div>
                                                         <span class="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center ring-8 ring-white">
@@ -781,7 +781,7 @@ const getActivityIcon = (action) => {
                                                             <p class="text-sm text-gray-700">{{ activity.description }}</p>
                                                             <p class="text-xs text-gray-400">by {{ activity.performer?.name || 'System' }}</p>
                                                         </div>
-                                                        <div class="whitespace-nowrap text-right text-xs text-gray-500">
+                                                        <div class="whitespace-nowrap text-end text-xs text-gray-500">
                                                             {{ formatDateTime(activity.created_at) }}
                                                         </div>
                                                     </div>

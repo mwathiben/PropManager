@@ -139,9 +139,9 @@ const getFileIcon = (document) => {
                                     @keyup.enter="applyFilters"
                                     type="text"
                                     placeholder="Search documents..."
-                                    class="w-full pl-10 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                                    class="w-full ps-10 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                 >
-                                <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
+                                <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute start-3 top-2.5" />
                             </div>
                         </div>
 
@@ -212,22 +212,22 @@ const getFileIcon = (document) => {
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead v-once class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Document
                                 </th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Type
                                 </th>
-                                <th class="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th class="hidden md:table-cell px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Attached To
                                 </th>
-                                <th class="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th class="hidden sm:table-cell px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Size
                                 </th>
-                                <th class="hidden lg:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th class="hidden lg:table-cell px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Uploaded
                                 </th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Actions
                                 </th>
                             </tr>
@@ -236,7 +236,7 @@ const getFileIcon = (document) => {
                             <tr v-for="document in documents.data" :key="document.id" class="hover:bg-gray-50">
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center">
-                                        <span class="text-2xl mr-3">{{ getFileIcon(document) }}</span>
+                                        <span class="text-2xl me-3">{{ getFileIcon(document) }}</span>
                                         <div>
                                             <div class="text-sm font-medium text-gray-900">
                                                 {{ document.title }}
@@ -262,7 +262,7 @@ const getFileIcon = (document) => {
                                     <div class="text-sm text-gray-900">{{ document.uploaded_at }}</div>
                                     <div class="text-xs text-gray-500">by {{ document.uploaded_by }}</div>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm space-x-2">
+                                <td class="px-6 py-4 whitespace-nowrap text-end text-sm space-x-2">
                                     <button
                                         v-if="document.is_pdf || document.is_image"
                                         @click="viewDocument(document.id)"

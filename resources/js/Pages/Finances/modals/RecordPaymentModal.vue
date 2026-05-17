@@ -169,7 +169,7 @@ const setFullAmount = () => {
                                             :max="maxAmount"
                                             step="0.01"
                                             :class="[
-                                                'w-full px-3 py-2.5 text-sm border rounded-lg transition-colors pr-20',
+                                                'w-full px-3 py-2.5 text-sm border rounded-lg transition-colors pe-20',
                                                 errors.amount
                                                     ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
                                                     : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500'
@@ -180,7 +180,7 @@ const setFullAmount = () => {
                                             v-if="selectedInvoice"
                                             type="button"
                                             @click="setFullAmount"
-                                            class="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+                                            class="absolute end-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
                                         >
                                             Full Amount
                                         </button>

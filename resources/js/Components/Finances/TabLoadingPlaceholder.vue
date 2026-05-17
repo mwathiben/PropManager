@@ -17,7 +17,7 @@
             <div class="h-10 w-64 bg-gray-200 rounded-lg" />
             <div class="h-10 w-40 bg-gray-200 rounded-lg" />
             <div class="h-10 w-32 bg-gray-200 rounded-lg" />
-            <div class="ml-auto h-10 w-24 bg-gray-200 rounded-lg" />
+            <div class="ms-auto h-10 w-24 bg-gray-200 rounded-lg" />
         </div>
 
         <!-- Table skeleton -->

@@ -100,12 +100,12 @@ const awaitingReviewCount = computed(() => {
                     <div class="flex flex-col sm:flex-row gap-4">
                         <!-- Search -->
                         <div class="flex-1 relative">
-                            <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute start-3 top-1/2 -translate-y-1/2" />
                             <input
                                 v-model="search"
                                 type="text"
                                 placeholder="Search by tenant name..."
-                                class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                class="w-full ps-10 pe-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 @keyup.enter="applyFilters"
                             />
                         </div>
@@ -138,25 +138,25 @@ const awaitingReviewCount = computed(() => {
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Tenant
                                     </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Unit
                                     </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Total Required
                                     </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Status
                                     </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Submitted
                                     </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Documents
                                     </th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Actions
                                     </th>
                                 </tr>
@@ -172,7 +172,7 @@ const awaitingReviewCount = computed(() => {
                                             <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
                                                 <UserIcon class="w-4 h-4 text-gray-500" />
                                             </div>
-                                            <div class="ml-3">
+                                            <div class="ms-3">
                                                 <p class="text-sm font-medium text-gray-900">
                                                     {{ verification.lease?.tenant?.name || 'Unknown' }}
                                                 </p>
@@ -184,7 +184,7 @@ const awaitingReviewCount = computed(() => {
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center text-sm text-gray-600">
-                                            <HomeIcon class="w-4 h-4 mr-1 text-gray-400" />
+                                            <HomeIcon class="w-4 h-4 me-1 text-gray-400" />
                                             {{ verification.lease?.unit?.unit_number }}
                                             <span class="text-gray-400 mx-1">•</span>
                                             {{ verification.lease?.unit?.building?.name }}
@@ -210,17 +210,17 @@ const awaitingReviewCount = computed(() => {
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div v-if="verification.documents?.length > 0" class="flex items-center text-sm text-gray-600">
-                                            <DocumentTextIcon class="w-4 h-4 mr-1 text-gray-400" />
+                                            <DocumentTextIcon class="w-4 h-4 me-1 text-gray-400" />
                                             {{ verification.documents.length }}
                                         </div>
                                         <span v-else class="text-sm text-gray-400">-</span>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <td class="px-6 py-4 whitespace-nowrap text-end text-sm font-medium">
                                         <Link
                                             :href="route('payment-verifications.show', verification.id)"
                                             class="inline-flex items-center px-3 py-1.5 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded-lg transition-colors"
                                         >
-                                            <EyeIcon class="w-4 h-4 mr-1" />
+                                            <EyeIcon class="w-4 h-4 me-1" />
                                             View
                                         </Link>
                                     </td>

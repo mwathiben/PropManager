@@ -71,7 +71,7 @@ useBodyScrollLock(showRef);
         >
             <div
                 v-if="show"
-                :class="[widthClasses[width], 'fixed inset-y-0 right-0 w-full bg-white shadow-2xl z-50 flex flex-col border-l border-gray-200']"
+                :class="[widthClasses[width], 'fixed inset-y-0 end-0 w-full bg-white shadow-2xl z-50 flex flex-col border-l border-gray-200']"
             >
                 <!-- Header -->
                 <div class="shrink-0 px-6 py-4 bg-gray-50 border-b border-gray-200">

@@ -408,18 +408,18 @@ const confirmDeleteBuilding = () => {
                 <div class="flex items-center gap-3">
                     <Link :href="route('buildings.dashboard', building.id)"
                         class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                        <EyeIcon class="w-4 h-4 mr-2" />
+                        <EyeIcon class="w-4 h-4 me-2" />
                         View Dashboard
                     </Link>
                     <button @click="showDeleteBuildingModal = true"
                         class="inline-flex items-center px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                        <TrashIcon class="w-4 h-4 mr-2" />
+                        <TrashIcon class="w-4 h-4 me-2" />
                         Delete
                     </button>
                     <button @click="submitSettings"
                         :disabled="settingsForm.processing"
                         class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50">
-                        <CheckIcon class="w-4 h-4 mr-2" />
+                        <CheckIcon class="w-4 h-4 me-2" />
                         {{ settingsForm.processing ? 'Saving...' : 'Save Changes' }}
                     </button>
                 </div>
@@ -431,7 +431,7 @@ const confirmDeleteBuilding = () => {
 
                 <!-- WING NAVIGATION -->
                 <div v-if="buildings.length > 1" class="flex items-center gap-2 overflow-x-auto pb-4 mb-4">
-                    <span class="text-xs font-medium text-gray-400 uppercase tracking-wider mr-2">Wings:</span>
+                    <span class="text-xs font-medium text-gray-400 uppercase tracking-wider me-2">Wings:</span>
                     <Link
                         v-for="b in buildings"
                         :key="b.id"
@@ -490,7 +490,7 @@ const confirmDeleteBuilding = () => {
                                         class="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200">
                                         <CheckCircleIcon class="w-4 h-4" />
                                         <span class="text-sm font-semibold">{{ selectedIds.length }} selected</span>
-                                        <button @click="clearSelection" class="ml-1 p-0.5 hover:bg-indigo-100 rounded">
+                                        <button @click="clearSelection" class="ms-1 p-0.5 hover:bg-indigo-100 rounded">
                                             <XMarkIcon class="w-4 h-4" />
                                         </button>
                                     </div>
@@ -499,21 +499,21 @@ const confirmDeleteBuilding = () => {
                                         :disabled="selectedIds.length === 0"
                                         class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                         :class="selectedIds.length > 0 ? 'text-emerald-700 hover:bg-emerald-50' : 'text-gray-400'">
-                                        <CurrencyDollarIcon class="w-4 h-4 mr-1.5" />
+                                        <CurrencyDollarIcon class="w-4 h-4 me-1.5" />
                                         Set Rent
                                     </button>
                                     <button @click="openActionModal('update_type')"
                                         :disabled="selectedIds.length === 0"
                                         class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                         :class="selectedIds.length > 0 ? 'text-purple-700 hover:bg-purple-50' : 'text-gray-400'">
-                                        <TagIcon class="w-4 h-4 mr-1.5" />
+                                        <TagIcon class="w-4 h-4 me-1.5" />
                                         Set Type
                                     </button>
                                     <button @click="openActionModal('delete')"
                                         :disabled="selectedIds.length === 0"
                                         class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                         :class="selectedIds.length > 0 ? 'text-red-600 hover:bg-red-50' : 'text-gray-400'">
-                                        <TrashIcon class="w-4 h-4 mr-1.5" />
+                                        <TrashIcon class="w-4 h-4 me-1.5" />
                                         Delete
                                     </button>
                                 </div>
@@ -525,7 +525,7 @@ const confirmDeleteBuilding = () => {
                                     </button>
                                     <button @click="openAddUnitModal()"
                                         class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors">
-                                        <PlusIcon class="w-4 h-4 mr-1.5" />
+                                        <PlusIcon class="w-4 h-4 me-1.5" />
                                         Add Unit
                                     </button>
                                 </div>
@@ -591,7 +591,7 @@ const confirmDeleteBuilding = () => {
                                                 class="relative aspect-square rounded-lg border p-2 flex flex-col items-center justify-center transition-all text-center cursor-pointer">
                                                 <!-- Selection check -->
                                                 <div v-if="selectedIds.includes(unit.id)"
-                                                    class="absolute top-1 right-1 w-4 h-4 bg-indigo-500 rounded-full flex items-center justify-center">
+                                                    class="absolute top-1 end-1 w-4 h-4 bg-indigo-500 rounded-full flex items-center justify-center">
                                                     <CheckIcon class="w-2.5 h-2.5 text-white" />
                                                 </div>
                                                 <span class="text-sm font-bold leading-tight">{{ unit.unit_number }}</span>
@@ -712,7 +712,7 @@ const confirmDeleteBuilding = () => {
                                             <component :is="categoryConfig[category]?.icon || SparklesIcon"
                                                 :class="['w-5 h-5', categoryStyles[category]?.text || 'text-gray-600']" />
                                         </div>
-                                        <div class="text-left">
+                                        <div class="text-start">
                                             <h3 class="font-semibold text-gray-900">{{ categoryConfig[category]?.label || category }}</h3>
                                             <p class="text-xs text-gray-500">
                                                 {{ getSelectedCount(category, items) }} of {{ Object.keys(items).length }} selected
@@ -740,7 +740,7 @@ const confirmDeleteBuilding = () => {
                                         <button v-for="(label, key) in items" :key="key"
                                             @click="toggleAmenity(key)"
                                             :class="[
-                                                'flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-colors',
+                                                'flex items-center gap-3 p-3 rounded-xl border-2 text-start transition-colors',
                                                 isAmenitySelected(key)
                                                     ? (categoryStyles[category]?.selectedBorder || 'border-indigo-400 bg-indigo-50')
                                                     : 'border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50'
@@ -876,14 +876,14 @@ const confirmDeleteBuilding = () => {
                                 </div>
                                 <label class="relative inline-flex items-center cursor-pointer">
                                     <input type="checkbox" v-model="automationForm.auto_generate_invoices" class="sr-only peer">
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                                 </label>
                             </div>
 
                             <div v-if="automationForm.auto_generate_invoices" class="space-y-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">
-                                        <CalendarDaysIcon class="w-4 h-4 inline mr-1 text-gray-400" />
+                                        <CalendarDaysIcon class="w-4 h-4 inline me-1 text-gray-400" />
                                         Generation Day of Month
                                     </label>
                                     <select v-model="automationForm.invoice_generation_day"
@@ -907,7 +907,7 @@ const confirmDeleteBuilding = () => {
                                     </div>
                                     <label class="relative inline-flex items-center cursor-pointer">
                                         <input type="checkbox" v-model="automationForm.auto_send_invoices" class="sr-only peer">
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
                                     </label>
                                 </div>
                             </div>
@@ -931,7 +931,7 @@ const confirmDeleteBuilding = () => {
                                 <button @click="submitAutomation"
                                     :disabled="automationForm.processing"
                                     class="inline-flex items-center px-6 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50">
-                                    <CheckIcon class="w-4 h-4 mr-2" />
+                                    <CheckIcon class="w-4 h-4 me-2" />
                                     {{ automationForm.processing ? 'Saving...' : 'Save Automation Settings' }}
                                 </button>
                             </div>
@@ -1020,11 +1020,11 @@ const confirmDeleteBuilding = () => {
                                     <div v-if="modalType === 'update_rent'">
                                         <label class="block text-sm font-medium text-gray-700 mb-2">New Rent Amount ({{ currencyCode }})</label>
                                         <div class="relative">
-                                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <div class="absolute inset-y-0 start-0 ps-4 flex items-center pointer-events-none">
                                                 <span class="text-gray-400 font-medium">{{ currencySymbol }}</span>
                                             </div>
                                             <input v-model="actionForm.value" type="number"
-                                                class="w-full pl-14 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-lg font-semibold"
+                                                class="w-full ps-14 pe-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-lg font-semibold"
                                                 placeholder="25,000">
                                         </div>
                                     </div>
@@ -1165,11 +1165,11 @@ const confirmDeleteBuilding = () => {
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Target Rent ({{ currencyCode }})</label>
                                     <div class="relative">
-                                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                        <div class="absolute inset-y-0 start-0 ps-4 flex items-center pointer-events-none">
                                             <span class="text-gray-400 font-medium">{{ currencySymbol }}</span>
                                         </div>
                                         <input v-model="addUnitForm.target_rent" type="number"
-                                            class="w-full pl-14 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                            class="w-full ps-14 pe-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                             placeholder="25,000">
                                     </div>
                                     <p v-if="addUnitForm.errors.target_rent" class="text-red-500 text-xs mt-1">{{ addUnitForm.errors.target_rent }}</p>

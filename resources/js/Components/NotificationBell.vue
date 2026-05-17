@@ -220,7 +220,7 @@ onUnmounted(() => {
         >
             <div
                 v-if="isOpen"
-                class="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50"
+                class="absolute end-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50"
             >
                 <!-- Header -->
                 <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50">
@@ -344,7 +344,7 @@ onUnmounted(() => {
             >
                 <div
                     v-if="toast.show"
-                    class="fixed bottom-4 right-4 z-50 max-w-sm bg-white rounded-lg shadow-lg border border-gray-200 p-4"
+                    class="fixed bottom-4 end-4 z-50 max-w-sm bg-white rounded-lg shadow-lg border border-gray-200 p-4"
                 >
                     <div class="flex items-start gap-3">
                         <div :class="[

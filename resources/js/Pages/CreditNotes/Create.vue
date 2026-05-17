@@ -161,12 +161,12 @@ const submit = () => {
                             </div>
 
                             <div v-else class="relative">
-                                <MagnifyingGlassIcon class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <MagnifyingGlassIcon class="w-5 h-5 absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                 <input
                                     v-model="searchQuery"
                                     type="text"
                                     placeholder="Search tenant by name, phone, or unit..."
-                                    class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                                    class="w-full ps-10 pe-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
                                 />
 
                                 <div v-if="searchResults.length > 0" class="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
@@ -175,7 +175,7 @@ const submit = () => {
                                         :key="tenant.id"
                                         type="button"
                                         @click="selectTenant(tenant)"
-                                        class="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                                        class="w-full px-4 py-3 text-start hover:bg-gray-50 border-b border-gray-100 last:border-0"
                                     >
                                         <p class="font-medium text-gray-900">{{ tenant.name }}</p>
                                         <p class="text-sm text-gray-500">
@@ -195,7 +195,7 @@ const submit = () => {
                                 Credit Amount <span class="text-red-500">*</span>
                             </label>
                             <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">{{ currencySymbol }}</span>
+                                <span class="absolute start-3 top-1/2 -translate-y-1/2 text-gray-500">{{ currencySymbol }}</span>
                                 <input
                                     id="amount"
                                     v-model="form.amount"
@@ -203,7 +203,7 @@ const submit = () => {
                                     step="0.01"
                                     min="0.01"
                                     placeholder="0.00"
-                                    class="w-full pl-14 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                                    class="w-full ps-14 pe-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
                                 />
                             </div>
                             <p v-if="form.errors.amount" class="text-sm text-red-600 mt-1">{{ form.errors.amount }}</p>

@@ -175,12 +175,12 @@ const hasActiveFilters = () => {
             <div class="flex flex-col md:flex-row md:items-center gap-4">
                 <!-- Search -->
                 <div class="relative flex-1">
-                    <MagnifyingGlassIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <MagnifyingGlassIcon class="absolute start-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
                         v-model="search"
                         type="text"
                         placeholder="Search by recipient or subject..."
-                        class="w-full pl-10 pr-4 py-2 border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                        class="w-full ps-10 pe-4 py-2 border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                     />
                 </div>
 
@@ -230,25 +230,25 @@ const hasActiveFilters = () => {
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Channel
                             </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Recipient
                             </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Subject
                             </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Type
                             </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Status
                             </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Sent At
                             </th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Actions
                             </th>
                         </tr>
@@ -287,7 +287,7 @@ const hasActiveFilters = () => {
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 {{ formatDateTime(notification.created_at) }}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                            <td class="px-6 py-4 whitespace-nowrap text-end">
                                 <div class="flex items-center justify-end gap-1">
                                     <button
                                         @click="viewDetails(notification)"
@@ -387,7 +387,7 @@ const hasActiveFilters = () => {
                                     <p class="font-semibold text-gray-900">{{ selectedNotification.recipient?.name }}</p>
                                     <p class="text-sm text-gray-500">{{ selectedNotification.recipient?.email }}</p>
                                 </div>
-                                <span :class="['ml-auto px-3 py-1 text-sm font-medium rounded-full', getStatusClass(selectedNotification.status)]">
+                                <span :class="['ms-auto px-3 py-1 text-sm font-medium rounded-full', getStatusClass(selectedNotification.status)]">
                                     {{ selectedNotification.status }}
                                 </span>
                             </div>

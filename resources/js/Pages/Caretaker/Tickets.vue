@@ -110,7 +110,7 @@ const getTimeAgo = (dateString) => {
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                     <div class="bg-white rounded-lg shadow-sm p-4 border">
                         <div class="flex items-center">
-                            <ExclamationTriangleIcon class="h-8 w-8 text-red-500 mr-3" />
+                            <ExclamationTriangleIcon class="h-8 w-8 text-red-500 me-3" />
                             <div>
                                 <div class="text-2xl font-bold text-red-600">{{ stats.urgent }}</div>
                                 <div class="text-sm text-gray-500">Urgent</div>
@@ -119,7 +119,7 @@ const getTimeAgo = (dateString) => {
                     </div>
                     <div class="bg-white rounded-lg shadow-sm p-4 border">
                         <div class="flex items-center">
-                            <ClockIcon class="h-8 w-8 text-yellow-500 mr-3" />
+                            <ClockIcon class="h-8 w-8 text-yellow-500 me-3" />
                             <div>
                                 <div class="text-2xl font-bold text-yellow-600">{{ stats.open }}</div>
                                 <div class="text-sm text-gray-500">Open</div>
@@ -128,7 +128,7 @@ const getTimeAgo = (dateString) => {
                     </div>
                     <div class="bg-white rounded-lg shadow-sm p-4 border">
                         <div class="flex items-center">
-                            <PlayIcon class="h-8 w-8 text-purple-500 mr-3" />
+                            <PlayIcon class="h-8 w-8 text-purple-500 me-3" />
                             <div>
                                 <div class="text-2xl font-bold text-purple-600">{{ stats.in_progress || 0 }}</div>
                                 <div class="text-sm text-gray-500">In Progress</div>
@@ -137,7 +137,7 @@ const getTimeAgo = (dateString) => {
                     </div>
                     <div class="bg-white rounded-lg shadow-sm p-4 border">
                         <div class="flex items-center">
-                            <CheckCircleIcon class="h-8 w-8 text-green-500 mr-3" />
+                            <CheckCircleIcon class="h-8 w-8 text-green-500 me-3" />
                             <div>
                                 <div class="text-2xl font-bold text-green-600">{{ stats.resolved }}</div>
                                 <div class="text-sm text-gray-500">Resolved</div>
@@ -150,7 +150,7 @@ const getTimeAgo = (dateString) => {
                 <div class="bg-white shadow-sm rounded-lg p-4 mb-6 border">
                     <div class="flex flex-wrap items-center gap-4">
                         <div class="flex items-center">
-                            <FunnelIcon class="h-5 w-5 text-gray-400 mr-2" />
+                            <FunnelIcon class="h-5 w-5 text-gray-400 me-2" />
                             <span class="text-sm font-medium text-gray-700">Filter:</span>
                         </div>
                         <div>
@@ -188,8 +188,8 @@ const getTimeAgo = (dateString) => {
                         :key="ticket.id"
                         class="bg-white shadow-sm rounded-lg overflow-hidden border hover:shadow-md transition"
                         :class="{
-                            'border-l-4 border-l-red-500': ticket.priority === 'urgent',
-                            'border-l-4 border-l-orange-500': ticket.priority === 'high'
+                            'border-s-4 border-s-red-500': ticket.priority === 'urgent',
+                            'border-s-4 border-s-orange-500': ticket.priority === 'high'
                         }"
                     >
                         <div class="p-4">
@@ -237,7 +237,7 @@ const getTimeAgo = (dateString) => {
                                         :href="route('tickets.show', ticket.id)"
                                         class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
                                     >
-                                        <EyeIcon class="h-4 w-4 mr-1" />
+                                        <EyeIcon class="h-4 w-4 me-1" />
                                         View
                                     </Link>
 
@@ -248,7 +248,7 @@ const getTimeAgo = (dateString) => {
                                         :disabled="acknowledgeForm.processing"
                                         class="inline-flex items-center px-3 py-1.5 border border-blue-300 text-xs font-medium rounded text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50"
                                     >
-                                        <CheckCircleIcon class="h-4 w-4 mr-1" />
+                                        <CheckCircleIcon class="h-4 w-4 me-1" />
                                         Acknowledge
                                     </button>
 
@@ -259,7 +259,7 @@ const getTimeAgo = (dateString) => {
                                         :disabled="startWorkForm.processing"
                                         class="inline-flex items-center px-3 py-1.5 border border-purple-300 text-xs font-medium rounded text-purple-700 bg-purple-50 hover:bg-purple-100 disabled:opacity-50"
                                     >
-                                        <PlayIcon class="h-4 w-4 mr-1" />
+                                        <PlayIcon class="h-4 w-4 me-1" />
                                         Start Work
                                     </button>
 
@@ -269,7 +269,7 @@ const getTimeAgo = (dateString) => {
                                         @click="openResolveModal(ticket)"
                                         class="inline-flex items-center px-3 py-1.5 border border-green-300 text-xs font-medium rounded text-green-700 bg-green-50 hover:bg-green-100"
                                     >
-                                        <CheckCircleIcon class="h-4 w-4 mr-1" />
+                                        <CheckCircleIcon class="h-4 w-4 me-1" />
                                         Resolve
                                     </button>
                                 </div>
@@ -320,7 +320,7 @@ const getTimeAgo = (dateString) => {
 
                     <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
 
-                    <div class="relative z-50 inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+                    <div class="relative z-50 inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-start overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
                         <div>
                             <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
                                 <CheckCircleIcon class="h-6 w-6 text-green-600" />

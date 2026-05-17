@@ -214,7 +214,7 @@ const testNotification = async () => {
                         <p class="text-sm text-red-700 mt-1">
                             Push notifications are blocked in your browser. To enable them:
                         </p>
-                        <ol class="text-sm text-red-700 mt-2 ml-4 list-decimal space-y-1">
+                        <ol class="text-sm text-red-700 mt-2 ms-4 list-decimal space-y-1">
                             <li>Click the lock icon in your browser's address bar</li>
                             <li>Find "Notifications" in the site settings</li>
                             <li>Change from "Block" to "Allow"</li>
@@ -263,7 +263,7 @@ const testNotification = async () => {
                 <p class="text-sm text-gray-600">
                     Enable push notifications to receive instant alerts for:
                 </p>
-                <ul class="text-sm text-gray-600 ml-4 space-y-1">
+                <ul class="text-sm text-gray-600 ms-4 space-y-1">
                     <li class="flex items-center gap-2">
                         <span class="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
                         New invoices and payment confirmations

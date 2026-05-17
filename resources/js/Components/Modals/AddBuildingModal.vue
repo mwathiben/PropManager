@@ -194,7 +194,7 @@ const close = () => {
                                 :key="key"
                                 type="button"
                                 @click="form.building_type = key"
-                                class="p-3 rounded-lg border-2 text-sm font-medium text-left transition-all"
+                                class="p-3 rounded-lg border-2 text-sm font-medium text-start transition-all"
                                 :class="form.building_type === key
                                     ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
                                     : 'border-gray-200 hover:border-gray-300 text-gray-700'"
@@ -207,12 +207,12 @@ const close = () => {
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Address (Optional)</label>
                         <div class="relative">
-                            <MapPinIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                            <MapPinIcon class="absolute start-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                             <input
                                 v-model="form.address"
                                 type="text"
                                 placeholder="Street address, city, country"
-                                class="w-full pl-10 border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                                class="w-full ps-10 border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                             />
                         </div>
                     </div>
@@ -352,7 +352,7 @@ const close = () => {
                     @click="prevStep"
                     class="inline-flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
                 >
-                    <ArrowLeftIcon class="w-4 h-4 mr-2" />
+                    <ArrowLeftIcon class="w-4 h-4 me-2" />
                     Back
                 </button>
                 <div v-else></div>
@@ -372,7 +372,7 @@ const close = () => {
                         class="inline-flex items-center px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Next
-                        <ArrowRightIcon class="w-4 h-4 ml-2" />
+                        <ArrowRightIcon class="w-4 h-4 ms-2" />
                     </button>
 
                     <button
@@ -381,7 +381,7 @@ const close = () => {
                         :disabled="form.processing"
                         class="inline-flex items-center px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50"
                     >
-                        <CheckIcon class="w-4 h-4 mr-2" />
+                        <CheckIcon class="w-4 h-4 me-2" />
                         Create Building
                     </button>
                 </div>

@@ -199,18 +199,18 @@ const copyToken = async () => {
                             <dl class="mt-2 text-xs text-gray-500 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                                 <div>
                                     <dt class="inline">Created:</dt>
-                                    <dd class="inline ml-1">{{ token.created_at ? formatDate(token.created_at) : '—' }}</dd>
+                                    <dd class="inline ms-1">{{ token.created_at ? formatDate(token.created_at) : '—' }}</dd>
                                 </div>
                                 <div>
                                     <dt class="inline">Last used:</dt>
-                                    <dd class="inline ml-1">
+                                    <dd class="inline ms-1">
                                         {{ token.last_used_at ? formatDate(token.last_used_at) : 'Never' }}
-                                        <span v-if="token.last_used_ip" class="ml-1 font-mono">({{ token.last_used_ip }})</span>
+                                        <span v-if="token.last_used_ip" class="ms-1 font-mono">({{ token.last_used_ip }})</span>
                                     </dd>
                                 </div>
                                 <div v-if="token.expires_at">
                                     <dt class="inline">Expires:</dt>
-                                    <dd class="inline ml-1">{{ formatDate(token.expires_at) }}</dd>
+                                    <dd class="inline ms-1">{{ formatDate(token.expires_at) }}</dd>
                                 </div>
                             </dl>
                         </div>

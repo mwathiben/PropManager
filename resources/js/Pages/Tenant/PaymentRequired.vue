@@ -271,7 +271,7 @@ const canPayOnline = computed(() => {
                             :disabled="!canPayOnline"
                             class="w-full justify-center"
                         >
-                            <CreditCardIcon class="w-5 h-5 mr-2" />
+                            <CreditCardIcon class="w-5 h-5 me-2" />
                             Pay {{ formatCurrency(verification.total_required - verification.amount_paid) }} Now
                         </PrimaryButton>
                     </div>
@@ -389,7 +389,7 @@ const canPayOnline = computed(() => {
                                 <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
                             </svg>
                         </div>
-                        <div class="ml-3">
+                        <div class="ms-3">
                             <h3 class="text-sm font-medium text-blue-800">Need help?</h3>
                             <p class="mt-1 text-sm text-blue-700">
                                 If you have questions about your payment or need assistance, please contact your property manager.

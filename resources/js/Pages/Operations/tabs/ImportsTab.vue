@@ -113,14 +113,14 @@ const templates = [
                             :href="route('imports.template', template.type)"
                             class="flex-1 inline-flex items-center justify-center px-3 py-1.5 text-sm text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
                         >
-                            <ArrowDownTrayIcon class="w-4 h-4 mr-1" />
+                            <ArrowDownTrayIcon class="w-4 h-4 me-1" />
                             Template
                         </a>
                         <button
                             @click="startImport(template.type)"
                             class="flex-1 inline-flex items-center justify-center px-3 py-1.5 text-sm text-white bg-purple-600 rounded hover:bg-purple-700"
                         >
-                            <ArrowUpTrayIcon class="w-4 h-4 mr-1" />
+                            <ArrowUpTrayIcon class="w-4 h-4 me-1" />
                             Import
                         </button>
                     </div>
@@ -135,11 +135,11 @@ const templates = [
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">File</th>
+                            <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">Type</th>
+                            <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">File</th>
                             <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Records</th>
                             <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Date</th>
+                            <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase">Date</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
@@ -164,7 +164,7 @@ const templates = [
                                     {{ imp.status }}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 text-sm text-gray-500 text-right">
+                            <td class="px-6 py-4 text-sm text-gray-500 text-end">
                                 {{ formatDate(imp.created_at) }}
                             </td>
                         </tr>

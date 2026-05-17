@@ -169,7 +169,7 @@ const getStatusColor = (status) => {
                     @click="openAddModal"
                     class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
-                    <PlusIcon class="w-5 h-5 mr-2" />
+                    <PlusIcon class="w-5 h-5 me-2" />
                     Add Account
                 </button>
             </div>
@@ -180,7 +180,7 @@ const getStatusColor = (status) => {
                 <!-- Fee Info Banner -->
                 <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                     <div class="flex items-start">
-                        <BanknotesIcon class="w-6 h-6 text-blue-600 mr-3 mt-0.5" />
+                        <BanknotesIcon class="w-6 h-6 text-blue-600 me-3 mt-0.5" />
                         <div>
                             <h3 class="font-medium text-blue-900">Platform Fee Information</h3>
                             <p class="text-sm text-blue-700 mt-1">
@@ -199,7 +199,7 @@ const getStatusColor = (status) => {
                 <!-- Alert if no verified account -->
                 <div v-if="!hasVerifiedAccount" class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
                     <div class="flex items-start">
-                        <ExclamationCircleIcon class="w-6 h-6 text-yellow-600 mr-3 mt-0.5" />
+                        <ExclamationCircleIcon class="w-6 h-6 text-yellow-600 me-3 mt-0.5" />
                         <div>
                             <h3 class="font-medium text-yellow-900">Payout Account Required</h3>
                             <p class="text-sm text-yellow-700 mt-1">
@@ -220,11 +220,11 @@ const getStatusColor = (status) => {
                                             <BanknotesIcon class="w-6 h-6 text-gray-600" />
                                         </div>
                                     </div>
-                                    <div class="ml-4">
+                                    <div class="ms-4">
                                         <div class="flex items-center">
                                             <p class="font-medium text-gray-900">{{ account.business_name }}</p>
-                                            <span v-if="account.is_primary" class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                                                <StarIcon class="w-3 h-3 mr-1" />
+                                            <span v-if="account.is_primary" class="ms-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                                <StarIcon class="w-3 h-3 me-1" />
                                                 Primary
                                             </span>
                                         </div>
@@ -234,7 +234,7 @@ const getStatusColor = (status) => {
                                 </div>
                                 <div class="flex items-center space-x-4">
                                     <div class="flex items-center" :class="getStatusColor(account.verification_status)">
-                                        <component :is="getStatusIcon(account.verification_status)" class="w-5 h-5 mr-1" />
+                                        <component :is="getStatusIcon(account.verification_status)" class="w-5 h-5 me-1" />
                                         <span class="text-sm">{{ account.status_label }}</span>
                                     </div>
                                     <div class="flex space-x-2">
@@ -321,7 +321,7 @@ const getStatusColor = (status) => {
                                 <input
                                     v-model="form.account_number"
                                     type="text"
-                                    class="block w-full rounded-l-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                    class="block w-full rounded-s-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                     placeholder="Enter account number"
                                     required
                                 />
@@ -329,7 +329,7 @@ const getStatusColor = (status) => {
                                     type="button"
                                     @click="verifyAccount"
                                     :disabled="!form.account_number || !form.bank_code || verifyingAccount"
-                                    class="px-4 py-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r-md text-sm font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50"
+                                    class="px-4 py-2 bg-gray-100 border border-s-0 border-gray-300 rounded-e-md text-sm font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50"
                                 >
                                     {{ verifyingAccount ? 'Verifying...' : 'Verify' }}
                                 </button>
@@ -339,7 +339,7 @@ const getStatusColor = (status) => {
 
                         <div v-if="verifiedAccountName" class="bg-green-50 border border-green-200 rounded-md p-3">
                             <div class="flex items-center">
-                                <CheckCircleIcon class="w-5 h-5 text-green-600 mr-2" />
+                                <CheckCircleIcon class="w-5 h-5 text-green-600 me-2" />
                                 <div>
                                     <p class="text-sm font-medium text-green-800">Account Verified</p>
                                     <p class="text-sm text-green-700">{{ verifiedAccountName }}</p>

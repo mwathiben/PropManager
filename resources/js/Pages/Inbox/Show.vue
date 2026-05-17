@@ -157,7 +157,7 @@ const statusLabel = (status) => {
                                 >
                                     #{{ message.ticket.id }} - {{ message.ticket.subject }}
                                 </Link>
-                                <span class="ml-2 px-2 py-0.5 bg-green-200 text-green-800 text-xs rounded-full">
+                                <span class="ms-2 px-2 py-0.5 bg-green-200 text-green-800 text-xs rounded-full">
                                     {{ message.ticket.status }}
                                 </span>
                             </span>

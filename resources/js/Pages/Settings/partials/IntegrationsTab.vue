@@ -82,7 +82,7 @@ const providerChanged = (provider) => {
                             v-model="ocrForm.enabled"
                             class="sr-only peer"
                         >
-                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                     </label>
                 </div>
             </div>
@@ -109,7 +109,7 @@ const providerChanged = (provider) => {
                                 v-model="ocrForm.provider"
                                 class="mt-1 text-indigo-600 focus:ring-indigo-500"
                             >
-                            <div class="ml-3 flex-1">
+                            <div class="ms-3 flex-1">
                                 <div class="flex items-center gap-2">
                                     <h5 class="text-sm font-semibold text-gray-900">{{ provider.name }}</h5>
                                     <span v-if="provider.recommended" class="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded">
@@ -148,7 +148,7 @@ const providerChanged = (provider) => {
                                 v-model="ocrForm.provider"
                                 class="mt-1 text-gray-600 focus:ring-gray-500"
                             >
-                            <div class="ml-3">
+                            <div class="ms-3">
                                 <h5 class="text-sm font-semibold text-gray-900">No OCR (Manual Only)</h5>
                                 <p class="mt-1 text-xs text-gray-600">Disable automatic reading detection. Caretakers will only enter values manually.</p>
                             </div>
@@ -166,7 +166,7 @@ const providerChanged = (provider) => {
                         </svg>
                         <div class="text-sm text-blue-800">
                             <strong>API Key Required:</strong> You need to sign up for {{ ocrProviders[ocrForm.provider]?.name }} and get an API key.
-                            <a :href="ocrProviders[ocrForm.provider]?.setup_url" target="_blank" class="underline font-medium ml-1">
+                            <a :href="ocrProviders[ocrForm.provider]?.setup_url" target="_blank" class="underline font-medium ms-1">
                                 Get API Key
                             </a>
                         </div>
@@ -232,7 +232,7 @@ const providerChanged = (provider) => {
                         v-model="ocrForm.auto_verify"
                         class="sr-only peer"
                     >
-                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                 </label>
                 <div>
                     <span class="text-sm font-medium text-gray-700">Auto-verify readings</span>

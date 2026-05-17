@@ -175,7 +175,7 @@ const getStatusClass = (status) => {
                 <div class="space-y-3">
                     <button
                         @click="showSendModal = true"
-                        class="w-full flex items-center gap-3 p-4 border-2 border-indigo-200 rounded-xl hover:border-indigo-400 hover:bg-indigo-50 transition-all text-left"
+                        class="w-full flex items-center gap-3 p-4 border-2 border-indigo-200 rounded-xl hover:border-indigo-400 hover:bg-indigo-50 transition-all text-start"
                     >
                         <div class="p-2 bg-indigo-100 rounded-lg">
                             <PaperAirplaneIcon class="w-5 h-5 text-indigo-600" />
@@ -188,7 +188,7 @@ const getStatusClass = (status) => {
 
                     <button
                         @click="showBulkModal = true"
-                        class="w-full flex items-center gap-3 p-4 border-2 border-purple-200 rounded-xl hover:border-purple-400 hover:bg-purple-50 transition-all text-left"
+                        class="w-full flex items-center gap-3 p-4 border-2 border-purple-200 rounded-xl hover:border-purple-400 hover:bg-purple-50 transition-all text-start"
                     >
                         <div class="p-2 bg-purple-100 rounded-lg">
                             <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -203,7 +203,7 @@ const getStatusClass = (status) => {
 
                     <button
                         @click="sendRentReminders"
-                        class="w-full flex items-center gap-3 p-4 border-2 border-blue-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all text-left"
+                        class="w-full flex items-center gap-3 p-4 border-2 border-blue-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all text-start"
                     >
                         <div class="p-2 bg-blue-100 rounded-lg">
                             <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -218,7 +218,7 @@ const getStatusClass = (status) => {
 
                     <button
                         @click="sendArrearsNotices"
-                        class="w-full flex items-center gap-3 p-4 border-2 border-red-200 rounded-xl hover:border-red-400 hover:bg-red-50 transition-all text-left"
+                        class="w-full flex items-center gap-3 p-4 border-2 border-red-200 rounded-xl hover:border-red-400 hover:bg-red-50 transition-all text-start"
                     >
                         <div class="p-2 bg-red-100 rounded-lg">
                             <ExclamationTriangleIcon class="w-5 h-5 text-red-600" />
@@ -286,7 +286,7 @@ const getStatusClass = (status) => {
                             To: {{ notification.recipient?.name || 'Unknown' }}
                         </p>
                     </div>
-                    <div class="text-right">
+                    <div class="text-end">
                         <span :class="['px-2 py-1 text-xs font-medium rounded-full capitalize', getStatusClass(notification.status)]">
                             {{ notification.status }}
                         </span>

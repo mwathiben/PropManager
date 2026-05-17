@@ -123,7 +123,7 @@ const formatJson = (data) => {
                     <div class="bg-white rounded-lg shadow-sm p-6">
                         <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">
                             <span class="inline-flex items-center">
-                                <span class="w-3 h-3 bg-red-400 rounded-full mr-2"></span>
+                                <span class="w-3 h-3 bg-red-400 rounded-full me-2"></span>
                                 Old Values
                             </span>
                         </h4>
@@ -135,7 +135,7 @@ const formatJson = (data) => {
                     <div class="bg-white rounded-lg shadow-sm p-6">
                         <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">
                             <span class="inline-flex items-center">
-                                <span class="w-3 h-3 bg-green-400 rounded-full mr-2"></span>
+                                <span class="w-3 h-3 bg-green-400 rounded-full me-2"></span>
                                 New Values
                             </span>
                         </h4>

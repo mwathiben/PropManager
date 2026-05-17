@@ -295,7 +295,7 @@ const voidCredit = () => {
                 <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
                     <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="showApplyModal = false"></div>
 
-                    <div class="relative z-50 transform overflow-hidden rounded-xl bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+                    <div class="relative z-50 transform overflow-hidden rounded-xl bg-white text-start shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
                         <div class="bg-white px-6 py-4 border-b border-gray-200">
                             <h3 class="text-lg font-medium text-gray-900">Apply Credit to Invoice</h3>
                         </div>
@@ -316,7 +316,7 @@ const voidCredit = () => {
                                     type="button"
                                     @click="selectInvoice(invoice)"
                                     :class="[
-                                        'w-full p-3 text-left border rounded-lg transition',
+                                        'w-full p-3 text-start border rounded-lg transition',
                                         selectedInvoice?.id === invoice.id
                                             ? 'border-purple-500 bg-purple-50'
                                             : 'border-gray-200 hover:border-gray-300'
@@ -337,13 +337,13 @@ const voidCredit = () => {
                                     Amount to Apply
                                 </label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">{{ currencySymbol }}</span>
+                                    <span class="absolute start-3 top-1/2 -translate-y-1/2 text-gray-500">{{ currencySymbol }}</span>
                                     <input
                                         v-model="applyAmount"
                                         type="number"
                                         step="0.01"
                                         :max="Math.min(remainingAmount, selectedInvoice.outstanding)"
-                                        class="w-full pl-14 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                                        class="w-full ps-14 pe-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
                                     />
                                 </div>
                             </div>

@@ -168,7 +168,7 @@ const occupancyColor = computed(() => {
                         :href="route('buildings.dashboard', building.id)"
                         class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold text-sm hover:bg-indigo-700 transition shadow-sm"
                     >
-                        <ChartBarIcon class="w-4 h-4 mr-2" />
+                        <ChartBarIcon class="w-4 h-4 me-2" />
                         View Dashboard
                     </Link>
                     <button
@@ -176,7 +176,7 @@ const occupancyColor = computed(() => {
                         @click="isEditing = true"
                         class="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium text-sm hover:bg-gray-50 transition"
                     >
-                        <PencilIcon class="w-4 h-4 mr-2" />
+                        <PencilIcon class="w-4 h-4 me-2" />
                         Edit Details
                     </button>
                 </div>
@@ -444,7 +444,7 @@ const occupancyColor = computed(() => {
                                     :href="route('buildings.edit', building.id)"
                                     class="mt-6 block w-full text-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium text-sm hover:bg-gray-50 transition"
                                 >
-                                    <Cog6ToothIcon class="w-4 h-4 inline mr-2" />
+                                    <Cog6ToothIcon class="w-4 h-4 inline me-2" />
                                     Configure Units
                                 </Link>
                             </div>

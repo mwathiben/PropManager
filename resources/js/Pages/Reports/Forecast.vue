@@ -150,22 +150,22 @@ function barWidth(amount: number): string {
 
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                     <thead>
-                        <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        <tr class="text-start text-xs font-semibold uppercase tracking-wide text-gray-500">
                             <th class="px-3 py-2">Month</th>
-                            <th class="px-3 py-2 text-right">Low</th>
-                            <th class="px-3 py-2 text-right">Expected</th>
-                            <th class="px-3 py-2 text-right">High</th>
-                            <th class="px-3 py-2 text-right">Seasonality</th>
+                            <th class="px-3 py-2 text-end">Low</th>
+                            <th class="px-3 py-2 text-end">Expected</th>
+                            <th class="px-3 py-2 text-end">High</th>
+                            <th class="px-3 py-2 text-end">Seasonality</th>
                             <th class="px-3 py-2 w-1/3">Range</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         <tr v-for="row in props.rentRoll.months" :key="row.month">
                             <td class="px-3 py-2 font-medium text-gray-900">{{ row.month }}</td>
-                            <td class="px-3 py-2 text-right text-gray-500">{{ formatKes(row.low_estimate) }}</td>
-                            <td class="px-3 py-2 text-right font-semibold text-emerald-700">{{ formatKes(row.expected_revenue) }}</td>
-                            <td class="px-3 py-2 text-right text-gray-700">{{ formatKes(row.high_estimate) }}</td>
-                            <td class="px-3 py-2 text-right text-xs">
+                            <td class="px-3 py-2 text-end text-gray-500">{{ formatKes(row.low_estimate) }}</td>
+                            <td class="px-3 py-2 text-end font-semibold text-emerald-700">{{ formatKes(row.expected_revenue) }}</td>
+                            <td class="px-3 py-2 text-end text-gray-700">{{ formatKes(row.high_estimate) }}</td>
+                            <td class="px-3 py-2 text-end text-xs">
                                 <span class="rounded-full px-2 py-0.5 font-medium"
                                     :class="row.seasonality >= 1 ? 'bg-emerald-100 text-emerald-900' : 'bg-amber-100 text-amber-900'">
                                     × {{ row.seasonality.toFixed(2) }}
@@ -173,9 +173,9 @@ function barWidth(amount: number): string {
                             </td>
                             <td class="px-3 py-2">
                                 <div class="relative h-2 w-full overflow-hidden rounded-full bg-gray-100">
-                                    <div class="absolute inset-y-0 left-0 bg-gray-300" :style="{ width: barWidth(row.low_estimate) }" />
-                                    <div class="absolute inset-y-0 left-0 bg-emerald-500" :style="{ width: barWidth(row.expected_revenue) }" />
-                                    <div class="absolute inset-y-0 left-0 border-r-2 border-emerald-700" :style="{ width: barWidth(row.high_estimate) }" />
+                                    <div class="absolute inset-y-0 start-0 bg-gray-300" :style="{ width: barWidth(row.low_estimate) }" />
+                                    <div class="absolute inset-y-0 start-0 bg-emerald-500" :style="{ width: barWidth(row.expected_revenue) }" />
+                                    <div class="absolute inset-y-0 start-0 border-e-2 border-emerald-700" :style="{ width: barWidth(row.high_estimate) }" />
                                 </div>
                             </td>
                         </tr>
@@ -199,11 +199,11 @@ function barWidth(amount: number): string {
 
                 <table v-else class="min-w-full divide-y divide-gray-200 text-sm">
                     <thead>
-                        <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        <tr class="text-start text-xs font-semibold uppercase tracking-wide text-gray-500">
                             <th class="px-3 py-2">Unit</th>
                             <th class="px-3 py-2">Vacant since</th>
                             <th class="px-3 py-2">Expected fill</th>
-                            <th class="px-3 py-2 text-right">Lost revenue</th>
+                            <th class="px-3 py-2 text-end">Lost revenue</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
@@ -211,7 +211,7 @@ function barWidth(amount: number): string {
                             <td class="px-3 py-2 font-medium text-gray-900">{{ row.unit_number }}</td>
                             <td class="px-3 py-2 text-gray-600">{{ row.vacant_since ?? '—' }}</td>
                             <td class="px-3 py-2 text-gray-700">{{ row.expected_fill_date }}</td>
-                            <td class="px-3 py-2 text-right font-semibold text-rose-700">{{ formatKes(row.lost_revenue_kes) }}</td>
+                            <td class="px-3 py-2 text-end font-semibold text-rose-700">{{ formatKes(row.lost_revenue_kes) }}</td>
                         </tr>
                     </tbody>
                 </table>

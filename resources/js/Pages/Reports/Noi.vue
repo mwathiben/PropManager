@@ -115,7 +115,7 @@ function changeWindow(value: string): void {
                 >
                     {{ opt.label }}
                 </button>
-                <span class="ml-auto text-xs text-gray-500">
+                <span class="ms-auto text-xs text-gray-500">
                     {{ props.byProperty.period.start }} → {{ props.byProperty.period.end }}
                 </span>
             </div>
@@ -167,26 +167,26 @@ function changeWindow(value: string): void {
 
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                     <thead>
-                        <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        <tr class="text-start text-xs font-semibold uppercase tracking-wide text-gray-500">
                             <th class="px-3 py-2">Property</th>
-                            <th class="px-3 py-2 text-right">Revenue</th>
-                            <th class="px-3 py-2 text-right">Direct expenses</th>
-                            <th class="px-3 py-2 text-right">Allocated</th>
-                            <th class="px-3 py-2 text-right">NOI</th>
-                            <th class="px-3 py-2 text-right">Margin</th>
+                            <th class="px-3 py-2 text-end">Revenue</th>
+                            <th class="px-3 py-2 text-end">Direct expenses</th>
+                            <th class="px-3 py-2 text-end">Allocated</th>
+                            <th class="px-3 py-2 text-end">NOI</th>
+                            <th class="px-3 py-2 text-end">Margin</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         <tr v-for="row in sortedProperties" :key="row.property_id">
                             <td class="px-3 py-2 font-medium text-gray-900">{{ row.name }}</td>
-                            <td class="px-3 py-2 text-right">{{ formatKes(row.revenue) }}</td>
-                            <td class="px-3 py-2 text-right">{{ formatKes(row.direct_expenses) }}</td>
-                            <td class="px-3 py-2 text-right text-gray-500">{{ formatKes(row.allocated_expenses) }}</td>
-                            <td class="px-3 py-2 text-right font-semibold"
+                            <td class="px-3 py-2 text-end">{{ formatKes(row.revenue) }}</td>
+                            <td class="px-3 py-2 text-end">{{ formatKes(row.direct_expenses) }}</td>
+                            <td class="px-3 py-2 text-end text-gray-500">{{ formatKes(row.allocated_expenses) }}</td>
+                            <td class="px-3 py-2 text-end font-semibold"
                                 :class="row.noi > 0 ? 'text-emerald-700' : row.noi < 0 ? 'text-rose-700' : 'text-gray-500'">
                                 {{ formatKes(row.noi) }}
                             </td>
-                            <td class="px-3 py-2 text-right">{{ formatPct(row.noi_margin) }}</td>
+                            <td class="px-3 py-2 text-end">{{ formatPct(row.noi_margin) }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -205,21 +205,21 @@ function changeWindow(value: string): void {
 
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                     <thead>
-                        <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        <tr class="text-start text-xs font-semibold uppercase tracking-wide text-gray-500">
                             <th class="px-3 py-2">Property</th>
-                            <th class="px-3 py-2 text-right">Estimated value</th>
-                            <th class="px-3 py-2 text-right">Annualised NOI</th>
-                            <th class="px-3 py-2 text-right">Cap rate</th>
+                            <th class="px-3 py-2 text-end">Estimated value</th>
+                            <th class="px-3 py-2 text-end">Annualised NOI</th>
+                            <th class="px-3 py-2 text-end">Cap rate</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         <tr v-for="row in sortedCapRates" :key="row.property_id">
                             <td class="px-3 py-2 font-medium text-gray-900">{{ row.name }}</td>
-                            <td class="px-3 py-2 text-right">
+                            <td class="px-3 py-2 text-end">
                                 {{ row.estimated_value !== null ? formatKes(row.estimated_value) : '—' }}
                             </td>
-                            <td class="px-3 py-2 text-right">{{ formatKes(row.annualised_noi) }}</td>
-                            <td class="px-3 py-2 text-right">
+                            <td class="px-3 py-2 text-end">{{ formatKes(row.annualised_noi) }}</td>
+                            <td class="px-3 py-2 text-end">
                                 <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
                                     :class="bandClass(row.band)">
                                     {{ formatPct(row.cap_rate, 2) }}

@@ -119,7 +119,7 @@ const roleBadgeClass = computed(() => {
                         </div>
 
                         <!-- Quick Stats for Landlords -->
-                        <div v-if="user.role === 'landlord' && landlordProfile?.company_name" class="hidden sm:block text-right">
+                        <div v-if="user.role === 'landlord' && landlordProfile?.company_name" class="hidden sm:block text-end">
                             <p class="text-sm font-medium text-gray-900">{{ landlordProfile.company_name }}</p>
                             <p v-if="landlordProfile.city" class="text-xs text-gray-500">{{ landlordProfile.city }}, {{ landlordProfile.country }}</p>
                         </div>

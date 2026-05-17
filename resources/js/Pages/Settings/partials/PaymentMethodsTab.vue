@@ -263,7 +263,7 @@ const submit = () => {
                         <div>
                             <InputLabel for="mpesa_consumer_key">
                                 Consumer Key
-                                <span v-if="props.paymentConfig?.mpesa_consumer_key_last4" class="ml-2 text-xs text-green-600">({{ props.paymentConfig.mpesa_consumer_key_last4 }})</span>
+                                <span v-if="props.paymentConfig?.mpesa_consumer_key_last4" class="ms-2 text-xs text-green-600">({{ props.paymentConfig.mpesa_consumer_key_last4 }})</span>
                             </InputLabel>
                             <TextInput
                                 id="mpesa_consumer_key"
@@ -280,7 +280,7 @@ const submit = () => {
                         <div>
                             <InputLabel for="mpesa_consumer_secret">
                                 Consumer Secret
-                                <span v-if="props.paymentConfig?.mpesa_consumer_secret_last4" class="ml-2 text-xs text-green-600">({{ props.paymentConfig.mpesa_consumer_secret_last4 }})</span>
+                                <span v-if="props.paymentConfig?.mpesa_consumer_secret_last4" class="ms-2 text-xs text-green-600">({{ props.paymentConfig.mpesa_consumer_secret_last4 }})</span>
                             </InputLabel>
                             <TextInput
                                 id="mpesa_consumer_secret"
@@ -351,7 +351,7 @@ const submit = () => {
                         <div>
                             <InputLabel for="mpesa_b2c_password">
                                 Initiator Password
-                                <span v-if="props.paymentConfig?.mpesa_b2c_password_last4" class="ml-2 text-xs text-green-600">({{ props.paymentConfig.mpesa_b2c_password_last4 }})</span>
+                                <span v-if="props.paymentConfig?.mpesa_b2c_password_last4" class="ms-2 text-xs text-green-600">({{ props.paymentConfig.mpesa_b2c_password_last4 }})</span>
                             </InputLabel>
                             <TextInput
                                 id="mpesa_b2c_password"
@@ -367,7 +367,7 @@ const submit = () => {
                         <div>
                             <InputLabel for="mpesa_b2c_security_credential">
                                 Security Credential
-                                <span v-if="props.paymentConfig?.mpesa_b2c_security_credential_last4" class="ml-2 text-xs text-green-600">({{ props.paymentConfig.mpesa_b2c_security_credential_last4 }})</span>
+                                <span v-if="props.paymentConfig?.mpesa_b2c_security_credential_last4" class="ms-2 text-xs text-green-600">({{ props.paymentConfig.mpesa_b2c_security_credential_last4 }})</span>
                             </InputLabel>
                             <TextInput
                                 id="mpesa_b2c_security_credential"
@@ -419,8 +419,8 @@ const submit = () => {
                             v-model="form.paystack_enabled"
                             class="sr-only peer"
                         >
-                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                        <span class="ml-3 text-sm font-medium text-gray-700">
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        <span class="ms-3 text-sm font-medium text-gray-700">
                             {{ form.paystack_enabled ? 'Enabled' : 'Disabled' }}
                         </span>
                     </label>
@@ -448,7 +448,7 @@ const submit = () => {
                         <div>
                             <InputLabel for="paystack_secret_key">
                                 Secret Key
-                                <span v-if="props.paymentConfig?.paystack_secret_key_last4" class="ml-2 text-xs text-green-600">({{ props.paymentConfig.paystack_secret_key_last4 }})</span>
+                                <span v-if="props.paymentConfig?.paystack_secret_key_last4" class="ms-2 text-xs text-green-600">({{ props.paymentConfig.paystack_secret_key_last4 }})</span>
                             </InputLabel>
                             <TextInput
                                 id="paystack_secret_key"
@@ -501,8 +501,8 @@ const submit = () => {
                             v-model="form.intasend_enabled"
                             class="sr-only peer"
                         >
-                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
-                        <span class="ml-3 text-sm font-medium text-gray-700">
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                        <span class="ms-3 text-sm font-medium text-gray-700">
                             {{ form.intasend_enabled ? 'Enabled' : 'Disabled' }}
                         </span>
                     </label>
@@ -545,7 +545,7 @@ const submit = () => {
                         <div>
                             <InputLabel for="intasend_secret_key">
                                 Secret Key
-                                <span v-if="props.paymentConfig?.intasend_secret_key_last4" class="ml-2 text-xs text-green-600">({{ props.paymentConfig.intasend_secret_key_last4 }})</span>
+                                <span v-if="props.paymentConfig?.intasend_secret_key_last4" class="ms-2 text-xs text-green-600">({{ props.paymentConfig.intasend_secret_key_last4 }})</span>
                             </InputLabel>
                             <TextInput
                                 id="intasend_secret_key"

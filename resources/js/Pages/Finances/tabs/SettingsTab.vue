@@ -255,7 +255,7 @@ const sections = [
                             :key="method"
                             @click="togglePaymentMethod(method)"
                             :class="[
-                                'flex items-center gap-3 p-4 rounded-lg border-2 transition-colors text-left',
+                                'flex items-center gap-3 p-4 rounded-lg border-2 transition-colors text-start',
                                 isMethodEnabled(method)
                                     ? 'border-emerald-500 bg-emerald-50'
                                     : 'border-gray-200 hover:border-gray-300'
@@ -601,7 +601,7 @@ const sections = [
                                     type="button"
                                     @click="fiscalYearForm.fiscal_year_type = 'calendar'"
                                     :class="[
-                                        'flex-1 px-4 py-3 text-sm rounded-lg border-2 transition-colors text-left',
+                                        'flex-1 px-4 py-3 text-sm rounded-lg border-2 transition-colors text-start',
                                         fiscalYearForm.fiscal_year_type === 'calendar'
                                             ? 'border-emerald-500 bg-emerald-50'
                                             : 'border-gray-200 hover:border-gray-300'
@@ -616,7 +616,7 @@ const sections = [
                                     type="button"
                                     @click="fiscalYearForm.fiscal_year_type = 'custom'"
                                     :class="[
-                                        'flex-1 px-4 py-3 text-sm rounded-lg border-2 transition-colors text-left',
+                                        'flex-1 px-4 py-3 text-sm rounded-lg border-2 transition-colors text-start',
                                         fiscalYearForm.fiscal_year_type === 'custom'
                                             ? 'border-emerald-500 bg-emerald-50'
                                             : 'border-gray-200 hover:border-gray-300'

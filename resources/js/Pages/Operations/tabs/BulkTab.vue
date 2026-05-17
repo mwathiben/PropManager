@@ -107,7 +107,7 @@ const operations = [
                     class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-purple-100 hover:text-purple-700 transition-colors"
                 >
                     {{ building.name }}
-                    <span class="text-gray-400 ml-1">({{ building.units_count || 0 }})</span>
+                    <span class="text-gray-400 ms-1">({{ building.units_count || 0 }})</span>
                 </Link>
             </div>
             <p v-else class="text-sm text-gray-500">No buildings available.</p>

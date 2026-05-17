@@ -55,7 +55,7 @@ const dismiss = async () => {
 <template>
   <div
     v-if="status && !dismissed && !dashOk"
-    class="rounded border bg-gray-50 p-4 text-left max-w-md mx-auto"
+    class="rounded border bg-gray-50 p-4 text-start max-w-md mx-auto"
   >
     <div class="flex items-center justify-between mb-3">
       <h4 class="text-sm font-semibold text-gray-900">{{ t('onboarding.checklist.heading') }}</h4>

@@ -55,9 +55,9 @@ const hasActiveFilters = computed(() => {
                             @keyup.enter="applyFilters"
                             type="text"
                             placeholder="Search by tenant..."
-                            class="w-full pl-10 border-gray-300 rounded-lg shadow-sm focus:ring-gray-500 focus:border-gray-500 sm:text-sm"
+                            class="w-full ps-10 border-gray-300 rounded-lg shadow-sm focus:ring-gray-500 focus:border-gray-500 sm:text-sm"
                         />
-                        <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
+                        <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute start-3 top-2.5" />
                     </div>
                 </div>
 
@@ -96,22 +96,22 @@ const hasActiveFilters = computed(() => {
             <table v-if="leases?.data?.length > 0" class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Tenant
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Unit
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Period
                         </th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Rent
                         </th>
                         <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Status
                         </th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Actions
                         </th>
                     </tr>
@@ -138,7 +138,7 @@ const hasActiveFilters = computed(() => {
                             <div>{{ formatDate(lease.start_date) }}</div>
                             <div class="text-xs">to {{ formatDate(lease.end_date) || 'Ongoing' }}</div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-end">
                             {{ formatCurrency(lease.rent_amount) }}/mo
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-center">
@@ -151,7 +151,7 @@ const hasActiveFilters = computed(() => {
                                 {{ lease.is_active ? 'Active' : 'Ended' }}
                             </span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-right">
+                        <td class="px-6 py-4 whitespace-nowrap text-end">
                             <div class="flex items-center justify-end gap-2">
                                 <Link
                                     :href="route('leases.show', lease.id)"

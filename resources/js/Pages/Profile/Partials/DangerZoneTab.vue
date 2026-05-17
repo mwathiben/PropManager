@@ -53,7 +53,7 @@ const closeModal = () => {
                 <div class="shrink-0">
                     <ExclamationTriangleIcon class="h-5 w-5 text-red-400" />
                 </div>
-                <div class="ml-3">
+                <div class="ms-3">
                     <h3 class="text-sm font-medium text-red-800">Danger Zone</h3>
                     <p class="mt-1 text-sm text-red-700">
                         The actions in this section are irreversible. Please proceed with caution.
@@ -77,7 +77,7 @@ const closeModal = () => {
 
                     <div class="mt-4">
                         <DangerButton @click="confirmUserDeletion">
-                            <TrashIcon class="w-4 h-4 mr-2" />
+                            <TrashIcon class="w-4 h-4 me-2" />
                             Delete Account
                         </DangerButton>
                     </div>

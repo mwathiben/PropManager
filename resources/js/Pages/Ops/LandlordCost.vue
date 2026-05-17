@@ -31,17 +31,17 @@ function formatKes(n: number): string {
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Landlord ID</th>
-                                <th scope="col" class="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-600">Estimated cost (KES)</th>
-                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Metric breakdown</th>
+                                <th scope="col" class="px-4 py-2 text-start text-xs font-semibold uppercase tracking-wide text-gray-600">Landlord ID</th>
+                                <th scope="col" class="px-4 py-2 text-end text-xs font-semibold uppercase tracking-wide text-gray-600">Estimated cost (KES)</th>
+                                <th scope="col" class="px-4 py-2 text-start text-xs font-semibold uppercase tracking-wide text-gray-600">Metric breakdown</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             <tr v-for="row in landlords" :key="row.landlord_id">
                                 <td class="px-4 py-2 text-sm text-gray-900">#{{ row.landlord_id }}</td>
-                                <td class="px-4 py-2 text-right text-sm font-medium text-gray-900">{{ formatKes(row.cost_kes) }}</td>
+                                <td class="px-4 py-2 text-end text-sm font-medium text-gray-900">{{ formatKes(row.cost_kes) }}</td>
                                 <td class="px-4 py-2 text-xs text-gray-700">
-                                    <span v-for="(value, metric) in row.metrics" :key="metric" class="mr-3 inline-block">
+                                    <span v-for="(value, metric) in row.metrics" :key="metric" class="me-3 inline-block">
                                         {{ metric }}: <span class="font-medium">{{ value }}</span>
                                     </span>
                                 </td>

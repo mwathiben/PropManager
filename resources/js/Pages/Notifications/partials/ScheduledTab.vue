@@ -247,7 +247,7 @@ const getChannelBadges = (channelList) => {
                         </div>
                     </div>
 
-                    <div class="flex items-center gap-1 ml-4">
+                    <div class="flex items-center gap-1 ms-4">
                         <button
                             @click="runScheduleNow(schedule)"
                             class="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"

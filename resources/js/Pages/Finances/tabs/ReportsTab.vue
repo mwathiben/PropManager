@@ -558,7 +558,7 @@ watch(() => localFilters.value.period, (newVal) => {
                         </div>
                         <div class="relative h-4 bg-gray-100 rounded-full overflow-hidden">
                             <div
-                                class="absolute left-[85%] top-0 bottom-0 w-0.5 bg-emerald-400 opacity-50"
+                                class="absolute start-[85%] top-0 bottom-0 w-0.5 bg-emerald-400 opacity-50"
                                 title="85% Target"
                             />
                             <div
@@ -585,12 +585,12 @@ watch(() => localFilters.value.period, (newVal) => {
                 <div v-if="occupancyData?.buildings?.length" class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
-                            <tr class="text-left text-xs text-gray-500 border-b border-gray-100">
+                            <tr class="text-start text-xs text-gray-500 border-b border-gray-100">
                                 <th class="pb-2 font-medium">Building</th>
                                 <th class="pb-2 font-medium text-center">Units</th>
                                 <th class="pb-2 font-medium text-center">Occupied</th>
                                 <th class="pb-2 font-medium text-center">Vacant</th>
-                                <th class="pb-2 font-medium text-right">Rate</th>
+                                <th class="pb-2 font-medium text-end">Rate</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-50">
@@ -599,7 +599,7 @@ watch(() => localFilters.value.period, (newVal) => {
                                 <td class="py-2 text-center text-gray-600">{{ building.total_units }}</td>
                                 <td class="py-2 text-center text-emerald-600">{{ building.occupied }}</td>
                                 <td class="py-2 text-center text-gray-400">{{ building.vacant }}</td>
-                                <td class="py-2 text-right">
+                                <td class="py-2 text-end">
                                     <span :class="['inline-flex px-2 py-0.5 text-xs font-medium rounded-full', getOccupancyBadgeClass(building.occupancy_rate)]">
                                         {{ building.occupancy_rate }}%
                                     </span>
@@ -612,7 +612,7 @@ watch(() => localFilters.value.period, (newVal) => {
                                 <td class="pt-2 text-center">{{ occupancyData.totals.total_units }}</td>
                                 <td class="pt-2 text-center text-emerald-600">{{ occupancyData.totals.occupied }}</td>
                                 <td class="pt-2 text-center text-gray-400">{{ occupancyData.totals.vacant }}</td>
-                                <td class="pt-2 text-right">
+                                <td class="pt-2 text-end">
                                     <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
                                         {{ occupancyData.totals.occupancy_rate }}%
                                     </span>
@@ -644,9 +644,9 @@ watch(() => localFilters.value.period, (newVal) => {
                             <div class="flex-1 h-6 bg-gray-100 rounded-full overflow-hidden">
                                 <div :class="[bucket.color, 'h-full rounded-full transition-all duration-300']" :style="{ width: `${bucket.percentage}%` }" />
                             </div>
-                            <div class="w-24 text-right">
+                            <div class="w-24 text-end">
                                 <span class="text-xs font-medium text-gray-900">{{ formatMoney(bucket.amount) }}</span>
-                                <span class="text-xs text-gray-400 ml-1">({{ bucket.count }})</span>
+                                <span class="text-xs text-gray-400 ms-1">({{ bucket.count }})</span>
                             </div>
                         </div>
                     </div>
@@ -689,7 +689,7 @@ watch(() => localFilters.value.period, (newVal) => {
                             <p class="text-sm font-medium text-gray-900">{{ cat.category }}</p>
                             <p class="text-xs text-gray-500">{{ cat.count }} expense{{ cat.count !== 1 ? 's' : '' }}</p>
                         </div>
-                        <div class="text-right">
+                        <div class="text-end">
                             <p class="text-sm font-medium text-gray-900">{{ formatMoney(cat.amount) }}</p>
                             <p class="text-xs text-gray-500">{{ cat.percentage }}%</p>
                         </div>
@@ -712,7 +712,7 @@ watch(() => localFilters.value.period, (newVal) => {
                         </svg>
                         <h3 class="text-sm font-semibold text-gray-900">Water Consumption</h3>
                     </div>
-                    <div class="text-right">
+                    <div class="text-end">
                         <p class="text-lg font-semibold text-cyan-600">{{ formatNumber(waterConsumption?.total_consumption || 0) }} <span class="text-xs font-normal">units</span></p>
                         <p class="text-xs text-gray-500">{{ formatMoney(waterConsumption?.total_cost || 0) }} total cost</p>
                     </div>
@@ -724,7 +724,7 @@ watch(() => localFilters.value.period, (newVal) => {
                             <p class="text-sm font-medium text-gray-900">{{ consumer.unit }}</p>
                             <p class="text-xs text-gray-500">{{ consumer.building }}</p>
                         </div>
-                        <div class="text-right">
+                        <div class="text-end">
                             <p class="text-sm font-semibold text-cyan-600">{{ formatNumber(consumer.consumption) }} units</p>
                             <p class="text-xs text-gray-500">{{ formatMoney(consumer.cost) }}</p>
                         </div>
@@ -746,7 +746,7 @@ watch(() => localFilters.value.period, (newVal) => {
                             <p class="text-sm font-medium text-gray-900">{{ unit.unit }}</p>
                             <p class="text-xs text-gray-500">{{ unit.tenant }}</p>
                         </div>
-                        <div class="text-right">
+                        <div class="text-end">
                             <p class="text-lg font-semibold" :class="unit.collection_rate >= 90 ? 'text-emerald-600' : unit.collection_rate >= 70 ? 'text-yellow-600' : 'text-red-600'">
                                 {{ unit.collection_rate }}%
                             </p>

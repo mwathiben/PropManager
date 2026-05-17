@@ -66,7 +66,7 @@ const getOccupancyRate = (occupied, total) => {
                     <h1 class="text-2xl font-bold text-gray-900">Landlords</h1>
                     <button @click="showCreateModal = true"
                             class="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
-                        <PlusIcon class="h-5 w-5 mr-2" />
+                        <PlusIcon class="h-5 w-5 me-2" />
                         Add Landlord
                     </button>
                 </div>
@@ -75,11 +75,11 @@ const getOccupancyRate = (occupied, total) => {
                 <div class="bg-white rounded-lg shadow-sm border p-4 mb-6">
                     <form @submit.prevent="search" class="flex gap-4">
                         <div class="relative flex-1">
-                            <MagnifyingGlassIcon class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                            <MagnifyingGlassIcon class="absolute start-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                             <input type="text"
                                    v-model="searchQuery"
                                    placeholder="Search by name or email..."
-                                   class="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
+                                   class="w-full ps-10 pe-4 py-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
                         </div>
                         <button type="submit"
                                 class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">
@@ -97,13 +97,13 @@ const getOccupancyRate = (occupied, total) => {
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Landlord</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Properties</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Units</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Occupancy</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Revenue</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Landlord</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Properties</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Units</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Occupancy</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Revenue</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Joined</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
@@ -120,7 +120,7 @@ const getOccupancyRate = (occupied, total) => {
                                     </td>
                                     <td class="px-4 py-3 text-sm">
                                         <div class="flex items-center">
-                                            <div class="w-20 bg-gray-200 rounded-full h-2 mr-2">
+                                            <div class="w-20 bg-gray-200 rounded-full h-2 me-2">
                                                 <div class="bg-green-500 h-2 rounded-full"
                                                      :style="{ width: getOccupancyRate(landlord.occupied_units, landlord.units_count) + '%' }">
                                                 </div>
@@ -136,12 +136,12 @@ const getOccupancyRate = (occupied, total) => {
                                         <div class="flex items-center gap-3">
                                             <Link :href="route('admin.landlords.show', landlord.id)"
                                                   class="text-indigo-600 hover:text-indigo-900 flex items-center">
-                                                <EyeIcon class="h-4 w-4 mr-1" />
+                                                <EyeIcon class="h-4 w-4 me-1" />
                                                 View
                                             </Link>
                                             <button v-if="can('access-admin')" @click="impersonate(landlord.id)"
                                                     class="text-gray-600 hover:text-gray-900 flex items-center">
-                                                <ArrowRightOnRectangleIcon class="h-4 w-4 mr-1" />
+                                                <ArrowRightOnRectangleIcon class="h-4 w-4 me-1" />
                                                 Login As
                                             </button>
                                         </div>

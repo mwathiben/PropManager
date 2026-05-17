@@ -373,13 +373,13 @@ const getColorClasses = (color) => {
                                         v-model="forms[provider.id][field.key]"
                                         :placeholder="field.placeholder"
                                         :readonly="field.readonly"
-                                        class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 pr-10 disabled:bg-gray-100"
+                                        class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 pe-10 disabled:bg-gray-100"
                                         :class="{ 'bg-gray-50': field.readonly }"
                                     />
                                     <button
                                         type="button"
                                         @click="togglePasswordVisibility(field.key)"
-                                        class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                        class="absolute end-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                                     >
                                         <EyeSlashIcon v-if="showPassword[field.key]" class="w-5 h-5" />
                                         <EyeIcon v-else class="w-5 h-5" />

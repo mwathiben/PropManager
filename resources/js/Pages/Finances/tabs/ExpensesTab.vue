@@ -367,7 +367,7 @@ const executeDelete = () => {
                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                         ]"
                     >
-                        <BanknotesIcon class="w-4 h-4 inline mr-2" />
+                        <BanknotesIcon class="w-4 h-4 inline me-2" />
                         Expenses
                     </button>
                     <button
@@ -379,7 +379,7 @@ const executeDelete = () => {
                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                         ]"
                     >
-                        <TagIcon class="w-4 h-4 inline mr-2" />
+                        <TagIcon class="w-4 h-4 inline me-2" />
                         Categories
                     </button>
                     <button
@@ -391,7 +391,7 @@ const executeDelete = () => {
                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                         ]"
                     >
-                        <UserGroupIcon class="w-4 h-4 inline mr-2" />
+                        <UserGroupIcon class="w-4 h-4 inline me-2" />
                         Vendors
                     </button>
                 </nav>
@@ -450,7 +450,7 @@ const executeDelete = () => {
                         @click="clearFilters"
                         class="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
                     >
-                        <XMarkIcon class="w-4 h-4 inline mr-1" />
+                        <XMarkIcon class="w-4 h-4 inline me-1" />
                         Clear
                     </button>
                     <ExportDropdown @export="exportData" />
@@ -479,14 +479,14 @@ const executeDelete = () => {
                             <div>
                                 <label class="block text-xs font-medium text-gray-700 mb-1">Amount *</label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-2 text-gray-400">{{ currencySymbol }}</span>
+                                    <span class="absolute start-3 top-2 text-gray-400">{{ currencySymbol }}</span>
                                     <input
                                         v-model.number="expenseForm.amount"
                                         type="number"
                                         min="0.01"
                                         step="0.01"
                                         required
-                                        class="w-full px-3 py-2 pl-12 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                        class="w-full px-3 py-2 ps-12 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                     />
                                 </div>
                             </div>
@@ -609,14 +609,14 @@ const executeDelete = () => {
                 <div v-else class="overflow-x-auto">
                     <table class="w-full">
                         <thead>
-                            <tr class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <tr class="text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 <th class="px-4 py-3">Date</th>
                                 <th class="px-4 py-3">Description</th>
                                 <th class="px-4 py-3">Category</th>
                                 <th class="px-4 py-3">Vendor</th>
                                 <th class="px-4 py-3">Location</th>
-                                <th class="px-4 py-3 text-right">Amount</th>
-                                <th class="px-4 py-3 text-right"></th>
+                                <th class="px-4 py-3 text-end">Amount</th>
+                                <th class="px-4 py-3 text-end"></th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200">
@@ -639,10 +639,10 @@ const executeDelete = () => {
                                 </td>
                                 <td class="px-4 py-3 text-sm text-gray-600">{{ expense.vendor || '-' }}</td>
                                 <td class="px-4 py-3 text-sm text-gray-600">{{ expense.location }}</td>
-                                <td class="px-4 py-3 text-sm font-medium text-gray-900 text-right">
+                                <td class="px-4 py-3 text-sm font-medium text-gray-900 text-end">
                                     {{ formatCurrency(expense.amount) }}
                                 </td>
-                                <td class="px-4 py-3 text-right">
+                                <td class="px-4 py-3 text-end">
                                     <div class="flex items-center justify-end gap-1">
                                         <button
                                             @click="openExpenseForm(expense)"
@@ -896,12 +896,12 @@ const executeDelete = () => {
                 <div v-else class="overflow-x-auto">
                     <table class="w-full">
                         <thead>
-                            <tr class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <tr class="text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 <th class="px-4 py-3">Vendor</th>
                                 <th class="px-4 py-3">Contact</th>
                                 <th class="px-4 py-3">Phone</th>
-                                <th class="px-4 py-3 text-right">Total Expenses</th>
-                                <th class="px-4 py-3 text-right"></th>
+                                <th class="px-4 py-3 text-end">Total Expenses</th>
+                                <th class="px-4 py-3 text-end"></th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200">
@@ -912,10 +912,10 @@ const executeDelete = () => {
                                 </td>
                                 <td class="px-4 py-3 text-sm text-gray-600">{{ vendor.contact_person || '-' }}</td>
                                 <td class="px-4 py-3 text-sm text-gray-600">{{ vendor.phone || '-' }}</td>
-                                <td class="px-4 py-3 text-sm font-medium text-gray-900 text-right">
+                                <td class="px-4 py-3 text-sm font-medium text-gray-900 text-end">
                                     {{ formatCurrency(vendor.total_expenses) }}
                                 </td>
-                                <td class="px-4 py-3 text-right">
+                                <td class="px-4 py-3 text-end">
                                     <div class="flex items-center justify-end gap-1">
                                         <button
                                             @click="openVendorForm(vendor)"

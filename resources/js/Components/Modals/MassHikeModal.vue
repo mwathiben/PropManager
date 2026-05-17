@@ -74,7 +74,7 @@ const close = () => {
                 <button
                     @click="submit"
                     :disabled="form.processing"
-                    class="ml-3 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-bold"
+                    class="ms-3 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-bold"
                 >
                     Apply Hike
                 </button>

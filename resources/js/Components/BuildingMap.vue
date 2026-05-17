@@ -185,7 +185,7 @@ onUnmounted(() => {
         </div>
 
         <!-- Action Buttons (when coordinates exist) -->
-        <div v-if="coordinates?.lat && coordinates?.lng" class="absolute top-3 right-3 flex gap-2">
+        <div v-if="coordinates?.lat && coordinates?.lng" class="absolute top-3 end-3 flex gap-2">
             <button
                 @click="openInGoogleMaps"
                 class="p-2 bg-white rounded-lg shadow-md hover:bg-gray-50 transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
@@ -197,14 +197,14 @@ onUnmounted(() => {
         </div>
 
         <!-- Coordinates Display -->
-        <div v-if="coordinates?.lat && coordinates?.lng" class="absolute bottom-3 left-3 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow-sm">
+        <div v-if="coordinates?.lat && coordinates?.lng" class="absolute bottom-3 start-3 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow-sm">
             <div class="text-xs text-gray-600">
                 {{ coordinates.lat.toFixed(6) }}, {{ coordinates.lng.toFixed(6) }}
             </div>
         </div>
 
         <!-- Editable Instructions -->
-        <div v-if="editable && coordinates?.lat" class="absolute bottom-3 right-3 bg-indigo-600/90 backdrop-blur-sm text-white text-xs px-3 py-2 rounded-lg">
+        <div v-if="editable && coordinates?.lat" class="absolute bottom-3 end-3 bg-indigo-600/90 backdrop-blur-sm text-white text-xs px-3 py-2 rounded-lg">
             Drag marker to adjust
         </div>
     </div>

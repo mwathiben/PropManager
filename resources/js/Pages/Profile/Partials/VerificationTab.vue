@@ -137,14 +137,14 @@ const verificationStatus = computed(() => {
                     <div>
                         <InputLabel for="mobile_number" value="Phone Number" />
                         <div class="mt-1 relative">
-                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                                 <PhoneIcon class="h-5 w-5 text-gray-400" />
                             </div>
                             <TextInput
                                 id="mobile_number"
                                 v-model="form.mobile_number"
                                 type="tel"
-                                class="pl-10 block w-full"
+                                class="ps-10 block w-full"
                                 placeholder="+254 712 345 678"
                                 required
                             />
@@ -156,14 +156,14 @@ const verificationStatus = computed(() => {
                     <div>
                         <InputLabel for="national_id" value="National ID / Passport" />
                         <div class="mt-1 relative">
-                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                                 <IdentificationIcon class="h-5 w-5 text-gray-400" />
                             </div>
                             <TextInput
                                 id="national_id"
                                 v-model="form.national_id"
                                 type="text"
-                                class="pl-10 block w-full"
+                                class="ps-10 block w-full"
                                 placeholder="Enter your ID number"
                                 required
                             />
@@ -204,14 +204,14 @@ const verificationStatus = computed(() => {
                     <div>
                         <InputLabel for="emergency_contact_phone" value="Contact Phone" />
                         <div class="mt-1 relative">
-                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                                 <PhoneIcon class="h-5 w-5 text-gray-400" />
                             </div>
                             <TextInput
                                 id="emergency_contact_phone"
                                 v-model="form.emergency_contact_phone"
                                 type="tel"
-                                class="pl-10 block w-full"
+                                class="ps-10 block w-full"
                                 placeholder="+254 712 345 678"
                                 required
                             />
@@ -229,7 +229,7 @@ const verificationStatus = computed(() => {
                             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
                         </svg>
                     </div>
-                    <div class="ml-3">
+                    <div class="ms-3">
                         <h3 class="text-sm font-medium text-blue-800">Why we need this information</h3>
                         <p class="mt-1 text-sm text-blue-700">
                             Your verification information helps us maintain accurate records and contact you or your emergency contact if needed.

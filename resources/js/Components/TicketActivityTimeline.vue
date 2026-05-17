@@ -52,7 +52,7 @@ const getColor = (action) => {
                 <div class="relative pb-8">
                     <span
                         v-if="index !== activities.length - 1"
-                        class="absolute left-4 top-4 -ml-px h-full w-0.5 bg-gray-200"
+                        class="absolute start-4 top-4 -ml-px h-full w-0.5 bg-gray-200"
                         aria-hidden="true"
                     />
                     <div class="relative flex space-x-3">
@@ -76,7 +76,7 @@ const getColor = (action) => {
                                     by {{ activity.user.name }}
                                 </p>
                             </div>
-                            <div class="whitespace-nowrap text-right text-xs text-gray-500">
+                            <div class="whitespace-nowrap text-end text-xs text-gray-500">
                                 {{ formatDateTime(activity.created_at) }}
                             </div>
                         </div>

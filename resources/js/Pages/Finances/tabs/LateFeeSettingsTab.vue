@@ -319,36 +319,36 @@ const deletePolicy = () => {
                                     max="100"
                                     step="0.1"
                                     required
-                                    class="w-full px-3 py-2 pr-8 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    class="w-full px-3 py-2 pe-8 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 />
-                                <span class="absolute right-3 top-2 text-gray-400">%</span>
+                                <span class="absolute end-3 top-2 text-gray-400">%</span>
                             </div>
                         </div>
                         <div v-else>
                             <label class="block text-xs font-medium text-gray-700 mb-1">Fee Amount *</label>
                             <div class="relative">
-                                <span class="absolute left-3 top-2 text-gray-400">{{ currencySymbol }}</span>
+                                <span class="absolute start-3 top-2 text-gray-400">{{ currencySymbol }}</span>
                                 <input
                                     v-model.number="form.fee_amount"
                                     type="number"
                                     min="0"
                                     step="1"
                                     required
-                                    class="w-full px-3 py-2 pl-12 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    class="w-full px-3 py-2 ps-12 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 />
                             </div>
                         </div>
                         <div>
                             <label class="block text-xs font-medium text-gray-700 mb-1">Max Fee Cap (Optional)</label>
                             <div class="relative">
-                                <span class="absolute left-3 top-2 text-gray-400">{{ currencySymbol }}</span>
+                                <span class="absolute start-3 top-2 text-gray-400">{{ currencySymbol }}</span>
                                 <input
                                     v-model.number="form.max_fee_cap"
                                     type="number"
                                     min="0"
                                     step="1"
                                     placeholder="No limit"
-                                    class="w-full px-3 py-2 pl-12 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    class="w-full px-3 py-2 ps-12 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 />
                             </div>
                         </div>

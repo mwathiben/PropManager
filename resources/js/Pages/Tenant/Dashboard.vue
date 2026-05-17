@@ -123,7 +123,7 @@ onUnmounted(() => {
                 <div v-if="hasLease && pendingInvoices?.length > 0" class="flex items-center gap-2">
                     <Link :href="route('tenant.finances.index')"
                           class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium text-sm">
-                        <CreditCardIcon class="w-4 h-4 mr-2" />
+                        <CreditCardIcon class="w-4 h-4 me-2" />
                         Pay Now
                     </Link>
                 </div>
@@ -199,7 +199,7 @@ onUnmounted(() => {
                                         <p class="text-sm text-indigo-600 font-medium">Total Move-in Cost</p>
                                         <p class="text-2xl font-bold text-indigo-700">{{ formatCurrency(invitation.total_move_in) }}</p>
                                     </div>
-                                    <div class="text-right">
+                                    <div class="text-end">
                                         <p class="text-xs text-indigo-500">Landlord</p>
                                         <p class="text-sm font-medium text-indigo-700">{{ invitation.landlord_name }}</p>
                                     </div>
@@ -219,7 +219,7 @@ onUnmounted(() => {
                                         :disabled="processingInvitation === invitation.id"
                                         class="flex-1 inline-flex items-center justify-center px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        <CheckCircleIcon class="w-5 h-5 mr-2" />
+                                        <CheckCircleIcon class="w-5 h-5 me-2" />
                                         {{ processingInvitation === invitation.id ? 'Processing...' : 'Accept Invitation' }}
                                     </button>
                                     <button
@@ -362,7 +362,7 @@ onUnmounted(() => {
                         <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                             <h3 class="font-bold text-gray-900">My Tickets</h3>
                             <Link :href="route('tickets.index')" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center">
-                                View All <ChevronRightIcon class="w-4 h-4 ml-1" />
+                                View All <ChevronRightIcon class="w-4 h-4 ms-1" />
                             </Link>
                         </div>
                         <div v-if="localRecentTickets?.length === 0" class="p-8 text-center">
@@ -379,7 +379,7 @@ onUnmounted(() => {
                                         <p class="font-medium text-gray-900 truncate">{{ ticket.title }}</p>
                                         <p class="text-sm text-gray-500 mt-0.5">{{ formatDate(ticket.created_at) }}</p>
                                     </div>
-                                    <div class="flex gap-2 ml-4">
+                                    <div class="flex gap-2 ms-4">
                                         <span class="text-xs px-2 py-1 rounded-full" :class="getPriorityBadgeClass(ticket.priority)">
                                             {{ ticket.priority }}
                                         </span>
@@ -403,7 +403,7 @@ onUnmounted(() => {
                         <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                             <h3 class="font-bold text-gray-900">Payment History</h3>
                             <Link :href="route('tenant.finances.history')" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center">
-                                View All <ChevronRightIcon class="w-4 h-4 ml-1" />
+                                View All <ChevronRightIcon class="w-4 h-4 ms-1" />
                             </Link>
                         </div>
                         <div v-if="recentPayments?.length === 0" class="p-8 text-center">
@@ -422,7 +422,7 @@ onUnmounted(() => {
                                         <p class="text-sm text-gray-500">{{ formatDate(payment.payment_date || payment.created_at) }}</p>
                                     </div>
                                 </div>
-                                <div class="text-right">
+                                <div class="text-end">
                                     <p class="text-sm font-medium text-gray-700 capitalize">{{ payment.payment_method?.replace('_', ' ') || 'Payment' }}</p>
                                     <p class="text-xs text-gray-400">{{ payment.reference || '-' }}</p>
                                 </div>
@@ -438,7 +438,7 @@ onUnmounted(() => {
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="font-bold text-gray-900">Lease Information</h3>
                             <Link :href="route('tenant.lease')" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center">
-                                View Details <ChevronRightIcon class="w-4 h-4 ml-1" />
+                                View Details <ChevronRightIcon class="w-4 h-4 ms-1" />
                             </Link>
                         </div>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-6">

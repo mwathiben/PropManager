@@ -222,7 +222,7 @@ const printCodes = () => {
     }
     .print\:shadow-none {
         position: absolute;
-        left: 0;
+        inset-inline-start: 0;
         top: 0;
         width: 100%;
     }

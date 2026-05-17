@@ -36,24 +36,24 @@ function formatKes(n: number): string {
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Day</th>
-                                <th scope="col" class="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-600">MRR (KES)</th>
-                                <th scope="col" class="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-600">Active subs</th>
-                                <th scope="col" class="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-green-700">+ New</th>
-                                <th scope="col" class="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-green-700">+ Expansion</th>
-                                <th scope="col" class="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-red-700">− Contraction</th>
-                                <th scope="col" class="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-red-700">− Churned</th>
+                                <th scope="col" class="px-4 py-2 text-start text-xs font-semibold uppercase tracking-wide text-gray-600">Day</th>
+                                <th scope="col" class="px-4 py-2 text-end text-xs font-semibold uppercase tracking-wide text-gray-600">MRR (KES)</th>
+                                <th scope="col" class="px-4 py-2 text-end text-xs font-semibold uppercase tracking-wide text-gray-600">Active subs</th>
+                                <th scope="col" class="px-4 py-2 text-end text-xs font-semibold uppercase tracking-wide text-green-700">+ New</th>
+                                <th scope="col" class="px-4 py-2 text-end text-xs font-semibold uppercase tracking-wide text-green-700">+ Expansion</th>
+                                <th scope="col" class="px-4 py-2 text-end text-xs font-semibold uppercase tracking-wide text-red-700">− Contraction</th>
+                                <th scope="col" class="px-4 py-2 text-end text-xs font-semibold uppercase tracking-wide text-red-700">− Churned</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             <tr v-for="row in days" :key="row.day">
                                 <td class="px-4 py-2 text-sm text-gray-900">{{ row.day }}</td>
-                                <td class="px-4 py-2 text-right text-sm font-medium text-gray-900">{{ formatKes(row.mrr_kes_total) }}</td>
-                                <td class="px-4 py-2 text-right text-sm text-gray-700">{{ row.active_subscriptions_total }}</td>
-                                <td class="px-4 py-2 text-right text-sm text-green-700">{{ formatKes(row.new_mrr_kes_total) }}</td>
-                                <td class="px-4 py-2 text-right text-sm text-green-700">{{ formatKes(row.expansion_mrr_kes_total) }}</td>
-                                <td class="px-4 py-2 text-right text-sm text-red-700">{{ formatKes(row.contraction_mrr_kes_total) }}</td>
-                                <td class="px-4 py-2 text-right text-sm text-red-700">{{ formatKes(row.churned_mrr_kes_total) }}</td>
+                                <td class="px-4 py-2 text-end text-sm font-medium text-gray-900">{{ formatKes(row.mrr_kes_total) }}</td>
+                                <td class="px-4 py-2 text-end text-sm text-gray-700">{{ row.active_subscriptions_total }}</td>
+                                <td class="px-4 py-2 text-end text-sm text-green-700">{{ formatKes(row.new_mrr_kes_total) }}</td>
+                                <td class="px-4 py-2 text-end text-sm text-green-700">{{ formatKes(row.expansion_mrr_kes_total) }}</td>
+                                <td class="px-4 py-2 text-end text-sm text-red-700">{{ formatKes(row.contraction_mrr_kes_total) }}</td>
+                                <td class="px-4 py-2 text-end text-sm text-red-700">{{ formatKes(row.churned_mrr_kes_total) }}</td>
                             </tr>
                             <tr v-if="!days.length">
                                 <td colspan="7" class="px-4 py-6 text-center text-sm text-gray-500">No snapshots in the window.</td>

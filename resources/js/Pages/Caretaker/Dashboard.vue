@@ -143,7 +143,7 @@ onUnmounted(() => {
                 <div class="flex items-center gap-2">
                     <Link v-if="hasWaterEnabled" :href="route('readings.index')"
                           class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm">
-                        <ClipboardDocumentListIcon class="w-4 h-4 mr-2" />
+                        <ClipboardDocumentListIcon class="w-4 h-4 me-2" />
                         Record Readings
                     </Link>
                 </div>
@@ -220,7 +220,7 @@ onUnmounted(() => {
                         <p class="text-sm text-gray-500">Priority sorted tickets assigned to you</p>
                     </div>
                     <Link :href="route('tickets.index')" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center">
-                        View All <ChevronRightIcon class="w-4 h-4 ml-1" />
+                        View All <ChevronRightIcon class="w-4 h-4 ms-1" />
                     </Link>
                 </div>
 

@@ -72,11 +72,11 @@ const getRoleLabel = (role) => {
                 <div class="bg-white rounded-lg shadow-sm border p-4 mb-6">
                     <form @submit.prevent="search" class="flex flex-wrap gap-4">
                         <div class="relative flex-1 min-w-64">
-                            <MagnifyingGlassIcon class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                            <MagnifyingGlassIcon class="absolute start-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                             <input type="text"
                                    v-model="searchQuery"
                                    placeholder="Search by name or email..."
-                                   class="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
+                                   class="w-full ps-10 pe-4 py-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500" />
                         </div>
                         <select v-model="selectedRole"
                                 class="border rounded-lg px-4 py-2 focus:ring-indigo-500 focus:border-indigo-500">
@@ -101,11 +101,11 @@ const getRoleLabel = (role) => {
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">User</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Role</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Status</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Joined</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
@@ -123,8 +123,8 @@ const getRoleLabel = (role) => {
                                     </td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center">
-                                            <CheckCircleIcon v-if="user.email_verified_at" class="h-5 w-5 text-green-500 mr-1" />
-                                            <XCircleIcon v-else class="h-5 w-5 text-red-500 mr-1" />
+                                            <CheckCircleIcon v-if="user.email_verified_at" class="h-5 w-5 text-green-500 me-1" />
+                                            <XCircleIcon v-else class="h-5 w-5 text-red-500 me-1" />
                                             <span :class="user.email_verified_at ? 'text-green-600' : 'text-red-600'">
                                                 {{ user.email_verified_at ? 'Active' : 'Inactive' }}
                                             </span>
@@ -141,7 +141,7 @@ const getRoleLabel = (role) => {
                                             <button v-if="can('access-admin') && user.role !== 'super_admin'"
                                                     @click="impersonate(user.id)"
                                                     class="text-indigo-600 hover:text-indigo-900 flex items-center">
-                                                <ArrowRightOnRectangleIcon class="h-4 w-4 mr-1" />
+                                                <ArrowRightOnRectangleIcon class="h-4 w-4 me-1" />
                                                 Login As
                                             </button>
                                         </div>

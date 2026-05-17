@@ -139,12 +139,12 @@ const goToPage = (url) => {
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Move-Out Date</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deposit</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Move-Out Date</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Deposit</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
@@ -154,7 +154,7 @@ const goToPage = (url) => {
                                             <div class="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium">
                                                 {{ moveOut.lease?.tenant?.name?.charAt(0)?.toUpperCase() || '?' }}
                                             </div>
-                                            <div class="ml-3">
+                                            <div class="ms-3">
                                                 <div class="text-sm font-medium text-gray-900">{{ moveOut.lease?.tenant?.name }}</div>
                                                 <div class="text-xs text-gray-500">{{ moveOut.lease?.tenant?.email }}</div>
                                             </div>
@@ -182,7 +182,7 @@ const goToPage = (url) => {
                                             {{ getStatusBadge(moveOut.status).label }}
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-right">
+                                    <td class="px-6 py-4 whitespace-nowrap text-end">
                                         <Link
                                             :href="route('move-outs.show', moveOut.id)"
                                             class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded-lg"

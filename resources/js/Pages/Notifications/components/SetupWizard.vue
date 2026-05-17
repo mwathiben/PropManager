@@ -257,7 +257,7 @@ watch(() => props.show, (newVal) => {
                                     :key="channel.id"
                                     @click="toggleChannel(channel.id)"
                                     :class="[
-                                        'p-4 rounded-2xl border-2 text-left transition-all',
+                                        'p-4 rounded-2xl border-2 text-start transition-all',
                                         selectedChannels.includes(channel.id)
                                             ? 'border-indigo-500 bg-indigo-50'
                                             : 'border-gray-200 hover:border-gray-300'
@@ -359,12 +359,12 @@ watch(() => props.show, (newVal) => {
                                         <input
                                             v-model="emailForm.mail_password"
                                             :type="showPassword.mail_password ? 'text' : 'password'"
-                                            class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 pr-10"
+                                            class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 pe-10"
                                         />
                                         <button
                                             type="button"
                                             @click="togglePasswordVisibility('mail_password')"
-                                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                                            class="absolute end-3 top-1/2 -translate-y-1/2 text-gray-400"
                                         >
                                             <EyeSlashIcon v-if="showPassword.mail_password" class="w-5 h-5" />
                                             <EyeIcon v-else class="w-5 h-5" />
@@ -427,12 +427,12 @@ watch(() => props.show, (newVal) => {
                                         <input
                                             v-model="smsForm.africastalking_api_key"
                                             :type="showPassword.at_api_key ? 'text' : 'password'"
-                                            class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 pr-10"
+                                            class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 pe-10"
                                         />
                                         <button
                                             type="button"
                                             @click="togglePasswordVisibility('at_api_key')"
-                                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                                            class="absolute end-3 top-1/2 -translate-y-1/2 text-gray-400"
                                         >
                                             <EyeSlashIcon v-if="showPassword.at_api_key" class="w-5 h-5" />
                                             <EyeIcon v-else class="w-5 h-5" />
@@ -466,12 +466,12 @@ watch(() => props.show, (newVal) => {
                                         <input
                                             v-model="smsForm.twilio_token"
                                             :type="showPassword.twilio_token ? 'text' : 'password'"
-                                            class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 pr-10"
+                                            class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 pe-10"
                                         />
                                         <button
                                             type="button"
                                             @click="togglePasswordVisibility('twilio_token')"
-                                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                                            class="absolute end-3 top-1/2 -translate-y-1/2 text-gray-400"
                                         >
                                             <EyeSlashIcon v-if="showPassword.twilio_token" class="w-5 h-5" />
                                             <EyeIcon v-else class="w-5 h-5" />
@@ -508,12 +508,12 @@ watch(() => props.show, (newVal) => {
                                     <input
                                         v-model="whatsappForm.whatsapp_twilio_token"
                                         :type="showPassword.wa_token ? 'text' : 'password'"
-                                        class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 pr-10"
+                                        class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 pe-10"
                                     />
                                     <button
                                         type="button"
                                         @click="togglePasswordVisibility('wa_token')"
-                                        class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                                        class="absolute end-3 top-1/2 -translate-y-1/2 text-gray-400"
                                     >
                                         <EyeSlashIcon v-if="showPassword.wa_token" class="w-5 h-5" />
                                         <EyeIcon v-else class="w-5 h-5" />

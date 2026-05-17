@@ -82,7 +82,7 @@ const formatReason = (reason) => {
                             <div class="p-3 bg-gray-100 rounded-full">
                                 <ArchiveBoxIcon class="w-6 h-6 text-gray-600" />
                             </div>
-                            <div class="ml-4">
+                            <div class="ms-4">
                                 <p class="text-sm font-medium text-gray-500">Total Past Tenants</p>
                                 <p class="text-2xl font-bold text-gray-900">{{ stats.total_past_tenants }}</p>
                             </div>
@@ -101,9 +101,9 @@ const formatReason = (reason) => {
                                     @keyup.enter="applyFilters"
                                     type="text"
                                     placeholder="Search by name or email..."
-                                    class="w-full pl-10 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                                    class="w-full ps-10 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                 >
-                                <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
+                                <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute start-3 top-2.5" />
                             </div>
                         </div>
 
@@ -137,12 +137,12 @@ const formatReason = (reason) => {
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Unit</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lease Period</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Move-out Reason</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Last Unit</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Lease Period</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Move-out Reason</th>
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
@@ -152,7 +152,7 @@ const formatReason = (reason) => {
                                         <div class="shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
                                             <UserIcon class="w-5 h-5 text-gray-500" />
                                         </div>
-                                        <div class="ml-4">
+                                        <div class="ms-4">
                                             <div class="text-sm font-medium text-gray-900">{{ tenant.name }}</div>
                                             <div class="text-sm text-gray-500">{{ tenant.email }}</div>
                                             <div class="text-xs text-gray-400" v-if="tenant.mobile_number">{{ tenant.mobile_number }}</div>

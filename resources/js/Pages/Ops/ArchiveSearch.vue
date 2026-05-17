@@ -147,11 +147,11 @@ function fmtBytes(n: number): string {
                     <table class="min-w-full text-sm">
                         <thead class="bg-gray-50 text-xs uppercase text-gray-500">
                             <tr>
-                                <th class="px-3 py-2 text-left">id</th>
-                                <th class="px-3 py-2 text-left">user_id</th>
-                                <th class="px-3 py-2 text-left">event_name</th>
-                                <th class="px-3 py-2 text-left">created_at</th>
-                                <th class="px-3 py-2 text-left">properties</th>
+                                <th class="px-3 py-2 text-start">id</th>
+                                <th class="px-3 py-2 text-start">user_id</th>
+                                <th class="px-3 py-2 text-start">event_name</th>
+                                <th class="px-3 py-2 text-start">created_at</th>
+                                <th class="px-3 py-2 text-start">properties</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200">

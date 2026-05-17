@@ -106,7 +106,7 @@ const leaseDuration = (lease) => {
                                 ({{ leaseDuration(lease) }})
                             </p>
                         </div>
-                        <div class="text-right">
+                        <div class="text-end">
                             <p class="text-sm font-medium text-gray-900">{{ formatCurrency(lease.rent_amount) }}/mo</p>
                             <span :class="[leaseStatusClass(lease), 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium mt-1']">
                                 {{ lease.is_active ? 'Active' : 'Ended' }}

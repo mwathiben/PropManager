@@ -126,7 +126,7 @@ const canEdit = computed(() => {
                         :href="route('tickets.index')"
                         class="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 mb-4"
                     >
-                        <ArrowLeftIcon class="h-4 w-4 mr-1" />
+                        <ArrowLeftIcon class="h-4 w-4 me-1" />
                         Back to Tickets
                     </Link>
 
@@ -168,7 +168,7 @@ const canEdit = computed(() => {
                                 @click="showResolveModal = true"
                                 class="px-3 py-2 text-sm font-medium text-green-700 bg-green-100 rounded-md hover:bg-green-200"
                             >
-                                <CheckCircleIcon class="h-4 w-4 inline mr-1" />
+                                <CheckCircleIcon class="h-4 w-4 inline me-1" />
                                 Resolve
                             </button>
                         </div>
@@ -178,7 +178,7 @@ const canEdit = computed(() => {
                                 @click="closeTicket"
                                 class="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
                             >
-                                <LockClosedIcon class="h-4 w-4 inline mr-1" />
+                                <LockClosedIcon class="h-4 w-4 inline me-1" />
                                 Close Ticket
                             </button>
                         </div>
@@ -207,7 +207,7 @@ const canEdit = computed(() => {
                         <!-- Existing Feedback -->
                         <div v-if="ticket.feedback" class="bg-white shadow-sm rounded-lg border p-6">
                             <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
-                                <StarIcon class="h-5 w-5 text-yellow-500 mr-2" />
+                                <StarIcon class="h-5 w-5 text-yellow-500 me-2" />
                                 Tenant Feedback
                             </h3>
                             <div class="flex items-center space-x-1 mb-2">
@@ -216,7 +216,7 @@ const canEdit = computed(() => {
                                     :key="star"
                                     :class="[star <= ticket.feedback.rating ? 'text-yellow-400' : 'text-gray-300', 'h-5 w-5']"
                                 />
-                                <span class="ml-2 text-sm text-gray-600">
+                                <span class="ms-2 text-sm text-gray-600">
                                     {{ ticket.feedback.rating }}/5
                                 </span>
                             </div>
@@ -275,7 +275,7 @@ const canEdit = computed(() => {
                                             v-model="commentForm.is_internal"
                                             class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                         />
-                                        <span class="ml-2 text-sm text-gray-600">Internal note (not visible to tenant)</span>
+                                        <span class="ms-2 text-sm text-gray-600">Internal note (not visible to tenant)</span>
                                     </label>
                                     <div v-else></div>
                                     <button
@@ -283,7 +283,7 @@ const canEdit = computed(() => {
                                         :disabled="!commentForm.comment || commentForm.processing"
                                         class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
                                     >
-                                        <PaperAirplaneIcon class="h-4 w-4 mr-2" />
+                                        <PaperAirplaneIcon class="h-4 w-4 me-2" />
                                         Send
                                     </button>
                                 </div>
@@ -322,14 +322,14 @@ const canEdit = computed(() => {
                                 <div v-if="ticket.location">
                                     <dt class="text-sm font-medium text-gray-500">Location</dt>
                                     <dd class="mt-1 text-sm text-gray-900 flex items-center">
-                                        <MapPinIcon class="h-4 w-4 mr-1 text-gray-400" />
+                                        <MapPinIcon class="h-4 w-4 me-1 text-gray-400" />
                                         {{ ticket.location }}
                                     </dd>
                                 </div>
                                 <div>
                                     <dt class="text-sm font-medium text-gray-500">Reported By</dt>
                                     <dd class="mt-1 text-sm text-gray-900 flex items-center">
-                                        <UserIcon class="h-4 w-4 mr-1 text-gray-400" />
+                                        <UserIcon class="h-4 w-4 me-1 text-gray-400" />
                                         {{ ticket.reporter?.name }}
                                     </dd>
                                 </div>
@@ -337,7 +337,7 @@ const canEdit = computed(() => {
                                     <dt class="text-sm font-medium text-gray-500">Assigned To</dt>
                                     <dd class="mt-1 text-sm text-gray-900 flex items-center justify-between">
                                         <span class="flex items-center">
-                                            <UserIcon class="h-4 w-4 mr-1 text-gray-400" />
+                                            <UserIcon class="h-4 w-4 me-1 text-gray-400" />
                                             {{ ticket.assignee?.name || 'Unassigned' }}
                                         </span>
                                         <button
@@ -352,21 +352,21 @@ const canEdit = computed(() => {
                                 <div>
                                     <dt class="text-sm font-medium text-gray-500">Created</dt>
                                     <dd class="mt-1 text-sm text-gray-900 flex items-center">
-                                        <CalendarIcon class="h-4 w-4 mr-1 text-gray-400" />
+                                        <CalendarIcon class="h-4 w-4 me-1 text-gray-400" />
                                         {{ formatDate(ticket.created_at) }}
                                     </dd>
                                 </div>
                                 <div v-if="ticket.resolved_at">
                                     <dt class="text-sm font-medium text-gray-500">Resolved</dt>
                                     <dd class="mt-1 text-sm text-green-600 flex items-center">
-                                        <CheckCircleIcon class="h-4 w-4 mr-1" />
+                                        <CheckCircleIcon class="h-4 w-4 me-1" />
                                         {{ formatDate(ticket.resolved_at) }}
                                     </dd>
                                 </div>
                                 <div v-if="ticket.closed_at">
                                     <dt class="text-sm font-medium text-gray-500">Closed</dt>
                                     <dd class="mt-1 text-sm text-gray-600 flex items-center">
-                                        <LockClosedIcon class="h-4 w-4 mr-1" />
+                                        <LockClosedIcon class="h-4 w-4 me-1" />
                                         {{ formatDate(ticket.closed_at) }}
                                     </dd>
                                 </div>
@@ -379,7 +379,7 @@ const canEdit = computed(() => {
                                 @click="cancelTicket"
                                 class="w-full px-4 py-2 border border-red-300 text-red-700 rounded-md hover:bg-red-50 text-sm"
                             >
-                                <XMarkIcon class="h-4 w-4 inline mr-1" />
+                                <XMarkIcon class="h-4 w-4 inline me-1" />
                                 Cancel Ticket
                             </button>
                         </div>

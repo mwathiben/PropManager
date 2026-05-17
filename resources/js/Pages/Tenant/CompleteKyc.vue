@@ -670,7 +670,7 @@ const getStatusBadgeClasses = (color: string): string => {
                                 />
                             </svg>
                         </div>
-                        <div class="ml-3">
+                        <div class="ms-3">
                             <h3 class="text-sm font-medium text-blue-800">
                                 About KYC Verification
                             </h3>

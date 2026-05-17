@@ -61,7 +61,7 @@ const handleClick = () => {
             @click="handleClick"
         />
         <!-- Tooltip -->
-        <div class="absolute right-0 top-full mt-2 px-2.5 py-1.5 bg-gray-800 text-white text-xs rounded-md
+        <div class="absolute end-0 top-full mt-2 px-2.5 py-1.5 bg-gray-800 text-white text-xs rounded-md
                     opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none
                     shadow-lg z-50">
             <span class="font-medium">{{ statusConfig.label }}</span>

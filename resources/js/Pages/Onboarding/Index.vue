@@ -544,7 +544,7 @@ function completeOnboarding() {
                                         <span class="block text-sm font-bold text-gray-900">Residential</span>
                                         <span class="block text-xs text-gray-500 mt-1">Multi-story apartments</span>
                                     </div>
-                                    <CheckCircleIcon v-if="form.property_type === 'residential'" class="absolute top-4 right-4 h-5 w-5 text-indigo-600" />
+                                    <CheckCircleIcon v-if="form.property_type === 'residential'" class="absolute top-4 end-4 h-5 w-5 text-indigo-600" />
                                 </div>
 
                                 <!-- Estate -->
@@ -558,7 +558,7 @@ function completeOnboarding() {
                                         <span class="block text-sm font-bold text-gray-900">Gated Estate</span>
                                         <span class="block text-xs text-gray-500 mt-1">Standalone houses/villas</span>
                                     </div>
-                                    <CheckCircleIcon v-if="form.property_type === 'estate'" class="absolute top-4 right-4 h-5 w-5 text-indigo-600" />
+                                    <CheckCircleIcon v-if="form.property_type === 'estate'" class="absolute top-4 end-4 h-5 w-5 text-indigo-600" />
                                 </div>
 
                                 <!-- Commercial -->
@@ -572,7 +572,7 @@ function completeOnboarding() {
                                         <span class="block text-sm font-bold text-gray-900">Commercial</span>
                                         <span class="block text-xs text-gray-500 mt-1">Offices, shops, malls</span>
                                     </div>
-                                    <CheckCircleIcon v-if="form.property_type === 'commercial'" class="absolute top-4 right-4 h-5 w-5 text-indigo-600" />
+                                    <CheckCircleIcon v-if="form.property_type === 'commercial'" class="absolute top-4 end-4 h-5 w-5 text-indigo-600" />
                                 </div>
 
                                 <!-- Mixed -->
@@ -586,7 +586,7 @@ function completeOnboarding() {
                                         <span class="block text-sm font-bold text-gray-900">Mixed Use</span>
                                         <span class="block text-xs text-gray-500 mt-1">Shops + apartments</span>
                                     </div>
-                                    <CheckCircleIcon v-if="form.property_type === 'mixed'" class="absolute top-4 right-4 h-5 w-5 text-indigo-600" />
+                                    <CheckCircleIcon v-if="form.property_type === 'mixed'" class="absolute top-4 end-4 h-5 w-5 text-indigo-600" />
                                 </div>
                             </div>
                         </div>
@@ -753,7 +753,7 @@ function completeOnboarding() {
                         <!-- Summary Box -->
                         <div class="flex items-start p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
                             <div class="shrink-0 text-2xl">🏗️</div>
-                            <div class="ml-3 text-sm text-gray-600">
+                            <div class="ms-3 text-sm text-gray-600">
                                 <span class="font-semibold text-gray-900">We will generate {{ totalUnits }} units.</span><br />
                                 <span class="text-xs">Unit naming: {{ unitNamingPreview }}</span><br />
                                 <span class="text-xs text-gray-400">You can edit individual units later using Architect Mode.</span>
@@ -794,7 +794,7 @@ function completeOnboarding() {
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Default Monthly Rent *</label>
                             <div class="relative">
-                                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <div class="absolute inset-y-0 start-0 ps-4 flex items-center pointer-events-none">
                                     <span class="text-gray-500 font-bold">{{ currencySymbol }}</span>
                                 </div>
                                 <input
@@ -802,7 +802,7 @@ function completeOnboarding() {
                                     type="number"
                                     required
                                     min="0"
-                                    class="w-full pl-16 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-lg"
+                                    class="w-full ps-16 pe-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-lg"
                                     placeholder="20000"
                                 />
                             </div>
@@ -817,7 +817,7 @@ function completeOnboarding() {
                                     type="button"
                                     @click="form.water_billing_type = 'consumption'"
                                     :class="form.water_billing_type === 'consumption' ? 'ring-2 ring-indigo-600 bg-indigo-50' : 'bg-gray-50 hover:bg-gray-100'"
-                                    class="p-4 rounded-lg border text-left transition-all"
+                                    class="p-4 rounded-lg border text-start transition-all"
                                 >
                                     <div class="font-medium text-gray-900">Per Consumption</div>
                                     <div class="text-xs text-gray-500">Bill based on meter readings</div>
@@ -826,7 +826,7 @@ function completeOnboarding() {
                                     type="button"
                                     @click="form.water_billing_type = 'flat_rate'"
                                     :class="form.water_billing_type === 'flat_rate' ? 'ring-2 ring-indigo-600 bg-indigo-50' : 'bg-gray-50 hover:bg-gray-100'"
-                                    class="p-4 rounded-lg border text-left transition-all"
+                                    class="p-4 rounded-lg border text-start transition-all"
                                 >
                                     <div class="font-medium text-gray-900">Flat Rate</div>
                                     <div class="text-xs text-gray-500">Fixed monthly charge</div>
@@ -835,7 +835,7 @@ function completeOnboarding() {
                                     type="button"
                                     @click="form.water_billing_type = 'none'"
                                     :class="form.water_billing_type === 'none' ? 'ring-2 ring-indigo-600 bg-indigo-50' : 'bg-gray-50 hover:bg-gray-100'"
-                                    class="p-4 rounded-lg border text-left transition-all"
+                                    class="p-4 rounded-lg border text-start transition-all"
                                 >
                                     <div class="font-medium text-gray-900">No Water Billing</div>
                                     <div class="text-xs text-gray-500">Water included in rent</div>
@@ -873,7 +873,7 @@ function completeOnboarding() {
                                     type="button"
                                     @click="togglePaymentMethod(method.id)"
                                     :class="form.accepted_payment_methods.includes(method.id) ? 'ring-2 ring-indigo-600 bg-indigo-50 border-indigo-200' : 'bg-white hover:bg-gray-50'"
-                                    class="p-4 rounded-lg border flex items-start gap-3 transition-all text-left"
+                                    class="p-4 rounded-lg border flex items-start gap-3 transition-all text-start"
                                 >
                                     <component :is="method.icon" class="w-6 h-6 text-gray-400 shrink-0" />
                                     <div>
@@ -882,7 +882,7 @@ function completeOnboarding() {
                                     </div>
                                     <CheckCircleSolidIcon
                                         v-if="form.accepted_payment_methods.includes(method.id)"
-                                        class="w-5 h-5 text-indigo-600 ml-auto shrink-0"
+                                        class="w-5 h-5 text-indigo-600 ms-auto shrink-0"
                                     />
                                 </button>
                             </div>

@@ -200,7 +200,7 @@ const getTypeColor = (type) => {
                             {{ getTypeLabel(template.type) }}
                         </span>
                     </div>
-                    <div class="flex items-center gap-1 ml-2">
+                    <div class="flex items-center gap-1 ms-2">
                         <span
                             v-if="template.is_default"
                             class="px-2 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-700 rounded-full"

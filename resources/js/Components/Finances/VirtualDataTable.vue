@@ -140,8 +140,8 @@ const actualItemHeight = computed(() => props.compact ? 44 : 52);
                             :aria-sort="ariaSortFor(column)"
                             :class="[
                                 cellClasses,
-                                'text-left text-xs font-medium text-gray-500 uppercase tracking-wider',
-                                column.align === 'right' ? 'text-right' : column.align === 'center' ? 'text-center' : '',
+                                'text-start text-xs font-medium text-gray-500 uppercase tracking-wider',
+                                column.align === 'right' ? 'text-end' : column.align === 'center' ? 'text-center' : '',
                                 column.width ? column.width : '',
                             ]"
                         >
@@ -234,7 +234,7 @@ const actualItemHeight = computed(() => props.compact ? 44 : 52);
                                 :class="[
                                     cellClasses,
                                     'text-sm',
-                                    column.align === 'right' ? 'text-right' : column.align === 'center' ? 'text-center' : '',
+                                    column.align === 'right' ? 'text-end' : column.align === 'center' ? 'text-center' : '',
                                 ]"
                             >
                                 <slot :name="`cell-${column.key}`" :row="row" :value="row[column.key]" :index="index">

@@ -243,16 +243,16 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                                 </button>
                                 <div
                                     v-if="showExportDropdown === 'financial'"
-                                    class="absolute right-0 mt-2 w-40 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10"
+                                    class="absolute end-0 mt-2 w-40 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10"
                                 >
-                                    <button @click="exportReport('financial', 'pdf')" class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100">
-                                        <span class="text-red-500 mr-2">PDF</span> Document
+                                    <button @click="exportReport('financial', 'pdf')" class="block w-full px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-100">
+                                        <span class="text-red-500 me-2">PDF</span> Document
                                     </button>
-                                    <button @click="exportReport('financial', 'xlsx')" class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100">
-                                        <span class="text-green-500 mr-2">XLSX</span> Excel
+                                    <button @click="exportReport('financial', 'xlsx')" class="block w-full px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-100">
+                                        <span class="text-green-500 me-2">XLSX</span> Excel
                                     </button>
-                                    <button @click="exportReport('financial', 'csv')" class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100">
-                                        <span class="text-blue-500 mr-2">CSV</span> Spreadsheet
+                                    <button @click="exportReport('financial', 'csv')" class="block w-full px-4 py-2 text-start text-sm text-gray-700 hover:bg-gray-100">
+                                        <span class="text-blue-500 me-2">CSV</span> Spreadsheet
                                     </button>
                                 </div>
                             </div>
@@ -381,7 +381,7 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                                             <div class="font-bold text-gray-900">{{ unit.unit }}</div>
                                             <div class="text-sm text-gray-600">{{ unit.tenant }}</div>
                                         </div>
-                                        <div class="text-right">
+                                        <div class="text-end">
                                             <div class="text-lg font-bold text-green-600">{{ formatPercentage(unit.collection_rate) }}</div>
                                             <div class="text-xs text-gray-500">{{ unit.on_time_payments }}/{{ unit.total_invoices }} on-time</div>
                                         </div>
@@ -414,7 +414,7 @@ const { formatMoney: formatCurrency, formatPercent: formatPercentage } = useForm
                                         <div class="font-bold text-gray-900">{{ consumer.unit }}</div>
                                         <div class="text-xs text-gray-500">{{ consumer.consumption }} units</div>
                                     </div>
-                                    <div class="text-right">
+                                    <div class="text-end">
                                         <div class="font-semibold text-cyan-600">{{ formatCurrency(consumer.cost) }}</div>
                                     </div>
                                 </div>

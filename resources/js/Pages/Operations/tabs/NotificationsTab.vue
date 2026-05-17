@@ -114,7 +114,7 @@ const getStatusClass = (status) => {
                         class="mt-2 inline-flex items-center text-sm font-medium text-amber-700 hover:text-amber-900"
                     >
                         Go to Settings
-                        <ArrowTopRightOnSquareIcon class="w-4 h-4 ml-1" />
+                        <ArrowTopRightOnSquareIcon class="w-4 h-4 ms-1" />
                     </Link>
                 </div>
             </div>
@@ -179,7 +179,7 @@ const getStatusClass = (status) => {
                 <div class="space-y-2">
                     <button
                         @click="showSendModal = true"
-                        class="w-full flex items-center gap-3 p-3 border border-purple-200 rounded-lg hover:border-purple-400 hover:bg-purple-50 transition-all text-left"
+                        class="w-full flex items-center gap-3 p-3 border border-purple-200 rounded-lg hover:border-purple-400 hover:bg-purple-50 transition-all text-start"
                     >
                         <div class="p-1.5 bg-purple-100 rounded">
                             <PaperAirplaneIcon class="w-4 h-4 text-purple-600" />
@@ -192,7 +192,7 @@ const getStatusClass = (status) => {
 
                     <button
                         @click="showBulkModal = true"
-                        class="w-full flex items-center gap-3 p-3 border border-blue-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-all text-left"
+                        class="w-full flex items-center gap-3 p-3 border border-blue-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-all text-start"
                     >
                         <div class="p-1.5 bg-blue-100 rounded">
                             <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -207,7 +207,7 @@ const getStatusClass = (status) => {
 
                     <button
                         @click="sendRentReminders"
-                        class="w-full flex items-center gap-3 p-3 border border-green-200 rounded-lg hover:border-green-400 hover:bg-green-50 transition-all text-left"
+                        class="w-full flex items-center gap-3 p-3 border border-green-200 rounded-lg hover:border-green-400 hover:bg-green-50 transition-all text-start"
                     >
                         <div class="p-1.5 bg-green-100 rounded">
                             <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -222,7 +222,7 @@ const getStatusClass = (status) => {
 
                     <button
                         @click="sendArrearsNotices"
-                        class="w-full flex items-center gap-3 p-3 border border-red-200 rounded-lg hover:border-red-400 hover:bg-red-50 transition-all text-left"
+                        class="w-full flex items-center gap-3 p-3 border border-red-200 rounded-lg hover:border-red-400 hover:bg-red-50 transition-all text-start"
                     >
                         <div class="p-1.5 bg-red-100 rounded">
                             <ExclamationTriangleIcon class="w-4 h-4 text-red-600" />
@@ -298,7 +298,7 @@ const getStatusClass = (status) => {
                             To: {{ notification.recipient?.name || 'Unknown' }}
                         </p>
                     </div>
-                    <div class="text-right">
+                    <div class="text-end">
                         <span :class="['px-2 py-0.5 text-xs font-medium rounded-full capitalize', getStatusClass(notification.status)]">
                             {{ notification.status }}
                         </span>
@@ -320,7 +320,7 @@ const getStatusClass = (status) => {
                     class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium"
                 >
                     Open Center
-                    <ArrowTopRightOnSquareIcon class="w-4 h-4 ml-1" />
+                    <ArrowTopRightOnSquareIcon class="w-4 h-4 ms-1" />
                 </Link>
             </div>
         </div>

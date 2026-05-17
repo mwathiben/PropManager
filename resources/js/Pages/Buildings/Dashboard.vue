@@ -253,7 +253,7 @@ const clearAllFilters = () => {
                     <template #trigger>
                         <button class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors">
                             Quick Actions
-                            <ChevronDownIcon class="w-4 h-4 ml-1.5" />
+                            <ChevronDownIcon class="w-4 h-4 ms-1.5" />
                         </button>
                     </template>
                     <template #content>
@@ -262,7 +262,7 @@ const clearAllFilters = () => {
                             <div class="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">
                                 Tenant Management
                             </div>
-                            <button @click="handleQuickAction('addTenant')" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">
+                            <button @click="handleQuickAction('addTenant')" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-start">
                                 <UserPlusIcon class="w-4 h-4 text-gray-400" />
                                 <div>
                                     <div class="font-medium">Add Tenant</div>
@@ -289,21 +289,21 @@ const clearAllFilters = () => {
                             <div class="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">
                                 Financial
                             </div>
-                            <button @click="handleQuickAction('recordPayment')" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">
+                            <button @click="handleQuickAction('recordPayment')" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-start">
                                 <CreditCardIcon class="w-4 h-4 text-gray-400" />
                                 <div>
                                     <div class="font-medium">Record Payment</div>
                                     <div class="text-xs text-gray-500">Record a manual payment</div>
                                 </div>
                             </button>
-                            <Link :href="route('invoices.generate')" method="post" as="button" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">
+                            <Link :href="route('invoices.generate')" method="post" as="button" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-start">
                                 <DocumentTextIcon class="w-4 h-4 text-gray-400" />
                                 <div>
                                     <div class="font-medium">Generate Invoice</div>
                                     <div class="text-xs text-gray-500">Generate monthly invoices</div>
                                 </div>
                             </Link>
-                            <button @click="handleQuickAction('rentHike')" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">
+                            <button @click="handleQuickAction('rentHike')" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-start">
                                 <ArrowTrendingUpIcon class="w-4 h-4 text-gray-400" />
                                 <div>
                                     <div class="font-medium">Rent Hike</div>
@@ -411,25 +411,25 @@ const clearAllFilters = () => {
                     <button @click="currentStatus = 'occupied'; applyFilters()"
                         :class="['px-3 py-1.5 text-xs font-medium rounded-full transition-colors flex items-center',
                             currentStatus === 'occupied' ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-500' : 'bg-gray-100 text-gray-600 hover:bg-gray-200']">
-                        <span class="w-2 h-2 rounded-full bg-green-500 mr-1.5"></span>
+                        <span class="w-2 h-2 rounded-full bg-green-500 me-1.5"></span>
                         Occupied
                     </button>
                     <button @click="currentStatus = 'vacant'; applyFilters()"
                         :class="['px-3 py-1.5 text-xs font-medium rounded-full transition-colors flex items-center',
                             currentStatus === 'vacant' ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-500' : 'bg-gray-100 text-gray-600 hover:bg-gray-200']">
-                        <span class="w-2 h-2 rounded-full bg-gray-400 mr-1.5"></span>
+                        <span class="w-2 h-2 rounded-full bg-gray-400 me-1.5"></span>
                         Vacant
                     </button>
                     <button @click="currentStatus = 'arrears'; applyFilters()"
                         :class="['px-3 py-1.5 text-xs font-medium rounded-full transition-colors flex items-center',
                             currentStatus === 'arrears' ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-500' : 'bg-gray-100 text-gray-600 hover:bg-gray-200']">
-                        <span class="w-2 h-2 rounded-full bg-red-500 mr-1.5"></span>
+                        <span class="w-2 h-2 rounded-full bg-red-500 me-1.5"></span>
                         Arrears
                     </button>
                 </div>
 
                 <!-- Trend Indicator + Clear -->
-                <div class="ml-auto flex items-center gap-3">
+                <div class="ms-auto flex items-center gap-3">
                     <span v-if="periodComparison?.revenue" class="text-sm"
                         :class="periodComparison.revenue.trend === 'up' ? 'text-green-600' : 'text-red-600'">
                         <component :is="periodComparison.revenue.trend === 'up' ? ArrowTrendingUpIcon : ArrowTrendingDownIcon" class="w-4 h-4 inline" />
@@ -630,7 +630,7 @@ const clearAllFilters = () => {
                             <div v-for="floorGroup in unitsByFloor" :key="floorGroup.floor" class="border-b border-gray-100 last:border-b-0">
                                 <div class="px-4 sm:px-6 py-2 bg-gray-50 sticky top-0 z-10">
                                     <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Floor {{ floorGroup.floor }}</span>
-                                    <span class="text-xs text-gray-400 ml-2">{{ floorGroup.units.filter(u => u.status === 'occupied').length }}/{{ floorGroup.units.length }} occupied</span>
+                                    <span class="text-xs text-gray-400 ms-2">{{ floorGroup.units.filter(u => u.status === 'occupied').length }}/{{ floorGroup.units.length }} occupied</span>
                                 </div>
                                 <div class="p-4 sm:p-6 pt-3">
                                     <div class="grid gap-2 sm:gap-3" :style="getFloorGridStyle">
@@ -656,7 +656,7 @@ const clearAllFilters = () => {
                                 <div class="divide-y divide-gray-100">
                                     <button v-for="unit in floorGroup.units" :key="unit.id" @click="selectUnit(unit)"
                                         :class="selectedUnit?.id === unit.id ? 'bg-indigo-50' : 'hover:bg-gray-50'"
-                                        class="w-full px-4 sm:px-6 py-3 flex items-center justify-between text-left transition-colors">
+                                        class="w-full px-4 sm:px-6 py-3 flex items-center justify-between text-start transition-colors">
                                         <div class="flex items-center gap-3">
                                             <div :class="['w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm',
                                                 unit.status === 'occupied' ? 'bg-green-100 text-green-700' :
@@ -761,7 +761,7 @@ const clearAllFilters = () => {
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-bold text-gray-800">Recent Payments</h3>
                         <Link :href="route('invoices.index')" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center">
-                            View All <ChevronRightIcon class="w-4 h-4 ml-1" />
+                            View All <ChevronRightIcon class="w-4 h-4 ms-1" />
                         </Link>
                     </div>
 
@@ -778,7 +778,7 @@ const clearAllFilters = () => {
                                     <p class="text-xs text-gray-500">{{ payment.invoice?.lease?.unit?.unit_number || '-' }} • {{ formatDate(payment.payment_date) }}</p>
                                 </div>
                             </div>
-                            <div class="text-right">
+                            <div class="text-end">
                                 <p class="font-bold text-green-600">{{ formatMoney(payment.amount) }}</p>
                                 <p class="text-xs text-gray-500">{{ payment.payment_method }}</p>
                             </div>
@@ -809,7 +809,7 @@ const clearAllFilters = () => {
                                     <p class="text-xs text-gray-500">{{ lease.unit?.building?.name }} - {{ lease.unit?.unit_number }}</p>
                                 </div>
                             </div>
-                            <div class="text-right">
+                            <div class="text-end">
                                 <p class="font-semibold text-orange-600">{{ formatRelativeDate(lease.end_date) }}</p>
                                 <p class="text-xs text-gray-500">{{ formatDate(lease.end_date) }}</p>
                             </div>
@@ -881,7 +881,7 @@ const clearAllFilters = () => {
              <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
                 <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity backdrop-blur-sm" @click="showAddWingModal = false"></div>
                 <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-                <div class="relative z-50 inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-gray-100">
+                <div class="relative z-50 inline-block align-bottom bg-white rounded-xl text-start overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-gray-100">
                     <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                         <h3 class="text-lg font-bold text-gray-900 mb-4">Add New Wing / Block</h3>
                         <form @submit.prevent="submitWing" class="space-y-4">
@@ -944,7 +944,7 @@ const clearAllFilters = () => {
 
                 <div class="mt-6 flex justify-end">
                     <button @click="showMassHikeModal = false" class="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
-                    <button @click="submitMassHike" :disabled="massHikeForm.processing" class="ml-3 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-bold">
+                    <button @click="submitMassHike" :disabled="massHikeForm.processing" class="ms-3 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-bold">
                         Apply Hike
                     </button>
                 </div>

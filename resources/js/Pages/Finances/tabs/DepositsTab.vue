@@ -285,7 +285,7 @@ const statusLabels = {
                     >
                         <div
                             v-if="activeDropdown === row.id"
-                            class="absolute right-0 z-10 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
+                            class="absolute end-0 z-10 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
                             @click.stop
                         >
                             <button

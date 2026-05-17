@@ -112,7 +112,7 @@ const getBuildingTypeColor = (type: string) => {
                     @click="showAddModal = true"
                     class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold text-sm hover:bg-indigo-700 transition shadow-sm"
                 >
-                    <PlusIcon class="w-5 h-5 mr-2" />
+                    <PlusIcon class="w-5 h-5 me-2" />
                     Add Building
                 </button>
             </div>
@@ -125,23 +125,23 @@ const getBuildingTypeColor = (type: string) => {
                     <div class="flex flex-col sm:flex-row gap-4">
                         <!-- Search -->
                         <div class="relative flex-1">
-                            <MagnifyingGlassIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                            <MagnifyingGlassIcon class="absolute start-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                             <input
                                 v-model="search"
                                 type="text"
                                 placeholder="Search buildings..."
-                                class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                class="w-full ps-10 pe-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                             />
                         </div>
 
                         <!-- Type Filter -->
                         <div class="relative">
-                            <FunnelIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                            <FunnelIcon class="absolute start-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                             <select
                                 v-model="selectedType"
                                 @change="applyFilters"
                                 aria-label="Filter by building type"
-                                class="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 appearance-none bg-white min-w-[180px]"
+                                class="ps-10 pe-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 appearance-none bg-white min-w-[180px]"
                             >
                                 <option value="">All Types</option>
                                 <option v-for="(label, key) in buildingTypes" :key="key" :value="key">
@@ -152,12 +152,12 @@ const getBuildingTypeColor = (type: string) => {
 
                         <!-- Sort -->
                         <div class="relative">
-                            <Bars3BottomLeftIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                            <Bars3BottomLeftIcon class="absolute start-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                             <select
                                 v-model="selectedSort"
                                 @change="applyFilters"
                                 aria-label="Sort buildings"
-                                class="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 appearance-none bg-white min-w-[160px]"
+                                class="ps-10 pe-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 appearance-none bg-white min-w-[160px]"
                             >
                                 <option v-for="option in sortOptions" :key="option.value" :value="option.value">
                                     {{ option.label }}
@@ -171,7 +171,7 @@ const getBuildingTypeColor = (type: string) => {
                             @click="clearFilters"
                             class="inline-flex items-center px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
                         >
-                            <XMarkIcon class="w-4 h-4 mr-1" />
+                            <XMarkIcon class="w-4 h-4 me-1" />
                             Clear
                         </button>
                     </div>
@@ -205,7 +205,7 @@ const getBuildingTypeColor = (type: string) => {
                                 </span>
                             </div>
                             <div v-if="group.parent_address" class="mt-1 flex items-center text-sm text-gray-500">
-                                <MapPinIcon class="w-4 h-4 mr-1 shrink-0" />
+                                <MapPinIcon class="w-4 h-4 me-1 shrink-0" />
                                 <span>{{ group.parent_address }}</span>
                             </div>
                         </div>
@@ -231,7 +231,7 @@ const getBuildingTypeColor = (type: string) => {
                                     </div>
 
                                     <!-- Type Badge -->
-                                    <div class="absolute top-3 left-3">
+                                    <div class="absolute top-3 start-3">
                                         <span
                                             class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
                                             :class="getBuildingTypeColor(building.building_type ?? '')"
@@ -241,7 +241,7 @@ const getBuildingTypeColor = (type: string) => {
                                     </div>
 
                                     <!-- Occupancy Badge -->
-                                    <div class="absolute top-3 right-3">
+                                    <div class="absolute top-3 end-3">
                                         <div class="bg-white/90 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1.5 shadow-sm">
                                             <div class="w-2 h-2 rounded-full" :class="getOccupancyColor(building.occupancy_rate)"></div>
                                             <span class="text-xs font-semibold" :class="getOccupancyTextColor(building.occupancy_rate)">
@@ -259,7 +259,7 @@ const getBuildingTypeColor = (type: string) => {
 
                                     <!-- Address -->
                                     <div v-if="building.address" class="mt-1 flex items-center text-sm text-gray-500">
-                                        <MapPinIcon class="w-4 h-4 mr-1 shrink-0" />
+                                        <MapPinIcon class="w-4 h-4 me-1 shrink-0" />
                                         <span class="truncate">{{ building.address }}</span>
                                     </div>
                                     <div v-else class="mt-1 text-sm text-gray-400 italic">No address set</div>

@@ -29,7 +29,7 @@ function ageSeconds(queuedAt: number): number {
 <template>
     <div
         v-if="store.hasPending"
-        class="fixed bottom-4 right-4 z-50 max-w-xs"
+        class="fixed bottom-4 end-4 z-50 max-w-xs"
         role="region"
         :aria-label="t('offline.queue.aria') as string"
     >

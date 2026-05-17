@@ -90,9 +90,9 @@ const { isLandlord, isTenant } = useAuth();
                             @keyup.enter="applyFilters"
                             type="text"
                             placeholder="Search issues..."
-                            class="w-full pl-10 border-gray-300 rounded-lg shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
+                            class="w-full ps-10 border-gray-300 rounded-lg shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
                         />
-                        <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
+                        <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute start-3 top-2.5" />
                     </div>
                 </div>
 
@@ -133,7 +133,7 @@ const { isLandlord, isTenant } = useAuth();
                     :href="route('tickets.create')"
                     class="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
                 >
-                    <PlusIcon class="h-5 w-5 mr-1" />
+                    <PlusIcon class="h-5 w-5 me-1" />
                     Report Issue
                 </Link>
             </div>
@@ -171,7 +171,7 @@ const { isLandlord, isTenant } = useAuth();
                             <div class="sm:flex sm:space-x-4">
                                 <p class="flex items-center text-sm text-gray-500">
                                     <span class="truncate">{{ ticket.building?.name }}</span>
-                                    <span v-if="ticket.unit" class="ml-1">- Unit {{ ticket.unit.unit_number }}</span>
+                                    <span v-if="ticket.unit" class="ms-1">- Unit {{ ticket.unit.unit_number }}</span>
                                 </p>
                                 <p class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
                                     {{ ticket.subcategory }}
@@ -179,7 +179,7 @@ const { isLandlord, isTenant } = useAuth();
                             </div>
                             <div class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
                                 <span>{{ formatDate(ticket.created_at) }}</span>
-                                <span v-if="ticket.assignee" class="ml-4">
+                                <span v-if="ticket.assignee" class="ms-4">
                                     Assigned to {{ ticket.assignee.name }}
                                 </span>
                             </div>

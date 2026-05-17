@@ -247,7 +247,7 @@ const groupedNotifications = computed(() => {
                             {{ filter.label }}
                             <span
                                 v-if="filter.value === 'unread' && unreadCount > 0"
-                                class="ml-1.5 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold rounded-full"
+                                class="ms-1.5 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold rounded-full"
                                 :class="currentFilter === filter.value ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-600'"
                             >
                                 {{ unreadCount }}

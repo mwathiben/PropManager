@@ -56,7 +56,7 @@ function remove(id: number): void {
                 <h2 class="text-sm font-semibold text-gray-900">Active schedules</h2>
                 <table class="mt-3 min-w-full divide-y divide-gray-200 text-sm">
                     <thead>
-                        <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        <tr class="text-start text-xs font-semibold uppercase tracking-wide text-gray-500">
                             <th class="px-2 py-2">Report</th>
                             <th class="px-2 py-2">Cadence</th>
                             <th class="px-2 py-2">Recipient</th>

@@ -174,7 +174,7 @@ const getTypeLabel = (type) => {
                             >
                                 <FunnelIcon class="w-4 h-4" />
                                 Filters
-                                <span v-if="hasFilters" class="ml-1 px-1.5 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded-full">
+                                <span v-if="hasFilters" class="ms-1 px-1.5 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded-full">
                                     Active
                                 </span>
                             </button>
@@ -242,13 +242,13 @@ const getTypeLabel = (type) => {
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
-                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Debit</th>
-                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Credit</th>
-                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
+                                    <th class="px-4 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">Debit</th>
+                                    <th class="px-4 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">Credit</th>
+                                    <th class="px-4 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
@@ -268,19 +268,19 @@ const getTypeLabel = (type) => {
                                     <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 font-mono">
                                         {{ txn.reference }}
                                     </td>
-                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-end">
                                         <span v-if="txn.debit > 0" class="text-red-600 font-medium">
                                             {{ formatMoney(txn.debit) }}
                                         </span>
                                         <span v-else class="text-gray-400">-</span>
                                     </td>
-                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-end">
                                         <span v-if="txn.credit > 0" class="text-emerald-600 font-medium">
                                             {{ formatMoney(txn.credit) }}
                                         </span>
                                         <span v-else class="text-gray-400">-</span>
                                     </td>
-                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-right font-medium">
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-end font-medium">
                                         <span :class="txn.running_balance > 0 ? 'text-red-600' : 'text-emerald-600'">
                                             {{ formatMoney(Math.abs(txn.running_balance)) }}
                                         </span>
@@ -303,17 +303,17 @@ const getTypeLabel = (type) => {
                     <div class="flex flex-wrap gap-6 text-sm">
                         <div>
                             <span class="text-gray-500">Unit:</span>
-                            <span class="ml-2 font-medium text-gray-900">
+                            <span class="ms-2 font-medium text-gray-900">
                                 {{ activeLease.unit?.unit_number }} - {{ activeLease.unit?.building?.name }}
                             </span>
                         </div>
                         <div>
                             <span class="text-gray-500">Deposit Held:</span>
-                            <span class="ml-2 font-medium text-gray-900">{{ formatMoney(summary.deposit_held) }}</span>
+                            <span class="ms-2 font-medium text-gray-900">{{ formatMoney(summary.deposit_held) }}</span>
                         </div>
                         <div>
                             <span class="text-gray-500">Wallet Balance:</span>
-                            <span class="ml-2 font-medium text-emerald-600">{{ formatMoney(summary.wallet_balance) }}</span>
+                            <span class="ms-2 font-medium text-emerald-600">{{ formatMoney(summary.wallet_balance) }}</span>
                         </div>
                     </div>
                 </div>

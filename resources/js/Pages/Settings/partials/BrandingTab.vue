@@ -118,7 +118,7 @@ const submit = () => {
                         <button
                             v-if="can('settings:manage')"
                             @click="deleteLogo"
-                            class="absolute top-1 right-1 p-1 bg-red-100 text-red-600 rounded-full hover:bg-red-200 transition-colors"
+                            class="absolute top-1 end-1 p-1 bg-red-100 text-red-600 rounded-full hover:bg-red-200 transition-colors"
                             title="Delete logo"
                         >
                             <TrashIcon class="w-4 h-4" />
@@ -238,7 +238,7 @@ const submit = () => {
                                 </div>
                                 <p class="text-xs text-gray-500">Your Company Name</p>
                             </div>
-                            <div class="text-right">
+                            <div class="text-end">
                                 <p class="text-lg font-bold text-gray-900">INVOICE</p>
                                 <p class="text-sm text-gray-600">{{ invoiceNumberFormats[form.invoice_number_format] || 'INV-202501-0001' }}</p>
                             </div>

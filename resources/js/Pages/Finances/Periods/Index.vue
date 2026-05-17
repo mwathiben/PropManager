@@ -58,7 +58,7 @@ const reopen = (periodId: number) => {
 
       <section class="rounded border bg-white">
         <table class="w-full text-sm">
-          <thead class="bg-gray-50 text-left">
+          <thead class="bg-gray-50 text-start">
             <tr>
               <th class="p-2">{{ t('accounting.period.period') }}</th>
               <th class="p-2">{{ t('accounting.period.status') }}</th>
@@ -77,7 +77,7 @@ const reopen = (periodId: number) => {
               </td>
               <td class="p-2">{{ p.closed_at ?? '—' }}</td>
               <td class="p-2">{{ p.close_notes ?? '—' }}</td>
-              <td class="p-2 text-right">
+              <td class="p-2 text-end">
                 <button
                   v-if="p.status === 'closed'"
                   @click="reopen(p.id)"

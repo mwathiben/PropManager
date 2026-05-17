@@ -108,7 +108,7 @@ const formatMoney = (value: number) =>
                                 <span v-if="doc.date"> &middot; uploaded {{ doc.date }}</span>
                                 <span
                                     v-if="doc.expires_at"
-                                    class="ml-2 inline-flex items-center gap-1 text-amber-700"
+                                    class="ms-2 inline-flex items-center gap-1 text-amber-700"
                                 >
                                     <CalendarDaysIcon class="w-3 h-3" />
                                     expires {{ doc.expires_at }}

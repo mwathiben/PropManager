@@ -114,12 +114,12 @@ const statusLabel = (status) => {
         <!-- Filters -->
         <div class="flex flex-col sm:flex-row gap-4 mb-4">
             <div class="relative flex-1">
-                <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute start-3 top-1/2 -translate-y-1/2" />
                 <input
                     v-model="search"
                     type="text"
                     placeholder="Search messages..."
-                    class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                    class="w-full ps-10 pe-4 py-2 border border-gray-300 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500"
                 />
             </div>
             <div class="flex items-center gap-2">
@@ -172,7 +172,7 @@ const statusLabel = (status) => {
                         <div class="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
                             <PhoneIcon class="w-3 h-3" />
                             {{ message.from_number }}
-                            <span v-if="message.unit_name" class="ml-2">
+                            <span v-if="message.unit_name" class="ms-2">
                                 &middot; {{ message.unit_name }}
                             </span>
                         </div>

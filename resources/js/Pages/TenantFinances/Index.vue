@@ -181,7 +181,7 @@ onUnmounted(() => {
                                         <p class="text-xs text-gray-500">Due {{ formatDate(invoice.due_date) }}</p>
                                     </div>
                                 </div>
-                                <div class="text-right">
+                                <div class="text-end">
                                     <AmountDisplay :amount="invoice.balance" size="sm" class="text-gray-900" />
                                     <InvoiceStatusBadge :status="invoice.status" size="sm" class="mt-1" />
                                 </div>
@@ -214,7 +214,7 @@ onUnmounted(() => {
                                         <p class="text-xs text-gray-500">{{ payment.reference }}</p>
                                     </div>
                                 </div>
-                                <div class="text-right">
+                                <div class="text-end">
                                     <AmountDisplay :amount="payment.amount" size="sm" />
                                     <PaymentMethodBadge :method="payment.payment_method" size="sm" :show-icon="false" class="mt-1" />
                                 </div>

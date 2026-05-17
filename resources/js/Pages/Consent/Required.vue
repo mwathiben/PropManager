@@ -83,7 +83,7 @@ const submit = () => {
                             </div>
                             <button
                                 @click="toggleExpand(doc.type)"
-                                class="ml-4 text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                                class="ms-4 text-indigo-600 hover:text-indigo-800 text-sm font-medium"
                             >
                                 {{ isExpanded(doc.type) ? 'Hide' : 'Read Full' }}
                             </button>
@@ -110,7 +110,7 @@ const submit = () => {
                                 @change="toggleAccept(doc.type, doc.version)"
                                 class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                             >
-                            <label :for="`accept-${doc.type}`" class="ml-2 text-sm text-gray-700">
+                            <label :for="`accept-${doc.type}`" class="ms-2 text-sm text-gray-700">
                                 I have read and agree to the {{ doc.type_name }}
                             </label>
                         </div>

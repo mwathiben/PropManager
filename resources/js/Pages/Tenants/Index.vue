@@ -235,7 +235,7 @@ const getLastLeaseInfo = (tenant) => {
                                 <span
                                     v-if="counts[tab.countKey] > 0"
                                     :class="currentTab === tab.id ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-600'"
-                                    class="ml-2 py-0.5 px-2 rounded-full text-xs font-semibold"
+                                    class="ms-2 py-0.5 px-2 rounded-full text-xs font-semibold"
                                 >
                                     {{ counts[tab.countKey] }}
                                 </span>
@@ -246,12 +246,12 @@ const getLastLeaseInfo = (tenant) => {
                     <!-- Search Bar -->
                     <div class="p-4 border-b border-gray-200">
                         <div class="relative max-w-md">
-                            <MagnifyingGlassIcon class="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                            <MagnifyingGlassIcon class="absolute start-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                             <input
                                 v-model="search"
                                 type="text"
                                 :placeholder="currentTab === 'pending' ? 'Search by name, email, or phone...' : 'Search tenants...'"
-                                class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                                class="w-full ps-10 pe-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                             />
                         </div>
                     </div>
@@ -261,12 +261,12 @@ const getLastLeaseInfo = (tenant) => {
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Contact</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Unit</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Rent</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Contact</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Unit</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Rent</th>
+                                    <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
@@ -276,7 +276,7 @@ const getLastLeaseInfo = (tenant) => {
                                             <div class="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-medium text-sm">
                                                 {{ tenant.name?.charAt(0)?.toUpperCase() || '?' }}
                                             </div>
-                                            <div class="ml-3">
+                                            <div class="ms-3">
                                                 <div class="text-sm font-medium text-gray-900">{{ tenant.name }}</div>
                                                 <div class="text-xs text-gray-500 md:hidden">{{ tenant.email }}</div>
                                             </div>
@@ -285,18 +285,18 @@ const getLastLeaseInfo = (tenant) => {
                                     <td class="px-6 py-4 whitespace-nowrap hidden md:table-cell">
                                         <div class="space-y-1">
                                             <div class="flex items-center text-sm text-gray-600">
-                                                <EnvelopeIcon class="h-4 w-4 mr-1 text-gray-400" />
+                                                <EnvelopeIcon class="h-4 w-4 me-1 text-gray-400" />
                                                 {{ tenant.email }}
                                             </div>
                                             <div v-if="tenant.mobile_number" class="flex items-center text-sm text-gray-600">
-                                                <PhoneIcon class="h-4 w-4 mr-1 text-gray-400" />
+                                                <PhoneIcon class="h-4 w-4 me-1 text-gray-400" />
                                                 {{ tenant.mobile_number }}
                                             </div>
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap hidden lg:table-cell">
                                         <div class="flex items-center text-sm text-gray-900">
-                                            <HomeIcon class="h-4 w-4 mr-1 text-gray-400" />
+                                            <HomeIcon class="h-4 w-4 me-1 text-gray-400" />
                                             {{ getUnitInfo(tenant) }}
                                         </div>
                                     </td>
@@ -317,7 +317,7 @@ const getLastLeaseInfo = (tenant) => {
                                         {{ formatCurrency(getActiveLease(tenant)?.rent_amount) }}
                                         <span class="text-gray-500">/mo</span>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-right">
+                                    <td class="px-6 py-4 whitespace-nowrap text-end">
                                         <Link
                                             :href="route('tenants.show', tenant.id)"
                                             class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded-lg transition-colors"
@@ -369,11 +369,11 @@ const getLastLeaseInfo = (tenant) => {
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant Info</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Unit</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Lease Terms</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant Info</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Unit</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Lease Terms</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
@@ -383,7 +383,7 @@ const getLastLeaseInfo = (tenant) => {
                                             <div class="h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600">
                                                 <ClockIcon class="w-5 h-5" />
                                             </div>
-                                            <div class="ml-3">
+                                            <div class="ms-3">
                                                 <div class="text-sm font-medium text-gray-900">{{ invitation.tenant_name || 'Pending' }}</div>
                                                 <div class="text-xs text-gray-500">{{ invitation.email }}</div>
                                                 <div v-if="invitation.tenant_phone" class="text-xs text-gray-500">{{ invitation.tenant_phone }}</div>
@@ -410,7 +410,7 @@ const getLastLeaseInfo = (tenant) => {
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex flex-col gap-1">
                                             <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                                                <ClockIcon class="w-3 h-3 mr-1" />
+                                                <ClockIcon class="w-3 h-3 me-1" />
                                                 Pending
                                             </span>
                                             <span v-if="invitation.viewed_at" class="text-xs text-green-600">Viewed</span>
@@ -419,7 +419,7 @@ const getLastLeaseInfo = (tenant) => {
                                             </span>
                                         </div>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-right space-x-2">
+                                    <td class="px-6 py-4 whitespace-nowrap text-end space-x-2">
                                         <button
                                             @click="copyInviteLink(invitation.token)"
                                             class="text-gray-600 hover:text-gray-900 p-1"
@@ -501,11 +501,11 @@ const getLastLeaseInfo = (tenant) => {
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Contact</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Last Unit</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Date</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Contact</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Last Unit</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">End Date</th>
+                                    <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
@@ -515,7 +515,7 @@ const getLastLeaseInfo = (tenant) => {
                                             <div class="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-medium text-sm">
                                                 {{ tenant.name?.charAt(0)?.toUpperCase() || '?' }}
                                             </div>
-                                            <div class="ml-3">
+                                            <div class="ms-3">
                                                 <div class="text-sm font-medium text-gray-900">{{ tenant.name }}</div>
                                                 <div class="text-xs text-gray-500 md:hidden">{{ tenant.email }}</div>
                                             </div>
@@ -524,11 +524,11 @@ const getLastLeaseInfo = (tenant) => {
                                     <td class="px-6 py-4 whitespace-nowrap hidden md:table-cell">
                                         <div class="space-y-1">
                                             <div class="flex items-center text-sm text-gray-600">
-                                                <EnvelopeIcon class="h-4 w-4 mr-1 text-gray-400" />
+                                                <EnvelopeIcon class="h-4 w-4 me-1 text-gray-400" />
                                                 {{ tenant.email }}
                                             </div>
                                             <div v-if="tenant.mobile_number" class="flex items-center text-sm text-gray-600">
-                                                <PhoneIcon class="h-4 w-4 mr-1 text-gray-400" />
+                                                <PhoneIcon class="h-4 w-4 me-1 text-gray-400" />
                                                 {{ tenant.mobile_number }}
                                             </div>
                                         </div>
@@ -542,11 +542,11 @@ const getLastLeaseInfo = (tenant) => {
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center text-sm text-gray-500">
-                                            <CalendarDaysIcon class="w-4 h-4 mr-1" />
+                                            <CalendarDaysIcon class="w-4 h-4 me-1" />
                                             {{ formatDate(getLastLeaseInfo(tenant)?.endDate) }}
                                         </div>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-right">
+                                    <td class="px-6 py-4 whitespace-nowrap text-end">
                                         <Link
                                             :href="route('tenants.show', tenant.id)"
                                             class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"

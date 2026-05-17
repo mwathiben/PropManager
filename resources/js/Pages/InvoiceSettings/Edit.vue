@@ -198,7 +198,7 @@ const getLogoUrl = () => {
                                                         @click="removeLogo"
                                                         class="inline-flex items-center text-sm text-red-600 hover:text-red-700"
                                                     >
-                                                        <TrashIcon class="w-4 h-4 mr-1" />
+                                                        <TrashIcon class="w-4 h-4 me-1" />
                                                         Remove
                                                     </button>
                                                     <p class="text-xs text-gray-500">PNG, JPG up to 2MB</p>
@@ -405,7 +405,7 @@ const getLogoUrl = () => {
                                                         max="90"
                                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                                     />
-                                                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">days</span>
+                                                    <span class="absolute end-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">days</span>
                                                 </div>
                                                 <p class="mt-1 text-xs text-gray-500">Days until payment is due</p>
                                             </div>
@@ -420,7 +420,7 @@ const getLogoUrl = () => {
                                                         step="0.1"
                                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                                     />
-                                                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">%</span>
+                                                    <span class="absolute end-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">%</span>
                                                 </div>
                                                 <p class="mt-1 text-xs text-gray-500">Applied after due date</p>
                                             </div>
@@ -434,7 +434,7 @@ const getLogoUrl = () => {
                                                         max="30"
                                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                                     />
-                                                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">days</span>
+                                                    <span class="absolute end-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">days</span>
                                                 </div>
                                                 <p class="mt-1 text-xs text-gray-500">Before penalty applies</p>
                                             </div>
@@ -513,13 +513,13 @@ const getLogoUrl = () => {
                                             <div>
                                                 <label class="block text-sm font-medium text-gray-700 mb-1">Admin/Processing Fee</label>
                                                 <div class="relative">
-                                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">{{ currencySymbol }}</span>
+                                                    <span class="absolute start-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">{{ currencySymbol }}</span>
                                                     <input
                                                         v-model="form.admin_fee_amount"
                                                         type="number"
                                                         min="0"
                                                         step="0.01"
-                                                        class="w-full pl-14 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                                        class="w-full ps-14 pe-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                                         placeholder="0.00"
                                                     />
                                                 </div>
@@ -528,13 +528,13 @@ const getLogoUrl = () => {
                                             <div>
                                                 <label class="block text-sm font-medium text-gray-700 mb-1">Key Deposit</label>
                                                 <div class="relative">
-                                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">{{ currencySymbol }}</span>
+                                                    <span class="absolute start-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">{{ currencySymbol }}</span>
                                                     <input
                                                         v-model="form.key_deposit_amount"
                                                         type="number"
                                                         min="0"
                                                         step="0.01"
-                                                        class="w-full pl-14 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                                        class="w-full ps-14 pe-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                                         placeholder="0.00"
                                                     />
                                                 </div>
@@ -550,7 +550,7 @@ const getLogoUrl = () => {
                                                         max="30"
                                                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                                     />
-                                                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">days</span>
+                                                    <span class="absolute end-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">days</span>
                                                 </div>
                                                 <p class="mt-1 text-xs text-gray-500">0 = due immediately</p>
                                             </div>

@@ -90,7 +90,7 @@ const submit = () => {
                         :href="route('tickets.index')"
                         class="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 mb-4"
                     >
-                        <ArrowLeftIcon class="h-4 w-4 mr-1" />
+                        <ArrowLeftIcon class="h-4 w-4 me-1" />
                         Back to Tickets
                     </Link>
                     <h1 class="text-3xl font-bold text-gray-900">Report an Issue or Complaint</h1>
@@ -113,7 +113,7 @@ const submit = () => {
                                         'relative flex items-center justify-center p-4 border-2 rounded-lg cursor-pointer transition'
                                     ]"
                                 >
-                                    <WrenchScrewdriverIcon class="h-6 w-6 mr-2" />
+                                    <WrenchScrewdriverIcon class="h-6 w-6 me-2" />
                                     <span class="font-medium">Maintenance Issue</span>
                                 </button>
                                 <button
@@ -126,7 +126,7 @@ const submit = () => {
                                         'relative flex items-center justify-center p-4 border-2 rounded-lg cursor-pointer transition'
                                     ]"
                                 >
-                                    <ChatBubbleBottomCenterTextIcon class="h-6 w-6 mr-2" />
+                                    <ChatBubbleBottomCenterTextIcon class="h-6 w-6 me-2" />
                                     <span class="font-medium">Complaint</span>
                                 </button>
                             </div>
@@ -277,7 +277,7 @@ const submit = () => {
                                 type="file"
                                 multiple
                                 accept="image/jpeg,image/png,image/webp"
-                                class="block w-full text-sm text-gray-700 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                                class="block w-full text-sm text-gray-700 file:me-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                                 @change="onPhotosSelected"
                             />
                             <p class="mt-1 text-xs text-gray-500">

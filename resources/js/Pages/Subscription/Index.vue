@@ -128,7 +128,7 @@ const isAtLimit = (current, limit) => {
                                 </div>
                                 <p class="mt-1 text-gray-600">{{ currentPlan?.description }}</p>
                             </div>
-                            <div class="text-right">
+                            <div class="text-end">
                                 <p class="text-3xl font-bold text-gray-900">
                                     {{ currentPlan?.price_monthly > 0 ? formatCurrency(currentPlan.price_monthly) : 'Free' }}
                                 </p>

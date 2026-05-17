@@ -73,7 +73,7 @@ const onDropdownChange = (event: Event) => {
                     :disabled="disabled"
                     @click="emit('update:modelValue', method.id)"
                     :class="[
-                        'w-full flex items-start gap-4 p-4 rounded-xl border-2 transition-all text-left',
+                        'w-full flex items-start gap-4 p-4 rounded-xl border-2 transition-all text-start',
                         modelValue === method.id
                             ? 'border-emerald-500 bg-emerald-50'
                             : 'border-gray-200 hover:border-gray-300'

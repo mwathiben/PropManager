@@ -145,14 +145,14 @@ const designStyles = computed(() => {
             classic: 'border-2 rounded-none shadow-inner',
             modern: 'rounded-2xl shadow-lg',
             minimal: 'rounded-lg border border-gray-100',
-            professional: 'rounded-none border-l-4 border-l-slate-800 shadow-md bg-slate-50',
+            professional: 'rounded-none border-s-4 border-s-slate-800 shadow-md bg-slate-50',
         }[design] || 'rounded-lg',
 
         sectionBg: {
             classic: 'bg-gray-100 border-y-2 border-gray-200',
             modern: 'bg-gradient-to-r from-gray-50 to-white rounded-xl mx-2 my-1',
             minimal: 'bg-white border-b border-gray-50',
-            professional: 'bg-slate-50 border-l-2 border-l-amber-600',
+            professional: 'bg-slate-50 border-s-2 border-s-amber-600',
         }[design] || 'bg-gray-50',
 
         sectionTextColor: {
@@ -498,7 +498,7 @@ const toggleGroups = props.toggleGroups || [
                                                     <p :class="['text-sm mt-1', designStyles.headerSubTextColor]">{{ sampleReceipt.business.address }}</p>
                                                     <p :class="['text-sm', designStyles.headerSubTextColor]">{{ sampleReceipt.business.phone }}</p>
                                                 </div>
-                                                <div :class="previewState.design === 'minimal' ? 'mt-4' : 'text-right'">
+                                                <div :class="previewState.design === 'minimal' ? 'mt-4' : 'text-end'">
                                                     <h2
                                                         :class="previewState.design === 'professional' ? 'text-2xl font-bold tracking-wide' : 'text-2xl font-bold'"
                                                         :style="{ color: previewState.primary_color }"
@@ -590,15 +590,15 @@ const toggleGroups = props.toggleGroups || [
                                                 <tbody>
                                                     <tr v-if="previewState.show_amount_breakdown">
                                                         <td class="py-1 text-gray-600">Previous Balance</td>
-                                                        <td class="py-1 text-right text-gray-900">{{ formatCurrency(sampleReceipt.payment.previous_balance) }}</td>
+                                                        <td class="py-1 text-end text-gray-900">{{ formatCurrency(sampleReceipt.payment.previous_balance) }}</td>
                                                     </tr>
                                                     <tr v-if="previewState.show_amount_breakdown">
                                                         <td class="py-1 text-gray-600">Amount Paid</td>
-                                                        <td class="py-1 text-right font-medium" :style="{ color: previewState.primary_color }">-{{ formatCurrency(sampleReceipt.payment.amount) }}</td>
+                                                        <td class="py-1 text-end font-medium" :style="{ color: previewState.primary_color }">-{{ formatCurrency(sampleReceipt.payment.amount) }}</td>
                                                     </tr>
                                                     <tr v-if="previewState.show_balance_after_payment" :class="previewState.design === 'professional' ? 'font-bold text-lg' : 'font-medium'">
                                                         <td class="py-2 text-gray-900">Balance Due</td>
-                                                        <td class="py-2 text-right text-gray-900">{{ formatCurrency(sampleReceipt.payment.new_balance) }}</td>
+                                                        <td class="py-2 text-end text-gray-900">{{ formatCurrency(sampleReceipt.payment.new_balance) }}</td>
                                                     </tr>
                                                 </tbody>
                                             </table>

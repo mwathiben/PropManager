@@ -46,7 +46,7 @@ const updatePassword = () => {
                 <div class="shrink-0">
                     <ShieldCheckIcon class="h-5 w-5 text-indigo-400" />
                 </div>
-                <div class="ml-3">
+                <div class="ms-3">
                     <h3 class="text-sm font-medium text-indigo-800">Account Security</h3>
                     <p class="mt-1 text-sm text-indigo-700">
                         Keep your account secure by using a strong password and enabling two-factor authentication.
@@ -72,7 +72,7 @@ const updatePassword = () => {
                 <div>
                     <InputLabel for="current_password" value="Current Password" />
                     <div class="mt-1 relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                             <LockClosedIcon class="h-5 w-5 text-gray-400" />
                         </div>
                         <TextInput
@@ -80,7 +80,7 @@ const updatePassword = () => {
                             ref="currentPasswordInput"
                             v-model="form.current_password"
                             type="password"
-                            class="pl-10 block w-full"
+                            class="ps-10 block w-full"
                             autocomplete="current-password"
                             placeholder="Enter your current password"
                         />
@@ -92,7 +92,7 @@ const updatePassword = () => {
                 <div>
                     <InputLabel for="password" value="New Password" />
                     <div class="mt-1 relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                             <LockClosedIcon class="h-5 w-5 text-gray-400" />
                         </div>
                         <TextInput
@@ -100,7 +100,7 @@ const updatePassword = () => {
                             ref="passwordInput"
                             v-model="form.password"
                             type="password"
-                            class="pl-10 block w-full"
+                            class="ps-10 block w-full"
                             autocomplete="new-password"
                             placeholder="Enter a new password"
                         />
@@ -112,14 +112,14 @@ const updatePassword = () => {
                 <div>
                     <InputLabel for="password_confirmation" value="Confirm New Password" />
                     <div class="mt-1 relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                             <LockClosedIcon class="h-5 w-5 text-gray-400" />
                         </div>
                         <TextInput
                             id="password_confirmation"
                             v-model="form.password_confirmation"
                             type="password"
-                            class="pl-10 block w-full"
+                            class="ps-10 block w-full"
                             autocomplete="new-password"
                             placeholder="Confirm your new password"
                         />

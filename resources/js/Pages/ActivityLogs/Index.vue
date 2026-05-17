@@ -65,7 +65,7 @@ const clearFilters = () => {
                             <div class="p-3 bg-indigo-100 rounded-full">
                                 <ClipboardDocumentListIcon class="w-6 h-6 text-indigo-600" />
                             </div>
-                            <div class="ml-4">
+                            <div class="ms-4">
                                 <p class="text-sm font-medium text-gray-500">Total Activities</p>
                                 <p class="text-2xl font-bold text-gray-900">{{ stats.total_activities }}</p>
                             </div>
@@ -76,7 +76,7 @@ const clearFilters = () => {
                             <div class="p-3 bg-green-100 rounded-full">
                                 <CalendarDaysIcon class="w-6 h-6 text-green-600" />
                             </div>
-                            <div class="ml-4">
+                            <div class="ms-4">
                                 <p class="text-sm font-medium text-gray-500">Today</p>
                                 <p class="text-2xl font-bold text-green-600">{{ stats.today }}</p>
                             </div>
@@ -87,7 +87,7 @@ const clearFilters = () => {
                             <div class="p-3 bg-blue-100 rounded-full">
                                 <ClockIcon class="w-6 h-6 text-blue-600" />
                             </div>
-                            <div class="ml-4">
+                            <div class="ms-4">
                                 <p class="text-sm font-medium text-gray-500">This Week</p>
                                 <p class="text-2xl font-bold text-blue-600">{{ stats.this_week }}</p>
                             </div>
@@ -98,7 +98,7 @@ const clearFilters = () => {
                             <div class="p-3 bg-purple-100 rounded-full">
                                 <CalendarDaysIcon class="w-6 h-6 text-purple-600" />
                             </div>
-                            <div class="ml-4">
+                            <div class="ms-4">
                                 <p class="text-sm font-medium text-gray-500">This Month</p>
                                 <p class="text-2xl font-bold text-purple-600">{{ stats.this_month }}</p>
                             </div>
@@ -117,9 +117,9 @@ const clearFilters = () => {
                                     @keyup.enter="applyFilters"
                                     type="text"
                                     placeholder="Search by description..."
-                                    class="w-full pl-10 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                                    class="w-full ps-10 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
                                 >
-                                <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
+                                <MagnifyingGlassIcon class="w-5 h-5 text-gray-400 absolute start-3 top-2.5" />
                             </div>
                         </div>
 
@@ -203,7 +203,7 @@ const clearFilters = () => {
                                     </div>
 
                                     <!-- Timestamp -->
-                                    <div class="shrink-0 text-right">
+                                    <div class="shrink-0 text-end">
                                         <p class="text-xs text-gray-500">{{ formatDateTime(activity.created_at) }}</p>
                                         <p class="text-xs text-gray-400">{{ activity.created_at_human }}</p>
                                     </div>

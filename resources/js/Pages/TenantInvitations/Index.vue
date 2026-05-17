@@ -262,7 +262,7 @@ const closeEditModal = () => {
                     <button
                         @click="statusFilter = 'all'"
                         :class="statusFilter === 'all' ? 'ring-2 ring-indigo-500' : ''"
-                        class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-left hover:shadow-md transition-shadow"
+                        class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-start hover:shadow-md transition-shadow"
                     >
                         <div class="text-2xl font-bold text-gray-900">{{ invitations.length }}</div>
                         <div class="text-sm text-gray-500">Total Invitations</div>
@@ -270,7 +270,7 @@ const closeEditModal = () => {
                     <button
                         @click="statusFilter = 'pending'"
                         :class="statusFilter === 'pending' ? 'ring-2 ring-yellow-500' : ''"
-                        class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-left hover:shadow-md transition-shadow"
+                        class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-start hover:shadow-md transition-shadow"
                     >
                         <div class="text-2xl font-bold text-yellow-600">{{ pendingCount }}</div>
                         <div class="text-sm text-gray-500">Pending</div>
@@ -278,7 +278,7 @@ const closeEditModal = () => {
                     <button
                         @click="statusFilter = 'accepted'"
                         :class="statusFilter === 'accepted' ? 'ring-2 ring-green-500' : ''"
-                        class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-left hover:shadow-md transition-shadow"
+                        class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-start hover:shadow-md transition-shadow"
                     >
                         <div class="text-2xl font-bold text-green-600">{{ acceptedCount }}</div>
                         <div class="text-sm text-gray-500">Accepted</div>
@@ -291,11 +291,11 @@ const closeEditModal = () => {
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lease Terms</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Lease Terms</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
@@ -342,7 +342,7 @@ const closeEditModal = () => {
                                             <EyeIcon class="w-3 h-3 inline" /> Viewed
                                         </div>
                                     </td>
-                                    <td class="px-6 py-4 text-right">
+                                    <td class="px-6 py-4 text-end">
                                         <div class="flex items-center justify-end gap-1">
                                             <!-- Copy Link -->
                                             <button
@@ -405,7 +405,7 @@ const closeEditModal = () => {
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
                 <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="showCreateModal = false"></div>
 
-                <div class="relative z-50 inline-block w-full max-w-2xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-xl shadow-xl">
+                <div class="relative z-50 inline-block w-full max-w-2xl my-8 overflow-hidden text-start align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <!-- Header -->
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
                         <h3 class="text-lg font-semibold text-gray-900">Send Tenant Invitation</h3>
@@ -597,7 +597,7 @@ const closeEditModal = () => {
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
                 <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="closeEditModal"></div>
 
-                <div class="relative z-50 inline-block w-full max-w-2xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-xl shadow-xl">
+                <div class="relative z-50 inline-block w-full max-w-2xl my-8 overflow-hidden text-start align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <!-- Header -->
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
                         <div>

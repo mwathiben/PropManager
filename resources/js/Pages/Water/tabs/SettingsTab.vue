@@ -122,10 +122,10 @@ const submit = () => {
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                            <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase">
                                 Effective Date
                             </th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                            <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase">
                                 Rate
                             </th>
                         </tr>
@@ -135,7 +135,7 @@ const submit = () => {
                             <td class="px-6 py-4 text-sm text-gray-900">
                                 {{ formatDate(rate.effective_date) }}
                             </td>
-                            <td class="px-6 py-4 text-sm text-gray-900 text-right">
+                            <td class="px-6 py-4 text-sm text-gray-900 text-end">
                                 {{ formatCurrency(rate.rate) }}/unit
                             </td>
                         </tr>

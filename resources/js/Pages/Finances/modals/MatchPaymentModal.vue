@@ -172,7 +172,7 @@ const handleSubmit = () => {
                                                 <p class="text-sm font-medium text-gray-900">{{ invoice.invoice_number }}</p>
                                                 <p class="text-xs text-gray-500">Due: {{ formatDate(invoice.due_date) }}</p>
                                             </div>
-                                            <div class="text-right">
+                                            <div class="text-end">
                                                 <p class="text-sm font-semibold text-gray-900">{{ formatMoney(invoice.balance) }}</p>
                                                 <p class="text-xs text-gray-500">due</p>
                                             </div>

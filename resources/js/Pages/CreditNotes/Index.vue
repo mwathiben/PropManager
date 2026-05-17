@@ -103,13 +103,13 @@ const filterByStatus = (status) => {
                     <div class="p-4 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
                         <div class="flex flex-col sm:flex-row gap-3 flex-1">
                             <div class="relative">
-                                <MagnifyingGlassIcon class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <MagnifyingGlassIcon class="w-5 h-5 absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                 <input
                                     type="text"
                                     placeholder="Search credit notes..."
                                     :value="filters?.search"
                                     @input="search"
-                                    class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-purple-500 focus:border-purple-500 w-full sm:w-64"
+                                    class="ps-10 pe-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-purple-500 focus:border-purple-500 w-full sm:w-64"
                                 />
                             </div>
                             <select
@@ -140,14 +140,14 @@ const filterByStatus = (status) => {
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Credit #</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tenant</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Credit #</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Tenant</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Unit</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Reason</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Status</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Date</th>
+                                    <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">

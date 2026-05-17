@@ -55,14 +55,14 @@ function conclude(): void {
                     <table class="mt-3 min-w-full divide-y divide-gray-200">
                         <thead>
                             <tr class="bg-gray-50">
-                                <th class="px-3 py-1.5 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Variant</th>
-                                <th class="px-3 py-1.5 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Users assigned</th>
+                                <th class="px-3 py-1.5 text-start text-xs font-medium uppercase tracking-wide text-gray-500">Variant</th>
+                                <th class="px-3 py-1.5 text-end text-xs font-medium uppercase tracking-wide text-gray-500">Users assigned</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             <tr v-for="(count, variantKey) in exposures_by_variant" :key="variantKey">
                                 <td class="px-3 py-1.5 font-mono text-sm text-gray-900">{{ variantKey }}</td>
-                                <td class="px-3 py-1.5 text-right text-sm text-gray-700">{{ count }}</td>
+                                <td class="px-3 py-1.5 text-end text-sm text-gray-700">{{ count }}</td>
                             </tr>
                         </tbody>
                     </table>

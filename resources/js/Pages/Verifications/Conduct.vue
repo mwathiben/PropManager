@@ -195,7 +195,7 @@ const completeVerification = () => {
                         </p>
 
                         <div class="mt-6 max-w-md mx-auto">
-                            <label class="block text-sm font-medium text-gray-700 text-left mb-2">Select Template</label>
+                            <label class="block text-sm font-medium text-gray-700 text-start mb-2">Select Template</label>
                             <select
                                 v-model="selectedTemplateId"
                                 class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -279,7 +279,7 @@ const completeVerification = () => {
                                 v-for="verification in verifications"
                                 :key="verification.id"
                                 :class="getStatusBg(verification.status)"
-                                class="p-4 border-l-4 transition-colors"
+                                class="p-4 border-s-4 transition-colors"
                             >
                                 <div class="flex items-start gap-4">
                                     <!-- Status Icon -->
@@ -375,12 +375,12 @@ const completeVerification = () => {
                             <div class="flex items-center justify-between">
                                 <div>
                                     <p v-if="!canComplete" class="text-sm text-yellow-700">
-                                        <ExclamationCircleIcon class="w-4 h-4 inline mr-1" />
+                                        <ExclamationCircleIcon class="w-4 h-4 inline me-1" />
                                         {{ requiredPending }} required item(s) pending
                                         <span v-if="rejectedCount > 0">, {{ rejectedCount }} rejected</span>
                                     </p>
                                     <p v-else class="text-sm text-green-700">
-                                        <CheckCircleIcon class="w-4 h-4 inline mr-1" />
+                                        <CheckCircleIcon class="w-4 h-4 inline me-1" />
                                         All required items verified. Ready to complete!
                                     </p>
                                 </div>
@@ -404,7 +404,7 @@ const completeVerification = () => {
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
                 <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="showNoteModal = false"></div>
 
-                <div class="relative z-50 inline-block w-full max-w-md my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-xl shadow-xl">
+                <div class="relative z-50 inline-block w-full max-w-md my-8 overflow-hidden text-start align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
                         <h3 class="text-lg font-semibold text-gray-900">Add Note</h3>
                         <p class="text-sm text-gray-500">{{ currentVerification?.item?.name }}</p>

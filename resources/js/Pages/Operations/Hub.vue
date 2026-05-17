@@ -135,7 +135,7 @@ const breadcrumbItems = computed(() => [
                                 {{ tab.name }}
                                 <span
                                     v-if="tab.badgeKey === 'inbox' && inboxUnreadCount > 0"
-                                    class="ml-1 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                                    class="ms-1 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
                                 >
                                     {{ inboxUnreadCount > 99 ? '99+' : inboxUnreadCount }}
                                 </span>

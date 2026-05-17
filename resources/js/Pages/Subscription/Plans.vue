@@ -124,7 +124,7 @@ const popularPlan = computed(() => {
                     </button>
                     <span :class="selectedCycle === 'yearly' ? 'text-gray-900 font-medium' : 'text-gray-500'">
                         Yearly
-                        <span class="ml-1 text-green-600 text-sm font-medium">Save up to 17%</span>
+                        <span class="ms-1 text-green-600 text-sm font-medium">Save up to 17%</span>
                     </span>
                 </div>
 
@@ -142,7 +142,7 @@ const popularPlan = computed(() => {
                         <!-- Popular Badge -->
                         <div
                             v-if="plan.slug === 'pro'"
-                            class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-indigo-600 text-white text-xs font-bold rounded-full"
+                            class="absolute -top-3 start-1/2 -translate-x-1/2 px-3 py-1 bg-indigo-600 text-white text-xs font-bold rounded-full"
                         >
                             POPULAR
                         </div>
@@ -150,7 +150,7 @@ const popularPlan = computed(() => {
                         <!-- Current Badge -->
                         <div
                             v-if="isCurrentPlan(plan)"
-                            class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-green-600 text-white text-xs font-bold rounded-full"
+                            class="absolute -top-3 start-1/2 -translate-x-1/2 px-3 py-1 bg-green-600 text-white text-xs font-bold rounded-full"
                         >
                             CURRENT PLAN
                         </div>

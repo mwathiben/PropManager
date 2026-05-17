@@ -130,12 +130,12 @@ const testPaystackConnection = async () => {
                                     :type="showPaystackPublicKey ? 'text' : 'password'"
                                     v-model="paymentForm.paystack_public_key"
                                     :placeholder="paymentSettings.has_paystack_public_key ? paymentSettings.paystack_public_key : 'pk_live_...'"
-                                    class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 pr-10"
+                                    class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 pe-10"
                                 />
                                 <button
                                     type="button"
                                     @click="showPaystackPublicKey = !showPaystackPublicKey"
-                                    class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-gray-600"
+                                    class="absolute inset-y-0 end-0 px-3 flex items-center text-gray-400 hover:text-gray-600"
                                 >
                                     <EyeIcon v-if="!showPaystackPublicKey" class="h-5 w-5" />
                                     <EyeSlashIcon v-else class="h-5 w-5" />
@@ -154,12 +154,12 @@ const testPaystackConnection = async () => {
                                     :type="showPaystackSecretKey ? 'text' : 'password'"
                                     v-model="paymentForm.paystack_secret_key"
                                     :placeholder="paymentSettings.has_paystack_secret_key ? paymentSettings.paystack_secret_key : 'sk_live_...'"
-                                    class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 pr-10"
+                                    class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 pe-10"
                                 />
                                 <button
                                     type="button"
                                     @click="showPaystackSecretKey = !showPaystackSecretKey"
-                                    class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-gray-600"
+                                    class="absolute inset-y-0 end-0 px-3 flex items-center text-gray-400 hover:text-gray-600"
                                 >
                                     <EyeIcon v-if="!showPaystackSecretKey" class="h-5 w-5" />
                                     <EyeSlashIcon v-else class="h-5 w-5" />

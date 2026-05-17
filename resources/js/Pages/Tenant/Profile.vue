@@ -294,7 +294,7 @@ const submitEmergency = () => {
                                     <label for="whatsapp_enabled" class="text-sm text-gray-700">WhatsApp</label>
                                     <input id="whatsapp_enabled" type="checkbox" v-model="notifForm.whatsapp_enabled" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
                                 </div>
-                                <div v-if="notifForm.whatsapp_enabled" class="pl-4">
+                                <div v-if="notifForm.whatsapp_enabled" class="ps-4">
                                     <InputLabel for="whatsapp_number" value="WhatsApp number (E.164)" />
                                     <TextInput id="whatsapp_number" v-model="notifForm.whatsapp_number" type="tel" class="mt-1 block w-full" placeholder="+254712345678" />
                                     <InputError :message="notifForm.errors.whatsapp_number" class="mt-2" />

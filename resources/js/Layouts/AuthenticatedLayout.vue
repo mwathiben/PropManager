@@ -256,7 +256,7 @@ const navigationItems = computed(() => {
             -->
             <a
                 href="#main-content"
-                class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[100] focus:rounded-md focus:bg-indigo-600 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                class="sr-only focus:not-sr-only focus:absolute focus:start-2 focus:top-2 focus:z-[100] focus:rounded-md focus:bg-indigo-600 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
             >
                 {{ t('nav.skip_to_main') }}
             </a>
@@ -271,13 +271,13 @@ const navigationItems = computed(() => {
                 full write UI; the server denies, but the banner gave
                 no warning.
             -->
-            <div v-if="isImpersonating" class="bg-yellow-500 text-yellow-900 px-4 py-2 fixed top-0 left-0 right-0 z-50">
+            <div v-if="isImpersonating" class="bg-yellow-500 text-yellow-900 px-4 py-2 fixed top-0 start-0 end-0 z-50">
                 <div class="max-w-7xl mx-auto flex items-center justify-between">
                     <div class="flex items-center">
-                        <ExclamationTriangleIcon class="h-5 w-5 mr-2" />
+                        <ExclamationTriangleIcon class="h-5 w-5 me-2" />
                         <span class="font-medium">
                             {{ t('banner.viewing_as') }} <strong>{{ user.name }}</strong> ({{ user.role }})
-                            <span v-if="isRestricted" class="ml-2 text-red-900 font-bold">
+                            <span v-if="isRestricted" class="ms-2 text-red-900 font-bold">
                                 {{ t('banner.read_only_article_18') }}
                             </span>
                         </span>
@@ -290,7 +290,7 @@ const navigationItems = computed(() => {
             </div>
 
             <!-- SIDEBAR (Desktop) -->
-            <aside class="fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 hidden lg:flex lg:flex-col"
+            <aside class="fixed inset-y-0 start-0 z-40 w-64 bg-white border-r border-gray-200 hidden lg:flex lg:flex-col"
                    :class="{ 'top-10': isImpersonating }">
 
                 <!-- Logo & Role Badge -->
@@ -356,7 +356,7 @@ const navigationItems = computed(() => {
                             <!-- Badge -->
                             <span v-if="item.badgeKey && navBadges[item.badgeKey] > 0"
                                   :class="item.badgeColor"
-                                  class="ml-auto min-w-5 h-5 px-1.5 rounded-full text-xs font-bold text-white flex items-center justify-center">
+                                  class="ms-auto min-w-5 h-5 px-1.5 rounded-full text-xs font-bold text-white flex items-center justify-center">
                                 {{ navBadges[item.badgeKey] > 99 ? '99+' : navBadges[item.badgeKey] }}
                             </span>
                         </Link>
@@ -367,7 +367,7 @@ const navigationItems = computed(() => {
                 <div class="border-t border-gray-200 p-4">
                     <Dropdown align="left" width="56" :dropUp="true">
                         <template #trigger>
-                            <button class="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors text-left group">
+                            <button class="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors text-start group">
                                 <div class="h-9 w-9 rounded-full bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-medium text-sm shadow-sm">
                                     {{ user.name?.charAt(0)?.toUpperCase() }}
                                 </div>
@@ -446,7 +446,7 @@ const navigationItems = computed(() => {
                     role="dialog"
                     aria-modal="true"
                     :aria-label="t('nav.navigation_menu')"
-                    class="fixed inset-y-0 left-0 w-64 bg-white shadow-xl flex flex-col"
+                    class="fixed inset-y-0 start-0 w-64 bg-white shadow-xl flex flex-col"
                 >
                     <div class="h-16 flex items-center justify-between px-4 border-b border-gray-200">
                         <Link :href="route('dashboard')" class="flex items-center">
@@ -505,7 +505,7 @@ const navigationItems = computed(() => {
                                 <!-- Badge (Mobile) -->
                                 <span v-if="item.badgeKey && navBadges[item.badgeKey] > 0"
                                       :class="item.badgeColor"
-                                      class="ml-auto min-w-5 h-5 px-1.5 rounded-full text-xs font-bold text-white flex items-center justify-center">
+                                      class="ms-auto min-w-5 h-5 px-1.5 rounded-full text-xs font-bold text-white flex items-center justify-center">
                                     {{ navBadges[item.badgeKey] > 99 ? '99+' : navBadges[item.badgeKey] }}
                                 </span>
                             </Link>
@@ -565,7 +565,7 @@ const navigationItems = computed(() => {
             </div>
 
             <!-- MAIN CONTENT AREA -->
-            <div class="lg:pl-64" :class="{ 'pt-10': isImpersonating }">
+            <div class="lg:ps-64" :class="{ 'pt-10': isImpersonating }">
                 <!-- Top Bar (Mobile hamburger + Sub-navigation slot) -->
                 <header class="sticky top-0 z-30 bg-white border-b border-gray-200 h-16 flex items-center px-4 lg:px-8"
                         :class="{ 'top-10': isImpersonating }">
@@ -576,7 +576,7 @@ const navigationItems = computed(() => {
                         :aria-label="t('nav.open_menu')"
                         aria-controls="mobile-sidebar"
                         :aria-expanded="showMobileSidebar"
-                        class="lg:hidden p-2 -ml-2 mr-2 rounded-md hover:bg-gray-100"
+                        class="lg:hidden p-2 -ml-2 me-2 rounded-md hover:bg-gray-100"
                     >
                         <Bars3Icon class="h-6 w-6 text-gray-500" aria-hidden="true" />
                     </button>
@@ -610,7 +610,7 @@ const navigationItems = computed(() => {
                 <div
                     v-if="isRestricted"
                     role="alert"
-                    class="bg-amber-50 border-l-4 border-amber-500 px-4 py-3"
+                    class="bg-amber-50 border-s-4 border-amber-500 px-4 py-3"
                 >
                     <div class="flex items-start gap-3">
                         <ExclamationTriangleIcon class="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" aria-hidden="true" />

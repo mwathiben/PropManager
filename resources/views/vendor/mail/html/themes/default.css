@@ -24,7 +24,7 @@ ul,
 ol,
 blockquote {
     line-height: 1.4;
-    text-align: left;
+    text-align: start;
 }
 
 a {
@@ -42,28 +42,28 @@ h1 {
     font-size: 18px;
     font-weight: bold;
     margin-top: 0;
-    text-align: left;
+    text-align: start;
 }
 
 h2 {
     font-size: 16px;
     font-weight: bold;
     margin-top: 0;
-    text-align: left;
+    text-align: start;
 }
 
 h3 {
     font-size: 14px;
     font-weight: bold;
     margin-top: 0;
-    text-align: left;
+    text-align: start;
 }
 
 p {
     font-size: 16px;
     line-height: 1.5em;
     margin-top: 0;
-    text-align: left;
+    text-align: start;
 }
 
 p.sub {
@@ -266,7 +266,7 @@ img {
 /* Panels */
 
 .panel {
-    border-left: #18181b solid 4px;
+    border-inline-start: #18181b solid 4px;
     margin: 21px 0;
 }
 

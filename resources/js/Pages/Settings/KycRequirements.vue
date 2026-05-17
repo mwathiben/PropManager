@@ -165,7 +165,7 @@ const toggleActive = (req: KycRequirement) => {
                         :href="route('settings.index')"
                         class="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
                     >
-                        <ArrowLeftIcon class="w-4 h-4 mr-1" />
+                        <ArrowLeftIcon class="w-4 h-4 me-1" />
                         Back to Settings
                     </Link>
                     <h1 class="text-xl font-semibold leading-tight text-gray-800">
@@ -179,7 +179,7 @@ const toggleActive = (req: KycRequirement) => {
                     @click="openCreateModal"
                     class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 >
-                    <PlusIcon class="w-5 h-5 mr-2" />
+                    <PlusIcon class="w-5 h-5 me-2" />
                     Add Requirement
                 </button>
             </div>
@@ -197,13 +197,13 @@ const toggleActive = (req: KycRequirement) => {
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
-                                        <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                                        <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-start text-gray-500 uppercase">
                                             Label
                                         </th>
-                                        <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                                        <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-start text-gray-500 uppercase">
                                             Type
                                         </th>
-                                        <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                                        <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-start text-gray-500 uppercase">
                                             Scope
                                         </th>
                                         <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase">
@@ -212,7 +212,7 @@ const toggleActive = (req: KycRequirement) => {
                                         <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-500 uppercase">
                                             Active
                                         </th>
-                                        <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-right text-gray-500 uppercase">
+                                        <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-end text-gray-500 uppercase">
                                             Actions
                                         </th>
                                     </tr>
@@ -226,7 +226,7 @@ const toggleActive = (req: KycRequirement) => {
                                     >
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="flex items-center">
-                                                <DocumentCheckIcon class="w-5 h-5 mr-3 text-gray-400" />
+                                                <DocumentCheckIcon class="w-5 h-5 me-3 text-gray-400" />
                                                 <div>
                                                     <div class="text-sm font-medium text-gray-900">
                                                         {{ req.label }}
@@ -244,7 +244,7 @@ const toggleActive = (req: KycRequirement) => {
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="flex items-center text-sm text-gray-600">
-                                                <component :is="getScopeIcon(req)" class="w-4 h-4 mr-2" />
+                                                <component :is="getScopeIcon(req)" class="w-4 h-4 me-2" />
                                                 <span :class="{ 'font-medium text-blue-600': isPlatformDefault(req) }">
                                                     {{ getScopeLabel(req) }}
                                                 </span>
@@ -294,7 +294,7 @@ const toggleActive = (req: KycRequirement) => {
                                                 />
                                             </button>
                                         </td>
-                                        <td class="px-6 py-4 text-right whitespace-nowrap">
+                                        <td class="px-6 py-4 text-end whitespace-nowrap">
                                             <div v-if="canEdit(req)" class="flex justify-end gap-2">
                                                 <button
                                                     type="button"
@@ -335,7 +335,7 @@ const toggleActive = (req: KycRequirement) => {
                                     @click="openCreateModal"
                                     class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700"
                                 >
-                                    <PlusIcon class="w-5 h-5 mr-2" />
+                                    <PlusIcon class="w-5 h-5 me-2" />
                                     Add Requirement
                                 </button>
                             </div>
@@ -444,7 +444,7 @@ const toggleActive = (req: KycRequirement) => {
                                         type="checkbox"
                                         class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                                     />
-                                    <span class="ml-2 text-sm text-gray-700">Required</span>
+                                    <span class="ms-2 text-sm text-gray-700">Required</span>
                                 </label>
                                 <label class="flex items-center">
                                     <input
@@ -453,7 +453,7 @@ const toggleActive = (req: KycRequirement) => {
                                         type="checkbox"
                                         class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                                     />
-                                    <span class="ml-2 text-sm text-gray-700">Active</span>
+                                    <span class="ms-2 text-sm text-gray-700">Active</span>
                                 </label>
                             </div>
                         </div>

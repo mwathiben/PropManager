@@ -39,7 +39,7 @@ const { formatCurrency, formatDate } = useFormatters();
                     <div class="bg-white rounded-lg shadow-sm border mb-6">
                         <div class="px-4 py-3 border-b bg-gray-50">
                             <div class="flex items-center">
-                                <HomeIcon class="h-5 w-5 text-gray-500 mr-2" />
+                                <HomeIcon class="h-5 w-5 text-gray-500 me-2" />
                                 <h3 class="font-semibold text-gray-900">Property Information</h3>
                             </div>
                         </div>
@@ -65,7 +65,7 @@ const { formatCurrency, formatDate } = useFormatters();
                     <div class="bg-white rounded-lg shadow-sm border mb-6">
                         <div class="px-4 py-3 border-b bg-gray-50">
                             <div class="flex items-center">
-                                <DocumentTextIcon class="h-5 w-5 text-gray-500 mr-2" />
+                                <DocumentTextIcon class="h-5 w-5 text-gray-500 me-2" />
                                 <h3 class="font-semibold text-gray-900">Lease Terms</h3>
                             </div>
                         </div>
@@ -95,7 +95,7 @@ const { formatCurrency, formatDate } = useFormatters();
                     <div v-if="rentHistory && rentHistory.length > 0" class="bg-white rounded-lg shadow-sm border">
                         <div class="px-4 py-3 border-b bg-gray-50">
                             <div class="flex items-center">
-                                <ArrowTrendingUpIcon class="h-5 w-5 text-gray-500 mr-2" />
+                                <ArrowTrendingUpIcon class="h-5 w-5 text-gray-500 me-2" />
                                 <h3 class="font-semibold text-gray-900">Rent History</h3>
                             </div>
                         </div>
@@ -103,11 +103,11 @@ const { formatCurrency, formatDate } = useFormatters();
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Effective Date</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Previous Rent</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">New Rent</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Change</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
+                                        <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Effective Date</th>
+                                        <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Previous Rent</th>
+                                        <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">New Rent</th>
+                                        <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Change</th>
+                                        <th class="px-4 py-3 text-start text-xs font-medium text-gray-500 uppercase">Reason</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-200">

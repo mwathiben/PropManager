@@ -51,7 +51,7 @@ const invoiceStatusClass = (status) => {
                                 </span>
                             </p>
                         </div>
-                        <div class="text-right">
+                        <div class="text-end">
                             <p class="text-xs text-gray-500">{{ formatDate(payment.created_at) }}</p>
                             <p v-if="payment.reference" class="text-xs text-gray-400 font-mono">{{ payment.reference }}</p>
                         </div>
@@ -77,7 +77,7 @@ const invoiceStatusClass = (status) => {
                                 Due: {{ formatDate(invoice.due_date) }}
                             </p>
                         </div>
-                        <div class="text-right">
+                        <div class="text-end">
                             <p class="text-sm font-medium text-gray-900">{{ formatCurrency(invoice.total_amount) }}</p>
                             <span :class="[invoiceStatusClass(invoice.status), 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize']">
                                 {{ invoice.status }}
@@ -106,7 +106,7 @@ const invoiceStatusClass = (status) => {
                                 {{ formatDate(lease.start_date) }} - {{ formatDate(lease.end_date) }}
                             </p>
                         </div>
-                        <div class="text-right">
+                        <div class="text-end">
                             <p class="text-sm font-medium">{{ formatCurrency(lease.rent_amount) }}/mo</p>
                         </div>
                     </div>

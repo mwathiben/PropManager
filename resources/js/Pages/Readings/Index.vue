@@ -178,7 +178,7 @@ const getReadingEntry = (unitId) => {
                                                 v-model="getReadingEntry(unit.id).current_reading"
                                                 placeholder="New Reading"
                                                 step="0.01"
-                                                class="w-32 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-right font-mono text-lg"
+                                                class="w-32 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-end font-mono text-lg"
                                             >
                                         </div>
                                     </div>
@@ -215,7 +215,7 @@ const getReadingEntry = (unitId) => {
                                             <button
                                                 @click="removePhoto(unit.id)"
                                                 type="button"
-                                                class="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                                                class="absolute top-2 end-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
                                             >
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />

@@ -265,15 +265,15 @@ const handleSubmit = () => {
 
                             <div v-else class="relative">
                                 <div class="relative">
-                                    <MagnifyingGlassIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <MagnifyingGlassIcon class="absolute start-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                                     <input
                                         v-model="searchQuery"
                                         type="text"
-                                        class="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                                        class="w-full ps-10 pe-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                                         placeholder="Search tenant by name, phone, or unit number..."
                                         @focus="showSearchResults = searchResults.length > 0"
                                     />
-                                    <div v-if="isSearching" class="absolute right-3 top-1/2 -translate-y-1/2">
+                                    <div v-if="isSearching" class="absolute end-3 top-1/2 -translate-y-1/2">
                                         <svg class="animate-spin h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24">
                                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -290,7 +290,7 @@ const handleSubmit = () => {
                                         :key="tenant.id"
                                         type="button"
                                         @click="selectTenant(tenant)"
-                                        class="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                                        class="w-full px-4 py-3 text-start hover:bg-gray-50 border-b border-gray-100 last:border-0"
                                     >
                                         <p class="font-medium text-gray-900">{{ tenant.name }}</p>
                                         <p class="text-sm text-gray-500">
@@ -353,7 +353,7 @@ const handleSubmit = () => {
                                                     <p class="font-medium text-gray-900">{{ invoice.invoice_number }}</p>
                                                     <p class="text-sm text-gray-500">{{ invoice.description }}</p>
                                                 </div>
-                                                <div class="text-right">
+                                                <div class="text-end">
                                                     <p class="font-semibold text-gray-900">{{ formatMoney(invoice.balance) }}</p>
                                                     <p class="text-xs text-gray-500">
                                                         Due: {{ invoice.due_date || 'N/A' }}
@@ -382,14 +382,14 @@ const handleSubmit = () => {
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Amount *</label>
                                     <div class="relative">
-                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">{{ currencySymbol }}</span>
+                                        <span class="absolute start-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">{{ currencySymbol }}</span>
                                         <input
                                             v-model.number="form.amount"
                                             type="number"
                                             min="0.01"
                                             step="0.01"
                                             :class="[
-                                                'w-full pl-12 pr-20 py-2.5 text-sm border rounded-lg transition-colors',
+                                                'w-full ps-12 pe-20 py-2.5 text-sm border rounded-lg transition-colors',
                                                 errors.amount
                                                     ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
                                                     : 'border-gray-300 focus:ring-emerald-500 focus:border-emerald-500'
@@ -400,7 +400,7 @@ const handleSubmit = () => {
                                             v-if="selectedInvoice && !isUnallocated"
                                             type="button"
                                             @click="setFullAmount"
-                                            class="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+                                            class="absolute end-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
                                         >
                                             Full
                                         </button>

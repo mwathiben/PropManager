@@ -79,7 +79,7 @@ const submit = () => {
                                             v-model="form.water_billing_type"
                                             class="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                                         />
-                                        <div class="ml-3">
+                                        <div class="ms-3">
                                             <span class="block text-sm font-medium text-gray-900">
                                                 {{ option.label }}
                                             </span>
@@ -100,7 +100,7 @@ const submit = () => {
                                     Monthly Flat Rate ({{ currencyCode }})
                                 </label>
                                 <div class="mt-1 relative rounded-md shadow-sm">
-                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                                         <span class="text-gray-500 sm:text-sm">{{ currencySymbol }}</span>
                                     </div>
                                     <input
@@ -109,7 +109,7 @@ const submit = () => {
                                         v-model="form.water_flat_rate"
                                         step="0.01"
                                         min="0"
-                                        class="block w-full pl-12 pr-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                                        class="block w-full ps-12 pe-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                                         placeholder="0.00"
                                     />
                                 </div>
@@ -127,7 +127,7 @@ const submit = () => {
                                     Rate per Unit ({{ currencyCode }}/m³) - Optional Override
                                 </label>
                                 <div class="mt-1 relative rounded-md shadow-sm">
-                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                                         <span class="text-gray-500 sm:text-sm">{{ currencySymbol }}</span>
                                     </div>
                                     <input
@@ -136,7 +136,7 @@ const submit = () => {
                                         v-model="form.water_unit_rate"
                                         step="0.01"
                                         min="0"
-                                        class="block w-full pl-12 pr-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                                        class="block w-full ps-12 pe-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                                         placeholder="Leave empty to use global rate"
                                     />
                                 </div>
@@ -154,7 +154,7 @@ const submit = () => {
                                     <svg class="h-5 w-5 text-blue-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
                                     </svg>
-                                    <div class="ml-3">
+                                    <div class="ms-3">
                                         <h3 class="text-sm font-medium text-blue-800">
                                             How water billing works
                                         </h3>
@@ -176,7 +176,7 @@ const submit = () => {
                                     :disabled="form.processing"
                                     class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
                                 >
-                                    <svg v-if="form.processing" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                    <svg v-if="form.processing" class="animate-spin -ml-1 me-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                     </svg>

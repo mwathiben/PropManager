@@ -109,7 +109,7 @@ const roleLabel = computed(() => {
                         @click="selectPhoto"
                         class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                     >
-                        <CameraIcon class="w-5 h-5 mr-2 text-gray-400" />
+                        <CameraIcon class="w-5 h-5 me-2 text-gray-400" />
                         {{ photoPreview ? 'Change Photo' : 'Upload Photo' }}
                     </button>
                     <p class="mt-2 text-xs text-gray-500">JPG, PNG or GIF. Max 2MB.</p>
@@ -127,14 +127,14 @@ const roleLabel = computed(() => {
                 <div>
                     <InputLabel for="name" value="Full Name" />
                     <div class="mt-1 relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                             <UserCircleIcon class="h-5 w-5 text-gray-400" />
                         </div>
                         <TextInput
                             id="name"
                             v-model="form.name"
                             type="text"
-                            class="pl-10 block w-full"
+                            class="ps-10 block w-full"
                             required
                             autocomplete="name"
                         />
@@ -146,14 +146,14 @@ const roleLabel = computed(() => {
                 <div>
                     <InputLabel for="email" value="Email Address" />
                     <div class="mt-1 relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                             <EnvelopeIcon class="h-5 w-5 text-gray-400" />
                         </div>
                         <TextInput
                             id="email"
                             v-model="form.email"
                             type="email"
-                            class="pl-10 block w-full"
+                            class="ps-10 block w-full"
                             required
                             autocomplete="email"
                         />
@@ -169,7 +169,7 @@ const roleLabel = computed(() => {
                                 <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
                             </svg>
                         </div>
-                        <div class="ml-3">
+                        <div class="ms-3">
                             <p class="text-sm text-yellow-700">
                                 Your email address is unverified.
                                 <Link
@@ -192,14 +192,14 @@ const roleLabel = computed(() => {
                 <div>
                     <InputLabel for="mobile_number" value="Phone Number" />
                     <div class="mt-1 relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                             <PhoneIcon class="h-5 w-5 text-gray-400" />
                         </div>
                         <TextInput
                             id="mobile_number"
                             v-model="form.mobile_number"
                             type="tel"
-                            class="pl-10 block w-full"
+                            class="ps-10 block w-full"
                             placeholder="+254 712 345 678"
                         />
                     </div>

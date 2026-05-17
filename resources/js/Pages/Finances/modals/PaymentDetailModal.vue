@@ -209,7 +209,7 @@ const handleVoid = async () => {
                                             <div class="p-2 bg-blue-100 rounded-lg">
                                                 <DocumentTextIcon class="w-4 h-4 text-blue-600" />
                                             </div>
-                                            <div class="text-left">
+                                            <div class="text-start">
                                                 <p class="text-sm font-medium text-gray-900">{{ payment.invoice.invoice_number }}</p>
                                                 <p class="text-xs text-gray-500">Due: {{ formatDate(payment.invoice.due_date) }}</p>
                                             </div>

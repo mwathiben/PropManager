@@ -159,7 +159,7 @@ function save(): void {
                         <div v-for="(group, gtable) in fieldsByTable" :key="gtable">
                             <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">{{ gtable }}</p>
                             <button v-for="entry in group" :key="entry.key" type="button"
-                                class="mr-1 mt-1 rounded-full bg-gray-100 px-2 py-1 text-xs hover:bg-indigo-100"
+                                class="me-1 mt-1 rounded-full bg-gray-100 px-2 py-1 text-xs hover:bg-indigo-100"
                                 @click="addField(entry.key)">
                                 {{ entry.meta.label }}
                             </button>
@@ -233,7 +233,7 @@ function save(): void {
                             <thead>
                                 <tr>
                                     <th v-for="key in Object.keys(rows[0])" :key="key"
-                                        class="px-2 py-1 text-left font-semibold text-gray-500">{{ key }}</th>
+                                        class="px-2 py-1 text-start font-semibold text-gray-500">{{ key }}</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100">

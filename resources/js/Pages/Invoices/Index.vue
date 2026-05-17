@@ -107,12 +107,12 @@ const submitGenerate = () => {
                         <div class="flex flex-wrap gap-4 items-center">
                             <div class="flex-1 min-w-[200px]">
                                 <div class="relative">
-                                    <MagnifyingGlassIcon class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <MagnifyingGlassIcon class="absolute start-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                                     <input
                                         v-model="search"
                                         type="text"
                                         placeholder="Search invoices..."
-                                        class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-emerald-500 focus:border-emerald-500"
+                                        class="w-full ps-10 pe-4 py-2 border border-gray-300 rounded-md focus:ring-emerald-500 focus:border-emerald-500"
                                         @keyup.enter="applyFilters"
                                     />
                                 </div>
@@ -146,7 +146,7 @@ const submitGenerate = () => {
                                 @click="showGenerateModal = true"
                                 class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                             >
-                                <PlusIcon class="w-5 h-5 mr-2" />
+                                <PlusIcon class="w-5 h-5 me-2" />
                                 Generate Invoices
                             </button>
 
@@ -163,13 +163,13 @@ const submitGenerate = () => {
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice #</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice #</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                                    <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
@@ -197,7 +197,7 @@ const submitGenerate = () => {
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         {{ invoice.due_date }}
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
+                                    <td class="px-6 py-4 whitespace-nowrap text-end text-sm">
                                         <Link
                                             :href="route('invoices.show', invoice.id)"
                                             class="text-emerald-600 hover:text-emerald-900"

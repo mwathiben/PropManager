@@ -84,13 +84,13 @@ const currentCategoryArticles = computed(() => {
                 <!-- Search -->
                 <div class="max-w-2xl mx-auto mb-10">
                     <div class="relative">
-                        <MagnifyingGlassIcon class="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <MagnifyingGlassIcon class="absolute start-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                         <input
                             v-model="searchQuery"
                             @input="searchHelp"
                             type="text"
                             placeholder="Search for help..."
-                            class="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-lg"
+                            class="w-full ps-12 pe-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-lg"
                         />
                     </div>
 
@@ -105,7 +105,7 @@ const currentCategoryArticles = computed(() => {
                                 <div v-for="faq in searchResults.faqs" :key="faq.id" class="py-2">
                                     <button
                                         @click="toggleFaq('search-' + faq.id)"
-                                        class="w-full text-left font-medium text-gray-900 hover:text-indigo-600"
+                                        class="w-full text-start font-medium text-gray-900 hover:text-indigo-600"
                                     >
                                         {{ faq.question }}
                                     </button>
@@ -122,7 +122,7 @@ const currentCategoryArticles = computed(() => {
                                     :href="route('help.show', article.slug)"
                                     class="block py-2 text-gray-900 hover:text-indigo-600"
                                 >
-                                    <DocumentTextIcon class="inline h-4 w-4 mr-2" />
+                                    <DocumentTextIcon class="inline h-4 w-4 me-2" />
                                     {{ article.title }}
                                 </Link>
                             </div>
@@ -172,12 +172,12 @@ const currentCategoryArticles = computed(() => {
                                 >
                                     <button
                                         @click="toggleFaq(faq.id)"
-                                        class="w-full flex items-center justify-between text-left"
+                                        class="w-full flex items-center justify-between text-start"
                                     >
                                         <span class="font-medium text-gray-900">{{ faq.question }}</span>
                                         <component
                                             :is="expandedFaqs[faq.id] ? ChevronUpIcon : ChevronDownIcon"
-                                            class="h-5 w-5 text-gray-400 shrink-0 ml-4"
+                                            class="h-5 w-5 text-gray-400 shrink-0 ms-4"
                                         />
                                     </button>
                                     <div

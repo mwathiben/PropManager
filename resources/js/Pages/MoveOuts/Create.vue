@@ -120,7 +120,7 @@ const submit = () => {
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    <CalendarDaysIcon class="w-4 h-4 inline mr-1" />
+                                    <CalendarDaysIcon class="w-4 h-4 inline me-1" />
                                     Notice Date *
                                 </label>
                                 <input
@@ -135,7 +135,7 @@ const submit = () => {
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    <CalendarDaysIcon class="w-4 h-4 inline mr-1" />
+                                    <CalendarDaysIcon class="w-4 h-4 inline me-1" />
                                     Intended Move-Out Date *
                                 </label>
                                 <input

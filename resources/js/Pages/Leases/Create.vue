@@ -213,7 +213,7 @@ const getChannelLabel = (channel) => {
                                         <input
                                             v-model="form.rent_amount"
                                             type="number"
-                                            class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-4 pr-12 sm:text-sm rounded-md py-2 border"
+                                            class="focus:ring-indigo-500 focus:border-indigo-500 block w-full ps-4 pe-12 sm:text-sm rounded-md py-2 border"
                                             :class="form.errors.rent_amount ? 'border-red-300' : 'border-gray-300'"
                                             placeholder="0.00"
                                             required
@@ -228,7 +228,7 @@ const getChannelLabel = (channel) => {
                                         <input
                                             v-model="form.service_charge"
                                             type="number"
-                                            class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-4 pr-12 sm:text-sm rounded-md py-2 border"
+                                            class="focus:ring-indigo-500 focus:border-indigo-500 block w-full ps-4 pe-12 sm:text-sm rounded-md py-2 border"
                                             :class="form.errors.service_charge ? 'border-red-300' : 'border-gray-300'"
                                             placeholder="0.00"
                                         >
@@ -245,7 +245,7 @@ const getChannelLabel = (channel) => {
                                         <input
                                             v-model="form.deposit_amount"
                                             type="number"
-                                            class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-4 pr-12 sm:text-sm rounded-md py-2 border"
+                                            class="focus:ring-indigo-500 focus:border-indigo-500 block w-full ps-4 pe-12 sm:text-sm rounded-md py-2 border"
                                             :class="form.errors.deposit_amount ? 'border-red-300' : 'border-gray-300'"
                                             placeholder="0.00"
                                             required
@@ -394,10 +394,10 @@ const getChannelLabel = (channel) => {
                                 </button>
                                 <button
                                     type="submit"
-                                    class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                    class="ms-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                                     :disabled="form.processing"
                                 >
-                                    <EnvelopeIcon v-if="!form.processing" class="w-4 h-4 mr-2" />
+                                    <EnvelopeIcon v-if="!form.processing" class="w-4 h-4 me-2" />
                                     {{ form.processing ? 'Sending...' : 'Send Invitation' }}
                                 </button>
                             </div>

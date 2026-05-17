@@ -257,7 +257,7 @@ const defaultTemplate = computed(() => props.templates.find(t => t.is_default));
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
                 <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="closeModals"></div>
 
-                <div class="relative z-50 inline-block w-full max-w-3xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-xl shadow-xl">
+                <div class="relative z-50 inline-block w-full max-w-3xl my-8 overflow-hidden text-start align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
                         <h3 class="text-lg font-semibold text-gray-900">Create Verification Template</h3>
                         <button @click="closeModals" class="text-gray-400 hover:text-gray-500">
@@ -385,7 +385,7 @@ const defaultTemplate = computed(() => props.templates.find(t => t.is_default));
                                             <XMarkIcon class="w-5 h-5" />
                                         </button>
                                     </div>
-                                    <div class="mt-2 ml-10">
+                                    <div class="mt-2 ms-10">
                                         <input
                                             v-model="item.description"
                                             type="text"
@@ -425,7 +425,7 @@ const defaultTemplate = computed(() => props.templates.find(t => t.is_default));
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
                 <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="closeModals"></div>
 
-                <div class="relative z-50 inline-block w-full max-w-3xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-xl shadow-xl">
+                <div class="relative z-50 inline-block w-full max-w-3xl my-8 overflow-hidden text-start align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
                         <h3 class="text-lg font-semibold text-gray-900">Edit Template: {{ editingTemplate.name }}</h3>
                         <button @click="closeModals" class="text-gray-400 hover:text-gray-500">
@@ -552,7 +552,7 @@ const defaultTemplate = computed(() => props.templates.find(t => t.is_default));
                                             <XMarkIcon class="w-5 h-5" />
                                         </button>
                                     </div>
-                                    <div class="mt-2 ml-10">
+                                    <div class="mt-2 ms-10">
                                         <input
                                             v-model="item.description"
                                             type="text"

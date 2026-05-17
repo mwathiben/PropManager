@@ -47,7 +47,7 @@ const submit = () => {
                 <div class="shrink-0">
                     <BuildingOfficeIcon class="h-5 w-5 text-emerald-400" />
                 </div>
-                <div class="ml-3">
+                <div class="ms-3">
                     <h3 class="text-sm font-medium text-emerald-800">Business Profile</h3>
                     <p class="mt-1 text-sm text-emerald-700">
                         Your business information is displayed on invoices and tenant communications.
@@ -75,14 +75,14 @@ const submit = () => {
                     <div class="sm:col-span-2">
                         <InputLabel for="company_name" value="Company Name" />
                         <div class="mt-1 relative">
-                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                                 <BuildingOfficeIcon class="h-5 w-5 text-gray-400" />
                             </div>
                             <TextInput
                                 id="company_name"
                                 v-model="form.business_profile.company_name"
                                 type="text"
-                                class="pl-10 block w-full"
+                                class="ps-10 block w-full"
                                 placeholder="Your company or business name"
                             />
                         </div>
@@ -93,14 +93,14 @@ const submit = () => {
                     <div>
                         <InputLabel for="business_registration_number" value="Registration Number" />
                         <div class="mt-1 relative">
-                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                                 <DocumentTextIcon class="h-5 w-5 text-gray-400" />
                             </div>
                             <TextInput
                                 id="business_registration_number"
                                 v-model="form.business_profile.business_registration_number"
                                 type="text"
-                                class="pl-10 block w-full"
+                                class="ps-10 block w-full"
                                 placeholder="CR-123456"
                             />
                         </div>
@@ -111,14 +111,14 @@ const submit = () => {
                     <div>
                         <InputLabel for="tax_id" value="Tax ID / KRA PIN" />
                         <div class="mt-1 relative">
-                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                                 <DocumentTextIcon class="h-5 w-5 text-gray-400" />
                             </div>
                             <TextInput
                                 id="tax_id"
                                 v-model="form.business_profile.tax_id"
                                 type="text"
-                                class="pl-10 block w-full"
+                                class="ps-10 block w-full"
                                 placeholder="A123456789X"
                             />
                         </div>
@@ -144,14 +144,14 @@ const submit = () => {
                     <div class="sm:col-span-2">
                         <InputLabel for="address" value="Street Address" />
                         <div class="mt-1 relative">
-                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                                 <MapPinIcon class="h-5 w-5 text-gray-400" />
                             </div>
                             <TextInput
                                 id="address"
                                 v-model="form.business_profile.address"
                                 type="text"
-                                class="pl-10 block w-full"
+                                class="ps-10 block w-full"
                                 placeholder="123 Business Street"
                             />
                         </div>
@@ -201,14 +201,14 @@ const submit = () => {
                 <div>
                     <InputLabel for="website" value="Website" />
                     <div class="mt-1 relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <div class="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none">
                             <GlobeAltIcon class="h-5 w-5 text-gray-400" />
                         </div>
                         <TextInput
                             id="website"
                             v-model="form.business_profile.website"
                             type="url"
-                            class="pl-10 block w-full"
+                            class="ps-10 block w-full"
                             placeholder="https://yourcompany.com"
                         />
                     </div>

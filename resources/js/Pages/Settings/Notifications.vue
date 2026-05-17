@@ -151,7 +151,7 @@ async function unsubscribePush(): Promise<void> {
                         <li v-for="type in [...props.toggleable_types, ...props.transactional_locked]" :key="type" class="flex items-center justify-between py-2">
                             <span class="text-sm" :class="isLocked(type) ? 'text-gray-400' : 'text-gray-900 font-medium'">
                                 {{ type }}
-                                <span v-if="isLocked(type)" class="ml-2 text-xs text-gray-400">(locked)</span>
+                                <span v-if="isLocked(type)" class="ms-2 text-xs text-gray-400">(locked)</span>
                             </span>
                             <label class="inline-flex items-center">
                                 <input

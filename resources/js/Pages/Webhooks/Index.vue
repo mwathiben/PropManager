@@ -197,13 +197,13 @@ const copySecret = async () => {
                                 <dl class="mt-2 text-xs text-gray-500 flex flex-wrap gap-x-4 gap-y-1">
                                     <div>
                                         <dt class="inline">Status:</dt>
-                                        <dd class="inline ml-1 font-medium" :class="sub.active ? 'text-emerald-700' : 'text-gray-700'">
+                                        <dd class="inline ms-1 font-medium" :class="sub.active ? 'text-emerald-700' : 'text-gray-700'">
                                             {{ sub.active ? 'Active' : 'Paused' }}
                                         </dd>
                                     </div>
                                     <div>
                                         <dt class="inline">Last delivery:</dt>
-                                        <dd class="inline ml-1">{{ sub.last_delivery_at ? formatDate(sub.last_delivery_at) : 'Never' }}</dd>
+                                        <dd class="inline ms-1">{{ sub.last_delivery_at ? formatDate(sub.last_delivery_at) : 'Never' }}</dd>
                                     </div>
                                 </dl>
                             </div>

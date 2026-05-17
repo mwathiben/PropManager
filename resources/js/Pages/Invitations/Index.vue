@@ -152,19 +152,19 @@ const copyInviteLink = (token) => {
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead v-once class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Caretaker Email
                                 </th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Property
                                 </th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Sent Date
                                 </th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Status
                                 </th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Actions
                                 </th>
                             </tr>
@@ -173,7 +173,7 @@ const copyInviteLink = (token) => {
                             <tr v-for="invitation in localInvitations" :key="invitation.id" class="hover:bg-gray-50">
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center">
-                                        <EnvelopeIcon class="w-5 h-5 text-gray-400 mr-2" />
+                                        <EnvelopeIcon class="w-5 h-5 text-gray-400 me-2" />
                                         <div>
                                             <div class="text-sm font-medium text-gray-900">
                                                 {{ invitation.email }}
@@ -196,7 +196,7 @@ const copyInviteLink = (token) => {
                                         {{ invitation.status }}
                                     </span>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm space-x-2">
+                                <td class="px-6 py-4 whitespace-nowrap text-end text-sm space-x-2">
                                     <!-- Copy Link (for pending only) -->
                                     <button
                                         v-if="invitation.status === 'pending'"
@@ -339,7 +339,7 @@ const copyInviteLink = (token) => {
         >
             <div
                 v-if="toast.show"
-                class="fixed bottom-4 right-4 bg-green-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 z-50"
+                class="fixed bottom-4 end-4 bg-green-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 z-50"
             >
                 <CheckCircleIcon class="w-6 h-6" />
                 <div>

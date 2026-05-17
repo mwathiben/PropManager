@@ -276,10 +276,10 @@ const statusInfo = computed(() => getStatusInfo());
                                         <div>
                                             <p class="font-medium text-gray-900">
                                                 {{ deduction.description }}
-                                                <span v-if="deduction.auto_applied" class="ml-2 inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                                                <span v-if="deduction.auto_applied" class="ms-2 inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
                                                     Auto
                                                 </span>
-                                                <span v-else-if="deduction.category" class="ml-2 inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                                                <span v-else-if="deduction.category" class="ms-2 inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
                                                     {{ deduction.category.name }}
                                                 </span>
                                             </p>
@@ -435,7 +435,7 @@ const statusInfo = computed(() => getStatusInfo());
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
                 <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="showDeductionModal = false"></div>
 
-                <div class="relative z-50 inline-block w-full max-w-md my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-xl shadow-xl">
+                <div class="relative z-50 inline-block w-full max-w-md my-8 overflow-hidden text-start align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
                         <h3 class="text-lg font-semibold text-gray-900">
                             {{ editingDeduction ? 'Edit Deduction' : 'Add Deduction' }}
@@ -518,7 +518,7 @@ const statusInfo = computed(() => getStatusInfo());
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
                 <div class="fixed inset-0 bg-gray-900/50 z-40 transition-opacity" @click="showSettlementModal = false"></div>
 
-                <div class="relative z-50 inline-block w-full max-w-md my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-xl shadow-xl">
+                <div class="relative z-50 inline-block w-full max-w-md my-8 overflow-hidden text-start align-middle transition-all transform bg-white rounded-xl shadow-xl">
                     <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
                         <h3 class="text-lg font-semibold text-gray-900">Complete Settlement</h3>
                     </div>
@@ -558,7 +558,7 @@ const statusInfo = computed(() => getStatusInfo());
 
                         <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                             <p class="text-sm text-yellow-800">
-                                <ExclamationCircleIcon class="w-4 h-4 inline mr-1" />
+                                <ExclamationCircleIcon class="w-4 h-4 inline me-1" />
                                 This action will end the lease and mark the unit as vacant.
                             </p>
                         </div>

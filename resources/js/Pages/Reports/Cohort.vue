@@ -113,7 +113,7 @@ function pickCohort(month: string): void {
                     <table class="min-w-full border-separate border-spacing-1 text-center text-xs">
                         <thead>
                             <tr>
-                                <th class="px-3 py-2 text-left font-semibold text-gray-700">Cohort</th>
+                                <th class="px-3 py-2 text-start font-semibold text-gray-700">Cohort</th>
                                 <th v-for="offset in props.lookback + 1" :key="offset"
                                     class="px-2 py-2 font-medium text-gray-500">
                                     M+{{ offset - 1 }}
@@ -122,7 +122,7 @@ function pickCohort(month: string): void {
                         </thead>
                         <tbody>
                             <tr v-for="month in cohortMonths" :key="month">
-                                <th scope="row" class="px-3 py-2 text-left text-sm font-medium text-gray-800">
+                                <th scope="row" class="px-3 py-2 text-start text-sm font-medium text-gray-800">
                                     <button
                                         type="button"
                                         class="underline-offset-2 hover:underline"
@@ -148,21 +148,21 @@ function pickCohort(month: string): void {
                 <h2 id="acquisition-heading" class="sr-only">Monthly acquisition + churn</h2>
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                     <thead>
-                        <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        <tr class="text-start text-xs font-semibold uppercase tracking-wide text-gray-500">
                             <th class="px-3 py-2">Month</th>
-                            <th class="px-3 py-2 text-right">New</th>
-                            <th class="px-3 py-2 text-right">Reactivated</th>
-                            <th class="px-3 py-2 text-right">Churned</th>
-                            <th class="px-3 py-2 text-right">Net Δ</th>
+                            <th class="px-3 py-2 text-end">New</th>
+                            <th class="px-3 py-2 text-end">Reactivated</th>
+                            <th class="px-3 py-2 text-end">Churned</th>
+                            <th class="px-3 py-2 text-end">Net Δ</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         <tr v-for="row in props.acquisitionTable" :key="row.month">
                             <td class="px-3 py-2 font-medium text-gray-900">{{ row.month }}</td>
-                            <td class="px-3 py-2 text-right">{{ row.new }}</td>
-                            <td class="px-3 py-2 text-right">{{ row.reactivated }}</td>
-                            <td class="px-3 py-2 text-right">{{ row.churned }}</td>
-                            <td class="px-3 py-2 text-right font-semibold"
+                            <td class="px-3 py-2 text-end">{{ row.new }}</td>
+                            <td class="px-3 py-2 text-end">{{ row.reactivated }}</td>
+                            <td class="px-3 py-2 text-end">{{ row.churned }}</td>
+                            <td class="px-3 py-2 text-end font-semibold"
                                 :class="row.net_delta > 0 ? 'text-emerald-600' : row.net_delta < 0 ? 'text-rose-600' : 'text-gray-500'">
                                 {{ row.net_delta > 0 ? '+' : '' }}{{ row.net_delta }}
                             </td>

@@ -61,7 +61,7 @@ const submit = () => {
                         class="h-8 w-8 text-gray-300 hover:text-yellow-400"
                     />
                 </button>
-                <span v-if="form.rating" class="ml-2 text-sm text-gray-600">
+                <span v-if="form.rating" class="ms-2 text-sm text-gray-600">
                     {{ ['', 'Very Poor', 'Poor', 'Average', 'Good', 'Excellent'][form.rating] }}
                 </span>
             </div>
