@@ -8,7 +8,9 @@ use App\Http\Controllers\Controller;
 use App\Models\SavedReport;
 use App\Models\ScheduledReport;
 use App\Models\User;
+use App\Services\Reports\ReportBuilderService;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -26,6 +28,10 @@ use Inertia\Response;
  */
 class ScheduledController extends Controller
 {
+    public function __construct(
+        private ReportBuilderService $builder,
+    ) {}
+
     public function index(Request $request): Response
     {
         $this->authorize('viewAny', SavedReport::class);
@@ -96,6 +102,39 @@ class ScheduledController extends Controller
 
         return redirect()->route('reports.scheduled.index')
             ->with('success', 'Schedule deleted.');
+    }
+
+    /**
+     * Phase-50 REAL-TIME-PREVIEW-2: ad-hoc run of a saved report from
+     * the scheduled-reports surface so the landlord sees the same rows
+     * the next mail will carry. Strict ownership — the saved_report_id
+     * MUST belong to the calling landlord; cross-tenant ids 403.
+     */
+    public function preview(Request $request): JsonResponse
+    {
+        $this->authorize('viewAny', SavedReport::class);
+
+        $landlordId = $this->landlordIdFor($request);
+
+        $validated = $request->validate([
+            'saved_report_id' => ['required', 'integer'],
+        ]);
+
+        $report = SavedReport::query()
+            ->where('id', $validated['saved_report_id'])
+            ->where('landlord_id', $landlordId)
+            ->first(['id', 'name', 'config']);
+
+        if (! $report) {
+            abort(403, 'Saved report does not belong to this landlord.');
+        }
+
+        return response()->json([
+            'report_id' => $report->id,
+            'report_name' => $report->name,
+            'rows' => $this->builder->run($report->config, $landlordId),
+            'previewed_at' => now()->toIso8601String(),
+        ]);
     }
 
     private function landlordIdFor(Request $request): int

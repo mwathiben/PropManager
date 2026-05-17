@@ -688,6 +688,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [\App\Http\Controllers\Reports\ScheduledController::class, 'index'])->name('index');
         Route::post('/', [\App\Http\Controllers\Reports\ScheduledController::class, 'store'])->name('store');
         Route::delete('/{schedule}', [\App\Http\Controllers\Reports\ScheduledController::class, 'destroy'])->name('destroy');
+        // Phase-50 REAL-TIME-PREVIEW-2: same payload the next send would
+        // carry; cross-tenant saved_report_id 403s at the controller.
+        Route::post('/preview', [\App\Http\Controllers\Reports\ScheduledController::class, 'preview'])->name('preview');
     });
 
     // 12. Notifications
