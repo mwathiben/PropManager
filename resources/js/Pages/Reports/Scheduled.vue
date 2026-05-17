@@ -7,7 +7,7 @@
  * allowlist). The recipient picker enforces Phase-13 PERSONAL-DATA-1
  * — third-party emails are not selectable client-side either.
  */
-import { computed, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 
@@ -63,67 +63,150 @@ const preview = ref<PreviewState>({
 
 const pollInterval = ref<number | null>(null);
 const pollEnabled = ref(false);
+// Phase-51 SCHEDULED-PREVIEW-UX-1: pause polling when tab hidden so we
+// don't waste bandwidth on a tab the user isn't looking at.
+const pollPaused = ref(false);
+const pollPauseCount = ref(0);
+// Phase-51 SCHEDULED-PREVIEW-UX-3: click-to-sort the preview table.
+const sortKey = ref<string | null>(null);
+const sortDir = ref<'asc' | 'desc'>('asc');
 
 const previewColumns = computed<string[]>(() => {
     if (preview.value.rows.length === 0) return [];
     return Object.keys(preview.value.rows[0]);
 });
 
+const sortedRows = computed<Array<Record<string, unknown>>>(() => {
+    const rows = preview.value.rows;
+    const key = sortKey.value;
+    if (!key) return rows;
+    const dir = sortDir.value === 'asc' ? 1 : -1;
+    const allNumeric = rows.every((r) => {
+        const v = r[key];
+        return v === null || v === undefined || (typeof v !== 'object' && !isNaN(Number(v)));
+    });
+    return [...rows].sort((a, b) => {
+        const av = a[key];
+        const bv = b[key];
+        if (av === bv) return 0;
+        if (av === null || av === undefined) return 1;
+        if (bv === null || bv === undefined) return -1;
+        if (allNumeric) return (Number(av) - Number(bv)) * dir;
+        return String(av).localeCompare(String(bv)) * dir;
+    });
+});
+
+function setSort(col: string): void {
+    if (sortKey.value === col) {
+        sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortKey.value = col;
+        sortDir.value = 'asc';
+    }
+}
+
+// Phase-51 SCHEDULED-PREVIEW-UX-2: retry transient fetch errors with
+// exponential backoff. 4xx responses skip the retry — validation errors
+// are permanent and don't recover by retrying.
+async function fetchWithBackoff(savedReportId: number): Promise<void> {
+    const delays = [0, 1000, 2000, 4000];
+    let lastError: string | null = null;
+    for (let attempt = 0; attempt < delays.length; attempt++) {
+        if (delays[attempt] > 0) {
+            await new Promise((r) => setTimeout(r, delays[attempt]));
+        }
+        try {
+            const response = await fetch(route('reports.scheduled.preview'), {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN':
+                        document
+                            .querySelector('meta[name="csrf-token"]')
+                            ?.getAttribute('content') ?? '',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({ saved_report_id: savedReportId }),
+            });
+            if (response.status >= 400 && response.status < 500) {
+                preview.value.error = `Preview rejected: ${response.status}`;
+                return;
+            }
+            if (!response.ok) {
+                lastError = `Preview failed: ${response.status}`;
+                continue;
+            }
+            const data = (await response.json()) as {
+                rows: Array<Record<string, unknown>>;
+                previewed_at: string;
+                report_name: string;
+            };
+            preview.value.rows = data.rows;
+            preview.value.previewedAt = data.previewed_at;
+            preview.value.reportName = data.report_name;
+            preview.value.error = null;
+            return;
+        } catch (err) {
+            lastError = (err as Error).message;
+        }
+    }
+    preview.value.error = lastError ?? 'Preview failed after 3 retries.';
+}
+
 async function fetchPreview(savedReportId: number | null): Promise<void> {
     if (!savedReportId) return;
     preview.value.loading = true;
     preview.value.error = null;
     try {
-        const response = await fetch(route('reports.scheduled.preview'), {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-                'X-CSRF-TOKEN':
-                    document
-                        .querySelector('meta[name="csrf-token"]')
-                        ?.getAttribute('content') ?? '',
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-            body: JSON.stringify({ saved_report_id: savedReportId }),
-        });
-        if (!response.ok) {
-            preview.value.error = `Preview failed: ${response.status}`;
-            return;
-        }
-        const data = (await response.json()) as {
-            rows: Array<Record<string, unknown>>;
-            previewed_at: string;
-            report_name: string;
-        };
-        preview.value.rows = data.rows;
-        preview.value.previewedAt = data.previewed_at;
-        preview.value.reportName = data.report_name;
-    } catch (err) {
-        preview.value.error = (err as Error).message;
+        await fetchWithBackoff(savedReportId);
     } finally {
         preview.value.loading = false;
+    }
+}
+
+function startPollInterval(): void {
+    if (pollInterval.value !== null) return;
+    pollInterval.value = window.setInterval(() => {
+        if (!pollPaused.value) {
+            void fetchPreview(form.value.saved_report_id);
+        }
+    }, 15000);
+}
+
+function stopPollInterval(): void {
+    if (pollInterval.value !== null) {
+        window.clearInterval(pollInterval.value);
+        pollInterval.value = null;
     }
 }
 
 function togglePolling(): void {
     pollEnabled.value = !pollEnabled.value;
     if (pollEnabled.value) {
-        pollInterval.value = window.setInterval(
-            () => fetchPreview(form.value.saved_report_id),
-            15000,
-        );
-    } else if (pollInterval.value !== null) {
-        window.clearInterval(pollInterval.value);
-        pollInterval.value = null;
+        startPollInterval();
+    } else {
+        stopPollInterval();
     }
 }
 
-onUnmounted(() => {
-    if (pollInterval.value !== null) {
-        window.clearInterval(pollInterval.value);
+function handleVisibility(): void {
+    const wasHidden = pollPaused.value;
+    pollPaused.value = document.visibilityState === 'hidden';
+    if (!wasHidden && pollPaused.value) {
+        pollPauseCount.value += 1;
     }
+}
+
+onMounted(() => {
+    document.addEventListener('visibilitychange', handleVisibility);
+    handleVisibility();
+});
+
+onUnmounted(() => {
+    document.removeEventListener('visibilitychange', handleVisibility);
+    stopPollInterval();
 });
 </script>
 
@@ -239,6 +322,15 @@ onUnmounted(() => {
                     </div>
                 </header>
 
+                <p
+                    v-if="pollEnabled && pollPaused"
+                    class="mt-2 inline-flex items-center gap-1 rounded bg-amber-50 px-2 py-0.5 text-xs text-amber-700"
+                    aria-live="polite"
+                >
+                    <span class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
+                    Auto-refresh paused — tab hidden ({{ pollPauseCount }}× this session)
+                </p>
+
                 <p v-if="preview.error" class="mt-3 rounded bg-rose-50 px-3 py-2 text-xs text-rose-700">
                     {{ preview.error }}
                 </p>
@@ -247,11 +339,21 @@ onUnmounted(() => {
                     <table class="min-w-full divide-y divide-gray-200 text-xs">
                         <thead>
                             <tr class="text-start text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                <th v-for="col in previewColumns" :key="col" class="px-2 py-2">{{ col }}</th>
+                                <th
+                                    v-for="col in previewColumns"
+                                    :key="col"
+                                    class="cursor-pointer select-none px-2 py-2 hover:text-gray-700"
+                                    @click="setSort(col)"
+                                >
+                                    {{ col }}
+                                    <span v-if="sortKey === col" class="ms-1 text-indigo-500">
+                                        {{ sortDir === 'asc' ? '▲' : '▼' }}
+                                    </span>
+                                </th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
-                            <tr v-for="(row, index) in preview.rows" :key="index">
+                            <tr v-for="(row, index) in sortedRows" :key="index">
                                 <td v-for="col in previewColumns" :key="col" class="px-2 py-1.5 text-gray-700">
                                     {{ row[col] }}
                                 </td>
