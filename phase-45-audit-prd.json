@@ -1,0 +1,143 @@
+{
+    "phase": 45,
+    "title": "TENANT-DEPTH",
+    "opened_at": "2026-05-17",
+    "tier": "Tier 7 cycle 9",
+    "scope": "Deepen the Phase-28 [TENANT-PORTAL] MVP. Phase 28 shipped the bones (Statement, Lease, Documents, Profile, payment plans, lease renewals, deposit refunds). Phase 45 closes the four highest-pain gaps tenants hit after the first month of self-service: (1) statement export limited to one period with no filters and no column choice, (2) maintenance-ticket photos can be uploaded but not annotated to point a contractor at the problem, (3) lease-renewal proposals are accept-or-reject with no counter-offer channel, (4) approved payment plans are one-shot — any disruption forces a new plan request, and (5) emergency contacts are unverified — landlord-side data quality decays over time. The Phase-28 surface is otherwise stable; this cycle is depth, not breadth.",
+    "categories": {
+        "STATEMENT-DEPTH": "Multi-period rollup xlsx + filtered ledger exports + tenant-persisted column choice on top of the Phase-28 single-period statement.",
+        "TICKET-PHOTOS": "Client-side annotation overlay (pen/arrow/rect/text) on maintenance-ticket photo attachments + annotated copy persisted alongside original + gallery view.",
+        "LEASE-COUNTER": "Counter-offer flow on LeaseRenewal — tenant submits alternative rent/end_date; landlord re-reviews; audit table; auto-expiry on stale counters.",
+        "PAY-PLAN-MOD": "Modification-after-approval on PaymentPlan — tenant proposes new installment schedule; status modified_pending → re-approved; partial-payment safeguards.",
+        "EMERGENCY-CONTACT-SMS": "SMS OTP service (Stub default, Africa's Talking adapter) + emergency_contacts.verified_at column + resolve data duplication between emergency_contacts table and users.emergency_contact_* mirror.",
+        "CI": "Phase45TenantDepthSurfaceTest consolidated watchdog + docs/runbooks/tenant.md expansion + sev3/sev4 alert rows for tenant_counter_offer_expired_count + payment_plan_modification_pending_24h."
+    },
+    "findings": [
+        {
+            "id": "STATEMENT-DEPTH-1",
+            "severity": "HIGH",
+            "title": "Multi-period rollup xlsx (year-to-date, calendar year, last 12 months) on TenantStatementController",
+            "evidence": "Phase 28 wired TenantStatementController.php:64-95 to single-period StatementService output via Phase-27 XlsxExportService. Statement.vue:106 exposes the 'Excel' button. The shipped contract: ?from=YYYY-MM-DD&to=YYYY-MM-DD — pure single-window. Tenants doing tax prep or year-end reconciliation need multi-period rollups (YTD running balance, calendar-year summary with monthly subtotals, last-12-months chart-of-balance). Today they fire the export 12 times and concatenate by hand.",
+            "remediation": "Extend TenantStatementController with ?period={ytd|calendar_year|last_12_months|custom} query, default 'custom' preserving back-compat. StatementService gets ::collectRollup(tenant, period) returning rows + monthly_subtotals[]. XlsxExportService writes a second 'Monthly Summary' sheet next to the line-item sheet (Spout/PhpSpreadsheet multi-sheet). Phase45StatementRollupTest exercises 4 period modes."
+        },
+        {
+            "id": "STATEMENT-DEPTH-2",
+            "severity": "MEDIUM",
+            "title": "Filtered ledger export by transaction type + amount range",
+            "evidence": "Statement.vue shows ALL ledger entries in chronological order — no way for a tenant to export 'just payments' or 'just charges over KES 10k'. Auditors and accountants want filterable exports. The StatementService->collect query has the columns but no filter clause.",
+            "remediation": "Extend TenantStatementController with ?types[]=charge,payment,credit&min_amount=&max_amount= query params; StatementService::collect gains optional FilterSpec. Statement.vue gets a 'Filters' disclosure with multi-select chips. Server-side validates filter combinations (no contradictory states); xlsx filename includes filter summary (e.g., 'statement-2026-Q1-payments-only.xlsx')."
+        },
+        {
+            "id": "STATEMENT-DEPTH-3",
+            "severity": "LOW",
+            "title": "Tenant-persisted column selection via tenant_statement_preferences table",
+            "evidence": "Today every tenant exports the same 6 columns (date, description, reference, charge, payment, balance). A tenant on a payment plan wants 'installment_number' visible; a deposit-paying tenant wants 'deposit_running_balance'. A landlord-side row of preferences is fine; a per-tenant pref table is the right shape.",
+            "remediation": "Create tenant_statement_preferences (id, user_id FK, columns JSON, default boolean, created_at). TenantStatementController hydrates from preferences on GET; PATCH /tenant/statement/preferences persists changes. Statement.vue gains a column-picker drawer (checkbox list + drag-to-reorder via vue-draggable; if a heavyweight dep is undesirable, drag-handle reorder via @vueuse/core's useSortable)."
+        },
+        {
+            "id": "TICKET-PHOTOS-1",
+            "severity": "HIGH",
+            "title": "Client-side annotation editor (Fabric.js canvas, pen/arrow/rect/text tools, save annotated copy)",
+            "evidence": "Ticket.php:122-125 has attachments() morphMany Document; Document.php:107 has isImage() check. Tenants can upload photos but not annotate them — a tenant trying to point a contractor at 'the leak is HERE under this pipe' has to crop+upload externally + paste. No annotation surface exists in resources/js/Pages/Tenant/.",
+            "remediation": "Install fabric.js (latest stable LTS, ~390KB gz acceptable for this surface only — code-split it). Create resources/js/Components/TicketPhotoAnnotator.vue (canvas mount, pen/arrow/rect/text tools, undo/redo stack, save-as-PNG export). Wire from Pages/Tenant/Tickets/Show.vue 'Annotate' button next to each image attachment. POST /tenant/tickets/{ticket}/attachments/{document}/annotation accepts the annotated PNG + persists per TICKET-PHOTOS-2."
+        },
+        {
+            "id": "TICKET-PHOTOS-2",
+            "severity": "MEDIUM",
+            "title": "Annotation storage strategy: separate Document row linked to original via annotates_document_id FK",
+            "evidence": "Storing the annotated copy as a base64 blob in DB explodes row size (a 4MB phone photo with marks = ~5.5MB row). Replacing the original loses the original — destructive. The right shape is a sibling Document row with annotates_document_id pointing back to the original, both visible in the gallery.",
+            "remediation": "Migration: add documents.annotates_document_id (FK to documents.id, nullable, indexed); add documents.annotation_data JSON (the Fabric.js scene JSON, ~5KB) for round-tripping the annotation back into the editor for further edits. Document model: annotates() belongsTo + annotations() hasMany. DocumentService::storeAnnotatedCopy(original, annotated_image_blob, annotation_json) persists both pieces in one transaction. Retention follows the parent ticket's retention policy (cascades on ticket delete via existing morphMany relationship)."
+        },
+        {
+            "id": "TICKET-PHOTOS-3",
+            "severity": "LOW",
+            "title": "Gallery view with annotated/original toggle on Pages/Tenant/Tickets/Show.vue",
+            "evidence": "After annotation persists, the tenant + landlord need to see the annotation in context. Today Tickets/Show.vue lists attachments as a flat list; an annotated copy would appear as a separate file without visual connection to its origin.",
+            "remediation": "Pages/Tenant/Tickets/Show.vue groups attachments by annotates_document_id chain — original on top, annotated children indented below with a 'View original | View annotated' toggle and a 'Re-edit annotation' button (hydrates Fabric.js editor from annotation_data JSON). Same component used by Pages/Tickets/Show.vue (landlord side) — contractor + landlord both benefit."
+        },
+        {
+            "id": "LEASE-COUNTER-1",
+            "severity": "HIGH",
+            "title": "Counter-offer flow on LeaseRenewal — tenant submits alternative rent + end_date; new status counter_proposed",
+            "evidence": "LeaseRenewal status enum is proposed→accepted|rejected→confirmed (5 values). RenewalResponseController.php:19-69 gates STATUS_PROPOSED → accept/reject only. Real-world lease negotiations are iterative; tenants want to counter ('I'll renew at KES 38k instead of the proposed 42k, with a 12-month term instead of 24'). Today they reject + email + landlord creates a new proposal manually.",
+            "remediation": "Add status case 'counter_proposed' to LeaseRenewal::STATUSES + DB enum migration. Migration adds counter_rent_amount_cents (BIGINT UNSIGNED nullable) + counter_end_date (date nullable) + counter_message (text nullable) + counter_submitted_at (timestamp nullable) to lease_renewals. RenewalResponseController::counter(LeaseRenewal $renewal) accepts {counter_rent_amount_cents, counter_end_date, counter_message}, only when status=proposed, flips status to counter_proposed. Pages/Tenant/Renewals/Show.vue gains a third button 'Propose changes' alongside Accept/Reject."
+        },
+        {
+            "id": "LEASE-COUNTER-2",
+            "severity": "MEDIUM",
+            "title": "Landlord-side counter-review UI: accept | reject | re-propose with original-vs-counter diff",
+            "evidence": "Once tenant counters, landlord needs an obvious workflow: see the diff (proposed vs countered), then accept | reject | re-propose. Without UI guidance, landlord likely re-creates the renewal — losing the audit trail.",
+            "remediation": "Pages/Landlords/Renewals/Show.vue grows a CounterOfferReview panel rendered when status=counter_proposed: two-column diff (proposed_rent vs counter_rent + proposed_end_date vs counter_end_date with KES delta + month delta). Three actions: AcceptCounter (status → accepted with counter values written to canonical proposed_* columns + RenewalAccepted event), RejectCounter (status → rejected), RePropose (POST /landlords/renewals/{id}/re-propose with new proposed_* values; status → proposed; tenant gets fresh accept/reject/counter)."
+        },
+        {
+            "id": "LEASE-COUNTER-3",
+            "severity": "LOW",
+            "title": "Counter-offer audit history + 14-day auto-expiry via lease-renewal:expire-stale-counters cron",
+            "evidence": "Without an audit table, the re-propose path overwrites the previous counter values — the negotiation history is lost. Without auto-expiry, a counter_proposed lease that the landlord never reviews stalls indefinitely.",
+            "remediation": "Create lease_renewal_counter_history table (id, lease_renewal_id FK, actor_user_id FK, action enum [proposed,countered,re_proposed,accepted,rejected,expired], rent_amount_cents, end_date, message, created_at). Service inserts a row on every status transition. New cron lease-renewal:expire-stale-counters daily 06:00 Africa/Nairobi: any counter_proposed older than 14 days → status=expired + history row. Emits lease_renewal_counter_expired_count gauge."
+        },
+        {
+            "id": "PAY-PLAN-MOD-1",
+            "severity": "HIGH",
+            "title": "Modification endpoint: tenant proposes new installment schedule; PaymentPlan status → modified_pending",
+            "evidence": "PaymentPlan status enum is requested→approved|rejected→completed|defaulted. PaymentPlanRequestController.php:32-99 is create-only. A tenant whose income shifted mid-plan (lost a side gig, took a pay cut) has no path to renegotiate — they have to default, then request a new plan. PaymentPlanInstallment due_date + amount_cents are mutable in DB but not via API.",
+            "remediation": "Add status case 'modified_pending' to PaymentPlan::STATUSES + migration. Tenant submits PATCH /tenant/payment-plans/{plan}/modifications with new installments[]={due_date, amount_cents}. PaymentPlanModificationService::propose validates (sum of new installments must equal sum of UNPAID installments; cannot touch paid installments; minimum installment count = 2); flips status to modified_pending; persists pending_installments JSON on the plan row. Pages/Tenant/PaymentPlans/Show.vue gains 'Request changes' button when status=approved."
+        },
+        {
+            "id": "PAY-PLAN-MOD-2",
+            "severity": "MEDIUM",
+            "title": "Landlord re-approval UI + payment_plan_modifications audit table",
+            "evidence": "Landlord needs to see the modification request alongside the original schedule, with a clear approve|reject workflow. Without an audit table, every modification cycle erases the previous schedule.",
+            "remediation": "Create payment_plan_modifications (id, payment_plan_id FK, requested_by_user_id FK, original_installments JSON, proposed_installments JSON, status enum [pending,approved,rejected], landlord_response text nullable, decided_at timestamp nullable, decided_by_user_id FK nullable, created_at). Pages/Landlords/PaymentPlans/Show.vue ModificationReview panel shows side-by-side schedules + Approve/Reject actions. Approve: writes proposed_installments into PaymentPlanInstallment rows (DELETE+INSERT inside transaction for unpaid only) + plan.status=approved + modification.status=approved. Reject: plan.status=approved (revert) + modification.status=rejected."
+        },
+        {
+            "id": "PAY-PLAN-MOD-3",
+            "severity": "MEDIUM",
+            "title": "Partial-payment safeguards: paid installments are immutable; cron payment-plans:audit-stale-modifications alerts on >7-day-old pending",
+            "evidence": "If installment #1 of 5 is paid then tenant modifies — the new schedule must NOT include installment #1, and the sum of #2-#5 of the new schedule must equal the unpaid balance. Without enforcement, a tenant could 'modify' their way to a smaller balance. Without cron sweep, modified_pending plans rot.",
+            "remediation": "PaymentPlanModificationService::validateProposed: rejects if any proposed installment has id matching a paid installment; rejects if sum(proposed) != sum(unpaid_originals). New cron payment-plans:audit-stale-modifications daily 06:15 Africa/Nairobi emits payment_plan_modification_pending_24h{plan_id} gauge for modifications pending >24h; opens sev4 OperationalIncident at 7-day threshold."
+        },
+        {
+            "id": "EMERGENCY-CONTACT-SMS-1",
+            "severity": "MEDIUM",
+            "title": "SMS OTP service: SmsOtpService driver pattern (Stub default, Africa's Talking adapter)",
+            "evidence": "PropManager has no SMS sending today. EmergencyContact.php has phone column; users.emergency_contact_phone mirrors it (see EMERGENCY-CONTACT-SMS-3 for the data duplication). To verify a contact phone, we need to actually send an SMS code; the operator needs to swap the provider per market.",
+            "remediation": "Create App\\Services\\Sms\\SmsOtpService with interface generateAndSend(string $phone): string (returns ref-id) + verify(string $phone, string $code): bool. Drivers: StubSmsDriver (default, logs to laravel.log + emits emitted_otp_count gauge, NEVER calls external network), AfricasTalkingSmsDriver (adapter for the dominant Kenya provider). config/sms.php with driver + africastalking{api_key,username,sender_id}. .env.example documents both keys default-disabled. Stub stays the default in tests + dev so CI never accidentally calls the network."
+        },
+        {
+            "id": "EMERGENCY-CONTACT-SMS-2",
+            "severity": "MEDIUM",
+            "title": "emergency_contacts.verified_at column + rate-limited resend + tenant-facing verification UI",
+            "evidence": "EmergencyContact has no verified_at column. UI: tenant adds a contact in Pages/Tenant/Profile.vue but cannot trigger verification. Without rate-limiting, SMS spend explodes if a tenant taps 'resend' 50 times.",
+            "remediation": "Migration: add emergency_contacts.verified_at (timestamp nullable) + emergency_contacts.verification_attempts_24h (int default 0). Pages/Tenant/Profile.vue EmergencyContactRow shows 'Verify by SMS' button when verified_at IS NULL; POST /tenant/emergency-contacts/{contact}/send-otp routes through SmsOtpService; rate-limit at 3 sends per contact per 24h via Laravel RateLimiter. POST /tenant/emergency-contacts/{contact}/verify-otp accepts the 6-digit code; on success writes verified_at = now(). Cache key namespaced per contact id (Cache::put('otp:contact:{id}', $code, now()->addMinutes(10)))."
+        },
+        {
+            "id": "EMERGENCY-CONTACT-SMS-3",
+            "severity": "MEDIUM",
+            "title": "Resolve emergency-contact data duplication: emergency_contacts is source-of-truth, users.* mirrors is_primary=true",
+            "evidence": "Scout surfaced this: emergency_contacts (Phase-28) holds full records (name, relationship, phone, email, address, is_primary); users.emergency_contact_name + users.emergency_contact_phone (Phase-KYC, 2026-01-08) are a denormalized copy on User. Two stale-divergence scenarios exist today: (1) tenant adds new emergency_contacts row with is_primary=true but users.* still points to the old one, (2) tenant edits users.emergency_contact_name via Profile but emergency_contacts row stays stale.",
+            "remediation": "Declare emergency_contacts as the canonical source-of-truth. EmergencyContact::saving event listener: when is_primary=true (or transitioning to is_primary=true), write users.emergency_contact_name + users.emergency_contact_phone from the row + clear is_primary on other rows for the same user (single-primary invariant). Backfill migration: for every user with at least one emergency_contacts row, write the is_primary=true row (or oldest if none flagged) into users.emergency_contact_*. Remove the Profile.vue 'Edit emergency contact' field that wrote directly to users.* — make that field readonly with a 'Manage emergency contacts' link to the rich list."
+        },
+        {
+            "id": "CI-1",
+            "severity": "HIGH",
+            "title": "Phase45TenantDepthSurfaceTest consolidated source-grep watchdog",
+            "evidence": "Per-finding tests cover individual surfaces. The integration assertion ensures every Phase-45 invariant holds at once — same role Phase24CiTest, Phase36InsightSurfaceTest, Phase44I18nRtlSurfaceTest play.",
+            "remediation": "tests/Feature/Tenant/Phase45TenantDepthSurfaceTest.php source-grep enforces: TenantStatementController accepts ?period= query, tenant_statement_preferences migration present, TicketPhotoAnnotator.vue component exists, documents.annotates_document_id column present, LeaseRenewal::STATUSES contains 'counter_proposed' + counter_rent_amount_cents migration present, lease_renewal_counter_history table present, PaymentPlan::STATUSES contains 'modified_pending', payment_plan_modifications table present, payment-plans:audit-stale-modifications cron registered in routes/console.php or App\\Console\\Kernel, SmsOtpService interface present + StubSmsDriver default-bound, emergency_contacts.verified_at column present, EmergencyContact::saving listener registered. ~12 assertions."
+        },
+        {
+            "id": "CI-2",
+            "severity": "MEDIUM",
+            "title": "docs/runbooks/tenant.md expanded with Phase 45 sections (or create if absent)",
+            "evidence": "Phase 28 may have created docs/runbooks/tenant.md; if not, Phase 45 establishes it. Either way the runbook needs sections explaining the new endpoints, the data-duplication resolution, the SMS provider swap, and the counter-offer/payment-plan-modification operator workflows.",
+            "remediation": "docs/runbooks/tenant.md: 'Statement export' section documents the period/types/preferences query contract; 'Ticket photo annotations' section documents Fabric.js dependency + annotation_data JSON shape + retention; 'Lease counter-offers' section documents the status machine + 14-day expiry cron; 'Payment plan modifications' section documents the partial-payment safeguard + audit-stale cron; 'Emergency contact verification' section documents the SmsOtpService driver swap + source-of-truth rule (emergency_contacts canonical, users.* mirrors)."
+        },
+        {
+            "id": "CI-3",
+            "severity": "LOW",
+            "title": "docs/runbooks/alert-thresholds.md sev3/sev4 rows for tenant_counter_offer_expired_count + payment_plan_modification_pending_24h",
+            "evidence": "Both crons emit gauges; without alert wiring in the central catalog, oncall doesn't know what to do when they fire.",
+            "remediation": "alert-thresholds.md under Operational: tenant_counter_offer_expired_count sev4 threshold 5/day (signals tenants are countering but landlords aren't responding — outreach trigger); payment_plan_modification_pending_24h sev3 threshold 1 row >7 days old (signals a landlord ghosted a modification request, financial-distress UX risk). Both with on-call action documented (review the affected landlord_id; send nudge email; escalate to support if >14 days)."
+        }
+    ]
+}
