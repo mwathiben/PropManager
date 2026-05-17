@@ -3,7 +3,7 @@
     "title": "WIZARD-MIGRATE",
     "opened_at": "2026-05-17",
     "tier": "Tier 7 cycle 11",
-    "scope": "Phase 46 [ONBOARDING-CANONICAL] shipped the wizard rebuild foundation (onboarding_sessions table, OnboardingFlow value object, OnboardingSessionService::advance transactional writer, OnboardingResumeService signed-URL resume, onboarding:nudge-stalled cron) but did NOT migrate the existing landlord OnboardingController surface to consume it. The legacy OnboardingService::processX methods still write canonical models AND OnboardingProgress.step_data JSON blob in parallel, with no transactional boundary between them; processStructure (step 4) and processFinancial (step 5) READ from step_data (property_id, default_rent) instead of canonical Property / PaymentConfiguration rows, so a Back-then-Forward navigation can produce orphan canonical writes against a stale step_data view. The OnboardingFlow::forRole value object is unused — the controller still hardcodes 8 landlord steps so caretakers / tenants reaching /onboarding either bounce or get a broken view. The onboarding:nudge-stalled cron logs the resume URL to laravel.log instead of dispatching a Mailable (Phase 46 explicitly deferred the mail path to Phase 47). Pages/Onboarding/Index.vue is landlord-only. Phase 47 closes all five gaps: (1) route every landlord step write through OnboardingSessionService::advance with a writer closure that only touches canonical models, (2) remove step_data writes + replace the 3 step_data reads with canonical-model reads, (3) wire OnboardingFlow::forRole into OnboardingController + ship minimal tenant + caretaker step services, (4) replace the nudge log line with a real OnboardingResumeMailable + queued mail dispatch, (5) Pages/Onboarding/Index.vue dispatches step components based on auth.user.role with scaffolds for tenant + caretaker. OnboardingProgress.step_data joins the mirror_exempt deprecation list with remove_at=2026-08-17 matching the kyc_completed_at retirement window.",
+    "scope": "Phase 46 [ONBOARDING-CANONICAL] shipped the wizard rebuild foundation (onboarding_sessions table, OnboardingFlow value object, OnboardingSessionService::advance transactional writer, OnboardingResumeService signed-URL resume, onboarding:nudge-stalled cron) but did NOT migrate the existing landlord OnboardingController surface to consume it. The legacy OnboardingService::processX methods still write canonical models AND OnboardingProgress.step_data JSON blob in parallel, with no transactional boundary between them; processStructure (step 4) and processFinancial (step 5) READ from step_data (property_id, default_rent) instead of canonical Property / PaymentConfiguration rows, so a Back-then-Forward navigation can produce orphan canonical writes against a stale step_data view. The OnboardingFlow::forRole value object is unused \u2014 the controller still hardcodes 8 landlord steps so caretakers / tenants reaching /onboarding either bounce or get a broken view. The onboarding:nudge-stalled cron logs the resume URL to laravel.log instead of dispatching a Mailable (Phase 46 explicitly deferred the mail path to Phase 47). Pages/Onboarding/Index.vue is landlord-only. Phase 47 closes all five gaps: (1) route every landlord step write through OnboardingSessionService::advance with a writer closure that only touches canonical models, (2) remove step_data writes + replace the 3 step_data reads with canonical-model reads, (3) wire OnboardingFlow::forRole into OnboardingController + ship minimal tenant + caretaker step services, (4) replace the nudge log line with a real OnboardingResumeMailable + queued mail dispatch, (5) Pages/Onboarding/Index.vue dispatches step components based on auth.user.role with scaffolds for tenant + caretaker. OnboardingProgress.step_data joins the mirror_exempt deprecation list with remove_at=2026-08-17 matching the kyc_completed_at retirement window.",
     "categories": {
         "LANDLORD-MIGRATE": "OnboardingController::saveStep refactored to route through OnboardingSessionService::advance(session, target, writer); every landlord OnboardingService::processX method becomes a writer closure invoked inside the service's DB::transaction wrapper. processProfile + processProperty + processStructure + processFinancial + processTeam + processFirstTenant + processComplete all migrate. The result: a writer that throws does NOT advance the session AND does NOT half-create canonical rows.",
         "STEP-DATA-DEPRECATE": "Remove all $progress->saveStepData() write callsites; replace the 3 $progress->getStepData() read callsites (processStructure step 3 property_id, processStructure step 5 default_rent, processFinancial step 5 default_rent) with canonical-model reads via Property::firstFor(user) and PaymentConfiguration::firstFor(user) helpers. OnboardingProgress.step_data column added to config('onboarding.mirror_exempt') with remove_at=2026-08-17 (matching the Phase-46 kyc_completed_at retirement cadence).",
@@ -25,7 +25,7 @@
             "severity": "MEDIUM",
             "title": "OnboardingService::processProfile becomes a writer closure for User + LandlordProfile canonical writes only",
             "evidence": "processProfile today writes User (name, mobile_number), LandlordProfile (company_name, address, city, country, etc.) AND OnboardingProgress.step_data (mirror of the same fields). The LandlordProfile::booted() saved listener from Phase 46 already syncs profile_photo_path back to users, so the canonical write IS the source of truth. The step_data write is dead state.",
-            "remediation": "processProfile keeps the User::update + LandlordProfile::updateOrCreate logic but DROPS the $progress->saveStepData(2, ...) line. The method becomes a pure canonical writer that returns true/false. getStepProps step 2 already reads from $user->landlordProfile via getProfileStepProps — no read-side change needed."
+            "remediation": "processProfile keeps the User::update + LandlordProfile::updateOrCreate logic but DROPS the $progress->saveStepData(2, ...) line. The method becomes a pure canonical writer that returns true/false. getStepProps step 2 already reads from $user->landlordProfile via getProfileStepProps \u2014 no read-side change needed."
         },
         {
             "id": "LANDLORD-MIGRATE-3",
@@ -38,14 +38,14 @@
             "id": "LANDLORD-MIGRATE-4",
             "severity": "MEDIUM",
             "title": "OnboardingService::processFinancial becomes a writer closure for PaymentConfiguration canonical write only",
-            "evidence": "processFinancial today writes PaymentConfiguration + step_data (mirror) + a Unit-level rent-bump query that reads step_data[5]['default_rent'] to detect the old rent value. The bump-detection reads what is essentially the LAST WRITE of PaymentConfiguration.default_rent — the canonical row holds the same value.",
+            "evidence": "processFinancial today writes PaymentConfiguration + step_data (mirror) + a Unit-level rent-bump query that reads step_data[5]['default_rent'] to detect the old rent value. The bump-detection reads what is essentially the LAST WRITE of PaymentConfiguration.default_rent \u2014 the canonical row holds the same value.",
             "remediation": "processFinancial drops the saveStepData call. The 'old rent' detection migrates: read PaymentConfiguration::where('landlord_id', $user->id)->value('default_rent') BEFORE the updateOrCreate; that's the canonical previous rent. The Unit::where bulk update logic unchanged. Read-side covered by STEP-DATA-DEPRECATE-3."
         },
         {
             "id": "LANDLORD-MIGRATE-5",
             "severity": "LOW",
             "title": "OnboardingService::processWelcome / processTeam / processFirstTenant / processComplete drop saveStepData",
-            "evidence": "These four methods write step_data that is never read (acknowledged: true, invitations_sent: N, invitation_sent: true, etc.) — observable only via the JSON blob, not a behaviour driver. Pure dead state from Phase-31 OnboardingProgress design.",
+            "evidence": "These four methods write step_data that is never read (acknowledged: true, invitations_sent: N, invitation_sent: true, etc.) \u2014 observable only via the JSON blob, not a behaviour driver. Pure dead state from Phase-31 OnboardingProgress design.",
             "remediation": "Drop the saveStepData lines from processWelcome (step 1), processTeam (step 6), processFirstTenant (step 7); processComplete (step 8) calls markComplete only. The canonical rows (Invitation, TenantInvitation, OnboardingProgress.is_complete) already capture the state."
         },
         {
@@ -59,7 +59,7 @@
             "id": "STEP-DATA-DEPRECATE-2",
             "severity": "MEDIUM",
             "title": "processStructure reads Property::where('landlord_id', $user->id)->latest('id')->first() instead of step_data(3)['property_id']",
-            "evidence": "OnboardingService.php:312-313 reads `$progress->getStepData(3)['property_id']` to scope step 4 building writes. The canonical equivalent is Property::where('landlord_id', $user->id)->latest('id')->first() — onboarding creates exactly one Property per landlord in step 3, so latest('id') is unambiguous. If a landlord has zero properties, the method returns false (same failure mode as today's null property_id).",
+            "evidence": "OnboardingService.php:312-313 reads `$progress->getStepData(3)['property_id']` to scope step 4 building writes. The canonical equivalent is Property::where('landlord_id', $user->id)->latest('id')->first() \u2014 onboarding creates exactly one Property per landlord in step 3, so latest('id') is unambiguous. If a landlord has zero properties, the method returns false (same failure mode as today's null property_id).",
             "remediation": "processStructure resolves $property = Property::where('landlord_id', $user->id)->latest('id')->first() at the top; failure path unchanged. getStructureStepProps does the same: drops the $stepData['property_id'] ?? $progress->getStepData(3)['property_id'] dance; reads Property::where(...)->latest('id')->first()."
         },
         {
@@ -67,13 +67,13 @@
             "severity": "MEDIUM",
             "title": "processStructure + processFinancial read default_rent from PaymentConfiguration not step_data(5)",
             "evidence": "OnboardingService.php:335 inside processStructure reads `$progress->getStepData(5)['default_rent'] ?? 10000` to set generated Unit.target_rent. OnboardingService.php:418 inside processFinancial reads the same key for the 'old rent' bulk-update detection. Both should read the canonical PaymentConfiguration.default_rent row.",
-            "remediation": "$baseRent = PaymentConfiguration::where('landlord_id', $user->id)->value('default_rent') ?? 10000 — null-safe; Unit.target_rent unchanged in behaviour. processFinancial: $oldRent = PaymentConfiguration::where('landlord_id', $user->id)->value('default_rent') ?? 10000 BEFORE the updateOrCreate call (so it captures the previous value)."
+            "remediation": "$baseRent = PaymentConfiguration::where('landlord_id', $user->id)->value('default_rent') ?? 10000 \u2014 null-safe; Unit.target_rent unchanged in behaviour. processFinancial: $oldRent = PaymentConfiguration::where('landlord_id', $user->id)->value('default_rent') ?? 10000 BEFORE the updateOrCreate call (so it captures the previous value)."
         },
         {
             "id": "ROLE-DISPATCH-1",
             "severity": "HIGH",
             "title": "OnboardingController validates step bounds via OnboardingFlow::forRole($user->role) instead of $progress->total_steps",
-            "evidence": "OnboardingController.php:35 reads `if ($step < 1 || $step > $progress->total_steps)` — OnboardingProgress.total_steps is a hardcoded landlord-shaped 8 in OnboardingProgress::getOrCreateForUser (line 212). A caretaker or tenant reaching /onboarding/step/4 hits an invalid step they have no UI for; a tenant submitting /onboarding/step/8 advances to dashboard with no payment-method configured. The Phase-46 OnboardingFlow::forRole($role) value object is the correct dispatch — caretaker: 3 steps, tenant: 3 steps, landlord: 8 steps.",
+            "evidence": "OnboardingController.php:35 reads `if ($step < 1 || $step > $progress->total_steps)` \u2014 OnboardingProgress.total_steps is a hardcoded landlord-shaped 8 in OnboardingProgress::getOrCreateForUser (line 212). A caretaker or tenant reaching /onboarding/step/4 hits an invalid step they have no UI for; a tenant submitting /onboarding/step/8 advances to dashboard with no payment-method configured. The Phase-46 OnboardingFlow::forRole($role) value object is the correct dispatch \u2014 caretaker: 3 steps, tenant: 3 steps, landlord: 8 steps.",
             "remediation": "OnboardingController::step + saveStep + skip resolve $flow = OnboardingFlow::forRole($user->role) once, then validate $step via $flow->isValidStep($step). OnboardingSession::firstFor($user) returns a session with role bound from the user. OnboardingController::index dispatches to $flow->firstStep() not 1."
         },
         {
@@ -81,28 +81,28 @@
             "severity": "MEDIUM",
             "title": "App\\Services\\TenantOnboardingService processX methods for steps 1=profile, 2=kyc, 3=payment_method",
             "evidence": "Tenant wizard doesn't exist today (the /tenant/complete-profile flow is a separate hand-rolled page, not wired into the wizard infrastructure). OnboardingFlow::forRole('tenant') declares 3 steps but there is no consumer service. Without one, a tenant who reaches /onboarding/step/1 gets the landlord profile form which 422s on submission.",
-            "remediation": "App\\Services\\TenantOnboardingService::processStep($step, $data, $user, $session) routes to processProfile (User update — name, mobile_number, national_id) + processKyc (TenantKycSubmission creation — Phase-13 surface) + processPaymentMethod (TenantPaymentMethod via PaymentConfiguration tenant-fk row). Each method invoked from within OnboardingSessionService::advance so transactional semantics match landlord. The methods are intentionally minimal — Phase 48+ deepens KYC + payment-method wiring."
+            "remediation": "App\\Services\\TenantOnboardingService::processStep($step, $data, $user, $session) routes to processProfile (User update \u2014 name, mobile_number, national_id) + processKyc (TenantKycSubmission creation \u2014 Phase-13 surface) + processPaymentMethod (TenantPaymentMethod via PaymentConfiguration tenant-fk row). Each method invoked from within OnboardingSessionService::advance so transactional semantics match landlord. The methods are intentionally minimal \u2014 Phase 48+ deepens KYC + payment-method wiring."
         },
         {
             "id": "ROLE-DISPATCH-3",
             "severity": "MEDIUM",
             "title": "App\\Services\\CaretakerOnboardingService processX methods for steps 1=profile, 2=building_assignment, 3=notification_preferences",
             "evidence": "Caretaker wizard doesn't exist at all today. OnboardingFlow::forRole('caretaker') declares 3 steps but no service. Caretaker accounts are created by landlord invitation (Phase 25 [API-SURFACE] + Phase 46 ROLE-PATHS) but post-accept they land on a landlord dashboard, with no first-touch flow.",
-            "remediation": "App\\Services\\CaretakerOnboardingService::processStep($step, $data, $user, $session) routes to processProfile (User update — name, mobile_number) + processBuildingAssignment (CaretakerAssignment to specific Buildings — Phase-26 surface) + processNotificationPreferences (NotificationPreference per-channel toggles — Phase-28 surface). Minimal scope — Phase 48+ deepens the building-assignment UX."
+            "remediation": "App\\Services\\CaretakerOnboardingService::processStep($step, $data, $user, $session) routes to processProfile (User update \u2014 name, mobile_number) + processBuildingAssignment (CaretakerAssignment to specific Buildings \u2014 Phase-26 surface) + processNotificationPreferences (NotificationPreference per-channel toggles \u2014 Phase-28 surface). Minimal scope \u2014 Phase 48+ deepens the building-assignment UX."
         },
         {
             "id": "MAIL-DISPATCH-1",
             "severity": "HIGH",
             "title": "App\\Mail\\OnboardingResumeMailable (markdown view, queued, locale-aware) + lang/{en,sw,ar}/onboarding.nudge.* keys",
             "evidence": "NudgeStalledOnboarding.php:53-61 explicitly defers mail dispatch to Phase 47 with a Log::info call as a placeholder. Today a stalled landlord receives nothing; the resume URL exists only in laravel.log. Phase 47 is the place to close the loop.",
-            "remediation": "App\\Mail\\OnboardingResumeMailable($url, $session) — extends Mailable, implements ShouldQueue, uses afterCommit, locale-aware via HasLocalePreference (Phase 24 wiring). View: resources/views/emails/onboarding/resume.blade.php using x-mail::message component with $resumeUrl button + step label via OnboardingFlow::forRole($session->role)->stepLabel($session->current_step). lang/en/onboarding.php gains nudge.subject + nudge.greeting + nudge.body + nudge.cta + nudge.signoff keys; lang/sw/onboarding.php + lang/ar/onboarding.php mirror with translations (sw hand, ar with [TODO-ar] placeholders matching Phase 44 pattern)."
+            "remediation": "App\\Mail\\OnboardingResumeMailable($url, $session) \u2014 extends Mailable, implements ShouldQueue, uses afterCommit, locale-aware via HasLocalePreference (Phase 24 wiring). View: resources/views/emails/onboarding/resume.blade.php using x-mail::message component with $resumeUrl button + step label via OnboardingFlow::forRole($session->role)->stepLabel($session->current_step). lang/en/onboarding.php gains nudge.subject + nudge.greeting + nudge.body + nudge.cta + nudge.signoff keys; lang/sw/onboarding.php + lang/ar/onboarding.php mirror with translations (sw hand, ar with [TODO-ar] placeholders matching Phase 44 pattern)."
         },
         {
             "id": "MAIL-DISPATCH-2",
             "severity": "MEDIUM",
             "title": "NudgeStalledOnboarding swaps Log::info for Mail::to($session->user)->queue(OnboardingResumeMailable) + emits onboarding_nudge_mail_sent_count gauge",
             "evidence": "The cron handle loop today logs the URL and updates last_nudge_sent_at. Phase 47 replaces the log with a queued Mailable dispatch that uses afterCommit so a transaction rollback in the cron's batch handling doesn't fire orphan emails.",
-            "remediation": "Inside the foreach ($nudgeCandidates as $session): Mail::to($session->user->email)->queue((new OnboardingResumeMailable($url, $session))->afterCommit()). Bump $nudgesSent counter. End of handle: $metrics->gauge('onboarding_nudge_mail_sent_count', $nudgesSent). Existing $session->update(['last_nudge_sent_at' => now()]) keeps the 24h rate limit. On Mail dispatch exception: log + continue (don't poison the cron — current pattern)."
+            "remediation": "Inside the foreach ($nudgeCandidates as $session): Mail::to($session->user->email)->queue((new OnboardingResumeMailable($url, $session))->afterCommit()). Bump $nudgesSent counter. End of handle: $metrics->gauge('onboarding_nudge_mail_sent_count', $nudgesSent). Existing $session->update(['last_nudge_sent_at' => now()]) keeps the 24h rate limit. On Mail dispatch exception: log + continue (don't poison the cron \u2014 current pattern)."
         },
         {
             "id": "MAIL-DISPATCH-3",
@@ -115,21 +115,21 @@
             "id": "WIZARD-VUE-1",
             "severity": "MEDIUM",
             "title": "Pages/Onboarding/Index.vue dispatches step component based on auth.user.role",
-            "evidence": "resources/js/Pages/Onboarding/Index.vue today is landlord-only — it renders the welcome / profile / property / structure / financial / team / first_tenant / complete branches based on currentStep with no role check. A tenant or caretaker reaching the page sees landlord forms. Phase 47 needs at least a dispatch shim so non-landlord users see a role-appropriate scaffold rather than a broken landlord form.",
-            "remediation": "Pages/Onboarding/Index.vue gains a `const role = computed(() => $page.props.auth.user.role)` + a top-level v-if/else-if dispatch: role==='tenant' → <TenantSteps :currentStep :stepData />, role==='caretaker' → <CaretakerSteps :currentStep :stepData />, else (default) the existing landlord branches. The dispatch is a thin v-if not a router change so URL stability holds."
+            "evidence": "resources/js/Pages/Onboarding/Index.vue today is landlord-only \u2014 it renders the welcome / profile / property / structure / financial / team / first_tenant / complete branches based on currentStep with no role check. A tenant or caretaker reaching the page sees landlord forms. Phase 47 needs at least a dispatch shim so non-landlord users see a role-appropriate scaffold rather than a broken landlord form.",
+            "remediation": "Pages/Onboarding/Index.vue gains a `const role = computed(() => $page.props.auth.user.role)` + a top-level v-if/else-if dispatch: role==='tenant' \u2192 <TenantSteps :currentStep :stepData />, role==='caretaker' \u2192 <CaretakerSteps :currentStep :stepData />, else (default) the existing landlord branches. The dispatch is a thin v-if not a router change so URL stability holds."
         },
         {
             "id": "WIZARD-VUE-2",
             "severity": "LOW",
             "title": "Pages/Onboarding/TenantSteps.vue + Pages/Onboarding/CaretakerSteps.vue scaffolds",
-            "evidence": "Without the actual step components the dispatch in WIZARD-VUE-1 has nowhere to dispatch TO. Phase 47 ships minimal scaffolds — 3 form pages per role, Inertia form.post to /onboarding/step/{n}, basic field labels via $t('onboarding.tenant.step1.*') / $t('onboarding.caretaker.step1.*'). Visual polish + validation feedback is Phase 48+ scope.",
+            "evidence": "Without the actual step components the dispatch in WIZARD-VUE-1 has nowhere to dispatch TO. Phase 47 ships minimal scaffolds \u2014 3 form pages per role, Inertia form.post to /onboarding/step/{n}, basic field labels via $t('onboarding.tenant.step1.*') / $t('onboarding.caretaker.step1.*'). Visual polish + validation feedback is Phase 48+ scope.",
             "remediation": "resources/js/Pages/Onboarding/TenantSteps.vue with v-if currentStep===1,2,3 branches matching TenantOnboardingService; same for CaretakerSteps.vue. lang/{en,sw,ar}/onboarding.php gains tenant.step1.* + caretaker.step1.* key trees. Each form posts to /onboarding/step/{n} with role-appropriate field names that the new step services accept."
         },
         {
             "id": "CI-1",
             "severity": "HIGH",
             "title": "Phase47WizardMigrateSurfaceTest consolidated watchdog covering all 5 invariants",
-            "evidence": "The Phase 47 surface spans services + controller + cron + mailable + Vue files — drift is easy without a single watchdog. The Phase 37/38/39/40/41/42/43/44/45/46 pattern (one *SurfaceTest per cycle) consolidates the invariants in one source-grep + integration suite.",
+            "evidence": "The Phase 47 surface spans services + controller + cron + mailable + Vue files \u2014 drift is easy without a single watchdog. The Phase 37/38/39/40/41/42/43/44/45/46 pattern (one *SurfaceTest per cycle) consolidates the invariants in one source-grep + integration suite.",
             "remediation": "tests/Feature/Onboarding/Phase47WizardMigrateSurfaceTest with 6+ tests: (1) OnboardingService.php no longer contains saveStepData(_, _) call (source grep); (2) OnboardingService.php no longer contains getStepData(_) call OR only in the legacy storeLegacy method; (3) OnboardingController references OnboardingFlow::forRole; (4) config('onboarding.mirror_exempt') contains the onboarding_progress.step_data entry with remove_at=2026-08-17; (5) NudgeStalledOnboarding source contains Mail::to ... OnboardingResumeMailable; (6) Pages/Onboarding/Index.vue source contains TenantSteps + CaretakerSteps imports. Plus integration tests proving advance() is invoked from the controller path."
         },
         {
@@ -137,7 +137,49 @@
             "severity": "LOW",
             "title": "docs/runbooks/onboarding.md gains Phase-47 [WIZARD-MIGRATE] section",
             "evidence": "Operator-facing docs that don't mention the Mailable + the step-data deprecation won't reflect Phase 47 reality. The Phase-46 section ends at the nudge cron's `[onboarding:nudge-stalled] resume URL` log line; Phase 47 needs a 'Mail dispatch' subsection + a 'step_data deprecation' subsection.",
-            "remediation": "Append a '# Phase-47 WIZARD-MIGRATE extensions (2026-05-17)' section to docs/runbooks/onboarding.md covering: (a) OnboardingSessionService::advance is now the only wizard write path, (b) step_data is dead — remove on or after 2026-08-17, (c) nudge cron emails the resume URL via OnboardingResumeMailable; check laravel.log for failures (queue retry on transient errors), (d) tenant + caretaker have basic wizard flows; deepen via Phase 48+. No new alerts (onboarding_nudge_mail_sent_count is a gauge for visibility, not a paging metric)."
+            "remediation": "Append a '# Phase-47 WIZARD-MIGRATE extensions (2026-05-17)' section to docs/runbooks/onboarding.md covering: (a) OnboardingSessionService::advance is now the only wizard write path, (b) step_data is dead \u2014 remove on or after 2026-08-17, (c) nudge cron emails the resume URL via OnboardingResumeMailable; check laravel.log for failures (queue retry on transient errors), (d) tenant + caretaker have basic wizard flows; deepen via Phase 48+. No new alerts (onboarding_nudge_mail_sent_count is a gauge for visibility, not a paging metric)."
         }
-    ]
+    ],
+    "audit_closeout": {
+        "closed_at": "2026-05-17",
+        "closeout_sha": "bf416ab",
+        "commits": [
+            "7dda2ee docs(phase-47): audit PRD baseline (18 findings)",
+            "7fe7ac0 phase-47 phase-1a: LANDLORD-MIGRATE-1/2/3/4/5 \u2014 saveStep routes through OnboardingSessionService::advance + canonical writes only",
+            "e04f2a4 phase-47 phase-1b: STEP-DATA-DEPRECATE-1 \u2014 onboarding_progress.step_data joins mirror_exempt (remove_at 2026-08-17)",
+            "831a015 phase-47 phase-1c: ROLE-DISPATCH-1/2/3 \u2014 OnboardingStepProcessor interface + Tenant + Caretaker step services + role-based dispatch in controller",
+            "eee7d7a phase-47 phase-1d: MAIL-DISPATCH-1/2 \u2014 OnboardingResumeMailable + markdown view + lang keys + NudgeStalledOnboarding wired",
+            "e33b6b2 phase-47 phase-1e: WIZARD-VUE-1/2 \u2014 Pages/Onboarding/Index.vue dispatches by role + TenantSteps + CaretakerSteps scaffolds",
+            "bf416ab phase-47 phase-2: Phase47WizardMigrateSurfaceTest watchdog + onboarding.md Phase-47 extensions"
+        ],
+        "severity_breakdown": "5 HIGH / 9 MEDIUM / 4 LOW = 18 findings",
+        "closure_summary": "Phase 47 consumes the Phase-46 wizard infrastructure (onboarding_sessions table, OnboardingFlow value object, OnboardingSessionService::advance) and finishes the JSON-blob deprecation + role-dispatch + mail-dispatch loop. OnboardingController::saveStep now routes through OnboardingSessionService::advance($session, $nextStep, $writer) for forward progress or ::writeAt($session, $writer) for re-edits + final step. OnboardingService no longer writes step_data anywhere (all 8 saveStepData callsites removed); the 3 historical getStepData reads (processStructure property_id, processStructure default_rent, processFinancial default_rent) now read canonical Property::latest(id) + PaymentConfiguration::value(default_rent). onboarding_progress.step_data joins mirror_exempt with remove_at=2026-08-17 (matching kyc_completed_at deprecation cadence). OnboardingStepProcessor interface formalises the per-role writer contract; OnboardingService implements + new TenantOnboardingService + CaretakerOnboardingService implement for their 3-step flows. RegisteredUserController already routes tenant/caretaker signups (Phase 46) so the wizard now receives the right user and dispatches the right service. NudgeStalledOnboarding swaps the Log::info URL line for Mail::to($user->email)->queue(new OnboardingResumeMailable($url, $session)) \u2014 Mailable is ShouldQueue + afterCommit + locale-aware via HasLocalePreference. Pages/Onboarding/Index.vue adds a top-level role dispatch shim invoking TenantSteps.vue / CaretakerSteps.vue scaffolds. Phase47WizardMigrateSurfaceTest 14 tests / 45 assertions all green.",
+        "tests_added": [
+            "tests/Feature/Onboarding/Phase47WizardMigrateSurfaceTest.php (14 tests, 45 assertions)"
+        ],
+        "migrations_added": [],
+        "invariants_added": [
+            "App\\Services\\Onboarding\\OnboardingStepProcessor interface \u2014 per-role writer contract.",
+            "App\\Services\\Onboarding\\OnboardingSessionService::writeAt \u2014 transactional wrapper for re-edits + final-step writes without advancing current_step.",
+            "App\\Services\\Onboarding\\TenantOnboardingService \u2014 3-step processor (profile / kyc-ack / payment-method-ack).",
+            "App\\Services\\Onboarding\\CaretakerOnboardingService \u2014 3-step processor (profile / building-ack / notification-preferences).",
+            "OnboardingService implements OnboardingStepProcessor; all 8 saveStepData callsites removed; 3 getStepData callsites swapped for canonical-model reads.",
+            "OnboardingController::saveStep routes forward progress through OnboardingSessionService::advance, re-edits through ::writeAt; step bounds validated via OnboardingFlow::forRole($user->role).",
+            "OnboardingController dispatches to processorForUser($user) \u2014 match on user.role.",
+            "App\\Mail\\OnboardingResumeMailable \u2014 ShouldQueue + afterCommit + markdown view + locale-aware subject.",
+            "NudgeStalledOnboarding dispatches Mail::to($user)->queue(OnboardingResumeMailable) + emits onboarding_nudge_mail_sent_count gauge.",
+            "resources/js/Pages/Onboarding/{TenantSteps,CaretakerSteps}.vue scaffolds \u2014 3-step forms posting to onboarding.step.save route.",
+            "config(onboarding.mirror_exempt) gains onboarding_progress.step_data entry with deprecated_at 2026-05-17 / remove_at 2026-08-17.",
+            "lang/{en,sw,ar}/onboarding.php all carry nudge.* namespace (subject + heading + greeting + body + cta + expiry_note + signoff).",
+            "docs/runbooks/onboarding.md gains Phase-47 WIZARD-MIGRATE extensions section."
+        ],
+        "deferrals": "NONE. All 18 PRD findings landed.",
+        "cycle_followups": [
+            "Phase 48+ tenant onboarding deepening \u2014 current scope is acknowledgement-only for steps 2 (KYC) and 3 (payment method); future cycles wire actual TenantPaymentMethod storage + push KYC requirement progress into step 2.",
+            "Phase 48+ caretaker building-assignment UX \u2014 current scope shows assigned-count only; future cycles surface a per-building list with photos/maps.",
+            "OnboardingProgress.step_data drop migration on or after 2026-08-17 \u2014 bundled with kyc_completed_at drop in next DEFER-CLEANUP-N cycle.",
+            "Vue tail still queued \u2014 TenantSteps + CaretakerSteps are minimal scaffolds; polish (validation feedback, progress bar, branded styling) lands in VUE-TAIL-N cycle alongside Phase 42 + 45 + 46 surfaces.",
+            "Phase29CiTest pre-existing failure (firstOrFail picks up onboarding milestone row) still carrying forward; fix with latest(id)->first() when DEFER-CLEANUP-3 runs."
+        ]
+    }
 }
