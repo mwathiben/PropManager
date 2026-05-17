@@ -1,10 +1,19 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+@php($localeHelper = app(\App\Support\LocaleHelper::class))
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ $localeHelper->dir() }}">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
+
+        {{-- Phase-43 LOCALE-SWITCHER-2: SEO hreflang link tags so
+             Google Search Console + crawlers know which page is which
+             locale. The locale query-param shape mirrors
+             LocaleController::update's accepted input. --}}
+        @foreach($localeHelper->alternates(url()->current()) as $alt)
+            <link rel="alternate" hreflang="{{ $alt['locale'] }}" href="{{ $alt['url'] }}">
+        @endforeach
 
         {{-- Phase-26 PWA-MANIFEST-1: installability prerequisite. The
              manifest declares icons + display + start_url so Chromium

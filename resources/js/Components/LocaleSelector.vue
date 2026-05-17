@@ -27,10 +27,17 @@ function onChange(event: Event): void {
 <template>
     <div>
         <InputLabel for="locale-selector" :value="t('common.language')" />
+        <!-- Phase-43 LOCALE-SWITCHER-3: native <select> is already
+             keyboard-navigable + screen-reader friendly. Adding
+             explicit aria-label + aria-live so an assistive-tech user
+             hears the change announced and a label even if the
+             InputLabel scrolls out of view. -->
         <select
             id="locale-selector"
             :value="locale"
             @change="onChange"
+            :aria-label="t('common.language')"
+            aria-live="polite"
             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
         >
             <option
