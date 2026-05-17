@@ -137,9 +137,9 @@ class StripeConnectStandardService
             return null;
         }
 
-        $config = PaymentConfiguration::query()
-            ->where('stripe_connect_account_id', $accountId)
-            ->first();
+        // Phase-42 follow-up: hash-keyed lookup (was a no-op WHERE
+        // against the encrypted column before).
+        $config = PaymentConfiguration::findByConnectAccountId($accountId);
         if ($config !== null) {
             $config->update([
                 'stripe_connect_status' => $this->statusFor($account),

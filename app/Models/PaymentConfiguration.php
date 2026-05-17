@@ -53,6 +53,7 @@ class PaymentConfiguration extends Model
         'stripe_secret_key',
         'stripe_webhook_secret',
         'stripe_connect_account_id',
+        'stripe_connect_account_id_hash',
         'stripe_connect_status',
         'stripe_connect_charges_enabled',
         'stripe_connect_payouts_enabled',
@@ -246,6 +247,43 @@ class PaymentConfiguration extends Model
         return (bool) $this->stripe_enabled
             && ! empty($this->stripe_public_key)
             && ! empty($this->stripe_secret_key);
+    }
+
+    /**
+     * Phase-42 follow-up: canonical reverse lookup keyed on the SHA256
+     * hash. Replaces the O(n) decrypted-scan workaround Phase 42
+     * Phase 1f shipped at StripeWebhookController::handlePayoutFailed
+     * + Phase-41 StripeConnectService::syncAccountStatus call sites.
+     */
+    public static function findByConnectAccountId(string $accountId): ?self
+    {
+        if ($accountId === '') {
+            return null;
+        }
+
+        return static::query()
+            ->where('stripe_connect_account_id_hash', hash('sha256', $accountId))
+            ->first();
+    }
+
+    /**
+     * Phase-42 follow-up: keep stripe_connect_account_id_hash in lock
+     * step with the encrypted account id. Hooks the saving event so
+     * the 'encrypted' cast's setter runs first; reading the attribute
+     * back via the cast decrypts the just-set ciphertext to plaintext.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (self $model): void {
+            if (! $model->isDirty('stripe_connect_account_id')) {
+                return;
+            }
+
+            $plain = $model->stripe_connect_account_id;
+            $model->attributes['stripe_connect_account_id_hash'] = $plain === null || $plain === ''
+                ? null
+                : hash('sha256', (string) $plain);
+        });
     }
 
     /**
