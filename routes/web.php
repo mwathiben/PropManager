@@ -675,6 +675,14 @@ Route::middleware('auth')->group(function () {
         Route::post('/{template}/clone', [\App\Http\Controllers\Reports\ReportTemplateController::class, 'clone'])->name('clone');
     });
 
+    // Phase-50 CUSTOM-METRICS-3: landlord-defined formulas evaluated by
+    // MetricFormulaService and surfaced as derived columns in the builder.
+    Route::middleware('role:landlord')->prefix('reports/metrics')->name('reports.metrics.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Reports\ReportMetricController::class, 'index'])->name('index');
+        Route::post('/', [\App\Http\Controllers\Reports\ReportMetricController::class, 'store'])->name('store');
+        Route::delete('/{metric}', [\App\Http\Controllers\Reports\ReportMetricController::class, 'destroy'])->name('destroy');
+    });
+
     // Phase-27 BI-DELIVERY-2/3: scheduled report delivery self-serve.
     Route::middleware('role:landlord')->prefix('reports/scheduled')->name('reports.scheduled.')->group(function () {
         Route::get('/', [\App\Http\Controllers\Reports\ScheduledController::class, 'index'])->name('index');

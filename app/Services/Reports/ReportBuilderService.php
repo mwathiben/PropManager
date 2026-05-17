@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Reports;
 
+use App\Models\ReportMetric;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -94,6 +95,12 @@ class ReportBuilderService
      * @param  array{table: string, fields: list<string>, filters?: list<array{field: string, op: string, value: mixed}>, group_by?: list<string>, sort_by?: list<array{field: string, direction: string}>, limit?: int}  $config
      * @return list<array<string, mixed>>
      */
+    public function __construct(
+        protected ?MetricFormulaService $metricFormulas = null,
+    ) {
+        $this->metricFormulas ??= new MetricFormulaService();
+    }
+
     public function run(array $config, int $landlordId): array
     {
         $table = $this->requireTable($config['table'] ?? null);
@@ -102,6 +109,7 @@ class ReportBuilderService
         $groupBy = $this->validateGroupBy((array) ($config['group_by'] ?? []));
         $sortBy = $this->validateSortBy((array) ($config['sort_by'] ?? []));
         $limit = $this->validateLimit(array_key_exists('limit', $config) ? $config['limit'] : 200);
+        $customMetrics = $this->validateCustomMetrics((array) ($config['custom_metrics'] ?? []), $landlordId);
 
         $query = DB::table($table);
 
@@ -166,7 +174,81 @@ class ReportBuilderService
 
         $query->limit($limit);
 
-        return $this->rowsToArrays($query);
+        $rows = $this->rowsToArrays($query);
+
+        return $this->applyCustomMetrics($rows, $customMetrics);
+    }
+
+    /**
+     * Phase-50 CUSTOM-METRICS-3: filter the supplied metric slugs down
+     * to ACTIVE landlord-owned metrics with cached parsed_rpn. Unknown
+     * slugs throw — caller must clean up its config.
+     *
+     * @param  list<mixed>  $slugs
+     * @return list<array{slug: string, name: string, rpn: array}>
+     */
+    private function validateCustomMetrics(array $slugs, int $landlordId): array
+    {
+        if ($slugs === []) {
+            return [];
+        }
+        $cleaned = [];
+        foreach ($slugs as $i => $slug) {
+            if (! is_string($slug) || $slug === '') {
+                throw ValidationException::withMessages(["custom_metrics.{$i}" => 'Metric slug must be a string.']);
+            }
+            $cleaned[] = $slug;
+        }
+        $cleaned = array_values(array_unique($cleaned));
+
+        $rows = ReportMetric::query()
+            ->withoutGlobalScope('landlord')
+            ->where('landlord_id', $landlordId)
+            ->where('is_active', true)
+            ->whereIn('slug', $cleaned)
+            ->get(['slug', 'name', 'parsed_rpn']);
+
+        $found = $rows->pluck('slug')->all();
+        $missing = array_diff($cleaned, $found);
+        if ($missing !== []) {
+            throw ValidationException::withMessages([
+                'custom_metrics' => 'Unknown or inactive metric(s): '.implode(', ', $missing),
+            ]);
+        }
+
+        return $rows->map(fn ($r) => [
+            'slug' => $r->slug,
+            'name' => $r->name,
+            'rpn' => $r->parsed_rpn,
+        ])->all();
+    }
+
+    /**
+     * Append a derived column per metric to each row. The metric is
+     * evaluated row-by-row using the cached RPN — never the raw
+     * expression.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @param  list<array{slug: string, name: string, rpn: array}>  $metrics
+     * @return list<array<string, mixed>>
+     */
+    private function applyCustomMetrics(array $rows, array $metrics): array
+    {
+        if ($metrics === [] || $rows === []) {
+            return $rows;
+        }
+        foreach ($rows as $i => $row) {
+            $fieldKeyed = [];
+            foreach ($row as $k => $v) {
+                $fieldKeyed[str_replace('_', '.', (string) $k)] = $v;
+            }
+            foreach ($metrics as $metric) {
+                $col = 'metric_'.$metric['slug'];
+                $rows[$i][$col] = $this->metricFormulas->evaluate($metric['rpn'], $fieldKeyed);
+            }
+        }
+
+        return $rows;
     }
 
     private function requireTable(mixed $table): string
