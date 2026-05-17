@@ -15,6 +15,12 @@ return [
     'tickets' => [
         'annotation_saved' => '[TODO-ar] Annotation saved.',
     ],
+    'emergency_contact' => [
+        'otp_sent' => '[TODO-ar] Verification code sent. Check the SMS on the contact phone.',
+        'otp_message' => '[TODO-ar] PropManager — your verification code is :code. It expires in 10 minutes.',
+        'rate_limited' => '[TODO-ar] Too many verification attempts in the last 24 hours. Please wait before retrying.',
+        'verified' => '[TODO-ar] Emergency contact verified.',
+    ],
     'payment_plan' => [
         'submitted' => '[TODO-ar] Payment plan request submitted (:count installments). Awaiting landlord approval.',
     ],

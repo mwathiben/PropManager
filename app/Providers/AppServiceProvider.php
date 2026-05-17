@@ -70,6 +70,23 @@ class AppServiceProvider extends ServiceProvider
             config('metrics.connection', 'cache')
         ));
 
+        // Phase-45 EMERGENCY-CONTACT-SMS-1: SMS driver binding.
+        // Default is Stub so CI + dev never hit the network. Switch
+        // via SMS_DRIVER=africastalking in production.
+        $this->app->bind(\App\Services\Sms\Contracts\SmsDriver::class, function ($app) {
+            $driver = config('sms.driver', 'stub');
+            if ($driver === 'africastalking') {
+                return new \App\Services\Sms\AfricasTalkingSmsDriver(
+                    config('sms.africastalking.username'),
+                    config('sms.africastalking.api_key'),
+                    config('sms.africastalking.sender_id'),
+                    config('sms.africastalking.endpoint', 'https://api.africastalking.com/version1/messaging'),
+                );
+            }
+
+            return new \App\Services\Sms\StubSmsDriver;
+        });
+
         // Register notification config repository
         $this->app->bind(
             NotificationConfigRepositoryInterface::class,

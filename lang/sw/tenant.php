@@ -20,6 +20,12 @@ return [
     'tickets' => [
         'annotation_saved' => 'Maelezo yameokolewa.',
     ],
+    'emergency_contact' => [
+        'otp_sent' => 'Msimbo wa uthibitisho umetumwa. Angalia SMS kwenye simu ya mtu wa dharura.',
+        'otp_message' => 'PropManager — msimbo wako wa uthibitisho ni :code. Utaisha kwa dakika 10.',
+        'rate_limited' => 'Umejaribu mara nyingi katika masaa 24 yaliyopita. Tafadhali subiri kabla ya kujaribu tena.',
+        'verified' => 'Mtu wa dharura amethibitishwa.',
+    ],
     'payment_plan' => [
         'submitted' => 'Ombi la mpango wa malipo limewasilishwa (:count awamu). Linasubiri idhini ya mwenye nyumba.',
     ],

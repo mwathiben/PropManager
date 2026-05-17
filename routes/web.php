@@ -1179,6 +1179,13 @@ Route::middleware(['auth', 'role:tenant', 'payment.verified', 'kyc.complete'])->
     Route::post('/payment-plans/{plan}/modifications', [\App\Http\Controllers\Tenant\PaymentPlanModificationController::class, 'store'])
         ->middleware('throttle:sensitive')
         ->name('tenant.payment-plans.modifications.store');
+    // Phase-45 EMERGENCY-CONTACT-SMS-1/2: tenant verifies an emergency contact phone.
+    Route::post('/emergency-contacts/{contact}/send-otp', [\App\Http\Controllers\Tenant\EmergencyContactVerificationController::class, 'sendOtp'])
+        ->middleware('throttle:sensitive')
+        ->name('tenant.emergency-contacts.send-otp');
+    Route::post('/emergency-contacts/{contact}/verify-otp', [\App\Http\Controllers\Tenant\EmergencyContactVerificationController::class, 'verifyOtp'])
+        ->middleware('throttle:sensitive')
+        ->name('tenant.emergency-contacts.verify-otp');
 
     // Phase-28 TENANT-PAY-3: tenant-initiated deposit refund request.
     Route::post('/deposit-refunds', [\App\Http\Controllers\Tenant\DepositRefundController::class, 'store'])
