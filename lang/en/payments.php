@@ -28,4 +28,18 @@ return [
         'kes_to_paystack_hint' => 'KES payments route to Paystack.',
         'usd_to_stripe_hint' => 'USD/EUR/GBP payments route to Stripe.',
     ],
+    'tax' => [
+        'vat_heading' => 'VAT & tax registration',
+        'vat_label' => 'VAT',
+        'vat_rate_label' => 'VAT rate',
+        'vat_amount_label' => 'VAT amount',
+        'kra_pin_label' => 'KRA PIN',
+        'kra_pin_placeholder' => 'e.g. A001234567Z',
+        'vat_rate_override_label' => 'VAT rate override (basis points)',
+        'stripe_tax_enabled_label' => 'Enable Stripe automatic tax for non-KES charges',
+        'vat_inclusive_disclaimer' => 'Invoice totals include 16% Kenya VAT where applicable.',
+        'kra_pin_missing_warning' => 'KRA PIN is not set — VAT-registered landlords must provide one before invoicing.',
+        'kra_pin_invalid_format' => 'KRA PIN must match the format A### or P###. Example: A001234567Z.',
+        'updated_flash' => 'Tax configuration for :name updated.',
+    ],
 ];

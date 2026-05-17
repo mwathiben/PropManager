@@ -39,6 +39,8 @@ class StripeService
 
     protected ?StripeClient $client = null;
 
+    protected ?PaymentConfiguration $config = null;
+
     public function __construct(?PaymentConfiguration $config = null)
     {
         if ($config !== null && $config->hasStripeConfig()) {
@@ -65,6 +67,7 @@ class StripeService
         $this->secretKey = (string) $config->stripe_secret_key;
         $this->publicKey = (string) $config->stripe_public_key;
         $this->webhookSecret = (string) ($config->stripe_webhook_secret ?? '');
+        $this->config = $config;
         $this->client = null;
     }
 
@@ -112,14 +115,27 @@ class StripeService
     {
         $this->ensureConfigured();
 
+        $payload = [
+            'amount' => (int) $data['amount'],
+            'currency' => strtolower($data['currency']),
+            'metadata' => array_merge($data['metadata'] ?? [], ['reference' => $data['reference']]),
+            'receipt_email' => $data['receipt_email'] ?? null,
+            'automatic_payment_methods' => ['enabled' => true],
+        ];
+
+        // Phase-42 TAX-3: opt-in Stripe Tax for non-KES landlords who
+        // have stripe_tax_enabled set on their PaymentConfiguration.
+        // Stripe Tax doesn't yet cover Kenya — KES uses Phase-42
+        // local VAT computation via StripeTaxService instead.
+        if ($this->config !== null
+            && $this->config->hasStripeTaxEnabled()
+            && strtolower($data['currency']) !== 'kes'
+        ) {
+            $payload['automatic_tax'] = ['enabled' => true];
+        }
+
         try {
-            $intent = $this->timedHttpRequest('stripe', '/v1/payment_intents', fn () => $this->client()->paymentIntents->create([
-                'amount' => (int) $data['amount'],
-                'currency' => strtolower($data['currency']),
-                'metadata' => array_merge($data['metadata'] ?? [], ['reference' => $data['reference']]),
-                'receipt_email' => $data['receipt_email'] ?? null,
-                'automatic_payment_methods' => ['enabled' => true],
-            ]));
+            $intent = $this->timedHttpRequest('stripe', '/v1/payment_intents', fn () => $this->client()->paymentIntents->create($payload));
 
             return [
                 'status' => true,

@@ -1082,6 +1082,11 @@ Route::middleware(['auth', 'verified', 'role:super_admin'])->prefix('admin')->gr
         ->name('admin.gateways.index');
     Route::post('/gateways/{user}/preference', [\App\Http\Controllers\Admin\AdminGatewaysController::class, 'update'])
         ->name('admin.gateways.update');
+
+    // Phase-42 TAX-2: KRA PIN + VAT-rate-override + Stripe Tax opt-in
+    // for a single landlord's PaymentConfiguration.
+    Route::post('/gateways/{user}/tax-config', [\App\Http\Controllers\Admin\AdminGatewaysController::class, 'updateTaxConfig'])
+        ->name('admin.gateways.tax-config');
 });
 
 // Stop impersonating (available to anyone being impersonated)

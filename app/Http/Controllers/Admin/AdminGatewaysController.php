@@ -42,6 +42,12 @@ class AdminGatewaysController extends Controller
                 'preference' => $u->payment_gateway_preference ?? 'auto',
                 'paystack_enabled' => (bool) ($config?->hasPaystackConfig() ?? false),
                 'stripe_enabled' => (bool) ($config?->hasStripeConfig() ?? false),
+                // Phase-42 TAX-2: VAT registration state surfaces here so
+                // operators can spot landlords issuing KES invoices
+                // without a KRA PIN on file.
+                'vat_registered' => (bool) ($config?->isVatRegistered() ?? false),
+                'stripe_tax_enabled' => (bool) ($config?->hasStripeTaxEnabled() ?? false),
+                'vat_rate_bps_override' => $config?->vat_rate_bps_override,
             ];
         });
 
@@ -65,5 +71,36 @@ class AdminGatewaysController extends Controller
         $user->save();
 
         return back()->with('success', "Updated {$user->name}'s gateway preference to {$pref}.");
+    }
+
+    /**
+     * Phase-42 TAX-2: super_admin updates a landlord's KRA VAT
+     * registration + Stripe Tax opt-in. kra_pin must match the
+     * Kenya VAT PIN format (`A` or `P` + 9 digits + capital letter);
+     * vat_rate_bps_override defaults to NULL = use the 16% statutory
+     * rate. stripe_tax_enabled controls automatic_tax on Stripe
+     * PaymentIntents for non-KES charges.
+     */
+    public function updateTaxConfig(Request $request, User $user): RedirectResponse
+    {
+        $validated = $request->validate([
+            'kra_pin' => ['nullable', 'string', 'regex:/^[AP]\d{9}[A-Z]$/'],
+            'vat_rate_bps_override' => ['nullable', 'integer', 'between:0,10000'],
+            'stripe_tax_enabled' => ['sometimes', 'boolean'],
+        ]);
+
+        // TenantScope's creating callback overwrites landlord_id with
+        // the auth user's landlord_id, which is null for super_admin —
+        // suppressing model events here keeps the explicit landlord_id
+        // from getOrCreateForLandlord intact.
+        $config = PaymentConfiguration::withoutEvents(
+            fn () => PaymentConfiguration::getOrCreateForLandlord($user->id),
+        );
+        $config->kra_pin = $validated['kra_pin'] ?? null;
+        $config->vat_rate_bps_override = $validated['vat_rate_bps_override'] ?? null;
+        $config->stripe_tax_enabled = (bool) ($validated['stripe_tax_enabled'] ?? false);
+        $config->saveQuietly();
+
+        return back()->with('success', __('payments.tax.updated_flash', ['name' => $user->name]));
     }
 }

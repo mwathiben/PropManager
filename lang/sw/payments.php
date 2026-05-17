@@ -28,4 +28,18 @@ return [
         'kes_to_paystack_hint' => 'Malipo ya KES yanaenda Paystack.',
         'usd_to_stripe_hint' => 'Malipo ya USD/EUR/GBP yanaenda Stripe.',
     ],
+    'tax' => [
+        'vat_heading' => 'VAT na usajili wa kodi',
+        'vat_label' => 'VAT',
+        'vat_rate_label' => 'Kiwango cha VAT',
+        'vat_amount_label' => 'Kiasi cha VAT',
+        'kra_pin_label' => 'Nambari ya KRA PIN',
+        'kra_pin_placeholder' => 'mfano A001234567Z',
+        'vat_rate_override_label' => 'Badilisha kiwango cha VAT (basis points)',
+        'stripe_tax_enabled_label' => 'Wezesha kodi ya Stripe kiotomatiki kwa malipo yasiyo ya KES',
+        'vat_inclusive_disclaimer' => 'Jumla ya ankara inajumuisha VAT ya 16% ya Kenya pale inapostahili.',
+        'kra_pin_missing_warning' => 'Nambari ya KRA PIN haijawekwa — wenye nyumba waliosajili VAT lazima wawe nayo kabla ya kutuma ankara.',
+        'kra_pin_invalid_format' => 'KRA PIN lazima ifuate muundo A### au P###. Mfano: A001234567Z.',
+        'updated_flash' => 'Mipangilio ya kodi kwa :name imesasishwa.',
+    ],
 ];

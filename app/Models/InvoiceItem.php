@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\ValueObjects\Money;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -34,6 +35,8 @@ class InvoiceItem extends Model
         'quantity',
         'unit_price',
         'total',
+        'tax_amount_cents',
+        'tax_rate_bps',
         'sort_order',
         'metadata',
     ];
@@ -41,6 +44,8 @@ class InvoiceItem extends Model
     protected $casts = [
         'unit_price' => 'decimal:2',
         'total' => 'decimal:2',
+        'tax_amount_cents' => 'integer',
+        'tax_rate_bps' => 'integer',
         'metadata' => 'array',
     ];
 
@@ -69,5 +74,36 @@ class InvoiceItem extends Model
     public function isCredit(): bool
     {
         return $this->item_type === self::TYPE_CREDIT || $this->total < 0;
+    }
+
+    /**
+     * Phase-42 TAX-1: tax amount as a Money value object. Returns
+     * Money::zero() when the row has no tax stamped (pre-Phase-42
+     * rows or non-taxable items).
+     */
+    public function taxAmount(): Money
+    {
+        if ($this->tax_amount_cents === null) {
+            return Money::zero();
+        }
+
+        return Money::fromMinorUnits((int) $this->tax_amount_cents);
+    }
+
+    /**
+     * Phase-42 TAX-1: subtotal exclusive of tax. The `total` column
+     * stores the tax-inclusive amount (existing convention), so we
+     * subtract the tax to get the tax-exclusive line subtotal.
+     */
+    public function subtotalExclusiveOfTax(): Money
+    {
+        $total = Money::fromString((string) $this->total);
+
+        return $total->subtract($this->taxAmount());
+    }
+
+    public function isTaxed(): bool
+    {
+        return $this->tax_amount_cents !== null && (int) $this->tax_amount_cents > 0;
     }
 }

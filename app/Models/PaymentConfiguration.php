@@ -55,6 +55,9 @@ class PaymentConfiguration extends Model
         'stripe_connect_status',
         'stripe_connect_charges_enabled',
         'stripe_connect_payouts_enabled',
+        'kra_pin',
+        'vat_rate_bps_override',
+        'stripe_tax_enabled',
     ];
 
     protected $casts = [
@@ -79,6 +82,9 @@ class PaymentConfiguration extends Model
         'stripe_connect_account_id' => 'encrypted',
         'stripe_connect_charges_enabled' => 'boolean',
         'stripe_connect_payouts_enabled' => 'boolean',
+        'kra_pin' => 'encrypted',
+        'vat_rate_bps_override' => 'integer',
+        'stripe_tax_enabled' => 'boolean',
         'bank_account_number' => 'encrypted',
         'coop_webhook_secret' => 'encrypted',
         'equity_webhook_secret' => 'encrypted',
@@ -237,6 +243,36 @@ class PaymentConfiguration extends Model
         return (bool) $this->stripe_enabled
             && ! empty($this->stripe_public_key)
             && ! empty($this->stripe_secret_key);
+    }
+
+    /**
+     * Phase-42 TAX-2: KRA PIN format guard — accepts the standard
+     * Kenya VAT PIN shape `A` or `P` + 9 digits + 1 uppercase letter
+     * (e.g., A001234567Z, P051234567B). KRA-side enforcement at the
+     * filing layer is stricter; this is the format gate only.
+     */
+    public function isVatRegistered(): bool
+    {
+        if (! array_key_exists('kra_pin', $this->attributes ?? [])) {
+            return false;
+        }
+
+        $pin = (string) ($this->kra_pin ?? '');
+
+        return $pin !== '' && preg_match('/^[AP]\d{9}[A-Z]$/', $pin) === 1;
+    }
+
+    /**
+     * Phase-42 TAX-3: Stripe Tax opt-in. Returns false when the
+     * column is missing (pre-migration) or unset.
+     */
+    public function hasStripeTaxEnabled(): bool
+    {
+        if (! array_key_exists('stripe_tax_enabled', $this->attributes ?? [])) {
+            return false;
+        }
+
+        return (bool) ($this->stripe_tax_enabled ?? false);
     }
 
     /**
