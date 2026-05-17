@@ -68,25 +68,62 @@ const submit = () => {
                 <InputError id="email-error" class="mt-2" :message="form.errors.email" />
             </div>
 
-            <!-- NEW: Role Selection with Tooltips -->
+            <!-- Phase-51 PHASE-46-WIZARD-STYLE-1: role card-grid picker
+                 with indigo/purple gradient — visually consistent with
+                 the rest of the wizard. Native select retained as
+                 aria-fallback for screen readers. -->
             <div class="mt-4">
                 <InputLabel required for="role" :value="t('auth.register.role_label')" />
-                <select
-                    id="role"
-                    class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
-                    v-model="form.role"
+                <div
+                    role="radiogroup"
                     aria-describedby="role-helper"
-                    required
+                    class="mt-2 grid grid-cols-3 gap-2"
                 >
-                    <option value="landlord">{{ t('auth.register.role_landlord') }}</option>
-                    <option value="caretaker">{{ t('auth.register.role_caretaker') }}</option>
-                    <option value="tenant">{{ t('auth.register.role_tenant') }}</option>
-                </select>
+                    <button
+                        v-for="role in ['landlord', 'caretaker', 'tenant']"
+                        :key="role"
+                        type="button"
+                        role="radio"
+                        :aria-checked="form.role === role"
+                        :class="[
+                            'flex flex-col items-center gap-1 rounded-lg px-3 py-3 text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-indigo-400',
+                            form.role === role
+                                ? 'bg-gradient-to-br from-indigo-100 via-white to-purple-100 ring-2 ring-indigo-500 text-indigo-900'
+                                : 'bg-white border border-gray-200 text-gray-600 hover:border-indigo-300',
+                        ]"
+                        @click="form.role = role"
+                    >
+                        <svg
+                            class="h-6 w-6 text-indigo-500"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                        >
+                            <template v-if="role === 'landlord'">
+                                <path d="M3 10 L12 4 L21 10 V20 H3 Z" />
+                                <rect x="10" y="14" width="4" height="6" />
+                            </template>
+                            <template v-else-if="role === 'caretaker'">
+                                <circle cx="12" cy="8" r="3" />
+                                <path d="M6 20 V18 a6 6 0 0 1 12 0 V20" />
+                            </template>
+                            <template v-else>
+                                <rect x="5" y="9" width="14" height="11" rx="1" />
+                                <path d="M9 9 V6 a3 3 0 0 1 6 0 V9" />
+                            </template>
+                        </svg>
+                        <span>{{ t('auth.register.role_' + role) }}</span>
+                    </button>
+                </div>
 
-                <!-- Helper Text — Phase-23 A11Y-FORM-3: associated to the
-                     select via aria-describedby so a screen-reader user
-                     hears the role explanation (WCAG 1.3.1). -->
-                <div id="role-helper" class="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600 border border-gray-100">
+                <!-- Phase-51 PHASE-46-WIZARD-STYLE-2: branded gradient
+                     for the role-help card so it visually matches the
+                     picker above. -->
+                <div
+                    id="role-helper"
+                    class="mt-2 rounded-lg bg-gradient-to-br from-indigo-50 via-white to-purple-50 ring-1 ring-indigo-100/50 p-3 text-xs text-gray-700"
+                >
                     <p v-if="form.role === 'landlord'">
                         <strong>{{ t('auth.register.role_landlord_lead') }}</strong> {{ t('auth.register.role_landlord_body') }}
                     </p>
