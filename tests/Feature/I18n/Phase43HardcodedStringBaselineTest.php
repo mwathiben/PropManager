@@ -24,7 +24,7 @@ class Phase43HardcodedStringBaselineTest extends TestCase
      * resources/js/. Lowering the constant requires the
      * scanner to confirm the new floor.
      */
-    private const BASELINE = 3294;
+    private const BASELINE = 3263;
 
     public function test_hardcoded_english_count_does_not_grow_beyond_baseline(): void
     {

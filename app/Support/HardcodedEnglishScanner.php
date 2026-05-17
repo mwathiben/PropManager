@@ -65,6 +65,15 @@ final class HardcodedEnglishScanner
         $templates = $this->extractTemplateBlocks($contents);
         $violations = 0;
         foreach ($templates as $template) {
+            // Strip HTML comments first BUT preserve i18n-ignore
+            // markers as a single-line placeholder so the
+            // line-walker below still notices them.
+            $template = preg_replace_callback(
+                '/<!--(.*?)-->/s',
+                static fn (array $m) => str_contains($m[1], 'i18n-ignore') ? '<!-- i18n-ignore -->' : '',
+                $template,
+            ) ?? $template;
+
             $lines = preg_split('/\r?\n/', $template);
             $skipNext = false;
             // Collapse same-line opt-outs first: a line that carries
