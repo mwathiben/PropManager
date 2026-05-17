@@ -21,6 +21,78 @@ import vueA11y from 'eslint-plugin-vuejs-accessibility';
 import vueParser from 'vue-eslint-parser';
 import tsParser from '@typescript-eslint/parser';
 
+// Phase-44 ESLINT-CUSTOM-1: in-IDE flag for hardcoded English in Vue
+// templates. Complements the Phase-43 HardcodedEnglishScanner PHP-side
+// ratchet — devs see the violation while typing, not at PR time.
+// Heuristic only; relies on $t() / aria-label / route() to be the
+// dominant way English appears in templates.
+const LTR_CLASS_PATTERN = /(?:^|\s)(ml|mr|pl|pr|left|right|border-l|border-r|rounded-l|rounded-r|text-left|text-right)-/;
+const HARDCODED_ENGLISH_PATTERN = /[A-Za-z][A-Za-z\s,'.!?:;-]{4,}/;
+
+const propManagerPlugin = {
+    rules: {
+        'no-hardcoded-english-strings': {
+            meta: {
+                type: 'suggestion',
+                docs: { description: 'Disallow literal English strings in Vue templates (use $t()).' },
+                schema: [],
+                messages: {
+                    hardcoded: 'Hardcoded English "{{ text }}" — wrap in $t() for i18n.',
+                },
+            },
+            create(context) {
+                const services = context.sourceCode.parserServices || context.parserServices;
+                if (!services || !services.defineTemplateBodyVisitor) return {};
+                return services.defineTemplateBodyVisitor({
+                    VText(node) {
+                        const text = (node.value || '').trim();
+                        if (!text) return;
+                        if (text.startsWith('{{') || text.startsWith('//')) return;
+                        if (HARDCODED_ENGLISH_PATTERN.test(text)) {
+                            context.report({
+                                node,
+                                messageId: 'hardcoded',
+                                data: { text: text.slice(0, 40) },
+                            });
+                        }
+                    },
+                });
+            },
+        },
+        'no-ltr-class': {
+            meta: {
+                type: 'problem',
+                docs: { description: 'Disallow LTR-only Tailwind classes; use logical equivalents.' },
+                schema: [],
+                messages: {
+                    ltr: 'LTR-only Tailwind class "{{ cls }}-" — use logical (ms-/me-/ps-/pe-/start-/end-/text-start/text-end).',
+                },
+            },
+            create(context) {
+                const services = context.sourceCode.parserServices || context.parserServices;
+                if (!services || !services.defineTemplateBodyVisitor) return {};
+                return services.defineTemplateBodyVisitor({
+                    VAttribute(node) {
+                        const keyName = node.key && node.key.name
+                            ? (node.key.name.name || node.key.name)
+                            : null;
+                        if (keyName !== 'class') return;
+                        const raw = node.value && node.value.value ? node.value.value : '';
+                        const match = raw.match(LTR_CLASS_PATTERN);
+                        if (match) {
+                            context.report({
+                                node: node.value,
+                                messageId: 'ltr',
+                                data: { cls: match[1] },
+                            });
+                        }
+                    },
+                });
+            },
+        },
+    },
+};
+
 export default [
     {
         ignores: [
@@ -45,6 +117,7 @@ export default [
         files: ['resources/js/**/*.vue'],
         plugins: {
             'vuejs-accessibility': vueA11y,
+            'propmanager': propManagerPlugin,
         },
         languageOptions: {
             parser: vueParser,
@@ -93,6 +166,15 @@ export default [
             // pending a per-site check that the workaround still
             // applies.
             'vuejs-accessibility/no-redundant-roles': 'warn',
+
+            // --- Phase-44 ESLINT-CUSTOM (shrink-only) -----------------
+            // 'warn' until backlog is fixed; ratchet to 'error' later.
+            // no-hardcoded-english-strings is heuristic; pairs with the
+            // PHP-side HardcodedEnglishScanner ratchet.
+            // no-ltr-class catches Tailwind LTR residue introduced after
+            // the Phase-44 RTL-MIGRATE-1 codemod.
+            'propmanager/no-hardcoded-english-strings': 'warn',
+            'propmanager/no-ltr-class': 'warn',
         },
     },
 ];
