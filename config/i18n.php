@@ -58,4 +58,20 @@ return [
     'suggestion_driver' => env('I18N_SUGGESTION_DRIVER', 'stub'),
     'google_api_key' => env('I18N_GOOGLE_TRANSLATE_API_KEY'),
     'deepl_api_key' => env('I18N_DEEPL_API_KEY'),
+    'deepl_formality' => env('I18N_DEEPL_FORMALITY'),
+    'deepl_glossary_id' => env('I18N_DEEPL_GLOSSARY_ID'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Translation cost guard (Phase-52 COST-GUARD-1/3)
+    |--------------------------------------------------------------------------
+    | Rolling 24h spend budget for auto-translation calls. The factory
+    | wraps every non-stub driver in CostAwareDriver which calls
+    | TranslationCostTracker::canSpend before each call + records the
+    | per-call cost into Cache after a successful response. When the
+    | rolling total hits this budget, further calls silently fall back
+    | to the stub driver (which logs but doesn't fail) and the sev3
+    | alert fires from docs/runbooks/alert-thresholds.md.
+    */
+    'daily_budget_usd' => env('I18N_DAILY_BUDGET_USD', 20.0),
 ];
