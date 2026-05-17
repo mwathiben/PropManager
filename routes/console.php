@@ -283,6 +283,16 @@ Schedule::command('payment-plans:audit-stale-modifications')
     ->onOneServer()
     ->name('phase45-payplan-mod3-audit-stale');
 
+// Phase-46 CANONICAL-AUDIT-2: audit Mirror Registry for users.* drift.
+// Runs at 03:30 — after 03:15 stripe-balance-audit, before the 06:00
+// lease-counter expiry sweep. Daily cadence catches a regressed saving
+// listener within 24 hours.
+Schedule::command('onboarding:dedupe-audit')
+    ->dailyAt('03:30')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase46-canonical-audit-mirror-drift');
+
 // Phase-29 WF-LATE-FEE-1: nightly escalation for chronically overdue
 // invoices. Runs after invoices:mark-overdue (00:05) and
 // invoices:apply-late-fees (00:10) so the freshly-updated overdue
