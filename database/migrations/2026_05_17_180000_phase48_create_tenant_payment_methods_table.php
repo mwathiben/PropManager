@@ -28,7 +28,9 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->enum('type', ['mpesa', 'bank', 'card']);
-            $table->json('details_encrypted');
+            // Laravel's encrypted:json cast writes Crypt-encrypted text;
+            // not JSON syntax, so MySQL's json type rejects it. Use text.
+            $table->text('details_encrypted');
             $table->boolean('is_default')->default(false);
             $table->timestamp('verified_at')->nullable();
             $table->timestamps();

@@ -234,9 +234,91 @@ Failure modes:
 The tenant + caretaker scaffolds are intentionally minimal — Phase 48+ deepens
 the UX, KYC integration, and per-building assignment ergonomics.
 
+---
+
+# Phase-48 TENANT-WIZARD-DEEP extensions (2026-05-17)
+
+Phase 48 deepens Phase-47's acknowledgement-only tenant + caretaker scaffolds
+into real functionality: KYC progress gate, persistent payment methods,
+explicit caretaker accept/decline, per-type notification preferences, and a
+polished wizard UI.
+
+## Tenant KYC step deepening
+
+`User::kycProgress()` is the new wizard-ready accessor. Returns
+`{required, submitted, approved, pending, rejected, percent, remaining_labels}`.
+Cached 5 minutes per user-id under `user:{id}:kyc-progress`; invalidates via
+`TenantKycSubmission::saved` listener (also flushes
+`user:{id}:kyc_verified_at` + `user:{id}:canonical_national_id` from Phase 46).
+
+`TenantOnboardingService::processKyc` gates advance on
+`progress.submitted >= progress.required` — a tenant must submit every
+required document (pending review is acceptable) before the wizard cursor
+moves forward. Actual document upload still lives at
+`/complete-profile` (Phase 13 surface).
+
+Inspect a tenant's progress: `php artisan tinker; User::find(N)->kycProgress();`
+
+## Tenant payment-method storage
+
+`tenant_payment_methods` table stores M-Pesa / bank / card credentials for
+auto-debit. `details_encrypted` is auto-encrypted via Laravel's
+`encrypted:json` cast — DPA-1 compliant. Single-default-per-(user, type)
+invariant enforced by `App\Services\Tenant\TenantPaymentMethodService`.
+
+Soft-deletes preserve the row for DPA-3 audit retention; right-to-be-forgotten
+requests use `softDelete()` (not force-delete) so the audit trail stays.
+
+The wizard step 3 is optional — supplying no `type` keeps the
+acknowledgement-only path and still advances.
+
+## Caretaker assignment workflow
+
+`caretaker_assignments` (id, caretaker_id, building_id, status, assigned_at,
+decided_at, decision_reason) is an append-only audit overlay on top of the
+legacy `buildings.caretaker_id` single-FK link. `buildings.caretaker_id` stays
+canonical for TicketObserver auto-assign behavior; the new table tracks the
+workflow (pending → accepted | declined).
+
+`RecordCaretakerAssignmentOnInvitationAccept` listener fires on
+`InvitationAccepted` for caretaker invitations and mints pending
+`CaretakerAssignment` rows for every building under the invitation's property.
+The wizard step 2 walks these rows and flips them to accepted (default) or
+declined based on form input. Decline clears `buildings.caretaker_id` so the
+landlord knows to re-assign.
+
+## Caretaker per-type notification preferences
+
+`CaretakerOnboardingService::processNotificationPreferences` now writes both
+channel toggles (email/sms/whatsapp/push) AND per-type columns from
+`NotificationPreference::caretakerTypes()`: maintenance_notice_enabled,
+general_enabled, caretaker_invitation_enabled, tenant_invitation_enabled,
+lease_expiry_enabled.
+
+Tenant-facing types (rent_reminder_enabled, invoice_enabled, etc.) stay at
+their defaults — irrelevant for caretakers.
+
+## Visual UX polish
+
+`Pages/Onboarding/Components/WizardProgressBar.vue` is shared by TenantSteps +
+CaretakerSteps and reads `currentStep` + `totalSteps` props. Both scaffolds
+gained branded styling (gradient bg + rounded-2xl + ring shadows matching
+landlord Index.vue palette), per-field `form.errors` display, flash error
+display, and submit-button processing state.
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Tenant blocked at wizard step 2 | Required KYC docs not submitted | Tenant uploads at `/complete-profile`; KYC `saved` listener invalidates cache |
+| TenantPaymentMethod missing after wizard step 3 | Form sent no `type` (acknowledgement-only path) | Expected — supply `type` + `details` to persist |
+| Caretaker sees 0 pending assignments | InvitationAccepted listener didn't fire | Check property_id on invitation; verify caretaker role; manually call `CaretakerAssignmentService::recordAssignment` |
+| Caretaker preference matrix incomplete | Type column not in `caretakerTypes()` | Add the column name to the static array + migration if column is new |
+
 ## Cross-references
 
-- `docs/runbooks/alert-thresholds.md` — sev3/sev4 rows for `canonical_mirror_drift_count` + `onboarding_session_abandoned_count`
+- `docs/runbooks/alert-thresholds.md` — sev3/sev4 rows for `canonical_mirror_drift_count` + `onboarding_session_abandoned_count` + `tenant_kyc_blocked_count`
 - `docs/runbooks/tenant.md` — Phase 45 [TENANT-DEPTH] including EMERGENCY-CONTACT-SMS-3 (the specific case Phase 46 generalises)
 - `phase-46-audit-prd.json` — full PRD + audit_closeout
 - `phase-47-audit-prd.json` — full PRD + audit_closeout
+- `phase-48-audit-prd.json` — full PRD + audit_closeout
