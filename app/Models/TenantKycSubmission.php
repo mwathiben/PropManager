@@ -147,4 +147,19 @@ class TenantKycSubmission extends Model
     {
         return $this->status === KycSubmissionStatus::Rejected;
     }
+
+    /**
+     * Phase-48 TENANT-KYC-BRIDGE-1: invalidate the wizard kycProgress
+     * cache + Phase-46 kyc_verified_at + canonical_national_id caches
+     * whenever a submission row changes (status flip on review, new
+     * upload, etc.).
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (TenantKycSubmission $submission): void {
+            \Illuminate\Support\Facades\Cache::forget("user:{$submission->user_id}:kyc-progress");
+            \Illuminate\Support\Facades\Cache::forget("user:{$submission->user_id}:kyc_verified_at");
+            \Illuminate\Support\Facades\Cache::forget("user:{$submission->user_id}:canonical_national_id");
+        });
+    }
 }

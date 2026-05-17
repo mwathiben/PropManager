@@ -297,6 +297,93 @@ class User extends Authenticatable implements HasLocalePreference
     }
 
     /**
+     * Phase-48 TENANT-KYC-BRIDGE-1: wizard-ready KYC progress shape.
+     *
+     * Returns:
+     *   - required: count of active+required KycRequirement rows for this
+     *     tenant's landlord/building/global cascade
+     *   - submitted: count of distinct requirements where a submission row
+     *     exists in any status (the wizard's advance gate)
+     *   - approved / pending / rejected: per-status counts
+     *   - percent: 0..100 of approved / required
+     *   - remaining_labels: human-readable labels of requirements NOT yet
+     *     submitted (drives the wizard checklist UI)
+     *
+     * Cached 5 minutes per user-id (wizard scope; submissions don't change
+     * minute-to-minute during onboarding). Cache invalidates via the
+     * TenantKycSubmission saved listener.
+     *
+     * For non-tenants the accessor returns an empty/satisfied shape.
+     *
+     * @return array{required:int,submitted:int,approved:int,pending:int,rejected:int,percent:int,remaining_labels:list<string>}
+     */
+    public function kycProgress(): array
+    {
+        if ($this->role !== 'tenant') {
+            return [
+                'required' => 0, 'submitted' => 0, 'approved' => 0,
+                'pending' => 0, 'rejected' => 0, 'percent' => 100,
+                'remaining_labels' => [],
+            ];
+        }
+
+        $cacheKey = "user:{$this->id}:kyc-progress";
+
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, 300, function (): array {
+            $activeLease = $this->lease;
+            $buildingId = $activeLease?->unit?->building_id;
+            $landlordId = $this->landlord_id;
+
+            $requirements = KycRequirement::withoutGlobalScope('landlord')
+                ->where(function ($query) use ($landlordId) {
+                    $query->where('landlord_id', $landlordId)
+                        ->orWhereNull('landlord_id');
+                })
+                ->where(function ($query) use ($buildingId) {
+                    $query->where('building_id', $buildingId)
+                        ->orWhereNull('building_id');
+                })
+                ->active()
+                ->required()
+                ->get(['id', 'label', 'requirement_type']);
+
+            $requiredCount = $requirements->count();
+            if ($requiredCount === 0) {
+                return [
+                    'required' => 0, 'submitted' => 0, 'approved' => 0,
+                    'pending' => 0, 'rejected' => 0, 'percent' => 100,
+                    'remaining_labels' => [],
+                ];
+            }
+
+            $requirementIds = $requirements->pluck('id');
+            $submissions = $this->kycSubmissions()
+                ->whereIn('requirement_id', $requirementIds)
+                ->get(['requirement_id', 'status']);
+
+            $submittedReqIds = $submissions->pluck('requirement_id')->unique();
+            $approved = $submissions->where('status', \App\Enums\KycSubmissionStatus::Approved)->count();
+            $pending = $submissions->where('status', \App\Enums\KycSubmissionStatus::Pending)->count();
+            $rejected = $submissions->where('status', \App\Enums\KycSubmissionStatus::Rejected)->count();
+
+            $remaining = $requirements->reject(fn ($r) => $submittedReqIds->contains($r->id))
+                ->pluck('label')
+                ->values()
+                ->all();
+
+            return [
+                'required' => $requiredCount,
+                'submitted' => $submittedReqIds->count(),
+                'approved' => $approved,
+                'pending' => $pending,
+                'rejected' => $rejected,
+                'percent' => (int) round(($approved / $requiredCount) * 100),
+                'remaining_labels' => $remaining,
+            ];
+        });
+    }
+
+    /**
      * Get the URL for the user's profile photo.
      */
     public function getProfilePhotoUrlAttribute(): ?string

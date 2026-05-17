@@ -46,10 +46,14 @@ class TenantOnboardingService implements OnboardingStepProcessor
 
     private function processKycAcknowledgement(array $data, User $user): bool
     {
-        // Tenant confirms they understand the KYC requirement; actual
-        // document upload happens at the existing /tenant/kyc surface.
-        // No canonical write required at this step.
-        return true;
+        // Phase-48 TENANT-KYC-BRIDGE-2: gate advance on having submitted
+        // every required KYC requirement. Pending review is acceptable —
+        // a tenant should be able to finish the wizard while the landlord
+        // reviews; the gate just ensures they've actually uploaded.
+        // Document upload itself happens at /complete-profile.
+        $progress = $user->kycProgress();
+
+        return $progress['submitted'] >= $progress['required'];
     }
 
     private function processPaymentMethodAcknowledgement(array $data, User $user): bool
