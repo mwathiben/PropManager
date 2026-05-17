@@ -43,6 +43,7 @@ class VendorAssignmentService
                 'old_value' => $previousVendorId !== null ? (string) $previousVendorId : null,
                 'new_value' => (string) $vendor->id,
                 'description' => $note,
+                'created_at' => now(),
             ]);
 
             TicketAssignedToVendor::dispatch($ticket, $vendor, $note);

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\Part;
-use App\Services\AlertFiringRecorder;
 use App\Services\MetricsService;
+use App\Services\Sre\AlertFiringRecorder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -49,10 +49,15 @@ class PartsAuditStock extends Command
         }
 
         if ($below->isNotEmpty()) {
-            $alerts->record('parts_below_threshold', [
-                'rows' => $below->count(),
-                'landlords_affected' => $byLandlord->keys()->count(),
-            ]);
+            $alerts->record(
+                'parts_below_threshold',
+                (float) $below->count(),
+                1.0,
+                [
+                    'rows' => $below->count(),
+                    'landlords_affected' => $byLandlord->keys()->count(),
+                ],
+            );
         } else {
             $alerts->resolve('parts_below_threshold');
         }

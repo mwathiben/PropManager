@@ -29,7 +29,7 @@ use Illuminate\Validation\ValidationException;
 class TicketResolutionService
 {
     public function __construct(
-        protected ?TicketCostService $costService = null,
+        protected TicketCostService $costService,
     ) {
     }
 
@@ -91,7 +91,7 @@ class TicketResolutionService
             }
 
             // Phase-49 MAINTENANCE-COSTS-2: idempotent 'parts'-category row.
-            if ($this->costService !== null && $totalCostCents > 0) {
+            if ($totalCostCents > 0) {
                 $this->costService->recordPartsAggregate($ticket, $totalCostCents);
             }
 
