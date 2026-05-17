@@ -139,5 +139,59 @@
             "evidence": "Both gauges need oncall guidance. canonical_mirror_drift_count > 0 for a pinned mirror means a listener regressed silently — sev3. onboarding_session_abandoned_count signals product-level dropout — sev4, treated as a growth signal not a fire.",
             "remediation": "alert-thresholds.md under Operational: canonical_mirror_drift_count{mirror} sev3 threshold 0 (pinned) / sev4 threshold 5/24h (loose); on-call action documented (run onboarding:dedupe-audit verbose; identify the regressed listener; ship a backfill + listener fix). onboarding_session_abandoned_count sev4 threshold 20/week (signal for the growth team)."
         }
-    ]
+    ],
+    "audit_closeout": {
+        "closed_at": "2026-05-17",
+        "closeout_sha": "313d734",
+        "commits": [
+            "6a52a98 docs(phase-46): audit PRD baseline (18 findings)",
+            "8fe756a phase-46 phase-1a: CANONICAL-AUDIT-1/2 — Mirror Registry + MirrorAuditService scanner + cron",
+            "1c484fa phase-46 phase-1b: CANONICAL-FIX-1/2/3 — kyc_completed_at deprecated + profile_photo_path saving listener + national_id dedupe accessor",
+            "ce047a9 phase-46 phase-1c: WIZARD-INFRA-1/2/3 — onboarding_sessions + OnboardingFlow + transactional advance/back",
+            "121d541 phase-46 phase-1d: ROLE-PATHS-1/2 — RegisteredUserController role + verified middleware on onboarding",
+            "2ea3dc4 phase-46 phase-1e: PROGRESS-RESUME-1/2/3 — signed URL service + onboarding_resume_links audit + nudge cron + 30-day seal",
+            "313d734 phase-46 phase-2: Phase46OnboardingCanonicalSurfaceTest watchdog + onboarding.md runbook + alert rows"
+        ],
+        "severity_breakdown": "6 HIGH / 9 MEDIUM / 3 LOW = 18 findings",
+        "closure_summary": "Closes the user-flagged 2026-05-17 ask. 18/18 findings landed zero PRD-finding deferrals. Mirror Registry config + MirrorAuditService scanner + daily 03:30 cron detect denormalisation drift between users.* and child-table sources. CANONICAL-FIX deprecates the write-only users.kyc_completed_at (with mirror_exempt entry + 3-month remove_at), declares LandlordProfile canonical for profile_photo_path via saving listener + backfill, and ships User::canonicalNationalId() dedupe-aware accessor. WIZARD-INFRA onboarding_sessions table replaces OnboardingProgress.step_data JSON blob (real data lives in canonical models per Phase 47 migration); OnboardingFlow value object dispatches step sequences per role (landlord 8 / caretaker 3 / tenant 3); OnboardingSessionService transactional advance/back rules out orphan canonical writes. ROLE-PATHS fixes the hardcoded role=tenant in RegisteredUserController (landlord signup was impossible without admin intervention; invitation tokens override form choice); verified middleware enforced on onboarding routes. PROGRESS-RESUME signed-URL service + onboarding_resume_links audit + nudge-stalled cron + 30-day session seal. Phase24CiTest 1572 assertions still green; Phase46* suite 64 tests / 161 assertions; cross-Phase 24+46 = 65 tests / 1733 assertions.",
+        "tests_added": [
+            "tests/Feature/Onboarding/Phase46MirrorAuditServiceTest.php (8 tests, 20 assertions)",
+            "tests/Feature/Onboarding/Phase46CanonicalFixTest.php (8 tests, 10 assertions)",
+            "tests/Feature/Onboarding/Phase46WizardInfraTest.php (14 tests, 31 assertions)",
+            "tests/Feature/Onboarding/Phase46RolePathsTest.php (6 tests, 11 assertions)",
+            "tests/Feature/Onboarding/Phase46ProgressResumeTest.php (9 tests, 19 assertions)",
+            "tests/Feature/Onboarding/Phase46OnboardingCanonicalSurfaceTest.php (18 tests, 48 assertions)"
+        ],
+        "migrations_added": [
+            "2026_05_17_171559_phase46_canonical_fix_backfill_profile_photo_mirror.php (data-only backfill)",
+            "2026_05_17_171600_phase46_wizard_infra_create_onboarding_sessions.php",
+            "2026_05_17_171700_phase46_role_paths_add_role_to_invitations.php",
+            "2026_05_17_171800_phase46_progress_resume_create_onboarding_resume_links.php"
+        ],
+        "invariants_added": [
+            "config('onboarding.mirrors') Mirror Registry with 3 entries (profile_photo_path, emergency_contact_name, emergency_contact_phone).",
+            "config('onboarding.mirror_exempt') deprecation allow-list with kyc_completed_at (remove_at 2026-08-17).",
+            "App\\Services\\Onboarding\\MirrorAuditService::scan + scanOne with NULL-safe diff query (<=>).",
+            "onboarding:dedupe-audit cron daily 03:30 Africa/Nairobi + canonical_mirror_drift_count{mirror} gauge.",
+            "User::kycVerifiedAt() reads MAX(reviewed_at) from approved tenant_kyc_submissions (Cache::remember 1h); ProfileController stops writing the column.",
+            "User::canonicalNationalId() prefers approved tenant_kyc_submissions value over users.national_id.",
+            "LandlordProfile::booted() saved listener fans canonical profile_photo_path into users.",
+            "onboarding_sessions table (NOT unique on user_id — historical rows accumulate; firstFor() returns live row by application-layer query).",
+            "OnboardingFlow::forRole() dispatches step sequences (landlord 8 / caretaker 3 / tenant 3).",
+            "OnboardingSessionService::advance wraps writer in DB::transaction; ::back never touches canonical models.",
+            "RegisteredUserController accepts role from form/invitation; invitation_token overrides form choice.",
+            "Onboarding routes carry middleware('verified').",
+            "invitations.role enum (landlord/caretaker/tenant) default 'caretaker'.",
+            "OnboardingResumeService temporarySignedRoute (EXPIRY_DAYS=7) + onboarding_resume_links audit table + replay defence via SHA-256(signature) lookup + consumed_at check.",
+            "onboarding:nudge-stalled cron daily 09:00 + 3-day nudge with 24h rate-limit + 30-day session seal + onboarding_session_abandoned_count gauge.",
+            "docs/runbooks/onboarding.md gains Phase-46 extensions section; docs/runbooks/alert-thresholds.md gains 3 sev rows."
+        ],
+        "deferrals": "NONE. All 18 PRD findings landed.",
+        "cycle_followups": [
+            "Phase 47 [WIZARD-MIGRATE] candidate: migrate OnboardingController step writes from OnboardingProgress.step_data JSON blob to OnboardingSessionService::advance-wrapped canonical-model service calls. Phase 46 ships the infrastructure (onboarding_sessions table + OnboardingFlow + service) — Phase 47 deletes the JSON blob path. Mail dispatch from onboarding:nudge-stalled (currently logs the URL) also lands in Phase 47.",
+            "Register.vue Vue tail: surfaces invitationRole + invitationEmail props from RegisteredUserController::create when ?invitation=TOKEN is supplied. Backend ships the props; the form needs a role dropdown + invitation banner UI.",
+            "Drop users.kyc_completed_at column on or after 2026-08-17 per the mirror_exempt deprecation window.",
+            "Phase29CiTest pre-existing failure (firstOrFail picks up onboarding milestone row) — carried forward from Phase 45 closeout; still unresolved."
+        ]
+    }
 }
