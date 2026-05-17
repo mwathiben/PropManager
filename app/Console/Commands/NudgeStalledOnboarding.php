@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Mail\OnboardingResumeMailable;
 use App\Models\OnboardingSession;
 use App\Services\MetricsService;
 use App\Services\Onboarding\OnboardingResumeService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Phase-46 PROGRESS-RESUME-2/3: nightly sweep for stalled onboarding
@@ -50,15 +52,15 @@ class NudgeStalledOnboarding extends Command
         foreach ($nudgeCandidates as $session) {
             try {
                 $url = $resume->generate($session, $session->user_id);
-                // Mail dispatch deferred to Phase 47 [WIZARD-MIGRATE] —
-                // log the URL + record the nudge so the cron remains
-                // testable without a mail dependency.
-                Log::info('[onboarding:nudge-stalled] resume URL', [
-                    'session_id' => $session->id,
-                    'user_id' => $session->user_id,
-                    'current_step' => $session->current_step,
-                    'last_touched_at' => $session->last_touched_at?->toIso8601String(),
-                ]);
+                // Phase-47 MAIL-DISPATCH-2: dispatch the queued Mailable.
+                // afterCommit on the Mailable means a transaction rollback
+                // in this iteration won't fire orphan emails. We still
+                // bump last_nudge_sent_at after queue so the 24h rate
+                // limit holds even if mail delivery is lazy.
+                $email = optional($session->user)->email;
+                if ($email !== null) {
+                    Mail::to($email)->queue(new OnboardingResumeMailable($url, $session));
+                }
                 $session->update(['last_nudge_sent_at' => now()]);
                 $nudgesSent++;
             } catch (\Throwable $e) {
@@ -93,6 +95,9 @@ class NudgeStalledOnboarding extends Command
             ->where('abandoned_at', '>', now()->subDays(7))
             ->count();
         $metrics->gauge('onboarding_session_abandoned_count', $abandonedCount);
+
+        // Phase-47 MAIL-DISPATCH-2: visibility gauge for ops dashboards.
+        $metrics->gauge('onboarding_nudge_mail_sent_count', $nudgesSent);
 
         $this->info(sprintf(
             'Nudges sent: %d. Sessions sealed: %d. Recently-abandoned count: %d.',

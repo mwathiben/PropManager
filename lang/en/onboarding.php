@@ -39,4 +39,13 @@ return [
     'video' => [
         'label' => 'Walkthrough video',
     ],
+    'nudge' => [
+        'subject' => 'Pick up where you left off',
+        'heading' => 'Welcome back to PropManager',
+        'greeting' => 'Hi :name,',
+        'body' => "You're partway through setup — your next step is **:step**. Pick up where you left off using the link below.",
+        'cta' => 'Resume setup',
+        'expiry_note' => 'This link is valid for 7 days. If it expires, the next nudge email will include a fresh one.',
+        'signoff' => 'Thanks — the :app team',
+    ],
 ];

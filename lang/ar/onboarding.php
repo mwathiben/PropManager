@@ -39,4 +39,13 @@ return [
     'video' => [
         'label' => '[TODO-ar] Walkthrough video',
     ],
+    'nudge' => [
+        'subject' => '[TODO-ar] Pick up where you left off',
+        'heading' => '[TODO-ar] Welcome back to PropManager',
+        'greeting' => '[TODO-ar] Hi :name,',
+        'body' => "[TODO-ar] You're partway through setup — your next step is **:step**.",
+        'cta' => '[TODO-ar] Resume setup',
+        'expiry_note' => '[TODO-ar] This link is valid for 7 days.',
+        'signoff' => '[TODO-ar] Thanks — the :app team',
+    ],
 ];

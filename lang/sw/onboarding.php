@@ -39,4 +39,13 @@ return [
     'video' => [
         'label' => 'Video ya muongozo',
     ],
+    'nudge' => [
+        'subject' => 'Endelea kutoka ulikoachia',
+        'heading' => 'Karibu tena PropManager',
+        'greeting' => 'Habari :name,',
+        'body' => 'Bado unaendelea na usanidi — hatua yako inayofuata ni **:step**. Endelea kutoka pale ulikoachia kwa kutumia kiungo hapo chini.',
+        'cta' => 'Endelea usanidi',
+        'expiry_note' => 'Kiungo hiki kinaisha baada ya siku 7. Iwapo kinaisha, barua-pepe inayofuata ya kukumbusha itakuwa na kingine kipya.',
+        'signoff' => 'Asante — timu ya :app',
+    ],
 ];
