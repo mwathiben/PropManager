@@ -39,7 +39,7 @@ class BuilderController extends Controller
 
         $reports = SavedReport::query()
             ->orderByDesc('updated_at')
-            ->get(['id', 'name', 'description', 'config', 'updated_at']);
+            ->get(['id', 'name', 'description', 'config', 'updated_at', 'drill_field']);
 
         return Inertia::render('Reports/Builder', [
             'savedReports' => $reports,
