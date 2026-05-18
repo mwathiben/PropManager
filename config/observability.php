@@ -112,4 +112,16 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Phase-59 ACCESS-AUDIT-3 — File access anomaly threshold
+    |--------------------------------------------------------------------------
+    |
+    | FileAccessAnomalyAudit fires the file_access_anomaly_count gauge
+    | when a single user exceeds this many downloads in the trailing
+    | 5-minute window. Default 50 is intentionally generous (a normal
+    | tenant downloads ~3 docs per session).
+    |
+    */
+    'file_access_anomaly_threshold' => (int) env('FILE_ACCESS_ANOMALY_THRESHOLD', 50),
 ];

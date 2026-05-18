@@ -119,6 +119,12 @@ $schedule('dpa:enforce-retention', fn ($e) => $e->dailyAt('02:00')->withoutOverl
 // the two retention pipelines don't contend on the same DB transaction.
 $schedule('storage:enforce-retention', fn ($e) => $e->dailyAt('02:30')->withoutOverlapping(60));
 
+// Phase-59 ACCESS-AUDIT-3: 5-min anomaly cron over file_access_audits.
+// Emits file_access_anomaly_count{action} gauge so ops fires when a
+// single user exceeds config('observability.file_access_anomaly_threshold')
+// (default 50) downloads in the trailing 5min window.
+$schedule('file-access:anomaly-audit', fn ($e) => $e->everyFiveMinutes());
+
 // Phase-21 DEFER-DPA-1: nightly minor-tenant consent drift audit.
 // Kenya DPA Article 8 / Section 33 — flags tenants with dob indicating
 // minor status BUT no parental_consent_provided_at. Same pattern as

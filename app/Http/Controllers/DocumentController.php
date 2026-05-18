@@ -223,6 +223,15 @@ class DocumentController extends Controller
         // for sensible browser handling.
         $safeName = $this->sanitiseDownloadFilename($document->file_name, (string) $document->file_path);
 
+        // Phase-59 ACCESS-AUDIT-2: PII audit trail. Fail-soft.
+        app(\App\Services\Storage\FileAccessRecorder::class)->record(
+            $user,
+            $document,
+            \App\Models\FileAccessAudit::ACTION_DOWNLOAD,
+            request(),
+            $document->file_path,
+        );
+
         // Phase-59 SIGNED-URLS-2: 302 to a short-lived signed URL.
         // Browser fetches directly from s3 (presigned URL) or the
         // local-stream fallback (signed Laravel route). PHP-FPM no
@@ -289,6 +298,15 @@ class DocumentController extends Controller
         if (! $document->fileExists()) {
             abort(404, 'File not found in storage');
         }
+
+        // Phase-59 ACCESS-AUDIT-2: PII audit trail. Fail-soft.
+        app(\App\Services\Storage\FileAccessRecorder::class)->record(
+            $user,
+            $document,
+            \App\Models\FileAccessAudit::ACTION_VIEW,
+            request(),
+            $document->file_path,
+        );
 
         // Phase-59 SIGNED-URLS-2: 302 to short-lived signed URL with
         // inline disposition. Browser sets Content-Disposition: inline

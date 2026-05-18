@@ -174,6 +174,15 @@ class WaterReadingController extends Controller
             abort(404, 'Photo not found.');
         }
 
+        // Phase-59 ACCESS-AUDIT-2: PII audit trail. Fail-soft.
+        app(\App\Services\Storage\FileAccessRecorder::class)->record(
+            $user,
+            $reading,
+            \App\Models\FileAccessAudit::ACTION_VIEW,
+            request(),
+            $reading->photo_path,
+        );
+
         // Phase-59 SIGNED-URLS-2: 302 to short-lived signed URL with
         // inline disposition so the browser previews the image.
         return redirect()->away(
