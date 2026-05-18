@@ -1,0 +1,143 @@
+{
+    "phase": 56,
+    "title": "GROWTH-ATTRIB-1",
+    "opened_at": "2026-05-18",
+    "tier": "Tier 7 cycle 20",
+    "scope": "Deepens Phase 34/35/39 growth + experimentation primitives. Today the referrals table records only the final attribution (referrer → referred), and there is no first-touch / linear / U-shape model — every conversion is implicitly last-touch. acquisition_source is greenfield: a landlord's origin (organic vs referral vs paid) is invisible to dashboards, cohort analysis, and lifecycle reporting. Phase 39 shipped a full ExperimentService::computeSignificance + computeChiSquareSignificance + computeBayesianPosterior + computeAlphaSpendingBoundary surface, but no cron evaluates running experiments — the operator must manually inspect significance results and flip winning_variant_key by hand. product_events accepts any event_name today but the canonical funnel-stage names that the sankey diagram needs (landlord.signup / .onboarding_complete / .first_payment / .retained_60d) aren't standardized. Phase 56 closes all five at once: touchpoints table + AttributionModelService computing 4 models, acquisition_source column with writes at registration/invitation-accept, ChurnService::cohortsBySource partitioned retention curves, experiments:auto-promote nightly cron behind a dual chi-square + Bayesian gate, FunnelRollupService rollup + sankey-compatible payload, and a new /ops/growth/attribution Vue page surfacing all four analyses. Six categories x 3 findings = 18.",
+    "categories": {
+        "MULTI-TOUCH": "Today app/Services/Growth/ReferralAttributionService::attribute flips a single Referral row from pending to attributed — it's implicitly last-touch with no surface for multi-channel credit allocation. (1) New attribution_touchpoints table (user_id FK + channel enum [referral, organic_search, paid_search, social, email, direct] + touched_at + landlord_id when known + medium + campaign optional + indexes (user_id, touched_at) + (channel, touched_at)). RecordAttributionTouchpoint listener observes ReferralAttributed + LandlordRegistered + similar to write rows. (2) App\\Services\\Growth\\AttributionModelService computes four models for a given conversion (user_id + converted_at): first_touch (100% earliest), last_touch (100% latest), linear (1/N to each), u_shape (40% first + 20% middle distributed + 40% last). Returns array keyed by model_name → channel → credit_pct. (3) Phase56AttributionModelTest with 4 fixture scenarios: single-touch (all models agree 100% to that channel), two-touch (first=A100/last=B100/linear=50/50/u-shape=A60-B40 since 2 touches collapses middle), three-touch (first=A100/last=C100/linear=33/33/33/u-shape=A40-B20-C40), no-touch-fallthrough returns empty.",
+        "FUNNEL-SANKEY": "product_events table is the canonical event stream but the funnel-stage names aren't standardized — a sankey rendering requires deterministic stage labels. (1) Define App\\Services\\Growth\\FunnelStage enum: SIGNUP / ONBOARDING_COMPLETE / FIRST_PAYMENT / RETAINED_60D. App\\Services\\Growth\\FunnelEventEmitter::emit(User, FunnelStage) wraps ProductEventTracker::track with the canonical event_name 'funnel.<stage>'; listeners for Registered / OnboardingCompletedEvent / Payment created / 60-day retention cron fire emit() at the right moments. (2) App\\Services\\Growth\\FunnelRollupService::computeSankeyPayload(landlord_id?: int, days: int = 90) — counts users at each stage from product_events ('funnel.signup' through 'funnel.retained_60d') + drop-offs at each transition. Returns sankey shape: [{nodes: [{id, label, count}], links: [{source, target, value}]}]. (3) Pages/Ops/Growth/Attribution.vue includes an SVG sankey rendered server-side via the Vue 3 Composition API (no third-party library — hand-rolled node-link bands using SVG rect + path). 4-stage sankey with rejections+continuations + KES en-KE count formatting.",
+        "COHORT-BY-SOURCE": "App\\Services\\Growth\\ChurnService::subscriptionCohorts returns one retention curve per signup-month — there's no way to compare retention of referral-acquired landlords vs organic vs paid. acquisition_source is also greenfield. (1) Add users.acquisition_source column (enum [organic, referral, paid, invitation, unknown] default 'unknown'). RegisteredUserController writes 'invitation' when invitation token present, 'referral' when referral_code in session, else 'organic'. New rows in admin panel can set 'paid'. (2) ChurnService::cohortsBySource(monthsBack: int = 12) — re-uses the existing scaffolding from subscriptionCohorts but partitions each cohort row by acquisition_source. Returns [cohort_month][source] → [size, retention_curve]. (3) Phase56CohortBySourceTest fixture: 3 landlords (1 organic, 1 referral, 1 paid) signed up Jan 2026; 2026-05 cohort returns 3 separate keys each with size=1 + retention curve.",
+        "AB-AUTO-PROMOTE": "Phase 39 EXP-STATS-2 shipped the chi-square + Bayesian + alpha-spending math but no cron actually evaluates running experiments — operator must manually inspect computeSignificance results and flip winning_variant_key. (1) App\\Console\\Commands\\ExperimentsAutoPromote::handle iterates Experiment::where('status', RUNNING). For each, computes computeChiSquareSignificance + computeBayesianPosterior under a default success closure (ExperimentExposure flips when user has any product_event after the exposure's fired_at OR the experiment-specific success_event_name). Dual gate: chi-square p_value < 0.01 AND posterior p_b_better_than_a > 0.95 → set winning_variant_key + transition to CONCLUDED + emit ExperimentConcluded event. Run nightly 03:30 Africa/Nairobi via Schedule::command. (2) New `experiments.success_event_name` nullable column (Phase 35 schema only had variants JSON; this lets each experiment name its own conversion event without rewriting computeSignificance closures). (3) ExperimentConcluded event + listener LogExperimentConclusion writes a product_events row 'experiment.concluded' with [experiment_key, winning_variant_key, chi_p, bayes_posterior] so the timeline shows when each experiment flipped.",
+        "DASHBOARDS": "Today there's no /ops/growth/attribution page — operators can't see attribution model outputs, the funnel sankey, or cohort-by-source overlays at-a-glance. (1) App\\Http\\Controllers\\Ops\\OpsGrowthAttributionController::index under role:super_admin renders Pages/Ops/Growth/Attribution.vue. Inertia payload: attribution_summary (each of 4 models' top 3 channels by credit_pct over last 30d), funnel_sankey (FunnelRollupService::computeSankeyPayload), cohort_by_source (ChurnService::cohortsBySource truncated to last 6 months), experiments_auto_promoted (last 10 ExperimentConcluded rows). (2) Route GET /ops/growth/attribution name=ops.growth.attribution.index. (3) Pages/Ops/Growth/Attribution.vue four-card layout: AttributionModelCard (4 model columns + top-3 channel bars), FunnelSankeyCard (SVG sankey), CohortBySourceCard (mini line-chart per source per cohort), AutoPromotedCard (timeline of concluded experiments). Reuses Phase-55 widget-ordering primitive (LandlordDashboard slug='ops_growth' for ops user, though this is super_admin not landlord — TODO future).",
+        "CI": "(1) Phase56GrowthAttribSurfaceTest cross-category presence map covering: attribution_touchpoints table exists; AttributionModelService class has computeForUser method; FunnelStage enum exists; FunnelEventEmitter::emit signature present; users.acquisition_source column exists; ChurnService::cohortsBySource method exists; ExperimentsAutoPromote command class + nightly schedule entry; OpsGrowthAttributionController exists + route registered; Pages/Ops/Growth/Attribution.vue exists; growth.md mentions Phase 56. (2) Extend docs/runbooks/growth.md with Phase-56 section (5 sub-sections matching the 5 functional categories + a 'choosing an attribution model' decision matrix). (3) Cross-link Phase 34 (referral attribution lineage), Phase 35 (experiments + product_events lineage), Phase 39 (significance math lineage) audit_closeouts."
+    },
+    "findings": [
+        {
+            "id": "MULTI-TOUCH-1",
+            "severity": "HIGH",
+            "title": "attribution_touchpoints table + RecordAttributionTouchpoint listener",
+            "evidence": "Today app/Services/Growth/ReferralAttributionService::attribute only flips a single Referral row. No table records the touch sequence; multi-touch attribution is impossible.",
+            "remediation": "New attribution_touchpoints migration: id, user_id FK->users.cascadeOnDelete, channel enum [referral, organic_search, paid_search, social, email, direct, invitation], medium string nullable, campaign string nullable, landlord_id nullable, touched_at timestamp, timestamps. Indexes (user_id, touched_at desc), (channel, touched_at desc). New AttributionTouchpoint Eloquent model with TenantScope guarded by landlord_id when set. App\\Listeners\\Growth\\RecordAttributionTouchpoint observes ReferralAttributed + LandlordRegistered events to insert rows. Idempotent: don't insert if same (user_id, channel, touched_at within 1s) already exists."
+        },
+        {
+            "id": "MULTI-TOUCH-2",
+            "severity": "MEDIUM",
+            "title": "AttributionModelService computes 4 models",
+            "evidence": "No attribution-model logic exists. Operators want to see the same conversion under different credit-allocation rules.",
+            "remediation": "App\\Services\\Growth\\AttributionModelService::computeForUser(int $userId, ?Carbon $convertedAt = null): array. Pulls AttributionTouchpoint::where('user_id', $userId)->where('touched_at', '<=', $convertedAt ?? now())->orderBy('touched_at')->get(). Returns: [model_name => [channel => credit_pct]]. Four model functions: firstTouch (100% earliest), lastTouch (100% latest), linear (100/N per touch), uShape (40% first + 20% middle distributed + 40% last; with N=2 collapses to 50/50, with N=3 yields 40/20/40, with N=1 yields 100). Channel credit aggregated when same channel appears in multiple touches. Returns empty array when no touchpoints (caller decides fallback)."
+        },
+        {
+            "id": "MULTI-TOUCH-3",
+            "severity": "LOW",
+            "title": "Multi-touch model unit tests with 4 canonical scenarios",
+            "evidence": "Attribution math is the kind of code that's wrong if you don't write tests for the edge cases. 4 fixture scenarios cover the algebra exhaustively.",
+            "remediation": "Phase56MultiTouchAttributionTest in tests/Feature/Growth/. Scenarios: single-touch (1 touchpoint, all 4 models 100% to that channel); two-touch (A then B, expectations: first=A100, last=B100, linear=A50/B50, u-shape=A50/B50 since middle is empty); three-touch (A→B→C, expectations: first=A100, last=C100, linear=A33/B33/C33, u-shape=A40/B20/C40); no-touch-fallthrough (no touchpoints, all models return empty array). Each scenario asserts each of 4 models independently. Use assertEqualsWithDelta for floats with delta=0.5 (percent points)."
+        },
+        {
+            "id": "FUNNEL-SANKEY-1",
+            "severity": "HIGH",
+            "title": "FunnelStage enum + FunnelEventEmitter",
+            "evidence": "product_events accepts any event_name but the funnel-stage names aren't standardized. Sankey requires deterministic labels.",
+            "remediation": "App\\Services\\Growth\\FunnelStage backed enum: SIGNUP='signup', ONBOARDING_COMPLETE='onboarding_complete', FIRST_PAYMENT='first_payment', RETAINED_60D='retained_60d'. App\\Services\\Growth\\FunnelEventEmitter::emit(User $user, FunnelStage $stage, array $extra = []): void calls ProductEventTracker::track('funnel.'.$stage->value, $extra, $user). Wire listeners: app/Listeners/Growth/EmitSignupFunnelEvent on Illuminate\\Auth\\Events\\Registered; app/Listeners/Growth/EmitOnboardingFunnelEvent on existing OnboardingCompletedEvent (or equivalent listener — scout for the canonical signal); existing PaymentReceivedEvent or similar fires EmitFirstPaymentFunnelEvent (guarded by 'is this the FIRST payment for this user' check); 60d retention emitted by a daily cron 'funnel:emit-retained-60d' that scans users with signup ≥60d ago AND any product_event in the last 30d AND no prior funnel.retained_60d row."
+        },
+        {
+            "id": "FUNNEL-SANKEY-2",
+            "severity": "MEDIUM",
+            "title": "FunnelRollupService::computeSankeyPayload",
+            "evidence": "Rendering the sankey requires aggregated node/link counts. Server-side rollup belongs in a service, not the controller.",
+            "remediation": "App\\Services\\Growth\\FunnelRollupService::computeSankeyPayload(?int $landlordId = null, int $days = 90): array. Queries product_events where event_name IN ['funnel.signup','funnel.onboarding_complete','funnel.first_payment','funnel.retained_60d'] AND created_at >= now()->subDays($days) AND (landlord_id = $landlordId OR $landlordId IS NULL → ops mode). Counts distinct user_ids at each stage. Returns sankey shape: {nodes: [{id: 'signup', label: 'Signup', count: N}, ...], links: [{source: 'signup', target: 'onboarding_complete', value: M}, {source: 'signup', target: 'dropped_off_at_onboarding', value: N-M}, ...]}. Each stage drops users who didn't progress into a 'dropped_off_at_<next_stage>' synthetic node so the sankey total stays balanced."
+        },
+        {
+            "id": "FUNNEL-SANKEY-3",
+            "severity": "MEDIUM",
+            "title": "Vue sankey SVG renderer (no library)",
+            "evidence": "vue-sankey / d3-sankey would be the obvious choice but bring 50-100kb of deps. A 4-stage sankey is simple enough to hand-roll.",
+            "remediation": "Pages/Ops/Growth/Attribution.vue includes a FunnelSankey component (resources/js/Components/Growth/FunnelSankey.vue). Hand-rolled SVG: 4 vertical bands one per stage, each band height proportional to total flow at that stage; nodes are SVG <rect>s within bands; links are SVG <path d='M x1 y1 C cx1 cy1 cx2 cy2 x2 y2'/> with Bezier control points 1/3 along x-axis for smooth curves. Drop-off nodes rendered gray; continuation nodes rendered emerald. WCAG AA-compliant colors (4.5:1 contrast). aria-label on each node summarizing 'Stage X: N users, M% from previous'."
+        },
+        {
+            "id": "COHORT-BY-SOURCE-1",
+            "severity": "HIGH",
+            "title": "users.acquisition_source column + write paths",
+            "evidence": "acquisition_source is greenfield — no column exists. Without it, COHORT-BY-SOURCE has nothing to partition on.",
+            "remediation": "Migration adds users.acquisition_source enum [organic, referral, paid, invitation, unknown] default 'unknown'. Backfill existing users.acquisition_source = (case when EXISTS(invitations.invited_user_id=users.id) then 'invitation' when EXISTS(referrals.referred_user_id=users.id) then 'referral' else 'organic' end). RegisteredUserController writes 'invitation' when invitation token present in session, 'referral' when referral_code in session, else 'organic' — explicit branches at the registration commit boundary."
+        },
+        {
+            "id": "COHORT-BY-SOURCE-2",
+            "severity": "MEDIUM",
+            "title": "ChurnService::cohortsBySource partitioned retention",
+            "evidence": "Existing ChurnService::subscriptionCohorts returns one curve per cohort-month. Operator can't compare organic vs referral vs paid retention.",
+            "remediation": "ChurnService::cohortsBySource(int $monthsBack = 12): array. Re-uses signup-month bucketing from subscriptionCohorts but partitions each cohort by users.acquisition_source. Returns [cohort_month][acquisition_source] => [size: int, retention_curve: [month_offset => active_count]]. Active = user has any product_events in that month. Each (cohort_month, source) row computed independently to handle small-sample-size sources gracefully."
+        },
+        {
+            "id": "COHORT-BY-SOURCE-3",
+            "severity": "LOW",
+            "title": "Phase56CohortBySourceTest 3-source fixture",
+            "evidence": "Cohort math is easy to silently break; a fixture-based test pins the contract.",
+            "remediation": "Phase56CohortBySourceTest: create 3 landlords (one acquisition_source per landlord: organic, referral, paid) all signed up 2026-01-15. Create product_events at +30d for organic only, at +30d AND +60d for referral, at +30d AND +60d AND +90d for paid. cohortsBySource returns 3 separate source keys for the 2026-01 cohort. Each has size=1; retention curves differ per source. Validates partitioning logic + month-bucketing."
+        },
+        {
+            "id": "AB-AUTO-PROMOTE-1",
+            "severity": "HIGH",
+            "title": "experiments:auto-promote nightly cron",
+            "evidence": "Phase 39 ExperimentService::computeChiSquareSignificance + computeBayesianPosterior exist but no cron runs them. Operator must manually inspect significance results.",
+            "remediation": "App\\Console\\Commands\\ExperimentsAutoPromote::handle iterates Experiment::where('status', Experiment::STATUS_RUNNING)->get(). For each: build success closure from experiments.success_event_name (default: 'any product_event after fired_at'). Compute chiSquare + bayesianPosterior. Gate: chi_p_value < 0.01 AND bayes_p_b_better_than_a > 0.95 (winner is variant B in 2-arm; for N-arm, identify highest p_pct and require it to dominate every other variant by ≥0.95 posterior). On gate pass: $experiment->update(['winning_variant_key' => $winner, 'status' => Experiment::STATUS_CONCLUDED, 'ends_at' => now()]) + ExperimentConcluded event::dispatch. Schedule::command('experiments:auto-promote')->dailyAt('03:30')->timezone('Africa/Nairobi'). Phase56AutoPromoteTest fixture: 2-variant experiment with extreme conversion gap (90/10 = winner B) gets promoted on cron run; tie (50/50) stays RUNNING."
+        },
+        {
+            "id": "AB-AUTO-PROMOTE-2",
+            "severity": "MEDIUM",
+            "title": "experiments.success_event_name nullable column",
+            "evidence": "Phase 35 schema has variants JSON but no per-experiment success criterion. Cron needs to know what counts as conversion for each experiment.",
+            "remediation": "Migration adds experiments.success_event_name string(120) nullable. Backfill leaves NULL (cron defaults to 'any product_event after fired_at'). New experiments can specify a precise event_name (e.g., 'invoice.paid' for a payment-flow experiment). ExperimentsAutoPromote::buildClosure uses the column value when present, else the fallback."
+        },
+        {
+            "id": "AB-AUTO-PROMOTE-3",
+            "severity": "MEDIUM",
+            "title": "ExperimentConcluded event + LogExperimentConclusion listener",
+            "evidence": "When an experiment auto-promotes, the operator needs an audit trail. A product_events row 'experiment.concluded' with [experiment_key, winning_variant_key, chi_p, bayes_posterior] gives the timeline.",
+            "remediation": "App\\Events\\ExperimentConcluded($experimentKey, $winningVariantKey, $chiPValue, $bayesPosterior). App\\Listeners\\Growth\\LogExperimentConclusion handles by calling ProductEventTracker::track('experiment.concluded', [experiment_key, winning_variant_key, chi_p, bayes_posterior]). Auto-discovered by typed handle(ExperimentConcluded). No queue (synchronous; lightweight)."
+        },
+        {
+            "id": "DASHBOARDS-1",
+            "severity": "MEDIUM",
+            "title": "OpsGrowthAttributionController::index",
+            "evidence": "/ops/growth/attribution is greenfield; the four new analyses have no home today.",
+            "remediation": "App\\Http\\Controllers\\Ops\\OpsGrowthAttributionController::index under role:super_admin renders Pages/Ops/Growth/Attribution.vue. Inertia payload: attribution_summary (4 models * top-3 channels by credit_pct aggregated over last 30d via AttributionModelService::computeForUser for each landlord registered in window), funnel_sankey (FunnelRollupService::computeSankeyPayload(null, 90) — ops sees all landlords), cohort_by_source (ChurnService::cohortsBySource(6) truncated for display), experiments_auto_promoted (Experiment::where('status', CONCLUDED)->orderBy('ends_at', desc)->limit(10) recent timeline). Reasonable max payload size; lazy-load deeper data via XHR if needed (out of scope)."
+        },
+        {
+            "id": "DASHBOARDS-2",
+            "severity": "MEDIUM",
+            "title": "Route GET /ops/growth/attribution name=ops.growth.attribution.index",
+            "evidence": "Route binding needed under super_admin middleware. Phase 36 OpsDashboardController set the namespace convention.",
+            "remediation": "routes/web.php under existing /ops/* + role:super_admin group: Route::get('/ops/growth/attribution', [\\App\\Http\\Controllers\\Ops\\OpsGrowthAttributionController::class, 'index'])->name('ops.growth.attribution.index'). Add corresponding nav-link in the ops sidebar component (Phase 36 OpsLayout if it exists; otherwise document for next cycle)."
+        },
+        {
+            "id": "DASHBOARDS-3",
+            "severity": "MEDIUM",
+            "title": "Pages/Ops/Growth/Attribution.vue four-card layout",
+            "evidence": "Operators need a single page that surfaces all four analyses at-a-glance.",
+            "remediation": "Pages/Ops/Growth/Attribution.vue layouts four cards in a 2x2 grid (collapsing to 1-col on mobile): (a) AttributionModelCard — 4 model columns (first/last/linear/u-shape), each with top-3 channels as horizontal bars labeled with credit_pct; (b) FunnelSankeyCard — hand-rolled SVG sankey (Components/Growth/FunnelSankey.vue); (c) CohortBySourceCard — mini line-chart (SVG, no library) per acquisition_source per cohort showing retention curve; (d) AutoPromotedCard — chronological list of last 10 ExperimentConcluded rows with [experiment_key, winning_variant_key, chi_p formatted as p<0.01, bayes_posterior as %]. KES en-KE / number formatting via Intl.NumberFormat where applicable. Phase-31 wizard-style card shells (rounded-2xl shadow-sm border border-gray-200 p-6)."
+        },
+        {
+            "id": "CI-1",
+            "severity": "HIGH",
+            "title": "Phase56GrowthAttribSurfaceTest cross-category watchdog",
+            "evidence": "Six categories of new surfaces need invariant assertions so a future refactor can't silently regress.",
+            "remediation": "tests/Feature/Growth/Phase56GrowthAttribSurfaceTest with assertions: (a) attribution_touchpoints table exists; (b) AttributionModelService class + computeForUser method; (c) FunnelStage enum has 4 cases; (d) FunnelEventEmitter::emit method exists; (e) users.acquisition_source column exists; (f) ChurnService::cohortsBySource method exists; (g) ExperimentsAutoPromote command class + 'experiments:auto-promote' signature + nightly schedule entry; (h) OpsGrowthAttributionController exists + 'ops.growth.attribution.index' route registered; (i) Pages/Ops/Growth/Attribution.vue file exists; (j) docs/runbooks/growth.md contains 'Phase 56' + 'GROWTH-ATTRIB-1'."
+        },
+        {
+            "id": "CI-2",
+            "severity": "LOW",
+            "title": "docs/runbooks/growth.md Phase-56 section",
+            "evidence": "growth.md exists since Phase 34. Phase 56 needs an appended section.",
+            "remediation": "Append Phase-56 section: surface ownership map (each of the 4 analyses → service/controller/view); choosing-an-attribution-model decision matrix (when to prefer first-touch vs last-touch vs linear vs u-shape); funnel-sankey reading guide; cohort-by-source interpretation tips; experiments:auto-promote dual-gate explanation + how to override (manual transition); cross-references to Phase 34/35/39 lineage."
+        },
+        {
+            "id": "CI-3",
+            "severity": "LOW",
+            "title": "Cross-link Phase 34 / 35 / 39 closeouts to Phase 56",
+            "evidence": "Future readers tracing the growth-attribution lineage need forward references from the existing PRDs.",
+            "remediation": "Append Phase 56 cross-references to the audit_closeout notes of phase-34-audit-prd.json (referral lineage), phase-35-audit-prd.json (experiments + product_events lineage), phase-39-audit-prd.json (chi-square / Bayesian / alpha-spending lineage). No behavioural change — just cross-reference accuracy."
+        }
+    ]
+}
