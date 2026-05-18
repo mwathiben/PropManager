@@ -9,8 +9,11 @@ use Illuminate\Database\Eloquent\Model;
 class Experiment extends Model
 {
     public const STATUS_DRAFT = 'draft';
+
     public const STATUS_RUNNING = 'running';
+
     public const STATUS_PAUSED = 'paused';
+
     public const STATUS_CONCLUDED = 'concluded';
 
     public const STATUSES = [
@@ -28,6 +31,7 @@ class Experiment extends Model
         'status',
         'variants',
         'winning_variant_key',
+        'success_event_name',
         'starts_at',
         'ends_at',
     ];

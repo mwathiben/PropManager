@@ -757,3 +757,14 @@ Schedule::command('i18n:spend-audit')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase53-gauge-wiring3-i18n-spend');
+
+// Phase-56 AB-AUTO-PROMOTE-1: nightly auto-promote of RUNNING experiments
+// whose chi-square p < 0.01 AND Bayesian p_b_better_than_a > 0.95 (or its
+// mirror < 0.05). Concludes the experiment + sets winning_variant_key
+// without operator intervention. Runs at 03:30 — clear of the Phase-34
+// growth cluster (04:05-04:15) so the rollups don't contend on tables.
+Schedule::command('experiments:auto-promote')
+    ->dailyAt('03:30')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase56-ab-auto-promote');
