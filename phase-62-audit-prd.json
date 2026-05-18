@@ -1,0 +1,143 @@
+{
+    "phase": 62,
+    "title": "PWA-OFFLINE-DEPTH",
+    "opened_at": "2026-05-18",
+    "tier": "Tier 7 cycle 26",
+    "scope": "Deepens Phase 26 [MOBILE+PWA] (offline shell + idb-keyval store + queuedOps Pinia + useBackgroundSync wrapping POST /invoices ONLY) and Phase 37 [PWA-DEPTH] (useWebPush + WeeklyInsightDigest) into a complete offline-write surface. Today the Workbox BackgroundSyncPlugin in resources/js/sw.ts:143-157 is hardcoded to POST /invoices via url.pathname.startsWith('/invoices'); zero coverage for ticket creation, ticket comments, water readings, payment recording, or building/unit/lease mutations. Ticket photo annotations (Phase 45 TICKET-PHOTOS) are canvas-in-memory only with no FileReader→Blob→IndexedDB pipeline. The WithETag trait (app/Http/Traits/WithETag.php) is read-only — no write-side conflict detection. useConnection.isSlow is dormant (1 reference repo-wide, in Reports/Cohort.vue). Six categories x 3 = 18 findings closing the writes/photos/cache/conflict/connectivity gaps + a CI surface map + offline.md runbook.",
+    "categories": {
+        "OFFLINE-WRITES": "Generalise BackgroundSyncPlugin from POST /invoices only to a multi-route registerOfflinePost() helper, then extend to tickets/comments/readings/payments. (1) registerOfflinePost(matcher, queueName) helper in resources/js/sw.ts that wraps a Workbox registerRoute call + creates a BackgroundSyncPlugin queue keyed to a route family. (2) Extend coverage to POST /tickets, POST /tickets/{id}/comments, POST /readings, POST /payments — each gets a named queue (pm-offline-tickets / pm-offline-comments / pm-offline-readings / pm-offline-payments). (3) Persistent IndexedDB write queue with retry-with-backoff + max-retries + dead-letter for ops that fail repeatedly on replay; current Pinia store is in-memory and lost on tab close.",
+        "OFFLINE-PHOTOS": "Ticket photo annotations (Phase 45 TICKET-PHOTOS) survive offline. (1) FileReader→Blob→IndexedDB pipeline in TicketPhotoAnnotator.vue — canvas snapshot persisted to idb-keyval keyed by ticket_id + timestamp + retry handle. (2) Replay upload on reconnect with progress UI (per-photo status pill on the ticket detail page). (3) Size budget enforcement — cap offline photo store at 50MB per user, evict oldest on overflow, cleanup blob entry on successful upload.",
+        "CACHE-STRATEGY": "Refined service-worker cache strategies per route family. (1) Replace single SWR-5min API-reads runtimeCaching with per-route-family policies: dashboard reads NetworkFirst 30s, list pages StaleWhileRevalidate 5min, detail pages StaleWhileRevalidate 2min, static lookups CacheFirst 7d. (2) Shell precache — include AuthenticatedLayout HTML + dashboard skeleton in precache so offline boot rehydrates auth state instead of always falling through to /offline. (3) Cache-invalidation hooks on mutation success — when a queued POST succeeds, bust the relevant SWR cache so the user sees fresh data on next read.",
+        "CONFLICT-RESOLUTION": "Server-side conflict detector. (1) version unsignedInteger column default 1 on tickets / ticket_comments / water_readings with WriteConflictException + RowVersion trait that bumps version on save and asserts If-Match header matches current version. (2) Controllers handling POST/PATCH on those resources return 409 with diff payload when version mismatches; useBackgroundSync forwards the current cached version as If-Match. (3) Last-write-wins-with-warning UI prompt — Vue Components/Offline/ConflictDialog.vue surfaces the diff to the user with overwrite / discard / merge buttons.",
+        "CONNECTIVITY-UX": "Beyond the existing OnlineIndicator pill + QueuedOpsTray. (1) Surface the dormant useConnection.isSlow with a slow-network banner (amber bar with 'Connection is slow — some actions may take longer' copy) wired into AuthenticatedLayout. (2) Pending-sync badge per-resource — the queuedOps store gains a hasPendingFor(resourceType, id) selector; Invoice/Ticket/Reading detail pages render an amber 'Pending sync' chip when a queued op targets that resource. (3) 'Sync now' manual trigger in QueuedOpsTray — button POSTs a SYNC_NOW message to the SW which kicks off all background-sync queue replays immediately instead of waiting for the navigator-driven retry.",
+        "CI": "(1) Phase62PwaOfflineDepthSurfaceTest cross-category presence map — sw.ts contains registerOfflinePost helper + 4 named queues (tickets/comments/readings/payments), TicketPhotoAnnotator imports the photo queue, version column exists on tickets/ticket_comments/water_readings, WriteConflictException class exists, SlowNetworkBanner.vue + ConflictDialog.vue + PendingSyncBadge.vue components exist, useConnection.isSlow has ≥3 consumers, offline.md exists. (2) Per-category Phase62 watchdog tests (Phase62OfflineWritesTest, Phase62OfflinePhotosTest, Phase62CacheStrategyTest, Phase62ConflictResolutionTest, Phase62ConnectivityUxTest). (3) docs/runbooks/offline.md NEW — queue lifecycle table (enqueue → replay → success/conflict/dead-letter), per-route-family cache TTL contract, conflict-resolution flow diagram, operator runbook for inspecting dead-letter queues."
+    },
+    "findings": [
+        {
+            "id": "OFFLINE-WRITES-1",
+            "severity": "HIGH",
+            "title": "registerOfflinePost helper + 4 named queues",
+            "evidence": "resources/js/sw.ts:143-157 hardcodes BackgroundSyncPlugin to POST /invoices only via url.pathname.startsWith('/invoices'). No extensibility: adding a new offline-safe write requires copy-pasting the registerRoute block. Single shared queue means /invoices retry storms block other writes.",
+            "remediation": "Add registerOfflinePost(matcher: RegExp | ((url: URL) => boolean), queueName: string, maxRetentionMinutes = 24 * 60) helper in resources/js/sw.ts that wraps a Workbox registerRoute with NetworkOnly + BackgroundSyncPlugin keyed to queueName. Call it 4 times for the existing /invoices queue (preserve backward compat) + 3 new queues (pm-offline-tickets / pm-offline-comments / pm-offline-readings / pm-offline-payments). Each queue has its own maxRetentionMinutes so payment retries don't share fate with comment retries."
+        },
+        {
+            "id": "OFFLINE-WRITES-2",
+            "severity": "HIGH",
+            "title": "Extend useBackgroundSync to tickets / comments / readings / payments",
+            "evidence": "resources/js/composables/useBackgroundSync.ts:154 has a single hardcoded `url.pathname.startsWith('/invoices')` gate. Other mutation surfaces (TicketsController::store, TicketCommentController::store, WaterReadingController::store, PaymentController::store) have no offline path — the request fails with a network error and the user loses their work.",
+            "remediation": "Refactor useBackgroundSync to accept an options.routeFamily parameter (one of 'invoices' | 'tickets' | 'comments' | 'readings' | 'payments') that maps to the corresponding queue name. The composable adds the X-Idempotency-Key header (ULID, already established pattern) + routes the request through fetch, and on network error appends to queuedOps with the routeFamily tag so the QueuedOpsTray can group display by type. Wire the new family into the 4 mentioned controllers' Inertia POST callers."
+        },
+        {
+            "id": "OFFLINE-WRITES-3",
+            "severity": "MEDIUM",
+            "title": "Persistent IndexedDB write queue + retry-with-backoff + dead-letter",
+            "evidence": "stores/queuedOps.ts is in-memory Pinia state — closed-tab loses queued ops. Workbox BackgroundSyncPlugin persists to its own IDB store but has no dead-letter handling: a permanently failing op (e.g., validation error on replay) cycles forever and never surfaces to the user.",
+            "remediation": "New resources/js/lib/offlineWriteQueue.ts wraps idb-keyval with three stores (queue / dead-letter / replay-log). Each enqueue: ULID + routeFamily + payload + createdAt + attempts (default 0). On SW BG_SYNC_DRAINED message, increment attempts; after MAX_ATTEMPTS=5, move to dead-letter store + emit a queuedOps.markDeadLetter event so QueuedOpsTray surfaces a 'Permanently failed' section with the server's last error response. Replay-log keeps the last 50 successful replays for audit/debug. Hydrate Pinia store from IDB on app boot so reopened tabs see pending work."
+        },
+        {
+            "id": "OFFLINE-PHOTOS-1",
+            "severity": "HIGH",
+            "title": "FileReader→Blob→IndexedDB pipeline for ticket annotations",
+            "evidence": "TicketPhotoAnnotator.vue (Phase 45 TICKET-PHOTOS-1) uses canvas.toBlob → router.post immediately. On network failure the in-memory blob is lost — the user has to redraw the annotation. No FileReader hook, no IDB persistence, no retry handle.",
+            "remediation": "Extract annotation persistence into resources/js/lib/offlinePhotoStore.ts (idb-keyval namespace 'pm-offline-photos'). Annotator on submit: canvas.toBlob → store.put(`ticket-${ticketId}-${ULID}`, { blob, ticketId, annotation_json, createdAt }) — returns the key as a retry handle BEFORE attempting upload. Upload path: standard router.post; on success delete the IDB entry; on offline error keep the entry. Boot hook: walk store on app load, find pending photos, hand them to the offline upload queue."
+        },
+        {
+            "id": "OFFLINE-PHOTOS-2",
+            "severity": "MEDIUM",
+            "title": "Replay upload on reconnect + per-photo progress UI",
+            "evidence": "Even with blob persistence, the user has no signal that their offline photo will retry. They might re-submit and create duplicates.",
+            "remediation": "Pages/Tickets/Show.vue gains a Components/Offline/PhotoUploadStatusList.vue rendering pending photos from offlinePhotoStore filtered to the current ticket. Each row: thumbnail + 'Pending sync' / 'Uploading...' / 'Failed (5 attempts)' status pill + cancel button. Uses the same dead-letter handling as offlineWriteQueue. PhotoUploader.vue (or equivalent existing component) calls offlinePhotoStore.enqueue() with onProgress callback updating the row state."
+        },
+        {
+            "id": "OFFLINE-PHOTOS-3",
+            "severity": "LOW",
+            "title": "Size budget enforcement + cleanup on success",
+            "evidence": "An unbounded blob store can fill the user's quota and break the PWA. No eviction policy today (since the store doesn't exist).",
+            "remediation": "offlinePhotoStore exposes getTotalBytes() (sum of blob.size across all entries) + enforceBudget(maxBytes=50*1024*1024). On enqueue, if total exceeds budget, evict oldest entries until under budget OR reject with QuotaExceededError if even after eviction the new blob doesn't fit. Cleanup on successful upload is automatic (entry deletion). Document the 50MB budget in offline.md + emit offline_photo_quota_evictions_count gauge for visibility."
+        },
+        {
+            "id": "CACHE-STRATEGY-1",
+            "severity": "HIGH",
+            "title": "Per-route-family runtimeCaching with tuned TTLs",
+            "evidence": "resources/js/sw.ts:63-130 has 5 runtime caching strategies but the 'api-reads' bucket (SWR 5min) is one-size-fits-all. Dashboard reads (which surface stale rent-collected numbers) shouldn't be cached 5min; static lookups (currencies, plan list) should be cached 7d. Mixing TTLs in one bucket means cache decisions are wrong for both ends of the spectrum.",
+            "remediation": "Split api-reads into 4 runtimeCaching entries by URL pattern: /dashboard → NetworkFirst 30s; /api/v1/{invoices,tickets,leases,payments} (list pages) → SWR 5min; /api/v1/{invoices,tickets,leases,payments}/{id} (detail) → SWR 2min; /api/v1/{currencies,plans,countries} (static lookups) → CacheFirst 7d. Document the TTL contract in offline.md with a table mapping route→strategy→TTL."
+        },
+        {
+            "id": "CACHE-STRATEGY-2",
+            "severity": "MEDIUM",
+            "title": "Shell precache: AuthenticatedLayout HTML + dashboard skeleton",
+            "evidence": "vite.config.js globPatterns: ['**/*.{js,css,woff2}'] precaches only JS/CSS/fonts. The Inertia root HTML page is fetched fresh every nav. Offline navigation falls through to /offline rather than booting into a cached app shell with auth state.",
+            "remediation": "Add a precache entry for the AuthenticatedLayout shell + Dashboard skeleton (rendered server-side once at build time and served as a static HTML asset OR captured via a precache request in the build step). NavigationRoute handler in sw.ts (line 55-59) checks if request is for a same-origin authenticated path AND the user has a recent session cookie AND the shell is in cache — returns shell with Inertia data hydrated from cached read store. Falls through to /offline only when shell isn't cached. Adds offline_shell_boot_count gauge."
+        },
+        {
+            "id": "CACHE-STRATEGY-3",
+            "severity": "MEDIUM",
+            "title": "Cache-invalidation hooks on mutation success",
+            "evidence": "When a queued POST succeeds (e.g., creates an invoice) the SWR cache for /api/v1/invoices still serves the stale list. User has to pull-to-refresh or wait for SWR's background revalidation. Even worse: the user's queued write is visible in QueuedOpsTray but not in the data list, looks like the write got lost.",
+            "remediation": "BG_SYNC_DRAINED message handler in app.js (line 135-142) gets a new payload: { queueName, succeededRoutes: string[] }. App-side handler walks each succeeded route, computes the corresponding read-cache key, and posts a CACHE_BUST message back to the SW. SW message handler in sw.ts uses caches.delete() on the matching SWR cache entries. List pages auto-revalidate on next focus."
+        },
+        {
+            "id": "CONFLICT-RESOLUTION-1",
+            "severity": "HIGH",
+            "title": "version column + RowVersion trait + WriteConflictException",
+            "evidence": "app/Http/Traits/WithETag.php (30 lines) is read-only: serves ETags on GET responses. Tickets/Comments/Readings have no version column — if Device A and Device B both queue an update offline and replay, the second write silently overwrites the first.",
+            "remediation": "Migration adds `version unsignedInteger default 1` to tickets, ticket_comments, water_readings tables. New App\\Models\\Concerns\\RowVersion trait: saving listener bumps version on every update. Saving listener asserts If-Match header (if provided in request) matches current version; throws App\\Exceptions\\WriteConflictException carrying current row state + incoming payload diff. WriteConflictException maps to HTTP 409 with body { current_version, current_row, incoming, diff }."
+        },
+        {
+            "id": "CONFLICT-RESOLUTION-2",
+            "severity": "MEDIUM",
+            "title": "Controllers + useBackgroundSync forward If-Match version",
+            "evidence": "Trait is dead code without controller wiring + client-side header propagation.",
+            "remediation": "TicketController::update + TicketCommentController::update + WaterReadingController::update each opt into RowVersion + assert If-Match (Laravel middleware reads $request->header('If-Match'); empty header skips check for backward compat). useBackgroundSync.ts reads the cached resource's version from offlineStore and adds X-If-Match header on the replay. Render middleware that translates WriteConflictException to JSON 409 (or Inertia error bag with conflict.* keys)."
+        },
+        {
+            "id": "CONFLICT-RESOLUTION-3",
+            "severity": "LOW",
+            "title": "ConflictDialog.vue last-write-wins-with-warning prompt",
+            "evidence": "409 response is opaque without UI — user has no path to recover except retry which would just 409 again.",
+            "remediation": "Components/Offline/ConflictDialog.vue takes { current, incoming, diff } props + emits resolve('overwrite'|'discard'|'merge'). Wired into AuthenticatedLayout's global error boundary: any 409 from the offline replay layer surfaces the dialog. Overwrite path: re-POST with the now-current version. Discard path: silently drop the queued op. Merge path (basic): show field-level diff with checkbox per field. Document the three resolution paths in offline.md."
+        },
+        {
+            "id": "CONNECTIVITY-UX-1",
+            "severity": "MEDIUM",
+            "title": "SlowNetworkBanner.vue wires the dormant useConnection.isSlow",
+            "evidence": "useConnection.isSlow has 1 reference repo-wide (Reports/Cohort.vue, for deferred chart loading). Slow networks are invisible to users — the UI just appears to hang on form submits.",
+            "remediation": "Components/Layout/SlowNetworkBanner.vue — amber bar below the topbar reading '{{ __('connectivity.slow_banner') }}' (i18n key with 'Connection is slow — some actions may take longer'). Mounted into AuthenticatedLayout right above <main>. Watches useConnection.isSlow; renders only when true. Dismissable per-session via localStorage (key 'pm.slow_banner.dismissed_until' = timestamp + 5min). i18n keys added to lang/en/connectivity.php; ar/sw locales get TODO markers per Phase 52 contract."
+        },
+        {
+            "id": "CONNECTIVITY-UX-2",
+            "severity": "MEDIUM",
+            "title": "PendingSyncBadge.vue per-resource indicator",
+            "evidence": "QueuedOpsTray shows a global count but resource detail pages don't surface that a specific row has a queued op. Users see a 'normal' invoice/ticket but it hasn't actually reached the server.",
+            "remediation": "queuedOps.ts gains hasPendingFor(routeFamily, resourceId) selector (queries the IDB queue, returns boolean). New Components/Offline/PendingSyncBadge.vue takes { routeFamily, resourceId } props + renders an amber 'Pending sync' chip when selector returns true. Wired into Pages/Invoices/Show.vue, Pages/Tickets/Show.vue, Pages/Leases/Show.vue, Pages/WaterReadings/Show.vue headers."
+        },
+        {
+            "id": "CONNECTIVITY-UX-3",
+            "severity": "LOW",
+            "title": "'Sync now' manual trigger in QueuedOpsTray",
+            "evidence": "Background-sync replay timing is opaque — navigator-driven retry, no manual trigger. Users want to confirm 'did my work go through' RIGHT NOW after reconnecting.",
+            "remediation": "QueuedOpsTray.vue gains a 'Sync now' button that posts a SYNC_NOW message to the active SW. sw.ts message handler iterates all 4 BackgroundSync queues and calls queue.replayRequests() on each. After replay, posts BG_SYNC_DRAINED back. Disabled when queue is empty OR offline. i18n keys 'connectivity.sync_now' / 'connectivity.syncing' added."
+        },
+        {
+            "id": "CI-1",
+            "severity": "LOW",
+            "title": "Phase62PwaOfflineDepthSurfaceTest cross-category presence map",
+            "evidence": "Cycle-wide regression watchdog needed to lock in every surface added by Phase 62. Same pattern as Phase 55-61 surface tests.",
+            "remediation": "tests/Feature/Pwa/Phase62PwaOfflineDepthSurfaceTest.php with 11 cross-category invariants: sw.ts contains registerOfflinePost helper + 4 named queue strings; 4 controllers wired into useBackgroundSync; offlineWriteQueue.ts + offlinePhotoStore.ts exist; version column on tickets/ticket_comments/water_readings (via Schema::hasColumn); RowVersion trait + WriteConflictException classes exist; SlowNetworkBanner + PendingSyncBadge + ConflictDialog Vue files exist; AuthenticatedLayout imports SlowNetworkBanner; offline.md exists + mentions Phase 62 + queue lifecycle table heading."
+        },
+        {
+            "id": "CI-2",
+            "severity": "MEDIUM",
+            "title": "Per-category watchdog tests",
+            "evidence": "Single surface map doesn't catch regressions in any one sub-surface.",
+            "remediation": "Phase62OfflineWritesTest (queue helper signature + 4 queue names + payload schema); Phase62OfflinePhotosTest (idb-keyval namespace + budget enforcement + cleanup hook); Phase62CacheStrategyTest (4 runtimeCaching entries + TTL constants + shell precache marker); Phase62ConflictResolutionTest (version column + RowVersion saving listener + 409 response shape + ConflictDialog props contract); Phase62ConnectivityUxTest (SlowNetworkBanner mounted in layout + isSlow consumer count ≥ 3 + 'Sync now' message handler in sw.ts)."
+        },
+        {
+            "id": "CI-3",
+            "severity": "LOW",
+            "title": "docs/runbooks/offline.md NEW",
+            "evidence": "Phase 26 + 37 + 62 PWA surface has no umbrella runbook — operator + new dev have no map to the offline contract.",
+            "remediation": "docs/runbooks/offline.md NEW covering: PWA primitives map (useOfflineData / useBackgroundSync / useConnection / useWebPush + idb stores); queue lifecycle table (enqueue → attempt N → success | conflict | dead-letter); per-route-family cache TTL contract (table from CACHE-STRATEGY-1); conflict-resolution flow diagram (client → If-Match → 200 / 409 → ConflictDialog); operator runbook for inspecting dead-letter queues via browser DevTools (Application → IndexedDB → pm-offline-* stores); cross-link to Phase 26 [MOBILE+PWA] + Phase 37 [PWA-DEPTH] phase plans. alert-thresholds.md gains 3 visibility-only rows: offline_writes_dead_letter_count, offline_photo_quota_evictions_count, offline_shell_boot_count."
+        }
+    ]
+}
