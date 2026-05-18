@@ -139,5 +139,54 @@
             "evidence": "Future readers tracing the growth-attribution lineage need forward references from the existing PRDs.",
             "remediation": "Append Phase 56 cross-references to the audit_closeout notes of phase-34-audit-prd.json (referral lineage), phase-35-audit-prd.json (experiments + product_events lineage), phase-39-audit-prd.json (chi-square / Bayesian / alpha-spending lineage). No behavioural change — just cross-reference accuracy."
         }
-    ]
+    ],
+    "audit_closeout": {
+        "closed_at": "2026-05-18",
+        "summary": "18/18 findings closed across 6 categories (5H/9M/4L). Zero PRD-finding deferrals. Deepens Phase 34/35/39 growth + experimentation primitives: attribution_touchpoints + AttributionModelService (4 models), FunnelStage enum + FunnelRollupService + hand-rolled SVG sankey, users.acquisition_source + ChurnService::cohortsBySource, experiments:auto-promote nightly cron behind dual chi-square (p<0.01) + Bayesian (>0.95) gate, /ops/growth/attribution super-admin dashboard.",
+        "stats": {
+            "tests": 37,
+            "assertions": 134,
+            "new_files": [
+                "database/migrations/2026_05_18_400000_phase56_attribution1_create_attribution_touchpoints.php",
+                "database/migrations/2026_05_18_400100_phase56_cohort1_add_acquisition_source_to_users.php",
+                "database/migrations/2026_05_18_400200_phase56_autopromote1_add_success_event_to_experiments.php",
+                "app/Models/AttributionTouchpoint.php",
+                "app/Services/Growth/AttributionTouchpointRecorder.php",
+                "app/Services/Growth/AttributionModelService.php",
+                "app/Services/Growth/FunnelStage.php",
+                "app/Services/Growth/FunnelEventEmitter.php",
+                "app/Services/Growth/FunnelRollupService.php",
+                "app/Listeners/Growth/RecordReferralAttributedTouchpoint.php",
+                "app/Listeners/Growth/LogExperimentConclusion.php",
+                "app/Events/ExperimentConcluded.php",
+                "app/Console/Commands/ExperimentsAutoPromote.php",
+                "app/Http/Controllers/Ops/OpsGrowthAttributionController.php",
+                "resources/js/Components/Growth/FunnelSankey.vue",
+                "resources/js/Pages/Ops/Growth/Attribution.vue",
+                "tests/Feature/Growth/Phase56MultiTouchAttributionTest.php",
+                "tests/Feature/Growth/Phase56FunnelSankeyTest.php",
+                "tests/Feature/Growth/Phase56CohortBySourceTest.php",
+                "tests/Feature/Growth/Phase56AutoPromoteTest.php",
+                "tests/Feature/Growth/Phase56OpsAttributionDashboardTest.php",
+                "tests/Feature/Growth/Phase56GrowthAttribSurfaceTest.php"
+            ],
+            "modified_surfaces": [
+                "app/Models/User.php (acquisition_source in fillable)",
+                "app/Models/Experiment.php (success_event_name in fillable)",
+                "app/Services/Growth/ChurnService.php (cohortsBySource method)",
+                "app/Http/Controllers/Auth/RegisteredUserController.php (touchpoint + acquisition_source + funnel.signup emit at registration commit)",
+                "routes/web.php (ops.growth.attribution.index route under role:super_admin)",
+                "routes/console.php (experiments:auto-promote daily 03:30 Africa/Nairobi)"
+            ]
+        },
+        "commits": [
+            "f5362e1 docs(phase-56): [GROWTH-ATTRIB-1] PRD baseline",
+            "c081890 feat(phase-56): MULTI-TOUCH attribution_touchpoints + AttributionModelService",
+            "d40878d feat(phase-56): FUNNEL-SANKEY enum + emitter + rollup + hand-rolled SVG renderer",
+            "0be5606 feat(phase-56): COHORT-BY-SOURCE users.acquisition_source + ChurnService::cohortsBySource",
+            "b3b2133 feat(phase-56): AB-AUTO-PROMOTE nightly cron behind dual chi-square + Bayesian gate",
+            "a6a9444 feat(phase-56): DASHBOARDS /ops/growth/attribution super-admin Vue page",
+            "286cbe1 test(phase-56): CI surface watchdog + growth.md Phase-56 section"
+        ]
+    }
 }
