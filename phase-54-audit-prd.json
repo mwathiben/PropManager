@@ -139,5 +139,100 @@
             "evidence": "Phase 49 sub-scope deferrals reference 'Phase 50+' in their closeout notes but the resolution actually lands in Phase 54.",
             "remediation": "Update phase-49-audit-prd.json audit_closeout notes for the 4 sub-scope items to cite Phase 54 commits. NO behavioural change — just cross-reference accuracy so future readers can trace the lineage."
         }
-    ]
+    ],
+    "closed_at": "2026-05-18",
+    "closeout_commit": "78fc743",
+    "outcome": "18/18 findings closed, zero PRD-finding deferrals",
+    "audit_closeout": {
+        "VENDOR-NOTIFICATIONS-1": {
+            "status": "closed",
+            "commit": "ab1010b",
+            "notes": "NotifyVendorOnAssignment ShouldQueue + tries=4 + backoff=[30,60,300,1800] Phase-16 RESIL pattern. Auto-discovered by typed handle(TicketAssignedToVendor). Skips silently when vendor.email is null."
+        },
+        "VENDOR-NOTIFICATIONS-2": {
+            "status": "closed",
+            "commit": "ab1010b",
+            "notes": "lang/{en,sw,ar}/maintenance.php new namespace with vendor_assigned.* keys in identical order across all three locales. ar/ carries [TODO-ar] placeholders per Phase 44 shrink-only baseline."
+        },
+        "VENDOR-NOTIFICATIONS-3": {
+            "status": "closed",
+            "commit": "ab1010b",
+            "notes": "VendorAssignmentMailable ShouldQueue + afterCommit + locale resolution. Vendor is not a User so HasLocalePreference does not auto-fire — falls back to ticket.landlord->preferredLocale() then config(app.fallback_locale)."
+        },
+        "SLA-LANDLORD-UI-1": {
+            "status": "closed",
+            "commit": "0d9cb13",
+            "notes": "SlaDefinitionController index/store/update/destroy under /sla (role:landlord middleware, NOT /admin/sla which is super-admin). Validates category in [issue,complaint], priority in Ticket::SLA_SECONDS keys, response/resolution bounded [60, 31536000]."
+        },
+        "SLA-LANDLORD-UI-2": {
+            "status": "closed",
+            "commit": "0d9cb13",
+            "notes": "Pages/Sla/Index.vue table of overrides + read-only globals + create/edit modal with cascade preview (priority/category/subcategory tuple display)."
+        },
+        "SLA-LANDLORD-UI-3": {
+            "status": "closed",
+            "commit": "0d9cb13",
+            "notes": "SlaDefinitionPolicy registered + SlaDefinitionObserver flushes the Phase-49 SlaDefinitionService::resolveFor cache on save/delete. Cache invalidation via per-landlord version-stamp key (sla:ver:{landlord|global}) embedded in resolve cache key — any write bumps version, next resolve computes fresh key, no 5-minute lag."
+        },
+        "PARTS-REORDER-1": {
+            "status": "closed",
+            "commit": "c704ec0",
+            "notes": "draft_purchase_orders + draft_purchase_order_lines tables with TenantScope, soft-deletes, status enum [draft|sent|cancelled], unique(landlord_id, status, suggested_vendor_id) for open-draft-per-vendor invariant. DraftPurchaseOrder + DraftPurchaseOrderLine models with STATUS_* constants + totalEstimateCents() helper."
+        },
+        "PARTS-REORDER-2": {
+            "status": "closed",
+            "commit": "c704ec0",
+            "notes": "PartsReorderSuggest cron daily 06:45 Africa/Nairobi (after parts:audit-stock 06:30, before tickets:audit-sla 07:00). Walks Part::belowThreshold; groups by inferred vendor (latest ticket_parts -> ticket.vendor_id, NULL when no history); idempotently firstOrCreate via unique index + updateOrCreate lines per part_id. Re-runs do NOT duplicate. Suggested qty = max(1, reorder_threshold * 2 - qty_available). Emits draft_purchase_orders_pending_count{landlord_id} gauge."
+        },
+        "PARTS-REORDER-3": {
+            "status": "closed",
+            "commit": "c704ec0",
+            "notes": "PartsPurchaseOrderController index lists draft + sent orders with vendor + lines + estimated total. confirm() flips status=sent + sets sent_at; cancel() flips status=cancelled. Both gated by manual ownership check (cross-tenant 403). Pages/Parts/PurchaseOrders.vue cards per order with Confirm/Cancel buttons, KES formatted via Intl.NumberFormat en-KE."
+        },
+        "COST-UI-1": {
+            "status": "closed",
+            "commit": "4f2b10c",
+            "notes": "TicketController::show passes costs (TicketCostService::summarize) + canManageCosts props (tenant view omits costs entirely). Pages/Tickets/Show.vue sidebar Cost card after Details + Cancel sections: 4-segment proportional bar (parts/vendor/labor/other in indigo/emerald/amber/rose) + per-category breakdown formatted KES en-KE."
+        },
+        "COST-UI-2": {
+            "status": "closed",
+            "commit": "4f2b10c",
+            "notes": "TicketCostController::store validates category in [vendor,labor,other] (parts auto-recorded by Phase-49 TicketResolutionService::recordParts; rejected here for single source of truth), amount_cents > 0, optional notes max 500. POST /tickets/{ticket}/costs under role:landlord; writes TicketCost row + TicketActivity action=cost_recorded inside DB::transaction."
+        },
+        "COST-UI-3": {
+            "status": "closed",
+            "commit": "4f2b10c",
+            "notes": "TicketPolicy::createCost requires user.isLandlord() && ticket.landlord_id === user.id. Caretakers explicitly denied (they view costs but cannot mutate). TicketActivity captures category + amount_cents + currency so manual entry surfaces in audit timeline."
+        },
+        "VENDOR-ONBOARDING-1": {
+            "status": "closed",
+            "commit": "b996f59",
+            "notes": "VendorObserver::created mints 7-day URL::signedRoute(vendor.profile.edit) and queues VendorCreatedMailable. Skipped silently when vendor.email is null. VendorObserver registered in AppServiceProvider. VendorCreatedMailable ShouldQueue + afterCommit + locale fallback chain (landlord->preferredLocale -> config(app.fallback_locale))."
+        },
+        "VENDOR-ONBOARDING-2": {
+            "status": "closed",
+            "commit": "b996f59",
+            "notes": "VendorProfileController::edit + ::update under signed + throttle:invitation middleware OUTSIDE the auth group. Allow-listed mutations: contact_person, phone, address, notes. landlord_id, email, name explicitly NOT in validator so token-holder cannot pivot to identity/billing mutations. Vendor is standalone (no User row); the signed URL IS the auth."
+        },
+        "VENDOR-ONBOARDING-3": {
+            "status": "closed",
+            "commit": "b996f59",
+            "notes": "Pages/Vendor/Profile.vue standalone branded form (no AuthenticatedLayout — vendors are not logged in). Indigo->emerald gradient bg, ring-1 card. lang/{en,sw,ar}/maintenance.vendor_onboarding.* with 8 envelope keys + 8 form.* sub-keys identity-parity across locales."
+        },
+        "CI-1": {
+            "status": "closed",
+            "commit": "78fc743",
+            "notes": "Phase54MaintenanceDepth2SurfaceTest 15 tests / 30 assertions — cross-category presence map. Plus per-category watchdogs: VendorNotificationsTest 8/43, SlaLandlordUiTest 7/25, PartsReorderTest 7/22, CostUiTest 6/38, VendorOnboardingTest 7/26. Total 50 tests / 184 assertions across the cycle."
+        },
+        "CI-2": {
+            "status": "closed",
+            "commit": "78fc743",
+            "notes": "docs/runbooks/maintenance.md Phase-54 section appended with closures table (A3.1-A3.4 → commits), per-category contract details (SLA version-stamp cache invalidation, parts vendor-inference heuristic, surface-tagged cost counter-at-caller pattern from Phase 53 learning, signed-URL-as-auth + explicit allow-list for vendor onboarding), and CI gate map."
+        },
+        "CI-3": {
+            "status": "closed",
+            "commit": "78fc743",
+            "notes": "phase-49-audit-prd.json audit_closeout notes for the 4 sub-scope deferrals appended with Phase 54 commit references (NotifyVendorOnAssignment -> b996f59/ab1010b, SLA admin UI -> 0d9cb13, parts:reorder-suggest -> c704ec0, ticket cost UI -> 4f2b10c) so future readers trace the lineage without a separate index."
+        }
+    }
 }
