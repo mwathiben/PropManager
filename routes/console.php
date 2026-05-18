@@ -779,3 +779,12 @@ Schedule::command('slo:enforce-budgets')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase57-p95-budgets-enforce');
+
+// Phase-57 SLOW-QUERY-3: weekly rollup of slow_query_log_entries into
+// slow_query_log_weekly_rollups + top-10 gauge emit. Runs Monday 06:30
+// — same operator review window as Phase-34 GROWTH-CHURN-3 06:00.
+Schedule::command('slow-query:rollup')
+    ->weeklyOn(1, '06:30')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase57-slow-query-rollup');
