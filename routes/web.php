@@ -177,6 +177,17 @@ Route::post('/email/unsubscribe', [\App\Http\Controllers\NotificationsController
     ->name('email.unsubscribe')
     ->middleware(['signed.once', 'throttle:invitation']);
 
+// Phase-54 VENDOR-ONBOARDING-2: signed-URL profile completion for a
+// vendor. No auth — the signed URL IS the auth. Outside the
+// auth-middleware group so unauthenticated vendors can complete the
+// form. throttle:invitation matches the existing one-shot-link cadence.
+Route::middleware(['signed', 'throttle:invitation'])->group(function () {
+    Route::get('/v/profile/{vendor}', [\App\Http\Controllers\VendorProfileController::class, 'edit'])
+        ->name('vendor.profile.edit');
+    Route::patch('/v/profile/{vendor}', [\App\Http\Controllers\VendorProfileController::class, 'update'])
+        ->name('vendor.profile.update');
+});
+
 // --- AUTHENTICATED ROUTES GROUP ---
 Route::middleware('auth')->group(function () {
 

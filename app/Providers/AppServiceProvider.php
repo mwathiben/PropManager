@@ -184,6 +184,8 @@ class AppServiceProvider extends ServiceProvider
         Refund::observe(RefundObserver::class);
         // Phase-54 SLA-LANDLORD-UI-3: flush SlaDefinitionService cache on write.
         \App\Models\SlaDefinition::observe(\App\Observers\SlaDefinitionObserver::class);
+        // Phase-54 VENDOR-ONBOARDING-1: signed-URL welcome mail on Vendor::created.
+        \App\Models\Vendor::observe(\App\Observers\VendorObserver::class);
 
         // Prevent lazy loading in non-production to catch N+1 queries.
         // OBS-9: in production, sample 1% of requests so genuine N+1
