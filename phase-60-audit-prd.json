@@ -3,13 +3,13 @@
     "title": "PLAN-MANAGEMENT",
     "opened_at": "2026-05-18",
     "tier": "Tier 7 cycle 24",
-    "scope": "Deepens Phase 35 PLATFORM + Phase 40-42 GATEWAY work into a complete landlord-facing self-serve plan management surface. Today the SubscriptionController has /subscription/index + /plans + /subscribe + /cancel + /resume but NO upgrade/downgrade flow (only cancel-then-resubscribe), NO PlanGateService (every feature check duplicates the plan->feature_flag lookup), NO trial-period machinery wired end-to-end (the trial_ends_at column exists since Phase 34 but no signup-time trial assignment, no countdown UI, no expiry cron beyond a generic reminder), NO coupon redemption flow (Stripe supports coupons natively but the app has no coupons table or redemption UX), NO Stripe Customer Portal integration (landlords can't update card / view invoices outside the app). Phase 60 closes all five gaps. Phase 41 GATEWAY-DEEP added StripeService + StripeSubscriptionService — we extend those rather than ship a parallel surface. Six categories x 3 = 18 findings.",
+    "scope": "Deepens Phase 35 PLATFORM + Phase 40-42 GATEWAY work into a complete landlord-facing self-serve plan management surface. Today the SubscriptionController has /subscription/index + /plans + /subscribe + /cancel + /resume but NO upgrade/downgrade flow (only cancel-then-resubscribe), NO PlanGateService (every feature check duplicates the plan->feature_flag lookup), NO trial-period machinery wired end-to-end (the trial_ends_at column exists since Phase 34 but no signup-time trial assignment, no countdown UI, no expiry cron beyond a generic reminder), NO coupon redemption flow (Stripe supports coupons natively but the app has no coupons table or redemption UX), NO Stripe Customer Portal integration (landlords can't update card / view invoices outside the app). Phase 60 closes all five gaps. Phase 41 GATEWAY-DEEP added StripeService + StripeSubscriptionService \u00e2\u20ac\u201d we extend those rather than ship a parallel surface. Six categories x 3 = 18 findings.",
     "categories": {
         "PLAN-CHANGE": "Self-serve upgrade/downgrade flow. (1) App\\Services\\Subscriptions\\PlanChangeService::changeplan(Subscription, newPlan, prorationBehaviour='create_prorations'): performs the plan switch via StripeSubscriptionService + emits PlanChanged event for downstream listeners. (2) /subscription/change POST route with role:landlord; SubscriptionController::change validates new plan exists + new plan != current + writes a SubscriptionPlanChange audit row. (3) Plans/Index.vue surfaces 'Switch to this plan' button per plan card (was 'Subscribe' only). Confirmation modal shows proration estimate.",
         "FEATURE-GATES": "Consolidate plan feature checks behind a single service. (1) App\\Services\\Subscriptions\\PlanGateService::can(string $feature, ?User $user = null): bool reads from current subscription's plan; supports the 8 feature flags on subscription_plans (water_billing_enabled, ocr_enabled, reports_enabled, bulk_operations_enabled, document_storage_enabled, email_notifications_enabled, sms_notifications_enabled, priority_support); falls back to false when no active subscription. Cache::remember 5m keyed on (user_id, feature). (2) Wire into 4 representative sample controllers/services to prove the pattern: WaterReadingController (water_billing_enabled gate), OcrService (ocr_enabled gate), ImportService (bulk_operations_enabled gate), ReportsController (reports_enabled gate). Each emits a plan_feature_denied_count{feature} gauge increment when denied. (3) Helper Blade/Vue directive: @can-feature('reports_enabled') / v-can-feature='reports_enabled' shows lock icon + 'Upgrade to access' link when denied. Inertia-shared via HandleInertiaRequests.",
-        "TRIAL-DEPTH": "Wire trial-period machinery end-to-end. (1) App\\Services\\Subscriptions\\TrialStartService::startTrialFor(User $landlord, int $days = 14): mints a trial Subscription on the default plan (config('subscriptions.trial_plan_slug', 'starter')) with status=trialing + trial_ends_at=now+days; auto-fires from a Registered event listener for landlord-role signups (Phase 35 had the column, this wires the listener). (2) /subscription/index Vue page shows a trial countdown banner when subscription.isTrialing() — days remaining + 'Upgrade now' CTA. (3) trial:audit-ending command daily 09:00 Africa/Nairobi sends a 3-days-out reminder email (already exists from Phase 34) + auto-downgrades trial_ends_at < now subscriptions to status=expired and emits trial_expired_count gauge. The reminder cron exists; the auto-expire is new.",
+        "TRIAL-DEPTH": "Wire trial-period machinery end-to-end. (1) App\\Services\\Subscriptions\\TrialStartService::startTrialFor(User $landlord, int $days = 14): mints a trial Subscription on the default plan (config('subscriptions.trial_plan_slug', 'starter')) with status=trialing + trial_ends_at=now+days; auto-fires from a Registered event listener for landlord-role signups (Phase 35 had the column, this wires the listener). (2) /subscription/index Vue page shows a trial countdown banner when subscription.isTrialing() \u00e2\u20ac\u201d days remaining + 'Upgrade now' CTA. (3) trial:audit-ending command daily 09:00 Africa/Nairobi sends a 3-days-out reminder email (already exists from Phase 34) + auto-downgrades trial_ends_at < now subscriptions to status=expired and emits trial_expired_count gauge. The reminder cron exists; the auto-expire is new.",
         "COUPONS": "Stripe-mirrored coupon redemption. (1) coupons table (code unique, stripe_coupon_id nullable, discount_type enum [percent, fixed], discount_value decimal, max_redemptions nullable, expires_at nullable, created_at, deleted_at soft-delete). coupon_redemptions table (id, coupon_id FK, user_id FK, subscription_id FK nullable, redeemed_at, stripe_invoice_id nullable; unique(coupon_id, user_id) so the same user can't redeem twice). Coupon + CouponRedemption models. (2) App\\Services\\Subscriptions\\CouponService::redeem(string $code, User $user, ?Subscription $subscription = null): validates code exists + active + within max_redemptions + not expired; calls Stripe API to apply to the subscription if Stripe is the active gateway; persists a redemption row + emits coupon_redeemed_count gauge increment. (3) Coupon input on /subscription/plans + /subscription/subscribe; landlord-side admin /admin/coupons CRUD (use existing Admin layout pattern); UI shows discount in the proration estimate.",
-        "BILLING-PORTAL": "Stripe Customer Portal redirect for billing self-service. (1) App\\Services\\StripeService::createBillingPortalSession(User $landlord, string $returnUrl): string — calls \\Stripe\\BillingPortal\\Session::create + returns the portal URL. Looks up stripe_customer_id via existing StripeCustomer model (Phase 42 added it). Throws BillingPortalUnavailable if no customer exists. (2) /settings/billing/portal GET route under role:landlord; SubscriptionController::portal calls the service + redirect()->away to the Stripe-hosted URL. Returns to /settings/billing on completion. (3) Add a 'Manage billing' button on Subscription/Index.vue + Settings/Index.vue that POSTs to /settings/billing/portal (POST so CSRF + auth gates apply; controller returns redirect, which is fine through CSRF + Inertia).",
+        "BILLING-PORTAL": "Stripe Customer Portal redirect for billing self-service. (1) App\\Services\\StripeService::createBillingPortalSession(User $landlord, string $returnUrl): string \u00e2\u20ac\u201d calls \\Stripe\\BillingPortal\\Session::create + returns the portal URL. Looks up stripe_customer_id via existing StripeCustomer model (Phase 42 added it). Throws BillingPortalUnavailable if no customer exists. (2) /settings/billing/portal GET route under role:landlord; SubscriptionController::portal calls the service + redirect()->away to the Stripe-hosted URL. Returns to /settings/billing on completion. (3) Add a 'Manage billing' button on Subscription/Index.vue + Settings/Index.vue that POSTs to /settings/billing/portal (POST so CSRF + auth gates apply; controller returns redirect, which is fine through CSRF + Inertia).",
         "CI": "(1) Phase60PlanManagementSurfaceTest cross-category presence map: PlanChangeService + PlanGateService + TrialStartService + CouponService class assertions; coupons + coupon_redemptions tables exist; SubscriptionController has change + portal methods; trial:auto-expire cron scheduled; coupon_redeemed_count + plan_feature_denied_count + trial_expired_count gauges advertised in alert-thresholds.md. (2) docs/runbooks/billing.md NEW (split off from the Phase 42 payments.md): plan-management surface map; PlanGateService usage pattern; trial-period mechanics; coupon redemption flow; billing portal contract; cross-link to Phase 35/40/41/42 lineage. (3) Add 3 sev rows to alert-thresholds.md: coupon_redeemed_count visibility-only; plan_feature_denied_count visibility-only; trial_expired_count visibility-only (trial expiry is expected behaviour; high values may indicate trial-abuse, but not directly alerting)."
     },
     "findings": [
@@ -17,8 +17,8 @@
             "id": "PLAN-CHANGE-1",
             "severity": "HIGH",
             "title": "PlanChangeService::changeplan with prorated Stripe call",
-            "evidence": "SubscriptionController has /subscribe + /cancel + /resume but no /change endpoint. Today an upgrade means cancel-then-resubscribe — disruptive and breaks Stripe's prorated invoicing.",
-            "remediation": "App\\Services\\Subscriptions\\PlanChangeService::changeplan(Subscription $current, SubscriptionPlan $newPlan, string $prorationBehaviour = 'create_prorations'): updates the local Subscription row inside a DB::transaction + calls StripeSubscriptionService::updateSubscription on the Stripe customer's subscription. Returns the updated Subscription. Fail-soft on Stripe API errors — log the error + leave the local row unchanged (StripeWebhookController will eventually reconcile)."
+            "evidence": "SubscriptionController has /subscribe + /cancel + /resume but no /change endpoint. Today an upgrade means cancel-then-resubscribe \u00e2\u20ac\u201d disruptive and breaks Stripe's prorated invoicing.",
+            "remediation": "App\\Services\\Subscriptions\\PlanChangeService::changeplan(Subscription $current, SubscriptionPlan $newPlan, string $prorationBehaviour = 'create_prorations'): updates the local Subscription row inside a DB::transaction + calls StripeSubscriptionService::updateSubscription on the Stripe customer's subscription. Returns the updated Subscription. Fail-soft on Stripe API errors \u00e2\u20ac\u201d log the error + leave the local row unchanged (StripeWebhookController will eventually reconcile)."
         },
         {
             "id": "PLAN-CHANGE-2",
@@ -53,13 +53,13 @@
             "severity": "MEDIUM",
             "title": "Inertia-shared planFeatures + Vue v-can-feature directive",
             "evidence": "UI shouldn't show feature controls the user can't access. Today there's no shared mechanism.",
-            "remediation": "HandleInertiaRequests::share emits 'planFeatures' object {water_billing_enabled: bool, ocr_enabled: bool, ...} reading from PlanGateService for the authenticated user (or empty object for anon). Vue components read $page.props.planFeatures.water_billing_enabled directly OR use a shared usePlanFeatures composable. No directive yet — the prop pattern is sufficient and matches existing v-if patterns in the codebase."
+            "remediation": "HandleInertiaRequests::share emits 'planFeatures' object {water_billing_enabled: bool, ocr_enabled: bool, ...} reading from PlanGateService for the authenticated user (or empty object for anon). Vue components read $page.props.planFeatures.water_billing_enabled directly OR use a shared usePlanFeatures composable. No directive yet \u00e2\u20ac\u201d the prop pattern is sufficient and matches existing v-if patterns in the codebase."
         },
         {
             "id": "TRIAL-DEPTH-1",
             "severity": "HIGH",
             "title": "TrialStartService + Registered listener for landlord signups",
-            "evidence": "trial_ends_at exists on the Subscription model since Phase 34 but is never populated at signup time. New landlords have no subscription and no trial — they hit feature gates immediately.",
+            "evidence": "trial_ends_at exists on the Subscription model since Phase 34 but is never populated at signup time. New landlords have no subscription and no trial \u00e2\u20ac\u201d they hit feature gates immediately.",
             "remediation": "App\\Services\\Subscriptions\\TrialStartService::startTrialFor(User $landlord, int $days = 14): creates a Subscription on the default plan (config('subscriptions.trial_plan_slug', 'starter')) with status=Trialing and trial_ends_at=now+days. App\\Listeners\\StartTrialOnLandlordRegistered listens to Illuminate\\Auth\\Events\\Registered, fires if event->user->role === 'landlord' && no existing active subscription. Auto-discovered via typed handle."
         },
         {
@@ -88,7 +88,7 @@
             "severity": "MEDIUM",
             "title": "CouponService::redeem with Stripe mirror",
             "evidence": "Schema alone is dead code without the redemption logic.",
-            "remediation": "App\\Services\\Subscriptions\\CouponService::redeem(string $code, User $user, ?Subscription $subscription = null): array — validates code exists + is_active + not expired + redemption count < max_redemptions + not previously redeemed by user; if Stripe is the active gateway AND stripe_coupon_id set, calls Stripe API to apply the coupon to the customer's subscription; persists a CouponRedemption row; emits coupon_redeemed_count gauge increment. Returns ['success' => bool, 'discount_summary' => string]. Throws CouponInvalidException with i18n-friendly reason on validation failure."
+            "remediation": "App\\Services\\Subscriptions\\CouponService::redeem(string $code, User $user, ?Subscription $subscription = null): array \u00e2\u20ac\u201d validates code exists + is_active + not expired + redemption count < max_redemptions + not previously redeemed by user; if Stripe is the active gateway AND stripe_coupon_id set, calls Stripe API to apply the coupon to the customer's subscription; persists a CouponRedemption row; emits coupon_redeemed_count gauge increment. Returns ['success' => bool, 'discount_summary' => string]. Throws CouponInvalidException with i18n-friendly reason on validation failure."
         },
         {
             "id": "COUPONS-3",
@@ -101,8 +101,8 @@
             "id": "BILLING-PORTAL-1",
             "severity": "HIGH",
             "title": "StripeService::createBillingPortalSession",
-            "evidence": "Landlords can't manage payment methods, view invoices, or download receipts without an in-app surface for each. Stripe's hosted Customer Portal covers all of this — we just need to issue session URLs.",
-            "remediation": "App\\Services\\StripeService::createBillingPortalSession(User $landlord, string $returnUrl): string — looks up StripeCustomer::where('user_id', $landlord->id)->first(); throws BillingPortalUnavailable if no customer record (landlord hasn't been onboarded to Stripe yet). Calls \\Stripe\\BillingPortal\\Session::create(['customer' => $stripeCustomerId, 'return_url' => $returnUrl]). Returns session URL. Fail-soft: wraps the SDK call in try/catch; throws a domain BillingPortalUnavailable on SDK failure."
+            "evidence": "Landlords can't manage payment methods, view invoices, or download receipts without an in-app surface for each. Stripe's hosted Customer Portal covers all of this \u00e2\u20ac\u201d we just need to issue session URLs.",
+            "remediation": "App\\Services\\StripeService::createBillingPortalSession(User $landlord, string $returnUrl): string \u00e2\u20ac\u201d looks up StripeCustomer::where('user_id', $landlord->id)->first(); throws BillingPortalUnavailable if no customer record (landlord hasn't been onboarded to Stripe yet). Calls \\Stripe\\BillingPortal\\Session::create(['customer' => $stripeCustomerId, 'return_url' => $returnUrl]). Returns session URL. Fail-soft: wraps the SDK call in try/catch; throws a domain BillingPortalUnavailable on SDK failure."
         },
         {
             "id": "BILLING-PORTAL-2",
@@ -136,8 +136,63 @@
             "id": "CI-3",
             "severity": "LOW",
             "title": "alert-thresholds.md 3 new rows",
-            "evidence": "3 new gauges shipped — operator dashboards won't see them without rows in the catalog.",
-            "remediation": "alert-thresholds.md: trial_expired_count visibility-only (expected behaviour; high values surface trial-abuse signals); plan_feature_denied_count visibility-only (high values mean landlords hit gates frequently — could indicate confusing UX or pricing-tier misfit); coupon_redeemed_count visibility-only (marketing-campaign signal; sudden spike could be code-sharing abuse)."
+            "evidence": "3 new gauges shipped \u00e2\u20ac\u201d operator dashboards won't see them without rows in the catalog.",
+            "remediation": "alert-thresholds.md: trial_expired_count visibility-only (expected behaviour; high values surface trial-abuse signals); plan_feature_denied_count visibility-only (high values mean landlords hit gates frequently \u00e2\u20ac\u201d could indicate confusing UX or pricing-tier misfit); coupon_redeemed_count visibility-only (marketing-campaign signal; sudden spike could be code-sharing abuse)."
         }
-    ]
+    ],
+    "audit_closeout": {
+        "closed_at": "2026-05-18",
+        "summary": "18/18 findings closed across 6 categories (5H/8M/5L). Zero PRD-finding deferrals. Deepens Phase 35 PLATFORM + Phase 40-42 GATEWAY into a complete landlord-facing self-serve plan management surface. Five gaps closed: no upgrade/downgrade flow (only cancel-then-resubscribe was disruptive), no consolidated feature-gate service (every consumer duplicated User::canAccessFeature lookups), no trial signup machinery (trial_ends_at existed but was never populated), no coupon redemption (Stripe supported it but the app had no coupons table or UX), no Stripe Customer Portal integration (landlords couldn't manage cards/invoices outside the app). Pivots away from documented MOBILE-NATIVE default (still blocked by out-of-repo Android Studio tooling) for the third cycle in a row.",
+        "stats": {
+            "tests": 45,
+            "assertions": 102,
+            "new_files": [
+                "app/Models/SubscriptionPlanChange.php",
+                "app/Models/Coupon.php",
+                "app/Models/CouponRedemption.php",
+                "app/Events/PlanChanged.php",
+                "app/Exceptions/CouponInvalidException.php",
+                "app/Exceptions/BillingPortalUnavailable.php",
+                "app/Services/Subscriptions/PlanChangeService.php",
+                "app/Services/Subscriptions/PlanGateService.php",
+                "app/Services/Subscriptions/TrialStartService.php",
+                "app/Services/Subscriptions/CouponService.php",
+                "app/Console/Commands/TrialAutoExpire.php",
+                "app/Listeners/StartTrialOnLandlordRegistered.php",
+                "database/migrations/2026_05_18_700000_phase60_planchange1_create_subscription_plan_changes.php",
+                "database/migrations/2026_05_18_700100_phase60_trialdepth3_add_trial_expired_to_cancel_reason.php",
+                "database/migrations/2026_05_18_700200_phase60_coupons1_create_coupons.php",
+                "lang/en/coupons.php",
+                "lang/en/billing.php",
+                "docs/runbooks/billing.md",
+                "tests/Feature/Plans/Phase60PlanChangeTest.php",
+                "tests/Feature/Plans/Phase60FeatureGatesTest.php",
+                "tests/Feature/Plans/Phase60TrialDepthTest.php",
+                "tests/Feature/Plans/Phase60CouponsTest.php",
+                "tests/Feature/Plans/Phase60BillingPortalTest.php",
+                "tests/Feature/Plans/Phase60PlanManagementSurfaceTest.php"
+            ],
+            "modified_surfaces": [
+                "app/Services/StripeService.php (createBillingPortalSession method)",
+                "app/Http/Controllers/SubscriptionController.php (change + applyCoupon + portal methods)",
+                "app/Http/Middleware/HandleInertiaRequests.php (getFeatureAccess swap to PlanGateService::featuresFor)",
+                "app/Http/Middleware/CheckPlanLimits.php (route through PlanGateService for denial counter)",
+                "resources/js/Pages/Subscription/Plans.vue (handleSubscribe routes to /change when current subscription)",
+                "routes/web.php (3 new routes: subscription.change, subscription.apply-coupon, subscription.billing.portal)",
+                "routes/console.php (trial:auto-expire daily 09:30 schedule)",
+                "docs/runbooks/alert-thresholds.md (Phase-60 Plan management section: 3 visibility-only gauges)"
+            ]
+        },
+        "commits": [
+            "27bf119 docs(phase-60): [PLAN-MANAGEMENT] PRD baseline",
+            "d6e6854 feat(phase-60): PLAN-CHANGE service + /subscription/change route + Plans.vue swap-in-place",
+            "df2e3df feat(phase-60): FEATURE-GATES PlanGateService + Inertia-shared 6-flag bundle",
+            "3f9e6d3 feat(phase-60): TRIAL-DEPTH service + Registered listener + auto-expire cron",
+            "25d39b0 feat(phase-60): COUPONS schema + redemption service + apply-coupon route",
+            "d0fce49 feat(phase-60): BILLING-PORTAL Stripe Customer Portal redirect",
+            "49d9f73 test(phase-60): CI surface watchdog + billing.md + alert-thresholds rows"
+        ],
+        "tier_status": "Tier 7 cycle 24 \u2014 pivots back to product after three SRE/infra cycles in a row (57 PERF-DEEP, 58 SHARED-DISK-MIGRATION, 59 STORAGE-HARDENING). Closes the landlord-facing self-serve plan management surface that's been a real product gap since Phase 35 PLATFORM shipped the catalogue.",
+        "carry_overs": []
+    }
 }
