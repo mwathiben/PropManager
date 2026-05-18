@@ -9,6 +9,8 @@ use App\Models\Invitation;
 use App\Models\OnboardingSession;
 use App\Models\User;
 use App\Services\Growth\AttributionTouchpointRecorder;
+use App\Services\Growth\FunnelEventEmitter;
+use App\Services\Growth\FunnelStage;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -107,6 +109,9 @@ class RegisteredUserController extends Controller
             channel: $channel,
             campaign: $request->session()->get('referral_code'),
         );
+
+        // Phase-56 FUNNEL-SANKEY-1: emit the canonical funnel.signup event.
+        app(FunnelEventEmitter::class)->emit($user, FunnelStage::SIGNUP, ['role' => $resolvedRole]);
 
         event(new Registered($user));
 
