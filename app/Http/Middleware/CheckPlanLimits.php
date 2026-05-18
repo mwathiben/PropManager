@@ -37,8 +37,13 @@ class CheckPlanLimits
         // resolves to one query at most per request.
         $user->loadMissing('subscription.plan');
 
-        // Check feature access
-        if (! $user->canAccessFeature($feature)) {
+        // Phase-60 FEATURE-GATES-2: route through PlanGateService so
+        // every denial emits the plan_feature_denied_count{feature}
+        // gauge — same lookup logic (User::canAccessFeature is still
+        // the source of truth), just with side effects.
+        $allowed = app(\App\Services\Subscriptions\PlanGateService::class)->can($feature, $user);
+
+        if (! $allowed) {
             $message = $this->getFeatureUpgradeMessage($feature);
 
             if ($request->wantsJson() || $request->ajax()) {

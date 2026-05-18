@@ -239,28 +239,18 @@ class HandleInertiaRequests extends Middleware
             return null;
         }
 
-        // Super admins have full access
-        if ($user->isSuperAdmin()) {
-            return [
-                'water_billing' => true,
-            ];
-        }
+        // Phase-60 FEATURE-GATES-3: expand from water_billing-only to
+        // the full 6-feature plan-gate bundle so Vue components can
+        // render lock icons + upgrade CTAs without each controller
+        // having to assemble the bundle. PlanGateService caches the
+        // lookups 5m so this stays cheap on every Inertia render.
+        // Caretakers gate on their landlord's plan rather than their
+        // own (caretaker User has no subscription of its own).
+        $gateUser = $user->isCaretaker() && $user->landlord
+            ? $user->landlord
+            : $user;
 
-        // For landlords, check their own subscription
-        if ($user->isLandlord()) {
-            return [
-                'water_billing' => $user->canAccessFeature('water_billing'),
-            ];
-        }
-
-        // For caretakers, check their landlord's subscription
-        if ($user->isCaretaker() && $user->landlord) {
-            return [
-                'water_billing' => $user->landlord->canAccessFeature('water_billing'),
-            ];
-        }
-
-        return ['water_billing' => false];
+        return app(\App\Services\Subscriptions\PlanGateService::class)->featuresFor($gateUser);
     }
 
     /**
