@@ -171,7 +171,7 @@ class LeaseController extends Controller
             return redirect()->route('dashboard');
         } catch (\Exception $e) {
             if ($docPath) {
-                Storage::disk('local')->delete($docPath);
+                Storage::tenant()->delete($docPath);
             }
             throw $e;
         }
@@ -311,11 +311,11 @@ class LeaseController extends Controller
 
     public function download(Lease $lease)
     {
-        if (! $lease->lease_doc_path || ! Storage::disk('local')->exists($lease->lease_doc_path)) {
+        if (! $lease->lease_doc_path || ! Storage::tenant()->exists($lease->lease_doc_path)) {
             abort(404, 'Lease document not found.');
         }
 
-        return Storage::disk('local')->download(
+        return Storage::tenant()->download(
             $lease->lease_doc_path,
             'lease-agreement-'.$lease->id.'.pdf'
         );

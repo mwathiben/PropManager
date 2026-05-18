@@ -108,8 +108,8 @@ class TenantKycController extends Controller
         } catch (\Throwable $e) {
             // Clean up orphaned files on transaction failure
             foreach ($storedDocuments as $document) {
-                if ($document->file_path && Storage::disk('local')->exists($document->file_path)) {
-                    Storage::disk('local')->delete($document->file_path);
+                if ($document->file_path && Storage::tenant()->exists($document->file_path)) {
+                    Storage::tenant()->delete($document->file_path);
                 }
             }
             throw $e;

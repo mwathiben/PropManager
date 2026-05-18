@@ -76,7 +76,7 @@ class TenantDocumentsController extends Controller
 
         abort_unless($document->fileExists(), 404);
 
-        return Storage::disk('local')->download($document->file_path, $document->file_name);
+        return Storage::tenant()->download($document->file_path, $document->file_name);
     }
 
     /**

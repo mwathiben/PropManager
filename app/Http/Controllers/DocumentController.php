@@ -223,7 +223,7 @@ class DocumentController extends Controller
         // for sensible browser handling.
         $safeName = $this->sanitiseDownloadFilename($document->file_name, (string) $document->file_path);
 
-        return Storage::disk('local')->download($document->file_path, $safeName);
+        return Storage::tenant()->download($document->file_path, $safeName);
     }
 
     /**
@@ -284,7 +284,7 @@ class DocumentController extends Controller
         }
 
         // Return file for inline viewing
-        return Storage::disk('local')->response($document->file_path, $document->file_name, [
+        return Storage::tenant()->response($document->file_path, $document->file_name, [
             'Content-Type' => $document->mime_type,
             'Content-Disposition' => 'inline',
         ]);

@@ -75,7 +75,7 @@ class WaterReading extends Model
      */
     public function getPhotoUrlAttribute(): ?string
     {
-        if ($this->photo_path && Storage::disk('local')->exists($this->photo_path)) {
+        if ($this->photo_path && Storage::tenant()->exists($this->photo_path)) {
             return route('readings.photo', $this->id);
         }
 
@@ -137,7 +137,7 @@ class WaterReading extends Model
      */
     public function hasPhoto(): bool
     {
-        return ! is_null($this->photo_path) && Storage::disk('local')->exists($this->photo_path);
+        return ! is_null($this->photo_path) && Storage::tenant()->exists($this->photo_path);
     }
 
     /**
@@ -146,7 +146,7 @@ class WaterReading extends Model
     public function deletePhoto(): bool
     {
         if ($this->hasPhoto()) {
-            return Storage::disk('local')->delete($this->photo_path);
+            return Storage::tenant()->delete($this->photo_path);
         }
 
         return false;

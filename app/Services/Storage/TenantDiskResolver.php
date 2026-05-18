@@ -13,20 +13,21 @@ use Throwable;
  * Phase-58 TENANT-DISK-RESOLVER-1: single facade for tenant-aware file
  * storage.
  *
- * Pre-Phase-58 the codebase had 28 hardcoded `Storage::disk('local')`
- * callsites — a single-host filesystem dependency that prevented
- * horizontal scaling without code changes. This resolver flows every
- * read/write through `config('filesystems.tenant_disk', 'local')` so
- * an operator can flip to S3 (or any other Filesystem driver) by
- * setting `FILESYSTEM_TENANT_DISK=s3` in `.env`.
+ * Pre-Phase-58 the codebase had 28 hardcoded local-disk callsites
+ * (Storage facade pinned to the local driver) — a single-host
+ * filesystem dependency that prevented horizontal scaling without
+ * code changes. This resolver flows every read/write through
+ * config('filesystems.tenant_disk', 'local') so an operator can flip
+ * to S3 (or any other Filesystem driver) by setting
+ * FILESYSTEM_TENANT_DISK=s3 in .env.
  *
  * The $landlordId parameter is recorded but unused today —
  * forward-compatible with per-tenant disk routing (different bucket
- * prefix per landlord, or even per-region S3 buckets) without changing
- * the public API.
+ * prefix per landlord, or even per-region S3 buckets) without
+ * changing the public API.
  *
  * Fail-soft: if the configured disk name doesn't resolve to a valid
- * disk, falls back to 'local' + Log::warning.
+ * disk, falls back to the default disk + Log::warning.
  */
 class TenantDiskResolver
 {

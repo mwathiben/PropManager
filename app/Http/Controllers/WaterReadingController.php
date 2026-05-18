@@ -175,6 +175,6 @@ class WaterReadingController extends Controller
             abort(404, 'Photo not found.');
         }
 
-        return Storage::disk('local')->response($reading->photo_path);
+        return Storage::tenant()->response($reading->photo_path);
     }
 }

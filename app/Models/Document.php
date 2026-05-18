@@ -142,18 +142,18 @@ class Document extends Model
 
     public function getFullPath(): string
     {
-        return Storage::disk('local')->path($this->file_path);
+        return Storage::tenant()->path($this->file_path);
     }
 
     public function fileExists(): bool
     {
-        return Storage::disk('local')->exists($this->file_path);
+        return Storage::tenant()->exists($this->file_path);
     }
 
     public function deleteFile(): bool
     {
         if ($this->fileExists()) {
-            return Storage::disk('local')->delete($this->file_path);
+            return Storage::tenant()->delete($this->file_path);
         }
 
         return false;

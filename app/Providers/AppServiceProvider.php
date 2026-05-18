@@ -175,7 +175,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // Phase-58 TENANT-DISK-RESOLVER-2: Storage::tenant() macro.
-        // Every callsite that used to read `Storage::disk('local')` now
+        // Every callsite that used to read from the local-pinned disk now
         // reads `Storage::tenant()` and flows through TenantDiskResolver
         // → config('filesystems.tenant_disk'). Operators flip the
         // underlying disk via FILESYSTEM_TENANT_DISK env var.
