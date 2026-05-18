@@ -1117,6 +1117,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/change', [SubscriptionController::class, 'change'])->name('subscription.change');
         // Phase-60 COUPONS-3: coupon redemption on the plans page.
         Route::post('/apply-coupon', [SubscriptionController::class, 'applyCoupon'])->name('subscription.apply-coupon');
+        // Phase-60 BILLING-PORTAL-2: Stripe Customer Portal redirect.
+        Route::post('/billing/portal', [SubscriptionController::class, 'portal'])->name('subscription.billing.portal');
         Route::get('/callback', [SubscriptionController::class, 'callback'])->name('subscription.callback');
         Route::post('/cancel', [SubscriptionController::class, 'cancel'])->name('subscription.cancel');
         Route::post('/resume', [SubscriptionController::class, 'resume'])->name('subscription.resume');

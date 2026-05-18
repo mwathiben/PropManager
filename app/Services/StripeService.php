@@ -8,13 +8,12 @@ use App\Enums\Currency;
 use App\Exceptions\Integration\PaymentGatewayUnreachableException;
 use App\Models\PaymentConfiguration;
 use App\Traits\LogsExternalRequests;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
 use Stripe\Exception\ApiErrorException;
 use Stripe\Exception\SignatureVerificationException;
 use Stripe\PaymentIntent;
-use Stripe\Refund;
 use Stripe\StripeClient;
-use Carbon\CarbonImmutable;
 use Stripe\Webhook;
 
 /**
@@ -109,7 +108,6 @@ class StripeService
      * Create a PaymentIntent for the given amount.
      *
      * @param  array{amount: int, currency: string, reference: string, metadata?: array, receipt_email?: string}  $data
-     * @return array|null
      */
     public function createPaymentIntent(array $data): ?array
     {
@@ -298,5 +296,41 @@ class StripeService
     public static function generateReference(string $prefix = 'PAY'): string
     {
         return strtoupper($prefix.'_'.bin2hex(random_bytes(8)));
+    }
+
+    /**
+     * Phase-60 BILLING-PORTAL-1: create a Stripe Customer Portal
+     * session for the landlord. Returns the hosted-portal URL the
+     * caller can redirect to. Throws BillingPortalUnavailable when
+     * the landlord has no StripeCustomer mapping (hasn't completed
+     * Stripe onboarding) or when the SDK call fails — caller is
+     * expected to flash an error in that case.
+     *
+     * @throws \App\Exceptions\BillingPortalUnavailable
+     */
+    public function createBillingPortalSession(\App\Models\User $landlord, string $returnUrl): string
+    {
+        $customer = \App\Models\StripeCustomer::query()
+            ->where('user_id', $landlord->id)
+            ->first();
+
+        if (! $customer || ! $customer->stripe_customer_id) {
+            throw new \App\Exceptions\BillingPortalUnavailable('billing.portal_not_provisioned');
+        }
+
+        if (! $this->isConfigured()) {
+            throw new \App\Exceptions\BillingPortalUnavailable('billing.portal_gateway_not_configured');
+        }
+
+        try {
+            $session = $this->client()->billingPortal->sessions->create([
+                'customer' => $customer->stripe_customer_id,
+                'return_url' => $returnUrl,
+            ]);
+
+            return (string) $session->url;
+        } catch (\Throwable $e) {
+            throw new \App\Exceptions\BillingPortalUnavailable('billing.portal_session_failed', previous: $e);
+        }
     }
 }

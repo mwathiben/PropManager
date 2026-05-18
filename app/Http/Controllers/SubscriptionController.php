@@ -314,6 +314,24 @@ class SubscriptionController extends Controller
     }
 
     /**
+     * Phase-60 BILLING-PORTAL-2: redirect the landlord to the
+     * Stripe-hosted Customer Portal for card / invoice / receipt
+     * self-service. Returns to /subscription on completion.
+     */
+    public function portal(\App\Services\StripeService $stripe)
+    {
+        $user = auth()->user();
+
+        try {
+            $url = $stripe->createBillingPortalSession($user, route('subscription.index'));
+        } catch (\App\Exceptions\BillingPortalUnavailable $e) {
+            return back()->with('error', __($e->translationKey()));
+        }
+
+        return redirect()->away($url);
+    }
+
+    /**
      * Phase-60 COUPONS-3: apply a coupon code to the current
      * subscription. Returns to /subscription/plans with success or
      * error flash. The Stripe-side mirror happens via webhook when
