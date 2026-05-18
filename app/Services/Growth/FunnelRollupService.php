@@ -30,7 +30,8 @@ class FunnelRollupService
         $stages = FunnelStage::ordered();
         $since = now()->subDays($days);
 
-        $query = ProductEvent::query()->withoutGlobalScopes()
+        // Phase-57 READ-REPLICAS-3: heavy aggregate, eventual consistency OK.
+        $query = ProductEvent::query()->withoutGlobalScopes()->readOnly()
             ->where('created_at', '>=', $since)
             ->whereIn('event_name', array_map(fn (FunnelStage $s) => $s->eventName(), $stages));
 

@@ -91,7 +91,8 @@ class ChurnService
         $start = Carbon::now()->subMonthsNoOverflow($monthsBack)->startOfMonth();
         $now = Carbon::now()->startOfMonth();
 
-        $users = User::query()->withTrashed()
+        // Phase-57 READ-REPLICAS-3: heavy aggregate, eventual consistency OK.
+        $users = User::query()->withTrashed()->readOnly()
             ->where('created_at', '>=', $start)
             ->get(['id', 'created_at', 'acquisition_source']);
 

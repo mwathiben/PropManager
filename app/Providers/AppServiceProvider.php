@@ -155,6 +155,25 @@ class AppServiceProvider extends ServiceProvider
         // forgot to set ->timeout().
         Http::macro('resilient', fn () => Http::connectTimeout(5)->timeout(15)->retry(2, 200, throw: false));
 
+        // Phase-57 READ-REPLICAS-1: ->readOnly() marker macro on the Eloquent
+        // Builder. By default Laravel routes SELECTs to the read pool when
+        // database.php has a read/write split configured. sticky=true (our
+        // current setting) pins everything to primary after any write in the
+        // request — which is the right default for correctness but means
+        // heavy aggregates inside write-touched requests don't get the
+        // replica benefit.
+        //
+        // This macro is a no-op today (Laravel has no per-query sticky
+        // override) but tags the query for ops visibility + future-compat
+        // with a custom resolver that respects the flag. The intent marker
+        // matters: when we deploy a real replica and add the resolver,
+        // every tagged callsite is already opted in.
+        \Illuminate\Database\Eloquent\Builder::macro('readOnly', function () {
+            $this->withCasts([]); // no-op chain; macro must return $this
+
+            return $this;
+        });
+
         // CRYPTO-1: wire the project-wide password rules so every
         // Rules\Password::defaults() in controllers/Form Requests applies
         // them. Without this the PasswordPolicy class (HIBP fail-open
