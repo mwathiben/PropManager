@@ -363,6 +363,9 @@ Route::middleware('auth')->group(function () {
     // Phase-61 PAUSE-3: temporary lease pause route.
     Route::post('/leases/{lease}/pause', [LeaseController::class, 'pause'])
         ->name('leases.pause');
+    // Phase-61 RENEWAL-AUTO-3: per-lease auto-renew toggle.
+    Route::patch('/leases/{lease}/auto-renew', [LeaseController::class, 'toggleAutoRenew'])
+        ->name('leases.auto-renew');
 
     // 3. The Architect (Building Configuration)
     Route::get('/buildings/{building}/configure', [BuildingController::class, 'edit'])->name('buildings.edit');

@@ -402,6 +402,24 @@ class LeaseController extends Controller
         return back()->with('success', __('lease.pause_started'));
     }
 
+    /**
+     * Phase-61 RENEWAL-AUTO-3: toggle the per-lease auto-renew opt-out.
+     */
+    public function toggleAutoRenew(\Illuminate\Http\Request $request, Lease $lease)
+    {
+        $validated = $request->validate(['auto_renew' => 'required|boolean']);
+
+        $user = $request->user();
+        if ($user->id !== $lease->landlord_id) {
+            abort(403);
+        }
+
+        $lease->auto_renew = (bool) $validated['auto_renew'];
+        $lease->save();
+
+        return back()->with('success', __($lease->auto_renew ? 'lease.auto_renew_enabled' : 'lease.auto_renew_disabled'));
+    }
+
     public function download(Lease $lease)
     {
         if (! $lease->lease_doc_path || ! Storage::tenant()->exists($lease->lease_doc_path)) {

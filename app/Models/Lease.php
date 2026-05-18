@@ -55,6 +55,9 @@ class Lease extends Model
         'deposit_processed_by',
         // Phase-29 WF-RENT-REMIND-2: which RentReminderPolicy applies.
         'reminder_tier',
+        // Phase-61 RENEWAL-AUTO-1: opt-out for the auto-renew cron.
+        'auto_renew',
+        'renewed_from_lease_id',
     ];
 
     protected $casts = [
@@ -67,6 +70,7 @@ class Lease extends Model
         'deposit_refund_amount' => 'decimal:2',
         'deposit_deductions' => 'decimal:2',
         'deposit_processed_at' => 'datetime',
+        'auto_renew' => 'boolean',
     ];
 
     // --- RELATIONSHIPS ---
