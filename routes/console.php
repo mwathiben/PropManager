@@ -119,6 +119,12 @@ $schedule('dpa:enforce-retention', fn ($e) => $e->dailyAt('02:00')->withoutOverl
 // the two retention pipelines don't contend on the same DB transaction.
 $schedule('storage:enforce-retention', fn ($e) => $e->dailyAt('02:30')->withoutOverlapping(60));
 
+// Phase-60 TRIAL-DEPTH-3: transition trial subscriptions past
+// trial_ends_at to cancelled with reason=trial_expired. Runs at
+// 09:30 Africa/Nairobi, after the Phase-34 TrialEndingReminder 09:00
+// reminder so users get notified before the expiry happens.
+$schedule('trial:auto-expire', fn ($e) => $e->dailyAt('09:30'));
+
 // Phase-59 ACCESS-AUDIT-3: 5-min anomaly cron over file_access_audits.
 // Emits file_access_anomaly_count{action} gauge so ops fires when a
 // single user exceeds config('observability.file_access_anomaly_threshold')
