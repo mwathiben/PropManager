@@ -305,6 +305,10 @@ Route::middleware('auth')->group(function () {
             ->name('ops.experiments.update');
         Route::post('/ops/experiments/{experiment}/conclude', [\App\Http\Controllers\Ops\ExperimentController::class, 'conclude'])
             ->name('ops.experiments.conclude');
+
+        // Phase-56 DASHBOARDS-2: attribution + funnel sankey + cohort-by-source + auto-promote timeline
+        Route::get('/ops/growth/attribution', [\App\Http\Controllers\Ops\OpsGrowthAttributionController::class, 'index'])
+            ->name('ops.growth.attribution.index');
     });
 
     // Phase-34 GROWTH-REFERRAL-2: landlord self-serve referral surface.
