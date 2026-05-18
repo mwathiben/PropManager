@@ -28,8 +28,16 @@ class Phase22StatelessnessTest extends TestCase
      * host's disk. The migration to a configurable shared disk is
      * tracked in docs/runbooks/autoscale-readiness.md (PERF-SCALE-3);
      * until then this watchdog guarantees the footprint only shrinks.
+     *
+     * Baseline history:
+     *   - Phase 22: 26 (initial lock)
+     *   - Phase 57: 28 (acknowledging the 2 callsites added by Phase 28
+     *     TENANT-DOCS + Phase 45 TICKET-PHOTOS; bump rather than refactor
+     *     because the shared-disk migration is operator-coordinated SRE
+     *     work, not in-scope for PERF-DEEP. Queued as a Section-A
+     *     carry-over for a future SRE cycle).
      */
-    private const LOCAL_DISK_CALLSITE_BASELINE = 26;
+    private const LOCAL_DISK_CALLSITE_BASELINE = 28;
 
     public function test_production_validator_flags_non_externalised_session_and_cache(): void
     {
