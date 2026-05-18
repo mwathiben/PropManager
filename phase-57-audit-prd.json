@@ -1,0 +1,143 @@
+{
+    "phase": 57,
+    "title": "PERF-DEEP",
+    "opened_at": "2026-05-18",
+    "tier": "Tier 7 cycle 21",
+    "scope": "Phase 22 PERF-SLO/PERF-NPLUS1/PERF-CACHE shipped the foundational observability + middleware (RecordRequestLatency, SetReadCacheHeaders, NPlusOneBaseline, SlowQueryReport, SloReport). Phase 57 layers operator-grade enforcement + ops-dashboard surfaces on top, without re-doing Phase 22. Five surfaces: P95-BUDGETS (route_p95_violation gauge + nightly enforce-budgets cron that compares observed p95 to config('observability.slo.latency_budgets_ms') and emits a violation gauge per route class); L7-CACHE (Vary header on Inertia responses + shared-cache s-maxage directive + per-landlord cache-key fragmentation contract via the Vary 'Cookie' contribution); READ-REPLICAS (database.php already has the read/write split + sticky=true; Phase 57 adds the ReadReplicaPreference trait + an explicit readOnly() Eloquent macro for heavy aggregates + a fallback-to-primary on staleness contract); SLOW-QUERY (capture the file-based slow_query_log stream into a structured slow_query_log_entries table when SLOW_QUERY_THRESHOLD_MS is set + weekly slow_query:rollup cron aggregating per-landlord shape + p95 + count + the OpsDashboard surface); INDEX-AUDIT (cron that runs EXPLAIN on each registered route's canonical query and emits db_missing_index_hint when a tablescan / full-index scan is detected on a table >10k rows). Six categories x 3 findings = 18.",
+    "categories": {
+        "P95-BUDGETS": "Phase 22 ships observed timing via http_request_ms histogram + config('observability.slo.latency_budgets_ms') budget table, but no automated comparison emits a violation signal. Operator has to read SloReport output manually. (1) New App\\Console\\Commands\\SloEnforceBudgets::handle reads the histogram via MetricsService::gaugeSnapshot, computes per-route-class p95, compares to budget, emits route_p95_violation{route_class} gauge (1=violating, 0=compliant). Runs daily 05:00 Africa/Nairobi. (2) New App\\Services\\Sre\\BudgetEnforcementService::evaluate(array $histogramBuckets, array $budgets): array — pure function that takes histogram observation + budget config, returns [route_class => is_violating: bool, observed_p95_ms: float, budget_ms: int]. Testable in isolation. (3) docs/runbooks/alert-thresholds.md gains route_p95_violation sev3 row (any 1 violation persists 3 consecutive evaluations).",
+        "L7-CACHE": "Phase 22 ships SetReadCacheHeaders with ETag + Cache-Control private max-age. Phase 57 deepens for shared-cache (Cloudflare / Fastly) consumption + content-negotiation correctness. (1) SetReadCacheHeaders gains a Vary 'Accept, Accept-Encoding, Cookie' contribution so a shared cache doesn't serve the wrong tenant's HTML to another tenant. (2) New 'cache.read.shared' middleware alias variant that emits Cache-Control 'public, s-maxage=N, max-age=N' on truly-public assets (the marketing landing page, /robots.txt, the Phase-49 maintenance runbook public asset). (3) New App\\Http\\Middleware\\CacheKeyFragmentation::handle ensures Inertia responses include landlord_id in the Vary surface via a stable derived cookie name 'pm_tenant' (set on auth) so the shared-cache key fragments correctly per-landlord.",
+        "READ-REPLICAS": "config/database.php already has read/write split with sticky=true. Today no code intentionally opts into the read pool — Laravel routes reads automatically when sticky=false but our sticky=true means every request that did ANY write goes to primary. Heavy aggregates that don't need read-after-write consistency would benefit from explicit read-pool opt-in. (1) New App\\Concerns\\ReadReplicaPreference trait with readOnly() scope: $query->useReadPdo() shorthand for any Eloquent query. Tests verify which connection a marked query uses. (2) New App\\Services\\Sre\\ConnectionRouter::ensureFreshRead(Builder $query, int $maxStalenessMs = 1000): Builder — runs the query against the read pool, falls back to write pool if the result count is 0 AND a recent write happened within $maxStalenessMs (replication-lag-safety). (3) Apply readOnly() to two heavy aggregate callsites surfaced in Phase 22 PERF-Q markers: ChurnService::cohortsBySource + FunnelRollupService::computeSankeyPayload (both Phase 56). These are dashboards — eventual consistency is fine.",
+        "SLOW-QUERY": "Phase 21 ships SlowQueryReport scanning storage/logs/slow-query-*.log files. File-based makes per-landlord attribution + structured rollup hard. Phase 57 adds a parallel SQL-table sink. (1) New slow_query_log_entries migration (id + landlord_id nullable + sql_shape varchar(500) — normalised SQL with literal placeholders stripped + duration_ms + connection_name + executed_at + indexes on (executed_at) and (landlord_id, executed_at)). New SlowQueryLogEntry model with TenantScope guarded by landlord_id when set. (2) Update SlowQueryServiceProvider::boot to ALSO write to the table when 'observability.slow_query.persist_to_table'=true (config gate; opt-in via env so dev/CI can keep file-only). Normalise SQL via SqlShapeNormaliser::normalise that strips numeric literals + quoted strings + IN(...) lists. (3) New App\\Console\\Commands\\SlowQueryRollup::handle weekly Monday 06:30 Africa/Nairobi aggregates slow_query_log_entries by sql_shape over the last 7d, emits slow_query_top_shape_count gauge + persists a summary into slow_query_log_weekly_rollups table for the ops dashboard.",
+        "INDEX-AUDIT": "Phase 15 PERF-5 deferred SoftDeletes index reconsideration to Phase 21; Phase 21 published perf-5-non-adoption.md (no index added — unnecessary at the time). Phase 57 doesn't blindly add indexes — instead ships an automated EXPLAIN auditor. (1) New App\\Console\\Commands\\IndexAuditScan::handle iterates a curated list of hot route queries (Phase 22 PERF-Q markers + Phase 50 reports + Phase 56 attribution rollup) + runs EXPLAIN on each + emits db_missing_index_hint{query_label} gauge when a 'type: ALL' (full table scan) or 'rows > 50% of table' is detected. (2) New App\\Services\\Sre\\IndexAuditCatalog::queries() returns the curated list as [label => callable Builder factory]. Adding a new entry takes one line. (3) Daily 04:30 Africa/Nairobi cron. Surfaces in ops dashboard as a single 'Index hints' card listing the top 5 violators by emitted-frequency — operators decide if it's worth a migration.",
+        "CI": "(1) Phase57PerfDeepSurfaceTest cross-category presence map covering: SloEnforceBudgets command + 05:00 schedule; BudgetEnforcementService::evaluate pure-function shape; SetReadCacheHeaders emits Vary header on Inertia response; ReadReplicaPreference trait + readOnly scope; ConnectionRouter class; slow_query_log_entries + slow_query_log_weekly_rollups tables exist; SlowQueryRollup command + Monday 06:30 schedule; IndexAuditScan command + 04:30 schedule; route_p95_violation + db_missing_index_hint + slow_query_top_shape_count alert-thresholds.md rows; perf.md umbrella exists. (2) docs/runbooks/perf.md NEW umbrella linking SLO/load-testing/autoscale-readiness/n-plus-one/perf-5-non-adoption + adding the Phase-57 sections. (3) Cross-link Phase 15 (SoftDeletes index lineage), Phase 21 (SlowQueryReport lineage), Phase 22 (PERF-SLO/CACHE/NPLUS1 lineage) audit_closeouts to Phase 57."
+    },
+    "findings": [
+        {
+            "id": "P95-BUDGETS-1",
+            "severity": "HIGH",
+            "title": "SloEnforceBudgets command + nightly cron",
+            "evidence": "Phase 22 ships the http_request_ms histogram + config('observability.slo.latency_budgets_ms') budget table but no cron compares observed p95 to budget. Operators read SloReport output manually and have no automated alert path when p95 drifts past budget.",
+            "remediation": "App\\Console\\Commands\\SloEnforceBudgets::handle reads the histogram via MetricsService::gaugeSnapshot (or histogram snapshot if available); computes per-route-class p95 using linear interpolation across histogram buckets; compares to config('observability.slo.latency_budgets_ms') values keyed by route_class; emits route_p95_violation{route_class} gauge (1=violating, 0=compliant) via MetricsService::gauge. Runs daily 05:00 Africa/Nairobi via Schedule::command in routes/console.php. Idempotent + read-only — no DB writes, no side effects beyond the gauge emit."
+        },
+        {
+            "id": "P95-BUDGETS-2",
+            "severity": "MEDIUM",
+            "title": "BudgetEnforcementService pure-function evaluator",
+            "evidence": "P95-BUDGETS-1's cron mixes I/O (histogram read + gauge emit) with the per-route-class violation logic. The logic should be a pure function so it's testable in isolation without a Redis stub.",
+            "remediation": "App\\Services\\Sre\\BudgetEnforcementService::evaluate(array $histogramBuckets, array $budgets): array — takes a histogram observation as a {bucket_ms_upper => count} map + a budget config {route_class => budget_ms} map, returns [route_class => ['observed_p95_ms' => float, 'budget_ms' => int, 'is_violating' => bool]]. p95 computed via linear interpolation between bucket boundaries. Phase57BudgetEnforcementTest covers: under-budget case, exactly-at-budget edge, single-bucket histogram, empty histogram, unknown-route-class missing-budget fallthrough."
+        },
+        {
+            "id": "P95-BUDGETS-3",
+            "severity": "LOW",
+            "title": "alert-thresholds.md route_p95_violation sev3 row",
+            "evidence": "The new gauge needs an alert-thresholds entry so operators know the contract.",
+            "remediation": "Append to docs/runbooks/alert-thresholds.md: 'route_p95_violation sev3 — fires when any 1 violation persists 3 consecutive evaluations (3 days). Mitigation: profile the slow route via slo:report + db_query_ms histogram + slow-query log; raise budget if structurally unfixable.'"
+        },
+        {
+            "id": "L7-CACHE-1",
+            "severity": "HIGH",
+            "title": "SetReadCacheHeaders adds Vary: Accept, Accept-Encoding, Cookie",
+            "evidence": "Phase-22 SetReadCacheHeaders sets ETag + Cache-Control 'private, must-revalidate, max-age=N' but no Vary header. A shared cache (Cloudflare / Fastly) keyed only on URL would serve the same response to two different tenants — critical correctness gap if we ever promote any route from 'private' to 'public'.",
+            "remediation": "SetReadCacheHeaders::handle appends Vary 'Accept, Accept-Encoding, Cookie' to the response. Accept covers content-negotiation correctness; Accept-Encoding ensures gzip/br variants don't collide; Cookie ensures per-tenant fragmentation (the tenant cookie carries the landlord_id binding). Phase57L7CacheTest asserts the header is set on every cache.read-tagged route."
+        },
+        {
+            "id": "L7-CACHE-2",
+            "severity": "MEDIUM",
+            "title": "cache.read.shared middleware alias for truly-public routes",
+            "evidence": "Some assets (marketing landing page, public maintenance runbook PDF) are truly tenant-agnostic and would benefit from shared-cache (Cloudflare s-maxage) caching. Phase-22 SetReadCacheHeaders is all 'private' — no public route can opt into shared caching today.",
+            "remediation": "Register a new middleware alias 'cache.read.shared' in bootstrap/app.php that emits Cache-Control 'public, s-maxage=300, max-age=60' + same Vary contributions. Wire it to /robots.txt + /landing routes (audit which exist). Distinct alias from the existing 'cache.read' so default behavior stays 'private'. Document the security contract: 'cache.read.shared' MUST NOT contain any per-tenant data; if Inertia is rendering, do not use this alias."
+        },
+        {
+            "id": "L7-CACHE-3",
+            "severity": "MEDIUM",
+            "title": "Cache-key fragmentation contract documented",
+            "evidence": "Even with the Vary 'Cookie' addition, the cache-key contract isn't documented anywhere. An operator deploying Cloudflare needs to know which cookies fragment the cache + which are pure-state cookies that should be stripped before key generation.",
+            "remediation": "docs/runbooks/cache.md NEW (or perf.md section): 'PropManager uses these cookies for cache-key fragmentation: pm_session (Laravel session, per-user), XSRF-TOKEN (per-session, varies frequently — Cloudflare should strip from cache key). The pm_tenant cookie (Phase-57 future addition: derived from authenticated landlord_id) fragments the cache per-landlord even when sessions rotate.' Currently a documentation-only finding; the pm_tenant cookie itself is out of scope for Phase 57."
+        },
+        {
+            "id": "READ-REPLICAS-1",
+            "severity": "HIGH",
+            "title": "ReadReplicaPreference trait + readOnly() Eloquent scope",
+            "evidence": "config/database.php already has read/write split with sticky=true (DB_HOST_READ env var routes read pool). Sticky=true means every request that did ANY write routes 100% of subsequent reads to primary for the rest of the request — heavy aggregate queries with no read-after-write requirements would benefit from explicit read-pool opt-in.",
+            "remediation": "App\\Concerns\\ReadReplicaPreference trait with a single method readOnly(): static — calls $this->getQuery()->useReadPdo() and returns $this for chaining. Applied via `class Builder` macro registration in AppServiceProvider::boot so any Eloquent query can call ->readOnly(). Tests verify the connection-name pinned on a marked query is the read pool variant. NO change to default behaviour — opt-in only."
+        },
+        {
+            "id": "READ-REPLICAS-2",
+            "severity": "MEDIUM",
+            "title": "ConnectionRouter::ensureFreshRead with staleness fallback",
+            "evidence": "Read pool can lag the write pool by replication delay (typically <1s, occasionally seconds during catch-up). A 0-result read against the replica might be a 'just-written-not-replicated-yet' case — the caller usually wants a fallback to primary in that specific scenario.",
+            "remediation": "App\\Services\\Sre\\ConnectionRouter::ensureFreshRead(callable $queryFactory, int $maxStalenessMs = 1000): mixed — runs queryFactory() against the read pool (via the readOnly() macro); if result is 0/null AND DB::recentlyConnectedWrote() (or our own write-stamp cache key), retries against the write pool. Returns whatever the query factory returns. Phase57ConnectionRouterTest covers: read-hit-no-fallback, read-miss-with-recent-write-falls-back, read-miss-without-recent-write-returns-empty. Helps a tiny class of write-then-immediate-read flows without baking sticky into every query."
+        },
+        {
+            "id": "READ-REPLICAS-3",
+            "severity": "MEDIUM",
+            "title": "Apply readOnly() to two Phase 56 dashboards",
+            "evidence": "Phase 56's ChurnService::cohortsBySource + FunnelRollupService::computeSankeyPayload are heavy aggregates (multiple full-table scans of users + product_events) called by the ops dashboard — eventual consistency is fine for cohort/funnel rollup display.",
+            "remediation": "ChurnService::cohortsBySource: User::query()->withTrashed()->readOnly()->where(...). FunnelRollupService::computeSankeyPayload: ProductEvent::query()->withoutGlobalScopes()->readOnly()->where(...). Update Phase 56 watchdog tests to assert these specific call sites haven't regressed back to write-pool reads."
+        },
+        {
+            "id": "SLOW-QUERY-1",
+            "severity": "HIGH",
+            "title": "slow_query_log_entries + slow_query_log_weekly_rollups tables",
+            "evidence": "Phase 21 SlowQueryReport scans storage/logs/slow-query-*.log files. File-based makes per-landlord attribution + structured rollup hard. A SQL-table sink lets dashboards query it like any other model.",
+            "remediation": "Migration: slow_query_log_entries (id + landlord_id nullable + sql_shape varchar(500) — literals stripped + duration_ms + connection_name + executed_at + indexes on executed_at AND (landlord_id, executed_at)); slow_query_log_weekly_rollups (id + week_start_date + sql_shape + landlord_id nullable + occurrence_count + p95_duration_ms + max_duration_ms + sample_sql_truncated text + unique (week_start_date, sql_shape, landlord_id)). Both with softDeletes for restoration; TenantScope on slow_query_log_entries gated on landlord_id when set. New SlowQueryLogEntry + SlowQueryLogWeeklyRollup Eloquent models."
+        },
+        {
+            "id": "SLOW-QUERY-2",
+            "severity": "MEDIUM",
+            "title": "SqlShapeNormaliser + SlowQueryServiceProvider table sink",
+            "evidence": "DB::listen() fires the raw SQL with bindings — for shape aggregation, every literal must be replaced with a placeholder so 'SELECT * FROM users WHERE id = 123' and 'SELECT * FROM users WHERE id = 456' collapse to a single shape.",
+            "remediation": "App\\Services\\Sre\\SqlShapeNormaliser::normalise(string $sql, array $bindings = []): string — strips numeric literals; strips single-quoted string literals; collapses 'IN (1, 2, 3, 4)' to 'IN (?)'; collapses 'IN (?, ?, ?, ?)' to 'IN (?)'; truncates to 500 chars. SlowQueryServiceProvider::boot gates the table-sink behind config('observability.slow_query.persist_to_table'=false default; opt-in via SLOW_QUERY_PERSIST_TO_TABLE env). When enabled, SlowQueryLogEntry::create([landlord_id => Auth::user()?->landlord_id ?? Auth::id() ?? null, sql_shape => SqlShapeNormaliser::normalise(...), duration_ms => $event->time, connection_name => $event->connectionName, executed_at => now()])."
+        },
+        {
+            "id": "SLOW-QUERY-3",
+            "severity": "MEDIUM",
+            "title": "SlowQueryRollup weekly cron + ops surface",
+            "evidence": "Without aggregation, slow_query_log_entries is just noise. Operator wants top-N slow shapes per week with p95 + count + per-landlord attribution.",
+            "remediation": "App\\Console\\Commands\\SlowQueryRollup::handle aggregates last 7 days of slow_query_log_entries by sql_shape AND landlord_id (NULL means platform-wide); writes to slow_query_log_weekly_rollups; truncates entries older than 30 days (retention window); emits slow_query_top_shape_count{shape_hash} gauge for the top 10 shapes by occurrence count. Schedule::command('slow-query:rollup') weekly Monday 06:30 Africa/Nairobi via routes/console.php. New Pages/Ops/SlowQueryRollup.vue surfaces the top 20 rollups."
+        },
+        {
+            "id": "INDEX-AUDIT-1",
+            "severity": "MEDIUM",
+            "title": "IndexAuditScan command + IndexAuditCatalog curated queries",
+            "evidence": "Phase 15 PERF-5 deferred SoftDeletes index reconsideration. Phase 21 published perf-5-non-adoption.md saying 'no index needed at the time'. The right approach isn't to blindly add indexes — it's to AUDIT for missing-index hints via EXPLAIN on hot queries.",
+            "remediation": "App\\Console\\Commands\\IndexAuditScan::handle iterates App\\Services\\Sre\\IndexAuditCatalog::queries() (returns [label => callable Builder factory]). For each: $sql = $query->toSql(); $bindings = $query->getBindings(); $explainRows = DB::select('EXPLAIN ' . $sql, $bindings); Detect 'type'=='ALL' (full tablescan) OR ('rows' > 0.5 * approx_table_rows AND type IN ['index', 'range']) — emit db_missing_index_hint{query_label} gauge with the count. Schedule::command('index-audit:scan')->dailyAt('04:30')->timezone('Africa/Nairobi'). Idempotent + read-only (EXPLAIN doesn't execute the query)."
+        },
+        {
+            "id": "INDEX-AUDIT-2",
+            "severity": "MEDIUM",
+            "title": "IndexAuditCatalog initial 8 queries",
+            "evidence": "Catalog needs seed entries representative of hot paths so the cron has signal day-1.",
+            "remediation": "App\\Services\\Sre\\IndexAuditCatalog::queries() returns initial 8 queries: 'dashboard.recent_payments' (Phase 55 RECENT-PAYMENTS-1 query), 'cohorts.by_source' (Phase 56 cohortsBySource), 'funnel.sankey_rollup' (Phase 56 computeSankeyPayload), 'attribution.touchpoints_for_user' (Phase 56 computeForUser), 'reports.scheduled_preview' (Phase 50), 'sla.resolve_for' (Phase 49), 'tickets.recent_for_landlord' (Phase 49), 'invoices.overdue_for_landlord' (Phase 30). Each entry is a one-liner closure returning a Builder."
+        },
+        {
+            "id": "INDEX-AUDIT-3",
+            "severity": "LOW",
+            "title": "Pages/Ops/IndexHints.vue surfaces top-5 violators",
+            "evidence": "The db_missing_index_hint gauge is invisible without a dashboard.",
+            "remediation": "OpsDashboardController::index passes index_hints prop = top 5 entries from db_missing_index_hint gauge snapshot (label + count + last_seen). Pages/Ops/Index.vue gains an IndexHints card showing the list with a 'Mark resolved' button (decrements a separate counter — operator workflow, not a hard mutation). New finding remediation only: card stays visible until counter resets, then disappears. KES en-KE not relevant; row format is plain text + count."
+        },
+        {
+            "id": "CI-1",
+            "severity": "HIGH",
+            "title": "Phase57PerfDeepSurfaceTest cross-category watchdog",
+            "evidence": "Six categories of new surfaces need invariant assertions so a future refactor can't silently regress.",
+            "remediation": "tests/Feature/Perf/Phase57PerfDeepSurfaceTest with assertions: (a) SloEnforceBudgets command + 05:00 schedule entry; (b) BudgetEnforcementService::evaluate method; (c) SetReadCacheHeaders Vary header includes 'Cookie'; (d) ReadReplicaPreference trait + Builder::readOnly macro; (e) ConnectionRouter class + ensureFreshRead method; (f) slow_query_log_entries + slow_query_log_weekly_rollups tables; (g) SlowQueryRollup command + Monday 06:30 schedule; (h) IndexAuditScan command + 04:30 schedule; (i) IndexAuditCatalog ≥8 queries; (j) Pages/Ops/IndexHints.vue file (rendered inline in Index.vue); (k) docs/runbooks/perf.md mentions Phase 57 + PERF-DEEP."
+        },
+        {
+            "id": "CI-2",
+            "severity": "LOW",
+            "title": "docs/runbooks/perf.md umbrella + Phase-57 section",
+            "evidence": "Phase 22 left perf as scattered runbooks (slo.md, load-testing.md, autoscale-readiness.md, n-plus-one.md, perf-5-non-adoption.md). No umbrella linking them. New operators don't know where to start.",
+            "remediation": "docs/runbooks/perf.md NEW: umbrella linking the 5 existing perf runbooks with a 1-line description each; Phase-57 section covering BudgetEnforcement / Vary header contract / ReadReplica opt-in / SlowQuery rollup / IndexAudit hint workflow; cross-references to Phase 15 + 21 + 22 lineage."
+        },
+        {
+            "id": "CI-3",
+            "severity": "LOW",
+            "title": "Cross-link Phase 15 / 21 / 22 closeouts to Phase 57",
+            "evidence": "Phase 15 PERF-5 (SoftDeletes index deferral) + Phase 21 (SlowQueryReport file scanner) + Phase 22 (PERF-SLO/CACHE/NPLUS1 foundations) are the parents. Forward references help future readers trace the perf lineage.",
+            "remediation": "Append Phase 57 cross-references to the audit_closeout notes of phase-15-audit-prd.json + phase-21-audit-prd.json + phase-22-audit-prd.json. No behavioural change — just cross-reference accuracy."
+        }
+    ]
+}
