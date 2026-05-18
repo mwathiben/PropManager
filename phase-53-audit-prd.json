@@ -1,0 +1,143 @@
+{
+    "phase": 53,
+    "title": "DEFER-CLEANUP-3",
+    "opened_at": "2026-05-18",
+    "tier": "Tier 7 cycle 17",
+    "scope": "Tier-7 cycles 4-16 (Phases 40-52) accumulated a steady stream of \"alert row + tracker exist, gauge wiring deferred\" carry-overs. Phase 38 was the previous defer-cleanup cycle. Phase 53 bundles all the drift into one tidy sweep: (1) wires three deferred Prometheus gauges (tenant_kyc_blocked_count from Phase 48, report_render_failure_count from Phase 50, i18n_translation_spend_usd_24h from Phase 52) into the existing /api/metrics exporter; (2) closes the Phase 51 vue_preview_poll_pause_count telemetry contract end-to-end with a beforeunload POST + server gauge; (3) fixes the Phase29CiTest firstOrFail pollution carried since Phase 45 and audits skipped tests; (4) seeds the Phase 44 Playwright RTL snapshot baselines so the dormant suite becomes a real watchdog; (5) ratchets the propmanager ESLint plugin's no-hardcoded-english-strings + no-ltr-class rules from warn to error with a shrink-only residual baseline; (6) ships the Phase53DeferCleanup3SurfaceTest + cleanup.md Phase-53 section + test-error ratchet bump.",
+    "categories": {
+        "GAUGE-WIRING": "Three deferred Prometheus gauges with alert rows already in alert-thresholds.md but no emitter wiring. (1) tenant_kyc_blocked_count: cron emitter counts tenants stuck at Phase-48 wizard step 2 with kycProgress.submitted < required. (2) report_render_failure_count: hook ReportBuilderService::run + DashboardService::buildPayload + ScheduledController::preview exception paths to MetricsService::increment so failures roll up as a counter rather than log-scrape. (3) i18n_translation_spend_usd_24h: cron emitter scrapes TranslationCostTracker Cache keys and emits gauge per locale + total. All three follow the established TicketsAuditSla exemplar (cron writes via MetricsService::gauge/increment, exporter scrape via existing exportPrometheus()).",
+        "VUE-TELEMETRY": "Phase 51 added a client-side pollPauseCount ref to Scheduled.vue but the value never leaves the browser. Phase 53 closes the loop: (1) POST /api/telemetry/vue-preview-poll-pause endpoint accepting a sendBeacon payload {count, sessionId, route}, throttle:60,1, session-authed, CSRF-exempt for sendBeacon compatibility. (2) Server-side MetricsService::increment('vue_preview_poll_pause_count', count, ['route' => route]) wired to the request handler. (3) Scheduled.vue gains a beforeunload listener that calls navigator.sendBeacon with the current pollPauseCount before the page unloads.",
+        "TEST-DEBT": "(1) Phase29CiTest::test_workflow_logger_writes_a_row_with_full_metadata uses WorkflowRunLog::firstOrFail() which has been polluted by LogMilestoneRecorded listener since Phase 45 — fix by scoping ->where('workflow_name', 'WF-RENT-REMIND-1')->latest('id')->first(). (2) Audit the 19 markTestSkipped sites and re-enable any that are genuinely passable today (most are env-dependent: k6 / Mailpit / Reverb / golden fixtures — they stay skipped). (3) Bump the test-error ratchet baseline now that Phase29CiTest passes (net -1 failure).",
+        "RTL-BASELINES": "Phase 44 [I18N-RTL] shipped playwright.rtl.config.ts + tests/a11y/rtl/rtl-snapshot.spec.ts covering 8 pages, but no baseline .png files exist yet so the suite is dormant. (1) Run npm run test:rtl:update against a freshly-booted dev server to seed __screenshots__/ baselines for all 8 pages. (2) Commit the baseline pngs. (3) Add docs/runbooks/rtl-snapshots.md runbook with the seeding recipe + regression-investigation steps + maxDiffPixelRatio policy.",
+        "ESLINT-RATCHET": "Phase 44 added propmanager-scoped rules no-hardcoded-english-strings + no-ltr-class to eslint.config.js but kept them at severity 'warn' to avoid blocking the codemod migration. The codemod cleared the bulk; ratchet to 'error' now. (1) Count residual violations + write to .eslint-baseline.json as a shrink-only ceiling. (2) Flip both rules to 'error' in eslint.config.js. (3) Add CI step (npm run lint:baseline) that runs ESLint, counts violations, asserts <= baseline; new violations fail CI until fixed AND baseline ratcheted.",
+        "CI": "(1) Phase53DeferCleanup3SurfaceTest asserts each Phase-53 closure landed: 3 gauges emit in /api/metrics output, /api/telemetry/vue-preview-poll-pause exists + 405's GET / accepts POST, Phase29CiTest passes, ESLint baseline + RTL baseline files exist, docs/runbooks/cleanup.md mentions Phase 53. (2) Extend docs/runbooks/cleanup.md with a Phase-53 section enumerating each carry-over → closeout commit citation. (3) Bump the test-error ratchet baseline ledger by Phase29CiTest's recovery."
+    },
+    "findings": [
+        {
+            "id": "GAUGE-WIRING-1",
+            "severity": "HIGH",
+            "title": "Wire tenant_kyc_blocked_count Prometheus gauge",
+            "evidence": "Phase 48 TENANT-KYC-BRIDGE shipped the alert row (alert-thresholds.md line 33, sev4 at 20/24h) but no emitter. TenantOnboardingService::processKycAcknowledgement gates wizard advance on kycProgress.submitted >= required; tenants stuck below that gate are uncounted today.",
+            "remediation": "New App\\Console\\Commands\\TenantKycBlockedAudit cron walks tenants with role='tenant' + active lease, computes kycProgress() for each, counts those with submitted < required, emits MetricsService::gauge('tenant_kyc_blocked_count', count, []) every hour at :15 past Africa/Nairobi. Idempotent (gauge is a snapshot not an accumulator)."
+        },
+        {
+            "id": "GAUGE-WIRING-2",
+            "severity": "HIGH",
+            "title": "Wire report_render_failure_count Prometheus counter",
+            "evidence": "Phase 50 REPORTS-DEPTH shipped the alert row (alert-thresholds.md line 37, sev3 at 3 failures / 15m) with the note 'derived from log scraping on ReportBuilderService::run / DashboardService::buildPayload / ScheduledController::preview 5xx responses'. Log scraping is fragile + doesn't survive log rotation; a direct counter on the exception path is precise.",
+            "remediation": "Hook the three call sites: in ReportBuilderService::run + DashboardService::buildPayload + ScheduledController::preview wrap the body in try/catch — on caught exception, MetricsService::increment('report_render_failure_count', 1, ['surface' => 'builder'|'dashboard'|'scheduled']), then rethrow. Counter accrues to the 24h Redis bucket so the 15m alert window can be approximated via Grafana rate()."
+        },
+        {
+            "id": "GAUGE-WIRING-3",
+            "severity": "HIGH",
+            "title": "Wire i18n_translation_spend_usd_24h Prometheus gauge",
+            "evidence": "Phase 52 I18N-AUTO-TRANSLATE shipped TranslationCostTracker storing daily spend in Cache keys i18n:translation:spend:daily:total:{date} + i18n:translation:spend:daily:locale:{locale}:{date} (micro-USD), but no exporter scrape reads them. The alert row (alert-thresholds.md line 39, sev3 at $20/day) is dormant.",
+            "remediation": "New App\\Console\\Commands\\I18nSpendAudit cron runs every 5 minutes Africa/Nairobi, calls TranslationCostTracker::currentDailySpend() + ::localeDailySpend(locale) for each locale in config('i18n.supported_locales'), emits MetricsService::gauge('i18n_translation_spend_usd_24h', usd, []) + per-locale variant. Cron handles its own clock skew (no per-call timestamping)."
+        },
+        {
+            "id": "VUE-TELEMETRY-1",
+            "severity": "MEDIUM",
+            "title": "POST /api/telemetry/vue-preview-poll-pause endpoint",
+            "evidence": "Phase 51 added pollPauseCount ref to Scheduled.vue (line 69) incremented by handleVisibility (line 198) but the counter never leaves the browser; the alert row remains visibility-only.",
+            "remediation": "New App\\Http\\Controllers\\Api\\TelemetryController::vuePreviewPollPause(Request) validates {count: int 0-1000, route: string max:120}, throttles via throttle:60,1, session-authed via web middleware (no Sanctum needed), CSRF-exempt via VerifyCsrfToken::$except (sendBeacon does not send CSRF), increments MetricsService counter, returns 204. Add to routes/api.php under existing middleware group."
+        },
+        {
+            "id": "VUE-TELEMETRY-2",
+            "severity": "MEDIUM",
+            "title": "MetricsService::increment hook for pause counter",
+            "evidence": "TelemetryController::vuePreviewPollPause needs a backing increment. MetricsService already supports increment(name, by, labels).",
+            "remediation": "In TelemetryController::vuePreviewPollPause: $this->metrics->increment('vue_preview_poll_pause_count', $count, ['route' => $route]); MetricsService persists into 14-day rolling Redis bucket. Exporter scrape already includes any name written through MetricsService—no change to MetricsController needed."
+        },
+        {
+            "id": "VUE-TELEMETRY-3",
+            "severity": "MEDIUM",
+            "title": "Scheduled.vue beforeunload sendBeacon",
+            "evidence": "Scheduled.vue tracks pollPauseCount client-side (line 69) but never POSTs it. Visibility-change spikes during page abandonment carry the most signal.",
+            "remediation": "Add useBeforeUnload composable (or inline window.addEventListener('beforeunload')) to Scheduled.vue that calls navigator.sendBeacon('/api/telemetry/vue-preview-poll-pause', new Blob([JSON.stringify({count, route})], {type: 'application/json'})) when pollPauseCount > 0. Cleanup via onBeforeUnmount."
+        },
+        {
+            "id": "TEST-DEBT-1",
+            "severity": "HIGH",
+            "title": "Fix Phase29CiTest firstOrFail pollution (carried since Phase 45)",
+            "evidence": "tests/Feature/Workflow/Phase29CiTest.php line 35 uses WorkflowRunLog::firstOrFail() which picks up the onboarding-milestone row written by LogMilestoneRecorded listener (App\\Listeners\\LogMilestoneRecorded.php:22-31) when User factory triggers signup milestone. Failing reliably since Phase 45.",
+            "remediation": "Replace WorkflowRunLog::firstOrFail() with WorkflowRunLog::where('workflow_name', 'WF-RENT-REMIND-1')->latest('id')->first(). Assert the row exists + columns match. Keeps the LogMilestoneRecorded side-channel untouched (it has its own contract)."
+        },
+        {
+            "id": "TEST-DEBT-2",
+            "severity": "MEDIUM",
+            "title": "Audit + re-enable skipped tests where now passable",
+            "evidence": "19 markTestSkipped sites across 9 files. Most are env-dependent (k6 in Phase22LoadTest, Mailpit, Reverb, junit artifact, golden-fixture) and stay skipped. AuthApiTest (10 skips, 'API routes not yet implemented') + TenantApiTest (2 skips, custom notifications schema) are pre-existing scope deeper than DEFER-CLEANUP-3.",
+            "remediation": "Walk every skipped test, classify as (a) env-dependent (keep skipped), (b) pre-existing scope (keep skipped, link to a follow-up issue), (c) now passable (remove markTestSkipped, run, confirm green). Re-enable category (c). Document the audit summary in docs/runbooks/cleanup.md Phase-53 section."
+        },
+        {
+            "id": "TEST-DEBT-3",
+            "severity": "MEDIUM",
+            "title": "Bump test-error ratchet baseline",
+            "evidence": "The Phase 38 test-error ratchet baseline pinned at 99 known failures. Phase29CiTest fix nets -1; if TEST-DEBT-2 re-enables additional formerly-skipped tests, the baseline may shrink further.",
+            "remediation": "After Phase 1c lands, run the full suite, count actual failures, write the new baseline into Phase38TestErrorRatchetTest (or wherever the constant lives). Shrink-only ratchet contract: assertLessThanOrEqual(BASELINE, count)."
+        },
+        {
+            "id": "RTL-BASELINES-1",
+            "severity": "MEDIUM",
+            "title": "Generate Playwright RTL snapshot baselines",
+            "evidence": "Phase 44 shipped tests/a11y/rtl/rtl-snapshot.spec.ts covering 8 pages (Login, Register, Dashboard, Tenants, Buildings, Invoices, Payments, Profile) but no baseline .png files exist in __screenshots__/. The suite cannot fail; it's dormant.",
+            "remediation": "Boot the dev server (php artisan serve + npm run dev) with locale=ar + APP_KEY seeded. Run npm run test:rtl:update to record 8 baseline pngs into tests/a11y/rtl/__screenshots__/. Commit the pngs. Maintainer note: regenerate baselines only when a deliberate visual change ships; otherwise treat png diff as a real regression."
+        },
+        {
+            "id": "RTL-BASELINES-2",
+            "severity": "MEDIUM",
+            "title": "Wire RTL snapshot suite into CI",
+            "evidence": "playwright.rtl.config.ts uses default chromium browser; CI may not have it installed today. Phase 44 left the npm script defined but not gated in .github/workflows/ci.yml.",
+            "remediation": "Either (a) add a 'rtl-snapshots' job to .github/workflows/ci.yml that runs npx playwright install --with-deps chromium + npm run test:rtl + uploads diffs as artifacts on failure, or (b) if the CI image already has browsers, just add the npm step to the existing frontend-build job. Default to (a)."
+        },
+        {
+            "id": "RTL-BASELINES-3",
+            "severity": "LOW",
+            "title": "docs/runbooks/rtl-snapshots.md runbook",
+            "evidence": "RTL baseline regeneration is a delicate operation—requires a known dev-server state, the exact viewport, the same browser version. Ops needs a documented recipe.",
+            "remediation": "New docs/runbooks/rtl-snapshots.md with sections: (1) when to regenerate baselines (deliberate visual change only), (2) seeding recipe (boot env, locale=ar, exact npm command), (3) regression investigation steps (open diff, classify intent vs incident), (4) maxDiffPixelRatio policy + how to tune."
+        },
+        {
+            "id": "ESLINT-RATCHET-1",
+            "severity": "MEDIUM",
+            "title": "Count residual ESLint violations + write .eslint-baseline.json",
+            "evidence": "eslint.config.js lines 176-177 keep no-hardcoded-english-strings + no-ltr-class at 'warn'. Phase 44 codemod cleared the bulk; residual count is unknown but small.",
+            "remediation": "Run npx eslint --rule '{propmanager/no-hardcoded-english-strings: error}' --rule '{propmanager/no-ltr-class: error}' resources/js 2>&1 | grep -c 'error' to get count. Write .eslint-baseline.json {\"hardcoded_english\": N, \"ltr_class\": M} as the shrink-only ceiling. Commit."
+        },
+        {
+            "id": "ESLINT-RATCHET-2",
+            "severity": "MEDIUM",
+            "title": "Flip ESLint rules warn → error",
+            "evidence": "eslint.config.js lines 176-177 use 'warn' severity. With a baseline file pinned, the next-violator-fails contract is safe to enable.",
+            "remediation": "Change 'warn' → 'error' for both propmanager/no-hardcoded-english-strings + propmanager/no-ltr-class in eslint.config.js."
+        },
+        {
+            "id": "ESLINT-RATCHET-3",
+            "severity": "LOW",
+            "title": "CI step: lint:baseline shrink-only watchdog",
+            "evidence": "Flipping to 'error' on a non-empty residual set would fail every CI run. The baseline file is the escape valve.",
+            "remediation": "New package.json script 'lint:baseline' that runs ESLint + counts violations per rule + compares to .eslint-baseline.json + exits non-zero if any rule exceeds its baseline. Add npm run lint:baseline to .github/workflows/ci.yml frontend-build job."
+        },
+        {
+            "id": "CI-1",
+            "severity": "HIGH",
+            "title": "Phase53DeferCleanup3SurfaceTest",
+            "evidence": "Phase 53 lands 7 distinct closures across 6 categories. Watchdog must assert each landed end-to-end so a future refactor doesn't silently regress.",
+            "remediation": "tests/Feature/Phase53DeferCleanup3SurfaceTest covers: (1) GET /api/metrics output contains tenant_kyc_blocked_count + report_render_failure_count + i18n_translation_spend_usd_24h; (2) POST /api/telemetry/vue-preview-poll-pause returns 204 + bumps gauge; (3) Phase29CiTest::test_workflow_logger_writes_a_row_with_full_metadata passes; (4) .eslint-baseline.json exists + has hardcoded_english + ltr_class keys; (5) tests/a11y/rtl/__screenshots__/ has 8+ baseline pngs; (6) docs/runbooks/cleanup.md contains 'Phase 53'."
+        },
+        {
+            "id": "CI-2",
+            "severity": "LOW",
+            "title": "docs/runbooks/cleanup.md Phase-53 section",
+            "evidence": "Phase 38 [DEFER-CLEANUP-2] established docs/runbooks/cleanup.md as the home for cycle-by-cycle cleanup notes. Phase 53 inherits.",
+            "remediation": "Append a Phase-53 section to docs/runbooks/cleanup.md listing each carry-over → closeout commit + skipped-test audit summary + ESLint baseline + RTL baseline policy + Phase29CiTest fix rationale."
+        },
+        {
+            "id": "CI-3",
+            "severity": "LOW",
+            "title": "Bump test-error ratchet ledger",
+            "evidence": "TEST-DEBT-3 ships the actual constant bump; this finding tracks the cross-reference write into the Phase-53 closeout ledger entry so the next defer-cleanup cycle has the chain.",
+            "remediation": "After all Phase 53 commits land, update the phase-53-audit-prd.json audit_closeout block with the before/after baseline numbers; cross-link in the path_forward memory file."
+        }
+    ]
+}
