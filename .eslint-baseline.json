@@ -1,0 +1,15 @@
+{
+    "_comment": "Phase-53 ESLINT-RATCHET-1 shrink-only baseline. The two propmanager-scoped rules (no-hardcoded-english-strings + no-ltr-class) are now severity=error in eslint.config.js. The watchdog (scripts/lint-baseline.mjs) runs ESLint, counts violations per rule, and exits non-zero if any current count exceeds its baseline below. Lower a value here ONLY after fixing real violations; never raise.",
+    "rules": {
+        "propmanager/no-hardcoded-english-strings": 3751,
+        "propmanager/no-ltr-class": 0
+    },
+    "phase_history": {
+        "phase-53": {
+            "set_at": "2026-05-18",
+            "rule_severity": "warn",
+            "gate_severity": "error_via_baseline",
+            "rationale": "Phase 44 codemod cleared bulk LTR-class residue (906 → 0). Hardcoded-English bulk remains in Vue templates; the baseline captures the residual + ratchets downward as Phase-43 + Phase-44 + Phase-52 i18n backfill commits land. Severity stays at warn so `npm run lint` is dev-workflow-friendly; the contract is enforced by `npm run lint:baseline` in CI — new violations grow the count past the baseline and fail the gate."
+        }
+    }
+}

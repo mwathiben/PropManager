@@ -6,6 +6,7 @@
         "build": "node scripts/check-import-case.mjs && vite build",
         "dev": "vite",
         "lint": "eslint resources/js",
+        "lint:baseline": "node scripts/lint-baseline.mjs",
         "check:imports": "node scripts/check-import-case.mjs",
         "test:a11y": "playwright test",
         "test:pwa": "playwright test --config playwright.pwa.config.ts",

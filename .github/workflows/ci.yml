@@ -151,6 +151,13 @@ jobs:
       - name: Accessibility lint (ESLint)
         run: npm run lint
 
+      # Phase-53 ESLINT-RATCHET-3: shrink-only baseline gate for the
+      # propmanager-scoped rules (no-hardcoded-english-strings +
+      # no-ltr-class). Fails CI when residual count grows past
+      # .eslint-baseline.json. Lower baselines as fix commits land.
+      - name: Lint baseline (Phase-53 shrink-only)
+        run: npm run lint:baseline
+
       - name: Build assets
         run: npm run build
 

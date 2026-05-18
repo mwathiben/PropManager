@@ -168,11 +168,15 @@ export default [
             'vuejs-accessibility/no-redundant-roles': 'warn',
 
             // --- Phase-44 ESLINT-CUSTOM (shrink-only) -----------------
-            // 'warn' until backlog is fixed; ratchet to 'error' later.
-            // no-hardcoded-english-strings is heuristic; pairs with the
-            // PHP-side HardcodedEnglishScanner ratchet.
-            // no-ltr-class catches Tailwind LTR residue introduced after
-            // the Phase-44 RTL-MIGRATE-1 codemod.
+            // Phase-53 ESLINT-RATCHET-2: severity stays at 'warn' so
+            // `npm run lint` keeps a passable exit code for the dev
+            // workflow, but the shrink-only baseline in
+            // .eslint-baseline.json + scripts/lint-baseline.mjs (CI-
+            // wired via `npm run lint:baseline`) treats any growth
+            // past baseline as a hard failure. Lower the baseline as
+            // commits fix real violations; never raise. New violations
+            // surface in IDE as warns AND fail CI via the baseline
+            // gate, which is the meaningful contract.
             'propmanager/no-hardcoded-english-strings': 'warn',
             'propmanager/no-ltr-class': 'warn',
         },
