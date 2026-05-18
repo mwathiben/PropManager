@@ -1113,6 +1113,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [SubscriptionController::class, 'index'])->name('subscription.index');
         Route::get('/plans', [SubscriptionController::class, 'plans'])->name('subscription.plans');
         Route::post('/subscribe', [SubscriptionController::class, 'subscribe'])->name('subscription.subscribe');
+        // Phase-60 PLAN-CHANGE-2: self-serve upgrade/downgrade.
+        Route::post('/change', [SubscriptionController::class, 'change'])->name('subscription.change');
         Route::get('/callback', [SubscriptionController::class, 'callback'])->name('subscription.callback');
         Route::post('/cancel', [SubscriptionController::class, 'cancel'])->name('subscription.cancel');
         Route::post('/resume', [SubscriptionController::class, 'resume'])->name('subscription.resume');

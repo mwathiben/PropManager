@@ -274,6 +274,46 @@ class SubscriptionController extends Controller
     }
 
     /**
+     * Phase-60 PLAN-CHANGE-2: self-serve plan upgrade/downgrade.
+     * Today /subscribe requires going through Paystack/Stripe checkout
+     * fresh; for an existing active subscription, a swap-in-place is
+     * the correct UX. Writes a SubscriptionPlanChange audit row
+     * regardless of Stripe outcome.
+     */
+    public function change(Request $request, \App\Services\Subscriptions\PlanChangeService $service)
+    {
+        $request->validate([
+            'new_plan_id' => 'required|integer|exists:subscription_plans,id',
+        ]);
+
+        $user = auth()->user();
+        $subscription = $user->subscription;
+
+        if (! $subscription || ! $subscription->isActive()) {
+            return back()->with('error', 'No active subscription to change.');
+        }
+
+        $newPlan = SubscriptionPlan::findOrFail($request->integer('new_plan_id'));
+
+        if ($subscription->plan_id === $newPlan->id) {
+            return back()->with('error', 'You are already on this plan.');
+        }
+
+        $audit = $service->changePlan($subscription, $newPlan, $user);
+
+        if (! $audit->stripe_succeeded && $subscription->stripe_subscription_code) {
+            return back()->with(
+                'error',
+                'Plan change recorded but the gateway update failed: '.($audit->error_message ?? 'unknown error'),
+            );
+        }
+
+        return redirect()
+            ->route('subscription.index')
+            ->with('success', 'Plan changed to '.$newPlan->name.'.');
+    }
+
+    /**
      * Download payment receipt/invoice.
      */
     public function downloadInvoice(SubscriptionPayment $payment)

@@ -42,6 +42,17 @@ const handleSubscribe = async (plan) => {
     processingPlanId.value = plan.id;
 
     try {
+        // Phase-60 PLAN-CHANGE-3: if the user already has an active
+        // subscription, swap-in-place via /subscription/change rather
+        // than driving the user through Paystack/Stripe checkout fresh.
+        // /subscribe is for first-time onboarding to a paid plan.
+        if (props.currentPlan && props.currentPlan.id !== plan.id) {
+            router.post(route('subscription.change'), {
+                new_plan_id: plan.id,
+            });
+            return;
+        }
+
         // For free plan, just submit directly
         if (plan.is_free) {
             router.post(route('subscription.subscribe'), {
