@@ -162,3 +162,77 @@ Out of scope for Phase 34, candidate Phase 35 follow-ups:
 - MRR expansion/contraction waterfall computation via `audit_logs`
   diff (Phase 34 ships these columns at 0).
 - `NotificationPreference` integration on lifecycle email opt-out.
+
+---
+
+## Phase 56 — GROWTH-ATTRIB-1 (2026-05-18)
+
+Deepens Phase 34/35/39 growth + experimentation primitives. Closeout: see `phase-56-audit-prd.json` for the 18 findings (5H/9M/4L).
+
+### MULTI-TOUCH attribution
+
+`attribution_touchpoints` table records every channel a user passed through before converting (referral / organic_search / paid_search / social / email / direct / invitation). `AttributionTouchpointRecorder::record` is idempotent (1-second window dedupe) + fail-soft (log + swallow so registration never 500s).
+
+`App\Services\Growth\AttributionModelService::computeForUser($userId, $convertedAt)` returns `[model_name => [channel => credit_pct]]` for all four models:
+
+- `first_touch`: 100% to the earliest touch's channel.
+- `last_touch`: 100% to the latest touch's channel.
+- `linear`: 100/N distributed equally across every touch.
+- `u_shape`: 40% first + 20% spread across middle touches + 40% last. Collapses to 100% for N=1 and 50/50 for N=2.
+
+**Choosing a model** (decision matrix):
+
+| Scenario | Use |
+|---|---|
+| Short journey, single dominant channel (e.g., paid search → purchase) | `last_touch` |
+| Long awareness funnel (organic discovery weeks before purchase) | `first_touch` |
+| Multi-channel journey, want even visibility | `linear` |
+| You believe entry + exit channels matter most | `u_shape` |
+
+RegisteredUserController records the registration touchpoint at the commit boundary with channel inferred from session context (invitation / referral / direct).
+
+### FUNNEL-SANKEY
+
+Canonical funnel stages live in `App\Services\Growth\FunnelStage` (backed enum: SIGNUP / ONBOARDING_COMPLETE / FIRST_PAYMENT / RETAINED_60D). Emit via `FunnelEventEmitter::emit(User, FunnelStage)` which wraps `ProductEventTracker::track` with the `funnel.<stage>` naming the rollup queries on.
+
+`FunnelRollupService::computeSankeyPayload(?landlordId, $days = 90)` returns a balanced Sankey shape: continuation links between adjacent stages plus synthetic `dropped_at_<next_stage>` nodes so totals reconcile at every boundary. `landlordId === null` is ops mode (all landlords via `withoutGlobalScopes`); a specific id scopes to one landlord's funnel.
+
+`resources/js/Components/Growth/FunnelSankey.vue` is hand-rolled — no `d3-sankey`, no library dependency. SVG `<rect>` nodes + cubic Bezier `<path>` links. WCAG AA contrast on continuation (emerald) vs drop-off (gray) link colors.
+
+### COHORT-BY-SOURCE
+
+`users.acquisition_source` enum (`organic` | `referral` | `paid` | `invitation` | `unknown`) is stamped at the registration commit boundary based on the same channel context the multi-touch recorder uses. Backfill heuristic: existing rows get `invitation` when invitations.accepted_at matches the user email, then `referral` when referrals.referred_user_id matches, else `unknown`.
+
+`ChurnService::cohortsBySource(int $monthsBack = 12)` returns `[{cohort_month, source, size, retention}]` where `retention[m]` = fraction of the cohort with any product_events row inside calendar month m relative to the cohort_month. Activity-based (not subscription-based) so the curve answers "are users still using the product?" rather than "are they still paying?"
+
+### AB-AUTO-PROMOTE
+
+`experiments:auto-promote` runs nightly at 03:30 Africa/Nairobi and flips RUNNING experiments to CONCLUDED when the dual significance gate passes:
+
+- `chi-square p_value < 0.01` (variants are genuinely different)
+- `bayes p_b_better_than_a > 0.95` OR `< 0.05` (one variant wins definitively)
+
+`experiments.success_event_name` (nullable) lets each experiment name its own conversion event. NULL keeps Phase 39's default behaviour (any product_event after exposure.fired_at). When set, only that exact event_name counts toward the conversion rate.
+
+Multi-arm experiments skip auto-promotion because `computeBayesianPosterior` requires exactly 2 variants — operator manually concludes those via `/ops/experiments/{experiment}/conclude`.
+
+`ExperimentConcluded` event fires on promotion; `LogExperimentConclusion` listener writes a `product_events` row 'experiment.concluded' with `[experiment_key, winning_variant_key, chi_p, bayes_posterior]` so the operator timeline shows every flip.
+
+**Manual override**: an operator can transition a RUNNING experiment to CONCLUDED via `ExperimentController::conclude` at any time — the cron only auto-promotes when its gate passes, never blocks the manual path.
+
+### OPS-GROWTH-DASHBOARDS
+
+`/ops/growth/attribution` is the super-admin landing page surfacing all four analyses in a 2x2 grid:
+
+| Card | Source |
+|---|---|
+| Attribution models (last 30d) | `AttributionModelService::computeForUser` aggregated across recent touchpoint users |
+| Funnel (last 90d) | `FunnelRollupService::computeSankeyPayload(null, 90)` |
+| Cohort retention by source | `ChurnService::cohortsBySource(6)` |
+| Auto-promoted experiments | `Experiment::CONCLUDED` joined with `product_events` 'experiment.concluded' for chi_p / bayes_posterior |
+
+### CI surfaces
+
+`tests/Feature/Growth/Phase56GrowthAttribSurfaceTest` cross-category presence map; per-category behavioural tests in sibling Phase56* files.
+
+Cross-references: [Phase 34 referral lineage](#phase-34--growth-mvr) | [Phase 35 experiments + product_events lineage](#phase-35) | [Phase 39 chi-square + Bayesian lineage](#phase-39).
