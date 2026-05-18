@@ -113,6 +113,12 @@ $schedule('latefees:audit-drift', fn ($e) => $e->dailyAt('05:40'));
 // {stage=X} gauges.
 $schedule('dpa:enforce-retention', fn ($e) => $e->dailyAt('02:00')->withoutOverlapping(120));
 
+// Phase-59 FILE-RETENTION-2: per-subject file purge cron. Walks every
+// FileRetentionPolicy::SUBJECTS entry + deletes expired files. Runs
+// at 02:30 Africa/Nairobi (after dpa:enforce-retention at 02:00) so
+// the two retention pipelines don't contend on the same DB transaction.
+$schedule('storage:enforce-retention', fn ($e) => $e->dailyAt('02:30')->withoutOverlapping(60));
+
 // Phase-21 DEFER-DPA-1: nightly minor-tenant consent drift audit.
 // Kenya DPA Article 8 / Section 33 — flags tenants with dob indicating
 // minor status BUT no parental_consent_provided_at. Same pattern as
