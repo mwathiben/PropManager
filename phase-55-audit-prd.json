@@ -139,5 +139,40 @@
             "evidence": "Phase 28 TENANT-DOCS-2 ships the receipt route the new detail page links to. Phase 49 ticket cost UI sets the surface-tag pattern Phase 55 mirrors. Phase 50 landlord_dashboards.layout is the primitive Phase 55 extends.",
             "remediation": "Append Phase 55 cross-references to the audit_closeout notes of the relevant Phase 28/49/50 findings so future readers can trace the lineage forwards. No behavioural change — just cross-reference accuracy."
         }
-    ]
+    ],
+    "audit_closeout": {
+        "closed_at": "2026-05-18",
+        "summary": "18/18 findings closed across 6 categories (5H/9M/4L). Zero PRD-finding deferrals. Closes user-reported recent-payments bug at three layers (orderBy payment_date / withTrashed / is_voided=false) and adds PaymentDetailController + Pages/Payments/Detail.vue + building_id=all sentinel + chip + lease-state badge + drag-and-drop widget ordering via Phase-50 landlord_dashboards.layout (slug=main_dashboard).",
+        "stats": {
+            "tests": 32,
+            "assertions": 103,
+            "new_files": [
+                "app/Http/Controllers/PaymentDetailController.php",
+                "app/Http/Controllers/DashboardPreferenceController.php",
+                "resources/js/Pages/Payments/Detail.vue",
+                "docs/runbooks/dashboard.md",
+                "tests/Feature/Dashboard/Phase55RecentPaymentsTest.php",
+                "tests/Feature/Dashboard/Phase55PaymentDetailTest.php",
+                "tests/Feature/Dashboard/Phase55DashboardFiltersTest.php",
+                "tests/Feature/Dashboard/Phase55LeaseStateBadgeTest.php",
+                "tests/Feature/Dashboard/Phase55WidgetOrderingTest.php",
+                "tests/Feature/Dashboard/Phase55DashboardDepthSurfaceTest.php"
+            ],
+            "modified_surfaces": [
+                "app/Services/DashboardService.php (recent-payments order + withTrashed + is_voided + cross-building mode + lease_state attribute + widgetOrder resolution)",
+                "resources/js/Pages/Dashboard.vue (chip + lease-state badge + drag-and-drop reorder)",
+                "resources/js/types/dashboard.d.ts (allBuildingsMode / widgetOrder / lease_state typings)",
+                "routes/web.php (payments.detail.show + dashboards.preferences.update)"
+            ]
+        },
+        "commits": [
+            "4e5b6f1 docs(phase-55): [DASHBOARD-DEPTH] PRD baseline",
+            "d542767 fix(phase-55): RECENT-PAYMENTS card surfaces back-dated, soft-deleted-lease, and voided cases correctly",
+            "74ca90c feat(phase-55): PAYMENT-DETAIL drawer at GET /payments/{payment}",
+            "37656b6 feat(phase-55): DASHBOARD-FILTERS building_id=all sentinel + at-a-glance chip",
+            "c4a24b6 feat(phase-55): LEASE-STATE-BADGE surfaces ended/archived lease state on each recent-payment row",
+            "a8df700 feat(phase-55): WIDGET-ORDERING drag-and-drop reorder of bottom-row dashboard cards persisted via landlord_dashboards.layout",
+            "0e5787f test(phase-55): CI surface watchdog + dashboard.md runbook + Phase 49 PRD cross-link"
+        ]
+    }
 }
