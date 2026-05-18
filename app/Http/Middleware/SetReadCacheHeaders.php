@@ -25,12 +25,27 @@ use Symfony\Component\HttpFoundation\Response;
  * if it is in the config. Auth-sensitive / per-request-fresh routes
  * (dashboards with live counts, anything with a CSRF token in the
  * body) must never be added.
+ *
+ * Phase-57 L7-CACHE-1: appends Vary 'Accept, Accept-Encoding, Cookie'
+ * so a shared cache (Cloudflare / Fastly) doesn't serve one tenant's
+ * HTML to another even if the URL matches. Accept covers content-
+ * negotiation, Accept-Encoding covers gzip/br variants, Cookie covers
+ * per-tenant fragmentation (the session cookie carries the
+ * landlord_id binding).
+ *
+ * Phase-57 L7-CACHE-2: $shared=true picks the public/s-maxage variant
+ * for truly tenant-agnostic routes (marketing landing, robots.txt).
+ * The Vary header is still set so a future content-negotiation change
+ * doesn't break shared-cache correctness.
  */
 class SetReadCacheHeaders
 {
-    public function handle(Request $request, Closure $next): Response
+    public const VARY_HEADER = 'Accept, Accept-Encoding, Cookie';
+
+    public function handle(Request $request, Closure $next, string $variant = 'private'): Response
     {
         $response = $next($request);
+        $shared = $variant === 'shared';
 
         if (! $request->isMethod('GET') || $response->getStatusCode() !== 200) {
             return $response;
@@ -57,7 +72,11 @@ class SetReadCacheHeaders
             }
         }
 
-        $response->headers->set('Cache-Control', "private, must-revalidate, max-age={$maxAge}");
+        $cacheControl = $shared
+            ? "public, s-maxage={$maxAge}, max-age=60"
+            : "private, must-revalidate, max-age={$maxAge}";
+        $response->headers->set('Cache-Control', $cacheControl);
+        $response->headers->set('Vary', self::VARY_HEADER);
 
         return $response;
     }

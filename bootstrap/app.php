@@ -84,6 +84,10 @@ return Application::configure(basePath: dirname(__DIR__))
             // Phase-22 PERF-CACHE-2: ETag + private cache headers on the
             // config-enumerated read routes (read_cache.routes).
             'cache.read' => \App\Http\Middleware\SetReadCacheHeaders::class,
+            // Phase-57 L7-CACHE-2: public/s-maxage variant for truly tenant-
+            // agnostic routes (marketing landing, /robots.txt). MUST NOT
+            // contain per-tenant data; do NOT use on Inertia responses.
+            'cache.read.shared' => \App\Http\Middleware\SetReadCacheHeaders::class.':shared',
             // Phase-25 API-VERSION-2: route attribute-style deprecation
             // header emitter. Apply via ->middleware('deprecated:YYYY-MM-DD').
             'deprecated' => \App\Http\Middleware\ApiVersionHeaders::class,
