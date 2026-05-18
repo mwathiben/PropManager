@@ -684,7 +684,9 @@ class DashboardService
             ->select(['id', 'invoice_id', 'amount', 'payment_method', 'payment_date', 'created_at'])
             ->with([
                 'invoice:id,lease_id',
-                'invoice.lease:id,tenant_id,unit_id',
+                'invoice.lease' => function ($q) {
+                    $q->withTrashed()->select(['id', 'tenant_id', 'unit_id', 'is_active', 'deleted_at']);
+                },
                 'invoice.lease.tenant:id,name',
                 'invoice.lease.unit:id,unit_number,building_id',
                 'invoice.lease.unit.building:id,name',
@@ -692,7 +694,18 @@ class DashboardService
             ->orderBy('payment_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->limit(5)
-            ->get();
+            ->get()
+            ->map(function (Payment $payment) {
+                $lease = $payment->invoice?->lease;
+                $payment->setAttribute('lease_state', match (true) {
+                    $lease === null => 'unknown',
+                    $lease->deleted_at !== null => 'soft_deleted',
+                    (bool) $lease->is_active === false => 'ended',
+                    default => 'active',
+                });
+
+                return $payment;
+            });
 
         $recentTickets = Ticket::whereIn('building_id', $metricsBuildingIds)
             ->select(['id', 'title', 'category', 'subcategory', 'priority', 'status', 'building_id', 'unit_id', 'reporter_id', 'created_at'])

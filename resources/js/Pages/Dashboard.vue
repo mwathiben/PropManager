@@ -167,6 +167,18 @@ const viewPayment = (payment: DashboardPayment) => {
 // --- HELPERS (from composables) ---
 const { formatMoney, formatDate, formatRelativeDate, todayAsISODate } = useFormatters();
 
+const leaseStateBadgeLabel = (state: string): string => {
+    if (state === 'ended') return 'Ended';
+    if (state === 'soft_deleted') return 'Archived';
+    return 'Unknown';
+};
+
+const leaseStateBadgeClass = (state: string): string => {
+    if (state === 'ended') return 'bg-gray-200 text-gray-700';
+    if (state === 'soft_deleted') return 'bg-rose-100 text-rose-800';
+    return 'bg-gray-100 text-gray-600';
+};
+
 const totalArrears = computed(() => {
     return (localArrearsAging.value?.['0_30'] || 0) +
            (localArrearsAging.value?.['31_60'] || 0) +
@@ -1075,7 +1087,18 @@ onUnmounted(() => {
                                     <BanknotesIcon class="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <p class="font-medium text-gray-900">{{ payment.invoice?.lease?.tenant?.name || 'Unknown' }}</p>
+                                    <p class="font-medium text-gray-900">
+                                        {{ payment.invoice?.lease?.tenant?.name || 'Unknown' }}
+                                        <span
+                                            v-if="payment.lease_state && payment.lease_state !== 'active'"
+                                            class="ml-1 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                                            :class="leaseStateBadgeClass(payment.lease_state)"
+                                            :aria-label="leaseStateBadgeLabel(payment.lease_state)"
+                                            data-testid="lease-state-badge"
+                                        >
+                                            {{ leaseStateBadgeLabel(payment.lease_state) }}
+                                        </span>
+                                    </p>
                                     <p class="text-xs text-gray-500">{{ payment.invoice?.lease?.unit?.unit_number || '-' }} • {{ formatDate(payment.payment_date) }}</p>
                                 </div>
                             </div>

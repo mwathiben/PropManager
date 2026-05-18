@@ -217,6 +217,7 @@ export interface DashboardPayment extends BaseEntity {
   platform_fee?: number | null;
   landlord_amount?: number | null;
   split_provider?: string | null;
+  lease_state?: 'active' | 'ended' | 'soft_deleted' | 'unknown';
   invoice?: {
     id: number;
     lease?: {
