@@ -357,6 +357,9 @@ Route::middleware('auth')->group(function () {
     // Phase-61 TERMINATION-3: lease early-termination route.
     Route::post('/leases/{lease}/terminate', [LeaseController::class, 'terminate'])
         ->name('leases.terminate');
+    // Phase-61 TRANSFER-3: lease assignment / sublet route.
+    Route::post('/leases/{lease}/transfer', [LeaseController::class, 'transfer'])
+        ->name('leases.transfer');
 
     // 3. The Architect (Building Configuration)
     Route::get('/buildings/{building}/configure', [BuildingController::class, 'edit'])->name('buildings.edit');

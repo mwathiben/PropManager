@@ -340,6 +340,39 @@ class LeaseController extends Controller
         return back()->with('success', __('lease.termination_initiated'));
     }
 
+    /**
+     * Phase-61 TRANSFER-3: tenant assigns lease to another tenant.
+     * Outgoing tenant initiates; landlord approves; landlord completes
+     * (which swaps Lease.tenant_id).
+     */
+    public function transfer(
+        \Illuminate\Http\Request $request,
+        Lease $lease,
+        \App\Services\Lease\LeaseTransferService $service,
+    ) {
+        $validated = $request->validate([
+            'incoming_tenant_email' => 'required|email|exists:users,email',
+            'transfer_date' => 'required|date|after:today',
+            'transfer_fee_amount' => 'nullable|numeric|min:0',
+            'reason_text' => 'nullable|string|max:1000',
+        ]);
+
+        $user = $request->user();
+        if ($user->id !== $lease->tenant_id) {
+            abort(403);
+        }
+
+        $incoming = \App\Models\User::where('email', $validated['incoming_tenant_email'])->firstOrFail();
+
+        try {
+            $service->request($lease, $user, $incoming, $validated);
+        } catch (\App\Exceptions\ShortNoticeException $e) {
+            return back()->with('error', __($e->translationKey(), ['days' => $e->requiredDays]));
+        }
+
+        return back()->with('success', __('lease.transfer_requested'));
+    }
+
     public function download(Lease $lease)
     {
         if (! $lease->lease_doc_path || ! Storage::tenant()->exists($lease->lease_doc_path)) {
