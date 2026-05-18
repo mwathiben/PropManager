@@ -36,11 +36,11 @@ class ImportService
      */
     public function parseCSV(string $storagePath): array
     {
-        if (! Storage::disk('local')->exists($storagePath)) {
+        if (! Storage::tenant()->exists($storagePath)) {
             throw new ImportFileException($storagePath);
         }
 
-        $content = Storage::disk('local')->get($storagePath);
+        $content = Storage::tenant()->get($storagePath);
 
         if ($content === null || trim($content) === '') {
             throw new InvalidCsvFormatException('empty file');

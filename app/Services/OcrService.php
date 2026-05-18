@@ -285,7 +285,7 @@ class OcrService
         // Tesseract requires a filesystem path
         $imagePath = $image instanceof UploadedFile
             ? $image->getRealPath()
-            : Storage::disk('local')->path($image);
+            : Storage::tenant()->path($image);
 
         // Run tesseract
         $command = 'tesseract '.escapeshellarg($imagePath).' stdout --psm 6 digits';
@@ -425,7 +425,7 @@ class OcrService
             return $image->get();
         }
 
-        return Storage::disk('local')->get($image);
+        return Storage::tenant()->get($image);
     }
 
     /**

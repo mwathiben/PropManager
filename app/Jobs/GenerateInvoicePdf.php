@@ -43,7 +43,7 @@ class GenerateInvoicePdf implements ShouldQueue
             return;
         }
 
-        if ($invoice->pdf_path && Storage::disk('local')->exists($invoice->pdf_path)) {
+        if ($invoice->pdf_path && Storage::tenant()->exists($invoice->pdf_path)) {
             Log::info('GenerateInvoicePdf: PDF already exists, skipping regeneration', [
                 'invoice_id' => $this->invoiceId,
                 'invoice_number' => $invoice->invoice_number,

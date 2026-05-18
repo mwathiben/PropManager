@@ -37,7 +37,7 @@ class TicketAnnotationService
 
         return DB::transaction(function () use ($ticket, $original, $payload, $annotationData, $actor): Document {
             $path = 'tickets/'.$ticket->id.'/annotation-'.now()->format('YmdHis').'-'.bin2hex(random_bytes(4)).'.png';
-            Storage::disk('local')->put($path, $payload);
+            Storage::tenant()->put($path, $payload);
 
             $annotated = $ticket->attachments()->create([
                 'landlord_id' => $ticket->landlord_id,

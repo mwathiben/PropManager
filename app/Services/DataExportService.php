@@ -24,7 +24,7 @@ class DataExportService
         $exportId = Str::uuid();
         $exportPath = "exports/{$user->id}/{$exportId}";
 
-        Storage::disk('local')->makeDirectory($exportPath);
+        Storage::tenant()->makeDirectory($exportPath);
 
         $leases = $this->getLeaseData($user);
         $invoices = $this->getInvoiceData($user);
@@ -84,14 +84,14 @@ class DataExportService
 
         // Write JSON export
         $jsonPath = "{$exportPath}/data_export.json";
-        Storage::disk('local')->put($jsonPath, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        Storage::tenant()->put($jsonPath, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
         // Create ZIP archive
-        $zipPath = Storage::disk('local')->path("{$exportPath}/data_export_{$user->id}_{$exportId}.zip");
+        $zipPath = Storage::tenant()->path("{$exportPath}/data_export_{$user->id}_{$exportId}.zip");
         $this->createZipArchive($exportPath, $zipPath, $user);
 
         // Clean up JSON file after zipping
-        Storage::disk('local')->delete($jsonPath);
+        Storage::tenant()->delete($jsonPath);
 
         return $zipPath;
     }
@@ -291,7 +291,7 @@ class DataExportService
         }
 
         // Add JSON export
-        $jsonContent = Storage::disk('local')->get("{$exportPath}/data_export.json");
+        $jsonContent = Storage::tenant()->get("{$exportPath}/data_export.json");
         $zip->addFromString('data_export.json', $jsonContent);
 
         // Add user documents
@@ -390,7 +390,7 @@ README;
     public function cleanupOldExports(int $daysToKeep = 7): int
     {
         $deleted = 0;
-        $disk = Storage::disk('local');
+        $disk = Storage::tenant();
 
         if (! $disk->exists('exports')) {
             return 0;

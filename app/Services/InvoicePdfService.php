@@ -26,7 +26,7 @@ class InvoicePdfService
         $pdf = $this->generatePdf($invoice, $template);
         $path = "invoices/{$invoice->landlord_id}/{$invoice->invoice_number}.pdf";
 
-        Storage::disk('local')->put($path, $pdf->output());
+        Storage::tenant()->put($path, $pdf->output());
 
         return $path;
     }
