@@ -1,18 +1,20 @@
 /**
- * Phase-26 PWA-NETWORK-1: client-side wrapper around Workbox's
- * background-sync queue.
+ * Phase-26 PWA-NETWORK-1 + Phase-62 OFFLINE-WRITES-2: client-side
+ * wrapper around Workbox's background-sync queue.
  *
- * Usage in a page (Invoices/Create.vue) is typically:
+ * Usage in a page (Invoices/Create.vue, Tickets/Create.vue, etc.):
  *
  *   const { submit } = useBackgroundSync({
- *       queue: 'pm-invoice-queue',
- *       label: 'New invoice',
+ *       routeFamily: 'tickets',
+ *       label: 'New ticket',
  *   });
  *   async function onSave() {
  *       try {
- *           await submit('/invoices', form.value);
- *       } catch {
- *           // Offline: the SW captured the request, store now shows it
+ *           await submit('/tickets', form.value);
+ *       } catch (e) {
+ *           if (e instanceof QueuedOfflineError) {
+ *               // Offline: the SW captured the request, store now shows it
+ *           }
  *       }
  *   }
  *
@@ -23,9 +25,9 @@
  *   2. axios.post fires. On success, return the response. On a
  *      network error, Workbox's BackgroundSyncPlugin (registered in
  *      resources/js/sw.ts) has already enqueued the request — record
- *      it in the queuedOps store so the UI shows it, then throw a
- *      sentinel `QueuedOfflineError` so the caller knows the request
- *      was queued (vs. a real 4xx/5xx).
+ *      it in the queuedOps store + persistent offlineWriteQueue
+ *      (Phase-62 OFFLINE-WRITES-3) so the UI shows it across tab
+ *      restarts, then throw a sentinel `QueuedOfflineError`.
  *   3. The SW replays the request when connectivity returns and
  *      posts BG_SYNC_DRAINED — app.js routes that to
  *      queuedOps.drain(queue).
@@ -33,6 +35,7 @@
 
 import axios, { isAxiosError, type AxiosResponse } from 'axios';
 import { useQueuedOpsStore } from '@/stores/queuedOps';
+import { enqueueOfflineWrite } from '@/lib/offlineWriteQueue';
 
 export class QueuedOfflineError extends Error {
     constructor(public readonly opId: string) {
@@ -41,13 +44,22 @@ export class QueuedOfflineError extends Error {
     }
 }
 
+export type RouteFamily = 'invoices' | 'tickets' | 'comments' | 'readings' | 'payments';
+
+const QUEUE_NAMES: Record<RouteFamily, string> = {
+    invoices: 'pm-invoice-queue',
+    tickets: 'pm-offline-tickets',
+    comments: 'pm-offline-comments',
+    readings: 'pm-offline-readings',
+    payments: 'pm-offline-payments',
+};
+
 type Options = {
-    queue: string;
+    routeFamily: RouteFamily;
     label: string;
 };
 
 function ulid(): string {
-    // Lightweight ULID — Crockford base32 timestamp + 80-bit random.
     // Crypto.randomUUID is good enough for idempotency; we don't need
     // strict ULID timestamps.
     return crypto.randomUUID();
@@ -55,6 +67,7 @@ function ulid(): string {
 
 export function useBackgroundSync(options: Options) {
     const store = useQueuedOpsStore();
+    const queueName = QUEUE_NAMES[options.routeFamily];
 
     async function submit<T = unknown>(url: string, data: unknown): Promise<AxiosResponse<T>> {
         const idempotencyKey = ulid();
@@ -69,12 +82,28 @@ export function useBackgroundSync(options: Options) {
             const isNetworkError =
                 isAxiosError(e) && (!e.response || e.code === 'ERR_NETWORK');
             if (isNetworkError) {
-                const op = store.add({ queue: options.queue, label: options.label });
+                const op = store.add({
+                    queue: queueName,
+                    label: options.label,
+                    routeFamily: options.routeFamily,
+                });
+                // Phase-62 OFFLINE-WRITES-3: persist so reopened tabs
+                // still see the pending op even after the in-memory
+                // Pinia store is gone.
+                await enqueueOfflineWrite({
+                    id: op.id,
+                    routeFamily: options.routeFamily,
+                    url,
+                    payload: data,
+                    idempotencyKey,
+                });
                 throw new QueuedOfflineError(op.id);
             }
             throw e;
         }
     }
 
-    return { submit };
+    return { submit, queueName };
 }
+
+export { QUEUE_NAMES };

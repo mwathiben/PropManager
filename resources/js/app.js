@@ -138,7 +138,47 @@ if ('serviceWorker' in navigator) {
                 import('@/stores/queuedOps').then(({ useQueuedOpsStore }) => {
                     useQueuedOpsStore().drain(data.queue);
                 });
+                // Phase-62 OFFLINE-WRITES-3: walk the persistent queue
+                // looking for ops whose route matches the drained
+                // queue. The SW signalled the queue is empty, so each
+                // pending entry it had must have succeeded.
+                import('@/lib/offlineWriteQueue').then(({ listPending, recordReplaySuccess }) => {
+                    listPending().then((pending) => {
+                        for (const entry of pending) {
+                            void recordReplaySuccess(entry.id);
+                        }
+                    });
+                });
             }
+        });
+
+        // Phase-62 OFFLINE-WRITES-3: hydrate the in-memory Pinia store
+        // from IDB so a tab reopened after a crash still shows the
+        // pending writes from the previous session.
+        import('@/lib/offlineWriteQueue').then(({ listPending, listDeadLetter }) => {
+            Promise.all([listPending(), listDeadLetter()]).then(([pending, dead]) => {
+                if (pending.length === 0 && dead.length === 0) return;
+                import('@/stores/queuedOps').then(({ useQueuedOpsStore }) => {
+                    const store = useQueuedOpsStore();
+                    for (const entry of pending) {
+                        store.add({
+                            id: entry.id,
+                            queue: `pm-offline-${entry.routeFamily}`,
+                            label: `Pending ${entry.routeFamily}`,
+                            routeFamily: entry.routeFamily,
+                        });
+                    }
+                    for (const entry of dead) {
+                        const op = store.add({
+                            id: entry.id,
+                            queue: `pm-offline-${entry.routeFamily}`,
+                            label: `Failed ${entry.routeFamily}`,
+                            routeFamily: entry.routeFamily,
+                        });
+                        store.markDeadLetter(op.id, entry.lastError ?? 'Max attempts reached');
+                    }
+                });
+            });
         });
     });
 }

@@ -129,32 +129,51 @@ registerRoute(
     }),
 );
 
-// Phase-26 PWA-NETWORK-1: background-sync for invoice creation.
-// When the user submits POST /invoices offline, Workbox enqueues the
-// request and replays it (with backoff) when connectivity returns.
-// Safe to replay because invoice creation honours X-Idempotency-Key
-// (Phase-16 RESIL-3) — the client attaches a ULID per submit so the
-// server rejects duplicates if the queue replays after a partial
-// success.
+// Phase-26 PWA-NETWORK-1 + Phase-62 OFFLINE-WRITES-1: background-sync
+// for mutation routes. When the user submits a POST offline, Workbox
+// enqueues the request and replays it (with backoff) when connectivity
+// returns. Safe to replay because every wrapped surface honours
+// X-Idempotency-Key (Phase-16 RESIL-3) — the client attaches a ULID per
+// submit so the server rejects duplicates if the queue replays after a
+// partial success.
 //
 // On drain, the SW posts { type: 'BG_SYNC_DRAINED', queue } to all
-// clients — the QueuedOpsTray (PWA-NETWORK-3) consumes that to clear
-// its "queued offline" badge.
-const invoiceSyncPlugin = new BackgroundSyncPlugin('pm-invoice-queue', {
-    maxRetentionTime: 24 * 60, // 24h — beyond this Workbox drops the request
-    onSync: async ({ queue }) => {
-        await queue.replayRequests();
-        const clientList = await self.clients.matchAll({ type: 'window' });
-        for (const client of clientList) {
-            client.postMessage({ type: 'BG_SYNC_DRAINED', queue: 'pm-invoice-queue' });
-        }
-    },
-});
-registerRoute(
-    ({ url, request }) => request.method === 'POST' && url.pathname.startsWith('/invoices'),
-    new NetworkOnly({ plugins: [invoiceSyncPlugin] }),
-    'POST',
-);
+// clients — the QueuedOpsTray (PWA-NETWORK-3) + offlineWriteQueue
+// (Phase-62 OFFLINE-WRITES-3) consume that to clear pending items.
+//
+// Per-family queues mean a stuck payment retry doesn't block an
+// independent ticket comment from going through.
+function registerOfflinePost(
+    queueName: string,
+    matcher: (url: URL) => boolean,
+    maxRetentionMinutes: number = 24 * 60,
+): void {
+    const plugin = new BackgroundSyncPlugin(queueName, {
+        maxRetentionTime: maxRetentionMinutes,
+        onSync: async ({ queue }) => {
+            await queue.replayRequests();
+            const clientList = await self.clients.matchAll({ type: 'window' });
+            for (const client of clientList) {
+                client.postMessage({ type: 'BG_SYNC_DRAINED', queue: queueName });
+            }
+        },
+    });
+    registerRoute(
+        ({ url, request }) => request.method === 'POST' && matcher(url),
+        new NetworkOnly({ plugins: [plugin] }),
+        'POST',
+    );
+}
+
+// Preserve the Phase-26 invoice queue contract verbatim.
+registerOfflinePost('pm-invoice-queue', (url) => url.pathname.startsWith('/invoices'));
+
+// Phase-62 OFFLINE-WRITES-2: extend coverage to the four most-common
+// offline mutation surfaces.
+registerOfflinePost('pm-offline-tickets', (url) => url.pathname === '/tickets');
+registerOfflinePost('pm-offline-comments', (url) => /^\/tickets\/\d+\/comment$/.test(url.pathname));
+registerOfflinePost('pm-offline-readings', (url) => url.pathname === '/readings');
+registerOfflinePost('pm-offline-payments', (url) => url.pathname === '/payments/record');
 
 // =========================================================================
 // Push-notification handlers — ported from public/sw.js (pre-Phase-26).
