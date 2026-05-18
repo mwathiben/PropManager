@@ -125,6 +125,17 @@ $schedule('storage:enforce-retention', fn ($e) => $e->dailyAt('02:30')->withoutO
 // reminder so users get notified before the expiry happens.
 $schedule('trial:auto-expire', fn ($e) => $e->dailyAt('09:30'));
 
+// Phase-61 PAUSE-2: resume leases whose pause window has elapsed.
+// 06:00 Africa/Nairobi puts the resume before tenant-portal morning
+// activity but after the day-roll-over hour.
+$schedule('lease-pause:auto-resume', fn ($e) => $e->dailyAt('06:00'));
+
+// Phase-61 RENEWAL-AUTO-2: scan leases expiring within the configured
+// window and auto-create the next lease for opted-in (auto_renew=true)
+// leases. Runs at 07:00 Africa/Nairobi, after lease-renewal:expire-stale-
+// counters at 03:00 so counter-proposals resolve first.
+$schedule('lease:auto-renew', fn ($e) => $e->dailyAt('07:00'));
+
 // Phase-59 ACCESS-AUDIT-3: 5-min anomaly cron over file_access_audits.
 // Emits file_access_anomaly_count{action} gauge so ops fires when a
 // single user exceeds config('observability.file_access_anomaly_threshold')

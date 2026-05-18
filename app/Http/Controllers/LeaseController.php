@@ -373,6 +373,35 @@ class LeaseController extends Controller
         return back()->with('success', __('lease.transfer_requested'));
     }
 
+    /**
+     * Phase-61 PAUSE-3: start a temporary lease pause. Landlord-only.
+     */
+    public function pause(
+        \Illuminate\Http\Request $request,
+        Lease $lease,
+        \App\Services\Lease\LeasePauseService $service,
+    ) {
+        $validated = $request->validate([
+            'pause_start' => 'required|date|after:today',
+            'pause_end' => 'required|date|after:pause_start',
+            'reason' => 'required|in:tenant_hardship,landlord_renovation,mutual,other',
+            'reason_text' => 'nullable|string|max:1000',
+        ]);
+
+        $user = $request->user();
+        if ($user->id !== $lease->landlord_id) {
+            abort(403);
+        }
+
+        try {
+            $service->start($lease, $user, $validated);
+        } catch (\App\Exceptions\ShortNoticeException $e) {
+            return back()->with('error', __($e->translationKey(), ['days' => $e->requiredDays]));
+        }
+
+        return back()->with('success', __('lease.pause_started'));
+    }
+
     public function download(Lease $lease)
     {
         if (! $lease->lease_doc_path || ! Storage::tenant()->exists($lease->lease_doc_path)) {

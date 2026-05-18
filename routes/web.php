@@ -360,6 +360,9 @@ Route::middleware('auth')->group(function () {
     // Phase-61 TRANSFER-3: lease assignment / sublet route.
     Route::post('/leases/{lease}/transfer', [LeaseController::class, 'transfer'])
         ->name('leases.transfer');
+    // Phase-61 PAUSE-3: temporary lease pause route.
+    Route::post('/leases/{lease}/pause', [LeaseController::class, 'pause'])
+        ->name('leases.pause');
 
     // 3. The Architect (Building Configuration)
     Route::get('/buildings/{building}/configure', [BuildingController::class, 'edit'])->name('buildings.edit');
