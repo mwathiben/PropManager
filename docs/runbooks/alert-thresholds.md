@@ -88,6 +88,14 @@ When tuning, edit here first + record the rationale; then change the env var. Th
 | `files_retention_purged_count{subject}` | visibility-only | Phase-59 FILE-RETENTION-2 daily 02:30 cron | per-day | Tracks purge volume per subject so a sudden zero (cron skipped) or huge spike (policy misconfig) surfaces. | Investigate retention cron health |
 | `file_access_anomaly_count{action}` | > 0 for 10min | Phase-59 ACCESS-AUDIT-3 every-5min cron | rolling 5min | A single user exceeding 50 downloads in 5 minutes is bot-like; investigate token theft / scraping. | Page on-call; lock affected user account pending review |
 
+## PWA offline depth (Phase-62)
+
+| Signal | Threshold | Source | Window | Rationale | On-call action |
+|--------|-----------|--------|--------|-----------|----------------|
+| `offline_writes_dead_letter_count` | visibility-only | Phase-62 OFFLINE-WRITES-3 client-side IDB telemetry (wiring deferred to frontend telemetry pipeline) | rolling 24h | Sustained > 0 across users means clients are repeatedly failing replay (4xx on retry from a stale payload, server-side validation that can't be satisfied). Phase-62 OFFLINE-WRITES-3 / sev4. | Inspect the dead-letter store via DevTools (Application → IndexedDB → pm-offline-writes → dead-letter); read the `lastError` field to identify the failing route family + 4xx body; if pattern is broad, check for a recent validation tightening that breaks queued payloads. |
+| `offline_photo_quota_evictions_count` | visibility-only | Phase-62 OFFLINE-PHOTOS-3 enforceBudget logger (client-side telemetry deferred) | rolling 24h | Users hitting the 50MB photo budget repeatedly — surfaces either a hostile-environment Kenya use case (caretakers backlog 100s of photos before reconnect) or a bug where discardPhoto isn't firing on successful upload. Phase-62 OFFLINE-PHOTOS-3 / sev4. | Confirm via UX research whether 50MB is too small; consider raising PHOTO_BUDGET_BYTES or surfacing storage usage in the in-app UI; verify discardPhoto runs on Inertia onSuccess for normal cases. |
+| `offline_shell_boot_count` | visibility-only | Phase-62 CACHE-STRATEGY-2 SW navigation handler (cache-hit gauge — telemetry deferred) | rolling 24h | Volume signal — how often the offline shell satisfies a navigation. High counts mean offline boot is paying off; sustained zero means the precache isn't landing (auth redirect, build-time asset miss). Phase-62 CACHE-STRATEGY-2 / no paging. | Confirm /dashboard precache hit at install via DevTools (Application → Cache Storage → pm-shell-v1); if missing, the build may not be including the dashboard route in the precache manifest. |
+
 ## Where to edit
 
 1. **First**: this document. Record the new threshold + rationale.
