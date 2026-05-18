@@ -13,6 +13,7 @@
  */
 import { ref, computed, onMounted, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
+import { enqueuePhoto, discardPhoto, markUploading, markFailed } from '@/lib/offlinePhotoStore';
 
 interface Props {
     ticketId: number;
@@ -241,10 +242,33 @@ function clearAll(): void {
     annotations.value = [];
 }
 
-function save(): void {
+async function save(): Promise<void> {
     const canvas = canvasRef.value;
     if (!canvas) return;
     isSaving.value = true;
+
+    // Phase-62 OFFLINE-PHOTOS-1: persist the blob to IDB FIRST so a
+    // network blip doesn't throw away the annotation. The IDB entry
+    // is the retry handle; on successful upload we delete it.
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+    let offlineKey: string | null = null;
+    if (blob) {
+        try {
+            offlineKey = await enqueuePhoto({
+                ticketId: props.ticketId,
+                documentId: props.document.id,
+                blob,
+                annotationData: annotations.value,
+            });
+            await markUploading(offlineKey);
+        } catch (e) {
+            // Quota exceeded — fall through to upload-only path. The
+            // user still sees their save attempt; we just can't queue
+            // it for retry if the network fails.
+            offlineKey = null;
+        }
+    }
+
     const dataUrl = canvas.toDataURL('image/png');
     router.post(
         route('tickets.attachments.annotation', { ticket: props.ticketId, document: props.document.id }),
@@ -257,7 +281,17 @@ function save(): void {
             onFinish: () => {
                 isSaving.value = false;
             },
-            onSuccess: () => emit('saved'),
+            onSuccess: () => {
+                if (offlineKey) {
+                    void discardPhoto(offlineKey);
+                }
+                emit('saved');
+            },
+            onError: (errors) => {
+                if (offlineKey) {
+                    void markFailed(offlineKey, JSON.stringify(errors));
+                }
+            },
         },
     );
 }
