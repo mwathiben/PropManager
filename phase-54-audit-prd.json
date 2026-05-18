@@ -1,0 +1,143 @@
+{
+    "phase": 54,
+    "title": "MAINTENANCE-DEPTH-2",
+    "opened_at": "2026-05-18",
+    "tier": "Tier 7 cycle 18",
+    "scope": "Phase 49 [MAINTENANCE-DEPTH] shipped the four maintenance-workflow data models (tickets.vendor_id, sla_definitions, parts, ticket_costs) but explicitly deferred four user-facing surfaces — captured in pending-path Section A3 (A3.1 NotifyVendorOnAssignment listener, A3.2 landlord SLA admin UI, A3.3 parts:reorder-suggest cron, A3.4 ticket cost UI). Phase 54 closes all four end-to-end and adds VENDOR-ONBOARDING (landlord-initiated vendor email + signed-URL profile completion form, no User account creation — Vendor stays standalone per Phase-49 DPA-3 design). Six categories x 3 findings = 18. Cross-tenant + role enforcement at every entry point.",
+    "categories": {
+        "VENDOR-NOTIFICATIONS": "Phase 49 dispatched TicketAssignedToVendor event but never wired a listener. Phase 54 ships: (1) NotifyVendorOnAssignment ShouldQueue listener with Phase-16 backoff [30,60,300,1800] that sends VendorAssignmentMailable to vendor.email; (2) lang/{en,sw,ar}/maintenance.php new namespace with vendor.assigned.* keys (subject + intro + ticket-summary + cta); (3) VendorAssignmentMailable queued + locale-aware envelope reading from vendor (vendors are not Users, so no HasLocalePreference — locale falls back to ticket.landlord.locale).",
+        "SLA-LANDLORD-UI": "Phase 49 shipped sla_definitions table + SlaDefinitionService::resolveFor cascade but no UI. /admin/sla is super-admin scope (admin middleware = role:super_admin); landlord-scoped overrides live under /sla under role:landlord middleware. (1) SlaDefinitionController index/store/update/destroy scoped to landlord_id=$user->id (NULL global rows are read-only here — landlord can override but not edit platform defaults); (2) Pages/Sla/Index.vue Phase-31-styled table + create/edit modal showing the (category, subcategory, priority) match preview; (3) SlaDefinitionPolicy enforces landlord ownership via ownsSla helper + cache invalidation observer flushes the SlaDefinitionService cache keys on save/delete.",
+        "PARTS-REORDER": "Phase 49 shipped Part::belowThreshold + parts:audit-stock cron emitting parts_below_threshold_count gauge but no actionable next step. Phase 54 ships: (1) draft_purchase_orders + draft_purchase_order_lines schema (TenantScope, soft-deletes, status enum [draft|sent|cancelled], suggested_vendor_id nullable from latest ticket_parts→ticket.vendor_id heuristic); (2) parts:reorder-suggest cron daily 06:45 Africa/Nairobi (after parts:audit-stock 06:30) idempotently upserts DraftPurchaseOrder per landlord per part-batch; (3) Pages/Parts/PurchaseOrders.vue lists pending drafts with confirm/cancel actions + a visibility-only draft_purchase_orders_pending_count gauge for ops.",
+        "COST-UI": "Phase 49 TicketCostService::summarize returns per-category breakdown but no Vue surface reads it. Phase 54 ships: (1) Pages/Tickets/Show.vue sidebar Cost card calling summarize via a new prop; small inline SVG bar visualises parts/vendor/labor/other proportions in KES en-KE; (2) Manual cost entry modal posting to a new TicketCostController::store (landlord-only, validates category enum + amount_cents > 0 + currency=KES default); (3) TicketCostPolicy + cost-entry route gated by landlord ownership of the parent ticket + activity-log entry recorded so the cost is auditable.",
+        "VENDOR-ONBOARDING": "Net-new Phase 54 surface (NOT closing a Phase 49 deferral — landlord-initiated vendor onboarding to make the marketplace usable). Vendor is standalone (no vendor_user_id) so no User account creation. (1) VendorCreatedMailable sent to vendor.email on Vendor::created (Observer) with a 7-day signed-URL to /v/profile/{token}; (2) VendorProfileController::edit + ::update accepts signature middleware (no auth required) + form post updates name/phone/specialties/service_area on the existing Vendor row; vendor.email + landlord_id immutable from the URL token; (3) lang/{en,sw,ar}/maintenance.vendor_onboarding.* + Pages/Vendor/Profile.vue branded standalone form (no AuthenticatedLayout).",
+        "CI": "(1) Phase54MaintenanceDepth2SurfaceTest covers each closure: NotifyVendorOnAssignment listener registered + queued; /sla routes + policy registered + Vue page contains the table token; draft_purchase_orders + DraftPurchaseOrder model + parts:reorder-suggest cron scheduled at 06:45; Tickets/Show.vue contains Cost card token + TicketCostController route registered; vendor signed-URL route /v/profile/{token} exists; maintenance.md mentions Phase 54. (2) Extend docs/runbooks/maintenance.md with Phase-54 section enumerating each Phase 49 sub-scope deferral closure + the new VENDOR-ONBOARDING signed-URL contract. (3) Cross-link the Phase 49 PRD closeout entries that referenced sub-scope deferrals to the Phase 54 commits."
+    },
+    "findings": [
+        {
+            "id": "VENDOR-NOTIFICATIONS-1",
+            "severity": "HIGH",
+            "title": "NotifyVendorOnAssignment listener + mailable",
+            "evidence": "Phase 49 dispatches TicketAssignedToVendor (app/Events/TicketAssignedToVendor.php) but no listener subscribes. Vendors are blind to their assignments today, defeating Phase 49 VENDOR-MARKETPLACE-2.",
+            "remediation": "App\\Listeners\\NotifyVendorOnAssignment implements ShouldQueue with $tries=4 + $backoff=[30,60,300,1800] mirroring NotifyOnTicketSlaBreach. handle(TicketAssignedToVendor) sends VendorAssignmentMailable to $event->vendor->email when present (skip + Log::info when null so legacy vendors don't NPE). App\\Mail\\VendorAssignmentMailable ShouldQueue + afterCommit=true; envelope subject reads from __('maintenance.vendor_assigned.subject', ['ticket' => $ticket->title])."
+        },
+        {
+            "id": "VENDOR-NOTIFICATIONS-2",
+            "severity": "HIGH",
+            "title": "lang/{en,sw,ar}/maintenance.php new namespace",
+            "evidence": "No maintenance.php lang file exists today; all 3 locales need it for the mailable + future maintenance surfaces. Phase24CiTest i18n parity assertion identity-compares array_keys so all 3 files must mirror exactly.",
+            "remediation": "lang/en/maintenance.php with nested keys vendor_assigned.{subject, intro, ticket_summary, cta, fallback}; lang/sw/maintenance.php hand-translated; lang/ar/maintenance.php with [TODO-ar] placeholders matching the Phase 44 shrink-only baseline pattern (no growth past current count). Keys ordered identically across all three files."
+        },
+        {
+            "id": "VENDOR-NOTIFICATIONS-3",
+            "severity": "MEDIUM",
+            "title": "VendorAssignmentMailable locale resolution",
+            "evidence": "Vendors are not User rows, so HasLocalePreference does NOT auto-fire. The mailable must explicitly resolve the locale (fallback chain: vendor.preferred_locale if column exists, else ticket.landlord.locale, else config('app.fallback_locale')).",
+            "remediation": "Mailable constructor accepts Ticket + Vendor. Envelope locale resolved via App::setLocale(resolveLocale(vendor, ticket)) inside content() before view render. Or via the Mailable's locale() method that reads ticket.landlord->preferred_locale (HasLocalePreference). Document the fallback in the Mailable docblock."
+        },
+        {
+            "id": "SLA-LANDLORD-UI-1",
+            "severity": "MEDIUM",
+            "title": "SlaDefinitionController landlord-scoped CRUD",
+            "evidence": "Phase 49 shipped sla_definitions cascade where landlord_id NULL = platform default. Landlords have no UI to add or edit their own overrides; they must edit DB rows directly.",
+            "remediation": "App\\Http\\Controllers\\SlaDefinitionController with index (list landlord rows + display global rows read-only), store, update, destroy. All actions enforce landlord_id=$user->id on the SlaDefinition (the global rows landlord_id=NULL are NOT editable from this controller). Routes registered under role:landlord middleware: /sla GET/POST + /sla/{sla} PATCH/DELETE. NOT /admin/sla — that namespace is super-admin only."
+        },
+        {
+            "id": "SLA-LANDLORD-UI-2",
+            "severity": "MEDIUM",
+            "title": "Pages/Sla/Index.vue table + create/edit modal",
+            "evidence": "Vue surface absent today. Phase-31 styling convention + Phase-51 modal pattern apply.",
+            "remediation": "resources/js/Pages/Sla/Index.vue table columns: Category | Subcategory | Priority | Response | Resolution | Source (landlord override vs global default) | Actions. Create + Edit Modal forms with cascade-preview pane showing which (category, subcategory, priority) tuples this row matches. Landlord rows show Edit + Delete; global rows show 'Inherited' badge with no actions."
+        },
+        {
+            "id": "SLA-LANDLORD-UI-3",
+            "severity": "MEDIUM",
+            "title": "SlaDefinitionPolicy + cache invalidation observer",
+            "evidence": "No SlaDefinitionPolicy exists. SlaDefinitionService::resolveFor caches results 5min with keys sprintf('sla:resolve:%s:%s:%s:%s'); writes today don't invalidate the cache so a landlord saves an override and sees no effect for up to 5 minutes.",
+            "remediation": "App\\Policies\\SlaDefinitionPolicy mirroring VendorPolicy shape with view/create/update/delete returning user->isLandlord() && sla->landlord_id === user->id; AuthServiceProvider $policies registration. App\\Observers\\SlaDefinitionObserver::saved + ::deleted call SlaDefinitionService::flushCache($sla->landlord_id, $sla->category, $sla->subcategory, $sla->priority) which deletes the specific cache key + a wildcard pattern when null/category-empty."
+        },
+        {
+            "id": "PARTS-REORDER-1",
+            "severity": "HIGH",
+            "title": "draft_purchase_orders + lines tables",
+            "evidence": "No purchasing schema exists. Phase 49 belowThreshold gauge has no actionable destination today.",
+            "remediation": "Migration phase54_create_draft_purchase_orders_tables. draft_purchase_orders: id, landlord_id FK, suggested_vendor_id FK nullable, status enum(draft|sent|cancelled) default draft, notes text nullable, sent_at timestamp nullable, timestamps + soft_deletes + unique(landlord_id, status, suggested_vendor_id) for the open-draft-per-vendor invariant. draft_purchase_order_lines: id, draft_purchase_order_id FK cascade, part_id FK, qty_suggested int, cost_per_unit_cents_snapshot int, timestamps. App\\Models\\DraftPurchaseOrder + Line models with TenantScope; STATUS_* constants + scopeDraft + scopePending."
+        },
+        {
+            "id": "PARTS-REORDER-2",
+            "severity": "HIGH",
+            "title": "parts:reorder-suggest cron + suggestion algorithm",
+            "evidence": "Phase 49 emits the signal; no consumer.",
+            "remediation": "App\\Console\\Commands\\PartsReorderSuggest scheduled daily 06:45 Africa/Nairobi (after parts:audit-stock 06:30, before tickets:audit-sla 07:00). For each landlord with parts below threshold: groups parts by suggested_vendor_id (latest ticket_parts → ticket.vendor_id, NULL when no history); idempotently upsert DraftPurchaseOrder per (landlord_id, suggested_vendor_id) with status=draft via unique constraint; syncs lines (insert new below-threshold parts, leave existing line qty alone). suggested qty = max(1, reorder_threshold * 2 - qty_available). visibility-only gauge draft_purchase_orders_pending_count{landlord_id}."
+        },
+        {
+            "id": "PARTS-REORDER-3",
+            "severity": "MEDIUM",
+            "title": "Pages/Parts/PurchaseOrders.vue landlord UI",
+            "evidence": "Even with the cron running, landlords cannot review or act on the drafts without DB access.",
+            "remediation": "Pages/Parts/PurchaseOrders.vue lists pending DraftPurchaseOrders (per-vendor cards: vendor name + total estimated KES + line count + 'Confirm' / 'Cancel' buttons). Confirm flips status=sent + sets sent_at; Cancel flips status=cancelled. POST /parts/purchase-orders/{order}/confirm + /cancel routes under role:landlord with ownership policy. Empty-state shows a link to parts:audit-stock + parts:reorder-suggest cadence docs."
+        },
+        {
+            "id": "COST-UI-1",
+            "severity": "MEDIUM",
+            "title": "Tickets/Show.vue Cost card + summarize prop",
+            "evidence": "Phase 49 TicketCostService::summarize returns the breakdown but no Vue surface reads it.",
+            "remediation": "TicketController::show passes a new costs prop = TicketCostService::summarize($ticket) (only when user can view costs — landlord/caretaker, NOT tenant). Tickets/Show.vue sidebar gains a Cost card after Details: small horizontal stacked bar (4 segments: parts/vendor/labor/other in proportion) + total KES formatted via Intl.NumberFormat en-KE + per-category rows. Tenant view hides the card entirely."
+        },
+        {
+            "id": "COST-UI-2",
+            "severity": "MEDIUM",
+            "title": "Manual cost entry modal + TicketCostController::store",
+            "evidence": "Phase 49 auto-records parts costs via TicketResolutionService::recordParts but landlord-entered vendor/labor/other costs have no surface.",
+            "remediation": "App\\Http\\Controllers\\TicketCostController::store($ticket) validates category enum in ['vendor','labor','other'] + amount_cents > 0 + currency='KES' (rejects 'parts' which is auto-recorded only). POST /tickets/{ticket}/costs. Cost card 'Add cost' button opens modal with category select + amount input (KES with cent precision) + notes textarea. On success, the card re-renders with new totals + the activity timeline logs 'cost_recorded' entry via TicketActivity."
+        },
+        {
+            "id": "COST-UI-3",
+            "severity": "LOW",
+            "title": "TicketCostPolicy + auditable seam",
+            "evidence": "Without a policy, manual cost entry could be abused for cross-tenant data injection.",
+            "remediation": "App\\Policies\\TicketCostPolicy: create($user, Ticket) returns landlord-owns-ticket. AuthServiceProvider registration. TicketCostController::store calls $this->authorize('create', [TicketCost::class, $ticket]). TicketActivity row 'cost_recorded' with metadata {category, amount_cents, currency} so the audit trail surfaces."
+        },
+        {
+            "id": "VENDOR-ONBOARDING-1",
+            "severity": "MEDIUM",
+            "title": "VendorCreatedMailable + signed URL on Vendor::created",
+            "evidence": "Today landlords add Vendor rows with no notification to the vendor; the vendor is unaware they exist in the marketplace.",
+            "remediation": "App\\Observers\\VendorObserver::created dispatches VendorCreatedMailable to vendor.email when present. Mailable contains a 7-day signed URL to /v/profile/{token} (URL::signedRoute('vendor.profile.edit', ['vendor' => $vendor->id], now()->addDays(7))). VendorObserver registered in AppServiceProvider. Skip dispatch when vendor.email is null (some vendors are phone-only)."
+        },
+        {
+            "id": "VENDOR-ONBOARDING-2",
+            "severity": "MEDIUM",
+            "title": "VendorProfileController::edit + ::update signed-URL surface",
+            "evidence": "The Mailable's signed URL needs a controller pair. Vendor is standalone so no auth — signed URL IS the auth.",
+            "remediation": "App\\Http\\Controllers\\VendorProfileController::edit(Request, Vendor) gated by middleware('signed'). ::update accepts name/phone/specialties/service_area updates; landlord_id + email immutable from the URL token (validation rejects mutation attempts). Routes: GET /v/profile/{vendor} edit + PATCH /v/profile/{vendor} update, both under middleware signed + throttle:vendor-profile (custom limit 20/min)."
+        },
+        {
+            "id": "VENDOR-ONBOARDING-3",
+            "severity": "LOW",
+            "title": "Pages/Vendor/Profile.vue standalone form + i18n keys",
+            "evidence": "The signed-URL surface needs a Vue page outside AuthenticatedLayout (no nav, no user menu — vendors are not logged in).",
+            "remediation": "Pages/Vendor/Profile.vue branded standalone form (PropManager logo + brand colors + Phase-31 wizard styling). Fields: name (read-only-after-set), phone, specialties (multi-select chips), service_area (text). lang/{en,sw,ar}/maintenance.vendor_onboarding.* keys: title + intro + field labels + success message + signed-URL-expired error."
+        },
+        {
+            "id": "CI-1",
+            "severity": "HIGH",
+            "title": "Phase54MaintenanceDepth2SurfaceTest",
+            "evidence": "Six categories of closures need invariant assertions so a future refactor cannot silently regress any of them.",
+            "remediation": "tests/Feature/Phase54MaintenanceDepth2SurfaceTest with invariants per category: NotifyVendorOnAssignment listener registered for TicketAssignedToVendor + ShouldQueue + $backoff defined; lang/maintenance.php files exist in en/sw/ar with parity; /sla routes registered + SlaDefinitionPolicy registered; draft_purchase_orders + draft_purchase_order_lines tables exist + DraftPurchaseOrder model exists + parts:reorder-suggest scheduled at 06:45 Africa/Nairobi; Tickets/Show.vue contains 'Cost' token + TicketCostController::store route registered; vendor.profile.edit signed route registered + Pages/Vendor/Profile.vue file exists; docs/runbooks/maintenance.md contains 'Phase 54'."
+        },
+        {
+            "id": "CI-2",
+            "severity": "LOW",
+            "title": "docs/runbooks/maintenance.md Phase-54 section",
+            "evidence": "Phase 49 [MAINTENANCE-DEPTH] established maintenance.md. Phase 54 inherits + extends.",
+            "remediation": "Append Phase-54 section with: closures table mapping A3.1-A3.4 to commits; SLA cascade landlord-override recipe; parts:reorder-suggest cadence + draft PO confirm/cancel flow; ticket cost UI walk-through; vendor onboarding signed-URL contract + 7-day TTL rationale."
+        },
+        {
+            "id": "CI-3",
+            "severity": "LOW",
+            "title": "Cross-link Phase 49 PRD closeout to Phase 54 commits",
+            "evidence": "Phase 49 sub-scope deferrals reference 'Phase 50+' in their closeout notes but the resolution actually lands in Phase 54.",
+            "remediation": "Update phase-49-audit-prd.json audit_closeout notes for the 4 sub-scope items to cite Phase 54 commits. NO behavioural change — just cross-reference accuracy so future readers can trace the lineage."
+        }
+    ]
+}
