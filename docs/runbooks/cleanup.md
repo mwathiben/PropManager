@@ -193,3 +193,68 @@ Phase 38 cleared the deck — Phase 39 builds on stable foundation:
 - Import case validated → vendor SDK imports don't drift
 - Test ratchet at 99 → vendor work has a clean baseline to ratchet down
 - Bundle freshness watchdog → vendor JS doesn't silently freeze
+
+---
+
+## Phase 53 [DEFER-CLEANUP-3] (2026-05-18)
+
+Tier-7 cycles 4-16 (Phases 40-52) accumulated 7 "alert row + tracker
+exist, gauge wiring deferred" carry-overs. Phase 53 closes the lot:
+
+### Closures
+
+| Carry-over | Source phase | Closeout commit |
+| --- | --- | --- |
+| `tenant_kyc_blocked_count` gauge emitter | Phase 48 | `feat(phase-53): GAUGE-WIRING wire 3 prom gauges` |
+| `report_render_failure_count` exception counter | Phase 50 | same |
+| `i18n_translation_spend_usd_24h` Cache scrape | Phase 52 | same |
+| `vue_preview_poll_pause_count` POST telemetry | Phase 51 | `feat(phase-53): VUE-TELEMETRY beforeunload sendBeacon` |
+| `Phase29CiTest::test_workflow_logger_writes_a_row_with_full_metadata` firstOrFail pollution | Phase 45 | `fix(phase-53): TEST-DEBT Phase29CiTest firstOrFail + baseline 99→98` |
+| Phase 44 RTL Playwright suite CI wiring + runbook | Phase 44 | `ci(phase-53): RTL-BASELINES wire suite into CI + seeding runbook` |
+| Phase 44 ESLint plugin warn → baseline-gated | Phase 44 | `ci(phase-53): ESLINT-RATCHET shrink-only baseline for propmanager rules` |
+
+### Skipped-test audit (TEST-DEBT-2)
+
+19 `markTestSkipped` sites across 9 files were reviewed. None re-enabled in
+Phase 53 because all fall into one of three categories:
+
+- **Env-dependent (legitimate skip)**: Phase22LoadTest (k6), Phase38CleanupSurfaceTest
+  (junit.xml artifact-presence), Phase27GoldenQueriesTest (fixture-presence —
+  auto-runs when fixtures are present, all 4 already committed),
+  InteractsWithMailpit (Mailpit running), PaymentReceivedBroadcastTest
+  (full dev env).
+- **Pre-existing scope deeper than DEFER-CLEANUP-3**: AuthApiTest (10 skips,
+  'API routes not yet implemented'), TenantApiTest (2 skips, custom
+  notifications schema), PaymentControllerTest (1, schema change needed),
+  TransactionRollbackTest (1, Phase-38 DEFER-TEST-HEALTH-3 followup 404).
+- **Already auto-running** when their guard condition resolves: see
+  category 1 — these run silently on CI when the prerequisite is met.
+
+### Test-error ratchet ledger (TEST-DEBT-3)
+
+`Phase38CleanupSurfaceTest::test_suite_error_count_at_or_below_baseline`
+constant 99 → 98 after the Phase29CiTest firstOrFail fix nets -1
+error+failure. Shrink-only.
+
+### ESLint baseline (ESLINT-RATCHET-1)
+
+`.eslint-baseline.json` pinned on 2026-05-18:
+
+```
+no-hardcoded-english-strings: 3751
+no-ltr-class: 0  (Phase 44 codemod cleared en-masse)
+```
+
+Both rules stay at `warn` severity so `npm run lint` exits cleanly in
+the dev workflow. CI gate is `npm run lint:baseline`
+(`scripts/lint-baseline.mjs`) which counts violations per rule + fails
+when current count exceeds baseline. Lower the baseline as commits fix
+real violations; never raise.
+
+### RTL baseline policy (RTL-BASELINES-1)
+
+`tests/a11y/rtl/__screenshots__/.gitkeep` pins the baseline directory.
+Actual 8 baseline pngs are operator-seeded on first run per
+`docs/runbooks/rtl-snapshots.md` (boot dev env, run `npm run test:rtl:update`,
+commit). CI's strict-compare passes harmlessly on the first run because
+Playwright's `toHaveScreenshot()` writes the baseline when none exists.
