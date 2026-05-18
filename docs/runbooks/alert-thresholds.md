@@ -65,6 +65,14 @@ When tuning, edit here first + record the rationale; then change the env var. Th
 | Backup disk in non-adequate region | 1 | Phase-13 DPA-2 boot warning | boot | Section 48 transfer without safeguards. | Add SCCs / BCRs OR move bucket region |
 | Sentry DSN in non-adequate region | 1 | Phase-13 DPA-2 boot warning | boot | Same. | Use Sentry EU project or self-hosted DSN |
 
+## Plan management (Phase-60)
+
+| Signal | Threshold | Source | Window | Rationale | On-call action |
+|--------|-----------|--------|--------|-----------|----------------|
+| `plan_feature_denied_count{feature}` | visibility-only | Phase-60 FEATURE-GATES-2 inline on denial | rolling 1h | High values indicate landlords hit plan walls frequently — could be confusing UX or pricing-tier misfit. | Review by feature; consider lifting the gate on lowest-tier or tweaking copy. |
+| `trial_expired_count` | visibility-only | Phase-60 TRIAL-DEPTH-3 daily 09:30 cron | per-day | Expected behaviour — high values surface trial-abuse signals (same email reusing free trial via burner accounts). | Cross-reference with signup_count to compute trial-to-paid conversion rate. |
+| `coupon_redeemed_count{code}` | visibility-only | Phase-60 COUPONS-2 inline on redeem | rolling 24h | Marketing campaign signal; sudden spike on a single code could indicate code-sharing abuse outside intended channel. | Review max_redemptions on the affected coupon; consider rotating the code. |
+
 ## Storage hardening (Phase-59)
 
 | Signal | Threshold | Source | Window | Rationale | On-call action |
