@@ -65,6 +65,13 @@ When tuning, edit here first + record the rationale; then change the env var. Th
 | Backup disk in non-adequate region | 1 | Phase-13 DPA-2 boot warning | boot | Section 48 transfer without safeguards. | Add SCCs / BCRs OR move bucket region |
 | Sentry DSN in non-adequate region | 1 | Phase-13 DPA-2 boot warning | boot | Same. | Use Sentry EU project or self-hosted DSN |
 
+## Storage hardening (Phase-59)
+
+| Signal | Threshold | Source | Window | Rationale | On-call action |
+|--------|-----------|--------|--------|-----------|----------------|
+| `files_retention_purged_count{subject}` | visibility-only | Phase-59 FILE-RETENTION-2 daily 02:30 cron | per-day | Tracks purge volume per subject so a sudden zero (cron skipped) or huge spike (policy misconfig) surfaces. | Investigate retention cron health |
+| `file_access_anomaly_count{action}` | > 0 for 10min | Phase-59 ACCESS-AUDIT-3 every-5min cron | rolling 5min | A single user exceeding 50 downloads in 5 minutes is bot-like; investigate token theft / scraping. | Page on-call; lock affected user account pending review |
+
 ## Where to edit
 
 1. **First**: this document. Record the new threshold + rationale.

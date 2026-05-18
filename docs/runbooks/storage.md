@@ -174,4 +174,89 @@ Callsites that pass null (no implicit landlord context):
 - Phase 28 TENANT-DOCS — added tenant-document upload callsites
 - Phase 45 TICKET-PHOTOS — added ticket-annotation callsites (baseline bumped to 28)
 - Phase 57 PERF-DEEP — opened A8 carry-over to migrate the 28 callsites
-- **Phase 58 SHARED-DISK-MIGRATION** — ships `Storage::tenant()` facade + refactors all 28 callsites + drops baseline to 0
+- Phase 58 SHARED-DISK-MIGRATION — ships `Storage::tenant()` facade + refactors all 28 callsites + drops baseline to 0
+- **Phase 59 STORAGE-HARDENING** — production-hardens the surface: signed URLs, TempFileResolver, per-landlord routing, retention policies, access audit trail
+
+## Phase 59 STORAGE-HARDENING
+
+### Signed-URL pattern
+
+`TenantDiskResolver::temporaryUrl($path, $landlordId, $expiresMinutes, $filename, $disposition)` is the single entry point for short-lived browser-direct download URLs. On a driver that supports presigned URLs (s3, gcs) it returns the native URL; on the local driver it falls back to a Laravel `signed` route at `/files/local-stream` that re-validates the signature before streaming.
+
+```php
+$url = app(TenantDiskResolver::class)
+    ->temporaryUrl($document->file_path, $document->landlord_id, 5, $document->file_name);
+
+return redirect()->away($url);
+```
+
+The `signed` middleware on `/files/local-stream` re-validates the round-trip — mutating `?path=` invalidates the signature. The recipient cannot traverse to a different file with the same token.
+
+Five download/response callsites flow through this pattern: DocumentController::download + ::view, LeaseController::download, TenantDocumentsController::download, WaterReadingController::photo. MoveOutController::deductionPhoto remains on `Storage::disk('private')` as a documented exception (its photos were written through a different alias-disk and flipping the read without backing file migration would 404 existing photos).
+
+### TempFileResolver for subprocess callers
+
+`App\Services\Storage\TempFileResolver::for($relativePath, $landlordId): TempFileHandle` solves the path() caveat. On local the handle wraps the existing `Storage::tenant()->path()` return; on s3 it downloads contents to `sys_get_temp_dir() + UUID` and owns the cleanup.
+
+```php
+$handle = app(TempFileResolver::class)->for($relativePath);
+try {
+    runSubprocess($handle->path());
+} finally {
+    $handle->cleanup();
+}
+```
+
+Wired into the 2 known path() callsites:
+- `DataExportService:90` — ZipArchive::open() builds the zip at `$handle->path()`; if the handle is owned (s3 case), the resulting zip is uploaded back to the tenant disk via `Storage::tenant()->put()`. `exportUserData` now returns the tenant-disk-relative path (was absolute). Callers were updated to match.
+- `OcrService:288` — Tesseract subprocess reads from `$handle->path()` in a try/finally.
+
+### Per-landlord routing (PrefixedDisk decorator)
+
+`config('filesystems.tenant_disk_prefix_template')` opts in to per-landlord path prefixing. Default null = Phase-58 behaviour preserved. Operator sets `FILESYSTEM_TENANT_DISK_PREFIX_TEMPLATE='{landlord_id}/'` (or `'tenants/{landlord_id}/'`) to shard storage under a per-tenant directory.
+
+When set + caller passes `$landlordId`, `TenantDiskResolver::resolve` wraps the underlying disk in `PrefixedDisk` — every path method prepends the prefix; file/directory listings strip it on return so callers always see unprefixed paths.
+
+**One-way contract**: enabling the prefix is one-way for newly-written files; path strings written before the prefix is enabled cannot be read through the prefixed disk. Coordinate a backfill BEFORE flipping the env var.
+
+```bash
+# One-time migration when flipping per-landlord prefix on in prod:
+aws s3 sync s3://bucket/exports/ s3://bucket/42/exports/ --include "exports/42/*"
+# (or equivalent per-landlord rewrite; coordinate per environment)
+```
+
+### File retention policies
+
+`file_retention_policies` table holds 7 platform defaults (subject NULL landlord_id) reflecting Kenya DPA + landlord-tenant law:
+
+| Subject | Days | Reasoning |
+|---|---|---|
+| `lease_doc` | 2555 | 7yr — rent disputes statute of limitations |
+| `kyc_doc` | 1825 | 5yr — DPA financial PII window |
+| `invoice_pdf` | 2555 | 7yr — tax records |
+| `water_reading_photo` | 730 | 2yr — audit window after invoice issued |
+| `export_zip` | 7 | 7d — Article-20 self-service download window |
+| `ocr_temp` | 1 | 1d — transient processing artefact |
+| `file_access_audit` | 90 | 90d — PII access trail retention |
+
+Per-landlord overrides via `file_retention_policies` row with both `subject` and `landlord_id` populated. `FileRetentionPolicy::resolveFor($subject, $landlordId)` falls back to the platform default when no override exists.
+
+`storage:enforce-retention` cron daily 02:30 Africa/Nairobi (after `dpa:enforce-retention` at 02:00) walks every `FileRetentionPolicy::SUBJECTS` entry. `--dry-run` flag logs candidates + emits `files_retention_dry_run_candidate_count{subject}` gauge for pre-purge validation; real runs emit `files_retention_purged_count{subject}` gauge.
+
+### File access audit trail
+
+`file_access_audits` polymorphic table — every PII-bearing download lands a row via `FileAccessRecorder::record`. Wired into DocumentController + WaterReadingController; expanding to LeaseController + TenantKycController is a one-line addition.
+
+Recorder is fail-soft: persistence failure logs a warning but does NOT 500 the download. The contract is "make best-effort to audit" not "audit or fail."
+
+`file-access:anomaly-audit` cron every 5 minutes queries the trailing 5-min window grouped by `(user_id, action)`; rows over the threshold (default 50, env-tunable via `FILE_ACCESS_ANOMALY_THRESHOLD`) emit `file_access_anomaly_count{action}` gauge — operator alerts at sev3.
+
+### Operator workflow: hardening checklist
+
+When flipping `FILESYSTEM_TENANT_DISK=s3` in production, also enable:
+
+1. `FILESYSTEM_TENANT_DISK_PREFIX_TEMPLATE='{landlord_id}/'` if multi-tenant isolation is required at the bucket level.
+2. Verify the `storage:enforce-retention` cron is firing (`php artisan schedule:list` should show it at 02:30).
+3. Verify `file-access:anomaly-audit` is firing (every 5 minutes).
+4. Tune `FILE_ACCESS_ANOMALY_THRESHOLD` after a week of observation; the default 50 in 5 minutes is intentionally generous.
+5. Confirm signed-URL controllers return 302s, not 200 streamed bodies (a 200 means an old Phase-58 controller wasn't refactored).
