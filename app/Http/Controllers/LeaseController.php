@@ -309,6 +309,37 @@ class LeaseController extends Controller
         return redirect()->route('tenants.show', $lease->tenant_id);
     }
 
+    /**
+     * Phase-61 TERMINATION-3: early termination route. Either party
+     * may initiate; the other party acknowledges or disputes. Notice
+     * period validated via NoticePeriodValidator.
+     */
+    public function terminate(
+        \Illuminate\Http\Request $request,
+        Lease $lease,
+        \App\Services\Lease\LeaseTerminationService $service,
+    ) {
+        $validated = $request->validate([
+            'termination_reason' => 'required|in:breach_by_tenant,breach_by_landlord,mutual,hardship,sale,other',
+            'termination_date' => 'required|date|after:today',
+            'reason_text' => 'nullable|string|max:1000',
+        ]);
+
+        $user = $request->user();
+
+        if ($user->id !== $lease->landlord_id && $user->id !== $lease->tenant_id) {
+            abort(403);
+        }
+
+        try {
+            $service->initiate($lease, $user, $validated);
+        } catch (\App\Exceptions\ShortNoticeException $e) {
+            return back()->with('error', __($e->translationKey(), ['days' => $e->requiredDays]));
+        }
+
+        return back()->with('success', __('lease.termination_initiated'));
+    }
+
     public function download(Lease $lease)
     {
         if (! $lease->lease_doc_path || ! Storage::tenant()->exists($lease->lease_doc_path)) {

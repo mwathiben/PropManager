@@ -354,6 +354,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/leases/{lease}/download', [LeaseController::class, 'download'])
         ->middleware('throttle:pdf-render')
         ->name('leases.download');
+    // Phase-61 TERMINATION-3: lease early-termination route.
+    Route::post('/leases/{lease}/terminate', [LeaseController::class, 'terminate'])
+        ->name('leases.terminate');
 
     // 3. The Architect (Building Configuration)
     Route::get('/buildings/{building}/configure', [BuildingController::class, 'edit'])->name('buildings.edit');
