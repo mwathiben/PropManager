@@ -40,16 +40,28 @@ class TenantDiskResolver
         $configured = (string) config('filesystems.tenant_disk', self::DEFAULT_DISK);
 
         try {
-            return Storage::disk($configured);
+            $disk = Storage::disk($configured);
         } catch (Throwable $e) {
             Log::warning('tenant_disk_resolve_fallback', [
                 'configured' => $configured,
                 'landlord_id' => $landlordId,
                 'error' => $e->getMessage(),
             ]);
-
-            return Storage::disk(self::DEFAULT_DISK);
+            $disk = Storage::disk(self::DEFAULT_DISK);
         }
+
+        // Phase-59 TENANT-ROUTING-1: optional per-landlord path prefix.
+        // Default null = Phase-58 behaviour preserved. Operator sets
+        // filesystems.tenant_disk_prefix_template to opt in; '{landlord_id}/'
+        // is the typical value.
+        $template = config('filesystems.tenant_disk_prefix_template');
+        if (is_string($template) && $template !== '' && $landlordId !== null) {
+            $prefix = str_replace('{landlord_id}', (string) $landlordId, $template);
+
+            return new PrefixedDisk($disk, $prefix);
+        }
+
+        return $disk;
     }
 
     /**

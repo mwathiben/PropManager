@@ -39,6 +39,30 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Tenant Disk Per-Landlord Prefix Template (Phase-59 TENANT-ROUTING)
+    |--------------------------------------------------------------------------
+    |
+    | Optional template that shards tenant-disk writes under a per-landlord
+    | directory prefix. Default null = no prefixing (Phase-58 behaviour
+    | preserved). The template supports a single placeholder {landlord_id}
+    | which TenantDiskResolver substitutes per-call.
+    |
+    | Typical values:
+    |   '{landlord_id}/'        # /42/exports/foo.zip
+    |   'tenants/{landlord_id}/'  # /tenants/42/exports/foo.zip
+    |
+    | Enabling the prefix is a ONE-WAY operation for newly-written files;
+    | path strings written before the prefix is enabled cannot be read
+    | through the prefixed disk. Coordinate a backfill (e.g. aws s3 sync
+    | with prefix rewrite) BEFORE flipping this in production. See
+    | docs/runbooks/storage.md.
+    |
+    */
+
+    'tenant_disk_prefix_template' => env('FILESYSTEM_TENANT_DISK_PREFIX_TEMPLATE'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
     |
