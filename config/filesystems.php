@@ -17,6 +17,28 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Tenant Disk (Phase-58 SHARED-DISK-MIGRATION)
+    |--------------------------------------------------------------------------
+    |
+    | The disk used for tenant-scoped file storage (Document, WaterReading
+    | photo, Lease docs, Invoice PDFs, TenantKyc docs). Defaults to 'local'
+    | so dev/test environments keep working without S3 setup.
+    |
+    | Production operators flip this to 's3' (or another driver) via the
+    | FILESYSTEM_TENANT_DISK env var. The 28 (now zero) hardcoded
+    | Storage::disk('local') callsites were refactored in Phase 58 to flow
+    | through Storage::tenant() → TenantDiskResolver → this config knob.
+    | No DB migration is required because the path strings stored in
+    | Document.file_path / WaterReading.photo_path / Lease.lease_doc_path /
+    | Invoice.pdf_path stay the same — only the disk used to access them
+    | changes.
+    |
+    */
+
+    'tenant_disk' => env('FILESYSTEM_TENANT_DISK', 'local'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
     |

@@ -174,6 +174,16 @@ class AppServiceProvider extends ServiceProvider
             return $this;
         });
 
+        // Phase-58 TENANT-DISK-RESOLVER-2: Storage::tenant() macro.
+        // Every callsite that used to read `Storage::disk('local')` now
+        // reads `Storage::tenant()` and flows through TenantDiskResolver
+        // → config('filesystems.tenant_disk'). Operators flip the
+        // underlying disk via FILESYSTEM_TENANT_DISK env var.
+        \Illuminate\Support\Facades\Storage::macro(
+            'tenant',
+            fn (?int $landlordId = null) => app(\App\Services\Storage\TenantDiskResolver::class)->resolve($landlordId),
+        );
+
         // CRYPTO-1: wire the project-wide password rules so every
         // Rules\Password::defaults() in controllers/Form Requests applies
         // them. Without this the PasswordPolicy class (HIBP fail-open
