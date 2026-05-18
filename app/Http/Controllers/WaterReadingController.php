@@ -9,7 +9,6 @@ use App\Http\Requests\WaterReading\UpdateWaterReadingRequest;
 use App\Models\WaterReading;
 use App\Services\WaterReadingService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class WaterReadingController extends Controller
@@ -175,6 +174,16 @@ class WaterReadingController extends Controller
             abort(404, 'Photo not found.');
         }
 
-        return Storage::tenant()->response($reading->photo_path);
+        // Phase-59 SIGNED-URLS-2: 302 to short-lived signed URL with
+        // inline disposition so the browser previews the image.
+        return redirect()->away(
+            app(\App\Services\Storage\TenantDiskResolver::class)->temporaryUrl(
+                $reading->photo_path,
+                $reading->landlord_id,
+                5,
+                null,
+                'inline',
+            ),
+        );
     }
 }

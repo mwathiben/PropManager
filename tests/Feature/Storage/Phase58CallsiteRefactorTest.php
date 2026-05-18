@@ -35,17 +35,23 @@ class Phase58CallsiteRefactorTest extends TestCase
         'app/Http/Controllers/WaterReadingController.php',
     ];
 
-    public function test_every_refactored_file_uses_storage_tenant(): void
+    public function test_every_refactored_file_uses_tenant_disk_abstraction(): void
     {
+        // Phase 58 originally asserted on literal Storage::tenant(.
+        // Phase 59 introduced TenantDiskResolver::temporaryUrl as an
+        // equivalent entry point — accept either pattern.
         $base = dirname(__DIR__, 3);
         foreach (self::REFACTORED_FILES as $relativePath) {
             $absolutePath = $base.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
             $this->assertFileExists($absolutePath);
             $contents = (string) file_get_contents($absolutePath);
-            $this->assertStringContainsString(
-                'Storage::tenant(',
-                $contents,
-                "Phase-58 refactor regression: {$relativePath} no longer uses Storage::tenant().",
+
+            $usesTenantDisk = str_contains($contents, 'Storage::tenant(')
+                || str_contains($contents, 'TenantDiskResolver');
+
+            $this->assertTrue(
+                $usesTenantDisk,
+                "Phase-58 refactor regression: {$relativePath} no longer references the tenant disk abstraction.",
             );
         }
     }

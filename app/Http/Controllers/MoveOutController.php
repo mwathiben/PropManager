@@ -543,6 +543,14 @@ class MoveOutController extends Controller
             abort(404);
         }
 
+        // Phase-59 SIGNED-URLS-3: documented exception. Move-out
+        // deduction photos were originally written through the 'private'
+        // alias-disk (Phase-1 UPLOAD-5), which points at
+        // storage/app/private/ — a different directory than the tenant
+        // disk (storage/app/). Flipping the read to Storage::tenant()
+        // without a path-migration would 404 every existing photo.
+        // Keep on 'private' until a deliberate migration cycle moves
+        // the underlying files. See docs/runbooks/storage.md.
         return Storage::disk('private')->response($deduction->photo_path);
     }
 

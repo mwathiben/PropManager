@@ -315,9 +315,14 @@ class LeaseController extends Controller
             abort(404, 'Lease document not found.');
         }
 
-        return Storage::tenant()->download(
-            $lease->lease_doc_path,
-            'lease-agreement-'.$lease->id.'.pdf'
+        // Phase-59 SIGNED-URLS-2: 302 to short-lived signed URL.
+        return redirect()->away(
+            app(\App\Services\Storage\TenantDiskResolver::class)->temporaryUrl(
+                $lease->lease_doc_path,
+                $lease->landlord_id,
+                5,
+                'lease-agreement-'.$lease->id.'.pdf',
+            ),
         );
     }
 }

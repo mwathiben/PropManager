@@ -7,6 +7,8 @@ namespace App\Services\Storage;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -47,6 +49,41 @@ class TenantDiskResolver
             ]);
 
             return Storage::disk(self::DEFAULT_DISK);
+        }
+    }
+
+    /**
+     * Phase-59 SIGNED-URLS-1: return a short-lived URL the browser can
+     * fetch directly without streaming through PHP-FPM. On s3 this is
+     * a native presigned URL; on the local driver
+     * Filesystem::temporaryUrl() throws, so we fall back to a Laravel
+     * signed route that re-validates ownership before streaming.
+     *
+     * The public API is identical across drivers — callers don't need
+     * to know which one is active.
+     */
+    public function temporaryUrl(
+        string $path,
+        ?int $landlordId = null,
+        int $expiresMinutes = 5,
+        ?string $filename = null,
+        string $disposition = 'attachment',
+    ): string {
+        $disk = $this->resolve($landlordId);
+        $expires = now()->addMinutes($expiresMinutes);
+
+        try {
+            return $disk->temporaryUrl($path, $expires);
+        } catch (RuntimeException $e) {
+            return URL::temporarySignedRoute(
+                'files.local-stream',
+                $expires,
+                array_filter([
+                    'path' => $path,
+                    'filename' => $filename,
+                    'disposition' => $disposition,
+                ]),
+            );
         }
     }
 }

@@ -66,16 +66,24 @@ class Phase58SharedDiskMigrationSurfaceTest extends TestCase
 
     // -- CALLSITE-REFACTOR -----------------------------------------------
 
-    public function test_every_refactored_file_uses_storage_tenant(): void
+    public function test_every_refactored_file_uses_tenant_disk_abstraction(): void
     {
+        // Phase 58 originally asserted on literal Storage::tenant(.
+        // Phase 59 SIGNED-URLS-2 introduced TenantDiskResolver::temporaryUrl
+        // as an equivalent entry point through the same abstraction —
+        // some files now go through the resolver directly instead of
+        // the facade macro. Accept either pattern.
         foreach (self::REFACTORED_FILES as $relativePath) {
             $absolutePath = base_path($relativePath);
             $this->assertFileExists($absolutePath, "Refactored file missing: {$relativePath}");
             $contents = (string) file_get_contents($absolutePath);
-            $this->assertStringContainsString(
-                'Storage::tenant(',
-                $contents,
-                "Phase-58 refactor regression: {$relativePath} no longer uses Storage::tenant().",
+
+            $usesTenantDisk = str_contains($contents, 'Storage::tenant(')
+                || str_contains($contents, 'TenantDiskResolver');
+
+            $this->assertTrue(
+                $usesTenantDisk,
+                "Phase-58 refactor regression: {$relativePath} no longer references the tenant disk abstraction (Storage::tenant or TenantDiskResolver).",
             );
         }
     }

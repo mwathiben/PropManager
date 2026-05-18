@@ -177,6 +177,14 @@ Route::post('/email/unsubscribe', [\App\Http\Controllers\NotificationsController
     ->name('email.unsubscribe')
     ->middleware(['signed.once', 'throttle:invitation']);
 
+// Phase-59 SIGNED-URLS-1: local-driver fallback target for
+// TenantDiskResolver::temporaryUrl. The signed middleware verifies
+// the URL hasn't been tampered with; controllers issue these via
+// $resolver->temporaryUrl() after their own ownership-validation pass.
+Route::get('/files/local-stream', [\App\Http\Controllers\FileLocalStreamController::class, 'stream'])
+    ->middleware(['signed', 'throttle:60,1'])
+    ->name('files.local-stream');
+
 // Phase-54 VENDOR-ONBOARDING-2: signed-URL profile completion for a
 // vendor. No auth — the signed URL IS the auth. Outside the
 // auth-middleware group so unauthenticated vendors can complete the

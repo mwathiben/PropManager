@@ -223,7 +223,14 @@ class DocumentController extends Controller
         // for sensible browser handling.
         $safeName = $this->sanitiseDownloadFilename($document->file_name, (string) $document->file_path);
 
-        return Storage::tenant()->download($document->file_path, $safeName);
+        // Phase-59 SIGNED-URLS-2: 302 to a short-lived signed URL.
+        // Browser fetches directly from s3 (presigned URL) or the
+        // local-stream fallback (signed Laravel route). PHP-FPM no
+        // longer streams the file bytes.
+        return redirect()->away(
+            app(\App\Services\Storage\TenantDiskResolver::class)
+                ->temporaryUrl($document->file_path, $document->landlord_id, 5, $safeName),
+        );
     }
 
     /**
@@ -283,11 +290,14 @@ class DocumentController extends Controller
             abort(404, 'File not found in storage');
         }
 
-        // Return file for inline viewing
-        return Storage::tenant()->response($document->file_path, $document->file_name, [
-            'Content-Type' => $document->mime_type,
-            'Content-Disposition' => 'inline',
-        ]);
+        // Phase-59 SIGNED-URLS-2: 302 to short-lived signed URL with
+        // inline disposition. Browser sets Content-Disposition: inline
+        // via the signed-route param (local) or
+        // Response-Content-Disposition (s3 presigned).
+        return redirect()->away(
+            app(\App\Services\Storage\TenantDiskResolver::class)
+                ->temporaryUrl($document->file_path, $document->landlord_id, 5, $document->file_name, 'inline'),
+        );
     }
 
     /**

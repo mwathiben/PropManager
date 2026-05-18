@@ -11,10 +11,8 @@ use App\Models\Receipt;
 use App\Models\TenantKycSubmission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Phase-28 TENANT-DOCS-1/2: tenant document repository — lease documents,
@@ -70,13 +68,21 @@ class TenantDocumentsController extends Controller
         ]);
     }
 
-    public function download(Request $request, Document $document): StreamedResponse
+    public function download(Request $request, Document $document)
     {
         Gate::forUser($request->user())->authorize('view', $document);
 
         abort_unless($document->fileExists(), 404);
 
-        return Storage::tenant()->download($document->file_path, $document->file_name);
+        // Phase-59 SIGNED-URLS-2: 302 to short-lived signed URL.
+        return redirect()->away(
+            app(\App\Services\Storage\TenantDiskResolver::class)->temporaryUrl(
+                $document->file_path,
+                $document->landlord_id,
+                5,
+                $document->file_name,
+            ),
+        );
     }
 
     /**
