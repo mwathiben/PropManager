@@ -1,0 +1,9 @@
+# Phase-53 RTL-BASELINES-1: baseline directory pinned in git.
+#
+# Per docs/runbooks/rtl-snapshots.md, the 8 baseline pngs (one per
+# covered page) are operator-seeded on first run via:
+#
+#   A11Y_BASE_URL=http://127.0.0.1:8000 npm run test:rtl:update
+#
+# Once seeded, the pngs land in this directory and the suite gates
+# against them on every CI run.

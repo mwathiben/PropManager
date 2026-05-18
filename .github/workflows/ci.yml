@@ -527,6 +527,103 @@ jobs:
         env:
           A11Y_BASE_URL: http://127.0.0.1:8000
 
+  rtl-smoke:
+    name: RTL Visual Snapshots (Phase 53 RTL-BASELINES-2)
+    runs-on: ubuntu-latest
+    needs: lint
+    # Phase-53 RTL-BASELINES-2: runs the Phase-44 [I18N-RTL]
+    # 8-page visual snapshot suite against the seeded load-test
+    # landlord. Same warn-on-main / block-on-PR pattern as
+    # a11y-smoke. Baselines live in tests/a11y/rtl/__screenshots__/
+    # and are operator-seeded via the recipe in
+    # docs/runbooks/rtl-snapshots.md; CI uses strict compare (no
+    # --update-snapshots), so a deliberate visual change requires a
+    # seeded baseline commit on the same PR.
+    continue-on-error: ${{ github.event_name == 'push' }}
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: propmanager_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo, pdo_mysql, bcmath
+          tools: composer:v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Configure .env with valid APP_KEY
+        run: |
+          cp .env.example .env
+          php -r "file_put_contents('.env', preg_replace('/^APP_KEY=.*/m', 'APP_KEY=base64:'.base64_encode(random_bytes(32)), file_get_contents('.env')));"
+          echo "DB_CONNECTION=mysql" >> .env
+          echo "DB_HOST=127.0.0.1" >> .env
+          echo "DB_PORT=3306" >> .env
+          echo "DB_DATABASE=propmanager_test" >> .env
+          echo "DB_USERNAME=root" >> .env
+          echo "DB_PASSWORD=password" >> .env
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-scripts
+
+      - name: Discover packages
+        run: php artisan package:discover --ansi
+
+      - name: Build assets (manifest required for Inertia pages)
+        run: |
+          npm ci
+          npm run build
+
+      - name: Migrate + seed the load-test landlord
+        run: |
+          php artisan migrate --force
+          php artisan db:seed --class="Database\\Seeders\\LoadTestSeeder" --force
+
+      - name: Boot the app
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8000 &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8000/api/health > /dev/null; then
+              echo "app is up"; break
+            fi
+            sleep 1
+          done
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run RTL visual snapshot suite
+        run: npm run test:rtl
+        env:
+          A11Y_BASE_URL: http://127.0.0.1:8000
+
+      - name: Upload diff artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rtl-snapshot-diffs
+          path: test-results/
+          if-no-files-found: ignore
+
   pwa-smoke:
     name: PWA Smoke (PWA-CI-2 + PWA-CI-3)
     runs-on: ubuntu-latest
