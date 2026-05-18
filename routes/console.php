@@ -738,6 +738,16 @@ Schedule::command('tenant-kyc:blocked-audit')
     ->onOneServer()
     ->name('phase53-gauge-wiring1-tenant-kyc-blocked');
 
+// Phase-54 PARTS-REORDER-2: convert parts_below_threshold gauge signal
+// into draft purchase orders per (landlord, suggested_vendor). Runs at
+// 06:45 — after parts:audit-stock 06:30 (so the gauge for the day is
+// current) and before tickets:audit-sla 07:00.
+Schedule::command('parts:reorder-suggest')
+    ->dailyAt('06:45')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase54-parts-reorder-suggest');
+
 // Phase-53 GAUGE-WIRING-3: i18n_translation_spend_usd_24h gauge emitter.
 // Scrapes TranslationCostTracker Cache keys + emits total + per-locale
 // gauges. Every 15m so the sev3 $20/day budget alert (alert-thresholds.md

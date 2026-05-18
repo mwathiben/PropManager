@@ -689,6 +689,14 @@ Route::middleware('auth')->group(function () {
         ->get('/dashboards/{slug}', [\App\Http\Controllers\Reports\DashboardController::class, 'show'])
         ->name('dashboards.show');
 
+    // Phase-54 PARTS-REORDER-3: landlord-facing surface over the
+    // draft_purchase_orders the parts:reorder-suggest cron materialises.
+    Route::middleware('role:landlord')->prefix('parts/purchase-orders')->name('parts.purchase-orders.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\PartsPurchaseOrderController::class, 'index'])->name('index');
+        Route::post('/{order}/confirm', [\App\Http\Controllers\PartsPurchaseOrderController::class, 'confirm'])->name('confirm');
+        Route::post('/{order}/cancel', [\App\Http\Controllers\PartsPurchaseOrderController::class, 'cancel'])->name('cancel');
+    });
+
     // Phase-54 SLA-LANDLORD-UI-1: landlord-scoped CRUD over SLA overrides.
     // NOT under /admin — that namespace is super-admin only. Landlord
     // overrides + global defaults coexist via the Phase-49 cascade in
