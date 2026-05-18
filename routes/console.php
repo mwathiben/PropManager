@@ -768,3 +768,14 @@ Schedule::command('experiments:auto-promote')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase56-ab-auto-promote');
+
+// Phase-57 P95-BUDGETS-1: nightly enforce-budgets cron compares observed
+// p95 per route_class to config('observability.slo.latency_budgets_ms')
+// and emits route_p95_violation gauge. Runs at 05:00 — after the Phase-34
+// growth cluster (04:05-04:15) + Phase-56 03:30 auto-promote, before
+// 06:30 slow-query rollup (Phase-57 SLOW-QUERY-3).
+Schedule::command('slo:enforce-budgets')
+    ->dailyAt('05:00')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase57-p95-budgets-enforce');
