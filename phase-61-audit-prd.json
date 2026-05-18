@@ -1,0 +1,143 @@
+{
+    "phase": 61,
+    "title": "LEASE-LIFECYCLE",
+    "opened_at": "2026-05-18",
+    "tier": "Tier 7 cycle 25",
+    "scope": "Deepens Phase 45 LEASE-COUNTER (counter-proposal during renewal) with the four lease-lifecycle events Phase 45 didn't cover: early termination, transfer/sublet, temporary pause, and auto-renewal on expiry. Today the Lease model has is_active + end_date + counter_* columns but no termination flow, no transfer flow, no pause flow, no auto-renewal toggle. Landlords work around this by manually flipping is_active or deleting the lease — neither of which leaves an audit trail or honours notice periods. Six categories x 3 = 18 findings closing all four lifecycle gaps + a centralised notice-period validation surface that the other four can share.",
+    "categories": {
+        "TERMINATION": "Landlord or tenant initiates early termination. (1) lease_terminations table (lease_id FK + initiated_by user_id + termination_reason enum [breach_by_tenant, breach_by_landlord, mutual, hardship, sale, other] + termination_date + notice_given_at + acknowledged_at nullable + status enum [pending, acknowledged, disputed, completed, withdrawn] + reason_text + soft-deletes). LeaseTermination model with TenantScope. (2) App\\Services\\Lease\\LeaseTerminationService::initiate(Lease, User initiator, array $payload): validates notice period via NoticePeriodValidator + creates the row + dispatches LeaseTerminationInitiated event + Cache::forget lease-status keys. ::acknowledge / ::dispute / ::withdraw / ::complete state-machine methods inside DB::transaction. (3) POST /leases/{lease}/terminate landlord-or-tenant route + Pages/Leases/Terminate.vue form. Tenant-side: under tenant role + lease.tenant_id == user.id; Landlord-side: under landlord role + lease.landlord_id == user.id.",
+        "TRANSFER": "Tenant assigns lease to another tenant (subletting / lease assignment). (1) lease_transfers table (lease_id FK + outgoing_tenant_id FK users + incoming_tenant_id FK users + initiated_by user_id + transfer_date + landlord_approved_at nullable + status enum [requested, landlord_approved, completed, rejected, withdrawn] + transfer_fee_amount nullable + reason_text + soft-deletes). LeaseTransfer model with TenantScope. (2) LeaseTransferService::request(Lease, User outgoing, User incoming, payload) creates the row + requires landlord approval before status moves to landlord_approved; ::approve / ::reject / ::complete state-machine; on completed, swaps Lease.tenant_id from outgoing to incoming inside DB::transaction + writes a Phase-45 lease_renewal_counter_history-style audit row. (3) POST /leases/{lease}/transfer + landlord-side approval action + UI on both tenant + landlord dashboards.",
+        "PAUSE": "Temporary lease pause (rent vacation, hardship grace). (1) lease_pauses table (lease_id FK + initiated_by user_id + pause_start + pause_end + reason enum [tenant_hardship, landlord_renovation, mutual, other] + reason_text + auto_resumed boolean default false + status enum [active, completed, cancelled] + soft-deletes). LeasePause model with TenantScope. (2) LeasePauseService::start(Lease, User, payload) creates pause row + flips Lease.is_active=false until pause_end + writes Phase-17 MONEY-style RentReminderPolicy bypass for the pause window; ::cancel manually ends a pause early; ::autoResume called by cron. (3) lease-pause:auto-resume cron daily 06:00 Africa/Nairobi flips status=completed + Lease.is_active=true + auto_resumed=true for pauses where pause_end < now AND status=active; emits lease_pause_resumed_count gauge.",
+        "RENEWAL-AUTO": "Auto-renew on expiry unless opted out. Phase 45 LEASE-COUNTER handles manual counter-proposal during renewal; this adds the default-renew path. (1) leases.auto_renew boolean default true migration; LeaseRenewalAutoService::scanExpiring($daysAhead = 30) walks leases where end_date BETWEEN now AND now+30d AND auto_renew=true AND no counter_status set; creates a new Lease record with start_date=end_date+1 and end_date=end_date+lease_term_months + same financial terms + ren_inherited_from_lease_id set so audit traces the chain. (2) lease:auto-renew cron daily 07:00 Africa/Nairobi (after Phase-45 lease-renewal:expire-stale-counters at 03:00 so the chronological order matters). Emits lease_auto_renewed_count gauge. (3) Pages/Leases/Show.vue gains an Auto-renew toggle (under landlord ownership); PATCH /leases/{lease}/auto-renew route updates the boolean.",
+        "NOTICE-LIFECYCLE": "Centralised notice-period validation that termination/transfer/pause all share. (1) config/lease.php notice_periods array — termination 30d default (per Kenya Landlord and Tenant Act), transfer 14d, pause 7d; per-landlord override later. App\\Services\\Lease\\NoticePeriodValidator::validate(string $action, Carbon $effectiveDate, ?int $landlordOverrideDays = null): throws ShortNoticeException when effective < now+notice_period. (2) Wire validator into LeaseTerminationService::initiate + LeaseTransferService::request + LeasePauseService::start. Each service catches ShortNoticeException + returns a translation-friendly error. (3) Phase 45 lease_renewal_counter_history audit shape is reused for these lifecycle events — each service writes an entry there for unified audit-trail querying.",
+        "CI": "(1) Phase61LeaseLifecycleSurfaceTest cross-category presence map: 4 services exist + 3 tables present + auto_renew column on leases + 2 crons scheduled + lease.md + alert-thresholds.md rows. (2) docs/runbooks/lease.md NEW: lease-lifecycle state machine diagram (active → paused → resumed; active → terminated → completed; active → transferred-out / transferred-in; active → renewed → new lease with parent reference); notice-period table; cross-link to Phase 45 LEASE-COUNTER for the renewal-counter-proposal flow. (3) alert-thresholds.md gains 3 visibility-only rows: lease_pause_resumed_count, lease_auto_renewed_count, lease_termination_pending_count (high values surface a stuck approval queue)."
+    },
+    "findings": [
+        {
+            "id": "TERMINATION-1",
+            "severity": "HIGH",
+            "title": "lease_terminations schema + LeaseTermination model",
+            "evidence": "Today landlords work around early termination by manually flipping Lease.is_active or deleting the row. No audit trail, no notice-period validation, no acknowledgment from the other party.",
+            "remediation": "Migration creates lease_terminations (lease_id FK + initiated_by + termination_reason enum + termination_date + notice_given_at + acknowledged_at + status enum + reason_text + soft-deletes + indexes on (lease_id, status) + (landlord_id, status)). LeaseTermination model with TenantScope global scope on landlord_id (inherited via $lease->landlord_id). 5 status constants: PENDING, ACKNOWLEDGED, DISPUTED, COMPLETED, WITHDRAWN. 6 reason constants matching the enum."
+        },
+        {
+            "id": "TERMINATION-2",
+            "severity": "HIGH",
+            "title": "LeaseTerminationService state machine + event",
+            "evidence": "Service-less termination would leak business rules into controllers.",
+            "remediation": "App\\Services\\Lease\\LeaseTerminationService::initiate / ::acknowledge / ::dispute / ::withdraw / ::complete — each inside DB::transaction. ::initiate calls NoticePeriodValidator::validate (Phase-61 NOTICE-LIFECYCLE-2 below); writes the row; dispatches LeaseTerminationInitiated event (auto-discovered listeners for email + audit). ::complete sets Lease.is_active=false + Lease.end_date=termination_date + writes a lease_renewal_counter_history audit entry (reuses Phase-45 audit shape)."
+        },
+        {
+            "id": "TERMINATION-3",
+            "severity": "MEDIUM",
+            "title": "/leases/{lease}/terminate route + Vue scaffold",
+            "evidence": "Service alone is dead code without a route.",
+            "remediation": "POST /leases/{lease}/terminate under auth + role:landlord|tenant. LeaseController::terminate accepts termination_reason + termination_date + reason_text; resolves initiator based on auth role (landlord or tenant); calls service. Pages/Leases/Terminate.vue form scaffold — date picker + reason select + text area + submit. Full-styling polish deferred to a Vue-tail cycle; the form ships functional (Inertia POST works) but minimal."
+        },
+        {
+            "id": "TRANSFER-1",
+            "severity": "HIGH",
+            "title": "lease_transfers schema + LeaseTransfer model",
+            "evidence": "Tenant assignment / sublet has no first-class support — manual is_active flip + creating a new lease loses the audit chain.",
+            "remediation": "Migration creates lease_transfers (lease_id FK + outgoing_tenant_id + incoming_tenant_id + initiated_by + transfer_date + landlord_approved_at nullable + status enum [requested, landlord_approved, completed, rejected, withdrawn] + transfer_fee_amount nullable decimal(10,2) + reason_text + soft-deletes + indexes on (lease_id, status) + (incoming_tenant_id, status)). LeaseTransfer model with TenantScope."
+        },
+        {
+            "id": "TRANSFER-2",
+            "severity": "MEDIUM",
+            "title": "LeaseTransferService::request / ::approve / ::complete",
+            "evidence": "Three-party flow (outgoing + incoming + landlord) needs explicit state machine.",
+            "remediation": "App\\Services\\Lease\\LeaseTransferService methods inside DB::transaction. ::request validates notice + creates row with status=requested; ::approve called by landlord moves to landlord_approved; ::complete swaps Lease.tenant_id from outgoing to incoming + sets status=completed + writes lease_renewal_counter_history audit entry. ::reject / ::withdraw close the row without swapping. LeaseTransferRequested event auto-discovered listeners (notify landlord + incoming tenant)."
+        },
+        {
+            "id": "TRANSFER-3",
+            "severity": "MEDIUM",
+            "title": "Transfer routes + landlord approval surface",
+            "evidence": "Three actors (outgoing, incoming, landlord) need three different surfaces.",
+            "remediation": "POST /leases/{lease}/transfer under tenant role (outgoing initiates). POST /leases/{lease}/transfers/{transfer}/approve|reject under landlord role. POST /leases/{lease}/transfers/{transfer}/withdraw under outgoing tenant. Pages/Leases/Transfer.vue tenant-side scaffold + Pages/Landlord/LeaseTransferApprovals.vue landlord approval queue."
+        },
+        {
+            "id": "PAUSE-1",
+            "severity": "HIGH",
+            "title": "lease_pauses schema + LeasePause model",
+            "evidence": "Rent vacation / hardship grace has no first-class support. Today landlords mark Lease.is_active=false manually, which loses the resume date + reason.",
+            "remediation": "Migration creates lease_pauses (lease_id FK + initiated_by + pause_start + pause_end + reason enum [tenant_hardship, landlord_renovation, mutual, other] + reason_text + auto_resumed boolean default false + status enum [active, completed, cancelled] + soft-deletes + indexes on (lease_id, status) + (status, pause_end) for the resume cron). LeasePause model with TenantScope."
+        },
+        {
+            "id": "PAUSE-2",
+            "severity": "MEDIUM",
+            "title": "LeasePauseService + lease-pause:auto-resume cron",
+            "evidence": "Pauses past their pause_end remain active forever without a cron — same anti-pattern as Phase-60's trial expiry before TrialAutoExpire.",
+            "remediation": "App\\Services\\Lease\\LeasePauseService::start (validates notice + flips Lease.is_active=false + creates row + dispatches LeasePauseStarted event); ::cancel (manual early-end); ::autoResume (called by cron, idempotent inside DB::transaction). lease-pause:auto-resume command daily 06:00 Africa/Nairobi finds rows with status=active AND pause_end < now → marks completed + auto_resumed=true + flips Lease.is_active=true → emits lease_pause_resumed_count gauge. Wraps in lockForUpdate for concurrent-cron safety (Phase-60 pattern)."
+        },
+        {
+            "id": "PAUSE-3",
+            "severity": "LOW",
+            "title": "Pause UI + rent reminder bypass",
+            "evidence": "Without UI the service is unused. Phase-29 WF-RENT-REMIND keeps firing during a pause unless explicitly bypassed.",
+            "remediation": "POST /leases/{lease}/pause + DELETE /leases/{lease}/pauses/{pause} under landlord role. Pages/Leases/Pause.vue scaffold. Phase-29 RentReminderPolicy enriched to skip leases with an active LeasePause covering the reminder date (one-line scope addition; document in the Phase-29 audit cross-link)."
+        },
+        {
+            "id": "RENEWAL-AUTO-1",
+            "severity": "HIGH",
+            "title": "leases.auto_renew column + LeaseRenewalAutoService",
+            "evidence": "Phase 45 LEASE-COUNTER handles manual counter-proposal during renewal but the default-renew (no counter, no opt-out) path is unwired. Leases just expire silently on end_date today.",
+            "remediation": "Migration adds leases.auto_renew boolean default true. App\\Services\\Lease\\LeaseRenewalAutoService::scanExpiring($daysAhead = 30) walks leases where end_date BETWEEN now AND now+$daysAhead AND auto_renew=true AND no counter_status set; for each, creates a new Lease row inside DB::transaction with start_date = end_date + 1 day, end_date = start_date + INTERVAL(end_date - start_date months), same financial terms, renewed_from_lease_id set (new column added to leases + index). The original lease keeps end_date as-is; the new lease overlaps by 1 day for clean accounting boundary."
+        },
+        {
+            "id": "RENEWAL-AUTO-2",
+            "severity": "MEDIUM",
+            "title": "lease:auto-renew cron + gauge",
+            "evidence": "Service alone is dead code without a cron.",
+            "remediation": "lease:auto-renew command daily 07:00 Africa/Nairobi (after Phase-45 lease-renewal:expire-stale-counters at 03:00 so counter-proposals get resolved first; the 07:00 schedule reflects 'after morning ops review' so an operator who notices an unwanted auto-renew can disable auto_renew=false before it triggers — though the 30-day-ahead window means most renewals scan well before the trigger date). Emits lease_auto_renewed_count gauge. --dry-run flag logs candidates without creating new Leases (operator verification pattern from Phase-59 FILE-RETENTION-3)."
+        },
+        {
+            "id": "RENEWAL-AUTO-3",
+            "severity": "LOW",
+            "title": "Auto-renew toggle on Pages/Leases/Show.vue",
+            "evidence": "Column without UI means landlords can't opt out a specific lease.",
+            "remediation": "PATCH /leases/{lease}/auto-renew route under landlord role updates the boolean. Pages/Leases/Show.vue gains a toggle near the existing renewal section — emerald 'Auto-renew on expiry' switch + 'Click to disable for this lease' helper text."
+        },
+        {
+            "id": "NOTICE-LIFECYCLE-1",
+            "severity": "MEDIUM",
+            "title": "config/lease.php notice_periods + NoticePeriodValidator",
+            "evidence": "Termination, transfer, pause each have different notice-period requirements (Kenya Landlord and Tenant Act = 30 days termination by default). Without a centralised validator the rules would scatter across services.",
+            "remediation": "config/lease.php notice_periods returns ['termination' => 30, 'transfer' => 14, 'pause' => 7] in days. App\\Services\\Lease\\NoticePeriodValidator::validate(string $action, Carbon $effectiveDate, ?int $landlordOverrideDays = null): void throws ShortNoticeException when effectiveDate < now()->addDays(threshold). Landlord override (future hook) takes precedence when set."
+        },
+        {
+            "id": "NOTICE-LIFECYCLE-2",
+            "severity": "MEDIUM",
+            "title": "Wire validator into the three lifecycle services",
+            "evidence": "Validator alone is dead code without callers.",
+            "remediation": "LeaseTerminationService::initiate calls NoticePeriodValidator::validate('termination', $payload['termination_date']); LeaseTransferService::request calls ::validate('transfer', $payload['transfer_date']); LeasePauseService::start calls ::validate('pause', $payload['pause_start']). Each service catches ShortNoticeException + re-throws (controllers translate to flash via Phase-60-style translation key pattern)."
+        },
+        {
+            "id": "NOTICE-LIFECYCLE-3",
+            "severity": "LOW",
+            "title": "lang/en/lease.php translation keys for short-notice errors",
+            "evidence": "ShortNoticeException is dead code in user-facing flashes without translations.",
+            "remediation": "lang/en/lease.php with keys lease.short_notice_termination, lease.short_notice_transfer, lease.short_notice_pause. ShortNoticeException::translationKey() returns the action-specific key. Phase-43 HardcodedEnglishScanner contract preserved (no inline English in controllers)."
+        },
+        {
+            "id": "CI-1",
+            "severity": "MEDIUM",
+            "title": "Phase61LeaseLifecycleSurfaceTest cross-category watchdog",
+            "evidence": "Five categories of code need cross-cutting invariant assertions.",
+            "remediation": "tests/Feature/Leases/Phase61LeaseLifecycleSurfaceTest: (a) 4 services exist (LeaseTermination + LeaseTransfer + LeasePause + LeaseRenewalAuto + NoticePeriod) + ShortNoticeException class; (b) 3 tables exist (lease_terminations + lease_transfers + lease_pauses) + auto_renew + renewed_from_lease_id columns on leases; (c) 4 events exist (LeaseTerminationInitiated + LeaseTransferRequested + LeasePauseStarted + LeaseAutoRenewed); (d) 3 routes registered (/terminate, /transfer, /pause); (e) 2 crons scheduled (lease-pause:auto-resume daily 06:00, lease:auto-renew daily 07:00); (f) lease.md exists + alert-thresholds.md mentions 3 new gauges."
+        },
+        {
+            "id": "CI-2",
+            "severity": "LOW",
+            "title": "docs/runbooks/lease.md NEW",
+            "evidence": "Lease lifecycle has no central runbook. Phase 45 LEASE-COUNTER notes live in maintenance.md.",
+            "remediation": "lease.md NEW: state-machine diagram (active → paused → resumed; active → terminated → completed; active → transferred-out → completed → new lease for incoming tenant; active → end_date approaches → auto-renewed OR counter-proposed (Phase 45) OR expired); notice-period table; auto-renew opt-out recipe; cross-link to Phase 17 MONEY (rent reminder bypass during pause) + Phase 29 WORKFLOW (RentReminderPolicy) + Phase 45 LEASE-COUNTER (counter-proposal flow) + Phase 61 (this cycle)."
+        },
+        {
+            "id": "CI-3",
+            "severity": "LOW",
+            "title": "alert-thresholds.md 3 visibility-only rows",
+            "evidence": "Three new gauges shipped — operator dashboards need them in the central catalog.",
+            "remediation": "alert-thresholds.md: lease_pause_resumed_count visibility-only (volume signal — high values surface a pattern of granted pauses, useful for hardship-program analysis); lease_auto_renewed_count visibility-only (revenue-continuity signal); lease_termination_pending_count visibility-only (stuck approval queue — high values mean landlords aren't responding to tenant-initiated terminations, or vice versa, within a week)."
+        }
+    ]
+}
