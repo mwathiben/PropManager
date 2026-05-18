@@ -1,0 +1,143 @@
+{
+    "phase": 59,
+    "title": "STORAGE-HARDENING",
+    "opened_at": "2026-05-18",
+    "tier": "Tier 7 cycle 23",
+    "scope": "Builds directly on Phase 58 SHARED-DISK-MIGRATION by hardening the storage surface: replaces app-streamed downloads with signed-URL temporary links (works across local + s3); wires the path() caveat as a TempFileResolver pattern for the two known subprocess callsites (DataExportService:90 ZipArchive + OcrService:288 Tesseract) so they survive an s3 cutover without code changes; flips TenantDiskResolver from forward-compat to real per-landlord path prefixing; adds a file_retention_policies + storage:enforce-retention cron for per-subject lifecycles (OCR temp 24hr, GDPR exports 7d, lease docs 7yr per Kenya DPA); adds a FileAccessAudit trail because PII-bearing downloads (KYC, lease docs, water-reading photos) currently produce no audit trail; picks up the MoveOutController:546 Storage::disk('private') callsite that Phase 58's Storage::disk('local') grep missed. Six categories x 3 = 18 findings.",
+    "categories": {
+        "SIGNED-URLS": "Replace app-streamed downloads with signed temporary URLs. (1) Add TenantDiskResolver::temporaryUrl(string $path, ?int $landlordId = null, int $expiresMinutes = 5): string — wraps Storage::tenant($landlordId)->temporaryUrl($path, now()->addMinutes($expiresMinutes)) and falls back to URL::temporarySignedRoute('files.local-stream', ...) on the local driver where temporaryUrl() throws. (2) Replace Storage::tenant()->download/response in DocumentController + LeaseController + TenantDocumentsController + WaterReadingController with a redirect to the signed temporary URL. The user-facing surface still POSTs to the download route, server validates ownership, then 302s to the signed URL. (3) Pick up MoveOutController:546 Storage::disk('private')->response callsite that Phase 58's grep missed (literal 'private' not 'local'); refactor to Storage::tenant() if the file path is tenant-scoped, otherwise keep but document the exception in storage.md.",
+        "PATH-CAVEAT": "Wire the path() caveat documented in Phase 58 storage.md. (1) App\\Services\\Storage\\TempFileResolver::for(string $relativePath, ?int $landlordId = null): TempFileHandle. The handle exposes ->path() (real local-disk path), ->cleanup() (unlinks), and implements __destruct() so leaked handles still clean up. On local driver the handle just wraps the existing path; on s3 it downloads to sys_get_temp_dir() + a UUID-named subdir. (2) DataExportService:90 swaps Storage::tenant()->path(\"...zip\") for a TempFileHandle scoped to a try/finally. ZipArchive::open() gets the local path. After the zip is written it streams back into the tenant disk. (3) OcrService:288 swaps Storage::tenant()->path($image) for a TempFileHandle similarly — Tesseract subprocess reads from $handle->path(). Both callsites become driver-agnostic.",
+        "TENANT-ROUTING": "Flip TenantDiskResolver from forward-compat (records $landlordId but does nothing) to real per-landlord path prefixing. (1) TenantDiskResolver::resolve now wraps the underlying disk in a PrefixedDisk decorator when landlord_id is provided + the config knob filesystems.tenant_disk_prefix_template is set. Default template '{landlord_id}/' is opt-in via env. (2) Path strings stored in Document.file_path etc DO NOT change retroactively (backwards compat) — only NEW writes go through the prefix. PrefixedDisk decorates put/get/exists/delete/path with the prefix; backwards-compat tested via integration test. (3) Document the migration path in storage.md: enabling per-landlord prefixing is one-way without a data migration; the prefix is configured per-environment so dev/staging can experiment without affecting prod.",
+        "FILE-RETENTION": "Per-subject file retention cron. (1) file_retention_policies table (subject string [ocr_temp, export_zip, lease_doc, kyc_doc, water_reading_photo, invoice_pdf], retention_days int, landlord_id nullable for per-tenant overrides). Seed 6 platform defaults (OCR 1, exports 7, KYC 1825 [5yr per DPA], lease 2555 [7yr per Kenya rental law], water reading 730 [2yr], invoice 2555). (2) FileRetentionService::enforce(string $subject) walks the appropriate model + Storage::tenant()->delete + emits files_retention_purged_count{subject} gauge. (3) storage:enforce-retention cron daily 02:30 Africa/Nairobi (avoids EnforceRetention 02:00 collision); each subject runs in its own try/catch so one subject's failure doesn't block the others; --dry-run flag for operator verification.",
+        "ACCESS-AUDIT": "PII-bearing file downloads need an audit trail. (1) file_access_audits table (user_id, landlord_id, subject_type/id polymorphic FK, action enum [download, view, signed_url_issued], ip_address, user_agent, accessed_at indexed, accessed_path nullable for non-modelled files). FileAccessAudit model with TenantScope (landlord_id scope) + 90-day retention via FileRetentionService. (2) FileAccessRecorder::record() called from DocumentController + LeaseController + TenantDocumentsController + TenantKycController + WaterReadingController download paths. Recorder is fail-soft (Log::warning on persist failure, don't 500 the download). (3) file_access_anomaly_count{action} gauge — operator-facing signal when one user fires >50 downloads in 5 minutes. AnomalyDetector queries the audit table on a 5-min cron; sev3 alert row.",
+        "CI": "(1) Phase59StorageHardeningSurfaceTest cross-category presence map: TempFileResolver/TempFileHandle classes + temporaryUrl resolver method + PrefixedDisk decorator + file_retention_policies table + storage:enforce-retention scheduled + FileAccessAudit model + FileAccessRecorder service + anomaly cron scheduled. (2) docs/runbooks/storage.md gains a Phase-59 section: signed-URL pattern + TempFileResolver recipe + per-landlord prefix opt-in + retention policy table + access audit trail. Cross-link to Phase 58 lineage. (3) Add 2 sev rows to docs/runbooks/alert-thresholds.md: files_retention_purged_count visibility + file_access_anomaly_count sev3."
+    },
+    "findings": [
+        {
+            "id": "SIGNED-URLS-1",
+            "severity": "HIGH",
+            "title": "TenantDiskResolver::temporaryUrl with local-driver fallback",
+            "evidence": "Storage::tenant()->download/response streams the file through the PHP-FPM process — fine on local disk, expensive on s3 (downloads from s3, then streams out). Storage::*->temporaryUrl() is the canonical pattern but throws on the local driver where the concept doesn't apply.",
+            "remediation": "App\\Services\\Storage\\TenantDiskResolver gains temporaryUrl(string $path, ?int $landlordId = null, int $expiresMinutes = 5): string. Tries Storage::tenant($landlordId)->temporaryUrl($path, now()->addMinutes($expiresMinutes)); on RuntimeException (local driver) falls back to URL::temporarySignedRoute('files.local-stream', $expiresMinutes * 60, ['disk' => 'tenant', 'path' => $path]). The local-stream route is a new controller (FileLocalStreamController) that re-validates the signed URL + streams the file. So the public API is identical across drivers."
+        },
+        {
+            "id": "SIGNED-URLS-2",
+            "severity": "MEDIUM",
+            "title": "Refactor 4 download controllers to 302 the signed URL",
+            "evidence": "DocumentController (lines 226 + 287), LeaseController (line 318), TenantDocumentsController (line 79), WaterReadingController (line 178) all stream through app. Total 5 callsites.",
+            "remediation": "Replace return Storage::tenant()->download/response(...) with return redirect()->away(app(TenantDiskResolver::class)->temporaryUrl($path, $landlordId)). The ownership-validation logic at the top of each method stays unchanged — only the return path changes. Browser hits the signed URL directly (s3) or hits the local-stream route (local). Phase 58 watchdogs still pass because Storage::tenant() is still in the file (just on the resolver call, not the download)."
+        },
+        {
+            "id": "SIGNED-URLS-3",
+            "severity": "LOW",
+            "title": "MoveOutController:546 Storage::disk('private') pickup",
+            "evidence": "Phase 58's grep for Storage::disk('local') didn't catch literal 'private'. MoveOutController:546 has Storage::disk('private')->response($deduction->photo_path) — still a hardcoded disk-driver dependency.",
+            "remediation": "Storage::disk('private') is the alias-disk Phase-1 UPLOAD-5 introduced for sensitive uploads. It points at storage/app/private locally. Two options: (a) leave as-is and document the exception in storage.md (Phase 58 chose to migrate only tenant-scoped files); (b) refactor to Storage::tenant() if MoveOutDeduction is tenant-scoped (it is — MoveOutDeduction belongs to a Lease which belongs to a landlord). Choose (b) for consistency."
+        },
+        {
+            "id": "PATH-CAVEAT-1",
+            "severity": "HIGH",
+            "title": "TempFileResolver + TempFileHandle service",
+            "evidence": "Phase 58 documented but did not wire the path() caveat: DataExportService:90 ZipArchive + OcrService:288 Tesseract need a real filesystem path; Storage::tenant()->path() throws on s3 today. Without the resolver, an s3 cutover breaks both flows.",
+            "remediation": "App\\Services\\Storage\\TempFileResolver::for(string $relativePath, ?int $landlordId = null): TempFileHandle. The handle exposes ->path() (real local-disk path), ->cleanup() (unlinks), and implements __destruct() so leaked handles still clean up. On local driver the handle wraps the existing Storage::tenant()->path() return; on s3 it downloads contents via Storage::tenant($landlordId)->get($relativePath) to sys_get_temp_dir() + a UUID-named subdir. Subprocess callers do { $handle = $resolver->for($p); $cmd($handle->path()); } finally { $handle->cleanup(); }."
+        },
+        {
+            "id": "PATH-CAVEAT-2",
+            "severity": "MEDIUM",
+            "title": "DataExportService:90 ZipArchive uses TempFileResolver",
+            "evidence": "DataExportService:90 Storage::tenant()->path(\"...zip\") will throw on s3.",
+            "remediation": "Refactor to: $tmp = app(TempFileResolver::class)->for(\"{$exportPath}/data_export_{$user->id}_{$exportId}.zip\"); $this->createZipArchive($exportPath, $tmp->path(), $user); Storage::tenant()->put($outPath, file_get_contents($tmp->path())); $tmp->cleanup(); — actually since the export ZIP is itself stored on the tenant disk, the local-write-then-tenant-put is the correct flow. Confirm via Phase58 round-trip test still green."
+        },
+        {
+            "id": "PATH-CAVEAT-3",
+            "severity": "MEDIUM",
+            "title": "OcrService:288 Tesseract subprocess uses TempFileResolver",
+            "evidence": "OcrService:288 Storage::tenant()->path($image) for Tesseract subprocess will throw on s3.",
+            "remediation": "Refactor: $imagePath = $image instanceof UploadedFile ? $image->getRealPath() : app(TempFileResolver::class)->for($image)->path(); — but use try/finally to cleanup. Since OCR is in-line with the request and the temp file is small, the in-scope handle pattern is sufficient. Add files_temp_active_count visibility-only gauge for monitoring leaked temp files."
+        },
+        {
+            "id": "TENANT-ROUTING-1",
+            "severity": "MEDIUM",
+            "title": "PrefixedDisk decorator + opt-in template",
+            "evidence": "Phase 58 TenantDiskResolver records $landlordId but doesn't use it — per-landlord routing is forward-compat only. With prefix template support, an operator can opt in per-environment without code changes.",
+            "remediation": "App\\Services\\Storage\\PrefixedDisk implements Filesystem; constructor takes (Filesystem $inner, string $prefix); every method forwards to $this->inner->{method}($this->prefix . $path, ...). TenantDiskResolver::resolve checks config('filesystems.tenant_disk_prefix_template', null); when set + $landlordId != null, str_replace('{landlord_id}', $landlordId, $template) becomes the prefix; wraps the disk in PrefixedDisk. Default template null means no prefix (Phase 58 behaviour preserved)."
+        },
+        {
+            "id": "TENANT-ROUTING-2",
+            "severity": "MEDIUM",
+            "title": "Backwards-compat: prefix applies to NEW writes only",
+            "evidence": "Path strings stored in Document.file_path, WaterReading.photo_path etc were written without a prefix. Retroactively reading them through a PrefixedDisk would 404. The contract must be: enabling the prefix is one-way for NEW writes; existing writes keep using the un-prefixed driver.",
+            "remediation": "Two options: (a) write the prefix INTO the stored path on first write so it's the path-of-record (chosen — simpler); operator runs a one-time backfill script if they want existing paths under the prefix. (b) read-side prefix-aware fallback (rejected — adds complexity). Document the migration recipe in storage.md."
+        },
+        {
+            "id": "TENANT-ROUTING-3",
+            "severity": "LOW",
+            "title": "Per-landlord prefix integration test",
+            "evidence": "Without a test, the PrefixedDisk decorator can silently break Storage::fake() flows.",
+            "remediation": "Phase59TenantRoutingTest: with template '{landlord_id}/' + landlordId=42 + Storage::fake('local'), put('a.txt', '...') should land under storage/app/42/a.txt; get('a.txt') reads back; exists('a.txt') returns true; subsequent unprefixed Storage::disk('local')->exists('a.txt') returns false (proves prefix isolation)."
+        },
+        {
+            "id": "FILE-RETENTION-1",
+            "severity": "HIGH",
+            "title": "file_retention_policies schema + seeder",
+            "evidence": "Phase 21 EnforceRetention handles logs/queue/gdpr but not files. Lease docs and KYC docs have no purge policy — they accumulate forever. Kenya DPA + landlord-tenant law dictate retention windows (5yr KYC, 7yr lease).",
+            "remediation": "Migration: file_retention_policies (id, subject string + indexed, retention_days int, landlord_id nullable for per-tenant overrides, created_at). Phase59FileRetentionPolicySeeder seeds 6 platform defaults (subject NULL landlord_id): ocr_temp 1, export_zip 7, kyc_doc 1825, lease_doc 2555, water_reading_photo 730, invoice_pdf 2555. FileRetentionPolicy model with TenantScope-aware resolveFor($subject, $landlordId) (per-landlord wins; falls back to platform default)."
+        },
+        {
+            "id": "FILE-RETENTION-2",
+            "severity": "MEDIUM",
+            "title": "FileRetentionService::enforce + storage:enforce-retention cron",
+            "evidence": "Without a worker that walks the policies + deletes expired files, the table is decorative.",
+            "remediation": "App\\Services\\Storage\\FileRetentionService::enforce(string $subject): array returns [{deleted: int, errors: int}]. Per-subject implementation: ocr_temp walks Storage::tenant()->files('ocr-temp/') and deletes files modified before now - retention_days; export_zip walks exports/; kyc_doc deletes via TenantKycSubmission soft-delete > retention_days WHERE deleted_at IS NOT NULL; lease_doc similar; water_reading + invoice_pdf same. Each subject in its own try/catch. storage:enforce-retention cron daily 02:30 Africa/Nairobi withoutOverlapping(60) onOneServer; emits files_retention_purged_count{subject} gauge."
+        },
+        {
+            "id": "FILE-RETENTION-3",
+            "severity": "LOW",
+            "title": "--dry-run flag + operator workflow",
+            "evidence": "Without dry-run an operator can't verify which files will be purged before they're gone.",
+            "remediation": "storage:enforce-retention --dry-run flag log per-subject candidate paths via Log::info but skips the unlink. Document the operator workflow in storage.md: run --dry-run first against staging, eyeball the output, then run for real. Dry-run also emits files_retention_dry_run_candidate_count{subject} gauge so the operator sees the size of the upcoming purge."
+        },
+        {
+            "id": "ACCESS-AUDIT-1",
+            "severity": "HIGH",
+            "title": "file_access_audits schema + FileAccessAudit model",
+            "evidence": "KYC documents, lease documents, water-reading photos are PII-bearing. Today there's no record of who downloaded what when — a compliance gap.",
+            "remediation": "Migration: file_access_audits (id, user_id FK, landlord_id FK indexed, subject_type string + subject_id bigint polymorphic, action enum [download, view, signed_url_issued], ip_address inet45 nullable, user_agent text nullable, accessed_path string nullable for non-modelled files, accessed_at timestamp indexed, created_at). FileAccessAudit model with TenantScope on landlord_id + 90d retention (added to FILE-RETENTION-1 seeder as file_access_audit subject)."
+        },
+        {
+            "id": "ACCESS-AUDIT-2",
+            "severity": "MEDIUM",
+            "title": "FileAccessRecorder + controller integration",
+            "evidence": "Without a service that records the audit row, the table is decorative.",
+            "remediation": "App\\Services\\Storage\\FileAccessRecorder::record(User $user, Model $subject, string $action, ?Request $request = null): void persists a row; fail-soft via Log::warning if persistence fails (don't 500 the download). Call from DocumentController::download/view + LeaseController::download + TenantDocumentsController::download + TenantKycController::download + WaterReadingController::response — wire after ownership validation passes."
+        },
+        {
+            "id": "ACCESS-AUDIT-3",
+            "severity": "MEDIUM",
+            "title": "AnomalyDetector + file_access_anomaly_count gauge",
+            "evidence": "Audit trail without anomaly detection is reactive. An attacker who compromises a tenant account can drain documents at full speed; ops needs an automated signal.",
+            "remediation": "App\\Console\\Commands\\FileAccessAnomalyAudit every 5 min queries file_access_audits WHERE accessed_at > now() - 5 min GROUP BY user_id HAVING count > 50; emits file_access_anomaly_count{action} gauge per detection; sev3 alert row in alert-thresholds.md. Threshold 50/5min is intentionally generous (a normal tenant downloads ~3 docs per session); operator can tune via config('observability.file_access_anomaly_threshold')."
+        },
+        {
+            "id": "CI-1",
+            "severity": "HIGH",
+            "title": "Phase59StorageHardeningSurfaceTest cross-category watchdog",
+            "evidence": "Six categories of code need cross-cutting invariant assertions so future PRs can't silently regress.",
+            "remediation": "tests/Feature/Storage/Phase59StorageHardeningSurfaceTest: (a) TempFileResolver + TempFileHandle classes exist; (b) TenantDiskResolver::temporaryUrl method exists; (c) PrefixedDisk class exists + has put/get/exists/delete forwarding; (d) file_retention_policies table exists + seeded; (e) storage:enforce-retention scheduled at 02:30; (f) FileAccessAudit model + file_access_audits table exists; (g) FileAccessRecorder + AnomalyDetector classes exist + 5-min cron scheduled; (h) docs/runbooks/storage.md gains Phase-59 section."
+        },
+        {
+            "id": "CI-2",
+            "severity": "LOW",
+            "title": "storage.md Phase-59 section",
+            "evidence": "Phase 58's storage.md needs the Phase 59 hardening surfaces documented for operator onboarding.",
+            "remediation": "storage.md gains a Phase-59 section (after the Phase-58 catalog): signed-URL pattern + local-stream fallback contract + TempFileResolver recipe + per-landlord prefix opt-in (env var + template) + retention policy table + access audit trail + anomaly detection threshold. Cross-link to phase-59-audit-prd.json closeout."
+        },
+        {
+            "id": "CI-3",
+            "severity": "LOW",
+            "title": "alert-thresholds.md 2 new rows",
+            "evidence": "files_retention_purged_count + file_access_anomaly_count are new gauges; operator dashboards won't see them without rows in the central catalog.",
+            "remediation": "Append to docs/runbooks/alert-thresholds.md: files_retention_purged_count{subject} visibility-only (no alert; tracks purge volume); file_access_anomaly_count{action} sev3 threshold > 0 for 10min (any anomaly triggers ops investigation)."
+        }
+    ]
+}
