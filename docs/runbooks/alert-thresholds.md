@@ -65,6 +65,14 @@ When tuning, edit here first + record the rationale; then change the env var. Th
 | Backup disk in non-adequate region | 1 | Phase-13 DPA-2 boot warning | boot | Section 48 transfer without safeguards. | Add SCCs / BCRs OR move bucket region |
 | Sentry DSN in non-adequate region | 1 | Phase-13 DPA-2 boot warning | boot | Same. | Use Sentry EU project or self-hosted DSN |
 
+## Lease lifecycle (Phase-61)
+
+| Signal | Threshold | Source | Window | Rationale | On-call action |
+|--------|-----------|--------|--------|-----------|----------------|
+| `lease_pause_resumed_count` | visibility-only | Phase-61 PAUSE-2 daily 06:00 cron | per-day | Volume signal — sustained high values surface a pattern of granted pauses, useful for hardship-program analysis. | Review pause reasons distribution; cross-reference with churn dashboard. |
+| `lease_auto_renewed_count` | visibility-only | Phase-61 RENEWAL-AUTO-2 daily 07:00 cron | per-day | Revenue-continuity signal — a sudden drop means many landlords flipped auto_renew=false (renegotiation pressure) or counter-proposals are blocking. | Drill down by landlord_id; flag those with disproportionate opt-outs. |
+| `lease_termination_pending_count` | visibility-only | Phase-61 TERMINATION-2 service-emitted | rolling 7d | Stuck approval queue — high values mean either landlords aren't responding to tenant-initiated terminations within a week, or vice versa. | Page support to nudge stuck parties; review termination_reason distribution. |
+
 ## Plan management (Phase-60)
 
 | Signal | Threshold | Source | Window | Rationale | On-call action |
