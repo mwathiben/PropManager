@@ -149,6 +149,21 @@ if ('serviceWorker' in navigator) {
                         }
                     });
                 });
+                // Phase-62 CACHE-STRATEGY-3: ask the SW to invalidate
+                // the matching SWR cache so list pages auto-revalidate
+                // on next focus. Queue name maps to route family by
+                // stripping the 'pm-offline-' prefix (or 'pm-invoice-
+                // queue' -> 'invoices').
+                const family =
+                    data.queue === 'pm-invoice-queue'
+                        ? 'invoices'
+                        : data.queue.replace(/^pm-offline-/, '');
+                if (navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({
+                        type: 'CACHE_BUST',
+                        routeFamily: family,
+                    });
+                }
             }
         });
 

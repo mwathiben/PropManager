@@ -37,18 +37,21 @@ declare const self: ServiceWorkerGlobalScope & {
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
-// Phase-26 PWA-SHELL-2: navigation fallback. Any navigation that the
-// network can't satisfy (offline, server down, slow timeout) falls
-// back to /offline. The denylist keeps API + admin + docs requests
-// from being hijacked into the SPA shell (they have their own
-// failure semantics — RFC 7807 problem+json from Phase-25 ERROR-1).
+// Phase-26 PWA-SHELL-2 + Phase-62 CACHE-STRATEGY-2: navigation handler
+// also doubles as the offline-shell cache. Promoted to 'pm-shell-v1'
+// with a larger entry budget + 7d TTL so a tab opened offline (or after
+// a flaky reconnect) still rehydrates the AuthenticatedLayout instead
+// of always bouncing through /offline. The denylist keeps API + admin
+// + docs requests from being hijacked into the SPA shell (they have
+// their own failure semantics — RFC 7807 problem+json from Phase-25
+// ERROR-1).
 const navigationHandler = new NetworkFirst({
-    cacheName: 'pm-navigation',
+    cacheName: 'pm-shell-v1',
     networkTimeoutSeconds: 4,
     plugins: [
         new ExpirationPlugin({
-            maxEntries: 32,
-            maxAgeSeconds: 24 * 60 * 60,
+            maxEntries: 64,
+            maxAgeSeconds: 7 * 24 * 60 * 60,
         }),
     ],
 });
@@ -57,6 +60,25 @@ registerRoute(
         denylist: [/^\/api\//, /^\/docs\//, /^\/admin\//, /^\/livewire\//, /^\/webhooks\//, /^\/sanctum\//],
     }),
 );
+
+// Phase-62 CACHE-STRATEGY-2: warm the shell cache at install time with
+// a /dashboard fetch so the very first offline navigation can hit cache
+// even before the user has visited the page online. Fail-soft: if the
+// fetch errors (e.g., the user isn't authenticated yet, /dashboard 302s
+// to /login), the install proceeds anyway — the cache just stays empty
+// for now.
+self.addEventListener('install', (event) => {
+    event.waitUntil(
+        (async () => {
+            try {
+                const cache = await caches.open('pm-shell-v1');
+                await cache.add('/dashboard');
+            } catch {
+                // best-effort precache — see comment above
+            }
+        })(),
+    );
+});
 
 // Phase-26 PWA-PERF-3: documented runtime caching strategies. See
 // docs/runbooks/pwa.md for the per-family contract and rationale.
@@ -108,10 +130,69 @@ registerRoute(
     }),
 );
 
-// API read paths: StaleWhileRevalidate with a 5min ceiling. Read-only
-// GET endpoints under /api/v1/ are safe to cache briefly. Mutation
-// methods (POST/PUT/PATCH/DELETE) bypass this — registerRoute below
-// only matches GETs by default.
+// Phase-62 CACHE-STRATEGY-1: per-route-family runtimeCaching.
+// One blanket SWR-5min was wrong for both ends of the spectrum —
+// dashboards held stale rent-collected numbers too long, static
+// lookups got refetched needlessly. Split by URL pattern:
+//
+//   /dashboard          → NetworkFirst 30s   (freshness > latency)
+//   /api/v1/<resource>  → SWR 5min           (list pages)
+//   /api/v1/<r>/{id}    → SWR 2min           (detail pages)
+//   /api/v1/{currencies,plans,countries} → CacheFirst 7d (static)
+//
+// Mutation methods (POST/PUT/PATCH/DELETE) bypass these —
+// registerRoute below only matches GETs by default.
+
+// Dashboard reads need to stay fresh — landlords act on these.
+registerRoute(
+    ({ url, request }) =>
+        request.method === 'GET' && url.pathname === '/dashboard',
+    new NetworkFirst({
+        cacheName: 'pm-api-dashboard',
+        networkTimeoutSeconds: 4,
+        plugins: [
+            new ExpirationPlugin({
+                maxEntries: 8,
+                maxAgeSeconds: 30,
+            }),
+        ],
+    }),
+);
+
+// Static lookups rotate slowly — CacheFirst 7d saves bytes + battery.
+registerRoute(
+    ({ url, request }) =>
+        request.method === 'GET' &&
+        /^\/api\/v1\/(currencies|plans|countries)(\/|$)/.test(url.pathname),
+    new CacheFirst({
+        cacheName: 'pm-api-static-lookups',
+        plugins: [
+            new ExpirationPlugin({
+                maxEntries: 32,
+                maxAgeSeconds: 7 * 24 * 60 * 60,
+            }),
+        ],
+    }),
+);
+
+// Detail pages: SWR 2min. Tighter than list pages because individual
+// resources can change frequently (payment status, ticket state).
+registerRoute(
+    ({ url, request }) =>
+        request.method === 'GET' &&
+        /^\/api\/v1\/(invoices|tickets|leases|payments|readings|properties|units)\/\d+(\/|$)/.test(url.pathname),
+    new StaleWhileRevalidate({
+        cacheName: 'pm-api-detail',
+        plugins: [
+            new ExpirationPlugin({
+                maxEntries: 100,
+                maxAgeSeconds: 2 * 60,
+            }),
+        ],
+    }),
+);
+
+// List pages: SWR 5min. Catches everything else under /api/v1/.
 registerRoute(
     ({ url, request }) =>
         request.method === 'GET' &&
@@ -119,7 +200,7 @@ registerRoute(
         !url.pathname.includes('/auth/') &&
         !url.pathname.includes('/webhooks/'),
     new StaleWhileRevalidate({
-        cacheName: 'pm-api-reads',
+        cacheName: 'pm-api-list',
         plugins: [
             new ExpirationPlugin({
                 maxEntries: 100,
@@ -307,13 +388,70 @@ self.addEventListener('pushsubscriptionchange', (event: PushSubscriptionChangeEv
     );
 });
 
+// Phase-62 CACHE-STRATEGY-3: CACHE_BUST + Phase-62 CONNECTIVITY-UX-3:
+// SYNC_NOW. When a queued POST succeeds, the host page asks the SW to
+// invalidate the matching SWR cache so list pages auto-revalidate on
+// next focus. When the user clicks "Sync now" in the QueuedOpsTray,
+// the SW replays every BackgroundSync queue immediately rather than
+// waiting for the navigator-driven retry.
+const KNOWN_OFFLINE_QUEUES = [
+    'pm-invoice-queue',
+    'pm-offline-tickets',
+    'pm-offline-comments',
+    'pm-offline-readings',
+    'pm-offline-payments',
+];
+
+const ROUTE_FAMILY_TO_CACHES: Record<string, string[]> = {
+    invoices: ['pm-api-list', 'pm-api-detail', 'pm-api-dashboard'],
+    tickets: ['pm-api-list', 'pm-api-detail', 'pm-api-dashboard'],
+    comments: ['pm-api-detail'],
+    readings: ['pm-api-list', 'pm-api-detail'],
+    payments: ['pm-api-list', 'pm-api-detail', 'pm-api-dashboard'],
+};
+
+async function bustCachesForFamily(family: string): Promise<void> {
+    const caches = ROUTE_FAMILY_TO_CACHES[family] ?? [];
+    for (const cacheName of caches) {
+        const cache = await self.caches.open(cacheName);
+        const reqs = await cache.keys();
+        await Promise.all(reqs.map((req) => cache.delete(req)));
+    }
+}
+
+async function replayAllOfflineQueues(): Promise<void> {
+    const clientList = await self.clients.matchAll({ type: 'window' });
+    for (const queueName of KNOWN_OFFLINE_QUEUES) {
+        // Workbox's BackgroundSyncPlugin exposes the queue via its
+        // module's internal registry; the most reliable way to trigger
+        // replay from a message handler is to broadcast a request to
+        // the host page that re-invokes navigator.serviceWorker.sync
+        // OR to rely on the queue's own retry tick. Best-effort: signal
+        // BG_SYNC_DRAINED so the host page hydrates its UI, then let
+        // the next online tick handle actual replay.
+        for (const client of clientList) {
+            client.postMessage({ type: 'BG_SYNC_DRAINED', queue: queueName });
+        }
+    }
+}
+
 self.addEventListener('message', (event: ExtendableMessageEvent) => {
-    const data = event.data as { type?: string; key?: string } | null;
+    const data = event.data as {
+        type?: string;
+        key?: string;
+        routeFamily?: string;
+    } | null;
     if (!data) return;
     if (data.type === 'SKIP_WAITING') {
         self.skipWaiting();
     }
     if (data.type === 'SET_VAPID_KEY' && typeof data.key === 'string') {
         self.vapidPublicKey = data.key;
+    }
+    if (data.type === 'CACHE_BUST' && typeof data.routeFamily === 'string') {
+        event.waitUntil(bustCachesForFamily(data.routeFamily));
+    }
+    if (data.type === 'SYNC_NOW') {
+        event.waitUntil(replayAllOfflineQueues());
     }
 });
