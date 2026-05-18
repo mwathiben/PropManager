@@ -788,3 +788,13 @@ Schedule::command('slow-query:rollup')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase57-slow-query-rollup');
+
+// Phase-57 INDEX-AUDIT-1: daily EXPLAIN audit of hot-path queries; emits
+// db_missing_index_hint gauge when a full tablescan or large row estimate
+// is detected. Runs 04:30 — between Phase-34 growth cluster (04:05-04:15)
+// and Phase-57 P95-BUDGETS 05:00.
+Schedule::command('index-audit:scan')
+    ->dailyAt('04:30')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase57-index-audit-scan');
