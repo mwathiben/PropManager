@@ -366,7 +366,9 @@ class DashboardService
             ->first();
 
         $recentPayments = Payment::where('lease_id', $lease->id)
+            ->where('is_voided', false)
             ->select(['id', 'amount', 'payment_method', 'payment_date'])
+            ->orderBy('payment_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get();
@@ -577,7 +579,7 @@ class DashboardService
         }
 
         $metricsUnitIds = $metricsUnits->pluck('id');
-        $metricsLeaseIds = Lease::whereIn('unit_id', $metricsUnitIds)->pluck('id');
+        $metricsLeaseIds = Lease::withTrashed()->whereIn('unit_id', $metricsUnitIds)->pluck('id');
 
         $overdueStats = Invoice::whereIn('lease_id', $metricsLeaseIds)
             ->where('status', 'overdue')
@@ -633,6 +635,7 @@ class DashboardService
         // PERF-Q7: same swap as monthlyRevenue — direct whereIn over the
         // pre-computed lease ids instead of a correlated EXISTS subquery.
         $recentPayments = Payment::whereIn('lease_id', $metricsLeaseIds)
+            ->where('is_voided', false)
             ->select(['id', 'invoice_id', 'amount', 'payment_method', 'payment_date', 'created_at'])
             ->with([
                 'invoice:id,lease_id',
@@ -641,6 +644,7 @@ class DashboardService
                 'invoice.lease.unit:id,unit_number,building_id',
                 'invoice.lease.unit.building:id,name',
             ])
+            ->orderBy('payment_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get();
