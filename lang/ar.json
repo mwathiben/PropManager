@@ -157,5 +157,12 @@
             "queued_secs_ago": "[TODO-ar] queued {seconds}s ago",
             "footer": "[TODO-ar] These will send automatically when you reconnect."
         }
+    },
+    "connectivity": {
+        "slow_banner": "[TODO-ar] Connection is slow — some actions may take longer.",
+        "dismiss": "[TODO-ar] Dismiss",
+        "sync_now": "[TODO-ar] Sync now",
+        "syncing": "[TODO-ar] Syncing…",
+        "pending_sync": "[TODO-ar] Pending sync"
     }
 }

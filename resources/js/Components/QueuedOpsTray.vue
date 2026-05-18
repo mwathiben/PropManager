@@ -16,6 +16,7 @@ import { CloudArrowUpIcon, XMarkIcon } from '@heroicons/vue/24/outline';
 const store = useQueuedOpsStore();
 const { t } = useI18n();
 const expanded = ref(false);
+const syncing = ref(false);
 
 function toggle(): void {
     expanded.value = !expanded.value;
@@ -23,6 +24,24 @@ function toggle(): void {
 
 function ageSeconds(queuedAt: number): number {
     return Math.max(1, Math.floor((Date.now() - queuedAt) / 1000));
+}
+
+// Phase-62 CONNECTIVITY-UX-3: manual replay trigger. Posts SYNC_NOW
+// to the active SW which broadcasts BG_SYNC_DRAINED for every known
+// queue — the existing app.js handler drains the Pinia store +
+// records replay success in IDB. Disabled while offline (SW would
+// just re-enqueue) or when there's nothing to sync.
+async function syncNow(): Promise<void> {
+    if (syncing.value) return;
+    syncing.value = true;
+    if (navigator.serviceWorker?.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'SYNC_NOW' });
+    }
+    // Re-enable after a short window so the user gets feedback without
+    // being able to spam the button.
+    setTimeout(() => {
+        syncing.value = false;
+    }, 1500);
 }
 </script>
 
@@ -83,9 +102,18 @@ function ageSeconds(queuedAt: number): number {
                     </button>
                 </li>
             </ul>
-            <p class="border-t border-gray-100 px-4 py-2 text-xs text-gray-500">
-                {{ t('offline.queue.footer') }}
-            </p>
+            <div class="flex items-center justify-between border-t border-gray-100 px-4 py-2 text-xs text-gray-500">
+                <span>{{ t('offline.queue.footer') }}</span>
+                <button
+                    type="button"
+                    class="rounded-md px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
+                    :disabled="syncing || !store.hasPending || !navigator.onLine"
+                    @click="syncNow"
+                    data-testid="queued-ops-sync-now"
+                >
+                    {{ syncing ? t('connectivity.syncing') : t('connectivity.sync_now') }}
+                </button>
+            </div>
         </div>
     </div>
 </template>

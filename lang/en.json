@@ -157,5 +157,12 @@
             "queued_secs_ago": "queued {seconds}s ago",
             "footer": "These will send automatically when you reconnect."
         }
+    },
+    "connectivity": {
+        "slow_banner": "Connection is slow — some actions may take longer.",
+        "dismiss": "Dismiss",
+        "sync_now": "Sync now",
+        "syncing": "Syncing…",
+        "pending_sync": "Pending sync"
     }
 }

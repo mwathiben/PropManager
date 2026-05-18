@@ -15,6 +15,7 @@ import NotificationBell from '@/Components/NotificationBell.vue';
 import ConnectionStatus from '@/Components/ConnectionStatus.vue';
 import OnlineIndicator from '@/Components/OnlineIndicator.vue';
 import QueuedOpsTray from '@/Components/QueuedOpsTray.vue';
+import SlowNetworkBanner from '@/Components/Layout/SlowNetworkBanner.vue';
 import InvitationBanner from '@/Components/InvitationBanner.vue';
 import {
     HomeIcon,
@@ -639,6 +640,11 @@ const navigationItems = computed(() => {
                     skip-link can move focus here without making it a
                     Tab stop.
                 -->
+                <!-- Phase-62 CONNECTIVITY-UX-1: slow-network heads-up.
+                     Renders nothing unless useConnection.isSlow flips
+                     true; dismissable per-session for users on
+                     persistently slow networks. -->
+                <SlowNetworkBanner />
                 <main id="main-content" tabindex="-1">
                     <slot />
                 </main>

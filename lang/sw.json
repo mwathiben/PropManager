@@ -157,5 +157,12 @@
             "queued_secs_ago": "imepangwa sekunde {seconds} zilizopita",
             "footer": "Hizi zitatumwa kiotomatiki utakapounganishwa tena."
         }
+    },
+    "connectivity": {
+        "slow_banner": "Muunganisho ni wa polepole — vitendo vingine vinaweza kuchukua muda mrefu.",
+        "dismiss": "Funga",
+        "sync_now": "Sasisha sasa",
+        "syncing": "Inasasisha…",
+        "pending_sync": "Inasubiri kusawazishwa"
     }
 }
