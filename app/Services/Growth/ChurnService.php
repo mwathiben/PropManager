@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Growth;
 
+use App\Models\ProductEvent;
 use App\Models\Subscription;
+use App\Models\User;
 use Illuminate\Support\Carbon;
 
 /**
@@ -63,6 +65,77 @@ class ChurnService
             $matrix[] = [
                 'cohort_month' => $key,
                 'size' => $cohort['size'],
+                'retention' => $retention,
+            ];
+        }
+
+        return $matrix;
+    }
+
+    /**
+     * Phase-56 COHORT-BY-SOURCE-2: partitioned retention by acquisition_source.
+     *
+     * For each (cohort_month, source) cell: cohort size = users in that
+     * source bucket signed up in that month; retention[m] = users in that
+     * cohort with at least one product_event recorded inside the boundary
+     * month m calendar months after the cohort month.
+     *
+     * Activity-based (not subscription-based) so the curve answers
+     * "are users still using the product?" rather than
+     * "do they still have a paid subscription?".
+     *
+     * @return array<int, array{cohort_month: string, source: string, size: int, retention: array<int, float>}>
+     */
+    public function cohortsBySource(int $monthsBack = 12): array
+    {
+        $start = Carbon::now()->subMonthsNoOverflow($monthsBack)->startOfMonth();
+        $now = Carbon::now()->startOfMonth();
+
+        $users = User::query()->withTrashed()
+            ->where('created_at', '>=', $start)
+            ->get(['id', 'created_at', 'acquisition_source']);
+
+        if ($users->isEmpty()) {
+            return [];
+        }
+
+        $cohorts = [];
+        foreach ($users as $user) {
+            $cohortMonth = $user->created_at->copy()->startOfMonth()->format('Y-m');
+            $source = $user->acquisition_source ?: 'unknown';
+            $key = $cohortMonth.'|'.$source;
+            $cohorts[$key] ??= [
+                'cohort_month' => $cohortMonth,
+                'source' => $source,
+                'user_ids' => [],
+            ];
+            $cohorts[$key]['user_ids'][] = $user->id;
+        }
+
+        ksort($cohorts);
+
+        $matrix = [];
+        foreach ($cohorts as $cohort) {
+            $cohortStart = Carbon::parse($cohort['cohort_month'].'-01')->startOfMonth();
+            $monthsSinceCohort = $cohortStart->diffInMonths($now);
+            $retention = [];
+            for ($m = 0; $m <= $monthsSinceCohort; $m++) {
+                $boundaryStart = $cohortStart->copy()->addMonthsNoOverflow($m)->startOfMonth();
+                $boundaryEnd = $boundaryStart->copy()->endOfMonth();
+
+                $activeCount = ProductEvent::query()->withoutGlobalScopes()
+                    ->whereIn('user_id', $cohort['user_ids'])
+                    ->whereBetween('created_at', [$boundaryStart, $boundaryEnd])
+                    ->distinct('user_id')
+                    ->count('user_id');
+
+                $size = count($cohort['user_ids']);
+                $retention[] = $size > 0 ? round($activeCount / $size, 4) : 0.0;
+            }
+            $matrix[] = [
+                'cohort_month' => $cohort['cohort_month'],
+                'source' => $cohort['source'],
+                'size' => count($cohort['user_ids']),
                 'retention' => $retention,
             ];
         }

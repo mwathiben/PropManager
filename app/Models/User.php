@@ -73,6 +73,7 @@ class User extends Authenticatable implements HasLocalePreference
         'parental_consent_artefact_url',
         'parental_consent_provided_at',
         'payment_gateway_preference',
+        'acquisition_source',
     ];
 
     protected $hidden = [

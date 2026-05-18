@@ -110,6 +110,15 @@ class RegisteredUserController extends Controller
             campaign: $request->session()->get('referral_code'),
         );
 
+        // Phase-56 COHORT-BY-SOURCE-1: stamp acquisition_source on the user
+        // row so cohort analysis can partition retention curves by source.
+        $user->acquisition_source = match (true) {
+            $invitation !== null => 'invitation',
+            $request->session()->has('referral_code') => 'referral',
+            default => 'organic',
+        };
+        $user->save();
+
         // Phase-56 FUNNEL-SANKEY-1: emit the canonical funnel.signup event.
         app(FunnelEventEmitter::class)->emit($user, FunnelStage::SIGNUP, ['role' => $resolvedRole]);
 
