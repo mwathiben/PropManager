@@ -701,6 +701,12 @@ Route::middleware('auth')->group(function () {
         ->get('/dashboards/{slug}', [\App\Http\Controllers\Reports\DashboardController::class, 'show'])
         ->name('dashboards.show');
 
+    // Phase-55 WIDGET-ORDERING-1: persist landlord widget order via the
+    // Phase-50 landlord_dashboards.layout JSON column (slug='main_dashboard').
+    Route::middleware('role:landlord')
+        ->patch('/dashboards/preferences', [\App\Http\Controllers\DashboardPreferenceController::class, 'update'])
+        ->name('dashboards.preferences.update');
+
     // Phase-54 COST-UI-2: landlord-only manual cost entry. parts category
     // auto-recorded via Phase 49 TicketResolutionService::recordParts; this
     // endpoint accepts vendor|labor|other only (validator enforces).

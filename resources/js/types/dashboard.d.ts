@@ -299,6 +299,8 @@ export interface DashboardPageProps {
   allTiers?: PlatformFeeTier[];
   // Phase-36 INSIGHT-LANDLORD-1: composite growth signals.
   growth?: LandlordGrowthSummary | null;
+  // Phase-55 WIDGET-ORDERING: landlord-preferred ordering of bottom-row widgets.
+  widgetOrder?: Array<'recent-payments' | 'recent-tickets' | 'expiring-leases'>;
 }
 
 export interface LandlordGrowthSummary {

@@ -179,6 +179,54 @@ const leaseStateBadgeClass = (state: string): string => {
     return 'bg-gray-100 text-gray-600';
 };
 
+// Phase-55 WIDGET-ORDERING-2: native HTML5 drag-and-drop reorder for the
+// bottom-row widgets (recent-payments, recent-tickets, expiring-leases).
+// CSS `order` reflows the existing grid; no library required.
+const DEFAULT_WIDGET_ORDER = ['recent-payments', 'recent-tickets', 'expiring-leases'] as const;
+type WidgetId = (typeof DEFAULT_WIDGET_ORDER)[number];
+
+const widgetOrder = ref<WidgetId[]>(
+    (props.widgetOrder && props.widgetOrder.length === DEFAULT_WIDGET_ORDER.length)
+        ? (props.widgetOrder as WidgetId[])
+        : [...DEFAULT_WIDGET_ORDER],
+);
+
+const widgetOrderIndex = (id: WidgetId): number => {
+    const idx = widgetOrder.value.indexOf(id);
+    return idx === -1 ? widgetOrder.value.length : idx;
+};
+
+const draggingWidget = ref<WidgetId | null>(null);
+
+const onWidgetDragStart = (id: WidgetId, event: DragEvent) => {
+    draggingWidget.value = id;
+    if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', id);
+    }
+};
+
+const onWidgetDrop = (targetId: WidgetId, event: DragEvent) => {
+    event.preventDefault();
+    const sourceId = draggingWidget.value;
+    draggingWidget.value = null;
+    if (!sourceId || sourceId === targetId) return;
+
+    const next = [...widgetOrder.value];
+    const sourceIdx = next.indexOf(sourceId);
+    const targetIdx = next.indexOf(targetId);
+    if (sourceIdx === -1 || targetIdx === -1) return;
+
+    next.splice(sourceIdx, 1);
+    next.splice(targetIdx, 0, sourceId);
+    widgetOrder.value = next;
+
+    router.patch(route('dashboards.preferences.update'), { widget_order: next }, {
+        preserveScroll: true,
+        preserveState: true,
+    });
+};
+
 const totalArrears = computed(() => {
     return (localArrearsAging.value?.['0_30'] || 0) +
            (localArrearsAging.value?.['31_60'] || 0) +
@@ -1067,7 +1115,15 @@ onUnmounted(() => {
             <!-- === RECENT PAYMENTS + TICKETS + EXPIRING LEASES === -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- RECENT PAYMENTS -->
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                <div
+                    :draggable="true"
+                    :style="{ order: widgetOrderIndex('recent-payments') }"
+                    data-testid="widget-recent-payments"
+                    class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6"
+                    @dragstart="onWidgetDragStart('recent-payments', $event)"
+                    @dragover.prevent
+                    @drop="onWidgetDrop('recent-payments', $event)"
+                >
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-bold text-gray-800">
                             Recent Payments
@@ -1120,7 +1176,15 @@ onUnmounted(() => {
                 </div>
 
                 <!-- RECENT TICKETS -->
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                <div
+                    :draggable="true"
+                    :style="{ order: widgetOrderIndex('recent-tickets') }"
+                    data-testid="widget-recent-tickets"
+                    class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6"
+                    @dragstart="onWidgetDragStart('recent-tickets', $event)"
+                    @dragover.prevent
+                    @drop="onWidgetDrop('recent-tickets', $event)"
+                >
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-bold text-gray-800">
                             Recent Tickets
@@ -1172,7 +1236,15 @@ onUnmounted(() => {
                 </div>
 
                 <!-- EXPIRING LEASES -->
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                <div
+                    :draggable="true"
+                    :style="{ order: widgetOrderIndex('expiring-leases') }"
+                    data-testid="widget-expiring-leases"
+                    class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6"
+                    @dragstart="onWidgetDragStart('expiring-leases', $event)"
+                    @dragover.prevent
+                    @drop="onWidgetDrop('expiring-leases', $event)"
+                >
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-bold text-gray-800">
                             Expiring Leases

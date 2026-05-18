@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Building;
 use App\Models\Invoice;
+use App\Models\LandlordDashboard;
 use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\PlatformFeeTier;
@@ -245,7 +246,39 @@ class DashboardService
             // any error here returns null so the dashboard never
             // 500s on a missing engagement row.
             'growth' => $this->landlordGrowthSummary($landlord),
+            // Phase-55 WIDGET-ORDERING: landlord-preferred ordering of the
+            // bottom-row widgets, persisted via slug='main_dashboard' on
+            // landlord_dashboards. Falls through to the canonical default
+            // when no row exists yet.
+            'widgetOrder' => $this->resolveWidgetOrder($landlord),
         ];
+    }
+
+    /**
+     * Phase-55 WIDGET-ORDERING-3: read the landlord's saved widget order
+     * (slug='main_dashboard'). Sanitise on read so a layout row that
+     * predates the allowed-widget contract can't break the dashboard;
+     * the validator on PATCH /dashboards/preferences enforces the same
+     * allow-list on write.
+     *
+     * @return array<int, string>
+     */
+    protected function resolveWidgetOrder(User $landlord): array
+    {
+        $allowed = \App\Http\Controllers\DashboardPreferenceController::ALLOWED_WIDGETS;
+        $row = LandlordDashboard::query()
+            ->where('landlord_id', $landlord->id)
+            ->where('slug', \App\Http\Controllers\DashboardPreferenceController::MAIN_DASHBOARD_SLUG)
+            ->first();
+
+        if ($row === null || ! is_array($row->layout)) {
+            return $allowed;
+        }
+
+        $sanitised = array_values(array_unique(array_intersect($row->layout, $allowed)));
+        $missing = array_values(array_diff($allowed, $sanitised));
+
+        return array_merge($sanitised, $missing);
     }
 
     /**
