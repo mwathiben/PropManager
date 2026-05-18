@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Mail\LandlordWelcome;
+use App\Models\AttributionTouchpoint;
 use App\Models\Invitation;
 use App\Models\OnboardingSession;
 use App\Models\User;
+use App\Services\Growth\AttributionTouchpointRecorder;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -92,6 +94,19 @@ class RegisteredUserController extends Controller
         if ($invitation !== null) {
             $invitation->update(['accepted_at' => now()]);
         }
+
+        // Phase-56 MULTI-TOUCH-1: record the registration touchpoint so
+        // AttributionModelService has something to allocate credit across.
+        $channel = match (true) {
+            $invitation !== null => AttributionTouchpoint::CHANNEL_INVITATION,
+            $request->session()->has('referral_code') => AttributionTouchpoint::CHANNEL_REFERRAL,
+            default => AttributionTouchpoint::CHANNEL_DIRECT,
+        };
+        app(AttributionTouchpointRecorder::class)->record(
+            user: $user,
+            channel: $channel,
+            campaign: $request->session()->get('referral_code'),
+        );
 
         event(new Registered($user));
 
