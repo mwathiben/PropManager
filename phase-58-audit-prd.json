@@ -3,15 +3,15 @@
     "title": "SHARED-DISK-MIGRATION",
     "opened_at": "2026-05-18",
     "tier": "Tier 7 cycle 22",
-    "scope": "Closes the A8 carry-over Phase 57 opened: 28 hardcoded Storage::disk('local') callsites across 13 files in app/ pin the deployment to a single host's filesystem. The Phase-22 PERF-SCALE-1 watchdog catches new callsites but the existing 28 are accepted technical debt — until Phase 58 ships the abstraction that lets an operator flip to S3 (or any other Filesystem driver) without code changes. The cycle introduces a Storage::tenant() facade backed by config('filesystems.tenant_disk') + refactors every callsite + adds round-trip integration tests + drops the Phase-22 baseline from 28 to 0. The existing 'private' alias-disk (config/filesystems.php:49) was Phase-1's UPLOAD-5 fix — Phase 58 generalises that pattern across every callsite. No data migration is required: the path strings stored in Document.file_path / WaterReading.photo_path / Lease.lease_doc_path / Invoice.pdf_path stay the same; only the disk used to access them changes via the operator-controlled FILESYSTEM_TENANT_DISK env var. Six categories x 3 findings = 18.",
+    "scope": "Closes the A8 carry-over Phase 57 opened: 28 hardcoded Storage::disk('local') callsites across 13 files in app/ pin the deployment to a single host's filesystem. The Phase-22 PERF-SCALE-1 watchdog catches new callsites but the existing 28 are accepted technical debt \u00e2\u20ac\u201d until Phase 58 ships the abstraction that lets an operator flip to S3 (or any other Filesystem driver) without code changes. The cycle introduces a Storage::tenant() facade backed by config('filesystems.tenant_disk') + refactors every callsite + adds round-trip integration tests + drops the Phase-22 baseline from 28 to 0. The existing 'private' alias-disk (config/filesystems.php:49) was Phase-1's UPLOAD-5 fix \u00e2\u20ac\u201d Phase 58 generalises that pattern across every callsite. No data migration is required: the path strings stored in Document.file_path / WaterReading.photo_path / Lease.lease_doc_path / Invoice.pdf_path stay the same; only the disk used to access them changes via the operator-controlled FILESYSTEM_TENANT_DISK env var. Six categories x 3 findings = 18.",
     "categories": {
-        "TENANT-DISK-RESOLVER": "Introduce a single facade so every callsite reads from one place. (1) App\\Services\\Storage\\TenantDiskResolver::resolve(?int $landlordId = null): \\Illuminate\\Contracts\\Filesystem\\Filesystem returns Storage::disk(config('filesystems.tenant_disk', 'local')). Today $landlordId is recorded for future per-tenant disk routing but not used (default disk maps to the same underlying storage for every tenant). (2) Storage::tenant() macro registered in AppServiceProvider::boot — syntactic sugar for app(TenantDiskResolver::class)->resolve(). (3) config/filesystems.php gains a 'tenant_disk' => env('FILESYSTEM_TENANT_DISK', 'local') knob at the top of the file (before the 'disks' array). Operator can flip to 's3' or 'archive' in production without code changes; default 'local' keeps dev/test green.",
-        "CALLSITE-SVC": "Refactor the 11 callsites in app/Services/* + app/Jobs/* to use Storage::tenant() instead of Storage::disk('local'). (1) app/Services/DataExportService.php (6 callsites — heavy: makeDirectory + put + path + delete + get + Storage::disk() bind). (2) app/Services/ImportService.php (2) + app/Services/InvoicePdfService.php (1) + app/Services/OcrService.php (2) + app/Services/Tickets/TicketAnnotationService.php (1) = 6 more callsites. (3) app/Jobs/GenerateInvoicePdf.php (1 callsite). Total 13 callsites in this batch.",
-        "CALLSITE-MODEL": "Refactor the 6 callsites in app/Models/* to use Storage::tenant(). (1) app/Models/Document.php (3 callsites — path/exists/delete). Refactor inside the model methods (filePath / existsOnDisk / deleteFile) — the model carries no $landlord_id reference at the file-op level so the resolver gets null today (forward-compatible). (2) app/Models/WaterReading.php (3 callsites — photoExistsOnDisk / hasPhotoOnDisk / deletePhoto). (3) Document the per-tenant-routing carve-out: models with implicit landlord context (Document::user_id, WaterReading::landlord_id) can pass the id to the resolver when future per-tenant disks land; for now they pass null and rely on the platform-wide tenant_disk config.",
-        "CALLSITE-CTRL": "Refactor the 9 callsites in app/Http/Controllers/* to use Storage::tenant(). (1) app/Http/Controllers/DocumentController.php (2 callsites — download + response) + app/Http/Controllers/WaterReadingController.php (1 callsite — response). (2) app/Http/Controllers/LeaseController.php (3 callsites — delete + exists + download) + app/Http/Controllers/TenantDocumentsController.php (1 callsite — download). (3) app/Http/Controllers/TenantKycController.php (2 callsites — exists + delete). Controllers naturally have $request->user()->landlord_id available; pass it to Storage::tenant($landlordId) so the resolver records the context even though today it doesn't route per-tenant.",
-        "INTEGRATION-TESTS": "Confidence in the migration depends on round-trip tests proving writes-then-reads still work through TenantDiskResolver. (1) Phase58TenantDiskRoundTripTest with 3 scenarios: write+read via Storage::tenant()->put + Storage::tenant()->get; assertContains absolute-path round-trip via Storage::tenant()->path(); delete + assertFalse exists. Use Storage::fake('local') in setUp. (2) Phase58CallsiteRefactorTest is a content-token watchdog: scan app/Services/DataExportService.php for Storage::tenant() AND assert no Storage::disk('local') remains; same for the 12 other files. PHPUnit-only — no Laravel bootstrap needed. (3) Phase58ResolverConfigTest verifies config('filesystems.tenant_disk') exists + defaults to 'local' + when overridden to 'private', TenantDiskResolver::resolve returns the 'private' Filesystem instance.",
+        "TENANT-DISK-RESOLVER": "Introduce a single facade so every callsite reads from one place. (1) App\\Services\\Storage\\TenantDiskResolver::resolve(?int $landlordId = null): \\Illuminate\\Contracts\\Filesystem\\Filesystem returns Storage::disk(config('filesystems.tenant_disk', 'local')). Today $landlordId is recorded for future per-tenant disk routing but not used (default disk maps to the same underlying storage for every tenant). (2) Storage::tenant() macro registered in AppServiceProvider::boot \u00e2\u20ac\u201d syntactic sugar for app(TenantDiskResolver::class)->resolve(). (3) config/filesystems.php gains a 'tenant_disk' => env('FILESYSTEM_TENANT_DISK', 'local') knob at the top of the file (before the 'disks' array). Operator can flip to 's3' or 'archive' in production without code changes; default 'local' keeps dev/test green.",
+        "CALLSITE-SVC": "Refactor the 11 callsites in app/Services/* + app/Jobs/* to use Storage::tenant() instead of Storage::disk('local'). (1) app/Services/DataExportService.php (6 callsites \u00e2\u20ac\u201d heavy: makeDirectory + put + path + delete + get + Storage::disk() bind). (2) app/Services/ImportService.php (2) + app/Services/InvoicePdfService.php (1) + app/Services/OcrService.php (2) + app/Services/Tickets/TicketAnnotationService.php (1) = 6 more callsites. (3) app/Jobs/GenerateInvoicePdf.php (1 callsite). Total 13 callsites in this batch.",
+        "CALLSITE-MODEL": "Refactor the 6 callsites in app/Models/* to use Storage::tenant(). (1) app/Models/Document.php (3 callsites \u00e2\u20ac\u201d path/exists/delete). Refactor inside the model methods (filePath / existsOnDisk / deleteFile) \u00e2\u20ac\u201d the model carries no $landlord_id reference at the file-op level so the resolver gets null today (forward-compatible). (2) app/Models/WaterReading.php (3 callsites \u00e2\u20ac\u201d photoExistsOnDisk / hasPhotoOnDisk / deletePhoto). (3) Document the per-tenant-routing carve-out: models with implicit landlord context (Document::user_id, WaterReading::landlord_id) can pass the id to the resolver when future per-tenant disks land; for now they pass null and rely on the platform-wide tenant_disk config.",
+        "CALLSITE-CTRL": "Refactor the 9 callsites in app/Http/Controllers/* to use Storage::tenant(). (1) app/Http/Controllers/DocumentController.php (2 callsites \u00e2\u20ac\u201d download + response) + app/Http/Controllers/WaterReadingController.php (1 callsite \u00e2\u20ac\u201d response). (2) app/Http/Controllers/LeaseController.php (3 callsites \u00e2\u20ac\u201d delete + exists + download) + app/Http/Controllers/TenantDocumentsController.php (1 callsite \u00e2\u20ac\u201d download). (3) app/Http/Controllers/TenantKycController.php (2 callsites \u00e2\u20ac\u201d exists + delete). Controllers naturally have $request->user()->landlord_id available; pass it to Storage::tenant($landlordId) so the resolver records the context even though today it doesn't route per-tenant.",
+        "INTEGRATION-TESTS": "Confidence in the migration depends on round-trip tests proving writes-then-reads still work through TenantDiskResolver. (1) Phase58TenantDiskRoundTripTest with 3 scenarios: write+read via Storage::tenant()->put + Storage::tenant()->get; assertContains absolute-path round-trip via Storage::tenant()->path(); delete + assertFalse exists. Use Storage::fake('local') in setUp. (2) Phase58CallsiteRefactorTest is a content-token watchdog: scan app/Services/DataExportService.php for Storage::tenant() AND assert no Storage::disk('local') remains; same for the 12 other files. PHPUnit-only \u00e2\u20ac\u201d no Laravel bootstrap needed. (3) Phase58ResolverConfigTest verifies config('filesystems.tenant_disk') exists + defaults to 'local' + when overridden to 'private', TenantDiskResolver::resolve returns the 'private' Filesystem instance.",
         "DROP-BASELINE": "(1) Phase 22 statelessness watchdog baseline drops from 28 to 0 in Phase22StatelessnessTest. The shrink-only ratchet locks the achievement so any future re-introduction of Storage::disk('local') is a PR-blocker. (2) Update the comment header on LOCAL_DISK_CALLSITE_BASELINE to reference Phase 58 as the closure. (3) Update docs/runbooks/autoscale-readiness.md PERF-SCALE-3 section to reflect closure + document the operator workflow for flipping to S3 (env var change + per-disk config tweak; no migration needed because path strings stayed the same).",
-        "CI": "(1) Phase58SharedDiskMigrationSurfaceTest cross-category presence map: TenantDiskResolver class exists; Storage::tenant macro registered; config('filesystems.tenant_disk') configured; 13 files in app/ contain Storage::tenant() (one per refactored file); zero files in app/ contain Storage::disk('local') (regression watchdog). (2) docs/runbooks/storage.md NEW — surface ownership map; disk catalog (local / private / public / archive / s3 / tenant); operator workflow for flipping tenant_disk to S3; data migration is NOT required because paths stayed the same. (3) Cross-link Phase 22 (statelessness baseline), Phase 28 (TENANT-DOCS callsite source), Phase 45 (TICKET-PHOTOS callsite source), Phase 57 (A8 carry-over open) audit_closeouts."
+        "CI": "(1) Phase58SharedDiskMigrationSurfaceTest cross-category presence map: TenantDiskResolver class exists; Storage::tenant macro registered; config('filesystems.tenant_disk') configured; 13 files in app/ contain Storage::tenant() (one per refactored file); zero files in app/ contain Storage::disk('local') (regression watchdog). (2) docs/runbooks/storage.md NEW \u00e2\u20ac\u201d surface ownership map; disk catalog (local / private / public / archive / s3 / tenant); operator workflow for flipping tenant_disk to S3; data migration is NOT required because paths stayed the same. (3) Cross-link Phase 22 (statelessness baseline), Phase 28 (TENANT-DOCS callsite source), Phase 45 (TICKET-PHOTOS callsite source), Phase 57 (A8 carry-over open) audit_closeouts."
     },
     "findings": [
         {
@@ -19,7 +19,7 @@
             "severity": "HIGH",
             "title": "TenantDiskResolver::resolve service class",
             "evidence": "28 hardcoded Storage::disk('local') callsites in app/ pin the deployment to a single host. A single resolver facade lets the operator flip the underlying disk without touching code.",
-            "remediation": "App\\Services\\Storage\\TenantDiskResolver::resolve(?int $landlordId = null): \\Illuminate\\Contracts\\Filesystem\\Filesystem returns Storage::disk(config('filesystems.tenant_disk', 'local')). The $landlordId parameter is recorded but unused today — forward-compatible with per-tenant disk routing (different prefixes per landlord, or even per-region S3 buckets) without changing the public API. Fail-soft: if the configured disk name doesn't resolve to a valid disk, fall back to 'local' + Log::warning."
+            "remediation": "App\\Services\\Storage\\TenantDiskResolver::resolve(?int $landlordId = null): \\Illuminate\\Contracts\\Filesystem\\Filesystem returns Storage::disk(config('filesystems.tenant_disk', 'local')). The $landlordId parameter is recorded but unused today \u00e2\u20ac\u201d forward-compatible with per-tenant disk routing (different prefixes per landlord, or even per-region S3 buckets) without changing the public API. Fail-soft: if the configured disk name doesn't resolve to a valid disk, fall back to 'local' + Log::warning."
         },
         {
             "id": "TENANT-DISK-RESOLVER-2",
@@ -40,14 +40,14 @@
             "severity": "HIGH",
             "title": "Refactor DataExportService 6 callsites",
             "evidence": "app/Services/DataExportService.php lines 27, 87, 90, 94, 294, 393 use Storage::disk('local'). This is the heaviest single-file refactor in the cycle.",
-            "remediation": "Replace every `Storage::disk('local')` with `Storage::tenant()`. The makeDirectory + put + path + delete + get + Storage::disk() bind calls work identically against any Filesystem driver. Verify ZipArchive at line 90 still gets an absolute file path — Storage::tenant()->path() returns an absolute path on the local driver and throws on s3 (where path() isn't meaningful). Document the s3 caveat in storage.md: 'path() is local-driver-only; on s3 use temporary download to a temp dir.'"
+            "remediation": "Replace every `Storage::disk('local')` with `Storage::tenant()`. The makeDirectory + put + path + delete + get + Storage::disk() bind calls work identically against any Filesystem driver. Verify ZipArchive at line 90 still gets an absolute file path \u00e2\u20ac\u201d Storage::tenant()->path() returns an absolute path on the local driver and throws on s3 (where path() isn't meaningful). Document the s3 caveat in storage.md: 'path() is local-driver-only; on s3 use temporary download to a temp dir.'"
         },
         {
             "id": "CALLSITE-SVC-2",
             "severity": "MEDIUM",
             "title": "Refactor 4 mid-weight services (ImportService, InvoicePdfService, OcrService, TicketAnnotationService)",
             "evidence": "app/Services/ImportService.php (2), app/Services/InvoicePdfService.php (1), app/Services/OcrService.php (2), app/Services/Tickets/TicketAnnotationService.php (1) = 6 total callsites.",
-            "remediation": "Same pattern — Storage::disk('local') → Storage::tenant(). OcrService line 288 uses path() for the Tesseract subprocess — same s3 caveat as DataExportService; document it. Other callsites are pure put/get/exists which work identically across drivers."
+            "remediation": "Same pattern \u00e2\u20ac\u201d Storage::disk('local') \u00e2\u2020\u2019 Storage::tenant(). OcrService line 288 uses path() for the Tesseract subprocess \u00e2\u20ac\u201d same s3 caveat as DataExportService; document it. Other callsites are pure put/get/exists which work identically across drivers."
         },
         {
             "id": "CALLSITE-SVC-3",
@@ -61,35 +61,35 @@
             "severity": "MEDIUM",
             "title": "Refactor Document model 3 callsites",
             "evidence": "app/Models/Document.php lines 145 (path), 150 (exists), 156 (delete) use Storage::disk('local').",
-            "remediation": "Inside Document::filePath / Document::existsOnDisk / Document::deleteFile (or equivalent methods), swap to Storage::tenant(). The model has no implicit landlord context at the file-op level so the resolver gets null today — forward-compatible. Document the convention: 'pass $this->landlord_id explicitly if the model carries one and the resolver should bind to that tenant'."
+            "remediation": "Inside Document::filePath / Document::existsOnDisk / Document::deleteFile (or equivalent methods), swap to Storage::tenant(). The model has no implicit landlord context at the file-op level so the resolver gets null today \u00e2\u20ac\u201d forward-compatible. Document the convention: 'pass $this->landlord_id explicitly if the model carries one and the resolver should bind to that tenant'."
         },
         {
             "id": "CALLSITE-MODEL-2",
             "severity": "MEDIUM",
             "title": "Refactor WaterReading model 3 callsites",
             "evidence": "app/Models/WaterReading.php lines 78, 140, 149 use Storage::disk('local').",
-            "remediation": "Inside the WaterReading photo-related methods, swap to Storage::tenant(). WaterReading carries a landlord_id column (Phase-? schema) — pass it explicitly: Storage::tenant($this->landlord_id) so when per-tenant routing lands, this model is already opted in."
+            "remediation": "Inside the WaterReading photo-related methods, swap to Storage::tenant(). WaterReading carries a landlord_id column (Phase-? schema) \u00e2\u20ac\u201d pass it explicitly: Storage::tenant($this->landlord_id) so when per-tenant routing lands, this model is already opted in."
         },
         {
             "id": "CALLSITE-CTRL-1",
             "severity": "HIGH",
             "title": "Refactor DocumentController + WaterReadingController",
-            "evidence": "app/Http/Controllers/DocumentController.php (2 callsites — download + response) + app/Http/Controllers/WaterReadingController.php (1 callsite — response). These are the user-facing download paths; correctness matters most here.",
-            "remediation": "Storage::disk('local')->download/response/etc → Storage::tenant()->download/response/etc. Pass $request->user()->landlord_id to the resolver if available so when per-tenant routing lands, downloads are automatically bound to the user's tenant context."
+            "evidence": "app/Http/Controllers/DocumentController.php (2 callsites \u00e2\u20ac\u201d download + response) + app/Http/Controllers/WaterReadingController.php (1 callsite \u00e2\u20ac\u201d response). These are the user-facing download paths; correctness matters most here.",
+            "remediation": "Storage::disk('local')->download/response/etc \u00e2\u2020\u2019 Storage::tenant()->download/response/etc. Pass $request->user()->landlord_id to the resolver if available so when per-tenant routing lands, downloads are automatically bound to the user's tenant context."
         },
         {
             "id": "CALLSITE-CTRL-2",
             "severity": "MEDIUM",
             "title": "Refactor LeaseController + TenantDocumentsController",
-            "evidence": "app/Http/Controllers/LeaseController.php (3 callsites — delete + exists + download) + app/Http/Controllers/TenantDocumentsController.php (1 callsite — download). 4 callsites total.",
-            "remediation": "Same pattern — Storage::disk('local') → Storage::tenant(). LeaseController has $lease->landlord_id available; pass it through. TenantDocumentsController has $request->user()->landlord_id available."
+            "evidence": "app/Http/Controllers/LeaseController.php (3 callsites \u00e2\u20ac\u201d delete + exists + download) + app/Http/Controllers/TenantDocumentsController.php (1 callsite \u00e2\u20ac\u201d download). 4 callsites total.",
+            "remediation": "Same pattern \u00e2\u20ac\u201d Storage::disk('local') \u00e2\u2020\u2019 Storage::tenant(). LeaseController has $lease->landlord_id available; pass it through. TenantDocumentsController has $request->user()->landlord_id available."
         },
         {
             "id": "CALLSITE-CTRL-3",
             "severity": "MEDIUM",
             "title": "Refactor TenantKycController",
             "evidence": "app/Http/Controllers/TenantKycController.php lines 111 (exists) + 112 (delete). 2 callsites.",
-            "remediation": "Same pattern. KYC documents are extremely sensitive — when production flips to S3, these files end up in the same bucket; document the operator requirement for server-side encryption + bucket policy enforcement in storage.md."
+            "remediation": "Same pattern. KYC documents are extremely sensitive \u00e2\u20ac\u201d when production flips to S3, these files end up in the same bucket; document the operator requirement for server-side encryption + bucket policy enforcement in storage.md."
         },
         {
             "id": "INTEGRATION-TESTS-1",
@@ -103,14 +103,14 @@
             "severity": "MEDIUM",
             "title": "Phase58CallsiteRefactorTest content-token watchdog",
             "evidence": "The 13 refactored files must each contain Storage::tenant() AND must NOT contain Storage::disk('local'). A content-token watchdog locks the achievement.",
-            "remediation": "tests/Feature/Storage/Phase58CallsiteRefactorTest reads each of the 13 files via file_get_contents + asserts Storage::tenant exists + Storage::disk('local') does not. PHPUnit-only — no Laravel bootstrap. This is the per-file invariant; the cross-file zero-remaining-callsites assertion lives in Phase58SharedDiskMigrationSurfaceTest."
+            "remediation": "tests/Feature/Storage/Phase58CallsiteRefactorTest reads each of the 13 files via file_get_contents + asserts Storage::tenant exists + Storage::disk('local') does not. PHPUnit-only \u00e2\u20ac\u201d no Laravel bootstrap. This is the per-file invariant; the cross-file zero-remaining-callsites assertion lives in Phase58SharedDiskMigrationSurfaceTest."
         },
         {
             "id": "DROP-BASELINE-1",
             "severity": "LOW",
-            "title": "Phase 22 statelessness baseline drops 28 → 0",
+            "title": "Phase 22 statelessness baseline drops 28 \u00e2\u2020\u2019 0",
             "evidence": "Phase 57 bumped LOCAL_DISK_CALLSITE_BASELINE from 26 to 28 to acknowledge Phase 28 + 45 callsites. Phase 58's full refactor drops it to 0. The shrink-only ratchet then locks any future re-introduction as a PR-blocker.",
-            "remediation": "tests/Feature/Performance/Phase22StatelessnessTest::LOCAL_DISK_CALLSITE_BASELINE = 0. Update the doc comment header on the constant to reference Phase 58 as the closure. The test logic stays the same — count callsites in app/ via the same grep, assert <= baseline."
+            "remediation": "tests/Feature/Performance/Phase22StatelessnessTest::LOCAL_DISK_CALLSITE_BASELINE = 0. Update the doc comment header on the constant to reference Phase 58 as the closure. The test logic stays the same \u00e2\u20ac\u201d count callsites in app/ via the same grep, assert <= baseline."
         },
         {
             "id": "DROP-BASELINE-2",
@@ -124,7 +124,7 @@
             "severity": "HIGH",
             "title": "Phase58SharedDiskMigrationSurfaceTest cross-category watchdog",
             "evidence": "Six categories of refactor need cross-cutting invariant assertions so future PRs can't silently reintroduce Storage::disk('local').",
-            "remediation": "tests/Feature/Storage/Phase58SharedDiskMigrationSurfaceTest: (a) TenantDiskResolver class exists + resolve method exists; (b) Storage::tenant macro registered (call it + assert non-null); (c) config('filesystems.tenant_disk') defaults to 'local'; (d) 13 refactored files contain Storage::tenant(); (e) zero files in app/ contain Storage::disk('local') (regression watchdog — repeats the Phase 22 grep but with explicit Phase 58 ownership); (f) storage.md exists + mentions Phase 58."
+            "remediation": "tests/Feature/Storage/Phase58SharedDiskMigrationSurfaceTest: (a) TenantDiskResolver class exists + resolve method exists; (b) Storage::tenant macro registered (call it + assert non-null); (c) config('filesystems.tenant_disk') defaults to 'local'; (d) 13 refactored files contain Storage::tenant(); (e) zero files in app/ contain Storage::disk('local') (regression watchdog \u00e2\u20ac\u201d repeats the Phase 22 grep but with explicit Phase 58 ownership); (f) storage.md exists + mentions Phase 58."
         },
         {
             "id": "CI-2",
@@ -138,7 +138,54 @@
             "severity": "LOW",
             "title": "Cross-link Phase 22 / 28 / 45 / 57 closeouts to Phase 58",
             "evidence": "Phase 22 PERF-SCALE-1 set the baseline; Phase 28 + 45 added callsites; Phase 57 bumped baseline + opened A8. Forward references help future readers trace the storage-disk lineage.",
-            "remediation": "Append Phase 58 cross-reference notes to phase-22-audit-prd.json (statelessness baseline closure) + phase-28-audit-prd.json (TENANT-DOCS callsite source) + phase-45-audit-prd.json (TICKET-PHOTOS callsite source) + phase-57-audit-prd.json (A8 carry-over closed). No behaviour change — just cross-reference accuracy."
+            "remediation": "Append Phase 58 cross-reference notes to phase-22-audit-prd.json (statelessness baseline closure) + phase-28-audit-prd.json (TENANT-DOCS callsite source) + phase-45-audit-prd.json (TICKET-PHOTOS callsite source) + phase-57-audit-prd.json (A8 carry-over closed). No behaviour change \u00e2\u20ac\u201d just cross-reference accuracy."
         }
-    ]
+    ],
+    "audit_closeout": {
+        "closed_at": "2026-05-18",
+        "summary": "18/18 findings closed across 7 categories (5H/9M/4L). Zero PRD-finding deferrals. Closes Phase 57 A8 carry-over (28 hardcoded Storage::disk('local') callsites pinning deployment to one host). Phase 58 ships App\\Services\\Storage\\TenantDiskResolver + Storage::tenant() facade macro + config('filesystems.tenant_disk') env-driven knob; refactors all 28 callsites across 13 files (Document/WaterReading models, 5 services + GenerateInvoicePdf job, 5 controllers); drops Phase 22 LOCAL_DISK_CALLSITE_BASELINE from 28 to 0; closes PERF-SCALE-3 in autoscale-readiness.md with operator workflow for flipping FILESYSTEM_TENANT_DISK=s3 (no DB migration needed because path strings stay the same). path() caveat documented for DataExportService:90 (ZipArchive) + OcrService:288 (Tesseract subprocess) needing a temp-dir download when flipped to s3.",
+        "stats": {
+            "tests": 21,
+            "assertions": 52,
+            "new_files": [
+                "app/Services/Storage/TenantDiskResolver.php",
+                "docs/runbooks/storage.md",
+                "tests/Feature/Storage/Phase58TenantDiskResolverTest.php",
+                "tests/Feature/Storage/Phase58TenantDiskRoundTripTest.php",
+                "tests/Feature/Storage/Phase58CallsiteRefactorTest.php",
+                "tests/Feature/Storage/Phase58SharedDiskMigrationSurfaceTest.php"
+            ],
+            "modified_surfaces": [
+                "app/Providers/AppServiceProvider.php (Storage::tenant macro registration in boot)",
+                "config/filesystems.php (tenant_disk knob)",
+                ".env.example (FILESYSTEM_TENANT_DISK=local)",
+                "app/Services/DataExportService.php (6 callsites)",
+                "app/Services/ImportService.php (2 callsites)",
+                "app/Services/InvoicePdfService.php (1 callsite)",
+                "app/Services/OcrService.php (2 callsites)",
+                "app/Services/Tickets/TicketAnnotationService.php (1 callsite)",
+                "app/Jobs/GenerateInvoicePdf.php (1 callsite)",
+                "app/Models/Document.php (3 callsites)",
+                "app/Models/WaterReading.php (3 callsites)",
+                "app/Http/Controllers/DocumentController.php (2 callsites)",
+                "app/Http/Controllers/WaterReadingController.php (1 callsite)",
+                "app/Http/Controllers/LeaseController.php (3 callsites)",
+                "app/Http/Controllers/TenantDocumentsController.php (1 callsite)",
+                "app/Http/Controllers/TenantKycController.php (2 callsites)",
+                "tests/Feature/Performance/Phase22StatelessnessTest.php (LOCAL_DISK_CALLSITE_BASELINE 28\u21920)",
+                "docs/runbooks/autoscale-readiness.md (PERF-SCALE-3 marked CLOSED)"
+            ]
+        },
+        "commits": [
+            "cdd3315 docs(phase-58): [SHARED-DISK-MIGRATION] PRD baseline",
+            "1300a15 feat(phase-58): TENANT-DISK-RESOLVER service + Storage::tenant() macro + filesystems.tenant_disk knob",
+            "de78272 refactor(phase-58): CALLSITE-SVC migrate services + jobs to Storage::tenant() (13 callsites)",
+            "525ccdf refactor(phase-58): CALLSITE-MODEL + CALLSITE-CTRL migrate to Storage::tenant() (15 callsites)",
+            "01fd80b test(phase-58): INTEGRATION-TESTS round-trip + callsite refactor watchdog",
+            "336f23f refactor(phase-58): DROP-BASELINE Phase 22 callsite floor 28\u21920 + autoscale-readiness PERF-SCALE-3 closure",
+            "5856307 test(phase-58): CI surface watchdog + storage.md umbrella runbook"
+        ],
+        "tier_status": "Tier 7 cycle 22 \u2014 closes the A8 carry-over from Phase 57 (real, code-shippable; deferred from Phase 57's PERF-DEEP per the no-implicit-multi-cycle rule). Brings horizontal-scale readiness from 'enforced via warnings' to 'fully unblocked \u2014 operator flips one env var.'",
+        "carry_overs": []
+    }
 }
