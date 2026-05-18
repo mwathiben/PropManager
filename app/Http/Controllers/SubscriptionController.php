@@ -314,6 +314,27 @@ class SubscriptionController extends Controller
     }
 
     /**
+     * Phase-60 COUPONS-3: apply a coupon code to the current
+     * subscription. Returns to /subscription/plans with success or
+     * error flash. The Stripe-side mirror happens via webhook when
+     * the invoice finalises (Phase-41 wiring).
+     */
+    public function applyCoupon(Request $request, \App\Services\Subscriptions\CouponService $service)
+    {
+        $request->validate(['code' => 'required|string|max:64']);
+
+        $user = auth()->user();
+
+        try {
+            $service->redeem($request->string('code'), $user, $user->subscription);
+        } catch (\App\Exceptions\CouponInvalidException $e) {
+            return back()->with('error', __($e->translationKey()));
+        }
+
+        return back()->with('success', __('coupons.redeemed'));
+    }
+
+    /**
      * Download payment receipt/invoice.
      */
     public function downloadInvoice(SubscriptionPayment $payment)
