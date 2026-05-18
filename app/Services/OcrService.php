@@ -282,14 +282,27 @@ class OcrService
             return null;
         }
 
-        // Tesseract requires a filesystem path
-        $imagePath = $image instanceof UploadedFile
-            ? $image->getRealPath()
-            : Storage::tenant()->path($image);
+        // Phase-59 PATH-CAVEAT-3: Tesseract needs a real filesystem
+        // path; on s3 Storage::tenant()->path() throws. TempFileResolver
+        // returns a TempFileHandle that wraps the existing path on local
+        // (no temp file created) or downloads to sys_get_temp_dir() on
+        // s3. The try/finally guarantees cleanup; __destruct() is a
+        // safety net.
+        $handle = null;
+        if ($image instanceof UploadedFile) {
+            $imagePath = $image->getRealPath();
+        } else {
+            $handle = app(\App\Services\Storage\TempFileResolver::class)->for($image, $landlordId);
+            $imagePath = $handle->path();
+        }
 
-        // Run tesseract
-        $command = 'tesseract '.escapeshellarg($imagePath).' stdout --psm 6 digits';
-        $output = shell_exec($command);
+        try {
+            // Run tesseract
+            $command = 'tesseract '.escapeshellarg($imagePath).' stdout --psm 6 digits';
+            $output = shell_exec($command);
+        } finally {
+            $handle?->cleanup();
+        }
 
         if ($output) {
             $reading = $this->extractNumericReading($output);

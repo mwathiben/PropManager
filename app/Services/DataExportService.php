@@ -86,14 +86,36 @@ class DataExportService
         $jsonPath = "{$exportPath}/data_export.json";
         Storage::tenant()->put($jsonPath, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
-        // Create ZIP archive
-        $zipPath = Storage::tenant()->path("{$exportPath}/data_export_{$user->id}_{$exportId}.zip");
-        $this->createZipArchive($exportPath, $zipPath, $user);
+        // Phase-59 PATH-CAVEAT-2: ZipArchive needs a real filesystem
+        // path (Storage::tenant()->path() throws on s3). TempFileResolver
+        // builds the archive at a local-driver path on local, or at a
+        // temp dir on s3; after the ZIP is built we upload it back to
+        // the tenant disk under the canonical relative path.
+        $relativeZipPath = "{$exportPath}/data_export_{$user->id}_{$exportId}.zip";
+        $handle = app(\App\Services\Storage\TempFileResolver::class)->for($relativeZipPath);
+
+        try {
+            $this->createZipArchive($exportPath, $handle->path(), $user);
+
+            // Phase-59 PATH-CAVEAT-2: when the handle owns its temp
+            // file (s3 path) the ZIP isn't yet on the tenant disk —
+            // upload it. On local the handle wraps the canonical path
+            // so this put() is a no-op overwrite.
+            if (Storage::tenant()->exists($relativeZipPath) === false) {
+                Storage::tenant()->put($relativeZipPath, file_get_contents($handle->path()));
+            }
+        } finally {
+            $handle->cleanup();
+        }
 
         // Clean up JSON file after zipping
         Storage::tenant()->delete($jsonPath);
 
-        return $zipPath;
+        // Phase-59 PATH-CAVEAT-2: return the tenant-disk-relative path.
+        // Callers (ExportUserData job + GdprController::immediateExport)
+        // were previously expecting absolute paths under storage/app/;
+        // they were updated to read via the tenant disk abstraction.
+        return $relativeZipPath;
     }
 
     /**

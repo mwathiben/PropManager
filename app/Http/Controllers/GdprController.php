@@ -8,6 +8,7 @@ use App\Models\DeletionRequest;
 use App\Services\DataDeletionService;
 use App\Services\DataExportService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -91,18 +92,21 @@ class GdprController extends Controller
             abort(403, 'Unauthorized access');
         }
 
-        $fullPath = realpath(storage_path("app/{$path}"));
-        $allowedRoot = realpath(storage_path("app/exports/{$userId}"));
-
-        if (! $fullPath || ! $allowedRoot || ! str_starts_with($fullPath, $allowedRoot.DIRECTORY_SEPARATOR)) {
+        // Phase-59 PATH-CAVEAT-2: switch from absolute-path
+        // response()->download to a tenant-disk signed URL so the
+        // controller works across local + s3. The traversal guards
+        // above (str_starts_with('exports/{userId}/') + reject '..' +
+        // null bytes + backslashes) already constrain $path to the
+        // user's export subtree — the previous realpath() chain was
+        // local-driver-only defense in depth.
+        if (! Storage::tenant()->exists($path)) {
             abort(404, 'Export not found or has expired');
         }
 
-        if (! is_file($fullPath)) {
-            abort(404, 'Export not found or has expired');
-        }
-
-        return response()->download($fullPath);
+        return redirect()->away(
+            app(\App\Services\Storage\TenantDiskResolver::class)
+                ->temporaryUrl($path, $request->user()->landlord_id ?? $userId, 5, basename($path)),
+        );
     }
 
     /**
@@ -232,10 +236,16 @@ class GdprController extends Controller
         $user = $request->user();
 
         try {
-            $zipPath = $this->exportService->exportUserData($user);
-            $filename = basename($zipPath);
+            // Phase-59 PATH-CAVEAT-2: DataExportService now returns the
+            // tenant-disk-relative path (was absolute). Use the
+            // signed-URL resolver so the response is driver-agnostic.
+            $relativeZipPath = $this->exportService->exportUserData($user);
+            $filename = basename($relativeZipPath);
 
-            return response()->download($zipPath, $filename)->deleteFileAfterSend(false);
+            return redirect()->away(
+                app(\App\Services\Storage\TenantDiskResolver::class)
+                    ->temporaryUrl($relativeZipPath, $user->landlord_id ?? $user->id, 5, $filename),
+            );
         } catch (\Exception $e) {
             return back()->withErrors(['export' => 'Failed to generate export. Please try again.']);
         }

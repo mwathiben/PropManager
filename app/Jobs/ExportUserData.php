@@ -57,8 +57,9 @@ class ExportUserData implements ShouldQueue
             return;
         }
 
-        $zipPath = $exportService->exportUserData($this->user);
-        $relativePath = str_replace(storage_path('app/'), '', $zipPath);
+        // Phase-59 PATH-CAVEAT-2: DataExportService::exportUserData now
+        // returns the tenant-disk-relative path (was absolute).
+        $relativePath = $exportService->exportUserData($this->user);
 
         DB::transaction(function () use ($relativePath) {
             $existingLog = AuditLog::where('user_id', $this->user->id)
