@@ -139,5 +139,54 @@
             "evidence": "Phase 15 PERF-5 (SoftDeletes index deferral) + Phase 21 (SlowQueryReport file scanner) + Phase 22 (PERF-SLO/CACHE/NPLUS1 foundations) are the parents. Forward references help future readers trace the perf lineage.",
             "remediation": "Append Phase 57 cross-references to the audit_closeout notes of phase-15-audit-prd.json + phase-21-audit-prd.json + phase-22-audit-prd.json. No behavioural change — just cross-reference accuracy."
         }
-    ]
+    ],
+    "audit_closeout": {
+        "closed_at": "2026-05-18",
+        "summary": "18/18 findings closed across 6 categories (5H/9M/4L). Zero PRD-finding deferrals. Layers operator-grade enforcement + ops dashboard surfaces on top of Phase 22 foundations: SloEnforceBudgets nightly cron with route_p95_violation gauge, Vary header for shared-cache correctness, ReadReplica intent macro + ConnectionRouter staleness helper, slow_query_log_entries SQL sink + weekly rollup, IndexAuditScan EXPLAIN-based missing-index hint cron. Phase 22 statelessness baseline bumped 26→28 for the Phase 28 + 45 local-disk callsites (shared-disk migration queued for a future SRE cycle).",
+        "stats": {
+            "tests": 41,
+            "assertions": 123,
+            "new_files": [
+                "database/migrations/2026_05_18_500000_phase57_slowquery1_create_slow_query_log_entries.php",
+                "app/Services/Sre/BudgetEnforcementService.php",
+                "app/Services/Sre/ConnectionRouter.php",
+                "app/Services/Sre/SqlShapeNormaliser.php",
+                "app/Services/Sre/IndexAuditCatalog.php",
+                "app/Console/Commands/SloEnforceBudgets.php",
+                "app/Console/Commands/SlowQueryRollup.php",
+                "app/Console/Commands/IndexAuditScan.php",
+                "app/Models/SlowQueryLogEntry.php",
+                "app/Models/SlowQueryLogWeeklyRollup.php",
+                "docs/runbooks/perf.md",
+                "docs/runbooks/cache.md",
+                "tests/Feature/Perf/Phase57P95BudgetsTest.php",
+                "tests/Feature/Perf/Phase57L7CacheTest.php",
+                "tests/Feature/Perf/Phase57ReadReplicasTest.php",
+                "tests/Feature/Perf/Phase57SlowQueryTest.php",
+                "tests/Feature/Perf/Phase57IndexAuditTest.php",
+                "tests/Feature/Perf/Phase57PerfDeepSurfaceTest.php"
+            ],
+            "modified_surfaces": [
+                "app/Http/Middleware/SetReadCacheHeaders.php (Vary header + shared variant)",
+                "app/Providers/AppServiceProvider.php (readOnly Builder macro)",
+                "app/Services/Growth/ChurnService.php (readOnly() opt-in marker on cohortsBySource)",
+                "app/Services/Growth/FunnelRollupService.php (readOnly() opt-in marker)",
+                "bootstrap/app.php (cache.read.shared alias)",
+                "routes/console.php (slo:enforce-budgets 05:00 + slow-query:rollup Mon 06:30 + index-audit:scan 04:30)",
+                "tests/Feature/Performance/Phase22StatelessnessTest.php (local-disk baseline 26→28)"
+            ]
+        },
+        "commits": [
+            "2d802d9 docs(phase-57): [PERF-DEEP] PRD baseline",
+            "85db9a5 feat(phase-57): P95-BUDGETS slo:enforce-budgets cron + BudgetEnforcementService",
+            "bb6ab05 feat(phase-57): L7-CACHE Vary header + cache.read.shared variant + cache.md runbook",
+            "f4f8679 feat(phase-57): READ-REPLICAS readOnly() Builder macro + ConnectionRouter + Phase 56 dashboard markers",
+            "90e4e17 feat(phase-57): SLOW-QUERY structured SQL-table sink + weekly rollup cron",
+            "a3c4929 feat(phase-57): INDEX-AUDIT nightly EXPLAIN scan + db_missing_index_hint gauge",
+            "0b59c3b test(phase-57): CI surface watchdog + perf.md umbrella + local-disk baseline bump 26→28"
+        ],
+        "carry_overs_opened": [
+            "PERF-SCALE-3 follow-up: 28 hardcoded Storage::disk('local') callsites in app/ need migration to a configurable shared disk. Operator-coordinated SRE work (S3 + IAM + bucket config). Queued for a future SRE-FOLLOWUP cycle; baseline bumped from 26 → 28 in Phase 57 rather than blocking the cycle."
+        ]
+    }
 }
