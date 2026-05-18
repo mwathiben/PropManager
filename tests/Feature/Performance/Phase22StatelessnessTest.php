@@ -21,23 +21,21 @@ use Tests\TestCase;
 class Phase22StatelessnessTest extends TestCase
 {
     /**
-     * Shrink-only baseline: count of hardcoded Storage::disk('local')
-     * call sites across app/. These are the real single-host
-     * filesystem dependency — KYC docs, lease docs, water-reading
-     * photos, invoice PDFs, GDPR exports, imports all bound to one
-     * host's disk. The migration to a configurable shared disk is
-     * tracked in docs/runbooks/autoscale-readiness.md (PERF-SCALE-3);
-     * until then this watchdog guarantees the footprint only shrinks.
+     * Shrink-only baseline: count of hardcoded local-disk-literal call
+     * sites across app/. These were the real single-host filesystem
+     * dependency — KYC docs, lease docs, water-reading photos, invoice
+     * PDFs, GDPR exports, imports all bound to one host's disk.
      *
      * Baseline history:
      *   - Phase 22: 26 (initial lock)
-     *   - Phase 57: 28 (acknowledging the 2 callsites added by Phase 28
-     *     TENANT-DOCS + Phase 45 TICKET-PHOTOS; bump rather than refactor
-     *     because the shared-disk migration is operator-coordinated SRE
-     *     work, not in-scope for PERF-DEEP. Queued as a Section-A
-     *     carry-over for a future SRE cycle).
+     *   - Phase 57: 28 (acknowledged Phase 28 TENANT-DOCS + Phase 45
+     *     TICKET-PHOTOS callsites; queued as Section-A carry-over A8).
+     *   - Phase 58: 0 (SHARED-DISK-MIGRATION shipped Storage::tenant()
+     *     facade backed by config('filesystems.tenant_disk'); all 28
+     *     callsites refactored). Future re-introduction is a hard
+     *     PR-blocker.
      */
-    private const LOCAL_DISK_CALLSITE_BASELINE = 28;
+    private const LOCAL_DISK_CALLSITE_BASELINE = 0;
 
     public function test_production_validator_flags_non_externalised_session_and_cache(): void
     {

@@ -22,26 +22,54 @@ The production config validator (`AppServiceProvider::collectProductionWarnings`
 surfaces the session/cache/filesystem gaps at boot — check the warning
 log on a production deploy.
 
-## Known gap: hardcoded local-disk call sites
+## PERF-SCALE-3 — CLOSED Phase 58
 
-`Phase22StatelessnessTest` pins a shrink-only baseline of **26**
-`Storage::disk('local')` call sites across `app/`. These hardcode the
-local disk instead of the configurable default disk, so even with
-`FILESYSTEM_DISK=s3` set, these paths still write to one host:
+**Status**: closed 2026-05-18.
 
-- KYC documents, lease documents (DocumentController, LeaseController,
-  TenantKycController)
-- water-reading photos (WaterReadingController, WaterReading model)
-- invoice PDFs (GenerateInvoicePdf, InvoicePdfService)
-- GDPR data exports (DataExportService)
-- CSV imports (ImportService), OCR temp files (OcrService)
+Pre-Phase-58 the codebase had 28 hardcoded local-disk call sites across
+`app/`. These hardcoded the local driver instead of the configurable
+default disk, so even with `FILESYSTEM_DISK=s3` set, those paths still
+wrote to one host. KYC documents, lease documents, water-reading photos,
+invoice PDFs, GDPR exports, OCR temp files were all bound to a single
+host's disk — the single biggest horizontal-scale blocker.
 
-**This is the single biggest horizontal-scale blocker.** Migrating
-these to the configurable shared disk is a tracked follow-up — it is
-larger than a single Phase-22 finding and deserves its own work item.
-Until it lands, a multi-instance deploy will have documents that exist
-on only one instance. The watchdog guarantees the footprint only ever
-shrinks.
+Phase 58 shipped `App\Services\Storage\TenantDiskResolver` + the
+`Storage::tenant()` facade macro + the
+`config('filesystems.tenant_disk')` knob. All 28 callsites were
+refactored to flow through `Storage::tenant()`. Phase 22's
+`LOCAL_DISK_CALLSITE_BASELINE` dropped from 28 to 0; the shrink-only
+ratchet now treats any re-introduction as a PR-blocker.
+
+### Operator workflow to flip to S3
+
+1. Provision the S3 bucket + IAM credentials (out-of-band; standard AWS
+   setup). Set the bucket policy to require server-side encryption on
+   PUT for KYC / lease document key prefixes.
+2. Populate `AWS_*` env vars in production `.env` (these already drive
+   the existing `s3` disk in `config/filesystems.php`).
+3. Set `FILESYSTEM_TENANT_DISK=s3` in production `.env`.
+4. Restart the application.
+
+**No DB migration is required**: the path strings stored in
+`Document.file_path` / `WaterReading.photo_path` / `Lease.lease_doc_path`
+/ `Invoice.pdf_path` stay the same — only the disk used to access them
+changes.
+
+### `path()` caveat
+
+`Filesystem::path($relative)` returns an absolute path on the local
+driver but throws on s3 (where the concept doesn't apply). Two call
+sites use `path()` for subprocess/ZipArchive flows:
+
+- `app/Services/DataExportService.php` at line 90 — ZipArchive needs a
+  real filesystem path. Mitigation when flipped to s3: download to a
+  temp dir first (TempFileResolver pattern).
+- `app/Services/OcrService.php` at line 288 — Tesseract subprocess
+  reads from the file path. Same mitigation pattern.
+
+Document the operator workaround when staging the s3 cutover.
+
+See [storage.md](storage.md) for the full storage runbook.
 
 ## Scheduler — single-instance only
 
