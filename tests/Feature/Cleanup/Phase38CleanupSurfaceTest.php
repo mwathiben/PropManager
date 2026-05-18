@@ -186,7 +186,11 @@ class Phase38CleanupSurfaceTest extends TestCase
      */
     public function test_suite_error_count_at_or_below_baseline(): void
     {
-        $baseline = 99;
+        // Phase-53 TEST-DEBT-3: 99 → 98 after Phase29CiTest firstOrFail
+        // pollution fix (TEST-DEBT-1). Shrink-only ratchet — never raise
+        // this on legitimate test regression; raise only on
+        // explicitly-accepted xfail.
+        $baseline = 98;
         $junitPath = storage_path('app/junit.xml');
 
         if (! file_exists($junitPath)) {

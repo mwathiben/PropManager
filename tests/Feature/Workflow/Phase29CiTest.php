@@ -28,7 +28,15 @@ class Phase29CiTest extends TestCase
             metadata: ['offset' => 0, 'days_until_due' => 0],
         );
 
-        $row = WorkflowRunLog::firstOrFail();
+        // Phase-53 TEST-DEBT-1: scope to the workflow under test. Before
+        // this fix the assertion used firstOrFail() which picked up the
+        // onboarding milestone row written by LogMilestoneRecorded when
+        // the User factory's signup event fires. Failing reliably since
+        // Phase 45.
+        $row = WorkflowRunLog::where('workflow_name', 'WF-RENT-REMIND-1')
+            ->latest('id')
+            ->first();
+        $this->assertNotNull($row, 'WF-RENT-REMIND-1 row should exist after logger.log().');
         $this->assertSame('WF-RENT-REMIND-1', $row->workflow_name);
         $this->assertSame('reminder_dispatched', $row->action);
         $this->assertSame(42, $row->target_id);
