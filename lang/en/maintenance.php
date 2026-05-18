@@ -13,6 +13,15 @@ declare(strict_types=1);
  */
 
 return [
+    'sla' => [
+        'title' => 'SLA overrides',
+        'description' => 'Customise response and resolution targets for your portfolio. Platform defaults apply when you have no matching override.',
+        'flash' => [
+            'created' => 'SLA override saved.',
+            'updated' => 'SLA override updated.',
+            'deleted' => 'SLA override removed.',
+        ],
+    ],
     'vendor_assigned' => [
         'subject' => 'You have been assigned to a maintenance ticket: :ticket',
         'heading' => 'New maintenance assignment',

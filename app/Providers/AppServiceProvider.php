@@ -117,9 +117,15 @@ class AppServiceProvider extends ServiceProvider
                 }
 
                 // Null-object forwarder so callers don't have to null-check.
-                return new class implements \App\Services\Vendors\AnalyticsForwarderInterface {
-                    public function vendor(): string { return 'noop'; }
-                    public function flush(array $events): array {
+                return new class implements \App\Services\Vendors\AnalyticsForwarderInterface
+                {
+                    public function vendor(): string
+                    {
+                        return 'noop';
+                    }
+
+                    public function flush(array $events): array
+                    {
                         return ['accepted' => 0, 'rejected' => 0, 'retryable' => 0, 'vendor' => 'noop'];
                     }
                 };
@@ -176,6 +182,8 @@ class AppServiceProvider extends ServiceProvider
         LateFeePolicy::observe(LateFeePolicyObserver::class);
         Lease::observe(LeaseObserver::class);
         Refund::observe(RefundObserver::class);
+        // Phase-54 SLA-LANDLORD-UI-3: flush SlaDefinitionService cache on write.
+        \App\Models\SlaDefinition::observe(\App\Observers\SlaDefinitionObserver::class);
 
         // Prevent lazy loading in non-production to catch N+1 queries.
         // OBS-9: in production, sample 1% of requests so genuine N+1

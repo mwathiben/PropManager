@@ -3,6 +3,15 @@
 declare(strict_types=1);
 
 return [
+    'sla' => [
+        'title' => '[TODO-ar] SLA overrides',
+        'description' => '[TODO-ar] Customise response and resolution targets for your portfolio. Platform defaults apply when you have no matching override.',
+        'flash' => [
+            'created' => '[TODO-ar] SLA override saved.',
+            'updated' => '[TODO-ar] SLA override updated.',
+            'deleted' => '[TODO-ar] SLA override removed.',
+        ],
+    ],
     'vendor_assigned' => [
         'subject' => '[TODO-ar] You have been assigned to a maintenance ticket: :ticket',
         'heading' => '[TODO-ar] New maintenance assignment',

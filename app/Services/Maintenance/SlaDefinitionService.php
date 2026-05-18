@@ -27,8 +27,17 @@ class SlaDefinitionService
 {
     public function resolveFor(string $category, ?string $subcategory, string $priority, ?int $landlordId): array
     {
+        // Phase-54 SLA-LANDLORD-UI-3: include a per-landlord version
+        // stamp in the cache key so SlaDefinitionObserver::flushCache
+        // can invalidate every tuple-key for that landlord by
+        // incrementing the version once — without scanning Redis or
+        // relying on cache tags (the default file/database cache has
+        // neither). 'global' is its own scope.
+        $version = $this->versionFor($landlordId);
+
         $cacheKey = sprintf(
-            'sla:resolve:%s:%s:%s:%s',
+            'sla:resolve:v%d:%s:%s:%s:%s',
+            $version,
             $landlordId ?? 'global',
             $category,
             $subcategory ?? 'any',
@@ -50,6 +59,32 @@ class SlaDefinitionService
                 'resolution_seconds' => Ticket::RESOLUTION_SLA_SECONDS[$priority] ?? Ticket::RESOLUTION_SLA_SECONDS['medium'],
             ];
         });
+    }
+
+    /**
+     * Phase-54 SLA-LANDLORD-UI-3: increment the per-landlord version
+     * stamp so subsequent resolveFor() calls compute a fresh key. Pass
+     * null to flush the global scope after a super-admin edit.
+     */
+    public function flushCache(?int $landlordId): void
+    {
+        $key = $this->versionKey($landlordId);
+        // Cache::increment lazily creates the counter at 1 if missing,
+        // so we set an initial value before incrementing for the first
+        // time. The TTL is intentionally long — the version key itself
+        // is tiny and bumps every write.
+        Cache::add($key, 1, now()->addDays(365));
+        Cache::increment($key);
+    }
+
+    private function versionFor(?int $landlordId): int
+    {
+        return (int) Cache::get($this->versionKey($landlordId), 1);
+    }
+
+    private function versionKey(?int $landlordId): string
+    {
+        return 'sla:ver:'.($landlordId ?? 'global');
     }
 
     private function matchRow(string $category, ?string $subcategory, string $priority, ?int $landlordId): ?SlaDefinition

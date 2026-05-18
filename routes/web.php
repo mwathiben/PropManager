@@ -689,6 +689,17 @@ Route::middleware('auth')->group(function () {
         ->get('/dashboards/{slug}', [\App\Http\Controllers\Reports\DashboardController::class, 'show'])
         ->name('dashboards.show');
 
+    // Phase-54 SLA-LANDLORD-UI-1: landlord-scoped CRUD over SLA overrides.
+    // NOT under /admin — that namespace is super-admin only. Landlord
+    // overrides + global defaults coexist via the Phase-49 cascade in
+    // SlaDefinitionService::resolveFor.
+    Route::middleware('role:landlord')->prefix('sla')->name('sla.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\SlaDefinitionController::class, 'index'])->name('index');
+        Route::post('/', [\App\Http\Controllers\SlaDefinitionController::class, 'store'])->name('store');
+        Route::patch('/{sla}', [\App\Http\Controllers\SlaDefinitionController::class, 'update'])->name('update');
+        Route::delete('/{sla}', [\App\Http\Controllers\SlaDefinitionController::class, 'destroy'])->name('destroy');
+    });
+
     // Phase-27 BI-DELIVERY-2/3: scheduled report delivery self-serve.
     Route::middleware('role:landlord')->prefix('reports/scheduled')->name('reports.scheduled.')->group(function () {
         Route::get('/', [\App\Http\Controllers\Reports\ScheduledController::class, 'index'])->name('index');

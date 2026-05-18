@@ -104,6 +104,8 @@ class AuthServiceProvider extends ServiceProvider
         // Phase-29 WF-PAY-APPROVE-1/2: landlord approval gates.
         \App\Models\PaymentPlan::class => \App\Policies\PaymentPlanPolicy::class,
         \App\Models\DepositRefundRequest::class => \App\Policies\DepositRefundRequestPolicy::class,
+        // Phase-54 SLA-LANDLORD-UI-3: landlord-scoped SLA overrides.
+        \App\Models\SlaDefinition::class => \App\Policies\SlaDefinitionPolicy::class,
     ];
 
     /**

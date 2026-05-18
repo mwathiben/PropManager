@@ -3,6 +3,15 @@
 declare(strict_types=1);
 
 return [
+    'sla' => [
+        'title' => 'Mbadala wa SLA',
+        'description' => 'Badilisha malengo ya kujibu na kutatua kwa mali zako. Chaguomsingi za jukwaa zinatumika usipowa na mbadala unaolingana.',
+        'flash' => [
+            'created' => 'Mbadala wa SLA umehifadhiwa.',
+            'updated' => 'Mbadala wa SLA umesasishwa.',
+            'deleted' => 'Mbadala wa SLA umeondolewa.',
+        ],
+    ],
     'vendor_assigned' => [
         'subject' => 'Umepewa tiketi ya matengenezo: :ticket',
         'heading' => 'Mgawo mpya wa matengenezo',
