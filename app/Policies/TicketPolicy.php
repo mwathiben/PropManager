@@ -100,6 +100,16 @@ class TicketPolicy
     }
 
     /**
+     * Phase-54 COST-UI-3: only the owning landlord can record manual
+     * vendor/labor/other costs against the ticket. Caretakers can view
+     * the cost summary (via TicketController::show) but cannot mutate.
+     */
+    public function createCost(User $user, Ticket $ticket): bool
+    {
+        return $user->isLandlord() && $ticket->landlord_id === $user->id;
+    }
+
+    /**
      * Determine whether the user can resolve the ticket.
      */
     public function resolve(User $user, Ticket $ticket): bool

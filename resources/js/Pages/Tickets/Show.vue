@@ -23,11 +23,58 @@ import {
     StarIcon
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps<TicketShowPageProps>();
+// Phase-54 COST-UI-1/2: extend the inherited TicketShowPageProps type
+// with the new optional cost props rather than fork the @/types file
+// for two fields.
+type CostBreakdown = { parts: number; vendor: number; labor: number; other: number; total: number };
+const props = defineProps<TicketShowPageProps & { costs?: CostBreakdown | null; canManageCosts?: boolean }>();
 const { can } = useAuth();
 
 const showResolveModal = ref(false);
 const showAssignModal = ref(false);
+const showCostModal = ref(false);
+
+const costs = computed(() => props.costs ?? null);
+const canManageCosts = computed(() => Boolean(props.canManageCosts));
+
+const costForm = useForm({
+    category: 'vendor' as 'vendor' | 'labor' | 'other',
+    amount_kes: 0,
+    notes: '' as string,
+});
+
+function formatKes(cents: number): string {
+    return new Intl.NumberFormat('en-KE', {
+        style: 'currency',
+        currency: 'KES',
+        maximumFractionDigits: 0,
+    }).format(cents / 100);
+}
+
+function costSegmentWidth(category: 'parts' | 'vendor' | 'labor' | 'other'): string {
+    const breakdown = costs.value;
+    if (!breakdown || breakdown.total === 0) return '0%';
+    return `${(breakdown[category] / breakdown.total) * 100}%`;
+}
+
+function submitCost(): void {
+    router.post(
+        route('tickets.costs.store', props.ticket.id),
+        {
+            category: costForm.category,
+            amount_cents: Math.round(costForm.amount_kes * 100),
+            notes: costForm.notes || null,
+        },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                showCostModal.value = false;
+                costForm.reset();
+                costForm.category = 'vendor';
+            },
+        },
+    );
+}
 
 const commentForm = useForm({
     comment: '',
@@ -383,8 +430,84 @@ const canEdit = computed(() => {
                                 Cancel Ticket
                             </button>
                         </div>
+
+                        <!-- Phase-54 COST-UI-1/2: maintenance cost card. Landlords + caretakers see the breakdown; only landlords see the Add button. -->
+                        <div v-if="costs" class="bg-white shadow rounded-lg p-6">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-lg font-medium text-gray-900">Cost</h3>
+                                <button
+                                    v-if="canManageCosts"
+                                    type="button"
+                                    class="text-xs text-indigo-600 hover:underline"
+                                    @click="showCostModal = true"
+                                >
+                                    Add cost
+                                </button>
+                            </div>
+                            <p class="text-2xl font-semibold text-gray-900">{{ formatKes(costs.total) }}</p>
+
+                            <div v-if="costs.total > 0" class="mt-3 flex h-2 overflow-hidden rounded bg-gray-100">
+                                <div :style="{ width: costSegmentWidth('parts') }" class="bg-indigo-400" :title="`Parts ${formatKes(costs.parts)}`"></div>
+                                <div :style="{ width: costSegmentWidth('vendor') }" class="bg-emerald-400" :title="`Vendor ${formatKes(costs.vendor)}`"></div>
+                                <div :style="{ width: costSegmentWidth('labor') }" class="bg-amber-400" :title="`Labor ${formatKes(costs.labor)}`"></div>
+                                <div :style="{ width: costSegmentWidth('other') }" class="bg-rose-400" :title="`Other ${formatKes(costs.other)}`"></div>
+                            </div>
+
+                            <dl class="mt-3 grid grid-cols-2 gap-2 text-xs">
+                                <div class="flex items-center gap-2">
+                                    <span class="h-2 w-2 rounded-full bg-indigo-400"></span>
+                                    <span class="text-gray-600">Parts</span>
+                                    <span class="ms-auto font-medium text-gray-900">{{ formatKes(costs.parts) }}</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
+                                    <span class="text-gray-600">Vendor</span>
+                                    <span class="ms-auto font-medium text-gray-900">{{ formatKes(costs.vendor) }}</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="h-2 w-2 rounded-full bg-amber-400"></span>
+                                    <span class="text-gray-600">Labor</span>
+                                    <span class="ms-auto font-medium text-gray-900">{{ formatKes(costs.labor) }}</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="h-2 w-2 rounded-full bg-rose-400"></span>
+                                    <span class="text-gray-600">Other</span>
+                                    <span class="ms-auto font-medium text-gray-900">{{ formatKes(costs.other) }}</span>
+                                </div>
+                            </dl>
+                        </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Phase-54 COST-UI-2: manual cost entry modal (landlord-only). -->
+        <div v-if="showCostModal && canManageCosts" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+            <div class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+                <h3 class="text-lg font-semibold text-gray-900">Add maintenance cost</h3>
+                <p class="mt-1 text-xs text-gray-500">Parts costs are recorded automatically when parts are added to the ticket.</p>
+                <form class="mt-4 space-y-3" @submit.prevent="submitCost">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700">Category</label>
+                        <select v-model="costForm.category" required class="mt-1 w-full rounded border-gray-300 text-sm">
+                            <option value="vendor">Vendor</option>
+                            <option value="labor">Labor</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700">Amount (KES)</label>
+                        <input v-model.number="costForm.amount_kes" type="number" min="0.01" step="0.01" required class="mt-1 w-full rounded border-gray-300 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700">Notes</label>
+                        <textarea v-model="costForm.notes" rows="2" maxlength="500" class="mt-1 w-full rounded border-gray-300 text-sm"></textarea>
+                    </div>
+                    <div class="flex justify-end gap-2 pt-2">
+                        <button type="button" class="rounded border border-gray-300 px-3 py-1.5 text-sm" @click="showCostModal = false">Cancel</button>
+                        <button type="submit" class="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Save</button>
+                    </div>
+                </form>
             </div>
         </div>
 

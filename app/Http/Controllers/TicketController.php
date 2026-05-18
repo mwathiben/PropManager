@@ -232,6 +232,13 @@ class TicketController extends Controller
                 ->get();
         }
 
+        // Phase-54 COST-UI-1: pass per-category cost summary to landlord
+        // and caretaker views. Tenants don't see costs.
+        $costs = null;
+        if (! $user->isTenant()) {
+            $costs = app(\App\Services\Maintenance\TicketCostService::class)->summarize($ticket);
+        }
+
         return Inertia::render('Tickets/Show', [
             'ticket' => $ticket,
             'caretakers' => $caretakers,
@@ -239,6 +246,8 @@ class TicketController extends Controller
             'canChangeStatus' => ! $user->isTenant(),
             'canAddInternalComment' => ! $user->isTenant(),
             'canSubmitFeedback' => $user->isTenant() && $ticket->status === \App\Enums\TicketStatus::Closed && ! $ticket->hasFeedback(),
+            'canManageCosts' => $user->isLandlord(),
+            'costs' => $costs,
             'statuses' => Ticket::statuses(),
         ]);
     }

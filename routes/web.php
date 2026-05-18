@@ -689,6 +689,13 @@ Route::middleware('auth')->group(function () {
         ->get('/dashboards/{slug}', [\App\Http\Controllers\Reports\DashboardController::class, 'show'])
         ->name('dashboards.show');
 
+    // Phase-54 COST-UI-2: landlord-only manual cost entry. parts category
+    // auto-recorded via Phase 49 TicketResolutionService::recordParts; this
+    // endpoint accepts vendor|labor|other only (validator enforces).
+    Route::middleware('role:landlord')
+        ->post('/tickets/{ticket}/costs', [\App\Http\Controllers\TicketCostController::class, 'store'])
+        ->name('tickets.costs.store');
+
     // Phase-54 PARTS-REORDER-3: landlord-facing surface over the
     // draft_purchase_orders the parts:reorder-suggest cron materialises.
     Route::middleware('role:landlord')->prefix('parts/purchase-orders')->name('parts.purchase-orders.')->group(function () {
