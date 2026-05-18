@@ -122,6 +122,25 @@ return Application::configure(basePath: dirname(__DIR__))
             return null;
         });
 
+        // Phase-62 CONFLICT-RESOLUTION-2: turn WriteConflictException into a
+        // 409 response carrying the current row + per-field diff so the
+        // client's ConflictDialog can surface a merge / overwrite / discard
+        // prompt. JSON for API + XHR callers; Inertia error bag for HTML.
+        $exceptions->render(function (\App\Exceptions\WriteConflictException $e, Request $request) {
+            $payload = [
+                'error' => 'write_conflict',
+                'message' => $e->getMessage(),
+                'current_version' => $e->currentVersion,
+                'current' => $e->current->only(array_merge(array_keys($e->incoming), ['id'])),
+                'incoming' => $e->incoming,
+                'diff' => $e->diff(),
+            ];
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json($payload, 409);
+            }
+            return back()->with('write_conflict', $payload)->setStatusCode(409);
+        });
+
         // Phase-21 DEFER-AUTHZ-4: render dedicated Inertia 403/404 pages
         // for HTML requests instead of the raw Symfony error overlay.
         // API requests keep their JSON shape; local dev keeps Ignition

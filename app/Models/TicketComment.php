@@ -2,14 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RowVersion;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Model;
 
 class TicketComment extends Model
 {
     use TenantScope;
+    use RowVersion;
 
     protected $fillable = [
+        'version',
         'landlord_id',
         'ticket_id',
         'user_id',
