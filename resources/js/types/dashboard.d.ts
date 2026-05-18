@@ -276,6 +276,7 @@ export interface DashboardPageProps {
   property: DashboardProperty;
   buildings: DashboardBuilding[];
   activeBuilding: DashboardBuilding;
+  allBuildingsMode?: boolean;
   wings: DashboardWing[];
   hasWings: boolean;
   activeWingId?: number | null;

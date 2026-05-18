@@ -1031,6 +1031,27 @@ onUnmounted(() => {
                 </div>
             </div>
 
+            <!-- === BUILDING FILTER CHIP === -->
+            <div v-if="buildings && buildings.length > 1" class="flex items-center gap-2 text-sm">
+                <span class="text-gray-500">Showing:</span>
+                <span
+                    class="inline-flex items-center gap-1 rounded-full px-3 py-1 font-medium"
+                    :class="allBuildingsMode ? 'bg-indigo-100 text-indigo-800' : 'bg-emerald-100 text-emerald-800'"
+                    data-testid="dashboard-building-chip"
+                >
+                    {{ allBuildingsMode ? 'All buildings' : (activeBuilding?.name || 'Building') }}
+                    <Link
+                        v-if="!allBuildingsMode"
+                        :href="route('dashboard', { property_id: property.id, building_id: 'all' })"
+                        preserve-state
+                        aria-label="Clear building filter"
+                        class="-mr-1 ml-1 rounded-full text-emerald-800 hover:bg-emerald-200"
+                    >
+                        <XMarkIcon class="h-3.5 w-3.5" />
+                    </Link>
+                </span>
+            </div>
+
             <!-- === RECENT PAYMENTS + TICKETS + EXPIRING LEASES === -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- RECENT PAYMENTS -->

@@ -164,7 +164,8 @@ class DashboardService
         }
 
         $buildingId = $request->get('building_id');
-        $activeBuilding = $buildingId
+        $allBuildingsMode = ($buildingId === 'all') || ($buildingId === null && $mainBuildings->count() > 1);
+        $activeBuilding = ($buildingId && $buildingId !== 'all')
             ? ($mainBuildings->firstWhere('id', $buildingId) ?? $mainBuildings->first())
             : $mainBuildings->first();
 
@@ -183,13 +184,20 @@ class DashboardService
         $filteredUnits = $this->filterUnits($allUnits, $wingId, $floorFilter);
         $allFloors = $allUnits->pluck('floor_number')->unique()->sortDesc()->values()->toArray();
 
+        [$crossBuildingUnits, $crossBuildingIds] = $allBuildingsMode
+            ? $this->getCrossBuildingMetricsContext($mainBuildings)
+            : [null, []];
+
         $metricsData = $this->calculateLandlordMetrics(
             $allUnits,
             $wings,
             $activeBuilding,
             $hasWings,
             $wingId,
-            $floorFilter
+            $floorFilter,
+            $allBuildingsMode,
+            $crossBuildingUnits,
+            $crossBuildingIds,
         );
 
         $unitsByWing = $this->organizeUnitsByWing($allUnits, $wings, $hasWings);
@@ -212,6 +220,7 @@ class DashboardService
             'property' => $property,
             'buildings' => $mainBuildings->values(),
             'activeBuilding' => $activeBuilding,
+            'allBuildingsMode' => $allBuildingsMode,
             'wings' => $wings,
             'hasWings' => $hasWings,
             'activeWingId' => $wingId ? (int) $wingId : null,
@@ -513,6 +522,36 @@ class DashboardService
             ->pluck('monthly_revenue', 'landlord_id');
     }
 
+    /**
+     * Phase-55 DASHBOARD-FILTERS-1: gather units + building ids across every main
+     * building (and its wings) of the property so dashboard metrics can aggregate
+     * landlord-wide when building_id is missing or set to the 'all' sentinel.
+     *
+     * @param  Collection<int, Building>  $mainBuildings
+     * @return array{0: Collection, 1: array<int, int>}
+     */
+    protected function getCrossBuildingMetricsContext(Collection $mainBuildings): array
+    {
+        $buildingIds = [];
+        foreach ($mainBuildings as $building) {
+            $buildingIds[] = (int) $building->id;
+            foreach ($building->wings ?? [] as $wing) {
+                $buildingIds[] = (int) $wing->id;
+            }
+        }
+        $buildingIds = array_values(array_unique($buildingIds));
+
+        if ($buildingIds === []) {
+            return [collect(), []];
+        }
+
+        $units = \App\Models\Unit::whereIn('building_id', $buildingIds)
+            ->select(['id', 'building_id', 'unit_number', 'floor_number', 'status', 'target_rent'])
+            ->get();
+
+        return [$units, $buildingIds];
+    }
+
     protected function getAllUnitsWithColorClass(Building $building): Collection
     {
         return $building->allUnits()
@@ -561,9 +600,15 @@ class DashboardService
         Building $activeBuilding,
         bool $hasWings,
         ?string $wingId,
-        ?string $floorFilter
+        ?string $floorFilter,
+        bool $allBuildingsMode = false,
+        ?Collection $crossBuildingUnits = null,
+        array $crossBuildingIds = [],
     ): array {
-        if ($wingId) {
+        if ($allBuildingsMode && $crossBuildingUnits !== null) {
+            $metricsUnits = $crossBuildingUnits;
+            $metricsBuildingIds = $crossBuildingIds;
+        } elseif ($wingId) {
             $metricsUnits = $allUnits->where('building_id', (int) $wingId);
             $metricsBuildingIds = [(int) $wingId];
         } elseif ($floorFilter) {
