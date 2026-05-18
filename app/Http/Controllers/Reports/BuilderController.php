@@ -61,8 +61,15 @@ class BuilderController extends Controller
         $config = $this->parseConfig($request);
         $landlordId = $this->landlordIdFor($request);
 
+        try {
+            $rows = $this->builder->run($config, $landlordId);
+        } catch (\Throwable $e) {
+            $this->bumpReportRenderFailure('builder');
+            throw $e;
+        }
+
         return response()->json([
-            'rows' => $this->builder->run($config, $landlordId),
+            'rows' => $rows,
         ]);
     }
 
@@ -76,7 +83,12 @@ class BuilderController extends Controller
         // Smoke-test the config by running it before saving — surfaces
         // ValidationException immediately if the user picked an invalid
         // combination. The empty result is fine.
-        $this->builder->run($config, $landlordId);
+        try {
+            $this->builder->run($config, $landlordId);
+        } catch (\Throwable $e) {
+            $this->bumpReportRenderFailure('builder');
+            throw $e;
+        }
 
         $report = SavedReport::create([
             'landlord_id' => $landlordId,
@@ -160,5 +172,20 @@ class BuilderController extends Controller
             'sort_by' => (array) ($config['sort_by'] ?? []),
             'limit' => isset($config['limit']) ? (int) $config['limit'] : 200,
         ];
+    }
+
+    /**
+     * Phase-53 GAUGE-WIRING-2: best-effort failure counter for the
+     * report_render_failure_count Prometheus gauge. Surface label
+     * distinguishes builder / dashboard / scheduled paths.
+     */
+    private function bumpReportRenderFailure(string $surface): void
+    {
+        try {
+            app(\App\Services\MetricsService::class)
+                ->increment('report_render_failure_count', 1, ['surface' => $surface]);
+        } catch (\Throwable) {
+            // best-effort
+        }
     }
 }

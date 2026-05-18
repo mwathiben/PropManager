@@ -72,6 +72,13 @@ class SendScheduledReports extends Command
                 $sent++;
             } catch (\Throwable $e) {
                 $failed++;
+                // Phase-53 GAUGE-WIRING-2: scheduled-send failure surface.
+                try {
+                    app(\App\Services\MetricsService::class)
+                        ->increment('report_render_failure_count', 1, ['surface' => 'scheduled_send']);
+                } catch (\Throwable) {
+                    // best-effort
+                }
                 $this->error("Schedule {$schedule->id} failed: ".$e->getMessage());
                 report($e);
             }

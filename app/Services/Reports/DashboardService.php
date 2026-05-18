@@ -41,6 +41,31 @@ class DashboardService
      */
     public function buildPayload(LandlordDashboard $dashboard): array
     {
+        try {
+            return $this->buildPayloadInner($dashboard);
+        } catch (\Throwable $e) {
+            // Phase-53 GAUGE-WIRING-2: count card-render failures so the
+            // sev3 report_render_failure_count alert fires when a card
+            // wedges (most commonly an unknown saved_report_id or a
+            // ValidationException from MetricFormulaService).
+            try {
+                app(\App\Services\MetricsService::class)
+                    ->increment('report_render_failure_count', 1, ['surface' => 'dashboard']);
+            } catch (\Throwable) {
+                // best-effort
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * @return array{
+     *   dashboard: array{id: int, slug: string, name: string, description: ?string},
+     *   cards: list<array<string, mixed>>
+     * }
+     */
+    private function buildPayloadInner(LandlordDashboard $dashboard): array
+    {
         $landlordId = (int) $dashboard->landlord_id;
         $layout = $dashboard->layout ?? [];
         if (! is_array($layout)) {

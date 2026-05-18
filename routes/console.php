@@ -727,3 +727,23 @@ Schedule::command('lang:audit')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase43-i18n-audit');
+
+// Phase-53 GAUGE-WIRING-1: tenant_kyc_blocked_count gauge emitter.
+// Counts tenants stuck at Phase-48 wizard step-2 advance gate. Hourly
+// at :15 so the gauge timeline is granular enough for the sev4 alert
+// window (alert-thresholds.md line 33, threshold 20/24h).
+Schedule::command('tenant-kyc:blocked-audit')
+    ->hourlyAt(15)
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase53-gauge-wiring1-tenant-kyc-blocked');
+
+// Phase-53 GAUGE-WIRING-3: i18n_translation_spend_usd_24h gauge emitter.
+// Scrapes TranslationCostTracker Cache keys + emits total + per-locale
+// gauges. Every 15m so the sev3 $20/day budget alert (alert-thresholds.md
+// line 39) has a fresh window to fire against.
+Schedule::command('i18n:spend-audit')
+    ->everyFifteenMinutes()
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase53-gauge-wiring3-i18n-spend');

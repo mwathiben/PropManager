@@ -129,10 +129,25 @@ class ScheduledController extends Controller
             abort(403, 'Saved report does not belong to this landlord.');
         }
 
+        try {
+            $rows = $this->builder->run($report->config, $landlordId);
+        } catch (\Throwable $e) {
+            // Phase-53 GAUGE-WIRING-2: count preview failures distinct
+            // from the builder's own surface label so dashboard, scheduled,
+            // and builder paths each surface separately in ops.
+            try {
+                app(\App\Services\MetricsService::class)
+                    ->increment('report_render_failure_count', 1, ['surface' => 'scheduled']);
+            } catch (\Throwable) {
+                // best-effort
+            }
+            throw $e;
+        }
+
         return response()->json([
             'report_id' => $report->id,
             'report_name' => $report->name,
-            'rows' => $this->builder->run($report->config, $landlordId),
+            'rows' => $rows,
             'previewed_at' => now()->toIso8601String(),
         ]);
     }

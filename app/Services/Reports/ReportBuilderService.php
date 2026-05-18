@@ -98,7 +98,7 @@ class ReportBuilderService
     public function __construct(
         protected ?MetricFormulaService $metricFormulas = null,
     ) {
-        $this->metricFormulas ??= new MetricFormulaService();
+        $this->metricFormulas ??= new MetricFormulaService;
     }
 
     public function run(array $config, int $landlordId): array
