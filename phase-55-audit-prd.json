@@ -1,0 +1,143 @@
+{
+    "phase": 55,
+    "title": "DASHBOARD-DEPTH",
+    "opened_at": "2026-05-18",
+    "tier": "Tier 7 cycle 19",
+    "scope": "User reported 2026-05-18: \"some of the test payments marked as paid are not showing up on the dashboard card as part of recent payments.\" Root cause at app/Services/DashboardService.php:644 — recent-payments query orders by created_at desc limit 5; a payment marked paid yesterday but created weeks ago falls outside the top 5. Pair-failures at :580 (Lease lookup missing withTrashed so payments tied to soft-deleted leases vanish) and missing is_voided=false filter so a voided payment in the top 5 would render misleadingly. Phase 55 fixes these three plus broader dashboard polish: a landlord-facing payment-detail drawer (currently the recent-payments row deep-links to invoices.show, not a payment view); an explicit building chip with All-buildings reset (current selection lives only inside the property/building dropdown); a lease-state badge on each row so the user immediately spots stale data; and drag-and-drop widget ordering persisted via the existing Phase-50 landlord_dashboards.layout primitive (extended with slug='main_dashboard'). Six categories x 3 findings = 18.",
+    "categories": {
+        "RECENT-PAYMENTS": "Fix the user-reported bug at three layers: (1) order by payment_date desc with created_at tiebreak so 'recent' means recent-by-transaction not recent-by-row-creation; (2) withTrashed() on the Lease lookup at line 580 so payments tied to ended leases still surface (a tenant moves out, lands a final settlement payment last — they're now in a recent-payments invariant); (3) where('is_voided', false) on the Payment query so voided rows don't render. All three are 1-line patches but together they form the actual user-perceived 'show me recent payments correctly' contract.",
+        "PAYMENT-DETAIL": "Today the recent-payments row Link routes to invoices.show — landlords land on the invoice page, not a payment view. (1) New App\\Http\\Controllers\\PaymentDetailController::show($payment) returns a JSON payload with payment + invoice + lease + tenant + unit + building + verified_at + voided_at + voided_reason for the drawer. PaymentPolicy::view already enforces landlord ownership. (2) Dashboard.vue row Link routes to the new /payments/{payment} drawer/page (Inertia.visit, preserveState=false so the URL bar reflects). (3) New resources/js/Pages/Payments/Detail.vue branded page showing the full transaction trace + receipt-download CTA.",
+        "DASHBOARD-FILTERS": "Building selection lives inside the property/building dropdown today (lines 382-427 of Dashboard.vue) but there's no chip / All-buildings reset visible at-a-glance. (1) DashboardController accepts building_id=all sentinel (or missing) and falls through metricsBuildingIds to all of the landlord's buildings. (2) Dashboard.vue gains a chip row above Recent Payments showing the active filter (single chip 'All buildings' or 'Building X' with x-to-clear). (3) router.get('dashboard', { building_id }) preserveState=true so the filter survives sidebar interactions.",
+        "LEASE-STATE-BADGE": "Recent-payments rows don't surface lease state — a payment tied to a soft-deleted lease (with the RECENT-PAYMENTS-2 fix) looks identical to one tied to an active lease. (1) DashboardService recent-payments payload extends each row with lease_state: 'active' | 'ended' | 'soft_deleted' computed from the eager-loaded lease (withTrashed). (2) Dashboard.vue row template renders a small colored badge: emerald=active, gray=ended, rose=soft_deleted. (3) Color choices meet WCAG AA contrast on a white background; badge has aria-label for screen readers.",
+        "WIDGET-ORDERING": "Phase 50 shipped landlord_dashboards.layout JSON for saved-report dashboards. Phase 55 reuses the primitive for the main /dashboard widget order via a slug='main_dashboard' row. (1) New PATCH /dashboards/preferences endpoint accepts a widget-order array and upserts the landlord's main_dashboard LandlordDashboard row (layout JSON = ordered widget identifiers). (2) Dashboard.vue ships native HTML5 drag-and-drop (no library) on the main section cards; on drop, posts the new order to the endpoint. (3) DashboardController::landlordDashboard reads the layout on load and applies the order before rendering (fall through to canonical default when no row exists).",
+        "CI": "(1) Phase55DashboardDepthSurfaceTest covers each closure: recent-payments query orders by payment_date + has withTrashed + is_voided=false filters; PaymentDetailController::show route registered + Pages/Payments/Detail.vue exists; DashboardController accepts ?building_id=all; lease_state badge token present in Dashboard.vue; PATCH /dashboards/preferences route + LandlordDashboard slug='main_dashboard' convention. (2) Extend docs/runbooks/dashboard.md with Phase-55 section. (3) Cross-link Phase 28 (TENANT-DOCS-2 receipt), Phase 49 (Cost UI lineage), Phase 50 (landlord_dashboards.layout) references."
+    },
+    "findings": [
+        {
+            "id": "RECENT-PAYMENTS-1",
+            "severity": "HIGH",
+            "title": "orderBy('payment_date') tiebreaks by created_at",
+            "evidence": "DashboardService.php:644 orders Recent Payments by created_at DESC LIMIT 5. A test payment created weeks ago and just marked paid stays buried below newer rows because its created_at is stale. User-reported 2026-05-18: 'some of the test payments marked as paid are not showing up.'",
+            "remediation": "Replace orderBy('created_at', 'desc') with ->orderBy('payment_date', 'desc')->orderBy('created_at', 'desc'). payment_date is the user-perceived 'when did this happen' field (date cast — Phase 17 MONEY-1 contract). Tiebreak on created_at for same-day payments. Limit 5 stays."
+        },
+        {
+            "id": "RECENT-PAYMENTS-2",
+            "severity": "HIGH",
+            "title": "withTrashed() on Lease lookup at line 580",
+            "evidence": "DashboardService.php:580 calls Lease::whereIn('unit_id', $metricsUnitIds)->pluck('id'). Lease uses SoftDeletes (Lease.php:15). When a tenant moves out and the lease is soft-deleted, every payment tied to that lease disappears from the dashboard even though the Payment rows are live. A final settlement payment is exactly the kind of row a landlord wants in recent-payments.",
+            "remediation": "Add ->withTrashed() to the Lease query at :580. The change is universal across the metricsLeaseIds chain (occupancy/arrears/financialMetrics) — review each downstream query and gate by lease state where appropriate (active leases for occupancy, all leases for revenue/payments). Default to withTrashed at the metricsLeaseIds derivation + filter downstream consumers explicitly."
+        },
+        {
+            "id": "RECENT-PAYMENTS-3",
+            "severity": "HIGH",
+            "title": "where('is_voided', false) on recent-payments query",
+            "evidence": "DashboardService.php:635-646 has no is_voided filter. A voided payment in the top-5 would render misleadingly — the landlord sees a payment row that no longer counts toward revenue. The MTD revenue calculation at line 205 already filters by is_voided=false; recent-payments should mirror.",
+            "remediation": "Add ->where('is_voided', false) to the recent-payments Payment query. Consistent with the Phase-17 MONEY-4 contract (voided rows excluded from finance display surfaces)."
+        },
+        {
+            "id": "PAYMENT-DETAIL-1",
+            "severity": "HIGH",
+            "title": "PaymentDetailController + JSON payload",
+            "evidence": "Recent-payments row Link routes to invoices.show. Landlords land on the invoice page, not a payment view. No /payments/{payment} detail route exists.",
+            "remediation": "App\\Http\\Controllers\\PaymentDetailController::show(Payment $payment) under role:landlord,caretaker. PaymentPolicy::view enforces ownership (already implemented). Returns Inertia::render('Payments/Detail', payload with payment + invoice + lease (withTrashed) + tenant + unit + building + verified_at + voided_at + voided_reason). Route GET /payments/{payment} name=payments.detail.show."
+        },
+        {
+            "id": "PAYMENT-DETAIL-2",
+            "severity": "MEDIUM",
+            "title": "Dashboard.vue routes recent-payments rows to detail",
+            "evidence": "Dashboard.vue:1049-1070 Link href={{ route('invoices.show', payment.invoice?.id) }}. Should be the new payment-detail page.",
+            "remediation": "Change href to route('payments.detail.show', payment.id). Preserve the existing fallback (when payment.invoice is null, still go to detail because the payment id always exists)."
+        },
+        {
+            "id": "PAYMENT-DETAIL-3",
+            "severity": "MEDIUM",
+            "title": "Pages/Payments/Detail.vue branded full page",
+            "evidence": "No Vue page exists today for payment detail.",
+            "remediation": "Pages/Payments/Detail.vue with Phase-31 wizard-style cards: Transaction Summary (amount/method/payment_date/reference/voided badge), Invoice Link (invoices.show + invoice number), Tenant + Lease + Unit/Building context, Verification timeline (verified_at, voided_at + reason if applicable), Receipt Download CTA via existing PaymentController::downloadReceipt route. KES en-KE money formatting via Intl.NumberFormat."
+        },
+        {
+            "id": "DASHBOARD-FILTERS-1",
+            "severity": "MEDIUM",
+            "title": "DashboardController accepts building_id=all sentinel",
+            "evidence": "Today building selection is implicit — no building_id query string means active building defaults to first. There's no canonical 'all buildings' sentinel.",
+            "remediation": "DashboardService::resolveActiveBuilding (or the equivalent block at lines 141-169) recognises building_id=all and skips the activeBuilding filter, returning metricsBuildingIds = every building under the landlord. Document the sentinel in dashboard.md."
+        },
+        {
+            "id": "DASHBOARD-FILTERS-2",
+            "severity": "MEDIUM",
+            "title": "Dashboard.vue building chip row with All reset",
+            "evidence": "Building selection lives buried inside the property dropdown at lines 382-427. No at-a-glance visual cue for the current filter.",
+            "remediation": "Above Recent Payments, render a small chip row showing the active filter: 'All buildings' (when no building_id or building_id=all) OR '{building.name}' with an x-to-clear button. Clicking 'x' navigates to /dashboard?building_id=all preserveState=true. Style: rounded indigo-100/indigo-700 chip with X icon."
+        },
+        {
+            "id": "DASHBOARD-FILTERS-3",
+            "severity": "MEDIUM",
+            "title": "URL state round-trips correctly under preserveState",
+            "evidence": "router.get with preserveState=true on Inertia keeps the page mounted; need to make sure the new chip reflects the URL after the navigation completes.",
+            "remediation": "Dashboard.vue computed activeBuildingFilter reads from props (which are recomputed by DashboardController on every request — Inertia delivers fresh props). Test: click chip x → URL updates → Inertia re-fetches → chip reflects 'All buildings'. No client-side cache invalidation needed since Inertia re-renders props."
+        },
+        {
+            "id": "LEASE-STATE-BADGE-1",
+            "severity": "MEDIUM",
+            "title": "lease_state computed on each recent-payments row",
+            "evidence": "After RECENT-PAYMENTS-2 lets soft-deleted-lease payments surface, the landlord can't tell at-a-glance which rows are tied to an ended lease vs an active one.",
+            "remediation": "DashboardService recent-payments mapper computes lease_state per row: 'soft_deleted' if lease->deleted_at !== null, 'ended' if lease->is_active === false, 'active' otherwise. Adds the field to the payload alongside existing payment fields. Eager-loads invoice.lease via withTrashed so the deleted_at + is_active are accessible."
+        },
+        {
+            "id": "LEASE-STATE-BADGE-2",
+            "severity": "MEDIUM",
+            "title": "Dashboard.vue lease-state badge UI",
+            "evidence": "lease_state needs a visual surface so it's a 1-second read for the landlord.",
+            "remediation": "Each recent-payments row template renders a small badge after the unit_number: emerald-100/emerald-700 'Active', gray-100/gray-600 'Ended', rose-100/rose-700 'Closed'. Inline + rounded; matches Phase-51 StatusBadge convention from the lease-counter components."
+        },
+        {
+            "id": "LEASE-STATE-BADGE-3",
+            "severity": "LOW",
+            "title": "a11y: aria-label + WCAG AA contrast",
+            "evidence": "Color-only state cues fail accessibility for color-blind users.",
+            "remediation": "Each badge carries an aria-label='Lease state: {state}'. Colors verified at WCAG AA 4.5:1 on white background via standard tailwind palettes (emerald-100/700, gray-100/600, rose-100/700 all pass)."
+        },
+        {
+            "id": "WIDGET-ORDERING-1",
+            "severity": "MEDIUM",
+            "title": "PATCH /dashboards/preferences + main_dashboard slug",
+            "evidence": "Phase-50 landlord_dashboards.layout already supports JSON ordering for saved-report dashboards. Reuse the primitive for the main /dashboard rather than introduce a parallel users.dashboard_layout column.",
+            "remediation": "New App\\Http\\Controllers\\DashboardPreferencesController::update accepts {widgets: [ordered identifiers]} and upserts LandlordDashboard where landlord_id=$user->id + slug='main_dashboard' with layout=widgets. PATCH /dashboards/preferences under role:landlord. Validation: widgets is an array of allowed identifiers (action_items, financial_metrics, occupancy, arrears_aging, recent_payments, recent_tickets, expiring_leases — the canonical 7 sections)."
+        },
+        {
+            "id": "WIDGET-ORDERING-2",
+            "severity": "MEDIUM",
+            "title": "Dashboard.vue native HTML5 drag-and-drop",
+            "evidence": "No drag-and-drop library is in the project; introducing one for this single feature is heavy.",
+            "remediation": "Native HTML5 draggable attribute + @dragstart / @dragover / @drop event listeners on each section card. Compute the new widget order from the drop position; POST via Inertia.patch. Drag handle: gripper icon top-right of each card with tabindex + keyboard arrow handlers for a11y (Phase 23 contract)."
+        },
+        {
+            "id": "WIDGET-ORDERING-3",
+            "severity": "LOW",
+            "title": "DashboardController applies saved layout on read",
+            "evidence": "Saving an order is moot if the read-side doesn't honour it.",
+            "remediation": "DashboardController::landlordDashboard loads LandlordDashboard where landlord_id + slug='main_dashboard' (firstOrNew). Passes layout JSON to Dashboard.vue as widgetOrder prop. Vue v-for over the ordered list with fallback to canonical default."
+        },
+        {
+            "id": "CI-1",
+            "severity": "HIGH",
+            "title": "Phase55DashboardDepthSurfaceTest",
+            "evidence": "Six categories of closures need invariant assertions so a future refactor cannot silently regress the user-reported bug.",
+            "remediation": "tests/Feature/Dashboard/Phase55DashboardDepthSurfaceTest covers: (a) recent-payments query orders by payment_date AND has withTrashed AND filters is_voided=false (assertion-by-fixture: insert 3 payments with mixed states + verify ordering + presence/absence); (b) GET /payments/{payment} returns Inertia 'Payments/Detail' with full payload + cross-tenant 403; (c) ?building_id=all bypasses the activeBuilding filter; (d) lease_state field present in each recent-payments row + Dashboard.vue contains the badge token; (e) PATCH /dashboards/preferences upserts the main_dashboard row + the read-side honours the saved order; (f) docs/runbooks/dashboard.md mentions Phase 55."
+        },
+        {
+            "id": "CI-2",
+            "severity": "LOW",
+            "title": "docs/runbooks/dashboard.md Phase-55 section",
+            "evidence": "No dashboard.md exists today. Phase 55 establishes it as the home for dashboard-related operator guidance.",
+            "remediation": "New docs/runbooks/dashboard.md with sections: recent-payments contract (order + soft-delete + voided semantics), payment-detail flow (drawer vs invoice page), building-filter UI + sentinel convention, lease-state badge color/state map, widget-ordering payload schema + the slug='main_dashboard' convention, cross-references to Phase 28/49/50 lineage."
+        },
+        {
+            "id": "CI-3",
+            "severity": "LOW",
+            "title": "Cross-link Phase 28 / 49 / 50 closeouts to Phase 55",
+            "evidence": "Phase 28 TENANT-DOCS-2 ships the receipt route the new detail page links to. Phase 49 ticket cost UI sets the surface-tag pattern Phase 55 mirrors. Phase 50 landlord_dashboards.layout is the primitive Phase 55 extends.",
+            "remediation": "Append Phase 55 cross-references to the audit_closeout notes of the relevant Phase 28/49/50 findings so future readers can trace the lineage forwards. No behavioural change — just cross-reference accuracy."
+        }
+    ]
+}
