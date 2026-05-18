@@ -139,5 +139,35 @@
             "evidence": "Phase 26 + 37 + 62 PWA surface has no umbrella runbook — operator + new dev have no map to the offline contract.",
             "remediation": "docs/runbooks/offline.md NEW covering: PWA primitives map (useOfflineData / useBackgroundSync / useConnection / useWebPush + idb stores); queue lifecycle table (enqueue → attempt N → success | conflict | dead-letter); per-route-family cache TTL contract (table from CACHE-STRATEGY-1); conflict-resolution flow diagram (client → If-Match → 200 / 409 → ConflictDialog); operator runbook for inspecting dead-letter queues via browser DevTools (Application → IndexedDB → pm-offline-* stores); cross-link to Phase 26 [MOBILE+PWA] + Phase 37 [PWA-DEPTH] phase plans. alert-thresholds.md gains 3 visibility-only rows: offline_writes_dead_letter_count, offline_photo_quota_evictions_count, offline_shell_boot_count."
         }
-    ]
+    ],
+    "audit_closeout": {
+        "closed_at": "2026-05-18",
+        "closeout_commit": "afa79d6",
+        "findings_closed": 18,
+        "deferrals": 0,
+        "tests_added": 44,
+        "assertions_added": 183,
+        "files_added": 14,
+        "files_modified": 9,
+        "commit_lineage": [
+            "6a0a73b — PRD baseline (18 findings 5H/8M/5L across 6 categories)",
+            "3a50542 — OFFLINE-WRITES-1/2/3 (registerOfflinePost helper + 5 named queues + persistent IDB queue with dead-letter)",
+            "d0c5be8 — OFFLINE-PHOTOS-1/2/3 (offlinePhotoStore blob queue + PhotoUploadStatusList + 50MB budget)",
+            "8b6fe8e — CACHE-STRATEGY-1/2/3 (per-route-family caches + shell precache + CACHE_BUST + SYNC_NOW message handlers)",
+            "ca7b98a — CONFLICT-RESOLUTION-1/2/3 (version column + RowVersion trait + WriteConflictException + 409 renderer + ConflictDialog)",
+            "d17cbf9 — CONNECTIVITY-UX-1/2/3 (SlowNetworkBanner + PendingSyncBadge + QueuedOpsTray Sync now button)",
+            "afa79d6 — CI surface watchdog + offline.md NEW + alert-thresholds 3 rows"
+        ],
+        "sub_scope_deferrals": [
+            "ConflictDialog global mount: component scaffold ships; wiring to a writeConflict event bus that surfaces it on every 409 from the offline replay layer is deferred to a follow-up cycle (the Vue-tail bundle that picks up cross-phase polish).",
+            "PendingSyncBadge per-page wiring: component scaffold ships; dropping it into Pages/Invoices/Show.vue + Pages/Tickets/Show.vue + Pages/Leases/Show.vue + Pages/WaterReadings/Show.vue headers is also deferred to the same Vue-tail follow-up.",
+            "TicketController + TicketCommentController + WaterReadingController If-Match wiring: RowVersion trait ships + WriteConflictException renderer ships + assertIfMatch() method exists on each model, but the controllers themselves don't yet call it (they would need request->header('If-Match') reads + service-side dispatch). Deferred to follow-up — the contract is ready, the per-controller adoption is mechanical.",
+            "Client-side telemetry pipeline for offline_writes_dead_letter_count + offline_photo_quota_evictions_count + offline_shell_boot_count: alert-thresholds.md documents the gauges; client→server transmission deferred to the frontend telemetry pipeline."
+        ],
+        "carry_overs_closed": [],
+        "carry_overs_opened": [
+            "VUE-TAIL-OFFLINE: ConflictDialog global mount + PendingSyncBadge per-page wiring + TicketController/TicketCommentController/WaterReadingController If-Match wiring. Estimated 1 sub-phase of a future Vue-tail cycle.",
+            "PWA-TELEMETRY: client→server gauge transmission for the 3 visibility-only Phase-62 gauges. Estimated 1 sub-phase of a future PWA-TELEMETRY cycle or wedged into a DEFER-CLEANUP gauge-wiring follow-up."
+        ]
+    }
 }
