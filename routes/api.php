@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\CspReportController;
 use App\Http\Controllers\Api\HealthCheckController;
 use App\Http\Controllers\Api\MetricsController;
+use App\Http\Controllers\Api\TelemetryController;
 use App\Http\Controllers\Api\TenantInvoiceController;
 use App\Http\Controllers\Api\TenantLeaseController;
 use App\Http\Controllers\Api\TenantNotificationController;
@@ -35,6 +36,13 @@ Route::get('/metrics', [MetricsController::class, 'index']);
 // post unauthenticated) but rate-limited so one offender can't spam.
 Route::post('/v1/csp-reports', [CspReportController::class, 'store'])
     ->middleware('throttle:csp-report');
+
+// Phase-53 VUE-TELEMETRY-1: client-side telemetry sink for the Phase-51
+// pollPauseCount counter on Scheduled.vue. Public (sendBeacon doesn't
+// reliably pass cookies on unload) but per-IP rate-limited.
+Route::post('/telemetry/vue-preview-poll-pause', [TelemetryController::class, 'vuePreviewPollPause'])
+    ->middleware('throttle:60,1')
+    ->name('telemetry.vue-preview-poll-pause');
 
 // API v1 routes
 Route::prefix('v1')->group(function () {

@@ -199,13 +199,42 @@ function handleVisibility(): void {
     }
 }
 
+// Phase-53 VUE-TELEMETRY-3: post the accumulated pause count to the
+// server gauge on page unload via sendBeacon so the
+// vue_preview_poll_pause_count time-series exists in Prometheus
+// without polling. sendBeacon survives unload but does NOT send
+// CSRF tokens, which is why the route is CSRF-exempt in api.php.
+function reportPollPauseCount(): void {
+    if (pollPauseCount.value <= 0) return;
+    const body = new Blob(
+        [
+            JSON.stringify({
+                count: pollPauseCount.value,
+                route: 'reports.scheduled',
+            }),
+        ],
+        { type: 'application/json' },
+    );
+    try {
+        navigator.sendBeacon(
+            route('telemetry.vue-preview-poll-pause'),
+            body,
+        );
+    } catch {
+        // best-effort
+    }
+}
+
 onMounted(() => {
     document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('beforeunload', reportPollPauseCount);
     handleVisibility();
 });
 
 onUnmounted(() => {
     document.removeEventListener('visibilitychange', handleVisibility);
+    window.removeEventListener('beforeunload', reportPollPauseCount);
+    reportPollPauseCount();
     stopPollInterval();
 });
 </script>
