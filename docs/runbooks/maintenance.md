@@ -167,3 +167,110 @@ Visibility-only (no alert) — ops dashboards consume the gauge.
   `landlord_maintenance_cost_kes_30d`
 - `docs/runbooks/tenant-portal.md` — Phase 28 first-response SLA
 - `phase-49-audit-prd.json` — full PRD + audit_closeout
+
+---
+
+## Phase 54 [MAINTENANCE-DEPTH-2] extensions (2026-05-18)
+
+Closes the four Phase 49 sub-scope deferrals (A3.1-A3.4 in pending-path
+registry) plus adds VENDOR-ONBOARDING (net-new).
+
+### A3.1 → VENDOR-NOTIFICATIONS
+
+`App\Listeners\NotifyVendorOnAssignment` is the listener Phase 49
+deferred. ShouldQueue + `$tries=4` + `$backoff=[30,60,300,1800]`
+Phase-16 RESIL pattern. Auto-discovered by typed
+`handle(TicketAssignedToVendor)` — no explicit registration. Skips
+silently when `vendor.email` is null.
+
+`App\Mail\VendorAssignmentMailable` queued + afterCommit. Locale
+resolved via `ticket.landlord->preferredLocale()` (vendors are NOT
+Users so `HasLocalePreference` doesn't auto-fire); falls back to
+`config('app.fallback_locale')` when landlord locale is unknown.
+
+i18n: `lang/{en,sw,ar}/maintenance.php` new namespace.
+`vendor_assigned.*` keys identity-parity across all three locales;
+`ar/` carries `[TODO-ar]` placeholders matching the Phase 44
+shrink-only baseline.
+
+### A3.2 → SLA-LANDLORD-UI
+
+Routes under **`/sla`** with `role:landlord` middleware. NOT
+`/admin/sla` — `/admin/*` is super-admin only. Platform-default rows
+(`landlord_id NULL`) stay read-only from this surface; they're
+authored elsewhere.
+
+Landlord can:
+- View their own overrides + the read-only global cascade.
+- Create / update / delete only their own rows (`SlaDefinitionPolicy`
+  enforces `landlord_id === user.id`).
+
+**Cache invalidation contract**: `SlaDefinitionService::resolveFor`
+embeds a per-landlord version stamp (`sla:ver:{landlord|global}`) in
+the cache key. `SlaDefinitionObserver::saved/deleted` bumps that
+counter so the next resolve computes a fresh key — landlord saves an
+override and sees it immediately, not after a 5-minute lag.
+
+### A3.3 → PARTS-REORDER
+
+`parts:reorder-suggest` cron runs daily 06:45 Africa/Nairobi (after
+`parts:audit-stock` 06:30, before `tickets:audit-sla` 07:00). Walks
+`Part::belowThreshold` across all landlords; groups by inferred
+vendor (latest `ticket_parts → tickets.vendor_id`, NULL when no
+history); idempotently `firstOrCreate`s a `DraftPurchaseOrder` per
+(landlord, vendor, draft) via the `dpo_unique_open_per_vendor`
+constraint; `updateOrCreate`s lines per part_id. Re-runs do NOT
+duplicate.
+
+Suggested qty: `max(1, reorder_threshold * 2 - qty_available)`.
+
+`/parts/purchase-orders` (landlord-only) lists drafts with confirm /
+cancel actions. Confirm flips status to `sent`; cancel to
+`cancelled`. Visibility-only gauge
+`draft_purchase_orders_pending_count{landlord_id}` for ops.
+
+### A3.4 → COST-UI
+
+`Tickets/Show.vue` sidebar Cost card (landlord + caretaker view;
+tenant view omits the prop entirely). 4-segment proportional bar
+(parts/vendor/labor/other in indigo/emerald/amber/rose) + per-
+category breakdown formatted KES en-KE via `Intl.NumberFormat`.
+
+Manual cost entry modal POSTs to `tickets.costs.store` (landlord-
+only, validates `category in [vendor, labor, other]` — `parts` is
+auto-recorded by Phase 49 `TicketResolutionService::recordParts` and
+rejected here to keep a single source of truth). Each store writes
+a `TicketCost` row + a `TicketActivity action=cost_recorded` audit
+entry inside `DB::transaction`.
+
+`TicketPolicy::createCost` requires landlord ownership; caretakers
+view but cannot mutate.
+
+### VENDOR-ONBOARDING (net-new)
+
+`App\Observers\VendorObserver::created` mints a 7-day signed URL via
+`URL::signedRoute('vendor.profile.edit', ...)` and queues
+`VendorCreatedMailable` to `vendor.email`. Skipped silently when
+`vendor.email` is null.
+
+`/v/profile/{vendor}` GET + PATCH live OUTSIDE the auth middleware
+group, under `signed + throttle:invitation`. Vendor is standalone
+(no User row, no auth). The signed URL IS the auth — Laravel's
+`signed` middleware verifies on each request.
+
+Allow-listed mutations: `contact_person`, `phone`, `address`,
+`notes`. `landlord_id`, `email`, `name` are explicitly NOT in the
+validator so a token-holder cannot pivot to identity / billing
+mutations.
+
+`Pages/Vendor/Profile.vue` is a standalone branded form (no
+`AuthenticatedLayout`) — vendors are not logged in.
+
+### CI gates
+
+- `Phase54VendorNotificationsTest` (8 / 43)
+- `Phase54SlaLandlordUiTest` (7 / 25)
+- `Phase54PartsReorderTest` (7 / 22)
+- `Phase54CostUiTest` (6 / 38)
+- `Phase54VendorOnboardingTest` (7 / 26)
+- `Phase54MaintenanceDepth2SurfaceTest` — cross-category presence map
