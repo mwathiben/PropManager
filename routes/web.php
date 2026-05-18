@@ -582,6 +582,7 @@ Route::middleware('auth')->group(function () {
         ->name('payments.checkout.initialize');
     Route::get('/payments/callback', [PaymentController::class, 'handleCallback'])->name('payments.callback');
     Route::get('/payments/public-key', [PaymentController::class, 'getPublicKey'])->name('payments.publicKey');
+    Route::get('/payments/{payment}', [\App\Http\Controllers\PaymentDetailController::class, 'show'])->name('payments.detail.show');
     Route::get('/payments/{payment}/receipt', [PaymentController::class, 'downloadReceipt'])->name('payments.downloadReceipt');
     Route::post('/payments/{payment}/send-receipt', [PaymentController::class, 'sendReceipt'])
         ->middleware('throttle:notification-send') // RATE-2

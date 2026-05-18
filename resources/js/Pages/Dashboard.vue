@@ -1047,7 +1047,7 @@ onUnmounted(() => {
 
                     <div v-if="localRecentPayments && localRecentPayments.length > 0" class="space-y-3">
                         <Link v-for="payment in localRecentPayments" :key="payment.id"
-                             :href="route('invoices.show', payment.invoice?.id)"
+                             :href="route('payments.detail.show', payment.id)"
                              class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors">
                             <div class="flex items-center gap-3">
                                 <div class="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-green-600">
