@@ -9,7 +9,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
-use Mockery;
 use Tests\TestCase;
 
 /**
@@ -89,7 +88,7 @@ class Phase38CleanupSurfaceTest extends TestCase
         $prop->setAccessible(true);
         $prop->setValue(null, false);
 
-        $metrics = new MetricsService();
+        $metrics = new MetricsService;
 
         // Each method should return without throwing.
         $metrics->increment('test_counter');
@@ -210,7 +209,7 @@ class Phase38CleanupSurfaceTest extends TestCase
             $baseline,
             $actual,
             "Test suite has {$actual} errors+failures, baseline is {$baseline}. "
-            ."New test failures violate the Phase-38 DEFER-TEST-HEALTH-2 ratchet. "
+            .'New test failures violate the Phase-38 DEFER-TEST-HEALTH-2 ratchet. '
             .'Fix the failing tests OR raise the baseline (only on legitimate xfail).',
         );
     }
