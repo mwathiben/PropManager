@@ -65,6 +65,11 @@ Route::prefix('v1')->group(function () {
         Route::post('/auth/logout', [\App\Http\Controllers\Api\AuthController::class, 'logout']);
         Route::get('/auth/user', [\App\Http\Controllers\Api\AuthController::class, 'user']);
 
+        // Phase-64 TELEMETRY-WIRE-1: PWA gauge ingress endpoint.
+        Route::post('/telemetry/pwa', [\App\Http\Controllers\Api\PwaTelemetryController::class, 'store'])
+            ->middleware('throttle:telemetry')
+            ->name('api.v1.telemetry.pwa');
+
         // Phase-35 PLATFORM-NOTIF-2: notification preferences self-serve
         Route::get('/notifications/preferences', [\App\Http\Controllers\Settings\NotificationPreferenceController::class, 'show'])
             ->name('api.v1.notifications.preferences.show');

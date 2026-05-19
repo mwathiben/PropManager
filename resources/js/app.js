@@ -132,6 +132,12 @@ if ('serviceWorker' in navigator) {
                 }
             });
 
+        // Phase-64 TELEMETRY-WIRE-2: wire client-side accumulator +
+        // flush-on-hide so the 3 PWA gauges reach the server.
+        import('@/lib/pwaTelemetry').then(({ registerPwaTelemetry }) => {
+            registerPwaTelemetry();
+        });
+
         navigator.serviceWorker.addEventListener('message', (event) => {
             const data = event.data;
             // Phase-64 OFFLINE-MOUNTS-1: 409 surfacing from the replay

@@ -326,6 +326,20 @@ class AppServiceProvider extends ServiceProvider
                 });
         });
 
+        // Phase-64 TELEMETRY-WIRE-1: PWA telemetry ingress throttle.
+        // 60/min/user is generous — clients flush on visibilitychange +
+        // beforeunload (at most a handful of beacons per session).
+        RateLimiter::for('telemetry', function (Request $request) {
+            return Limit::perMinute(60)
+                ->by((string) ($request->user()?->id ?? $request->ip()))
+                ->response(function (Request $request, array $headers) {
+                    return response()->json([
+                        'message' => 'Telemetry rate limit exceeded.',
+                        'retry_after' => $headers['Retry-After'] ?? 60,
+                    ], 429, $headers);
+                });
+        });
+
         // Phase-63 INBOX-MOD-3: inbox compose throttle. 20/min by
         // authenticated user — well above the ~1 msg/min back-and-forth
         // peak but enough to absorb a compromised-account burst.
