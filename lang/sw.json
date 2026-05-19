@@ -41,7 +41,9 @@
         "my_finances": "Fedha Zangu",
         "my_lease": "Mkataba Wangu",
         "notifications": "Arifa",
-        "view_buildings": "Tazama Majengo"
+        "view_buildings": "Tazama Majengo",
+        "messages": "Ujumbe",
+        "inbox": "Sanduku la ujumbe"
     },
     "menu": {
         "account": "Akaunti",

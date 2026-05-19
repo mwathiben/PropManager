@@ -12,6 +12,7 @@ import LiveAnnouncer from '@/Components/LiveAnnouncer.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import NotificationBell from '@/Components/NotificationBell.vue';
+import InboxBell from '@/Components/InboxBell.vue';
 import ConnectionStatus from '@/Components/ConnectionStatus.vue';
 import OnlineIndicator from '@/Components/OnlineIndicator.vue';
 import QueuedOpsTray from '@/Components/QueuedOpsTray.vue';
@@ -51,6 +52,7 @@ import {
     ClockIcon,
     DocumentDuplicateIcon,
     ArchiveBoxIcon,
+    EnvelopeIcon,
     ShieldCheckIcon,
     ChatBubbleLeftRightIcon,
     CurrencyDollarIcon,
@@ -212,6 +214,9 @@ const navigationItems = computed(() => {
                 badgeColor: 'bg-blue-500'
             },
 
+            // Phase-64 INBOX-MOUNT-3: landlord-side message-thread entry.
+            { name: t('nav.messages'), href: route('message-threads.index'), icon: EnvelopeIcon, active: route().current('message-threads.*'), badgeKey: 'inboxUnread', badgeColor: 'bg-indigo-500' },
+
             // SETTINGS
             { type: 'divider', label: '' },
             { name: t('nav.settings'), href: route('settings.index'), icon: Cog6ToothIcon, active: route().current('settings.*') },
@@ -233,6 +238,8 @@ const navigationItems = computed(() => {
             { name: t('nav.my_tickets'), href: route('tickets.index'), icon: TicketIcon, active: route().current('tickets.*'), badgeKey: 'tickets', badgeColor: 'bg-yellow-500' },
             { name: t('nav.my_lease'), href: route('tenant.lease'), icon: DocumentTextIcon, active: route().current('tenant.lease') },
             { name: t('nav.notifications'), href: route('tenant.notifications'), icon: BellIcon, active: route().current('tenant.notifications'), badgeKey: 'notifications', badgeColor: 'bg-indigo-500' },
+            // Phase-64 INBOX-MOUNT-3: tenant-side inbox entry.
+            { name: t('nav.inbox'), href: route('tenant.inbox.index'), icon: EnvelopeIcon, active: route().current('tenant.inbox.*'), badgeKey: 'inboxUnread', badgeColor: 'bg-indigo-500' },
         ];
     }
 
@@ -596,6 +603,7 @@ const navigationItems = computed(() => {
                         <OnlineIndicator />
                         <ConnectionStatus />
                         <NotificationBell />
+                        <InboxBell />
                     </div>
                 </header>
 

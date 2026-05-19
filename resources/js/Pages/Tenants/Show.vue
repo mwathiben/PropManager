@@ -18,6 +18,7 @@ import PencilIcon from '@heroicons/vue/24/outline/PencilIcon';
 import TrashIcon from '@heroicons/vue/24/outline/TrashIcon';
 import PlusIcon from '@heroicons/vue/24/outline/PlusIcon';
 import ChatBubbleLeftIcon from '@heroicons/vue/24/outline/ChatBubbleLeftIcon';
+import InitiateThreadDialog from '@/Components/Inbox/InitiateThreadDialog.vue';
 import ClockIcon from '@heroicons/vue/24/outline/ClockIcon';
 import DocumentTextIcon from '@heroicons/vue/24/outline/DocumentTextIcon';
 import XMarkIcon from '@heroicons/vue/24/outline/XMarkIcon';
@@ -49,6 +50,9 @@ const editingContact = ref(null);
 // UI never advertises an action the policy will deny.
 const canViewTenant = computed(() => props.tenant?.abilities?.view ?? false);
 const canEditTenant = computed(() => props.tenant?.abilities?.update ?? false);
+
+// Phase-64 INBOX-MOUNT-1: ref to the InitiateThreadDialog slide-over.
+const messageDialog = ref<InstanceType<typeof InitiateThreadDialog> | null>(null);
 const canViewLedger = computed(() => props.tenant?.abilities?.viewLedger ?? false);
 const canRestoreTenant = computed(() => props.tenant?.abilities?.restore ?? false);
 
@@ -297,16 +301,35 @@ const getActivityIcon = (action) => {
                                 </div>
                             </div>
                         </div>
-                        <button
-                            v-if="canEditTenant"
-                            @click="showEditModal = true"
-                            class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                        >
-                            <PencilIcon class="w-4 h-4" />
-                            Edit Profile
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <button
+                                v-if="canEditTenant"
+                                @click="messageDialog?.open()"
+                                type="button"
+                                class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                                data-testid="tenant-message-cta"
+                            >
+                                <ChatBubbleLeftIcon class="w-4 h-4" />
+                                Message
+                            </button>
+                            <button
+                                v-if="canEditTenant"
+                                @click="showEditModal = true"
+                                class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                            >
+                                <PencilIcon class="w-4 h-4" />
+                                Edit Profile
+                            </button>
+                        </div>
                     </div>
                 </div>
+
+                <!-- Phase-64 INBOX-MOUNT-1: thread initiation modal -->
+                <InitiateThreadDialog
+                    ref="messageDialog"
+                    :tenant-id="tenant.id"
+                    :tenant-name="tenant.name"
+                />
 
                 <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
                     <!-- Sidebar Navigation -->

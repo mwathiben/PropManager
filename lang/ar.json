@@ -41,7 +41,9 @@
         "my_finances": "شؤوني المالية",
         "my_lease": "عقد الإيجار الخاص بي",
         "notifications": "الإشعارات",
-        "view_buildings": "عرض المباني"
+        "view_buildings": "عرض المباني",
+        "messages": "[TODO-ar] Messages",
+        "inbox": "[TODO-ar] Inbox"
     },
     "menu": {
         "account": "الحساب",
