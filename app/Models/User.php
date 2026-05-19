@@ -74,6 +74,9 @@ class User extends Authenticatable implements HasLocalePreference
         'parental_consent_provided_at',
         'payment_gateway_preference',
         'acquisition_source',
+        // Phase-63 INBOX-NOTIFY-1: presence signal for unread-message
+        // fallback gating. Touched by HandleInertiaRequests debounced.
+        'last_active_at',
     ];
 
     protected $hidden = [
@@ -100,6 +103,8 @@ class User extends Authenticatable implements HasLocalePreference
         // When non-null the account is read-only; the Gate::before
         // hook in AuthServiceProvider denies write-side abilities.
         'restricted_at' => 'datetime',
+        // Phase-63 INBOX-NOTIFY-1: presence cursor (datetime cast).
+        'last_active_at' => 'datetime',
         // Phase-21 DEFER-DPA-1: Kenya DPA Article 8 / Section 33 —
         // children's data. dob feeds KenyaDpaService::isMinor; consent
         // artefact + timestamp gate downstream processing when dob says

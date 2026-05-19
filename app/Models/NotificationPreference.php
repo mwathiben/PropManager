@@ -31,6 +31,8 @@ class NotificationPreference extends Model
         // campaigns (trial-ending, dunning, winback, activation nudge).
         // Default true — opt-out is explicit.
         'lifecycle_enabled',
+        // Phase-63 INBOX-NOTIFY-2: fallback opt-in for inbox messages.
+        'new_message_enabled',
         // Channel preferences
         'email_enabled',
         'sms_enabled',
@@ -62,6 +64,7 @@ class NotificationPreference extends Model
         'caretaker_invitation_enabled' => 'boolean',
         'tenant_invitation_enabled' => 'boolean',
         'lifecycle_enabled' => 'boolean',
+        'new_message_enabled' => 'boolean',
         // Channel casts
         'email_enabled' => 'boolean',
         'sms_enabled' => 'boolean',

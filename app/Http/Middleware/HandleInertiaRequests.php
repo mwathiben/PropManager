@@ -45,6 +45,23 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
 
+        // Phase-63 INBOX-NOTIFY-1: presence cursor — debounced to one
+        // write per 60s so a chatty Inertia page doesn't write-storm
+        // the users table. The SendUnreadMessageFallback listener
+        // reads this to decide whether to fan out fallback channels.
+        if ($user !== null) {
+            $now = now();
+            if (
+                $user->last_active_at === null
+                || $user->last_active_at->lessThan($now->copy()->subSeconds(60))
+            ) {
+                \App\Models\User::withoutGlobalScope('landlord')
+                    ->where('id', $user->id)
+                    ->update(['last_active_at' => $now]);
+                $user->last_active_at = $now;
+            }
+        }
+
         return [
             ...parent::share($request),
             'auth' => [

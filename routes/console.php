@@ -49,6 +49,9 @@ $schedule = function (string $command, callable $cadence) use ($failureEmail, $l
 };
 
 $schedule('notifications:process-schedules', fn ($e) => $e->everyFiveMinutes());
+// Phase-63 INBOX-NOTIFY-3: catch the trailing case where a user was
+// active when the message arrived then walked away without reading.
+$schedule('messages:notify-unread-fallback', fn ($e) => $e->everyFifteenMinutes()->timezone('Africa/Nairobi'));
 $schedule('invoices:mark-overdue', fn ($e) => $e->dailyAt('00:05'));
 $schedule('invoices:apply-late-fees', fn ($e) => $e->dailyAt('00:10'));
 $schedule('invoices:automate', fn ($e) => $e->dailyAt('06:00'));

@@ -17,4 +17,8 @@ return [
         'thread_locked_by_landlord' => '[TODO-sw] Thread locked by landlord.',
         'thread_unlocked_by_landlord' => '[TODO-sw] Thread unlocked by landlord.',
     ],
+    'notification' => [
+        'subject' => '[TODO-sw] New message from :sender',
+        'sender_unknown' => '[TODO-sw] Property team',
+    ],
 ];

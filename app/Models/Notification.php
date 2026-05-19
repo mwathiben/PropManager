@@ -35,6 +35,9 @@ class Notification extends Model
 
     public const TYPE_TENANT_INVITATION = 'tenant_invitation';
 
+    // Phase-63 INBOX-NOTIFY-2: fallback channel for unread inbox messages.
+    public const TYPE_NEW_MESSAGE = 'new_message';
+
     // Channel constants
     public const CHANNEL_EMAIL = 'email';
 
@@ -101,6 +104,7 @@ class Notification extends Model
         self::TYPE_RECEIPT => self::URGENCY_INFORMATIONAL,
         self::TYPE_MAINTENANCE_NOTICE => self::URGENCY_INFORMATIONAL,
         self::TYPE_GENERAL => self::URGENCY_INFORMATIONAL,
+        self::TYPE_NEW_MESSAGE => self::URGENCY_IMPORTANT,
     ];
 
     protected $fillable = [
