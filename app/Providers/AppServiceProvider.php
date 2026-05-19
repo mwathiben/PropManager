@@ -326,6 +326,24 @@ class AppServiceProvider extends ServiceProvider
                 });
         });
 
+        // Phase-63 INBOX-MOD-3: inbox compose throttle. 20/min by
+        // authenticated user — well above the ~1 msg/min back-and-forth
+        // peak but enough to absorb a compromised-account burst.
+        RateLimiter::for('messages', function (Request $request) {
+            $perMinute = (int) config('inbox.rate_limit.per_minute', 20);
+
+            return Limit::perMinute($perMinute)
+                ->by((string) ($request->user()?->id ?? $request->ip()))
+                ->response(function (Request $request, array $headers) {
+                    app(\App\Services\MetricsService::class)->gauge('inbox_rate_limit_hits_count', 1);
+
+                    return response()->json([
+                        'message' => 'Too many messages. Please slow down.',
+                        'retry_after' => $headers['Retry-After'] ?? 60,
+                    ], 429, $headers);
+                });
+        });
+
         // File upload rate limiter
         RateLimiter::for('file-upload', function (Request $request) {
             $config = config('security.rate_limits.file_upload', '10,1');

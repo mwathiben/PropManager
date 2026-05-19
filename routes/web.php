@@ -1327,8 +1327,10 @@ Route::middleware(['auth', 'role:tenant', 'payment.verified', 'kyc.complete'])->
     Route::get('/inbox/{thread}', [\App\Http\Controllers\Tenant\InboxController::class, 'show'])
         ->name('tenant.inbox.show');
     Route::post('/inbox', [\App\Http\Controllers\Tenant\InboxController::class, 'store'])
+        ->middleware('throttle:messages')
         ->name('tenant.inbox.store');
     Route::post('/inbox/{thread}/messages', [\App\Http\Controllers\Tenant\InboxController::class, 'storeMessage'])
+        ->middleware('throttle:messages')
         ->name('tenant.inbox.messages.store');
 });
 
@@ -1350,9 +1352,19 @@ Route::middleware(['auth', 'verified', 'role:landlord,caretaker'])->group(functi
     Route::get('/message-threads/{thread}', [\App\Http\Controllers\MessageThreadController::class, 'show'])
         ->name('message-threads.show');
     Route::post('/message-threads', [\App\Http\Controllers\MessageThreadController::class, 'store'])
+        ->middleware('throttle:messages')
         ->name('message-threads.store');
     Route::post('/message-threads/{thread}/messages', [\App\Http\Controllers\MessageThreadController::class, 'storeMessage'])
+        ->middleware('throttle:messages')
         ->name('message-threads.messages.store');
+
+    // Phase-63 INBOX-MOD-1: landlord moderation transitions.
+    Route::post('/message-threads/{thread}/archive', [\App\Http\Controllers\MessageThreadModerationController::class, 'archive'])
+        ->name('message-threads.archive');
+    Route::post('/message-threads/{thread}/lock', [\App\Http\Controllers\MessageThreadModerationController::class, 'lock'])
+        ->name('message-threads.lock');
+    Route::post('/message-threads/{thread}/unlock', [\App\Http\Controllers\MessageThreadModerationController::class, 'unlock'])
+        ->name('message-threads.unlock');
 });
 
 // Phase-63 INBOX-REALTIME-2: shared read-receipt endpoint. Any
@@ -1360,6 +1372,9 @@ Route::middleware(['auth', 'verified', 'role:landlord,caretaker'])->group(functi
 Route::middleware('auth')->group(function () {
     Route::patch('/messages/{message}/read', \App\Http\Controllers\MessageReadController::class)
         ->name('messages.read');
+    // Phase-63 INBOX-MOD-1: sender soft-delete within the 5-min window.
+    Route::delete('/messages/{message}', \App\Http\Controllers\MessageDeleteController::class)
+        ->name('messages.destroy');
 });
 
 // Phase-29 WF-LEASE-RENEW-2: landlord-side renewal initiate + confirm.

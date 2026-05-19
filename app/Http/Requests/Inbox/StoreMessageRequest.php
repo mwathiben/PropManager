@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Requests\Inbox;
 
 use App\Models\Message;
+use App\Support\MessageContentPolicy;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -37,5 +39,16 @@ class StoreMessageRequest extends FormRequest
                 'max:5120',
             ],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $v) {
+            $body = (string) $this->input('body', '');
+            if ($body !== '' && MessageContentPolicy::isSpam($body)) {
+                $v->errors()->add('body', __('inbox.message.spam_rejected'));
+                app(\App\Services\MetricsService::class)->gauge('inbox_spam_rejected_count', 1);
+            }
+        });
     }
 }
