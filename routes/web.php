@@ -1355,6 +1355,13 @@ Route::middleware(['auth', 'verified', 'role:landlord,caretaker'])->group(functi
         ->name('message-threads.messages.store');
 });
 
+// Phase-63 INBOX-REALTIME-2: shared read-receipt endpoint. Any
+// authenticated participant on the thread can mark a message read.
+Route::middleware('auth')->group(function () {
+    Route::patch('/messages/{message}/read', \App\Http\Controllers\MessageReadController::class)
+        ->name('messages.read');
+});
+
 // Phase-29 WF-LEASE-RENEW-2: landlord-side renewal initiate + confirm.
 Route::middleware(['auth', 'role:landlord'])->group(function () {
     Route::post('/leases/{lease}/renewals', [\App\Http\Controllers\LeaseRenewalController::class, 'store'])

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Events\MessagePosted;
 use App\Http\Requests\Inbox\StoreMessageRequest;
 use App\Http\Requests\Inbox\StoreMessageThreadRequest;
 use App\Models\Message;
@@ -69,7 +70,7 @@ class MessageThreadController extends Controller
         $landlord = $request->user();
         $landlordId = $request->landlordId();
 
-        $thread = DB::transaction(function () use ($request, $landlord, $landlordId) {
+        [$thread, $initialMessage] = DB::transaction(function () use ($request, $landlord, $landlordId) {
             $subjectType = $request->input('subject_type');
 
             $thread = MessageThread::create([
@@ -106,8 +107,10 @@ class MessageThreadController extends Controller
                 $this->attachments->attachToMessage($message, $files);
             }
 
-            return $thread;
+            return [$thread, $message];
         });
+
+        broadcast(new MessagePosted($initialMessage))->toOthers();
 
         return redirect()
             ->route('message-threads.show', $thread)
@@ -133,6 +136,8 @@ class MessageThreadController extends Controller
 
             return $message;
         });
+
+        broadcast(new MessagePosted($message))->toOthers();
 
         return back()->with('status', __('inbox.message_sent'));
     }

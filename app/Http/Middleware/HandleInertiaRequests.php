@@ -60,6 +60,16 @@ class HandleInertiaRequests extends Middleware
                 'tenant_abilities' => $user && $user->isTenant()
                     ? \App\Support\TenantAbilities::for($user)
                     : null,
+                // Phase-63 INBOX-REALTIME-2: total unread count across
+                // every thread the user participates in. Cached 30s to
+                // bound the cost of the per-request fan-out join.
+                'inbox_unread_total' => $user
+                    ? \Illuminate\Support\Facades\Cache::remember(
+                        'inbox:unread:'.$user->id,
+                        30,
+                        fn () => $this->computeInboxUnread($user->id),
+                    )
+                    : 0,
             ],
             'impersonating' => session('impersonating') !== null,
             'impersonating_name' => session('impersonating_name'),
@@ -123,6 +133,34 @@ class HandleInertiaRequests extends Middleware
      *     days_remaining: int
      * }>
      */
+    /**
+     * Phase-63 INBOX-REALTIME-2: sum unread message counts across
+     * every thread the user participates in. Excludes own messages
+     * and respects message_thread_participants.last_read_at.
+     */
+    protected function computeInboxUnread(int $userId): int
+    {
+        return (int) \Illuminate\Support\Facades\DB::table('messages')
+            ->join(
+                'message_thread_participants',
+                'message_thread_participants.thread_id',
+                '=',
+                'messages.thread_id',
+            )
+            ->where('message_thread_participants.user_id', $userId)
+            ->where('messages.sender_id', '!=', $userId)
+            ->whereNull('messages.deleted_at')
+            ->where(function ($q) {
+                $q->whereNull('message_thread_participants.last_read_at')
+                    ->orWhereColumn(
+                        'messages.created_at',
+                        '>',
+                        'message_thread_participants.last_read_at',
+                    );
+            })
+            ->count();
+    }
+
     protected function getTenantExpiringDocs(Request $request): array
     {
         $user = $request->user();

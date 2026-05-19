@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Events\MessagePosted;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Inbox\StoreMessageRequest;
 use App\Models\MessageThread;
@@ -85,7 +86,7 @@ class InboxController extends Controller
 
         $landlordId = (int) $tenant->landlord_id;
 
-        $thread = DB::transaction(function () use ($request, $data, $tenant, $landlordId) {
+        [$thread, $message] = DB::transaction(function () use ($request, $data, $tenant, $landlordId) {
             $thread = MessageThread::create([
                 'landlord_id' => $landlordId,
                 'title' => $data['title'] ?? null,
@@ -108,8 +109,10 @@ class InboxController extends Controller
                 $this->attachments->attachToMessage($message, $files);
             }
 
-            return $thread;
+            return [$thread, $message];
         });
+
+        broadcast(new MessagePosted($message))->toOthers();
 
         return redirect()
             ->route('tenant.inbox.show', $thread)
@@ -122,7 +125,7 @@ class InboxController extends Controller
     ): RedirectResponse {
         $user = $request->user();
 
-        DB::transaction(function () use ($request, $thread, $user) {
+        $message = DB::transaction(function () use ($request, $thread, $user) {
             $message = $thread->messages()->create([
                 'sender_id' => $user->id,
                 'body' => $request->input('body'),
@@ -132,7 +135,11 @@ class InboxController extends Controller
             if (is_array($files) && $files !== []) {
                 $this->attachments->attachToMessage($message, $files);
             }
+
+            return $message;
         });
+
+        broadcast(new MessagePosted($message))->toOthers();
 
         return back()->with('status', __('inbox.message_sent'));
     }

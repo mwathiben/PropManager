@@ -44,3 +44,13 @@ Broadcast::channel('intasend.{intasendInvoiceId}', function ($user, $intasendInv
     // User must be the landlord who owns this transaction
     return (int) $user->id === (int) $transaction->landlord_id;
 });
+
+// Phase-63 INBOX-REALTIME-1: thread subscription is gated by the
+// message_thread_participants pivot — NOT by landlord_id — so two
+// tenants under the same landlord cannot eavesdrop on each other.
+Broadcast::channel('inbox.thread.{threadId}', function ($user, $threadId) {
+    return \Illuminate\Support\Facades\DB::table('message_thread_participants')
+        ->where('thread_id', $threadId)
+        ->where('user_id', $user->id)
+        ->exists();
+});
