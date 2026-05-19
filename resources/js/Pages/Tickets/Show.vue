@@ -5,6 +5,7 @@ import { ref, computed } from 'vue';
 import TicketStatusBadge from '@/Components/TicketStatusBadge.vue';
 import TicketPriorityBadge from '@/Components/TicketPriorityBadge.vue';
 import PendingSyncBadge from '@/Components/Offline/PendingSyncBadge.vue';
+import HoldCreateModal from '@/Components/LegalHold/HoldCreateModal.vue';
 import TicketActivityTimeline from '@/Components/TicketActivityTimeline.vue';
 import TicketFeedbackForm from '@/Components/TicketFeedbackForm.vue';
 import { useFormatters } from '@/composables';
@@ -21,7 +22,8 @@ import {
     XMarkIcon,
     PaperAirplaneIcon,
     LockClosedIcon,
-    StarIcon
+    StarIcon,
+    ScaleIcon,
 } from '@heroicons/vue/24/outline';
 
 // Phase-54 COST-UI-1/2: extend the inherited TicketShowPageProps type
@@ -33,6 +35,7 @@ const { can } = useAuth();
 
 const showResolveModal = ref(false);
 const showAssignModal = ref(false);
+const ticketLegalHoldModal = ref<InstanceType<typeof HoldCreateModal> | null>(null);
 const showCostModal = ref(false);
 
 const costs = computed(() => props.costs ?? null);
@@ -192,6 +195,15 @@ const canEdit = computed(() => {
                                         #{{ ticket.id }}
                                     </span>
                                     <PendingSyncBadge route-family="tickets" :resource-id="ticket.id" />
+                                    <button
+                                        type="button"
+                                        @click="ticketLegalHoldModal?.open()"
+                                        class="ml-2 inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded"
+                                        data-testid="open-legal-hold"
+                                    >
+                                        <ScaleIcon class="h-3.5 w-3.5" />
+                                        Legal hold
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -589,5 +601,12 @@ const canEdit = computed(() => {
                 </div>
             </div>
         </div>
+
+        <HoldCreateModal
+            ref="ticketLegalHoldModal"
+            subject-type="App\\Models\\Ticket"
+            :subject-id="ticket.id"
+            :subject-label="`Ticket #${ticket.id}: ${ticket.title}`"
+        />
     </AuthenticatedLayout>
 </template>

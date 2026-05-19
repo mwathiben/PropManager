@@ -5,6 +5,7 @@ import { ref, computed } from 'vue';
 import { useFormatters } from '@/composables';
 import type { InvoicesShowPageProps } from '@/types';
 import PendingSyncBadge from '@/Components/Offline/PendingSyncBadge.vue';
+import HoldCreateModal from '@/Components/LegalHold/HoldCreateModal.vue';
 import {
     DocumentTextIcon,
     ArrowLeftIcon,
@@ -14,6 +15,7 @@ import {
     EnvelopeIcon,
     XCircleIcon,
     ArrowPathIcon,
+    ScaleIcon,
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps<InvoicesShowPageProps>();
@@ -21,6 +23,7 @@ const { formatMoney: formatCurrency } = useFormatters();
 
 const showPaymentModal = ref(false);
 const showVoidModal = ref(false);
+const legalHoldModal = ref<InstanceType<typeof HoldCreateModal> | null>(null);
 
 const paymentForm = useForm({
     amount: '',
@@ -132,8 +135,26 @@ const reissueInvoice = () => {
                     Invoice {{ invoice?.invoice_number }}
                 </h1>
                 <PendingSyncBadge route-family="invoices" :resource-id="invoice?.id" />
+                <button
+                    v-if="invoice?.id"
+                    type="button"
+                    @click="legalHoldModal?.open()"
+                    class="ml-auto inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg"
+                    data-testid="open-legal-hold"
+                >
+                    <ScaleIcon class="h-4 w-4" />
+                    Legal hold
+                </button>
             </div>
         </template>
+
+        <HoldCreateModal
+            v-if="invoice?.id"
+            ref="legalHoldModal"
+            subject-type="App\\Models\\Invoice"
+            :subject-id="invoice.id"
+            :subject-label="`Invoice ${invoice.invoice_number}`"
+        />
 
         <div class="py-6">
             <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
