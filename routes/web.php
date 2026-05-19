@@ -1396,6 +1396,9 @@ Route::middleware(['auth', 'role:landlord'])->group(function () {
         Route::post('/tenants/{tenant}/legal-hold', \App\Http\Controllers\TenantLegalHoldController::class)
             ->name('tenants.legal-hold');
     });
+
+    Route::get('/legal-holds/audit-export', \App\Http\Controllers\LegalHoldAuditExportController::class)
+        ->name('legal-holds.audit-export');
 });
 
 // Phase-29 WF-LEASE-RENEW-2: landlord-side renewal initiate + confirm.

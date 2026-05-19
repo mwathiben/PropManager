@@ -97,6 +97,16 @@ class AuditLog extends Model
     }
 
     /**
+     * Phase-65 AUDIT-DEPTH-3: scope to filter by lawful basis stored
+     * in the metadata JSON column. Reusable for any future regulator-
+     * inquiry surface (DPA Article 5(1)(a) accountability).
+     */
+    public function scopeForLawfulBasis($query, string $basis)
+    {
+        return $query->whereJsonContains('metadata->lawful_basis', $basis);
+    }
+
+    /**
      * Scope to filter by model type.
      */
     public function scopeForModel($query, string $modelClass)
