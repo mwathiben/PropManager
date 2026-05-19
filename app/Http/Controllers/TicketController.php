@@ -256,6 +256,15 @@ class TicketController extends Controller
     {
         $validated = $request->validated();
 
+        // Phase-64 OFFLINE-MOUNTS-3: optimistic-concurrency check.
+        // Non-PWA clients omit If-Match and skip the assertion
+        // (backward-compatible) per the Phase 62 contract.
+        $ifMatch = $request->header('If-Match');
+        $ticket->assertIfMatch(
+            $ifMatch === null ? null : (int) $ifMatch,
+            $validated,
+        );
+
         $oldStatus = $ticket->status;
         $ticket->update($validated);
 
@@ -302,6 +311,16 @@ class TicketController extends Controller
     {
         $user = Auth::user();
         $validated = $request->validated();
+
+        // Phase-64 OFFLINE-MOUNTS-3: assertIfMatch on the parent
+        // ticket so an offline comment posted against a now-stale
+        // ticket state (e.g. another caretaker resolved it) raises
+        // 409 instead of attaching to a closed thread.
+        $ifMatch = $request->header('If-Match');
+        $ticket->assertIfMatch(
+            $ifMatch === null ? null : (int) $ifMatch,
+            $validated,
+        );
 
         $comment = $ticket->comments()->create([
             'user_id' => $user->id,

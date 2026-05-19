@@ -134,6 +134,21 @@ if ('serviceWorker' in navigator) {
 
         navigator.serviceWorker.addEventListener('message', (event) => {
             const data = event.data;
+            // Phase-64 OFFLINE-MOUNTS-1: 409 surfacing from the replay
+            // loop into the global ConflictDialog via writeConflictBus.
+            if (data && data.type === 'WRITE_CONFLICT_409') {
+                import('@/lib/writeConflictBus').then(({ emit }) => {
+                    emit({
+                        queue: data.queue,
+                        url: data.url,
+                        current: data.payload?.current,
+                        incoming: data.payload?.incoming,
+                        diff: data.payload?.diff,
+                    });
+                });
+
+                return;
+            }
             if (data && data.type === 'BG_SYNC_DRAINED' && typeof data.queue === 'string') {
                 import('@/stores/queuedOps').then(({ useQueuedOpsStore }) => {
                     useQueuedOpsStore().drain(data.queue);

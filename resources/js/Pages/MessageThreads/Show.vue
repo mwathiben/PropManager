@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm } from '@inertiajs/vue3';
+import PendingSyncBadge from '@/Components/Offline/PendingSyncBadge.vue';
 
 interface Sender {
     id: number | null;
@@ -59,9 +60,12 @@ function submit() {
 
         <div class="px-4 py-6 sm:px-6 lg:px-8 space-y-6">
             <header class="flex items-center justify-between">
-                <h1 class="text-2xl font-semibold text-gray-900">
-                    {{ thread.title || `Thread #${thread.id}` }}
-                </h1>
+                <div class="flex items-center gap-3">
+                    <h1 class="text-2xl font-semibold text-gray-900">
+                        {{ thread.title || `Thread #${thread.id}` }}
+                    </h1>
+                    <PendingSyncBadge route-family="messages" :resource-id="thread.id" />
+                </div>
                 <span class="text-xs uppercase tracking-wide text-gray-500">
                     {{ thread.status }}
                 </span>

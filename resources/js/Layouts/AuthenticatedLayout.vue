@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { usePage, Link, router } from '@inertiajs/vue3';
 import { useAuth } from '@/composables/useAuth';
 import { useAnnouncer } from '@/composables/useAnnouncer';
@@ -13,6 +13,8 @@ import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import NotificationBell from '@/Components/NotificationBell.vue';
 import InboxBell from '@/Components/InboxBell.vue';
+import ConflictDialog from '@/Components/Offline/ConflictDialog.vue';
+import { on as onWriteConflict } from '@/lib/writeConflictBus';
 import ConnectionStatus from '@/Components/ConnectionStatus.vue';
 import OnlineIndicator from '@/Components/OnlineIndicator.vue';
 import QueuedOpsTray from '@/Components/QueuedOpsTray.vue';
@@ -66,6 +68,37 @@ defineSlots<{
 }>();
 
 const showMobileSidebar = ref(false);
+
+// Phase-64 OFFLINE-MOUNTS-1: global ConflictDialog wired to
+// writeConflictBus. Any 409 from the offline-replay loop surfaces a
+// modal with overwrite / discard / merge options.
+const conflictDialogOpen = ref(false);
+const conflictPayload = ref<any>(null);
+let unsubscribeWriteConflict: (() => void) | null = null;
+
+function onConflictResolve(resolution: 'overwrite' | 'discard' | 'merge'): void {
+    // For now both branches close the dialog. A follow-up cycle wires
+    // overwrite -> re-POST with the now-current version, and merge ->
+    // per-field selection.
+    conflictDialogOpen.value = false;
+    conflictPayload.value = null;
+}
+
+onMounted(() => {
+    unsubscribeWriteConflict = onWriteConflict((payload) => {
+        conflictPayload.value = {
+            current_version: (payload.current as any)?.version ?? 0,
+            current: payload.current ?? {},
+            incoming: payload.incoming ?? {},
+            diff: payload.diff ?? {},
+        };
+        conflictDialogOpen.value = true;
+    });
+});
+
+onBeforeUnmount(() => {
+    unsubscribeWriteConflict?.();
+});
 
 // Phase-23 A11Y-KBD-3: the mobile sidebar is a full-screen overlay
 // over the page — functionally a modal — so it gets the same
@@ -662,5 +695,14 @@ const navigationItems = computed(() => {
         <!-- Phase-26 PWA-NETWORK-3: tray for ops queued for offline replay.
              Renders nothing while the store is empty (Pinia + v-if). -->
         <QueuedOpsTray />
+
+        <!-- Phase-64 OFFLINE-MOUNTS-1: global ConflictDialog wired via
+             writeConflictBus. Surfaces a 409 from the offline-replay
+             layer regardless of which page is active. -->
+        <ConflictDialog
+            :open="conflictDialogOpen"
+            :payload="conflictPayload"
+            @resolve="onConflictResolve"
+        />
     </div>
 </template>

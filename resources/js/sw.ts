@@ -232,8 +232,52 @@ function registerOfflinePost(
     const plugin = new BackgroundSyncPlugin(queueName, {
         maxRetentionTime: maxRetentionMinutes,
         onSync: async ({ queue }) => {
-            await queue.replayRequests();
+            // Phase-64 OFFLINE-MOUNTS-1: manual shift+fetch loop so a
+            // 409 (WriteConflict) surfaces to the UI rather than
+            // silently re-queuing. Other non-2xx responses fall
+            // through to Workbox's default re-queue+throw retry.
+            const conflicts: Array<{ url: string; payload: any }> = [];
+
+            while (true) {
+                const entry = await queue.shiftRequest();
+                if (!entry) {
+                    break;
+                }
+
+                try {
+                    const response = await fetch(entry.request.clone());
+
+                    if (response.status === 409) {
+                        const body = await response
+                            .clone()
+                            .json()
+                            .catch(() => ({}));
+                        conflicts.push({
+                            url: entry.request.url,
+                            payload: body,
+                        });
+                        // Do NOT re-queue — replay would 409 again.
+                    } else if (!response.ok) {
+                        await queue.unshiftRequest(entry);
+                        throw new Error(`Replay non-ok: ${response.status}`);
+                    }
+                } catch (err) {
+                    await queue.unshiftRequest(entry);
+                    throw err;
+                }
+            }
+
             const clientList = await self.clients.matchAll({ type: 'window' });
+            for (const conflict of conflicts) {
+                for (const client of clientList) {
+                    client.postMessage({
+                        type: 'WRITE_CONFLICT_409',
+                        queue: queueName,
+                        url: conflict.url,
+                        payload: conflict.payload,
+                    });
+                }
+            }
             for (const client of clientList) {
                 client.postMessage({ type: 'BG_SYNC_DRAINED', queue: queueName });
             }

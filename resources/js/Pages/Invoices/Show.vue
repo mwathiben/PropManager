@@ -4,6 +4,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { ref, computed } from 'vue';
 import { useFormatters } from '@/composables';
 import type { InvoicesShowPageProps } from '@/types';
+import PendingSyncBadge from '@/Components/Offline/PendingSyncBadge.vue';
 import {
     DocumentTextIcon,
     ArrowLeftIcon,
@@ -130,6 +131,7 @@ const reissueInvoice = () => {
                 <h1 class="font-semibold text-xl text-gray-800 leading-tight">
                     Invoice {{ invoice?.invoice_number }}
                 </h1>
+                <PendingSyncBadge route-family="invoices" :resource-id="invoice?.id" />
             </div>
         </template>
 

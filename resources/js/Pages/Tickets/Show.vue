@@ -4,6 +4,7 @@ import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import TicketStatusBadge from '@/Components/TicketStatusBadge.vue';
 import TicketPriorityBadge from '@/Components/TicketPriorityBadge.vue';
+import PendingSyncBadge from '@/Components/Offline/PendingSyncBadge.vue';
 import TicketActivityTimeline from '@/Components/TicketActivityTimeline.vue';
 import TicketFeedbackForm from '@/Components/TicketFeedbackForm.vue';
 import { useFormatters } from '@/composables';
@@ -190,6 +191,7 @@ const canEdit = computed(() => {
                                     <span class="text-sm text-gray-500">
                                         #{{ ticket.id }}
                                     </span>
+                                    <PendingSyncBadge route-family="tickets" :resource-id="ticket.id" />
                                 </div>
                             </div>
                         </div>

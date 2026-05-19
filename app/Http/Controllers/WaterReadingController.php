@@ -78,6 +78,15 @@ class WaterReadingController extends Controller
 
         $validated = $request->validated();
 
+        // Phase-64 OFFLINE-MOUNTS-3: optimistic-concurrency check.
+        // Non-PWA clients omit If-Match and skip the assertion
+        // (backward-compatible) per the Phase 62 contract.
+        $ifMatch = $request->header('If-Match');
+        $reading->assertIfMatch(
+            $ifMatch === null ? null : (int) $ifMatch,
+            $validated,
+        );
+
         $error = $this->waterReadingService->validateReadingUpdate($reading, $validated['current_reading']);
         if ($error) {
             return redirect()->back()->with('error', $error);
