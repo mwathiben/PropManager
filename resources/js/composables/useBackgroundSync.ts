@@ -44,7 +44,7 @@ export class QueuedOfflineError extends Error {
     }
 }
 
-export type RouteFamily = 'invoices' | 'tickets' | 'comments' | 'readings' | 'payments';
+export type RouteFamily = 'invoices' | 'tickets' | 'comments' | 'readings' | 'payments' | 'messages';
 
 const QUEUE_NAMES: Record<RouteFamily, string> = {
     invoices: 'pm-invoice-queue',
@@ -52,6 +52,10 @@ const QUEUE_NAMES: Record<RouteFamily, string> = {
     comments: 'pm-offline-comments',
     readings: 'pm-offline-readings',
     payments: 'pm-offline-payments',
+    // Phase-63 INBOX-CI-2: inbox compose lands offline like every other
+    // mutation surface, so the user's queued message replays when
+    // connectivity returns.
+    messages: 'pm-offline-messages',
 };
 
 type Options = {

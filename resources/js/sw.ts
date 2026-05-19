@@ -256,6 +256,13 @@ registerOfflinePost('pm-offline-comments', (url) => /^\/tickets\/\d+\/comment$/.
 registerOfflinePost('pm-offline-readings', (url) => url.pathname === '/readings');
 registerOfflinePost('pm-offline-payments', (url) => url.pathname === '/payments/record');
 
+// Phase-63 INBOX-CI-2: messages queue covers landlord + tenant
+// compose paths (POST /message-threads, POST /message-threads/{id}/messages,
+// POST /tenant/inbox, POST /tenant/inbox/{id}/messages).
+registerOfflinePost('pm-offline-messages', (url) =>
+    /^\/message-threads(\/\d+\/messages)?$/.test(url.pathname)
+    || /^\/tenant\/inbox(\/\d+\/messages)?$/.test(url.pathname));
+
 // =========================================================================
 // Push-notification handlers — ported from public/sw.js (pre-Phase-26).
 // Backend infra unchanged.
@@ -400,6 +407,7 @@ const KNOWN_OFFLINE_QUEUES = [
     'pm-offline-comments',
     'pm-offline-readings',
     'pm-offline-payments',
+    'pm-offline-messages',
 ];
 
 const ROUTE_FAMILY_TO_CACHES: Record<string, string[]> = {

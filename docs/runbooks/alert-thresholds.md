@@ -96,6 +96,13 @@ When tuning, edit here first + record the rationale; then change the env var. Th
 | `offline_photo_quota_evictions_count` | visibility-only | Phase-62 OFFLINE-PHOTOS-3 enforceBudget logger (client-side telemetry deferred) | rolling 24h | Users hitting the 50MB photo budget repeatedly — surfaces either a hostile-environment Kenya use case (caretakers backlog 100s of photos before reconnect) or a bug where discardPhoto isn't firing on successful upload. Phase-62 OFFLINE-PHOTOS-3 / sev4. | Confirm via UX research whether 50MB is too small; consider raising PHOTO_BUDGET_BYTES or surfacing storage usage in the in-app UI; verify discardPhoto runs on Inertia onSuccess for normal cases. |
 | `offline_shell_boot_count` | visibility-only | Phase-62 CACHE-STRATEGY-2 SW navigation handler (cache-hit gauge — telemetry deferred) | rolling 24h | Volume signal — how often the offline shell satisfies a navigation. High counts mean offline boot is paying off; sustained zero means the precache isn't landing (auth redirect, build-time asset miss). Phase-62 CACHE-STRATEGY-2 / no paging. | Confirm /dashboard precache hit at install via DevTools (Application → Cache Storage → pm-shell-v1); if missing, the build may not be including the dashboard route in the precache manifest. |
 
+## Communication inbox (Phase-63)
+
+| Signal | Threshold | Source | Window | Rationale | On-call action |
+|--------|-----------|--------|--------|-----------|----------------|
+| `inbox_unread_fallback_count` | 1000 / 15m cluster-wide | `messages:notify-unread-fallback` cron (Phase-63 INBOX-NOTIFY-3) | per-cron tick | A sudden spike beyond ~1k fallbacks per 15-minute tick almost always indicates a Reverb outage: the in-app push never reached recipients, so the digest is catching every unread message. Phase-63 INBOX-NOTIFY-3 / sev3. | Check Reverb health (`/reverb/health` or container logs); restart broker if unresponsive; once recovered, the next cron tick should drop back to baseline (single digits per tick during normal operation). |
+| `inbox_rate_limit_hits_count` | visibility-only | `RateLimiter::for('messages')` 429 response path (Phase-63 INBOX-MOD-3) | rolling 24h | A spike points to either a UX bug (form-state retry loop) or a compromised account doing burst-send. Phase-63 INBOX-MOD-3 / sev4. | Check `web` log channel for the spiking `user_id`; if a single user dominates, inspect their session activity + force password reset if compromise suspected. |
+
 ## Where to edit
 
 1. **First**: this document. Record the new threshold + rationale.
