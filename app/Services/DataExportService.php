@@ -53,6 +53,13 @@ class DataExportService
             'documents' => $documents,
             'water_readings' => $waterReadings,
             'activity_log' => $activityLog,
+            // Phase-65 RETENTION-INTEGRATION-2: DPA Article 17 right-
+            // to-erasure carves out legal_obligation processing under
+            // Article 17(3)(b). Any active LegalHold on this user's
+            // data WILL survive an erasure request — expose the list
+            // so the requester (and operator handling) sees which
+            // records remain and why.
+            'legal_holds_blocking_erasure' => $this->getLegalHoldsBlockingErasure($user),
         ];
 
         // Phase-21 DEFER-DPA-2 (closes Phase-13 BREACH-2 deferral):
@@ -116,6 +123,79 @@ class DataExportService
         // were previously expecting absolute paths under storage/app/;
         // they were updated to read via the tenant disk abstraction.
         return $relativeZipPath;
+    }
+
+    /**
+     * Phase-65 RETENTION-INTEGRATION-2: list every active LegalHold
+     * keyed to this user's data across all ALLOWED_HOLDABLE_TYPES.
+     * Empty array when user has no holds. Article 17(3)(b) lawful-
+     * basis exemption documented in compliance metadata.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    protected function getLegalHoldsBlockingErasure(User $user): array
+    {
+        $holds = [];
+
+        $leaseIds = $user->leases()->withoutGlobalScopes()->pluck('id')->all();
+
+        $invoiceIds = $leaseIds === []
+            ? []
+            : \App\Models\Invoice::query()->withoutGlobalScopes()
+                ->whereIn('lease_id', $leaseIds)->pluck('id')->all();
+
+        $ticketIds = \App\Models\Ticket::query()->withoutGlobalScopes()
+            ->where('reporter_id', $user->id)->pluck('id')->all();
+
+        $documentIds = \App\Models\Document::query()->withoutGlobalScopes()
+            ->where(function ($q) use ($user, $leaseIds) {
+                $q->where(function ($qq) use ($user) {
+                    $qq->where('documentable_type', User::class)
+                        ->where('documentable_id', $user->id);
+                });
+                if ($leaseIds !== []) {
+                    $q->orWhere(function ($qq) use ($leaseIds) {
+                        $qq->where('documentable_type', \App\Models\Lease::class)
+                            ->whereIn('documentable_id', $leaseIds);
+                    });
+                }
+            })->pluck('id')->all();
+
+        $threadIds = \App\Models\MessageThread::query()->withoutGlobalScopes()
+            ->whereHas('participants', fn ($q) => $q->where('users.id', $user->id))
+            ->pluck('id')->all();
+
+        $subjectMap = [
+            \App\Models\Invoice::class => $invoiceIds,
+            \App\Models\Ticket::class => $ticketIds,
+            \App\Models\Document::class => $documentIds,
+            \App\Models\MessageThread::class => $threadIds,
+        ];
+
+        foreach ($subjectMap as $subjectClass => $ids) {
+            if ($ids === []) {
+                continue;
+            }
+
+            $rows = \App\Models\LegalHold::query()
+                ->where('holdable_type', $subjectClass)
+                ->whereIn('holdable_id', $ids)
+                ->whereNull('released_at')
+                ->get();
+
+            foreach ($rows as $row) {
+                $holds[] = [
+                    'subject_type' => class_basename($subjectClass),
+                    'subject_id' => (int) $row->holdable_id,
+                    'held_at' => $row->held_at?->toIso8601String(),
+                    'reason' => $row->reason,
+                    'lawful_basis' => 'legal_obligation',
+                    'erasure_carve_out' => 'GDPR Article 17(3)(b) / Kenya DPA Section 30',
+                ];
+            }
+        }
+
+        return $holds;
     }
 
     /**
