@@ -250,6 +250,9 @@ const navigationItems = computed(() => {
             // Phase-64 INBOX-MOUNT-3: landlord-side message-thread entry.
             { name: t('nav.messages'), href: route('message-threads.index'), icon: EnvelopeIcon, active: route().current('message-threads.*'), badgeKey: 'inboxUnread', badgeColor: 'bg-indigo-500' },
 
+            // Phase-65 HOLD-UI-3: landlord-side legal-hold compliance entry.
+            { name: t('nav.legal_holds'), href: route('legal-holds.index'), icon: ScaleIcon, active: route().current('legal-holds.*'), badgeKey: 'legalHoldsActive', badgeColor: 'bg-rose-500' },
+
             // SETTINGS
             { type: 'divider', label: '' },
             { name: t('nav.settings'), href: route('settings.index'), icon: Cog6ToothIcon, active: route().current('settings.*') },

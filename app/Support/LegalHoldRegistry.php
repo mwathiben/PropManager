@@ -107,6 +107,32 @@ class LegalHoldRegistry
         return LegalHold::query()->whereNull('released_at')->count();
     }
 
+    /**
+     * Phase-65 HOLD-UI-3: count active holds across every allowed
+     * subject for a specific landlord. Driven by the Inertia share
+     * for the sidebar badge.
+     */
+    public static function activeCountForLandlord(int $landlordId): int
+    {
+        $total = 0;
+
+        foreach (self::ALLOWED_HOLDABLE_TYPES as $subjectClass) {
+            $heldIds = self::heldIdsFor($subjectClass);
+
+            if ($heldIds === []) {
+                continue;
+            }
+
+            $total += $subjectClass::query()
+                ->withoutGlobalScopes()
+                ->whereIn('id', $heldIds)
+                ->where('landlord_id', $landlordId)
+                ->count();
+        }
+
+        return $total;
+    }
+
     public static function flushCacheFor(string $modelClass): void
     {
         Cache::forget(self::cacheKey($modelClass));

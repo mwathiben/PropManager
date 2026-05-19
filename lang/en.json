@@ -43,7 +43,8 @@
         "notifications": "Notifications",
         "view_buildings": "View Buildings",
         "messages": "Messages",
-        "inbox": "Inbox"
+        "inbox": "Inbox",
+        "legal_holds": "Legal holds"
     },
     "menu": {
         "account": "Account",

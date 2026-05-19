@@ -87,6 +87,16 @@ class HandleInertiaRequests extends Middleware
                         fn () => $this->computeInboxUnread($user->id),
                     )
                     : 0,
+                // Phase-65 HOLD-UI-3: active legal-hold count for the
+                // landlord's own subjects — drives the sidebar badge.
+                // Cache::remember 60s bounds the polymorphic count cost.
+                'legal_holds_active_count' => $user && $user->isLandlord()
+                    ? \Illuminate\Support\Facades\Cache::remember(
+                        'legal_holds:active:'.$user->id,
+                        60,
+                        fn () => \App\Support\LegalHoldRegistry::activeCountForLandlord((int) $user->id),
+                    )
+                    : 0,
             ],
             'impersonating' => session('impersonating') !== null,
             'impersonating_name' => session('impersonating_name'),
@@ -341,6 +351,11 @@ class HandleInertiaRequests extends Middleware
                     ->whereNull('read_at')
                     ->count(),
                 'inbox' => TenantMessage::where('landlord_id', $landlordId)->where('status', TenantMessage::STATUS_RECEIVED)->count(),
+                'legalHoldsActive' => \Illuminate\Support\Facades\Cache::remember(
+                    'legal_holds:active:'.$user->id,
+                    60,
+                    fn () => \App\Support\LegalHoldRegistry::activeCountForLandlord((int) $user->id),
+                ),
             ], fn ($v) => $v !== null && $v > 0),
             'caretaker' => array_filter([
                 'tickets' => Ticket::where('landlord_id', $landlordId)->where('assigned_to', $user->id)->open()->count(),

@@ -43,7 +43,8 @@
         "notifications": "Arifa",
         "view_buildings": "Tazama Majengo",
         "messages": "Ujumbe",
-        "inbox": "Sanduku la ujumbe"
+        "inbox": "Sanduku la ujumbe",
+        "legal_holds": "[TODO-sw] Legal holds"
     },
     "menu": {
         "account": "Akaunti",

@@ -43,7 +43,8 @@
         "notifications": "الإشعارات",
         "view_buildings": "عرض المباني",
         "messages": "[TODO-ar] Messages",
-        "inbox": "[TODO-ar] Inbox"
+        "inbox": "[TODO-ar] Inbox",
+        "legal_holds": "[TODO-ar] Legal holds"
     },
     "menu": {
         "account": "الحساب",
