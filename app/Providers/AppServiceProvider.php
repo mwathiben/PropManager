@@ -611,6 +611,14 @@ class AppServiceProvider extends ServiceProvider
 
             return Limit::perMinute(15)->by($key);
         });
+
+        // Phase-65 BULK-HOLD-2: bulk hold endpoints have higher
+        // attacker leverage than single-subject (one POST can mint
+        // 500 rows + bust the cache 4 times). Tighter cap.
+        RateLimiter::for('legal-hold', function (Request $request) {
+            return Limit::perMinute(10)
+                ->by((string) ($request->user()?->id ?? $request->ip()));
+        });
     }
 
     /**

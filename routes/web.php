@@ -1377,8 +1377,9 @@ Route::middleware('auth')->group(function () {
         ->name('messages.destroy');
 });
 
-// Phase-65 HOLD-UI-1: landlord-initiated legal-hold CRUD + bulk +
-// audit-export + tenant-litigation preset.
+// Phase-65 HOLD-UI-1 + BULK-HOLD-2/3: landlord-initiated legal-hold
+// CRUD + bulk + tenant-litigation preset. throttle:legal-hold limits
+// abuse on the higher-leverage bulk endpoint.
 Route::middleware(['auth', 'role:landlord'])->group(function () {
     Route::get('/legal-holds', [\App\Http\Controllers\LegalHoldController::class, 'index'])
         ->name('legal-holds.index');
@@ -1386,6 +1387,15 @@ Route::middleware(['auth', 'role:landlord'])->group(function () {
         ->name('legal-holds.store');
     Route::delete('/legal-holds/{legalHold}', [\App\Http\Controllers\LegalHoldController::class, 'destroy'])
         ->name('legal-holds.destroy');
+
+    Route::middleware('throttle:legal-hold')->group(function () {
+        Route::post('/legal-holds/bulk', [\App\Http\Controllers\LegalHoldBulkController::class, 'store'])
+            ->name('legal-holds.bulk.store');
+        Route::delete('/legal-holds/bulk', [\App\Http\Controllers\LegalHoldBulkController::class, 'destroy'])
+            ->name('legal-holds.bulk.destroy');
+        Route::post('/tenants/{tenant}/legal-hold', \App\Http\Controllers\TenantLegalHoldController::class)
+            ->name('tenants.legal-hold');
+    });
 });
 
 // Phase-29 WF-LEASE-RENEW-2: landlord-side renewal initiate + confirm.
