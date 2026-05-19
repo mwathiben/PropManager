@@ -125,5 +125,30 @@ telemetry pipeline exists.
 
 ---
 
-See [[reports.md]] for the reports-surface companion runbook and
-[[onboarding.md]] for the wizard service-layer architecture.
+## 8. Phase-64 VUE-TAIL-2 patterns
+
+The following mount + polish patterns shipped in Phase 64 [VUE-TAIL-2] (sequel to Phase 51 VUE-TAIL-1).
+
+### 8.1 InboxBell mount recipe
+`Components/InboxBell.vue` mirrors `NotificationBell.vue` shape — a single icon button reading `$page.props.auth.inbox_unread_total` (shared by Phase 63 `HandleInertiaRequests`). Mount in `AuthenticatedLayout.vue` right of NotificationBell. Click navigates to `/tenant/inbox` for tenants, `/message-threads` for landlord/caretaker.
+
+### 8.2 ConflictDialog global mount via writeConflictBus
+Mount once in `AuthenticatedLayout.vue` as a state-controlled component. `resources/js/lib/writeConflictBus.ts` is the event-emitter; `onMounted` registers a handler that flips dialog open state on every `emit`. `app.js` forwards SW `WRITE_CONFLICT_409` messages into the bus. `sw.ts` `registerOfflinePost`'s `onSync` uses a manual `shift+fetch` loop that branches on `response.status === 409` to detect conflict + emit the message.
+
+### 8.3 PendingSyncBadge per-page wiring
+`<PendingSyncBadge route-family="invoices" :resource-id="invoice.id" />` in the page header alongside the resource title. The badge reads `queuedOps.hasPendingFor(family, id)` and renders an amber chip when a queued POST targets that resource — closes the Phase 62 "looks normal but didn't reach the server" trust gap.
+
+### 8.4 AttachmentPreviewList + drag-drop
+`Components/Inbox/AttachmentPreviewList.vue` renders preview chips: image MIMEs get `URL.createObjectURL` thumbnails (revoked on unmount + per-row remove); non-image MIMEs render `DocumentIcon` + filename + size. Pair with `composables/useFileDropZone` (native HTML5 dragover/drop, no external library) for drag-and-drop upload.
+
+### 8.5 Virtualization for long lists
+`Components/Inbox/VirtualMessageList.vue` — no-op below 100 messages, 60-message window + 20-message buffer above with IntersectionObserver-driven older-window load. Reuse for any Vue page rendering hundreds of repeated items on low-end Kenyan mobile.
+
+### 8.6 PWA telemetry sendBeacon transport
+`resources/js/lib/pwaTelemetry.ts` accumulates counters via `increment(metric, value, labels)` + flushes via `navigator.sendBeacon` on `visibilitychange` + `beforeunload`. Endpoint: POST `/api/v1/telemetry/pwa` (auth:sanctum + throttle:telemetry 60/min, allow-list-gated metrics, Prometheus label-name regex on label keys). `app.js` calls `registerPwaTelemetry()` once at boot.
+
+---
+
+See [[reports.md]] for the reports-surface companion runbook,
+[[onboarding.md]] for the wizard service-layer architecture, and
+[[inbox.md]] for the Phase 63 [COMMUNICATION-INBOX] operator runbook.
