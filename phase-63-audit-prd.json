@@ -170,5 +170,33 @@
         "phase_1d": "INBOX-NOTIFY-1/2/3 — SendUnreadMessageFallback listener + TYPES expansion + preferences migration + digest cron + i18n keys. Tests: Phase63NotifyTest (listener gate logic, idempotency, parity).",
         "phase_1e": "INBOX-MOD-1/2/3 — sender delete + thread lock + retention cron + rate limiter + content policy. Tests: Phase63ModTest (delete window, lock state machine, retention cron, rate limit, spam guard).",
         "phase_2": "INBOX-CI-1/2/3 — Phase63InboxSurfaceTest + offline queue extension + inbox.md runbook + lang parity. Closeout JSON merge + memory + path_forward + MEMORY.md update."
+    },
+    "audit_closeout": {
+        "closed_at": "2026-05-19",
+        "closeout_commit": "f4df96c",
+        "findings_closed": 18,
+        "deferrals": 0,
+        "tests_added": 81,
+        "assertions_added": 290,
+        "files_added": 42,
+        "files_modified": 12,
+        "commit_lineage": [
+            "523e0ed — PRD baseline (18 findings 5H/9M/4L across 6 categories)",
+            "735250c — INBOX-THREAD-1/2/3 (message_threads + messages + participants pivot, scopeForUser participant-based isolation, system-message helper, canBeDeletedBy 5-min window, Message::booted last_message_at bump)",
+            "22eff74 — INBOX-COMPOSE-1/2/3 (MessageThreadController + Tenant\\InboxController + policies + Form Requests + MessageAttachmentService via Storage::tenant() + 4 Vue scaffold pages + routes + i18n)",
+            "fda1a1a — INBOX-REALTIME-1/2/3 (MessagePosted ShouldBroadcast + participant-pivot channel auth + PATCH /messages/{id}/read + useTypingIndicator composable + auth.inbox_unread_total Inertia share)",
+            "fdb0ee8 — INBOX-NOTIFY-1/2/3 (SendUnreadMessageFallback ShouldQueue listener gated on last_active_at + Notification::TYPE_NEW_MESSAGE + NotificationPreference new_message_enabled + messages:notify-unread-fallback digest cron + HandleInertiaRequests debounced presence touch)",
+            "71b134d — INBOX-MOD-1/2/3 (MessageDeleteController invokable + MessageThreadModerationController archive/lock/unlock + users.message_retention_days + messages:enforce-retention cron + RateLimiter::for('messages') 20/min + throttle:messages on all 4 POST routes + MessageContentPolicy::isSpam URL-repetition / non-printable heuristics)",
+            "f4df96c — INBOX-CI-1/2/3 (Phase63InboxSurfaceTest cross-category presence map + pm-offline-messages 6th queue in sw.ts + useBackgroundSync + docs/runbooks/inbox.md + alert-thresholds rows + notifications.type ENUM extended with new_message)"
+        ],
+        "sub_scope_deferrals": [
+            "'Message this tenant' CTA on Pages/Tenants/Show.vue + AuthenticatedLayout inbox bell icon: the controller + route + policy contract ship, but the actual button-mount on existing landlord-side Vue pages is deferred to a Vue-tail cycle (same pattern as Phase 51 VUE-TAIL-1 for Phase 42/45/46/47/48/50 deferrals).",
+            "LegalHoldRegistry implementation: docs/runbooks/inbox.md describes the seam at messages:enforce-retention command but no App\\Support\\LegalHoldRegistry class actually ships. Deferred until first real legal-hold / litigation scenario surfaces a concrete shape.",
+            "Vue UI polish — message-list virtualization for very long threads, attachment thumbnail preview, drag-and-drop file upload UX, typing-indicator animation: scaffolds are functional but visual depth is deferred to a future polish cycle."
+        ],
+        "carry_overs_closed": [],
+        "carry_overs_opened": [
+            "INBOX-VUE-TAIL: 'Message this tenant' CTA mount on Pages/Tenants/Show.vue + inbox bell icon on AuthenticatedLayout + UI polish (virtualization / attachment thumbnails / drag-and-drop / typing animation). Estimated 1 sub-phase of a future Vue-tail cycle (the natural successor to Phase 51 VUE-TAIL-1 + the open A9 VUE-TAIL-OFFLINE)."
+        ]
     }
 }
