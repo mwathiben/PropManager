@@ -106,6 +106,9 @@ class AuthServiceProvider extends ServiceProvider
         \App\Models\DepositRefundRequest::class => \App\Policies\DepositRefundRequestPolicy::class,
         // Phase-54 SLA-LANDLORD-UI-3: landlord-scoped SLA overrides.
         \App\Models\SlaDefinition::class => \App\Policies\SlaDefinitionPolicy::class,
+        // Phase-63 INBOX-COMPOSE-1: landlord<->tenant message threads.
+        \App\Models\MessageThread::class => \App\Policies\MessageThreadPolicy::class,
+        \App\Models\Message::class => \App\Policies\MessagePolicy::class,
     ];
 
     /**

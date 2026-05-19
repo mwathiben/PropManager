@@ -1320,6 +1320,16 @@ Route::middleware(['auth', 'role:tenant', 'payment.verified', 'kyc.complete'])->
     Route::post('/renewals/{renewal}/counter', [\App\Http\Controllers\Tenant\RenewalResponseController::class, 'counter'])
         ->middleware('throttle:sensitive')
         ->name('tenant.renewals.counter');
+
+    // Phase-63 INBOX-COMPOSE-1: tenant-side message-thread surface.
+    Route::get('/inbox', [\App\Http\Controllers\Tenant\InboxController::class, 'index'])
+        ->name('tenant.inbox.index');
+    Route::get('/inbox/{thread}', [\App\Http\Controllers\Tenant\InboxController::class, 'show'])
+        ->name('tenant.inbox.show');
+    Route::post('/inbox', [\App\Http\Controllers\Tenant\InboxController::class, 'store'])
+        ->name('tenant.inbox.store');
+    Route::post('/inbox/{thread}/messages', [\App\Http\Controllers\Tenant\InboxController::class, 'storeMessage'])
+        ->name('tenant.inbox.messages.store');
 });
 
 // Phase-45 LEASE-COUNTER-2: landlord-side review of a tenant counter-offer.
@@ -1333,6 +1343,16 @@ Route::middleware(['auth', 'verified', 'role:landlord,caretaker'])->group(functi
     Route::post('/landlords/renewals/{renewal}/counter/re-propose', [\App\Http\Controllers\LeaseRenewalCounterReviewController::class, 'rePropose'])
         ->middleware('throttle:sensitive')
         ->name('landlords.renewals.counter.re_propose');
+
+    // Phase-63 INBOX-COMPOSE-1: landlord-side message-thread surface.
+    Route::get('/message-threads', [\App\Http\Controllers\MessageThreadController::class, 'index'])
+        ->name('message-threads.index');
+    Route::get('/message-threads/{thread}', [\App\Http\Controllers\MessageThreadController::class, 'show'])
+        ->name('message-threads.show');
+    Route::post('/message-threads', [\App\Http\Controllers\MessageThreadController::class, 'store'])
+        ->name('message-threads.store');
+    Route::post('/message-threads/{thread}/messages', [\App\Http\Controllers\MessageThreadController::class, 'storeMessage'])
+        ->name('message-threads.messages.store');
 });
 
 // Phase-29 WF-LEASE-RENEW-2: landlord-side renewal initiate + confirm.
