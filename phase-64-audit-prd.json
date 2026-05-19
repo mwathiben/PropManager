@@ -1,0 +1,173 @@
+{
+    "phase": 64,
+    "title": "VUE-TAIL-2",
+    "opened_at": "2026-05-19",
+    "tier": "Tier 7 cycle 28",
+    "scope": "Sequel to Phase 51 VUE-TAIL-1 (which bundled Phase 42/45/46/47/48/50 Vue tails into one cycle). Closes the open carry-overs A9 (Phase 62 OFFLINE follow-ups — ConflictDialog global mount + PendingSyncBadge per-page wiring + If-Match controller adoption), A10 (Phase 62 PWA-TELEMETRY client→server gauge transmission), A11 (Phase 63 INBOX-VUE-TAIL — Message-this-tenant CTA + inbox bell + Vue UX polish + LegalHoldRegistry impl). Phase 51 established the pattern: an audit cycle ships the contract (data, API, policies, ability keys, scaffolds) and a dedicated Vue-tail cycle wires the mechanical UI adoption + landlord-facing polish. Scout (2026-05-19) confirmed mount points: AuthenticatedLayout.vue:598 mounts NotificationBell — InboxBell goes next to it; Pages/Tenants/Show.vue:300-307 has the Edit Profile button — the Message CTA mounts beside it. Leases + WaterReadings don't have Show.vue pages so PendingSyncBadge targets Invoices/Tickets/MessageThreads/Tenant\\Inbox. No TicketCommentController class exists — comments add via TicketController::addComment, so If-Match wiring targets TicketController + WaterReadingController. Six categories × 3 = 18 findings.",
+    "categories": {
+        "INBOX-MOUNT": "Phase 63 inbox surface mounting into existing landlord + tenant nav. (1) MOUNT-1 [HIGH] — 'Message' button on Pages/Tenants/Show.vue next to 'Edit Profile' (line 300-307), POSTs to /message-threads with the tenant pre-populated as participant; visible only when current user is landlord/caretaker and tenant has an active lease. (2) MOUNT-2 [MED] — App/Vue Components/InboxBell.vue mirrors NotificationBell.vue shape; reads auth.inbox_unread_total (Phase 63 INBOX-REALTIME-2 already shares it via HandleInertiaRequests); mounted in AuthenticatedLayout.vue right of NotificationBell at line 598; click navigates to /message-threads (landlord) or /tenant/inbox (tenant). (3) MOUNT-3 [MED] — Sidebar nav entries for /message-threads (landlord/caretaker) + /tenant/inbox (tenant) — discover via nav structure scout.",
+        "INBOX-POLISH": "Vue UX polish on the Phase 63 compose surface — scaffolds shipped functional, polish was deferred to this cycle. (1) POLISH-1 [MED] — Message-list virtualization in Pages/MessageThreads/Show.vue + Pages/Tenant/Inbox/Show.vue. For threads with >100 messages, render only the visible window + 20-message buffer via a lightweight Vue-native windowing approach (no external library — IntersectionObserver-based). (2) POLISH-2 [MED] — Attachment thumbnail preview in compose forms. Before submit, show a 64x64 image preview for image MIMEs + a file-icon-with-filename chip for PDFs; allows the user to spot mis-uploads before send. (3) POLISH-3 [LOW] — Drag-and-drop file upload zone wrapping the textarea + file input. On dragover highlight; on drop hand files to the existing form.attachments slot.",
+        "OFFLINE-MOUNTS": "Closes the open A9 carry-overs from Phase 62 OFFLINE-DEPTH. (1) MOUNTS-1 [HIGH] — ConflictDialog global mount in AuthenticatedLayout (single instance) + resources/js/lib/writeConflictBus.ts event-emitter that surfaces it on every 409 from the offline replay layer (BG_SYNC_DRAINED message handler in app.js dispatches 'write-conflict' with current/incoming/diff payload). Closes the 'CONFLICT-RESOLUTION-3 sub-scope deferral' from Phase 62. (2) MOUNTS-2 [LOW] — PendingSyncBadge per-page wiring on Pages/Invoices/Show.vue + Pages/Tickets/Show.vue + Pages/MessageThreads/Show.vue + Pages/Tenant/Inbox/Show.vue headers (Phase 62 listed Leases/Show + WaterReadings/Show as targets but those Show pages don't exist — drop). Each badge reads queuedOps.hasPendingFor(routeFamily, resourceId) and renders amber 'Pending sync' chip when true. (3) MOUNTS-3 [HIGH] — TicketController::update + TicketController::addComment + WaterReadingController If-Match wiring. Each handler calls $model->assertIfMatch($request->header('If-Match'), $payload) before save when the header is present. Empty header skips check (backward compat with non-PWA clients). WriteConflictException -> 409 response.",
+        "TELEMETRY-WIRE": "Closes the open A10 carry-over from Phase 62 PWA-TELEMETRY. (1) WIRE-1 [HIGH] — POST /api/v1/telemetry/pwa endpoint via App\\Http\\Controllers\\Api\\PwaTelemetryController accepts { metric: string, value: int, labels: object } payload. Validates metric is in an allow-list (offline_writes_dead_letter_count, offline_photo_quota_evictions_count, offline_shell_boot_count). Routes through MetricsService::gauge() so the existing Prometheus exporter picks it up. Rate-limited via throttle:telemetry (60/min/user). (2) WIRE-2 [MED] — Client-side transmission on visibilitychange + beforeunload using sendBeacon (best-effort, fire-and-forget). resources/js/lib/pwaTelemetry.ts accumulates counter values locally + flushes on hide/unload. App.js boot wires it. (3) WIRE-3 [LOW] — Update docs/runbooks/alert-thresholds.md rows for the 3 PWA gauges from 'visibility-only (telemetry deferred)' to 'wired via /api/v1/telemetry/pwa endpoint, rolling 24h'; update Phase 62 plan memory.",
+        "LEGAL-HOLD": "Closes the open A11.3 carry-over from Phase 63 INBOX-MOD-2 — operator override for messages:enforce-retention. (1) HOLD-1 [HIGH] — App\\Support\\LegalHoldRegistry class with heldThreadIds(): array accessor backed by config('inbox.legal_hold_thread_ids') + DB-backed legal_holds table (id, holdable_type, holdable_id, reason, held_by, held_at, released_at nullable). Registration via LegalHoldRegistry::hold($thread, User $by, string $reason) + LegalHoldRegistry::release($thread, User $by). (2) HOLD-2 [MED] — messages:enforce-retention command excludes held thread IDs from the soft-delete batch via $heldIds = LegalHoldRegistry::heldThreadIds(); ->whereNotIn('thread_id', $heldIds). Emits messages_legal_hold_count gauge so ops sees how many threads are on hold. (3) HOLD-3 [LOW] — Auditable trait on LegalHold model writes audit_logs row on hold create + release (lawful_basis='legal_obligation' per Kenya DPA Section 30 / GDPR Article 6(1)(c)). docs/runbooks/inbox.md updated with operator procedure for adding/releasing a legal hold.",
+        "CI": "(1) CI-1 [MED] — Phase64VueTail2SurfaceTest cross-category presence map: InboxBell.vue exists + mounted in AuthenticatedLayout; Tenants/Show.vue contains the Message CTA; ConflictDialog mounted in AuthenticatedLayout; writeConflictBus.ts exists; 4 Show.vue pages contain PendingSyncBadge import; TicketController + WaterReadingController contain assertIfMatch calls; PwaTelemetryController + telemetry route exist; pwaTelemetry.ts contains sendBeacon; LegalHoldRegistry class + legal_holds migration exist; messages:enforce-retention command references heldThreadIds. (2) CI-2 [MED] — Per-category watchdog tests: Phase64InboxMountTest (CTA visibility logic + bell unread badge rendering); Phase64InboxPolishTest (virtualization windowing math + thumbnail preview logic); Phase64OfflineMountsTest (ConflictDialog mount + assertIfMatch behavior); Phase64TelemetryWireTest (endpoint allow-list + rate-limit + metric write); Phase64LegalHoldTest (hold lifecycle + cron exclusion). (3) CI-3 [MED] — docs/runbooks/frontend-polish.md updated with new mount + polish patterns; alert-thresholds.md 3 PWA gauge rows updated to 'wired'; Phase 62 plan + Phase 63 plan memories cross-link Phase 64 closeout."
+    },
+    "findings": [
+        {
+            "id": "INBOX-MOUNT-1",
+            "severity": "HIGH",
+            "title": "'Message' CTA on Pages/Tenants/Show.vue next to 'Edit Profile'",
+            "evidence": "Phase 63 INBOX-COMPOSE-3 shipped MessageThreadController + POST /message-threads but no landlord-side entry point exists — landlords cannot initiate a thread to a specific tenant from the tenant detail page. Pages/Tenants/Show.vue:300-307 has the existing 'Edit Profile' button as the natural sibling.",
+            "remediation": "Add a 'Message' button next to 'Edit Profile' in Pages/Tenants/Show.vue. Visible when can('create', 'App\\\\Models\\\\MessageThread'). Opens a slide-over compose dialog (new component Components/Inbox/InitiateThreadDialog.vue) that POSTs to message-threads.store with participants=[tenant.id] pre-populated; on success navigates to message-threads.show. The visibility condition pulls from $page.props.auth.user.abilities (Phase 20 AuthAbilities pattern) — no new shared prop needed.",
+            "category": "INBOX-MOUNT"
+        },
+        {
+            "id": "INBOX-MOUNT-2",
+            "severity": "MEDIUM",
+            "title": "InboxBell.vue on AuthenticatedLayout topbar mirroring NotificationBell",
+            "evidence": "Phase 63 INBOX-REALTIME-2 shipped auth.inbox_unread_total Inertia share but no UI surface reads it — users have no global signal of pending inbox messages. AuthenticatedLayout.vue:598 mounts NotificationBell as the canonical pattern.",
+            "remediation": "Components/InboxBell.vue mirrors NotificationBell.vue shape — envelope icon (Heroicons) + red dot badge with $page.props.auth.inbox_unread_total when > 0. Click navigates to /tenant/inbox for role:tenant, /message-threads for role:landlord/caretaker. Mounted in AuthenticatedLayout right of NotificationBell at line 598. aria-label='Inbox ({count} unread)' for screen readers.",
+            "category": "INBOX-MOUNT"
+        },
+        {
+            "id": "INBOX-MOUNT-3",
+            "severity": "MEDIUM",
+            "title": "Sidebar nav entries for /message-threads + /tenant/inbox",
+            "evidence": "Phase 63 shipped the routes but the sidebar nav doesn't surface them; users have to know the URL. Scout AuthenticatedLayout sidebar structure to find the right nav-section.",
+            "remediation": "Add a 'Messages' nav entry to the landlord/caretaker sidebar section that links to message-threads.index, icon EnvelopeIcon. For tenant sidebar, add 'Inbox' entry linking to tenant.inbox.index. Both entries show the badge with inbox_unread_total when > 0 (same data binding as InboxBell). The exact location follows the existing sidebar convention discovered during scout.",
+            "category": "INBOX-MOUNT"
+        },
+        {
+            "id": "INBOX-POLISH-1",
+            "severity": "MEDIUM",
+            "title": "Message-list virtualization for long threads",
+            "evidence": "Pages/MessageThreads/Show.vue + Pages/Tenant/Inbox/Show.vue render the entire messages array via v-for. A thread with 500+ messages is a render perf hazard on low-end Kenyan mobile devices.",
+            "remediation": "Lightweight virtualization without an external library: composable Components/Inbox/VirtualMessageList.vue takes { messages, bufferSize=20 } props. Computes visible window via IntersectionObserver on a sentinel placeholder at the start. Renders only messages with index in [visibleStart - buffer, visibleEnd + buffer]. For threads with ≤ 100 messages, virtualization is a no-op (renders all). Above 100, the prepended sentinel triggers older-message load. Watchdog: assert the component renders ≤ 120 message nodes when given a 500-message fixture.",
+            "category": "INBOX-POLISH"
+        },
+        {
+            "id": "INBOX-POLISH-2",
+            "severity": "MEDIUM",
+            "title": "Attachment thumbnail preview before submit",
+            "evidence": "Phase 63 compose form accepts file uploads via standard <input type=file multiple> but shows no preview — the user can't verify what they're about to send until after submit. Mis-uploads (wrong file picked from photo gallery) ship to the recipient.",
+            "remediation": "Components/Inbox/AttachmentPreviewList.vue takes { files: File[] } prop. For image MIMEs (jpeg/png/webp), generates a thumbnail via URL.createObjectURL() rendered 64x64 with object-cover. For PDFs, shows a PDF icon + filename + size chip. Each row has a 'Remove' button that splices the file from the parent's form.attachments array. Memory: URL.revokeObjectURL on unmount.",
+            "category": "INBOX-POLISH"
+        },
+        {
+            "id": "INBOX-POLISH-3",
+            "severity": "LOW",
+            "title": "Drag-and-drop file upload zone wrapping compose textarea",
+            "evidence": "Mobile-first Kenyan landlords drop files from their gallery or local file manager — file-input click is fine but D&D is the muscle-memory expectation. Without it, the workflow feels dated.",
+            "remediation": "Wrap the compose form (textarea + file input) in a dragover/drop handler. On dragover, add a 2px indigo dashed border + 'Drop to attach' overlay (absolute positioned, pointer-events-none so it doesn't intercept the actual drop). On drop, dataTransfer.files appended to form.attachments via setter. Enforces the same 5-file/5MB caps that the StoreMessageRequest validates. No external library — native DataTransfer API.",
+            "category": "INBOX-POLISH"
+        },
+        {
+            "id": "OFFLINE-MOUNTS-1",
+            "severity": "HIGH",
+            "title": "ConflictDialog global mount + writeConflictBus event-emitter",
+            "evidence": "Phase 62 CONFLICT-RESOLUTION-3 sub-scope deferral: ConflictDialog.vue ships as a scaffold but is not mounted anywhere + has no event source that surfaces it on 409 from the offline replay layer. A 409 today is invisible to the user — they have no path to resolve.",
+            "remediation": "(a) resources/js/lib/writeConflictBus.ts exposes emit(payload) + on(handler) (simple Set-of-handlers pattern, no external library). (b) AuthenticatedLayout.vue mounts a single <ConflictDialog ref=\"conflictDialog\" /> + onMounted registers writeConflictBus.on(payload => conflictDialog.value.open(payload)). (c) resources/js/app.js BG_SYNC_DRAINED message handler, when it sees a 409 response in the replay-log, calls writeConflictBus.emit({ current, incoming, diff, route, resourceId }). Watchdog: Phase64OfflineMountsTest asserts AuthenticatedLayout imports ConflictDialog + writeConflictBus + emits in expected error path.",
+            "category": "OFFLINE-MOUNTS"
+        },
+        {
+            "id": "OFFLINE-MOUNTS-2",
+            "severity": "LOW",
+            "title": "PendingSyncBadge wired into per-page Show headers",
+            "evidence": "Phase 62 CONNECTIVITY-UX-2 sub-scope deferral: PendingSyncBadge.vue ships as a scaffold but no Show.vue page mounts it. Users see invoices/tickets/messages in the UI even when a queued POST has not yet reached the server — looks like the write got lost.",
+            "remediation": "Mount <PendingSyncBadge routeFamily=\"invoices\" :resource-id=\"invoice.id\" /> in Pages/Invoices/Show.vue header next to the document title. Same pattern with routeFamily='tickets' on Pages/Tickets/Show.vue, 'messages' on Pages/MessageThreads/Show.vue + Pages/Tenant/Inbox/Show.vue. (Phase 62 PRD listed Leases/Show + WaterReadings/Show too but those Show.vue pages don't exist — drop from scope.) Each badge reads queuedOps.hasPendingFor() and renders amber chip + aria-label.",
+            "category": "OFFLINE-MOUNTS"
+        },
+        {
+            "id": "OFFLINE-MOUNTS-3",
+            "severity": "HIGH",
+            "title": "TicketController + WaterReadingController If-Match wiring",
+            "evidence": "Phase 62 CONFLICT-RESOLUTION-2 sub-scope deferral: RowVersion trait + assertIfMatch() method exists on the models but the controllers never call them. Without controller wiring, two devices both editing the same ticket offline can replay and the second write silently overwrites the first.",
+            "remediation": "TicketController::update + TicketController::addComment + WaterReadingController::update each call $model->assertIfMatch($request->header('If-Match'), $payload) before save when the header is present (empty header = skip check, backward-compat with non-PWA clients per Phase 62 contract). assertIfMatch throws WriteConflictException -> render middleware turns it into HTTP 409 with {current_version, current, incoming, diff} body (or Inertia error-bag with conflict.* keys for HTML requests — already wired in bootstrap/app.php). useBackgroundSync forwards the cached resource's version as X-If-Match on replay.",
+            "category": "OFFLINE-MOUNTS"
+        },
+        {
+            "id": "TELEMETRY-WIRE-1",
+            "severity": "HIGH",
+            "title": "POST /api/v1/telemetry/pwa endpoint + allow-list + MetricsService bridge",
+            "evidence": "Phase 62 PWA-TELEMETRY sub-scope deferral: 3 client-side gauges (offline_writes_dead_letter_count, offline_photo_quota_evictions_count, offline_shell_boot_count) are computed in the browser but never reach the server — operator can't observe them in Grafana. Without an endpoint they remain DevTools-only signals.",
+            "remediation": "App\\Http\\Controllers\\Api\\PwaTelemetryController::store receives { metric: string, value: int, labels: ?object } payload. Validates metric is in const ALLOWED_METRICS = ['offline_writes_dead_letter_count', 'offline_photo_quota_evictions_count', 'offline_shell_boot_count']; value >= 0; labels keys all match /^[a-z_]+$/ (Prometheus label name regex). Routes through app(MetricsService::class)->gauge($metric, $value, $labels) so the existing Prometheus exporter picks it up. POST /api/v1/telemetry/pwa under throttle:telemetry rate limiter (60/min/user, registered in AppServiceProvider). auth:sanctum middleware so unauth requests are rejected. Returns 204 No Content on success.",
+            "category": "TELEMETRY-WIRE"
+        },
+        {
+            "id": "TELEMETRY-WIRE-2",
+            "severity": "MEDIUM",
+            "title": "Client-side transmission via sendBeacon on visibilitychange + beforeunload",
+            "evidence": "Without client-side wiring the endpoint stays a dead letterbox. The 3 gauges accumulate in browser memory; on tab close they vanish without ever reaching the server.",
+            "remediation": "resources/js/lib/pwaTelemetry.ts exposes increment(metric, value=1, labels={}) + flush(). Counter values stored in a Map<string, {value, labels}>. visibilitychange handler (visible → hidden) + beforeunload both call flush() which uses navigator.sendBeacon('/api/v1/telemetry/pwa', JSON.stringify(payload)) for each accumulated metric. sendBeacon is fire-and-forget + survives unload. App.js boot calls registerPwaTelemetry() once. resources/js/sw.ts on dead-letter add + photo quota eviction + shell boot success posts a CLIENT_METRIC message via postMessage to the app context, which forwards into pwaTelemetry.increment.",
+            "category": "TELEMETRY-WIRE"
+        },
+        {
+            "id": "TELEMETRY-WIRE-3",
+            "severity": "LOW",
+            "title": "alert-thresholds.md rows updated from 'deferred' to 'wired'",
+            "evidence": "docs/runbooks/alert-thresholds.md rows for the 3 PWA gauges say '(wiring deferred to frontend telemetry pipeline)' — once the endpoint + sendBeacon land, the docs need to reflect reality so ops knows the gauges are now live in Grafana.",
+            "remediation": "Update alert-thresholds.md '## PWA offline depth' section rows: remove '(wiring deferred to frontend telemetry pipeline)' and '(client-side telemetry deferred)' qualifiers; add 'rolling 24h, posted via /api/v1/telemetry/pwa from sendBeacon on visibilitychange'; bump alert sev from visibility-only to sev4 with > 50 / 24h cluster-wide threshold for offline_writes_dead_letter_count (sustained dead-letter accumulation indicates a broken replay payload). Cross-link Phase 64 plan memory.",
+            "category": "TELEMETRY-WIRE"
+        },
+        {
+            "id": "LEGAL-HOLD-1",
+            "severity": "HIGH",
+            "title": "App\\Support\\LegalHoldRegistry class + legal_holds table",
+            "evidence": "Phase 63 INBOX-MOD-2 sub-scope deferral: docs/runbooks/inbox.md describes the legal-hold override seam but no actual class exists. Without it, a court-ordered preservation directive can't be honored — the retention sweep will soft-delete held messages on its next tick.",
+            "remediation": "Migration create_legal_holds: id, holdable_type (string, mirrors Document.documentable_type convention), holdable_id (unsignedBigInt), reason (string), held_by (FK users), held_at (timestamp), released_at (timestamp nullable), released_by (FK users nullable), unique(holdable_type, holdable_id, released_at) to allow re-hold after release. App\\Models\\LegalHold model with Auditable trait + scopeActive (whereNull('released_at')). App\\Support\\LegalHoldRegistry static methods: hold(Model $subject, User $by, string $reason) + release(Model $subject, User $by) + isHeld(Model $subject): bool + heldIdsFor(string $modelClass): array<int>. Cache::remember('legal_hold:ids:'.$modelClass, 60, ...) to bound cost of the array lookup inside the retention cron.",
+            "category": "LEGAL-HOLD"
+        },
+        {
+            "id": "LEGAL-HOLD-2",
+            "severity": "MEDIUM",
+            "title": "messages:enforce-retention excludes held thread IDs",
+            "evidence": "Without integrating LegalHoldRegistry into the retention command, the registry is dead code.",
+            "remediation": "App\\Console\\Commands\\MessagesEnforceRetention chunked landlord loop calls $heldThreadIds = LegalHoldRegistry::heldIdsFor(MessageThread::class) once at start (one DB hit + 60s Cache). The per-landlord batch UPDATE adds ->whereNotIn('thread_id', $heldThreadIds) so messages on held threads are skipped. Command emits messages_legal_hold_count gauge with the count of currently-held threads (visibility — operator should see legal-hold sets are realistic). docs/runbooks/inbox.md operator procedure section updated with the artisan command + sample code.",
+            "category": "LEGAL-HOLD"
+        },
+        {
+            "id": "LEGAL-HOLD-3",
+            "severity": "LOW",
+            "title": "LegalHold model uses Auditable + audit_logs entry tagged 'legal_obligation' lawful basis",
+            "evidence": "Kenya DPA Section 30 / GDPR Article 6(1)(c) require documented lawful basis for processing — a legal hold IS legal-obligation processing. Auditable trait must tag accordingly so a regulator inspection answers 'on what basis was this row added/released' without code archaeology.",
+            "remediation": "LegalHold model overrides getLawfulBasis(): string => 'legal_obligation'. Auditable's buildAuditMetadata picks it up automatically — no extra wiring. Add LegalHold to AuthServiceProvider $policies map (LegalHoldPolicy::create gates landlord-only — only landlords can put holds on their own threads). Phase64LegalHoldTest asserts the audit row's metadata.lawful_basis is 'legal_obligation' on hold create + release.",
+            "category": "LEGAL-HOLD"
+        },
+        {
+            "id": "CI-1",
+            "severity": "MEDIUM",
+            "title": "Phase64VueTail2SurfaceTest cross-category presence map",
+            "evidence": "Cycle-wide regression watchdog locking in every Vue mount + service class + route + table. Same pattern as Phase 51 VUE-TAIL-1 Phase51VueTailSurfaceTest (20 tests / 66 assertions).",
+            "remediation": "tests/Feature/VueTail/Phase64VueTail2SurfaceTest with cross-category presence assertions: InboxBell.vue file exists + content tokens (inbox_unread_total + EnvelopeIcon); AuthenticatedLayout imports + mounts InboxBell + ConflictDialog; Tenants/Show.vue contains the Message CTA route reference; writeConflictBus.ts file exists; 4 Show.vue pages contain PendingSyncBadge import; TicketController + WaterReadingController source contains assertIfMatch calls; Api\\PwaTelemetryController class exists + ALLOWED_METRICS const has 3 entries; pwaTelemetry.ts exists + contains sendBeacon; legal_holds table exists (Schema::hasTable); LegalHoldRegistry class exists; messages:enforce-retention command source contains LegalHoldRegistry reference.",
+            "category": "CI"
+        },
+        {
+            "id": "CI-2",
+            "severity": "MEDIUM",
+            "title": "Per-category Phase64 watchdog tests",
+            "evidence": "Single surface map doesn't catch behavioural regressions in any sub-surface.",
+            "remediation": "Phase64InboxMountTest (CTA visibility logic + InboxBell unread count from auth share); Phase64InboxPolishTest (virtualization windowing renders ≤ buffer for >100 msgs + thumbnail preview generates URL.createObjectURL); Phase64OfflineMountsTest (ConflictDialog mount + writeConflictBus emit→handler + assertIfMatch 409 path on TicketController + WaterReadingController); Phase64TelemetryWireTest (endpoint allow-list rejection + rate-limit + MetricsService::gauge call); Phase64LegalHoldTest (hold lifecycle + retention cron exclusion + lawful_basis audit metadata).",
+            "category": "CI"
+        },
+        {
+            "id": "CI-3",
+            "severity": "MEDIUM",
+            "title": "docs/runbooks/frontend-polish.md + alert-thresholds.md + memory cross-links",
+            "evidence": "Past Vue-tail cycles update the polish runbook so the established UI patterns are discoverable. Telemetry gauges + legal-hold need operator documentation.",
+            "remediation": "docs/runbooks/frontend-polish.md gains sections: InboxBell mount recipe; ConflictDialog global mount via writeConflictBus; PendingSyncBadge per-page wiring contract; AttachmentPreviewList + drag-drop file upload patterns. docs/runbooks/alert-thresholds.md PWA section updated (sev visibility-only → sev4 with 50/24h threshold for dead-letter). docs/runbooks/inbox.md gains 'Adding a legal hold' operator procedure. Memory: project_propmanager_phase62_plan + phase63_plan cross-link Phase 64 closeout — A9 + A10 + A11.3 now closed."
+        }
+    ],
+    "ranking": {
+        "high": ["INBOX-MOUNT-1", "OFFLINE-MOUNTS-1", "OFFLINE-MOUNTS-3", "TELEMETRY-WIRE-1", "LEGAL-HOLD-1"],
+        "medium": ["INBOX-MOUNT-2", "INBOX-MOUNT-3", "INBOX-POLISH-1", "INBOX-POLISH-2", "TELEMETRY-WIRE-2", "LEGAL-HOLD-2", "CI-1", "CI-2", "CI-3"],
+        "low": ["INBOX-POLISH-3", "OFFLINE-MOUNTS-2", "TELEMETRY-WIRE-3", "LEGAL-HOLD-3"]
+    },
+    "execution_plan": {
+        "phase_1a": "INBOX-MOUNT-1/2/3 — Message CTA on Tenants/Show.vue + InboxBell.vue + sidebar nav entries. Tests: Phase64InboxMountTest.",
+        "phase_1b": "INBOX-POLISH-1/2/3 — VirtualMessageList + AttachmentPreviewList + drag-drop overlay. Tests: Phase64InboxPolishTest.",
+        "phase_1c": "OFFLINE-MOUNTS-1/2/3 — ConflictDialog global mount via writeConflictBus + PendingSyncBadge per-page + If-Match controller wiring. Tests: Phase64OfflineMountsTest.",
+        "phase_1d": "TELEMETRY-WIRE-1/2/3 — PwaTelemetryController + pwaTelemetry.ts sendBeacon + alert-thresholds.md update. Tests: Phase64TelemetryWireTest.",
+        "phase_1e": "LEGAL-HOLD-1/2/3 — LegalHoldRegistry + legal_holds migration + retention cron integration + audit. Tests: Phase64LegalHoldTest.",
+        "phase_2": "CI-1/2/3 — Phase64VueTail2SurfaceTest + runbook updates + memory cross-links + closeout."
+    }
+}
