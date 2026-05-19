@@ -1,0 +1,173 @@
+{
+    "phase": 65,
+    "title": "LEGAL-HOLD-EXPAND",
+    "opened_at": "2026-05-19",
+    "tier": "Tier 7 cycle 29",
+    "scope": "Sequel to Phase 64 [VUE-TAIL-2] which shipped the LegalHoldRegistry polymorphic foundation covering MessageThread only. Phase 65 extends coverage to Document + Invoice + Ticket (3 net-new morph targets), surfaces landlord-initiated create/release through a dedicated UI (no more artisan-only operator path), adds bulk hold for litigation scenarios (manually holding 100 invoices is unworkable), wires every retention cron + DataExportService to honor holds (Phase 64 wired only messages:enforce-retention), and ships a regulator-ready CSV audit-export. Scout (2026-05-19) confirmed: Phase 64 LegalHold + Registry + Policy shaped correctly; ALLOWED_HOLDABLE_TYPES allow-list is a Phase 65 net-new defense-in-depth guard; Document model has TenantScope + SoftDeletes + Auditable (good fit); Invoice has TenantScope + Auditable + getLawfulBasis='contract' (LegalHold-side override wins under Auditable::buildAuditMetadata precedence); Ticket has TenantScope + RowVersion only — Phase 65 ADDS Auditable trait to Ticket so getLawfulBasis pickup is clean (small surface change with existing pattern); Documents has NO Show.vue (mount HoldCreateModal on Index.vue row context menu); StorageEnforceRetention iterates FileRetentionPolicy::SUBJECTS with a no-op branch for kyc_doc/lease_doc/invoice_pdf/file_access_audit — Phase 65 wires the Document hold-skip into the no-op branch's Eloquent path; no dedicated DPA cron exists so RETENTION-INTEGRATION focuses on Phase 59 storage:enforce-retention + DataExportService (real existing surface); AuthenticatedLayout has ScaleIcon + ShieldCheckIcon imported unused — ScaleIcon (justice scales) is the natural fit for nav.legal_holds entry. Six categories x 3 = 18 findings.",
+    "categories": {
+        "MORPH-EXPAND": "Widen Phase 64 polymorphic foundation from MessageThread-only to 4 subjects. (1) EXPAND-1 [HIGH] — LegalHoldRegistry gains `public const ALLOWED_HOLDABLE_TYPES = [MessageThread::class, Document::class, Invoice::class, Ticket::class]` + hold() guard rejects subjects whose class is not in allow-list (defense-in-depth — prevents arbitrary morph-type injection from a malicious POST tampering subject_type to App\\Models\\User and holding entire user rows from purge). Throws InvalidArgumentException with translation-keyed message. (2) EXPAND-2 [MED] — `HasLegalHolds` trait added to Document + Invoice + Ticket exposing `legalHolds(): MorphMany` relation + `isHeld(): bool` helper delegating to LegalHoldRegistry::isHeld($this). Single import per model handles both. Phase 65 also adds Auditable trait to Ticket (currently absent) so the audit-log capture path is uniform across all 4 holdables. (3) EXPAND-3 [MED] — LegalHoldPolicy::create signature already accepts (User, modelClass, modelId) — Phase 65 fills in the cross-tenant ownership check: pulls the subject row via $modelClass::find($modelId), invokes the subject's existing policy ($user->can('update', $subject)) to confirm landlord owns the subject. Landlords can ONLY hold their own tenants' invoices/tickets/documents/threads, never another landlord's.",
+        "HOLD-UI": "Landlord-initiated create/release surface so legal counsel doesn't phone the operator. (1) UI-1 [HIGH] — App\\Http\\Controllers\\LegalHoldController resource with index/store/destroy (destroy = release via released_at timestamp, not row deletion — audit trail preserved). Index paginates active holds with ?subject_type filter + ?landlord_id filter (TenantScope enforces landlord automatically). Store accepts {subject_type, subject_id, reason} + LegalHoldPolicy::create gate. Destroy invokes LegalHoldRegistry::release. (2) UI-2 [MED] — Pages/LegalHolds/Index.vue Phase-31-branded card grid: columns subject_type pill + truncated subject identifier + reason (60-char preview, full on hover) + held_by name + held_at Carbon::diffForHumans + Release button. Tabs Active (default, whereNull released_at) + Released (whereNotNull, sorted released_at desc). (3) UI-3 [LOW] — Components/LegalHold/HoldCreateModal.vue slide-over mounted on Invoice/Ticket/MessageThread Show pages + Documents/Index.vue row context. Props {subjectType, subjectId, subjectLabel}. Reason textarea required 10-500 chars + warning copy + POST to /legal-holds. Plus nav.legal_holds sidebar entry in AuthenticatedLayout (ScaleIcon, badge with active count from new auth.legal_holds_active_count Inertia share — Cache::remember 60s).",
+        "BULK-HOLD": "Multi-subject hold operations for real litigation requests. (1) BULK-1 [HIGH] — App\\Services\\Legal\\BulkHoldService::holdAll($subjectClass, array $subjectIds, User $by, string $reason): array<LegalHold> wraps a single DB::transaction minting N legal_holds rows + pre-validates every subject id exists + belongs to acting landlord (queries `$subjectClass::query()->whereIn('id', $subjectIds)->pluck('id')` and asserts count match — rejects whole batch on cross-tenant leak) + busts the per-modelClass cache ONCE at end (not N times — point of bulk). Symmetric releaseAll counterpart. Caps array length at config('legal_hold.bulk_max', 100) with 500 hardcoded floor to bound transaction time. (2) BULK-2 [MED] — POST /legal-holds/bulk + DELETE /legal-holds/bulk endpoints accepting {subject_type, subject_ids: int[], reason} + LegalHoldPolicy::createBulk gate verifying acting user can create holds on EVERY id; validates subject_type is in ALLOWED_HOLDABLE_TYPES. (3) BULK-3 [LOW] — Tenant-litigation preset POST /tenants/{tenant}/legal-hold via App\\Http\\Controllers\\TenantLegalHoldController::__invoke orchestrates 5 inner BulkHoldService calls (active leases + invoices + tickets + documents + message threads tied to that tenant) inside ONE outer DB::transaction at controller layer for atomicity — on any inner failure the outer transaction rolls back all 5. Pages/Tenants/Show.vue gains 'Legal hold all related records' button beside Phase 64 Message CTA with checkbox grid showing counts ('17 documents · 4 active leases · 23 invoices · 8 tickets · 3 message threads'). Emits tenant_litigation_hold_subjects_count{subject_type} counter.",
+        "RETENTION-INTEGRATION": "Every retention sweep honors holds — Phase 64 wired only messages cron. (1) RETENTION-1 [HIGH] — App\\Services\\Storage\\FileRetentionService::enforce($subject, $dryRun) for model-bound subjects (lease_doc/kyc_doc/invoice_pdf currently no-op) reads `$heldIds = LegalHoldRegistry::heldIdsFor(Document::class)` ONCE at start + adds `->whereNotIn('id', $heldIds)` to the Document Eloquent delete chunk loop. Plain-file subjects (ocr_temp/export_zip) unaffected. (2) RETENTION-2 [MED] — App\\Services\\DataExportService::exportUserData($user) adds 'active legal holds blocking erasure' stanza to the export ZIP when user has active holds on any of their data — landlord can see which records would survive an Article 17 erasure request and why. DPA Article 17(3)(b) carves out legal_obligation processing (which IS LegalHold's lawful_basis); export reflects this explicitly. (3) RETENTION-3 [MED] — App\\Console\\Commands\\AuditLegalHoldExclusions daily 04:45 Africa/Nairobi cron emits a single `retention_legal_hold_exclusions_count{cron, subject_type}` gauge tallying exclusions across messages + storage retention. Plus per-cron sibling gauges: storage:enforce-retention emits `files_retention_held_count{subject_type}` (Phase 64 messages cron emits messages_legal_hold_count already). Single source of truth so ops doesn't correlate 3 separate gauges.",
+        "AUDIT-DEPTH": "Regulator-ready audit log search + CSV export — today's 'show every legal-hold action over 2 years with lawful basis' is code archaeology. (1) AUDIT-1 [HIGH] — App\\Services\\Legal\\LegalHoldAuditExportService::exportToCsv(User $landlord, Carbon $from, Carbon $to): string returns file path on tenant disk (Phase 58 Storage::tenant pattern) with CSV columns: event_at, event_type (hold/release), subject_type, subject_id, reason, actor_user_id, actor_user_name, lawful_basis. Pulls from audit_logs filtered by auditable_type=LegalHold::class for the landlord. UTF-8 BOM + explicit LF line ending for Excel compatibility. (2) AUDIT-2 [MED] — GET /legal-holds/audit-export?from=YYYY-MM-DD&to=YYYY-MM-DD via App\\Http\\Controllers\\LegalHoldAuditExportController::__invoke validates date range ≤ 2 years; LegalHoldPolicy::auditExport gate (landlord-only on own data). Streams via redirect()->away($resolver->temporaryUrl($path, $landlordId, 5, ...)) — Phase 59 SIGNED-URLS, 5-min expiry, browser-direct, doesn't tie up PHP-FPM. (3) AUDIT-3 [LOW] — App\\Models\\AuditLog gains scopeForLawfulBasis(Builder $q, string $basis): Builder query helper. Pages/LegalHolds/AuditExport.vue date-range form + recently-generated-exports list (last 10 via session storage so operator can re-download within signed-URL window without re-generating).",
+        "CI": "(1) CI-1 [MED] — tests/Feature/LegalHold/Phase65LegalHoldExpandSurfaceTest cross-category presence map: ALLOWED_HOLDABLE_TYPES has 4 entries; LegalHoldController + LegalHoldAuditExportController + TenantLegalHoldController classes exist + are routed; Pages/LegalHolds/{Index,AuditExport}.vue + Components/LegalHold/HoldCreateModal.vue files exist; AuthenticatedLayout mounts nav.legal_holds entry with ScaleIcon; bulk + audit-export + tenant-preset routes registered; storage:enforce-retention command source contains LegalHoldRegistry::heldIdsFor reference; HasLegalHolds trait imported by Document + Invoice + Ticket models; Ticket gains Auditable trait. (2) CI-2 [MED] — Per-category Phase65 watchdog tests: Phase65MorphExpandTest (ALLOWED_HOLDABLE_TYPES guard rejects disallowed class + cross-landlord hold fails policy + HasLegalHolds trait wired correctly); Phase65HoldUiTest (Index renders only acting landlord's holds + cross-landlord hold invisible + release endpoint flips released_at + sw/ar key parity); Phase65BulkHoldTest (100-row bulk hold inside single transaction + cache busted once per subject_type + cross-tenant id rejected + tenant preset atomicity via injected mid-flight constraint violation); Phase65RetentionIntegrationTest (held Document NOT in candidate purge list + DataExportService stanza present when holds active); Phase65AuditDepthTest (CSV columns + UTF-8 BOM + cross-landlord rows EXCLUDED + date filter respected). (3) CI-3 [MED] — docs/runbooks/legal-hold.md NEW operator runbook (when to use + single-subject UI walkthrough + bulk operator procedure + tenant-litigation preset + release + audit-export procedure + artisan emergency recipes + cron interaction matrix + cross-link to inbox.md). alert-thresholds.md gains 4 new rows for Phase 65 gauges (legal_holds_active_count + tenant_litigation_hold_subjects_count + retention_legal_hold_exclusions_count + files_retention_held_count) all visibility-only with operator investigation hints. Cross-link Phase 65 plan memory into Phase 64 plan memory's 'Phase 65 candidates' section."
+    },
+    "findings": [
+        {
+            "id": "MORPH-EXPAND-1",
+            "severity": "HIGH",
+            "title": "ALLOWED_HOLDABLE_TYPES allow-list guard in LegalHoldRegistry::hold",
+            "evidence": "Phase 64 LegalHoldRegistry::hold accepts any Model subject without class-allow-listing. A malicious POST tampering subject_type to App\\Models\\User could mint a LegalHold row keyed to a user (Auditable picks the lawful_basis from LegalHold model, but the actual subject row is not in the allow-list — the hold becomes a stealth mark on arbitrary tables). Defense-in-depth: explicit class allow-list mirrors Phase 50 ALLOWED_FIELDS pattern.",
+            "remediation": "LegalHoldRegistry gains `public const ALLOWED_HOLDABLE_TYPES = [MessageThread::class, Document::class, Invoice::class, Ticket::class]`. The `hold()` static method's first action: `if (!in_array($subject::class, self::ALLOWED_HOLDABLE_TYPES, true)) throw new \\InvalidArgumentException('legal_hold.unsupported_holdable_type')`. Translation key resolves via lang/en/legal_holds.php. Test Phase65MorphExpandTest asserts hold(new User) throws + hold(new MessageThread/Document/Invoice/Ticket) succeeds.",
+            "category": "MORPH-EXPAND"
+        },
+        {
+            "id": "MORPH-EXPAND-2",
+            "severity": "MEDIUM",
+            "title": "HasLegalHolds trait on Document + Invoice + Ticket models + add Auditable to Ticket",
+            "evidence": "Phase 64 has no per-model helper for 'is this row held?' — callers either hit LegalHoldRegistry::isHeld($model) directly (verbose) or query the polymorphic table manually (fragile). Three new morph targets multiply the verbosity. Scout confirms Ticket has TenantScope + RowVersion + HasFactory only — NO Auditable trait. Audit-log capture path for Ticket-side legal-hold actions is currently broken (Auditable trait absent means buildAuditMetadata never runs).",
+            "remediation": "App\\Models\\Concerns\\HasLegalHolds trait exposes `legalHolds(): MorphMany` returning $this->morphMany(LegalHold::class, 'holdable') + `isHeld(): bool` returning LegalHoldRegistry::isHeld($this) + `isHoldable(): bool` constant-time membership check against ALLOWED_HOLDABLE_TYPES. Three lines (`use HasLegalHolds;`) added to Document.php, Invoice.php, Ticket.php. Separately, Ticket.php gains `use Auditable;` so legal-hold audit metadata captures correctly. Phase65MorphExpandTest asserts trait methods present + return types.",
+            "category": "MORPH-EXPAND"
+        },
+        {
+            "id": "MORPH-EXPAND-3",
+            "severity": "MEDIUM",
+            "title": "LegalHoldPolicy::create cross-tenant ownership gate",
+            "evidence": "Phase 64 LegalHoldPolicy::create($user, string $modelClass, $modelId) signature accepts the modelClass arg but doesn't actually verify the user OWNS the subject — a malicious landlord could attempt to hold another landlord's invoice via crafted modelClass+modelId. TenantScope catches reads but not write authorization.",
+            "remediation": "LegalHoldPolicy::create body: `$subject = $modelClass::withoutGlobalScopes()->find($modelId)`; if subject not found return false; then `return $user->can('update', $subject)` — delegates to the subject's existing policy which has the landlord_id ownership baked in. Bypassing TenantScope on the lookup is intentional + necessary so cross-tenant attempts fail at the can('update') step instead of silently returning false on the find. Phase65MorphExpandTest creates two landlords + asserts landlord A cannot create hold on landlord B's invoice via direct policy invocation.",
+            "category": "MORPH-EXPAND"
+        },
+        {
+            "id": "HOLD-UI-1",
+            "severity": "HIGH",
+            "title": "LegalHoldController resource + GET/POST/DELETE routes",
+            "evidence": "Today the only path to mint a LegalHold is via PHP code or tinker — operator-only. Litigation requests arrive via email; legal counsel cannot self-serve. Index/store/destroy resource controller is the table-stakes surface.",
+            "remediation": "App\\Http\\Controllers\\LegalHoldController with `index` (paginated active holds + ?subject_type + ?status=active|released filters), `store` (LegalHoldPolicy::create gate + LegalHoldRegistry::hold call + redirect index), `destroy` (LegalHoldPolicy::release gate + LegalHoldRegistry::release call + redirect index). Routes registered under `Route::middleware(['auth','verified'])->resource('legal-holds', ...)` — store + destroy only emit JSON or Inertia redirect, never raw HTML. Phase65HoldUiTest exercises full CRUD via HTTP.",
+            "category": "HOLD-UI"
+        },
+        {
+            "id": "HOLD-UI-2",
+            "severity": "MEDIUM",
+            "title": "Pages/LegalHolds/Index.vue + HoldCreateModal slide-over",
+            "evidence": "Even with the controller, landlord needs a Vue surface to USE it. Phase 31-branded card grid is the established pattern (role picker / payment-method picker reference patterns).",
+            "remediation": "Pages/LegalHolds/Index.vue branded card grid: subject_type pill (Document/Invoice/Ticket/Message Thread) + truncated identifier + 60-char reason preview (title=full reason on hover) + held_by name + Carbon::diffForHumans held_at + Release button per row triggering confirm modal. Tabs Active (whereNull released_at, default) + Released (whereNotNull, released_at desc). Empty state copy + branded help card. Components/LegalHold/HoldCreateModal.vue slide-over with reason textarea required 10-500 chars + warning copy + POST to /legal-holds. Mounted on: Pages/Invoices/Show.vue + Pages/Tickets/Show.vue + Pages/MessageThreads/Show.vue + Pages/Documents/Index.vue row context menu (Documents has no Show.vue per scout).",
+            "category": "HOLD-UI"
+        },
+        {
+            "id": "HOLD-UI-3",
+            "severity": "LOW",
+            "title": "Sidebar nav.legal_holds entry + auth.legal_holds_active_count Inertia share",
+            "evidence": "Landlord needs a discoverable entry point — sidebar is the canonical pattern (Phase 64 added nav.messages + nav.inbox the same way). ScaleIcon already imported in AuthenticatedLayout but unused — natural fit for legal/compliance entry.",
+            "remediation": "AuthenticatedLayout.vue sidebar gains `nav.legal_holds` entry under the landlord/caretaker section using ScaleIcon. HandleInertiaRequests shares `auth.legal_holds_active_count` via Cache::remember 60s keyed by landlord_id (mirrors Phase 63 inbox_unread_total pattern). Badge renders when count > 0. lang/{en,sw,ar}.json `nav.legal_holds` keys (en+sw full, ar TODO-prefix per Phase 43 contract). Operator-side lang/en/legal_holds.php for page copy (sw+ar TODO-prefix).",
+            "category": "HOLD-UI"
+        },
+        {
+            "id": "BULK-HOLD-1",
+            "severity": "HIGH",
+            "title": "BulkHoldService::holdAll + releaseAll inside single DB::transaction",
+            "evidence": "Real litigation requests cite 'all 2025 invoices for tenants Smith/Jones/Patel' — minting holds row-by-row hits the per-modelClass cache N times + creates N audit log rows + races against concurrent retention crons. A single transaction with one cache bust is the only sane shape.",
+            "remediation": "App\\Services\\Legal\\BulkHoldService::holdAll(string $subjectClass, array $subjectIds, User $by, string $reason): array<LegalHold> validates $subjectClass in ALLOWED_HOLDABLE_TYPES; queries `$subjectClass::query()->whereIn('id', $subjectIds)->pluck('id')->all()` + asserts `count($found) === count($subjectIds)` (rejects whole batch on cross-tenant leak); wraps DB::transaction(fn () => collect($subjectIds)->map(fn ($id) => LegalHold::create([...])); LegalHoldRegistry::flushCacheFor($subjectClass)). Symmetric releaseAll updates released_at + released_by in one mass UPDATE inside same transaction shape. Caps array length at config('legal_hold.bulk_max', 100) with 500 hardcoded floor. Phase65BulkHoldTest seeds 100 rows + asserts single transaction + single cache bust + cross-tenant id rejection.",
+            "category": "BULK-HOLD"
+        },
+        {
+            "id": "BULK-HOLD-2",
+            "severity": "MEDIUM",
+            "title": "POST/DELETE /legal-holds/bulk endpoints",
+            "evidence": "Service without HTTP surface = dead code. Bulk requests come from the UI.",
+            "remediation": "POST /legal-holds/bulk accepts {subject_type, subject_ids: int[], reason} + LegalHoldPolicy::createBulk gate verifying acting user can create holds on EVERY id (mass version of single-subject gate — Phase65BulkHoldTest asserts mixed-ownership array fails closed). DELETE /legal-holds/bulk symmetric for release. Both routes under throttle:legal-hold (10/min/user, registered in AppServiceProvider — bulk endpoint is rate-limited tighter than single-subject because attacker leverage is higher).",
+            "category": "BULK-HOLD"
+        },
+        {
+            "id": "BULK-HOLD-3",
+            "severity": "LOW",
+            "title": "Tenant-litigation preset — one-click hold all tenant records",
+            "evidence": "A landlord facing tenant litigation needs to hold 'everything related to this tenant' atomically — leases + invoices + tickets + documents + threads. Five separate UI walks is operator pain + leaves a window where a partial-hold state is observable.",
+            "remediation": "POST /tenants/{tenant}/legal-hold via App\\Http\\Controllers\\TenantLegalHoldController::__invoke orchestrates 5 inner BulkHoldService calls inside ONE outer DB::transaction at controller layer — on any inner failure the outer transaction rolls back all 5. Pages/Tenants/Show.vue gains 'Legal hold all related records' button beside Phase 64 Message CTA. Modal shows counts ('17 documents · 4 active leases · 23 invoices · 8 tickets · 3 message threads') + reason textarea + on submit POSTs single endpoint that orchestrates. Emits `tenant_litigation_hold_subjects_count{subject_type}` counter per inner call so ops sees per-subject distribution. Phase65BulkHoldTest injects a mid-flight constraint violation on the 4th inner call + asserts NO rows persisted on any of the 5 subject_types (full rollback verified).",
+            "category": "BULK-HOLD"
+        },
+        {
+            "id": "RETENTION-INTEGRATION-1",
+            "severity": "HIGH",
+            "title": "FileRetentionService honors Document holds in lease_doc/kyc_doc/invoice_pdf branches",
+            "evidence": "Phase 59 FileRetentionService::enforce currently NO-OPS for model-bound subjects (kyc_doc/lease_doc/invoice_pdf/file_access_audit per scout line 57) — it iterates SUBJECTS but only the directory-based subjects (ocr_temp/export_zip/water_reading_photo) have implementation. Phase 65 fills in the Document Eloquent path AND injects hold-skip. Without hold honor, a held lease document under court order can be soft-deleted by the daily 02:30 cron.",
+            "remediation": "FileRetentionService::enforce branches for lease_doc/kyc_doc/invoice_pdf load `$heldIds = LegalHoldRegistry::heldIdsFor(Document::class)` ONCE before the chunk loop + add `->whereNotIn('id', $heldIds)` to the Document Eloquent delete query. file_access_audit subject is non-Document so no hold path needed. Phase65RetentionIntegrationTest creates 3 Documents (one held 2600d old + one unheld 2600d old + one unheld 30d new) + runs storage:enforce-retention --dry-run + asserts held doc NOT in candidate list + unheld-old IS + unheld-new NOT.",
+            "category": "RETENTION-INTEGRATION"
+        },
+        {
+            "id": "RETENTION-INTEGRATION-2",
+            "severity": "MEDIUM",
+            "title": "DataExportService::exportUserData exposes active holds blocking erasure",
+            "evidence": "Phase 59 DataExportService produces a per-user export ZIP. Under DPA Article 17 right-to-erasure, the user can demand deletion of their data. Article 17(3)(b) carves out legal_obligation processing — which IS LegalHold's lawful_basis. Without an explicit 'active holds blocking erasure' stanza, the operator handling the Article 17 request has no machine-readable list of records that WILL survive the erasure.",
+            "remediation": "DataExportService::exportUserData($user) appends `legal_holds_blocking_erasure.json` to the ZIP listing every active LegalHold where the user's data is the subject (across all 4 ALLOWED_HOLDABLE_TYPES). Stanza columns: subject_type, subject_id, subject_label (Document filename / Invoice number / Ticket title / MessageThread subject), held_at, reason, lawful_basis. Empty array when user has no holds. Plus a README.txt section explaining Article 17(3)(b) lawful-basis carve-out so the requester understands why some records remain.",
+            "category": "RETENTION-INTEGRATION"
+        },
+        {
+            "id": "RETENTION-INTEGRATION-3",
+            "severity": "MEDIUM",
+            "title": "AuditLegalHoldExclusions cron + per-cron sibling gauges",
+            "evidence": "Phase 64 emits `messages_legal_hold_count` from messages cron. Phase 65 adds storage cron exclusions. Ops needs ONE pane of glass — three separate gauges (messages, storage, future-DPA) is correlation pain. A single aggregator cron is the cleanest seam.",
+            "remediation": "App\\Console\\Commands\\AuditLegalHoldExclusions daily 04:45 Africa/Nairobi cron iterates ALLOWED_HOLDABLE_TYPES + emits `retention_legal_hold_exclusions_count{cron, subject_type}` gauge per pair (4 subject_types × 2 crons = 8 series). Plus storage:enforce-retention emits new sibling `files_retention_held_count{subject_type}` (Phase 64 messages cron already emits `messages_legal_hold_count` so naming convention is consistent). docs/runbooks/alert-thresholds.md documents both as visibility-only with operator investigation hint: 'sustained spike = check why holds aren't being released after litigation resolves'.",
+            "category": "RETENTION-INTEGRATION"
+        },
+        {
+            "id": "AUDIT-DEPTH-1",
+            "severity": "HIGH",
+            "title": "LegalHoldAuditExportService::exportToCsv UTF-8 BOM + Excel compatibility",
+            "evidence": "Regulator inspection ('show every legal-hold action over the last 2 years with lawful basis') is today a code archaeology exercise. Without a machine-readable export the audit-defence cost is 8-hour engineer time per inspection.",
+            "remediation": "App\\Services\\Legal\\LegalHoldAuditExportService::exportToCsv(User $landlord, Carbon $from, Carbon $to): string returns file path on tenant disk. Pulls from audit_logs filtered by auditable_type=LegalHold::class for landlord. CSV columns: event_at (ISO 8601), event_type (hold/release), subject_type (last segment after backslash), subject_id, reason, actor_user_id, actor_user_name, lawful_basis (always 'legal_obligation'). Uses fputcsv with explicit `\\n` line ending. Prepends UTF-8 BOM (bytes EF BB BF) so Excel opens with correct encoding without 'import wizard' detour — operator workflow win. Phase65AuditDepthTest asserts BOM bytes present + columns + cross-landlord rows excluded.",
+            "category": "AUDIT-DEPTH"
+        },
+        {
+            "id": "AUDIT-DEPTH-2",
+            "severity": "MEDIUM",
+            "title": "/legal-holds/audit-export signed-URL stream",
+            "evidence": "Service without HTTP surface = dead code. Operator needs to click + download from UI.",
+            "remediation": "GET /legal-holds/audit-export?from=YYYY-MM-DD&to=YYYY-MM-DD via App\\Http\\Controllers\\LegalHoldAuditExportController::__invoke validates date range ≤ 2 years (operator can't accidentally request 10 years of data and timeout the request) + LegalHoldPolicy::auditExport gate (landlord-only on own data). Streams via redirect()->away($resolver->temporaryUrl($path, $landlordId, 5, ['filename' => \"legal-hold-audit-{$from}-{$to}.csv\", 'disposition' => 'attachment'])) — Phase 59 SIGNED-URLS pattern, 5-min expiry, browser-direct, doesn't tie up PHP-FPM. CSV file lifetime governed by tenant disk's export_zip retention (7 days per Phase 59 policy).",
+            "category": "AUDIT-DEPTH"
+        },
+        {
+            "id": "AUDIT-DEPTH-3",
+            "severity": "LOW",
+            "title": "AuditLog::scopeForLawfulBasis + AuditExport.vue date-picker",
+            "evidence": "Operator UX for the new audit-export surface — a date picker + 'recently generated' list is the table-stakes pattern.",
+            "remediation": "App\\Models\\AuditLog gains scopeForLawfulBasis(Builder $q, string $basis): Builder filtering on metadata->>'lawful_basis' (JSON path query) — reusable for any future regulator-inquiry surface. Pages/LegalHolds/AuditExport.vue date-range picker (Phase 50 reports date-range component reuse) + Download button + 'Recently generated (last 10)' list via session storage so operator can re-download within the 5-min signed-URL window without re-generating (signed URLs cached in localStorage with expiry; expired entries auto-pruned on mount).",
+            "category": "AUDIT-DEPTH"
+        },
+        {
+            "id": "CI-1",
+            "severity": "MEDIUM",
+            "title": "Phase65LegalHoldExpandSurfaceTest cross-category presence map",
+            "evidence": "Cycle-wide regression watchdog locking in every mount + service + route + table + trait — same pattern as Phase 51 / Phase 64.",
+            "remediation": "tests/Feature/LegalHold/Phase65LegalHoldExpandSurfaceTest with cross-category presence assertions: LegalHoldRegistry::ALLOWED_HOLDABLE_TYPES const has 4 entries (assert count + entry classes); LegalHoldController + LegalHoldAuditExportController + TenantLegalHoldController classes exist (class_exists assertions); Pages/LegalHolds/Index.vue + Pages/LegalHolds/AuditExport.vue + Components/LegalHold/HoldCreateModal.vue files exist (assertFileExists); AuthenticatedLayout content contains nav.legal_holds + ScaleIcon imports; routes registered (legal-holds.index/store/destroy + legal-holds.bulk.store/destroy + legal-holds.audit-export + tenants.legal-hold); StorageEnforceRetention or FileRetentionService source contains LegalHoldRegistry::heldIdsFor reference; HasLegalHolds trait imported by Document + Invoice + Ticket; Ticket source contains 'use Auditable' import.",
+            "category": "CI"
+        },
+        {
+            "id": "CI-2",
+            "severity": "MEDIUM",
+            "title": "Per-category Phase65 watchdog tests",
+            "evidence": "Single surface map doesn't catch behavioural regressions in any sub-surface.",
+            "remediation": "Phase65MorphExpandTest (ALLOWED_HOLDABLE_TYPES guard rejects disallowed class + cross-landlord hold fails policy + HasLegalHolds trait methods work); Phase65HoldUiTest (Index renders only acting landlord's holds + cross-landlord hold invisible + release endpoint flips released_at + sw/ar key parity); Phase65BulkHoldTest (100-row bulk hold inside single transaction + cache busted once per subject_type + cross-tenant id rejected + tenant preset atomicity via injected mid-flight constraint violation); Phase65RetentionIntegrationTest (held Document NOT in candidate purge list + DataExportService stanza present + AuditLegalHoldExclusions cron emits gauges); Phase65AuditDepthTest (CSV BOM + columns + cross-landlord rows EXCLUDED + date filter + 2-year range cap).",
+            "category": "CI"
+        },
+        {
+            "id": "CI-3",
+            "severity": "MEDIUM",
+            "title": "docs/runbooks/legal-hold.md NEW + alert-thresholds.md rows + cross-links",
+            "evidence": "New compliance surface needs operator documentation. 4 new gauges need rows in alert-thresholds.md.",
+            "remediation": "docs/runbooks/legal-hold.md NEW operator runbook with sections: (i) when to use legal hold (DPA Article 6(1)(c) + 17(3)(b) citations); (ii) single-subject hold via UI walkthrough; (iii) bulk hold operator procedure; (iv) tenant-litigation preset walkthrough; (v) release procedure + audit trail location; (vi) audit-export procedure for regulator inspection; (vii) artisan emergency recipes (`php artisan legal-hold:hold --subject=... --id=... --reason=\"...\"`); (viii) cron interaction matrix (messages:enforce-retention + storage:enforce-retention + AuditLegalHoldExclusions + which gauges each emits); (ix) cross-link to docs/runbooks/inbox.md hold section + docs/runbooks/storage.md retention section. docs/runbooks/alert-thresholds.md gains 4 visibility-only rows (legal_holds_active_count + tenant_litigation_hold_subjects_count + retention_legal_hold_exclusions_count + files_retention_held_count) each with source cron + emit cadence + sev assignment + ops investigation hint. Cross-link Phase 65 plan memory into Phase 64 plan memory's 'Phase 65 candidates' section."
+        }
+    ],
+    "ranking": {
+        "high": ["MORPH-EXPAND-1", "HOLD-UI-1", "BULK-HOLD-1", "RETENTION-INTEGRATION-1", "AUDIT-DEPTH-1"],
+        "medium": ["MORPH-EXPAND-2", "MORPH-EXPAND-3", "HOLD-UI-2", "BULK-HOLD-2", "RETENTION-INTEGRATION-2", "RETENTION-INTEGRATION-3", "AUDIT-DEPTH-2", "CI-1", "CI-2", "CI-3"],
+        "low": ["HOLD-UI-3", "BULK-HOLD-3", "AUDIT-DEPTH-3"]
+    },
+    "execution_plan": {
+        "phase_1a": "MORPH-EXPAND-1/2/3 — ALLOWED_HOLDABLE_TYPES allow-list + HasLegalHolds trait on Document/Invoice/Ticket + Auditable on Ticket + LegalHoldPolicy::create cross-tenant gate. Tests: Phase65MorphExpandTest.",
+        "phase_1b": "HOLD-UI-1/2/3 — LegalHoldController resource + Pages/LegalHolds/Index.vue + HoldCreateModal + nav.legal_holds + auth.legal_holds_active_count Inertia share. Tests: Phase65HoldUiTest.",
+        "phase_1c": "BULK-HOLD-1/2/3 — BulkHoldService + /legal-holds/bulk endpoints + TenantLegalHoldController preset. Tests: Phase65BulkHoldTest.",
+        "phase_1d": "RETENTION-INTEGRATION-1/2/3 — FileRetentionService Document hold-skip + DataExportService erasure stanza + AuditLegalHoldExclusions cron + storage sibling gauge. Tests: Phase65RetentionIntegrationTest.",
+        "phase_1e": "AUDIT-DEPTH-1/2/3 — LegalHoldAuditExportService + signed-URL controller + Pages/LegalHolds/AuditExport.vue + AuditLog::scopeForLawfulBasis. Tests: Phase65AuditDepthTest.",
+        "phase_2": "CI-1/2/3 — Phase65LegalHoldExpandSurfaceTest + docs/runbooks/legal-hold.md NEW + alert-thresholds.md rows + memory cross-links + closeout."
+    }
+}
