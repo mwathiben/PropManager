@@ -169,5 +169,50 @@
         "phase_1d": "TELEMETRY-WIRE-1/2/3 — PwaTelemetryController + pwaTelemetry.ts sendBeacon + alert-thresholds.md update. Tests: Phase64TelemetryWireTest.",
         "phase_1e": "LEGAL-HOLD-1/2/3 — LegalHoldRegistry + legal_holds migration + retention cron integration + audit. Tests: Phase64LegalHoldTest.",
         "phase_2": "CI-1/2/3 — Phase64VueTail2SurfaceTest + runbook updates + memory cross-links + closeout."
+    },
+    "audit_closeout": {
+        "closed_at": "2026-05-19",
+        "closeout_commit": "238e22c",
+        "findings_closed": 18,
+        "findings_deferred": 0,
+        "tests_added": 51,
+        "assertions_added": 162,
+        "files_added": 19,
+        "files_modified": 19,
+        "commit_lineage": [
+            "cbe4301 docs(phase-64): [VUE-TAIL-2] PRD baseline — 18 findings 5H/9M/4L",
+            "e5e854b feat(phase-64): INBOX-MOUNT — bell + nav + Message-this-tenant CTA",
+            "e904804 feat(phase-64): INBOX-POLISH — virtualization + thumbnail preview + drag-drop",
+            "d94ad4d feat(phase-64): OFFLINE-MOUNTS — ConflictDialog global + PendingSyncBadge + If-Match",
+            "7648bf9 feat(phase-64): TELEMETRY-WIRE — PWA gauge ingress + sendBeacon transport",
+            "6eb3351 feat(phase-64): LEGAL-HOLD — registry + retention exclusion + DPA audit",
+            "238e22c test(phase-64): CI — cross-category surface map + frontend-polish.md update"
+        ],
+        "carry_overs_closed": [
+            "A9 (VUE-TAIL-OFFLINE) — ConflictDialog global mount + PendingSyncBadge per-page wiring + Ticket/WaterReading assertIfMatch wiring",
+            "A10 (PWA-TELEMETRY) — POST /api/v1/telemetry/pwa endpoint + sendBeacon client transport + 3 allow-listed gauges + alert-thresholds.md update",
+            "A11 (INBOX-VUE-TAIL) — A11.1 InboxBell + nav + Message CTA; A11.2 virtualization + thumbnail preview + drag-drop; A11.3 LegalHoldRegistry + retention exclusion + DPA audit; A11.4 frontend-polish.md Section 8"
+        ],
+        "load_bearing_artifacts": [
+            "resources/js/Components/InboxBell.vue — reads $page.props.auth.inbox_unread_total; routes by role",
+            "resources/js/Components/Inbox/{InitiateThreadDialog,VirtualMessageList,AttachmentPreviewList}.vue",
+            "resources/js/composables/useFileDropZone.ts — native HTML5 dragenter/over/leave/drop",
+            "resources/js/lib/writeConflictBus.ts — Set<Handler> emitter; AuthenticatedLayout single ConflictDialog mount",
+            "resources/js/lib/pwaTelemetry.ts — Map<string,Bucket> accumulator + sendBeacon flush on visibilitychange + beforeunload",
+            "resources/js/sw.ts — registerOfflinePost manual shift+fetch loop; 409 → WRITE_CONFLICT_409 postMessage",
+            "app/Http/Controllers/Api/PwaTelemetryController.php — ALLOWED_METRICS allow-list + Prometheus label regex on labels",
+            "app/Support/LegalHoldRegistry.php — static facade; Cache::remember 60s versioned key per modelClass",
+            "app/Models/LegalHold.php — Auditable + getLawfulBasis() => 'legal_obligation'",
+            "app/Console/Commands/MessagesEnforceRetention.php — LegalHoldRegistry::heldIdsFor exclusion + messages_legal_hold_count gauge",
+            "app/Http/Controllers/{Ticket,WaterReading}Controller.php — $model->assertIfMatch($request->header('If-Match'), $payload)",
+            "docs/runbooks/frontend-polish.md Section 8 — 6 reusable Vue-tail-2 patterns",
+            "docs/runbooks/alert-thresholds.md — 3 PWA gauges promoted from visibility-only to sev4 50/24h"
+        ],
+        "next_cycle_candidates": [
+            "Phase 65 [MOBILE-NATIVE] — Capacitor/Cordova native wrap (still blocked on UX research)",
+            "Phase 65 [DEFER-CLEANUP-4] — date-locked 2026-08-17 (kyc_completed_at + onboarding_progress.step_data mirror-exempt remove_at)",
+            "Phase 65 [LEGAL-HOLD-EXPAND] — extend LegalHold polymorphic from MessageThread to Document + Invoice + Ticket; UI for landlord-initiated hold create/release",
+            "Phase 65 [INBOX-DEPTH] — read receipts + presence indicators + message search + attachment scan (clamav)"
+        ]
     }
 }
