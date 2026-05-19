@@ -109,6 +109,8 @@ class AuthServiceProvider extends ServiceProvider
         // Phase-63 INBOX-COMPOSE-1: landlord<->tenant message threads.
         \App\Models\MessageThread::class => \App\Policies\MessageThreadPolicy::class,
         \App\Models\Message::class => \App\Policies\MessagePolicy::class,
+        // Phase-64 LEGAL-HOLD-3: court-ordered preservation directives.
+        \App\Models\LegalHold::class => \App\Policies\LegalHoldPolicy::class,
     ];
 
     /**

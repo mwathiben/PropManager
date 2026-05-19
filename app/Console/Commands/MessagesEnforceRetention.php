@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Models\MessageThread;
 use App\Models\User;
 use App\Services\MetricsService;
+use App\Support\LegalHoldRegistry;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -30,6 +31,12 @@ class MessagesEnforceRetention extends Command
         $metrics = app(MetricsService::class);
         $totalDeleted = 0;
 
+        // Phase-64 LEGAL-HOLD-2: skip threads under an active hold so
+        // court-ordered preservation directives are honored even when
+        // their retention window has lapsed.
+        $heldThreadIds = LegalHoldRegistry::heldIdsFor(MessageThread::class);
+        $metrics->gauge('messages_legal_hold_count', count($heldThreadIds));
+
         User::query()
             ->where('role', 'landlord')
             ->select(['id', 'message_retention_days'])
@@ -38,6 +45,7 @@ class MessagesEnforceRetention extends Command
                 $platformDefault,
                 $dryRun,
                 $metrics,
+                $heldThreadIds,
                 &$totalDeleted,
             ) {
                 foreach ($landlords as $landlord) {
@@ -46,6 +54,7 @@ class MessagesEnforceRetention extends Command
 
                     $threadIds = MessageThread::query()
                         ->where('landlord_id', $landlord->id)
+                        ->whereNotIn('id', $heldThreadIds)
                         ->pluck('id');
 
                     if ($threadIds->isEmpty()) {
