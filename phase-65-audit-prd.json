@@ -169,5 +169,57 @@
         "phase_1d": "RETENTION-INTEGRATION-1/2/3 — FileRetentionService Document hold-skip + DataExportService erasure stanza + AuditLegalHoldExclusions cron + storage sibling gauge. Tests: Phase65RetentionIntegrationTest.",
         "phase_1e": "AUDIT-DEPTH-1/2/3 — LegalHoldAuditExportService + signed-URL controller + Pages/LegalHolds/AuditExport.vue + AuditLog::scopeForLawfulBasis. Tests: Phase65AuditDepthTest.",
         "phase_2": "CI-1/2/3 — Phase65LegalHoldExpandSurfaceTest + docs/runbooks/legal-hold.md NEW + alert-thresholds.md rows + memory cross-links + closeout."
+    },
+    "audit_closeout": {
+        "closed_at": "2026-05-20",
+        "closeout_commit": "a776e53",
+        "findings_closed": 18,
+        "findings_deferred": 0,
+        "tests_added": 56,
+        "assertions_added": 152,
+        "files_added": 23,
+        "files_modified": 20,
+        "commit_lineage": [
+            "0fd495c docs(phase-65): [LEGAL-HOLD-EXPAND] PRD baseline — 18 findings 5H/9M/4L",
+            "8c0c795 feat(phase-65): MORPH-EXPAND — Document/Invoice/Ticket legal-hold coverage",
+            "fa8e998 feat(phase-65): HOLD-UI — landlord-initiated create/release surface",
+            "cc9a0a1 feat(phase-65): BULK-HOLD — multi-subject + tenant litigation preset",
+            "aa5b2e4 feat(phase-65): RETENTION-INTEGRATION — storage/exports honor holds + aggregator cron",
+            "0aa5321 feat(phase-65): AUDIT-DEPTH — regulator-ready CSV export with signed-URL streaming",
+            "a776e53 test(phase-65): CI — cross-category surface map + legal-hold.md operator runbook"
+        ],
+        "load_bearing_artifacts": [
+            "app/Support/LegalHoldRegistry.php — ALLOWED_HOLDABLE_TYPES allow-list (defense-in-depth) + activeCountForLandlord (drives sidebar badge)",
+            "app/Models/Concerns/HasLegalHolds.php — shared concern: legalHolds() MorphMany + isHeld() + isHoldable()",
+            "app/Models/{Document,Invoice,Ticket,MessageThread}.php — HasLegalHolds trait added; Ticket also gains Auditable trait",
+            "app/Policies/LegalHoldPolicy.php — generalised cross-tenant ownership gate via ownsSubject helper",
+            "app/Http/Controllers/LegalHoldController.php — index/store/destroy resource (destroy = release via released_at, not row delete)",
+            "app/Http/Controllers/LegalHoldBulkController.php — POST/DELETE /legal-holds/bulk under throttle:legal-hold 10/min",
+            "app/Http/Controllers/TenantLegalHoldController.php — tenant-litigation preset, 5 inner bulk calls in single outer DB::transaction",
+            "app/Http/Controllers/LegalHoldAuditExportController.php — signed-URL streaming via Phase 59 SIGNED-URLS pattern",
+            "app/Services/Legal/BulkHoldService.php — single DB::transaction + ownership pre-check + one cache bust per modelClass",
+            "app/Services/Legal/LegalHoldAuditExportService.php — UTF-8 BOM CSV + injection-prefix neutralisation + nested under exports/<landlord>/legal-hold-audit/",
+            "app/Services/Storage/FileRetentionService.php — purgeDocumentsByType honors holds + landlord-scoped Storage::tenant() disk delete + orphan counter",
+            "app/Services/DataExportService.php — legal_holds_blocking_erasure stanza for DPA Article 17(3)(b) carve-out",
+            "app/Console/Commands/AuditLegalHoldExclusions.php — daily 04:45 EAT single-pane-of-glass aggregator",
+            "app/Models/AuditLog.php — scopeForLawfulBasis filter on metadata->lawful_basis JSON path",
+            "resources/js/Pages/LegalHolds/{Index,AuditExport}.vue — landlord UI: active/released tabs + date-range CSV export",
+            "resources/js/Components/LegalHold/HoldCreateModal.vue — slide-over with defineExpose({ open }) mounted on Invoices/Show + Tickets/Show",
+            "resources/js/Layouts/AuthenticatedLayout.vue — nav.legal_holds entry with ScaleIcon + legalHoldsActive badge",
+            "config/legal_hold.php — bulk_max default 100 (capped at 500 hardcoded)",
+            "docs/runbooks/legal-hold.md NEW — 9-section operator runbook (DPA citations, single-subject, bulk, tenant preset, release, audit export, artisan recipes, cron matrix, cross-refs)",
+            "docs/runbooks/alert-thresholds.md — Phase-65 section: 5 gauges (1 sev4 for active_count drop-to-zero, 1 sev4 for orphan_count, 3 visibility-only)"
+        ],
+        "coderabbit_findings_applied_inline": [
+            "1d — multi-tenant Storage::tenant(landlord_id) disk delete + hoisted gauge emission + orphan counter + MetricsService spy in test",
+            "1e — CSV injection prefix neutralisation (=/+/-/@/tab/CR) + path nested under exports/<landlord_id>/legal-hold-audit/ for retention sweep visibility",
+            "2 CI — HoldCreateModal mounted on Invoices/Show + Tickets/Show (was orphaned) + watchdog hardened to grep mount sites + legal_holds_active_count promoted to sev4 + wiki-link to plain markdown + orphan_count gauge added to surface foreach"
+        ],
+        "next_cycle_candidates": [
+            "Phase 66 [MOBILE-NATIVE] — Capacitor/Cordova native wrap (still blocked on Android Studio out-of-repo)",
+            "Phase 66 [INBOX-DEPTH] — read receipts + presence indicators + message search + attachment clamav scan",
+            "Phase 66 [GROWTH-DEPTH-2] — NPS surveys + referral leaderboard + in-app onboarding tour",
+            "Phase 67+ [DEFER-CLEANUP-4] — date-locked 2026-08-17 (kyc_completed_at + onboarding_progress.step_data mirror-exempt drops)"
+        ]
     }
 }
