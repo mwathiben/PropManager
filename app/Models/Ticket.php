@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use App\Enums\TicketStatus;
+use App\Models\Concerns\HasLegalHolds;
 use App\Models\Concerns\RowVersion;
+use App\Traits\Auditable;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -44,9 +46,11 @@ use Illuminate\Support\Facades\Auth;
  */
 class Ticket extends Model
 {
-    use TenantScope;
-    use RowVersion;
+    use Auditable;
     use HasFactory;
+    use HasLegalHolds;
+    use RowVersion;
+    use TenantScope;
 
     protected $fillable = [
         'version',

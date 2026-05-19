@@ -4,15 +4,22 @@ declare(strict_types=1);
 
 namespace App\Support;
 
+use App\Models\Document;
+use App\Models\Invoice;
 use App\Models\LegalHold;
+use App\Models\MessageThread;
+use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
+use InvalidArgumentException;
 
 /**
  * Phase-64 LEGAL-HOLD-1/2: static facade over the legal_holds table.
- * Authoritative for "is this subject under a preservation order?"
- * checks inside the Phase 63 messages:enforce-retention cron.
+ * Phase-65 MORPH-EXPAND-1: ALLOWED_HOLDABLE_TYPES allow-list guards
+ * against arbitrary morph-type injection (defense-in-depth — a
+ * malicious POST tampering subject_type to App\Models\User could
+ * otherwise mint stealth holds on arbitrary tables).
  *
  * Cache::remember 60s on heldIdsFor — bounds the cost of the array
  * lookup inside the retention chunked loop. Cache busts on hold +
@@ -22,8 +29,19 @@ class LegalHoldRegistry
 {
     public const CACHE_TTL_SECONDS = 60;
 
+    public const ALLOWED_HOLDABLE_TYPES = [
+        MessageThread::class,
+        Document::class,
+        Invoice::class,
+        Ticket::class,
+    ];
+
     public static function hold(Model $subject, User $by, string $reason): LegalHold
     {
+        if (! in_array($subject::class, self::ALLOWED_HOLDABLE_TYPES, true)) {
+            throw new InvalidArgumentException('legal_hold.unsupported_holdable_type');
+        }
+
         $hold = LegalHold::create([
             'holdable_type' => $subject::class,
             'holdable_id' => $subject->getKey(),

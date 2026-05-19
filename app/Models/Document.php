@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasLegalHolds;
 use App\Traits\Auditable;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -36,7 +38,7 @@ use Illuminate\Support\Facades\Storage;
  */
 class Document extends Model
 {
-    use Auditable, SoftDeletes, TenantScope;
+    use Auditable, HasFactory, HasLegalHolds, SoftDeletes, TenantScope;
 
     public const DOCUMENT_TYPES = [
         'lease_agreement' => 'Lease Agreement',

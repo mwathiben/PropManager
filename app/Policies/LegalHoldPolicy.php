@@ -5,13 +5,19 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Models\LegalHold;
-use App\Models\MessageThread;
 use App\Models\User;
+use App\Support\LegalHoldRegistry;
 
 /**
  * Phase-64 LEGAL-HOLD-3: only the owning landlord may put a hold on
- * their own thread (or a super admin acting in cross-tenant ops
+ * their own subject (or a super admin acting in cross-tenant ops
  * mode). Tenants + caretakers cannot freeze retention.
+ *
+ * Phase-65 MORPH-EXPAND-3: cross-tenant ownership gate generalised
+ * across every ALLOWED_HOLDABLE_TYPES subject by delegating to each
+ * subject model's existing landlord_id ownership check. Bypasses
+ * TenantScope on lookup so cross-tenant attempts fail at the
+ * landlord_id comparison instead of silently returning false on find.
  */
 class LegalHoldPolicy
 {
@@ -35,19 +41,15 @@ class LegalHoldPolicy
             return false;
         }
 
-        if ($subjectType === MessageThread::class && $subjectId !== null) {
-            $thread = MessageThread::query()
-                ->withoutGlobalScope('landlord')
-                ->find($subjectId);
-
-            if ($thread === null) {
-                return false;
-            }
-
-            return (int) $thread->landlord_id === (int) $user->id;
+        if ($subjectType === null || $subjectId === null) {
+            return true;
         }
 
-        return true;
+        if (! in_array($subjectType, LegalHoldRegistry::ALLOWED_HOLDABLE_TYPES, true)) {
+            return false;
+        }
+
+        return $this->ownsSubject($user, $subjectType, $subjectId);
     }
 
     public function release(User $user, LegalHold $hold): bool
@@ -56,19 +58,36 @@ class LegalHoldPolicy
             return false;
         }
 
-        $subjectClass = $hold->holdable_type;
-        if ($subjectClass !== MessageThread::class) {
+        if (! in_array($hold->holdable_type, LegalHoldRegistry::ALLOWED_HOLDABLE_TYPES, true)) {
             return false;
         }
 
-        $thread = MessageThread::query()
-            ->withoutGlobalScope('landlord')
-            ->find($hold->holdable_id);
+        return $this->ownsSubject($user, $hold->holdable_type, (int) $hold->holdable_id);
+    }
 
-        if ($thread === null) {
+    public function auditExport(User $user): bool
+    {
+        return $user->isLandlord();
+    }
+
+    private function ownsSubject(User $user, string $subjectClass, int $subjectId): bool
+    {
+        $query = $subjectClass::query();
+
+        if (method_exists($query, 'withoutGlobalScopes')) {
+            $query->withoutGlobalScopes();
+        }
+
+        $subject = $query->find($subjectId);
+
+        if ($subject === null) {
             return false;
         }
 
-        return (int) $thread->landlord_id === (int) $user->id;
+        if (! isset($subject->landlord_id)) {
+            return false;
+        }
+
+        return (int) $subject->landlord_id === (int) $user->id;
     }
 }

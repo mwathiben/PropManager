@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\HasLegalHolds;
 use App\Traits\Auditable;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Builder;
@@ -28,6 +29,7 @@ use Illuminate\Support\Facades\DB;
 class MessageThread extends Model
 {
     use Auditable;
+    use HasLegalHolds;
     use SoftDeletes;
     use TenantScope;
 

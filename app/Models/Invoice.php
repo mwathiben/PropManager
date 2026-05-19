@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\Currency;
 use App\Enums\InvoiceStatus;
+use App\Models\Concerns\HasLegalHolds;
 use App\Traits\Auditable;
 use App\Traits\EnforcesAccountingPeriodLock;
 use App\Traits\TenantScope;
@@ -16,7 +17,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Invoice extends Model
 {
-    use Auditable, EnforcesAccountingPeriodLock, HasFactory, SoftDeletes, TenantScope;
+    use Auditable, EnforcesAccountingPeriodLock, HasFactory, HasLegalHolds, SoftDeletes, TenantScope;
 
     protected function accountingPeriodDateColumn(): string
     {
