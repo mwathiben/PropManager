@@ -86,4 +86,19 @@ return [
         'date' => '[TODO-sw] Date',
         'reference' => '[TODO-sw] Reference',
     ],
+
+    'sla' => [
+        'title' => '[TODO-sw] Performance',
+        'within_sla' => '[TODO-sw] Resolved within SLA',
+        'breached' => '[TODO-sw] SLA breaches',
+        'open_overdue' => '[TODO-sw] Open & overdue',
+        'avg_resolution' => '[TODO-sw] Avg resolution time',
+        'resolved_total' => '[TODO-sw] Resolved (window)',
+        'window' => '[TODO-sw] Window',
+        'window_30' => '[TODO-sw] 30 days',
+        'window_90' => '[TODO-sw] 90 days',
+        'window_365' => '[TODO-sw] 1 year',
+        'hours' => '[TODO-sw] h',
+        'no_data' => '[TODO-sw] No resolved jobs in this window yet.',
+    ],
 ];

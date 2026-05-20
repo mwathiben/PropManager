@@ -226,6 +226,9 @@ Route::middleware(['vendor.portal', 'throttle:60,1'])->prefix('v/portal')->name(
     // Phase-70 PAYOUT-STATEMENT: read-only cost statement + CSV.
     Route::get('/statement', [\App\Http\Controllers\VendorPortalStatementController::class, 'index'])->name('statement');
     Route::get('/statement/export', [\App\Http\Controllers\VendorPortalStatementController::class, 'export'])->name('statement.export');
+
+    // Phase-70 SLA-DASHBOARD: the vendor's own SLA performance.
+    Route::get('/sla', [\App\Http\Controllers\VendorPortalSlaController::class, 'index'])->name('sla');
 });
 
 // --- AUTHENTICATED ROUTES GROUP ---
