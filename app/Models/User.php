@@ -77,6 +77,9 @@ class User extends Authenticatable implements HasLocalePreference
         // Phase-63 INBOX-NOTIFY-1: presence signal for unread-message
         // fallback gating. Touched by HandleInertiaRequests debounced.
         'last_active_at',
+        // Phase-66 REFERRAL-LEADERBOARD-3: DPA opt-out from public
+        // referral leaderboard display.
+        'leaderboard_opt_out',
     ];
 
     protected $hidden = [
@@ -105,6 +108,8 @@ class User extends Authenticatable implements HasLocalePreference
         'restricted_at' => 'datetime',
         // Phase-63 INBOX-NOTIFY-1: presence cursor (datetime cast).
         'last_active_at' => 'datetime',
+        // Phase-66 REFERRAL-LEADERBOARD-3: leaderboard display opt-out.
+        'leaderboard_opt_out' => 'boolean',
         // Phase-21 DEFER-DPA-1: Kenya DPA Article 8 / Section 33 —
         // children's data. dob feeds KenyaDpaService::isMinor; consent
         // artefact + timestamp gate downstream processing when dob says

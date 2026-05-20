@@ -236,3 +236,52 @@ Multi-arm experiments skip auto-promotion because `computeBayesianPosterior` req
 `tests/Feature/Growth/Phase56GrowthAttribSurfaceTest` cross-category presence map; per-category behavioural tests in sibling Phase56* files.
 
 Cross-references: [Phase 34 referral lineage](#phase-34--growth-mvr) | [Phase 35 experiments + product_events lineage](#phase-35) | [Phase 39 chi-square + Bayesian lineage](#phase-39).
+
+## Phase 66 — REFERRAL-LEADERBOARD
+
+A landlord-facing, **always-anonymised** referral leaderboard plus a super-admin (full-name) ops view, layered on the Phase-34 `referrals` ledger. Referrers see how they rank without anyone's identity being exposed, with a DPA opt-out.
+
+### Scoring
+
+`ReferralLeaderboardService::topReferrers(int $limit, bool $anonymise, ?int $viewerId)` ranks referrers by a composite score computed in one grouped aggregate query over `referrals`:
+
+```
+score = attributed_count + rewarded_count × config('referral.leaderboard.reward_weight', 2)
+```
+
+Only `attributed` + `rewarded` statuses count (`pending`/`expired` are ignored); non-positive scores are dropped. Ties break by `attributed` desc, then `user_id` asc, so ranking is deterministic regardless of DB row order. `$limit` is clamped to `config('referral.leaderboard.max', 50)`.
+
+### Privacy / DPA (the important part)
+
+Anonymisation is enforced at the **service boundary**, never in the Vue layer — PII cannot leak via client inspection:
+
+- When `$anonymise = true`, entries carry `name => null`; the client renders a generic `Referrer #rank` label. No name/email is ever placed in the payload, and email is never selected at all (only `name` is plucked).
+- The viewer's **own** row is always de-anonymised (`is_self = true`, real name) and is returned in a separate `viewer` slot even when it falls outside the visible top-N, so a landlord always knows where they stand. `viewerId` comes only from `$request->user()->id` — never client-supplied — so a viewer can only ever unmask their own row.
+- Referrers who set `users.leaderboard_opt_out = true` are **excluded entirely** (DPA right not to be displayed), not merely masked.
+
+### Caching
+
+The scored, ranked, opt-out-filtered list is cached **once per generation** (`referral:leaderboard:scored:<gen>`, TTL `CACHE_TTL` = 600s); the viewer/limit/anonymise overlay is applied per-request on top, so one hot entry serves every viewer (no per-landlord cache fan-out). `flushCache()` rolls a generation stamp (Phase-54 version-stamp pattern) stored with `Cache::forever`, so it can never silently regress to `'0'` and resurrect an opted-out referrer. The opt-out toggle calls `flushCache()` on every write.
+
+### Routes
+
+| Route | Name | Gate | Anonymised? |
+|---|---|---|---|
+| `GET /growth/leaderboard` | `growth.leaderboard` | `auth` + `verified` | Yes (forced) |
+| `POST /growth/leaderboard/opt-out` | `growth.leaderboard.opt-out` | `auth` + `verified` + `throttle:30,1` | — |
+| `GET /ops/growth/referral-leaderboard` | `ops.growth.referral-leaderboard.index` | `role:super_admin` | No (full names) |
+
+Pages: `Pages/Growth/Leaderboard.vue` (medal top-3, own-row highlight, masked others, DPA opt-out toggle + explainer) and `Pages/Ops/Growth/ReferralLeaderboard.vue` (full-name table).
+
+### Config knobs
+
+| Key | Env | Default | Meaning |
+|---|---|---|---|
+| `referral.leaderboard.max` | `REFERRAL_LEADERBOARD_MAX` | 50 | Hard cap on ranked referrers any caller can request |
+| `referral.leaderboard.reward_weight` | `REFERRAL_LEADERBOARD_REWARD_WEIGHT` | 2 | A rewarded referral counts for this many attributed referrals |
+
+### CI surfaces
+
+`tests/Feature/Growth/Phase66ReferralLeaderboardTest` — composite scoring, opt-out exclusion, anonymisation + self-row reveal, viewer-outside-top-N, route gating (landlord forces anonymise / ops allows names / non-super-admin blocked), opt-out persist + cache bust. 9 tests / 58 assertions.
+
+> i18n note: client-rendered translation keys must use vue-i18n `{curly}` placeholders, not Laravel `:colon` (the latter renders literally in the browser). Guarded by `tests/Feature/I18n/ClientI18nParamConventionTest`.

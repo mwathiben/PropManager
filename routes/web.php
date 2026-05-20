@@ -317,6 +317,21 @@ Route::middleware('auth')->group(function () {
         // Phase-56 DASHBOARDS-2: attribution + funnel sankey + cohort-by-source + auto-promote timeline
         Route::get('/ops/growth/attribution', [\App\Http\Controllers\Ops\OpsGrowthAttributionController::class, 'index'])
             ->name('ops.growth.attribution.index');
+
+        // Phase-66 REFERRAL-LEADERBOARD-2: super-admin board with full names.
+        Route::get('/ops/growth/referral-leaderboard', [\App\Http\Controllers\Ops\OpsReferralLeaderboardController::class, 'index'])
+            ->name('ops.growth.referral-leaderboard.index');
+    });
+
+    // Phase-66 REFERRAL-LEADERBOARD-2/3: landlord-facing anonymised
+    // leaderboard + DPA opt-out toggle. auth+verified (any verified
+    // account that can refer) — deliberately NOT super_admin gated.
+    Route::middleware('verified')->group(function () {
+        Route::get('/growth/leaderboard', [\App\Http\Controllers\Growth\ReferralLeaderboardController::class, 'index'])
+            ->name('growth.leaderboard');
+        Route::post('/growth/leaderboard/opt-out', \App\Http\Controllers\Growth\LeaderboardOptOutController::class)
+            ->middleware('throttle:30,1')
+            ->name('growth.leaderboard.opt-out');
     });
 
     // Phase-34 GROWTH-REFERRAL-2: landlord self-serve referral surface.
