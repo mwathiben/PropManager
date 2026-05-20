@@ -125,11 +125,38 @@ class Phase71InboxNativeSurfaceTest extends TestCase
         }
     }
 
+    public function test_reply_quote_surface(): void
+    {
+        // Bubble shows the quote + a per-message reply affordance; tap quote jumps.
+        $bubble = $this->js('Components/Inbox/MessageBubble.vue');
+        $this->assertStringContainsString('data-testid="bubble-quote"', $bubble);
+        $this->assertStringContainsString('data-testid="message-reply"', $bubble);
+        $this->assertStringContainsString('jumpTo', $bubble);
+        $this->assertStringContainsString('reply_to', $bubble);
+
+        // Composer shows a dismissible quoted preview above the input.
+        $composer = $this->js('Components/Inbox/ChatComposer.vue');
+        $this->assertStringContainsString('data-testid="composer-reply-preview"', $composer);
+        $this->assertStringContainsString('clear-reply', $composer);
+
+        // ChatThread scrolls to the quoted original on tap.
+        $this->assertStringContainsString('jumpToMessage', $this->js('Components/Inbox/ChatThread.vue'));
+
+        // Both pages set a reply target + send reply_to_id.
+        foreach (['Pages/MessageThreads/Show.vue', 'Pages/Tenant/Inbox/Show.vue'] as $page) {
+            $src = $this->js($page);
+            $this->assertStringContainsString('replyTarget', $src);
+            $this->assertStringContainsString('reply_to_id', $src);
+            $this->assertStringContainsString('@reply="onReply"', $src);
+        }
+    }
+
     public function test_chat_lang_keys_exist_across_locales(): void
     {
         $required = [
             'today', 'yesterday', 'unread', 'sent', 'placeholder', 'send', 'attach',
             'body_label', 'locked', 'chars_remaining', 'jump_latest', 'sending', 'retry',
+            'reply', 'replying_to', 'cancel_reply',
         ];
 
         foreach (['en', 'sw', 'ar'] as $locale) {

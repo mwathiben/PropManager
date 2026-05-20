@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Events\MessagePosted;
+use App\Http\Controllers\Concerns\AttachesReplyPreviews;
 use App\Http\Requests\Inbox\StoreMessageRequest;
 use App\Http\Requests\Inbox\StoreMessageThreadRequest;
 use App\Models\Message;
@@ -27,6 +28,8 @@ use Inertia\Response;
  */
 class MessageThreadController extends Controller
 {
+    use AttachesReplyPreviews;
+
     public function __construct(
         private readonly MessageAttachmentService $attachments,
     ) {}
@@ -56,8 +59,10 @@ class MessageThreadController extends Controller
             'participants:id,name,role',
             'subject',
             'messages' => fn ($q) => $q->orderBy('created_at')
-                ->with(['sender:id,name,role', 'documents']),
+                ->with(['sender:id,name,role', 'documents', 'replyTo:id,sender_id,body', 'replyTo.sender:id,name']),
         ]);
+
+        $this->attachReplyPreviews($thread);
 
         return Inertia::render('MessageThreads/Show', [
             'thread' => $thread,
@@ -138,6 +143,7 @@ class MessageThreadController extends Controller
         $message = DB::transaction(function () use ($request, $thread, $user, $scanned) {
             $message = $thread->messages()->create([
                 'sender_id' => $user->id,
+                'reply_to_id' => $request->input('reply_to_id'),
                 'body' => $request->input('body'),
             ]);
 

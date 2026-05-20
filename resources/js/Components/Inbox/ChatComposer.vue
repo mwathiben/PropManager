@@ -2,7 +2,8 @@
 import { nextTick, ref, watch } from 'vue';
 import { useI18n } from '@/composables/useI18n';
 import AttachmentPreviewList from '@/Components/Inbox/AttachmentPreviewList.vue';
-import { PaperAirplaneIcon, PaperClipIcon } from '@heroicons/vue/24/outline';
+import type { ReplyPreview } from '@/Components/Inbox/MessageBubble.vue';
+import { PaperAirplaneIcon, PaperClipIcon, XMarkIcon } from '@heroicons/vue/24/outline';
 
 const props = withDefaults(
     defineProps<{
@@ -16,8 +17,10 @@ const props = withDefaults(
         /** Preserves the per-page compose test hook (message-compose / tenant-message-compose). */
         testid: string;
         maxLength?: number;
+        /** Phase-71 REPLY-QUOTE: the message being quoted, shown above the input. */
+        replyTarget?: ReplyPreview | null;
     }>(),
-    { processing: false, locked: false, lockedStatus: '', attachmentsError: '', maxLength: 4000 },
+    { processing: false, locked: false, lockedStatus: '', attachmentsError: '', maxLength: 4000, replyTarget: null },
 );
 
 const MAX_ATTACHMENTS = 5;
@@ -27,6 +30,7 @@ const emit = defineEmits<{
     'update:attachments': [File[]];
     send: [];
     typing: [];
+    'clear-reply': [];
 }>();
 
 const { t } = useI18n();
@@ -109,6 +113,27 @@ const showCounter = () => props.body.length > props.maxLength * 0.9;
         class="sticky bottom-0 z-10 mt-3 rounded-2xl bg-white p-3 shadow ring-1 ring-gray-100"
         :data-testid="testid"
     >
+        <div
+            v-if="replyTarget"
+            class="mb-2 flex items-start gap-2 rounded-lg border-s-2 border-indigo-400 bg-gray-50 px-3 py-2"
+            data-testid="composer-reply-preview"
+        >
+            <div class="min-w-0 flex-1">
+                <p class="text-xs font-medium text-indigo-700">
+                    {{ t('inbox.chat.replying_to', { name: replyTarget.sender_name ?? '' }) }}
+                </p>
+                <p class="truncate text-xs text-gray-500">{{ replyTarget.body }}</p>
+            </div>
+            <button
+                type="button"
+                class="flex-shrink-0 rounded-full p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+                :aria-label="t('inbox.chat.cancel_reply')"
+                @click="emit('clear-reply')"
+            >
+                <XMarkIcon class="h-4 w-4" />
+            </button>
+        </div>
+
         <div class="flex items-end gap-2">
             <button
                 type="button"

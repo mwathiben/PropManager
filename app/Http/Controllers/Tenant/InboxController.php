@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Tenant;
 
 use App\Events\MessagePosted;
+use App\Http\Controllers\Concerns\AttachesReplyPreviews;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Inbox\StoreMessageRequest;
 use App\Models\MessageThread;
@@ -27,6 +28,7 @@ use Inertia\Response;
  */
 class InboxController extends Controller
 {
+    use AttachesReplyPreviews;
     use AuthorizesRequests;
 
     public function __construct(
@@ -55,8 +57,10 @@ class InboxController extends Controller
         $thread->load([
             'participants:id,name,role',
             'messages' => fn ($q) => $q->orderBy('created_at')
-                ->with(['sender:id,name,role', 'documents']),
+                ->with(['sender:id,name,role', 'documents', 'replyTo:id,sender_id,body', 'replyTo.sender:id,name']),
         ]);
+
+        $this->attachReplyPreviews($thread);
 
         return Inertia::render('Tenant/Inbox/Show', [
             'thread' => $thread,
@@ -139,6 +143,7 @@ class InboxController extends Controller
         $message = DB::transaction(function () use ($request, $thread, $user, $scanned) {
             $message = $thread->messages()->create([
                 'sender_id' => $user->id,
+                'reply_to_id' => $request->input('reply_to_id'),
                 'body' => $request->input('body'),
             ]);
 

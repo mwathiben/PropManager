@@ -8,8 +8,8 @@ import { useI18n } from '@/composables/useI18n';
 import { useEcho } from '@/composables/useEcho';
 import { usePresenceChannel } from '@/composables/usePresenceChannel';
 import { useThreadStream, type IncomingPosted } from '@/composables/useThreadStream';
-import type { BubbleMessage } from '@/Components/Inbox/MessageBubble.vue';
-import { computed, onMounted, onUnmounted, reactive, watch } from 'vue';
+import type { BubbleMessage, ReplyPreview } from '@/Components/Inbox/MessageBubble.vue';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 
 interface Sender {
     id: number | null;
@@ -112,20 +112,36 @@ function markAllRead(): void {
     });
 }
 
+// Phase-71 REPLY-QUOTE: the message currently being quoted (null = none).
+const replyTarget = ref<ReplyPreview | null>(null);
+
+function onReply(message: BubbleMessage): void {
+    replyTarget.value = {
+        id: message.id,
+        sender_name: message.sender?.name ?? null,
+        // Match the server's Str::limit(120) so the optimistic quote and the
+        // reconciled one carry identical text.
+        body: message.body.length > 120 ? `${message.body.slice(0, 120)}...` : message.body,
+    };
+}
+
 const form = useForm({
     body: '',
     attachments: [] as File[],
+    reply_to_id: null as number | null,
 });
 
 function submit() {
     const sender = { id: currentUserId.value, name: myName.value, role: myRole.value };
-    const tempId = addOptimistic(form.body, sender);
+    form.reply_to_id = replyTarget.value?.id ?? null;
+    const tempId = addOptimistic(form.body, sender, replyTarget.value);
     form.post(route('message-threads.messages.store', props.thread.id), {
         forceFormData: true,
         preserveScroll: true,
         preserveState: true,
         onSuccess: () => {
             resolveOptimistic(tempId);
+            replyTarget.value = null;
             form.reset();
         },
         onError: () => failOptimistic(tempId),
@@ -133,12 +149,15 @@ function submit() {
 }
 
 // Re-send a failed (text-only optimistic) bubble without touching the live
-// composer draft — posts the stored body directly.
+// composer draft — posts the stored body + its quote directly.
 function onRetry(message: BubbleMessage): void {
     dropFailed(message);
     const sender = { id: currentUserId.value, name: myName.value, role: myRole.value };
-    const tempId = addOptimistic(message.body, sender);
-    router.post(route('message-threads.messages.store', props.thread.id), { body: message.body }, {
+    const tempId = addOptimistic(message.body, sender, message.reply_to ?? null);
+    router.post(route('message-threads.messages.store', props.thread.id), {
+        body: message.body,
+        reply_to_id: message.reply_to?.id ?? null,
+    }, {
         preserveScroll: true,
         preserveState: true,
         onSuccess: () => resolveOptimistic(tempId),
@@ -228,6 +247,7 @@ function onType(): void {
                 :typing-names="typingNames"
                 list-testid="message-list"
                 @retry="onRetry"
+                @reply="onReply"
             >
                 <template #composer>
                     <ChatComposer
@@ -237,9 +257,11 @@ function onType(): void {
                         :locked="thread.status !== 'open'"
                         :locked-status="thread.status"
                         :attachments-error="form.errors.attachments"
+                        :reply-target="replyTarget"
                         testid="message-compose"
                         @send="submit"
                         @typing="onType"
+                        @clear-reply="replyTarget = null"
                     />
                 </template>
             </ChatThread>

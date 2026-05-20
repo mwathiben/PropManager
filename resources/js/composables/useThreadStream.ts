@@ -13,7 +13,7 @@
  * the streaming logic lives in one place; ChatThread stays presentational.
  */
 import { ref, watch } from 'vue';
-import type { BubbleMessage, BubbleSender } from '@/Components/Inbox/MessageBubble.vue';
+import type { BubbleMessage, BubbleSender, ReplyPreview } from '@/Components/Inbox/MessageBubble.vue';
 
 export interface StreamMessage extends BubbleMessage {
     /** undefined = confirmed by the server; otherwise an optimistic bubble. */
@@ -28,6 +28,7 @@ export interface IncomingPosted {
     sender: BubbleSender | null;
     body: string;
     message_type: 'text' | 'system' | 'attachment';
+    reply_to: ReplyPreview | null;
     created_at: string;
 }
 
@@ -62,12 +63,13 @@ export function useThreadStream(
             sender: event.sender,
             body: event.body,
             message_type: event.message_type,
+            reply_to: event.reply_to,
             created_at: event.created_at,
             documents: [],
         });
     }
 
-    function addOptimistic(body: string, sender: BubbleSender): string {
+    function addOptimistic(body: string, sender: BubbleSender, replyTo: ReplyPreview | null = null): string {
         const tempId = `temp-${++tempCounter}`;
         messages.value.push({
             // Negative id never collides with a real (positive) row.
@@ -76,6 +78,7 @@ export function useThreadStream(
             sender,
             body,
             message_type: 'text',
+            reply_to: replyTo,
             created_at: new Date().toISOString(),
             documents: [],
             pending: 'sending',

@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { useI18n } from '@/composables/useI18n';
 import { useFormatters } from '@/composables/useFormatters';
-import { CheckIcon, ClockIcon, ExclamationCircleIcon } from '@heroicons/vue/24/outline';
+import { ArrowUturnLeftIcon, CheckIcon, ClockIcon, ExclamationCircleIcon } from '@heroicons/vue/24/outline';
 
 export interface BubbleSender {
     id: number | null;
@@ -14,6 +14,11 @@ export interface BubbleDocument {
     title: string;
     mime_type: string;
 }
+export interface ReplyPreview {
+    id: number;
+    sender_name: string | null;
+    body: string;
+}
 export interface BubbleMessage {
     id: number;
     sender_id: number | null;
@@ -24,6 +29,8 @@ export interface BubbleMessage {
     documents: BubbleDocument[];
     /** Optimistic outgoing lifecycle (Phase-71 LIVE-DELIVERY); absent once confirmed. */
     pending?: 'sending' | 'failed';
+    /** Phase-71 REPLY-QUOTE: compact quote of the message this one replies to. */
+    reply_to?: ReplyPreview | null;
 }
 
 const props = defineProps<{
@@ -37,7 +44,7 @@ const props = defineProps<{
     seen: boolean | null;
 }>();
 
-defineEmits<{ retry: [BubbleMessage] }>();
+defineEmits<{ retry: [BubbleMessage]; reply: [BubbleMessage]; jumpTo: [number] }>();
 
 const { t } = useI18n();
 const { formatRelativeTime } = useFormatters();
@@ -59,8 +66,9 @@ const initials = computed(() => {
 
     <li
         v-else
-        class="flex items-end gap-2"
+        class="group flex items-end gap-2"
         :class="[isOwn ? 'flex-row-reverse' : 'flex-row', groupEnd ? 'mb-2' : 'mb-0.5']"
+        :data-message-id="message.id"
         data-testid="chat-bubble"
     >
         <!-- Avatar (others only, once per group) -->
@@ -88,6 +96,22 @@ const initials = computed(() => {
                         : (groupEnd ? 'rounded-2xl rounded-es-md' : 'rounded-2xl'),
                 ]"
             >
+                <button
+                    v-if="message.reply_to"
+                    type="button"
+                    class="mb-1 block w-full rounded-md border-s-2 px-2 py-1 text-start text-xs"
+                    :class="isOwn ? 'border-indigo-200 bg-indigo-500/40' : 'border-indigo-400 bg-gray-50'"
+                    data-testid="bubble-quote"
+                    @click="$emit('jumpTo', message.reply_to.id)"
+                >
+                    <span class="block font-medium" :class="isOwn ? 'text-indigo-100' : 'text-indigo-700'">
+                        {{ message.reply_to.sender_name }}
+                    </span>
+                    <span class="block truncate" :class="isOwn ? 'text-indigo-50/90' : 'text-gray-500'">
+                        {{ message.reply_to.body }}
+                    </span>
+                </button>
+
                 <p class="whitespace-pre-wrap break-words">{{ message.body }}</p>
 
                 <ul v-if="message.documents.length" class="mt-1.5 space-y-1">
@@ -136,5 +160,16 @@ const initials = computed(() => {
                 </span>
             </div>
         </div>
+
+        <button
+            v-if="!message.pending"
+            type="button"
+            class="flex h-7 w-7 flex-shrink-0 items-center justify-center self-center rounded-full text-gray-400 opacity-0 transition hover:bg-gray-100 hover:text-gray-600 focus:opacity-100 group-hover:opacity-100"
+            :aria-label="t('inbox.chat.reply')"
+            data-testid="message-reply"
+            @click="$emit('reply', message)"
+        >
+            <ArrowUturnLeftIcon class="h-4 w-4" />
+        </button>
     </li>
 </template>

@@ -48,6 +48,7 @@ class Message extends Model
     protected $fillable = [
         'thread_id',
         'sender_id',
+        'reply_to_id',
         'body',
         'message_type',
     ];
@@ -64,6 +65,30 @@ class Message extends Model
     public function sender(): BelongsTo
     {
         return $this->belongsTo(User::class, 'sender_id');
+    }
+
+    /**
+     * Phase-71 REPLY-QUOTE: the message this one quote-replies to (same thread).
+     */
+    public function replyTo(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'reply_to_id');
+    }
+
+    /**
+     * Phase-71 REPLY-QUOTE: compact quote preview of THIS message, used both
+     * on the show payload and the MessagePosted broadcast so initial-load and
+     * live-appended quotes render identically. Expects sender to be loaded.
+     *
+     * @return array{id:int, sender_name:string|null, body:string}
+     */
+    public function toReplyPreview(): array
+    {
+        return [
+            'id' => $this->id,
+            'sender_name' => $this->sender?->name,
+            'body' => \Illuminate\Support\Str::limit((string) $this->body, 120),
+        ];
     }
 
     public function documents(): MorphMany

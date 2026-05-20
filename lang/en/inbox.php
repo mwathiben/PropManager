@@ -56,5 +56,8 @@ return [
         'jump_latest' => 'Jump to latest',
         'sending' => 'Sending…',
         'retry' => 'Tap to retry',
+        'reply' => 'Reply',
+        'replying_to' => 'Replying to {name}',
+        'cancel_reply' => 'Cancel reply',
     ],
 ];

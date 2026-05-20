@@ -56,5 +56,8 @@ return [
         'jump_latest' => '[TODO-ar] Jump to latest',
         'sending' => '[TODO-ar] Sending…',
         'retry' => '[TODO-ar] Tap to retry',
+        'reply' => '[TODO-ar] Reply',
+        'replying_to' => '[TODO-ar] Replying to {name}',
+        'cancel_reply' => '[TODO-ar] Cancel reply',
     ],
 ];

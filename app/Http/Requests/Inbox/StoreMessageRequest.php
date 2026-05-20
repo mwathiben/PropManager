@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Http\Requests\Inbox;
 
 use App\Models\Message;
+use App\Models\MessageThread;
 use App\Support\MessageContentPolicy;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 /**
  * Phase-63 INBOX-COMPOSE-1: post a reply into an existing open thread.
@@ -30,8 +32,20 @@ class StoreMessageRequest extends FormRequest
 
     public function rules(): array
     {
+        $thread = $this->route('thread');
+        $threadId = $thread instanceof MessageThread ? $thread->id : 0;
+
         return [
             'body' => ['required', 'string', 'min:1', 'max:4000'],
+            // A reply may only quote a (non-deleted) message in THIS thread —
+            // never another thread's or tenant's message.
+            'reply_to_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('messages', 'id')->where(
+                    fn ($query) => $query->where('thread_id', $threadId)->whereNull('deleted_at'),
+                ),
+            ],
             'attachments' => ['nullable', 'array', 'max:5'],
             'attachments.*' => [
                 'file',

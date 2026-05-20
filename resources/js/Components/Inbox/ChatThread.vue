@@ -20,7 +20,7 @@ const props = withDefaults(
     { typingNames: () => [] },
 );
 
-defineEmits<{ retry: [BubbleMessage] }>();
+defineEmits<{ retry: [BubbleMessage]; reply: [BubbleMessage] }>();
 
 const { t } = useI18n();
 const { formatDate } = useFormatters();
@@ -95,6 +95,15 @@ function onScroll(): void {
     if (atBottom.value) unreadBelow.value = 0;
 }
 
+// Tap on a quoted snippet scrolls to (and briefly highlights) the original.
+function jumpToMessage(id: number): void {
+    const el = scrollEl.value?.querySelector<HTMLElement>(`[data-message-id="${id}"]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('ring-2', 'ring-indigo-300', 'rounded-2xl');
+    window.setTimeout(() => el.classList.remove('ring-2', 'ring-indigo-300', 'rounded-2xl'), 1200);
+}
+
 onMounted(() => nextTick(() => scrollToBottom(false)));
 
 watch(
@@ -143,6 +152,8 @@ watch(
                         :group-end="isGroupEnd(i)"
                         :seen="seenFor(message)"
                         @retry="$emit('retry', $event)"
+                        @reply="$emit('reply', $event)"
+                        @jump-to="jumpToMessage"
                     />
                 </template>
 

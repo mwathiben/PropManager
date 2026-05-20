@@ -48,7 +48,7 @@ class MessagePosted implements ShouldBroadcast
      */
     public function broadcastWith(): array
     {
-        $this->message->loadMissing(['sender:id,name,role']);
+        $this->message->loadMissing(['sender:id,name,role', 'replyTo:id,sender_id,body', 'replyTo.sender:id,name']);
 
         return [
             'message_id' => $this->message->id,
@@ -62,6 +62,7 @@ class MessagePosted implements ShouldBroadcast
                 ],
             'body' => $this->message->body,
             'message_type' => $this->message->message_type,
+            'reply_to' => $this->message->replyTo?->toReplyPreview(),
             'created_at' => $this->message->created_at?->toISOString(),
         ];
     }
