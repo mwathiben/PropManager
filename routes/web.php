@@ -1368,6 +1368,11 @@ Route::middleware(['auth', 'role:tenant', 'payment.verified', 'kyc.complete'])->
     // Phase-67 READ-RECEIPTS-1: mark the whole thread read.
     Route::post('/inbox/{thread}/read-all', \App\Http\Controllers\MessageThreadReadAllController::class)
         ->name('tenant.inbox.read-all');
+
+    // Phase-67 MESSAGE-SEARCH-2: participant-scoped full-text search.
+    Route::get('/inbox/search', [\App\Http\Controllers\Tenant\InboxSearchController::class, 'index'])
+        ->middleware('throttle:messages')
+        ->name('tenant.inbox.search');
 });
 
 // Phase-45 LEASE-COUNTER-2: landlord-side review of a tenant counter-offer.
@@ -1406,6 +1411,12 @@ Route::middleware(['auth', 'verified', 'role:landlord,caretaker'])->group(functi
     // Phase-67 READ-RECEIPTS-1: mark the whole thread read.
     Route::post('/message-threads/{thread}/read-all', \App\Http\Controllers\MessageThreadReadAllController::class)
         ->name('message-threads.read-all');
+
+    // Phase-67 MESSAGE-SEARCH-2: participant-scoped full-text search.
+    // The show route is ->whereNumber, so the literal /search resolves here.
+    Route::get('/message-threads/search', [\App\Http\Controllers\MessageThreadSearchController::class, 'index'])
+        ->middleware('throttle:messages')
+        ->name('message-threads.search');
 });
 
 // Phase-63 INBOX-REALTIME-2: shared read-receipt endpoint. Any

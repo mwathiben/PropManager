@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { useI18n } from '@/composables/useI18n';
 
 interface Participant {
     id: number;
@@ -24,6 +25,7 @@ interface Props {
 }
 
 defineProps<Props>();
+const { t } = useI18n();
 
 const form = useForm({
     title: '',
@@ -43,9 +45,18 @@ function submit() {
         <Head title="Inbox" />
 
         <div class="px-4 py-6 sm:px-6 lg:px-8 space-y-6">
-            <header>
-                <h1 class="text-2xl font-semibold text-gray-900">Inbox</h1>
-                <p class="text-sm text-gray-500">Messages with your landlord and the property team.</p>
+            <header class="flex items-start justify-between">
+                <div>
+                    <h1 class="text-2xl font-semibold text-gray-900">Inbox</h1>
+                    <p class="text-sm text-gray-500">Messages with your landlord and the property team.</p>
+                </div>
+                <Link
+                    :href="route('tenant.inbox.search')"
+                    class="text-sm font-medium text-indigo-600 hover:underline"
+                    data-testid="inbox-search"
+                >
+                    {{ t('inbox.search.title') }}
+                </Link>
             </header>
 
             <form @submit.prevent="submit" class="rounded-lg bg-white p-4 shadow" data-testid="tenant-inbox-compose">

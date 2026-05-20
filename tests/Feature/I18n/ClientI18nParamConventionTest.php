@@ -39,6 +39,8 @@ class ClientI18nParamConventionTest extends TestCase
             'growth.cohort.subtitle' => ['months'],
             'growth.cohort.month_offset' => ['offset'],
             'growth.cohort.insufficient_sample' => ['min'],
+            'inbox.presence.typing' => ['name'],
+            'inbox.search.no_results' => ['term'],
         ];
 
         foreach (['en', 'sw'] as $locale) {

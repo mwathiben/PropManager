@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
+import { useI18n } from '@/composables/useI18n';
 
 interface Participant {
     id: number;
@@ -24,6 +25,7 @@ interface Props {
 }
 
 defineProps<Props>();
+const { t } = useI18n();
 </script>
 
 <template>
@@ -33,6 +35,13 @@ defineProps<Props>();
         <div class="px-4 py-6 sm:px-6 lg:px-8">
             <header class="flex items-center justify-between mb-6">
                 <h1 class="text-2xl font-semibold text-gray-900">Message Threads</h1>
+                <Link
+                    :href="route('message-threads.search')"
+                    class="text-sm font-medium text-indigo-600 hover:underline"
+                    data-testid="inbox-search"
+                >
+                    {{ t('inbox.search.title') }}
+                </Link>
             </header>
 
             <ul class="divide-y divide-gray-200 bg-white shadow rounded-lg overflow-hidden">
