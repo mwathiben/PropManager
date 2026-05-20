@@ -1,0 +1,161 @@
+{
+    "phase": 68,
+    "title": "LEGAL-HOLD-PHASE2",
+    "opened_at": "2026-05-21",
+    "tier": "Tier 7 cycle 32",
+    "scope": "Closes the gaps Phase 64/65 deferred on the polymorphic LegalHold surface. Scout (2026-05-21) confirmed: LegalHold model (holdable_type/holdable_id, released_at = release, lh_subject_active_unique one-active-per-subject) + LegalHoldRegistry (hold/release/isHeld/heldIdsFor 60s cache + activeCountForLandlord) + HasLegalHolds concern (legalHolds()/isHeld()/isHoldable()) on Document/Invoice/Ticket/MessageThread + LegalHoldController index/store/destroy (release via released_at, never row-delete) + LegalHoldBulkController + BulkHoldService (holdAll/releaseAll, single tx, ownership pre-check, bulk_max cap) + LegalHoldPolicy (super-admin before, viewAny/create/release/auditExport, ownsSubject cross-tenant gate) + LegalHoldAuditExportService/Controller (landlord-wide CSV, BOM, injection guard, signed-URL download, MAX_RANGE_DAYS) + AuditLegalHoldExclusions cron (04:45) + HoldCreateModal.vue mounted on Invoices/Show + Tickets/Show + Pages/LegalHolds/{Index,AuditExport}.vue + docs/runbooks/legal-hold.md. FOUR gaps remain: (1) Documents is the ONLY morph target WITHOUT a Show page, so a Document cannot be placed under hold from any UI; (2) an active hold blocks ONLY the retention cron — the manual delete paths (DocumentController::destroy etc.) can still destroy held data; (3) no stale-hold sweeper — holds sit active forever with no nudge to release after litigation resolves; (4) the audit export is landlord-wide-by-date only — no per-subject hold/release history. Phase 68: DOC-HOLD (Documents hold UI) + HOLD-GUARD (deletion guard across all paths) + STALE-SWEEP (stale-hold reminder cron) + BULK-UI (BULK-HOLD-3 checkbox grid) + HISTORY (per-subject timeline) + observability/CI. Six categories x 3 = 18 findings (5H/9M/4L).",
+    "categories": {
+        "DOC-HOLD": "Place/release/inspect holds on Document rows from Documents/Index.vue — the only ALLOWED_HOLDABLE_TYPES subject without a Show page.",
+        "HOLD-GUARD": "An active hold must block destruction on EVERY path (manual delete, soft-delete, cascade), not just the retention cron — a deleting observer in HasLegalHolds.",
+        "STALE-SWEEP": "Stale-hold sweeper cron: active holds untouched past a threshold email the owning landlord to confirm release, with a once-per-cooldown reminder + gauge + alert.",
+        "BULK-UI": "BULK-HOLD-3 checkbox-grid UI driving the Phase-65 BulkHoldService endpoints (Phase 65 shipped the service + endpoints but no multi-select UI).",
+        "HISTORY": "Per-subject hold/release timeline (who held, why, who released, when) + per-subject CSV, cross-tenant gated.",
+        "CI": "Cross-category surface map + per-category feature tests + runbook/memory closeout."
+    },
+    "findings": [
+        {
+            "id": "DOC-HOLD-1",
+            "severity": "HIGH",
+            "title": "Surface per-Document hold state without N+1",
+            "evidence": "DocumentController::index returns documents but no legal-hold state; the Vue layer cannot show which documents are held or offer a release without per-row queries. Documents is the only ALLOWED_HOLDABLE_TYPES subject with no Show page, so today there is NO way to hold a Document from the UI.",
+            "remediation": "DocumentController::index resolves the held set ONCE via LegalHoldRegistry::heldIdsFor(Document::class) (60s cached) and, for held rows, the active LegalHold id via a single LegalHold::active()->forSubject-style whereIn query keyed by document id — no N+1 inside the ->through() closure. Each document payload gains is_held (bool) + legal_hold_id (?int). Only landlord/super-admin (can('documents:manage') + isLandlord) get the fields populated/visible; tenants never see hold state. DocumentsIndexPageProps type extended. Phase68DocHoldTest asserts is_held flips after a hold + the held set is computed with a bounded query count.",
+            "category": "DOC-HOLD"
+        },
+        {
+            "id": "DOC-HOLD-2",
+            "severity": "MEDIUM",
+            "title": "Documents/Index.vue place-hold + release per row",
+            "evidence": "No UI affordance to place or release a hold on a document row.",
+            "remediation": "Documents/Index.vue mounts HoldCreateModal (subjectType=App\\Models\\Document, subjectId=document.id, subjectLabel=document.title) behind a per-row 'Place hold' action, and a 'Release' action (router.delete legal-holds.destroy(legal_hold_id)) for held rows, both gated by isLandlord + can('documents:manage'). An 'On hold' badge (data-testid='document-hold-badge') renders on held rows. lang/en/legal_holds.php gains document-context keys ({curly}, sw full, ar [TODO-ar]). Phase68LegalHoldPhase2SurfaceTest asserts the modal mount + badge + release tokens.",
+            "category": "DOC-HOLD"
+        },
+        {
+            "id": "DOC-HOLD-3",
+            "severity": "LOW",
+            "title": "Held-document lock affordance + history entry point",
+            "evidence": "A held document looks identical to an unheld one beyond the badge; the operator can't see why it is held or open its history.",
+            "remediation": "Held rows render a lock icon with an accessible title carrying the hold reason (truncated) + a 'View history' link wired to the HISTORY endpoint (subject_type=Document, subject_id). data-testid='document-hold-history-link'. prefers-reduced-motion respected (no animation). lang keys. Phase68LegalHoldPhase2SurfaceTest asserts the token.",
+            "category": "DOC-HOLD"
+        },
+        {
+            "id": "HOLD-GUARD-1",
+            "severity": "HIGH",
+            "title": "Deleting observer blocks destruction of held subjects on every path",
+            "evidence": "An active hold excludes a subject only from the retention cron (FileRetentionService / messages:enforce-retention). The manual delete paths — DocumentController::destroy, Invoice/Ticket destroy, MessageThread soft-delete — can still destroy held data, defeating the preservation directive (Kenya DPA Section 30 / GDPR 6(1)(c)).",
+            "remediation": "HasLegalHolds gains a bootHasLegalHolds() that registers a static::deleting(fn ($model) => ...) observer throwing App\\Exceptions\\LegalHoldActiveException when LegalHoldRegistry::isHeld($model) (covers force-delete, soft-delete, and cascade through the model layer). Applied automatically to all four holdable models via the trait. The exception carries the subject type+id. Phase68HoldGuardTest asserts a held Document/Invoice/Ticket/MessageThread cannot be deleted (exception thrown, row still present) and an unheld one deletes normally, and that release re-enables deletion.",
+            "category": "HOLD-GUARD"
+        },
+        {
+            "id": "HOLD-GUARD-2",
+            "severity": "MEDIUM",
+            "title": "Controllers translate the block into a friendly error + gauge",
+            "evidence": "A raw LegalHoldActiveException surfaced from a controller delete would be a 500; the operator needs a clear 'this is under legal hold' message, and ops needs to see attempted deletions of held data.",
+            "remediation": "DocumentController::destroy (and the Invoice/Ticket/MessageThread delete entry points that a landlord can hit) wrap the delete and catch LegalHoldActiveException → redirect back withErrors / ValidationException with __('legal_holds.delete_blocked'). The exception render path increments MetricsService::increment('legal_hold_blocked_deletions_count', 1, ['subject_type'=>...]). Phase68HoldGuardTest asserts DocumentController::destroy on a held doc returns a validation error (not 500) + the row survives + the gauge increments.",
+            "category": "HOLD-GUARD"
+        },
+        {
+            "id": "HOLD-GUARD-3",
+            "severity": "MEDIUM",
+            "title": "Disabled-delete UI affordance on held rows",
+            "evidence": "Even with the server guard, the UI still shows an enabled Delete button on held rows — a confusing dead click.",
+            "remediation": "Documents/Index.vue + Invoices/Show.vue + Tickets/Show.vue disable/hide the delete control when is_held, with a tooltip __('legal_holds.delete_blocked_hint'). data-testid='delete-blocked-by-hold'. The control is gated client-side AND the server guard (HOLD-GUARD-1/2) remains authoritative. lang keys ({curly}, sw full, ar [TODO-ar]). Phase68LegalHoldPhase2SurfaceTest asserts the tokens on the pages.",
+            "category": "HOLD-GUARD"
+        },
+        {
+            "id": "STALE-SWEEP-1",
+            "severity": "HIGH",
+            "title": "legal-hold:sweep-stale command",
+            "evidence": "Holds never expire and there is no nudge to release them after litigation resolves; an indefinitely-held subject silently defeats DPA storage-limitation forever.",
+            "remediation": "App\\Console\\Commands\\SweepStaleHolds ('legal-hold:sweep-stale') finds active holds with held_at older than config('legal_hold.stale_after_days', 365), groups by owning landlord (resolved per holdable subject's landlord_id, bypassing TenantScope), and for each landlord with at least one stale hold queues a StaleHoldReminderMailable; emits MetricsService::gauge('legal_hold_stale_count'). Idempotent via the once-per-cooldown gate (STALE-SWEEP-2). Phase68StaleSweepTest asserts a >threshold active hold is detected, a fresh/released hold is not, and the gauge is emitted.",
+            "category": "STALE-SWEEP"
+        },
+        {
+            "id": "STALE-SWEEP-2",
+            "severity": "MEDIUM",
+            "title": "last_reminded_at column + cooldown + Mailable",
+            "evidence": "Without a cooldown the daily cron would email the landlord every single day a hold is stale.",
+            "remediation": "Migration adds legal_holds.last_reminded_at (nullable timestamp). SweepStaleHolds only includes a hold whose last_reminded_at is null OR older than config('legal_hold.stale_reminder_cooldown_days', 30), and stamps last_reminded_at=now() on the swept rows (single update per landlord batch). StaleHoldReminderMailable (ShouldQueue + afterCommit + locale-aware) lists the stale holds (subject type/id, reason, held_at, days held) with a deep link to legal-holds.index?status=active. lang/en/legal_holds.php stale.* keys. Phase68StaleSweepTest asserts cooldown suppression (no re-notify within window) + last_reminded_at stamped.",
+            "category": "STALE-SWEEP"
+        },
+        {
+            "id": "STALE-SWEEP-3",
+            "severity": "MEDIUM",
+            "title": "Schedule + gauge + alert + runbook",
+            "evidence": "The sweeper needs a cadence, an ops signal, and operator documentation.",
+            "remediation": "routes/console.php schedules legal-hold:sweep-stale daily (e.g. 05:10 Africa/Nairobi) via the shared $schedule() helper. config/alerts.php registers legal_hold_stale (sev3, gauge legal_hold_stale_count, window instantaneous, runbook docs/runbooks/legal-hold.md#stale-holds, paging email). docs/runbooks/legal-hold.md gains a Stale holds section + alert-thresholds.md row + config/legal_hold.php stale_after_days + stale_reminder_cooldown_days knobs. Phase68StaleSweepTest asserts the command is registered + the alert resolves in the registry (runbook anchor exists).",
+            "category": "STALE-SWEEP"
+        },
+        {
+            "id": "BULK-UI-1",
+            "severity": "HIGH",
+            "title": "Checkbox-grid bulk-hold UI on Documents/Index",
+            "evidence": "Phase 65 shipped BulkHoldService + POST/DELETE /legal-holds/bulk but the only UI was a single-subject textarea modal; litigation that touches dozens of documents has no multi-select path.",
+            "remediation": "Documents/Index.vue gains a bulk-select mode: per-row checkboxes + a select-all header checkbox + a sticky action bar showing the selection count and a 'Place hold on N' button that opens a BulkHoldModal (reason textarea) POSTing {subject_type: Document, subject_ids: [...], reason} to legal-holds.bulk.store. Selection capped client-side at config-exposed bulk_max with a clear disabled state. Landlord-only. Phase68BulkUiTest (or surface) asserts the bulk bar + modal + select-all tokens; the endpoint behaviour is already covered by Phase65BulkHoldTest, extended for the Document subject type.",
+            "category": "BULK-UI"
+        },
+        {
+            "id": "BULK-UI-2",
+            "severity": "MEDIUM",
+            "title": "Bulk release of selected held documents",
+            "evidence": "A bulk place-hold with no bulk release is asymmetric; releasing dozens of holds one-by-one after a case closes is the painful half.",
+            "remediation": "When the current selection is entirely held documents, the bulk action bar offers 'Release N holds' DELETE legal-holds.bulk.destroy {subject_type, subject_ids}; mixed selections show place-hold only. The bar derives mode from the is_held flags (DOC-HOLD-1). Phase68 surface asserts the release token; Phase65BulkHoldTest::releaseAll path already covers the service.",
+            "category": "BULK-UI"
+        },
+        {
+            "id": "BULK-UI-3",
+            "severity": "LOW",
+            "title": "Bulk-select a11y + cap feedback + lang",
+            "evidence": "A checkbox grid without selection announcements + cap feedback is an accessibility and UX gap.",
+            "remediation": "Select-all has aria-label + indeterminate state; the action bar uses aria-live='polite' to announce the count; exceeding bulk_max disables the place-hold button with __('legal_holds.bulk_cap_hint', {max}). lang keys ({curly}, sw full, ar [TODO-ar]). data-testid='bulk-hold-bar' / 'bulk-select-all'. Phase68LegalHoldPhase2SurfaceTest asserts tokens + the ClientI18nParamConventionTest covers the {max} param key.",
+            "category": "BULK-UI"
+        },
+        {
+            "id": "HISTORY-1",
+            "severity": "HIGH",
+            "title": "Per-subject hold/release timeline endpoint",
+            "evidence": "The only history surface is the landlord-wide date-range CSV; an operator answering 'what is the full hold history of THIS document/invoice?' has no view, and a naive endpoint would leak cross-tenant subjects.",
+            "remediation": "GET /legal-holds/history?subject_type=&subject_id= via LegalHoldHistoryController authorizing through LegalHoldPolicy (a new viewHistory ability delegating to ownsSubject, super-admin before) — a cross-tenant or non-owned subject is rejected, never returned. Returns every LegalHold row forSubject (active + released) with heldBy/releasedBy names ordered by held_at, as an Inertia page 'LegalHolds/History' (or JSON for the modal). subject_type validated against ALLOWED_HOLDABLE_TYPES. Phase68HistoryTest asserts the owner sees the full timeline, a cross-tenant landlord is rejected, and an unsupported subject_type 422s.",
+            "category": "HISTORY"
+        },
+        {
+            "id": "HISTORY-2",
+            "severity": "MEDIUM",
+            "title": "Per-subject history CSV export",
+            "evidence": "Counsel often needs the preservation chain-of-custody for a single subject as a document, not a screen.",
+            "remediation": "LegalHoldHistoryController supports a format=csv variant (or a sibling route) reusing the LegalHoldAuditExportService CSV conventions (UTF-8 BOM, injection guard, nested exports/{landlord}/legal-hold-history/ path for the Phase-59 retention sweep) filtered to the one subject, streamed via the signed-URL pattern. Authorized identically to HISTORY-1. Phase68HistoryTest asserts the CSV contains the hold + release rows for the subject and is cross-tenant gated.",
+            "category": "HISTORY"
+        },
+        {
+            "id": "HISTORY-3",
+            "severity": "LOW",
+            "title": "History entry points + Vue page",
+            "evidence": "The timeline needs UI entry points from the surfaces that can hold a subject.",
+            "remediation": "Pages/LegalHolds/History.vue renders the timeline (held -> released pairs, actor names, reason, durations in en-KE). 'View history' links wired from Documents/Index (DOC-HOLD-3), Invoices/Show, Tickets/Show, and the LegalHolds/Index rows. lang keys ({curly}, sw full, ar [TODO-ar]). Phase68LegalHoldPhase2SurfaceTest asserts the page exists + the entry-point tokens.",
+            "category": "HISTORY"
+        },
+        {
+            "id": "CI-1",
+            "severity": "MEDIUM",
+            "title": "Phase68LegalHoldPhase2SurfaceTest cross-category map",
+            "evidence": "The new surface (exception, observer, command, controllers, routes, columns, Vue, config, alert) must be guarded against drift.",
+            "remediation": "tests/Feature/LegalHold/Phase68LegalHoldPhase2SurfaceTest asserts: LegalHoldActiveException + SweepStaleHolds + StaleHoldReminderMailable + LegalHoldHistoryController classes exist; HasLegalHolds boots the deleting observer; legal_holds.last_reminded_at column present; routes (legal-holds.history, legal-holds.history.export) registered; Vue (LegalHolds/History.vue, BulkHoldModal, Documents/Index hold tokens) exist; config('legal_hold.stale_after_days') loads; legal-hold:sweep-stale command registered; legal_hold_stale alert in registry; lang keys present.",
+            "category": "CI"
+        },
+        {
+            "id": "CI-2",
+            "severity": "MEDIUM",
+            "title": "Per-category feature tests",
+            "evidence": "Behaviour (hold-state surfacing, deletion guard across 4 types, stale detection + cooldown, history isolation) must be asserted, not just presence.",
+            "remediation": "Phase68DocHoldTest (is_held surfaced + landlord-only). Phase68HoldGuardTest (held Document/Invoice/Ticket/MessageThread cannot delete + friendly controller error + gauge + release re-enables). Phase68StaleSweepTest (threshold detection + cooldown suppression + last_reminded_at stamp + gauge + alert). Phase68HistoryTest (owner sees timeline, cross-tenant rejected, CSV rows). Phase65BulkHoldTest extended for the Document subject. All RefreshDatabase + spy/Mail::fake where needed.",
+            "category": "CI"
+        },
+        {
+            "id": "CI-3",
+            "severity": "LOW",
+            "title": "Runbook completion + memory closeout",
+            "evidence": "Operators + the cycle ledger need the new surfaces documented and the phase recorded.",
+            "remediation": "docs/runbooks/legal-hold.md gains Stale holds + Deletion guard + Per-subject history + Bulk-hold UI sections + alert-thresholds.md rows cross-linked. Memory: project_propmanager_phase68_plan + pending-path + forward-path + MEMORY.md updated at closeout; audit_closeout block merged into phase-68-audit-prd.json. CodeRabbit code-reviewer run recorded per logic-bearing sub-phase diff.",
+            "category": "CI"
+        }
+    ]
+}
