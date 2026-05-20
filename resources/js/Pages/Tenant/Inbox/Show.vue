@@ -2,6 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import PendingSyncBadge from '@/Components/Offline/PendingSyncBadge.vue';
+import AttachmentPreviewList from '@/Components/Inbox/AttachmentPreviewList.vue';
 import { useI18n } from '@/composables/useI18n';
 import { useEcho } from '@/composables/useEcho';
 import { usePresenceChannel } from '@/composables/usePresenceChannel';
@@ -92,6 +93,14 @@ function submit() {
         preserveScroll: true,
         onSuccess: () => form.reset(),
     });
+}
+
+function onPickFiles(event: Event): void {
+    form.attachments = Array.from((event.target as HTMLInputElement).files || []);
+}
+
+function removeAttachment(index: number): void {
+    form.attachments = form.attachments.filter((_, i) => i !== index);
 }
 
 const { subscribePrivate, unsubscribe } = useEcho();
@@ -201,13 +210,36 @@ function onType(): void {
                     class="w-full rounded-md border-gray-300 shadow-sm text-sm"
                     @input="onType"
                 ></textarea>
-                <button
-                    type="submit"
-                    :disabled="form.processing || form.body.length === 0"
-                    class="mt-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                <div class="mt-2 flex items-center justify-between">
+                    <input
+                        type="file"
+                        multiple
+                        accept="image/jpeg,image/png,image/webp,application/pdf"
+                        @change="onPickFiles"
+                        class="text-xs"
+                    />
+                    <button
+                        type="submit"
+                        :disabled="form.processing || form.body.length === 0"
+                        class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                    >
+                        Send reply
+                    </button>
+                </div>
+
+                <AttachmentPreviewList
+                    class="mt-3"
+                    :files="form.attachments"
+                    @remove="removeAttachment"
+                />
+
+                <p
+                    v-if="form.errors.attachments"
+                    class="mt-2 text-xs font-medium text-rose-600"
+                    data-testid="attachment-blocked"
                 >
-                    Send reply
-                </button>
+                    {{ form.errors.attachments }}
+                </p>
             </form>
 
             <p v-else class="text-sm text-gray-500">

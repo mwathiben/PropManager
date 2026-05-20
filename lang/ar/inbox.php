@@ -25,6 +25,7 @@ return [
     'scan' => [
         'hint' => '[TODO-ar] Attachments are scanned before sending.',
         'blocked' => '[TODO-ar] An attachment was blocked by the virus scanner and not sent.',
+        'unavailable' => '[TODO-ar] Attachment scanning is temporarily unavailable. Please try again shortly.',
     ],
     'attachment' => [
         'invalid_mime' => '[TODO-ar] Attachment type is not allowed.',

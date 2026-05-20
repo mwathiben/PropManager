@@ -37,4 +37,23 @@ return [
         'url_repetition_threshold' => 5,
         'non_printable_fraction_threshold' => 0.5,
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Phase-67 ATTACHMENT-SCAN: malware scanning for inbox attachments
+    |--------------------------------------------------------------------------
+    |
+    | driver: 'null' (default, no-op — local/test) | 'clamav' (clamd
+    | INSTREAM) | 'fake' (EICAR detector, tests/staging). When the scanner
+    | errors (e.g. clamd down), fail_closed=true rejects the upload (secure
+    | default); set false to persist with scan_status=error instead.
+    */
+    'scan' => [
+        'driver' => env('INBOX_SCAN_DRIVER', 'null'),
+        'socket' => env('INBOX_SCAN_SOCKET'),
+        'host' => env('INBOX_SCAN_HOST', '127.0.0.1'),
+        'port' => (int) env('INBOX_SCAN_PORT', 3310),
+        'timeout' => (int) env('INBOX_SCAN_TIMEOUT', 10),
+        'fail_closed' => (bool) env('INBOX_SCAN_FAIL_CLOSED', true),
+    ],
 ];

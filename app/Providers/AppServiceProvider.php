@@ -70,6 +70,13 @@ class AppServiceProvider extends ServiceProvider
             config('metrics.connection', 'cache')
         ));
 
+        // Phase-67 ATTACHMENT-SCAN-1: bind the configured attachment
+        // scanner (null / clamav / fake) for MessageAttachmentService.
+        $this->app->bind(
+            \App\Services\Inbox\Scanning\AttachmentScannerInterface::class,
+            fn () => \App\Services\Inbox\Scanning\AttachmentScannerFactory::make(),
+        );
+
         // Phase-45 EMERGENCY-CONTACT-SMS-1: SMS driver binding.
         // Default is Stub so CI + dev never hit the network. Switch
         // via SMS_DRIVER=africastalking in production.

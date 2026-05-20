@@ -88,7 +88,14 @@ class InboxController extends Controller
 
         $landlordId = (int) $tenant->landlord_id;
 
-        [$thread, $message] = DB::transaction(function () use ($request, $data, $tenant, $landlordId) {
+        // Phase-67 ATTACHMENT-SCAN: scan before the transaction opens so a
+        // rejected (infected) upload's audit row is not rolled back.
+        $files = $request->file('attachments');
+        $scanned = is_array($files) && $files !== []
+            ? $this->attachments->scan($files, $tenant)
+            : [];
+
+        [$thread, $message] = DB::transaction(function () use ($data, $tenant, $landlordId, $scanned) {
             $thread = MessageThread::create([
                 'landlord_id' => $landlordId,
                 'title' => $data['title'] ?? null,
@@ -106,10 +113,7 @@ class InboxController extends Controller
                 'body' => $data['body'],
             ]);
 
-            $files = $request->file('attachments');
-            if (is_array($files) && $files !== []) {
-                $this->attachments->attachToMessage($message, $files);
-            }
+            $this->attachments->persist($message, $scanned);
 
             return [$thread, $message];
         });
@@ -127,16 +131,18 @@ class InboxController extends Controller
     ): RedirectResponse {
         $user = $request->user();
 
-        $message = DB::transaction(function () use ($request, $thread, $user) {
+        $files = $request->file('attachments');
+        $scanned = is_array($files) && $files !== []
+            ? $this->attachments->scan($files, $user, $thread->id)
+            : [];
+
+        $message = DB::transaction(function () use ($request, $thread, $user, $scanned) {
             $message = $thread->messages()->create([
                 'sender_id' => $user->id,
                 'body' => $request->input('body'),
             ]);
 
-            $files = $request->file('attachments');
-            if (is_array($files) && $files !== []) {
-                $this->attachments->attachToMessage($message, $files);
-            }
+            $this->attachments->persist($message, $scanned);
 
             return $message;
         });

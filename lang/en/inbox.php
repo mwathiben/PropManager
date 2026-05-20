@@ -25,6 +25,7 @@ return [
     'scan' => [
         'hint' => 'Attachments are scanned before sending.',
         'blocked' => 'An attachment was blocked by the virus scanner and not sent.',
+        'unavailable' => 'Attachment scanning is temporarily unavailable. Please try again shortly.',
     ],
     'attachment' => [
         'invalid_mime' => 'Attachment type is not allowed.',

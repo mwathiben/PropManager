@@ -51,6 +51,14 @@ class Document extends Model
         'other' => 'Other',
     ];
 
+    public const SCAN_PENDING = 'pending';
+
+    public const SCAN_CLEAN = 'clean';
+
+    public const SCAN_INFECTED = 'infected';
+
+    public const SCAN_ERROR = 'error';
+
     protected $fillable = [
         'landlord_id',
         'documentable_id',
@@ -66,6 +74,7 @@ class Document extends Model
         'expires_at',
         'description',
         'uploaded_by',
+        'scan_status',
     ];
 
     protected $casts = [

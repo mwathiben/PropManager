@@ -2,6 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import PendingSyncBadge from '@/Components/Offline/PendingSyncBadge.vue';
+import AttachmentPreviewList from '@/Components/Inbox/AttachmentPreviewList.vue';
 import { useI18n } from '@/composables/useI18n';
 import { useEcho } from '@/composables/useEcho';
 import { usePresenceChannel } from '@/composables/usePresenceChannel';
@@ -102,6 +103,14 @@ function submit() {
         preserveScroll: true,
         onSuccess: () => form.reset(),
     });
+}
+
+function onPickFiles(event: Event): void {
+    form.attachments = Array.from((event.target as HTMLInputElement).files || []);
+}
+
+function removeAttachment(index: number): void {
+    form.attachments = form.attachments.filter((_, i) => i !== index);
 }
 
 const { subscribePrivate, unsubscribe } = useEcho();
@@ -228,7 +237,7 @@ function onType(): void {
                         type="file"
                         multiple
                         accept="image/jpeg,image/png,image/webp,application/pdf"
-                        @change="(event) => form.attachments = Array.from((event.target as HTMLInputElement).files || [])"
+                        @change="onPickFiles"
                         class="text-xs"
                     />
                     <button
@@ -239,6 +248,20 @@ function onType(): void {
                         Send
                     </button>
                 </div>
+
+                <AttachmentPreviewList
+                    class="mt-3"
+                    :files="form.attachments"
+                    @remove="removeAttachment"
+                />
+
+                <p
+                    v-if="form.errors.attachments"
+                    class="mt-2 text-xs font-medium text-rose-600"
+                    data-testid="attachment-blocked"
+                >
+                    {{ form.errors.attachments }}
+                </p>
             </form>
 
             <p v-else class="text-sm text-gray-500">

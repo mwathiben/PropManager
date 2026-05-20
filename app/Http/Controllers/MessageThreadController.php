@@ -73,7 +73,14 @@ class MessageThreadController extends Controller
         $landlord = $request->user();
         $landlordId = $request->landlordId();
 
-        [$thread, $initialMessage] = DB::transaction(function () use ($request, $landlord, $landlordId) {
+        // Phase-67 ATTACHMENT-SCAN: scan before the transaction opens so a
+        // rejected (infected) upload's audit row is not rolled back.
+        $files = $request->file('attachments');
+        $scanned = is_array($files) && $files !== []
+            ? $this->attachments->scan($files, $landlord)
+            : [];
+
+        [$thread, $initialMessage] = DB::transaction(function () use ($request, $landlord, $landlordId, $scanned) {
             $subjectType = $request->input('subject_type');
 
             $thread = MessageThread::create([
@@ -105,10 +112,7 @@ class MessageThreadController extends Controller
                 'body' => $request->input('body'),
             ]);
 
-            $files = $request->file('attachments');
-            if (is_array($files) && $files !== []) {
-                $this->attachments->attachToMessage($message, $files);
-            }
+            $this->attachments->persist($message, $scanned);
 
             return [$thread, $message];
         });
@@ -126,16 +130,18 @@ class MessageThreadController extends Controller
     ): RedirectResponse {
         $user = $request->user();
 
-        $message = DB::transaction(function () use ($request, $thread, $user) {
+        $files = $request->file('attachments');
+        $scanned = is_array($files) && $files !== []
+            ? $this->attachments->scan($files, $user, $thread->id)
+            : [];
+
+        $message = DB::transaction(function () use ($request, $thread, $user, $scanned) {
             $message = $thread->messages()->create([
                 'sender_id' => $user->id,
                 'body' => $request->input('body'),
             ]);
 
-            $files = $request->file('attachments');
-            if (is_array($files) && $files !== []) {
-                $this->attachments->attachToMessage($message, $files);
-            }
+            $this->attachments->persist($message, $scanned);
 
             return $message;
         });
