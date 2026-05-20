@@ -12,6 +12,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Testing\TestResponse;
+use PHPUnit\Framework\Attributes\Group;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestData;
 
@@ -24,10 +25,9 @@ use Tests\Traits\CreatesTestData;
  *  3. UNIQUE constraints (database-level safety net)
  *
  * Each test sends 50 identical webhook payloads and asserts exactly 1 payment is created.
- *
- * @group idempotency
- * @group concurrent
  */
+#[Group('idempotency')]
+#[Group('concurrent')]
 class ConcurrentWebhookTest extends TestCase
 {
     use CreatesTestData, RefreshDatabase;

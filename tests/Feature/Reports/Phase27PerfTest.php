@@ -7,6 +7,7 @@ namespace Tests\Feature\Reports;
 use App\Services\ReportService;
 use Database\Seeders\GoldenReportFixtureSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -32,9 +33,7 @@ class Phase27PerfTest extends TestCase
         return array_map(fn ($t) => [$t], ReportService::supportedTypes());
     }
 
-    /**
-     * @dataProvider reportTypes
-     */
+    #[DataProvider('reportTypes')]
     public function test_report_type_runs_within_perf_budget(string $type): void
     {
         $landlordId = 999000;
