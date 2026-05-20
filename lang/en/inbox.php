@@ -53,5 +53,8 @@ return [
         'body_label' => 'Message body',
         'locked' => 'This thread is {status} and cannot accept new messages.',
         'chars_remaining' => '{count} character left | {count} characters left',
+        'jump_latest' => 'Jump to latest',
+        'sending' => 'Sending…',
+        'retry' => 'Tap to retry',
     ],
 ];

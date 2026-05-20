@@ -7,7 +7,9 @@ import ChatComposer from '@/Components/Inbox/ChatComposer.vue';
 import { useI18n } from '@/composables/useI18n';
 import { useEcho } from '@/composables/useEcho';
 import { usePresenceChannel } from '@/composables/usePresenceChannel';
-import { computed, onMounted, onUnmounted, reactive } from 'vue';
+import { useThreadStream, type IncomingPosted } from '@/composables/useThreadStream';
+import type { BubbleMessage } from '@/Components/Inbox/MessageBubble.vue';
+import { computed, onMounted, onUnmounted, reactive, watch } from 'vue';
 
 interface Sender {
     id: number | null;
@@ -59,6 +61,12 @@ const page = usePage();
 const currentUserId = computed<number | null>(
     () => ((page.props as Record<string, any>)?.auth?.user?.id as number | null) ?? null,
 );
+const myName = computed<string>(
+    () => String((page.props as Record<string, any>)?.auth?.user?.name ?? ''),
+);
+const myRole = computed<string | null>(
+    () => ((page.props as Record<string, any>)?.auth?.user?.role as string | null) ?? null,
+);
 
 // user_id -> last_read_at ISO string; seeded from the server, kept live by
 // the message.read broadcast.
@@ -66,6 +74,13 @@ const readCursors = reactive<Record<number, string | null>>({});
 props.read_receipts.forEach((r) => {
     readCursors[r.user_id] = r.last_read_at;
 });
+
+// Re-merge authoritative cursors after an Inertia reload (we now preserveState
+// across sends, so the setup-time seed alone would go stale).
+watch(
+    () => props.read_receipts,
+    (receipts) => receipts.forEach((r) => { readCursors[r.user_id] = r.last_read_at; }),
+);
 
 // Max read cursor across other participants — drives the per-bubble seen
 // ticks inside ChatThread (kept live by the .message.read broadcast).
@@ -78,6 +93,17 @@ const othersReadAt = computed<string | null>(() => {
     }
     return max === null ? null : new Date(max).toISOString();
 });
+
+// Live stream: seeds from the server prop, appends incoming broadcasts, and
+// owns the optimistic outgoing bubble lifecycle.
+const {
+    messages: streamMessages,
+    ingest,
+    addOptimistic,
+    resolveOptimistic,
+    failOptimistic,
+    dropFailed,
+} = useThreadStream(currentUserId.value, () => props.thread.messages);
 
 function markAllRead(): void {
     router.post(route('message-threads.read-all', props.thread.id), {}, {
@@ -92,10 +118,31 @@ const form = useForm({
 });
 
 function submit() {
+    const sender = { id: currentUserId.value, name: myName.value, role: myRole.value };
+    const tempId = addOptimistic(form.body, sender);
     form.post(route('message-threads.messages.store', props.thread.id), {
         forceFormData: true,
         preserveScroll: true,
-        onSuccess: () => form.reset(),
+        preserveState: true,
+        onSuccess: () => {
+            resolveOptimistic(tempId);
+            form.reset();
+        },
+        onError: () => failOptimistic(tempId),
+    });
+}
+
+// Re-send a failed (text-only optimistic) bubble without touching the live
+// composer draft — posts the stored body directly.
+function onRetry(message: BubbleMessage): void {
+    dropFailed(message);
+    const sender = { id: currentUserId.value, name: myName.value, role: myRole.value };
+    const tempId = addOptimistic(message.body, sender);
+    router.post(route('message-threads.messages.store', props.thread.id), { body: message.body }, {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => resolveOptimistic(tempId),
+        onError: () => failOptimistic(tempId),
     });
 }
 
@@ -106,6 +153,7 @@ onMounted(() => {
     subscribePrivate<{ user_id: number; read_at: string }>(channelName, '.message.read', (event) => {
         readCursors[event.user_id] = event.read_at;
     });
+    subscribePrivate<IncomingPosted>(channelName, '.message.posted', (event) => ingest(event));
 });
 
 onUnmounted(() => {
@@ -114,7 +162,7 @@ onUnmounted(() => {
 
 // Phase-67 PRESENCE: live online roster + typing.
 const me = currentUserId.value !== null
-    ? { id: currentUserId.value, name: String((page.props as Record<string, any>)?.auth?.user?.name ?? '') }
+    ? { id: currentUserId.value, name: myName.value }
     : null;
 const { members: onlineMembers, typing: typingNames, notifyTyping } = usePresenceChannel(props.thread.id, me);
 
@@ -173,12 +221,13 @@ function onType(): void {
             </div>
 
             <ChatThread
-                :messages="thread.messages"
+                :messages="streamMessages"
                 :current-user-id="currentUserId"
                 :others-read-at="othersReadAt"
                 :unread-count="unreadCount"
                 :typing-names="typingNames"
                 list-testid="message-list"
+                @retry="onRetry"
             >
                 <template #composer>
                     <ChatComposer

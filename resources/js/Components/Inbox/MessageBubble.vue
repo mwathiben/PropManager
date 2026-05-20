@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { useI18n } from '@/composables/useI18n';
 import { useFormatters } from '@/composables/useFormatters';
-import { CheckIcon } from '@heroicons/vue/24/outline';
+import { CheckIcon, ClockIcon, ExclamationCircleIcon } from '@heroicons/vue/24/outline';
 
 export interface BubbleSender {
     id: number | null;
@@ -22,6 +22,8 @@ export interface BubbleMessage {
     message_type: 'text' | 'system' | 'attachment';
     created_at: string;
     documents: BubbleDocument[];
+    /** Optimistic outgoing lifecycle (Phase-71 LIVE-DELIVERY); absent once confirmed. */
+    pending?: 'sending' | 'failed';
 }
 
 const props = defineProps<{
@@ -34,6 +36,8 @@ const props = defineProps<{
     /** true = seen by another participant, false = sent only, null = not applicable. */
     seen: boolean | null;
 }>();
+
+defineEmits<{ retry: [BubbleMessage] }>();
 
 const { t } = useI18n();
 const { formatRelativeTime } = useFormatters();
@@ -101,8 +105,27 @@ const initials = computed(() => {
 
             <div v-if="groupEnd" class="mt-0.5 flex items-center gap-1 px-1 text-[10px] text-gray-400">
                 <time>{{ formatRelativeTime(message.created_at) }}</time>
+
+                <button
+                    v-if="isOwn && message.pending === 'failed'"
+                    type="button"
+                    class="inline-flex items-center gap-0.5 font-medium text-rose-500 hover:underline"
+                    data-testid="message-failed"
+                    @click="$emit('retry', message)"
+                >
+                    <ExclamationCircleIcon class="h-3 w-3" />
+                    {{ t('inbox.chat.retry') }}
+                </button>
                 <span
-                    v-if="isOwn && seen !== null"
+                    v-else-if="isOwn && message.pending === 'sending'"
+                    class="inline-flex items-center"
+                    :aria-label="t('inbox.chat.sending')"
+                    data-testid="message-sending"
+                >
+                    <ClockIcon class="h-3 w-3" />
+                </span>
+                <span
+                    v-else-if="isOwn && seen !== null"
                     class="inline-flex items-center"
                     :class="seen ? 'text-sky-500' : 'text-gray-400'"
                     :aria-label="seen ? t('inbox.seen.label') : t('inbox.chat.sent')"

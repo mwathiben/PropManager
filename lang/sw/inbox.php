@@ -53,5 +53,8 @@ return [
         'body_label' => '[TODO-sw] Message body',
         'locked' => '[TODO-sw] This thread is {status} and cannot accept new messages.',
         'chars_remaining' => '[TODO-sw] {count} character left | [TODO-sw] {count} characters left',
+        'jump_latest' => '[TODO-sw] Jump to latest',
+        'sending' => '[TODO-sw] Sending…',
+        'retry' => '[TODO-sw] Tap to retry',
     ],
 ];
