@@ -145,6 +145,8 @@ class DocumentController extends Controller
             'documents' => $documents,
             'buildings' => $this->getBuildingsForFilter(),
             'filters' => $request->only(['type', 'model_type', 'search', 'building_id', 'wing_id']),
+            // Phase-68 BULK-UI: client cap for the multi-select bulk-hold bar.
+            'legal_hold_bulk_max' => $canSeeHolds ? (int) config('legal_hold.bulk_max', 100) : 0,
         ]);
     }
 

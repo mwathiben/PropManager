@@ -42,6 +42,18 @@ class LegalHoldRegistry
             throw new InvalidArgumentException('legal_hold.unsupported_holdable_type');
         }
 
+        // Idempotent: one active hold per subject. MySQL allows duplicate
+        // released_at=NULL rows past the unique index, so a double-submit
+        // would otherwise mint a second active hold.
+        $existing = LegalHold::query()
+            ->forSubject($subject::class, (int) $subject->getKey())
+            ->active()
+            ->first();
+
+        if ($existing !== null) {
+            return $existing;
+        }
+
         $hold = LegalHold::create([
             'holdable_type' => $subject::class,
             'holdable_id' => $subject->getKey(),

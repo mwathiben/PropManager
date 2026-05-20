@@ -26,6 +26,18 @@ return [
         'on_hold' => '[TODO-ar] On hold',
     ],
 
+    'bulk' => [
+        'selected' => '[TODO-ar] {count} document(s) selected',
+        'place' => '[TODO-ar] Place hold on {count}',
+        'release' => '[TODO-ar] Release {count} hold(s)',
+        'placing' => '[TODO-ar] Placing…',
+        'cap_hint' => '[TODO-ar] You can hold at most {max} at once.',
+        'mixed_hint' => '[TODO-ar] Select all held or all unheld documents.',
+        'select_all' => '[TODO-ar] Select all',
+        'clear' => '[TODO-ar] Clear selection',
+        'release_confirm' => '[TODO-ar] Release the holds on the selected documents?',
+    ],
+
     'stale' => [
         'subject' => '[TODO-ar] You have :count legal hold(s) that may need review',
         'heading' => '[TODO-ar] Legal holds awaiting review',

@@ -30,7 +30,24 @@ class BulkHoldService
         $this->validateBulkSize($subjectIds);
         $this->validateOwnership($subjectClass, $subjectIds, (int) $by->id);
 
-        $holds = DB::transaction(function () use ($subjectClass, $subjectIds, $by, $reason) {
+        // Idempotent: skip subjects that already have an active hold. MySQL
+        // treats NULL as distinct in the (type, id, released_at) unique index,
+        // so without this guard a re-submit (or a stale is_held cache) would
+        // mint a SECOND active row and double-count the subject everywhere.
+        $alreadyHeld = LegalHold::query()
+            ->where('holdable_type', $subjectClass)
+            ->whereIn('holdable_id', $subjectIds)
+            ->whereNull('released_at')
+            ->pluck('holdable_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        $toHold = array_values(array_diff($subjectIds, $alreadyHeld));
+
+        if ($toHold === []) {
+            return [];
+        }
+
+        $holds = DB::transaction(function () use ($subjectClass, $toHold, $by, $reason) {
             $now = now();
 
             return array_map(
@@ -41,7 +58,7 @@ class BulkHoldService
                     'held_by' => $by->id,
                     'held_at' => $now,
                 ]),
-                $subjectIds,
+                $toHold,
             );
         });
 

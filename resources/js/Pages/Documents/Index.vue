@@ -3,8 +3,9 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import BuildingWingFilter from '@/Components/BuildingWingFilter.vue';
 import PaginatorLink from '@/Components/PaginatorLink.vue';
 import HoldCreateModal from '@/Components/LegalHold/HoldCreateModal.vue';
+import BulkHoldModal from '@/Components/LegalHold/BulkHoldModal.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useStatusColors, useAuth } from '@/composables';
 import { useI18n } from '@/composables/useI18n';
 import UploadDocumentModal from '@/Components/Modals/UploadDocumentModal.vue';
@@ -24,7 +25,7 @@ import {
 } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
 
-const props = defineProps<DocumentsIndexPageProps>();
+const props = defineProps<DocumentsIndexPageProps & { legal_hold_bulk_max?: number }>();
 
 const showUploadModal = ref(false);
 
@@ -122,6 +123,60 @@ const releaseHold = (document: { legal_hold_id?: number | null }) => {
 
 const holdHistoryUrl = (documentId: number): string =>
     route('legal-holds.history', { subject_type: 'App\\Models\\Document', subject_id: documentId });
+
+// Phase-68 BULK-UI: multi-select bulk hold/release.
+const bulkMax = computed(() => props.legal_hold_bulk_max ?? 0);
+const selectedIds = ref<number[]>([]);
+const bulkModal = ref<InstanceType<typeof BulkHoldModal> | null>(null);
+
+const pageDocuments = computed(() => props.documents.data ?? []);
+const selectedDocs = computed(() => pageDocuments.value.filter((d) => selectedIds.value.includes(d.id)));
+const allOnPageSelected = computed(
+    () => pageDocuments.value.length > 0 && selectedIds.value.length === pageDocuments.value.length,
+);
+const allSelectedHeld = computed(
+    () => selectedDocs.value.length > 0 && selectedDocs.value.every((d) => d.is_held),
+);
+const noneSelectedHeld = computed(
+    () => selectedDocs.value.length > 0 && selectedDocs.value.every((d) => !d.is_held),
+);
+const selectionMixed = computed(
+    () => selectedDocs.value.length > 0 && !allSelectedHeld.value && !noneSelectedHeld.value,
+);
+const overCap = computed(() => bulkMax.value > 0 && selectedIds.value.length > bulkMax.value);
+
+const toggleSelect = (documentId: number) => {
+    selectedIds.value = selectedIds.value.includes(documentId)
+        ? selectedIds.value.filter((id) => id !== documentId)
+        : [...selectedIds.value, documentId];
+};
+
+const toggleAll = () => {
+    selectedIds.value = allOnPageSelected.value ? [] : pageDocuments.value.map((d) => d.id);
+};
+
+const clearSelection = () => {
+    selectedIds.value = [];
+};
+
+// A filter/search change reuses the component (preserveState), so drop any
+// selection that may now reference rows no longer on screen.
+watch(() => props.documents.data, () => clearSelection());
+
+const openBulkPlace = () => {
+    if (overCap.value || !noneSelectedHeld.value) return;
+    bulkModal.value?.open();
+};
+
+const bulkRelease = () => {
+    if (!allSelectedHeld.value || overCap.value) return;
+    if (!window.confirm(t('legal_holds.bulk.release_confirm'))) return;
+    router.delete(route('legal-holds.bulk.destroy'), {
+        data: { subject_type: 'App\\Models\\Document', subject_ids: selectedIds.value },
+        preserveScroll: true,
+        onSuccess: () => clearSelection(),
+    });
+};
 
 const getFileIcon = (document) => {
     if (document.is_pdf) return '📄';
@@ -233,11 +288,67 @@ const getFileIcon = (document) => {
                     </div>
                 </div>
 
+                <!-- Phase-68 BULK-UI: bulk hold/release action bar -->
+                <div
+                    v-if="canManageHolds && selectedIds.length > 0"
+                    class="mb-3 flex flex-wrap items-center gap-3 rounded-lg bg-indigo-600 px-4 py-3 text-white shadow-sm"
+                    data-testid="bulk-hold-bar"
+                >
+                    <span aria-live="polite" class="text-sm font-medium">
+                        {{ t('legal_holds.bulk.selected', { count: selectedIds.length }) }}
+                    </span>
+                    <div class="ms-auto flex flex-wrap items-center gap-2">
+                        <span v-if="selectionMixed" class="text-xs text-indigo-100">
+                            {{ t('legal_holds.bulk.mixed_hint') }}
+                        </span>
+                        <span v-else-if="overCap" class="text-xs text-amber-200">
+                            {{ t('legal_holds.bulk.cap_hint', { max: bulkMax }) }}
+                        </span>
+                        <button
+                            v-if="noneSelectedHeld"
+                            type="button"
+                            :disabled="overCap"
+                            @click="openBulkPlace"
+                            class="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
+                            data-testid="bulk-place-hold"
+                        >
+                            {{ t('legal_holds.bulk.place', { count: selectedIds.length }) }}
+                        </button>
+                        <button
+                            v-if="allSelectedHeld"
+                            type="button"
+                            :disabled="overCap"
+                            @click="bulkRelease"
+                            class="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+                            data-testid="bulk-release-hold"
+                        >
+                            {{ t('legal_holds.bulk.release', { count: selectedIds.length }) }}
+                        </button>
+                        <button
+                            type="button"
+                            @click="clearSelection"
+                            class="text-sm font-medium text-indigo-100 hover:text-white"
+                        >
+                            {{ t('legal_holds.bulk.clear') }}
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Documents Table -->
                 <div class="bg-white shadow-sm rounded-lg overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
-                        <thead v-once class="bg-gray-50">
+                        <thead class="bg-gray-50">
                             <tr>
+                                <th v-if="canManageHolds" class="px-4 py-3 w-10">
+                                    <input
+                                        type="checkbox"
+                                        class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                        :checked="allOnPageSelected"
+                                        :aria-label="t('legal_holds.bulk.select_all')"
+                                        data-testid="bulk-select-all"
+                                        @change="toggleAll"
+                                    />
+                                </th>
                                 <th class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Document
                                 </th>
@@ -259,7 +370,16 @@ const getFileIcon = (document) => {
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
-                            <tr v-for="document in documents.data" :key="document.id" class="hover:bg-gray-50">
+                            <tr v-for="document in documents.data" :key="document.id" class="hover:bg-gray-50" :class="{ 'bg-indigo-50/40': selectedIds.includes(document.id) }">
+                                <td v-if="canManageHolds" class="px-4 py-4">
+                                    <input
+                                        type="checkbox"
+                                        class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                        :checked="selectedIds.includes(document.id)"
+                                        :aria-label="`Select ${document.title}`"
+                                        @change="toggleSelect(document.id)"
+                                    />
+                                </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center">
                                         <span class="text-2xl me-3">{{ getFileIcon(document) }}</span>
@@ -414,6 +534,14 @@ const getFileIcon = (document) => {
             subject-type="App\\Models\\Document"
             :subject-id="holdTarget.id"
             :subject-label="holdTarget.label"
+        />
+
+        <!-- Phase-68 BULK-UI: place a hold on many documents at once -->
+        <BulkHoldModal
+            v-if="canManageHolds"
+            ref="bulkModal"
+            subject-type="App\\Models\\Document"
+            :subject-ids="selectedIds"
         />
     </AuthenticatedLayout>
 </template>

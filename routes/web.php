@@ -1438,6 +1438,7 @@ Route::middleware(['auth', 'role:landlord'])->group(function () {
     Route::post('/legal-holds', [\App\Http\Controllers\LegalHoldController::class, 'store'])
         ->name('legal-holds.store');
     Route::delete('/legal-holds/{legalHold}', [\App\Http\Controllers\LegalHoldController::class, 'destroy'])
+        ->whereNumber('legalHold')
         ->name('legal-holds.destroy');
 
     Route::middleware('throttle:legal-hold')->group(function () {

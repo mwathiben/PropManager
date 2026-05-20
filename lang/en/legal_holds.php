@@ -26,6 +26,18 @@ return [
         'on_hold' => 'On hold',
     ],
 
+    'bulk' => [
+        'selected' => '{count} document(s) selected',
+        'place' => 'Place hold on {count}',
+        'release' => 'Release {count} hold(s)',
+        'placing' => 'Placing…',
+        'cap_hint' => 'You can hold at most {max} at once.',
+        'mixed_hint' => 'Select all held or all unheld documents.',
+        'select_all' => 'Select all',
+        'clear' => 'Clear selection',
+        'release_confirm' => 'Release the holds on the selected documents?',
+    ],
+
     // Server-rendered mailable (Laravel :colon placeholders, not vue {curly}).
     'stale' => [
         'subject' => 'You have :count legal hold(s) that may need review',

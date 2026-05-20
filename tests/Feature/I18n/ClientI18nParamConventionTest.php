@@ -42,6 +42,10 @@ class ClientI18nParamConventionTest extends TestCase
             'inbox.presence.typing' => ['name'],
             'inbox.search.no_results' => ['term'],
             'legal_holds.history.by' => ['name'],
+            'legal_holds.bulk.selected' => ['count'],
+            'legal_holds.bulk.place' => ['count'],
+            'legal_holds.bulk.release' => ['count'],
+            'legal_holds.bulk.cap_hint' => ['max'],
         ];
 
         foreach (['en', 'sw'] as $locale) {
