@@ -231,6 +231,45 @@ preserved and the purge loop still terminates.
 
 ---
 
+## Per-subject history (Phase-68 HISTORY)
+
+The landlord-wide audit export (section 6) answers "all hold actions in a
+window." For the full chain of custody of **one** subject, use the per-subject
+timeline:
+
+- UI: the "View hold history" / clock affordance on `/legal-holds`,
+  Documents, Invoices/Show, Tickets/Show → `LegalHolds/History.vue`.
+- Route: `GET /legal-holds/history?subject_type=&subject_id=`
+  (`legal-holds.history`), gated by `LegalHoldPolicy::viewHistory` → a
+  cross-tenant subject is rejected, never returned.
+- CSV: `GET /legal-holds/history/export?...` (`legal-holds.history.export`)
+  streams a one-subject chain-of-custody CSV (BOM + injection guard) via the
+  Phase-59 signed-URL pattern, nested under `exports/{actor}/legal-hold-history/`.
+
+## Bulk-hold UI (Phase-68 BULK-UI)
+
+Litigation that touches many documents at once uses the multi-select grid on
+`/documents` (landlord/super-admin): per-row + select-all checkboxes feed a
+sticky action bar.
+
+- All-unheld selection → "Place hold on N" opens `BulkHoldModal` →
+  `POST /legal-holds/bulk` (`legal-holds.bulk.store`).
+- All-held selection → "Release N" → `DELETE /legal-holds/bulk`
+  (`legal-holds.bulk.destroy`).
+- Mixed selections show a hint (no action); the client caps at
+  `config('legal_hold.bulk_max')` and the server re-enforces it.
+
+`BulkHoldService::holdAll` is idempotent — it skips subjects already under an
+active hold (MySQL treats `released_at = NULL` as distinct in the unique
+index, so without this a re-submit would mint a duplicate active hold). The
+single-subject `LegalHoldRegistry::hold()` is idempotent for the same reason.
+
+> Routing note: `DELETE /legal-holds/{legalHold}` is `whereNumber`-constrained
+> so `DELETE /legal-holds/bulk` resolves to the bulk controller (it was
+> shadowed → 404 before Phase 68).
+
+---
+
 ## 9. Cross-references
 
 - [inbox.md](inbox.md) §6 — Phase 63 messages:enforce-retention + Phase 64 legal-hold integration.
