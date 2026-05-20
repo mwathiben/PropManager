@@ -84,17 +84,26 @@ class ChurnService
      * "are users still using the product?" rather than
      * "do they still have a paid subscription?".
      *
+     * @param  list<int>|null  $restrictToUserIds  null = global cross-tenant aggregate; an id list scopes the cohort to exactly those users (used by the landlord-scoped retention variant).
      * @return array<int, array{cohort_month: string, source: string, size: int, retention: array<int, float>}>
      */
-    public function cohortsBySource(int $monthsBack = 12): array
+    public function cohortsBySource(int $monthsBack = 12, ?array $restrictToUserIds = null): array
     {
         $start = Carbon::now()->subMonthsNoOverflow($monthsBack)->startOfMonth();
         $now = Carbon::now()->startOfMonth();
 
         // Phase-57 READ-REPLICAS-3: heavy aggregate, eventual consistency OK.
-        $users = User::query()->withTrashed()->readOnly()
-            ->where('created_at', '>=', $start)
-            ->get(['id', 'created_at', 'acquisition_source']);
+        // Phase-66 COHORT-RETENTION-1: the optional id restriction lets the
+        // landlord-scoped variant reuse this exact cohort SQL for just its
+        // own referred users instead of duplicating it.
+        $usersQuery = User::query()->withTrashed()->readOnly()
+            ->where('created_at', '>=', $start);
+
+        if ($restrictToUserIds !== null) {
+            $usersQuery->whereIn('id', $restrictToUserIds);
+        }
+
+        $users = $usersQuery->get(['id', 'created_at', 'acquisition_source']);
 
         if ($users->isEmpty()) {
             return [];

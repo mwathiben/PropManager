@@ -48,6 +48,23 @@ return [
         'col_rewarded' => 'Rewarded',
         'col_score' => 'Score',
     ],
+    'cohort' => [
+        'title' => 'Cohort retention by source',
+        'subtitle' => 'Activity retention by acquisition source over {months} months, against the organic baseline.',
+        'source' => 'Source',
+        'cohort_size' => 'Sample',
+        'month_offset' => 'M{offset}',
+        'insufficient_sample' => 'Low sample (<{min})',
+        'baseline_note' => 'Organic is the baseline; Δ shows the percentage-point difference at the same month offset.',
+        'empty' => 'No cohort data yet.',
+        'sources' => [
+            'organic' => 'Organic',
+            'referral' => 'Referral',
+            'paid' => 'Paid',
+            'invitation' => 'Invitation',
+            'unknown' => 'Unknown',
+        ],
+    ],
     'engagement' => [
         'score_label' => 'Engagement score',
         'score_explanation' => 'Composite of login recency, milestone progress, usage, property growth, tenant activity.',

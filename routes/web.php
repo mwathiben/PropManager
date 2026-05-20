@@ -333,6 +333,10 @@ Route::middleware('auth')->group(function () {
         // Phase-66 REFERRAL-LEADERBOARD-2: super-admin board with full names.
         Route::get('/ops/growth/referral-leaderboard', [\App\Http\Controllers\Ops\OpsReferralLeaderboardController::class, 'index'])
             ->name('ops.growth.referral-leaderboard.index');
+
+        // Phase-66 COHORT-RETENTION-2: per-source retention vs organic baseline.
+        Route::get('/ops/growth/cohort-retention', [\App\Http\Controllers\Ops\OpsCohortRetentionController::class, 'index'])
+            ->name('ops.growth.cohort-retention.index');
     });
 
     // Phase-66 REFERRAL-LEADERBOARD-2/3: landlord-facing anonymised

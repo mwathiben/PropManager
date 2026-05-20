@@ -48,6 +48,23 @@ return [
         'col_rewarded' => '[TODO-ar] Rewarded',
         'col_score' => '[TODO-ar] Score',
     ],
+    'cohort' => [
+        'title' => '[TODO-ar] Cohort retention by source',
+        'subtitle' => '[TODO-ar] Activity retention by acquisition source over {months} months, against the organic baseline.',
+        'source' => '[TODO-ar] Source',
+        'cohort_size' => '[TODO-ar] Sample',
+        'month_offset' => 'M{offset}',
+        'insufficient_sample' => '[TODO-ar] Low sample (<{min})',
+        'baseline_note' => '[TODO-ar] Organic is the baseline; Δ shows the percentage-point difference at the same month offset.',
+        'empty' => '[TODO-ar] No cohort data yet.',
+        'sources' => [
+            'organic' => '[TODO-ar] Organic',
+            'referral' => '[TODO-ar] Referral',
+            'paid' => '[TODO-ar] Paid',
+            'invitation' => '[TODO-ar] Invitation',
+            'unknown' => '[TODO-ar] Unknown',
+        ],
+    ],
     'engagement' => [
         'score_label' => '[TODO-ar] Engagement score',
         'score_explanation' => '[TODO-ar] Composite of login recency, milestone progress, usage, property growth, tenant activity.',

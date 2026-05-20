@@ -36,6 +36,9 @@ class ClientI18nParamConventionTest extends TestCase
             'growth.leaderboard.points' => ['score'],
             'growth.leaderboard.breakdown' => ['attributed', 'rewarded'],
             'growth.leaderboard.ops_subtitle' => ['total'],
+            'growth.cohort.subtitle' => ['months'],
+            'growth.cohort.month_offset' => ['offset'],
+            'growth.cohort.insufficient_sample' => ['min'],
         ];
 
         foreach (['en', 'sw'] as $locale) {

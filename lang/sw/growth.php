@@ -48,6 +48,23 @@ return [
         'col_rewarded' => 'Zilizozawadiwa',
         'col_score' => 'Pointi',
     ],
+    'cohort' => [
+        'title' => 'Uhifadhi wa makundi kwa chanzo',
+        'subtitle' => 'Uhifadhi wa shughuli kwa chanzo cha upataji kwa miezi {months}, dhidi ya kiwango cha asili (organic).',
+        'source' => 'Chanzo',
+        'cohort_size' => 'Sampuli',
+        'month_offset' => 'M{offset}',
+        'insufficient_sample' => 'Sampuli ndogo (<{min})',
+        'baseline_note' => 'Organic ndicho kipimo cha msingi; Δ inaonyesha tofauti ya pointi za asilimia katika mwezi uleule.',
+        'empty' => 'Bado hakuna data ya makundi.',
+        'sources' => [
+            'organic' => 'Asili (Organic)',
+            'referral' => 'Rufaa',
+            'paid' => 'Kulipia',
+            'invitation' => 'Mwaliko',
+            'unknown' => 'Haijulikani',
+        ],
+    ],
     'engagement' => [
         'score_label' => 'Alama ya ushiriki',
         'score_explanation' => 'Mchanganyiko wa uingiaji wa hivi karibuni, hatua zilizofikiwa, matumizi, ukuaji wa mali, na shughuli za wapangaji.',

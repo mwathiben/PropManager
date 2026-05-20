@@ -285,3 +285,20 @@ Pages: `Pages/Growth/Leaderboard.vue` (medal top-3, own-row highlight, masked ot
 `tests/Feature/Growth/Phase66ReferralLeaderboardTest` — composite scoring, opt-out exclusion, anonymisation + self-row reveal, viewer-outside-top-N, route gating (landlord forces anonymise / ops allows names / non-super-admin blocked), opt-out persist + cache bust. 9 tests / 58 assertions.
 
 > i18n note: client-rendered translation keys must use vue-i18n `{curly}` placeholders, not Laravel `:colon` (the latter renders literally in the browser). Guarded by `tests/Feature/I18n/ClientI18nParamConventionTest`.
+
+## Phase 66 — COHORT-RETENTION
+
+A super-admin retention heatmap comparing activity retention by acquisition source against the organic baseline. `App\Services\Growth\CohortRetentionService` layers on `ChurnService::cohortsBySource()` — it adds **no cohort SQL of its own**.
+
+### What it computes
+For each source it blends every cohort month into one **size-weighted** retention curve (offset m = Σ(size·retention) / Σ(size) over cohorts old enough to have offset m), then expresses each source as a **delta-vs-organic** at the same offset (e.g. "referral retains +9pts at M3 vs organic"). Cohorts whose total sample is below `config('growth.cohort.min_sample', 20)` are flagged `insufficient_sample` so the UI mutes the noise.
+
+### Two entry points + the guard
+- `sourceComparison(monthsBack=12)` — global, cross-tenant. Reads every landlord's users, so it is **super-admin-gated inside the service** (`Auth::user()->isSuperAdmin()`, throws `AuthorizationException`) on top of the route gate — defence in depth.
+- `sourceComparisonForLandlord(User, monthsBack=12)` — scoped to the users a landlord referred (`Referral.referrer_user_id`), reusing `cohortsBySource`'s new optional `$restrictToUserIds` filter. A landlord can never see another landlord's data.
+
+### Surface
+`GET /ops/growth/cohort-retention` (`ops.growth.cohort-retention.index`, `role:super_admin`) → `OpsCohortRetentionController` → `Pages/Ops/Growth/CohortRetention.vue` (rows=source, cols=month offset, HSL red→green cell scale, per-cell ▲/▼ delta badge, muted insufficient-sample rows). Copy in `lang/{en,sw}/growth.php` under `cohort.*` (ar `[TODO-ar]`); `cohort.subtitle`/`month_offset`/`insufficient_sample` use vue-i18n `{curly}` params (guarded). Config knob: `growth.cohort.min_sample` (`GROWTH_COHORT_MIN_SAMPLE`, default 20).
+
+### Tests
+`Phase66CohortRetentionServiceTest` — super-admin guard (landlord + guest blocked), HTTP route gate (403 / 200 + Inertia component), delta-vs-organic math, insufficient_sample flag, landlord-variant isolation. `Phase66CohortRetentionSurfaceTest` — route + files + config + copy presence.
