@@ -18,6 +18,12 @@ return [
     'empty_state' => 'No legal holds yet.',
     'audit_export_title' => 'Audit export',
 
+    'doc' => [
+        'place' => 'Place hold',
+        'release' => 'Release hold',
+        'on_hold' => 'On hold',
+    ],
+
     'history' => [
         'title' => 'Hold history',
         'held' => 'Placed on hold',

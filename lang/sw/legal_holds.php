@@ -18,6 +18,12 @@ return [
     'empty_state' => '[TODO-sw] No legal holds yet.',
     'audit_export_title' => '[TODO-sw] Audit export',
 
+    'doc' => [
+        'place' => '[TODO-sw] Place hold',
+        'release' => '[TODO-sw] Release hold',
+        'on_hold' => '[TODO-sw] On hold',
+    ],
+
     'history' => [
         'title' => '[TODO-sw] Hold history',
         'held' => '[TODO-sw] Placed on hold',

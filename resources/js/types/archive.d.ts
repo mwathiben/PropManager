@@ -33,6 +33,9 @@ export interface Document extends BaseEntity {
   uploaded_by?: number;
   description?: string;
   metadata?: Record<string, unknown>;
+  // Phase-68 DOC-HOLD-1: per-row legal-hold state (landlord/super-admin only).
+  is_held?: boolean;
+  legal_hold_id?: number | null;
 }
 
 // Archived Lease (terminated/expired lease)

@@ -2,9 +2,11 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import BuildingWingFilter from '@/Components/BuildingWingFilter.vue';
 import PaginatorLink from '@/Components/PaginatorLink.vue';
-import { Head, router } from '@inertiajs/vue3';
+import HoldCreateModal from '@/Components/LegalHold/HoldCreateModal.vue';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { useStatusColors, useAuth } from '@/composables';
+import { useI18n } from '@/composables/useI18n';
 import UploadDocumentModal from '@/Components/Modals/UploadDocumentModal.vue';
 import type { DocumentsIndexPageProps } from '@/types';
 import {
@@ -16,6 +18,9 @@ import {
     PlusIcon,
     FunnelIcon,
     MagnifyingGlassIcon,
+    ScaleIcon,
+    LockClosedIcon,
+    ClockIcon,
 } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
 
@@ -96,6 +101,27 @@ const { isLandlord, isTenant, can } = useAuth();
 // true for landlord/caretaker/super-admin minus DPA-4 restricted users.
 const canDeleteDocuments = computed(() => can('documents:manage'));
 const canUploadDocuments = computed(() => can('documents:manage'));
+
+// Phase-68 DOC-HOLD: only the landlord (not caretaker/tenant) may place or
+// release a legal hold (LegalHoldPolicy::create/release => isLandlord).
+const { t } = useI18n();
+const canManageHolds = computed(() => isLandlord.value);
+const holdModal = ref<InstanceType<typeof HoldCreateModal> | null>(null);
+const holdTarget = ref<{ id: number; label: string }>({ id: 0, label: '' });
+
+const openHold = (document: { id: number; title: string }) => {
+    holdTarget.value = { id: document.id, label: document.title };
+    holdModal.value?.open();
+};
+
+const releaseHold = (document: { legal_hold_id?: number | null }) => {
+    if (!document.legal_hold_id) return;
+    if (!window.confirm(t('legal_holds.release_confirm'))) return;
+    router.delete(route('legal-holds.destroy', document.legal_hold_id), { preserveScroll: true });
+};
+
+const holdHistoryUrl = (documentId: number): string =>
+    route('legal-holds.history', { subject_type: 'App\\Models\\Document', subject_id: documentId });
 
 const getFileIcon = (document) => {
     if (document.is_pdf) return '📄';
@@ -238,8 +264,18 @@ const getFileIcon = (document) => {
                                     <div class="flex items-center">
                                         <span class="text-2xl me-3">{{ getFileIcon(document) }}</span>
                                         <div>
-                                            <div class="text-sm font-medium text-gray-900">
-                                                {{ document.title }}
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-sm font-medium text-gray-900">
+                                                    {{ document.title }}
+                                                </span>
+                                                <span
+                                                    v-if="canManageHolds && document.is_held"
+                                                    class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"
+                                                    data-testid="document-hold-badge"
+                                                >
+                                                    <LockClosedIcon class="h-3 w-3" aria-hidden="true" />
+                                                    {{ t('legal_holds.doc.on_hold') }}
+                                                </span>
                                             </div>
                                             <div class="text-xs text-gray-500">
                                                 {{ document.file_name }}
@@ -286,6 +322,36 @@ const getFileIcon = (document) => {
                                     >
                                         <TrashIcon class="w-5 h-5 inline" />
                                     </button>
+
+                                    <template v-if="canManageHolds">
+                                        <button
+                                            v-if="!document.is_held"
+                                            @click="openHold(document)"
+                                            class="text-indigo-600 hover:text-indigo-900"
+                                            :title="t('legal_holds.doc.place')"
+                                            data-testid="document-place-hold"
+                                        >
+                                            <ScaleIcon class="w-5 h-5 inline" />
+                                        </button>
+                                        <template v-else>
+                                            <Link
+                                                :href="holdHistoryUrl(document.id)"
+                                                class="text-gray-500 hover:text-gray-800"
+                                                :title="t('legal_holds.history.view')"
+                                                data-testid="document-hold-history-link"
+                                            >
+                                                <ClockIcon class="w-5 h-5 inline" />
+                                            </Link>
+                                            <button
+                                                @click="releaseHold(document)"
+                                                class="text-amber-600 hover:text-amber-900"
+                                                :title="t('legal_holds.doc.release')"
+                                                data-testid="document-release-hold"
+                                            >
+                                                <LockClosedIcon class="w-5 h-5 inline" />
+                                            </button>
+                                        </template>
+                                    </template>
                                 </td>
                             </tr>
                         </tbody>
@@ -331,6 +397,15 @@ const getFileIcon = (document) => {
             v-if="canUploadDocuments"
             :show="showUploadModal"
             @close="showUploadModal = false"
+        />
+
+        <!-- Phase-68 DOC-HOLD: place a Document under legal hold -->
+        <HoldCreateModal
+            v-if="canManageHolds"
+            ref="holdModal"
+            subject-type="App\\Models\\Document"
+            :subject-id="holdTarget.id"
+            :subject-label="holdTarget.label"
         />
     </AuthenticatedLayout>
 </template>

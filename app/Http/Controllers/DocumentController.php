@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Document;
 use App\Models\Lease;
+use App\Models\LegalHold;
 use App\Models\User;
 use App\Rules\SecureFile;
+use App\Support\LegalHoldRegistry;
 use App\Traits\HasBuildingFilter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -92,7 +94,33 @@ class DocumentController extends Controller
             });
         }
 
-        $documents = $query->latest()->paginate(20)->through(function ($document) {
+        $documents = $query->latest()->paginate(20);
+
+        // Phase-68 DOC-HOLD-1: surface per-row hold state to landlord/super-admin
+        // only. Held set comes from the 60s-cached registry; the active hold id
+        // for the rows ON THIS PAGE is resolved in ONE query (no N+1).
+        $user = $request->user();
+        $canSeeHolds = $user->isLandlord() || $user->isSuperAdmin();
+        $holdIdByDocument = [];
+
+        if ($canSeeHolds) {
+            $heldIds = LegalHoldRegistry::heldIdsFor(Document::class);
+            $heldOnPage = array_values(array_intersect(
+                collect($documents->items())->pluck('id')->all(),
+                $heldIds,
+            ));
+
+            if ($heldOnPage !== []) {
+                $holdIdByDocument = LegalHold::query()
+                    ->where('holdable_type', Document::class)
+                    ->whereIn('holdable_id', $heldOnPage)
+                    ->whereNull('released_at')
+                    ->pluck('id', 'holdable_id')
+                    ->all();
+            }
+        }
+
+        $documents->through(function ($document) use ($holdIdByDocument, $canSeeHolds) {
             return [
                 'id' => $document->id,
                 'title' => $document->title,
@@ -107,6 +135,8 @@ class DocumentController extends Controller
                 'uploaded_at' => $document->created_at->format('M d, Y'),
                 'is_image' => $document->isImage(),
                 'is_pdf' => $document->isPdf(),
+                'is_held' => $canSeeHolds && array_key_exists($document->id, $holdIdByDocument),
+                'legal_hold_id' => $canSeeHolds ? ($holdIdByDocument[$document->id] ?? null) : null,
             ];
         });
 
