@@ -7,6 +7,25 @@ return [
     'message_sent' => '[TODO-ar] Message sent.',
     'thread_locked' => '[TODO-ar] Thread locked.',
     'thread_archived' => '[TODO-ar] Thread archived.',
+    'seen' => [
+        'label' => '[TODO-ar] Seen',
+        'mark_all' => '[TODO-ar] Mark all as read',
+    ],
+    'presence' => [
+        'online' => '[TODO-ar] Online',
+        'typing' => '[TODO-ar] {name} is typing…',
+    ],
+    'search' => [
+        'placeholder' => '[TODO-ar] Search messages…',
+        'title' => '[TODO-ar] Search messages',
+        'empty' => '[TODO-ar] Type at least 3 characters to search.',
+        'no_results' => '[TODO-ar] No messages match “{term}”.',
+        'in_thread' => '[TODO-ar] in {title}',
+    ],
+    'scan' => [
+        'hint' => '[TODO-ar] Attachments are scanned before sending.',
+        'blocked' => '[TODO-ar] An attachment was blocked by the virus scanner and not sent.',
+    ],
     'attachment' => [
         'invalid_mime' => '[TODO-ar] Attachment type is not allowed.',
         'too_large' => '[TODO-ar] Attachment exceeds the 5 MB size limit.',

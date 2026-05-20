@@ -1356,6 +1356,7 @@ Route::middleware(['auth', 'role:tenant', 'payment.verified', 'kyc.complete'])->
     Route::get('/inbox', [\App\Http\Controllers\Tenant\InboxController::class, 'index'])
         ->name('tenant.inbox.index');
     Route::get('/inbox/{thread}', [\App\Http\Controllers\Tenant\InboxController::class, 'show'])
+        ->whereNumber('thread')
         ->name('tenant.inbox.show');
     Route::post('/inbox', [\App\Http\Controllers\Tenant\InboxController::class, 'store'])
         ->middleware('throttle:messages')
@@ -1363,6 +1364,10 @@ Route::middleware(['auth', 'role:tenant', 'payment.verified', 'kyc.complete'])->
     Route::post('/inbox/{thread}/messages', [\App\Http\Controllers\Tenant\InboxController::class, 'storeMessage'])
         ->middleware('throttle:messages')
         ->name('tenant.inbox.messages.store');
+
+    // Phase-67 READ-RECEIPTS-1: mark the whole thread read.
+    Route::post('/inbox/{thread}/read-all', \App\Http\Controllers\MessageThreadReadAllController::class)
+        ->name('tenant.inbox.read-all');
 });
 
 // Phase-45 LEASE-COUNTER-2: landlord-side review of a tenant counter-offer.
@@ -1381,6 +1386,7 @@ Route::middleware(['auth', 'verified', 'role:landlord,caretaker'])->group(functi
     Route::get('/message-threads', [\App\Http\Controllers\MessageThreadController::class, 'index'])
         ->name('message-threads.index');
     Route::get('/message-threads/{thread}', [\App\Http\Controllers\MessageThreadController::class, 'show'])
+        ->whereNumber('thread')
         ->name('message-threads.show');
     Route::post('/message-threads', [\App\Http\Controllers\MessageThreadController::class, 'store'])
         ->middleware('throttle:messages')
@@ -1396,6 +1402,10 @@ Route::middleware(['auth', 'verified', 'role:landlord,caretaker'])->group(functi
         ->name('message-threads.lock');
     Route::post('/message-threads/{thread}/unlock', [\App\Http\Controllers\MessageThreadModerationController::class, 'unlock'])
         ->name('message-threads.unlock');
+
+    // Phase-67 READ-RECEIPTS-1: mark the whole thread read.
+    Route::post('/message-threads/{thread}/read-all', \App\Http\Controllers\MessageThreadReadAllController::class)
+        ->name('message-threads.read-all');
 });
 
 // Phase-63 INBOX-REALTIME-2: shared read-receipt endpoint. Any

@@ -61,6 +61,8 @@ class InboxController extends Controller
         return Inertia::render('Tenant/Inbox/Show', [
             'thread' => $thread,
             'unreadCount' => $thread->unreadCountFor($request->user()),
+            // Phase-67 READ-RECEIPTS-2: other participants' read cursors.
+            'read_receipts' => $thread->readReceiptsFor($request->user()),
         ]);
     }
 

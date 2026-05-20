@@ -115,4 +115,28 @@ class Message extends Model
             now()->subMinutes(self::DELETE_WINDOW_MINUTES),
         );
     }
+
+    /**
+     * Phase-67 READ-RECEIPTS-2: which of the given participants have read
+     * this message (their last_read_at cursor reached its created_at). The
+     * sender is excluded — you don't "see" your own message. Boundary is
+     * inclusive: a cursor exactly at created_at counts as seen.
+     *
+     * @param  \Illuminate\Support\Collection<int, User>  $participants  thread participants with the pivot loaded
+     * @return list<array{user_id:int, name:string}>
+     */
+    public function seenBy($participants): array
+    {
+        if ($this->created_at === null) {
+            return [];
+        }
+
+        return $participants
+            ->filter(fn (User $participant) => $participant->id !== $this->sender_id
+                && $participant->pivot?->last_read_at !== null
+                && $participant->pivot->last_read_at->greaterThanOrEqualTo($this->created_at))
+            ->map(fn (User $participant) => ['user_id' => $participant->id, 'name' => $participant->name])
+            ->values()
+            ->all();
+    }
 }

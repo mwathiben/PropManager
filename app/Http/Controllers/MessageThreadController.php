@@ -62,6 +62,9 @@ class MessageThreadController extends Controller
         return Inertia::render('MessageThreads/Show', [
             'thread' => $thread,
             'unreadCount' => $thread->unreadCountFor($request->user()),
+            // Phase-67 READ-RECEIPTS-2: other participants' read cursors so
+            // the client can render (and live-update) seen status.
+            'read_receipts' => $thread->readReceiptsFor($request->user()),
         ]);
     }
 

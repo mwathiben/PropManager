@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Events\MessageRead;
 use App\Models\Message;
 use App\Models\MessageThreadParticipant;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Phase-63 INBOX-REALTIME-2: tick a message as read for the current
@@ -36,9 +38,21 @@ class MessageReadController extends Controller
             $participant->last_read_at === null
             || ($messageAt !== null && $participant->last_read_at->lessThan($messageAt))
         ) {
-            $participant->update([
-                'last_read_at' => $messageAt ?? now(),
-            ]);
+            $readAt = $messageAt ?? now();
+            $participant->update(['last_read_at' => $readAt]);
+
+            // Phase-67 READ-RECEIPTS-1: tell the other participants the
+            // cursor moved (live "seen"), and refresh the reader's own
+            // cached unread total. Only on a genuine advance.
+            broadcast(new MessageRead(
+                $message->thread_id,
+                $user->id,
+                (string) $user->name,
+                $readAt->toISOString(),
+                $message->id,
+            ))->toOthers();
+
+            Cache::forget('inbox:unread:'.$user->id);
         }
 
         return back(303);

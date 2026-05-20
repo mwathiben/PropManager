@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import PendingSyncBadge from '@/Components/Offline/PendingSyncBadge.vue';
+import { useI18n } from '@/composables/useI18n';
+import { useEcho } from '@/composables/useEcho';
+import { computed, onMounted, onUnmounted, reactive } from 'vue';
 
 interface Sender {
     id: number | null;
@@ -33,12 +36,59 @@ interface Thread {
     messages: ThreadMessage[];
 }
 
+interface ReadReceipt {
+    user_id: number;
+    name: string;
+    role: string | null;
+    last_read_at: string | null;
+}
+
 interface Props {
     thread: Thread;
     unreadCount: number;
+    read_receipts: ReadReceipt[];
 }
 
 const props = defineProps<Props>();
+const { t } = useI18n();
+const page = usePage();
+
+const currentUserId = computed<number | null>(
+    () => ((page.props as Record<string, any>)?.auth?.user?.id as number | null) ?? null,
+);
+
+// user_id -> last_read_at ISO string; seeded from the server, kept live by
+// the message.read broadcast.
+const readCursors = reactive<Record<number, string | null>>({});
+props.read_receipts.forEach((r) => {
+    readCursors[r.user_id] = r.last_read_at;
+});
+
+function isSeenByOthers(message: ThreadMessage): boolean {
+    if (message.sender_id === null || message.sender_id !== currentUserId.value) {
+        return false;
+    }
+    const sentAt = new Date(message.created_at).getTime();
+    return Object.entries(readCursors).some(
+        ([userId, cursor]) => Number(userId) !== message.sender_id && cursor !== null && new Date(cursor).getTime() >= sentAt,
+    );
+}
+
+const lastOwnMessageId = computed<number | null>(() => {
+    for (let i = props.thread.messages.length - 1; i >= 0; i--) {
+        if (props.thread.messages[i].sender_id === currentUserId.value) {
+            return props.thread.messages[i].id;
+        }
+    }
+    return null;
+});
+
+function markAllRead(): void {
+    router.post(route('message-threads.read-all', props.thread.id), {}, {
+        preserveScroll: true,
+        preserveState: true,
+    });
+}
 
 const form = useForm({
     body: '',
@@ -52,6 +102,19 @@ function submit() {
         onSuccess: () => form.reset(),
     });
 }
+
+const { subscribePrivate, unsubscribe } = useEcho();
+const channelName = `inbox.thread.${props.thread.id}`;
+
+onMounted(() => {
+    subscribePrivate<{ user_id: number; read_at: string }>(channelName, '.message.read', (event) => {
+        readCursors[event.user_id] = event.read_at;
+    });
+});
+
+onUnmounted(() => {
+    unsubscribe(channelName);
+});
 </script>
 
 <template>
@@ -66,9 +129,20 @@ function submit() {
                     </h1>
                     <PendingSyncBadge route-family="messages" :resource-id="thread.id" />
                 </div>
-                <span class="text-xs uppercase tracking-wide text-gray-500">
-                    {{ thread.status }}
-                </span>
+                <div class="flex items-center gap-3">
+                    <button
+                        v-if="unreadCount > 0"
+                        type="button"
+                        class="text-xs font-medium text-blue-600 hover:underline"
+                        data-testid="mark-all-read"
+                        @click="markAllRead"
+                    >
+                        {{ t('inbox.seen.mark_all') }}
+                    </button>
+                    <span class="text-xs uppercase tracking-wide text-gray-500">
+                        {{ thread.status }}
+                    </span>
+                </div>
             </header>
 
             <ol class="space-y-3" data-testid="message-list">
@@ -88,6 +162,13 @@ function submit() {
                             {{ doc.title }} ({{ doc.mime_type }})
                         </li>
                     </ul>
+                    <p
+                        v-if="message.id === lastOwnMessageId && isSeenByOthers(message)"
+                        class="mt-1 text-right text-[11px] font-medium text-emerald-600"
+                        data-testid="message-seen"
+                    >
+                        {{ t('inbox.seen.label') }}
+                    </p>
                 </li>
             </ol>
 

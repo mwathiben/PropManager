@@ -7,6 +7,25 @@ return [
     'message_sent' => 'Message sent.',
     'thread_locked' => 'Thread locked.',
     'thread_archived' => 'Thread archived.',
+    'seen' => [
+        'label' => 'Seen',
+        'mark_all' => 'Mark all as read',
+    ],
+    'presence' => [
+        'online' => 'Online',
+        'typing' => '{name} is typing…',
+    ],
+    'search' => [
+        'placeholder' => 'Search messages…',
+        'title' => 'Search messages',
+        'empty' => 'Type at least 3 characters to search.',
+        'no_results' => 'No messages match “{term}”.',
+        'in_thread' => 'in {title}',
+    ],
+    'scan' => [
+        'hint' => 'Attachments are scanned before sending.',
+        'blocked' => 'An attachment was blocked by the virus scanner and not sent.',
+    ],
     'attachment' => [
         'invalid_mime' => 'Attachment type is not allowed.',
         'too_large' => 'Attachment exceeds the 5 MB size limit.',

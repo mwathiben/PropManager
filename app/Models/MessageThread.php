@@ -169,4 +169,26 @@ class MessageThread extends Model
 
         return $query->count();
     }
+
+    /**
+     * Phase-67 READ-RECEIPTS-2: per-other-participant read cursors for the
+     * show payload, so the Vue layer can render seen status and update it
+     * live from MessageRead broadcasts. Excludes the viewer (and any
+     * system pseudo-participant). Assumes participants are eager-loaded.
+     *
+     * @return list<array{user_id:int, name:string, role:?string, last_read_at:?string}>
+     */
+    public function readReceiptsFor(User $viewer): array
+    {
+        return $this->participants
+            ->reject(fn (User $participant) => $participant->id === $viewer->id)
+            ->map(fn (User $participant) => [
+                'user_id' => $participant->id,
+                'name' => $participant->name,
+                'role' => $participant->pivot->role,
+                'last_read_at' => $participant->pivot->last_read_at?->toISOString(),
+            ])
+            ->values()
+            ->all();
+    }
 }
