@@ -302,3 +302,33 @@ For each source it blends every cohort month into one **size-weighted** retentio
 
 ### Tests
 `Phase66CohortRetentionServiceTest` — super-admin guard (landlord + guest blocked), HTTP route gate (403 / 200 + Inertia component), delta-vs-organic math, insufficient_sample flag, landlord-variant isolation. `Phase66CohortRetentionSurfaceTest` — route + files + config + copy presence.
+
+## Phase 66 — GROWTH-OBSERVABILITY
+
+Two nightly roll-ups push the cycle's growth features onto the metrics + alert plane.
+
+### `nps:rollup` (04:50 EAT)
+`NpsScoreService::compute(?landlordId, windowDays=90)` returns `score` (%promoters − %detractors, −100..100), `response_count`, `response_rate` (responses ÷ recently-prompted users), and the promoter/passive/detractor `breakdown`. The cross-tenant read bypasses only the TenantScope `'landlord'` scope (SoftDeletes stays on). The command emits, platform + per active landlord:
+
+| Gauge | Labels |
+|---|---|
+| `nps_score` | `scope=platform` or `scope=landlord, landlord_id=N` |
+| `nps_response_count` | same |
+| `nps_response_rate` | same |
+
+It fires the `nps_negative` alert (sev4) when the platform score is `< 0` **with `>= 10` responses** (a single grumpy early response can't page), and resolves it otherwise.
+
+### `growth:leaderboard-rollup` (04:55 EAT)
+Visibility gauges (no alerts): `referral_leaderboard_participants` + `referral_leaderboard_top_score` (via `ReferralLeaderboardService::topReferrers`), and `onboarding_tour_active_count` / `onboarding_tour_completed_count` / `onboarding_tour_dismissed_count` (one grouped count over `user_tour_states`).
+
+### Real-time tour counters
+`OnboardingTourController` increments `onboarding_tour_completed_total` / `onboarding_tour_dismissed_total` (`MetricsService::increment`) on a **genuine** transition only (`wasChanged('status')` — replays of a finished tour don't double-count), complementing the nightly snapshot gauges.
+
+### Dashboard
+`Ops/Growth/Attribution.vue` gains an NPS summary card (score colour-banded, breakdown chips, response rate) with links to the cohort-retention and referral-leaderboard ops pages. `OpsGrowthAttributionController` passes `nps = NpsScoreService::compute(null, 90)`.
+
+### Alerts / runbook
+`config/alerts.php` registers `nps_negative` (sev4). `docs/runbooks/alert-thresholds.md` documents `nps_score`, `onboarding_tour_dismissed_count`, and `referral_leaderboard_participants` thresholds.
+
+### Tests
+`Phase66GrowthObservabilityTest` — NPS math (score/rate/breakdown), `nps:rollup` gauge emission + `nps_negative` fire/resolve, `growth:leaderboard-rollup` referral + tour gauges, tour-controller real-time counter. `Phase66GrowthObservabilitySurfaceTest` — both commands registered + Attribution NPS card tokens.

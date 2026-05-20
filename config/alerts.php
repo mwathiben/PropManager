@@ -248,5 +248,17 @@ return [
             'paging' => 'email',
             'description' => 'One or more parts have qty_available <= reorder_threshold. Operational signal — landlord should reorder before the next ticket needs the part.',
         ],
+
+        // Phase-66 GROWTH-OBSERVABILITY-1
+        [
+            'key' => 'nps_negative',
+            'severity' => 'sev4',
+            'threshold' => 0,
+            'window' => '90d',
+            'gauge' => 'nps_score',
+            'runbook' => 'docs/runbooks/growth.md',
+            'paging' => 'email',
+            'description' => 'Platform NPS turned negative (more detractors than promoters) over the rolling 90d window with a meaningful sample (>=10 responses). Review recent detractor comments and the last few releases.',
+        ],
     ],
 ];

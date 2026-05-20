@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Onboarding;
 
 use App\Http\Controllers\Controller;
+use App\Services\MetricsService;
 use App\Services\Onboarding\TourService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,16 +37,30 @@ class OnboardingTourController extends Controller
         return back(303);
     }
 
-    public function complete(Request $request): RedirectResponse
+    public function complete(Request $request, MetricsService $metrics): RedirectResponse
     {
-        $this->withTour($request, fn (string $key) => $this->tours->complete($request->user(), $key));
+        $tourKey = $this->tours->tourKeyForRole($request->user()->role);
+        if ($tourKey !== null) {
+            $state = $this->tours->complete($request->user(), $tourKey);
+            // Phase-66 GROWTH-OBSERVABILITY-2: real-time counter, bumped only
+            // on a genuine transition (never on a replay of a finished tour).
+            if ($state->wasChanged('status')) {
+                $metrics->increment('onboarding_tour_completed_total');
+            }
+        }
 
         return back(303);
     }
 
-    public function dismiss(Request $request): RedirectResponse
+    public function dismiss(Request $request, MetricsService $metrics): RedirectResponse
     {
-        $this->withTour($request, fn (string $key) => $this->tours->dismiss($request->user(), $key));
+        $tourKey = $this->tours->tourKeyForRole($request->user()->role);
+        if ($tourKey !== null) {
+            $state = $this->tours->dismiss($request->user(), $tourKey);
+            if ($state->wasChanged('status')) {
+                $metrics->increment('onboarding_tour_dismissed_total');
+            }
+        }
 
         return back(303);
     }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import FunnelSankey from '@/Components/Growth/FunnelSankey.vue';
 import { computed } from 'vue';
@@ -24,12 +24,24 @@ interface PromotedRow {
     ended_at: string | null;
 }
 
+interface Nps {
+    score: number;
+    response_count: number;
+    response_rate: number;
+    breakdown: { promoter: number; passive: number; detractor: number };
+}
+
 const props = defineProps<{
     attribution_summary: Record<string, AttributionRow[]>;
     funnel_sankey: { nodes: Array<{ id: string; label: string; count: number }>; links: Array<{ source: string; target: string; value: number }>; window_days: number };
     cohort_by_source: CohortRow[];
     experiments_auto_promoted: PromotedRow[];
+    nps: Nps;
 }>();
+
+const npsColor = computed(() =>
+    props.nps.score >= 30 ? 'text-emerald-700' : props.nps.score >= 0 ? 'text-amber-600' : 'text-rose-700',
+);
 
 const modelLabels: Record<string, string> = {
     first_touch: 'First touch',
@@ -74,6 +86,37 @@ const formatProb = (n: number | null | undefined): string =>
 
         <div class="py-6">
             <div class="mx-auto max-w-7xl grid grid-cols-1 gap-6 sm:px-6 lg:px-8 lg:grid-cols-2">
+                <!-- Phase-66 GROWTH-OBSERVABILITY-3: NPS summary + related links -->
+                <section
+                    class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200 lg:col-span-2"
+                    data-testid="nps-card"
+                >
+                    <h3 class="text-base font-semibold text-gray-900">NPS (last 90d)</h3>
+                    <div class="mt-4 flex flex-wrap items-baseline gap-3">
+                        <span class="text-4xl font-bold" :class="npsColor">{{ nps.score }}</span>
+                        <span class="text-sm text-gray-500">
+                            {{ nps.response_count }} responses · {{ (nps.response_rate * 100).toFixed(0) }}% response rate
+                        </span>
+                    </div>
+                    <div class="mt-3 flex flex-wrap gap-2 text-xs">
+                        <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">{{ nps.breakdown.promoter }} promoters</span>
+                        <span class="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">{{ nps.breakdown.passive }} passives</span>
+                        <span class="rounded-full bg-rose-50 px-2 py-0.5 text-rose-700">{{ nps.breakdown.detractor }} detractors</span>
+                    </div>
+                    <div class="mt-4 flex flex-wrap gap-4 text-sm">
+                        <Link
+                            :href="route('ops.growth.cohort-retention.index')"
+                            class="text-indigo-600 hover:underline"
+                            data-testid="link-cohort-retention"
+                        >Cohort retention →</Link>
+                        <Link
+                            :href="route('ops.growth.referral-leaderboard.index')"
+                            class="text-indigo-600 hover:underline"
+                            data-testid="link-referral-leaderboard"
+                        >Referral leaderboard →</Link>
+                    </div>
+                </section>
+
                 <!-- Attribution models -->
                 <section
                     class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200"

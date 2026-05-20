@@ -11,6 +11,7 @@ use App\Models\ProductEvent;
 use App\Services\Growth\AttributionModelService;
 use App\Services\Growth\ChurnService;
 use App\Services\Growth\FunnelRollupService;
+use App\Services\Growth\NpsScoreService;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -29,12 +30,15 @@ class OpsGrowthAttributionController extends Controller
         AttributionModelService $attribution,
         FunnelRollupService $funnel,
         ChurnService $churn,
+        NpsScoreService $nps,
     ): Response {
         return Inertia::render('Ops/Growth/Attribution', [
             'attribution_summary' => $this->buildAttributionSummary($attribution),
             'funnel_sankey' => $funnel->computeSankeyPayload(landlordId: null, days: 90),
             'cohort_by_source' => $churn->cohortsBySource(6),
             'experiments_auto_promoted' => $this->buildAutoPromotedTimeline(),
+            // Phase-66 GROWTH-OBSERVABILITY-3: platform NPS summary card.
+            'nps' => $nps->compute(null, 90),
         ]);
     }
 

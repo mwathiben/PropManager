@@ -586,6 +586,23 @@ Schedule::command('engagement:rollup')
     ->onOneServer()
     ->name('phase34-growth-engagement23-rollup');
 
+// Phase-66 GROWTH-OBSERVABILITY-1: NPS gauges (platform + per active
+// landlord) + negative-score alert. Runs 04:50 — after the Phase-34/35
+// growth cluster (04:05-04:25) so it never contends for the same minute.
+Schedule::command('nps:rollup')
+    ->dailyAt('04:50')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase66-growth-observability1-nps-rollup');
+
+// Phase-66 GROWTH-OBSERVABILITY-2: referral-leaderboard participation +
+// onboarding-tour status gauges. Runs 04:55, right after nps:rollup.
+Schedule::command('growth:leaderboard-rollup')
+    ->dailyAt('04:55')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase66-growth-observability2-leaderboard-rollup');
+
 // Phase-34 GROWTH-LIFECYCLE-1/2/3: landlord lifecycle email cluster
 // runs in business-hour adjacent window (09:00-09:45 Africa/Nairobi)
 // — slightly after Phase-29 rent-reminders:dispatch 08:00 so the
