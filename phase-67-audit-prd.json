@@ -1,0 +1,161 @@
+{
+    "phase": 67,
+    "title": "INBOX-DEPTH",
+    "opened_at": "2026-05-21",
+    "tier": "Tier 7 cycle 31",
+    "scope": "Deepens the Phase-63 COMMUNICATION-INBOX surface (the biggest 'shipped but shallow' user-facing area) with four reliability/UX/security depth themes plus observability and CI. Scout (2026-05-21) confirmed: MessageThread/Message/MessageThreadParticipant models live with scopeForUser participant-pivot isolation; message_thread_participants.last_read_at already tracks read cursors + MessageReadController PATCH advances it; MessagePosted broadcasts on PrivateChannel('inbox.thread.{id}') authed via pivot membership in routes/channels.php; useTypingIndicator uses Echo whisper (no presence channel yet); MessageAttachmentService stores attachments as polymorphic Documents on Storage::tenant() with NO virus scan; messages.body has NO FULLTEXT index and there is no message search; MetricsService::gauge + config/inbox.php + docs/runbooks/inbox.md + alert-thresholds.md are the observability contract. Phase 67 EXTENDS this surface: (1) read receipts broadcast + per-message seen status; (2) Reverb presence channel for live online roster + typing-via-presence; (3) participant-scoped full-text message search; (4) pluggable attachment virus scanning (ClamAV clamd driver + Null/Fake drivers, scan-before-persist gate). Six categories x 3 = 18 findings (5H/9M/4L).",
+    "categories": {
+        "READ-RECEIPTS": "Broadcast read events + per-message seen status, layered on the existing last_read_at pivot cursor.",
+        "PRESENCE": "Reverb presence channel for a live online roster + typing-via-presence, pivot-gated identity.",
+        "MESSAGE-SEARCH": "Participant-scoped full-text search across a user's own threads (FULLTEXT MATCH AGAINST), isolation-critical.",
+        "ATTACHMENT-SCAN": "Pluggable attachment virus scanning (ClamAV clamd + Null/Fake drivers), scan-before-persist security gate.",
+        "INBOX-OBSERVABILITY": "Gauges + alerts + runbook/dashboard for the four new inbox-depth surfaces.",
+        "CI": "Cross-category surface map + per-category feature tests + runbook/memory closeout."
+    },
+    "findings": [
+        {
+            "id": "READ-RECEIPTS-1",
+            "severity": "HIGH",
+            "title": "MessageRead broadcast + mark-thread-read endpoint",
+            "evidence": "last_read_at advances silently (MessageReadController) but other participants never learn a message was seen in real time; there is no thread-level mark-all-read.",
+            "remediation": "App\\Events\\MessageRead implements ShouldBroadcast on PrivateChannel('inbox.thread.{thread_id}') broadcastAs 'message.read' with payload {thread_id, user_id, name, read_at, last_read_message_id}. MessageReadController broadcasts MessageRead (->toOthers()) after advancing last_read_at (only when the cursor actually moved). New POST /message-threads/{thread}/read-all + tenant equivalent (App\\Http\\Controllers\\MessageThreadReadAllController) sets the caller's participant last_read_at to the thread's last message created_at, broadcasts MessageRead, busts the inbox:unread cache. Authorized via MessageThreadPolicy::view (participant pivot). Phase67ReadReceiptsTest asserts event dispatched only on real advance + non-participant cannot mark-read + cache bust.",
+            "category": "READ-RECEIPTS"
+        },
+        {
+            "id": "READ-RECEIPTS-2",
+            "severity": "MEDIUM",
+            "title": "Read-by computation in the thread show payload",
+            "evidence": "The Vue layer needs to know which participants have read up to each message to render seen status; computing per-message read-state client-side is impossible without the cursors.",
+            "remediation": "MessageThread::readReceiptsFor(User $viewer): array returns, per other participant, {user_id, name, role, last_read_at} from the participants pivot (excludes the viewer + system). MessageThreadController::show + Tenant\\InboxController::show pass read_receipts to Inertia. A helper Message::seenBy(Collection $participants): array (participants whose last_read_at >= this message.created_at) drives the 'Seen by' label on the latest own-message. No N+1 (participants already eager-loaded). Phase67ReadReceiptsTest asserts seenBy boundary (== created_at counts as seen) + receipts exclude the viewer.",
+            "category": "READ-RECEIPTS"
+        },
+        {
+            "id": "READ-RECEIPTS-3",
+            "severity": "LOW",
+            "title": "Vue seen-status ticks + Echo read listener",
+            "evidence": "Show.vue + Tenant/Inbox/Show.vue render no delivery/seen state; readers get no feedback.",
+            "remediation": "Pages/MessageThreads/Show.vue + Pages/Tenant/Inbox/Show.vue: render a 'Seen' / 'Seen by {name}' affordance on the viewer's own latest read message (data-testid='message-seen'); subscribe to Echo.private('inbox.thread.'+id).listen('.message.read', ...) to update a reactive readCursors map live. lang/en/inbox.php inbox.seen.* keys ({curly} params, sw full, ar TODO). Reuses useEcho. Phase67InboxDepthSurfaceTest asserts the listener token + data-testid present.",
+            "category": "READ-RECEIPTS"
+        },
+        {
+            "id": "PRESENCE-1",
+            "severity": "HIGH",
+            "title": "Pivot-gated Reverb presence channel",
+            "evidence": "Online status uses no presence channel today (typing is whisper-only on the private channel); a naive presence channel would leak identity to non-participants.",
+            "remediation": "routes/channels.php: Broadcast::channel('inbox.presence.{threadId}', fn($user,$threadId) => participant-pivot exists ? ['id'=>$user->id,'name'=>$user->name,'role'=>$pivotRole] : false) — returning the identity ARRAY makes it a presence channel; a non-participant gets false (rejected), so the roster never leaks. Distinct name from the existing private 'inbox.thread.{id}' to avoid collision. Phase67PresenceTest asserts the channel callback returns identity for a participant and false for a non-participant (cross-tenant + same-landlord-other-thread).",
+            "category": "PRESENCE"
+        },
+        {
+            "id": "PRESENCE-2",
+            "severity": "MEDIUM",
+            "title": "usePresenceChannel composable + typing-via-presence",
+            "evidence": "No client lifecycle wrapper for here/joining/leaving; typing and presence are unmanaged.",
+            "remediation": "resources/js/composables/usePresenceChannel.ts wraps Echo.join('inbox.presence.'+threadId): exposes reactive members (here/joining/leaving), a typing set fed by whisper('typing') on the presence channel, and clean teardown on unmount (leaveChannel). Replaces the standalone useTypingIndicator usage on the show pages (kept exported for back-compat) by unifying typing into the presence roster. Phase67InboxDepthSurfaceTest asserts the composable exists + is imported by both show pages.",
+            "category": "PRESENCE"
+        },
+        {
+            "id": "PRESENCE-3",
+            "severity": "LOW",
+            "title": "Vue online dot + typing roster",
+            "evidence": "Participants can't see who is online or typing.",
+            "remediation": "Pages/MessageThreads/Show.vue + Pages/Tenant/Inbox/Show.vue: render an online indicator (emerald dot, data-testid='presence-online') next to participants in the roster and a 'X is typing…' line (data-testid='presence-typing') driven by usePresenceChannel. prefers-reduced-motion aware (no pulsing animation). lang/en/inbox.php inbox.presence.* ({curly}, sw full, ar TODO). Phase67InboxDepthSurfaceTest asserts tokens.",
+            "category": "PRESENCE"
+        },
+        {
+            "id": "MESSAGE-SEARCH-1",
+            "severity": "HIGH",
+            "title": "Participant-scoped full-text search service",
+            "evidence": "There is no message search; a naive search would let a participant read messages in threads they don't belong to (cross-tenant / same-landlord-other-thread leak).",
+            "remediation": "Migration adds a FULLTEXT index on messages.body (ft_messages_body). App\\Services\\Inbox\\MessageSearchService::search(User $user, string $term, int $perPage=15): LengthAwarePaginator joins messages -> message_threads, gates STRICTLY via MessageThread::scopeForUser($user) (participant pivot) BEFORE matching, then MATCH(messages.body) AGAINST (? IN BOOLEAN MODE) on a sanitised term (strip boolean operators, require >= min token length, cap length), returns distinct threads with the best-matching message snippet + thread title, ordered by relevance then recency. Soft-deleted messages/threads excluded. Phase67MessageSearchTest asserts a participant finds their match, a NON-participant in the same landlord never sees it, cross-tenant isolation, and boolean-operator injection is neutralised.",
+            "category": "MESSAGE-SEARCH"
+        },
+        {
+            "id": "MESSAGE-SEARCH-2",
+            "severity": "MEDIUM",
+            "title": "Landlord + tenant search endpoints",
+            "evidence": "The search service needs HTTP surfaces for both inbox roles, each scoped to the caller.",
+            "remediation": "GET /message-threads/search?q= (landlord/caretaker) via MessageThreadSearchController::index -> Inertia 'MessageThreads/Search'; GET /tenant/inbox/search?q= (tenant) via Tenant\\InboxSearchController::index -> Inertia 'Tenant/Inbox/Search'. Both call MessageSearchService::search($request->user(), q) — the user is ALWAYS the caller, never client-supplied. Empty/short q returns an empty result set (no full-table scan). Throttle:messages applied. Phase67MessageSearchTest asserts each route scopes to the caller + short-query guard + 200 Inertia component.",
+            "category": "MESSAGE-SEARCH"
+        },
+        {
+            "id": "MESSAGE-SEARCH-3",
+            "severity": "LOW",
+            "title": "Search Vue pages + entry point",
+            "evidence": "No UI to run a search.",
+            "remediation": "Pages/MessageThreads/Search.vue + Pages/Tenant/Inbox/Search.vue: query input (debounced), result rows (thread title + matched snippet with the term highlighted client-side, link to the thread), empty + no-results states. Inbox index pages gain a search box linking to the search route (data-testid='inbox-search'). lang/en/inbox.php inbox.search.* ({curly}, sw full, ar TODO). Phase67InboxDepthSurfaceTest asserts the pages + routes + tokens.",
+            "category": "MESSAGE-SEARCH"
+        },
+        {
+            "id": "ATTACHMENT-SCAN-1",
+            "severity": "HIGH",
+            "title": "Pluggable attachment scanner (ClamAV + Null/Fake) + scan-before-persist gate",
+            "evidence": "MessageAttachmentService stores uploads with NO malware scan; a tenant could distribute malware to their landlord through the portal.",
+            "remediation": "App\\Services\\Inbox\\Scanning\\AttachmentScannerInterface::scan(string $absolutePathOrStream): ScanResult (clean|infected|error + signature). ClamavScanner (pure-PHP clamd INSTREAM over fsockopen, host/port/socket + timeout from config, no new composer dep) + NullScanner (always clean, default in local/test) + a test FakeScanner that flags the EICAR test signature. AttachmentScannerFactory selects by config('inbox.scan.driver','null'). MessageAttachmentService::attachToMessage scans EACH file BEFORE creating the Document row; on infected it deletes the stored file and aborts the whole attachment batch (no partial Document rows). config/inbox.php scan block (driver/host/port/socket/timeout/fail_closed). Phase67AttachmentScanTest (FakeScanner bound) asserts a clean file persists + an infected file is rejected, the stored file deleted, and no Document row created.",
+            "category": "ATTACHMENT-SCAN"
+        },
+        {
+            "id": "ATTACHMENT-SCAN-2",
+            "severity": "HIGH",
+            "title": "Infected handling, scan_status, fail-mode + gauge",
+            "evidence": "On a scanner error (clamd down) the system must fail predictably (configurable), and infections must be auditable.",
+            "remediation": "documents.scan_status column (enum pending|clean|infected|error, default pending) set by MessageAttachmentService from the ScanResult. On infected: throw a validation-style rejection surfaced to the user + AuditLog record + MetricsService::increment('inbox_attachment_scan_infected_count', labels landlord_id). On scanner error: config('inbox.scan.fail_closed', true) => reject the upload (secure default); false => persist with scan_status=error + emit inbox_attachment_scan_error_count. ScanResult is a small value object. Phase67AttachmentScanTest asserts scan_status persisted for clean, infected increments the gauge + no row, and fail_closed vs fail_open error behaviour both paths.",
+            "category": "ATTACHMENT-SCAN"
+        },
+        {
+            "id": "ATTACHMENT-SCAN-3",
+            "severity": "MEDIUM",
+            "title": "Compose-form scan UX + lang",
+            "evidence": "Users get no feedback that an attachment was blocked.",
+            "remediation": "Show.vue + Tenant/Inbox/Show.vue surface the scan-rejection validation error (data-testid='attachment-blocked') from the failed upload response; AttachmentPreviewList.vue shows a neutral 'will be scanned' hint (data-testid='attachment-scan-hint'). lang/en/inbox.php inbox.scan.* ({curly}, sw full, ar TODO). Phase67InboxDepthSurfaceTest asserts the tokens + lang keys present.",
+            "category": "ATTACHMENT-SCAN"
+        },
+        {
+            "id": "INBOX-OBSERVABILITY-1",
+            "severity": "MEDIUM",
+            "title": "inbox:depth-rollup gauges",
+            "evidence": "The four new surfaces emit no telemetry; ops can't see read-rate, search usage, or scan health.",
+            "remediation": "App\\Console\\Commands\\InboxDepthRollup ('inbox:depth-rollup') daily 04:35 Africa/Nairobi emits via MetricsService::gauge: inbox_threads_total, inbox_read_ratio (participants with last_read_at >= thread.last_message_at / total participant rows on active threads), inbox_search_queries_24h (counter snapshot), inbox_attachment_scans_24h + inbox_attachment_infected_24h. Registered in routes/console.php matching the growth-cluster cadence (timezone/onOneServer/withoutOverlapping). Phase67InboxObservabilityTest asserts the rollup runs + emits the read-ratio gauge (spy MetricsService).",
+            "category": "INBOX-OBSERVABILITY"
+        },
+        {
+            "id": "INBOX-OBSERVABILITY-2",
+            "severity": "MEDIUM",
+            "title": "Scan-infection alert + thresholds rows",
+            "evidence": "An attachment infection is a security event that must page, not sit silent.",
+            "remediation": "config/alerts.php registers inbox_attachment_infected (sev2, gauge inbox_attachment_scan_infected_count, window 24h, runbook inbox.md). InboxDepthRollup fires it via AlertFiringRecorder when infected_24h > 0, resolves at 0. docs/runbooks/alert-thresholds.md rows: inbox_attachment_scan_infected_count (sev2 page-on-any), inbox_read_ratio (visibility), inbox_search_queries_24h (visibility). Phase67InboxObservabilityTest asserts the alert fires when an infected count is present and resolves otherwise.",
+            "category": "INBOX-OBSERVABILITY"
+        },
+        {
+            "id": "INBOX-OBSERVABILITY-3",
+            "severity": "MEDIUM",
+            "title": "Search-query counter + runbook section",
+            "evidence": "Search usage needs a real counter and the runbook needs the new operational surface documented.",
+            "remediation": "MessageSearchService increments MetricsService::increment('inbox_search_queries_count') per executed (non-empty) search so the rollup can snapshot 24h volume. docs/runbooks/inbox.md gains INBOX-DEPTH sections: read-receipts mechanics, presence channel + auth, search (FULLTEXT + isolation + min-token), attachment scanning (driver matrix clamav/null/fake + fail_closed) + the cron/alert/gauge interaction matrix. Phase67InboxDepthSurfaceTest asserts the runbook contains the section anchors.",
+            "category": "INBOX-OBSERVABILITY"
+        },
+        {
+            "id": "CI-1",
+            "severity": "MEDIUM",
+            "title": "Phase67InboxDepthSurfaceTest cross-category presence map",
+            "evidence": "Surface presence (events, channels, services, columns, routes, Vue, commands, config) must be guarded against drift.",
+            "remediation": "tests/Feature/Inbox/Phase67InboxDepthSurfaceTest asserts: MessageRead event + inbox.presence.{threadId} channel registered; MessageSearchService/AttachmentScannerInterface/ClamavScanner/NullScanner/AttachmentScannerFactory/InboxDepthRollup classes exist; messages FULLTEXT index + documents.scan_status column present; routes (message-threads.read-all, message-threads.search, tenant inbox search) registered; Vue files (Search pages, usePresenceChannel.ts) exist; config('inbox.scan') loads; inbox:depth-rollup command registered; inbox_attachment_infected alert in registry.",
+            "category": "CI"
+        },
+        {
+            "id": "CI-2",
+            "severity": "MEDIUM",
+            "title": "Per-category feature tests",
+            "evidence": "Behaviour (broadcast-on-advance, presence auth isolation, search isolation, scan gate, alert fire/resolve) must be asserted, not just presence.",
+            "remediation": "Phase67ReadReceiptsTest (broadcast only on real advance + mark-all-read + read-by boundary + non-participant blocked). Phase67PresenceTest (channel identity for participant, false for non-participant + cross-tenant). Phase67MessageSearchTest (participant match + same-landlord-other-thread isolation + cross-tenant + boolean-injection neutralised + short-query guard + route scoping). Phase67AttachmentScanTest (FakeScanner: clean persists, infected rejected + file deleted + no row + gauge, fail_closed vs fail_open). Phase67InboxObservabilityTest (rollup gauges + infection alert fire/resolve). All RefreshDatabase + Event::fake/spy where needed.",
+            "category": "CI"
+        },
+        {
+            "id": "CI-3",
+            "severity": "LOW",
+            "title": "Runbook completion + memory closeout",
+            "evidence": "Operators + the cycle ledger need the new surfaces documented and the phase recorded.",
+            "remediation": "docs/runbooks/inbox.md INBOX-DEPTH sections finalised + alert-thresholds rows cross-linked. Memory: project_propmanager_phase67_plan + pending-path + forward-path + MEMORY.md updated at closeout; audit_closeout block merged into phase-67-audit-prd.json. CodeRabbit code-reviewer run recorded per logic-bearing sub-phase diff.",
+            "category": "CI"
+        }
+    ]
+}
