@@ -4,6 +4,7 @@ import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import PendingSyncBadge from '@/Components/Offline/PendingSyncBadge.vue';
 import { useI18n } from '@/composables/useI18n';
 import { useEcho } from '@/composables/useEcho';
+import { usePresenceChannel } from '@/composables/usePresenceChannel';
 import { computed, onMounted, onUnmounted, reactive } from 'vue';
 
 interface Sender {
@@ -115,6 +116,23 @@ onMounted(() => {
 onUnmounted(() => {
     unsubscribe(channelName);
 });
+
+// Phase-67 PRESENCE: live online roster + typing.
+const me = currentUserId.value !== null
+    ? { id: currentUserId.value, name: String((page.props as Record<string, any>)?.auth?.user?.name ?? '') }
+    : null;
+const { members: onlineMembers, typing: typingNames, notifyTyping } = usePresenceChannel(props.thread.id, me);
+
+let typingTimer: ReturnType<typeof setTimeout> | null = null;
+function onType(): void {
+    if (typingTimer) {
+        return;
+    }
+    notifyTyping();
+    typingTimer = setTimeout(() => {
+        typingTimer = null;
+    }, 500);
+}
 </script>
 
 <template>
@@ -144,6 +162,23 @@ onUnmounted(() => {
                     </span>
                 </div>
             </header>
+
+            <div
+                v-if="onlineMembers.length || typingNames.length"
+                class="flex flex-wrap items-center gap-3 text-xs text-gray-500"
+            >
+                <span
+                    v-for="m in onlineMembers"
+                    :key="m.id"
+                    class="inline-flex items-center gap-1"
+                    data-testid="presence-online"
+                >
+                    <span class="h-2 w-2 rounded-full bg-emerald-500"></span>{{ m.name }}
+                </span>
+                <span v-if="typingNames.length" class="italic" data-testid="presence-typing">
+                    {{ t('inbox.presence.typing', { name: typingNames.join(', ') }) }}
+                </span>
+            </div>
 
             <ol class="space-y-3" data-testid="message-list">
                 <li
@@ -186,6 +221,7 @@ onUnmounted(() => {
                     maxlength="4000"
                     placeholder="Type a message…"
                     class="w-full rounded-md border-gray-300 shadow-sm"
+                    @input="onType"
                 ></textarea>
                 <div class="mt-2 flex items-center justify-between">
                     <input

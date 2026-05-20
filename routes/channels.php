@@ -54,3 +54,24 @@ Broadcast::channel('inbox.thread.{threadId}', function ($user, $threadId) {
         ->where('user_id', $user->id)
         ->exists();
 });
+
+// Phase-67 PRESENCE-1: presence channel for the live online roster +
+// typing. Returning the member-identity ARRAY (not a bool) makes this a
+// presence channel; a non-participant gets false (rejected) so the
+// roster identities never leak — same pivot gate as the private channel.
+Broadcast::channel('inbox.presence.{threadId}', function ($user, $threadId) {
+    $participant = \Illuminate\Support\Facades\DB::table('message_thread_participants')
+        ->where('thread_id', $threadId)
+        ->where('user_id', $user->id)
+        ->first();
+
+    if ($participant === null) {
+        return false;
+    }
+
+    return [
+        'id' => (int) $user->id,
+        'name' => $user->name,
+        'role' => $participant->role,
+    ];
+});
