@@ -222,6 +222,10 @@ Route::middleware(['vendor.portal', 'throttle:60,1'])->prefix('v/portal')->name(
         ->whereNumber('ticket')->middleware('throttle:10,1')->name('tickets.time');
     Route::post('/tickets/{ticket}/resolve', [\App\Http\Controllers\VendorPortalTicketController::class, 'resolve'])
         ->whereNumber('ticket')->name('tickets.resolve');
+
+    // Phase-70 PAYOUT-STATEMENT: read-only cost statement + CSV.
+    Route::get('/statement', [\App\Http\Controllers\VendorPortalStatementController::class, 'index'])->name('statement');
+    Route::get('/statement/export', [\App\Http\Controllers\VendorPortalStatementController::class, 'export'])->name('statement.export');
 });
 
 // --- AUTHENTICATED ROUTES GROUP ---

@@ -70,4 +70,20 @@ return [
         'not_open' => '[TODO-ar] This job is no longer open.',
         'minutes_unit' => '[TODO-ar] min',
     ],
+
+    'statement' => [
+        'title' => '[TODO-ar] Statement',
+        'period' => '[TODO-ar] Period',
+        'from' => '[TODO-ar] From',
+        'to' => '[TODO-ar] To',
+        'apply' => '[TODO-ar] Apply',
+        'ticket_costs' => '[TODO-ar] Ticket costs',
+        'expenses' => '[TODO-ar] Expenses',
+        'total' => '[TODO-ar] Total',
+        'export' => '[TODO-ar] Export CSV',
+        'empty' => '[TODO-ar] No recorded costs in this period.',
+        'amount' => '[TODO-ar] Amount',
+        'date' => '[TODO-ar] Date',
+        'reference' => '[TODO-ar] Reference',
+    ],
 ];

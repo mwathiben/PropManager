@@ -74,4 +74,20 @@ return [
         'not_open' => 'This job is no longer open.',
         'minutes_unit' => 'min',
     ],
+
+    'statement' => [
+        'title' => 'Statement',
+        'period' => 'Period',
+        'from' => 'From',
+        'to' => 'To',
+        'apply' => 'Apply',
+        'ticket_costs' => 'Ticket costs',
+        'expenses' => 'Expenses',
+        'total' => 'Total',
+        'export' => 'Export CSV',
+        'empty' => 'No recorded costs in this period.',
+        'amount' => 'Amount',
+        'date' => 'Date',
+        'reference' => 'Reference',
+    ],
 ];
