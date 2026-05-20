@@ -207,6 +207,13 @@ Route::middleware(['signed', 'throttle:invitation'])->group(function () {
 Route::middleware(['vendor.portal', 'throttle:60,1'])->prefix('v/portal')->name('vendor.portal.')->group(function () {
     Route::get('/', [\App\Http\Controllers\VendorPortalController::class, 'dashboard'])->name('dashboard');
     Route::post('/logout', [\App\Http\Controllers\VendorPortalController::class, 'logout'])->name('logout');
+
+    // Phase-70 TICKET-INBOX: assigned jobs + accept/decline.
+    Route::get('/jobs', [\App\Http\Controllers\VendorPortalTicketController::class, 'index'])->name('inbox');
+    Route::post('/tickets/{ticket}/accept', [\App\Http\Controllers\VendorPortalTicketController::class, 'accept'])
+        ->whereNumber('ticket')->name('tickets.accept');
+    Route::post('/tickets/{ticket}/decline', [\App\Http\Controllers\VendorPortalTicketController::class, 'decline'])
+        ->whereNumber('ticket')->name('tickets.decline');
 });
 
 // --- AUTHENTICATED ROUTES GROUP ---

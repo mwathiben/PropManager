@@ -29,4 +29,26 @@ return [
         'open' => '[TODO-ar] Open jobs',
         'overdue' => '[TODO-ar] Overdue',
     ],
+    'inbox' => [
+        'title' => '[TODO-ar] Your jobs',
+        'pending' => '[TODO-ar] Awaiting your response',
+        'active' => '[TODO-ar] Active jobs',
+        'accept' => '[TODO-ar] Accept',
+        'decline' => '[TODO-ar] Decline',
+        'decline_reason' => '[TODO-ar] Reason (optional)',
+        'accepted' => '[TODO-ar] Job accepted.',
+        'declined' => '[TODO-ar] Job declined — the landlord has been notified.',
+        'already_responded' => '[TODO-ar] You have already responded to this job.',
+        'empty' => '[TODO-ar] No jobs assigned to you yet.',
+        'due' => '[TODO-ar] Due',
+    ],
+
+    'declined_email' => [
+        'subject' => '[TODO-ar] A vendor declined ticket: :ticket',
+        'heading' => '[TODO-ar] Vendor declined a job',
+        'body' => '[TODO-ar] :vendor declined the ticket ":ticket". It is back in your queue to reassign.',
+        'reason_label' => '[TODO-ar] Reason given',
+        'cta' => '[TODO-ar] Reassign it from the ticket page.',
+        'signoff' => '— :app',
+    ],
 ];

@@ -33,7 +33,13 @@ class VendorAssignmentService
 
         return DB::transaction(function () use ($ticket, $vendor, $note) {
             $previousVendorId = $ticket->vendor_id;
-            $ticket->update(['vendor_id' => $vendor->id]);
+            // Phase-70 TICKET-INBOX: a (re)assignment resets the vendor's
+            // accept/decline state to pending awaiting their response.
+            $ticket->update([
+                'vendor_id' => $vendor->id,
+                'vendor_status' => 'pending',
+                'vendor_responded_at' => null,
+            ]);
 
             TicketActivity::create([
                 'ticket_id' => $ticket->id,

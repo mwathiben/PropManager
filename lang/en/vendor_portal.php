@@ -32,4 +32,27 @@ return [
         'open' => 'Open jobs',
         'overdue' => 'Overdue',
     ],
+    'inbox' => [
+        'title' => 'Your jobs',
+        'pending' => 'Awaiting your response',
+        'active' => 'Active jobs',
+        'accept' => 'Accept',
+        'decline' => 'Decline',
+        'decline_reason' => 'Reason (optional)',
+        'accepted' => 'Job accepted.',
+        'declined' => 'Job declined — the landlord has been notified.',
+        'already_responded' => 'You have already responded to this job.',
+        'empty' => 'No jobs assigned to you yet.',
+        'due' => 'Due',
+    ],
+
+    // Landlord notification (server-rendered, :colon).
+    'declined_email' => [
+        'subject' => 'A vendor declined ticket: :ticket',
+        'heading' => 'Vendor declined a job',
+        'body' => ':vendor declined the ticket ":ticket". It is back in your queue to reassign.',
+        'reason_label' => 'Reason given',
+        'cta' => 'Reassign it from the ticket page.',
+        'signoff' => '— :app',
+    ],
 ];
