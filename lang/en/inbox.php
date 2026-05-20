@@ -13,7 +13,7 @@ return [
     ],
     'presence' => [
         'online' => 'Online',
-        'typing' => '{name} is typing…',
+        'typing' => '{name} is typing… | {name} are typing…',
     ],
     'search' => [
         'placeholder' => 'Search messages…',
@@ -47,5 +47,11 @@ return [
         'yesterday' => 'Yesterday',
         'unread' => 'Unread messages',
         'sent' => 'Sent',
+        'placeholder' => 'Type a message…',
+        'send' => 'Send',
+        'attach' => 'Attach files',
+        'body_label' => 'Message body',
+        'locked' => 'This thread is {status} and cannot accept new messages.',
+        'chars_remaining' => '{count} character left | {count} characters left',
     ],
 ];

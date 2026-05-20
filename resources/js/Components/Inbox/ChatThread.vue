@@ -4,15 +4,20 @@ import { useI18n } from '@/composables/useI18n';
 import { useFormatters } from '@/composables/useFormatters';
 import MessageBubble, { type BubbleMessage } from '@/Components/Inbox/MessageBubble.vue';
 
-const props = defineProps<{
-    messages: BubbleMessage[];
-    currentUserId: number | null;
-    /** Max read cursor across OTHER participants (ISO) — drives seen ticks. */
-    othersReadAt: string | null;
-    /** Count of trailing unread messages (drives the divider). */
-    unreadCount: number;
-    listTestid?: string;
-}>();
+const props = withDefaults(
+    defineProps<{
+        messages: BubbleMessage[];
+        currentUserId: number | null;
+        /** Max read cursor across OTHER participants (ISO) — drives seen ticks. */
+        othersReadAt: string | null;
+        /** Count of trailing unread messages (drives the divider). */
+        unreadCount: number;
+        /** Names of participants currently typing (Phase-67 presence whisper). */
+        typingNames?: string[];
+        listTestid?: string;
+    }>(),
+    { typingNames: () => [] },
+);
 
 const { t } = useI18n();
 const { formatDate } = useFormatters();
@@ -87,6 +92,27 @@ const seenFor = (m: BubbleMessage): boolean | null => {
                     :seen="seenFor(message)"
                 />
             </template>
+
+            <li
+                v-if="typingNames.length"
+                class="flex items-end gap-2"
+                data-testid="chat-typing-bubble"
+            >
+                <div class="h-7 w-7 flex-shrink-0"></div>
+                <div class="flex flex-col items-start">
+                    <span class="mb-0.5 ms-1 text-xs font-medium text-gray-500" data-testid="presence-typing">
+                        {{ t('inbox.presence.typing', { name: typingNames.join(', ') }, typingNames.length) }}
+                    </span>
+                    <div class="flex items-center gap-1 rounded-2xl rounded-es-md bg-white px-3 py-2.5 shadow-sm ring-1 ring-gray-100">
+                        <span
+                            v-for="dot in 3"
+                            :key="dot"
+                            class="h-1.5 w-1.5 rounded-full bg-gray-400 motion-safe:animate-bounce"
+                            :style="{ animationDelay: `${(dot - 1) * 150}ms` }"
+                        ></span>
+                    </div>
+                </div>
+            </li>
         </ol>
 
         <slot name="composer" />

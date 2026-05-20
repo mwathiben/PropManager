@@ -13,7 +13,7 @@ return [
     ],
     'presence' => [
         'online' => '[TODO-sw] Online',
-        'typing' => '[TODO-sw] {name} is typing…',
+        'typing' => '[TODO-sw] {name} is typing… | [TODO-sw] {name} are typing…',
     ],
     'search' => [
         'placeholder' => '[TODO-sw] Search messages…',
@@ -47,5 +47,11 @@ return [
         'yesterday' => '[TODO-sw] Yesterday',
         'unread' => '[TODO-sw] Unread messages',
         'sent' => '[TODO-sw] Sent',
+        'placeholder' => '[TODO-sw] Type a message…',
+        'send' => '[TODO-sw] Send',
+        'attach' => '[TODO-sw] Attach files',
+        'body_label' => '[TODO-sw] Message body',
+        'locked' => '[TODO-sw] This thread is {status} and cannot accept new messages.',
+        'chars_remaining' => '[TODO-sw] {count} character left | [TODO-sw] {count} characters left',
     ],
 ];

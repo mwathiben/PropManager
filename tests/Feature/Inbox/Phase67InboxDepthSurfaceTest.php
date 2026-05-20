@@ -75,9 +75,15 @@ class Phase67InboxDepthSurfaceTest extends TestCase
         foreach (['Pages/MessageThreads/Show.vue', 'Pages/Tenant/Inbox/Show.vue'] as $page) {
             $src = $this->vue($page);
             $this->assertStringContainsString('data-testid="presence-online"', $src);
-            $this->assertStringContainsString('data-testid="presence-typing"', $src);
             $this->assertStringContainsString('usePresenceChannel', $src);
         }
+
+        // Phase-71 COMPOSER moved the typing line into the shared ChatThread
+        // as an animated typing bubble fed by the same presence whisper.
+        $this->assertStringContainsString(
+            'data-testid="presence-typing"',
+            $this->vue('Components/Inbox/ChatThread.vue'),
+        );
 
         $this->assertIsArray(__('inbox.presence'));
     }
@@ -114,9 +120,12 @@ class Phase67InboxDepthSurfaceTest extends TestCase
         $hint = $this->vue('Components/Inbox/AttachmentPreviewList.vue');
         $this->assertStringContainsString('data-testid="attachment-scan-hint"', $hint);
 
-        foreach (['Pages/MessageThreads/Show.vue', 'Pages/Tenant/Inbox/Show.vue'] as $page) {
-            $this->assertStringContainsString('data-testid="attachment-blocked"', $this->vue($page));
-        }
+        // Phase-71 COMPOSER moved the scan-blocked error into the shared
+        // ChatComposer; both pages mount it via the #composer slot.
+        $this->assertStringContainsString(
+            'data-testid="attachment-blocked"',
+            $this->vue('Components/Inbox/ChatComposer.vue'),
+        );
 
         $this->assertIsArray(__('inbox.scan'));
     }

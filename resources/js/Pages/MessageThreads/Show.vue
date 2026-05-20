@@ -2,8 +2,8 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import PendingSyncBadge from '@/Components/Offline/PendingSyncBadge.vue';
-import AttachmentPreviewList from '@/Components/Inbox/AttachmentPreviewList.vue';
 import ChatThread from '@/Components/Inbox/ChatThread.vue';
+import ChatComposer from '@/Components/Inbox/ChatComposer.vue';
 import { useI18n } from '@/composables/useI18n';
 import { useEcho } from '@/composables/useEcho';
 import { usePresenceChannel } from '@/composables/usePresenceChannel';
@@ -99,14 +99,6 @@ function submit() {
     });
 }
 
-function onPickFiles(event: Event): void {
-    form.attachments = Array.from((event.target as HTMLInputElement).files || []);
-}
-
-function removeAttachment(index: number): void {
-    form.attachments = form.attachments.filter((_, i) => i !== index);
-}
-
 const { subscribePrivate, unsubscribe } = useEcho();
 const channelName = `inbox.thread.${props.thread.id}`;
 
@@ -167,7 +159,7 @@ function onType(): void {
             </header>
 
             <div
-                v-if="onlineMembers.length || typingNames.length"
+                v-if="onlineMembers.length"
                 class="flex flex-wrap items-center gap-3 text-xs text-gray-500"
             >
                 <span
@@ -178,9 +170,6 @@ function onType(): void {
                 >
                     <span class="h-2 w-2 rounded-full bg-emerald-500"></span>{{ m.name }}
                 </span>
-                <span v-if="typingNames.length" class="italic" data-testid="presence-typing">
-                    {{ t('inbox.presence.typing', { name: typingNames.join(', ') }) }}
-                </span>
             </div>
 
             <ChatThread
@@ -188,60 +177,21 @@ function onType(): void {
                 :current-user-id="currentUserId"
                 :others-read-at="othersReadAt"
                 :unread-count="unreadCount"
+                :typing-names="typingNames"
                 list-testid="message-list"
             >
                 <template #composer>
-                    <form
-                        v-if="thread.status === 'open'"
-                        @submit.prevent="submit"
-                        class="mt-3 rounded-lg bg-white p-4 shadow"
-                        data-testid="message-compose"
-                    >
-                        <label for="body" class="sr-only">Message body</label>
-                        <textarea
-                            id="body"
-                            v-model="form.body"
-                            rows="3"
-                            maxlength="4000"
-                            placeholder="Type a message…"
-                            class="w-full rounded-md border-gray-300 shadow-sm"
-                            @input="onType"
-                        ></textarea>
-                        <div class="mt-2 flex items-center justify-between">
-                            <input
-                                type="file"
-                                multiple
-                                accept="image/jpeg,image/png,image/webp,application/pdf"
-                                @change="onPickFiles"
-                                class="text-xs"
-                            />
-                            <button
-                                type="submit"
-                                :disabled="form.processing || form.body.length === 0"
-                                class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                            >
-                                Send
-                            </button>
-                        </div>
-
-                        <AttachmentPreviewList
-                            class="mt-3"
-                            :files="form.attachments"
-                            @remove="removeAttachment"
-                        />
-
-                        <p
-                            v-if="form.errors.attachments"
-                            class="mt-2 text-xs font-medium text-rose-600"
-                            data-testid="attachment-blocked"
-                        >
-                            {{ form.errors.attachments }}
-                        </p>
-                    </form>
-
-                    <p v-else class="mt-3 text-sm text-gray-500">
-                        This thread is {{ thread.status }} and cannot accept new messages.
-                    </p>
+                    <ChatComposer
+                        v-model:body="form.body"
+                        v-model:attachments="form.attachments"
+                        :processing="form.processing"
+                        :locked="thread.status !== 'open'"
+                        :locked-status="thread.status"
+                        :attachments-error="form.errors.attachments"
+                        testid="message-compose"
+                        @send="submit"
+                        @typing="onType"
+                    />
                 </template>
             </ChatThread>
         </div>

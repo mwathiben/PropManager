@@ -54,15 +54,56 @@ class Phase71InboxNativeSurfaceTest extends TestCase
         }
     }
 
+    public function test_composer_shared_component(): void
+    {
+        $composer = $this->js('Components/Inbox/ChatComposer.vue');
+
+        // Enter-to-send, Shift+Enter newline, IME-composition aware.
+        $this->assertStringContainsString('isComposing', $composer);
+        $this->assertStringContainsString("event.key === 'Enter'", $composer);
+        $this->assertStringContainsString('shiftKey', $composer);
+
+        // Auto-grow textarea + attachment tray + Phase-67 scan error preserved.
+        $this->assertStringContainsString('scrollHeight', $composer);
+        $this->assertStringContainsString('AttachmentPreviewList', $composer);
+        $this->assertStringContainsString('data-testid="attachment-blocked"', $composer);
+
+        // Locked state + char counter (COMPOSER-3).
+        $this->assertStringContainsString('data-testid="composer-locked"', $composer);
+        $this->assertStringContainsString('data-testid="composer-counter"', $composer);
+
+        // Both pages mount the shared composer, preserving their compose hooks.
+        $land = $this->js('Pages/MessageThreads/Show.vue');
+        $this->assertStringContainsString('<ChatComposer', $land);
+        $this->assertStringContainsString('testid="message-compose"', $land);
+
+        $tenant = $this->js('Pages/Tenant/Inbox/Show.vue');
+        $this->assertStringContainsString('<ChatComposer', $tenant);
+        $this->assertStringContainsString('testid="tenant-message-compose"', $tenant);
+    }
+
+    public function test_typing_bubble_in_chat_region(): void
+    {
+        $thread = $this->js('Components/Inbox/ChatThread.vue');
+        $this->assertStringContainsString('data-testid="chat-typing-bubble"', $thread);
+        // prefers-reduced-motion: the bounce only animates under motion-safe.
+        $this->assertStringContainsString('motion-safe:animate-bounce', $thread);
+
+        foreach (['Pages/MessageThreads/Show.vue', 'Pages/Tenant/Inbox/Show.vue'] as $page) {
+            $this->assertStringContainsString(':typing-names="typingNames"', $this->js($page));
+        }
+    }
+
     public function test_chat_lang_keys_exist_across_locales(): void
     {
+        $required = ['today', 'yesterday', 'unread', 'sent', 'placeholder', 'send', 'attach', 'body_label', 'locked', 'chars_remaining'];
+
         foreach (['en', 'sw', 'ar'] as $locale) {
             $chat = __('inbox.chat', [], $locale);
             $this->assertIsArray($chat);
-            $this->assertArrayHasKey('today', $chat);
-            $this->assertArrayHasKey('yesterday', $chat);
-            $this->assertArrayHasKey('unread', $chat);
-            $this->assertArrayHasKey('sent', $chat);
+            foreach ($required as $key) {
+                $this->assertArrayHasKey($key, $chat, "inbox.chat.{$key} missing for {$locale}");
+            }
         }
     }
 }
