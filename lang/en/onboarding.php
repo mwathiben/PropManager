@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 return [
     'resume_banner' => [
-        'title' => 'Step :current of :total',
-        'subtitle' => "You're :pct% through setup — pick up where you left off.",
+        'title' => 'Step {current} of {total}',
+        'subtitle' => "You're {pct}% through setup — pick up where you left off.",
         'continue' => 'Continue',
         'dismiss' => 'Dismiss',
     ],

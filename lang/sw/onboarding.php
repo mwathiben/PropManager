@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 return [
     'resume_banner' => [
-        'title' => 'Hatua ya :current kati ya :total',
-        'subtitle' => 'Umefikia :pct% ya usanidi — endelea kutoka ulikoachia.',
+        'title' => 'Hatua ya {current} kati ya {total}',
+        'subtitle' => 'Umefikia {pct}% ya usanidi — endelea kutoka ulikoachia.',
         'continue' => 'Endelea',
         'dismiss' => 'Funga',
     ],

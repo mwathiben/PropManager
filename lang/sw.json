@@ -8,7 +8,8 @@
         "email": "Barua pepe",
         "password": "Nenosiri",
         "confirm_password": "Thibitisha Nenosiri",
-        "name": "Jina"
+        "name": "Jina",
+        "confirm_delete": "Una uhakika unataka kufuta hii? Kitendo hiki hakiwezi kutenduliwa."
     },
     "brand": {
         "home": "PropManager — nyumbani",
