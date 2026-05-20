@@ -41,4 +41,11 @@ return [
         'subject' => '[TODO-ar] New message from :sender',
         'sender_unknown' => '[TODO-ar] Property team',
     ],
+
+    'chat' => [
+        'today' => '[TODO-ar] Today',
+        'yesterday' => '[TODO-ar] Yesterday',
+        'unread' => '[TODO-ar] Unread messages',
+        'sent' => '[TODO-ar] Sent',
+    ],
 ];

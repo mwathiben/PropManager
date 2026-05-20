@@ -41,4 +41,11 @@ return [
         'subject' => 'New message from :sender',
         'sender_unknown' => 'Property team',
     ],
+
+    'chat' => [
+        'today' => 'Today',
+        'yesterday' => 'Yesterday',
+        'unread' => 'Unread messages',
+        'sent' => 'Sent',
+    ],
 ];

@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import PendingSyncBadge from '@/Components/Offline/PendingSyncBadge.vue';
 import AttachmentPreviewList from '@/Components/Inbox/AttachmentPreviewList.vue';
+import ChatThread from '@/Components/Inbox/ChatThread.vue';
 import { useI18n } from '@/composables/useI18n';
 import { useEcho } from '@/composables/useEcho';
 import { usePresenceChannel } from '@/composables/usePresenceChannel';
@@ -14,6 +15,13 @@ interface Sender {
     role: string | null;
 }
 
+interface MessageDocument {
+    id: number;
+    title: string;
+    file_path: string;
+    mime_type: string;
+}
+
 interface ThreadMessage {
     id: number;
     sender_id: number | null;
@@ -21,6 +29,7 @@ interface ThreadMessage {
     body: string;
     message_type: 'text' | 'system' | 'attachment';
     created_at: string;
+    documents: MessageDocument[];
 }
 
 interface Thread {
@@ -56,23 +65,16 @@ props.read_receipts.forEach((r) => {
     readCursors[r.user_id] = r.last_read_at;
 });
 
-function isSeenByOthers(message: ThreadMessage): boolean {
-    if (message.sender_id === null || message.sender_id !== currentUserId.value) {
-        return false;
+// Max read cursor across other participants — drives the per-bubble seen
+// ticks inside ChatThread (kept live by the .message.read broadcast).
+const othersReadAt = computed<string | null>(() => {
+    let max: number | null = null;
+    for (const cursor of Object.values(readCursors)) {
+        if (cursor === null) continue;
+        const t = new Date(cursor).getTime();
+        if (max === null || t > max) max = t;
     }
-    const sentAt = new Date(message.created_at).getTime();
-    return Object.entries(readCursors).some(
-        ([userId, cursor]) => Number(userId) !== message.sender_id && cursor !== null && new Date(cursor).getTime() >= sentAt,
-    );
-}
-
-const lastOwnMessageId = computed<number | null>(() => {
-    for (let i = props.thread.messages.length - 1; i >= 0; i--) {
-        if (props.thread.messages[i].sender_id === currentUserId.value) {
-            return props.thread.messages[i].id;
-        }
-    }
-    return null;
+    return max === null ? null : new Date(max).toISOString();
 });
 
 function markAllRead(): void {
@@ -174,77 +176,67 @@ function onType(): void {
                 </span>
             </div>
 
-            <ol class="space-y-3" data-testid="tenant-message-list">
-                <li
-                    v-for="message in thread.messages"
-                    :key="message.id"
-                    class="rounded-lg bg-white p-4 shadow"
-                    :class="{ 'bg-amber-50': message.message_type === 'system' }"
-                >
-                    <header class="flex items-center justify-between text-xs text-gray-500">
-                        <span>{{ message.sender?.name || 'System' }}</span>
-                        <time>{{ message.created_at }}</time>
-                    </header>
-                    <p class="mt-2 text-sm text-gray-900 whitespace-pre-wrap">{{ message.body }}</p>
-                    <p
-                        v-if="message.id === lastOwnMessageId && isSeenByOthers(message)"
-                        class="mt-1 text-right text-[11px] font-medium text-emerald-600"
-                        data-testid="message-seen"
-                    >
-                        {{ t('inbox.seen.label') }}
-                    </p>
-                </li>
-            </ol>
-
-            <form
-                v-if="thread.status === 'open'"
-                @submit.prevent="submit"
-                class="rounded-lg bg-white p-4 shadow"
-                data-testid="tenant-message-compose"
+            <ChatThread
+                :messages="thread.messages"
+                :current-user-id="currentUserId"
+                :others-read-at="othersReadAt"
+                :unread-count="unreadCount"
+                list-testid="tenant-message-list"
             >
-                <textarea
-                    v-model="form.body"
-                    rows="3"
-                    maxlength="4000"
-                    placeholder="Reply…"
-                    class="w-full rounded-md border-gray-300 shadow-sm text-sm"
-                    @input="onType"
-                ></textarea>
-                <div class="mt-2 flex items-center justify-between">
-                    <input
-                        type="file"
-                        multiple
-                        accept="image/jpeg,image/png,image/webp,application/pdf"
-                        @change="onPickFiles"
-                        class="text-xs"
-                    />
-                    <button
-                        type="submit"
-                        :disabled="form.processing || form.body.length === 0"
-                        class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                <template #composer>
+                    <form
+                        v-if="thread.status === 'open'"
+                        @submit.prevent="submit"
+                        class="mt-3 rounded-lg bg-white p-4 shadow"
+                        data-testid="tenant-message-compose"
                     >
-                        Send reply
-                    </button>
-                </div>
+                        <label for="body" class="sr-only">Message body</label>
+                        <textarea
+                            id="body"
+                            v-model="form.body"
+                            rows="3"
+                            maxlength="4000"
+                            placeholder="Reply…"
+                            class="w-full rounded-md border-gray-300 shadow-sm text-sm"
+                            @input="onType"
+                        ></textarea>
+                        <div class="mt-2 flex items-center justify-between">
+                            <input
+                                type="file"
+                                multiple
+                                accept="image/jpeg,image/png,image/webp,application/pdf"
+                                @change="onPickFiles"
+                                class="text-xs"
+                            />
+                            <button
+                                type="submit"
+                                :disabled="form.processing || form.body.length === 0"
+                                class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                            >
+                                Send reply
+                            </button>
+                        </div>
 
-                <AttachmentPreviewList
-                    class="mt-3"
-                    :files="form.attachments"
-                    @remove="removeAttachment"
-                />
+                        <AttachmentPreviewList
+                            class="mt-3"
+                            :files="form.attachments"
+                            @remove="removeAttachment"
+                        />
 
-                <p
-                    v-if="form.errors.attachments"
-                    class="mt-2 text-xs font-medium text-rose-600"
-                    data-testid="attachment-blocked"
-                >
-                    {{ form.errors.attachments }}
-                </p>
-            </form>
+                        <p
+                            v-if="form.errors.attachments"
+                            class="mt-2 text-xs font-medium text-rose-600"
+                            data-testid="attachment-blocked"
+                        >
+                            {{ form.errors.attachments }}
+                        </p>
+                    </form>
 
-            <p v-else class="text-sm text-gray-500">
-                This thread is {{ thread.status }} and cannot accept new messages.
-            </p>
+                    <p v-else class="mt-3 text-sm text-gray-500">
+                        This thread is {{ thread.status }} and cannot accept new messages.
+                    </p>
+                </template>
+            </ChatThread>
         </div>
     </AuthenticatedLayout>
 </template>

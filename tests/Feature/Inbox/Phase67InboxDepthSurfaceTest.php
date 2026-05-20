@@ -53,9 +53,14 @@ class Phase67InboxDepthSurfaceTest extends TestCase
 
         foreach (['Pages/MessageThreads/Show.vue', 'Pages/Tenant/Inbox/Show.vue'] as $page) {
             $src = $this->vue($page);
-            $this->assertStringContainsString('data-testid="message-seen"', $src);
             $this->assertStringContainsString('.message.read', $src);
         }
+
+        // Phase-71 BUBBLES extracted the seen tick into the shared MessageBubble.
+        $this->assertStringContainsString(
+            'data-testid="message-seen"',
+            $this->vue('Components/Inbox/MessageBubble.vue'),
+        );
 
         $this->assertIsArray(__('inbox.seen'));
     }
