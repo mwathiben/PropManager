@@ -131,6 +131,42 @@ php artisan messages:enforce-retention --dry-run
 
 Reports the count that *would* be soft-deleted, without writing. Use during the first 30 days after onboarding a new compliance regime to verify the retention window aligns with operator expectations.
 
+## Observability (Phase 67 INBOX-OBSERVABILITY)
+
+`inbox:depth-rollup` runs daily at 04:35 Africa/Nairobi (after the retention sweep, so counts reflect post-purge truth) and emits platform-wide, DB-derived snapshot gauges:
+
+| Gauge | Meaning |
+|---|---|
+| `inbox_threads_total` | All non-deleted threads across every landlord |
+| `inbox_threads_open` | Threads with `status = open` |
+| `inbox_read_ratio` | Fraction of participant inboxes fully caught up (`last_read_at >= last_message_at`); 1.0 when there are no participants |
+| `inbox_messages_24h` | Messages created in the last 24h |
+| `inbox_attachment_scans_24h` | Attachment rows persisted in the last 24h (clean, plus fail-open `scan_status=error`; infected uploads are never persisted) |
+| `inbox_attachment_infected_24h` | Infected uploads blocked in the last 24h (counted from `audit_logs.event_type = inbox.attachment.infected`) |
+
+These complement the real-time Prometheus counters emitted at the point of action — `inbox_search_queries_count`, `inbox_attachment_scan_infected_count`, `inbox_attachment_scan_error_count`, `inbox_spam_rejected_count`, `inbox_rate_limit_hits_count` — which are graphed via `rate()` and cannot be reconstructed from a daily cron.
+
+### Attachment malware detected
+
+The `inbox_attachment_infected` alert (sev2, page) fires when `inbox_attachment_infected_24h > 0`. A tenant or landlord uploaded a file the scanner flagged as malware; the upload was rejected at the gate, so **nothing infected reached the tenant disk and no `documents` row was created** (the scan runs before the persistence transaction — see `MessageAttachmentService::scan`). On-call steps:
+
+1. Pull the offending events:
+   ```sql
+   SELECT user_id, auditable_id AS sender_id, metadata, created_at
+   FROM audit_logs
+   WHERE event_type = 'inbox.attachment.infected'
+     AND created_at >= NOW() - INTERVAL 24 HOUR
+   ORDER BY created_at DESC;
+   ```
+   `metadata` carries `thread_id`, `file_name`, and the scanner `signature`.
+2. Confirm the production scanner is the real one — `INBOX_SCAN_DRIVER=clamav` (not `null`). A `null` driver in production means uploads are NOT being scanned; treat that as the incident.
+3. Identify the sender (`auditable_id`). A single hit is usually a compromised end-user device; a burst from one sender is a deliberate abuse signal — consider locking the thread (see *Manual thread lock*) and disabling the account.
+4. No cleanup of stored files is required (the gate blocks before persistence), but verify `inbox_attachment_scans_24h` looks sane — a collapse to 0 alongside infections can indicate the scanner is erroring and `fail_closed` is rejecting everything (check `inbox_attachment_scan_error_count`).
+
+### Scanner unavailable (fail-closed)
+
+If `INBOX_SCAN_FAIL_CLOSED=true` (default) and clamd is down, every attachment upload is rejected with `inbox.scan.unavailable` and `inbox_attachment_scan_error_count` climbs. Restore clamd; uploads recover automatically. Set `INBOX_SCAN_FAIL_CLOSED=false` only as a deliberate, temporary trade-off (accept-with-`scan_status=error`) during a clamd outage where blocking uploads is worse than deferring the scan.
+
 ## Cross-references
 
 - [[project_propmanager_phase63_plan]] — cycle planning + commit ledger

@@ -260,5 +260,17 @@ return [
             'paging' => 'email',
             'description' => 'Platform NPS turned negative (more detractors than promoters) over the rolling 90d window with a meaningful sample (>=10 responses). Review recent detractor comments and the last few releases.',
         ],
+
+        // Phase-67 INBOX-OBSERVABILITY-1
+        [
+            'key' => 'inbox_attachment_infected',
+            'severity' => 'sev2',
+            'threshold' => 0,
+            'window' => '24h',
+            'gauge' => 'inbox_attachment_infected_24h',
+            'runbook' => 'docs/runbooks/inbox.md#attachment-malware-detected',
+            'paging' => 'page',
+            'description' => 'The attachment scanner blocked one or more infected uploads in the last 24h. Malware reached the upload boundary — confirm it was contained and identify the sender.',
+        ],
     ],
 ];

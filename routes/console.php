@@ -54,6 +54,9 @@ $schedule('notifications:process-schedules', fn ($e) => $e->everyFiveMinutes());
 $schedule('messages:notify-unread-fallback', fn ($e) => $e->everyFifteenMinutes()->timezone('Africa/Nairobi'));
 // Phase-63 INBOX-MOD-2: Kenya DPA retention sweep.
 $schedule('messages:enforce-retention', fn ($e) => $e->dailyAt('03:15')->timezone('Africa/Nairobi'));
+// Phase-67 INBOX-OBSERVABILITY: daily platform-wide inbox health gauges.
+// Runs after the retention sweep so thread/message counts reflect post-purge truth.
+$schedule('inbox:depth-rollup', fn ($e) => $e->dailyAt('04:35')->timezone('Africa/Nairobi'));
 // Phase-65 RETENTION-INTEGRATION-3: single-pane-of-glass aggregator
 // for active hold counts across all subject types. Runs AFTER both
 // retention crons so the emitted gauge reflects post-purge truth.
