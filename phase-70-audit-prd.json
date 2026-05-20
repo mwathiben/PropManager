@@ -19,7 +19,9 @@
             "title": "Signed magic-link -> vendor-portal session + EnsureVendorPortal middleware",
             "evidence": "The Phase-54 surface is one-shot per-request signed URLs for a single form; a multi-page portal (inbox, statement, SLA) needs a persistent vendor identity. There is no vendor auth/session today.",
             "remediation": "GET /v/portal/enter/{vendor} (signed, 7-day, throttle:invitation, OUTSIDE the auth group) verifies the signature, sets session(['vendor_portal_id' => vendor->id]), and redirects to the portal dashboard. App\\Http\\Middleware\\EnsureVendorPortal guards a /v/portal group: resolves Vendor::withoutGlobalScopes()->active()->find(session('vendor_portal_id')); aborts 403 (link-expired page) when absent/inactive — re-checking is_active EACH request so a deactivated vendor loses access immediately. The resolved vendor is stashed on the request (request->attributes 'portal_vendor') so controllers NEVER read a vendor id from the route/client. VendorObserver welcome email + a logout route (clears the session key). Phase70VendorAuthTest asserts: valid signed link -> session set; tampered/expired link -> 403; deactivated vendor -> 403; middleware-guarded route -> redirect/403 without a session.",
-            "category": "VENDOR-AUTH"
+            "category": "VENDOR-AUTH",
+            "passes": true,
+            "verification": "EnsureVendorPortal + signed enter (regenerate, is_active re-check each request); request->attributes('portal_vendor'). 87e1ce5."
         },
         {
             "id": "VENDOR-AUTH-2",
@@ -27,7 +29,9 @@
             "title": "Vendor portal layout + dashboard + logout",
             "evidence": "The portal needs a standalone shell (vendors are not Users, so AuthenticatedLayout is wrong) and a landing page.",
             "remediation": "resources/js/Layouts/VendorPortalLayout.vue (standalone — brand header, vendor name, nav to Inbox/Statement/SLA, logout) and Pages/VendorPortal/Dashboard.vue (counts: pending assignments, open jobs, SLA snapshot). VendorPortalController@dashboard reads request->attributes('portal_vendor'). POST /v/portal/logout clears the session. lang/en/vendor_portal.php ({curly}, sw [TODO-sw], ar [TODO-ar]). Phase70VendorPortalSurfaceTest asserts the layout + dashboard tokens.",
-            "category": "VENDOR-AUTH"
+            "category": "VENDOR-AUTH",
+            "passes": true,
+            "verification": "VendorPortalLayout + Dashboard (pending/open/overdue) + logout. 87e1ce5."
         },
         {
             "id": "VENDOR-AUTH-3",
@@ -35,7 +39,9 @@
             "title": "Landlord re-issue portal link + artisan command",
             "evidence": "Signed links expire (7 days); the landlord/operator needs a way to re-send without recreating the vendor.",
             "remediation": "A landlord action POST /vendors/{vendor}/portal-link (VendorPolicy-gated, owning landlord) re-queues the welcome email with a fresh signed portal link; a `vendor:portal-link {vendor}` artisan command prints/queues one for operator use. Both reuse a single VendorPortalLinkService::issue(Vendor): string (URL::signedRoute, 7-day) so the expiry/route is defined once. Phase70VendorAuthTest asserts the service mints a verifiable signed URL + the landlord route is owner-gated (cross-tenant 403).",
-            "category": "VENDOR-AUTH"
+            "category": "VENDOR-AUTH",
+            "passes": true,
+            "verification": "VendorPortalLinkService + finances.vendors.portal-link (owner-gated) + vendor:portal-link command + VendorPortalLinkMailable. 87e1ce5."
         },
         {
             "id": "TICKET-INBOX-1",
@@ -43,7 +49,9 @@
             "title": "Vendor assignment acceptance state",
             "evidence": "VendorAssignmentService sets ticket.vendor_id silently — the vendor never accepts/declines, so the landlord can't tell if the contractor took the job.",
             "remediation": "Migration adds tickets.vendor_status enum(pending,accepted,declined) nullable + vendor_responded_at nullable. VendorAssignmentService::assign sets vendor_status=pending + vendor_responded_at=null on (re)assignment. Ticket gains helpers vendorPending()/vendorAccepted(). A VendorAssignmentResponseService::accept(Ticket)/decline(Ticket,reason) stamps the status + responded_at, logs TicketActivity, and on decline clears vendor_id (back to the landlord pool) + fires an event the landlord is notified on. Phase70TicketInboxTest asserts accept/decline transitions + decline clears vendor_id + cross-vendor cannot respond.",
-            "category": "TICKET-INBOX"
+            "category": "TICKET-INBOX",
+            "passes": true,
+            "verification": "tickets.vendor_status/vendor_responded_at (migration in VENDOR-AUTH as foundation) + VendorAssignmentResponseService accept/decline (lockForUpdate race guard; decline clears vendor_id + VendorDeclinedAssignment->NotifyLandlordOnVendorDecline). 156fdca."
         },
         {
             "id": "TICKET-INBOX-2",
@@ -51,7 +59,9 @@
             "title": "Vendor-scoped inbox + accept/decline endpoints",
             "evidence": "The vendor needs to see ONLY their assigned tickets and act on them — the #1 IDOR risk in the portal.",
             "remediation": "VendorPortalTicketController@index lists Ticket::where('vendor_id', portal_vendor->id) (the session vendor, NEVER a client id) with status + SLA due + property/unit context; @accept / @decline POST routes resolve the ticket then assert ticket.vendor_id === portal_vendor->id before delegating to VendorAssignmentResponseService (a second vendor cannot accept another's ticket even with a guessed id -> 403/404). All under the EnsureVendorPortal group + throttle. Phase70TicketInboxTest asserts a vendor sees only their tickets, a cross-vendor ticket id 403/404s, and accept/decline require ownership.",
-            "category": "TICKET-INBOX"
+            "category": "TICKET-INBOX",
+            "passes": true,
+            "verification": "VendorPortalTicketController index/accept/decline, session-vendor scoped + ownership 403 + pending/open 422. 156fdca."
         },
         {
             "id": "TICKET-INBOX-3",
@@ -59,7 +69,9 @@
             "title": "Inbox Vue page + accept/decline UI",
             "evidence": "No UI to view/accept/decline assigned jobs.",
             "remediation": "Pages/VendorPortal/Inbox.vue: pending vs active sections, accept/decline buttons (decline opens a reason field), SLA-due badge, link to the job page. data-testid tokens (vendor-ticket-row, vendor-accept, vendor-decline). lang vendor_portal.inbox.* ({curly}). Phase70VendorPortalSurfaceTest asserts the page + tokens.",
-            "category": "TICKET-INBOX"
+            "category": "TICKET-INBOX",
+            "passes": true,
+            "verification": "Inbox.vue pending/active + accept/decline-with-reason. 156fdca."
         },
         {
             "id": "JOB-ACTIONS-1",
@@ -67,7 +79,9 @@
             "title": "Vendor time logging",
             "evidence": "There is no record of vendor labour time; it underpins both the statement and SLA views.",
             "remediation": "Migration creates ticket_time_logs (id, ticket_id, vendor_id, minutes unsigned, note nullable, logged_at, timestamps; index ticket_id+vendor_id). TicketTimeLog model. VendorTimeLogService::log(Ticket, Vendor, minutes, note) guards ticket.vendor_id === vendor->id AND vendor_status=accepted (can't log on a job you haven't accepted), validates minutes 1..1440. POST /v/portal/tickets/{ticket}/time under EnsureVendorPortal, ownership re-checked. Phase70JobActionsTest asserts a log row is written, a non-owned ticket is rejected, and logging on a non-accepted ticket is rejected.",
-            "category": "JOB-ACTIONS"
+            "category": "JOB-ACTIONS",
+            "passes": true,
+            "verification": "ticket_time_logs + VendorTimeLogService (ownership+accepted gate, lockForUpdate) + logTime endpoint (minutes 1..1440, throttle:10,1). 16c0205."
         },
         {
             "id": "JOB-ACTIONS-2",
@@ -75,7 +89,9 @@
             "title": "Vendor mark-resolved",
             "evidence": "A vendor who finishes a job has no way to signal completion.",
             "remediation": "VendorJobResolutionService::resolve(Ticket, Vendor, notes) guards ownership + vendor_status=accepted + ticket is open-ish, sets status=Resolved + resolved_at + resolution_notes, records the vendor as resolver in TicketActivity (so the landlord sees who/when), fires the existing resolution path/event so the landlord can close. POST /v/portal/tickets/{ticket}/resolve. Phase70JobActionsTest asserts resolve transitions status + records the vendor + ownership-gated.",
-            "category": "JOB-ACTIONS"
+            "category": "JOB-ACTIONS",
+            "passes": true,
+            "verification": "VendorJobResolutionService resolve (lock + accepted + isOpen; records vendor_resolved activity). 16c0205."
         },
         {
             "id": "JOB-ACTIONS-3",
@@ -83,7 +99,9 @@
             "title": "Job detail Vue page (time + resolve)",
             "evidence": "No UI to log time or mark resolved.",
             "remediation": "Pages/VendorPortal/Job.vue: ticket summary, time-log form (minutes + note) with a running total, mark-resolved form (resolution notes), prior time logs list. data-testid (vendor-time-form, vendor-resolve-form). lang vendor_portal.job.*. Phase70VendorPortalSurfaceTest asserts page + tokens + route /v/portal/tickets/{ticket}.",
-            "category": "JOB-ACTIONS"
+            "category": "JOB-ACTIONS",
+            "passes": true,
+            "verification": "Job.vue (time form + resolve form + entries, accepted-only); show() filters time logs by session vendor (no cross-vendor leak). 16c0205."
         },
         {
             "id": "PAYOUT-STATEMENT-1",
@@ -91,7 +109,9 @@
             "title": "Vendor cost statement service + view",
             "evidence": "A vendor cannot see what work/cost has been recorded against them. Stripe Connect is landlord-settlement, not vendor payout — this is a read-only statement.",
             "remediation": "VendorStatementService::forVendor(Vendor, from, to): aggregates ticket_costs WHERE category='vendor' on tickets assigned to the vendor + Expense rows linked to the vendor, grouped by ticket + month, with totals — all landlord+vendor scoped (no cross-tenant rows). VendorPortalStatementController@index (period filter, default last 90d). Read-only; no money movement. Phase70StatementTest asserts the statement totals only the vendor's own attributed costs and excludes another vendor's / another landlord's.",
-            "category": "PAYOUT-STATEMENT"
+            "category": "PAYOUT-STATEMENT",
+            "passes": true,
+            "verification": "VendorStatementService (vendor-category ticket_costs + expenses, scoped, cents) + statement endpoint. Read-only (Stripe Connect is landlord settlement). 9ef1b3c."
         },
         {
             "id": "PAYOUT-STATEMENT-2",
@@ -99,7 +119,9 @@
             "title": "Statement CSV export",
             "evidence": "Vendors need the statement as a document for their own books.",
             "remediation": "VendorPortalStatementController@export streams a UTF-8 BOM CSV (reusing the Phase-65 csvEscape injection guard: neutralise leading =,+,-,@) of the period's line items, scoped to the session vendor. Streamed response (download), session-vendor only. Phase70StatementTest asserts the CSV contains the vendor's rows + injection neutralisation + cross-vendor exclusion.",
-            "category": "PAYOUT-STATEMENT"
+            "category": "PAYOUT-STATEMENT",
+            "passes": true,
+            "verification": "toCsv UTF-8 BOM + injection guard; streamed export, session-scoped. 9ef1b3c."
         },
         {
             "id": "PAYOUT-STATEMENT-3",
@@ -107,7 +129,9 @@
             "title": "Statement Vue page + period filter",
             "evidence": "No UI for the statement.",
             "remediation": "Pages/VendorPortal/Statement.vue: period selector, grouped line items (per ticket/month), total in KES en-KE via useFormatters, CSV download button. data-testid (vendor-statement, vendor-statement-export). lang vendor_portal.statement.*. Phase70VendorPortalSurfaceTest asserts page + tokens.",
-            "category": "PAYOUT-STATEMENT"
+            "category": "PAYOUT-STATEMENT",
+            "passes": true,
+            "verification": "Statement.vue period filter + grouped line items + KES totals + CSV. 9ef1b3c."
         },
         {
             "id": "SLA-DASHBOARD-1",
@@ -115,7 +139,9 @@
             "title": "Vendor SLA performance service",
             "evidence": "Vendors have no visibility into their own response/resolution performance; landlords have SLA gauges but vendors don't.",
             "remediation": "VendorSlaService::forVendor(Vendor, windowDays=90): over the vendor's resolved tickets, computes resolution-within-SLA % (resolved_at <= resolution_due_at), breach count, total resolved, and average resolution time, plus open-overdue count (breachedResolutionSla scope filtered to the vendor). All vendor-scoped. Phase70SlaDashboardTest asserts the math on a seeded mix of within-SLA / breached / open-overdue tickets, vendor-scoped.",
-            "category": "SLA-DASHBOARD"
+            "category": "SLA-DASHBOARD",
+            "passes": true,
+            "verification": "VendorSlaService within-SLA %/breach/open-overdue/avg, vendor-scoped + window. 6aab57a."
         },
         {
             "id": "SLA-DASHBOARD-2",
@@ -123,7 +149,9 @@
             "title": "Vendor SLA dashboard endpoint",
             "evidence": "The metrics need a portal surface.",
             "remediation": "VendorPortalSlaController@index returns the VendorSlaService payload for the session vendor (window selectable). EnsureVendorPortal-guarded; session vendor only. Phase70SlaDashboardTest asserts the endpoint returns the vendor's metrics + is unreachable without a portal session.",
-            "category": "SLA-DASHBOARD"
+            "category": "SLA-DASHBOARD",
+            "passes": true,
+            "verification": "VendorPortalSlaController index, session vendor, window 30/90/365. 6aab57a."
         },
         {
             "id": "SLA-DASHBOARD-3",
@@ -131,7 +159,9 @@
             "title": "SLA dashboard Vue page",
             "evidence": "No UI for the SLA metrics.",
             "remediation": "Pages/VendorPortal/Sla.vue: within-SLA % ring, breach + open-overdue counts, average resolution time, window selector. data-testid (vendor-sla, vendor-sla-within). lang vendor_portal.sla.*. Phase70VendorPortalSurfaceTest asserts page + tokens.",
-            "category": "SLA-DASHBOARD"
+            "category": "SLA-DASHBOARD",
+            "passes": true,
+            "verification": "Sla.vue within-SLA ring + cards + window selector. 6aab57a."
         },
         {
             "id": "CI-1",
@@ -139,7 +169,9 @@
             "title": "Phase70VendorPortalSurfaceTest cross-category map",
             "evidence": "The portal surface (middleware, routes, columns, table, services, Vue, lang) must be guarded against drift.",
             "remediation": "tests/Feature/VendorPortal/Phase70VendorPortalSurfaceTest asserts: EnsureVendorPortal middleware + VendorPortal* controllers + VendorStatementService/VendorSlaService/VendorTimeLogService/VendorAssignmentResponseService/VendorPortalLinkService classes exist; tickets.vendor_status + vendor_responded_at columns + ticket_time_logs table present; routes (v/portal/enter, dashboard, inbox, ticket accept/decline/time/resolve, statement(+export), sla, logout) registered; Vue (VendorPortalLayout + Dashboard/Inbox/Job/Statement/Sla) exist; vendor_portal lang loads.",
-            "category": "CI"
+            "category": "CI",
+            "passes": true,
+            "verification": "Phase70VendorPortalSurfaceTest (6 methods) maps classes/columns/routes/Vue/command/lang + portal session-guard."
         },
         {
             "id": "CI-2",
@@ -147,7 +179,9 @@
             "title": "Per-category isolation feature tests",
             "evidence": "The portal's whole risk is cross-vendor / cross-tenant data access; behaviour must be asserted, not just presence.",
             "remediation": "Phase70VendorAuthTest (signed link -> session, expired/tampered/deactivated -> 403, middleware gate). Phase70TicketInboxTest (vendor sees only own tickets, cross-vendor 403/404, accept/decline + decline clears vendor_id). Phase70JobActionsTest (time log + resolve, ownership + accepted gate). Phase70StatementTest (own costs only, CSV injection guard, cross-vendor exclusion). Phase70SlaDashboardTest (SLA math, vendor-scoped). All assert the SESSION vendor is authoritative, never a client id.",
-            "category": "CI"
+            "category": "CI",
+            "passes": true,
+            "verification": "Phase70 VendorAuth/TicketInbox/JobActions/Statement/SlaDashboard — 38 portal tests / 189 assertions, isolation-focused."
         },
         {
             "id": "CI-3",
@@ -155,7 +189,32 @@
             "title": "Runbook + memory closeout",
             "evidence": "Operators + the cycle ledger need the portal documented.",
             "remediation": "docs/runbooks/vendor-portal.md (auth model, link re-issue, isolation contract, statement/SLA semantics) + maintenance.md cross-link. Memory: project_propmanager_phase70_plan + pending-path + forward-path + MEMORY.md updated; audit_closeout merged into phase-70-audit-prd.json; CodeRabbit run recorded per logic-bearing sub-phase diff.",
-            "category": "CI"
+            "category": "CI",
+            "passes": true,
+            "verification": "docs/runbooks/vendor-portal.md; this closeout; memory + CodeRabbit per logic-bearing diff."
         }
-    ]
+    ],
+    "audit_closeout": {
+        "closed_at": "2026-05-21",
+        "result": "18/18 findings closed (zero deferrals). Net-new vendor portal.",
+        "commits": {
+            "prd": "684e73c",
+            "VENDOR-AUTH": "87e1ce5",
+            "TICKET-INBOX": "156fdca",
+            "JOB-ACTIONS": "16c0205",
+            "PAYOUT-STATEMENT": "9ef1b3c",
+            "SLA-DASHBOARD": "6aab57a",
+            "CI": "PENDING (this commit)"
+        },
+        "tests": "38 VendorPortal tests / 189 assertions green (6 files); 107 Maintenance+Vendors regression green; build + import gate green; Pint clean.",
+        "deviations": [
+            "PAYOUT-STATEMENT is a read-only cost statement, not a money movement — Stripe Connect (Phase 41/42) is landlord settlement (rent), there is no vendor disbursement rail. Documented in the PRD + runbook.",
+            "The tickets.vendor_status + vendor_responded_at migration landed in VENDOR-AUTH (not TICKET-INBOX) because the portal dashboard's pending-count needs it as a data foundation."
+        ],
+        "coderabbit": [
+            "VENDOR-AUTH: session->regenerate() on enter (anti-fixation) + reuse breachedResolutionSla scope (low).",
+            "TICKET-INBOX: HIGH — concurrent accept/decline race -> lockForUpdate + re-assert pending; terminal-status guard (can't respond to a closed ticket); capture declining vendor id in the audit before nulling.",
+            "JOB-ACTIONS: HIGH — resolve()/log() re-assert under lockForUpdate (reassign race); show() filters time logs by session vendor (cross-vendor leak on reassignment); throttle:10,1 on time route."
+        ]
+    }
 }
