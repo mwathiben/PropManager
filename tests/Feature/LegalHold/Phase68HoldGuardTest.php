@@ -121,6 +121,39 @@ class Phase68HoldGuardTest extends TestCase
         );
     }
 
+    public function test_soft_deleted_purge_skips_held_records_without_crashing(): void
+    {
+        $heldDoc = Document::factory()->create([
+            'landlord_id' => $this->landlord->id,
+            'documentable_type' => User::class,
+            'documentable_id' => $this->landlord->id,
+            'uploaded_by' => $this->landlord->id,
+        ]);
+        $freeDoc = Document::factory()->create([
+            'landlord_id' => $this->landlord->id,
+            'documentable_type' => User::class,
+            'documentable_id' => $this->landlord->id,
+            'uploaded_by' => $this->landlord->id,
+        ]);
+
+        // Soft-delete both (before any hold), then backdate past the grace.
+        $heldDoc->delete();
+        $freeDoc->delete();
+        $heldDoc->forceFill(['deleted_at' => now()->subDays(60)])->saveQuietly();
+        $freeDoc->forceFill(['deleted_at' => now()->subDays(60)])->saveQuietly();
+
+        // Place a hold on the already-soft-deleted document.
+        LegalHoldRegistry::hold($heldDoc, $this->landlord, 'hold on soft-deleted record');
+
+        $this->artisan('soft-deleted:purge', ['--grace-days' => 30, '--confirm' => true])
+            ->assertSuccessful();
+
+        // Held record preserved; unheld record purged. The loop terminated
+        // (no infinite re-fetch of the un-deletable held row).
+        $this->assertNotNull(Document::withTrashed()->find($heldDoc->id));
+        $this->assertNull(Document::withTrashed()->find($freeDoc->id));
+    }
+
     public function test_erasure_preserves_held_documents_as_carve_out(): void
     {
         $spy = $this->spy(MetricsService::class);

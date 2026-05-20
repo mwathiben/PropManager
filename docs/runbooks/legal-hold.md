@@ -175,13 +175,59 @@ php artisan legal-hold:audit-exclusions
 | `messages:enforce-retention` | daily 03:15 EAT | Yes (Phase 64) | `messages_legal_hold_count` |
 | `storage:enforce-retention` | daily 02:30 EAT | Yes (Phase 65) for `kyc_doc` / `lease_doc` / `invoice_pdf` Document branches | `files_retention_held_count{subject}` |
 | `legal-hold:audit-exclusions` | daily 04:45 EAT | (aggregator) | `retention_legal_hold_exclusions_count{subject_type}` |
+| `legal-hold:sweep-stale` | daily 05:10 EAT | (nudges, never deletes) | `legal_hold_stale_count` |
 
 Schedule order is intentional: retention crons run first; aggregator
 runs after so the emitted exclusion count reflects post-purge truth.
 
 DataExportService (right-to-erasure / GDPR Article 20 exports) is
 synchronous on request; the `legal_holds_blocking_erasure` stanza
-always reflects current state.
+always reflects current state. **Phase-68 HOLD-GUARD**: DataDeletionService
+(GDPR Art. 17 erasure) is now hold-aware — held documents are preserved
+(Art. 17(3)(b) carve-out), the rest is erased, and the request completes;
+each preserved doc increments `legal_holds_blocking_erasure`.
+
+---
+
+## Deletion guard (Phase-68 HOLD-GUARD)
+
+A subject under an active hold cannot be deleted on **any** path — the
+`HasLegalHolds` deleting observer throws `LegalHoldActiveException` for
+Document / Invoice / Ticket / MessageThread (manual delete, soft-delete,
+cascade). The attempt renders a friendly error and increments
+`legal_hold_blocked_deletions_count{subject_type}`. To delete a held
+record, release the hold first. This is belt-and-suspenders on top of the
+retention-cron exclusions in the matrix above.
+
+---
+
+## Stale holds
+
+A hold active longer than `config('legal_hold.stale_after_days')` (default
+365) is **stale** — litigation has probably resolved but the hold still
+blocks retention. `legal-hold:sweep-stale` (daily 05:10 EAT):
+
+1. Emits `legal_hold_stale_count` (platform-wide count of stale active holds).
+2. Fires/resolves the `legal_hold_stale` alert (sev3, email).
+3. Emails each owning landlord a `StaleHoldReminderMailable` listing their
+   stale holds with a deep link to `legal-holds.index?status=active`, at
+   most once per `config('legal_hold.stale_reminder_cooldown_days')`
+   (default 30) — tracked via `legal_holds.last_reminded_at`.
+
+The sweeper **never deletes** anything; it only nudges. On-call action when
+`legal_hold_stale` fires: confirm with the landlord whether each hold is
+still required; release the resolved ones (UI or the CLI recipe above).
+Knobs: `LEGAL_HOLD_STALE_AFTER_DAYS`, `LEGAL_HOLD_STALE_REMINDER_COOLDOWN_DAYS`.
+
+**Orphaned holds** (`legal_hold_stale_orphan_count` > 0): the hold's subject
+row no longer exists (hard-deleted out from under the hold), so it can be
+neither reminded nor released through the UI and would otherwise pin
+`legal_hold_stale` open forever. Each is logged as `legal_hold_stale_orphan`
+with the hold id + subject — release them directly: `LegalHold::find(<id>)->update(['released_at' => now()])`.
+
+The soft-delete purge cron (`soft-deleted:purge`) excludes held rows from its
+batch (Phase-68 HOLD-GUARD), so a held + soft-deleted Document/Invoice is
+preserved and the purge loop still terminates.
 
 ---
 

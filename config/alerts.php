@@ -272,5 +272,17 @@ return [
             'paging' => 'page',
             'description' => 'The attachment scanner blocked one or more infected uploads in the last 24h. Malware reached the upload boundary — confirm it was contained and identify the sender.',
         ],
+
+        // Phase-68 STALE-SWEEP-3
+        [
+            'key' => 'legal_hold_stale',
+            'severity' => 'sev3',
+            'threshold' => 0,
+            'window' => 'instantaneous',
+            'gauge' => 'legal_hold_stale_count',
+            'runbook' => 'docs/runbooks/legal-hold.md#stale-holds',
+            'paging' => 'email',
+            'description' => 'One or more legal holds have been active past the stale threshold (litigation likely resolved). The owning landlord is reminded by email; review and release holds no longer required so retention can resume.',
+        ],
     ],
 ];

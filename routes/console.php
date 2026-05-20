@@ -61,6 +61,9 @@ $schedule('inbox:depth-rollup', fn ($e) => $e->dailyAt('04:35')->timezone('Afric
 // for active hold counts across all subject types. Runs AFTER both
 // retention crons so the emitted gauge reflects post-purge truth.
 $schedule('legal-hold:audit-exclusions', fn ($e) => $e->dailyAt('04:45')->timezone('Africa/Nairobi'));
+// Phase-68 STALE-SWEEP: nudge landlords to review holds active past the
+// stale threshold; runs after the exclusions aggregator.
+$schedule('legal-hold:sweep-stale', fn ($e) => $e->dailyAt('05:10')->timezone('Africa/Nairobi'));
 $schedule('invoices:mark-overdue', fn ($e) => $e->dailyAt('00:05'));
 $schedule('invoices:apply-late-fees', fn ($e) => $e->dailyAt('00:10'));
 $schedule('invoices:automate', fn ($e) => $e->dailyAt('06:00'));

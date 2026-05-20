@@ -11,7 +11,9 @@ use App\Models\KycRequirement;
 use App\Models\Lease;
 use App\Models\Property;
 use App\Models\Unit;
+use App\Support\LegalHoldRegistry;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -66,8 +68,7 @@ class SoftDeletedPurge extends Command
         $totalCandidates = 0;
 
         foreach (self::MODELS as $model) {
-            $query = $model::onlyTrashed()->where('deleted_at', '<', $cutoff);
-            $count = $query->count();
+            $count = $this->purgeQuery($model, $cutoff)->count();
 
             $this->info(sprintf(
                 '[%s] grace=%d days, cutoff=%s, candidates=%d',
@@ -87,10 +88,7 @@ class SoftDeletedPurge extends Command
             // soft-deleted rows doesn't lock the table all night.
             $deleted = 0;
             do {
-                $batch = $model::onlyTrashed()
-                    ->where('deleted_at', '<', $cutoff)
-                    ->limit(500)
-                    ->get();
+                $batch = $this->purgeQuery($model, $cutoff)->limit(500)->get();
 
                 foreach ($batch as $row) {
                     $row->forceDelete();
@@ -110,5 +108,26 @@ class SoftDeletedPurge extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Soft-deleted rows past the cutoff, EXCLUDING any under an active
+     * legal hold. Phase-68 HOLD-GUARD: a hold blocks force-delete (the
+     * deleting observer throws), so a held + soft-deleted holdable row
+     * would abort — or, if caught, infinitely re-loop — the purge. Held
+     * rows are preserved and skipped from the batch entirely.
+     */
+    private function purgeQuery(string $model, \Illuminate\Support\Carbon $cutoff): Builder
+    {
+        $query = $model::onlyTrashed()->where('deleted_at', '<', $cutoff);
+
+        if (in_array($model, LegalHoldRegistry::ALLOWED_HOLDABLE_TYPES, true)) {
+            $heldIds = LegalHoldRegistry::heldIdsFor($model);
+            if ($heldIds !== []) {
+                $query->whereNotIn('id', $heldIds);
+            }
+        }
+
+        return $query;
     }
 }

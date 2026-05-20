@@ -26,6 +26,20 @@ return [
         'on_hold' => 'On hold',
     ],
 
+    // Server-rendered mailable (Laravel :colon placeholders, not vue {curly}).
+    'stale' => [
+        'subject' => 'You have :count legal hold(s) that may need review',
+        'heading' => 'Legal holds awaiting review',
+        'greeting' => 'Hi :name,',
+        'body' => 'The following :count legal hold(s) have been active for a long time. If the matter has resolved, please release them so retention sweeps can resume.',
+        'col_subject' => 'Subject',
+        'col_reason' => 'Reason',
+        'col_days' => 'Days held',
+        'cta' => 'Review legal holds',
+        'footer' => 'No action is required if these holds are still needed. We will remind you again later.',
+        'signoff' => '— :app',
+    ],
+
     'history' => [
         'title' => 'Hold history',
         'held' => 'Placed on hold',

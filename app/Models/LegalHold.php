@@ -28,11 +28,13 @@ class LegalHold extends Model
         'held_at',
         'released_at',
         'released_by',
+        'last_reminded_at',
     ];
 
     protected $casts = [
         'held_at' => 'datetime',
         'released_at' => 'datetime',
+        'last_reminded_at' => 'datetime',
     ];
 
     public function holdable(): MorphTo

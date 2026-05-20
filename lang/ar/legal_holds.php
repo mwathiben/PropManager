@@ -26,6 +26,19 @@ return [
         'on_hold' => '[TODO-ar] On hold',
     ],
 
+    'stale' => [
+        'subject' => '[TODO-ar] You have :count legal hold(s) that may need review',
+        'heading' => '[TODO-ar] Legal holds awaiting review',
+        'greeting' => '[TODO-ar] Hi :name,',
+        'body' => '[TODO-ar] The following :count legal hold(s) have been active for a long time. If the matter has resolved, please release them so retention sweeps can resume.',
+        'col_subject' => '[TODO-ar] Subject',
+        'col_reason' => '[TODO-ar] Reason',
+        'col_days' => '[TODO-ar] Days held',
+        'cta' => '[TODO-ar] Review legal holds',
+        'footer' => '[TODO-ar] No action is required if these holds are still needed. We will remind you again later.',
+        'signoff' => '— :app',
+    ],
+
     'history' => [
         'title' => '[TODO-ar] Hold history',
         'held' => '[TODO-ar] Placed on hold',
