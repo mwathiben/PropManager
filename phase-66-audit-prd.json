@@ -157,5 +157,39 @@
             "remediation": "docs/runbooks/growth.md gains NPS + leaderboard + onboarding-tour + cohort-retention sections (config knobs, kill-switch, opt-out/DPA, tour registry authoring guide, cron interaction matrix). alert-thresholds.md rows cross-linked. Memory: project_propmanager_phase66_plan + pending-path + forward-path + MEMORY.md updated at closeout. CodeRabbit code-reviewer run recorded per sub-phase diff.",
             "category": "CI"
         }
-    ]
+    ],
+    "audit_closeout": {
+        "closed_at": "2026-05-21",
+        "closeout_commit": "539642c",
+        "findings_closed": 18,
+        "findings_deferred": 0,
+        "tests_added": 67,
+        "files_added": 45,
+        "files_modified": 30,
+        "commit_lineage": [
+            "19c2497 docs(phase-66): [GROWTH-DEPTH-2] audit PRD — 18 findings (5H/9M/4L)",
+            "96b7919 feat(phase-66): NPS-SURVEY — server-authoritative in-app NPS prompt",
+            "a301f69 fix(build): repair phantom imports breaking vite build + add import gate",
+            "32b14fc fix(i18n): client param keys must use vue-i18n {curly}, not Laravel :colon",
+            "e8b670c feat(phase-66): REFERRAL-LEADERBOARD — anonymised leaderboard + DPA opt-out",
+            "e73e7a4 feat(phase-66): ONBOARDING-TOUR — milestone-aware in-app product tour",
+            "ec9134a feat(phase-66): COHORT-RETENTION — per-source retention vs organic baseline",
+            "103b741 feat(phase-66): GROWTH-OBSERVABILITY — NPS + referral + tour metrics",
+            "539642c test(phase-66): CI — cross-category surface map + runbook completion"
+        ],
+        "process_notes": [
+            "CodeRabbit code-reviewer run on every logic-bearing sub-phase diff (leaderboard reviewed twice; tour; cohort; observability) — no blockers; LOW/MEDIUM findings applied: cache fan-out fix, Cache::forever opt-out stamp, referral-status parity, offset-keyed retention, table a11y, SQL GROUP BY aggregation.",
+            "Two cross-cutting defects found + fixed mid-cycle: vite build broken since Phase 50 (phantom @/ imports) — fixed + guarded by scripts/check-import-exists.mjs; app-wide client i18n :colon vs vue-i18n {curly} — fixed + guarded by ClientI18nParamConventionTest.",
+            "ONBOARDING-TOUR implemented orchestration inside TourOverlay.vue rather than the PRD-envisioned composables/useOnboardingTour.ts — equivalent functionality, fewer moving parts.",
+            "Out-of-band: lint:baseline is stale (hardcoded-english + ltr drift accumulated across Phases 54-66 while the frontend gates went unenforced) — flagged for a dedicated cleanup cycle. This cycle's net-new Vue is t()-clean except the English-only Ops/Growth/Attribution dashboard (existing file convention)."
+        ],
+        "load_bearing_artifacts": [
+            "app/Services/Growth/NpsEligibilityService.php — server-authoritative prompt gating (kill-switch + cadence + dismissals + opt-out)",
+            "app/Services/Growth/ReferralLeaderboardService.php — service-boundary anonymisation + once-per-generation cache + Cache::forever opt-out stamp",
+            "app/Services/Onboarding/TourService.php — data-driven per-role registry + milestone-gated steps + terminal-null payload",
+            "app/Services/Growth/CohortRetentionService.php — super-admin-guarded source comparison + delta-vs-organic, layered on ChurnService::cohortsBySource (no duplicate cohort SQL)",
+            "app/Services/Growth/NpsScoreService.php — SQL GROUP-BY NPS aggregate feeding nps:rollup gauges + nps_negative alert",
+            "scripts/check-import-exists.mjs — pre-build gate that fails on phantom imports (closed a 16-phase-old broken build)"
+        ]
+    }
 }
