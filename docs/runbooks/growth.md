@@ -332,3 +332,19 @@ Visibility gauges (no alerts): `referral_leaderboard_participants` + `referral_l
 
 ### Tests
 `Phase66GrowthObservabilityTest` — NPS math (score/rate/breakdown), `nps:rollup` gauge emission + `nps_negative` fire/resolve, `growth:leaderboard-rollup` referral + tour gauges, tour-controller real-time counter. `Phase66GrowthObservabilitySurfaceTest` — both commands registered + Attribution NPS card tokens.
+
+## Phase 66 — NPS survey (mechanics)
+
+The in-app NPS prompt is **server-authoritative** so a tampered or refreshed client can neither spam nor suppress it.
+
+- **Kill-switch**: `config('nps.enabled')` — set false to silence every prompt platform-wide instantly (the eligibility gate checks it first).
+- **Cadence / gating** (`config/nps.php`): `min_account_age_days` (default 14), `cadence_days` (90 — no re-ask within the window), `max_dismissals` (3) + `snooze_days`, plus a `contexts` allow-list. `NpsEligibilityService::shouldPrompt()` is the single authority; the impression is recorded server-side via `POST /nps/impression`.
+- **Opt-out (DPA)**: `POST /nps/opt-out` sets `nps_prompt_states.opted_out_at` — terminal, never re-prompted.
+- **Surface**: `auth.nps_prompt` Inertia share (null when ineligible) → `Components/Nps/NpsSurveyModal.vue`, mounted once in `AuthenticatedLayout`.
+- **Observability**: see the GROWTH-OBSERVABILITY section above (`nps:rollup` → `nps_score`/`nps_response_rate` gauges + `nps_negative` alert).
+
+Tests: `Phase66NpsSurveyTest` (validation, category boundaries, double-submit 422, kill-switch, age gate, dismiss, opt-out, impression).
+
+## Phase 66 — Onboarding tour
+
+The milestone-aware in-app product tour lives on the onboarding surface — see **`docs/runbooks/onboarding.md` → "Phase 66 — In-app product tour"** for the engine, registry, anchors, and endpoints. Its observability gauges (`onboarding_tour_active/completed/dismissed_count` + real-time counters) are covered in the GROWTH-OBSERVABILITY section above.
