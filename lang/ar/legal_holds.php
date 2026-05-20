@@ -7,6 +7,8 @@ return [
     'bulk_max_exceeded' => '[TODO-ar] Bulk hold limit exceeded.',
     'date_range_exceeded' => '[TODO-ar] Audit export window cannot exceed 2 years.',
     'reason_required' => '[TODO-ar] A reason is required when placing a legal hold.',
+    'delete_blocked' => '[TODO-ar] This record is under an active legal hold and cannot be deleted. Release the hold first.',
+    'delete_blocked_hint' => '[TODO-ar] Under legal hold — release the hold before deleting.',
 
     'nav_legal_holds' => '[TODO-ar] Legal holds',
     'page_title' => '[TODO-ar] Legal holds',

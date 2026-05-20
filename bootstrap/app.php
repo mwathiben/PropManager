@@ -138,7 +138,26 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->expectsJson() || $request->is('api/*')) {
                 return response()->json($payload, 409);
             }
+
             return back()->with('write_conflict', $payload)->setStatusCode(409);
+        });
+
+        // Phase-68 HOLD-GUARD-2: a blocked deletion of a held subject renders
+        // uniformly (whether thrown from a controller pre-check or the
+        // HasLegalHolds deleting observer) — friendly error for HTML, 422 for
+        // JSON — and records the attempt for ops.
+        $exceptions->render(function (\App\Exceptions\LegalHoldActiveException $e, Request $request) {
+            app(\App\Services\MetricsService::class)->increment(
+                'legal_hold_blocked_deletions_count',
+                1,
+                ['subject_type' => class_basename($e->subjectType)],
+            );
+
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['message' => __('legal_holds.delete_blocked')], 422);
+            }
+
+            return back()->withErrors(['legal_hold' => __('legal_holds.delete_blocked')]);
         });
 
         // Phase-21 DEFER-AUTHZ-4: render dedicated Inertia 403/404 pages

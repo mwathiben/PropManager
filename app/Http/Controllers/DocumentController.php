@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\LegalHoldActiveException;
 use App\Models\Document;
 use App\Models\Lease;
 use App\Models\LegalHold;
@@ -357,6 +358,13 @@ class DocumentController extends Controller
         $landlordId = $this->resolveLandlordId();
         if ($document->landlord_id !== $landlordId) {
             abort(403, 'Unauthorized to delete this document');
+        }
+
+        // Phase-68 HOLD-GUARD-2: refuse before the irreversible deleteFile()
+        // runs (the deleting observer fires on ->delete(), which is too late
+        // here — the physical file would already be gone).
+        if ($document->isHeld()) {
+            throw new LegalHoldActiveException(Document::class, (int) $document->id);
         }
 
         // Delete the physical file

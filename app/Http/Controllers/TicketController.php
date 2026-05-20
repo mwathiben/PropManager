@@ -241,6 +241,10 @@ class TicketController extends Controller
 
         return Inertia::render('Tickets/Show', [
             'ticket' => $ticket,
+            // Phase-68 HOLD-GUARD-3: disable the cancel/delete control while
+            // the ticket is under an active legal hold (server guard remains
+            // authoritative).
+            'legalHoldActive' => $ticket->isHeld(),
             'caretakers' => $caretakers,
             'canAssign' => $user->isLandlord(),
             'canChangeStatus' => ! $user->isTenant(),

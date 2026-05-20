@@ -315,13 +315,21 @@ const getFileIcon = (document) => {
                                         <ArrowDownTrayIcon class="w-5 h-5 inline" />
                                     </button>
                                     <button
-                                        v-if="canDeleteDocuments"
+                                        v-if="canDeleteDocuments && !document.is_held"
                                         @click="deleteDocument(document.id)"
                                         class="text-red-600 hover:text-red-900"
                                         title="Delete"
                                     >
                                         <TrashIcon class="w-5 h-5 inline" />
                                     </button>
+                                    <span
+                                        v-else-if="canDeleteDocuments && document.is_held"
+                                        class="text-gray-300 cursor-not-allowed"
+                                        :title="t('legal_holds.delete_blocked_hint')"
+                                        data-testid="delete-blocked-by-hold"
+                                    >
+                                        <TrashIcon class="w-5 h-5 inline" />
+                                    </span>
 
                                     <template v-if="canManageHolds">
                                         <button

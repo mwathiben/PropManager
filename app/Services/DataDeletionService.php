@@ -9,6 +9,7 @@ use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\User;
+use App\Support\LegalHoldRegistry;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -123,12 +124,18 @@ class DataDeletionService
             return;
         }
 
-        DB::transaction(function () use ($user, $request) {
+        // Phase-68 HOLD-GUARD: documents under an active legal hold are a
+        // GDPR Art. 17(3)(b) / Kenya DPA carve-out — erase everything else
+        // and preserve the held records (the deleting observer would
+        // otherwise abort the whole erasure transaction).
+        $heldPreserved = 0;
+
+        DB::transaction(function () use ($user, $request, &$heldPreserved) {
             // 1. Delete all user documents
-            $this->deleteUserDocuments($user);
+            $heldPreserved += $this->deleteUserDocuments($user);
 
             // 2. Anonymize lease records (keep for financial/legal records)
-            $this->anonymizeLeases($user);
+            $heldPreserved += $this->anonymizeLeases($user);
 
             // 3. Anonymize invoice and payment records
             $this->anonymizeFinancialRecords($user);
@@ -159,17 +166,25 @@ class DataDeletionService
                     'deletion_request_id' => $request->id,
                     'original_email_hash' => hash('sha256', $anonymizedEmail),
                     'compliance' => ['gdpr_article_17', 'kenya_dpa_section_28'],
+                    // Art. 17(3)(b): documents preserved under an active hold.
+                    'legal_holds_preserved' => $heldPreserved,
                 ],
                 'ip_address' => 'system',
                 'user_agent' => 'Scheduled Deletion Job',
             ]);
         });
+
+        if ($heldPreserved > 0) {
+            app(MetricsService::class)->increment('legal_holds_blocking_erasure', $heldPreserved);
+        }
     }
 
     /**
      * Delete all documents uploaded by/for the user.
+     *
+     * @return int number of held documents preserved (not erased)
      */
-    protected function deleteUserDocuments(User $user): void
+    protected function deleteUserDocuments(User $user): int
     {
         // User's own documents
         $documents = Document::where('documentable_type', User::class)
@@ -177,21 +192,22 @@ class DataDeletionService
             ->select(['id', 'file_path'])
             ->get();
 
-        foreach ($documents as $doc) {
-            $doc->deleteFile();
-            $doc->forceDelete();
-        }
+        $held = $this->forceDeleteUnheld($documents);
 
         // Documents uploaded by this user
         Document::where('uploaded_by', $user->id)->update([
             'uploaded_by' => null,
         ]);
+
+        return $held;
     }
 
     /**
      * Anonymize lease records (keep structure for financial reporting).
+     *
+     * @return int number of held lease documents preserved (not erased)
      */
-    protected function anonymizeLeases(User $user): void
+    protected function anonymizeLeases(User $user): int
     {
         Lease::where('tenant_id', $user->id)->update([
             'tenant_id' => null,
@@ -205,10 +221,33 @@ class DataDeletionService
             ->select(['id', 'file_path'])
             ->get();
 
-        foreach ($leaseDocs as $doc) {
+        return $this->forceDeleteUnheld($leaseDocs);
+    }
+
+    /**
+     * Force-delete every document NOT under an active legal hold, returning
+     * the count of held documents preserved. A held document is a GDPR
+     * Art. 17(3)(b) carve-out — preserved, never destroyed by an erasure.
+     *
+     * @param  \Illuminate\Support\Collection<int, Document>  $documents
+     */
+    protected function forceDeleteUnheld($documents): int
+    {
+        $heldIds = LegalHoldRegistry::heldIdsFor(Document::class);
+        $preserved = 0;
+
+        foreach ($documents as $doc) {
+            if (in_array((int) $doc->id, $heldIds, true)) {
+                $preserved++;
+
+                continue;
+            }
+
             $doc->deleteFile();
             $doc->forceDelete();
         }
+
+        return $preserved;
     }
 
     /**
