@@ -97,6 +97,13 @@ class HandleInertiaRequests extends Middleware
                         fn () => \App\Support\LegalHoldRegistry::activeCountForLandlord((int) $user->id),
                     )
                     : 0,
+                // Phase-66 NPS-SURVEY-2: server-authoritative NPS prompt
+                // payload (null when ineligible). The service caches the
+                // decision 60s and busts on every state mutation, so this
+                // adds at most one indexed lookup per cold render.
+                'nps_prompt' => $user
+                    ? app(\App\Services\Growth\NpsEligibilityService::class)->promptPayloadFor($user)
+                    : null,
             ],
             'impersonating' => session('impersonating') !== null,
             'impersonating_name' => session('impersonating_name'),

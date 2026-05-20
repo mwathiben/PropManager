@@ -111,6 +111,8 @@ class AuthServiceProvider extends ServiceProvider
         \App\Models\Message::class => \App\Policies\MessagePolicy::class,
         // Phase-64 LEGAL-HOLD-3: court-ordered preservation directives.
         \App\Models\LegalHold::class => \App\Policies\LegalHoldPolicy::class,
+        // Phase-66 NPS-SURVEY-1: respondent owns their own NPS response.
+        \App\Models\NpsResponse::class => \App\Policies\NpsResponsePolicy::class,
     ];
 
     /**

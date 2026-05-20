@@ -1401,6 +1401,22 @@ Route::middleware(['auth', 'role:landlord'])->group(function () {
         ->name('legal-holds.audit-export');
 });
 
+// Phase-66 NPS-SURVEY-1/2: in-app NPS for every authenticated customer
+// (landlord/caretaker/tenant). Eligibility + cadence are enforced
+// server-side in NpsEligibilityService — these endpoints only record
+// the outcome of a prompt the server already decided to show. Throttled
+// so a tampered client cannot hammer the state-write endpoints.
+Route::middleware(['auth', 'throttle:30,1'])->group(function () {
+    Route::post('/nps', [\App\Http\Controllers\NpsResponseController::class, 'store'])
+        ->name('nps.store');
+    Route::post('/nps/impression', [\App\Http\Controllers\NpsResponseController::class, 'impression'])
+        ->name('nps.impression');
+    Route::post('/nps/dismiss', [\App\Http\Controllers\NpsResponseController::class, 'dismiss'])
+        ->name('nps.dismiss');
+    Route::post('/nps/opt-out', [\App\Http\Controllers\NpsResponseController::class, 'optOut'])
+        ->name('nps.opt-out');
+});
+
 // Phase-29 WF-LEASE-RENEW-2: landlord-side renewal initiate + confirm.
 Route::middleware(['auth', 'role:landlord'])->group(function () {
     Route::post('/leases/{lease}/renewals', [\App\Http\Controllers\LeaseRenewalController::class, 'store'])

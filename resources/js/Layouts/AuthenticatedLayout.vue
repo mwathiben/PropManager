@@ -19,6 +19,7 @@ import ConnectionStatus from '@/Components/ConnectionStatus.vue';
 import OnlineIndicator from '@/Components/OnlineIndicator.vue';
 import QueuedOpsTray from '@/Components/QueuedOpsTray.vue';
 import SlowNetworkBanner from '@/Components/Layout/SlowNetworkBanner.vue';
+import NpsSurveyModal from '@/Components/Nps/NpsSurveyModal.vue';
 import InvitationBanner from '@/Components/InvitationBanner.vue';
 import {
     HomeIcon,
@@ -707,5 +708,9 @@ const navigationItems = computed(() => {
             :payload="conflictPayload"
             @resolve="onConflictResolve"
         />
+
+        <!-- Phase-66 NPS-SURVEY-3: globally-mounted NPS prompt. Shows
+             only when the server's auth.nps_prompt payload is present. -->
+        <NpsSurveyModal />
     </div>
 </template>
