@@ -44,6 +44,18 @@ class FooTest extends TestCase
 }
 ```
 
+## Coverage floor
+
+The CI test step runs `php artisan test --parallel --coverage --min=35`
+(Phase-69 COVERAGE-RATCHET). The floor (35) sits just below the current
+~38% so it passes today but fails CI on a coverage **cliff**.
+
+- **Ratchet up, never down.** As coverage climbs (by backfilling tests for
+  legacy services — the bulk of the uncovered surface), raise `--min` toward
+  it. Treat the floor as shrink-only, like `lint:baseline`.
+- Coverage needs a driver (xdebug in CI; there is no pcov/xdebug locally, so
+  the floor is verified in CI, not on a dev box).
+
 ## Cross-references
 
 - `docs/runbooks/metrics-naming.md` — gauge naming convention + guard

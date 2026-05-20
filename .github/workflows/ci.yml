@@ -120,10 +120,12 @@ jobs:
         run: php artisan migrate --force
 
       - name: Run tests with coverage
-        # Coverage runs as a report, not a gate. Current coverage is ~38%;
-        # raising to 70 (prior --min=70) will require backfilling tests in
-        # legacy services. Re-enable --min=N once the floor is realistic.
-        run: php artisan test --parallel --coverage
+        # Phase-69 COVERAGE-RATCHET: a conservative floor (35, below the ~38%
+        # current) so a coverage cliff fails CI while passing today. Ratchet
+        # the floor UP as coverage climbs (backfill legacy-service tests);
+        # never lower it — shrink-only, mirroring lint:baseline. See
+        # docs/runbooks/testing.md#coverage-floor.
+        run: php artisan test --parallel --coverage --min=35
 
   build:
     name: Frontend Build
