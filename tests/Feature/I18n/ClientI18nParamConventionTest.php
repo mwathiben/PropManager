@@ -46,6 +46,7 @@ class ClientI18nParamConventionTest extends TestCase
             'legal_holds.bulk.place' => ['count'],
             'legal_holds.bulk.release' => ['count'],
             'legal_holds.bulk.cap_hint' => ['max'],
+            'vendor_portal.dashboard.title' => ['name'],
         ];
 
         foreach (['en', 'sw'] as $locale) {

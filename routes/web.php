@@ -194,6 +194,19 @@ Route::middleware(['signed', 'throttle:invitation'])->group(function () {
         ->name('vendor.profile.edit');
     Route::patch('/v/profile/{vendor}', [\App\Http\Controllers\VendorProfileController::class, 'update'])
         ->name('vendor.profile.update');
+
+    // Phase-70 VENDOR-AUTH-1: signed magic-link that establishes the vendor
+    // portal session, then redirects into the portal.
+    Route::get('/v/portal/enter/{vendor}', [\App\Http\Controllers\VendorPortalController::class, 'enter'])
+        ->name('vendor.portal.enter');
+});
+
+// Phase-70 VENDOR-PORTAL: session-guarded portal (no User row — the
+// EnsureVendorPortal middleware resolves the vendor from the session
+// seeded by the signed enter link). All queries scope to that vendor.
+Route::middleware(['vendor.portal', 'throttle:60,1'])->prefix('v/portal')->name('vendor.portal.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\VendorPortalController::class, 'dashboard'])->name('dashboard');
+    Route::post('/logout', [\App\Http\Controllers\VendorPortalController::class, 'logout'])->name('logout');
 });
 
 // --- AUTHENTICATED ROUTES GROUP ---
@@ -1069,6 +1082,9 @@ Route::middleware('auth')->group(function () {
         Route::post('/vendors', [ExpenseController::class, 'storeVendor'])->name('vendors.store');
         Route::put('/vendors/{vendor}', [ExpenseController::class, 'updateVendor'])->name('vendors.update');
         Route::delete('/vendors/{vendor}', [ExpenseController::class, 'destroyVendor'])->name('vendors.destroy');
+        // Phase-70 VENDOR-AUTH-3: re-send a fresh signed portal link.
+        Route::post('/vendors/{vendor}/portal-link', [\App\Http\Controllers\VendorPortalController::class, 'reissue'])
+            ->name('vendors.portal-link');
     });
 
     // 16. Deposits (Security Deposits Tracking)

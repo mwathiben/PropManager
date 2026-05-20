@@ -73,6 +73,8 @@ class Ticket extends Model
         'first_response_at',
         'resolution_due_at',
         'vendor_id',
+        'vendor_status',
+        'vendor_responded_at',
     ];
 
     protected $casts = [
@@ -82,6 +84,7 @@ class Ticket extends Model
         'sla_due_at' => 'datetime',
         'first_response_at' => 'datetime',
         'resolution_due_at' => 'datetime',
+        'vendor_responded_at' => 'datetime',
     ];
 
     /**
