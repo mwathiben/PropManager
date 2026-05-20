@@ -7,8 +7,8 @@ use App\Models\Concerns\HasLegalHolds;
 use App\Models\Concerns\RowVersion;
 use App\Traits\Auditable;
 use App\Traits\TenantScope;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -176,6 +176,14 @@ class Ticket extends Model
     public function activities(): HasMany
     {
         return $this->hasMany(TicketActivity::class)->orderBy('created_at');
+    }
+
+    /**
+     * Phase-70 JOB-ACTIONS-1: vendor labour-time entries.
+     */
+    public function timeLogs(): HasMany
+    {
+        return $this->hasMany(\App\Models\TicketTimeLog::class);
     }
 
     public function comments(): HasMany

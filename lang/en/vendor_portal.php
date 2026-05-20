@@ -55,4 +55,23 @@ return [
         'cta' => 'Reassign it from the ticket page.',
         'signoff' => '— :app',
     ],
+
+    'job' => [
+        'title' => 'Job detail',
+        'description' => 'Description',
+        'log_time' => 'Log time',
+        'minutes' => 'Minutes',
+        'note' => 'Note (optional)',
+        'add_time' => 'Add time',
+        'total_time' => 'Total time logged',
+        'prior_logs' => 'Time entries',
+        'resolve' => 'Mark resolved',
+        'resolve_notes' => 'Resolution notes',
+        'mark_resolved' => 'Mark resolved',
+        'time_logged' => 'Time logged.',
+        'resolved' => 'Job marked resolved.',
+        'not_accepted' => 'Accept the job before logging time or resolving it.',
+        'not_open' => 'This job is no longer open.',
+        'minutes_unit' => 'min',
+    ],
 ];

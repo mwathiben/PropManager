@@ -51,4 +51,23 @@ return [
         'cta' => '[TODO-ar] Reassign it from the ticket page.',
         'signoff' => '— :app',
     ],
+
+    'job' => [
+        'title' => '[TODO-ar] Job detail',
+        'description' => '[TODO-ar] Description',
+        'log_time' => '[TODO-ar] Log time',
+        'minutes' => '[TODO-ar] Minutes',
+        'note' => '[TODO-ar] Note (optional)',
+        'add_time' => '[TODO-ar] Add time',
+        'total_time' => '[TODO-ar] Total time logged',
+        'prior_logs' => '[TODO-ar] Time entries',
+        'resolve' => '[TODO-ar] Mark resolved',
+        'resolve_notes' => '[TODO-ar] Resolution notes',
+        'mark_resolved' => '[TODO-ar] Mark resolved',
+        'time_logged' => '[TODO-ar] Time logged.',
+        'resolved' => '[TODO-ar] Job marked resolved.',
+        'not_accepted' => '[TODO-ar] Accept the job before logging time or resolving it.',
+        'not_open' => '[TODO-ar] This job is no longer open.',
+        'minutes_unit' => '[TODO-ar] min',
+    ],
 ];

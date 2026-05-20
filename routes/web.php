@@ -214,6 +214,14 @@ Route::middleware(['vendor.portal', 'throttle:60,1'])->prefix('v/portal')->name(
         ->whereNumber('ticket')->name('tickets.accept');
     Route::post('/tickets/{ticket}/decline', [\App\Http\Controllers\VendorPortalTicketController::class, 'decline'])
         ->whereNumber('ticket')->name('tickets.decline');
+
+    // Phase-70 JOB-ACTIONS: job detail + log time + mark resolved.
+    Route::get('/tickets/{ticket}', [\App\Http\Controllers\VendorPortalTicketController::class, 'show'])
+        ->whereNumber('ticket')->name('tickets.show');
+    Route::post('/tickets/{ticket}/time', [\App\Http\Controllers\VendorPortalTicketController::class, 'logTime'])
+        ->whereNumber('ticket')->middleware('throttle:10,1')->name('tickets.time');
+    Route::post('/tickets/{ticket}/resolve', [\App\Http\Controllers\VendorPortalTicketController::class, 'resolve'])
+        ->whereNumber('ticket')->name('tickets.resolve');
 });
 
 // --- AUTHENTICATED ROUTES GROUP ---
