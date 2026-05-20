@@ -1,6 +1,6 @@
 <script setup>
-import { router } from '@inertiajs/vue3'
-import AppLayout from '@/Layouts/AppLayout.vue'
+import { Head, router } from '@inertiajs/vue3'
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 
 const props = defineProps({
     templates: { type: Array, required: true },
@@ -17,10 +17,15 @@ function cloneTemplate(template) {
 </script>
 
 <template>
-    <AppLayout title="Report templates">
+    <Head title="Report templates" />
+
+    <AuthenticatedLayout>
+        <template #header>
+            <h2 class="text-xl font-semibold text-gray-900">Report template marketplace</h2>
+        </template>
+
         <div class="mx-auto max-w-6xl space-y-8 p-6">
             <header class="space-y-1">
-                <h1 class="text-2xl font-semibold">Report template marketplace</h1>
                 <p class="text-sm text-gray-600">
                     Platform-curated reports. Clone one to make a private copy you can edit and schedule.
                 </p>
@@ -49,5 +54,5 @@ function cloneTemplate(template) {
                 </div>
             </section>
         </div>
-    </AppLayout>
+    </AuthenticatedLayout>
 </template>

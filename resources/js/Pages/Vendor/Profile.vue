@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
-import { __ } from '@/lang';
+import { useI18n } from '@/composables/useI18n';
 
 interface VendorPayload {
     id: number;
@@ -12,6 +12,8 @@ interface VendorPayload {
 }
 
 const props = defineProps<{ vendor: VendorPayload }>();
+
+const { t } = useI18n();
 
 const form = useForm({
     contact_person: props.vendor.contact_person ?? '',
@@ -26,7 +28,7 @@ function submit(): void {
 </script>
 
 <template>
-    <Head :title="__('maintenance.vendor_onboarding.form.title')" />
+    <Head :title="t('maintenance.vendor_onboarding.form.title')" />
 
     <div class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-emerald-50 px-4 py-10">
         <div class="mx-auto max-w-xl rounded-2xl bg-white p-8 shadow-xl ring-1 ring-gray-100">
@@ -35,10 +37,10 @@ function submit(): void {
                     {{ props.vendor.name.charAt(0) }}
                 </div>
                 <h1 class="mt-3 text-xl font-semibold text-gray-900">
-                    {{ __('maintenance.vendor_onboarding.form.title') }}
+                    {{ t('maintenance.vendor_onboarding.form.title') }}
                 </h1>
                 <p class="mt-1 text-sm text-gray-600">
-                    {{ __('maintenance.vendor_onboarding.form.intro') }}
+                    {{ t('maintenance.vendor_onboarding.form.intro') }}
                 </p>
                 <p class="mt-2 text-xs text-gray-500">{{ props.vendor.name }}</p>
             </header>
@@ -46,7 +48,7 @@ function submit(): void {
             <form class="space-y-4" @submit.prevent="submit">
                 <div>
                     <label class="block text-xs font-semibold text-gray-700">
-                        {{ __('maintenance.vendor_onboarding.form.contact_person') }}
+                        {{ t('maintenance.vendor_onboarding.form.contact_person') }}
                     </label>
                     <input
                         v-model="form.contact_person"
@@ -59,7 +61,7 @@ function submit(): void {
 
                 <div>
                     <label class="block text-xs font-semibold text-gray-700">
-                        {{ __('maintenance.vendor_onboarding.form.phone') }}
+                        {{ t('maintenance.vendor_onboarding.form.phone') }}
                     </label>
                     <input
                         v-model="form.phone"
@@ -72,7 +74,7 @@ function submit(): void {
 
                 <div>
                     <label class="block text-xs font-semibold text-gray-700">
-                        {{ __('maintenance.vendor_onboarding.form.address') }}
+                        {{ t('maintenance.vendor_onboarding.form.address') }}
                     </label>
                     <input
                         v-model="form.address"
@@ -85,7 +87,7 @@ function submit(): void {
 
                 <div>
                     <label class="block text-xs font-semibold text-gray-700">
-                        {{ __('maintenance.vendor_onboarding.form.notes') }}
+                        {{ t('maintenance.vendor_onboarding.form.notes') }}
                     </label>
                     <textarea
                         v-model="form.notes"
@@ -101,7 +103,7 @@ function submit(): void {
                     :disabled="form.processing"
                     class="w-full rounded bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
                 >
-                    {{ __('maintenance.vendor_onboarding.form.submit') }}
+                    {{ t('maintenance.vendor_onboarding.form.submit') }}
                 </button>
             </form>
         </div>

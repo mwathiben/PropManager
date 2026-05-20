@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { __ } from '@/lang';
+import { useI18n } from '@/composables/useI18n';
 
 interface SlaRow {
     id: number;
@@ -21,6 +21,8 @@ const props = defineProps<{
     categoryOptions: string[];
     priorityOptions: string[];
 }>();
+
+const { t } = useI18n();
 
 const modalOpen = ref(false);
 const editing = ref<SlaRow | null>(null);
@@ -81,7 +83,7 @@ function submit(): void {
 }
 
 function destroy(row: SlaRow): void {
-    if (!window.confirm(__('common.confirm_delete'))) return;
+    if (!window.confirm(t('common.confirm_delete'))) return;
     router.delete(route('sla.destroy', row.id), { preserveScroll: true });
 }
 
@@ -104,13 +106,13 @@ const cascadePreview = computed(() => {
     <AuthenticatedLayout>
         <template #header>
             <h1 class="text-xl font-semibold text-gray-900">
-                {{ __('maintenance.sla.title') }}
+                {{ t('maintenance.sla.title') }}
             </h1>
         </template>
 
         <div class="mx-auto max-w-6xl space-y-6 px-4 py-6 lg:px-8">
             <p class="text-sm text-gray-600">
-                {{ __('maintenance.sla.description') }}
+                {{ t('maintenance.sla.description') }}
             </p>
 
             <section class="rounded-lg border border-gray-200 bg-white p-4">
