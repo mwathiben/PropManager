@@ -18,7 +18,9 @@
             "title": "ConcurrentWebhookTest @group -> #[Group]",
             "evidence": "tests/Feature/ConcurrentWebhookTest.php carries class-level `@group idempotency` + `@group concurrent` doc-comment metadata, which PHPUnit 11 deprecates ('Metadata found in doc-comment ... will no longer be supported in PHPUnit 12'). This is one of the recurring WARN lines on every suite run.",
             "remediation": "Replace the two `@group` doc-comment lines with `#[Group('idempotency')]` + `#[Group('concurrent')]` attributes on the class (use PHPUnit\\Framework\\Attributes\\Group). The test_-prefixed methods need no #[Test] (PHPUnit auto-discovers test_ prefix). Run the file with --display-deprecations and confirm zero deprecation lines.",
-            "category": "METADATA-ATTR"
+            "category": "METADATA-ATTR",
+            "passes": true,
+            "verification": "ConcurrentWebhookTest @group->#[Group] (PHPUnit\\Framework\\Attributes\\Group). de758bc."
         },
         {
             "id": "METADATA-ATTR-2",
@@ -26,7 +28,9 @@
             "title": "Phase27GoldenQueriesTest @dataProvider -> #[DataProvider]",
             "evidence": "tests/Feature/Reports/Phase27GoldenQueriesTest.php uses `@dataProvider reportTypes` doc-comment metadata on test_report_type_matches_golden_output.",
             "remediation": "Replace `@dataProvider reportTypes` with `#[DataProvider('reportTypes')]` (PHPUnit\\Framework\\Attributes\\DataProvider). reportTypes() is already `public static`, so no provider change needed. Confirm the data-provided cases still run (golden-query assertions unchanged).",
-            "category": "METADATA-ATTR"
+            "category": "METADATA-ATTR",
+            "passes": true,
+            "verification": "Phase27GoldenQueriesTest @dataProvider->#[DataProvider] (provider already static). de758bc."
         },
         {
             "id": "METADATA-ATTR-3",
@@ -34,7 +38,9 @@
             "title": "Phase27PerfTest @dataProvider -> #[DataProvider]",
             "evidence": "tests/Feature/Reports/Phase27PerfTest.php uses `@dataProvider reportTypes` doc-comment metadata on test_report_type_runs_within_perf_budget.",
             "remediation": "Replace `@dataProvider reportTypes` with `#[DataProvider('reportTypes')]`; reportTypes() is already static. Confirm the perf-budget cases still run.",
-            "category": "METADATA-ATTR"
+            "category": "METADATA-ATTR",
+            "passes": true,
+            "verification": "Phase27PerfTest @dataProvider->#[DataProvider]. de758bc. 11 tests / 182 assertions, zero deprecations."
         },
         {
             "id": "DEPRECATION-GATE-1",
@@ -42,7 +48,9 @@
             "title": "phpunit.xml fails on PHPUnit deprecations + warnings",
             "evidence": "phpunit.xml has NO failOn* attributes, so the metadata deprecations (and any future PHPUnit deprecation) are silent warnings that never fail CI — exactly how the doc-comment metadata accumulated unnoticed.",
             "remediation": "Add failOnPhpunitDeprecation=\"true\" + failOnPhpunitWarning=\"true\" to the <phpunit> root. Scope deliberately to PHPUnit's OWN deprecations/warnings (NOT failOnDeprecation for PHP/library E_DEPRECATED, which cannot be verified clean across the full legacy suite locally without a long run — documented as a deliberate scoping decision). After METADATA-ATTR-1..3, the three files run green under the flag.",
-            "category": "DEPRECATION-GATE"
+            "category": "DEPRECATION-GATE",
+            "passes": true,
+            "verification": "phpunit.xml failOnPhpunitDeprecation + failOnPhpunitWarning; verified safe across 770 diverse tests. e27d780."
         },
         {
             "id": "DEPRECATION-GATE-2",
@@ -50,7 +58,9 @@
             "title": "Metadata-regression guard test",
             "evidence": "Even with the runtime gate, a contributor on an older PHPUnit or a copied test could reintroduce doc-comment metadata; a static guard makes the rule explicit and fast.",
             "remediation": "tests/Feature/TestHygiene/Phase69MetadataHygieneTest scans tests/ for doc-comment PHPUnit metadata (`* @test`, `@dataProvider`, `@group`, `@depends`, `@covers`, `@testWith`, `@runInSeparateProcess`, etc., excluding false positives like `@test.com` emails by requiring the annotation to follow a doc-comment ` * ` prefix) and fails listing offenders. Asserts zero after the conversion.",
-            "category": "DEPRECATION-GATE"
+            "category": "DEPRECATION-GATE",
+            "passes": true,
+            "verification": "Phase69MetadataHygieneTest scans tests/ for ` * @annotation` doc-comment metadata (excludes tenant@test.com); 0 offenders. e27d780."
         },
         {
             "id": "DEPRECATION-GATE-3",
@@ -58,7 +68,9 @@
             "title": "Document the deprecation posture",
             "evidence": "Operators/contributors need to know PHPUnit deprecations now fail and why failOnDeprecation (PHP-level) is intentionally deferred.",
             "remediation": "docs/runbooks/testing.md (new or extended) records: attributes-only metadata, failOnPhpunitDeprecation/Warning gate, the deferred failOnDeprecation rationale (legacy E_DEPRECATED backlog), and the metadata guard.",
-            "category": "DEPRECATION-GATE"
+            "category": "DEPRECATION-GATE",
+            "passes": true,
+            "verification": "docs/runbooks/testing.md deprecation posture + deferred-failOnDeprecation rationale. e27d780."
         },
         {
             "id": "GAUGE-NAMING-1",
@@ -66,7 +78,9 @@
             "title": "Metric-naming convention doc",
             "evidence": "Phase-65 CodeRabbit flagged messages_legal_hold_count / files_retention_held_count / retention_legal_hold_exclusions_count as inconsistent naming with no codified convention; new gauges (Phase 67/68) added more surface with no rulebook.",
             "remediation": "docs/runbooks/metrics-naming.md establishes the convention: snake_case, lower-case; <domain>_<subject>_<unit|aggregate>; recognized suffixes (_count, _total, _seconds, _ms, _bytes, _ratio, _usd, _hours, _days, _gauge) or a documented grandfather list; labels for dimensions (landlord_id, subject_type) not name explosion. Explicitly grandfathers the existing names (renaming live gauges breaks dashboards — out of scope) and states the legal-hold trio measure DISTINCT quantities (messages held / files held / cross-type exclusion aggregate), so they are intentionally separate, not duplicates.",
-            "category": "GAUGE-NAMING"
+            "category": "GAUGE-NAMING",
+            "passes": true,
+            "verification": "docs/runbooks/metrics-naming.md convention + legal-hold trio documented as intentionally distinct (different cron/layer). 8c243c3."
         },
         {
             "id": "GAUGE-NAMING-2",
@@ -74,7 +88,9 @@
             "title": "Alerts-gauge naming guard",
             "evidence": "Nothing prevents a new alert from registering a malformed/inconsistent gauge name.",
             "remediation": "tests/Feature/Observability/Phase69GaugeNamingTest asserts every config('alerts.alerts')[*]['gauge'] is snake_case AND ends in a recognized suffix OR is in the documented grandfather allowlist. Fails listing offenders. Codifies GAUGE-NAMING-1 as an executable gate.",
-            "category": "GAUGE-NAMING"
+            "category": "GAUGE-NAMING",
+            "passes": true,
+            "verification": "Phase69GaugeNamingTest: snake_case + token (or window/percentile shape regex) over all 23 alert gauges; CodeRabbit-hardened (exact liveness allowlist instead of generic 'up'; window/percentile by regex). 8c243c3."
         },
         {
             "id": "GAUGE-NAMING-3",
@@ -82,7 +98,9 @@
             "title": "Cross-link the convention from the SRE alert registry",
             "evidence": "config/alerts.php is the alert source of truth but doesn't point at the naming rules.",
             "remediation": "Add a comment in config/alerts.php header pointing to docs/runbooks/metrics-naming.md, and cross-reference it from alert-thresholds.md so the next alert author finds the convention.",
-            "category": "GAUGE-NAMING"
+            "category": "GAUGE-NAMING",
+            "passes": true,
+            "verification": "config/alerts.php header + alert-thresholds.md cross-link the convention. 8c243c3."
         },
         {
             "id": "COVERAGE-RATCHET-1",
@@ -90,7 +108,9 @@
             "title": "Re-enable a conservative coverage --min floor in CI",
             "evidence": "ci.yml runs `php artisan test --parallel --coverage` as a REPORT only (the prior --min=70 was removed; current ~38%). A change that craters coverage is undetectable.",
             "remediation": "Re-enable `--min=35` (a safe floor below the documented ~38% current, so it passes today but catches a regression cliff) on the CI coverage step, with a comment establishing the ratchet-up policy (raise the floor as coverage climbs, never lower it — shrink-only, mirroring lint:baseline). No local coverage driver (pcov/xdebug) so the floor value is set from the documented current; CI (xdebug) enforces it.",
-            "category": "COVERAGE-RATCHET"
+            "category": "COVERAGE-RATCHET",
+            "passes": true,
+            "verification": "ci.yml `--min=35` floor (below ~38% current); shrink-only ratchet-up policy. 1ca24be."
         },
         {
             "id": "COVERAGE-RATCHET-2",
@@ -98,7 +118,9 @@
             "title": "Document the coverage floor + ratchet policy",
             "evidence": "The floor needs a written policy so it ratchets up rather than rots.",
             "remediation": "docs/runbooks/testing.md records the coverage floor (35), the ~38% current, the ratchet-up rule, and that backfilling legacy-service tests is the path to raising it.",
-            "category": "COVERAGE-RATCHET"
+            "category": "COVERAGE-RATCHET",
+            "passes": true,
+            "verification": "docs/runbooks/testing.md#coverage-floor policy. 1ca24be."
         },
         {
             "id": "CI-1",
@@ -106,7 +128,9 @@
             "title": "Phase69TestDebt2SurfaceTest cross-cutting map",
             "evidence": "The new config + guards + docs must be guarded against drift.",
             "remediation": "tests/Feature/TestHygiene/Phase69TestDebt2SurfaceTest asserts: phpunit.xml contains failOnPhpunitDeprecation + failOnPhpunitWarning; the metadata guard + gauge-naming guard classes exist; docs/runbooks/metrics-naming.md + testing.md exist; ci.yml contains `--min=`. Plus a behavior assertion that the three converted files no longer contain doc-comment metadata.",
-            "category": "CI"
+            "category": "CI",
+            "passes": true,
+            "verification": "Phase69TestDebt2SurfaceTest (5 methods) maps the gate config, both guards, the docs, the coverage floor, and the converted-files state."
         },
         {
             "id": "CI-2",
@@ -114,7 +138,30 @@
             "title": "Runbook + memory closeout",
             "evidence": "The cycle ledger + operators need the new posture recorded.",
             "remediation": "testing.md finalised; audit_closeout merged into phase-69-audit-prd.json; memory (project_propmanager_phase69_plan + pending-path + forward-path + MEMORY.md) updated; CodeRabbit code-reviewer run recorded per logic-bearing diff.",
-            "category": "CI"
+            "category": "CI",
+            "passes": true,
+            "verification": "testing.md finalised; this audit_closeout; memory + CodeRabbit recorded."
         }
-    ]
+    ],
+    "audit_closeout": {
+        "closed_at": "2026-05-21",
+        "result": "13/13 findings closed (zero deferrals). Right-sized cycle (not padded to 18) — the real test/CI debt was small, as the forward path predicted.",
+        "commits": {
+            "prd": "7905a05",
+            "METADATA-ATTR": "de758bc",
+            "DEPRECATION-GATE": "e27d780",
+            "GAUGE-NAMING": "8c243c3",
+            "COVERAGE-RATCHET": "1ca24be",
+            "CI": "PENDING (this commit)"
+        },
+        "tests": "Phase69 guards/surface 7 tests / 48 assertions green; 770-test sample green under the new gate; metadata conversion 11 tests / 182 assertions zero deprecations. Pint clean.",
+        "deviations": [
+            "Sized to 13 findings (5 categories), not the usual 18/6 — measured debt was genuinely small (only doc-comment metadata in 3 files; no other PHPUnit/PHP/Carbon deprecations; CI already mature). Padding to 18 would have been slop. The forward path flagged TEST-DEBT-2 as 'a smaller process pivot, not a full DEFER-CLEANUP'.",
+            "failOnDeprecation (PHP/library E_DEPRECATED) intentionally deferred — only failOnPhpunitDeprecation/Warning enabled; the legacy E_DEPRECATED backlog isn't audited clean and can't be verified locally (no pcov/xdebug). Documented in testing.md.",
+            "Coverage floor (--min=35) verified in CI only (xdebug); no local coverage driver, so the value is set from the documented ~38% current."
+        ],
+        "coderabbit": [
+            "GAUGE-NAMING: 'up' was a false-accept token (gateway_warm_up would pass) -> exact liveness allowlist (dependency_up); hardcoded window/percentile enum false-rejected _15m/_p999 -> shape regex; doc grandfather contradiction corrected; age/score caveat added."
+        ]
+    }
 }
