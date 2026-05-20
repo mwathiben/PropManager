@@ -20,6 +20,7 @@ import OnlineIndicator from '@/Components/OnlineIndicator.vue';
 import QueuedOpsTray from '@/Components/QueuedOpsTray.vue';
 import SlowNetworkBanner from '@/Components/Layout/SlowNetworkBanner.vue';
 import NpsSurveyModal from '@/Components/Nps/NpsSurveyModal.vue';
+import TourOverlay from '@/Components/Tour/TourOverlay.vue';
 import InvitationBanner from '@/Components/InvitationBanner.vue';
 import {
     HomeIcon,
@@ -190,11 +191,11 @@ const navigationItems = computed(() => {
     const role = user.value?.role;
     if (role === 'landlord') {
         return [
-            { name: t('nav.dashboard'), href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard') },
+            { name: t('nav.dashboard'), href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard'), tour: 'nav-dashboard' },
 
             // PROPERTIES
             { type: 'divider', label: t('nav.properties_section') },
-            { name: t('nav.buildings'), href: route('buildings.index'), icon: HomeModernIcon, active: route().current('buildings.*') },
+            { name: t('nav.buildings'), href: route('buildings.index'), icon: HomeModernIcon, active: route().current('buildings.*'), tour: 'nav-buildings' },
             { name: t('nav.add_property'), href: route('onboarding.create'), icon: PlusCircleIcon, active: route().current('onboarding.*') },
 
             // TENANTS HUB (Consolidated)
@@ -204,11 +205,12 @@ const navigationItems = computed(() => {
                 icon: UsersIcon,
                 active: route().current('tenants.*') || route().current('tenant-invitations.*') || route().current('verifications.*') || route().current('payment-verifications.*') || route().current('move-outs.*'),
                 badgeKey: 'tenants',
-                badgeColor: 'bg-blue-500'
+                badgeColor: 'bg-blue-500',
+                tour: 'nav-tenants'
             },
 
             // FINANCES HUB (Already consolidated)
-            { name: t('nav.finances'), href: route('finances.index'), icon: BanknotesIcon, active: route().current('finances.*'), badgeKey: 'invoices', badgeColor: 'bg-red-500' },
+            { name: t('nav.finances'), href: route('finances.index'), icon: BanknotesIcon, active: route().current('finances.*'), badgeKey: 'invoices', badgeColor: 'bg-red-500', tour: 'nav-finances' },
 
             // MAINTENANCE HUB (Consolidated)
             {
@@ -262,21 +264,21 @@ const navigationItems = computed(() => {
 
     if (role === 'caretaker') {
         return [
-            { name: t('nav.dashboard'), href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard') },
-            { name: t('nav.my_tickets'), href: route('tickets.index'), icon: TicketIcon, active: route().current('tickets.*'), badgeKey: 'tickets', badgeColor: 'bg-yellow-500' },
+            { name: t('nav.dashboard'), href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard'), tour: 'nav-dashboard' },
+            { name: t('nav.my_tickets'), href: route('tickets.index'), icon: TicketIcon, active: route().current('tickets.*'), badgeKey: 'tickets', badgeColor: 'bg-yellow-500', tour: 'nav-tickets' },
             ...(featureAccess.value.water_billing ? [{ name: t('nav.water_readings'), href: route('readings.index'), icon: ClipboardDocumentListIcon, active: route().current('readings.*'), badgeKey: 'readings', badgeColor: 'bg-blue-500' }] : []),
         ];
     }
 
     if (role === 'tenant') {
         return [
-            { name: t('nav.dashboard'), href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard') },
-            { name: t('nav.my_finances'), href: route('tenant.finances.index'), icon: BanknotesIcon, active: route().current('tenant.finances.*'), badgeKey: 'invoices', badgeColor: 'bg-red-500' },
+            { name: t('nav.dashboard'), href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard'), tour: 'nav-dashboard' },
+            { name: t('nav.my_finances'), href: route('tenant.finances.index'), icon: BanknotesIcon, active: route().current('tenant.finances.*'), badgeKey: 'invoices', badgeColor: 'bg-red-500', tour: 'nav-tenant-finances' },
             { name: t('nav.my_tickets'), href: route('tickets.index'), icon: TicketIcon, active: route().current('tickets.*'), badgeKey: 'tickets', badgeColor: 'bg-yellow-500' },
             { name: t('nav.my_lease'), href: route('tenant.lease'), icon: DocumentTextIcon, active: route().current('tenant.lease') },
             { name: t('nav.notifications'), href: route('tenant.notifications'), icon: BellIcon, active: route().current('tenant.notifications'), badgeKey: 'notifications', badgeColor: 'bg-indigo-500' },
             // Phase-64 INBOX-MOUNT-3: tenant-side inbox entry.
-            { name: t('nav.inbox'), href: route('tenant.inbox.index'), icon: EnvelopeIcon, active: route().current('tenant.inbox.*'), badgeKey: 'inboxUnread', badgeColor: 'bg-indigo-500' },
+            { name: t('nav.inbox'), href: route('tenant.inbox.index'), icon: EnvelopeIcon, active: route().current('tenant.inbox.*'), badgeKey: 'inboxUnread', badgeColor: 'bg-indigo-500', tour: 'nav-inbox' },
         ];
     }
 
@@ -388,6 +390,7 @@ const navigationItems = computed(() => {
                         <!-- Nav Link -->
                         <Link v-else
                               :href="item.href"
+                              :data-tour="item.tour"
                               :class="[
                                   item.active
                                       ? 'bg-indigo-50 text-indigo-700 font-semibold'
@@ -536,6 +539,7 @@ const navigationItems = computed(() => {
                             </div>
                             <Link v-else
                                   :href="item.href"
+                                  :data-tour="item.tour"
                                   @click="showMobileSidebar = false"
                                   :class="[
                                       item.active
@@ -712,5 +716,9 @@ const navigationItems = computed(() => {
         <!-- Phase-66 NPS-SURVEY-3: globally-mounted NPS prompt. Shows
              only when the server's auth.nps_prompt payload is present. -->
         <NpsSurveyModal />
+
+        <!-- Phase-66 ONBOARDING-TOUR-3: globally-mounted product tour.
+             Self-gates on the server's auth.onboarding_tour payload. -->
+        <TourOverlay />
     </div>
 </template>

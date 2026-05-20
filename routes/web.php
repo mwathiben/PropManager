@@ -263,6 +263,18 @@ Route::middleware('auth')->group(function () {
     Route::post('/api/onboarding/checklist/dismiss', [\App\Http\Controllers\Onboarding\MilestoneStatusController::class, 'dismiss'])
         ->name('onboarding.checklist.dismiss');
 
+    // Phase-66 ONBOARDING-TOUR-2: server-authoritative tour progress.
+    // tour_key is derived from role in the controller (never client-sent);
+    // throttled so a tampered client can't hammer the state writes.
+    Route::middleware('throttle:60,1')->group(function () {
+        Route::post('/onboarding-tour/advance', [\App\Http\Controllers\Onboarding\OnboardingTourController::class, 'advance'])
+            ->name('onboarding-tour.advance');
+        Route::post('/onboarding-tour/complete', [\App\Http\Controllers\Onboarding\OnboardingTourController::class, 'complete'])
+            ->name('onboarding-tour.complete');
+        Route::post('/onboarding-tour/dismiss', [\App\Http\Controllers\Onboarding\OnboardingTourController::class, 'dismiss'])
+            ->name('onboarding-tour.dismiss');
+    });
+
     // Phase-32 SRE-INCIDENT-2: operational incident CRUD (super_admin only)
     Route::middleware('role:super_admin')->group(function () {
         Route::get('/ops/incidents', [\App\Http\Controllers\Sre\OpsIncidentController::class, 'index'])

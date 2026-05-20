@@ -41,6 +41,7 @@
         "workbox-window": "^7.4.1"
     },
     "dependencies": {
+        "@floating-ui/vue": "^1.1.11",
         "@heroicons/vue": "^2.2.0",
         "@vueuse/core": "^14.1.0",
         "dompurify": "^3.4.2",

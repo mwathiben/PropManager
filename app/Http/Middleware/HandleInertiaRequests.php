@@ -104,6 +104,13 @@ class HandleInertiaRequests extends Middleware
                 'nps_prompt' => $user
                     ? app(\App\Services\Growth\NpsEligibilityService::class)->promptPayloadFor($user)
                     : null,
+                // Phase-66 ONBOARDING-TOUR-3: the user's active in-app
+                // tour payload (null when terminal, role-less, or every
+                // step is milestone-satisfied). Two indexed lookups on a
+                // cold render; returns after one for the terminal majority.
+                'onboarding_tour' => $user
+                    ? app(\App\Services\Onboarding\TourService::class)->payloadFor($user)
+                    : null,
             ],
             'impersonating' => session('impersonating') !== null,
             'impersonating_name' => session('impersonating_name'),

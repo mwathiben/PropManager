@@ -30,6 +30,7 @@ class ClientI18nParamConventionTest extends TestCase
             'accounting.export.expense_categories_unmapped' => ['count'],
             'onboarding.resume_banner.title' => ['current', 'total'],
             'onboarding.resume_banner.subtitle' => ['pct'],
+            'onboarding.tour.step_of' => ['current', 'total'],
             'growth.leaderboard.your_position' => ['rank'],
             'growth.leaderboard.score' => ['score'],
             'growth.leaderboard.points' => ['score'],

@@ -9,6 +9,70 @@ return [
         'continue' => 'Endelea',
         'dismiss' => 'Funga',
     ],
+    'tour' => [
+        'aria_label' => 'Ziara ya bidhaa',
+        'step_of' => 'Hatua ya {current} kati ya {total}',
+        'nav' => [
+            'back' => 'Nyuma',
+            'next' => 'Endelea',
+            'skip' => 'Ruka ziara',
+            'done' => 'Maliza',
+        ],
+        'landlord-dashboard' => [
+            'welcome' => [
+                'title' => 'Karibu PropManager 👋',
+                'body' => 'Hebu tuandae mali zako kwa hatua chache haraka. Unaweza kuruka ziara hii wakati wowote.',
+            ],
+            'add_building' => [
+                'title' => 'Ongeza jengo lako la kwanza',
+                'body' => 'Anza hapa kusajili jengo na vyumba vyake — msingi wa kila kitu kingine.',
+            ],
+            'add_unit' => [
+                'title' => 'Ongeza vyumba vyako',
+                'body' => 'Ndani ya jengo, ongeza vyumba unavyokodisha ili uweze kuweka wapangaji.',
+            ],
+            'invite_tenant' => [
+                'title' => 'Alika mpangaji',
+                'body' => 'Alika wapangaji kwa barua pepe au simu — kila mmoja anapata tovuti ya kulipa kodi na kuibua masuala.',
+            ],
+            'create_invoice' => [
+                'title' => 'Tuma ankara kwa wapangaji',
+                'body' => 'Tengeneza ankara za kodi hapa, au acha PropManager izitengeneze kiotomatiki kila mzunguko.',
+            ],
+            'record_payment' => [
+                'title' => 'Rekodi malipo',
+                'body' => 'Kodi inapoingia, irekodi hapa nasi tutaweka vitabu na taarifa sawa.',
+            ],
+        ],
+        'caretaker-intro' => [
+            'welcome' => [
+                'title' => 'Karibu 👋',
+                'body' => 'Hii ni ziara fupi ya eneo lako la kazi la ulinzi.',
+            ],
+            'tickets' => [
+                'title' => 'Tiketi zako',
+                'body' => 'Maombi ya matengenezo uliyopangiwa yako hapa — kubali, sasisha, na kamilisha.',
+            ],
+            'finish' => [
+                'title' => 'Umemaliza',
+                'body' => 'Nenda kwenye dashibodi yako wakati wowote kupata muhtasari wa kazi yako.',
+            ],
+        ],
+        'tenant-intro' => [
+            'welcome' => [
+                'title' => 'Karibu nyumbani 👋',
+                'body' => 'Hii ni ziara fupi ya tovuti yako ya mpangaji.',
+            ],
+            'finances' => [
+                'title' => 'Fedha zako',
+                'body' => 'Ona ankara zako za kodi na historia ya malipo, na ulipe mtandaoni hapa hapa.',
+            ],
+            'inbox' => [
+                'title' => 'Ujumbe',
+                'body' => 'Wasiliana moja kwa moja na mwenye nyumba au mlinzi — maswali, maombi, masasisho.',
+            ],
+        ],
+    ],
     'wizard' => [
         'skip_button' => 'Ruka kwa sasa',
         'resume_cta' => 'Endelea usanidi',

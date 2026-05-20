@@ -9,6 +9,70 @@ return [
         'continue' => 'Continue',
         'dismiss' => 'Dismiss',
     ],
+    'tour' => [
+        'aria_label' => 'Product tour',
+        'step_of' => 'Step {current} of {total}',
+        'nav' => [
+            'back' => 'Back',
+            'next' => 'Next',
+            'skip' => 'Skip tour',
+            'done' => 'Done',
+        ],
+        'landlord-dashboard' => [
+            'welcome' => [
+                'title' => 'Welcome to PropManager 👋',
+                'body' => "Let's get your portfolio set up in a few quick steps. You can skip this tour anytime.",
+            ],
+            'add_building' => [
+                'title' => 'Add your first building',
+                'body' => 'Start here to register a building and its units — the home for everything else.',
+            ],
+            'add_unit' => [
+                'title' => 'Add your units',
+                'body' => 'Inside a building, add the units you rent out so you can place tenants in them.',
+            ],
+            'invite_tenant' => [
+                'title' => 'Invite a tenant',
+                'body' => 'Invite tenants by email or phone — each gets a portal to pay rent and raise issues.',
+            ],
+            'create_invoice' => [
+                'title' => 'Bill your tenants',
+                'body' => 'Raise rent invoices here, or let PropManager generate them automatically each cycle.',
+            ],
+            'record_payment' => [
+                'title' => 'Record a payment',
+                'body' => "When rent comes in, record it here and we'll keep the books and statements up to date.",
+            ],
+        ],
+        'caretaker-intro' => [
+            'welcome' => [
+                'title' => 'Welcome 👋',
+                'body' => "Here's a quick tour of your caretaker workspace.",
+            ],
+            'tickets' => [
+                'title' => 'Your tickets',
+                'body' => 'Maintenance requests assigned to you live here — accept, update, and resolve them.',
+            ],
+            'finish' => [
+                'title' => "You're all set",
+                'body' => 'Head to your dashboard any time for an overview of your work.',
+            ],
+        ],
+        'tenant-intro' => [
+            'welcome' => [
+                'title' => 'Welcome home 👋',
+                'body' => "Here's a quick tour of your tenant portal.",
+            ],
+            'finances' => [
+                'title' => 'Your finances',
+                'body' => 'See your rent invoices and payment history, and pay online right here.',
+            ],
+            'inbox' => [
+                'title' => 'Messages',
+                'body' => 'Chat directly with your landlord or caretaker — questions, requests, updates.',
+            ],
+        ],
+    ],
     'wizard' => [
         'skip_button' => 'Skip for now',
         'resume_cta' => 'Resume setup',

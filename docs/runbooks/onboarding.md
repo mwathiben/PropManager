@@ -315,6 +315,41 @@ display, and submit-button processing state.
 | Caretaker sees 0 pending assignments | InvitationAccepted listener didn't fire | Check property_id on invitation; verify caretaker role; manually call `CaretakerAssignmentService::recordAssignment` |
 | Caretaker preference matrix incomplete | Type column not in `caretakerTypes()` | Add the column name to the static array + migration if column is new |
 
+## Phase 66 — In-app product tour (ONBOARDING-TOUR)
+
+A server-authoritative, milestone-aware product tour that spotlights key nav items for new users. Engine: `App\Services\Onboarding\TourService` + `user_tour_states`; UI: `Components/Tour/TourOverlay.vue` (SVG-mask spotlight) + `TourTooltip.vue` (@floating-ui card).
+
+### How it shows
+- `HandleInertiaRequests` shares `auth.onboarding_tour` = `TourService::payloadFor($user)` on every authenticated request.
+- The payload is `null` (tour hidden) when the role has no tour, the `user_tour_states` row is terminal (completed/dismissed), or milestone progress has filtered every step away.
+- `TourOverlay.vue` is mounted once in `AuthenticatedLayout` and self-gates on that payload — no per-page wiring.
+
+### Registry (data, not code)
+Tours live in `TourService::REGISTRY`, one tour_key per role: `landlord-dashboard` (≤6 steps), `caretaker-intro` (3), `tenant-intro` (3). Each step has a `target` ([data-tour] anchor), optional `gate` (an `OnboardingMilestone` — the step is dropped once reached), and optional `route`. A new tour drops in as a registry entry + lang copy; no engine change.
+
+### Milestone gating
+A landlord step that teaches "add your first building" carries `gate => FIRST_PROPERTY` and is filtered out once that milestone fires — the tour only shows what the user hasn't done. The ungated `welcome` step always survives until the tour is finished.
+
+### State + endpoints
+`user_tour_states` (unique `user_id`+`tour_key`): `current_step` cursor, `status` (active/completed/dismissed — terminal), lifecycle timestamps. Endpoints are auth + `throttle:60,1`, with the tour_key derived from the role server-side (never client-sent):
+
+| Route | Effect |
+|---|---|
+| `POST onboarding-tour.advance` `{step}` | monotonic cursor bump |
+| `POST onboarding-tour.complete` | terminal |
+| `POST onboarding-tour.dismiss` | terminal |
+
+All three no-op once terminal, so a replayed request cannot resurrect a finished tour.
+
+### Anchors
+`[data-tour]` binds to nav items via `:data-tour="item.tour"`: `nav-dashboard`/`nav-buildings`/`nav-tenants`/`nav-finances` (landlord), `nav-tickets` (caretaker), `nav-tenant-finances`/`nav-inbox` (tenant). A missing anchor (e.g. collapsed on mobile) degrades to a centred tooltip — no crash.
+
+### a11y / i18n
+`role=dialog` + `aria-modal`, focus trap, Esc to skip, Arrow keys (RTL-inverted via `useRtlAware`), per-step screen-reader announce, mobile bottom-sheet, `prefers-reduced-motion` disables the spotlight animation. Copy in `lang/{en,sw}/onboarding.php` under `tour.*` (ar `[TODO-ar]`); `tour.step_of` uses vue-i18n `{curly}` params, guarded by `ClientI18nParamConventionTest`.
+
+### Tests
+`Phase66OnboardingTourTest` (gating, terminal-null, monotonic advance, reject-after-complete, endpoints, auth, validation) + `Phase66OnboardingTourSurfaceTest` (dependency + mount + anchors + registry + copy).
+
 ## Cross-references
 
 - `docs/runbooks/alert-thresholds.md` — sev3/sev4 rows for `canonical_mirror_drift_count` + `onboarding_session_abandoned_count` + `tenant_kyc_blocked_count`
