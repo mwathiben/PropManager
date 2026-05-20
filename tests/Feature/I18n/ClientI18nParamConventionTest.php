@@ -41,6 +41,7 @@ class ClientI18nParamConventionTest extends TestCase
             'growth.cohort.insufficient_sample' => ['min'],
             'inbox.presence.typing' => ['name'],
             'inbox.search.no_results' => ['term'],
+            'legal_holds.history.by' => ['name'],
         ];
 
         foreach (['en', 'sw'] as $locale) {

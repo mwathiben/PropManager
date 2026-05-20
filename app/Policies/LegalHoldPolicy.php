@@ -70,6 +70,23 @@ class LegalHoldPolicy
         return $user->isLandlord();
     }
 
+    public function viewHistory(User $user, ?string $subjectType = null, ?int $subjectId = null): bool
+    {
+        if (! $user->isLandlord()) {
+            return false;
+        }
+
+        if ($subjectType === null || $subjectId === null) {
+            return false;
+        }
+
+        if (! in_array($subjectType, LegalHoldRegistry::ALLOWED_HOLDABLE_TYPES, true)) {
+            return false;
+        }
+
+        return $this->ownsSubject($user, $subjectType, $subjectId);
+    }
+
     private function ownsSubject(User $user, string $subjectClass, int $subjectId): bool
     {
         $query = $subjectClass::query();

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { ScaleIcon } from '@heroicons/vue/24/outline';
+import { useI18n } from '@/composables/useI18n';
 
 interface Hold {
     id: number;
@@ -21,7 +22,7 @@ const props = defineProps<{
     subject_types: string[];
 }>();
 
-const page = usePage();
+const { t } = useI18n();
 const releasing = ref<number | null>(null);
 
 const subjectTypeLabel = (fqcn: string): string => {
@@ -50,7 +51,7 @@ const filterSubject = (subjectType: string) => {
 };
 
 const releaseHold = (hold: Hold) => {
-    if (!window.confirm(__('legal_holds.release_confirm'))) return;
+    if (!window.confirm(t('legal_holds.release_confirm'))) return;
     releasing.value = hold.id;
     router.delete(route('legal-holds.destroy', hold.id), {
         preserveScroll: true,
@@ -58,22 +59,20 @@ const releaseHold = (hold: Hold) => {
     });
 };
 
-const __ = (key: string): string => {
-    const t = (page.props as any).translations ?? {};
-    return t[key] ?? key;
-};
+const historyUrl = (hold: Hold): string =>
+    route('legal-holds.history', { subject_type: hold.holdable_type, subject_id: hold.holdable_id });
 
 const isActiveTab = computed(() => props.filters.status !== 'released');
 </script>
 
 <template>
-    <Head :title="__('legal_holds.page_title')" />
+    <Head :title="t('legal_holds.page_title')" />
     <AuthenticatedLayout>
         <template #header>
             <div class="flex items-center gap-3">
                 <ScaleIcon class="h-6 w-6 text-indigo-600" />
                 <h2 class="text-xl font-semibold text-gray-900">
-                    {{ __('legal_holds.page_title') }}
+                    {{ t('legal_holds.page_title') }}
                 </h2>
             </div>
         </template>
@@ -94,7 +93,7 @@ const isActiveTab = computed(() => props.filters.status !== 'released');
                                     ]"
                                     data-testid="tab-active"
                                 >
-                                    {{ __('legal_holds.tab_active') }}
+                                    {{ t('legal_holds.tab_active') }}
                                 </button>
                                 <button
                                     @click="switchTab('released')"
@@ -106,7 +105,7 @@ const isActiveTab = computed(() => props.filters.status !== 'released');
                                     ]"
                                     data-testid="tab-released"
                                 >
-                                    {{ __('legal_holds.tab_released') }}
+                                    {{ t('legal_holds.tab_released') }}
                                 </button>
                             </div>
                             <select
@@ -116,14 +115,14 @@ const isActiveTab = computed(() => props.filters.status !== 'released');
                                 data-testid="filter-subject-type"
                             >
                                 <option value="">All subject types</option>
-                                <option v-for="t in subject_types" :key="t" :value="t">
-                                    {{ subjectTypeLabel(t) }}
+                                <option v-for="st in subject_types" :key="st" :value="st">
+                                    {{ subjectTypeLabel(st) }}
                                 </option>
                             </select>
                         </div>
 
                         <div v-if="holds.data.length === 0" class="text-center py-12 text-gray-500">
-                            {{ __('legal_holds.empty_state') }}
+                            {{ t('legal_holds.empty_state') }}
                         </div>
 
                         <div v-else class="overflow-hidden ring-1 ring-gray-200 rounded-xl">
@@ -157,15 +156,24 @@ const isActiveTab = computed(() => props.filters.status !== 'released');
                                             {{ isActiveTab ? hold.held_at : hold.released_at }}
                                         </td>
                                         <td class="px-4 py-3 text-right">
-                                            <button
-                                                v-if="isActiveTab"
-                                                @click="releaseHold(hold)"
-                                                :disabled="releasing === hold.id"
-                                                class="text-sm font-medium text-rose-600 hover:text-rose-800 disabled:opacity-50"
-                                                :data-testid="`release-${hold.id}`"
-                                            >
-                                                Release
-                                            </button>
+                                            <div class="flex items-center justify-end gap-3">
+                                                <Link
+                                                    :href="historyUrl(hold)"
+                                                    class="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+                                                    data-testid="hold-history-link"
+                                                >
+                                                    {{ t('legal_holds.history.view') }}
+                                                </Link>
+                                                <button
+                                                    v-if="isActiveTab"
+                                                    @click="releaseHold(hold)"
+                                                    :disabled="releasing === hold.id"
+                                                    class="text-sm font-medium text-rose-600 hover:text-rose-800 disabled:opacity-50"
+                                                    :data-testid="`release-${hold.id}`"
+                                                >
+                                                    Release
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 </tbody>

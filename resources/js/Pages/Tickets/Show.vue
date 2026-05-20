@@ -204,6 +204,13 @@ const canEdit = computed(() => {
                                         <ScaleIcon class="h-3.5 w-3.5" />
                                         Legal hold
                                     </button>
+                                    <Link
+                                        :href="route('legal-holds.history', { subject_type: 'App\\Models\\Ticket', subject_id: ticket.id })"
+                                        class="ml-1 inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900"
+                                        data-testid="hold-history-link"
+                                    >
+                                        Hold history
+                                    </Link>
                                 </div>
                             </div>
                         </div>

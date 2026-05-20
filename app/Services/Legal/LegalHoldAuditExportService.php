@@ -73,6 +73,45 @@ class LegalHoldAuditExportService
     }
 
     /**
+     * Phase-68 HISTORY-2: per-subject chain-of-custody CSV. Sourced from
+     * the legal_holds rows themselves (each row = one held->released
+     * lifecycle), not audit_logs. Stored under exports/{actor}/
+     * legal-hold-history/ so the Phase-59 export retention sweep honours
+     * the 7-day window. Authorization is the caller's responsibility.
+     */
+    public function exportSubjectHistoryToCsv(User $actor, string $subjectClass, int $subjectId): string
+    {
+        $rows = LegalHold::query()
+            ->forSubject($subjectClass, $subjectId)
+            ->with(['heldBy:id,name', 'releasedBy:id,name'])
+            ->orderBy('held_at')
+            ->get();
+
+        $relativePath = 'exports/'.$actor->id.'/legal-hold-history/'.Str::random(16).'.csv';
+
+        $buffer = "\xEF\xBB\xBF";
+        $buffer .= "held_at,reason,held_by_id,held_by_name,released_at,released_by_id,released_by_name,status,lawful_basis\n";
+
+        foreach ($rows as $row) {
+            $buffer .= $this->csvLine([
+                $row->held_at?->toIso8601String() ?? '',
+                (string) $row->reason,
+                (string) ($row->held_by ?? ''),
+                (string) ($row->heldBy?->name ?? ''),
+                $row->released_at?->toIso8601String() ?? '',
+                (string) ($row->released_by ?? ''),
+                (string) ($row->releasedBy?->name ?? ''),
+                $row->isActive() ? 'active' : 'released',
+                $row->getLawfulBasis(),
+            ]);
+        }
+
+        Storage::tenant((int) $actor->id)->put($relativePath, $buffer);
+
+        return $relativePath;
+    }
+
+    /**
      * @param  array<int, string>  $fields
      */
     private function csvLine(array $fields): string

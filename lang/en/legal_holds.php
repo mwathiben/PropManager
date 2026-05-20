@@ -17,4 +17,17 @@ return [
     'release_confirm' => 'Release this legal hold? Retention sweeps will resume on this subject.',
     'empty_state' => 'No legal holds yet.',
     'audit_export_title' => 'Audit export',
+
+    'history' => [
+        'title' => 'Hold history',
+        'held' => 'Placed on hold',
+        'released' => 'Released',
+        'active' => 'Active hold',
+        'by' => 'by {name}',
+        'reason' => 'Reason',
+        'export_csv' => 'Export history CSV',
+        'empty' => 'No hold history for this subject.',
+        'view' => 'View hold history',
+        'back' => 'Back to legal holds',
+    ],
 ];

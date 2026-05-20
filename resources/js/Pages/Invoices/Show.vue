@@ -145,6 +145,14 @@ const reissueInvoice = () => {
                     <ScaleIcon class="h-4 w-4" />
                     Legal hold
                 </button>
+                <Link
+                    v-if="invoice?.id"
+                    :href="route('legal-holds.history', { subject_type: 'App\\Models\\Invoice', subject_id: invoice.id })"
+                    class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-900"
+                    data-testid="hold-history-link"
+                >
+                    Hold history
+                </Link>
             </div>
         </template>
 

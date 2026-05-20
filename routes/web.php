@@ -1451,6 +1451,12 @@ Route::middleware(['auth', 'role:landlord'])->group(function () {
 
     Route::get('/legal-holds/audit-export', \App\Http\Controllers\LegalHoldAuditExportController::class)
         ->name('legal-holds.audit-export');
+
+    // Phase-68 HISTORY-1/2: per-subject hold/release timeline + CSV.
+    Route::get('/legal-holds/history', [\App\Http\Controllers\LegalHoldHistoryController::class, 'show'])
+        ->name('legal-holds.history');
+    Route::get('/legal-holds/history/export', [\App\Http\Controllers\LegalHoldHistoryController::class, 'export'])
+        ->name('legal-holds.history.export');
 });
 
 // Phase-66 NPS-SURVEY-1/2: in-app NPS for every authenticated customer

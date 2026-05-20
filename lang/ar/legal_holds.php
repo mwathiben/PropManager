@@ -17,4 +17,17 @@ return [
     'release_confirm' => '[TODO-ar] Release this legal hold? Retention sweeps will resume on this subject.',
     'empty_state' => '[TODO-ar] No legal holds yet.',
     'audit_export_title' => '[TODO-ar] Audit export',
+
+    'history' => [
+        'title' => '[TODO-ar] Hold history',
+        'held' => '[TODO-ar] Placed on hold',
+        'released' => '[TODO-ar] Released',
+        'active' => '[TODO-ar] Active hold',
+        'by' => '[TODO-ar] by {name}',
+        'reason' => '[TODO-ar] Reason',
+        'export_csv' => '[TODO-ar] Export history CSV',
+        'empty' => '[TODO-ar] No hold history for this subject.',
+        'view' => '[TODO-ar] View hold history',
+        'back' => '[TODO-ar] Back to legal holds',
+    ],
 ];
