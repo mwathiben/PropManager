@@ -4,6 +4,8 @@ Phase-14 OBSERV-8: alert thresholds were scattered across env vars and config fi
 
 When tuning, edit here first + record the rationale; then change the env var. The values listed are the current defaults.
 
+Gauge names follow the convention in `docs/runbooks/metrics-naming.md` (Phase-69 GAUGE-NAMING), enforced by `Phase69GaugeNamingTest`.
+
 ## Authentication / authorization
 
 | Signal | Threshold | Source | Window | Rationale | On-call action |

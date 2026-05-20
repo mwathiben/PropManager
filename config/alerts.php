@@ -20,6 +20,9 @@ declare(strict_types=1);
  * heading. SRE-ALERT-1 (AlertFiringRecorder) records firings keyed on
  * `key`. SRE-CI-1 (Phase32SreSurfaceTest) asserts the registry is
  * loadable + has at least one entry per category.
+ *
+ * Phase-69 GAUGE-NAMING: `gauge` names follow the convention in
+ * docs/runbooks/metrics-naming.md, enforced by Phase69GaugeNamingTest.
  */
 
 return [
