@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Wallet;
 
 use App\Enums\Currency;
+use App\Enums\InvoiceStatus;
 use App\Exceptions\CurrencyMismatchException;
+use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\LeaseWalletBalance;
 use App\Models\PaymentConfiguration;
@@ -67,6 +69,47 @@ class WalletService
         }
 
         return $this->mutateNonDefault($lease, $currency, $amount, 'debit', $reason ?? 'Applied to invoice', null, $invoiceId, null) ?? 0.0;
+    }
+
+    /**
+     * Phase-76 AUTO-APPLY/TENANT-APPLY: draw wallet credit (in the invoice's own
+     * currency) onto a specific invoice and record it on the invoice side
+     * (amount_paid + wallet_applied + status). Shared by the sweep cron and the
+     * tenant self-apply endpoint. Returns the amount actually applied.
+     */
+    public function applyToInvoice(Invoice $invoice, ?float $amount = null): float
+    {
+        return DB::transaction(function () use ($invoice, $amount) {
+            $locked = Invoice::lockForUpdate()->find($invoice->id);
+            $currency = $locked->currency ?? Currency::default();
+            $outstanding = $locked->getOutstandingAmount();
+            $want = min($amount ?? $outstanding, $outstanding);
+
+            if ($want <= 0) {
+                return 0.0;
+            }
+
+            $drawn = $this->apply(
+                $locked->lease,
+                $want,
+                'Wallet applied to invoice '.$locked->invoice_number,
+                $locked->id,
+                $currency,
+            );
+
+            if ($drawn > 0) {
+                $newPaid = (float) $locked->amount_paid + $drawn;
+                $locked->update([
+                    'amount_paid' => $newPaid,
+                    'wallet_applied' => (float) $locked->wallet_applied + $drawn,
+                    'status' => $newPaid >= (float) $locked->total_due
+                        ? InvoiceStatus::Paid
+                        : ($newPaid > 0 ? InvoiceStatus::Partial : $locked->status),
+                ]);
+            }
+
+            return $drawn;
+        });
     }
 
     /**

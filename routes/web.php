@@ -1651,6 +1651,12 @@ Route::middleware(['auth', 'role:landlord'])->group(function () {
     Route::put('/legal-holds/settings', [\App\Http\Controllers\LegalHoldSettingsController::class, 'update'])
         ->name('legal-holds.settings.update');
 
+    // Phase-76 AUTO-APPLY-3: per-landlord wallet auto-apply mode.
+    Route::get('/wallet/settings', [\App\Http\Controllers\WalletSettingsController::class, 'show'])
+        ->name('wallet.settings');
+    Route::put('/wallet/settings', [\App\Http\Controllers\WalletSettingsController::class, 'update'])
+        ->name('wallet.settings.update');
+
     // Phase-72 MATTER-GROUPING: case-level grouping of holds.
     Route::get('/legal-matters', [\App\Http\Controllers\LegalMatterController::class, 'index'])
         ->name('legal-matters.index');

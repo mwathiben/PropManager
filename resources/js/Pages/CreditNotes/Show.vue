@@ -238,7 +238,7 @@ const applyToWallet = () => {
                                 </button>
 
                                 <button
-                                    v-if="canApply"
+                                    v-if="can('invoices:manage') && canApply"
                                     @click="applyToWallet"
                                     class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
                                 >

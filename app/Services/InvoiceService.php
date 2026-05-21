@@ -73,15 +73,19 @@ class InvoiceService
 
             $totalDue = $rentDue + $waterDue + $arrears;
 
-            // Apply tenant's prepayment balance (from previous overpayments) before
-            // creating invoice - reduces amount due and may fully settle the bill
+            $building = $lease->unit->building;
+
+            // Phase-76 AUTO-APPLY-2: apply tenant prepayment at invoice creation
+            // only when the landlord's mode is on_invoice_create (off + sweep
+            // skip here; the wallet:auto-apply cron handles sweep). Routed through
+            // WalletService so the deduction matches the invoice currency.
             $walletApplied = 0;
-            if ($lease->hasWalletBalance()) {
-                $walletApplied = $lease->deductFromWallet($totalDue, 'Applied to invoice');
+            $invoiceCurrency = $building->getEffectiveCurrency();
+            if (app(\App\Services\Wallet\WalletAutoApplyResolver::class)->appliesOnInvoiceCreate($lease->landlord_id)) {
+                $walletApplied = app(\App\Services\Wallet\WalletService::class)
+                    ->apply($lease, $totalDue, 'Applied to invoice', null, $invoiceCurrency);
                 $totalDue = max(0, $totalDue - $walletApplied);
             }
-
-            $building = $lease->unit->building;
 
             $invoice = Invoice::create([
                 'lease_id' => $lease->id,

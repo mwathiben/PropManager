@@ -14,4 +14,14 @@ return [
     'errors' => [
         'currency_mismatch' => 'Cannot apply :wallet wallet credit to a :target obligation — currencies must match.',
     ],
+    'settings' => [
+        'title' => 'Wallet auto-apply',
+        'subtitle' => 'Control how standing tenant wallet credit is applied to invoices',
+        'mode_label' => 'Auto-apply mode',
+        'mode_off' => 'Off — never auto-apply',
+        'mode_on_invoice_create' => 'On invoice creation',
+        'mode_oldest_first_sweep' => 'Daily sweep (oldest unpaid first)',
+        'save' => 'Save settings',
+        'saved' => 'Wallet settings saved.',
+    ],
 ];

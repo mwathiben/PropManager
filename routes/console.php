@@ -809,6 +809,15 @@ Schedule::command('parts:reorder-suggest')
     ->onOneServer()
     ->name('phase54-parts-reorder-suggest');
 
+// Phase-76 AUTO-APPLY-2: sweep standing tenant wallet credit onto oldest
+// unpaid invoices for landlords in oldest_first_sweep mode. 05:15 — before
+// invoices:automate (06:00) so swept credit reflects before new invoices.
+Schedule::command('wallet:auto-apply')
+    ->dailyAt('05:15')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase76-wallet-auto-apply');
+
 // Phase-53 GAUGE-WIRING-3: i18n_translation_spend_usd_24h gauge emitter.
 // Scrapes TranslationCostTracker Cache keys + emits total + per-locale
 // gauges. Every 15m so the sev3 $20/day budget alert (alert-thresholds.md
