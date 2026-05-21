@@ -4,7 +4,14 @@
   "opened_at": "2026-05-22",
   "tier": 7,
   "scope": "Close the real gaps in an otherwise-mature finance/accounting surface. Scout findings: ALREADY BUILT — accounting periods (AccountingPeriod + close/reopen + EnforcesAccountingPeriodLock trait on Invoice/Payment/Expense), double-entry accounting export (AccountingExportService IIF + Sage CSV + ChartOfAccount mapping + diagnostics), late-fee automation (LateFeePolicy 3-tier + LateFeeService + invoices:apply-late-fees daily cron + waiver), arrears aging buckets (0-30/31-60/61-90/90+ in FinanceStatsService + DashboardService), tenant statement (StatementService + wallet integration), gateway reconciliation (PaymentReconciliationService Paystack live/Stripe stub + ReconciliationReport + daily cron). REAL GAPS: (1) DEPOSIT SETTLEMENT — the deposit ledger (deposit_transactions/DepositTransaction with received/deduction/partial_refund/full_refund/forfeit/transfer types), move_out_deductions, and DepositRefundRequest all EXIST, but MoveOutController::complete() is memo-only: it does NOT journal move_out_deductions to DepositTransaction, offset arrears, update lease.deposit_status, or create a settlement ledger entry. Deposit-received is never journaled either. (2) BANK RECONCILIATION — the bank-statement import UI (ReconciliationTab) + BankStatementImport + BankReconciliationService (queue + reference/phone/amount matching + manualMatch) + BankReconciliationQueue ALL EXIST, but FinancesController::importBankStatement and processReconciliationQueue are STUBS returning 'coming soon' — the engine is never invoked. (3) PERIOD CLOSE has no readiness guard (close while draft invoices / pending bank queue items exist). (4) Arrears aging is aggregate-only (no per-tenant drill). (5) Late fees are cron-only (no manual bulk-apply, no tenant-facing preview). Money is decimal:2 across finance models (NOT cents) EXCEPT DepositRefundRequest which uses *_cents; DepositTransaction.amount + MoveOut.deposit_held/total_deductions/arrears_balance/refund_amount are decimal. LateFeeService uses the bcmath Money class. Reuse: FinanceExportService, FinancesController tab dispatch, DepositTransaction ledger, BankReconciliationService, AccountingPeriod::isDateLocked. All landlord-scoped. selectRaw static aggregates accepted.",
-  "categories": ["DEPOSIT-SETTLEMENT", "BANK-RECON", "PERIOD-CLOSE", "ARREARS-DRILL", "LATE-FEE-DEPTH", "CI"],
+  "categories": [
+    "DEPOSIT-SETTLEMENT",
+    "BANK-RECON",
+    "PERIOD-CLOSE",
+    "ARREARS-DRILL",
+    "LATE-FEE-DEPTH",
+    "CI"
+  ],
   "findings": [
     {
       "id": "DEPOSIT-SETTLEMENT-1",
@@ -13,7 +20,7 @@
       "title": "DepositSettlementService — settle the deposit at move-out completion",
       "evidence": "MoveOutController::complete() updates the MoveOut row + deactivates the lease + marks the unit vacant, but never touches the deposit: no DepositTransaction journaling, no lease.deposit_status update, arrears (MoveOut.arrears_balance) not offset. The DepositTransaction ledger + move_out_deductions exist but stay siloed.",
       "remediation": "App\\Services\\Finance\\DepositSettlementService::settle(MoveOut, User): in a DB::transaction — sum move_out_deductions for the move-out, create a DepositTransaction TYPE_DEDUCTION per deduction (or one aggregate) referencing move_out_id; offset MoveOut.arrears_balance; compute refund = max(0, deposit_held - total_deductions - arrears_balance) (reuse MoveOut::calculateRefund); create the final TYPE_PARTIAL_REFUND / TYPE_FULL_REFUND / TYPE_FORFEIT row with balance_after; update Lease.deposit_status (refunded|partial_refund|forfeited) + deposit_refund_amount/deductions/processed_at/processed_by; set MoveOut.settled_at. Idempotent (no double-settle if already settled). Phase81 test: deductions+arrears reduce refund; ledger entries created; lease.deposit_status updated; re-settle is a no-op.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "DEPOSIT-SETTLEMENT-2",
@@ -22,7 +29,7 @@
       "title": "Wire MoveOutController::complete() to the settlement service",
       "evidence": "complete() is memo-only; settlement must run as part of completing the move-out so the deposit ledger + lease status reflect reality the moment a tenant moves out.",
       "remediation": "MoveOutController::complete() calls DepositSettlementService::settle() inside its existing transaction (after lease deactivation), so completion atomically settles the deposit. MoveOutDeduction rows carry their reference into the DepositTransaction (reason/notes). Guard: only settle when status transitions to completed and not already settled. Phase81 test: completing a move-out with deductions creates the ledger + sets lease.deposit_status in one request.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "DEPOSIT-SETTLEMENT-3",
@@ -31,7 +38,7 @@
       "title": "Move-out settlement summary on the MoveOut Show",
       "evidence": "There is no surfaced breakdown of held − deductions − arrears = refund, nor the resulting deposit ledger entries, on the move-out detail.",
       "remediation": "MoveOutController::show passes the settlement breakdown (deposit_held, total_deductions, arrears_balance, refund_amount) + the move-out's DepositTransaction rows; MoveOuts/Show.vue renders a settlement card (read-only once settled). Phase81 surface assertion.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "DEPOSIT-SETTLEMENT-4",
@@ -40,7 +47,7 @@
       "title": "Settlement i18n + DepositTransaction.move_out_id populated",
       "evidence": "DepositTransaction has a nullable move_out_id column that the manual refund path leaves null; settlement entries should link back to the move-out. Strings need en/sw/ar.",
       "remediation": "Settlement DepositTransaction rows set move_out_id; lang finance.deposit_settlement.* (en/sw/ar curated). Phase81 lang parity + assertion.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "DEPOSIT-SETTLEMENT-5",
@@ -49,7 +56,7 @@
       "title": "Journal deposit-received + backfill held deposits",
       "evidence": "A deposit's ledger has no opening TYPE_RECEIVED entry — the ledger starts empty until a refund/forfeit, so balance_after is meaningless for the held period.",
       "remediation": "When a lease records a deposit (lease creation / deposit recorded), create a DepositTransaction TYPE_RECEIVED (balance_after = deposit_amount). A deposits:backfill-received command creates the missing TYPE_RECEIVED row for existing held deposits (idempotent — skip leases that already have one). Phase81 test: received row created once; backfill idempotent.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "BANK-RECON-1",
@@ -58,7 +65,7 @@
       "title": "Wire the bank-statement import endpoint to BankStatementImport",
       "evidence": "FinancesController::importBankStatement returns a 'coming soon' stub; BankStatementImport (CSV/Excel → BankReconciliationQueue, dedupe, column mapping) is fully built but never called.",
       "remediation": "Implement importBankStatement: validate the upload (mimes csv/xlsx/xls, max 5MB) + bank_code + optional column_mapping via a FormRequest; run BankStatementImport for the landlord; return imported/skipped/error counts as a flash + refresh the tab. Phase81 test: a CSV import enqueues rows; duplicates skipped.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "BANK-RECON-2",
@@ -67,7 +74,7 @@
       "title": "Wire the process-queue endpoint to BankReconciliationService::processQueue",
       "evidence": "FinancesController::processReconciliationQueue is a 'coming soon' stub; BankReconciliationService::processQueue (reference/phone/amount matching → Payment record → mark matched, retry/backoff) exists but is never invoked.",
       "remediation": "Implement processReconciliationQueue: call BankReconciliationService::processQueue() for the landlord; return matched/unmatched counts. Phase81 test: a queued row that matches an invoice by reference creates a Payment + marks the queue row matched; a non-matching row goes unmatched.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "BANK-RECON-3",
@@ -76,7 +83,7 @@
       "title": "Surface the queue + manual match in the Reconciliation tab",
       "evidence": "Once import works the queue must be reviewable — unmatched/pending items + a manual match action (BankReconciliationService::manualMatch exists).",
       "remediation": "ReconciliationTab shows BankReconciliationQueue items (pending/unmatched) for the landlord; a manual-match endpoint wires BankReconciliationService::manualMatch(queueItem, invoice) (landlord-scoped). Phase81 test: manualMatch records the payment + matches.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "BANK-RECON-4",
@@ -85,7 +92,7 @@
       "title": "Import dedupe + error/skipped surfacing",
       "evidence": "Re-importing the same statement must not double-enqueue; import errors (bad rows) must be visible, not swallowed.",
       "remediation": "Confirm BankStatementImport dedupes on (landlord_id, transaction_reference) and the endpoint returns skipped + per-row errors; surface them in the tab. Phase81 test: importing the same file twice enqueues zero the second time; malformed rows reported.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "PERIOD-CLOSE-1",
@@ -94,7 +101,7 @@
       "title": "Period-close readiness guard",
       "evidence": "AccountingPeriodController::close firstOrCreates a closed period with no checks — a landlord can lock a month that still has draft invoices or pending bank-reconciliation queue items, freezing inconsistent data.",
       "remediation": "App\\Services\\Finance\\PeriodCloseReadinessService::check(landlordId, periodStart): returns blockers — draft invoices dated in the period, pending/unmatched BankReconciliationQueue items in the period, (optionally) unvoided $0 invoices. close() refuses (422) when hard blockers exist unless ?force=1 is passed (logged). Phase81 test: close blocked with a draft invoice in range; allowed when clean; force overrides + audits.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "PERIOD-CLOSE-2",
@@ -103,7 +110,7 @@
       "title": "Readiness checklist on the periods UI",
       "evidence": "The periods page offers a bare close button with no pre-close visibility.",
       "remediation": "Periods/Index.vue shows the readiness check for the selected month (counts of each blocker) before close; close disabled (or force-gated) while blockers exist. Phase81 surface assertion.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "PERIOD-CLOSE-3",
@@ -112,7 +119,7 @@
       "title": "Reopen audit + i18n",
       "evidence": "Reopen flips status with no audit trail of who/when/why.",
       "remediation": "reopen() records reopened_by/reopened_at (+ optional reason) — add columns or an AuditLog entry; lang finance.period_close.* (en/sw/ar). Phase81 assertion.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "ARREARS-DRILL-1",
@@ -121,7 +128,7 @@
       "title": "Per-tenant arrears aging drill-down",
       "evidence": "Aging buckets (0-30/31-60/61-90/90+) are aggregate-only; a landlord can't see WHICH tenants sit in the 90+ bucket.",
       "remediation": "FinanceFilterService (or a new ArrearsAgingService) returns each arrears row's aging bucket + a per-bucket tenant grouping; ArrearsTab renders a per-tenant aging table (filter by bucket). Landlord-scoped, batched. Phase81 test: a tenant 95 days overdue lands in the 90+ bucket list.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "ARREARS-DRILL-2",
@@ -130,7 +137,7 @@
       "title": "Arrears sorted by days-overdue + i18n",
       "evidence": "The arrears table sorts by due_date, not by severity (days overdue desc).",
       "remediation": "Default-sort arrears by days_overdue desc; lang finance.arrears.aging.* (en/sw/ar). Phase81 assertion.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "LATE-FEE-DEPTH-1",
@@ -139,7 +146,7 @@
       "title": "Manual late-fee apply (landlord-triggered, on demand)",
       "evidence": "Late fees apply only via the daily cron (invoices:apply-late-fees). A landlord cannot apply now (e.g., after fixing a policy) without waiting a day.",
       "remediation": "A landlord endpoint runs LateFeeService for the landlord's eligible overdue invoices on demand (reuse the cron's per-invoice logic; same eligibility gates), returning applied count. Surface a button in the late-fees tab. Phase81 test: an eligible overdue invoice gains a late fee on manual apply; an in-grace invoice does not.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "LATE-FEE-DEPTH-2",
@@ -148,7 +155,7 @@
       "title": "Tenant-facing projected late-fee preview",
       "evidence": "Tenants get no warning of an impending late fee; only the landlord waiver UI exists.",
       "remediation": "LateFeeService::projectFee(Invoice): read-only projected fee if the invoice stays unpaid past grace (no write); surface it on the tenant invoice/finances view as 'projected late fee if unpaid by <date>'. Phase81 test: projection matches the policy for an overdue invoice; zero when in grace / no policy.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CI-1",
@@ -157,7 +164,7 @@
       "title": "Phase81FinanceDepthSurfaceTest consolidated watchdog",
       "evidence": "Six categories need a single presence/behaviour map.",
       "remediation": "Phase81FinanceDepthSurfaceTest: DepositSettlementService + PeriodCloseReadinessService bound; bank import/process-queue endpoints no longer stubs (routes hit the service); deposits:backfill-received + manual-late-fee + reconcile routes registered; lang parity (finance.deposit_settlement/period_close/arrears.aging); nav-audit clean.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CI-2",
@@ -166,7 +173,22 @@
       "title": "docs/runbooks/finance.md + closeout + memory",
       "evidence": "No finance runbook for the deposit settlement + bank reconciliation + period close flows.",
       "remediation": "docs/runbooks/finance.md (NEW): deposit lifecycle/settlement, bank reconciliation import→queue→match, period close readiness, arrears aging, late-fee manual apply + projection. scripts/phase81-closeout.mjs + memory updates (phase81 plan, forward-path, pending-path, MEMORY.md).",
-      "passes": false
+      "passes": true
     }
-  ]
+  ],
+  "closeout": {
+    "closed_at": "2026-05-22",
+    "result": "18/18 findings pass — zero PRD-finding deferrals",
+    "commits": {
+      "DEPOSIT-SETTLEMENT": "this cycle",
+      "BANK-RECON": "this cycle",
+      "PERIOD-CLOSE": "this cycle",
+      "ARREARS-DRILL + LATE-FEE-DEPTH": "this cycle",
+      "CI": "this commit"
+    },
+    "summary": "Closed the real gaps in a mature finance surface. DEPOSIT-SETTLEMENT: DepositSettlementService::settle wired into MoveOutController::complete — journals each move_out_deduction + arrears offset to the deposit ledger (DepositTransaction, linked via move_out_id), writes the terminal refund/forfeit row, flips lease.deposit_status; idempotent (skip when not held); recordReceived opens the ledger on lease creation + deposits:backfill-received for existing held deposits. Also fixed a PRE-EXISTING bug: MoveOutController::complete used a non-existent TenantActivity 'action' key (NOT-NULL 'type' violation) that silently rolled back EVERY completion — now 'type', and the swallowing catch logs. BANK-RECON: FinancesController importBankStatement + processReconciliationQueue were 'coming soon' stubs the tab POSTs to — now run the real BankStatementImport (dedupe + skip/error reporting) + BankReconciliationService::processQueueForLandlord; reconciliation tab also surfaces the bank queue. PERIOD-CLOSE: PeriodCloseReadinessService (draft invoices + pending bank-queue blockers in the month); close refuses unless force (logged); index shows previous-month readiness; reopen audited (reopened_at/by/reason). ARREARS-DRILL: getArrearsData tags each row aging_bucket (0_30/31_60/61_90/90_plus) + severity-first sort. LATE-FEE-DEPTH: landlord on-demand apply (processAllOverdueInvoices now landlord-scopable) + tenant projected_late_fee surfaced from previewLateFee. CI: Phase81FinanceDepthSurfaceTest + docs/runbooks/finance.md.",
+    "tests": "Phase-81 finance tests: DepositSettlement 7 + PeriodClose 4 + BankRecon 3 + LateFeeDepth 3 + ArrearsDrill 2 + Surface 7. Pint clean, build clean.",
+    "constraints_preserved": "Money is decimal across the finance models (DepositTransaction.amount, MoveOut.* decimal); settlement is idempotent + runs in the move-out transaction (DB::transaction nests via savepoint); deposit/late-fee/period queries are landlord-scoped; processAllOverdueInvoices stays backward-compatible (null landlordId = all, the cron); bank import dedupes on (landlord,bank,reference); previewLateFee is read-only (no write). The accounting-period write-lock (EnforcesAccountingPeriodLock) remains authoritative.",
+    "coderabbit": "CodeRabbit CLI unavailable in this env (+ the agent corrupts the test DB) — manual self-review: idempotent settle guarded on deposit_status; nested-transaction-safe; pre-existing move-out completion bug found + fixed (silent rollback) with the catch now logging; bank import dedupe verified; period close force path audited; arrears bucket math + sort; late-fee manual apply reuses the cron eligibility gates."
+  }
 }
