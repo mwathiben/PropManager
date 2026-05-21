@@ -1529,6 +1529,13 @@ Route::middleware(['auth', 'role:landlord'])->group(function () {
     Route::get('/legal-holds/subjects/suggest', [\App\Http\Controllers\LegalHoldSubjectController::class, 'suggest'])
         ->name('legal-holds.subjects.suggest');
 
+    // Phase-72 WIZARD-FLOW: guided create-hold wizard.
+    Route::get('/legal-holds/wizard', [\App\Http\Controllers\LegalHoldWizardController::class, 'create'])
+        ->name('legal-holds.wizard');
+    Route::post('/legal-holds/wizard', [\App\Http\Controllers\LegalHoldWizardController::class, 'store'])
+        ->middleware('throttle:legal-hold')
+        ->name('legal-holds.wizard.store');
+
     // Phase-72 MATTER-GROUPING: case-level grouping of holds.
     Route::get('/legal-matters', [\App\Http\Controllers\LegalMatterController::class, 'index'])
         ->name('legal-matters.index');

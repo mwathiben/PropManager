@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from '@/composables/useI18n';
 
 interface SubjectItem {
@@ -18,6 +18,8 @@ interface Group {
 const props = defineProps<{
     tenants: { id: number; name: string }[];
     modelValue: Record<string, number[]>;
+    /** Short type names (e.g. 'Invoice') to auto-select-all after a tenant loads. */
+    autoSelectTypes?: string[];
 }>();
 
 const emit = defineEmits<{ 'update:modelValue': [Record<string, number[]>] }>();
@@ -50,12 +52,30 @@ async function loadTenant(): Promise<void> {
         const data = await res.json();
         groups.value = Array.isArray(data.groups) ? data.groups : [];
         loaded.value = true;
+        applyAutoSelect();
     } catch {
         loadError.value = true;
     } finally {
         loading.value = false;
     }
 }
+
+// Situation presets pre-select their suggested types (excluding already-held).
+function applyAutoSelect(): void {
+    const auto = props.autoSelectTypes ?? [];
+    if (!auto.length || !loaded.value) return;
+    const next: Record<string, number[]> = {};
+    for (const group of groups.value) {
+        if (auto.includes(group.short)) {
+            next[group.type] = group.items.filter((i) => !i.already_held).map((i) => i.id);
+        }
+    }
+    emit('update:modelValue', next);
+}
+
+// Re-apply when the situation (and thus suggested types) changes after a tenant
+// is already loaded — e.g. the user goes back and picks a different situation.
+watch(() => props.autoSelectTypes, applyAutoSelect);
 
 const isChecked = (type: string, id: number): boolean => (props.modelValue[type] ?? []).includes(id);
 
