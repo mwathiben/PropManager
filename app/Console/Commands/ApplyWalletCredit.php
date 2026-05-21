@@ -57,17 +57,20 @@ class ApplyWalletCredit extends Command
                     $invoices = $this->oldestUnpaid($landlordId, $lease->id, $currency);
 
                     foreach ($invoices as $invoice) {
-                        if ($wallet->balanceFor($lease, $currency) <= 0) {
+                        if ($wallet->balanceFor($lease->fresh(), $currency) <= 0) {
                             break;
                         }
                         if ($dryRun) {
                             continue;
                         }
                         $drawn = $wallet->applyToInvoice($invoice);
-                        if ($drawn > 0) {
-                            $applied++;
-                            $leaseApplied = true;
+                        if ($drawn <= 0) {
+                            // Credit exhausted (the locked-row cap returned 0) —
+                            // stop walking this currency's invoices.
+                            break;
                         }
+                        $applied++;
+                        $leaseApplied = true;
                     }
                 }
 
@@ -98,7 +101,7 @@ class ApplyWalletCredit extends Command
             ->where('landlord_id', $landlordId)
             ->where('lease_id', $leaseId)
             ->where('currency', $currency->value)
-            ->whereIn('status', [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue])
+            ->whereIn('status', [InvoiceStatus::Sent, InvoiceStatus::Viewed, InvoiceStatus::Partial, InvoiceStatus::Overdue])
             ->whereColumn('amount_paid', '<', 'total_due')
             ->orderBy('due_date')
             ->get();

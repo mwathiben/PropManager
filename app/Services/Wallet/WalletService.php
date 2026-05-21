@@ -81,6 +81,9 @@ class WalletService
     {
         return DB::transaction(function () use ($invoice, $amount) {
             $locked = Invoice::lockForUpdate()->find($invoice->id);
+            if ($locked === null || $locked->lease === null) {
+                return 0.0;
+            }
             $currency = $locked->currency ?? Currency::default();
             $outstanding = $locked->getOutstandingAmount();
             $want = min($amount ?? $outstanding, $outstanding);

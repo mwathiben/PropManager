@@ -816,6 +816,7 @@ Schedule::command('wallet:auto-apply')
     ->dailyAt('05:15')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
+    ->withoutOverlapping()
     ->name('phase76-wallet-auto-apply');
 
 // Phase-53 GAUGE-WIRING-3: i18n_translation_spend_usd_24h gauge emitter.

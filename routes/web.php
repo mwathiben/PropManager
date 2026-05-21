@@ -1436,6 +1436,11 @@ Route::middleware(['auth', 'role:tenant', 'payment.verified', 'kyc.complete'])->
     Route::get('/finances/pay/{invoice}', [TenantFinancesController::class, 'pay'])->name('tenant.finances.pay');
     Route::get('/finances/history', [TenantFinancesController::class, 'history'])->name('tenant.finances.history');
 
+    // Phase-76 TENANT-APPLY: tenant self-service wallet (view + apply to own invoices)
+    Route::get('/wallet', [\App\Http\Controllers\TenantWalletController::class, 'index'])->name('tenant.wallet.index');
+    Route::post('/wallet/apply', [\App\Http\Controllers\TenantWalletController::class, 'apply'])
+        ->middleware('throttle:6,1')->name('tenant.wallet.apply');
+
     // Tenant Notifications
     Route::get('/notifications', [\App\Http\Controllers\TenantNotificationController::class, 'index'])->name('tenant.notifications');
     Route::get('/notifications/api', [\App\Http\Controllers\TenantNotificationController::class, 'getNotifications'])->name('tenant.notifications.api');
