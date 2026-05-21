@@ -160,7 +160,7 @@ class BuildingController extends Controller
                 'quantity' => $d->quantity,
                 'provider' => $d->provider,
                 'account_ref' => $d->account_ref,
-                'monthly_cost_cents' => $d->monthly_cost_cents,
+                'monthly_cost' => $d->monthly_cost,
             ]]),
             'parentBuilding' => $parentBuilding ? [
                 'id' => $parentBuilding->id,

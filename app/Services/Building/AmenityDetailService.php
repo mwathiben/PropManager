@@ -45,7 +45,7 @@ class AmenityDetailService
                         'quantity' => $this->intOrNull($row['quantity'] ?? null),
                         'provider' => $this->strOrNull($row['provider'] ?? null),
                         'account_ref' => $this->strOrNull($row['account_ref'] ?? null),
-                        'monthly_cost_cents' => $this->intOrNull($row['monthly_cost_cents'] ?? null),
+                        'monthly_cost' => $this->floatOrNull($row['monthly_cost'] ?? null),
                     ],
                 );
             }
@@ -55,6 +55,11 @@ class AmenityDetailService
     private function intOrNull(mixed $value): ?int
     {
         return ($value === null || $value === '') ? null : (int) $value;
+    }
+
+    private function floatOrNull(mixed $value): ?float
+    {
+        return ($value === null || $value === '') ? null : (float) $value;
     }
 
     private function strOrNull(mixed $value): ?string

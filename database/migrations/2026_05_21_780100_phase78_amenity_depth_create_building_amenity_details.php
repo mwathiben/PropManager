@@ -24,7 +24,8 @@ return new class extends Migration
             $table->unsignedInteger('quantity')->nullable();
             $table->string('provider', 120)->nullable();
             $table->string('account_ref', 120)->nullable();
-            $table->unsignedBigInteger('monthly_cost_cents')->nullable();
+            // Decimal to match the building money subsystem (water_flat_rate etc.).
+            $table->decimal('monthly_cost', 12, 2)->nullable();
             $table->timestamps();
 
             $table->unique(['building_id', 'amenity_key']);

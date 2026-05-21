@@ -2,7 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import BuildingMap from '@/Components/BuildingMap.vue';
 import { Head, useForm, Link, router, usePage } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useFormatters, useCurrency } from '@/composables';
 import type { BuildingsEditPageProps, BuildingEditUnit } from '@/types/finances';
 
@@ -147,12 +147,22 @@ const selectedAmenityList = computed(() => {
     return out;
 });
 
+// Pure getter — never mutates during render (the detail object is seeded on
+// selection + mount below, so v-model always has a live target).
 function amenityDetailFor(key) {
+    return settingsForm.amenity_details[key] || {};
+}
+
+function ensureDetail(key) {
     if (!settingsForm.amenity_details[key]) {
         settingsForm.amenity_details = { ...settingsForm.amenity_details, [key]: {} };
     }
-    return settingsForm.amenity_details[key];
 }
+
+// Seed detail objects for the already-selected amenities once on mount.
+onMounted(() => {
+    (settingsForm.amenities.selected || []).forEach(ensureDetail);
+});
 
 const buildingTypes = [
     { value: 'residential_apartment', label: 'Residential Apartment', icon: HomeIcon },
@@ -190,6 +200,7 @@ const toggleAmenity = (key) => {
         selected.splice(index, 1);
     } else {
         selected.push(key);
+        ensureDetail(key);
     }
     settingsForm.amenities = { ...settingsForm.amenities, selected };
 };
@@ -830,11 +841,12 @@ const confirmDeleteBuilding = () => {
                                     <p class="text-xs text-gray-500 mt-1">{{ $t('building.amenity_detail.subtitle') }}</p>
                                 </div>
                                 <div class="p-4 sm:p-6 space-y-3">
-                                    <div v-for="a in selectedAmenityList" :key="a.key" class="grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
+                                    <div v-for="a in selectedAmenityList" :key="a.key" class="grid grid-cols-1 sm:grid-cols-5 gap-2 items-center">
                                         <span class="text-sm font-medium text-gray-700">{{ a.label }}</span>
                                         <input v-model.number="amenityDetailFor(a.key).quantity" type="number" min="0" :placeholder="$t('building.amenity_detail.quantity')" class="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
                                         <input v-model="amenityDetailFor(a.key).provider" type="text" :placeholder="$t('building.amenity_detail.provider')" class="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
-                                        <input v-model.number="amenityDetailFor(a.key).monthly_cost_cents" type="number" min="0" :placeholder="$t('building.amenity_detail.monthly_cost')" class="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+                                        <input v-model="amenityDetailFor(a.key).account_ref" type="text" :placeholder="$t('building.amenity_detail.account_ref')" class="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+                                        <input v-model.number="amenityDetailFor(a.key).monthly_cost" type="number" min="0" step="0.01" :placeholder="$t('building.amenity_detail.monthly_cost')" class="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
                                     </div>
                                 </div>
                             </div>

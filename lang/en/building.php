@@ -13,6 +13,7 @@ return [
         'subtitle' => 'Optional: capacity, provider, and monthly cost per selected amenity',
         'quantity' => 'Quantity',
         'provider' => 'Provider',
+        'account_ref' => 'Account ref',
         'monthly_cost' => 'Monthly cost',
     ],
 ];

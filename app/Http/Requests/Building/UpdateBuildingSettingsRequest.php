@@ -28,7 +28,7 @@ class UpdateBuildingSettingsRequest extends FormRequest
             'amenity_details.*.quantity' => 'nullable|integer|min:0|max:100000',
             'amenity_details.*.provider' => 'nullable|string|max:120',
             'amenity_details.*.account_ref' => 'nullable|string|max:120',
-            'amenity_details.*.monthly_cost_cents' => 'nullable|integer|min:0|max:100000000000',
+            'amenity_details.*.monthly_cost' => 'nullable|numeric|min:0|max:1000000000',
             'coordinates' => 'nullable|array',
             'coordinates.lat' => 'nullable|numeric|between:-90,90',
             'coordinates.lng' => 'nullable|numeric|between:-180,180',

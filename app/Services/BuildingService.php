@@ -377,7 +377,9 @@ class BuildingService
 
     public function getBuildingDetails(Building $building): array
     {
-        $building->load(['property', 'caretaker', 'units']);
+        // Phase-78 AMENITY-DEPTH-2: eager-load detail so getActiveAmenities can
+        // merge it (the merge is a no-op when the relation isn't loaded).
+        $building->load(['property', 'caretaker', 'units', 'amenityDetails']);
 
         $unitStats = [
             'total' => $building->units->count(),

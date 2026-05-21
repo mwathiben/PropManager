@@ -342,6 +342,11 @@ const occupancyColor = computed(() => {
                                         >
                                             <component :is="getCategoryIcon(amenity.category)" class="w-4 h-4" />
                                             {{ amenity.label }}
+                                            <!-- Phase-78 AMENITY-DEPTH-2: surface detail -->
+                                            <span v-if="amenity.detail" class="ms-1 text-xs opacity-75">
+                                                <template v-if="amenity.detail.quantity">×{{ amenity.detail.quantity }}</template>
+                                                <template v-if="amenity.detail.provider"> · {{ amenity.detail.provider }}</template>
+                                            </span>
                                         </span>
                                     </div>
                                 </div>

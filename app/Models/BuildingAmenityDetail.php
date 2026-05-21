@@ -32,12 +32,12 @@ class BuildingAmenityDetail extends Model
         'quantity',
         'provider',
         'account_ref',
-        'monthly_cost_cents',
+        'monthly_cost',
     ];
 
     protected $casts = [
         'quantity' => 'integer',
-        'monthly_cost_cents' => 'integer',
+        'monthly_cost' => 'decimal:2',
     ];
 
     public function building(): BelongsTo

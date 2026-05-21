@@ -411,7 +411,7 @@ class Building extends Model
                             'quantity' => $detail->quantity,
                             'provider' => $detail->provider,
                             'account_ref' => $detail->account_ref,
-                            'monthly_cost_cents' => $detail->monthly_cost_cents,
+                            'monthly_cost' => $detail->monthly_cost,
                         ] : null,
                     ];
                 }
