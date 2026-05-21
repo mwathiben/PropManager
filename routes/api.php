@@ -92,10 +92,13 @@ Route::prefix('v1')->group(function () {
             Route::get('/payments/{payment}', [TenantPaymentController::class, 'show']);
             Route::get('/payments/{payment}/receipt', [TenantPaymentController::class, 'receipt']);
             Route::post('/payments/mpesa/initiate', [TenantPaymentController::class, 'initiateMpesa'])
-                ->middleware('throttle:payment');
-            Route::post('/payments/mpesa/status', [TenantPaymentController::class, 'checkMpesaStatus']);
+                ->middleware('throttle:payment')
+                ->name('api.v1.tenant.payments.mpesa.initiate');
+            Route::post('/payments/mpesa/status', [TenantPaymentController::class, 'checkMpesaStatus'])
+                ->name('api.v1.tenant.payments.mpesa.status');
             Route::post('/payments/paystack/initiate', [TenantPaymentController::class, 'initiatePaystack'])
-                ->middleware('throttle:payment');
+                ->middleware('throttle:payment')
+                ->name('api.v1.tenant.payments.paystack.initiate');
             Route::post('/payments/intasend/initiate', [TenantPaymentController::class, 'initiateIntaSend'])
                 ->middleware('throttle:payment')
                 ->name('api.v1.tenant.payments.intasend.initiate');

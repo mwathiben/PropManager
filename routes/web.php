@@ -544,6 +544,12 @@ Route::middleware('auth')->group(function () {
     Route::delete('/readings/{reading}', [WaterReadingController::class, 'destroy'])->name('readings.destroy');
 
     // 6. Invitations (Caretaker Management)
+    // Caretaker removal (Operations → Team). landlord-only; controller
+    // re-checks the caretaker belongs to this landlord (404 otherwise).
+    Route::middleware('role:landlord')
+        ->delete('/caretakers/{caretaker}', [\App\Http\Controllers\CaretakerController::class, 'destroy'])
+        ->whereNumber('caretaker')
+        ->name('caretakers.destroy');
     Route::get('/invitations', [InvitationController::class, 'index'])->name('invitations.index');
     Route::post('/invitations', [InvitationController::class, 'store'])->name('invitations.store');
     Route::post('/invitations/{invitation}/resend', [InvitationController::class, 'resend'])->name('invitations.resend');
@@ -744,8 +750,8 @@ Route::middleware('auth')->group(function () {
 
     // 11. Reports & Analytics (redirects to Finance Hub)
     Route::get('/reports', fn () => redirect()->route('finances.reports'))->name('reports.index');
-    Route::get('/reports/export/pdf', fn () => redirect()->route('finances.reports.export', ['format' => 'pdf']));
-    Route::get('/reports/export/excel', fn () => redirect()->route('finances.reports.export', ['format' => 'xlsx']));
+    Route::get('/reports/export/pdf', fn () => redirect()->route('finances.reports.export', ['format' => 'pdf']))->name('reports.export.pdf');
+    Route::get('/reports/export/excel', fn () => redirect()->route('finances.reports.export', ['format' => 'xlsx']))->name('reports.export.excel');
     Route::get('/reports/metrics', fn () => redirect()->route('finances.reports'));
 
     // Phase-27 BI-COHORT-1/2/3: tenant retention + acquisition + LTV.

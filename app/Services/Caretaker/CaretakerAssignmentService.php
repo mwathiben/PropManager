@@ -57,6 +57,36 @@ class CaretakerAssignmentService
         return $assignment->fresh();
     }
 
+    /**
+     * Remove a caretaker from a landlord's account entirely: detach them
+     * from every building the landlord owns, mark their open assignments
+     * declined for the audit trail, and sever the account link so they
+     * drop off the team list and lose access to the landlord's properties.
+     */
+    public function removeFromLandlord(User $caretaker, int $landlordId): void
+    {
+        DB::transaction(function () use ($caretaker, $landlordId) {
+            $buildingIds = Building::where('landlord_id', $landlordId)
+                ->where('caretaker_id', $caretaker->id)
+                ->pluck('id');
+
+            Building::whereIn('id', $buildingIds)->update(['caretaker_id' => null]);
+
+            CaretakerAssignment::where('caretaker_id', $caretaker->id)
+                ->whereIn('building_id', $buildingIds)
+                ->whereIn('status', [CaretakerAssignment::STATUS_PENDING, CaretakerAssignment::STATUS_ACCEPTED])
+                ->update([
+                    'status' => CaretakerAssignment::STATUS_DECLINED,
+                    'decided_at' => now(),
+                    'decision_reason' => 'removed_by_landlord',
+                ]);
+
+            // landlord_id is guarded against mass assignment on User, so
+            // forceFill the sever rather than update([...]) (which no-ops).
+            $caretaker->forceFill(['landlord_id' => null])->save();
+        });
+    }
+
     public function decline(CaretakerAssignment $assignment, ?string $reason = null): CaretakerAssignment
     {
         return DB::transaction(function () use ($assignment, $reason) {

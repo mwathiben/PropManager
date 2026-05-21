@@ -513,7 +513,7 @@ export function usePayments(): UsePaymentsReturn {
      * Download payment receipt
      */
     const downloadReceipt = (paymentId: number): void => {
-        window.open(route('payments.receipt', paymentId), '_blank');
+        window.open(route('payments.downloadReceipt', paymentId), '_blank');
     };
 
     /**

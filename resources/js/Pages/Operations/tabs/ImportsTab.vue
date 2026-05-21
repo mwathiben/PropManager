@@ -35,7 +35,7 @@ const startImport = (templateType) => {
 };
 
 const submitImport = () => {
-    uploadForm.post(route('imports.store'), {
+    uploadForm.post(route('imports.upload'), {
         preserveScroll: true,
         onSuccess: () => {
             showUploadModal.value = false;
