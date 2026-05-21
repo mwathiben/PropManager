@@ -1,0 +1,43 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'dashboards' => [
+        'title' => 'Dashboards',
+        'new' => 'New dashboard',
+        'empty' => 'No dashboards yet. Build one from your saved reports and metrics.',
+        'name_label' => 'Dashboard name',
+        'description_label' => 'Description (optional)',
+        'default' => 'Default',
+        'set_default' => 'Set as default',
+        'view' => 'View',
+        'edit' => 'Edit',
+        'delete' => 'Delete',
+        'delete_confirm' => 'Delete this dashboard?',
+        'cards' => 'cards',
+        'created' => 'Dashboard created.',
+        'updated' => 'Dashboard updated.',
+        'deleted' => 'Dashboard deleted.',
+        'default_set' => 'Default dashboard set.',
+        'save' => 'Save dashboard',
+        'add_card' => 'Add card',
+        'card_report' => 'Saved report',
+        'card_metric' => 'Metric',
+        'card_title_label' => 'Card title (optional)',
+        'card_size' => 'Size',
+        'size_wide' => 'Wide',
+        'size_narrow' => 'Narrow',
+        'pick_report' => 'Choose a saved report…',
+        'pick_metric' => 'Choose a metric…',
+        'no_cards' => 'No cards yet. Add a saved report or metric.',
+        'no_reports_hint' => 'Create a saved report first — dashboards are built from your saved reports.',
+        'move_up' => 'Move up',
+        'move_down' => 'Move down',
+        'remove_card' => 'Remove card',
+        'preview' => 'Preview',
+        'refresh_preview' => 'Refresh preview',
+        'preview_error' => 'Preview failed — check your cards.',
+        'back' => 'Back to dashboards',
+    ],
+];

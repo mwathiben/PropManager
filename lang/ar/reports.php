@@ -1,0 +1,43 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'dashboards' => [
+        'title' => '[TODO-ar] Dashboards',
+        'new' => '[TODO-ar] New dashboard',
+        'empty' => '[TODO-ar] No dashboards yet. Build one from your saved reports and metrics.',
+        'name_label' => '[TODO-ar] Dashboard name',
+        'description_label' => '[TODO-ar] Description (optional)',
+        'default' => '[TODO-ar] Default',
+        'set_default' => '[TODO-ar] Set as default',
+        'view' => '[TODO-ar] View',
+        'edit' => '[TODO-ar] Edit',
+        'delete' => '[TODO-ar] Delete',
+        'delete_confirm' => '[TODO-ar] Delete this dashboard?',
+        'cards' => '[TODO-ar] cards',
+        'created' => '[TODO-ar] Dashboard created.',
+        'updated' => '[TODO-ar] Dashboard updated.',
+        'deleted' => '[TODO-ar] Dashboard deleted.',
+        'default_set' => '[TODO-ar] Default dashboard set.',
+        'save' => '[TODO-ar] Save dashboard',
+        'add_card' => '[TODO-ar] Add card',
+        'card_report' => '[TODO-ar] Saved report',
+        'card_metric' => '[TODO-ar] Metric',
+        'card_title_label' => '[TODO-ar] Card title (optional)',
+        'card_size' => '[TODO-ar] Size',
+        'size_wide' => '[TODO-ar] Wide',
+        'size_narrow' => '[TODO-ar] Narrow',
+        'pick_report' => '[TODO-ar] Choose a saved report…',
+        'pick_metric' => '[TODO-ar] Choose a metric…',
+        'no_cards' => '[TODO-ar] No cards yet. Add a saved report or metric.',
+        'no_reports_hint' => '[TODO-ar] Create a saved report first — dashboards are built from your saved reports.',
+        'move_up' => '[TODO-ar] Move up',
+        'move_down' => '[TODO-ar] Move down',
+        'remove_card' => '[TODO-ar] Remove card',
+        'preview' => '[TODO-ar] Preview',
+        'refresh_preview' => '[TODO-ar] Refresh preview',
+        'preview_error' => '[TODO-ar] Preview failed — check your cards.',
+        'back' => '[TODO-ar] Back to dashboards',
+    ],
+];

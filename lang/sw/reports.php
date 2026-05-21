@@ -1,0 +1,43 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'dashboards' => [
+        'title' => '[TODO-sw] Dashboards',
+        'new' => '[TODO-sw] New dashboard',
+        'empty' => '[TODO-sw] No dashboards yet. Build one from your saved reports and metrics.',
+        'name_label' => '[TODO-sw] Dashboard name',
+        'description_label' => '[TODO-sw] Description (optional)',
+        'default' => '[TODO-sw] Default',
+        'set_default' => '[TODO-sw] Set as default',
+        'view' => '[TODO-sw] View',
+        'edit' => '[TODO-sw] Edit',
+        'delete' => '[TODO-sw] Delete',
+        'delete_confirm' => '[TODO-sw] Delete this dashboard?',
+        'cards' => '[TODO-sw] cards',
+        'created' => '[TODO-sw] Dashboard created.',
+        'updated' => '[TODO-sw] Dashboard updated.',
+        'deleted' => '[TODO-sw] Dashboard deleted.',
+        'default_set' => '[TODO-sw] Default dashboard set.',
+        'save' => '[TODO-sw] Save dashboard',
+        'add_card' => '[TODO-sw] Add card',
+        'card_report' => '[TODO-sw] Saved report',
+        'card_metric' => '[TODO-sw] Metric',
+        'card_title_label' => '[TODO-sw] Card title (optional)',
+        'card_size' => '[TODO-sw] Size',
+        'size_wide' => '[TODO-sw] Wide',
+        'size_narrow' => '[TODO-sw] Narrow',
+        'pick_report' => '[TODO-sw] Choose a saved report…',
+        'pick_metric' => '[TODO-sw] Choose a metric…',
+        'no_cards' => '[TODO-sw] No cards yet. Add a saved report or metric.',
+        'no_reports_hint' => '[TODO-sw] Create a saved report first — dashboards are built from your saved reports.',
+        'move_up' => '[TODO-sw] Move up',
+        'move_down' => '[TODO-sw] Move down',
+        'remove_card' => '[TODO-sw] Remove card',
+        'preview' => '[TODO-sw] Preview',
+        'refresh_preview' => '[TODO-sw] Refresh preview',
+        'preview_error' => '[TODO-sw] Preview failed — check your cards.',
+        'back' => '[TODO-sw] Back to dashboards',
+    ],
+];

@@ -118,25 +118,7 @@ class DashboardService
             ];
         }
 
-        $metricSlug = $card['metric_slug'] ?? null;
-        if (! is_string($metricSlug) || $metricSlug === '') {
-            throw ValidationException::withMessages([
-                "layout.{$index}.metric_slug" => 'Metric card requires metric_slug.',
-            ]);
-        }
-
-        $metric = ReportMetric::query()
-            ->withoutGlobalScope('landlord')
-            ->where('landlord_id', $landlordId)
-            ->where('slug', $metricSlug)
-            ->where('is_active', true)
-            ->first(['name', 'slug', 'parsed_rpn', 'unit']);
-
-        if (! $metric) {
-            throw ValidationException::withMessages([
-                "layout.{$index}.metric_slug" => "Metric '{$metricSlug}' is unknown or inactive.",
-            ]);
-        }
+        $metric = $this->requireMetric($index, $card['metric_slug'] ?? null, $landlordId);
 
         $values = [];
         foreach ($rows as $row) {
@@ -164,6 +146,74 @@ class DashboardService
             'count' => count($values),
             'average' => $average,
         ];
+    }
+
+    /**
+     * Phase-73 DASHBOARD-EDITOR: validate a posted layout for landlord
+     * ownership + structure WITHOUT running the reports, returning the
+     * normalised card list to persist. Fail-closed (throws on any bad card).
+     *
+     * @param  array<int, mixed>  $layout
+     * @return list<array<string, mixed>>
+     */
+    public function validateLayout(array $layout, int $landlordId): array
+    {
+        $normalised = [];
+
+        foreach ($layout as $i => $cardRaw) {
+            if (! is_array($cardRaw)) {
+                throw ValidationException::withMessages(["layout.{$i}" => 'Card must be an object.']);
+            }
+
+            $type = $cardRaw['type'] ?? null;
+            if (! is_string($type) || ! in_array($type, ['saved_report', 'metric'], true)) {
+                throw ValidationException::withMessages([
+                    "layout.{$i}.type" => "Card type must be 'saved_report' or 'metric'.",
+                ]);
+            }
+
+            $report = $this->requireSavedReport($i, $cardRaw, $landlordId);
+            $card = [
+                'type' => $type,
+                'saved_report_id' => $report->id,
+                'size' => $this->validateSize($cardRaw['size'] ?? 'wide'),
+            ];
+            if (isset($cardRaw['title']) && is_string($cardRaw['title']) && $cardRaw['title'] !== '') {
+                $card['title'] = mb_substr($cardRaw['title'], 0, 200);
+            }
+
+            if ($type === 'metric') {
+                $card['metric_slug'] = $this->requireMetric($i, $cardRaw['metric_slug'] ?? null, $landlordId)->slug;
+            }
+
+            $normalised[] = $card;
+        }
+
+        return $normalised;
+    }
+
+    private function requireMetric(int $index, mixed $metricSlug, int $landlordId): ReportMetric
+    {
+        if (! is_string($metricSlug) || $metricSlug === '') {
+            throw ValidationException::withMessages([
+                "layout.{$index}.metric_slug" => 'Metric card requires metric_slug.',
+            ]);
+        }
+
+        $metric = ReportMetric::query()
+            ->withoutGlobalScope('landlord')
+            ->where('landlord_id', $landlordId)
+            ->where('slug', $metricSlug)
+            ->where('is_active', true)
+            ->first(['name', 'slug', 'parsed_rpn', 'unit']);
+
+        if (! $metric) {
+            throw ValidationException::withMessages([
+                "layout.{$index}.metric_slug" => "Metric '{$metricSlug}' is unknown or inactive.",
+            ]);
+        }
+
+        return $metric;
     }
 
     /**

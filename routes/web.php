@@ -785,6 +785,20 @@ Route::middleware('auth')->group(function () {
         Route::delete('/{metric}', [\App\Http\Controllers\Reports\ReportMetricController::class, 'destroy'])->name('destroy');
     });
 
+    // Phase-73 DASHBOARD-EDITOR: landlord-defined dashboards CRUD + card editor
+    // + live preview. Registered BEFORE the {slug} show route so /dashboards,
+    // /dashboards/create + /dashboards/preview aren't shadowed by {slug}.
+    Route::middleware('role:landlord')->prefix('dashboards')->name('dashboards.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Reports\DashboardController::class, 'index'])->name('index');
+        Route::get('/create', [\App\Http\Controllers\Reports\DashboardController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\Reports\DashboardController::class, 'store'])->name('store');
+        Route::post('/preview', [\App\Http\Controllers\Reports\DashboardController::class, 'preview'])->name('preview');
+        Route::get('/{dashboard}/edit', [\App\Http\Controllers\Reports\DashboardController::class, 'edit'])->whereNumber('dashboard')->name('edit');
+        Route::put('/{dashboard}', [\App\Http\Controllers\Reports\DashboardController::class, 'update'])->whereNumber('dashboard')->name('update');
+        Route::delete('/{dashboard}', [\App\Http\Controllers\Reports\DashboardController::class, 'destroy'])->whereNumber('dashboard')->name('destroy');
+        Route::post('/{dashboard}/default', [\App\Http\Controllers\Reports\DashboardController::class, 'setDefault'])->whereNumber('dashboard')->name('set-default');
+    });
+
     // Phase-50 LANDLORD-DASHBOARDS-3: composable dashboard show route.
     // Slug is per-landlord — the controller scopes by (landlord_id, slug).
     Route::middleware('role:landlord')
