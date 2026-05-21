@@ -71,6 +71,7 @@ function pct(n: number): string {
                         <li><Link :href="route('ops.mrr.trend')" class="text-sm text-indigo-700 hover:underline">MRR trend (90 days)</Link></li>
                         <li><Link :href="route('ops.landlord-cost.top-n')" class="text-sm text-indigo-700 hover:underline">Top-N landlord cost</Link></li>
                         <li><Link :href="route('ops.incidents.index')" class="text-sm text-indigo-700 hover:underline">Operational incidents</Link></li>
+                        <li><Link :href="route('ops.onboarding.funnel')" class="text-sm text-indigo-700 hover:underline">Onboarding funnel</Link></li>
                     </ul>
                 </div>
             </div>

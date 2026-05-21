@@ -357,3 +357,70 @@ All three no-op once terminal, so a replayed request cannot resurrect a finished
 - `phase-46-audit-prd.json` — full PRD + audit_closeout
 - `phase-47-audit-prd.json` — full PRD + audit_closeout
 - `phase-48-audit-prd.json` — full PRD + audit_closeout
+
+## Phase 77 [ONBOARDING-DEEP-2] (2026-05-21)
+
+Closes onboarding's last parity gap: a deepened caretaker flow, an
+invitation deep-link, and per-step + invite drop-off analytics.
+
+### Caretaker flow (3 → 5 steps)
+
+`OnboardingFlow::forRole('caretaker')` is now `[1=Welcome, 2=Profile,
+3=Building assignment, 4=Notification preferences, 5=Orientation]` — welcome +
+orientation bookends matching the landlord flow. `CaretakerOnboardingService`
+handles them (welcome/orientation are no-op advances). `OnboardingController`
+builds **per-role** caretaker step props (`caretakerStepProps`) instead of
+borrowing the landlord `getStepProps`:
+- Step 3 carries the pending assignments **with building stats** (units /
+  occupied / open tickets) from `CaretakerBuildingSummaryService::forCaretaker`
+  (landlord-scoped via `building.landlord_id`, batched — no N+1).
+- Step 5 carries the building summary + `firstTaskUrl`.
+
+`Onboarding/Index.vue` forwards the server-injected props
+(totalSteps/pendingAssignments/buildingSummary/firstTaskUrl/profile) to
+`CaretakerSteps.vue` via `$page.props` (the previous 2-prop forwarding silently
+neutered the step-3 stats + the whole orientation step).
+
+### First-task hand-off
+
+`CaretakerFirstTaskResolver::resolve(user)` returns the oldest open ticket on an
+**accepted** building (landlord-scoped), else `maintenance.hub`. Used by the
+orientation step CTA AND the invitation deep-link. Caretaker onboarding
+completion redirects here instead of the generic dashboard.
+
+### Invitation deep-link
+
+`InvitationController::accept` + `acceptAuthenticated` redirect a caretaker to
+`onboarding.step(1)` (the `InvitationAccepted` event fires first so the pending
+assignments exist). `store()` now sets `invitations.role = 'caretaker'` —
+without it `RecordCaretakerAssignmentOnInvitationAccept` (gated on
+`role === 'caretaker'`) was a production no-op. `invitations.viewed_at` is
+stamped once on the first view (sent → opened funnel signal).
+
+### Analytics
+
+- `OnboardingFunnelService::forRole/all` — per-role per-step reached
+  (`current_step >= step OR completed`) + completion_rate + biggest drop-off
+  step, from `onboarding_sessions` (grouped counts, platform-wide).
+- `InvitationFunnelService::platform/forLandlord` — sent / viewed / accepted /
+  pending / expired + acceptance_rate over `invitations` + `tenant_invitations`.
+- `/ops/onboarding/funnel` (super-admin) renders both.
+- `onboarding:funnel-rollup` (daily 04:55 Africa/Nairobi) emits
+  `onboarding_completion_rate{role}`, `onboarding_active_sessions_count{role}`,
+  `onboarding_dropoff_step_number{role}`, `invitation_acceptance_rate`,
+  `invitations_pending_count`; fires `onboarding_completion_low` (sev4) when a
+  role with sample ≥ 10 drops below `config(onboarding.completion_rate_alert_pct)`.
+
+### Incident playbook
+
+| Symptom | Likely cause | Action |
+|---------|--------------|--------|
+| `onboarding_completion_low` fires for a role | Drop-off at a step | Check `/ops/onboarding/funnel` `drop_off_step` for that role; inspect that step's form/validation |
+| Caretaker step 3 shows no buildings | Invite created without `role='caretaker'` (pre-Phase-77) or assignments declined | Confirm `invitations.role`; re-issue the invite |
+| Low `invitation_acceptance_rate` | Invites sent but not opened/accepted | Compare sent vs viewed on the invite funnel; nudge or resend |
+
+### CI gates
+
+- `Phase77CaretakerContextTest`, `Phase77CaretakerFlowTest`,
+  `Phase77InviteDeeplinkTest`, `Phase77FunnelTest`
+- `Phase77OnboardingDeep2SurfaceTest` — cross-category presence map

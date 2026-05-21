@@ -66,7 +66,10 @@ class InvitationFunnelService
             })
             ->count();
 
-        $pending = max(0, $sent - $accepted - $expired);
+        // Explicit positive count (NOT a residual) so declined tenant invites —
+        // which are sent but neither accepted nor expired — don't inflate pending.
+        $pending = $inv()->whereNull('accepted_at')->where('created_at', '>=', $cutoff)->count()
+            + $ti()->where('status', 'pending')->where('expires_at', '>=', now())->count();
 
         return [
             'sent' => $sent,

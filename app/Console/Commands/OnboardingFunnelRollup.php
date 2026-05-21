@@ -41,8 +41,8 @@ class OnboardingFunnelRollup extends Command
         try {
             foreach ($funnel->all() as $role => $data) {
                 $metrics->gauge('onboarding_completion_rate', (float) $data['completion_rate'], ['role' => $role]);
-                $metrics->gauge('onboarding_active_sessions', (float) $data['active'], ['role' => $role]);
-                $metrics->gauge('onboarding_dropoff_step', (float) ($data['drop_off_step'] ?? 0), ['role' => $role]);
+                $metrics->gauge('onboarding_active_sessions_count', (float) $data['active'], ['role' => $role]);
+                $metrics->gauge('onboarding_dropoff_step_number', (float) ($data['drop_off_step'] ?? 0), ['role' => $role]);
 
                 if ($data['total'] >= self::MIN_SAMPLE && $data['completion_rate'] < $threshold) {
                     $lowRoles[$role] = $data['completion_rate'];
