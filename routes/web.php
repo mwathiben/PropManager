@@ -386,6 +386,10 @@ Route::middleware('auth')->group(function () {
         // Phase-66 COHORT-RETENTION-2: per-source retention vs organic baseline.
         Route::get('/ops/growth/cohort-retention', [\App\Http\Controllers\Ops\OpsCohortRetentionController::class, 'index'])
             ->name('ops.growth.cohort-retention.index');
+
+        // Phase-77 FUNNEL-2 / INVITE-FUNNEL-2: onboarding-health dashboard.
+        Route::get('/ops/onboarding/funnel', [\App\Http\Controllers\Ops\OpsOnboardingFunnelController::class, 'index'])
+            ->name('ops.onboarding.funnel');
     });
 
     // Phase-66 REFERRAL-LEADERBOARD-2/3: landlord-facing anonymised

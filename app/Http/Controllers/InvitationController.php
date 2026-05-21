@@ -84,6 +84,7 @@ class InvitationController extends Controller
                 $invitation = Invitation::create([
                     'landlord_id' => auth()->id(),
                     'email' => $request->email,
+                    'role' => 'caretaker',
                     'target_user_id' => $existingUser?->id,
                     'property_id' => $request->property_id,
                     'token' => Invitation::generateToken(),

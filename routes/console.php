@@ -367,6 +367,15 @@ Schedule::command('onboarding:nudge-stalled')
     ->onOneServer()
     ->name('phase46-progress-resume-nudge');
 
+// Phase-77 FUNNEL-3: onboarding step-funnel + invite-funnel gauges + the
+// low-completion alert.
+Schedule::command('onboarding:funnel-rollup')
+    ->dailyAt('04:55')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->withoutOverlapping()
+    ->name('phase77-onboarding-funnel-rollup');
+
 // Phase-29 WF-LATE-FEE-1: nightly escalation for chronically overdue
 // invoices. Runs after invoices:mark-overdue (00:05) and
 // invoices:apply-late-fees (00:10) so the freshly-updated overdue

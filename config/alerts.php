@@ -240,6 +240,18 @@ return [
             'description' => 'Payment gateway ledger (Paystack or Stripe) drifted from local payments table by more than the threshold count in the last 24h. Investigate via payments:gateway-reconcile.',
         ],
 
+        // Phase-77 FUNNEL-3
+        [
+            'key' => 'onboarding_completion_low',
+            'severity' => 'sev4',
+            'threshold' => 1,
+            'window' => 'all',
+            'gauge' => 'onboarding_completion_rate',
+            'runbook' => 'docs/runbooks/onboarding.md',
+            'paging' => 'email',
+            'description' => 'A role with a meaningful sample has an onboarding completion rate below config(onboarding.completion_rate_alert_pct). Product signal — investigate the drop-off step.',
+        ],
+
         // Phase-49 PARTS-INVENTORY-3
         [
             'key' => 'parts_below_threshold',

@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 return [
     /*
+     | Phase-77 FUNNEL-3: a role's onboarding completion rate (%) below this
+     | (with a meaningful sample) fires the onboarding_completion_low alert.
+     */
+    'completion_rate_alert_pct' => env('ONBOARDING_COMPLETION_ALERT_PCT', 40),
+
+    /*
     |--------------------------------------------------------------------------
     | Mirror Registry
     |--------------------------------------------------------------------------
