@@ -9,6 +9,7 @@ use App\Http\Requests\Reports\StoreDashboardRequest;
 use App\Models\LandlordDashboard;
 use App\Models\ReportMetric;
 use App\Models\SavedReport;
+use App\Services\Reports\DashboardCardRegistry;
 use App\Services\Reports\DashboardService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -31,6 +32,7 @@ class DashboardController extends Controller
 {
     public function __construct(
         private DashboardService $dashboards,
+        private DashboardCardRegistry $cardRegistry,
     ) {}
 
     public function index(Request $request): Response
@@ -60,6 +62,7 @@ class DashboardController extends Controller
             'dashboard' => null,
             'savedReports' => $this->savedReportsFor($request),
             'metrics' => $this->metricsFor($request),
+            'cardTypes' => $this->cardRegistry->descriptors(),
         ]);
     }
 
@@ -104,6 +107,7 @@ class DashboardController extends Controller
             ],
             'savedReports' => $this->savedReportsFor($request),
             'metrics' => $this->metricsFor($request),
+            'cardTypes' => $this->cardRegistry->descriptors(),
         ]);
     }
 

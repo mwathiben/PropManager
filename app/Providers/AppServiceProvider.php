@@ -70,6 +70,15 @@ class AppServiceProvider extends ServiceProvider
             config('metrics.connection', 'cache')
         ));
 
+        // Phase-74 CARD-REGISTRY: the dashboard card-renderer registry. New
+        // card types are added by appending a renderer here — never by editing
+        // the security-sensitive DashboardService render path. Each renderer
+        // re-validates landlord ownership of its referenced report/metric.
+        $this->app->singleton(\App\Services\Reports\DashboardCardRegistry::class, fn ($app) => new \App\Services\Reports\DashboardCardRegistry([
+            $app->make(\App\Services\Reports\Cards\SavedReportCardRenderer::class),
+            $app->make(\App\Services\Reports\Cards\MetricCardRenderer::class),
+        ]));
+
         // Phase-67 ATTACHMENT-SCAN-1: bind the configured attachment
         // scanner (null / clamav / fake) for MessageAttachmentService.
         $this->app->bind(
