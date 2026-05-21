@@ -42,6 +42,7 @@ const showEditModal = ref(false);
 const showNoteModal = ref(false);
 const showContactModal = ref(false);
 const showWalletModal = ref(false);
+const showNoticeModal = ref(false);
 const editingNote = ref(null);
 const editingContact = ref(null);
 
@@ -107,6 +108,13 @@ const walletForm = useForm({
     type: 'credit',
     amount: '',
     reason: '',
+});
+
+// Phase-82 NOTICE-GEN-2: generate a notice PDF stored as a Document on the lease.
+const noticeForm = useForm({
+    notice_type: 'rent_increase',
+    reason: '',
+    effective_date: '',
 });
 
 // Sections
@@ -251,6 +259,22 @@ const submitWalletAdjustment = () => {
     });
 };
 
+const openNoticeModal = () => {
+    noticeForm.reset();
+    showNoticeModal.value = true;
+};
+
+const submitNotice = () => {
+    if (!props.activeLease) return;
+    noticeForm.post(route('documents.generate-notice', props.activeLease.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showNoticeModal.value = false;
+            noticeForm.reset();
+        },
+    });
+};
+
 // Activity icon mapping
 const activityIcons = {
     profile_updated: PencilIcon,
@@ -311,6 +335,16 @@ const getActivityIcon = (action) => {
                             >
                                 <ChatBubbleLeftIcon class="w-4 h-4" />
                                 Message
+                            </button>
+                            <button
+                                v-if="canEditTenant && activeLease"
+                                @click="openNoticeModal"
+                                type="button"
+                                class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                                data-testid="generate-notice-cta"
+                            >
+                                <DocumentTextIcon class="w-4 h-4" />
+                                {{ $t('document.notice.generate') }}
                             </button>
                             <button
                                 v-if="canEditTenant"
@@ -1085,6 +1119,67 @@ const getActivityIcon = (action) => {
                                 class="px-4 py-2 text-white rounded-lg disabled:opacity-50"
                             >
                                 {{ walletForm.type === 'credit' ? 'Add Credit' : 'Remove Credit' }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Phase-82 NOTICE-GEN-2: generate a notice PDF for the active lease. -->
+        <div v-if="showNoticeModal" class="fixed inset-0 z-50 overflow-y-auto">
+            <div class="flex items-center justify-center min-h-screen px-4">
+                <div class="fixed inset-0 bg-gray-900/50 z-40" @click="showNoticeModal = false"></div>
+                <div class="relative z-50 bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900">{{ $t('document.notice.generate') }}</h3>
+                        <button @click="showNoticeModal = false" class="text-gray-400 hover:text-gray-600">
+                            <XMarkIcon class="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    <form @submit.prevent="submitNotice" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('document.notice.type') }}</label>
+                            <select
+                                v-model="noticeForm.notice_type"
+                                required
+                                class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                                <option value="rent_increase">{{ $t('document.notice.rent_increase') }}</option>
+                                <option value="arrears">{{ $t('document.notice.arrears') }}</option>
+                                <option value="general">{{ $t('document.notice.general') }}</option>
+                            </select>
+                            <p v-if="noticeForm.errors.notice_type" class="mt-1 text-sm text-red-600">{{ noticeForm.errors.notice_type }}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('document.notice.effective_date') }}</label>
+                            <input
+                                v-model="noticeForm.effective_date"
+                                type="date"
+                                class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                            />
+                            <p v-if="noticeForm.errors.effective_date" class="mt-1 text-sm text-red-600">{{ noticeForm.errors.effective_date }}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('document.notice.reason') }}</label>
+                            <textarea
+                                v-model="noticeForm.reason"
+                                rows="4"
+                                maxlength="5000"
+                                class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                            ></textarea>
+                            <p v-if="noticeForm.errors.reason" class="mt-1 text-sm text-red-600">{{ noticeForm.errors.reason }}</p>
+                        </div>
+
+                        <div class="flex justify-end gap-3 pt-4">
+                            <button type="button" @click="showNoticeModal = false" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">{{ $t('document.cancel') }}</button>
+                            <button
+                                type="submit"
+                                :disabled="noticeForm.processing"
+                                class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                            >
+                                {{ $t('document.notice.submit') }}
                             </button>
                         </div>
                     </form>

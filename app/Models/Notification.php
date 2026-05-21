@@ -25,6 +25,9 @@ class Notification extends Model
 
     public const TYPE_LEASE_RENEWAL = 'lease_renewal';
 
+    // Phase-82 DOC-REMINDERS-1: document expiry reminder.
+    public const TYPE_DOCUMENT_EXPIRY = 'document_expiry';
+
     public const TYPE_MAINTENANCE_NOTICE = 'maintenance_notice';
 
     public const TYPE_GENERAL = 'general';
@@ -99,6 +102,7 @@ class Notification extends Model
         self::TYPE_RENT_REMINDER => self::URGENCY_IMPORTANT,
         self::TYPE_RENT_HIKE => self::URGENCY_IMPORTANT,
         self::TYPE_LEASE_RENEWAL => self::URGENCY_IMPORTANT,
+        self::TYPE_DOCUMENT_EXPIRY => self::URGENCY_IMPORTANT,
         self::TYPE_CARETAKER_INVITATION => self::URGENCY_IMPORTANT,
         self::TYPE_TENANT_INVITATION => self::URGENCY_IMPORTANT,
         self::TYPE_RECEIPT => self::URGENCY_INFORMATIONAL,

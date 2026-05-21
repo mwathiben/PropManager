@@ -48,6 +48,12 @@ class Document extends Model
         'payslip' => 'Payslip',
         'reference_letter' => 'Reference Letter',
         'utility_bill' => 'Utility Bill',
+        // Phase-82 DOC-META-1: property-domain types that typically carry an expiry.
+        'insurance' => 'Insurance Policy',
+        'compliance_cert' => 'Compliance Certificate',
+        'title_deed' => 'Title Deed',
+        'inspection_report' => 'Inspection Report',
+        'notice' => 'Notice',
         'other' => 'Other',
     ];
 
@@ -71,7 +77,11 @@ class Document extends Model
         'mime_type',
         'file_size',
         'document_type',
+        'issue_date',
         'expires_at',
+        'superseded_by_document_id',
+        'reminder_days',
+        'is_renewable',
         'description',
         'uploaded_by',
         'scan_status',
@@ -79,7 +89,10 @@ class Document extends Model
 
     protected $casts = [
         'file_size' => 'integer',
+        'issue_date' => 'date',
         'expires_at' => 'date',
+        'reminder_days' => 'integer',
+        'is_renewable' => 'boolean',
         'annotation_data' => 'array',
     ];
 
@@ -209,5 +222,68 @@ class Document extends Model
         return $query
             ->whereNotNull('expires_at')
             ->where('expires_at', '<=', now()->addDays($days)->toDateString());
+    }
+
+    /**
+     * Phase-82 DOC-META-1: the fresh document that replaced this one (renewal).
+     */
+    public function supersededBy(): BelongsTo
+    {
+        return $this->belongsTo(Document::class, 'superseded_by_document_id');
+    }
+
+    public function supersedes(): HasMany
+    {
+        return $this->hasMany(Document::class, 'superseded_by_document_id');
+    }
+
+    public function isSuperseded(): bool
+    {
+        return $this->superseded_by_document_id !== null;
+    }
+
+    /**
+     * Phase-82 DOC-RENEWAL: the current (not-yet-superseded) documents.
+     *
+     * @param  Builder<Document>  $query
+     */
+    public function scopeCurrent(Builder $query): Builder
+    {
+        return $query->whereNull('superseded_by_document_id');
+    }
+
+    /**
+     * Phase-82 DOC-EXPIRY-4 / DOC-REMINDERS-1: renewable, current documents whose
+     * expiry falls within their own reminder window (per-doc reminder_days, else
+     * the default). Negative remaining days = already expired.
+     *
+     * @param  Builder<Document>  $query
+     */
+    public function scopeDueForReminder(Builder $query, int $defaultDays = 30): Builder
+    {
+        return $query
+            ->whereNotNull('expires_at')
+            ->whereNull('superseded_by_document_id')
+            ->where('is_renewable', true)
+            ->whereRaw('expires_at <= DATE_ADD(CURDATE(), INTERVAL COALESCE(reminder_days, ?) DAY)', [$defaultDays]);
+    }
+
+    /**
+     * Phase-82 DOC-EXPIRY-1: expiry status for the landlord surface.
+     */
+    public function expiryStatus(int $defaultDays = 30): string
+    {
+        if ($this->expires_at === null) {
+            return 'none';
+        }
+        if ($this->expires_at->isPast()) {
+            return 'expired';
+        }
+        $window = $this->reminder_days ?? $defaultDays;
+        if ($this->expires_at->lessThanOrEqualTo(now()->addDays($window))) {
+            return 'expiring_soon';
+        }
+
+        return 'valid';
     }
 }

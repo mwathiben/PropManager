@@ -174,6 +174,7 @@ export interface LandlordActionItems {
   open_tickets: number;
   vacant_units: number;
   escalated_tickets: number;
+  expiring_documents: number;
 }
 
 // Financial metrics (from DashboardController)

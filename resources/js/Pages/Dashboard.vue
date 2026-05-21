@@ -661,6 +661,18 @@ onUnmounted(() => {
                     :actionHref="route('tickets.index', { escalated: 1 })"
                 />
 
+                <!-- Phase-82 DOC-EXPIRY-2: renewable documents about to expire. -->
+                <ActionItemCard
+                    v-if="localActionItems.expiring_documents > 0"
+                    urgency="medium"
+                    :icon="DocumentTextIcon"
+                    :count="localActionItems.expiring_documents"
+                    title="Expiring Documents"
+                    description="Renew before they lapse"
+                    actionLabel="Review"
+                    :actionHref="route('archive.hub', { tab: 'documents', expiry: 'expiring' })"
+                />
+
                 <!-- Phase-79 DASHBOARD-WATER-1: water reading review is a Water
                      hub concern, not a landlord-dashboard widget. The landlord
                      reviews in the Water hub; the caretaker records there. -->

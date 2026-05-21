@@ -143,7 +143,7 @@ class DashboardService
             ->select(['id', 'landlord_id', 'name'])
             ->with(['buildings' => function ($query) {
                 $query->whereNull('parent_building_id')
-                    ->select(['id', 'property_id', 'parent_building_id', 'name', 'is_wing', 'unit_prefix', 'total_floors', 'units_per_floor'])
+                    ->select(['id', 'landlord_id', 'property_id', 'parent_building_id', 'name', 'is_wing', 'unit_prefix', 'total_floors', 'units_per_floor'])
                     ->with(['wings' => function ($q) {
                         $q->select(['id', 'property_id', 'parent_building_id', 'name', 'is_wing', 'unit_prefix']);
                     }]);
@@ -706,6 +706,13 @@ class DashboardService
             'urgent_tickets' => Ticket::whereIn('building_id', $metricsBuildingIds)->open()->where('priority', 'urgent')->count(),
             // Phase-80 ESCALATION-VIEW-2: open caretaker escalations awaiting the landlord.
             'escalated_tickets' => Ticket::whereIn('building_id', $metricsBuildingIds)->escalated()->count(),
+            // Phase-82 DOC-EXPIRY-2: renewable documents expiring within 30 days.
+            'expiring_documents' => \App\Models\Document::query()
+                ->where('landlord_id', (int) $activeBuilding->landlord_id)
+                ->current()
+                ->where('is_renewable', true)
+                ->expiringSoon(30)
+                ->count(),
             // Phase-79 DASHBOARD-WATER-2: water-reading review moved to the Water
             // hub; the landlord dashboard no longer surfaces (or computes) it.
             'vacant_units' => $metricsUnits->where('status', 'vacant')->count(),

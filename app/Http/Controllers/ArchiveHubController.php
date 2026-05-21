@@ -39,18 +39,34 @@ class ArchiveHubController extends Controller
 
     private function getDocumentsData(Request $request, int $landlordId): array
     {
+        // Phase-82 DOC-RENEWAL-2: the archive shows CURRENT documents (the
+        // renewal chain's superseded versions drop out by default).
         $query = Document::where('landlord_id', $landlordId)
+            ->current()
             ->with(['documentable']);
 
         if ($request->filled('search')) {
+            // Phase-82 fix: real columns are title/file_name (not name/original_name).
             $query->where(function ($q) use ($request) {
-                $q->where('name', 'like', '%'.$request->search.'%')
-                    ->orWhere('original_name', 'like', '%'.$request->search.'%');
+                $q->where('title', 'like', '%'.$request->search.'%')
+                    ->orWhere('file_name', 'like', '%'.$request->search.'%');
             });
         }
 
         if ($request->filled('type')) {
-            $query->where('type', $request->type);
+            // Phase-82 fix: the column is document_type (not type).
+            $query->where('document_type', $request->type);
+        }
+
+        // Phase-82 DOC-EXPIRY-1: landlord expiry filter.
+        if ($request->filled('expiry')) {
+            if ($request->expiry === 'expired') {
+                $query->whereNotNull('expires_at')->whereDate('expires_at', '<', now());
+            } elseif ($request->expiry === 'expiring') {
+                $query->whereNotNull('expires_at')
+                    ->whereDate('expires_at', '>=', now())
+                    ->whereDate('expires_at', '<=', now()->addDays(30));
+            }
         }
 
         if ($request->filled('model_type')) {
@@ -78,22 +94,34 @@ class ArchiveHubController extends Controller
 
         $documents = $query->orderBy('created_at', 'desc')
             ->paginate(20)
-            ->withQueryString();
+            ->withQueryString()
+            // Phase-82 DOC-EXPIRY-1: surface expiry + renewal state per row.
+            ->through(fn (Document $d) => [
+                'id' => $d->id,
+                'title' => $d->title,
+                'file_name' => $d->file_name,
+                'document_type' => $d->document_type,
+                'document_type_label' => __('document.types.'.$d->document_type),
+                'documentable_type' => class_basename((string) $d->documentable_type),
+                'expires_at' => $d->expires_at?->toDateString(),
+                'expiry_status' => $d->expiryStatus(),
+                'is_renewable' => (bool) $d->is_renewable,
+                'uploaded_at' => $d->created_at?->toDateString(),
+            ]);
 
-        $documentTypes = [
-            ['value' => 'lease_agreement', 'label' => 'Lease Agreement'],
-            ['value' => 'tenant_id', 'label' => 'Tenant ID'],
-            ['value' => 'tenant_passport', 'label' => 'Passport'],
-            ['value' => 'bank_statement', 'label' => 'Bank Statement'],
-            ['value' => 'payslip', 'label' => 'Payslip'],
-            ['value' => 'reference_letter', 'label' => 'Reference Letter'],
-            ['value' => 'utility_bill', 'label' => 'Utility Bill'],
-            ['value' => 'other', 'label' => 'Other'],
-        ];
+        $documentTypes = collect(Document::DOCUMENT_TYPES)
+            ->map(fn ($label, $value) => ['value' => $value, 'label' => __('document.types.'.$value)])
+            ->values()
+            ->all();
 
         return [
             'documents' => $documents,
             'documentTypes' => $documentTypes,
+            'expiryFilters' => [
+                ['value' => '', 'label' => __('document.expiry.filter_all')],
+                ['value' => 'expiring', 'label' => __('document.expiry.filter_expiring')],
+                ['value' => 'expired', 'label' => __('document.expiry.filter_expired')],
+            ],
         ];
     }
 

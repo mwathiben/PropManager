@@ -682,6 +682,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/documents/{document}/download', [DocumentController::class, 'download'])->name('documents.download');
     Route::get('/documents/{document}/view', [DocumentController::class, 'view'])->name('documents.view');
     Route::delete('/documents/{document}', [DocumentController::class, 'destroy'])->name('documents.destroy');
+    // Phase-82 DOC-RENEWAL-1: renew (supersede) an expiring document.
+    Route::post('/documents/{document}/renew', [DocumentController::class, 'renew'])
+        ->middleware(['throttle:file-upload', 'role:landlord,caretaker'])
+        ->whereNumber('document')->name('documents.renew');
+    // Phase-82 NOTICE-GEN-1: generate a notice PDF stored as a Document on a lease.
+    Route::post('/leases/{lease}/generate-notice', [DocumentController::class, 'generateNotice'])
+        ->middleware('role:landlord,caretaker')
+        ->whereNumber('lease')->name('documents.generate-notice');
     Route::get('/documents/for-model', [DocumentController::class, 'forModel'])->name('documents.forModel');
 
     // 8. Invoices

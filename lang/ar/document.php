@@ -1,0 +1,89 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Phase-82 DOCUMENTS-DEPTH lang namespace. Parity: mirror en / sw / ar exactly.
+ */
+
+return [
+    'label' => 'مستند',
+    'type' => 'النوع',
+    'uploaded' => 'تم الرفع',
+    'actions' => 'إجراءات',
+    'search' => 'البحث عن المستندات...',
+    'all_types' => 'كل الأنواع',
+    'clear_filters' => 'مسح عوامل التصفية',
+    'cancel' => 'إلغاء',
+    'showing' => 'عرض {from} إلى {to} من {total} نتيجة',
+    'empty' => [
+        'title' => 'لم يتم العثور على مستندات',
+        'filtered' => 'حاول تعديل عوامل التصفية.',
+        'description' => 'ستظهر المستندات المرفوعة هنا.',
+    ],
+    'fields' => [
+        'issue_date' => 'تاريخ الإصدار',
+        'expires_at' => 'تاريخ الانتهاء',
+        'renewable' => 'قابل للتجديد — تتبّع الانتهاء وأرسل التذكيرات',
+        'reminder_days' => 'أيام التذكير قبل الانتهاء',
+        'reminder_days_hint' => 'الافتراضي 30',
+    ],
+    'types' => [
+        'lease_agreement' => 'عقد الإيجار',
+        'tenant_id' => 'هوية المستأجر',
+        'tenant_passport' => 'جواز سفر المستأجر',
+        'bank_statement' => 'كشف حساب بنكي',
+        'payslip' => 'قسيمة الراتب',
+        'reference_letter' => 'خطاب توصية',
+        'utility_bill' => 'فاتورة خدمات',
+        'insurance' => 'وثيقة تأمين',
+        'compliance_cert' => 'شهادة امتثال',
+        'title_deed' => 'سند الملكية',
+        'inspection_report' => 'تقرير تفتيش',
+        'notice' => 'إشعار',
+        'other' => 'أخرى',
+    ],
+    'expiry' => [
+        'expired' => 'منتهية',
+        'expiring_soon' => 'تنتهي قريبًا',
+        'valid' => 'سارية',
+        'none' => 'بلا انتهاء',
+        'column' => 'تنتهي',
+        'filter_all' => 'الكل',
+        'filter_expiring' => 'تنتهي قريبًا',
+        'filter_expired' => 'منتهية',
+    ],
+    'expiry_reminder' => [
+        'subject' => 'مستند ينتهي: :title',
+        'body' => 'ينتهي :title خلال :days يوم. راجعه وجدّده.',
+        'body_expired' => 'انتهى :title. يرجى تجديده.',
+    ],
+    'renewal' => [
+        'renewed' => 'تم تجديد المستند.',
+        'renew' => 'تجديد',
+        'title' => 'تجديد المستند',
+        'new_expiry' => 'تاريخ انتهاء جديد',
+        'submit' => 'رفع التجديد',
+        'superseded' => 'مُستبدَل',
+        'current' => 'النسخة الحالية',
+        'reason' => 'تم التجديد (استبدل #:id)',
+    ],
+    'notice' => [
+        'generated' => 'تم إنشاء الإشعار.',
+        'generate' => 'إنشاء إشعار',
+        'type' => 'نوع الإشعار',
+        'rent_increase' => 'إشعار زيادة الإيجار',
+        'arrears' => 'إشعار متأخرات',
+        'general' => 'إشعار عام',
+        'heading_rent_increase' => 'إشعار بزيادة الإيجار',
+        'heading_arrears' => 'إشعار بالمتأخرات',
+        'heading_general' => 'إشعار',
+        'to' => 'إلى',
+        'date' => 'التاريخ',
+        'property' => 'العقار',
+        'unit' => 'الوحدة',
+        'submit' => 'إنشاء',
+        'reason' => 'التفاصيل',
+        'effective_date' => 'تاريخ النفاذ',
+    ],
+];

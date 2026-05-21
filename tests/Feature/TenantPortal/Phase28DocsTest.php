@@ -13,7 +13,6 @@ use App\Models\Receipt;
 use App\Models\TenantKycSubmission;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestData;
@@ -81,8 +80,10 @@ class Phase28DocsTest extends TestCase
         $response = $this->actingAs($this->tenant)
             ->get(route('tenant.documents.download', ['document' => $doc->id]));
 
-        $response->assertOk();
-        $this->assertSame('attachment; filename='.$doc->file_name, $response->headers->get('Content-Disposition'));
+        // Phase-59 SIGNED-URLS-2: download 302-redirects to a short-lived signed
+        // URL; PHP-FPM no longer streams bytes (or sets Content-Disposition) itself.
+        $response->assertRedirect();
+        $this->assertNotEmpty($response->headers->get('Location'));
     }
 
     public function test_tenant_cannot_download_other_tenants_document(): void

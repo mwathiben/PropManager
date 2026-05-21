@@ -329,6 +329,14 @@ Schedule::command('caretaker:performance-rollup')
     ->onOneServer()
     ->name('phase80-caretaker-performance-rollup');
 
+// Phase-82 DOC-EXPIRY-3: weekly per-landlord expiring-documents gauge.
+// Visibility-only (no alert). Sunday rollup cluster after caretaker perf.
+Schedule::command('documents:expiry-rollup')
+    ->weeklyOn(0, '05:15')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase82-documents-expiry-rollup');
+
 // Phase-29 WF-RENT-REMIND-1: tiered rent reminder dispatcher. Runs
 // after invoices:automate (06:00) and before tickets:audit-sla (07:00)
 // so newly-generated invoices land in the same overnight cycle.
@@ -346,6 +354,14 @@ Schedule::command('leases:scan-renewals')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase29-wf-lease-renew1-scan');
+
+// Phase-82 DOC-REMINDERS-1: daily document-expiry reminder scan (renewable docs
+// in their reminder window). Sits just after the lease-renewal scan.
+Schedule::command('documents:scan-expiring')
+    ->dailyAt('07:35')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase82-documents-scan-expiring');
 
 // Phase-45 LEASE-COUNTER-3: expire counter-offers older than 14 days.
 // Runs at 06:00 — before tickets:audit-sla (07:00) so any expiry

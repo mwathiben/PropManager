@@ -4,7 +4,14 @@
   "opened_at": "2026-05-22",
   "tier": 7,
   "scope": "Document lifecycle depth on the Archive hub. Scout findings — ALREADY BUILT: documents.expires_at (date, indexed) + Document::scopeExpiringSoon($days=30); a TENANT-ONLY expiry banner (HandleInertiaRequests::getTenantExpiringDocs + Components/Tenant/DocumentExpiryBanner.vue, hardcoded 30d); Document CRUD (DocumentController) + Archive hub (ArchiveHubController documents/leases/activity tabs) + signed-URL download (Phase 59) + legal-hold deletion guard (Phase 64/65 HasLegalHolds) + per-subject retention (FileRetentionService kyc_doc 5yr / lease_doc 7yr, storage:enforce-retention cron); a PDF-generation pattern (InvoicePdfService + dompdf + blade) used for invoices/receipts/statements/dashboards/reports; NotificationTemplate (email text) for rent_hike/eviction/arrears + the lease-renewal reminder pattern (LeasesScanRenewals buckets 60/30/7 -> LeaseRenewalApproaching -> NotifyOnLeaseRenewalApproaching, cache-idempotent, ShouldQueue+backoff). Document types are a hardcoded 8-value const on the model (lease_agreement/tenant_id/tenant_passport/bank_statement/payslip/reference_letter/utility_bill/other). REAL GAPS: (1) NO landlord-facing expiry surface — Archive Documents tab has no expires_at column/filter, no dashboard widget, no gauge; (2) NO expiry reminder loop AT ALL — tenants see a banner but receive no notification, landlords get nothing; (3) NO renewal/supersede workflow (re-upload a fresh version, mark renewed, carry expiry); (4) thin document-type taxonomy + no issue_date / configurable reminder window / renewable-vs-non-expiring distinction; (5) NO lease-agreement or notice (rent-increase/arrears) PDF GENERATION — only emailed text. Reuse: InvoicePdfService/dompdf/blade; LeasesScanRenewals+NotifyOnLeaseRenewalApproaching reminder pattern; NotificationService + Notification::TYPE_URGENCY_MAP; ArchiveHubController tab dispatch; the rollup-gauge cron pattern (property:benchmark-rollup). All landlord-scoped; documents on tenant disk (Storage::tenant). selectRaw static aggregates accepted.",
-  "categories": ["DOC-META", "DOC-EXPIRY", "DOC-REMINDERS", "DOC-RENEWAL", "NOTICE-GEN", "CI"],
+  "categories": [
+    "DOC-META",
+    "DOC-EXPIRY",
+    "DOC-REMINDERS",
+    "DOC-RENEWAL",
+    "NOTICE-GEN",
+    "CI"
+  ],
   "findings": [
     {
       "id": "DOC-META-1",
@@ -13,7 +20,7 @@
       "title": "Document lifecycle schema — issue_date + superseded_by + reminder_days + richer types",
       "evidence": "Documents have only expires_at. No issue_date (when valid from), no supersede link for renewals, no per-document reminder window, no renewable flag. Type taxonomy is a thin 8-value const missing property-domain types (insurance, compliance cert, title deed, inspection report).",
       "remediation": "Migration: documents add issue_date (date nullable), superseded_by_document_id (nullable self-FK nullOnDelete), reminder_days (uint nullable; default window when null), is_renewable (bool default false). Document model: add to fillable/casts, supersededBy()/supersedes() relations, expand DOCUMENT_TYPES const (+ insurance, compliance_cert, title_deed, inspection_report) and sync the migration enum/validation + ArchiveHubController type list. Phase82 test: new columns persist; superseded relation resolves; new types accepted by store validation.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "DOC-META-2",
@@ -22,7 +29,7 @@
       "title": "Upload form captures expiry + issue date + renewable",
       "evidence": "DocumentController::store validates document_type but not expires_at/issue_date/is_renewable, and the upload UI doesn't capture them — so expiry can only be set by seeding.",
       "remediation": "store() validates + persists expires_at (nullable date), issue_date (nullable date, before-or-equal expires_at), is_renewable (bool), reminder_days (nullable int). Upload modal exposes the fields (shown when a renewable/expiring type is chosen). Phase82 test: store persists the lifecycle fields.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "DOC-META-3",
@@ -31,7 +38,7 @@
       "title": "Document type labels i18n",
       "evidence": "Type labels are hardcoded English in the model const.",
       "remediation": "lang document.types.* (en/sw/ar curated for all types) + a helper exposing localized labels to the UI. Phase82 lang parity.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "DOC-EXPIRY-1",
@@ -40,7 +47,7 @@
       "title": "Landlord expiring-documents surface (Archive filter + column + status)",
       "evidence": "The Archive Documents tab shows name/type/created_at only — no expires_at column, no expiry filter, no expired/expiring status. The landlord is blind to document expiry (only tenants see a banner).",
       "remediation": "ArchiveHubController::getDocumentsData adds expires_at + a computed expiry_status (expired | expiring_soon | valid | none) per row + an expiry filter (all|expiring|expired). DocumentsTab.vue renders the expiry column + status chip + filter. Landlord-scoped, no N+1. Phase82 test: filter=expiring returns only docs within the window; expired flagged.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "DOC-EXPIRY-2",
@@ -49,7 +56,7 @@
       "title": "Landlord dashboard expiring-documents action card",
       "evidence": "No landlord dashboard signal for documents about to expire (mirrors the escalated/expiring-leases cards).",
       "remediation": "DashboardService landlord path adds actionItems.expiring_documents (count of own documents expiring within the window, batched landlord-scoped) + Dashboard.vue ActionItemCard linking to the Archive documents tab filtered ?expiry=expiring. Phase82 test: count reflects expiring docs only.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "DOC-EXPIRY-3",
@@ -58,7 +65,7 @@
       "title": "Weekly expiring-documents rollup gauge",
       "evidence": "No ops visibility on document expiry over time (mirrors maintenance:cost-rollup / property:benchmark-rollup / caretaker:performance-rollup).",
       "remediation": "documents:expiry-rollup command (weekly Sunday 05:15 Africa/Nairobi, in the Sunday rollup cluster, onOneServer) emitting landlord_documents_expiring_30d{landlord_id} gauge — visibility-only, no alert. Phase82 test: command exits 0.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "DOC-EXPIRY-4",
@@ -67,7 +74,7 @@
       "title": "expiringSoon scope respects per-document reminder_days",
       "evidence": "expiringSoon($days=30) uses a single window; with per-document reminder_days a doc should surface in its own window.",
       "remediation": "Add Document::scopeDueForReminder() honoring COALESCE(reminder_days, default) against expires_at; the landlord surface + reminder cron use it. Phase82 test: a doc with reminder_days=90 surfaces 60 days out while a default doc does not.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "DOC-REMINDERS-1",
@@ -76,7 +83,7 @@
       "title": "Document-expiry reminder cron + event + listener",
       "evidence": "There is NO active reminder loop for document expiry — the tenant banner is passive and the landlord gets nothing. The LeasesScanRenewals -> LeaseRenewalApproaching -> NotifyOnLeaseRenewalApproaching pattern is the template.",
       "remediation": "documents:scan-expiring command (daily, buckets e.g. [30,7,0] or per-doc reminder_days) → DocumentExpiryApproaching event, cache-idempotent per (document, bucket, month) → NotifyOnDocumentExpiry listener (ShouldQueue + backoff) notifying the LANDLORD (and the tenant when documentable is a Lease/KYC of theirs) via NotificationService. Add Notification type document_expiry to TYPE_URGENCY_MAP (IMPORTANT). Skip non-renewable / already-superseded / held docs. Phase82 test: an expiring renewable doc fires the event + notifies the landlord; a non-renewable/superseded one does not; second run same bucket is idempotent.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "DOC-REMINDERS-2",
@@ -85,7 +92,7 @@
       "title": "Schedule + notification preference respect",
       "evidence": "The cron must be scheduled and must respect the recipient's NotificationPreference (like other reminders).",
       "remediation": "Schedule documents:scan-expiring daily (Africa/Nairobi, onOneServer) in routes/console.php near the lease-renewal scan; the listener routes through NotificationService (which already honors NotificationPreference). Phase82 test: scheduled command registered + exits 0.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "DOC-REMINDERS-3",
@@ -94,7 +101,7 @@
       "title": "Reminder i18n + click-through deep link",
       "evidence": "Reminder subject/body need en/sw/ar + a deep link to the document for the push/in-app click handler.",
       "remediation": "lang document.expiry_reminder.{subject,body} (en/sw/ar) with the document title/days; notification data.url deep-links to the Archive documents tab (landlord) / tenant.documents.index (tenant). Phase82 lang parity.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "DOC-RENEWAL-1",
@@ -103,7 +110,7 @@
       "title": "Renew action — supersede with a fresh version",
       "evidence": "There is no way to renew an expiring document — a landlord must delete + re-upload, losing the chain. No supersede linkage.",
       "remediation": "DocumentController::renew(Document) accepts a new file + new expires_at/issue_date, stores the new Document, sets old.superseded_by_document_id = new.id (old stays for audit/retention, drops out of the expiring surface via a not-superseded filter). Landlord-scoped + legal-hold aware (a held doc can still be superseded, not deleted). Phase82 test: renew creates the new doc, links the old, and the old leaves the expiring list.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "DOC-RENEWAL-2",
@@ -112,7 +119,7 @@
       "title": "Renewal UI + supersede chain visibility",
       "evidence": "The Archive documents list shows no renew action and no superseded indicator.",
       "remediation": "DocumentsTab renders a Renew action on expiring/expired renewable docs (modal: file + new expiry) + a 'superseded' badge / 'current version' link on the chain. The list excludes superseded docs by default (toggle to show history). Phase82 surface assertion.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "DOC-RENEWAL-3",
@@ -121,7 +128,7 @@
       "title": "Renewal activity audit",
       "evidence": "A renewal should be reconstructable from the audit trail.",
       "remediation": "renew() logs an audit entry (Auditable already on Document) capturing superseded_by + new expiry; lang document.renewal.* (en/sw/ar). Phase82 assertion.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "NOTICE-GEN-1",
@@ -130,7 +137,7 @@
       "title": "Notice/document PDF generation stored as a Document",
       "evidence": "Rent-increase / arrears / general notices are emailed text only; there is no generated PDF document. The InvoicePdfService + dompdf + blade pattern is proven but unused for notices/agreements.",
       "remediation": "App\\Services\\Documents\\DocumentGenerationService::generateNotice(Lease, string noticeType, array data): renders resources/views/documents/notice.blade.php (parametrized by type: rent_increase|arrears|general) to PDF via dompdf, stores it on the tenant disk + creates a Document (documentable=Lease, document_type='notice', uploaded_by=landlord). Controller action + route (role:landlord). Phase82 test: generating a notice creates a downloadable Document attached to the lease.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "NOTICE-GEN-2",
@@ -139,7 +146,7 @@
       "title": "Notice generation surface + i18n",
       "evidence": "The generator needs a landlord entry point + localized blade strings.",
       "remediation": "A 'Generate notice' action on the lease/tenant surface opening a small form (type + reason/effective date) POSTing to the generator; notice.blade.php uses lang document.notice.* (en/sw/ar). Phase82 surface assertion + lang parity.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CI-1",
@@ -148,7 +155,7 @@
       "title": "Phase82DocumentsDepthSurfaceTest consolidated watchdog",
       "evidence": "Six categories need a single presence/behaviour map.",
       "remediation": "Phase82DocumentsDepthSurfaceTest: schema (issue_date/superseded_by_document_id/reminder_days/is_renewable), Document scopes (dueForReminder), DocumentGenerationService bound, routes registered (documents.renew, documents.generate-notice), documents:scan-expiring + documents:expiry-rollup commands exit 0, Notification type document_expiry mapped, lang parity (document.*), nav-audit clean.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CI-2",
@@ -157,7 +164,23 @@
       "title": "docs/runbooks/documents.md + closeout + memory",
       "evidence": "No documents runbook for the lifecycle (expiry, reminders, renewal, generation, retention interplay).",
       "remediation": "docs/runbooks/documents.md (NEW): expiry tracking + reminder buckets, renewal/supersede, notice generation, retention + legal-hold interplay, the rollup gauge. scripts/phase82-closeout.mjs + memory updates (phase82 plan, forward-path, pending-path, MEMORY.md).",
-      "passes": false
+      "passes": true
     }
-  ]
+  ],
+  "closeout": {
+    "closed_at": "2026-05-22",
+    "result": "18/18 findings pass — zero PRD-finding deferrals",
+    "commits": {
+      "DOC-META": "this cycle",
+      "DOC-EXPIRY": "this cycle",
+      "DOC-REMINDERS": "this cycle",
+      "DOC-RENEWAL": "this cycle",
+      "NOTICE-GEN": "this cycle",
+      "CI": "this commit"
+    },
+    "summary": "Document lifecycle depth on the Archive hub (foundation existed: expires_at + a TENANT-ONLY banner + CRUD + retention + legal holds). DOC-META: migration issue_date/superseded_by_document_id/reminder_days/is_renewable + Document supersededBy/supersedes/current/dueForReminder/expiryStatus + richer types (insurance/compliance_cert/title_deed/inspection_report/notice) + store() captures lifecycle fields + document.* lang. DOC-EXPIRY: ArchiveHubController documents tab gains expires_at column + expiry_status + expiry filter + current() (and FIXED pre-existing column bugs — it filtered on non-existent name/type/original_name and would 500); landlord dashboard expiring_documents action card; documents:expiry-rollup weekly gauge. DOC-REMINDERS: the active loop that did not exist — documents:scan-expiring daily (dueForReminder, cache-idempotent per doc+month) -> DocumentExpiryApproaching -> NotifyOnDocumentExpiry (landlord + tenant, queued+backoff) + Notification type document_expiry. DOC-RENEWAL: DocumentController::renew supersedes with a fresh version (hold-aware, current() drops the old). NOTICE-GEN: DocumentGenerationService renders documents/notice.blade (rent_increase/arrears/general) to PDF and stores it as a Document on the lease (in the same archive/retention/hold pipeline) + generate-notice route. CI: Phase82DocumentsDepthSurfaceTest + docs/runbooks/documents.md.",
+    "tests": "Phase-82 documents tests: DocumentsDepth 10 + Surface 8. Pint clean, build clean, nav-audit clean.",
+    "constraints_preserved": "Documents on the tenant disk (Storage::tenant); current() excludes superseded everywhere; dueForReminder honors per-doc reminder_days via COALESCE; reminders cache-idempotent per (document, year-month) + respect NotificationPreference; renew is hold-aware (supersede allowed, delete still blocked); notice generation reuses the InvoicePdfService dompdf+blade pattern; retention + legal-hold exclusion unchanged.",
+    "coderabbit": "CodeRabbit CLI unavailable in this env (+ agent corrupts the test DB) — manual self-review: per-doc reminder window via COALESCE raw; idempotent scan; supersede chain consistency; ArchiveHubController pre-existing column bugs (name/type/original_name) fixed while adding the expiry filter; lang parity en/sw/ar; HasFactory present on Document."
+  }
 }

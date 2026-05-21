@@ -1,0 +1,89 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Phase-82 DOCUMENTS-DEPTH lang namespace. Parity: mirror en / sw / ar exactly.
+ */
+
+return [
+    'label' => 'Document',
+    'type' => 'Type',
+    'uploaded' => 'Uploaded',
+    'actions' => 'Actions',
+    'search' => 'Search documents...',
+    'all_types' => 'All types',
+    'clear_filters' => 'Clear filters',
+    'cancel' => 'Cancel',
+    'showing' => 'Showing {from} to {to} of {total} results',
+    'empty' => [
+        'title' => 'No documents found',
+        'filtered' => 'Try adjusting your filters.',
+        'description' => 'Uploaded documents will appear here.',
+    ],
+    'fields' => [
+        'issue_date' => 'Issue date',
+        'expires_at' => 'Expiry date',
+        'renewable' => 'Renewable — track expiry and send reminders',
+        'reminder_days' => 'Reminder days before expiry',
+        'reminder_days_hint' => 'Default 30',
+    ],
+    'types' => [
+        'lease_agreement' => 'Lease Agreement',
+        'tenant_id' => 'Tenant ID',
+        'tenant_passport' => 'Tenant Passport',
+        'bank_statement' => 'Bank Statement',
+        'payslip' => 'Payslip',
+        'reference_letter' => 'Reference Letter',
+        'utility_bill' => 'Utility Bill',
+        'insurance' => 'Insurance Policy',
+        'compliance_cert' => 'Compliance Certificate',
+        'title_deed' => 'Title Deed',
+        'inspection_report' => 'Inspection Report',
+        'notice' => 'Notice',
+        'other' => 'Other',
+    ],
+    'expiry' => [
+        'expired' => 'Expired',
+        'expiring_soon' => 'Expiring soon',
+        'valid' => 'Valid',
+        'none' => 'No expiry',
+        'column' => 'Expires',
+        'filter_all' => 'All',
+        'filter_expiring' => 'Expiring soon',
+        'filter_expired' => 'Expired',
+    ],
+    'expiry_reminder' => [
+        'subject' => 'Document expiring: :title',
+        'body' => ':title expires in :days day(s). Review and renew it.',
+        'body_expired' => ':title has expired. Please renew it.',
+    ],
+    'renewal' => [
+        'renewed' => 'Document renewed.',
+        'renew' => 'Renew',
+        'title' => 'Renew document',
+        'new_expiry' => 'New expiry date',
+        'submit' => 'Upload renewal',
+        'superseded' => 'Superseded',
+        'current' => 'Current version',
+        'reason' => 'Renewed (superseded #:id)',
+    ],
+    'notice' => [
+        'generated' => 'Notice generated.',
+        'generate' => 'Generate notice',
+        'type' => 'Notice type',
+        'rent_increase' => 'Rent increase notice',
+        'arrears' => 'Arrears notice',
+        'general' => 'General notice',
+        'heading_rent_increase' => 'Notice of Rent Increase',
+        'heading_arrears' => 'Notice of Arrears',
+        'heading_general' => 'Notice',
+        'to' => 'To',
+        'date' => 'Date',
+        'property' => 'Property',
+        'unit' => 'Unit',
+        'submit' => 'Generate',
+        'reason' => 'Details',
+        'effective_date' => 'Effective date',
+    ],
+];

@@ -1,0 +1,89 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Phase-82 DOCUMENTS-DEPTH lang namespace. Parity: mirror en / sw / ar exactly.
+ */
+
+return [
+    'label' => 'Hati',
+    'type' => 'Aina',
+    'uploaded' => 'Ilipakiwa',
+    'actions' => 'Vitendo',
+    'search' => 'Tafuta hati...',
+    'all_types' => 'Aina zote',
+    'clear_filters' => 'Futa vichujio',
+    'cancel' => 'Ghairi',
+    'showing' => 'Inaonyesha {from} hadi {to} kati ya matokeo {total}',
+    'empty' => [
+        'title' => 'Hakuna hati zilizopatikana',
+        'filtered' => 'Jaribu kurekebisha vichujio vyako.',
+        'description' => 'Hati zilizopakiwa zitaonekana hapa.',
+    ],
+    'fields' => [
+        'issue_date' => 'Tarehe ya kutolewa',
+        'expires_at' => 'Tarehe ya mwisho',
+        'renewable' => 'Inaweza kufanywa upya — fuatilia mwisho na tuma vikumbusho',
+        'reminder_days' => 'Siku za ukumbusho kabla ya mwisho',
+        'reminder_days_hint' => 'Chaguomsingi 30',
+    ],
+    'types' => [
+        'lease_agreement' => 'Mkataba wa Kukodisha',
+        'tenant_id' => 'Kitambulisho cha Mpangaji',
+        'tenant_passport' => 'Pasipoti ya Mpangaji',
+        'bank_statement' => 'Taarifa ya Benki',
+        'payslip' => 'Cheti cha Mshahara',
+        'reference_letter' => 'Barua ya Rejea',
+        'utility_bill' => 'Bili ya Huduma',
+        'insurance' => 'Sera ya Bima',
+        'compliance_cert' => 'Cheti cha Kufuata Sheria',
+        'title_deed' => 'Hati ya Umiliki',
+        'inspection_report' => 'Ripoti ya Ukaguzi',
+        'notice' => 'Ilani',
+        'other' => 'Nyingine',
+    ],
+    'expiry' => [
+        'expired' => 'Imeisha muda',
+        'expiring_soon' => 'Inakaribia kuisha',
+        'valid' => 'Halali',
+        'none' => 'Hakuna mwisho',
+        'column' => 'Inaisha',
+        'filter_all' => 'Zote',
+        'filter_expiring' => 'Inakaribia kuisha',
+        'filter_expired' => 'Imeisha muda',
+    ],
+    'expiry_reminder' => [
+        'subject' => 'Hati inakaribia kuisha: :title',
+        'body' => ':title itaisha baada ya siku :days. Kagua na uifanye upya.',
+        'body_expired' => ':title imeisha muda. Tafadhali ifanye upya.',
+    ],
+    'renewal' => [
+        'renewed' => 'Hati imefanywa upya.',
+        'renew' => 'Fanya upya',
+        'title' => 'Fanya hati upya',
+        'new_expiry' => 'Tarehe mpya ya mwisho',
+        'submit' => 'Pakia upya',
+        'superseded' => 'Imebadilishwa',
+        'current' => 'Toleo la sasa',
+        'reason' => 'Imefanywa upya (imebadilisha #:id)',
+    ],
+    'notice' => [
+        'generated' => 'Ilani imetengenezwa.',
+        'generate' => 'Tengeneza ilani',
+        'type' => 'Aina ya ilani',
+        'rent_increase' => 'Ilani ya ongezeko la kodi',
+        'arrears' => 'Ilani ya madeni',
+        'general' => 'Ilani ya jumla',
+        'heading_rent_increase' => 'Ilani ya Ongezeko la Kodi',
+        'heading_arrears' => 'Ilani ya Madeni',
+        'heading_general' => 'Ilani',
+        'to' => 'Kwa',
+        'date' => 'Tarehe',
+        'property' => 'Mali',
+        'unit' => 'Nyumba',
+        'submit' => 'Tengeneza',
+        'reason' => 'Maelezo',
+        'effective_date' => 'Tarehe ya kuanza',
+    ],
+];

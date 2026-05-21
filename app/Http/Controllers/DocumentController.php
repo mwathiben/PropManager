@@ -155,13 +155,18 @@ class DocumentController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'file' => ['required', 'file', new SecureFile(10, ['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'], ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'])],
             'title' => 'required|string|max:255',
-            'document_type' => 'required|in:lease_agreement,tenant_id,tenant_passport,bank_statement,payslip,reference_letter,utility_bill,other',
+            'document_type' => ['required', \Illuminate\Validation\Rule::in(array_keys(Document::DOCUMENT_TYPES))],
             'documentable_type' => 'required|in:Lease,User',
             'documentable_id' => 'required|integer',
             'description' => 'nullable|string|max:1000',
+            // Phase-82 DOC-META-2: lifecycle fields.
+            'issue_date' => 'nullable|date',
+            'expires_at' => 'nullable|date|after_or_equal:issue_date',
+            'is_renewable' => 'nullable|boolean',
+            'reminder_days' => 'nullable|integer|min:1|max:365',
         ]);
 
         $landlordId = $this->resolveLandlordId();
@@ -208,6 +213,10 @@ class DocumentController extends Controller
             'mime_type' => $file->getMimeType(),
             'file_size' => $file->getSize(),
             'document_type' => $request->document_type,
+            'issue_date' => $validated['issue_date'] ?? null,
+            'expires_at' => $validated['expires_at'] ?? null,
+            'is_renewable' => $validated['is_renewable'] ?? false,
+            'reminder_days' => $validated['reminder_days'] ?? null,
             'description' => $request->description,
             'uploaded_by' => auth()->id(),
         ]);
@@ -376,6 +385,73 @@ class DocumentController extends Controller
         $document->delete();
 
         return back()->with('success', 'Document deleted successfully');
+    }
+
+    /**
+     * Phase-82 DOC-RENEWAL-1: renew an expiring document — upload a fresh
+     * version that supersedes the old one. The old row is kept (audit/retention)
+     * but linked via superseded_by_document_id so it drops out of the expiring
+     * surface. Hold-aware: a held doc can still be superseded (not deleted).
+     */
+    public function renew(Request $request, Document $document)
+    {
+        $landlordId = $this->resolveLandlordId();
+        if ($document->landlord_id !== $landlordId) {
+            abort(403, 'Unauthorized to renew this document');
+        }
+
+        $validated = $request->validate([
+            'file' => ['required', 'file', new SecureFile(10, ['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'], ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'])],
+            'expires_at' => 'required|date|after:today',
+            'issue_date' => 'nullable|date|before_or_equal:expires_at',
+        ]);
+
+        $file = $request->file('file');
+        $originalName = $file->getClientOriginalName();
+        $fileName = time().'_'.Str::slug(pathinfo($originalName, PATHINFO_FILENAME)).'.'.$file->getClientOriginalExtension();
+        $shortType = class_basename((string) $document->documentable_type);
+        $filePath = $file->storeAs('documents/'.$landlordId.'/'.$shortType, $fileName, 'local');
+
+        $fresh = Document::create([
+            'landlord_id' => $landlordId,
+            'documentable_id' => $document->documentable_id,
+            'documentable_type' => $document->documentable_type,
+            'title' => $document->title,
+            'file_name' => $originalName,
+            'file_path' => $filePath,
+            'mime_type' => $file->getMimeType(),
+            'file_size' => $file->getSize(),
+            'document_type' => $document->document_type,
+            'issue_date' => $validated['issue_date'] ?? now()->toDateString(),
+            'expires_at' => $validated['expires_at'],
+            'is_renewable' => true,
+            'reminder_days' => $document->reminder_days,
+            'description' => $document->description,
+            'uploaded_by' => auth()->id(),
+        ]);
+
+        $document->update(['superseded_by_document_id' => $fresh->id]);
+
+        return back()->with('success', __('document.renewal.renewed'));
+    }
+
+    /**
+     * Phase-82 NOTICE-GEN-1: generate a notice PDF stored as a Document on a lease.
+     */
+    public function generateNotice(Request $request, \App\Models\Lease $lease, \App\Services\Documents\DocumentGenerationService $generator)
+    {
+        $landlordId = $this->resolveLandlordId();
+        abort_unless((int) $lease->landlord_id === $landlordId, 403);
+
+        $validated = $request->validate([
+            'notice_type' => ['required', \Illuminate\Validation\Rule::in(\App\Services\Documents\DocumentGenerationService::NOTICE_TYPES)],
+            'reason' => 'nullable|string|max:5000',
+            'effective_date' => 'nullable|date',
+        ]);
+
+        $generator->generateNotice($lease, $validated['notice_type'], $validated, auth()->user());
+
+        return back()->with('success', __('document.notice.generated'));
     }
 
     /**
