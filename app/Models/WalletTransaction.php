@@ -20,11 +20,14 @@ class WalletTransaction extends Model
         'reason',
         'invoice_id',
         'payment_id',
+        'currency',
+        'credit_note_id',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
         'balance_after' => 'decimal:2',
+        'currency' => \App\Enums\Currency::class,
     ];
 
     public function lease(): BelongsTo

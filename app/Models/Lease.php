@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Currency;
 use App\Traits\Auditable;
 use App\Traits\TenantScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -138,7 +139,7 @@ class Lease extends Model
         return $this->wallet_balance > 0;
     }
 
-    public function creditToWallet(float $amount, ?string $reason = null, ?int $paymentId = null): void
+    public function creditToWallet(float $amount, ?string $reason = null, ?int $paymentId = null, ?Currency $currency = null): void
     {
         throw_unless(DB::transactionLevel() > 0, \LogicException::class, 'creditToWallet must be called within a transaction');
 
@@ -159,6 +160,7 @@ class Lease extends Model
             'reason' => $reason ?? 'Overpayment credit',
             'balance_after' => $newBalance,
             'payment_id' => $paymentId,
+            'currency' => ($currency ?? Currency::default())->value,
         ]);
 
         // CONC-13: register a post-commit refresh hook so $this gets the
@@ -171,7 +173,7 @@ class Lease extends Model
         });
     }
 
-    public function deductFromWallet(float $amount, ?string $reason = null, ?int $invoiceId = null): float
+    public function deductFromWallet(float $amount, ?string $reason = null, ?int $invoiceId = null, ?Currency $currency = null): float
     {
         throw_unless(DB::transactionLevel() > 0, \LogicException::class, 'deductFromWallet must be called within a transaction');
 
@@ -194,6 +196,7 @@ class Lease extends Model
                 'reason' => $reason ?? 'Applied to invoice',
                 'balance_after' => $newBalance,
                 'invoice_id' => $invoiceId,
+                'currency' => ($currency ?? Currency::default())->value,
             ]);
 
             // CONC-13: only update $this->wallet_balance after the outer
