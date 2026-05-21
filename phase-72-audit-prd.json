@@ -1,0 +1,161 @@
+{
+  "phase": 72,
+  "title": "LEGAL-HOLD-WIZARD",
+  "opened_at": "2026-05-21",
+  "tier": 7,
+  "scope": "USER-DIRECTED (2026-05-21): make legal holds easy for landlords to understand and navigate — a guided multi-step create-hold wizard, per-landlord settings, and matter (case) grouping — built ON the Phase 64/65/68 polymorphic-hold foundation (LegalHold + HasLegalHolds + LegalHoldRegistry + BulkHoldService + audit export + stale sweeper). Today the only landlord entry is a single-textarea HoldCreateModal, which assumes legal expertise. This phase adds a wizard, a Matters case-grouping model, a settings page, plain-English education, and a command-center home — additively, not refactoring the existing primitives. 6 categories x 3 = 18 findings (5H/9M/4L).",
+  "categories": [
+    "WIZARD-FLOW",
+    "SUBJECT-PICKER",
+    "MATTER-GROUPING",
+    "HOLD-SETTINGS",
+    "EDUCATION",
+    "COMMAND-CENTER"
+  ],
+  "findings": [
+    {
+      "id": "WIZARD-FLOW-1",
+      "severity": "HIGH",
+      "category": "WIZARD-FLOW",
+      "title": "Guided multi-step create-hold wizard (situation -> preserve -> reason/matter -> review)",
+      "evidence": "The only create path is HoldCreateModal — a single textarea for `reason`. A landlord with no legal background gets no guidance on what to preserve, why, or the DPA basis.",
+      "remediation": "Add Pages/LegalHolds/Wizard.vue — a 4-step stepper: (1) situation picker (cards), (2) what to preserve (SUBJECT-PICKER), (3) reason + matter reference + optional review-by date, (4) plain-English review (what freezes, retention impact, DPA Art.17(3)(b) basis). Client-side per-step validation; back/next; can't advance with 0 subjects or <10-char reason. NET-NEW LegalHoldWizardController@create (page) + @store (one DB::transaction: create/attach LegalMatter then BulkHoldService::holdAll per subject type, idempotent, ownership-gated per id). Route legal-holds.wizard / legal-holds.wizard.store, landlord-only + throttle:legal-hold. data-testid='hold-wizard'/'wizard-step'. Phase72 surface + a feature test (wizard persists matter + holds across types in one transaction)."
+    },
+    {
+      "id": "WIZARD-FLOW-2",
+      "severity": "MEDIUM",
+      "category": "WIZARD-FLOW",
+      "title": "Situation presets pre-fill reason + suggested subject types + review-by",
+      "evidence": "Even with a wizard, a landlord still must invent the reason wording and decide what to hold.",
+      "remediation": "config/legal_hold.php gains a `situations` map (litigation, regulator_request, tenant_dispute, data_subject_objection) -> {reason_template, suggested_subject_types[], default_review_by_days}. Picking a situation pre-fills the reason textarea + pre-checks the suggested subject types + seeds review-by = today + default days. Server validates situation against the allow-list and stores it on the matter (situation_type). Phase72 surface asserts the config + that the wizard renders the presets."
+    },
+    {
+      "id": "WIZARD-FLOW-3",
+      "severity": "LOW",
+      "category": "WIZARD-FLOW",
+      "title": "Wizard polish + lang + a11y",
+      "evidence": "A stepper needs progress affordance, keyboard nav, and localised step copy.",
+      "remediation": "Progress indicator (step N of 4), Back/Next/Finish buttons with disabled states, focus moves to the step heading on advance, RTL-aware (logical classes), reduced-motion. All strings in lang/{en,sw,ar}/legal_holds.php wizard.* ({curly} where parameterised, en full / sw / ar [TODO]). Phase72 surface asserts the lang keys + step tokens."
+    },
+    {
+      "id": "SUBJECT-PICKER-1",
+      "severity": "HIGH",
+      "category": "SUBJECT-PICKER",
+      "title": "Tenant subject-suggestion endpoint (threads/invoices/tickets/documents)",
+      "evidence": "TenantLegalHoldController already resolves a tenant's 4 subject-id sets but only inline for the all-or-nothing preset — there's no way to SEE and choose them.",
+      "remediation": "Extract the four resolvers (invoiceIdsForTenant/ticketIdsForTenant/documentIdsForTenant/threadIdsForTenant) into a TenantSubjectResolver service (single source of truth; TenantLegalHoldController delegates to it too). NET-NEW LegalHoldSubjectController@suggest (GET legal-holds/subjects/suggest?tenant_id=) -> per-type list of {id, label, already_held} + counts, authorised landlord-owns-tenant (bypass-scope ownership check like LegalHoldPolicy::ownsSubject), never leaking another landlord's tenant. Phase72 feature test: cross-tenant tenant_id rejected; already-held flagged; counts correct."
+    },
+    {
+      "id": "SUBJECT-PICKER-2",
+      "severity": "MEDIUM",
+      "category": "SUBJECT-PICKER",
+      "title": "Checkbox-grid subject selection in the wizard",
+      "evidence": "The suggestion data needs an interactive grid to choose from.",
+      "remediation": "SubjectPicker.vue (wizard step 2): tenant selector -> grouped checkbox grid by subject type (reusing the Phase-68 BulkHoldModal selection ergonomics), select-all/clear per type, already-held rows shown disabled with an 'on hold' badge, a live selected-count, and the running total fed to the wizard. data-testid='subject-picker'/'subject-row'/'subject-type-group'. Phase72 surface asserts tokens."
+    },
+    {
+      "id": "SUBJECT-PICKER-3",
+      "severity": "LOW",
+      "category": "SUBJECT-PICKER",
+      "title": "Manual subject entry + empty states",
+      "evidence": "Not every hold starts from a tenant; and a tenant with no records needs a clear empty state.",
+      "remediation": "Allow the wizard to also start from an already-known subject (deep-link from Documents/Invoices/Tickets 'Add to a matter' passing subject_type+id pre-selected) and show a friendly empty state when a tenant has zero holdable records. Phase72 surface asserts the empty-state token + the pre-select query handling."
+    },
+    {
+      "id": "MATTER-GROUPING-1",
+      "severity": "HIGH",
+      "category": "MATTER-GROUPING",
+      "title": "NET-NEW legal_matters table + LegalMatter model + legal_holds.legal_matter_id",
+      "evidence": "Holds are flat rows. A landlord with a single court case sees 12 unrelated-looking hold rows, not 'Case CV/2026/0123 — 12 records held'.",
+      "remediation": "Migration: legal_matters (id, landlord_id FK cascade, title, matter_reference nullable, situation_type nullable, status enum[open,closed] default open, review_by date nullable, description nullable, closed_at/closed_by nullable, timestamps; index landlord_id+status). Migration: legal_holds.legal_matter_id nullable FK -> legal_matters nullOnDelete (existing holds stay matter-less). LegalMatter model (TenantScope by landlord_id, holds() hasMany, heldCount accessor, scopes open/stale/reviewDue). LegalHold gains matter() belongsTo. Phase72 feature test: wizard-created holds carry the matter_id; releasing/deleting a matter nulls vs blocks correctly."
+    },
+    {
+      "id": "MATTER-GROUPING-2",
+      "severity": "MEDIUM",
+      "category": "MATTER-GROUPING",
+      "title": "Matter index + show (case-level view) + matter-level release",
+      "evidence": "Once matters exist they need a case-centric surface and a one-action release of the whole case.",
+      "remediation": "LegalMatterController index (landlord's matters: title, reference, status, held count, review_by, stale flag) + show (per-matter subject list grouped by type, who/when, release-all action). Matter-level release: LegalMatterReleaseController releases every active hold in the matter via BulkHoldService::releaseAll grouped by subject class in one transaction, ownership-gated, then optionally closes the matter. Routes legal-matters.index/show + legal-matters.release, landlord-only. Pages/LegalHolds/Matters/{Index,Show}.vue. Phase72 feature test: release-all clears every hold in the matter and only that matter."
+    },
+    {
+      "id": "MATTER-GROUPING-3",
+      "severity": "MEDIUM",
+      "category": "MATTER-GROUPING",
+      "title": "Matter lifecycle (close/reopen) + matter-scoped audit export",
+      "evidence": "A case ends; the matter must close (with an audit trail) and produce a regulator-ready export scoped to just that case.",
+      "remediation": "LegalMatter close()/reopen() (status + closed_at/closed_by, Auditable). Closing a matter with active holds warns/requires release first (or releases as part of close — explicit, audited). Extend LegalHoldAuditExportService with exportMatterToCsv(matter) (matter-scoped chain of custody, same UTF-8 BOM + injection guard + 7-day-retention path). Route legal-matters.audit-export. Phase72 feature test: close gating + matter export contents."
+    },
+    {
+      "id": "HOLD-SETTINGS-1",
+      "severity": "HIGH",
+      "category": "HOLD-SETTINGS",
+      "title": "Per-landlord hold settings (DB) overriding the Phase-68 config defaults",
+      "evidence": "stale_after_days + reminder cooldown are global config; a landlord can't tune retention behaviour, and the sweeper treats everyone identically.",
+      "remediation": "Migration: landlord_hold_settings (id, landlord_id unique FK cascade, stale_after_days nullable, reminder_cooldown_days nullable, matter_reference_format nullable, reminder_recipients json nullable, auto_hold_on_eviction boolean default false, timestamps). LandlordHoldSettings model + HoldSettingsResolver service: effective(landlordId) returns landlord override ?? config default per key (cached). Rewire SweepStaleHolds to read HoldSettingsResolver per landlord (stale window + cooldown + recipients) instead of the flat config. Phase72 feature test: a landlord override changes the stale window/cooldown the sweeper uses; absent override falls back to config."
+    },
+    {
+      "id": "HOLD-SETTINGS-2",
+      "severity": "MEDIUM",
+      "category": "HOLD-SETTINGS",
+      "title": "Settings page (show/update)",
+      "evidence": "The new settings need a landlord-facing surface.",
+      "remediation": "Pages/LegalHolds/Settings.vue + LegalHoldSettingsController show/update: stale_after_days, reminder_cooldown_days, matter_reference_format (with a live example), reminder_recipients (multi-email, validated), auto_hold_on_eviction toggle. FormRequest validation (sane bounds: stale 30..3650, cooldown 1..365; emails valid; format string length). Routes legal-holds.settings(.update), landlord-only. Phase72 feature test: update persists + validation rejects out-of-bounds."
+    },
+    {
+      "id": "HOLD-SETTINGS-3",
+      "severity": "MEDIUM",
+      "category": "HOLD-SETTINGS",
+      "title": "Optional auto-hold rule (eviction-draft trigger)",
+      "evidence": "Landlords forget to place holds at the moment a dispute starts; an opt-in safety net preserves records automatically.",
+      "remediation": "When auto_hold_on_eviction is enabled, a domain event/observer at eviction-draft creation (or the closest existing lease-termination/eviction signal) auto-creates a matter (situation_type=tenant_dispute) + holds the tenant's resolved subjects via TenantSubjectResolver + BulkHoldService, attributed to the landlord, audited, idempotent (skip if already held / matter exists). Strictly opt-in (default false). If no eviction-draft entity exists yet, wire to the nearest real trigger and document the seam. Phase72 feature test: toggle on -> trigger -> records held under an auto-created matter; toggle off -> no-op."
+    },
+    {
+      "id": "EDUCATION-1",
+      "severity": "MEDIUM",
+      "category": "EDUCATION",
+      "title": "\"What is a legal hold?\" panel + per-step explainers + plain-English DPA basis",
+      "evidence": "The feature is legally loaded; landlords need plain-English guidance, not jargon.",
+      "remediation": "LegalHoldHelpPanel.vue (collapsible 'What is a legal hold?' — what it does, why it overrides retention/erasure, the DPA Art.17(3)(b) + Kenya DPA basis in plain English, when to release). Mounted on the command-center + as a wizard side rail; each wizard step carries a one-line explainer. data-testid='legal-hold-help'. Phase72 surface asserts the component + token."
+    },
+    {
+      "id": "EDUCATION-2",
+      "severity": "MEDIUM",
+      "category": "EDUCATION",
+      "title": "Empty-state guidance + field tooltips",
+      "evidence": "First-run landlords see an empty table with no next step; settings fields are unexplained.",
+      "remediation": "Command-center + matters empty states explain what a hold/matter is and CTA into the wizard. Settings fields and wizard inputs carry tooltips (stale window, cooldown, matter-reference format, auto-hold). Accessible (aria-describedby), RTL-aware. Phase72 surface asserts the empty-state + tooltip tokens."
+    },
+    {
+      "id": "EDUCATION-3",
+      "severity": "LOW",
+      "category": "EDUCATION",
+      "title": "Education lang coverage",
+      "evidence": "All new explainer/tooltip/help copy must be localised.",
+      "remediation": "lang/{en,sw,ar}/legal_holds.php education.* + help.* (en full; sw/ar [TODO] per convention). Phase72 surface asserts the lang keys load across locales."
+    },
+    {
+      "id": "COMMAND-CENTER-1",
+      "severity": "HIGH",
+      "category": "COMMAND-CENTER",
+      "title": "Legal Hold command-center home (replaces the flat Index as the landing)",
+      "evidence": "legal-holds.index is a flat paginated table — no sense of priority, what's stale, what's due for review, or how holds group into cases.",
+      "remediation": "Pages/LegalHolds/Home.vue as the new legal-holds.index landing: summary cards (active holds, active matters, stale count, review-due-soon), stale-hold warnings, upcoming review dates, per-matter rollup ('Case X — N records held'), recent activity, and prominent CTAs (Start a hold wizard, Settings, Matters, Audit export). The existing flat list moves to a 'All holds' sub-view/tab. Controller assembles the rollup without N+1 (grouped counts, eager loads). Phase72 surface + feature test: home renders the rollups for a landlord and excludes other landlords' matters/holds."
+    },
+    {
+      "id": "COMMAND-CENTER-2",
+      "severity": "MEDIUM",
+      "category": "COMMAND-CENTER",
+      "title": "Phase72 surface map + behaviour tests",
+      "evidence": "The new wizard/matter/settings/command-center surface must be guarded against drift, and the isolation/transaction guarantees pinned.",
+      "remediation": "Phase72LegalHoldWizardSurfaceTest: tables (legal_matters, landlord_hold_settings) + columns (legal_holds.legal_matter_id) present; models/services/controllers exist; routes registered (wizard, subjects.suggest, legal-matters.*, settings, matter audit-export); Vue files + data-testid tokens; lang parity. Behaviour: Phase72WizardTest (wizard creates matter + multi-type holds in one transaction; cross-tenant subject rejected), Phase72MatterTest (matter release clears only that matter; close gating), Phase72HoldSettingsTest (resolver override vs config fallback; sweeper honours per-landlord window; validation bounds), Phase72AutoHoldTest (opt-in trigger). All RefreshDatabase."
+    },
+    {
+      "id": "COMMAND-CENTER-3",
+      "severity": "LOW",
+      "category": "COMMAND-CENTER",
+      "title": "Runbook + nav + lang",
+      "evidence": "The new surface needs operator docs + navigation + localisation.",
+      "remediation": "docs/runbooks/legal-hold.md gains a Wizard + Matters + Settings + Command-center section (the model, the per-landlord settings precedence, matter lifecycle, auto-hold rule). Nav updated so the legal-holds entry lands on the command-center. lang command_center.* + matters.* (en full; sw/ar [TODO]). Phase72 surface asserts the runbook section + lang keys."
+    }
+  ]
+}
