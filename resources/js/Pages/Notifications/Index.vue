@@ -19,6 +19,7 @@ import ScheduledTab from './partials/ScheduledTab.vue';
 import HistoryTab from './partials/HistoryTab.vue';
 import SettingsTab from './partials/SettingsTab.vue';
 import SetupWizard from './components/SetupWizard.vue';
+import CenterHero from '@/Components/Center/CenterHero.vue';
 import type {
     NotificationEntry,
     TenantReference,
@@ -116,32 +117,22 @@ const openSetupWizard = () => {
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
 
                 <!-- Header with Welcome Message -->
-                <div class="bg-gradient-to-r from-indigo-600 to-purple-600 overflow-hidden shadow-xl sm:rounded-2xl">
-                    <div class="p-6 sm:p-8">
-                        <div class="flex justify-between items-start">
-                            <div class="flex items-center gap-4">
-                                <div class="p-3 bg-white/20 rounded-xl">
-                                    <BellAlertIcon class="w-8 h-8 text-white" />
-                                </div>
-                                <div>
-                                    <h1 class="text-2xl sm:text-3xl font-bold text-white">Notification Center</h1>
-                                    <p class="mt-1 text-indigo-100">
-                                        Manage your tenant communications across all channels
-                                    </p>
-                                </div>
-                            </div>
-                            <div v-if="!setupComplete" class="hidden sm:block">
-                                <button
-                                    @click="openSetupWizard"
-                                    class="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl transition-all"
-                                >
-                                    <SparklesIcon class="w-5 h-5" />
-                                    Setup Wizard
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <CenterHero
+                    title="Notification Center"
+                    subtitle="Manage your tenant communications across all channels"
+                    :icon="BellAlertIcon"
+                >
+                    <template #action>
+                        <button
+                            v-if="!setupComplete"
+                            @click="openSetupWizard"
+                            class="hidden sm:flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl transition-all"
+                        >
+                            <SparklesIcon class="w-5 h-5" />
+                            Setup Wizard
+                        </button>
+                    </template>
+                </CenterHero>
 
                 <!-- Tab Navigation -->
                 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-1.5">

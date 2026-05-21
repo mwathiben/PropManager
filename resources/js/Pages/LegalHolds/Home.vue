@@ -6,6 +6,7 @@ import { ScaleIcon, PlusIcon } from '@heroicons/vue/24/outline';
 import { useI18n } from '@/composables/useI18n';
 import { useFormatters } from '@/composables/useFormatters';
 import LegalHoldHelpPanel from '@/Components/LegalHold/LegalHoldHelpPanel.vue';
+import CenterHero from '@/Components/Center/CenterHero.vue';
 
 interface MatterRollup {
     id: number;
@@ -47,27 +48,26 @@ const cards = computed(() => [
     <AuthenticatedLayout>
         <Head :title="t('legal_holds.home.title')" />
 
-        <div class="px-4 py-6 sm:px-6 lg:px-8 space-y-6">
-            <header class="flex flex-wrap items-center justify-between gap-3">
-                <h1 class="flex items-center gap-2 text-2xl font-semibold text-gray-900">
-                    <ScaleIcon class="h-6 w-6 text-gray-500" />
-                    {{ t('legal_holds.home.title') }}
-                </h1>
-                <div class="flex flex-wrap gap-2 text-sm">
-                    <Link :href="route('legal-holds.wizard')" class="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-3 py-2 font-medium text-white">
-                        <PlusIcon class="h-4 w-4" /> {{ t('legal_holds.home.start_wizard') }}
+        <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 space-y-6">
+            <CenterHero :title="t('legal_holds.home.title')" :icon="ScaleIcon">
+                <template #action>
+                    <Link :href="route('legal-holds.wizard')" class="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl transition-all">
+                        <PlusIcon class="w-5 h-5" /> {{ t('legal_holds.home.start_wizard') }}
                     </Link>
-                    <Link :href="route('legal-matters.index')" class="rounded-md bg-white px-3 py-2 font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50">
-                        {{ t('legal_holds.home.matters') }}
-                    </Link>
-                    <Link :href="route('legal-holds.list')" class="rounded-md bg-white px-3 py-2 font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50">
-                        {{ t('legal_holds.home.view_all_holds') }}
-                    </Link>
-                    <Link :href="route('legal-holds.settings')" class="rounded-md bg-white px-3 py-2 font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50">
-                        {{ t('legal_holds.home.settings') }}
-                    </Link>
-                </div>
-            </header>
+                </template>
+            </CenterHero>
+
+            <div class="flex flex-wrap gap-2 text-sm">
+                <Link :href="route('legal-matters.index')" class="rounded-md bg-white px-3 py-2 font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50">
+                    {{ t('legal_holds.home.matters') }}
+                </Link>
+                <Link :href="route('legal-holds.list')" class="rounded-md bg-white px-3 py-2 font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50">
+                    {{ t('legal_holds.home.view_all_holds') }}
+                </Link>
+                <Link :href="route('legal-holds.settings')" class="rounded-md bg-white px-3 py-2 font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50">
+                    {{ t('legal_holds.home.settings') }}
+                </Link>
+            </div>
 
             <LegalHoldHelpPanel />
 

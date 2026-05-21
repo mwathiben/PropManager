@@ -6,6 +6,7 @@ import { ScaleIcon } from '@heroicons/vue/24/outline';
 import { useI18n } from '@/composables/useI18n';
 import SubjectPicker from '@/Components/LegalHold/SubjectPicker.vue';
 import LegalHoldHelpPanel from '@/Components/LegalHold/LegalHoldHelpPanel.vue';
+import WizardSteps from '@/Components/Wizard/WizardSteps.vue';
 
 interface Situation {
     key: string;
@@ -22,6 +23,8 @@ const { t } = useI18n();
 
 const STEPS = ['step_situation', 'step_preserve', 'step_details', 'step_review'] as const;
 const step = ref(0);
+
+const stepLabels = computed(() => STEPS.map((s) => t(`legal_holds.wizard.${s}`)));
 const currentSuggested = ref<string[]>([]);
 // The reason text we last auto-filled — lets us prefill again ONLY if the user
 // hasn't since edited it, so re-picking a situation never clobbers their wording.
@@ -88,18 +91,8 @@ function submit(): void {
                 <h1 class="text-2xl font-semibold text-gray-900">{{ t('legal_holds.wizard.title') }}</h1>
             </header>
 
-            <div class="flex items-center justify-between text-sm">
-                <ol class="flex flex-wrap gap-2" data-testid="wizard-step">
-                    <li
-                        v-for="(s, i) in STEPS"
-                        :key="s"
-                        class="rounded-full px-3 py-1 text-xs font-medium"
-                        :class="i === step ? 'bg-indigo-600 text-white' : i < step ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-500'"
-                    >
-                        {{ t(`legal_holds.wizard.${s}`) }}
-                    </li>
-                </ol>
-                <span class="text-xs text-gray-400">{{ t('legal_holds.wizard.step_of', { current: step + 1, total: STEPS.length }) }}</span>
+            <div data-testid="wizard-step">
+                <WizardSteps :current-step="step + 1" :total-steps="STEPS.length" :steps="stepLabels" />
             </div>
 
             <LegalHoldHelpPanel />

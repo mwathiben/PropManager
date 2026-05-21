@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from '@/composables/useI18n';
+import WizardSteps from '@/Components/Wizard/WizardSteps.vue';
 
 const props = withDefaults(defineProps<{
     currentStep: number;
@@ -8,23 +10,17 @@ const props = withDefaults(defineProps<{
     totalSteps: 3,
 });
 
-const percent = computed(() => Math.round((props.currentStep / props.totalSteps) * 100));
+const { t } = useI18n();
+
+// Phase-48 WIZARD-PROGRESS-UX-1 → standardised on the shared WizardSteps
+// (Phase-74 design system). Keeps the onboarding-specific label.
+const label = computed(() =>
+    t('onboarding.resume_banner.title', { current: props.currentStep, total: props.totalSteps }),
+);
 </script>
 
 <template>
-    <!-- Phase-48 WIZARD-PROGRESS-UX-1: shared between TenantSteps + CaretakerSteps. -->
     <div class="mb-6">
-        <div class="flex justify-between text-sm mb-2">
-            <span class="font-medium text-gray-700">
-                {{ $t('onboarding.resume_banner.title', { current: currentStep, total: totalSteps }) }}
-            </span>
-            <span class="text-gray-500">{{ percent }}%</span>
-        </div>
-        <div class="w-full bg-gray-200 rounded-full h-2">
-            <div
-                class="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full transition-all duration-500"
-                :style="{ width: percent + '%' }"
-            />
-        </div>
+        <WizardSteps :current-step="currentStep" :total-steps="totalSteps" :label="label" />
     </div>
 </template>
