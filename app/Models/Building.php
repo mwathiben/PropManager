@@ -185,6 +185,14 @@ class Building extends Model
         return $this->belongsTo(User::class, 'caretaker_id');
     }
 
+    /**
+     * Phase-78 AMENITY-DEPTH-1: per-amenity operational detail rows.
+     */
+    public function amenityDetails(): HasMany
+    {
+        return $this->hasMany(BuildingAmenityDetail::class);
+    }
+
     public function tickets(): HasMany
     {
         return $this->hasMany(Ticket::class);
@@ -385,11 +393,27 @@ class Building extends Model
 
         $active = [];
 
+        // Phase-78 AMENITY-DEPTH-2: attach per-amenity detail when loaded.
+        $details = $this->relationLoaded('amenityDetails')
+            ? $this->amenityDetails->keyBy('amenity_key')
+            : collect();
+
         // Add predefined amenities
         foreach (self::AMENITY_OPTIONS as $category => $items) {
             foreach ($items as $key => $label) {
                 if (in_array($key, $selected)) {
-                    $active[] = ['key' => $key, 'label' => $label, 'category' => $category];
+                    $detail = $details->get($key);
+                    $active[] = [
+                        'key' => $key,
+                        'label' => $label,
+                        'category' => $category,
+                        'detail' => $detail ? [
+                            'quantity' => $detail->quantity,
+                            'provider' => $detail->provider,
+                            'account_ref' => $detail->account_ref,
+                            'monthly_cost_cents' => $detail->monthly_cost_cents,
+                        ] : null,
+                    ];
                 }
             }
         }

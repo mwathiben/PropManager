@@ -128,8 +128,31 @@ const settingsForm = useForm({
     building_type: props.building.building_type || 'residential',
     currency: props.building.currency || '',
     amenities: props.building.amenities || { selected: [], custom: [] },
+    // Phase-78 AMENITY-DEPTH-3: per-amenity detail keyed by amenity key.
+    amenity_details: props.amenityDetails || {},
     coordinates: props.building.coordinates || null
 });
+
+// Phase-78 AMENITY-DEPTH-3: flat [{key,label}] of selected predefined amenities
+// for the detail editor.
+const selectedAmenityList = computed(() => {
+    const out = [];
+    for (const items of Object.values(props.amenityOptions || {})) {
+        for (const [key, label] of Object.entries(items)) {
+            if ((settingsForm.amenities.selected || []).includes(key)) {
+                out.push({ key, label });
+            }
+        }
+    }
+    return out;
+});
+
+function amenityDetailFor(key) {
+    if (!settingsForm.amenity_details[key]) {
+        settingsForm.amenity_details = { ...settingsForm.amenity_details, [key]: {} };
+    }
+    return settingsForm.amenity_details[key];
+}
 
 const buildingTypes = [
     { value: 'residential_apartment', label: 'Residential Apartment', icon: HomeIcon },
@@ -797,6 +820,22 @@ const confirmDeleteBuilding = () => {
                                         </div>
                                     </div>
                                     <p v-else class="text-sm text-gray-400 text-center py-4">No custom amenities added yet</p>
+                                </div>
+                            </div>
+
+                            <!-- Phase-78 AMENITY-DEPTH-3: per-amenity detail -->
+                            <div v-if="selectedAmenityList.length" class="border border-gray-200 rounded-xl overflow-hidden" data-testid="amenity-details">
+                                <div class="px-4 sm:px-6 py-4 bg-gray-50 border-b border-gray-200">
+                                    <h3 class="font-semibold text-gray-900">{{ $t('building.amenity_detail.title') }}</h3>
+                                    <p class="text-xs text-gray-500 mt-1">{{ $t('building.amenity_detail.subtitle') }}</p>
+                                </div>
+                                <div class="p-4 sm:p-6 space-y-3">
+                                    <div v-for="a in selectedAmenityList" :key="a.key" class="grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
+                                        <span class="text-sm font-medium text-gray-700">{{ a.label }}</span>
+                                        <input v-model.number="amenityDetailFor(a.key).quantity" type="number" min="0" :placeholder="$t('building.amenity_detail.quantity')" class="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+                                        <input v-model="amenityDetailFor(a.key).provider" type="text" :placeholder="$t('building.amenity_detail.provider')" class="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+                                        <input v-model.number="amenityDetailFor(a.key).monthly_cost_cents" type="number" min="0" :placeholder="$t('building.amenity_detail.monthly_cost')" class="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+                                    </div>
                                 </div>
                             </div>
                         </div>

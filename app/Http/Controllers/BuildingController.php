@@ -12,6 +12,7 @@ use App\Http\Requests\Building\UpdateUnitsRequest;
 use App\Http\Requests\StoreBuildingRequest;
 use App\Models\Building;
 use App\Models\Unit;
+use App\Services\Building\AmenityDetailService;
 use App\Services\BuildingService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -19,7 +20,8 @@ use Inertia\Inertia;
 class BuildingController extends Controller
 {
     public function __construct(
-        protected BuildingService $buildingService
+        protected BuildingService $buildingService,
+        protected AmenityDetailService $amenityDetails,
     ) {}
 
     public function index(Request $request)
@@ -94,6 +96,9 @@ class BuildingController extends Controller
     {
         $building->update($request->validated());
         $this->buildingService->syncSharedSettings($building);
+        // Phase-78 AMENITY-DEPTH-2: persist per-amenity detail after the
+        // amenities write so the sync sees the current selection.
+        $this->amenityDetails->sync($building->refresh(), $request->validated()['amenity_details'] ?? []);
 
         return redirect()->back()->with('success', 'Building settings updated.');
     }
@@ -150,6 +155,13 @@ class BuildingController extends Controller
             'units' => $units,
             'buildings' => $siblingBuildings,
             'amenityOptions' => Building::AMENITY_OPTIONS,
+            // Phase-78 AMENITY-DEPTH-3: per-amenity detail keyed for the editor.
+            'amenityDetails' => $building->amenityDetails()->get()->mapWithKeys(fn ($d) => [$d->amenity_key => [
+                'quantity' => $d->quantity,
+                'provider' => $d->provider,
+                'account_ref' => $d->account_ref,
+                'monthly_cost_cents' => $d->monthly_cost_cents,
+            ]]),
             'parentBuilding' => $parentBuilding ? [
                 'id' => $parentBuilding->id,
                 'name' => $parentBuilding->name,
