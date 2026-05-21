@@ -1536,6 +1536,12 @@ Route::middleware(['auth', 'role:landlord'])->group(function () {
         ->middleware('throttle:legal-hold')
         ->name('legal-holds.wizard.store');
 
+    // Phase-72 HOLD-SETTINGS: per-landlord legal-hold preferences.
+    Route::get('/legal-holds/settings', [\App\Http\Controllers\LegalHoldSettingsController::class, 'show'])
+        ->name('legal-holds.settings');
+    Route::put('/legal-holds/settings', [\App\Http\Controllers\LegalHoldSettingsController::class, 'update'])
+        ->name('legal-holds.settings.update');
+
     // Phase-72 MATTER-GROUPING: case-level grouping of holds.
     Route::get('/legal-matters', [\App\Http\Controllers\LegalMatterController::class, 'index'])
         ->name('legal-matters.index');

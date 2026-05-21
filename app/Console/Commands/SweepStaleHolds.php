@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Mail\StaleHoldReminderMailable;
+use App\Models\LandlordHoldSettings;
 use App\Models\LegalHold;
 use App\Models\User;
+use App\Services\Legal\HoldSettingsResolver;
 use App\Services\MetricsService;
 use App\Services\Sre\AlertFiringRecorder;
 use App\Support\LegalHoldRegistry;
@@ -30,17 +32,35 @@ class SweepStaleHolds extends Command
 
     protected $description = 'Emit the stale-hold gauge/alert and remind landlords to review holds active past the stale threshold';
 
-    public function handle(MetricsService $metrics, AlertFiringRecorder $alerts): int
+    public function handle(MetricsService $metrics, AlertFiringRecorder $alerts, HoldSettingsResolver $settings): int
     {
         $now = now();
-        $staleThreshold = $now->copy()->subDays((int) config('legal_hold.stale_after_days', 365));
-        $cooldownThreshold = $now->copy()->subDays((int) config('legal_hold.stale_reminder_cooldown_days', 30));
+        $globalStale = (int) config('legal_hold.stale_after_days', 365);
 
-        $stale = LegalHold::query()
+        // Pre-filter by the SHORTEST stale window in play (smallest landlord
+        // override, or the global default) so no landlord's holds are missed;
+        // the exact per-landlord window is applied in memory below.
+        $minWindow = (int) min(
+            $globalStale,
+            (int) (LandlordHoldSettings::query()->whereNotNull('stale_after_days')->min('stale_after_days') ?? $globalStale),
+        );
+
+        $candidates = LegalHold::query()
             ->active()
-            ->where('held_at', '<=', $staleThreshold)
+            ->where('held_at', '<=', $now->copy()->subDays($minWindow))
             ->whereIn('holdable_type', LegalHoldRegistry::ALLOWED_HOLDABLE_TYPES)
             ->get();
+
+        $landlordByHoldId = $this->resolveLandlords($candidates);
+
+        // Keep only holds past THEIR landlord's effective stale window (orphans,
+        // with no resolvable landlord, fall back to the global default).
+        $stale = $candidates->filter(function (LegalHold $hold) use ($landlordByHoldId, $settings, $globalStale, $now) {
+            $landlordId = $landlordByHoldId[$hold->id] ?? null;
+            $window = $landlordId !== null ? $settings->staleAfterDays($landlordId) : $globalStale;
+
+            return $hold->held_at !== null && $hold->held_at->lessThanOrEqualTo($now->copy()->subDays($window));
+        })->values();
 
         $metrics->gauge('legal_hold_stale_count', (float) $stale->count());
 
@@ -52,8 +72,6 @@ class SweepStaleHolds extends Command
         }
 
         $alerts->record('legal_hold_stale', (float) $stale->count(), 0.0, ['window' => 'instantaneous']);
-
-        $landlordByHoldId = $this->resolveLandlords($stale);
 
         // Orphaned stale holds (subject hard-deleted out from under the hold)
         // can never be reminded NOR released through the UI — they would pin
@@ -69,12 +87,8 @@ class SweepStaleHolds extends Command
             ]);
         }
 
-        $eligible = $stale->filter(
-            fn (LegalHold $hold) => $hold->last_reminded_at === null || $hold->last_reminded_at->lessThanOrEqualTo($cooldownThreshold),
-        );
-
         $remindedHolds = 0;
-        foreach ($eligible->groupBy(fn (LegalHold $hold) => $landlordByHoldId[$hold->id] ?? null) as $landlordId => $holds) {
+        foreach ($stale->groupBy(fn (LegalHold $hold) => $landlordByHoldId[$hold->id] ?? null) as $landlordId => $holds) {
             if ($landlordId === null || $landlordId === '') {
                 continue;
             }
@@ -84,10 +98,32 @@ class SweepStaleHolds extends Command
                 continue;
             }
 
-            Mail::to($landlord)->queue(new StaleHoldReminderMailable($landlord, $this->summarise($holds, $now)));
+            // Per-landlord cooldown: don't re-nudge a hold reminded within the
+            // landlord's effective cooldown window.
+            $cooldownThreshold = $now->copy()->subDays($settings->reminderCooldownDays((int) $landlordId));
+            $eligible = $holds->filter(
+                fn (LegalHold $hold) => $hold->last_reminded_at === null || $hold->last_reminded_at->lessThanOrEqualTo($cooldownThreshold),
+            );
 
-            LegalHold::whereIn('id', $holds->pluck('id'))->update(['last_reminded_at' => $now]);
-            $remindedHolds += $holds->count();
+            if ($eligible->isEmpty()) {
+                continue;
+            }
+
+            // Route to the landlord's configured reminder recipients (one
+            // message each so they never see each other's addresses), else the
+            // landlord themselves.
+            $summary = $this->summarise($eligible, $now);
+            $recipients = $settings->effective((int) $landlordId)['reminder_recipients'];
+            if ($recipients !== []) {
+                foreach ($recipients as $email) {
+                    Mail::to($email)->queue(new StaleHoldReminderMailable($landlord, $summary));
+                }
+            } else {
+                Mail::to($landlord)->queue(new StaleHoldReminderMailable($landlord, $summary));
+            }
+
+            LegalHold::whereIn('id', $eligible->pluck('id'))->update(['last_reminded_at' => $now]);
+            $remindedHolds += $eligible->count();
         }
 
         $this->info("Stale holds: {$stale->count()}; reminders sent for {$remindedHolds} hold(s).");

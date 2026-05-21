@@ -159,4 +159,26 @@ return [
         'dpa' => 'Lawful basis: legal obligation under the Kenya Data Protection Act (s.30) and GDPR Article 6(1)(c) & 17(3)(b).',
         'when_release' => 'Release the hold once the matter resolves so normal retention can resume.',
     ],
+
+    'settings' => [
+        'title' => 'Legal hold settings',
+        'stale_label' => 'Stale after (days)',
+        'stale_help' => 'Holds active longer than this are flagged for review. Default: {default} days.',
+        'cooldown_label' => 'Reminder cooldown (days)',
+        'cooldown_help' => 'Minimum days between stale-hold reminders. Default: {default} days.',
+        'format_label' => 'Matter reference format',
+        'format_help' => 'An optional template to guide new matter references.',
+        'recipients_label' => 'Reminder recipients',
+        'recipients_placeholder' => 'one email per line',
+        'recipients_help' => 'Who receives stale-hold reminders. Leave blank to email you.',
+        'auto_hold_label' => 'Auto-hold on lease termination',
+        'auto_hold_help' => 'When a lease termination is initiated, automatically preserve that tenant\'s records under a new matter.',
+        'save' => 'Save settings',
+        'saved' => 'Settings saved.',
+    ],
+
+    'auto_hold' => [
+        'title' => 'Auto-hold: lease termination — {tenant}',
+        'reason' => 'Automatically preserved on lease termination (auto-hold rule).',
+    ],
 ];

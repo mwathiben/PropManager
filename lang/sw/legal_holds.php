@@ -158,4 +158,26 @@ return [
         'dpa' => '[TODO-sw] Lawful basis: legal obligation under the Kenya Data Protection Act (s.30) and GDPR Article 6(1)(c) & 17(3)(b).',
         'when_release' => '[TODO-sw] Release the hold once the matter resolves so normal retention can resume.',
     ],
+
+    'settings' => [
+        'title' => '[TODO-sw] Legal hold settings',
+        'stale_label' => '[TODO-sw] Stale after (days)',
+        'stale_help' => '[TODO-sw] Holds active longer than this are flagged for review. Default: {default} days.',
+        'cooldown_label' => '[TODO-sw] Reminder cooldown (days)',
+        'cooldown_help' => '[TODO-sw] Minimum days between stale-hold reminders. Default: {default} days.',
+        'format_label' => '[TODO-sw] Matter reference format',
+        'format_help' => '[TODO-sw] An optional template to guide new matter references.',
+        'recipients_label' => '[TODO-sw] Reminder recipients',
+        'recipients_placeholder' => '[TODO-sw] one email per line',
+        'recipients_help' => '[TODO-sw] Who receives stale-hold reminders. Leave blank to email you.',
+        'auto_hold_label' => '[TODO-sw] Auto-hold on lease termination',
+        'auto_hold_help' => '[TODO-sw] When a lease termination is initiated, automatically preserve that tenant\'s records under a new matter.',
+        'save' => '[TODO-sw] Save settings',
+        'saved' => '[TODO-sw] Settings saved.',
+    ],
+
+    'auto_hold' => [
+        'title' => '[TODO-sw] Auto-hold: lease termination — {tenant}',
+        'reason' => '[TODO-sw] Automatically preserved on lease termination (auto-hold rule).',
+    ],
 ];
