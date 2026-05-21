@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -53,6 +54,32 @@ class Part extends Model
     {
         return $this->belongsToMany(Ticket::class, 'ticket_parts')
             ->withPivot(['qty_used', 'cost_allocated_cents', 'recorded_by', 'recorded_at']);
+    }
+
+    public function priceHistory(): HasMany
+    {
+        return $this->hasMany(PartPriceHistory::class)->orderByDesc('effective_at');
+    }
+
+    public function suppliers(): HasMany
+    {
+        return $this->hasMany(PartSupplier::class);
+    }
+
+    /**
+     * Phase-75 PARTS-PRICING-2: cheapest supplier by unit cost (null if none).
+     */
+    public function cheapestSupplier(): ?PartSupplier
+    {
+        return $this->suppliers()->orderBy('unit_cost_cents')->first();
+    }
+
+    /**
+     * Fastest supplier by lead time (null if none).
+     */
+    public function fastestSupplier(): ?PartSupplier
+    {
+        return $this->suppliers()->orderBy('lead_time_days')->first();
     }
 
     public function scopeBelowThreshold(Builder $query): Builder

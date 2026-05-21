@@ -876,6 +876,16 @@ Route::middleware('auth')->group(function () {
         Route::post('/{order}/cancel', [\App\Http\Controllers\PartsPurchaseOrderController::class, 'cancel'])->name('cancel');
     });
 
+    // Phase-75 PARTS-PRICING-2/3: per-part supplier catalogue + pricing surface.
+    Route::middleware('role:landlord')->group(function () {
+        Route::get('/parts/pricing', [\App\Http\Controllers\PartPricingController::class, 'index'])
+            ->name('parts.pricing');
+        Route::post('/parts/{part}/suppliers', [\App\Http\Controllers\PartSupplierController::class, 'store'])
+            ->whereNumber('part')->name('parts.suppliers.store');
+        Route::delete('/parts/{part}/suppliers/{supplier}', [\App\Http\Controllers\PartSupplierController::class, 'destroy'])
+            ->whereNumber('part')->whereNumber('supplier')->name('parts.suppliers.destroy');
+    });
+
     // Phase-54 SLA-LANDLORD-UI-1: landlord-scoped CRUD over SLA overrides.
     // NOT under /admin — that namespace is super-admin only. Landlord
     // overrides + global defaults coexist via the Phase-49 cascade in
