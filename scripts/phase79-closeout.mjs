@@ -22,7 +22,8 @@ prd.closeout = {
     tests: 'Phase-79 water tests: WaterGate 8 + WaterRoles 7 + DashboardWater 3 + Surface 9 + NavReachability 11. Plus WaterReading + (Phase-78) factories. Pint clean, build clean, nav-audit clean.',
     constraints_preserved:
         'WaterModuleAccess never calls getOrCreateForLandlord (no write-on-read); PaymentConfiguration/Building queried explicitly by landlord_id (neither uses TenantScope). water.settings + buildings.water-settings deliberately ungated as the enable points. Approve/reject stay landlord-only (ApproveWaterReadingRequest + WaterReadingPolicy). nav-audit is a shrink-only baseline (new orphans fail; baselined pages reached via hub tab / redirect / vendor portal / settings sub-nav / external).',
-    coderabbit: 'pending — run on the cycle diff before final closeout commit.',
+    coderabbit:
+        'CodeRabbit CLI unavailable in this environment; the review agent could not produce a severity-grouped report and (per the known gotcha) ran migrations that corrupted the test DB mid-run, so it was stopped and the DB repaired with migrate:fresh. Manual self-review applied instead: WaterModuleAccess never calls getOrCreateForLandlord (no write-on-read); explicit landlord_id filtering (PaymentConfiguration/Building have no TenantScope); cache busted on every config write; gate middleware deliberately excludes the enable points (water.settings/building-water-settings) to avoid a dead-end; role-tab swap prevents cross-role tab forcing; tenant water query is approved-only + unit-scoped; per-landlord cache bleed in tests hardened via Cache::flush in setUp; two phantom-column crashers (is_approved/has_water_meter) fixed.',
 };
 
 writeFileSync(path, JSON.stringify(prd, null, 2) + '\n');

@@ -13,6 +13,7 @@ use App\Services\Water\WaterModuleAccess;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestData;
 
@@ -30,6 +31,7 @@ class Phase79DashboardWaterTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Cache::flush(); // WaterModuleAccess caches per landlord; ids reset under RefreshDatabase.
         $this->landlord = $this->createLandlordWithFullSetup()['landlord'];
     }
 

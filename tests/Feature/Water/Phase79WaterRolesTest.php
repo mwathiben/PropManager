@@ -12,6 +12,7 @@ use App\Models\WaterReading;
 use App\Services\Water\WaterModuleAccess;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 use Tests\Traits\CreatesTestData;
 
@@ -30,6 +31,7 @@ class Phase79WaterRolesTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Cache::flush(); // WaterModuleAccess caches per landlord; ids reset under RefreshDatabase.
         $setup = $this->createLandlordWithFullSetup();
         $this->landlord = $setup['landlord'];
         $this->units = $setup['units'];
