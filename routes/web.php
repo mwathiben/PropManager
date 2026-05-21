@@ -4,13 +4,11 @@ use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\Admin\AdminBillingController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\ArchiveHubController;
-use App\Http\Controllers\ArrearsController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\BuildingController;
 use App\Http\Controllers\ConsentController;
 use App\Http\Controllers\CreditNoteController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\DepositController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\Finance\DepositController as FinanceDepositController;
 use App\Http\Controllers\Finance\ExpenseController;
@@ -423,7 +421,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/leases/{lease}/adjust-rent', [LeaseController::class, 'adjustRent'])->name('leases.adjust-rent');
     Route::post('/leases/batch-adjust', [LeaseController::class, 'batchAdjustRent'])->name('leases.batch-adjust');
     Route::post('/leases/{lease}/wallet-adjustment', [LeaseController::class, 'walletAdjustment'])->name('leases.wallet-adjustment');
-    Route::get('/leases/{lease}/wallet-history', [LeaseController::class, 'walletHistory'])->name('leases.wallet-history');
+    Route::get('/leases/{lease}/wallet-history', fn ($lease) => redirect()->route('leases.show', $lease))->name('leases.wallet-history');
     Route::get('/leases/{lease}', [LeaseController::class, 'show'])->name('leases.show');
     Route::get('/leases/{lease}/download', [LeaseController::class, 'download'])
         ->middleware('throttle:pdf-render')
@@ -693,11 +691,13 @@ Route::middleware('auth')->group(function () {
         ->name('payments.send-receipt');
     Route::post('/payments/{payment}/void', [PaymentController::class, 'void'])->name('payments.void');
 
-    // Refunds
-    Route::get('/refunds', [\App\Http\Controllers\RefundController::class, 'index'])->name('refunds.index');
-    Route::get('/payments/{payment}/refund', [\App\Http\Controllers\RefundController::class, 'create'])->name('refunds.create');
+    // Refunds. The standalone refund pages were superseded by the Finances
+    // refunds tab; these GET routes redirect there (names kept — server-side
+    // redirects still resolve). POST actions remain functional.
+    Route::get('/refunds', fn () => redirect()->route('finances.refunds'))->name('refunds.index');
+    Route::get('/payments/{payment}/refund', fn () => redirect()->route('finances.refunds'))->name('refunds.create');
     Route::post('/payments/{payment}/refund', [\App\Http\Controllers\RefundController::class, 'store'])->name('refunds.store');
-    Route::get('/refunds/{refund}', [\App\Http\Controllers\RefundController::class, 'show'])->name('refunds.show');
+    Route::get('/refunds/{refund}', fn () => redirect()->route('finances.refunds'))->name('refunds.show');
     Route::post('/refunds/{refund}/process', [\App\Http\Controllers\RefundController::class, 'process'])->name('refunds.process');
     Route::post('/refunds/{refund}/cancel', [\App\Http\Controllers\RefundController::class, 'cancel'])->name('refunds.cancel');
 
@@ -713,7 +713,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/tenants/{tenant}/credit-notes', [CreditNoteController::class, 'forTenant'])->name('tenants.credit-notes');
 
     // Bank Reconciliation
-    Route::get('/reconciliation', [\App\Http\Controllers\ReconciliationController::class, 'index'])->name('reconciliation.index');
+    Route::get('/reconciliation', fn () => redirect()->route('finances.reconciliation'))->name('reconciliation.index');
     Route::post('/reconciliation/{item}/match', [\App\Http\Controllers\ReconciliationController::class, 'match'])->name('reconciliation.match');
     Route::post('/reconciliation/{item}/retry', [\App\Http\Controllers\ReconciliationController::class, 'retry'])->name('reconciliation.retry');
     Route::delete('/reconciliation/{item}', [\App\Http\Controllers\ReconciliationController::class, 'destroy'])->name('reconciliation.destroy');
@@ -1158,11 +1158,12 @@ Route::middleware('auth')->group(function () {
             ->name('vendors.portal-link');
     });
 
-    // 16. Deposits (Security Deposits Tracking)
-    Route::get('/deposits', [DepositController::class, 'index'])->name('deposits.index');
+    // 16. Deposits (Security Deposits Tracking) — superseded by the Finances
+    // deposits tab; redirect (name kept for any server-side reference).
+    Route::get('/deposits', fn () => redirect()->route('finances.deposits'))->name('deposits.index');
 
-    // 17. Arrears (Overdue Tracking)
-    Route::get('/arrears', [ArrearsController::class, 'index'])->name('arrears.index');
+    // 17. Arrears (Overdue Tracking) — superseded by the Finances arrears tab.
+    Route::get('/arrears', fn () => redirect()->route('finances.arrears'))->name('arrears.index');
 
     // 18. Water Settings (Global Water Billing Configuration)
     Route::get('/water/settings', [WaterSettingsController::class, 'index'])->name('water.settings');
@@ -1309,8 +1310,10 @@ Route::middleware(['auth', 'verified', 'role:super_admin'])->prefix('admin')->gr
         Route::get('/', [AdminBillingController::class, 'index'])->name('index');
         Route::post('/model', [AdminBillingController::class, 'switchModel'])->name('model');
         Route::post('/fees', [AdminBillingController::class, 'updateFees'])->name('fees');
-        Route::get('/analytics', [AdminBillingController::class, 'analytics'])->name('analytics');
-        Route::get('/history', [AdminBillingController::class, 'history'])->name('history');
+        // analytics/history pages were never built; the billing index page
+        // covers these client-side. Redirect to avoid a dead render target.
+        Route::get('/analytics', fn () => redirect()->route('admin.billing.index'))->name('analytics');
+        Route::get('/history', fn () => redirect()->route('admin.billing.index'))->name('history');
         Route::post('/preview-fee', [AdminBillingController::class, 'previewFee'])->name('preview-fee');
     });
 
@@ -1673,7 +1676,8 @@ Route::middleware('auth')->group(function () {
     Route::prefix('consent')->name('consent.')->group(function () {
         Route::get('/required', [ConsentController::class, 'required'])->name('required');
         Route::post('/accept', [ConsentController::class, 'accept'])->name('accept');
-        Route::get('/history', [ConsentController::class, 'history'])->name('history');
+        // Consent-history page was never built; the privacy centre covers it.
+        Route::get('/history', fn () => redirect()->route('gdpr.index'))->name('history');
         // Phase-13 DPA-1: generic consent withdrawal replaces the
         // marketing-only path. Article 7(3) requires withdrawing be
         // as easy as granting — one route + a 'type' body param covers
