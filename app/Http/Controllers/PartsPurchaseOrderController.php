@@ -50,6 +50,8 @@ class PartsPurchaseOrderController extends Controller
                     ],
                     'qty_suggested' => $line->qty_suggested,
                     'cost_per_unit_cents_snapshot' => $line->cost_per_unit_cents_snapshot,
+                    'trigger_reason' => $line->trigger_reason,
+                    'projected_stockout_at' => $line->projected_stockout_at?->toDateString(),
                 ]),
                 'total_cents' => $order->lines->sum(
                     fn ($line) => $line->qty_suggested * $line->cost_per_unit_cents_snapshot,

@@ -45,4 +45,11 @@ return [
             'import' => 'Import',
         ],
     ],
+    'forecast' => [
+        'reason' => 'Reason',
+        'reason_static' => 'Below threshold',
+        'reason_lead_time_buffer' => 'Lead-time buffer',
+        'stockout' => 'Projected stockout',
+        'no_stockout' => 'No recent usage',
+    ],
 ];

@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 /**
  * Phase-49 PARTS-INVENTORY-1: per-landlord parts catalogue.
@@ -92,5 +93,47 @@ class Part extends Model
     public function isBelowThreshold(): bool
     {
         return $this->is_active && $this->qty_available <= $this->reorder_threshold;
+    }
+
+    /**
+     * Phase-75 PARTS-PREDICT-2: supplier lead time used for forecasting —
+     * the cheapest known supplier's lead time, else the config default.
+     */
+    public function leadTimeDays(): int
+    {
+        $supplier = $this->relationLoaded('suppliers')
+            ? $this->suppliers->sortBy('unit_cost_cents')->first()
+            : $this->cheapestSupplier();
+
+        return (int) ($supplier->lead_time_days ?? config('maintenance.default_lead_time_days', 7));
+    }
+
+    /**
+     * Static threshold plus the stock projected to be consumed while a
+     * replacement order is in transit (ceil of lead-time * daily usage).
+     */
+    public function effectiveThreshold(float $dailyRate, int $leadTimeDays): int
+    {
+        $buffer = (int) ceil(max(0, $leadTimeDays) * max(0.0, $dailyRate));
+
+        return $this->reorder_threshold + $buffer;
+    }
+
+    public function belowEffectiveThreshold(float $dailyRate, int $leadTimeDays): bool
+    {
+        return $this->is_active && $this->qty_available <= $this->effectiveThreshold($dailyRate, $leadTimeDays);
+    }
+
+    /**
+     * Projected date the part hits zero at the current usage rate. Null when
+     * the part is not being consumed (rate 0) — no meaningful forecast.
+     */
+    public function projectedStockoutDate(float $dailyRate): ?Carbon
+    {
+        if ($dailyRate <= 0) {
+            return null;
+        }
+
+        return Carbon::today()->addDays((int) floor($this->qty_available / $dailyRate));
     }
 }

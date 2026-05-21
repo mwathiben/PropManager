@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 interface PartLine {
     id: number;
@@ -13,6 +16,8 @@ interface PartLine {
     };
     qty_suggested: number;
     cost_per_unit_cents_snapshot: number;
+    trigger_reason: string;
+    projected_stockout_at: string | null;
 }
 
 interface Order {
@@ -97,6 +102,8 @@ function cancel(order: Order): void {
                             <th class="px-2 py-2">On hand</th>
                             <th class="px-2 py-2">Reorder at</th>
                             <th class="px-2 py-2">Suggested qty</th>
+                            <th class="px-2 py-2">{{ t('parts.forecast.reason') }}</th>
+                            <th class="px-2 py-2">{{ t('parts.forecast.stockout') }}</th>
                             <th class="px-2 py-2 text-end">Unit cost</th>
                             <th class="px-2 py-2 text-end">Line total</th>
                         </tr>
@@ -108,6 +115,15 @@ function cancel(order: Order): void {
                             <td class="px-2 py-2 text-gray-900">{{ line.part.qty_available }}</td>
                             <td class="px-2 py-2 text-gray-900">{{ line.part.reorder_threshold }}</td>
                             <td class="px-2 py-2 text-gray-900">{{ line.qty_suggested }}</td>
+                            <td class="px-2 py-2">
+                                <span
+                                    class="rounded px-2 py-0.5 text-xs font-medium"
+                                    :class="line.trigger_reason === 'lead_time_buffer' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'"
+                                >
+                                    {{ line.trigger_reason === 'lead_time_buffer' ? t('parts.forecast.reason_lead_time_buffer') : t('parts.forecast.reason_static') }}
+                                </span>
+                            </td>
+                            <td class="px-2 py-2 text-gray-700">{{ line.projected_stockout_at ?? t('parts.forecast.no_stockout') }}</td>
                             <td class="px-2 py-2 text-end text-gray-900">{{ formatKes(line.cost_per_unit_cents_snapshot) }}</td>
                             <td class="px-2 py-2 text-end text-gray-900">{{ formatKes(line.qty_suggested * line.cost_per_unit_cents_snapshot) }}</td>
                         </tr>

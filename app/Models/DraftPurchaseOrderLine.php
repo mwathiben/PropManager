@@ -14,16 +14,23 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class DraftPurchaseOrderLine extends Model
 {
+    public const REASON_STATIC = 'static';
+
+    public const REASON_LEAD_TIME = 'lead_time_buffer';
+
     protected $fillable = [
         'draft_purchase_order_id',
         'part_id',
         'qty_suggested',
         'cost_per_unit_cents_snapshot',
+        'trigger_reason',
+        'projected_stockout_at',
     ];
 
     protected $casts = [
         'qty_suggested' => 'integer',
         'cost_per_unit_cents_snapshot' => 'integer',
+        'projected_stockout_at' => 'date',
     ];
 
     public function order(): BelongsTo

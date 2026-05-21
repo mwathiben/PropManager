@@ -42,4 +42,11 @@ return [
             'import' => 'Uingizaji',
         ],
     ],
+    'forecast' => [
+        'reason' => 'Sababu',
+        'reason_static' => 'Chini ya kiwango',
+        'reason_lead_time_buffer' => 'Akiba ya muda wa kufikisha',
+        'stockout' => 'Makadirio ya kuisha',
+        'no_stockout' => 'Hakuna matumizi ya hivi karibuni',
+    ],
 ];

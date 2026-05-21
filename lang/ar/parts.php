@@ -42,4 +42,11 @@ return [
             'import' => 'استيراد',
         ],
     ],
+    'forecast' => [
+        'reason' => 'السبب',
+        'reason_static' => 'أقل من الحد',
+        'reason_lead_time_buffer' => 'احتياطي مدة التوريد',
+        'stockout' => 'نفاد متوقع',
+        'no_stockout' => 'لا استخدام حديث',
+    ],
 ];

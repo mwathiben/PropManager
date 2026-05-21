@@ -274,3 +274,65 @@ mutations.
 - `Phase54CostUiTest` (6 / 38)
 - `Phase54VendorOnboardingTest` (7 / 26)
 - `Phase54MaintenanceDepth2SurfaceTest` — cross-category presence map
+
+## Phase 75 [MAINTENANCE-DEPTH-3] extensions (2026-05-21)
+
+### VENDOR-PERF → vendor performance comparison
+
+`VendorPerformanceService::forLandlord(landlordId, windowDays=90)` returns,
+per active vendor, within-SLA %, avg resolution hours, open overdue, resolved
+count, and cost per ticket (cost via `ticket_costs ⋈ tickets`, soft-delete
+aware). Surfaced at `/maintenance/vendor-performance` (landlord-only, sortable,
+30/90/365-day window) and linked from the maintenance hub.
+
+### VENDOR-ROUTING → specialties + pool + opt-in auto-route
+
+`vendor_specialties` (allow-list gated to `Ticket::issueSubcategories()`,
+`Vendor::syncSpecialties()`). `VendorAssignmentService::suggestPool(ticket)`
+ranks specialty-matching active vendors by within-SLA % then fewest open
+overdue (falls back to all active when no specialty match).
+`autoAssign(ticket)` is config-gated (`maintenance.auto_route_vendors`,
+default off), never overrides a vendor already set, no-ops on an empty pool;
+fired from `TicketObserver::created` afterCommit in a try/catch.
+
+### PARTS-PRICING → price history + suppliers + pricing UI
+
+`part_price_history` is append-only: `PartObserver` writes a row on Part
+create and whenever `cost_per_unit_cents` changes (only). `part_suppliers`
+(unique `part_id,vendor_id`, both FKs landlord-scoped) drives
+`Part::cheapestSupplier()` / `fastestSupplier()`. `/parts/pricing`
+(landlord-only) shows a per-part cost sparkline + supplier comparison with
+add/remove; suppliers mutate via `PartSupplierController` (route-bound part
+404s a foreign part, `vendor_id` gated by a landlord-scoped `Rule::exists`).
+
+### PARTS-FORECAST → lead-time-aware reorder
+
+`PartUsageService::dailyRate(part, windowDays=90)` = Σ `ticket_parts.qty_used`
+in the window ÷ days (landlord-scoped via the tickets join); `dailyRatesFor()`
+batches it per landlord.
+
+`parts:reorder-suggest` now triggers on the **effective threshold** —
+`reorder_threshold + ceil(lead_time_days × dailyRate)` — where `lead_time_days`
+comes from the cheapest known supplier, else `maintenance.default_lead_time_days`
+(7). A part still above its static threshold but projected to run out before a
+replacement arrives is ordered early. Each `draft_purchase_order_lines` row
+records `trigger_reason` (`static` vs `lead_time_buffer`) and
+`projected_stockout_at` (`today + floor(qty_available ÷ dailyRate)`, null when
+unused). Suggested qty grows by the lead-time buffer:
+`max(1, reorder_threshold × 2 − qty_available + ceil(lead_time × rate))`.
+Idempotency (per-`(landlord, vendor, draft)` upsert + per-`part_id` lines) is
+preserved.
+
+Gauges: `parts_usage_rate_per_day{landlord_id, part_id}` (from
+`parts:audit-stock`, below-threshold parts only) and
+`parts_predicted_stockout_count{landlord_id}` (from `parts:reorder-suggest`,
+count of lead-time-buffer parts). `/parts/purchase-orders` shows each line's
+trigger reason + projected stockout date.
+
+### CI gates
+
+- `Phase75VendorPerformanceTest`
+- `Phase75VendorRoutingTest`
+- `Phase75PartsPricingTest`
+- `Phase75PartsPredictTest`
+- `Phase75MaintenanceDepth3SurfaceTest` — cross-category presence map

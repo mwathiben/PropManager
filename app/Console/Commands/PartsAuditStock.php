@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\Part;
+use App\Services\Maintenance\PartUsageService;
 use App\Services\MetricsService;
 use App\Services\Sre\AlertFiringRecorder;
 use Illuminate\Console\Command;
@@ -27,7 +28,7 @@ class PartsAuditStock extends Command
 
     protected $description = 'Phase-49 PARTS-INVENTORY-3: detect parts below reorder threshold + alert.';
 
-    public function handle(MetricsService $metrics, AlertFiringRecorder $alerts): int
+    public function handle(MetricsService $metrics, AlertFiringRecorder $alerts, PartUsageService $usage): int
     {
         $below = Part::query()
             ->withoutGlobalScope('landlord')
@@ -43,6 +44,15 @@ class PartsAuditStock extends Command
                     (float) $rows->count(),
                     ['landlord_id' => (string) $landlordId],
                 );
+
+                $rates = $usage->dailyRatesFor((int) $landlordId, $rows);
+                foreach ($rows as $part) {
+                    $metrics->gauge(
+                        'parts_usage_rate_per_day',
+                        round($rates[$part->id] ?? 0.0, 3),
+                        ['landlord_id' => (string) $landlordId, 'part_id' => (string) $part->id],
+                    );
+                }
             } catch (\Throwable $e) {
                 Log::warning('parts:audit-stock gauge emit failed', ['error' => $e->getMessage()]);
             }
