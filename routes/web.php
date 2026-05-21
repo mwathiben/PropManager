@@ -857,10 +857,17 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:landlord')->prefix('reports/scheduled')->name('reports.scheduled.')->group(function () {
         Route::get('/', [\App\Http\Controllers\Reports\ScheduledController::class, 'index'])->name('index');
         Route::post('/', [\App\Http\Controllers\Reports\ScheduledController::class, 'store'])->name('store');
-        Route::delete('/{schedule}', [\App\Http\Controllers\Reports\ScheduledController::class, 'destroy'])->name('destroy');
         // Phase-50 REAL-TIME-PREVIEW-2: same payload the next send would
         // carry; cross-tenant saved_report_id 403s at the controller.
+        // Registered before the {schedule} routes so /preview never binds.
         Route::post('/preview', [\App\Http\Controllers\Reports\ScheduledController::class, 'preview'])->name('preview');
+        // Phase-73 SCHEDULED-DEPTH: edit cadence/recipient + pause/resume.
+        Route::put('/{schedule}', [\App\Http\Controllers\Reports\ScheduledController::class, 'update'])
+            ->whereNumber('schedule')->name('update');
+        Route::post('/{schedule}/toggle-pause', [\App\Http\Controllers\Reports\ScheduledController::class, 'togglePause'])
+            ->whereNumber('schedule')->name('toggle-pause');
+        Route::delete('/{schedule}', [\App\Http\Controllers\Reports\ScheduledController::class, 'destroy'])
+            ->whereNumber('schedule')->name('destroy');
     });
 
     // 12. Notifications

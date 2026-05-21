@@ -36,6 +36,7 @@ class SendScheduledReports extends Command
     public function handle(ReportBuilderService $builder, XlsxExportService $xlsx): int
     {
         $due = ScheduledReport::query()
+            ->whereNull('paused_at')
             ->where('next_due_at', '<=', Carbon::now())
             ->with('savedReport')
             ->get();

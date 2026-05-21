@@ -23,11 +23,13 @@ class ScheduledReport extends Model
         'recipient_email',
         'next_due_at',
         'last_sent_at',
+        'paused_at',
     ];
 
     protected $casts = [
         'next_due_at' => 'datetime',
         'last_sent_at' => 'datetime',
+        'paused_at' => 'datetime',
     ];
 
     public function savedReport(): BelongsTo
@@ -41,6 +43,22 @@ class ScheduledReport extends Model
     }
 
     /**
+     * Project next_due_at forward from a base instant by a cadence
+     * interval. The single source of truth for cadence arithmetic —
+     * markSent(), schedule creation, edits, and resume all route here.
+     */
+    public static function nextDueAtForCadence(string $cadence, ?Carbon $from = null): Carbon
+    {
+        $base = ($from ?? Carbon::now())->copy();
+
+        return match ($cadence) {
+            'monthly' => $base->addMonth(),
+            'quarterly' => $base->addMonths(3),
+            default => $base->addWeek(),
+        };
+    }
+
+    /**
      * Advance next_due_at by the cadence interval. Stamps last_sent_at
      * with now() too.
      */
@@ -49,12 +67,7 @@ class ScheduledReport extends Model
         $base = Carbon::now();
         $this->forceFill([
             'last_sent_at' => $base,
-            'next_due_at' => match ($this->cadence) {
-                'weekly' => $base->copy()->addWeek(),
-                'monthly' => $base->copy()->addMonth(),
-                'quarterly' => $base->copy()->addMonths(3),
-                default => $base->copy()->addWeek(),
-            },
+            'next_due_at' => self::nextDueAtForCadence($this->cadence, $base),
         ])->save();
     }
 }
