@@ -68,6 +68,7 @@ class InboxController extends Controller
 
         $this->attachReplyPreviews($thread);
         $this->attachReactionSummaries($thread, $request->user()?->id);
+        $this->attachAttachmentMeta($thread, 'tenant.inbox.attachments.show');
 
         return Inertia::render('Tenant/Inbox/Show', [
             'thread' => $thread,

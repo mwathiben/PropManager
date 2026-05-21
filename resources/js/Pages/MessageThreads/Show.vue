@@ -20,8 +20,11 @@ interface Sender {
 interface MessageDocument {
     id: number;
     title: string;
-    file_path: string;
     mime_type: string;
+    is_image: boolean;
+    file_size_formatted: string;
+    scan_status?: string | null;
+    url: string;
 }
 
 interface ThreadMessage {

@@ -182,6 +182,34 @@ class Phase71InboxNativeSurfaceTest extends TestCase
         $this->assertNotEmpty(config('inbox.reactions'));
     }
 
+    public function test_media_surface(): void
+    {
+        // Bubble renders attachments as media; lightbox component exists.
+        $bubble = $this->js('Components/Inbox/MessageBubble.vue');
+        $this->assertStringContainsString('data-testid="bubble-attachment"', $bubble);
+        $this->assertStringContainsString('openImage', $bubble);
+        $this->assertStringContainsString('is_image', $bubble);
+
+        $lightbox = $this->js('Components/Inbox/AttachmentLightbox.vue');
+        $this->assertStringContainsString('data-testid="attachment-lightbox"', $lightbox);
+        $this->assertStringContainsString('aria-modal', $lightbox);
+
+        // Participant-gated attachment endpoint + routes.
+        $this->assertTrue(class_exists(\App\Http\Controllers\MessageAttachmentController::class));
+        $this->assertTrue(\Illuminate\Support\Facades\Route::has('message-threads.attachments.show'));
+        $this->assertTrue(\Illuminate\Support\Facades\Route::has('tenant.inbox.attachments.show'));
+    }
+
+    public function test_phase71_schema_and_classes(): void
+    {
+        $this->assertTrue(\Illuminate\Support\Facades\Schema::hasColumn('messages', 'reply_to_id'));
+        $this->assertTrue(\Illuminate\Support\Facades\Schema::hasTable('message_reactions'));
+        $this->assertTrue(class_exists(\App\Models\MessageReaction::class));
+        $this->assertTrue(class_exists(\App\Events\MessageReacted::class));
+        $this->assertTrue(\Illuminate\Support\Facades\Route::has('message-threads.messages.react'));
+        $this->assertTrue(\Illuminate\Support\Facades\Route::has('tenant.inbox.messages.react'));
+    }
+
     public function test_chat_lang_keys_exist_across_locales(): void
     {
         $required = [
@@ -200,6 +228,11 @@ class Phase71InboxNativeSurfaceTest extends TestCase
             $this->assertIsArray($chat['reactions'] ?? null, "inbox.chat.reactions missing for {$locale}");
             foreach (['add', 'react_with', 'pill_label'] as $key) {
                 $this->assertArrayHasKey($key, $chat['reactions'], "inbox.chat.reactions.{$key} missing for {$locale}");
+            }
+
+            $this->assertIsArray($chat['attachment'] ?? null, "inbox.chat.attachment missing for {$locale}");
+            foreach (['unavailable', 'open_image', 'close'] as $key) {
+                $this->assertArrayHasKey($key, $chat['attachment'], "inbox.chat.attachment.{$key} missing for {$locale}");
             }
         }
     }

@@ -64,5 +64,10 @@ return [
             'react_with' => '[TODO-ar] React with {emoji}',
             'pill_label' => '[TODO-ar] {emoji}, {count} reactions',
         ],
+        'attachment' => [
+            'unavailable' => '[TODO-ar] Attachment unavailable',
+            'open_image' => '[TODO-ar] Open image',
+            'close' => '[TODO-ar] Close',
+        ],
     ],
 ];

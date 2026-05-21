@@ -167,9 +167,31 @@ The `inbox_attachment_infected` alert (sev2, page) fires when `inbox_attachment_
 
 If `INBOX_SCAN_FAIL_CLOSED=true` (default) and clamd is down, every attachment upload is rejected with `inbox.scan.unavailable` and `inbox_attachment_scan_error_count` climbs. Restore clamd; uploads recover automatically. Set `INBOX_SCAN_FAIL_CLOSED=false` only as a deliberate, temporary trade-off (accept-with-`scan_status=error`) during a clamd outage where blocking uploads is worse than deferring the scan.
 
+## Chat UI (Phase 71 INBOX-NATIVE-UX)
+
+The two message Show pages (`Pages/MessageThreads/Show.vue` landlord, `Pages/Tenant/Inbox/Show.vue` tenant) are thin wrappers over three shared presentational components plus one composable. There is no duplicated chat markup.
+
+- **`Components/Inbox/ChatThread.vue`** — the scroll region. Owns message grouping (same sender within 5 min), day separators, the id-anchored unread divider (captured once at load so it never shifts as messages stream), the animated typing bubble (fed by the Phase-67 presence whisper, `motion-safe` only), scroll management (auto-stick to newest while at the bottom; a floating `chat-jump-latest` pill with an unread-below count when scrolled up), and a single `AttachmentLightbox`.
+- **`Components/Inbox/MessageBubble.vue`** — one bubble: ownership alignment, grouped avatar/name, the quote block (`bubble-quote`), per-bubble delivery state (clock = sending, retry = failed, ✓/✓✓ = sent/seen), reaction pills + the emoji picker, and attachment rendering (image thumbnail → lightbox / file chip → download / neutral placeholder when `scan_status !== clean`).
+- **`Components/Inbox/ChatComposer.vue`** — sticky auto-grow composer: Enter sends / Shift+Enter newline (IME-composition aware), attach tray, char counter, the dismissible reply preview, and the locked state.
+- **`composables/useThreadStream.ts`** — the live state machine. Seeds from the Inertia prop, merges later reloads by id (and syncs reactions for known ids — the only post-create mutable field), `ingest()`s `.message.posted`, and owns the optimistic send lifecycle + the reaction toggle/remote-apply. **The Echo channel is owned by the page** (one `subscribePrivate`/`unsubscribe` per `inbox.thread.{id}`), which subscribes `.message.read`, `.message.posted`, and `.message.reacted` and feeds the composable. Pages post with `preserveState: true` so the streamed list survives the reload.
+
+### Reply / reaction model + isolation
+
+- **Reply** — `messages.reply_to_id` self-FK (`nullOnDelete`). `StoreMessageRequest` validates the quoted id `exists` AND is in the *same thread* (non-deleted), so a reply can never quote another thread's or tenant's message. `Message::toReplyPreview()` produces the compact `{id, sender_name, body(120)}` used identically by the show payload (`AttachesReplyPreviews` trait) and the `MessagePosted` broadcast. A reply whose original is later soft-deleted degrades to un-quoted (preview `null`).
+- **Reaction** — `message_reactions` (unique `message+user+emoji`). `MessageReactionController@toggle` gates on `MessageThreadPolicy::view` (participant pivot) AND `message.thread_id === thread.id` (404), with the emoji constrained to `config('inbox.reactions')`. Toggle is race-safe via `createOrFirst`. `MessageReacted` broadcasts the authoritative post-toggle count `->toOthers()`. Dedicated `throttle:reactions` (120/min, `INBOX_REACTIONS_RATE_LIMIT_PER_MINUTE`) so rapid taps don't exhaust the 20/min compose budget.
+- **Attachments** — served by `MessageAttachmentController@show`, authorised by **thread participation** (NOT `DocumentPolicy`, which denies tenants Message-attached documents). It re-checks the document belongs to the named message-in-thread, requires `scan_status === clean` and an existing file, then 302-redirects to a 5-minute signed URL (Phase-59 resolver). Routes: `message-threads.attachments.show` / `tenant.inbox.attachments.show`. Image `<img>` tags carry `referrerpolicy="no-referrer"`.
+
+### Known deferrals
+
+- A live-appended (broadcast/optimistic) message carries no `documents`, so an attachment shows only after the next reload. Text streams immediately.
+- `VirtualMessageList` (Phase-64) is not wired into `ChatThread` — virtualising the grouped/day-separated list is a separate perf concern.
+- Offline (Phase-62) sends leave the optimistic bubble `sending` until reconnect + reload.
+
 ## Cross-references
 
 - [[project_propmanager_phase63_plan]] — cycle planning + commit ledger
+- [[project_propmanager_phase71_plan]] — Phase 71 native chat UI cycle
 - `docs/runbooks/offline.md` — Phase 62 offline-write queue contract
 - `docs/runbooks/alert-thresholds.md` — `inbox_unread_fallback_count` + `inbox_rate_limit_hits_count` operator response
 - `docs/runbooks/tenant-portal.md` — Phase 28 tenant ability matrix

@@ -34,4 +34,27 @@ trait AttachesReplyPreviews
             $message->unsetRelation('reactions');
         });
     }
+
+    /**
+     * Phase-71 MEDIA-CI: replace each message's documents relation with a
+     * compact attachment descriptor (is_image, size, scan_status + a
+     * participant-gated signed-redirect URL on $routeName), so the bubble can
+     * render thumbnails/chips without exposing storage paths. Requires
+     * `documents` loaded.
+     */
+    protected function attachAttachmentMeta(MessageThread $thread, string $routeName): void
+    {
+        $thread->messages->each(function ($message) use ($thread, $routeName): void {
+            $message->setAttribute('documents', $message->documents->map(fn ($doc) => [
+                'id' => $doc->id,
+                'title' => $doc->title,
+                'mime_type' => $doc->mime_type,
+                'is_image' => $doc->isImage(),
+                'file_size_formatted' => $doc->file_size_formatted,
+                'scan_status' => $doc->scan_status,
+                'url' => route($routeName, [$thread->id, $message->id, $doc->id]),
+            ])->all());
+            $message->unsetRelation('documents');
+        });
+    }
 }

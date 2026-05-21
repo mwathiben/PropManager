@@ -4,6 +4,7 @@ import { useI18n } from '@/composables/useI18n';
 import { useFormatters } from '@/composables/useFormatters';
 import { ChevronDownIcon } from '@heroicons/vue/24/outline';
 import MessageBubble, { type BubbleMessage } from '@/Components/Inbox/MessageBubble.vue';
+import AttachmentLightbox from '@/Components/Inbox/AttachmentLightbox.vue';
 
 const props = withDefaults(
     defineProps<{
@@ -81,6 +82,9 @@ const NEAR_BOTTOM_PX = 80;
 const scrollEl = ref<HTMLElement | null>(null);
 const atBottom = ref(true);
 const unreadBelow = ref(0);
+
+// Phase-71 MEDIA-CI: a single lightbox for the whole thread.
+const lightboxImage = ref<{ url: string; title: string } | null>(null);
 
 function isNearBottom(): boolean {
     const el = scrollEl.value;
@@ -162,6 +166,7 @@ watch(
                         @reply="$emit('reply', $event)"
                         @jump-to="jumpToMessage"
                         @react="$emit('react', $event)"
+                        @open-image="lightboxImage = $event"
                     />
                 </template>
 
@@ -206,5 +211,7 @@ watch(
         </div>
 
         <slot name="composer" />
+
+        <AttachmentLightbox :image="lightboxImage" @close="lightboxImage = null" />
     </div>
 </template>

@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue';
 import { useI18n } from '@/composables/useI18n';
 import { useFormatters } from '@/composables/useFormatters';
-import { ArrowUturnLeftIcon, CheckIcon, ClockIcon, ExclamationCircleIcon, FaceSmileIcon } from '@heroicons/vue/24/outline';
+import { ArrowUturnLeftIcon, CheckIcon, ClockIcon, DocumentIcon, ExclamationCircleIcon, FaceSmileIcon } from '@heroicons/vue/24/outline';
 
 export interface BubbleSender {
     id: number | null;
@@ -13,6 +13,10 @@ export interface BubbleDocument {
     id: number;
     title: string;
     mime_type: string;
+    is_image: boolean;
+    file_size_formatted: string;
+    scan_status?: string | null;
+    url: string;
 }
 export interface ReplyPreview {
     id: number;
@@ -61,6 +65,7 @@ const emit = defineEmits<{
     reply: [BubbleMessage];
     jumpTo: [number];
     react: [{ message: BubbleMessage; emoji: string }];
+    openImage: [{ url: string; title: string }];
 }>();
 
 const { t } = useI18n();
@@ -137,17 +142,52 @@ const initials = computed(() => {
 
                 <p class="whitespace-pre-wrap break-words">{{ message.body }}</p>
 
-                <ul v-if="message.documents.length" class="mt-1.5 space-y-1">
-                    <li
-                        v-for="doc in message.documents"
-                        :key="doc.id"
-                        class="truncate text-xs"
-                        :class="isOwn ? 'text-indigo-100' : 'text-indigo-700'"
-                        data-testid="bubble-attachment"
-                    >
-                        📎 {{ doc.title }}
-                    </li>
-                </ul>
+                <div v-if="message.documents.length" class="mt-1.5 space-y-1.5">
+                    <template v-for="doc in message.documents" :key="doc.id">
+                        <!-- Blocked / not-yet-clean: neutral placeholder. -->
+                        <div
+                            v-if="doc.scan_status && doc.scan_status !== 'clean'"
+                            class="flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-xs text-gray-400"
+                            data-testid="bubble-attachment"
+                        >
+                            <ExclamationCircleIcon class="h-4 w-4" />
+                            {{ t('inbox.chat.attachment.unavailable') }}
+                        </div>
+
+                        <!-- Image: inline thumbnail opening the lightbox. -->
+                        <button
+                            v-else-if="doc.is_image"
+                            type="button"
+                            class="block overflow-hidden rounded-lg"
+                            :aria-label="t('inbox.chat.attachment.open_image')"
+                            data-testid="bubble-attachment"
+                            @click="$emit('openImage', { url: doc.url, title: doc.title })"
+                        >
+                            <img
+                                :src="doc.url"
+                                :alt="doc.title"
+                                loading="lazy"
+                                referrerpolicy="no-referrer"
+                                class="max-h-48 w-auto rounded-lg object-cover"
+                            />
+                        </button>
+
+                        <!-- Other files: download chip. -->
+                        <a
+                            v-else
+                            :href="doc.url"
+                            class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs ring-1"
+                            :class="isOwn ? 'bg-indigo-500/40 ring-indigo-300' : 'bg-gray-50 text-gray-700 ring-gray-200'"
+                            data-testid="bubble-attachment"
+                        >
+                            <DocumentIcon class="h-5 w-5 flex-shrink-0" />
+                            <span class="min-w-0">
+                                <span class="block truncate font-medium">{{ doc.title }}</span>
+                                <span class="block text-[10px] opacity-75">{{ doc.file_size_formatted }}</span>
+                            </span>
+                        </a>
+                    </template>
+                </div>
             </div>
 
             <div v-if="groupEnd" class="mt-0.5 flex items-center gap-1 px-1 text-[10px] text-gray-400">

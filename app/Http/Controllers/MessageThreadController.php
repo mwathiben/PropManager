@@ -70,6 +70,7 @@ class MessageThreadController extends Controller
 
         $this->attachReplyPreviews($thread);
         $this->attachReactionSummaries($thread, $request->user()?->id);
+        $this->attachAttachmentMeta($thread, 'message-threads.attachments.show');
 
         return Inertia::render('MessageThreads/Show', [
             'thread' => $thread,

@@ -64,5 +64,10 @@ return [
             'react_with' => 'React with {emoji}',
             'pill_label' => '{emoji}, {count} reactions',
         ],
+        'attachment' => [
+            'unavailable' => 'Attachment unavailable',
+            'open_image' => 'Open image',
+            'close' => 'Close',
+        ],
     ],
 ];

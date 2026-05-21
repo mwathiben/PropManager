@@ -1418,6 +1418,13 @@ Route::middleware(['auth', 'role:tenant', 'payment.verified', 'kyc.complete'])->
         ->whereNumber('message')
         ->middleware('throttle:reactions')
         ->name('tenant.inbox.messages.react');
+
+    // Phase-71 MEDIA-CI: participant-gated message attachment (image/file).
+    Route::get('/inbox/{thread}/messages/{message}/attachments/{document}', [\App\Http\Controllers\MessageAttachmentController::class, 'show'])
+        ->whereNumber('thread')
+        ->whereNumber('message')
+        ->whereNumber('document')
+        ->name('tenant.inbox.attachments.show');
 });
 
 // Phase-45 LEASE-COUNTER-2: landlord-side review of a tenant counter-offer.
@@ -1451,6 +1458,13 @@ Route::middleware(['auth', 'verified', 'role:landlord,caretaker'])->group(functi
         ->whereNumber('message')
         ->middleware('throttle:reactions')
         ->name('message-threads.messages.react');
+
+    // Phase-71 MEDIA-CI: participant-gated message attachment (image/file).
+    Route::get('/message-threads/{thread}/messages/{message}/attachments/{document}', [\App\Http\Controllers\MessageAttachmentController::class, 'show'])
+        ->whereNumber('thread')
+        ->whereNumber('message')
+        ->whereNumber('document')
+        ->name('message-threads.attachments.show');
 
     // Phase-63 INBOX-MOD-1: landlord moderation transitions.
     Route::post('/message-threads/{thread}/archive', [\App\Http\Controllers\MessageThreadModerationController::class, 'archive'])
