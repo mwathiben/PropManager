@@ -4,7 +4,14 @@
   "opened_at": "2026-05-21",
   "tier": 7,
   "scope": "Deepen the existing tenant wallet + credit-note + payment-allocation + statement subsystem (Phase 30 PAY-ALLOC / Phase 42 PAYMENTS-INTL sequel). Today: WalletTransaction ledger + Lease.wallet_balance cached column (decimal float, mutated only via Lease::creditToWallet/deductFromWallet inside a tx with lockForUpdate); CreditNote lifecycle pending->approved->applied->voided that applies ONLY to a chosen invoice; PaymentAllocationService FIFO over PaymentPlan installments (never touches wallet); StatementService event stream of invoices+payments with running balance (no wallet/credit rows); Currency enum + per-payment/per-invoice currency but WalletTransaction has NO currency column; tenants can VIEW balance but cannot self-apply credit; no per-landlord auto-apply rules; no CreditNotePolicy. Money convention in THIS subsystem is decimal float (predates the cents-integer convention used by Phase 30+) — match it locally. Goals: (1) credit-note workflow admin-issues -> tenant-applies, (2) per-landlord auto-apply rules, (3) statement integration, (4) multi-currency wallet. All work landlord-scoped via TenantScope; tenant self-service gated by lease ownership.",
-  "categories": ["CREDIT-WALLET", "MULTI-CCY", "AUTO-APPLY", "TENANT-APPLY", "STATEMENT-WALLET", "CI"],
+  "categories": [
+    "CREDIT-WALLET",
+    "MULTI-CCY",
+    "AUTO-APPLY",
+    "TENANT-APPLY",
+    "STATEMENT-WALLET",
+    "CI"
+  ],
   "findings": [
     {
       "id": "CREDIT-WALLET-1",
@@ -13,7 +20,7 @@
       "title": "WalletService — single service boundary over Lease wallet credit/debit + ledger reads",
       "evidence": "Wallet mutation lives as Lease::creditToWallet/deductFromWallet (app/Models/Lease.php:141-209) with the transaction+lockForUpdate+afterCommit invariant duplicated at ~10 call sites (webhooks, BulkPaymentProcessor, ManualPaymentHandler, InvoiceService). There is no service boundary, so new wallet features (credit-note->wallet, tenant self-apply, multi-currency) would re-duplicate the invariant.",
       "remediation": "App\\Services\\Wallet\\WalletService: credit(Lease, float $amount, ?string $reason, ?int $paymentId, ?Currency $currency=null), apply(Lease, float $amount, ?string $reason, ?int $invoiceId, ?Currency $currency=null): float (delegates to the existing Lease methods so the tx/lock/afterCommit invariant stays in ONE place — do NOT reimplement locking), balanceFor(Lease, ?Currency=null): float, ledger(Lease, ?Currency=null) query. Wrap callers incrementally is OUT of scope; this cycle only adds the service + routes NEW features through it. Phase76 test: credit then balanceFor reflects it; apply caps at balance; throws if called outside a transaction (invariant preserved).",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CREDIT-WALLET-2",
@@ -22,7 +29,7 @@
       "title": "Credit note can be issued straight to the tenant wallet (admin issues -> lands in wallet)",
       "evidence": "CreditNote::applyToInvoice (app/Models/CreditNote.php:153-190) is the only terminal apply path — it requires choosing an invoice. The WALLET-DEEP goal 'admin issues credit, tenant applies' has no path for an admin to credit the tenant's wallet so the tenant can later self-apply.",
       "remediation": "CreditNoteService::applyToWallet(CreditNote): in one DB::transaction, lockForUpdate the credit note, guard canBeApplied(), WalletService::credit(lease, remaining_amount, reason='Credit note '.credit_number, currency=note currency), set applied_amount += remaining, status=applied, applied_at, link the wallet transaction back to the credit note (add wallet_transactions.credit_note_id nullable FK). New controller action credit-notes.apply-to-wallet (landlord/caretaker, ownsCreditNote). Idempotent: a re-call on an applied note is a no-op (canBeApplied false). Phase76 test: applying an approved note to wallet credits the lease wallet by remaining_amount, flips status to applied, and is idempotent.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CREDIT-WALLET-3",
@@ -31,7 +38,7 @@
       "title": "CreditNotePolicy — replace inline landlord_id aborts with an explicit policy",
       "evidence": "CreditNoteController authorizes inline via 'if ($creditNote->landlord_id !== $landlordId) abort(403)' (no app/Policies/CreditNotePolicy.php). Inconsistent with the rest of the app (PaymentPolicy etc.) and easy to forget on the new wallet action.",
       "remediation": "App\\Policies\\CreditNotePolicy: before() super-admin bypass; view/approve/apply/void/applyToWallet require landlord ownership (landlord_id === acting landlord, caretaker via landlord_id); register in AuthServiceProvider. Controller swaps inline aborts for $this->authorize(...). Phase76 test: a second landlord gets 403 on show/apply/apply-to-wallet of the first landlord's note.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "MULTI-CCY-1",
@@ -40,7 +47,7 @@
       "title": "Per-currency wallet balances (WalletTransaction.currency + lease_wallet_balances table)",
       "evidence": "WalletTransaction has no currency column and Lease.wallet_balance is a single scalar — a tenant who overpays a USD invoice and a KES invoice would have both collapsed into one ambiguous balance. Currency enum (KES/USD/EUR/GBP) + per-invoice/per-payment currency already exist (Phase 42).",
       "remediation": "Migration: add wallet_transactions.currency (string(3), backfilled to each landlord's PaymentConfiguration default_currency, then NOT NULL). NET-NEW lease_wallet_balances (lease_id FK, landlord_id FK, currency string(3), balance decimal(12,2) default 0, unique(lease_id,currency)). WalletService routes credit/apply through the per-(lease,currency) balance row (lockForUpdate + upsert), writing the currency onto the transaction. Lease.wallet_balance stays the DEFAULT-currency mirror (WalletService syncs it when currency === landlord default) so all existing $lease->wallet_balance reads keep working. balanceFor(lease, currency) reads the row. Default currency resolves from the lease's landlord PaymentConfiguration. Phase76 test: KES and USD credits accumulate on separate rows; default-currency credit also moves Lease.wallet_balance; non-default does not.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "MULTI-CCY-2",
@@ -49,7 +56,7 @@
       "title": "Same-currency apply guard (no silent cross-currency wallet application)",
       "evidence": "There is no FX engine and none is in scope (no rate feed). A USD wallet credit must never be applied to a KES invoice as if 1:1 — that would silently destroy money.",
       "remediation": "WalletService::apply derives the target currency from the invoice (Invoice.currency) and deducts ONLY from the matching per-currency balance; a mismatch (no balance in that currency, or explicit cross-currency request) throws a typed CurrencyMismatchException (rendered 422 with a clear message), never a 1:1 apply. Auto-apply + tenant self-apply both honour this. Phase76 test: applying a USD wallet to a KES invoice is rejected; applying KES wallet to a KES invoice succeeds.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "MULTI-CCY-3",
@@ -58,7 +65,7 @@
       "title": "Currency surfaced on wallet ledger + balances (API + UI)",
       "evidence": "Once wallet transactions carry a currency, the tenant/landlord wallet views and the statement must show WHICH currency each movement and balance is in, or the numbers are meaningless.",
       "remediation": "WalletService::balancesFor(lease): map currency->balance (only non-zero). Wallet ledger payloads include currency + formatted amount via Currency::fromMinorUnits is N/A (decimal) — format with the Currency symbol/locale. Tenant wallet UI + landlord Tenants/Show wallet panel render per-currency balances; statement rows carry currency. Phase76 test: balancesFor returns only non-zero currency rows with correct sums.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "AUTO-APPLY-1",
@@ -67,7 +74,7 @@
       "title": "Per-landlord wallet auto-apply settings + resolver",
       "evidence": "InvoiceService deducts wallet credit at invoice-creation time unconditionally (app/Services/InvoiceService.php:263 deductFromWallet). There is no per-landlord control over whether/how standing wallet credit is applied, and no way to apply credit to invoices that already exist.",
       "remediation": "NET-NEW landlord_wallet_settings (landlord_id unique FK, auto_apply_mode enum {off, on_invoice_create, oldest_first_sweep} default on_invoice_create, created/updated). WalletAutoApplyResolver::for(landlordId): override ?? config('wallet.default_auto_apply_mode') with Cache::remember keyed by a version stamp bumped on save (mirror the Phase 72 HoldSettingsResolver pattern). Phase76 test: resolver returns the override when set, the config default otherwise; cache invalidates on save.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "AUTO-APPLY-2",
@@ -76,7 +83,7 @@
       "title": "Invoice-create auto-apply honours the setting + wallet:auto-apply sweep cron",
       "evidence": "Auto-apply is hardcoded on at invoice creation; landlords who want manual control can't get it, and a tenant who builds up wallet credit AFTER invoices exist never sees it applied without a manual credit note.",
       "remediation": "InvoiceService wallet deduction becomes conditional on WalletAutoApplyResolver mode (off => skip; on_invoice_create => current behaviour but currency-matched via WalletService; oldest_first_sweep => skip at create, handled by the cron). NEW wallet:auto-apply cron (daily, Africa/Nairobi, before invoices age): for landlords in oldest_first_sweep mode, for each lease with wallet credit, apply oldest-unpaid-first same-currency invoices via WalletService until credit or invoices exhausted; idempotent. Phase76 test: off-mode skips deduction at create; sweep-mode applies standing credit to the oldest unpaid invoice; cross-currency invoices skipped.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "AUTO-APPLY-3",
@@ -85,7 +92,7 @@
       "title": "Landlord wallet-settings UI",
       "evidence": "No surface for a landlord to choose their auto-apply mode.",
       "remediation": "Landlord-only settings page (or section in the existing finance/settings surface) GET + PATCH wallet.settings bound to landlord_wallet_settings via a FormRequest (enum-validated mode), bumping the resolver cache stamp on save. lang wallet.settings.* en/sw/ar. Phase76 test: PATCH persists the mode and the resolver returns it.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "TENANT-APPLY-1",
@@ -94,7 +101,7 @@
       "title": "Tenant self-service: apply own wallet credit to an outstanding invoice",
       "evidence": "Tenants can VIEW their balance but the only ways credit reaches an invoice are landlord-issued credit notes or invoice-create auto-apply. The WALLET-DEEP goal 'tenant applies' has no endpoint.",
       "remediation": "Tenant-authenticated POST tenant.wallet.apply (invoice_id + amount?) — gate the invoice's lease.tenant_id === auth id (NOT just landlord scope), reject paid/void invoices, in one DB::transaction WalletService::apply(lease, min(amount?? balance, invoice outstanding), invoiceId, currency=invoice currency) honouring the same-currency guard, record the application against the invoice (wallet_applied + status recompute, mirroring CreditNote::applyToInvoice). Throttle. Phase76 test: tenant applies own KES wallet to own unpaid KES invoice (balance drops, invoice outstanding drops); a tenant applying to another tenant's invoice gets 403; cross-currency rejected.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "TENANT-APPLY-2",
@@ -103,7 +110,7 @@
       "title": "Tenant wallet UI — balance(s), ledger, apply action",
       "evidence": "No tenant-facing wallet page; balance is only implied inside TenantFinances/Index.",
       "remediation": "Pages/TenantFinances/Wallet.vue (or a section): per-currency balance cards, paginated ledger (date/type/amount/currency/reason/balance_after), and an apply form listing the tenant's own outstanding invoices (same-currency only). data-testid='tenant-wallet'. Reachable from the tenant finances nav. Phase76 test (surface): route + Vue token + lang present.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "TENANT-APPLY-3",
@@ -112,7 +119,7 @@
       "title": "lang tenant.wallet.* + nav link",
       "evidence": "No wallet lang namespace for the tenant surface.",
       "remediation": "lang/{en,sw,ar} tenant.wallet.* (title, balance, ledger columns, apply, currency labels, empty states) with identical key parity; link from the tenant finances surface. Phase76 surface asserts the keys resolve in all three locales.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "STATEMENT-WALLET-1",
@@ -121,7 +128,7 @@
       "title": "Statement event stream includes wallet movements + credit-note applications",
       "evidence": "StatementService::forTenant (app/Services/Tenant/StatementService.php:48-141) merges only invoices + payments into the running-balance stream — wallet credits/debits and credit-note applications are invisible, so the tenant's statement balance can disagree with reality.",
       "remediation": "Extend forTenant to merge WalletTransaction rows (credit lowers the amount owed = behaves like a payment in the running balance; debit/apply = behaves like a charge being settled — model carefully so the running balance stays correct) and credit-note application rows, each with a 'kind' discriminator (wallet_credit|wallet_debit|credit_note) and currency. Keep within the existing date window + filters. Pure-PHP merge like today; no N+1. Phase76 test: a wallet credit then a wallet apply appear in the stream in date order and the running balance reconciles; cross-tenant rows never leak.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "STATEMENT-WALLET-2",
@@ -130,7 +137,7 @@
       "title": "Statement UI + PDF + XLSX render the new rows",
       "evidence": "Tenant/Statement.vue + the PDF/XLSX exports only know charge/payment/running_balance columns and the six ALLOWED_COLUMNS.",
       "remediation": "Render the new kinds with distinct labels/badges in Tenant/Statement.vue and in resources/views/tenant.statement.blade.php (PDF) + the XlsxExportService sheet; a 'kind' column (or icon) distinguishes invoice/payment/wallet/credit-note. Keep column-preference mechanism working. Phase76 surface asserts the Vue + blade carry the new tokens.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "STATEMENT-WALLET-3",
@@ -139,7 +146,7 @@
       "title": "Wallet balance summary header on the statement",
       "evidence": "The statement has no at-a-glance wallet balance.",
       "remediation": "Statement payload includes the tenant's current per-currency wallet balance(s); Tenant/Statement.vue shows a small balance summary above the table. Phase76 surface asserts the payload key + Vue token.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CI-1",
@@ -148,7 +155,7 @@
       "title": "Wallet observability — gauges + wallet:rollup cron",
       "evidence": "No metrics on wallet credit float or credit-note backlog — finance ops is blind to standing tenant credit.",
       "remediation": "wallet:rollup cron (daily, Africa/Nairobi) emits wallet_total_credit_balance{landlord_id,currency} (sum of lease_wallet_balances), credit_notes_pending_count{landlord_id}, wallet_auto_applied_total{landlord_id} (top-50 landlords, bounded). Register in config/alerts.php / alert-thresholds.md if a threshold is warranted (credit_notes_pending sev4). Gauge names follow metrics-naming.md (_count/_total/_balance). Phase76 test: the rollup emits the gauges for a seeded landlord.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CI-2",
@@ -157,7 +164,7 @@
       "title": "Phase76WalletDeepSurfaceTest cross-category presence map",
       "evidence": "Each category needs a single locked assertion a refactor cannot silently regress.",
       "remediation": "Phase76WalletDeepSurfaceTest: WalletService + CreditNotePolicy classes exist; lease_wallet_balances + wallet_transactions.currency + landlord_wallet_settings schema present; routes credit-notes.apply-to-wallet, tenant.wallet.apply, wallet.settings registered; Pages/TenantFinances/Wallet.vue + statement tokens exist; lang tenant.wallet.* + wallet.settings.* parity in all 3 locales; gauges emitted; runbook mentions Phase 76. Phase76 test green.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CI-3",
@@ -166,7 +173,23 @@
       "title": "docs/runbooks/wallet.md (NEW) + finance runbook cross-ref",
       "evidence": "No runbook documents the wallet/credit/auto-apply/multi-currency model or the incident playbook for stuck credit.",
       "remediation": "NEW docs/runbooks/wallet.md: the decimal-float money convention + transaction/lock invariant, per-currency balance model (lease_wallet_balances + Lease.wallet_balance default mirror), credit-note->wallet path, auto-apply modes + sweep cron, tenant self-apply, statement integration, same-currency guard, gauges + incident playbook (e.g. credit_notes_pending spike). Cross-ref from the finance runbook. Phase76 surface asserts the file + Phase 76 mention.",
-      "passes": false
+      "passes": true
     }
-  ]
+  ],
+  "closeout": {
+    "closed_at": "2026-05-21",
+    "result": "18/18 findings pass — zero PRD-finding deferrals",
+    "commits": {
+      "WALLET-CORE (CREDIT-WALLET-1 + MULTI-CCY)": "30625282 + 65f0483d (CodeRabbit fixes)",
+      "CREDIT-WALLET (2 + 3)": "74aa740e",
+      "AUTO-APPLY": "1cde1f78",
+      "TENANT-APPLY": "fcf43553",
+      "STATEMENT-WALLET": "ce2caf5a",
+      "CI": "this commit"
+    },
+    "summary": "Phase 30 PAY-ALLOC / Phase 42 PAYMENTS-INTL sequel deepening the tenant wallet + credit-note + statement subsystem. Money is DECIMAL FLOAT here (predates cents-integer; matched locally). WALLET-CORE: App\\Services\\Wallet\\WalletService single boundary (default currency delegates to Lease::creditToWallet/deductFromWallet keeping the tx+lock+afterCommit invariant in ONE place; non-default locks a lease_wallet_balances row) + wallet_transactions.currency (backfilled) + per-currency balances (default in the Lease scalar, non-default in lease_wallet_balances) + CurrencyMismatchException same-currency guard. CREDIT-WALLET: CreditNoteService::applyToWallet (admin moves an approved note into the tenant wallet via wallet_transactions.credit_note_id, idempotent) + CreditNotePolicy replacing inline aborts. AUTO-APPLY: landlord_wallet_settings + WalletAutoApplyResolver (off | on_invoice_create | oldest_first_sweep, cached) gating InvoiceService deduction + wallet:auto-apply sweep cron (oldest unpaid same-currency, idempotent) + /wallet/settings UI. TENANT-APPLY: tenant.wallet.apply (lease-ownership gated, same-currency only) + TenantFinances/Wallet.vue (balances+ledger+apply). STATEMENT-WALLET: StatementService running balance = charges − payments − credit-note-applications (credit notes subtracted explicitly; wallet movements INFORMATIONAL to avoid double-counting payment-sourced credit) + per-currency wallet-balance header + PDF/XLSX. CI: wallet:rollup gauges (wallet_total_credit_balance{landlord,currency} + credit_notes_pending_count + wallet_applied_24h_count) + docs/runbooks/wallet.md.",
+    "tests": "34 Phase-76 wallet tests / 101 assertions: WalletCore 8 + CreditWallet 5 + AutoApply 6 + TenantApply 4 + StatementWallet 4 + Surface 7. Existing invoice + Phase-30 allocation suites stay green (no regression).",
+    "constraints_preserved": "WalletService non-default mutations require an outer transaction (throw_unless) + lock the balance row (create-then-lock, no lost-update). All wallet/credit/statement queries landlord-scoped via TenantScope; tenant self-apply gated on lease.tenant_id (load-bearing, since TenantScope only isolates by landlord). No FX engine — same-currency apply only (CurrencyMismatchException). Statement never double-counts (wallet rows informational). selectRaw static-SQL only (no DB::raw user input). Decimal-float money matched, not cents.",
+    "coderabbit": "Clean per sub-phase, every diff reviewed. Fixed: WALLET-CORE H1 untranslated CurrencyMismatch message (+ lang/wallet.php fallback), H2 getOrCreateForLandlord write-on-read → read-only defaultCurrency, M1 unlocked firstOrCreate recovery → create-then-lock, M2 cents-column precision align, L1 backfill whereNotNull; AUTO-APPLY L1 Viewed-status gap, L2 stale early-exit, L3 withoutOverlapping, L4 applyToInvoice null-guard; TENANT-APPLY L2 dead eager-load; STATEMENT-WALLET HIGH credit-note date-string upper-bound truncation → startOfDay/endOfDay, MEDIUM dead test assertion, LOW summary-card reconciliation (+credit_note in totalPayments), LOW email markdown-injection on wallet reason. Double-count correctness verified across all three credit paths."
+  }
 }

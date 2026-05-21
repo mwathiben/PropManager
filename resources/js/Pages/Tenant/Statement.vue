@@ -60,8 +60,14 @@ const formatBalance = (value: number) => {
 const totalCharges = computed(() =>
     props.rows.filter(r => r.kind === 'invoice').reduce((sum, r) => sum + r.charge, 0),
 );
+// Credit-note applications reduce the obligation like payments (they carry the
+// reduction in the payment column), so they belong in this total for the
+// "charges − payments = closing balance" arithmetic to reconcile. Wallet rows
+// are informational (payment 0) and don't affect it.
 const totalPayments = computed(() =>
-    props.rows.filter(r => r.kind === 'payment').reduce((sum, r) => sum + r.payment, 0),
+    props.rows
+        .filter(r => r.kind === 'payment' || r.kind === 'credit_note')
+        .reduce((sum, r) => sum + r.payment, 0),
 );
 const closingBalance = computed(() => {
     const closing = props.rows.find(r => r.kind === 'closing');

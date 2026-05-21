@@ -111,7 +111,7 @@ class Phase76StatementWalletTest extends TestCase
 
         $rows = $this->rows();
 
-        $this->assertNull($rows->firstWhere('reason', 'theirs'));
+        $this->assertNull($rows->firstWhere('description', 'theirs'));
         $this->assertNull($rows->first(fn ($r) => ($r['amount'] ?? null) === 999.0));
     }
 

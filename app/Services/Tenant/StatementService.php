@@ -253,7 +253,7 @@ class StatementService
         return CreditNote::whereIn('lease_id', $leaseIds)
             ->whereNotNull('applied_at')
             ->where('applied_amount', '>', 0)
-            ->whereBetween('applied_at', [$from->toDateString(), $to->toDateString()])
+            ->whereBetween('applied_at', [$from->startOfDay(), $to->endOfDay()])
             ->with('invoice:id,currency')
             ->orderBy('applied_at')
             ->orderBy('id')

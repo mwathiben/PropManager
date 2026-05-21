@@ -819,6 +819,15 @@ Schedule::command('wallet:auto-apply')
     ->withoutOverlapping()
     ->name('phase76-wallet-auto-apply');
 
+// Phase-76 CI-1: wallet credit-balance + credit-note backlog gauges. 05:25 —
+// after the auto-apply sweep so balances reflect post-sweep truth.
+Schedule::command('wallet:rollup')
+    ->dailyAt('05:25')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->withoutOverlapping()
+    ->name('phase76-wallet-rollup');
+
 // Phase-53 GAUGE-WIRING-3: i18n_translation_spend_usd_24h gauge emitter.
 // Scrapes TranslationCostTracker Cache keys + emits total + per-locale
 // gauges. Every 15m so the sev3 $20/day budget alert (alert-thresholds.md
