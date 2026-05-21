@@ -1525,6 +1525,10 @@ Route::middleware(['auth', 'role:landlord'])->group(function () {
     Route::get('/legal-holds/history/export', [\App\Http\Controllers\LegalHoldHistoryController::class, 'export'])
         ->name('legal-holds.history.export');
 
+    // Phase-72 SUBJECT-PICKER: suggest a tenant's holdable records for the wizard.
+    Route::get('/legal-holds/subjects/suggest', [\App\Http\Controllers\LegalHoldSubjectController::class, 'suggest'])
+        ->name('legal-holds.subjects.suggest');
+
     // Phase-72 MATTER-GROUPING: case-level grouping of holds.
     Route::get('/legal-matters', [\App\Http\Controllers\LegalMatterController::class, 'index'])
         ->name('legal-matters.index');

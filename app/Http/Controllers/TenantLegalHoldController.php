@@ -4,15 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\Document;
-use App\Models\Invoice;
 use App\Models\LegalHold;
-use App\Models\Lease;
-use App\Models\MessageThread;
-use App\Models\Ticket;
 use App\Models\User;
 use App\Services\Legal\BulkHoldService;
-use App\Support\LegalHoldRegistry;
+use App\Services\Legal\TenantSubjectResolver;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,9 +24,10 @@ use InvalidArgumentException;
  */
 class TenantLegalHoldController extends Controller
 {
-    public function __construct(private readonly BulkHoldService $service)
-    {
-    }
+    public function __construct(
+        private readonly BulkHoldService $service,
+        private readonly TenantSubjectResolver $resolver,
+    ) {}
 
     public function __invoke(Request $request, User $tenant): RedirectResponse
     {
@@ -49,12 +45,7 @@ class TenantLegalHoldController extends Controller
             throw new AuthorizationException;
         }
 
-        $subjectMap = [
-            Invoice::class => $this->invoiceIdsForTenant($tenant, (int) $user->id),
-            Ticket::class => $this->ticketIdsForTenant($tenant, (int) $user->id),
-            Document::class => $this->documentIdsForTenant($tenant, (int) $user->id),
-            MessageThread::class => $this->threadIdsForTenant($tenant, (int) $user->id),
-        ];
+        $subjectMap = $this->resolver->idsForTenant($tenant, (int) $user->id);
 
         try {
             DB::transaction(function () use ($subjectMap, $user, $validated) {
@@ -80,70 +71,5 @@ class TenantLegalHoldController extends Controller
 
         return redirect()->route('tenants.show', $tenant)
             ->with('success', __('legal_holds.create_modal_title'));
-    }
-
-    /**
-     * @return array<int, int>
-     */
-    private function invoiceIdsForTenant(User $tenant, int $landlordId): array
-    {
-        return Invoice::query()
-            ->withoutGlobalScopes()
-            ->where('landlord_id', $landlordId)
-            ->whereIn('lease_id', $tenant->leases()->withoutGlobalScopes()->pluck('id'))
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
-    }
-
-    /**
-     * @return array<int, int>
-     */
-    private function ticketIdsForTenant(User $tenant, int $landlordId): array
-    {
-        return Ticket::query()
-            ->withoutGlobalScopes()
-            ->where('landlord_id', $landlordId)
-            ->where('reporter_id', $tenant->id)
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
-    }
-
-    /**
-     * @return array<int, int>
-     */
-    private function documentIdsForTenant(User $tenant, int $landlordId): array
-    {
-        return Document::query()
-            ->withoutGlobalScopes()
-            ->where('landlord_id', $landlordId)
-            ->where(function ($q) use ($tenant) {
-                $q->where(function ($qq) use ($tenant) {
-                    $qq->where('documentable_type', User::class)
-                        ->where('documentable_id', $tenant->id);
-                })
-                    ->orWhere(function ($qq) use ($tenant) {
-                        $qq->where('documentable_type', Lease::class)
-                            ->whereIn('documentable_id', $tenant->leases()->withoutGlobalScopes()->pluck('id'));
-                    });
-            })
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
-    }
-
-    /**
-     * @return array<int, int>
-     */
-    private function threadIdsForTenant(User $tenant, int $landlordId): array
-    {
-        return MessageThread::query()
-            ->withoutGlobalScopes()
-            ->where('landlord_id', $landlordId)
-            ->whereHas('participants', fn ($q) => $q->where('users.id', $tenant->id))
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
     }
 }

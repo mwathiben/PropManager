@@ -93,4 +93,17 @@ return [
         'reopened' => 'Matter reopened.',
         'close_blocked' => 'Release all active holds before closing this matter.',
     ],
+
+    'wizard' => [
+        'pick_tenant' => 'Choose a tenant',
+        'pick_tenant_placeholder' => 'Select a tenant…',
+        'loading' => 'Loading records…',
+        'no_records' => 'This tenant has no holdable records.',
+        'already_held_count' => '{count} already held',
+        'select_all' => 'Select all',
+        'clear' => 'Clear',
+        'selected_count' => '{count} selected',
+        'load_error' => 'Could not load this tenant\'s records. Please try again.',
+        'truncated' => 'Showing {shown} of {total}. Hold these, then start another for the rest.',
+    ],
 ];

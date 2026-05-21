@@ -92,4 +92,17 @@ return [
         'reopened' => '[TODO-sw] Matter reopened.',
         'close_blocked' => '[TODO-sw] Release all active holds before closing this matter.',
     ],
+
+    'wizard' => [
+        'pick_tenant' => '[TODO-sw] Choose a tenant',
+        'pick_tenant_placeholder' => '[TODO-sw] Select a tenant…',
+        'loading' => '[TODO-sw] Loading records…',
+        'no_records' => '[TODO-sw] This tenant has no holdable records.',
+        'already_held_count' => '[TODO-sw] {count} already held',
+        'select_all' => '[TODO-sw] Select all',
+        'clear' => '[TODO-sw] Clear',
+        'selected_count' => '[TODO-sw] {count} selected',
+        'load_error' => '[TODO-sw] Could not load this tenant\'s records. Please try again.',
+        'truncated' => '[TODO-sw] Showing {shown} of {total}. Hold these, then start another for the rest.',
+    ],
 ];
