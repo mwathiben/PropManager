@@ -139,7 +139,7 @@ class Lease extends Model
         return $this->wallet_balance > 0;
     }
 
-    public function creditToWallet(float $amount, ?string $reason = null, ?int $paymentId = null, ?Currency $currency = null): void
+    public function creditToWallet(float $amount, ?string $reason = null, ?int $paymentId = null, ?Currency $currency = null, ?int $creditNoteId = null): void
     {
         throw_unless(DB::transactionLevel() > 0, \LogicException::class, 'creditToWallet must be called within a transaction');
 
@@ -160,6 +160,7 @@ class Lease extends Model
             'reason' => $reason ?? 'Overpayment credit',
             'balance_after' => $newBalance,
             'payment_id' => $paymentId,
+            'credit_note_id' => $creditNoteId,
             'currency' => ($currency ?? Currency::default())->value,
         ]);
 

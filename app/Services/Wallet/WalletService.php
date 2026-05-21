@@ -38,18 +38,18 @@ class WalletService
         return $currency instanceof Currency ? $currency : Currency::default();
     }
 
-    public function credit(Lease $lease, float $amount, ?string $reason = null, ?int $paymentId = null, ?Currency $currency = null): void
+    public function credit(Lease $lease, float $amount, ?string $reason = null, ?int $paymentId = null, ?Currency $currency = null, ?int $creditNoteId = null): void
     {
         $default = $this->defaultCurrency($lease);
         $currency ??= $default;
 
         if ($currency === $default) {
-            $lease->creditToWallet($amount, $reason, $paymentId, $currency);
+            $lease->creditToWallet($amount, $reason, $paymentId, $currency, $creditNoteId);
 
             return;
         }
 
-        $this->mutateNonDefault($lease, $currency, $amount, 'credit', $reason ?? 'Wallet credit', $paymentId, null, null);
+        $this->mutateNonDefault($lease, $currency, $amount, 'credit', $reason ?? 'Wallet credit', $paymentId, null, $creditNoteId);
     }
 
     /**

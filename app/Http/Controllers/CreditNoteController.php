@@ -127,12 +127,7 @@ class CreditNoteController extends Controller
 
     public function show(CreditNote $creditNote)
     {
-        $user = auth()->user();
-        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
-
-        if ($creditNote->landlord_id !== $landlordId) {
-            abort(403);
-        }
+        $this->authorize('view', $creditNote);
 
         $creditNote->load(['tenant', 'lease.unit.building', 'invoice', 'appliedToInvoice', 'approvedByUser']);
 
@@ -161,12 +156,8 @@ class CreditNoteController extends Controller
 
     public function approve(CreditNote $creditNote)
     {
+        $this->authorize('approve', $creditNote);
         $user = auth()->user();
-        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
-
-        if ($creditNote->landlord_id !== $landlordId) {
-            abort(403);
-        }
 
         if (! $creditNote->canBeApproved()) {
             return back()->withErrors(['credit_note' => 'This credit note cannot be approved.']);
@@ -181,24 +172,15 @@ class CreditNoteController extends Controller
 
     public function downloadPdf(CreditNote $creditNote)
     {
-        $user = auth()->user();
-        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
-
-        if ($creditNote->landlord_id !== $landlordId) {
-            abort(403);
-        }
+        $this->authorize('view', $creditNote);
 
         return $this->creditNoteService->downloadPdf($creditNote);
     }
 
     public function apply(Request $request, CreditNote $creditNote)
     {
-        $user = auth()->user();
-        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
-
-        if ($creditNote->landlord_id !== $landlordId) {
-            abort(403);
-        }
+        $this->authorize('apply', $creditNote);
+        $landlordId = $creditNote->landlord_id;
 
         if (! $creditNote->canBeApplied()) {
             return back()->withErrors(['credit_note' => 'This credit note cannot be applied.']);
@@ -224,14 +206,26 @@ class CreditNoteController extends Controller
         return back()->with('success', 'KES '.number_format($amountApplied, 2)." credit applied to invoice {$invoice->invoice_number}.");
     }
 
+    public function applyToWallet(CreditNote $creditNote)
+    {
+        $this->authorize('applyToWallet', $creditNote);
+
+        if (! $creditNote->canBeApplied()) {
+            return back()->withErrors(['credit_note' => 'This credit note cannot be applied.']);
+        }
+
+        $credited = $this->creditNoteService->applyToWallet($creditNote);
+
+        if ($credited <= 0) {
+            return back()->withErrors(['credit_note' => 'No amount could be moved to the wallet.']);
+        }
+
+        return back()->with('success', number_format($credited, 2).' credit moved to the tenant wallet.');
+    }
+
     public function void(CreditNote $creditNote)
     {
-        $user = auth()->user();
-        $landlordId = $user->isCaretaker() ? $user->landlord_id : $user->id;
-
-        if ($creditNote->landlord_id !== $landlordId) {
-            abort(403);
-        }
+        $this->authorize('void', $creditNote);
 
         if ($creditNote->isApplied()) {
             return back()->withErrors(['credit_note' => 'Applied credit notes cannot be voided.']);

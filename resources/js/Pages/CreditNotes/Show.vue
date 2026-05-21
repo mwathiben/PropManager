@@ -96,6 +96,14 @@ const voidCredit = () => {
         });
     }
 };
+
+const applyToWallet = () => {
+    if (confirm("Move this credit note's remaining balance to the tenant wallet?")) {
+        router.post(route('credit-notes.apply-to-wallet', props.creditNote.id), {}, {
+            preserveScroll: true,
+        });
+    }
+};
 </script>
 
 <template>
@@ -227,6 +235,15 @@ const voidCredit = () => {
                                 >
                                     <ArrowPathIcon class="w-5 h-5" />
                                     Apply to Invoice
+                                </button>
+
+                                <button
+                                    v-if="canApply"
+                                    @click="applyToWallet"
+                                    class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
+                                >
+                                    <ArrowPathIcon class="w-5 h-5" />
+                                    Move to Tenant Wallet
                                 </button>
 
                                 <button

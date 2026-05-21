@@ -6,15 +6,60 @@ use App\Enums\Currency;
 use App\Mail\CreditNoteIssued;
 use App\Models\CreditNote;
 use App\Models\User;
+use App\Services\Wallet\WalletService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 class CreditNoteService
 {
     public function __construct(
-        protected PaymentQrCodeService $qrCodeService
+        protected PaymentQrCodeService $qrCodeService,
+        protected WalletService $walletService,
     ) {}
+
+    /**
+     * Phase-76 CREDIT-WALLET-2: move an approved credit note's remaining balance
+     * into the tenant's wallet (in the credit note's currency — the invoice it
+     * was raised against, else the landlord default) so the tenant can later
+     * self-apply it. Idempotent: a re-call on an applied note is a no-op.
+     */
+    public function applyToWallet(CreditNote $creditNote): float
+    {
+        return DB::transaction(function () use ($creditNote) {
+            $locked = CreditNote::lockForUpdate()->find($creditNote->id);
+
+            if (! $locked->canBeApplied()) {
+                return 0.0;
+            }
+
+            $remaining = (float) $locked->amount - (float) $locked->applied_amount;
+            if ($remaining <= 0) {
+                return 0.0;
+            }
+
+            $lease = $locked->lease;
+            $currency = $locked->invoice?->currency ?? $this->walletService->defaultCurrency($lease);
+
+            $this->walletService->credit(
+                $lease,
+                $remaining,
+                'Credit note '.$locked->credit_number,
+                null,
+                $currency,
+                $locked->id,
+            );
+
+            $locked->update([
+                'applied_amount' => (float) $locked->amount,
+                'applied_at' => now(),
+                'status' => CreditNote::STATUS_APPLIED,
+            ]);
+
+            return $remaining;
+        });
+    }
 
     protected function getBusinessSettings(CreditNote $creditNote): object
     {

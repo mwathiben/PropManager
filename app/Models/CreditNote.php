@@ -5,13 +5,14 @@ namespace App\Models;
 use App\Enums\InvoiceStatus;
 use App\Traits\Auditable;
 use App\Traits\TenantScope;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\DB;
 
 class CreditNote extends Model
 {
-    use Auditable, TenantScope;
+    use Auditable, HasFactory, TenantScope;
 
     public const STATUS_PENDING = 'pending';
 

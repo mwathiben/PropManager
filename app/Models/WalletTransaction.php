@@ -50,6 +50,11 @@ class WalletTransaction extends Model
         return $this->belongsTo(Payment::class);
     }
 
+    public function creditNote(): BelongsTo
+    {
+        return $this->belongsTo(CreditNote::class);
+    }
+
     public function isCredit(): bool
     {
         return $this->type === 'credit';

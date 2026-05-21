@@ -730,6 +730,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/credit-notes/{creditNote}', [CreditNoteController::class, 'show'])->name('credit-notes.show');
     Route::post('/credit-notes/{creditNote}/approve', [CreditNoteController::class, 'approve'])->name('credit-notes.approve');
     Route::post('/credit-notes/{creditNote}/apply', [CreditNoteController::class, 'apply'])->name('credit-notes.apply');
+    Route::post('/credit-notes/{creditNote}/apply-to-wallet', [CreditNoteController::class, 'applyToWallet'])->name('credit-notes.apply-to-wallet');
     Route::post('/credit-notes/{creditNote}/void', [CreditNoteController::class, 'void'])->name('credit-notes.void');
     Route::get('/credit-notes/{creditNote}/download', [CreditNoteController::class, 'downloadPdf'])->name('credit-notes.download');
     Route::get('/tenants/{tenant}/credit-notes', [CreditNoteController::class, 'forTenant'])->name('tenants.credit-notes');

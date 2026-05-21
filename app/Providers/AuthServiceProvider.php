@@ -115,6 +115,8 @@ class AuthServiceProvider extends ServiceProvider
         \App\Models\LegalMatter::class => \App\Policies\LegalMatterPolicy::class,
         // Phase-66 NPS-SURVEY-1: respondent owns their own NPS response.
         \App\Models\NpsResponse::class => \App\Policies\NpsResponsePolicy::class,
+        // Phase-76 CREDIT-WALLET-3: landlord-owned credit notes.
+        \App\Models\CreditNote::class => \App\Policies\CreditNotePolicy::class,
     ];
 
     /**
