@@ -1,0 +1,173 @@
+{
+  "phase": 79,
+  "title": "WATER-HUB",
+  "opened_at": "2026-05-21",
+  "tier": 7,
+  "user_directed": true,
+  "scope": "USER-DIRECTED 2026-05-21 (recorded in project_propmanager_waterhub_directive). Four asks: (1) new-hub navigation reachability — 'I can't navigate to any of the new hubs, from the menu or within pages'; (2) rename 'Water readings' -> 'Water hub'; (3) water is a CONDITIONAL module — available to all roles ONLY when the landlord charges tenants for water (water_billing_type consumption/flat_rate), not just when the subscription plan allows it; (4) caretaker INPUTS readings, landlord only REVIEWS — strip water-reading review/input widgets from the landlord dashboard. Scout findings: water has two parallel surfaces (Water/Hub.vue HubShell tabs readings/history/settings via water.hub + legacy Readings/{Index,Review,History} via readings.*). featureAccess.water_billing is gated on plan.water_billing_enabled (subscription) NOT on whether the landlord charges for water — the core mismatch. Real nav orphans exist (tenant.wallet.index, ops.onboarding.funnel) and C:/tmp/page-audit.mjs is gone; InertiaPageReachabilityTest only checks RENDER, not whether a page is LINKED. Landlord dashboard carries a 'Pending Readings' review ActionItemCard (Dashboard.vue:653, DashboardService:704). Caretaker dashboard correctly gates water on Building::hasWaterEnabled. PaymentConfiguration::hasWaterBilling = water_billing_type !== 'none'; getOrCreateForLandlord WRITES (never call on a read path). Building::hasWaterEnabled = water_billing_type !== null.",
+  "categories": ["NAV-REACH", "WATER-RENAME", "WATER-GATE", "WATER-ROLES", "DASHBOARD-WATER", "CI"],
+  "findings": [
+    {
+      "id": "NAV-REACH-1",
+      "severity": "HIGH",
+      "category": "NAV-REACH",
+      "title": "Orphan-detection guard — every Inertia-rendering route must be linked, not just render",
+      "evidence": "User: 'I can't navigate to any of the new hubs.' InertiaPageReachabilityTest only asserts pages EXIST and RENDER; it does not assert a page is reachable via a nav link or in-page route(). C:/tmp/page-audit.mjs (the earlier broken-pages tool) no longer exists. So a page can ship routable-but-unlinked and no gate catches it.",
+      "remediation": "Add scripts/nav-audit.mjs (rebuild) + tests/Feature/Phase79NavReachabilityTest: enumerate every GET route that renders an Inertia page (Route::getRoutes filtered to Inertia render OR a curated controller@method list), exclude {param} detail pages + an explicit ALLOWLIST of intentionally-direct pages (signed/email-linked), and assert each remaining route NAME appears in a resources/js `route('<name>')` reference (nav or page Link/button). Fail listing orphans. Seed the allowlist with the legitimately-direct pages.",
+      "passes": false
+    },
+    {
+      "id": "NAV-REACH-2",
+      "severity": "MEDIUM",
+      "category": "NAV-REACH",
+      "title": "Wire the real orphans surfaced by the audit",
+      "evidence": "Scout: tenant.wallet.index (Phase 76) is not in the tenant nav (URL-only); ops.onboarding.funnel (Phase 77) is not in the super_admin nav. These are exactly the 'can't navigate' class.",
+      "remediation": "Wire tenant.wallet.index into the tenant nav (or a clear link from My Finances). Wire ops.onboarding.funnel into the super_admin nav (or an ops index). Re-run nav-audit until orphan list is empty (modulo the allowlist). Each link needs nav.* keys in en/sw/ar.",
+      "passes": false
+    },
+    {
+      "id": "NAV-REACH-3",
+      "severity": "LOW",
+      "category": "NAV-REACH",
+      "title": "Hub in-page tab/sub-page navigation has no dead links",
+      "evidence": "User also said 'or within some of the pages.' Hub shells (Water/Maintenance/Archive/Operations/Tenants/Finances) carry tab sub-navigation; a tab pointing at a missing component/route is an in-page dead end.",
+      "remediation": "Verify each hub's tab list maps to a real lazy-loaded component/route; document the hub->subpage map in docs/runbooks/water.md (water hub) and assert the water hub tabs resolve in the surface test.",
+      "passes": false
+    },
+    {
+      "id": "WATER-RENAME-1",
+      "severity": "MEDIUM",
+      "category": "WATER-RENAME",
+      "title": "Rename 'Water'/'Water readings' -> 'Water hub' across nav + titles",
+      "evidence": "Landlord nav uses nav.water='Water'; caretaker nav uses nav.water_readings='Water Readings' -> readings.index. User wants 'Water hub' consistently. Page <Head title> + Hub header also say 'Water'.",
+      "remediation": "Set nav.water -> 'Water hub' (en/sw/ar) and the Water/Hub.vue <Head title> + header to the same. Keep the route name water.hub. Update sw/ar with curated translations (not [TODO]).",
+      "passes": false
+    },
+    {
+      "id": "WATER-RENAME-2",
+      "severity": "MEDIUM",
+      "category": "WATER-RENAME",
+      "title": "Caretaker water nav points at the hub, labelled 'Water hub'",
+      "evidence": "Caretaker nav links readings.index (the legacy input page) labelled 'Water Readings'. The hub is the canonical surface; caretaker should land on the hub (record-readings tab) not the legacy standalone page.",
+      "remediation": "Repoint the caretaker nav entry to water.hub (caretaker can access it; WaterHubController already allows caretaker) labelled nav.water ('Water hub'); drop nav.water_readings or alias it. Caretaker's hub default tab = record readings (see WATER-ROLES-1).",
+      "passes": false
+    },
+    {
+      "id": "WATER-GATE-1",
+      "severity": "HIGH",
+      "category": "WATER-GATE",
+      "title": "WaterModuleAccess resolver — enabled iff plan allows AND landlord charges for water",
+      "evidence": "featureAccess.water_billing is plan.water_billing_enabled only. A landlord who picked 'No Water Billing' in onboarding still sees the Water Hub if their plan enables it; a landlord who charges for water but whose plan flag is off is hidden. Neither matches the directive.",
+      "remediation": "App\\Services\\Water\\WaterModuleAccess::enabledFor(User): resolve landlordId (landlord->id, caretaker/tenant->landlord_id); planAllows = landlord canAccessFeature('water_billing'); charges = PaymentConfiguration(landlord).water_billing_type IN (consumption,flat_rate) OR any Building(landlord).water_billing_type IN (consumption,flat_rate). Return planAllows && charges. MUST read PaymentConfiguration without getOrCreateForLandlord (write-on-read forbidden). Cache 300s keyed by landlordId. Unit tests: none-config -> false; consumption-config -> true (plan permitting); plan off -> false.",
+      "passes": false
+    },
+    {
+      "id": "WATER-GATE-2",
+      "severity": "HIGH",
+      "category": "WATER-GATE",
+      "title": "Route featureAccess.water_billing through the resolver for all roles",
+      "evidence": "Nav for landlord (AuthenticatedLayout:229) and caretaker (:272) already key off featureAccess.value.water_billing. getFeatureAccess swaps gateUser->landlord only for caretaker, not tenant.",
+      "remediation": "HandleInertiaRequests::getFeatureAccess (or PlanGateService) — override the water_billing entry with WaterModuleAccess::enabledFor($user) so the combined gate drives the nav. Extend gateUser resolution to tenants too (tenant water visibility resolves via their landlord). Other features stay plan-based. Cache invalidation note: water config change should bust the cache key.",
+      "passes": false
+    },
+    {
+      "id": "WATER-GATE-3",
+      "severity": "MEDIUM",
+      "category": "WATER-GATE",
+      "title": "Backend guard — water controllers reject when the module is disabled",
+      "evidence": "WaterHubController checks canAccessFeature('water_billing') (plan only). WaterReadingController/WaterSettingsController have no module gate. Hiding the nav is not enough; a disabled landlord can still POST/GET water URLs.",
+      "remediation": "Add a single guard (middleware EnsureWaterModule or an early WaterModuleAccess::enabledFor abort_unless/redirect) on WaterHubController, WaterReadingController (index/store/history/review/approve/reject/update/destroy), WaterSettingsController. Returns 403/redirect-to-dashboard with a flash when disabled. Tests: disabled landlord -> 403 on water.hub + readings.store.",
+      "passes": false
+    },
+    {
+      "id": "WATER-GATE-4",
+      "severity": "MEDIUM",
+      "category": "WATER-GATE",
+      "title": "Tenant water visibility when the landlord charges for water",
+      "evidence": "Directive: water 'available to ALL users' when the landlord charges. Tenants have no water nav/page today; WaterReadingPolicy::view already permits a tenant to see readings for the unit they rent.",
+      "remediation": "Add a read-only tenant water surface (their active-unit readings + charges) reachable from the tenant nav, gated on featureAccess.water_billing (resolved via landlord per WATER-GATE-2). Minimal: a Tenant/Water.vue list of the tenant's unit readings (date, consumption, cost, status) via a tenant-scoped controller method. Test: tenant of a charging landlord sees their readings; tenant of a non-charging landlord gets no nav + 403.",
+      "passes": false
+    },
+    {
+      "id": "WATER-ROLES-1",
+      "severity": "HIGH",
+      "category": "WATER-ROLES",
+      "title": "Role-aware hub — caretaker records, landlord reviews",
+      "evidence": "Water/Hub.vue tabs are readings(input)/history/settings for everyone. Directive: caretaker inputs, landlord only reviews.",
+      "remediation": "Make WaterHubController + Hub.vue role-aware: caretaker default tab = Record readings (input form), landlord default tab = Review (pending approve/reject, folding readings.review into the hub). Both see History; Settings stays landlord/caretaker. Landlord does NOT see the input tab. Tab set computed per role server-side. Tests: caretaker hub exposes input tab not review; landlord hub exposes review tab not input.",
+      "passes": false
+    },
+    {
+      "id": "WATER-ROLES-2",
+      "severity": "MEDIUM",
+      "category": "WATER-ROLES",
+      "title": "Landlord input UI removed (caretaker is the inputter)",
+      "evidence": "readings.index renders the input form for landlord||caretaker; StoreWaterReadingRequest authorizes landlord||caretaker. Directive: landlord does not input.",
+      "remediation": "Remove the landlord-facing input entry points (hub input tab + caretaker nav already repointed). Keep StoreWaterReadingRequest permissive for a self-managing landlord edge case ONLY if documented; otherwise the landlord simply has no input UI. Decide + document: default = landlord has no input UI; backend store stays caretaker-primary. Test: landlord hub has no record-readings affordance.",
+      "passes": false
+    },
+    {
+      "id": "WATER-ROLES-3",
+      "severity": "MEDIUM",
+      "category": "WATER-ROLES",
+      "title": "Review (approve/reject) lives in the hub for the landlord",
+      "evidence": "Approve/reject currently sits on the standalone Readings/Review.vue page. The directive frames the hub as the landlord's review home.",
+      "remediation": "Surface pending readings + approve/reject inside the hub Review tab (reuse WaterReadingController review/approve/reject; render within the hub or link prominently from it). Ensure approve/reject remain landlord-only (ApproveWaterReadingRequest). Keep the legacy route working but make the hub the linked path. Test: approve/reject reachable from the hub.",
+      "passes": false
+    },
+    {
+      "id": "WATER-ROLES-4",
+      "severity": "MEDIUM",
+      "category": "WATER-ROLES",
+      "title": "Caretaker cannot approve/reject — verified",
+      "evidence": "ApproveWaterReadingRequest requires role===landlord; WaterReadingPolicy::approve requires isLandlord && owns. Need an explicit regression lock so the hub role-split refactor can't loosen it.",
+      "remediation": "Add tests: caretaker approve/reject -> 403; caretaker cannot see the Review tab affordance; landlord can. Lock the authz so the WATER-ROLES-1 refactor is safe.",
+      "passes": false
+    },
+    {
+      "id": "DASHBOARD-WATER-1",
+      "severity": "HIGH",
+      "category": "DASHBOARD-WATER",
+      "title": "Remove the landlord dashboard water review widget",
+      "evidence": "Dashboard.vue:653-672 renders a 'Pending Readings' ActionItemCard -> readings.review on the landlord dashboard. Directive: the landlord dashboard should NOT carry water-reading review/input widgets; review lives in the water hub.",
+      "remediation": "Remove the Pending Readings ActionItemCard from the landlord Dashboard.vue. Landlord reviews in the water hub (WATER-ROLES-3). Test/asserts the landlord dashboard payload no longer surfaces a water review widget.",
+      "passes": false
+    },
+    {
+      "id": "DASHBOARD-WATER-2",
+      "severity": "MEDIUM",
+      "category": "DASHBOARD-WATER",
+      "title": "Stop computing/sending the landlord pending_readings metric",
+      "evidence": "DashboardService:704 computes WaterReading pending count into the landlord action items. With the widget gone it's dead weight (and a wasted query) on every landlord dashboard load.",
+      "remediation": "Remove pending_readings from calculateLandlordMetrics/buildLandlordDashboardData (landlord path). Leave the caretaker path intact (caretaker inputs and tracks pending). Test: landlord dashboard data has no pending_readings; caretaker dashboard still does.",
+      "passes": false
+    },
+    {
+      "id": "DASHBOARD-WATER-3",
+      "severity": "LOW",
+      "category": "DASHBOARD-WATER",
+      "title": "Caretaker dashboard water widgets gated on module-enabled",
+      "evidence": "Caretaker dashboard water widgets gate on Building::hasWaterEnabled (water_billing_type !== null) — but null vs 'none' differ; a building set to 'none' (charges nothing) still has hasWaterEnabled false only if null. Align caretaker widgets to the same WaterModuleAccess gate.",
+      "remediation": "Gate the caretaker dashboard water widgets on the WaterModuleAccess gate (charges for water), consistent with the nav. Verify a 'none'/no-charge landlord's caretaker sees no water widgets. Test.",
+      "passes": false
+    },
+    {
+      "id": "CI-1",
+      "severity": "MEDIUM",
+      "category": "CI",
+      "title": "Phase79WaterHubSurfaceTest consolidated watchdog",
+      "evidence": "Six categories need a single presence/behaviour map: gate resolver, nav reachability, rename parity, role-aware hub, dashboard widget removal, tenant view.",
+      "remediation": "Phase79WaterHubSurfaceTest: WaterModuleAccess bound + gate truth table; nav-reachability test passes (orphans wired); nav.water rename + en/sw/ar parity; hub role-aware tabs; landlord dashboard has no water widget; tenant water route gated. Plus the nav-audit script exits clean.",
+      "passes": false
+    },
+    {
+      "id": "CI-2",
+      "severity": "LOW",
+      "category": "CI",
+      "title": "docs/runbooks/water.md + closeout + memory",
+      "evidence": "No water runbook; the conditional-module + role-split rules need an operator reference.",
+      "remediation": "docs/runbooks/water.md (NEW): module-enable rule (charges for water), role split (caretaker records / landlord reviews), hub tab map, gate cache + invalidation, tenant visibility. scripts/phase79-closeout.mjs + memory updates (phase79 plan, forward-path, pending-path, MEMORY.md).",
+      "passes": false
+    }
+  ]
+}
