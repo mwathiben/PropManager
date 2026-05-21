@@ -98,6 +98,17 @@ class LateFeeController extends Controller
         return back()->with('success', "Late fee policy {$status} successfully.");
     }
 
+    /**
+     * Phase-81 LATE-FEE-DEPTH-1: apply late fees to this landlord's eligible
+     * overdue invoices on demand (same eligibility gates as the daily cron).
+     */
+    public function applyNow(LateFeeService $service): RedirectResponse
+    {
+        $result = $service->processAllOverdueInvoices($this->getLandlordId());
+
+        return back()->with('success', __('finance.late_fee.applied', ['count' => $result['fees_applied']]));
+    }
+
     public function waive(WaiveLateFeeRequest $request, LateFee $lateFee, LateFeeService $service): RedirectResponse
     {
         $landlordId = $this->getLandlordId();

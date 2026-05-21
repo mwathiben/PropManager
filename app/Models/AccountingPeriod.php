@@ -14,6 +14,7 @@ class AccountingPeriod extends Model
     use HasFactory, TenantScope;
 
     public const STATUS_OPEN = 'open';
+
     public const STATUS_CLOSED = 'closed';
 
     protected $fillable = [
@@ -24,12 +25,16 @@ class AccountingPeriod extends Model
         'closed_at',
         'closed_by_user_id',
         'close_notes',
+        'reopened_at',
+        'reopened_by_user_id',
+        'reopen_reason',
     ];
 
     protected $casts = [
         'period_start' => 'date',
         'period_end' => 'date',
         'closed_at' => 'datetime',
+        'reopened_at' => 'datetime',
     ];
 
     /**

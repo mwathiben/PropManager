@@ -97,6 +97,14 @@ class FinancesController extends Controller
         return $this->renderFinances('reconciliation', [
             'unmatchedPayments' => $this->filterService->getUnmatchedPayments($landlordId),
             'pendingReconciliation' => $this->statsService->getPendingReconciliationCount($landlordId),
+            // Phase-81 BANK-RECON-3: surface the imported bank-statement queue
+            // (pending/unmatched) so the landlord can review + manually match.
+            'bankQueue' => \App\Models\BankReconciliationQueue::query()
+                ->where('landlord_id', $landlordId)
+                ->whereIn('status', ['pending', 'unmatched', 'error'])
+                ->orderByDesc('created_at')
+                ->limit(100)
+                ->get(['id', 'bank_code', 'transaction_reference', 'amount', 'status', 'created_at']),
             'paystackReport' => ReconciliationReport::where('landlord_id', $landlordId)
                 ->where('provider', 'paystack')
                 ->orderByDesc('reconciled_at')
@@ -266,27 +274,44 @@ class FinancesController extends Controller
         return $this->exportService->exportPayments($filters, $request->query('format', 'xlsx'));
     }
 
+    /**
+     * Phase-81 BANK-RECON-1/4: run the bank-statement import into the
+     * reconciliation queue (CSV/Excel → dedupe on transaction_reference).
+     */
     public function importBankStatement(Request $request): RedirectResponse
     {
-        $request->validate([
-            'file' => 'required|file|mimes:csv,xlsx,xls|max:10240',
+        $validated = $request->validate([
+            'file' => 'required|file|mimes:csv,txt,xlsx,xls|max:5120',
+            'bank_code' => 'required|string|max:32',
+            'column_mapping' => 'nullable|array',
         ]);
 
-        return back()->with('info', 'Bank statement import is coming soon. This feature is under development.');
+        $import = new \App\Imports\BankStatementImport(
+            $this->getLandlordId(),
+            $validated['bank_code'],
+            $validated['column_mapping'] ?? [],
+        );
+        $import->import($validated['file']);
+
+        return back()
+            ->with('success', __('finance.bank_recon.imported', [
+                'count' => $import->getImportedCount(),
+                'skipped' => $import->getSkippedCount(),
+            ]))
+            ->with('bank_import_errors', $import->getErrors());
     }
 
-    public function processReconciliationQueue(Request $request): RedirectResponse
+    /**
+     * Phase-81 BANK-RECON-2: run the matcher over the landlord's pending
+     * reconciliation queue (reference / phone / amount → Payment).
+     */
+    public function processReconciliationQueue(Request $request, \App\Services\Banking\BankReconciliationService $reconciliation): RedirectResponse
     {
-        $landlordId = $this->getLandlordId();
+        $result = $reconciliation->processQueueForLandlord($this->getLandlordId());
 
-        $unmatchedCount = Payment::where('landlord_id', $landlordId)
-            ->whereNull('invoice_id')
-            ->count();
-
-        if ($unmatchedCount === 0) {
-            return back()->with('info', 'No unmatched payments to process.');
-        }
-
-        return back()->with('info', "Auto-matching {$unmatchedCount} payment(s) is coming soon. Use manual matching for now.");
+        return back()->with('success', __('finance.bank_recon.processed', [
+            'matched' => $result['matched'],
+            'unmatched' => $result['failed'],
+        ]));
     }
 }

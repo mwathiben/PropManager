@@ -237,26 +237,47 @@ class FinanceFilterService
             $query->whereHas('lease.unit', fn ($q) => $q->where('building_id', $request->building_id));
         }
 
-        return $query->orderBy('due_date', 'asc')
-            ->get()
-            ->map(fn ($i) => [
-                'id' => $i->id,
-                'invoice_number' => $i->invoice_number,
-                'total_due' => $i->total_due,
-                'amount_paid' => $i->amount_paid,
-                'balance' => $i->total_due - $i->amount_paid,
-                'due_date' => $i->due_date?->format('Y-m-d'),
-                'days_overdue' => $i->due_date ? now()->diffInDays($i->due_date, false) * -1 : 0,
-                'tenant' => $i->lease?->tenant ? [
-                    'id' => $i->lease->tenant->id,
-                    'name' => $i->lease->tenant->name,
-                    'email' => $i->lease->tenant->email,
-                    'phone' => $i->lease->tenant->mobile_number,
-                ] : null,
-                'unit' => $i->lease?->unit?->unit_number ?? 'N/A',
-                'building' => $i->lease?->unit?->building?->name ?? 'N/A',
-            ])
+        return $query->get()
+            ->map(function ($i) {
+                $daysOverdue = $i->due_date ? (int) (now()->diffInDays($i->due_date, false) * -1) : 0;
+
+                return [
+                    'id' => $i->id,
+                    'invoice_number' => $i->invoice_number,
+                    'total_due' => $i->total_due,
+                    'amount_paid' => $i->amount_paid,
+                    'balance' => $i->total_due - $i->amount_paid,
+                    'due_date' => $i->due_date?->format('Y-m-d'),
+                    'days_overdue' => $daysOverdue,
+                    // Phase-81 ARREARS-DRILL-1: per-row aging bucket for the drill-down.
+                    'aging_bucket' => $this->agingBucket($daysOverdue),
+                    'tenant' => $i->lease?->tenant ? [
+                        'id' => $i->lease->tenant->id,
+                        'name' => $i->lease->tenant->name,
+                        'email' => $i->lease->tenant->email,
+                        'phone' => $i->lease->tenant->mobile_number,
+                    ] : null,
+                    'unit' => $i->lease?->unit?->unit_number ?? 'N/A',
+                    'building' => $i->lease?->unit?->building?->name ?? 'N/A',
+                ];
+            })
+            // Phase-81 ARREARS-DRILL-2: severity-first (most overdue at the top).
+            ->sortByDesc('days_overdue')
+            ->values()
             ->toArray();
+    }
+
+    /**
+     * Phase-81 ARREARS-DRILL-1: aging bucket key for an overdue count.
+     */
+    private function agingBucket(int $daysOverdue): string
+    {
+        return match (true) {
+            $daysOverdue <= 30 => '0_30',
+            $daysOverdue <= 60 => '31_60',
+            $daysOverdue <= 90 => '61_90',
+            default => '90_plus',
+        };
     }
 
     public function getUnmatchedPayments(int $landlordId): array

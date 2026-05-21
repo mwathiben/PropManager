@@ -227,7 +227,11 @@ class LateFeeService
         });
     }
 
-    public function processAllOverdueInvoices(): array
+    /**
+     * Phase-81 LATE-FEE-DEPTH-1: the daily cron passes nothing (all landlords);
+     * the on-demand landlord apply passes its id to scope the run.
+     */
+    public function processAllOverdueInvoices(?int $landlordId = null): array
     {
         $results = [
             'processed' => 0,
@@ -240,6 +244,7 @@ class LateFeeService
             ->whereIn('status', [InvoiceStatus::Overdue, InvoiceStatus::Partial, InvoiceStatus::Sent])
             ->where('due_date', '<', now())
             ->whereColumn('amount_paid', '<', 'total_due')
+            ->when($landlordId !== null, fn ($q) => $q->where('landlord_id', $landlordId))
             ->get();
 
         $landlordIds = $invoices->pluck('landlord_id')->unique();

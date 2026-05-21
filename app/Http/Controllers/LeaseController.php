@@ -156,6 +156,10 @@ class LeaseController extends Controller
 
                 $unit->update(['status' => 'occupied']);
 
+                // Phase-81 DEPOSIT-SETTLEMENT-5: open the deposit ledger with a
+                // TYPE_RECEIVED entry so balance_after is meaningful from day one.
+                app(\App\Services\Finance\DepositSettlementService::class)->recordReceived($lease);
+
                 return compact('tenant', 'lease');
             });
 

@@ -464,12 +464,19 @@ class MoveOutController extends Controller
             // Mark unit as vacant
             $lease->unit->update(['status' => 'vacant']);
 
+            // Phase-81 DEPOSIT-SETTLEMENT-2: journal the deposit to the ledger
+            // (deductions + arrears offset + refund) and flip lease.deposit_status
+            // atomically as part of completing the move-out.
+            app(\App\Services\Finance\DepositSettlementService::class)->settle($moveOut, $user);
+
             // Log activity
             TenantActivity::create([
                 'landlord_id' => $landlordId,
                 'tenant_id' => $lease->tenant_id,
                 'performed_by' => $user->id,
-                'action' => 'move_out_completed',
+                // Phase-81: was 'action' (not a column) → NOT-NULL 'type' violation
+                // silently rolled back every completion. Use the real column.
+                'type' => 'move_out_completed',
                 'description' => 'Move-out completed. Deposit settled via '.$validated['settlement_method'].'. Refund: KES '.number_format($moveOut->refund_amount, 2),
                 'metadata' => [
                     'move_out_id' => $moveOut->id,
@@ -483,6 +490,7 @@ class MoveOutController extends Controller
             return Redirect::route('move-outs.show', $moveOut)->with('success', 'Move-out completed successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
+            \Illuminate\Support\Facades\Log::error('move-out complete failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
 
             return Redirect::back()->withErrors(['move_out' => 'Failed to complete move-out.']);
         }

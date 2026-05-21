@@ -27,20 +27,31 @@ class TenantFinancesController extends Controller
             ]);
         }
 
+        // Phase-81 LATE-FEE-DEPTH-2: read-only projected late fee so the tenant
+        // sees what they'd owe if an overdue invoice stays unpaid past grace.
+        $lateFees = app(\App\Services\LateFeeService::class);
+
         $pendingInvoices = Invoice::where('lease_id', $lease->id)
             ->whereIn('status', [InvoiceStatus::Sent, InvoiceStatus::Partial, InvoiceStatus::Overdue])
             ->orderBy('due_date', 'asc')
             ->get()
-            ->map(fn ($i) => [
-                'id' => $i->id,
-                'invoice_number' => $i->invoice_number,
-                'total_due' => $i->total_due,
-                'amount_paid' => $i->amount_paid,
-                'balance' => $i->total_due - $i->amount_paid,
-                'status' => $i->status,
-                'due_date' => $i->due_date?->format('Y-m-d'),
-                'is_overdue' => $i->status === InvoiceStatus::Overdue || ($i->due_date && $i->due_date->isPast()),
-            ]);
+            ->map(function ($i) use ($lateFees) {
+                $isOverdue = $i->status === InvoiceStatus::Overdue || ($i->due_date && $i->due_date->isPast());
+                $preview = $isOverdue ? $lateFees->previewLateFee($i) : null;
+
+                return [
+                    'id' => $i->id,
+                    'invoice_number' => $i->invoice_number,
+                    'total_due' => $i->total_due,
+                    'amount_paid' => $i->amount_paid,
+                    'balance' => $i->total_due - $i->amount_paid,
+                    'status' => $i->status,
+                    'due_date' => $i->due_date?->format('Y-m-d'),
+                    'is_overdue' => $isOverdue,
+                    'projected_late_fee' => $preview['projected_fee'] ?? null,
+                    'grace_days_remaining' => $preview['grace_days_remaining'] ?? null,
+                ];
+            });
 
         $totalBalance = $pendingInvoices->sum('balance');
 

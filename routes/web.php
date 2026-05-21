@@ -1191,6 +1191,8 @@ Route::middleware('auth')->group(function () {
 
         // Late Fees Management
         Route::get('/late-fees', [LateFeeController::class, 'index'])->name('late-fees');
+        // Phase-81 LATE-FEE-DEPTH-1: apply late fees to eligible overdue invoices on demand.
+        Route::post('/late-fees/apply-now', [LateFeeController::class, 'applyNow'])->name('late-fees.apply-now');
         Route::post('/late-fee-policies', [LateFeeController::class, 'store'])->name('late-fee-policies.store');
         Route::put('/late-fee-policies/{policy}', [LateFeeController::class, 'update'])->name('late-fee-policies.update');
         Route::delete('/late-fee-policies/{policy}', [LateFeeController::class, 'destroy'])->name('late-fee-policies.destroy');

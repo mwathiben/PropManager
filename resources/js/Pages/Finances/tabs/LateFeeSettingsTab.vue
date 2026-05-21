@@ -162,6 +162,11 @@ const togglePolicyStatus = (policy) => {
     });
 };
 
+// Phase-81 LATE-FEE-DEPTH-1: apply eligible late fees on demand.
+const applyNow = () => {
+    router.post(route('finances.late-fees.apply-now'), {}, { preserveScroll: true });
+};
+
 const confirmDelete = (policy) => {
     policyToDelete.value = policy;
     showDeleteConfirm.value = true;
@@ -182,6 +187,17 @@ const deletePolicy = () => {
 
 <template>
     <div class="space-y-6">
+        <!-- Phase-81 LATE-FEE-DEPTH-1: apply late fees to eligible overdue invoices now. -->
+        <div class="flex justify-end">
+            <button
+                type="button"
+                class="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+                @click="applyNow"
+            >
+                {{ $t('finance.late_fee.apply_now') }}
+            </button>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div class="bg-white rounded-xl border border-gray-200 p-4">
                 <div class="flex items-center gap-3">
