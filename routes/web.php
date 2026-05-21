@@ -1501,6 +1501,9 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'role:landlord'])->group(function () {
     Route::get('/legal-holds', [\App\Http\Controllers\LegalHoldController::class, 'index'])
         ->name('legal-holds.index');
+    // Phase-72 COMMAND-CENTER: the flat list (formerly the index landing).
+    Route::get('/legal-holds/list', [\App\Http\Controllers\LegalHoldController::class, 'list'])
+        ->name('legal-holds.list');
     Route::post('/legal-holds', [\App\Http\Controllers\LegalHoldController::class, 'store'])
         ->name('legal-holds.store');
     Route::delete('/legal-holds/{legalHold}', [\App\Http\Controllers\LegalHoldController::class, 'destroy'])

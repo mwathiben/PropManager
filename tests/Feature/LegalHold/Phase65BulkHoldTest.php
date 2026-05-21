@@ -153,7 +153,8 @@ class Phase65BulkHoldTest extends TestCase
             'reason' => 'court order preservation directive',
         ]);
 
-        $response->assertRedirect(route('legal-holds.index'));
+        // Phase-72 COMMAND-CENTER: bulk store now lands on the flat list.
+        $response->assertRedirect(route('legal-holds.list'));
         $this->assertSame(3, LegalHold::query()->count());
     }
 

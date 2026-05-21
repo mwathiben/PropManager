@@ -181,4 +181,20 @@ return [
         'title' => 'Auto-hold: lease termination — {tenant}',
         'reason' => 'Automatically preserved on lease termination (auto-hold rule).',
     ],
+
+    'home' => [
+        'title' => 'Legal holds',
+        'start_wizard' => 'New legal hold',
+        'matters' => 'Matters',
+        'view_all_holds' => 'All holds',
+        'settings' => 'Settings',
+        'card_active_holds' => 'Active holds',
+        'card_active_matters' => 'Active matters',
+        'card_review_due' => 'Review due',
+        'card_stale_holds' => 'Stale holds',
+        'matters_rollup' => 'Matters',
+        'recent_activity' => 'Recent activity',
+        'no_activity' => 'No recent activity.',
+        'empty' => 'No legal holds yet. Start the wizard to preserve records for a matter.',
+    ],
 ];

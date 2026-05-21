@@ -40,11 +40,11 @@ const pillClass = (fqcn: string): string => {
 };
 
 const switchTab = (status: string) => {
-    router.get(route('legal-holds.index'), { status }, { preserveScroll: true, preserveState: true });
+    router.get(route('legal-holds.list'), { status }, { preserveScroll: true, preserveState: true });
 };
 
 const filterSubject = (subjectType: string) => {
-    router.get(route('legal-holds.index'), {
+    router.get(route('legal-holds.list'), {
         status: props.filters.status,
         subject_type: subjectType,
     }, { preserveScroll: true, preserveState: true });

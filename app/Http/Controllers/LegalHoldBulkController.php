@@ -21,9 +21,7 @@ use InvalidArgumentException;
  */
 class LegalHoldBulkController extends Controller
 {
-    public function __construct(private readonly BulkHoldService $service)
-    {
-    }
+    public function __construct(private readonly BulkHoldService $service) {}
 
     public function store(Request $request): RedirectResponse
     {
@@ -55,7 +53,7 @@ class LegalHoldBulkController extends Controller
 
         Cache::forget('legal_holds:active:'.$user->id);
 
-        return redirect()->route('legal-holds.index')
+        return redirect()->route('legal-holds.list')
             ->with('success', __('legal_holds.create_modal_title'));
     }
 
@@ -87,7 +85,7 @@ class LegalHoldBulkController extends Controller
 
         Cache::forget('legal_holds:active:'.$user->id);
 
-        return redirect()->route('legal-holds.index', ['status' => 'released'])
+        return redirect()->route('legal-holds.list', ['status' => 'released'])
             ->with('success', "Released {$released} hold(s).");
     }
 }

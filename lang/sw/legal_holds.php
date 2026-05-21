@@ -180,4 +180,20 @@ return [
         'title' => '[TODO-sw] Auto-hold: lease termination — {tenant}',
         'reason' => '[TODO-sw] Automatically preserved on lease termination (auto-hold rule).',
     ],
+
+    'home' => [
+        'title' => '[TODO-sw] Legal holds',
+        'start_wizard' => '[TODO-sw] New legal hold',
+        'matters' => '[TODO-sw] Matters',
+        'view_all_holds' => '[TODO-sw] All holds',
+        'settings' => '[TODO-sw] Settings',
+        'card_active_holds' => '[TODO-sw] Active holds',
+        'card_active_matters' => '[TODO-sw] Active matters',
+        'card_review_due' => '[TODO-sw] Review due',
+        'card_stale_holds' => '[TODO-sw] Stale holds',
+        'matters_rollup' => '[TODO-sw] Matters',
+        'recent_activity' => '[TODO-sw] Recent activity',
+        'no_activity' => '[TODO-sw] No recent activity.',
+        'empty' => '[TODO-sw] No legal holds yet. Start the wizard to preserve records for a matter.',
+    ],
 ];

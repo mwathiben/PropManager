@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature\LegalHold;
 
 use App\Models\Invoice;
-use App\Models\LegalHold;
 use App\Models\User;
 use App\Support\LegalHoldRegistry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -45,7 +44,9 @@ class Phase65HoldUiTest extends TestCase
         LegalHoldRegistry::hold($myInvoice, $this->landlord, 'preservation order: my landlord');
         LegalHoldRegistry::hold($theirInvoice, $this->otherLandlord, 'preservation order: other landlord');
 
-        $response = $this->actingAs($this->landlord)->get(route('legal-holds.index'));
+        // Phase-72 COMMAND-CENTER: the flat list moved to legal-holds.list;
+        // legal-holds.index is now the command-center home.
+        $response = $this->actingAs($this->landlord)->get(route('legal-holds.list'));
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
@@ -60,7 +61,7 @@ class Phase65HoldUiTest extends TestCase
         $invoice = Invoice::factory()->create(['landlord_id' => $this->landlord->id]);
         LegalHoldRegistry::hold($invoice, $this->landlord, 'reason long enough');
 
-        $response = $this->actingAs($this->landlord)->get(route('legal-holds.index', [
+        $response = $this->actingAs($this->landlord)->get(route('legal-holds.list', [
             'subject_type' => Invoice::class,
         ]));
 
@@ -77,7 +78,9 @@ class Phase65HoldUiTest extends TestCase
             'reason' => 'Court order CV/2026/0123 — preservation directive',
         ]);
 
-        $response->assertRedirect(route('legal-holds.index'));
+        // Phase-72 COMMAND-CENTER: store now lands on the flat list (the home
+        // is the command-center).
+        $response->assertRedirect(route('legal-holds.list'));
         $this->assertDatabaseHas('legal_holds', [
             'holdable_type' => Invoice::class,
             'holdable_id' => $invoice->id,

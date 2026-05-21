@@ -13,7 +13,7 @@
 @endforeach
 </x-mail::table>
 
-<x-mail::button :url="route('legal-holds.index', ['status' => 'active'])">
+<x-mail::button :url="route('legal-holds.list', ['status' => 'active'])">
 {{ __('legal_holds.stale.cta') }}
 </x-mail::button>
 

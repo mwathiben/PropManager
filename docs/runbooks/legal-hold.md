@@ -285,3 +285,45 @@ Adding a new holdable subject:
    `LegalHoldRegistry::heldIdsFor($modelClass)` exclusion pattern
    from Phase 64 messages:enforce-retention.
 4. Update this runbook + alert-thresholds.md.
+
+## Phase 72 — Wizard, Matters, Settings, Command-center
+
+The landlord entry point is now a **command-center home** at `legal-holds.index`
+(`Pages/LegalHolds/Home.vue`): summary cards (active holds, active matters,
+review-due, stale), the per-matter rollup, and recent activity. The old flat
+list moved to **`legal-holds.list`** (`Index.vue`); store/destroy still redirect
+to `legal-holds.index`.
+
+### Create flow (wizard)
+`legal-holds.wizard` → a 4-step stepper (situation → preserve → details →
+review). `LegalHoldWizardController::store` creates a `LegalMatter` + holds for
+every chosen subject type in **one transaction** (`BulkHoldService::holdAll(...,
+matterId)` re-validates ownership, so a cross-tenant/unsupported subject rolls
+the whole thing back). Situation presets live in `config('legal_hold.situations')`
+(pre-fill reason + suggested types + review-by). `SubjectPicker.vue` calls
+`legal-holds.subjects.suggest` (`TenantSubjectResolver`) — landlord-owns-tenant
+gated, already-held flagged, capped at `legal_hold.bulk_max`.
+
+### Matters (cases)
+`legal_matters` groups holds (nullable `legal_holds.legal_matter_id`,
+`nullOnDelete`). `legal-matters.release` frees every active hold in one UPDATE
+keyed on `legal_matter_id`; **close is gated** on zero active holds
+(`LegalMatterService::canClose`); `legal-matters.audit-export` is a matter-scoped
+CSV. Matters are `TenantScope`-bound → route binding 404s foreign matters.
+
+### Per-landlord settings + sweeper
+`landlord_hold_settings` overrides the Phase-68 global config; resolve via
+`HoldSettingsResolver::effective()` (override ?? config, cached, busted on save).
+The **stale sweeper** (`legal-hold:sweep-stale`) now pre-filters by the shortest
+stale window in play, keeps holds past **their** landlord's effective window,
+applies the per-landlord cooldown, and mails the configured `reminder_recipients`
+(one message each) else the landlord.
+
+### Auto-hold rule (opt-in)
+`auto_hold_on_eviction` (default off). `HoldOnLeaseTermination` listens to
+`LeaseTerminationInitiated` and, when enabled, auto-creates a `tenant_dispute`
+matter (`matter_reference = AUTO-TERM-{id}`) + holds the tenant's resolved
+subjects — idempotent per termination via an atomic `Cache::lock`. As a queued
+(console-context) listener, the auto-created holds are **not** audited under the
+default `security.audit.log_in_console=false` (consistent with all cron-created
+records); enable that flag if auto-hold actions must be audited.
