@@ -51,6 +51,7 @@ class DashboardShareController extends Controller
             'shares' => $shares,
             'dashboards' => LandlordDashboard::query()
                 ->where('landlord_id', $landlordId)
+                ->where('slug', '!=', \App\Http\Controllers\DashboardPreferenceController::MAIN_DASHBOARD_SLUG)
                 ->orderBy('name')
                 ->get(['id', 'name'])
                 ->map(fn (LandlordDashboard $d) => ['id' => $d->id, 'name' => $d->name]),

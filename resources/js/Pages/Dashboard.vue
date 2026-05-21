@@ -115,6 +115,15 @@ const switchLocation = (propertyId, buildingId) => {
     });
 };
 
+// Phase-74 CROSS-BUILDING: persist the building scope, then reload the
+// dashboard with no building_id so the new persisted scope takes effect.
+const setScope = (scope) => {
+    router.patch(route('dashboard.scope.update'), { scope }, {
+        preserveScroll: true,
+        onSuccess: () => router.get(route('dashboard'), {}, { preserveScroll: true }),
+    });
+};
+
 const isActiveBuilding = (propertyId, buildingId) => {
     return props.property?.id === propertyId && props.activeBuilding?.id === buildingId;
 };
@@ -1110,6 +1119,26 @@ onUnmounted(() => {
                         <XMarkIcon class="h-3.5 w-3.5" />
                     </Link>
                 </span>
+
+                <!-- Phase-74 CROSS-BUILDING: persisted scope toggle -->
+                <div class="inline-flex overflow-hidden rounded-lg border border-gray-200" data-testid="dashboard-scope-toggle">
+                    <button
+                        type="button"
+                        class="px-3 py-1 text-xs font-medium"
+                        :class="dashboardScope === 'active_building' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                        @click="setScope('active_building')"
+                    >
+                        {{ $t('dashboard.scope.active_building') }}
+                    </button>
+                    <button
+                        type="button"
+                        class="px-3 py-1 text-xs font-medium"
+                        :class="dashboardScope === 'all_buildings' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                        @click="setScope('all_buildings')"
+                    >
+                        {{ $t('dashboard.scope.all_buildings') }}
+                    </button>
+                </div>
             </div>
 
             <!-- === RECENT PAYMENTS + TICKETS + EXPIRING LEASES === -->

@@ -45,6 +45,7 @@ class DashboardController extends Controller
 
         $dashboards = LandlordDashboard::query()
             ->where('landlord_id', $landlordId)
+            ->where('slug', '!=', \App\Http\Controllers\DashboardPreferenceController::MAIN_DASHBOARD_SLUG)
             ->orderByDesc('is_default')
             ->orderBy('name')
             ->get(['id', 'slug', 'name', 'description', 'is_default', 'layout'])

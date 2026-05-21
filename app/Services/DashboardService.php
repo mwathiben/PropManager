@@ -164,8 +164,18 @@ class DashboardService
             return ['redirect' => 'onboarding'];
         }
 
+        // Phase-74 CROSS-BUILDING: an explicit ?building_id wins for a one-off
+        // view; otherwise fall back to the landlord's persisted scope preference
+        // (only meaningful when they own more than one building).
         $buildingId = $request->get('building_id');
-        $allBuildingsMode = ($buildingId === 'all') || ($buildingId === null && $mainBuildings->count() > 1);
+        $dashboardScope = $this->resolveScope($landlord);
+        if ($buildingId === 'all') {
+            $allBuildingsMode = true;
+        } elseif ($buildingId !== null) {
+            $allBuildingsMode = false;
+        } else {
+            $allBuildingsMode = $dashboardScope === 'all_buildings' && $mainBuildings->count() > 1;
+        }
         $activeBuilding = ($buildingId && $buildingId !== 'all')
             ? ($mainBuildings->firstWhere('id', $buildingId) ?? $mainBuildings->first())
             : $mainBuildings->first();
@@ -222,6 +232,7 @@ class DashboardService
             'buildings' => $mainBuildings->values(),
             'activeBuilding' => $activeBuilding,
             'allBuildingsMode' => $allBuildingsMode,
+            'dashboardScope' => $dashboardScope,
             'wings' => $wings,
             'hasWings' => $hasWings,
             'activeWingId' => $wingId ? (int) $wingId : null,
@@ -275,10 +286,27 @@ class DashboardService
             return $allowed;
         }
 
-        $sanitised = array_values(array_unique(array_intersect($row->layout, $allowed)));
+        // Phase-74: layout is now {widgets, scope}; tolerate the legacy flat list.
+        $widgets = \App\Http\Controllers\DashboardPreferenceController::widgetsFrom($row->layout);
+        $sanitised = array_values(array_unique(array_intersect($widgets, $allowed)));
         $missing = array_values(array_diff($allowed, $sanitised));
 
         return array_merge($sanitised, $missing);
+    }
+
+    /**
+     * Phase-74 CROSS-BUILDING-1: the landlord's persisted main-dashboard
+     * building scope ('active_building' | 'all_buildings'), stored on the
+     * main_dashboard row. Defaults to active_building when unset.
+     */
+    protected function resolveScope(User $landlord): string
+    {
+        $layout = LandlordDashboard::query()
+            ->where('landlord_id', $landlord->id)
+            ->where('slug', \App\Http\Controllers\DashboardPreferenceController::MAIN_DASHBOARD_SLUG)
+            ->value('layout');
+
+        return \App\Http\Controllers\DashboardPreferenceController::scopeFrom($layout);
     }
 
     /**

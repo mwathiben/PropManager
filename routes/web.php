@@ -850,6 +850,12 @@ Route::middleware('auth')->group(function () {
         ->patch('/dashboards/preferences', [\App\Http\Controllers\DashboardPreferenceController::class, 'update'])
         ->name('dashboards.preferences.update');
 
+    // Phase-74 CROSS-BUILDING: persist the main dashboard's building scope
+    // (active_building | all_buildings) on the same main_dashboard pref row.
+    Route::middleware('role:landlord')
+        ->patch('/dashboards/scope', [\App\Http\Controllers\DashboardPreferenceController::class, 'updateScope'])
+        ->name('dashboard.scope.update');
+
     // Phase-54 COST-UI-2: landlord-only manual cost entry. parts category
     // auto-recorded via Phase 49 TicketResolutionService::recordParts; this
     // endpoint accepts vendor|labor|other only (validator enforces).
