@@ -196,7 +196,9 @@ const navigationItems = computed(() => {
 
             // PROPERTIES
             { type: 'divider', label: t('nav.properties_section') },
+            { name: t('nav.portfolio'), href: route('properties.index'), icon: BuildingOffice2Icon, active: route().current('properties.index') || route().current('properties.show') || route().current('properties.current'), tour: 'nav-properties' },
             { name: t('nav.buildings'), href: route('buildings.index'), icon: HomeModernIcon, active: route().current('buildings.*'), tour: 'nav-buildings' },
+            { name: t('nav.benchmark'), href: route('properties.benchmark'), icon: ChartBarIcon, active: route().current('properties.benchmark') },
             { name: t('nav.add_property'), href: route('onboarding.create'), icon: PlusCircleIcon, active: route().current('onboarding.*') },
 
             // TENANTS HUB (Consolidated)

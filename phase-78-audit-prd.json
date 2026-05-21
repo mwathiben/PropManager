@@ -4,7 +4,14 @@
   "opened_at": "2026-05-21",
   "tier": 7,
   "scope": "The property/building/unit domain is the last core entity without a Tier-7 depth pass. Today: Property is thin (name, type, address, estimated_value; TenantScope; hasMany Building; hasManyThrough Unit). Building is rich (amenities JSON {selected:[keys], custom:[strings]} gated to Building::AMENITY_OPTIONS 6 categories incl utilities/security/parking/common/unit_features/neighborhood; coordinates; photos; water billing; target_occupancy_rate; currency; wings). Building::getActiveAmenities() returns {key,label,category} but amenities are a FLAT selected list — no per-amenity detail (parking SPACES, utility PROVIDER/account, monthly cost). Multi-property: PropertyController has only index()+store() (no show); /properties redirects to /buildings; there is NO property switcher in the nav and NO persistent active property; DashboardService takes ?property_id (first if absent); Phase 74 added a building-scope (active_building|all_buildings) on the main_dashboard LandlordDashboard row. Reporting: NoiService::byProperty(landlordId) gives per-property revenue/direct+allocated expenses/NOI/noi_margin + portfolio total — the ONLY property-level aggregation; there is NO property occupancy/rent-roll metric, NO property-vs-property benchmark, NO property dashboard/show. Goals: (1) deepen amenity attributes (per-amenity quantity/provider/cost), (2) multi-property switching UX (active property + nav switcher + property show/dashboard), (3) property-level reporting + cross-property benchmarks. All work landlord-scoped via TenantScope; reuse NoiService + the Phase 50/74 report+dashboard patterns + HubShell archetype. NO DB::raw with user input (selectRaw/DB::raw static aggregates are the accepted pattern).",
-  "categories": ["AMENITY-DEPTH", "PROPERTY-METRICS", "PROPERTY-VIEW", "PROPERTY-SWITCH", "PROPERTY-BENCHMARK", "CI"],
+  "categories": [
+    "AMENITY-DEPTH",
+    "PROPERTY-METRICS",
+    "PROPERTY-VIEW",
+    "PROPERTY-SWITCH",
+    "PROPERTY-BENCHMARK",
+    "CI"
+  ],
   "findings": [
     {
       "id": "AMENITY-DEPTH-1",
@@ -13,7 +20,7 @@
       "title": "Per-amenity detail (quantity / provider / account / monthly cost) — schema + model + sync service",
       "evidence": "building.amenities is a flat {selected:[keys], custom:[strings]} (Building.php:380 getActiveAmenities). A caretaker/landlord can mark 'parking' but not record HOW MANY spaces, or 'wifi' without the provider/account, or any monthly cost — so amenities can't drive ops or cost reporting.",
       "remediation": "NET-NEW building_amenity_details (building_id FK cascade, landlord_id FK, amenity_key string(64), quantity unsignedInteger nullable, provider string(120) nullable, account_ref string(120) nullable, monthly_cost_cents unsignedBigInteger nullable, timestamps) unique(building_id, amenity_key). BuildingAmenityDetail model (TenantScope). App\\Services\\Building\\AmenityDetailService::sync(Building, array $details): allow-list-gated to Building::getAllAmenityKeys() AND only for currently-selected amenities (a detail for an unselected/invalid key is dropped); updateOrCreate keyed (building_id, amenity_key); removes details for amenities no longer selected. Phase78 test: sync persists details for selected keys, rejects unknown/unselected keys, prunes deselected.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "AMENITY-DEPTH-2",
@@ -22,7 +29,7 @@
       "title": "BuildingController persists amenity details + getActiveAmenities merges them + wing sync",
       "evidence": "BuildingController::updateSettings only writes building.amenities; Building::getActiveAmenities returns no detail. Wing buildings share settings via BuildingService::syncSharedSettings.",
       "remediation": "UpdateBuildingSettingsRequest accepts an amenity_details map (validated shape); updateSettings routes it through AmenityDetailService::sync after the amenities write. Building::getActiveAmenities() (or a sibling withDetails()) merges each active amenity with its detail row. AmenityDetailService participates in the wing-share path so a parent's amenity details propagate to wings (or are explicitly scoped per building — pick one + document). Phase78 test: updateSettings persists details; getActiveAmenities exposes them.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "AMENITY-DEPTH-3",
@@ -31,7 +38,7 @@
       "title": "Buildings/Edit amenities tab gains per-amenity detail inputs + display",
       "evidence": "Buildings/Edit.vue amenities tab is checkboxes only.",
       "remediation": "When an amenity is selected, reveal compact detail inputs (quantity / provider / monthly cost) bound into amenity_details; the building show page renders the detail beside each amenity. lang building.amenity_detail.*. Phase78 surface asserts the Vue tokens.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "PROPERTY-METRICS-1",
@@ -40,7 +47,7 @@
       "title": "PropertyMetricsService — per-property buildings/units/occupancy aggregation (no N+1)",
       "evidence": "No service aggregates a property's portfolio. NoiService::byProperty has revenue/NOI but no occupancy or unit counts; DashboardService is building-scoped.",
       "remediation": "App\\Services\\Property\\PropertyMetricsService::forProperty(Property): {property_id, name, building_count, unit_count, occupied_count, vacant_count, occupancy_pct} + forLandlord(int): list over all the landlord's properties. Strictly landlord-scoped; counts batched via grouped queries joining units->buildings->property (NOT per-property loops). Phase78 test: counts + occupancy correct for a seeded property; another landlord's property never appears.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "PROPERTY-METRICS-2",
@@ -49,7 +56,7 @@
       "title": "Property rent-roll + arrears in the metrics",
       "evidence": "Occupancy alone doesn't tell a landlord the money picture per property.",
       "remediation": "Extend PropertyMetricsService with monthly_rent_roll (sum of active-lease rent across the property's occupied units) + outstanding_arrears (sum of invoice outstanding for the property's leases), batched + landlord-scoped, money in the subsystem's existing convention. Phase78 test: rent roll sums active leases; arrears sums outstanding; cross-tenant isolation.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "PROPERTY-METRICS-3",
@@ -58,7 +65,7 @@
       "title": "forLandlord powers the property index + the switcher",
       "evidence": "/properties redirects to /buildings; there's no property list with metrics.",
       "remediation": "PropertyMetricsService::forLandlord returns each property with its metrics for a real properties index + the nav switcher payload. Phase78 test: forLandlord returns one row per property with metrics; empty-portfolio returns [].",
-      "passes": false
+      "passes": true
     },
     {
       "id": "PROPERTY-VIEW-1",
@@ -67,7 +74,7 @@
       "title": "PropertyController::show — single-property dashboard (owner-gated)",
       "evidence": "PropertyController has no show(); a landlord cannot view one property's aggregated stats + its buildings. /properties is a redirect.",
       "remediation": "PropertyController::show(Property) gated abort_unless property.landlord_id === acting landlord (404), renders Property/Show with PropertyMetricsService::forProperty + the property's buildings (each with unit/occupancy counts) + NoiService single-property slice. Route properties.show (role:landlord, whereNumber). Phase78 test: owner sees their property's metrics + buildings; another landlord gets 404.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "PROPERTY-VIEW-2",
@@ -76,7 +83,7 @@
       "title": "Property/Show.vue (HubShell archetype) + buildings drill-down",
       "evidence": "No property show page exists.",
       "remediation": "Property/Show.vue using the HubShell archetype (per the design system) — KPI cards (occupancy/rent roll/arrears/NOI) + the buildings list linking to each building dashboard. data-testid='property-show'. lang property.show.*. Phase78 surface asserts the route/Vue token + lang.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "PROPERTY-VIEW-3",
@@ -85,7 +92,7 @@
       "title": "Real /properties index (metrics) instead of the buildings redirect",
       "evidence": "GET /properties just redirects to /buildings, hiding the property tier.",
       "remediation": "PropertyController::index renders a Properties/Index listing each property with PropertyMetricsService::forLandlord metrics, each linking to properties.show; keep the buildings link for the building tier. Phase78 surface asserts the route renders the index.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "PROPERTY-SWITCH-1",
@@ -94,7 +101,7 @@
       "title": "Persistent active property (users.active_property_id) + owner-gated switch",
       "evidence": "There is no persistent active property; DashboardService just picks the first property when no ?property_id. A landlord with several properties has no 'current property' that sticks.",
       "remediation": "Migration add users.active_property_id (nullable FK to properties, nullOnDelete). PropertyController::switch(Property) (or a dedicated controller) validates property.landlord_id === acting landlord, sets users.active_property_id, redirects back. App\\Services\\Property\\ActivePropertyResolver::resolve(User): the stored property if still owned + present, else the landlord's first property, else null. Phase78 test: switch persists + resolver returns it; switching to another landlord's property is rejected; a deleted active property falls back.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "PROPERTY-SWITCH-2",
@@ -103,7 +110,7 @@
       "title": "Nav property switcher",
       "evidence": "AuthenticatedLayout has a Buildings link but no property dropdown; switching properties is invisible.",
       "remediation": "A property switcher in AuthenticatedLayout (landlord only): a dropdown of the landlord's properties (shared via HandleInertiaRequests or a layout prop) showing the active one, POSTing to the switch route. data-testid='property-switcher'. lang nav.property_switcher.*. Phase78 surface asserts the component + the shared prop.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "PROPERTY-SWITCH-3",
@@ -112,7 +119,7 @@
       "title": "Property-scoped views default to the active property",
       "evidence": "Without a default, property show + dashboard need an explicit id every time.",
       "remediation": "PropertyController::show with no id (a properties.current route) + the dashboard property selection fall back to ActivePropertyResolver when no explicit ?property_id. Switching the active property changes what these render. Phase78 test: the current-property route renders the resolved active property.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "PROPERTY-BENCHMARK-1",
@@ -121,7 +128,7 @@
       "title": "PropertyBenchmarkService — per-property occupancy / NOI-margin / gross-yield + percentile rank",
       "evidence": "NoiService::byProperty gives raw per-property NOI but no comparison; a landlord can't see which property under/over-performs.",
       "remediation": "App\\Services\\Property\\PropertyBenchmarkService::forLandlord: join PropertyMetricsService::forLandlord (occupancy) + NoiService::byProperty (revenue/NOI/margin) per property, compute gross_yield (annualised NOI / estimated_value, null when no value) + a percentile rank per metric across the portfolio + the portfolio median. Strictly landlord-scoped; reuses the two services (no duplicate SQL). Phase78 test: ranks order properties by occupancy + margin; single-property portfolio degrades gracefully; cross-tenant isolation.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "PROPERTY-BENCHMARK-2",
@@ -130,7 +137,7 @@
       "title": "Benchmark surface (landlord report/dashboard section)",
       "evidence": "The benchmark has no UI.",
       "remediation": "A property-benchmark surface (a landlord route + Vue, or a section on the property index) rendering the per-property occupancy/margin/yield table with rank badges + the portfolio median. Route properties.benchmark (role:landlord). data-testid='property-benchmark'. lang property.benchmark.*. Phase78 test: route is landlord-gated + payload carries the ranked rows.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "PROPERTY-BENCHMARK-3",
@@ -139,7 +146,7 @@
       "title": "Portfolio occupancy gauge from a rollup",
       "evidence": "No metric tracks portfolio occupancy over time.",
       "remediation": "Extend an existing daily rollup (or a small property:rollup cron) to emit property_portfolio_occupancy_pct{landlord_id} (top-50 landlords, bounded) from PropertyMetricsService. Gauge name follows metrics-naming.md. Phase78 test asserts the gauge name present in the emitter.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CI-1",
@@ -148,7 +155,7 @@
       "title": "Phase78PropertyDepthSurfaceTest cross-category presence map",
       "evidence": "Each category needs a locked assertion a refactor cannot silently regress.",
       "remediation": "Phase78PropertyDepthSurfaceTest: building_amenity_details + users.active_property_id schema present; BuildingAmenityDetail + AmenityDetailService + PropertyMetricsService + ActivePropertyResolver + PropertyBenchmarkService classes exist; routes properties.show/properties.benchmark/property switch registered; Property/Show.vue + property-switcher tokens exist; lang property.* parity en/sw/ar; portfolio-occupancy gauge present; runbook mentions Phase 78.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CI-2",
@@ -157,7 +164,7 @@
       "title": "docs/runbooks/property.md (NEW)",
       "evidence": "No runbook documents the property tier, the active-property model, amenity details, or the benchmark.",
       "remediation": "NEW docs/runbooks/property.md: Property→Building→Unit model, amenity-detail storage + allow-list gating, the active-property resolver + switcher, PropertyMetricsService + NoiService + PropertyBenchmarkService (occupancy/margin/yield/percentile), the portfolio gauge + incident playbook. Phase78 surface asserts the file + Phase 78 mention.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "CI-3",
@@ -166,7 +173,23 @@
       "title": "Closeout + nav entry",
       "evidence": "The property index/benchmark need nav reachability; the cycle needs its closeout block.",
       "remediation": "Nav links to properties.index + properties.benchmark (landlord); scripts/phase78-closeout.mjs sets passes:true + closeout block. Phase78 surface stays green.",
-      "passes": false
+      "passes": true
     }
-  ]
+  ],
+  "closeout": {
+    "closed_at": "2026-05-21",
+    "result": "18/18 findings pass — zero PRD-finding deferrals",
+    "commits": {
+      "AMENITY-DEPTH": "bca45a47 + 1a04143a",
+      "PROPERTY-METRICS": "1a04143a",
+      "PROPERTY-VIEW": "506c07e5",
+      "PROPERTY-SWITCH": "947ee807",
+      "PROPERTY-BENCHMARK": "this cycle",
+      "CI": "this commit"
+    },
+    "summary": "Net-new property tier above the building level. AMENITY-DEPTH: building_amenity_details (per-amenity quantity/provider/account_ref/monthly_cost, decimal money) + AmenityDetailService::sync (allow-list ∩ selected, prunes deselected, updateOrCreate keyed by building+key) wired into BuildingController::updateSettings; Building::getActiveAmenities merges detail behind relationLoaded guard (no N+1); Edit.vue detail panel + Show.vue render. PROPERTY-METRICS: PropertyMetricsService forProperty/forLandlord — batched grouped joins keyed by property_id (building/unit counts, occupancy, active-lease rent roll, non-voided arrears), strictly buildings.landlord_id-scoped. PROPERTY-VIEW: PropertyController index/show (owner-gated 404) + Properties/Index.vue + Show.vue (KPI cards, NOI row, per-building drill-down). PROPERTY-SWITCH: users.active_property_id (nullOnDelete) + ActivePropertyResolver (stored-if-owned -> first -> null) + switchTo (landlord-only) + current + shared propertySwitcher prop + PropertySwitcher.vue in topbar. PROPERTY-BENCHMARK: PropertyBenchmarkService::forLandlord — occupancy / NOI-margin / gross-yield percentile ranks (higher-is-better; null when single property) + portfolio medians + overall rank; properties.benchmark route + Benchmark.vue; property:benchmark-rollup weekly cron emits landlord_portfolio_occupancy_pct gauge (visibility-only, no alert). CI: surface watchdog + docs/runbooks/property.md + nav.portfolio/nav.benchmark links (Portfolio + Benchmark in the PROPERTIES section).",
+    "tests": "34 Phase-78 tests: AmenityDepth 5 + PropertyMetrics 4 + PropertyView 3 + PropertySwitch 8 + PropertyBenchmark 5 + Surface 9. Full Property suite green. Pint clean, build clean.",
+    "constraints_preserved": "All property/metrics/benchmark queries scoped by buildings.landlord_id (or properties.landlord_id); cross-tenant access 404 via abort_unless + TenantScope route-model binding. Property tier gated role:landlord,caretaker; properties.switch further restricted to role:landlord (active-property is per-landlord). Money is DECIMAL FLOAT (building/property subsystem convention), not cents. active_property_id excluded from $fillable, set by direct assignment. Benchmark percentiles null for single-property portfolios. Rollup is visibility-only (no paging), in the Phase-49 Sunday cost cluster.",
+    "coderabbit": "AMENITY-DEPTH: HIGH dead merge (detail never displayed) -> eager-load amenityDetails + render in Show.vue; MEDIUM Vue render-time mutation -> pure getter + onMounted/toggle seed; LOW cents->decimal rename (silent KES/100 bug) + account_ref wired + landlord_id index. PROPERTY-VIEW: HIGH routes only auth-gated -> role:landlord,caretaker group; M2 orphaned Landlord/Home.vue deleted; M3 caretaker-view + tenant-403 tests added. PROPERTY-SWITCH (manual review — CLI unavailable): M1 caretaker could write active_property_id with no UI/effect -> switch route restricted to role:landlord + caretaker-403 test; M2/M3 duplicate resolver query on the every-response hot path -> derive active_id from already-loaded option rows; LOW imports + intentional-redundancy comment + empty-portfolio redirect test."
+  }
 }
