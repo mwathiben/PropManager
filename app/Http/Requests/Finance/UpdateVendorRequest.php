@@ -22,6 +22,8 @@ class UpdateVendorRequest extends FormRequest
             'tax_id' => 'nullable|string|max:50',
             'notes' => 'nullable|string|max:1000',
             'is_active' => 'boolean',
+            'specialties' => 'sometimes|array',
+            'specialties.*' => 'string|max:64',
         ];
     }
 }

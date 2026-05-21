@@ -130,7 +130,21 @@ const vendorForm = useForm({
     address: '',
     tax_id: '',
     notes: '',
+    specialties: [] as string[],
 });
+
+// Phase-75 VENDOR-ROUTING-1: trade competencies (matches Ticket issue
+// subcategories; server allow-list-gates on save).
+const VENDOR_SPECIALTIES = [
+    { value: 'plumbing', label: 'Plumbing' },
+    { value: 'electrical', label: 'Electrical' },
+    { value: 'water_supply', label: 'Water Supply' },
+    { value: 'structural', label: 'Structural' },
+    { value: 'appliances', label: 'Appliances' },
+    { value: 'painting', label: 'Painting/Finishing' },
+    { value: 'pest_control', label: 'Pest Control' },
+    { value: 'other', label: 'Other' },
+];
 
 const paymentMethods = [
     { value: 'cash', label: 'Cash' },
@@ -241,6 +255,7 @@ const openVendorForm = (vendor = null) => {
         vendorForm.address = vendor.address || '';
         vendorForm.tax_id = vendor.tax_id || '';
         vendorForm.notes = vendor.notes || '';
+        vendorForm.specialties = (vendor.specialties || []).map((s) => (typeof s === 'string' ? s : s.category));
     } else {
         vendorForm.reset();
     }
@@ -867,6 +882,15 @@ const executeDelete = () => {
                                 placeholder="Additional notes about this vendor"
                                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                             ></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Specialties (trades)</label>
+                            <div class="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="vendor-specialties">
+                                <label v-for="s in VENDOR_SPECIALTIES" :key="s.value" class="flex items-center gap-2 text-xs text-gray-700">
+                                    <input v-model="vendorForm.specialties" :value="s.value" type="checkbox" class="rounded border-gray-300 text-emerald-600" />
+                                    {{ s.label }}
+                                </label>
+                            </div>
                         </div>
                         <div class="flex justify-end gap-3">
                             <button

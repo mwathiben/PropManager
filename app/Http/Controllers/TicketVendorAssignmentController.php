@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\Ticket;
 use App\Models\Vendor;
 use App\Services\Maintenance\VendorAssignmentService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,8 +23,7 @@ class TicketVendorAssignmentController extends Controller
 {
     public function __construct(
         protected VendorAssignmentService $service,
-    ) {
-    }
+    ) {}
 
     public function store(Request $request, Ticket $ticket): RedirectResponse
     {
@@ -45,5 +45,19 @@ class TicketVendorAssignmentController extends Controller
         $this->service->assign($ticket, $vendor, $validated['note'] ?? null);
 
         return back()->with('success', 'Vendor assigned.');
+    }
+
+    /**
+     * Phase-75 VENDOR-ROUTING-2: suggested vendor pool for a ticket
+     * (specialty-matched, ranked by performance) for the assign UI.
+     */
+    public function suggest(Request $request, Ticket $ticket): JsonResponse
+    {
+        $landlordId = Auth::user()->isLandlord() ? Auth::id() : Auth::user()->landlord_id;
+        if ((int) $ticket->landlord_id !== (int) $landlordId) {
+            abort(403);
+        }
+
+        return response()->json(['pool' => $this->service->suggestPool($ticket)->values()]);
     }
 }

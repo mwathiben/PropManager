@@ -1017,6 +1017,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/tickets/{ticket}/assign-vendor', [\App\Http\Controllers\TicketVendorAssignmentController::class, 'store'])
         ->middleware('role:landlord')
         ->name('tickets.assign-vendor');
+    // Phase-75 VENDOR-ROUTING-2: suggested vendor pool for a ticket.
+    Route::get('/tickets/{ticket}/vendor-pool', [\App\Http\Controllers\TicketVendorAssignmentController::class, 'suggest'])
+        ->middleware('role:landlord')
+        ->name('tickets.vendor-pool');
     Route::post('/tickets/{ticket}/comment', [TicketController::class, 'addComment'])->name('tickets.comment');
     Route::post('/tickets/{ticket}/resolve', [TicketController::class, 'resolve'])->name('tickets.resolve');
     Route::post('/tickets/{ticket}/close', [TicketController::class, 'close'])->name('tickets.close');

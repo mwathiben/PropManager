@@ -300,6 +300,7 @@ class FinanceFilterService
     {
         return Vendor::where('landlord_id', $landlordId)
             ->withSum('expenses', 'amount')
+            ->with('specialties:id,vendor_id,category')
             ->orderBy('name')
             ->get()
             ->map(fn ($v) => [
@@ -308,7 +309,13 @@ class FinanceFilterService
                 'contact_person' => $v->contact_person,
                 'email' => $v->email,
                 'phone' => $v->phone,
+                // Include the editable fields so the edit form round-trips them
+                // instead of saving blanks over the stored values.
+                'address' => $v->address,
+                'tax_id' => $v->tax_id,
+                'notes' => $v->notes,
                 'is_active' => $v->is_active,
+                'specialties' => $v->specialties->pluck('category')->all(),
                 'total_expenses' => (float) ($v->expenses_sum_amount ?? 0),
             ])
             ->toArray();

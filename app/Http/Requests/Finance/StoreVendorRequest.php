@@ -21,6 +21,10 @@ class StoreVendorRequest extends FormRequest
             'address' => 'nullable|string|max:500',
             'tax_id' => 'nullable|string|max:50',
             'notes' => 'nullable|string|max:1000',
+            // Phase-75 VENDOR-ROUTING-1: trade competencies (allow-list gated
+            // in Vendor::syncSpecialties).
+            'specialties' => 'sometimes|array',
+            'specialties.*' => 'string|max:64',
         ];
     }
 }

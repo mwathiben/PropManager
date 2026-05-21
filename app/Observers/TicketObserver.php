@@ -99,6 +99,17 @@ class TicketObserver
             if ($ticket->assigned_to) {
                 $this->notifyAssignment($ticket, $ticket->assigned_to);
             }
+
+            // Phase-75 VENDOR-ROUTING-3: opt-in auto-route to the best vendor
+            // in the ticket's pool. No-op unless maintenance.auto_route_vendors
+            // is enabled + the ticket has no vendor yet. Best-effort.
+            if ($ticket->landlord_id && config('maintenance.auto_route_vendors', false)) {
+                try {
+                    app(\App\Services\Maintenance\VendorAssignmentService::class)->autoAssign($ticket);
+                } catch (\Throwable) {
+                    // routing is non-critical — never break ticket creation
+                }
+            }
         });
     }
 

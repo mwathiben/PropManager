@@ -159,7 +159,8 @@ class ExpenseController extends Controller
 
         $this->authorize('create', Vendor::class);
 
-        Vendor::create($validated);
+        $vendor = Vendor::create($validated);
+        $vendor->syncSpecialties($request->input('specialties', []));
 
         return back()->with('success', 'Vendor created successfully.');
     }
@@ -169,6 +170,7 @@ class ExpenseController extends Controller
         $this->authorize('update', $vendor);
 
         $vendor->update($request->validated());
+        $vendor->syncSpecialties($request->input('specialties', []));
 
         return back()->with('success', 'Vendor updated successfully.');
     }
