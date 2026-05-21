@@ -831,6 +831,11 @@ Route::middleware('auth')->group(function () {
         Route::put('/{dashboard}', [\App\Http\Controllers\Reports\DashboardController::class, 'update'])->whereNumber('dashboard')->name('update');
         Route::delete('/{dashboard}', [\App\Http\Controllers\Reports\DashboardController::class, 'destroy'])->whereNumber('dashboard')->name('destroy');
         Route::post('/{dashboard}/default', [\App\Http\Controllers\Reports\DashboardController::class, 'setDefault'])->whereNumber('dashboard')->name('set-default');
+        // Phase-74 DASH-EXPORT: owner-only PDF + XLSX export of a dashboard.
+        Route::get('/{dashboard}/export/pdf', [\App\Http\Controllers\Reports\DashboardController::class, 'exportPdf'])
+            ->whereNumber('dashboard')->middleware('throttle:pdf-render')->name('export-pdf');
+        Route::get('/{dashboard}/export/xlsx', [\App\Http\Controllers\Reports\DashboardController::class, 'exportXlsx'])
+            ->whereNumber('dashboard')->middleware('throttle:export')->name('export-xlsx');
     });
 
     // Phase-50 LANDLORD-DASHBOARDS-3: composable dashboard show route.

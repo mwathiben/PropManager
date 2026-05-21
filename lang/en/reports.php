@@ -48,6 +48,8 @@ return [
         'label_field' => 'Label field',
         'value_field' => 'Value field',
         'body_label' => 'Note text',
+        'export_pdf' => 'Export PDF',
+        'export_xlsx' => 'Export Excel',
     ],
 
     'metrics' => [

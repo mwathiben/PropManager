@@ -10,7 +10,9 @@ use App\Models\LandlordDashboard;
 use App\Models\ReportMetric;
 use App\Models\SavedReport;
 use App\Services\Reports\DashboardCardRegistry;
+use App\Services\Reports\DashboardPdfService;
 use App\Services\Reports\DashboardService;
+use App\Services\Reports\XlsxExportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,6 +21,8 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 /**
  * Phase-50 LANDLORD-DASHBOARDS-3 (show) + Phase-73 DASHBOARD-EDITOR (CRUD).
@@ -185,6 +189,84 @@ class DashboardController extends Controller
         return Inertia::render('Dashboards/Show', [
             'payload' => $this->dashboards->buildPayload($dashboard),
         ]);
+    }
+
+    /**
+     * Phase-74 DASH-EXPORT-1: stream the dashboard as a PDF (owner only —
+     * route-model binding 404s a foreign dashboard via TenantScope).
+     */
+    public function exportPdf(LandlordDashboard $dashboard, DashboardPdfService $pdf): SymfonyResponse
+    {
+        return $pdf->render($dashboard)->download(Str::slug($dashboard->name ?: 'dashboard').'.pdf');
+    }
+
+    /**
+     * Phase-74 DASH-EXPORT-2: one xlsx sheet per data card; metric/kpi cards
+     * collapse to a single summary sheet.
+     */
+    public function exportXlsx(LandlordDashboard $dashboard, XlsxExportService $xlsx): BinaryFileResponse
+    {
+        $cards = $this->dashboards->buildPayload($dashboard)['cards'];
+        $sheets = [];
+        $summary = [];
+
+        foreach ($cards as $i => $card) {
+            $rawTitle = ($card['title'] ?? '') !== '' ? (string) $card['title'] : ucfirst((string) $card['type']);
+            // PhpSpreadsheet rejects * : / \ ? [ ] in sheet titles; card titles
+            // are free-text, so strip them before the 31-char cap.
+            $title = mb_substr(($i + 1).' '.str_replace(['*', ':', '/', '\\', '?', '[', ']'], '-', $rawTitle), 0, 31);
+
+            if ($card['type'] === 'saved_report' && ($card['rows'] ?? []) !== []) {
+                $sheets[] = [
+                    'title' => $title,
+                    'columns' => array_map(
+                        fn ($k) => ['label' => (string) $k, 'key' => (string) $k, 'type' => 'string'],
+                        array_keys($card['rows'][0]),
+                    ),
+                    'rows' => $card['rows'],
+                ];
+            } elseif ($card['type'] === 'chart') {
+                $sheets[] = [
+                    'title' => $title,
+                    'columns' => [
+                        ['label' => 'Label', 'key' => 'label', 'type' => 'string'],
+                        ['label' => 'Value', 'key' => 'value', 'type' => 'integer'],
+                    ],
+                    'rows' => $card['points'] ?? [],
+                ];
+            } elseif (in_array($card['type'], ['metric', 'kpi'], true)) {
+                $summary[] = [
+                    'card' => (string) ($card['title'] ?? ''),
+                    'value' => $card['type'] === 'kpi' ? ($card['value'] ?? '') : ($card['average'] ?? ''),
+                    'unit' => (string) ($card['unit'] ?? ''),
+                ];
+            }
+        }
+
+        if ($summary !== []) {
+            $sheets[] = [
+                'title' => 'Metrics',
+                'columns' => [
+                    ['label' => 'Card', 'key' => 'card', 'type' => 'string'],
+                    ['label' => 'Value', 'key' => 'value', 'type' => 'string'],
+                    ['label' => 'Unit', 'key' => 'unit', 'type' => 'string'],
+                ],
+                'rows' => $summary,
+            ];
+        }
+
+        if ($sheets === []) {
+            $sheets[] = ['title' => 'Dashboard', 'columns' => [], 'rows' => []];
+        }
+
+        $tmpDir = storage_path('app/tmp/dashboard-exports');
+        if (! is_dir($tmpDir)) {
+            mkdir($tmpDir, 0o755, true);
+        }
+        $path = $tmpDir.'/'.$dashboard->id.'-'.now()->format('YmdHis').'.xlsx';
+        $xlsx->writeMultiSheet($sheets, $path);
+
+        return response()->download($path, Str::slug($dashboard->name ?: 'dashboard').'.xlsx')->deleteFileAfterSend();
     }
 
     private function makeSoleDefault(LandlordDashboard $dashboard, int $landlordId): void

@@ -48,6 +48,8 @@ return [
         'label_field' => '[TODO-ar] Label field',
         'value_field' => '[TODO-ar] Value field',
         'body_label' => '[TODO-ar] Note text',
+        'export_pdf' => '[TODO-ar] Export PDF',
+        'export_xlsx' => '[TODO-ar] Export Excel',
     ],
 
     'metrics' => [

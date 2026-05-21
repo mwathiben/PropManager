@@ -14,6 +14,9 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import KpiCard from '@/Components/Dashboard/KpiCard.vue';
 import ChartCard from '@/Components/Dashboard/ChartCard.vue';
 import TextCard from '@/Components/Dashboard/TextCard.vue';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 type DashboardMeta = {
     id: number;
@@ -93,11 +96,29 @@ function formattedAverage(card: MetricCard): string {
 
     <AuthenticatedLayout>
         <template #header>
-            <div>
-                <h1 class="text-xl font-semibold text-gray-900">{{ dashboard.name }}</h1>
-                <p v-if="dashboard.description" class="text-sm text-gray-500">
-                    {{ dashboard.description }}
-                </p>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h1 class="text-xl font-semibold text-gray-900">{{ dashboard.name }}</h1>
+                    <p v-if="dashboard.description" class="text-sm text-gray-500">
+                        {{ dashboard.description }}
+                    </p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <a
+                        :href="route('dashboards.export-pdf', dashboard.id)"
+                        class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                        data-testid="dashboard-export-pdf"
+                    >
+                        {{ t('reports.dashboards.export_pdf') }}
+                    </a>
+                    <a
+                        :href="route('dashboards.export-xlsx', dashboard.id)"
+                        class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                        data-testid="dashboard-export-xlsx"
+                    >
+                        {{ t('reports.dashboards.export_xlsx') }}
+                    </a>
+                </div>
             </div>
         </template>
 
