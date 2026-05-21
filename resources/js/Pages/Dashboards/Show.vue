@@ -11,6 +11,9 @@
 import { computed } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import KpiCard from '@/Components/Dashboard/KpiCard.vue';
+import ChartCard from '@/Components/Dashboard/ChartCard.vue';
+import TextCard from '@/Components/Dashboard/TextCard.vue';
 
 type DashboardMeta = {
     id: number;
@@ -38,9 +41,35 @@ type MetricCard = {
     average: number | null;
 };
 
+type KpiCardT = {
+    type: 'kpi';
+    title: string;
+    size: 'wide' | 'narrow';
+    value: number | null;
+    unit: string | null;
+    agg: string;
+    count: number;
+};
+
+type ChartCardT = {
+    type: 'chart';
+    title: string;
+    size: 'wide' | 'narrow';
+    points: Array<{ label: string; value: number }>;
+};
+
+type TextCardT = {
+    type: 'text';
+    title: string;
+    size: 'wide' | 'narrow';
+    body: string;
+};
+
+type AnyCard = SavedReportCard | MetricCard | KpiCardT | ChartCardT | TextCardT;
+
 type Payload = {
     dashboard: DashboardMeta;
-    cards: Array<SavedReportCard | MetricCard>;
+    cards: AnyCard[];
 };
 
 const props = defineProps<{ payload: Payload }>();
@@ -82,7 +111,7 @@ function formattedAverage(card: MetricCard): string {
                 <header class="flex items-center justify-between">
                     <h2 class="text-sm font-semibold text-gray-900">{{ card.title }}</h2>
                     <span class="rounded bg-gray-100 px-2 py-0.5 text-xs uppercase tracking-wide text-gray-600">
-                        {{ card.type === 'metric' ? 'metric' : 'report' }}
+                        {{ card.type }}
                     </span>
                 </header>
 
@@ -106,7 +135,11 @@ function formattedAverage(card: MetricCard): string {
                     <p v-else class="mt-3 text-xs text-gray-500">No rows.</p>
                 </template>
 
-                <template v-else>
+                <KpiCard v-else-if="card.type === 'kpi'" :card="card" />
+                <ChartCard v-else-if="card.type === 'chart'" :card="card" />
+                <TextCard v-else-if="card.type === 'text'" :card="card" />
+
+                <template v-else-if="card.type === 'metric'">
                     <div class="mt-3">
                         <p class="text-3xl font-semibold text-gray-900">{{ formattedAverage(card) }}</p>
                         <p class="text-xs text-gray-500">Average across {{ card.count }} row(s)</p>

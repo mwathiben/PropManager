@@ -54,8 +54,9 @@ class Phase74CardRegistryTest extends TestCase
         $descriptors = app(DashboardCardRegistry::class)->descriptors();
         $keys = array_column($descriptors, 'key');
 
-        $this->assertContains('saved_report', $keys);
-        $this->assertContains('metric', $keys);
+        foreach (['saved_report', 'metric', 'kpi', 'chart', 'text'] as $key) {
+            $this->assertContains($key, $keys);
+        }
         foreach ($descriptors as $d) {
             $this->assertArrayHasKey('label', $d);
             $this->assertArrayHasKey('needs_saved_report', $d);
@@ -71,6 +72,6 @@ class Phase74CardRegistryTest extends TestCase
             ->get(route('dashboards.create'))
             ->assertInertia(fn ($page) => $page
                 ->component('Dashboards/Editor')
-                ->has('cardTypes', 2));
+                ->has('cardTypes', 5));
     }
 }

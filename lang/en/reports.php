@@ -39,6 +39,15 @@ return [
         'refresh_preview' => 'Refresh preview',
         'preview_error' => 'Preview failed — check your cards.',
         'back' => 'Back to dashboards',
+        'card_agg' => 'Aggregate',
+        'agg_sum' => 'Total',
+        'agg_avg' => 'Average',
+        'agg_min' => 'Minimum',
+        'agg_max' => 'Maximum',
+        'agg_count' => 'Count',
+        'label_field' => 'Label field',
+        'value_field' => 'Value field',
+        'body_label' => 'Note text',
     ],
 
     'metrics' => [

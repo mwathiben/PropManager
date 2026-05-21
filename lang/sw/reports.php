@@ -39,6 +39,15 @@ return [
         'refresh_preview' => '[TODO-sw] Refresh preview',
         'preview_error' => '[TODO-sw] Preview failed — check your cards.',
         'back' => '[TODO-sw] Back to dashboards',
+        'card_agg' => '[TODO-sw] Aggregate',
+        'agg_sum' => '[TODO-sw] Total',
+        'agg_avg' => '[TODO-sw] Average',
+        'agg_min' => '[TODO-sw] Minimum',
+        'agg_max' => '[TODO-sw] Maximum',
+        'agg_count' => '[TODO-sw] Count',
+        'label_field' => '[TODO-sw] Label field',
+        'value_field' => '[TODO-sw] Value field',
+        'body_label' => '[TODO-sw] Note text',
     ],
 
     'metrics' => [

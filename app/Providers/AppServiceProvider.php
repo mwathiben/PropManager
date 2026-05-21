@@ -77,6 +77,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Services\Reports\DashboardCardRegistry::class, fn ($app) => new \App\Services\Reports\DashboardCardRegistry([
             $app->make(\App\Services\Reports\Cards\SavedReportCardRenderer::class),
             $app->make(\App\Services\Reports\Cards\MetricCardRenderer::class),
+            $app->make(\App\Services\Reports\Cards\KpiCardRenderer::class),
+            $app->make(\App\Services\Reports\Cards\ChartCardRenderer::class),
+            $app->make(\App\Services\Reports\Cards\TextCardRenderer::class),
         ]));
 
         // Phase-67 ATTACHMENT-SCAN-1: bind the configured attachment
