@@ -81,6 +81,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'block.archived' => \App\Http\Middleware\BlockArchivedUsers::class,
             // Phase-70 VENDOR-AUTH: vendor-portal session guard (no User row).
             'vendor.portal' => \App\Http\Middleware\EnsureVendorPortal::class,
+            // Phase-79 WATER-GATE-3: conditional water-module gate.
+            'water.module' => \App\Http\Middleware\EnsureWaterModule::class,
             // RATE-9: single-use signed link enforcement (above + table).
             'signed.once' => \App\Http\Middleware\EnsureSignedLinkSingleUse::class,
             // Phase-22 PERF-CACHE-2: ETag + private cache headers on the

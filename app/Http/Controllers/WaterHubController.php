@@ -3,7 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Traits\WithLandlordScope;
-use App\Models\Property;
+use App\Models\Building;
+use App\Models\Unit;
 use App\Models\WaterReading;
 use App\Models\WaterSetting;
 use Illuminate\Http\Request;
@@ -16,19 +17,29 @@ class WaterHubController extends Controller
 
     public function index(Request $request): Response
     {
+        // Phase-79 WATER-GATE-3: the conditional-module gate now lives in the
+        // 'water.module' route middleware (plan AND charges-for-water), so the
+        // old plan-only check here is gone.
         $landlordId = $this->getLandlordId();
-        $user = auth()->user();
-        $landlord = $user->isCaretaker() ? $user->landlord : $user;
 
-        if (! $landlord?->canAccessFeature('water_billing')) {
-            return redirect()->route('dashboard')
-                ->with('error', 'Water billing feature is not enabled for your subscription.');
+        // Phase-79 WATER-ROLES-1: the hub is role-aware. The caretaker RECORDS
+        // readings (input); the landlord only REVIEWS (approve/reject). Neither
+        // sees the other's primary tab.
+        $isCaretaker = auth()->user()->isCaretaker();
+        $defaultTab = $isCaretaker ? 'readings' : 'review';
+        $tab = $request->query('tab', $defaultTab);
+        if ($tab === 'readings' && ! $isCaretaker) {
+            $tab = 'review';
         }
-
-        $tab = $request->query('tab', 'readings');
+        if ($tab === 'review' && $isCaretaker) {
+            $tab = 'readings';
+        }
 
         $baseProps = [
             'activeTab' => $tab,
+            'role' => $isCaretaker ? 'caretaker' : 'landlord',
+            'canInput' => $isCaretaker,
+            'canReview' => ! $isCaretaker,
             'filters' => $request->only(['building_id', 'unit_id', 'date_from', 'date_to', 'status']),
             'buildings' => $this->getBuildings($landlordId),
             'counts' => $this->getCounts($landlordId),
@@ -36,9 +47,10 @@ class WaterHubController extends Controller
 
         $tabData = match ($tab) {
             'readings' => $this->getReadingsData($landlordId),
+            'review' => $this->getReviewData($landlordId),
             'history' => $this->getHistoryData($request, $landlordId),
             'settings' => $this->getSettingsData($landlordId),
-            default => $this->getReadingsData($landlordId),
+            default => $isCaretaker ? $this->getReadingsData($landlordId) : $this->getReviewData($landlordId),
         };
 
         return Inertia::render('Water/Hub', array_merge($baseProps, $tabData));
@@ -46,16 +58,13 @@ class WaterHubController extends Controller
 
     private function getReadingsData(int $landlordId): array
     {
-        $property = Property::where('landlord_id', $landlordId)->first();
-
-        if (! $property) {
-            return ['buildings' => []];
-        }
-
-        $buildings = $property->buildings()
+        // Phase-79: landlord-wide (all properties' buildings, not just the
+        // first) and no has_water_meter filter — that column never existed, so
+        // the old query 500'd the readings tab. Every unit can hold a reading.
+        $buildings = Building::query()
+            ->where('landlord_id', $landlordId)
             ->with(['units' => function ($q) {
-                $q->where('has_water_meter', true)
-                    ->orderBy('unit_number')
+                $q->orderBy('unit_number')
                     ->with(['waterReadings' => function ($q) {
                         $q->latest('reading_date')->limit(1);
                     }]);
@@ -84,15 +93,36 @@ class WaterHubController extends Controller
         return ['buildingsData' => $buildings];
     }
 
+    /**
+     * Phase-79 WATER-ROLES-3: the landlord's review surface — pending readings
+     * awaiting approve/reject, landlord-wide (all buildings, not just the first
+     * property).
+     */
+    private function getReviewData(int $landlordId): array
+    {
+        $pending = WaterReading::query()
+            ->whereIn('unit_id', $this->unitIdsForLandlord($landlordId))
+            ->where('status', 'pending')
+            ->with(['unit.building', 'recorder:id,name'])
+            ->orderBy('reading_date', 'desc')
+            ->paginate(20)
+            ->withQueryString();
+
+        return ['pendingReadings' => $pending];
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function unitIdsForLandlord(int $landlordId): array
+    {
+        return Unit::query()->where('landlord_id', $landlordId)->pluck('id')->all();
+    }
+
     private function getHistoryData(Request $request, int $landlordId): array
     {
-        $property = Property::where('landlord_id', $landlordId)->first();
-
-        if (! $property) {
-            return ['readings' => [], 'buildings' => []];
-        }
-
-        $buildings = $property->buildings()->with('units')->get();
+        // Phase-79: landlord-wide history (all properties, not just the first).
+        $buildings = Building::query()->where('landlord_id', $landlordId)->with('units')->get();
         $unitIds = $buildings->flatMap(fn ($b) => $b->units->pluck('id'));
 
         $query = WaterReading::whereIn('unit_id', $unitIds)
@@ -116,9 +146,9 @@ class WaterHubController extends Controller
 
         if ($request->filled('status')) {
             if ($request->status === 'pending') {
-                $query->where('is_approved', false);
+                $query->where('status', 'pending');
             } elseif ($request->status === 'approved') {
-                $query->where('is_approved', true);
+                $query->where('status', 'approved');
             } elseif ($request->status === 'invoiced') {
                 $query->where('is_invoiced', true);
             }
@@ -154,20 +184,9 @@ class WaterHubController extends Controller
 
     private function getCounts(int $landlordId): array
     {
-        $property = Property::where('landlord_id', $landlordId)->first();
-        $unitIds = [];
-
-        if ($property) {
-            $unitIds = $property->buildings()
-                ->with('units')
-                ->get()
-                ->flatMap(fn ($b) => $b->units->pluck('id'))
-                ->toArray();
-        }
-
         return [
-            'pendingReadings' => WaterReading::whereIn('unit_id', $unitIds)
-                ->where('is_approved', false)
+            'pendingReadings' => WaterReading::whereIn('unit_id', $this->unitIdsForLandlord($landlordId))
+                ->where('status', 'pending')
                 ->count(),
         ];
     }

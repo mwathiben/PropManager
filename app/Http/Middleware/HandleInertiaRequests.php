@@ -369,7 +369,15 @@ class HandleInertiaRequests extends Middleware
             ? $user->landlord
             : $user;
 
-        return app(\App\Services\Subscriptions\PlanGateService::class)->featuresFor($gateUser);
+        $features = app(\App\Services\Subscriptions\PlanGateService::class)->featuresFor($gateUser);
+
+        // Phase-79 WATER-GATE-2: water_billing is a conditional MODULE, not a
+        // plain plan flag — it also requires the landlord to actually charge
+        // for water. Resolve on the original user so tenants (who have no
+        // subscription of their own) gate on their landlord's water config.
+        $features['water_billing'] = \App\Services\Water\WaterModuleAccess::enabledFor($user);
+
+        return $features;
     }
 
     /**

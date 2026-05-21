@@ -225,6 +225,10 @@ class BuildingController extends Controller
         $building->refresh();
         $this->buildingService->syncSharedSettings($building);
 
+        // Phase-79 WATER-GATE: this is a primary enable/disable point for the
+        // conditional water module — bust the access cache.
+        \App\Services\Water\WaterModuleAccess::forget((int) $building->landlord_id);
+
         return redirect()->back()->with('success', 'Water settings updated successfully.');
     }
 

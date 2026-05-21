@@ -6,12 +6,13 @@ use App\Enums\WaterReadingStatus;
 use App\Models\Concerns\RowVersion;
 use App\Traits\Auditable;
 use App\Traits\TenantScope;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 
 class WaterReading extends Model
 {
-    use Auditable, TenantScope;
+    use Auditable, HasFactory, TenantScope;
     use RowVersion;
 
     protected $fillable = [

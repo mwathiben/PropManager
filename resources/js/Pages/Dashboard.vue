@@ -35,7 +35,6 @@ import {
     MegaphoneIcon,
     DocumentTextIcon,
     TicketIcon,
-    ClipboardDocumentListIcon,
     CalendarDaysIcon,
     ChartBarIcon,
     HomeModernIcon,
@@ -650,26 +649,9 @@ onUnmounted(() => {
                     :actionHref="route('tickets.index')"
                 />
 
-                <ActionItemCard
-                    v-if="localActionItems.pending_readings > 0"
-                    urgency="medium"
-                    :icon="ClipboardDocumentListIcon"
-                    :count="localActionItems.pending_readings"
-                    title="Pending Readings"
-                    description="Awaiting approval"
-                    actionLabel="Review"
-                    :actionHref="route('readings.review')"
-                />
-                <ActionItemCard
-                    v-else
-                    urgency="low"
-                    :icon="ClipboardDocumentListIcon"
-                    :count="0"
-                    title="Pending Readings"
-                    description="All readings processed"
-                    actionLabel="View All"
-                    :actionHref="route('readings.index')"
-                />
+                <!-- Phase-79 DASHBOARD-WATER-1: water reading review is a Water
+                     hub concern, not a landlord-dashboard widget. The landlord
+                     reviews in the Water hub; the caretaker records there. -->
 
                 <ActionItemCard
                     v-if="tenantKycStats?.incomplete > 0"

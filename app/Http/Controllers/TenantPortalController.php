@@ -76,4 +76,34 @@ class TenantPortalController extends Controller
             'rentHistory' => $lease->rentHistory()->orderBy('effective_date', 'desc')->get(),
         ]);
     }
+
+    /**
+     * Phase-79 WATER-GATE-4: read-only water view for the tenant — the meter
+     * readings + charges for the unit they rent. Reachable only when the
+     * landlord charges for water (water.module middleware gates the route).
+     */
+    public function water()
+    {
+        $user = auth()->user();
+
+        if (! $user->isTenant()) {
+            abort(403, 'This page is only for tenants.');
+        }
+
+        $lease = $user->lease()->with('unit')->first();
+
+        $readings = $lease
+            ? \App\Models\WaterReading::query()
+                ->where('unit_id', $lease->unit_id)
+                ->approved()
+                ->orderBy('reading_date', 'desc')
+                ->limit(36)
+                ->get(['id', 'reading_date', 'consumption', 'cost', 'status'])
+            : collect();
+
+        return Inertia::render('Tenant/Water', [
+            'hasUnit' => (bool) $lease,
+            'readings' => $readings,
+        ]);
+    }
 }

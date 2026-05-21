@@ -395,7 +395,10 @@ class DashboardService
             'maintenance' => $assignedBuildings->sum(fn ($b) => $b->units->where('status', 'maintenance')->count()),
         ];
 
-        $hasWaterEnabled = $assignedBuildings->contains(fn ($building) => $building->hasWaterEnabled());
+        // Phase-79 DASHBOARD-WATER-3: gate caretaker water widgets on the same
+        // module rule as the nav — the landlord actually CHARGES for water
+        // (consumption/flat_rate), not merely a non-null billing type.
+        $hasWaterEnabled = \App\Services\Water\WaterModuleAccess::enabledForLandlord((int) $caretaker->landlord_id);
 
         return [
             'property' => $property,
@@ -701,7 +704,8 @@ class DashboardService
                 ->where('end_date', '>=', now())
                 ->count(),
             'urgent_tickets' => Ticket::whereIn('building_id', $metricsBuildingIds)->open()->where('priority', 'urgent')->count(),
-            'pending_readings' => WaterReading::whereIn('unit_id', $metricsUnitIds)->where('status', 'pending')->count(),
+            // Phase-79 DASHBOARD-WATER-2: water-reading review moved to the Water
+            // hub; the landlord dashboard no longer surfaces (or computes) it.
             'vacant_units' => $metricsUnits->where('status', 'vacant')->count(),
             'maintenance_units' => $metricsUnits->where('status', 'maintenance')->count(),
         ];

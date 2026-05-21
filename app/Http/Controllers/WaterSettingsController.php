@@ -95,6 +95,10 @@ class WaterSettingsController extends Controller
             }
         }
 
+        // Phase-79 WATER-GATE: water_billing_type may have just flipped the
+        // module on/off — bust the access cache so nav/guards re-resolve.
+        \App\Services\Water\WaterModuleAccess::forget($landlordId);
+
         return redirect()->back()->with('success', 'Water settings updated successfully.');
     }
 }

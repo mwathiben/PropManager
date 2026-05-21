@@ -525,8 +525,11 @@ Route::middleware('auth')->group(function () {
             ->name('maintenance.photos.export-pdf');
     });
 
-    // Water Hub - Consolidates: Readings, History, Settings
-    Route::get('/water', [WaterHubController::class, 'index'])->name('water.hub');
+    // Water Hub - Consolidates: Readings, History, Settings.
+    // Phase-79 WATER-GATE-3: conditional module — gated on the landlord
+    // actually charging for water (water.module), not just the plan flag.
+    Route::get('/water', [WaterHubController::class, 'index'])
+        ->middleware('water.module')->name('water.hub');
 
     // Archive Hub - Consolidates: Documents, Leases, Activity Logs
     Route::get('/archive', [ArchiveHubController::class, 'index'])->name('archive.hub');
@@ -570,18 +573,21 @@ Route::middleware('auth')->group(function () {
         Route::post('/tenants/{tenant}/ledger/email', [TenantController::class, 'ledgerEmail'])->name('tenants.ledger.email');
     });
 
-    // 5. Water Readings (The Water Guy)
-    Route::get('/readings', [WaterReadingController::class, 'index'])->name('readings.index');
-    Route::post('/readings', [WaterReadingController::class, 'store'])
-        ->middleware('throttle:file-upload')
-        ->name('readings.store');
-    Route::get('/readings/history', [WaterReadingController::class, 'history'])->name('readings.history');
-    Route::get('/readings/review', [WaterReadingController::class, 'review'])->name('readings.review');
-    Route::post('/readings/{reading}/approve', [WaterReadingController::class, 'approve'])->name('readings.approve');
-    Route::post('/readings/{reading}/reject', [WaterReadingController::class, 'reject'])->name('readings.reject');
-    Route::get('/readings/{reading}/photo', [WaterReadingController::class, 'photo'])->name('readings.photo');
-    Route::put('/readings/{reading}', [WaterReadingController::class, 'update'])->name('readings.update');
-    Route::delete('/readings/{reading}', [WaterReadingController::class, 'destroy'])->name('readings.destroy');
+    // 5. Water Readings (The Water Guy) — Phase-79 WATER-GATE-3: whole
+    // surface gated on the conditional water module.
+    Route::middleware('water.module')->group(function () {
+        Route::get('/readings', [WaterReadingController::class, 'index'])->name('readings.index');
+        Route::post('/readings', [WaterReadingController::class, 'store'])
+            ->middleware('throttle:file-upload')
+            ->name('readings.store');
+        Route::get('/readings/history', [WaterReadingController::class, 'history'])->name('readings.history');
+        Route::get('/readings/review', [WaterReadingController::class, 'review'])->name('readings.review');
+        Route::post('/readings/{reading}/approve', [WaterReadingController::class, 'approve'])->name('readings.approve');
+        Route::post('/readings/{reading}/reject', [WaterReadingController::class, 'reject'])->name('readings.reject');
+        Route::get('/readings/{reading}/photo', [WaterReadingController::class, 'photo'])->name('readings.photo');
+        Route::put('/readings/{reading}', [WaterReadingController::class, 'update'])->name('readings.update');
+        Route::delete('/readings/{reading}', [WaterReadingController::class, 'destroy'])->name('readings.destroy');
+    });
 
     // 6. Invitations (Caretaker Management)
     // Caretaker removal (Operations → Team). landlord-only; controller
@@ -1239,7 +1245,11 @@ Route::middleware('auth')->group(function () {
     // 17. Arrears (Overdue Tracking) — superseded by the Finances arrears tab.
     Route::get('/arrears', fn () => redirect()->route('finances.arrears'))->name('arrears.index');
 
-    // 18. Water Settings (Global Water Billing Configuration)
+    // 18. Water Settings (Global Water Billing Configuration). NOT gated by
+    // water.module — this (with buildings.water-settings) is how a landlord
+    // ENABLES water billing, so gating it would dead-end a "no water billing"
+    // landlord who later wants to start charging. Controller stays
+    // landlord/caretaker-only.
     Route::get('/water/settings', [WaterSettingsController::class, 'index'])->name('water.settings');
     Route::put('/water/settings', [WaterSettingsController::class, 'update'])->name('water.settings.update');
 
@@ -1450,6 +1460,11 @@ Route::middleware(['auth', 'role:tenant', 'payment.verified'])->prefix('tenant')
 Route::middleware(['auth', 'role:tenant', 'payment.verified', 'kyc.complete'])->prefix('tenant')->group(function () {
     Route::redirect('/payments', '/tenant/finances')->name('tenant.payments');
     Route::get('/lease', [TenantPortalController::class, 'lease'])->name('tenant.lease');
+
+    // Phase-79 WATER-GATE-4: read-only tenant water view, only when the
+    // landlord charges for water (conditional module).
+    Route::get('/water', [TenantPortalController::class, 'water'])
+        ->middleware('water.module')->name('tenant.water');
 
     // Tenant Finances (New Simplified Payment Flow)
     Route::get('/finances', [TenantFinancesController::class, 'index'])->name('tenant.finances.index');

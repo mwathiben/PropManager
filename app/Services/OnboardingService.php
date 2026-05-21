@@ -317,7 +317,7 @@ class OnboardingService implements OnboardingStepProcessor
             return false;
         }
 
-        return DB::transaction(function () use ($data, $user, $property, $progress) {
+        return DB::transaction(function () use ($data, $user, $property) {
             $existingBuildings = Building::where('property_id', $property->id)
                 ->where('landlord_id', $user->id)
                 ->get();
@@ -417,6 +417,10 @@ class OnboardingService implements OnboardingStepProcessor
         Unit::where('landlord_id', $user->id)
             ->where('target_rent', $oldRent)
             ->update(['target_rent' => $data['default_rent']]);
+
+        // Phase-79 WATER-GATE: onboarding is where the landlord first chooses
+        // whether to charge for water — bust the module-access cache.
+        \App\Services\Water\WaterModuleAccess::forget((int) $user->id);
 
         return true;
     }

@@ -54,6 +54,7 @@ import {
     ArrowRightOnRectangleIcon,
     BanknotesIcon,
     BeakerIcon,
+    WalletIcon,
     ClockIcon,
     DocumentDuplicateIcon,
     ArchiveBoxIcon,
@@ -185,6 +186,8 @@ const navigationItems = computed(() => {
             { name: t('nav.landlords'), href: route('admin.landlords'), icon: BuildingOffice2Icon, active: route().current('admin.landlords*') },
             { name: t('nav.all_users'), href: route('admin.users'), icon: UserGroupIcon, active: route().current('admin.users*') },
             { name: t('nav.platform_billing'), href: route('admin.billing.index'), icon: CurrencyDollarIcon, active: route().current('admin.billing*') },
+            // Phase-79 NAV-REACH-2: wire the previously-orphaned onboarding funnel.
+            { name: t('nav.onboarding_funnel'), href: route('ops.onboarding.funnel'), icon: ChartBarIcon, active: route().current('ops.onboarding.*') },
             { name: t('nav.system_settings'), href: route('admin.settings'), icon: Cog6ToothIcon, active: route().current('admin.settings') },
         ];
     }
@@ -269,7 +272,8 @@ const navigationItems = computed(() => {
         return [
             { name: t('nav.dashboard'), href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard'), tour: 'nav-dashboard' },
             { name: t('nav.my_tickets'), href: route('tickets.index'), icon: TicketIcon, active: route().current('tickets.*'), badgeKey: 'tickets', badgeColor: 'bg-yellow-500', tour: 'nav-tickets' },
-            ...(featureAccess.value.water_billing ? [{ name: t('nav.water_readings'), href: route('readings.index'), icon: ClipboardDocumentListIcon, active: route().current('readings.*'), badgeKey: 'readings', badgeColor: 'bg-blue-500' }] : []),
+            // Phase-79 WATER-RENAME-2: caretaker lands on the hub (record-readings tab), not the legacy standalone page.
+            ...(featureAccess.value.water_billing ? [{ name: t('nav.water'), href: route('water.hub'), icon: BeakerIcon, active: route().current('water.*') || route().current('readings.*'), badgeKey: 'readings', badgeColor: 'bg-cyan-500' }] : []),
         ];
     }
 
@@ -277,8 +281,12 @@ const navigationItems = computed(() => {
         return [
             { name: t('nav.dashboard'), href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard'), tour: 'nav-dashboard' },
             { name: t('nav.my_finances'), href: route('tenant.finances.index'), icon: BanknotesIcon, active: route().current('tenant.finances.*'), badgeKey: 'invoices', badgeColor: 'bg-red-500', tour: 'nav-tenant-finances' },
+            // Phase-79 NAV-REACH-2: wire the previously-orphaned tenant wallet.
+            { name: t('nav.my_wallet'), href: route('tenant.wallet.index'), icon: WalletIcon, active: route().current('tenant.wallet.*') },
             { name: t('nav.my_tickets'), href: route('tickets.index'), icon: TicketIcon, active: route().current('tickets.*'), badgeKey: 'tickets', badgeColor: 'bg-yellow-500' },
             { name: t('nav.my_lease'), href: route('tenant.lease'), icon: DocumentTextIcon, active: route().current('tenant.lease') },
+            // Phase-79 WATER-GATE-4: tenant water view, only when the landlord charges for water.
+            ...(featureAccess.value.water_billing ? [{ name: t('nav.my_water'), href: route('tenant.water'), icon: BeakerIcon, active: route().current('tenant.water') }] : []),
             { name: t('nav.notifications'), href: route('tenant.notifications'), icon: BellIcon, active: route().current('tenant.notifications'), badgeKey: 'notifications', badgeColor: 'bg-indigo-500' },
             // Phase-64 INBOX-MOUNT-3: tenant-side inbox entry.
             { name: t('nav.inbox'), href: route('tenant.inbox.index'), icon: EnvelopeIcon, active: route().current('tenant.inbox.*'), badgeKey: 'inboxUnread', badgeColor: 'bg-indigo-500', tour: 'nav-inbox' },
