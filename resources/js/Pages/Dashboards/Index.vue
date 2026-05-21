@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Squares2X2Icon, PlusIcon } from '@heroicons/vue/24/outline';
+import { Squares2X2Icon, PlusIcon, ShareIcon } from '@heroicons/vue/24/outline';
 import { useI18n } from '@/composables/useI18n';
 
 interface DashboardRow {
@@ -38,9 +38,14 @@ function destroy(id: number): void {
                     <Squares2X2Icon class="h-6 w-6 text-gray-500" />
                     {{ t('reports.dashboards.title') }}
                 </h1>
-                <Link :href="route('dashboards.create')" class="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white">
-                    <PlusIcon class="h-4 w-4" /> {{ t('reports.dashboards.new') }}
-                </Link>
+                <div class="flex flex-wrap items-center gap-2">
+                    <Link :href="route('dashboards.shares.index')" class="inline-flex items-center gap-1 rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50">
+                        <ShareIcon class="h-4 w-4" /> {{ t('reports.dashboard_share.title') }}
+                    </Link>
+                    <Link :href="route('dashboards.create')" class="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white">
+                        <PlusIcon class="h-4 w-4" /> {{ t('reports.dashboards.new') }}
+                    </Link>
+                </div>
             </header>
 
             <div v-if="dashboards.length === 0" class="rounded-lg bg-white p-8 text-center text-sm text-gray-500 shadow" data-testid="dashboards-empty">

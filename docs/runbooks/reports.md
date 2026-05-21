@@ -240,3 +240,49 @@ Templates, Scheduled, Shared Links, Custom Metrics.
   section 5 — group-by stays validated against the allow-list and values
   stay parameterised (NO `DB::raw`). Numeric entries auto-become
   metric-eligible.
+
+---
+
+## 8. DASHBOARD-DEPTH-2 (Phase 74)
+
+Composable landlord dashboards (Phase 50/73) gained card types, sharing, export
++ a persisted cross-building scope.
+
+### Card-renderer registry
+
+`DashboardService` no longer hard-codes card types — it delegates to
+`DashboardCardRegistry` (singleton, bound in `AppServiceProvider`). Each type is
+a `DashboardCardRenderer` (`app/Services/Reports/Cards/*`): `saved_report`,
+`metric`, `kpi`, `chart`, `text`. **To add a card type**: implement the
+interface (extend `AbstractCardRenderer` to inherit the landlord-ownership
+guards — `requireSavedReport`/`requireMetric` are the cross-tenant boundary),
+register it in `AppServiceProvider`, add a display component + an `Editor.vue`
+config branch. The editor add-buttons are data-driven from
+`DashboardCardRegistry::descriptors()`. Unknown types fail closed.
+
+### Dashboard share (signed, public)
+
+Mirrors report-share: `dashboard_shares` + `DashboardShareController`. The public
+`dashboards.share.view` route is `signed`-gated (no auth) and builds the
+dashboard with the share row's OWN `landlord_id`, never a request param. A layout
+that drifts out of the allow-list degrades to "unavailable" (no 500). Revoke is
+idempotent. `'shares'`/`'share'` are reserved slugs so a dashboard can't shadow
+the routes.
+
+### Dashboard export (PDF + XLSX)
+
+Owner-only (`TenantScope` route binding 404s foreign). `DashboardPdfService`
+(dompdf, `dashboards.pdf` blade, landscape) and `exportXlsx`
+(`XlsxExportService::writeMultiSheet` — one sheet per data card + a Metrics
+summary sheet) both reuse `DashboardService::buildPayload`. XLSX sheet titles
+strip PhpSpreadsheet's illegal chars (`* : / \ ? [ ]`).
+
+### Cross-building scope
+
+The main role dashboard's building scope (`active_building` | `all_buildings`)
+persists on the `main_dashboard` `LandlordDashboard` row's `layout`
+(`{widgets, scope}` — backward-compatible with the legacy flat widget list via
+`DashboardPreferenceController::widgetsFrom`/`scopeFrom`). An explicit
+`?building_id` wins for a one-off view; otherwise the persisted scope decides
+`allBuildingsMode` (only when the landlord owns >1 building). Toggle persists via
+`dashboard.scope.update`. Gauge: `dashboard_all_buildings_landlords`.
