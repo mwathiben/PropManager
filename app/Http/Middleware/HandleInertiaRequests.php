@@ -135,6 +135,8 @@ class HandleInertiaRequests extends Middleware
             'currency' => fn () => $this->getEffectiveCurrency($request),
             'navBadges' => fn () => $this->getNavBadges($request),
             'featureAccess' => $this->getFeatureAccess($request),
+            // Phase-78 PROPERTY-SWITCH-2: the landlord's property switcher.
+            'propertySwitcher' => fn () => $this->getPropertySwitcher($request),
             'pendingInvitations' => Inertia::defer(fn () => $this->getPendingInvitations($request)),
             // Phase-28 TENANT-DOCS-3: tenant-only banner data for
             // documents within 30 days of expiry.
@@ -279,6 +281,37 @@ class HandleInertiaRequests extends Middleware
         }
 
         return [];
+    }
+
+    /**
+     * Phase-78 PROPERTY-SWITCH-2: the landlord's property switcher payload —
+     * the active property + the option list. Null for non-landlords.
+     *
+     * @return array{active_id: int|null, options: list<array{id:int, name:string}>}|null
+     */
+    protected function getPropertySwitcher(Request $request): ?array
+    {
+        $user = $request->user();
+
+        if (! $user || ! $user->isLandlord()) {
+            return null;
+        }
+
+        $options = \App\Models\Property::query()
+            ->where('landlord_id', $user->id)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn ($p) => ['id' => $p->id, 'name' => $p->name])
+            ->all();
+
+        if ($options === []) {
+            return null;
+        }
+
+        return [
+            'active_id' => app(\App\Services\Property\ActivePropertyResolver::class)->resolve($user)?->id,
+            'options' => $options,
+        ];
     }
 
     protected function getEffectiveCurrency(Request $request): ?array

@@ -6,8 +6,10 @@ use App\Http\Traits\WithLandlordScope;
 use App\Models\Building;
 use App\Models\Property;
 use App\Models\Unit;
+use App\Services\Property\ActivePropertyResolver;
 use App\Services\Property\PropertyMetricsService;
 use App\Services\Reports\NoiService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -62,6 +64,34 @@ class PropertyController extends Controller
             'buildings' => $buildings,
             'noi' => $noiRow,
         ]);
+    }
+
+    /**
+     * Phase-78 PROPERTY-SWITCH-3: render the resolved active property (no id).
+     */
+    public function current(ActivePropertyResolver $resolver, NoiService $noi): RedirectResponse|Response
+    {
+        $property = $resolver->resolve(auth()->user());
+
+        if ($property === null) {
+            return redirect()->route('properties.index');
+        }
+
+        return $this->show($property, $noi);
+    }
+
+    /**
+     * Phase-78 PROPERTY-SWITCH-1: persist the landlord's active property.
+     */
+    public function switchTo(Property $property): RedirectResponse
+    {
+        abort_unless((int) $property->landlord_id === $this->getLandlordId(), 404);
+
+        $user = auth()->user();
+        $user->active_property_id = $property->id;
+        $user->save();
+
+        return back();
     }
 
     /**

@@ -468,11 +468,20 @@ Route::middleware('auth')->group(function () {
     Route::post('/buildings', [BuildingController::class, 'storeStandalone'])->name('buildings.storeStandalone');
 
     // Properties (Legacy redirect + store for backward compatibility)
-    Route::get('/properties', [\App\Http\Controllers\PropertyController::class, 'index'])->name('properties.index');
     Route::post('/properties', [\App\Http\Controllers\PropertyController::class, 'store'])->name('properties.store');
-    // Phase-78 PROPERTY-VIEW-1: single-property dashboard.
-    Route::get('/properties/{property}', [\App\Http\Controllers\PropertyController::class, 'show'])
-        ->whereNumber('property')->name('properties.show');
+    // Phase-78 PROPERTY-VIEW/SWITCH: the property tier is landlord/caretaker only
+    // (CodeRabbit H1 — explicit role gate, not just getLandlordId()'s 403).
+    Route::middleware('role:landlord,caretaker')->group(function () {
+        Route::get('/properties', [\App\Http\Controllers\PropertyController::class, 'index'])->name('properties.index');
+        // PROPERTY-SWITCH-3: the resolved active property (no id).
+        Route::get('/properties/current', [\App\Http\Controllers\PropertyController::class, 'current'])->name('properties.current');
+        // PROPERTY-SWITCH-1: persist the active property.
+        Route::post('/properties/{property}/switch', [\App\Http\Controllers\PropertyController::class, 'switchTo'])
+            ->whereNumber('property')->name('properties.switch');
+        // PROPERTY-VIEW-1: single-property dashboard.
+        Route::get('/properties/{property}', [\App\Http\Controllers\PropertyController::class, 'show'])
+            ->whereNumber('property')->name('properties.show');
+    });
 
     // Building Details & Dashboard
     Route::get('/buildings/{building}', [BuildingController::class, 'show'])->name('buildings.show');

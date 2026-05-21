@@ -13,6 +13,7 @@ import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import NotificationBell from '@/Components/NotificationBell.vue';
 import InboxBell from '@/Components/InboxBell.vue';
+import PropertySwitcher from '@/Components/PropertySwitcher.vue';
 import ConflictDialog from '@/Components/Offline/ConflictDialog.vue';
 import { on as onWriteConflict } from '@/lib/writeConflictBus';
 import ConnectionStatus from '@/Components/ConnectionStatus.vue';
@@ -641,6 +642,7 @@ const navigationItems = computed(() => {
                              Silent when online (the absence is the signal).
                              Complementary to ConnectionStatus which tracks
                              the WebSocket/Echo realtime channel. -->
+                        <PropertySwitcher />
                         <OnlineIndicator />
                         <ConnectionStatus />
                         <NotificationBell />
