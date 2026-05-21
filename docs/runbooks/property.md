@@ -87,6 +87,23 @@ is nothing to compare against, so percentiles are `null` and the property's
 overall `rank` is 1. The overall rank orders by the mean of the available
 percentiles. Portfolio medians are returned for the dashboard header.
 
+Two methodology notes operators should know:
+
+- **Periods differ across yardsticks.** `gross_yield` is *forward* — current
+  active-lease rent roll annualised (point-in-time). `noi_margin` is
+  *trailing-12-month* (from `NoiService::byProperty`'s default window). A
+  property just leased up shows a high gross_yield but a still-depressed
+  trailing margin; this is expected, not a data error.
+- **Ranking weighting varies with data completeness.** The overall rank is the
+  mean of the *available* percentiles, so a property with no `estimated_value`
+  (hence null gross_yield) is ranked on occupancy + margin only. Set
+  `estimated_value` on every property for apples-to-apples ranking.
+- **Two "occupancy" numbers, deliberately.** The `landlord_portfolio_occupancy_pct`
+  gauge is **unit-weighted** (sum occupied / sum units across the portfolio —
+  the standard portfolio figure). The dashboard's `avg_occupancy_pct` /
+  `median_occupancy_pct` are **per-property** (unweighted across properties).
+  They diverge when properties differ greatly in unit count.
+
 ### Rollup gauge
 
 `property:benchmark-rollup` (weekly Sunday 05:05 Africa/Nairobi, in the
