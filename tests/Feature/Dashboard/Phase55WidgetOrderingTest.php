@@ -51,7 +51,11 @@ class Phase55WidgetOrderingTest extends TestCase
             ->first();
 
         $this->assertNotNull($row);
-        $this->assertSame($newOrder, $row->layout);
+        // Phase-74 CROSS-BUILDING-1 changed the persisted shape to
+        // {widgets, scope}; assert via the canonical accessor (the test had
+        // lagged this shape change and was failing pre-Phase-79).
+        $this->assertSame($newOrder, DashboardPreferenceController::widgetsFrom($row->layout));
+        $this->assertSame('active_building', DashboardPreferenceController::scopeFrom($row->layout));
     }
 
     public function test_persisted_order_surfaces_via_dashboard_payload(): void
