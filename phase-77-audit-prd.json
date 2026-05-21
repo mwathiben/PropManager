@@ -1,0 +1,172 @@
+{
+  "phase": 77,
+  "title": "ONBOARDING-DEEP-2",
+  "opened_at": "2026-05-21",
+  "tier": 7,
+  "scope": "Phase 46-48 sequel closing onboarding's last parity gap. Today: OnboardingFlow (app/Onboarding/OnboardingFlow.php) gives landlord 8 steps (welcome..done) but caretaker only 3 (profile/building-assignment/notification-prefs) and no welcome/orientation bookends; CaretakerOnboardingService handles those 3. OnboardingController::step calls the LANDLORD OnboardingService::getStepProps even for caretakers (with Phase-51 ad-hoc injection for the assignment step). Invitation accept (InvitationController::accept + acceptAuthenticated) creates the caretaker User, fires InvitationAccepted (→ RecordCaretakerAssignmentOnInvitationAccept creates pending CaretakerAssignment rows + buildings.caretaker_id) then redirects to dashboard — NO onboarding entry, NO first-task deep-link. invitations has no viewed_at. onboarding_sessions (Phase 46: user_id, role, current_step, step_history json, started_at/last_touched_at/completed_at/abandoned_at) records the cursor; OnboardingMilestone (Phase 31, landlord-only funnel) exists but there is NO per-step drop-off analytics for any role and no ops funnel view. Goals: (1) caretaker onboarding parity (welcome + orientation + enriched building context), (2) invitation-accept deep-links into onboarding then to the invitee's first task, (3) onboarding drop-off analytics (per-step funnel + invite funnel). Multi-tenant: caretaker data scoped via building.landlord_id + user.landlord_id; onboarding_sessions per user_id; funnel dashboards are super-admin (platform-wide). Match existing patterns (OnboardingStepProcessor, OnboardingSessionService::advance/writeAt, WizardProgressBar, the Phase 66 cohort/ops-dashboard pattern, HoldSettingsResolver-style caching).",
+  "categories": ["CARETAKER-FLOW", "CARETAKER-CONTEXT", "INVITE-DEEPLINK", "FUNNEL", "INVITE-FUNNEL", "CI"],
+  "findings": [
+    {
+      "id": "CARETAKER-FLOW-1",
+      "severity": "HIGH",
+      "category": "CARETAKER-FLOW",
+      "title": "Caretaker flow gains Welcome + Orientation bookends (3 -> 5 steps) with per-role step handling",
+      "evidence": "OnboardingFlow caretaker steps are [1=Profile,2=Building assignment,3=Notification prefs] — no welcome intro and no orientation/done step, unlike landlord (welcome..done). CaretakerOnboardingService::processStep maps those 3; OnboardingController validation + the Phase-51 step-prop injection are keyed by those integers.",
+      "remediation": "OnboardingFlow caretaker steps -> [1=Welcome, 2=Profile, 3=Building assignment, 4=Notification preferences, 5=Orientation]. Renumber CaretakerOnboardingService handlers (welcome no-op advance; profile; assignment-ack; notif-prefs; orientation marks the progress complete + resolves the first-task target). OnboardingController caretaker validateStep + the pendingAssignments injection move to the new step numbers; extract a per-role getStepProps so caretaker no longer borrows the landlord OnboardingService builder. Phase77 test: a caretaker walks all 5 steps via saveStep; OnboardingFlow::forRole('caretaker')->allSteps() === [1,2,3,4,5]; the assignment step still accepts/declines.",
+      "passes": false
+    },
+    {
+      "id": "CARETAKER-FLOW-2",
+      "severity": "MEDIUM",
+      "category": "CARETAKER-FLOW",
+      "title": "CaretakerSteps.vue renders welcome + orientation; WizardProgressBar reflects 5 steps",
+      "evidence": "resources/js/Pages/Onboarding/CaretakerSteps.vue renders only the 3 existing steps; WizardProgressBar is passed totalSteps=3.",
+      "remediation": "CaretakerSteps.vue: add a Welcome panel (step 1, intro + continue) and an Orientation panel (step 5, building summary + 'go to your first task' CTA); shift the existing profile/assignment/notification panels to steps 2-4; pass totalSteps=5. lang onboarding.caretaker.* keys (welcome.*, orientation.*) en/sw/ar. Phase77 surface asserts the Vue tokens + lang parity.",
+      "passes": false
+    },
+    {
+      "id": "CARETAKER-FLOW-3",
+      "severity": "LOW",
+      "category": "CARETAKER-FLOW",
+      "title": "Caretaker onboarding completion redirects to the orientation first-task target",
+      "evidence": "OnboardingController completion redirects every role to dashboard.",
+      "remediation": "On caretaker onboarding completion, redirect to the resolved first-task target (CARETAKER-CONTEXT-3) instead of the generic dashboard. Phase77 test: completing caretaker onboarding lands on the first-task route (or buildings index when no task).",
+      "passes": false
+    },
+    {
+      "id": "CARETAKER-CONTEXT-1",
+      "severity": "HIGH",
+      "category": "CARETAKER-CONTEXT",
+      "title": "CaretakerBuildingSummaryService — assigned buildings with unit / occupancy / open-ticket counts",
+      "evidence": "The caretaker assignment step shows only building names (CaretakerSteps.vue pendingAssignments); a caretaker accepting work sees no scope (how many units, how many tenants, how many open tickets).",
+      "remediation": "App\\Services\\Caretaker\\CaretakerBuildingSummaryService::forCaretaker(User): per assigned building {building_id, name, unit_count, occupied_count, open_ticket_count}, strictly scoped via building.landlord_id === caretaker.landlord_id, NO N+1 (aggregate counts in grouped queries, not per-building loops). Reused by the assignment step (context for accept/decline) and the orientation step. Phase77 test: counts correct for a seeded building; another landlord's building never appears.",
+      "passes": false
+    },
+    {
+      "id": "CARETAKER-CONTEXT-2",
+      "severity": "MEDIUM",
+      "category": "CARETAKER-CONTEXT",
+      "title": "Assignment step enriched with building stats; orientation step shows the building dashboard",
+      "evidence": "Step 2 (assignment) is a bare accept/decline list; there is no orientation summary at the end.",
+      "remediation": "Inject CaretakerBuildingSummaryService output into the assignment step props (stats beside each accept/decline row) and into the orientation step (a summary of the buildings the caretaker now manages + their open-ticket totals). CaretakerSteps.vue renders the stat cards. Phase77 test: the step props carry the per-building counts.",
+      "passes": false
+    },
+    {
+      "id": "CARETAKER-CONTEXT-3",
+      "severity": "HIGH",
+      "category": "CARETAKER-CONTEXT",
+      "title": "Caretaker first-task resolver (oldest open ticket on an assigned building, else buildings index)",
+      "evidence": "There is no notion of 'the caretaker's next actionable item' — they land on a generic dashboard after accepting work.",
+      "remediation": "App\\Services\\Caretaker\\CaretakerFirstTaskResolver::resolve(User): returns a route target — the oldest open Ticket on a building the caretaker is assigned to (accepted assignment), else the buildings/maintenance index. Strictly scoped to the caretaker's accepted buildings (no cross-landlord). Shared by orientation (CARETAKER-FLOW-3) + the invite deep-link (INVITE-DEEPLINK-2). Phase77 test: resolves the oldest open ticket on an assigned building; falls back when none; never returns another landlord's ticket.",
+      "passes": false
+    },
+    {
+      "id": "INVITE-DEEPLINK-1",
+      "severity": "HIGH",
+      "category": "INVITE-DEEPLINK",
+      "title": "Invitation accept routes caretakers INTO onboarding (not the generic dashboard)",
+      "evidence": "InvitationController::accept (new user) + acceptAuthenticated (existing user) both redirect('dashboard') after creating/elevating the caretaker — the carefully-built caretaker wizard is never entered.",
+      "remediation": "After a successful caretaker accept (both paths), redirect to onboarding.step(firstStep) which creates the onboarding session (OnboardingSession::firstFor). Keep the InvitationAccepted event (assignment rows) firing first so the assignment step has data. Non-caretaker roles unchanged. Phase77 test: accepting a caretaker invite (new + existing user) redirects to onboarding.step, not dashboard, and a live session exists.",
+      "passes": false
+    },
+    {
+      "id": "INVITE-DEEPLINK-2",
+      "severity": "MEDIUM",
+      "category": "INVITE-DEEPLINK",
+      "title": "Onboarding completion deep-links to the first-task target",
+      "evidence": "Completion is a dead-end on the dashboard; the invitee has to hunt for their first piece of work.",
+      "remediation": "Caretaker onboarding completion (CARETAKER-FLOW-3) uses CaretakerFirstTaskResolver to land the caretaker on their first open ticket (or buildings index). Wire the orientation step CTA + the saveStep completion redirect to the same resolver. Phase77 test: a caretaker with an open ticket on an assigned building completes onboarding and lands on that ticket.",
+      "passes": false
+    },
+    {
+      "id": "INVITE-DEEPLINK-3",
+      "severity": "MEDIUM",
+      "category": "INVITE-DEEPLINK",
+      "title": "invitations.viewed_at — distinguish 'sent' from 'opened' for the invite funnel",
+      "evidence": "Invitation has accepted_at but no viewed_at, so the invite funnel can't tell an unopened invite from one opened-then-abandoned.",
+      "remediation": "Migration add invitations.viewed_at (nullable timestamp). InvitationController::show stamps viewed_at once (first GET of a still-pending invite). tenant_invitations already has viewed_at (Phase pre-existing) — mirror the semantics. Phase77 test: viewing a pending invite stamps viewed_at once; re-view doesn't overwrite.",
+      "passes": false
+    },
+    {
+      "id": "FUNNEL-1",
+      "severity": "HIGH",
+      "category": "FUNNEL",
+      "title": "OnboardingFunnelService — per-role per-step reached / completed / abandoned + drop-off step",
+      "evidence": "onboarding_sessions records current_step + completed_at/abandoned_at but nothing computes a funnel; OnboardingMilestone is landlord-only and milestone-based, not step-based.",
+      "remediation": "App\\Services\\Onboarding\\OnboardingFunnelService::forRole(role): from onboarding_sessions, for each step in OnboardingFlow::forRole(role) compute reached (current_step >= step OR completed), plus completed_count, abandoned_count, active_count, completion_rate, and the biggest drop-off step (max reached[n]-reached[n+1]). Pure grouped SQL on current_step + completed_at/abandoned_at (no step_history JSON parsing). Platform-wide (super-admin). Phase77 test: seeded sessions at various steps yield correct reached counts + drop-off step.",
+      "passes": false
+    },
+    {
+      "id": "FUNNEL-2",
+      "severity": "MEDIUM",
+      "category": "FUNNEL",
+      "title": "Ops onboarding-funnel dashboard (super-admin)",
+      "evidence": "No surface renders onboarding health; ops can't see where users abandon.",
+      "remediation": "Super-admin GET /ops/onboarding/funnel rendering each role's step funnel (reached bars + completion rate + drop-off step) mirroring the Phase 66 ops cohort-retention dashboard pattern. Ops/Onboarding/Funnel.vue + lang. Phase77 test: route is super-admin gated; payload carries the per-role funnel.",
+      "passes": false
+    },
+    {
+      "id": "FUNNEL-3",
+      "severity": "MEDIUM",
+      "category": "FUNNEL",
+      "title": "onboarding:funnel-rollup cron + gauges + low-completion alert",
+      "evidence": "No metric tracks onboarding completion rate over time.",
+      "remediation": "onboarding:funnel-rollup cron (daily Africa/Nairobi) emits onboarding_completion_rate{role}, onboarding_active_sessions{role}, onboarding_dropoff_step{role} via MetricsService; config/alerts.php onboarding_completion_low sev4 when a role's completion rate < threshold (with a minimum-sample guard). Gauge names follow metrics-naming.md. Phase77 test: the rollup emits the gauges for seeded sessions.",
+      "passes": false
+    },
+    {
+      "id": "INVITE-FUNNEL-1",
+      "severity": "MEDIUM",
+      "category": "INVITE-FUNNEL",
+      "title": "InvitationFunnelService — sent / viewed / accepted / expired per landlord + platform",
+      "evidence": "Invitations carry created_at, viewed_at (new), accepted_at, and a 30-day expiry, but nothing summarises the invite funnel (how many invites convert).",
+      "remediation": "App\\Services\\Onboarding\\InvitationFunnelService::forLandlord(landlordId) + ::platform(): counts of sent / viewed / accepted / pending / expired + acceptance_rate, over both invitations (caretaker/landlord) and tenant_invitations. Landlord variant strictly landlord-scoped. Phase77 test: counts + acceptance rate correct; cross-landlord isolation.",
+      "passes": false
+    },
+    {
+      "id": "INVITE-FUNNEL-2",
+      "severity": "LOW",
+      "category": "INVITE-FUNNEL",
+      "title": "Invite funnel surfaced on the ops onboarding dashboard",
+      "evidence": "The invite funnel has no surface.",
+      "remediation": "Add an invite-funnel section to Ops/Onboarding/Funnel.vue (platform sent/viewed/accepted/expired + acceptance rate). Phase77 surface asserts the token/section.",
+      "passes": false
+    },
+    {
+      "id": "INVITE-FUNNEL-3",
+      "severity": "LOW",
+      "category": "INVITE-FUNNEL",
+      "title": "Invite-funnel gauges from the rollup cron",
+      "evidence": "No metric on invite acceptance.",
+      "remediation": "onboarding:funnel-rollup also emits invitation_acceptance_rate + invitations_pending_count (platform + top-N landlords, bounded). Phase77 test asserts the gauge names present in the command.",
+      "passes": false
+    },
+    {
+      "id": "CI-1",
+      "severity": "MEDIUM",
+      "category": "CI",
+      "title": "Phase77OnboardingDeep2SurfaceTest cross-category presence map",
+      "evidence": "Each category needs a locked assertion a refactor cannot silently regress.",
+      "remediation": "Phase77OnboardingDeep2SurfaceTest: OnboardingFlow caretaker == 5 steps; CaretakerBuildingSummaryService + CaretakerFirstTaskResolver + OnboardingFunnelService + InvitationFunnelService classes exist; invitations.viewed_at column present; routes ops.onboarding.funnel registered; Ops/Onboarding/Funnel.vue + CaretakerSteps tokens exist; onboarding.caretaker.* lang parity en/sw/ar; onboarding:funnel-rollup scheduled; gauges present in the command; runbook mentions Phase 77.",
+      "passes": false
+    },
+    {
+      "id": "CI-2",
+      "severity": "MEDIUM",
+      "category": "CI",
+      "title": "docs/runbooks/onboarding.md Phase 77 sections + gauge documentation",
+      "evidence": "The onboarding runbook predates the deepened caretaker flow + funnel.",
+      "remediation": "Extend docs/runbooks/onboarding.md: the 5-step caretaker flow + first-task resolver, the invite deep-link, the step funnel + invite funnel + gauges + the low-completion alert + incident playbook. Phase77 surface asserts the file mentions Phase 77.",
+      "passes": false
+    },
+    {
+      "id": "CI-3",
+      "severity": "LOW",
+      "category": "CI",
+      "title": "Closeout + ops nav entry",
+      "evidence": "The ops onboarding-funnel dashboard needs a nav entry; the cycle needs its closeout block.",
+      "remediation": "Add the ops nav link to /ops/onboarding/funnel; scripts/phase77-closeout.mjs sets passes:true + closeout block. Phase77 surface stays green.",
+      "passes": false
+    }
+  ]
+}
