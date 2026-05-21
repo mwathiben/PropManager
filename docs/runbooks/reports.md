@@ -191,3 +191,52 @@ traces beginning with `ReportBuilderService::run` or
 malformed config, page the on-call engineer; if it's a broad
 infrastructure issue (DB unreachable, queue worker dead), escalate to
 SRE.
+
+---
+
+## 7. REPORTS-DEPTH-2 (Phase 73)
+
+The report-tool suite is reachable from **Finances → Reports → Report
+tools** (the launcher card in `ReportsTab.vue`): Builder, Dashboards,
+Templates, Scheduled, Shared Links, Custom Metrics.
+
+### Landlord dashboards (editor)
+
+- `dashboards.index` lists; `dashboards.create`/`store`/`edit`/`update`
+  drive the card editor (`Pages/Dashboards/Editor.vue`); `dashboards.show`
+  renders read-only.
+- `StoreDashboardRequest` + `DashboardService::validateLayout` re-validate
+  EVERY card's `saved_report_id`/`metric_slug` for landlord ownership on
+  write — the layout JSON is never trusted. `dashboards.preview` runs the
+  transient layout; a cross-tenant card id 422s.
+
+### Report shares (signed, public)
+
+- Landlord mints a time-boxed link from `reports.shares.index`. The public
+  `reports.share.view` route is `signed`-gated (no auth) and runs the report
+  with the share row's OWN `landlord_id` — never a request param. Swapping
+  the share id breaks the signature. `reports.shares.revoke` is idempotent.
+- A saved report whose config drifted out of the allow-list degrades to an
+  "unavailable" state on the public view rather than leaking a 500.
+
+### Scheduled report edit + pause
+
+- `reports.scheduled.update` edits cadence + recipient (recipient stays in
+  the Phase-13 allow-list). Changing the cadence re-anchors `next_due_at`
+  from now(); a recipient-only edit does not slide the next send.
+- `reports.scheduled.toggle-pause` pauses (sets `paused_at`) / resumes
+  (clears it + re-anchors `next_due_at`). The `reports:send-scheduled` cron
+  skips rows with a non-null `paused_at` (`whereNull('paused_at')`), so a
+  paused stretch never fires a backlog.
+
+### Custom metrics (editor + live validation)
+
+- `reports.metrics.manage` is the author page (`Pages/Reports/Metrics.vue`).
+  `reports.metrics.validate` parses an expression live via
+  `MetricFormulaService` (no persist) so a bad/injection formula surfaces
+  its message before save.
+- New safe dimensions were added to `ReportBuilderService::ALLOWED_FIELDS`
+  (e.g. `invoice.arrears`, `lease.deposit_amount`). To add more, follow
+  section 5 — group-by stays validated against the allow-list and values
+  stay parameterised (NO `DB::raw`). Numeric entries auto-become
+  metric-eligible.

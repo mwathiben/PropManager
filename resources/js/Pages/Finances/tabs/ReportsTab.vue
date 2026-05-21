@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { router } from '@inertiajs/vue3';
+import { router, Link } from '@inertiajs/vue3';
 import { useFormatters } from '@/composables';
 import { MetricCard, AmountDisplay, ExportDropdown } from '@/Components/Finances';
 import {
@@ -14,8 +14,34 @@ import {
     FunnelIcon,
     CalendarIcon,
     XMarkIcon,
+    Squares2X2Icon,
+    DocumentDuplicateIcon,
+    ShareIcon,
+    VariableIcon,
+    WrenchScrewdriverIcon,
 } from '@heroicons/vue/24/outline';
 import type { Building } from '@/types/finances';
+
+// Phase-73 REPORTS-DEPTH-2: entry points to the report-tool suite. These
+// full pages (builder, dashboards, templates, scheduled, shares, metrics)
+// previously had no UI link and were reachable only by typing the URL.
+const reportTools = [
+    { key: 'builder', route: 'reports.builder.index', icon: WrenchScrewdriverIcon },
+    { key: 'dashboards', route: 'dashboards.index', icon: Squares2X2Icon },
+    { key: 'templates', route: 'reports.templates.index', icon: DocumentDuplicateIcon },
+    { key: 'scheduled', route: 'reports.scheduled.index', icon: ClockIcon },
+    { key: 'shares', route: 'reports.shares.index', icon: ShareIcon },
+    { key: 'metrics', route: 'reports.metrics.manage', icon: VariableIcon },
+] as const;
+
+const TOOL_LABELS: Record<string, { name: string; desc: string }> = {
+    builder: { name: 'Report Builder', desc: 'Compose custom reports from your data' },
+    dashboards: { name: 'Dashboards', desc: 'Build dashboards from saved reports + metrics' },
+    templates: { name: 'Templates', desc: 'Clone a curated report to get started' },
+    scheduled: { name: 'Scheduled', desc: 'Email reports on a recurring cadence' },
+    shares: { name: 'Shared Links', desc: 'Read-only links to a saved report' },
+    metrics: { name: 'Custom Metrics', desc: 'Author formulas as derived columns' },
+};
 
 const AGING_BUCKET_KEYS = ['current', '1-30', '31-60', '61-90', '90+'] as const;
 
@@ -372,6 +398,20 @@ watch(() => localFilters.value.period, (newVal) => {
 
                 <ExportDropdown :formats="exportFormats" @export="exportReport" />
             </div>
+        </div>
+
+        <!-- Phase-73 REPORTS-DEPTH-2: report-tool launcher -->
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6" data-testid="report-tools">
+            <Link
+                v-for="tool in reportTools"
+                :key="tool.key"
+                :href="route(tool.route)"
+                class="group flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-4 transition-colors hover:border-indigo-300 hover:bg-indigo-50"
+            >
+                <component :is="tool.icon" class="h-6 w-6 text-gray-400 group-hover:text-indigo-600" />
+                <span class="text-sm font-semibold text-gray-900 group-hover:text-indigo-700">{{ TOOL_LABELS[tool.key].name }}</span>
+                <span class="text-xs text-gray-500">{{ TOOL_LABELS[tool.key].desc }}</span>
+            </Link>
         </div>
 
         <div v-if="showFilters" class="bg-gray-50 rounded-xl p-4 border border-gray-200">

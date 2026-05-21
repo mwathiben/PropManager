@@ -19,7 +19,8 @@
       "category": "DASHBOARD-CRUD",
       "title": "Landlord dashboards index + create/store (the table has no UI)",
       "evidence": "Phase 50 shipped landlord_dashboards + DashboardService + a read-only Dashboards/Show.vue, but the only route is GET /dashboards/{slug}. A landlord cannot list, discover, or create a dashboard — the feature is unreachable.",
-      "remediation": "DashboardController gains index (list the landlord's dashboards) + create (Pages/Dashboards/Editor.vue) + store. Routes dashboards.index/create/store, role:landlord. store validates name + a unique-per-landlord slug (auto from name) + an (optionally empty) layout via a StoreDashboardRequest that re-validates every card's saved_report_id/metric_slug for landlord ownership (reuse DashboardService's guard logic, fail-closed). data-testid='dashboard-editor'. Nav entry to dashboards.index. Phase73 surface + feature test (create persists; cross-tenant card id rejected at store)."
+      "remediation": "DashboardController gains index (list the landlord's dashboards) + create (Pages/Dashboards/Editor.vue) + store. Routes dashboards.index/create/store, role:landlord. store validates name + a unique-per-landlord slug (auto from name) + an (optionally empty) layout via a StoreDashboardRequest that re-validates every card's saved_report_id/metric_slug for landlord ownership (reuse DashboardService's guard logic, fail-closed). data-testid='dashboard-editor'. Nav entry to dashboards.index. Phase73 surface + feature test (create persists; cross-tenant card id rejected at store).",
+      "passes": true
     },
     {
       "id": "DASHBOARD-CRUD-2",
@@ -27,7 +28,8 @@
       "category": "DASHBOARD-CRUD",
       "title": "Edit/update + set-default + delete",
       "evidence": "No way to rename, re-layout, set a default, or remove a dashboard once the table has a row.",
-      "remediation": "DashboardController update (PUT) reusing StoreDashboardRequest validation; a single is_default per landlord enforced in one transaction (unset others on set); destroy (soft delete). Routes dashboards.update/destroy/set-default. Editor.vue loads an existing dashboard for edit. Phase73 feature test: update re-layouts; setting default unsets the previous; delete soft-deletes."
+      "remediation": "DashboardController update (PUT) reusing StoreDashboardRequest validation; a single is_default per landlord enforced in one transaction (unset others on set); destroy (soft delete). Routes dashboards.update/destroy/set-default. Editor.vue loads an existing dashboard for edit. Phase73 feature test: update re-layouts; setting default unsets the previous; delete soft-deletes.",
+      "passes": true
     },
     {
       "id": "DASHBOARD-CRUD-3",
@@ -35,7 +37,8 @@
       "category": "DASHBOARD-CRUD",
       "title": "Dashboard index/editor polish + empty states + lang",
       "evidence": "First-run landlords need guidance; all copy must localise.",
-      "remediation": "Empty state on dashboards.index (CTA into the editor), default-badge, RTL-aware logical classes, lang/{en,sw,ar}/reports.php dashboards.* ({curly} where parameterised; en full / sw / ar [TODO]). Phase73 surface asserts the lang keys + empty-state token."
+      "remediation": "Empty state on dashboards.index (CTA into the editor), default-badge, RTL-aware logical classes, lang/{en,sw,ar}/reports.php dashboards.* ({curly} where parameterised; en full / sw / ar [TODO]). Phase73 surface asserts the lang keys + empty-state token.",
+      "passes": true
     },
     {
       "id": "DASHBOARD-CARDS-1",
@@ -43,7 +46,8 @@
       "category": "DASHBOARD-CARDS",
       "title": "Card editor — add/remove/reorder saved_report + metric cards (server-validated layout)",
       "evidence": "The layout JSON is hand-edited only; there's no UI to compose a dashboard from the landlord's saved reports + metrics, and the card list is the cross-tenant trust boundary.",
-      "remediation": "Editor.vue: a card list the landlord builds from their saved_reports (saved_report cards) + report_metrics (metric cards, bound to a saved_report), each with title + size (wide|narrow), add/remove/reorder (up/down or drag). The full layout array posts to store/update; the StoreDashboardRequest validates each card: type in {saved_report,metric}, size in {wide,narrow}, saved_report_id owned + active, metric_slug owned + active (NEVER trust the client). data-testid='dashboard-card'/'card-add'. Phase73 feature test: a card referencing another landlord's report is rejected."
+      "remediation": "Editor.vue: a card list the landlord builds from their saved_reports (saved_report cards) + report_metrics (metric cards, bound to a saved_report), each with title + size (wide|narrow), add/remove/reorder (up/down or drag). The full layout array posts to store/update; the StoreDashboardRequest validates each card: type in {saved_report,metric}, size in {wide,narrow}, saved_report_id owned + active, metric_slug owned + active (NEVER trust the client). data-testid='dashboard-card'/'card-add'. Phase73 feature test: a card referencing another landlord's report is rejected.",
+      "passes": true
     },
     {
       "id": "DASHBOARD-CARDS-2",
@@ -51,7 +55,8 @@
       "category": "DASHBOARD-CARDS",
       "title": "Live editor preview reusing DashboardService",
       "evidence": "Building a dashboard blind (no preview until save) is error-prone.",
-      "remediation": "A preview endpoint (POST dashboards/preview) that runs the in-progress layout through DashboardService::buildPayload WITHOUT persisting, returning the same card payload Show.vue renders — cross-tenant card ids 403, fail-closed (increment report_render_failure_count surface=dashboard_preview). Editor.vue shows the live preview beside the card list. Phase73 feature test: preview returns card payloads; foreign card id 403."
+      "remediation": "A preview endpoint (POST dashboards/preview) that runs the in-progress layout through DashboardService::buildPayload WITHOUT persisting, returning the same card payload Show.vue renders — cross-tenant card ids 403, fail-closed (increment report_render_failure_count surface=dashboard_preview). Editor.vue shows the live preview beside the card list. Phase73 feature test: preview returns card payloads; foreign card id 403.",
+      "passes": true
     },
     {
       "id": "DASHBOARD-CARDS-3",
@@ -59,7 +64,8 @@
       "category": "DASHBOARD-CARDS",
       "title": "Card editor a11y + lang",
       "evidence": "Reorder controls + card-type pickers need labels + localisation.",
-      "remediation": "aria-labels on add/remove/reorder, keyboard-operable reorder, RTL arrows, lang dashboards.cards.*. Phase73 surface asserts the tokens + lang keys."
+      "remediation": "aria-labels on add/remove/reorder, keyboard-operable reorder, RTL arrows, lang dashboards.cards.*. Phase73 surface asserts the tokens + lang keys.",
+      "passes": true
     },
     {
       "id": "REPORT-SHARE-1",
@@ -67,7 +73,8 @@
       "category": "REPORT-SHARE",
       "title": "Signed-URL read-only report share",
       "evidence": "A landlord can't hand a report to an accountant/lawyer without giving them an account. No share mechanism exists.",
-      "remediation": "ReportShareController: a landlord mints a temporary signed link to one of THEIR saved reports (URL::temporarySignedRoute 'reports.share.view', default 7 days, carrying saved_report_id). The view route is signed-middleware-gated (no auth), resolves the report withoutGlobalScopes by the SIGNED id only, runs ReportBuilderService::run with the report's OWN landlord_id (never a request param), and renders a minimal read-only Inertia/Blade view of the rows. The signed signature is the authz; the report id is bound into the signature so it can't be swapped. data-testid='report-share'. Phase73 feature test: a valid signature renders the owner's rows; a tampered/expired signature 403s; the id cannot be swapped to another report."
+      "remediation": "ReportShareController: a landlord mints a temporary signed link to one of THEIR saved reports (URL::temporarySignedRoute 'reports.share.view', default 7 days, carrying saved_report_id). The view route is signed-middleware-gated (no auth), resolves the report withoutGlobalScopes by the SIGNED id only, runs ReportBuilderService::run with the report's OWN landlord_id (never a request param), and renders a minimal read-only Inertia/Blade view of the rows. The signed signature is the authz; the report id is bound into the signature so it can't be swapped. data-testid='report-share'. Phase73 feature test: a valid signature renders the owner's rows; a tampered/expired signature 403s; the id cannot be swapped to another report.",
+      "passes": true
     },
     {
       "id": "REPORT-SHARE-2",
@@ -75,7 +82,8 @@
       "category": "REPORT-SHARE",
       "title": "Share management — expiry choice + revoke",
       "evidence": "A minted link lives until expiry with no way to cut it off early.",
-      "remediation": "report_shares table (id, landlord_id, saved_report_id, token hash, expires_at, revoked_at) so the share view also checks the row is not revoked/expired (signature + DB row = belt and suspenders + revocation). Landlord picks expiry (1/7/30 days) at mint; a share list with a Revoke action. Routes reports.shares.index/store/revoke. Phase73 feature test: revoked share 403s even with a valid signature."
+      "remediation": "report_shares table (id, landlord_id, saved_report_id, token hash, expires_at, revoked_at) so the share view also checks the row is not revoked/expired (signature + DB row = belt and suspenders + revocation). Landlord picks expiry (1/7/30 days) at mint; a share list with a Revoke action. Routes reports.shares.index/store/revoke. Phase73 feature test: revoked share 403s even with a valid signature.",
+      "passes": true
     },
     {
       "id": "REPORT-SHARE-3",
@@ -83,7 +91,8 @@
       "category": "REPORT-SHARE",
       "title": "Share access audit + lang",
       "evidence": "Sharing report data externally needs an access trail + localised copy.",
-      "remediation": "Record each share-view access (FileAccessRecorder-style or a share_accessed_at bump + count gauge report_share_views_count), and lang reports.share.*. Phase73 surface asserts the lang keys + gauge naming."
+      "remediation": "Record each share-view access (FileAccessRecorder-style or a share_accessed_at bump + count gauge report_share_views_count), and lang reports.share.*. Phase73 surface asserts the lang keys + gauge naming.",
+      "passes": true
     },
     {
       "id": "SCHEDULED-DEPTH-1",
@@ -91,7 +100,8 @@
       "category": "SCHEDULED-DEPTH",
       "title": "Edit a scheduled report (cadence + recipient) without delete-and-recreate",
       "evidence": "ScheduledController is store + destroy only; changing a cadence or recipient forces deleting and rebuilding the schedule (losing next_due_at history).",
-      "remediation": "ScheduledController update (PUT) reusing the Phase-27 recipient allow-list (landlord email + caretaker addresses) + cadence validation; recompute next_due_at from now() when cadence changes. Route reports.scheduled.update. Scheduled.vue gains inline edit. Phase73 feature test: update changes cadence + recompodes next_due_at; foreign schedule 403."
+      "remediation": "ScheduledController update (PUT) reusing the Phase-27 recipient allow-list (landlord email + caretaker addresses) + cadence validation; recompute next_due_at from now() when cadence changes. Route reports.scheduled.update. Scheduled.vue gains inline edit. Phase73 feature test: update changes cadence + recompodes next_due_at; foreign schedule 403.",
+      "passes": true
     },
     {
       "id": "SCHEDULED-DEPTH-2",
@@ -99,7 +109,8 @@
       "category": "SCHEDULED-DEPTH",
       "title": "Pause / resume a schedule",
       "evidence": "A landlord on a break can't temporarily stop a schedule short of deleting it.",
-      "remediation": "Migration adds scheduled_reports.paused_at (nullable). reports.scheduled.toggle-pause flips it; SendScheduledReports skips paused rows (whereNull('paused_at')); resuming recomputes next_due_at so it doesn't fire a backlog. Scheduled.vue pause toggle. Phase73 feature test: paused schedule is skipped by the cron; resume recomputes next_due_at."
+      "remediation": "Migration adds scheduled_reports.paused_at (nullable). reports.scheduled.toggle-pause flips it; SendScheduledReports skips paused rows (whereNull('paused_at')); resuming recomputes next_due_at so it doesn't fire a backlog. Scheduled.vue pause toggle. Phase73 feature test: paused schedule is skipped by the cron; resume recomputes next_due_at.",
+      "passes": true
     },
     {
       "id": "SCHEDULED-DEPTH-3",
@@ -107,7 +118,8 @@
       "category": "SCHEDULED-DEPTH",
       "title": "Scheduled depth lang + polish",
       "evidence": "New edit/pause controls need labels + localisation.",
-      "remediation": "lang reports.scheduled.* (edit/pause/resume/paused-badge), disabled/paused styling, RTL. Phase73 surface asserts the lang keys."
+      "remediation": "lang reports.scheduled.* (edit/pause/resume/paused-badge), disabled/paused styling, RTL. Phase73 surface asserts the lang keys.",
+      "passes": true
     },
     {
       "id": "METRICS-DEPTH-1",
@@ -115,7 +127,8 @@
       "category": "METRICS-DEPTH",
       "title": "Custom dimensions — safely extend the report group-by/field allow-list",
       "evidence": "Reports group only by a fixed handful of ALLOWED_FIELDS; landlords want to slice by more dimensions (e.g. payment_method, invoice.status, lease month) — but ANY field-list change is an injection surface.",
-      "remediation": "Extend ReportBuilderService::ALLOWED_FIELDS with the additional safe, parameterised dimensions (each {table,column,type,label}; group_by stays validated against the allow-list; values still parameterised, NO DB::raw). Add the new fields to MetricFormulaService's ALLOWED_FIELDS too where numeric. Phase73 carries the FULL Phase-27 injection corpus PLUS new payloads against the new fields to prove the allow-list still rejects everything off-list. Phase73 feature test extends Phase27BuilderInjectionTest coverage."
+      "remediation": "Extend ReportBuilderService::ALLOWED_FIELDS with the additional safe, parameterised dimensions (each {table,column,type,label}; group_by stays validated against the allow-list; values still parameterised, NO DB::raw). Add the new fields to MetricFormulaService's ALLOWED_FIELDS too where numeric. Phase73 carries the FULL Phase-27 injection corpus PLUS new payloads against the new fields to prove the allow-list still rejects everything off-list. Phase73 feature test extends Phase27BuilderInjectionTest coverage.",
+      "passes": true
     },
     {
       "id": "METRICS-DEPTH-2",
@@ -123,7 +136,8 @@
       "category": "METRICS-DEPTH",
       "title": "Dedicated metrics editor page + live formula validation",
       "evidence": "ReportMetricController is store/destroy + a JSON index; there's no page to author/manage metrics or see why a formula is rejected.",
-      "remediation": "Pages/Reports/Metrics.vue: list the landlord's metrics, a create form with a live validate endpoint (POST reports/metrics/validate -> MetricFormulaService::parse, returns ok|error with the message) so a bad expression surfaces before save, plus delete. Reuse the existing store. data-testid='metrics-editor'. Phase73 feature test: valid expression validates; an injection/ malformed expression returns the error without persisting."
+      "remediation": "Pages/Reports/Metrics.vue: list the landlord's metrics, a create form with a live validate endpoint (POST reports/metrics/validate -> MetricFormulaService::parse, returns ok|error with the message) so a bad expression surfaces before save, plus delete. Reuse the existing store. data-testid='metrics-editor'. Phase73 feature test: valid expression validates; an injection/ malformed expression returns the error without persisting.",
+      "passes": true
     },
     {
       "id": "METRICS-DEPTH-3",
@@ -131,7 +145,8 @@
       "category": "METRICS-DEPTH",
       "title": "Metric units/formatting + lang",
       "evidence": "Metric cards/values need consistent unit formatting + localised editor copy.",
-      "remediation": "Surface the metric unit in the editor + dashboard metric cards (reuse useFormatters); lang reports.metrics.*. Phase73 surface asserts the lang keys."
+      "remediation": "Surface the metric unit in the editor + dashboard metric cards (reuse useFormatters); lang reports.metrics.*. Phase73 surface asserts the lang keys.",
+      "passes": true
     },
     {
       "id": "CI-1",
@@ -139,7 +154,8 @@
       "category": "CI",
       "title": "Phase73 cross-category surface + isolation/injection behaviour suite",
       "evidence": "The new dashboard-editor, signed report-share, scheduled-edit, and extended field allow-list are all security-sensitive and must be guarded against drift + cross-tenant/injection regressions.",
-      "remediation": "Phase73ReportsDepth2SurfaceTest: tables (report_shares, scheduled_reports.paused_at) + columns + classes (controllers/requests/services) + routes (dashboards.index/create/store/update/destroy/preview, reports.shares.*, reports.share.view, reports.scheduled.update/toggle-pause, reports.metrics.validate) + Vue tokens + lang parity. Behaviour: dashboard cross-tenant card rejection, dashboard preview 403, report-share signature valid/tampered/expired/revoked + id-swap, scheduled update/pause cron-skip, metric validate, and the extended-allow-list injection corpus. All RefreshDatabase."
+      "remediation": "Phase73ReportsDepth2SurfaceTest: tables (report_shares, scheduled_reports.paused_at) + columns + classes (controllers/requests/services) + routes (dashboards.index/create/store/update/destroy/preview, reports.shares.*, reports.share.view, reports.scheduled.update/toggle-pause, reports.metrics.validate) + Vue tokens + lang parity. Behaviour: dashboard cross-tenant card rejection, dashboard preview 403, report-share signature valid/tampered/expired/revoked + id-swap, scheduled update/pause cron-skip, metric validate, and the extended-allow-list injection corpus. All RefreshDatabase.",
+      "passes": true
     },
     {
       "id": "CI-2",
@@ -147,7 +163,8 @@
       "category": "CI",
       "title": "Reuse-not-rebuild verification + report_render_failure surfaces",
       "evidence": "Phase 73 deliberately reuses the Phase-27 scheduled-send + Phase-50 DashboardService/MetricFormulaService rather than rebuilding; the reuse seams + the new failure-gauge surfaces must be asserted.",
-      "remediation": "Assert DashboardService::buildPayload is the single render path for both Show + preview; assert the new report_render_failure_count surfaces (dashboard_preview) + report_share_views_count are wired; assert SendScheduledReports honours paused_at. Confirm no duplicate scheduled-send logic was introduced."
+      "remediation": "Assert DashboardService::buildPayload is the single render path for both Show + preview; assert the new report_render_failure_count surfaces (dashboard_preview) + report_share_views_count are wired; assert SendScheduledReports honours paused_at. Confirm no duplicate scheduled-send logic was introduced.",
+      "passes": true
     },
     {
       "id": "CI-3",
@@ -155,7 +172,22 @@
       "category": "CI",
       "title": "Runbook + nav + lang closeout",
       "evidence": "The new surfaces need operator docs + navigation + localisation.",
-      "remediation": "docs/runbooks/reports.md gains Dashboards-editor + Report-share + Scheduled-edit/pause + Custom-dimensions sections (the layout contract, the signed-share security model, the paused_at cron behaviour, the allow-list extension procedure). Nav updated. lang parity finalised (en full; sw/ar [TODO]). Phase73 surface asserts the runbook section + lang keys."
+      "remediation": "docs/runbooks/reports.md gains Dashboards-editor + Report-share + Scheduled-edit/pause + Custom-dimensions sections (the layout contract, the signed-share security model, the paused_at cron behaviour, the allow-list extension procedure). Nav updated. lang parity finalised (en full; sw/ar [TODO]). Phase73 surface asserts the runbook section + lang keys.",
+      "passes": true
     }
-  ]
+  ],
+  "closeout": {
+    "closed_at": "2026-05-21",
+    "result": "18/18 findings pass — zero PRD-finding deferrals",
+    "commits": {
+      "DASHBOARD-EDITOR": "9ee4461",
+      "REPORT-SHARE": "644a52a",
+      "SCHEDULED-DEPTH": "20ebda1",
+      "METRICS-DEPTH": "2eaa0b8",
+      "CI": "this commit"
+    },
+    "summary": "Phase 50 REPORTS-DEPTH sequel, right-sized to the genuine gaps after the scout found scheduled email reports + MetricFormulaService already shipped. DASHBOARD-EDITOR: index/create/store/edit/update/destroy/setDefault/preview + StoreDashboardRequest + DashboardService::validateLayout (re-validates every card ownership, fail-closed) + Pages/Dashboards/{Index,Editor}. REPORT-SHARE: report_shares table + signed public view (runs with share.landlord_id never a param, id bound into signature) + idempotent revoke + access trail. SCHEDULED-DEPTH: scheduled_reports.paused_at + ScheduledController::update (cadence re-anchor only on change) + togglePause (resume re-anchors, no backlog) + cron whereNull(paused_at). METRICS-DEPTH: 8 new safe ALLOWED_FIELDS dimensions (real columns, parameterised, numeric auto-metric-eligible) + ReportMetricController::manage + validate (live no-persist) + Pages/Reports/Metrics. CI: Phase73ReportsDepth2SurfaceTest + report-tool launcher in ReportsTab (the suite was previously URL-only) + reports.md runbook section.",
+    "tests": "Phase73DashboardEditorTest (8) + Phase73ReportShareTest (9) + Phase73ScheduledDepthTest (7) + Phase73MetricsDepthTest (9) + Phase73ReportsDepth2SurfaceTest (12)",
+    "constraints_preserved": "ReportBuilderService allow-list + parameterised values (NO DB::raw); MetricFormulaService no-eval/no-functions untouched; every read path re-validates landlord ownership; signed-share runs with the row landlord_id."
+  }
 }
