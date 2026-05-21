@@ -88,7 +88,8 @@ class Phase46OnboardingCanonicalSurfaceTest extends TestCase
     public function test_onboarding_flow_dispatches_three_roles(): void
     {
         $this->assertCount(8, OnboardingFlow::forRole('landlord')->allSteps());
-        $this->assertCount(3, OnboardingFlow::forRole('caretaker')->allSteps());
+        // Phase-77 CARETAKER-FLOW-1: caretaker grew to 5 (welcome + orientation).
+        $this->assertCount(5, OnboardingFlow::forRole('caretaker')->allSteps());
         $this->assertCount(3, OnboardingFlow::forRole('tenant')->allSteps());
     }
 

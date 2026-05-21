@@ -99,7 +99,7 @@ class Phase47WizardMigrateSurfaceTest extends TestCase
         $this->assertTrue($service->processStep(3, ['acknowledged' => true], $tenant, $progress));
     }
 
-    public function test_caretaker_step_processor_exists_and_handles_three_steps(): void
+    public function test_caretaker_step_processor_exists_and_handles_five_steps(): void
     {
         $service = app(CaretakerOnboardingService::class);
         $this->assertInstanceOf(OnboardingStepProcessor::class, $service);
@@ -107,11 +107,15 @@ class Phase47WizardMigrateSurfaceTest extends TestCase
         $caretaker = User::factory()->create(['role' => 'caretaker']);
         $progress = $caretaker->getOrCreateOnboardingProgress();
 
-        $this->assertTrue($service->processStep(1, ['name' => 'Peter Kamau'], $caretaker, $progress));
+        // Phase-77 CARETAKER-FLOW-1: 1=welcome, 2=profile, 3=assignment,
+        // 4=notif, 5=orientation.
+        $this->assertTrue($service->processStep(1, [], $caretaker, $progress));
+        $this->assertTrue($service->processStep(2, ['name' => 'Peter Kamau'], $caretaker, $progress));
         $this->assertSame('Peter Kamau', $caretaker->fresh()->name);
 
-        $this->assertTrue($service->processStep(2, ['acknowledged' => true], $caretaker, $progress));
-        $this->assertTrue($service->processStep(3, ['email_enabled' => true, 'sms_enabled' => false], $caretaker, $progress));
+        $this->assertTrue($service->processStep(3, ['acknowledged' => true], $caretaker, $progress));
+        $this->assertTrue($service->processStep(4, ['email_enabled' => true, 'sms_enabled' => false], $caretaker, $progress));
+        $this->assertTrue($service->processStep(5, [], $caretaker, $progress));
     }
 
     // -- MAIL-DISPATCH -------------------------------------------------------

@@ -112,4 +112,14 @@ return [
         'expiry_note' => 'Kiungo hiki kinaisha baada ya siku 7. Iwapo kinaisha, barua-pepe inayofuata ya kukumbusha itakuwa na kingine kipya.',
         'signoff' => 'Asante — timu ya :app',
     ],
+    'caretaker' => [
+        'title' => 'Usanidi wa mlinzi',
+        'welcome_title' => 'Karibu',
+        'welcome_body' => 'Hatua chache za haraka kuthibitisha maelezo yako, majengo utakayosimamia, na jinsi unavyotaka kuarifiwa — kisha tutakupeleka moja kwa moja kwenye kazi yako ya kwanza.',
+        'welcome_cta' => 'Anza',
+        'orientation_title' => 'Uko tayari',
+        'orientation_body' => 'Haya ni majengo unayosimamia sasa. Maliza ili kwenda kwenye kazi yako ya kwanza iliyo wazi.',
+        'orientation_empty' => 'Hakuna majengo uliyopewa bado — mwenye nyumba atayapanga hivi karibuni.',
+        'orientation_cta' => 'Nenda kwenye kazi yangu ya kwanza',
+    ],
 ];

@@ -270,7 +270,8 @@ class Phase48TenantWizardDeepSurfaceTest extends TestCase
         $service = app(CaretakerOnboardingService::class);
         $progress = $caretaker->getOrCreateOnboardingProgress();
 
-        $service->processStep(2, [
+        // Phase-77 CARETAKER-FLOW-1: building assignment is now step 3.
+        $service->processStep(3, [
             'decline' => [$b2->id],
             'decline_reason' => [$b2->id => 'Outside my coverage'],
         ], $caretaker, $progress);
@@ -291,7 +292,8 @@ class Phase48TenantWizardDeepSurfaceTest extends TestCase
         $service = app(CaretakerOnboardingService::class);
         $progress = $caretaker->getOrCreateOnboardingProgress();
 
-        $service->processStep(3, [
+        // Phase-77 CARETAKER-FLOW-1: notification preferences is now step 4.
+        $service->processStep(4, [
             'email_enabled' => true,
             'maintenance_notice_enabled' => true,
             'general_enabled' => false,

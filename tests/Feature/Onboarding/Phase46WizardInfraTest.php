@@ -62,11 +62,12 @@ class Phase46WizardInfraTest extends TestCase
         $this->assertSame(8, $flow->lastStep());
     }
 
-    public function test_caretaker_flow_has_3_steps(): void
+    public function test_caretaker_flow_has_5_steps(): void
     {
+        // Phase-77 CARETAKER-FLOW-1: welcome (1) + orientation (5) bookends.
         $flow = OnboardingFlow::forRole('caretaker');
-        $this->assertSame([1, 2, 3], $flow->allSteps());
-        $this->assertSame('Building assignment', $flow->stepLabel(2));
+        $this->assertSame([1, 2, 3, 4, 5], $flow->allSteps());
+        $this->assertSame('Building assignment', $flow->stepLabel(3));
     }
 
     public function test_tenant_flow_has_3_steps(): void

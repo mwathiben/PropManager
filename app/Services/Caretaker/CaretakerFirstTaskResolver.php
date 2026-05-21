@@ -30,6 +30,7 @@ class CaretakerFirstTaskResolver
                 ->where('landlord_id', $caretaker->landlord_id)
                 ->open()
                 ->orderBy('created_at')
+                ->orderBy('id')
                 ->first(['id']);
 
             if ($ticket !== null) {

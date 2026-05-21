@@ -2,18 +2,35 @@
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import WizardProgressBar from './Components/WizardProgressBar.vue';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 type PendingAssignment = {
     id: number;
     building_id: number;
     building_name: string;
+    unit_count: number;
+    occupied_count: number;
+    open_ticket_count: number;
     created_at: string | null;
+};
+
+type BuildingSummary = {
+    building_id: number;
+    name: string;
+    unit_count: number;
+    occupied_count: number;
+    open_ticket_count: number;
 };
 
 const props = defineProps<{
     currentStep: number;
     completedSteps?: number[];
+    totalSteps?: number;
     pendingAssignments?: PendingAssignment[];
+    buildingSummary?: BuildingSummary[];
+    firstTaskUrl?: string;
 }>();
 
 const form = useForm<Record<string, unknown>>({
@@ -36,6 +53,7 @@ const form = useForm<Record<string, unknown>>({
 const MAX_DECLINE_REASON_LENGTH = 200;
 
 const assignments = computed<PendingAssignment[]>(() => props.pendingAssignments ?? []);
+const summary = computed<BuildingSummary[]>(() => props.buildingSummary ?? []);
 
 function isDeclined(assignmentId: number): boolean {
     return (form.decline as number[]).includes(assignmentId);
@@ -60,20 +78,26 @@ function reasonLength(assignmentId: number): number {
 const page = usePage();
 const flashError = computed(() => (page.props as { flash?: { error?: string } }).flash?.error ?? '');
 
+const ctaLabel = computed(() => {
+    if (props.currentStep === 1) return t('onboarding.caretaker.welcome_cta');
+    if (props.currentStep === (props.totalSteps ?? 5)) return t('onboarding.caretaker.orientation_cta');
+    return t('onboarding.wizard.resume_cta');
+});
+
 function submit() {
     form.post(route('onboarding.step.save', { step: props.currentStep }));
 }
 </script>
 
 <template>
-    <Head :title="$t('onboarding.wizard.resume_cta')" />
+    <Head :title="$t('onboarding.caretaker.title')" />
 
     <div class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-12 px-4">
         <div class="max-w-xl mx-auto bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 p-8">
-            <WizardProgressBar :current-step="currentStep" :total-steps="3" />
+            <WizardProgressBar :current-step="currentStep" :total-steps="totalSteps ?? 5" />
 
             <h1 class="text-2xl font-semibold text-gray-900 mb-6">
-                {{ $t('onboarding.wizard.resume_cta') }}
+                {{ $t('onboarding.caretaker.title') }}
             </h1>
 
             <div v-if="flashError" class="mb-4 rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
@@ -82,6 +106,13 @@ function submit() {
 
             <form @submit.prevent="submit" class="space-y-5">
                 <template v-if="currentStep === 1">
+                    <div class="rounded-lg bg-indigo-50 px-4 py-5 text-gray-700" data-testid="caretaker-welcome">
+                        <h2 class="text-lg font-semibold text-indigo-900">{{ $t('onboarding.caretaker.welcome_title') }}</h2>
+                        <p class="mt-2 text-sm">{{ $t('onboarding.caretaker.welcome_body') }}</p>
+                    </div>
+                </template>
+
+                <template v-else-if="currentStep === 2">
                     <div>
                         <label class="block text-sm font-medium text-gray-700">Full name</label>
                         <input v-model="form.name" type="text" class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required />
@@ -94,9 +125,9 @@ function submit() {
                     </div>
                 </template>
 
-                <template v-else-if="currentStep === 2">
+                <template v-else-if="currentStep === 3">
                     <p class="text-gray-700">
-                        Your landlord has invited you to manage one or more buildings. Confirm acceptance below; expand decline to skip a building you cannot cover.
+                        Your landlord has invited you to manage one or more buildings. Confirm acceptance below; decline to skip a building you cannot cover.
                     </p>
 
                     <p v-if="assignments.length === 0" class="rounded-md border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
@@ -112,7 +143,9 @@ function submit() {
                             <div class="flex items-center justify-between">
                                 <div>
                                     <p class="font-medium text-gray-900">{{ assignment.building_name }}</p>
-                                    <p class="text-xs text-gray-500">Invited {{ assignment.created_at?.slice(0, 10) ?? '—' }}</p>
+                                    <p class="text-xs text-gray-500">
+                                        {{ assignment.unit_count }} units · {{ assignment.occupied_count }} occupied · {{ assignment.open_ticket_count }} open tickets
+                                    </p>
                                 </div>
                                 <div class="flex items-center gap-2 text-sm">
                                     <label class="inline-flex items-center gap-1">
@@ -154,7 +187,7 @@ function submit() {
                     </ul>
                 </template>
 
-                <template v-else-if="currentStep === 3">
+                <template v-else-if="currentStep === 4">
                     <fieldset>
                         <legend class="text-sm font-medium text-gray-700 mb-2">Channels</legend>
                         <label class="flex items-center gap-2"><input v-model="form.email_enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600" /> <span class="text-sm text-gray-700">Email</span></label>
@@ -172,13 +205,32 @@ function submit() {
                     </fieldset>
                 </template>
 
+                <template v-else-if="currentStep === 5">
+                    <div data-testid="caretaker-orientation">
+                        <h2 class="text-lg font-semibold text-gray-900">{{ $t('onboarding.caretaker.orientation_title') }}</h2>
+                        <p class="mt-1 text-sm text-gray-600">{{ $t('onboarding.caretaker.orientation_body') }}</p>
+
+                        <p v-if="summary.length === 0" class="mt-3 rounded-md border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-500">
+                            {{ $t('onboarding.caretaker.orientation_empty') }}
+                        </p>
+                        <ul v-else class="mt-3 space-y-2">
+                            <li v-for="b in summary" :key="b.building_id" class="rounded-lg border border-gray-200 px-4 py-3">
+                                <p class="font-medium text-gray-900">{{ b.name }}</p>
+                                <p class="text-xs text-gray-500">
+                                    {{ b.unit_count }} units · {{ b.occupied_count }} occupied · {{ b.open_ticket_count }} open tickets
+                                </p>
+                            </li>
+                        </ul>
+                    </div>
+                </template>
+
                 <button
                     type="submit"
                     :disabled="form.processing"
                     class="w-full bg-indigo-600 text-white rounded-md py-2 px-4 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <span v-if="form.processing">…</span>
-                    <span v-else>{{ $t('onboarding.wizard.resume_cta') }}</span>
+                    <span v-else>{{ ctaLabel }}</span>
                 </button>
             </form>
         </div>

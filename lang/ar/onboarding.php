@@ -112,4 +112,14 @@ return [
         'expiry_note' => '[TODO-ar] This link is valid for 7 days.',
         'signoff' => '[TODO-ar] Thanks — the :app team',
     ],
+    'caretaker' => [
+        'title' => 'إعداد القيّم',
+        'welcome_title' => 'مرحبًا بك',
+        'welcome_body' => 'خطوات سريعة لتأكيد بياناتك والمباني التي ستديرها وكيف تريد أن تُخطَر — ثم ننقلك مباشرة إلى مهمتك الأولى.',
+        'welcome_cta' => 'ابدأ',
+        'orientation_title' => 'أنت جاهز',
+        'orientation_body' => 'هذه هي المباني التي تديرها الآن. أنهِ للانتقال إلى مهمتك الأولى المفتوحة.',
+        'orientation_empty' => 'لا توجد مبانٍ مُسندة بعد — سيُسندها المالك قريبًا.',
+        'orientation_cta' => 'اذهب إلى مهمتي الأولى',
+    ],
 ];

@@ -14,29 +14,29 @@ use App\Services\Caretaker\CaretakerAssignmentService;
 /**
  * Phase-47 ROLE-DISPATCH-3: caretaker onboarding step processor.
  *
- * OnboardingFlow::forRole('caretaker') declares 3 steps:
- *   1 → Profile                  (User: name + mobile_number)
- *   2 → Building assignment      (acknowledgement; buildings.caretaker_id is
- *                                set by the landlord when issuing the
- *                                invitation — Phase 28 surface)
- *   3 → Notification preferences (NotificationPreference upsert: which
- *                                channels the caretaker prefers)
- *
- * Scope intentionally minimal — Phase 48+ deepens building assignment UX.
+ * Phase-77 CARETAKER-FLOW-1: OnboardingFlow::forRole('caretaker') now declares
+ * 5 steps (welcome + orientation bookends, matching the landlord flow):
+ *   1 → Welcome                  (intro; no-op advance)
+ *   2 → Profile                  (User: name + mobile_number)
+ *   3 → Building assignment      (accept/decline pending assignments)
+ *   4 → Notification preferences (NotificationPreference upsert)
+ *   5 → Orientation              (building summary + first-task hand-off; no-op
+ *                                advance, the controller resolves the redirect)
  */
 class CaretakerOnboardingService implements OnboardingStepProcessor
 {
     public function __construct(
         protected CaretakerAssignmentService $assignmentService,
-    ) {
-    }
+    ) {}
 
     public function processStep(int $step, array $data, User $user, OnboardingProgress $progress): bool
     {
         return match ($step) {
-            1 => $this->processProfile($data, $user),
-            2 => $this->processBuildingAssignmentAck($data, $user),
-            3 => $this->processNotificationPreferences($data, $user),
+            1 => true, // Welcome — acknowledged by the session advance.
+            2 => $this->processProfile($data, $user),
+            3 => $this->processBuildingAssignmentAck($data, $user),
+            4 => $this->processNotificationPreferences($data, $user),
+            5 => true, // Orientation — hand-off only; no canonical write.
             default => false,
         };
     }

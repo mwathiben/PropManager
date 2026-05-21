@@ -28,8 +28,7 @@ final class OnboardingFlow
         public readonly string $role,
         public readonly array $steps,
         public readonly array $labels,
-    ) {
-    }
+    ) {}
 
     public static function forRole(string $role): self
     {
@@ -50,11 +49,13 @@ final class OnboardingFlow
             ),
             'caretaker' => new self(
                 role: 'caretaker',
-                steps: [1, 2, 3],
+                steps: [1, 2, 3, 4, 5],
                 labels: [
-                    1 => 'Profile',
-                    2 => 'Building assignment',
-                    3 => 'Notification preferences',
+                    1 => 'Welcome',
+                    2 => 'Profile',
+                    3 => 'Building assignment',
+                    4 => 'Notification preferences',
+                    5 => 'Orientation',
                 ],
             ),
             'tenant' => new self(

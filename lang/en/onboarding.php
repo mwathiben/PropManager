@@ -112,4 +112,14 @@ return [
         'expiry_note' => 'This link is valid for 7 days. If it expires, the next nudge email will include a fresh one.',
         'signoff' => 'Thanks — the :app team',
     ],
+    'caretaker' => [
+        'title' => 'Caretaker setup',
+        'welcome_title' => 'Welcome aboard',
+        'welcome_body' => 'A few quick steps to confirm your details, the buildings you will manage, and how you want to be notified — then we will drop you straight into your first task.',
+        'welcome_cta' => 'Get started',
+        'orientation_title' => "You're all set",
+        'orientation_body' => 'Here are the buildings you now manage. Finish to go to your first open task.',
+        'orientation_empty' => 'No buildings assigned yet — your landlord will assign them shortly.',
+        'orientation_cta' => 'Go to my first task',
+    ],
 ];

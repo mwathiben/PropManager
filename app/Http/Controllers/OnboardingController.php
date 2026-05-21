@@ -7,6 +7,8 @@ use App\Models\OnboardingProgress;
 use App\Models\OnboardingSession;
 use App\Models\User;
 use App\Onboarding\OnboardingFlow;
+use App\Services\Caretaker\CaretakerBuildingSummaryService;
+use App\Services\Caretaker\CaretakerFirstTaskResolver;
 use App\Services\Onboarding\CaretakerOnboardingService;
 use App\Services\Onboarding\OnboardingSessionService;
 use App\Services\Onboarding\OnboardingStepProcessor;
@@ -24,6 +26,8 @@ class OnboardingController extends Controller
         protected TenantOnboardingService $tenantOnboardingService,
         protected CaretakerOnboardingService $caretakerOnboardingService,
         protected OnboardingSessionService $sessionService,
+        protected CaretakerBuildingSummaryService $caretakerBuildingSummary,
+        protected CaretakerFirstTaskResolver $caretakerFirstTask,
     ) {}
 
     private function processorForUser(User $user): OnboardingStepProcessor
@@ -62,12 +66,48 @@ class OnboardingController extends Controller
             return redirect()->route('onboarding.index');
         }
 
+        // Phase-77 CARETAKER-FLOW-1: caretaker builds its own per-role props
+        // (welcome/profile/assignment/notif/orientation) instead of borrowing
+        // the landlord OnboardingService builder.
+        if ($user->role === 'caretaker') {
+            $props = $this->caretakerStepProps($step, $user, $progress);
+
+            return Inertia::render('Onboarding/Index', $props);
+        }
+
         $props = $this->onboardingService->getStepProps($step, $user, $progress);
 
-        // Phase-51 TENANT-WIZARD-POLISH-1/3: inject role-specific step props
-        // the role-dispatched Vue components need (caretaker step 2 pending
-        // assignments list; tenant step 2 KYC progress snapshot).
-        if ($user->role === 'caretaker' && $step === 2) {
+        // Phase-51 TENANT-WIZARD-POLISH-3: inject tenant step-2 KYC snapshot.
+        if ($user->role === 'tenant' && $step === 2) {
+            $props['kycProgress'] = $user->kycProgress();
+        }
+
+        return Inertia::render('Onboarding/Index', $props);
+    }
+
+    /**
+     * Phase-77 CARETAKER-FLOW-1: per-role caretaker step props (5-step flow).
+     * Step 3 (assignment) carries pending assignments with building stats;
+     * step 5 (orientation) carries the building summary + first-task hand-off.
+     *
+     * @return array<string, mixed>
+     */
+    private function caretakerStepProps(int $step, User $user, OnboardingProgress $progress): array
+    {
+        $props = [
+            'currentStep' => $step,
+            'completedSteps' => $progress->completed_steps ?? [],
+            'totalSteps' => 5,
+            'profile' => [
+                'name' => $user->name,
+                'mobile_number' => $user->mobile_number,
+            ],
+        ];
+
+        if ($step === 3) {
+            $stats = collect($this->caretakerBuildingSummary->forCaretaker($user, [CaretakerAssignment::STATUS_PENDING]))
+                ->keyBy('building_id');
+
             $props['pendingAssignments'] = CaretakerAssignment::query()
                 ->where('caretaker_id', $user->id)
                 ->where('status', CaretakerAssignment::STATUS_PENDING)
@@ -77,15 +117,19 @@ class OnboardingController extends Controller
                     'id' => $a->id,
                     'building_id' => $a->building_id,
                     'building_name' => $a->building?->name ?? "Building #{$a->building_id}",
+                    'unit_count' => (int) ($stats[$a->building_id]['unit_count'] ?? 0),
+                    'occupied_count' => (int) ($stats[$a->building_id]['occupied_count'] ?? 0),
+                    'open_ticket_count' => (int) ($stats[$a->building_id]['open_ticket_count'] ?? 0),
                     'created_at' => $a->created_at?->toIso8601String(),
                 ])->all();
         }
 
-        if ($user->role === 'tenant' && $step === 2) {
-            $props['kycProgress'] = $user->kycProgress();
+        if ($step === 5) {
+            $props['buildingSummary'] = $this->caretakerBuildingSummary->forCaretaker($user);
+            $props['firstTaskUrl'] = $this->caretakerFirstTask->resolve($user);
         }
 
-        return Inertia::render('Onboarding/Index', $props);
+        return $props;
     }
 
     public function saveStep(Request $request, int $step)
@@ -141,6 +185,12 @@ class OnboardingController extends Controller
             $progress->markComplete();
             if ($session->isActive()) {
                 $this->sessionService->complete($session);
+            }
+
+            // Phase-77 CARETAKER-FLOW-3 / INVITE-DEEPLINK-2: land the caretaker
+            // on their first actionable item rather than a generic dashboard.
+            if ($user->role === 'caretaker') {
+                return redirect()->to($this->caretakerFirstTask->resolve($user));
             }
 
             return redirect()->route('dashboard');
@@ -368,12 +418,14 @@ class OnboardingController extends Controller
 
     private function validateCaretakerStep(Request $request, int $step): array
     {
+        // Phase-77 CARETAKER-FLOW-1: steps renumbered for the welcome (1) +
+        // orientation (5) bookends; profile/assignment/notif shifted to 2/3/4.
         $rules = match ($step) {
-            1 => [
+            2 => [
                 'name' => 'required|string|max:255',
                 'mobile_number' => 'nullable|string|max:20',
             ],
-            2 => [
+            3 => [
                 'acknowledged' => 'nullable|boolean',
                 // Phase-48 CARETAKER-ASSIGNMENT-UX-3: explicit accept/decline.
                 'decline' => 'nullable|array',
@@ -381,7 +433,7 @@ class OnboardingController extends Controller
                 'decline_reason' => 'nullable|array',
                 'decline_reason.*' => 'nullable|string|max:255',
             ],
-            3 => [
+            4 => [
                 'email_enabled' => 'nullable|boolean',
                 'sms_enabled' => 'nullable|boolean',
                 'whatsapp_enabled' => 'nullable|boolean',
@@ -393,6 +445,7 @@ class OnboardingController extends Controller
                 'tenant_invitation_enabled' => 'nullable|boolean',
                 'lease_expiry_enabled' => 'nullable|boolean',
             ],
+            // 1 = Welcome, 5 = Orientation — no input.
             default => [],
         };
 
