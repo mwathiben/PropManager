@@ -496,6 +496,15 @@ Route::middleware('auth')->group(function () {
         ->get('/maintenance/vendor-performance', [\App\Http\Controllers\MaintenanceVendorPerformanceController::class, 'index'])
         ->name('maintenance.vendor-performance');
 
+    // Phase-75 PHOTO-ROLLUP: landlord-wide maintenance photo gallery + PDF export.
+    Route::middleware('role:landlord')->group(function () {
+        Route::get('/maintenance/photos', [\App\Http\Controllers\MaintenancePhotoGalleryController::class, 'index'])
+            ->name('maintenance.photos');
+        Route::get('/maintenance/photos/export-pdf', [\App\Http\Controllers\MaintenancePhotoGalleryController::class, 'exportPdf'])
+            ->middleware('throttle:pdf-render')
+            ->name('maintenance.photos.export-pdf');
+    });
+
     // Water Hub - Consolidates: Readings, History, Settings
     Route::get('/water', [WaterHubController::class, 'index'])->name('water.hub');
 

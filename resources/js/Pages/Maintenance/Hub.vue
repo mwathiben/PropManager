@@ -3,7 +3,7 @@ import { computed, defineAsyncComponent } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import HubShell from '@/Components/Hub/HubShell.vue';
 import { TabLoadingPlaceholder } from '@/Components/Finances';
-import { WrenchScrewdriverIcon, TicketIcon, ChatBubbleLeftRightIcon, ChartBarIcon, CubeIcon } from '@heroicons/vue/24/outline';
+import { WrenchScrewdriverIcon, TicketIcon, ChatBubbleLeftRightIcon, ChartBarIcon, CubeIcon, PhotoIcon } from '@heroicons/vue/24/outline';
 
 interface Props {
     activeTab?: string;
@@ -53,6 +53,12 @@ const tabs = computed(() => [
                 class="inline-flex items-center gap-1 rounded-md bg-white px-3 py-1.5 text-xs font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50"
             >
                 <CubeIcon class="h-4 w-4" /> {{ $t('parts.pricing.title') }}
+            </Link>
+            <Link
+                :href="route('maintenance.photos')"
+                class="inline-flex items-center gap-1 rounded-md bg-white px-3 py-1.5 text-xs font-medium text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50"
+            >
+                <PhotoIcon class="h-4 w-4" /> {{ $t('maintenance.photos.title') }}
             </Link>
         </template>
 
