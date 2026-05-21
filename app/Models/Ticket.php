@@ -75,6 +75,11 @@ class Ticket extends Model
         'vendor_id',
         'vendor_status',
         'vendor_responded_at',
+        'escalated_at',
+        'escalated_by',
+        'escalation_reason',
+        'escalation_acknowledged_at',
+        'escalation_acknowledged_by',
     ];
 
     protected $casts = [
@@ -85,6 +90,8 @@ class Ticket extends Model
         'first_response_at' => 'datetime',
         'resolution_due_at' => 'datetime',
         'vendor_responded_at' => 'datetime',
+        'escalated_at' => 'datetime',
+        'escalation_acknowledged_at' => 'datetime',
     ];
 
     /**
@@ -238,6 +245,28 @@ class Ticket extends Model
             ->where('resolution_due_at', '<', now())
             ->whereNull('resolved_at')
             ->whereNotIn('status', ['resolved', 'closed', 'cancelled']);
+    }
+
+    /**
+     * Phase-80 ESCALATION-1: tickets with an OPEN escalation — a caretaker
+     * raised it and the landlord has not yet acknowledged/reassigned.
+     *
+     * @param  Builder<Ticket>  $query
+     */
+    public function scopeEscalated(Builder $query): Builder
+    {
+        return $query->whereNotNull('escalated_at')
+            ->whereNull('escalation_acknowledged_at');
+    }
+
+    public function isEscalated(): bool
+    {
+        return $this->escalated_at !== null && $this->escalation_acknowledged_at === null;
+    }
+
+    public function escalatedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'escalated_by');
     }
 
     /**

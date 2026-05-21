@@ -516,6 +516,11 @@ Route::middleware('auth')->group(function () {
         ->get('/maintenance/vendor-performance', [\App\Http\Controllers\MaintenanceVendorPerformanceController::class, 'index'])
         ->name('maintenance.vendor-performance');
 
+    // Phase-80 CARETAKER-PERF-2: landlord-side caretaker performance comparison.
+    Route::middleware('role:landlord')
+        ->get('/maintenance/caretaker-performance', [\App\Http\Controllers\MaintenanceCaretakerPerformanceController::class, 'index'])
+        ->name('maintenance.caretaker-performance');
+
     // Phase-75 PHOTO-ROLLUP: landlord-wide maintenance photo gallery + PDF export.
     Route::middleware('role:landlord')->group(function () {
         Route::get('/maintenance/photos', [\App\Http\Controllers\MaintenancePhotoGalleryController::class, 'index'])
@@ -1076,6 +1081,18 @@ Route::middleware('auth')->group(function () {
     Route::post('/tickets/{ticket}/attachments/{document}/annotation', [\App\Http\Controllers\TicketAnnotationController::class, 'store'])
         ->name('tickets.attachments.annotation');
     Route::get('/buildings/{building}/units', [TicketController::class, 'getUnits'])->name('buildings.units');
+
+    // Phase-80 TASK-BOARD: caretaker mobile-first daily board + inline actions + escalate.
+    Route::middleware('role:caretaker')->group(function () {
+        Route::get('/my-tasks', [\App\Http\Controllers\CaretakerTaskController::class, 'index'])->name('tasks.index');
+        Route::post('/my-tasks/{ticket}/transition', [\App\Http\Controllers\CaretakerTaskController::class, 'transition'])
+            ->whereNumber('ticket')->name('tasks.transition');
+        Route::post('/my-tasks/{ticket}/escalate', [\App\Http\Controllers\CaretakerTaskController::class, 'escalate'])
+            ->whereNumber('ticket')->name('tasks.escalate');
+    });
+    // Phase-80 ESCALATION-VIEW: landlord acknowledges an open escalation.
+    Route::post('/tickets/{ticket}/escalation/acknowledge', [TicketController::class, 'acknowledgeEscalation'])
+        ->middleware('role:landlord')->whereNumber('ticket')->name('tickets.escalation.acknowledge');
 
     // 14b. Complaints (Alias to Tickets with category filter)
     Route::get('/complaints', [TicketController::class, 'index'])->name('complaints.index')->defaults('category', 'complaint');

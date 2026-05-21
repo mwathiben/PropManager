@@ -64,6 +64,11 @@ class TicketController extends Controller
             $query->where('priority', $request->priority);
         }
 
+        // Phase-80 ESCALATION-VIEW-1: the landlord's open-escalation queue.
+        if ($request->boolean('escalated')) {
+            $query->escalated();
+        }
+
         // Building/Wing filter
         $buildingId = $request->filled('building_id') ? (int) $request->building_id : null;
         $wingId = $request->filled('wing_id') ? (int) $request->wing_id : null;
@@ -105,7 +110,7 @@ class TicketController extends Controller
             'tickets' => $tickets,
             'buildings' => $buildings,
             'stats' => $stats,
-            'filters' => $request->only(['status', 'category', 'priority', 'building_id', 'wing_id', 'search']),
+            'filters' => $request->only(['status', 'category', 'priority', 'building_id', 'wing_id', 'search', 'escalated']),
             'statuses' => Ticket::statuses(),
             'priorities' => Ticket::priorities(),
             'categories' => ['issue' => 'Issue', 'complaint' => 'Complaint'],
@@ -209,6 +214,7 @@ class TicketController extends Controller
             'unit',
             'reporter',
             'assignee',
+            'escalatedBy:id,name',
             'activities.user',
             'feedback.user',
             'attachments',
@@ -251,6 +257,11 @@ class TicketController extends Controller
             'canAddInternalComment' => ! $user->isTenant(),
             'canSubmitFeedback' => $user->isTenant() && $ticket->status === \App\Enums\TicketStatus::Closed && ! $ticket->hasFeedback(),
             'canManageCosts' => $user->isLandlord(),
+            // Phase-80 ESCALATION-VIEW-3: landlord can acknowledge an open escalation from the ticket.
+            'isEscalated' => $ticket->isEscalated(),
+            'canAcknowledgeEscalation' => $user->isLandlord() && $ticket->isEscalated(),
+            'escalationReason' => $ticket->isEscalated() ? $ticket->escalation_reason : null,
+            'escalatedByName' => $ticket->isEscalated() ? $ticket->escalatedBy?->name : null,
             'costs' => $costs,
             'statuses' => Ticket::statuses(),
         ]);
@@ -308,7 +319,26 @@ class TicketController extends Controller
 
         $ticket->update(['assigned_to' => $assignee->id]);
 
+        // Phase-80 ESCALATION-VIEW-1: reassigning a stuck ticket resolves any
+        // open escalation — the landlord has acted on it.
+        if ($ticket->isEscalated()) {
+            app(\App\Services\Maintenance\TicketEscalationService::class)->acknowledge($ticket, $user);
+        }
+
         return redirect()->back()->with('success', "Ticket assigned to {$assignee->name}.");
+    }
+
+    /**
+     * Phase-80 ESCALATION-VIEW-1: landlord acknowledges an open escalation
+     * (clears it from the escalation queue) without reassigning.
+     */
+    public function acknowledgeEscalation(Ticket $ticket, \App\Services\Maintenance\TicketEscalationService $escalation): RedirectResponse
+    {
+        abort_unless(Auth::user()->isLandlord() && (int) $ticket->landlord_id === (int) Auth::id(), 403);
+
+        $escalation->acknowledge($ticket, Auth::user());
+
+        return redirect()->back()->with('success', __('maintenance.escalation.acknowledged'));
     }
 
     public function addComment(AddTicketCommentRequest $request, Ticket $ticket): RedirectResponse

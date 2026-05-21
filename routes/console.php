@@ -321,6 +321,14 @@ Schedule::command('property:benchmark-rollup')
     ->onOneServer()
     ->name('phase78-property-benchmark-rollup');
 
+// Phase-80 CARETAKER-PERF: weekly per-caretaker within-SLA gauge. Visibility-only
+// (no alert). Sits in the Sunday rollup cluster after property:benchmark-rollup.
+Schedule::command('caretaker:performance-rollup')
+    ->weeklyOn(0, '05:10')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase80-caretaker-performance-rollup');
+
 // Phase-29 WF-RENT-REMIND-1: tiered rent reminder dispatcher. Runs
 // after invoices:automate (06:00) and before tickets:audit-sla (07:00)
 // so newly-generated invoices land in the same overnight cycle.

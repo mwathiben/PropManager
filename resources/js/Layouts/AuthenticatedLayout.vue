@@ -271,6 +271,8 @@ const navigationItems = computed(() => {
     if (role === 'caretaker') {
         return [
             { name: t('nav.dashboard'), href: route('dashboard'), icon: HomeIcon, active: route().current('dashboard'), tour: 'nav-dashboard' },
+            // Phase-80 TASK-BOARD: mobile-first daily task board.
+            { name: t('nav.my_tasks'), href: route('tasks.index'), icon: ClipboardDocumentListIcon, active: route().current('tasks.*') },
             { name: t('nav.my_tickets'), href: route('tickets.index'), icon: TicketIcon, active: route().current('tickets.*'), badgeKey: 'tickets', badgeColor: 'bg-yellow-500', tour: 'nav-tickets' },
             // Phase-79 WATER-RENAME-2: caretaker lands on the hub (record-readings tab), not the legacy standalone page.
             ...(featureAccess.value.water_billing ? [{ name: t('nav.water'), href: route('water.hub'), icon: BeakerIcon, active: route().current('water.*') || route().current('readings.*'), badgeKey: 'readings', badgeColor: 'bg-cyan-500' }] : []),

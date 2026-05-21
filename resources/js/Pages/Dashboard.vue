@@ -649,6 +649,18 @@ onUnmounted(() => {
                     :actionHref="route('tickets.index')"
                 />
 
+                <!-- Phase-80 ESCALATION-VIEW-2: caretaker escalations awaiting the landlord. -->
+                <ActionItemCard
+                    v-if="localActionItems.escalated_tickets > 0"
+                    urgency="critical"
+                    :icon="ExclamationTriangleIcon"
+                    :count="localActionItems.escalated_tickets"
+                    title="Escalated Tickets"
+                    description="A caretaker needs your help"
+                    actionLabel="Review"
+                    :actionHref="route('tickets.index', { escalated: 1 })"
+                />
+
                 <!-- Phase-79 DASHBOARD-WATER-1: water reading review is a Water
                      hub concern, not a landlord-dashboard widget. The landlord
                      reviews in the Water hub; the caretaker records there. -->

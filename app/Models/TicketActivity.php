@@ -78,6 +78,11 @@ class TicketActivity extends Model
 
     public const ACTION_FEEDBACK_SUBMITTED = 'feedback_submitted';
 
+    // Phase-80 ESCALATION: caretaker→landlord escalation lifecycle.
+    public const ACTION_ESCALATED = 'escalated';
+
+    public const ACTION_ESCALATION_ACKNOWLEDGED = 'escalation_acknowledged';
+
     // --- HELPERS ---
 
     public function isSystemGenerated(): bool

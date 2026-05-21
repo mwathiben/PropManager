@@ -704,6 +704,8 @@ class DashboardService
                 ->where('end_date', '>=', now())
                 ->count(),
             'urgent_tickets' => Ticket::whereIn('building_id', $metricsBuildingIds)->open()->where('priority', 'urgent')->count(),
+            // Phase-80 ESCALATION-VIEW-2: open caretaker escalations awaiting the landlord.
+            'escalated_tickets' => Ticket::whereIn('building_id', $metricsBuildingIds)->escalated()->count(),
             // Phase-79 DASHBOARD-WATER-2: water-reading review moved to the Water
             // hub; the landlord dashboard no longer surfaces (or computes) it.
             'vacant_units' => $metricsUnits->where('status', 'vacant')->count(),

@@ -31,7 +31,19 @@ import {
 // with the new optional cost props rather than fork the @/types file
 // for two fields.
 type CostBreakdown = { parts: number; vendor: number; labor: number; other: number; total: number };
-const props = defineProps<TicketShowPageProps & { costs?: CostBreakdown | null; canManageCosts?: boolean; legalHoldActive?: boolean }>();
+const props = defineProps<TicketShowPageProps & {
+    costs?: CostBreakdown | null;
+    canManageCosts?: boolean;
+    legalHoldActive?: boolean;
+    isEscalated?: boolean;
+    canAcknowledgeEscalation?: boolean;
+    escalationReason?: string | null;
+    escalatedByName?: string | null;
+}>();
+
+function acknowledgeEscalation(): void {
+    router.post(route('tickets.escalation.acknowledge', props.ticket.id), {}, { preserveScroll: true });
+}
 const { can } = useAuth();
 const { t } = useI18n();
 
@@ -173,6 +185,22 @@ const canEdit = computed(() => {
     <AuthenticatedLayout>
         <div class="py-6">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+                <!-- Phase-80 ESCALATION-VIEW-3: open-escalation banner -->
+                <div v-if="isEscalated" class="mb-4 rounded-lg border border-purple-200 bg-purple-50 p-4" data-testid="escalation-banner">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <p class="font-semibold text-purple-800">{{ t('maintenance.escalation.banner_title') }}<span v-if="escalatedByName"> · {{ escalatedByName }}</span></p>
+                            <p v-if="escalationReason" class="mt-1 text-sm text-purple-700">{{ escalationReason }}</p>
+                        </div>
+                        <button
+                            v-if="canAcknowledgeEscalation"
+                            type="button"
+                            class="rounded-md bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700"
+                            @click="acknowledgeEscalation"
+                        >{{ t('maintenance.escalation.acknowledge') }}</button>
+                    </div>
+                </div>
+
                 <!-- Header -->
                 <div class="mb-6">
                     <Link

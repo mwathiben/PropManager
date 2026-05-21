@@ -406,6 +406,8 @@ class HandleInertiaRequests extends Middleware
                     + TenantVerification::where('landlord_id', $landlordId)->pending()->count(),
                 'invoices' => Invoice::where('landlord_id', $landlordId)->where('status', 'overdue')->count(),
                 'tickets' => Ticket::where('landlord_id', $landlordId)->open()->count(),
+                // Phase-80 ESCALATION-VIEW-2: open caretaker escalations awaiting the landlord.
+                'escalations' => Ticket::where('landlord_id', $landlordId)->escalated()->count(),
                 'readings' => $user->canAccessFeature('water_billing')
                     ? WaterReading::where('landlord_id', $landlordId)->where('status', 'pending')->count()
                     : null,
