@@ -455,6 +455,30 @@ class DocumentController extends Controller
     }
 
     /**
+     * Phase-83 LEASE-DOC-GEN-1: generate the lease agreement PDF as a Document.
+     */
+    public function generateLeaseAgreement(\App\Models\Lease $lease, \App\Services\Documents\DocumentGenerationService $generator)
+    {
+        abort_unless((int) $lease->landlord_id === $this->resolveLandlordId(), 403);
+
+        $generator->generateLeaseAgreement($lease, auth()->user());
+
+        return back()->with('success', __('lease_doc.agreement.generated'));
+    }
+
+    /**
+     * Phase-83 LEASE-DOC-GEN-2: generate a renewal-offer PDF as a Document.
+     */
+    public function generateRenewalOffer(\App\Models\LeaseRenewal $renewal, \App\Services\Documents\DocumentGenerationService $generator)
+    {
+        abort_unless((int) $renewal->landlord_id === $this->resolveLandlordId(), 403);
+
+        $generator->generateRenewalOffer($renewal, auth()->user());
+
+        return back()->with('success', __('lease_doc.renewal.generated'));
+    }
+
+    /**
      * Get documents for a specific documentable (AJAX endpoint)
      */
     public function forModel(Request $request)

@@ -26,6 +26,8 @@ use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\InvoiceSettingController;
 use App\Http\Controllers\InvoiceTemplateController;
 use App\Http\Controllers\LeaseController;
+use App\Http\Controllers\LeaseCoTenantController;
+use App\Http\Controllers\LeaseGuarantorController;
 use App\Http\Controllers\MaintenanceHubController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\OperationsHubController;
@@ -458,6 +460,20 @@ Route::middleware('auth')->group(function () {
     Route::delete('/escalations/{escalation}', [RentEscalationController::class, 'destroy'])
         ->middleware('role:landlord,caretaker')
         ->whereNumber('escalation')->name('rent-escalations.destroy');
+    // Phase-83 CO-TENANT-2: manage co-tenants on a joint tenancy.
+    Route::post('/leases/{lease}/co-tenants', [LeaseCoTenantController::class, 'store'])
+        ->middleware('role:landlord,caretaker')
+        ->whereNumber('lease')->name('lease-co-tenants.store');
+    Route::delete('/co-tenants/{coTenant}', [LeaseCoTenantController::class, 'destroy'])
+        ->middleware('role:landlord,caretaker')
+        ->whereNumber('coTenant')->name('lease-co-tenants.destroy');
+    // Phase-83 GUARANTOR-2: manage guarantors standing behind a lease.
+    Route::post('/leases/{lease}/guarantors', [LeaseGuarantorController::class, 'store'])
+        ->middleware('role:landlord,caretaker')
+        ->whereNumber('lease')->name('lease-guarantors.store');
+    Route::post('/guarantors/{guarantor}/release', [LeaseGuarantorController::class, 'release'])
+        ->middleware('role:landlord,caretaker')
+        ->whereNumber('guarantor')->name('lease-guarantors.release');
 
     // 3. The Architect (Building Configuration)
     Route::get('/buildings/{building}/configure', [BuildingController::class, 'edit'])->name('buildings.edit');
@@ -698,6 +714,14 @@ Route::middleware('auth')->group(function () {
     Route::post('/leases/{lease}/generate-notice', [DocumentController::class, 'generateNotice'])
         ->middleware('role:landlord,caretaker')
         ->whereNumber('lease')->name('documents.generate-notice');
+    // Phase-83 LEASE-DOC-GEN-1: generate the lease-agreement PDF as a Document.
+    Route::post('/leases/{lease}/generate-lease', [DocumentController::class, 'generateLeaseAgreement'])
+        ->middleware('role:landlord,caretaker')
+        ->whereNumber('lease')->name('documents.generate-lease');
+    // Phase-83 LEASE-DOC-GEN-2: generate a renewal-offer PDF as a Document.
+    Route::post('/renewals/{renewal}/generate-offer', [DocumentController::class, 'generateRenewalOffer'])
+        ->middleware('role:landlord,caretaker')
+        ->whereNumber('renewal')->name('documents.generate-renewal-offer');
     Route::get('/documents/for-model', [DocumentController::class, 'forModel'])->name('documents.forModel');
 
     // 8. Invoices

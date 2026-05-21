@@ -469,6 +469,11 @@ class MoveOutController extends Controller
             // atomically as part of completing the move-out.
             app(\App\Services\Finance\DepositSettlementService::class)->settle($moveOut, $user);
 
+            // Phase-83 GUARANTOR-2: the lease has ended — release any guarantors
+            // standing behind it (their obligation no longer applies).
+            app(\App\Services\Lease\LeaseGuarantorService::class)
+                ->releaseAllForLease($lease, __('lease.guarantor.released_move_out'));
+
             // Log activity
             TenantActivity::create([
                 'landlord_id' => $landlordId,
