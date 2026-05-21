@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Traits\TenantScope;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -19,11 +20,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $quantity
  * @property string|null $provider
  * @property string|null $account_ref
- * @property int|null $monthly_cost_cents
+ * @property string|null $monthly_cost
  */
 class BuildingAmenityDetail extends Model
 {
-    use TenantScope;
+    use HasFactory, TenantScope;
 
     protected $fillable = [
         'building_id',

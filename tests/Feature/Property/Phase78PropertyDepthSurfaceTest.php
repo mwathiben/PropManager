@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Property;
 
+use App\Models\BuildingAmenityDetail;
 use App\Services\Building\AmenityDetailService;
 use App\Services\Property\ActivePropertyResolver;
 use App\Services\Property\PropertyBenchmarkService;
@@ -34,6 +35,17 @@ class Phase78PropertyDepthSurfaceTest extends TestCase
     public function test_amenity_detail_service_is_bound(): void
     {
         $this->assertInstanceOf(AmenityDetailService::class, app(AmenityDetailService::class));
+    }
+
+    public function test_building_amenity_detail_factory_persists(): void
+    {
+        $detail = BuildingAmenityDetail::factory()->create();
+
+        $this->assertDatabaseHas('building_amenity_details', [
+            'id' => $detail->id,
+            'building_id' => $detail->building_id,
+            'landlord_id' => $detail->landlord_id,
+        ]);
     }
 
     // -- PROPERTY-METRICS / BENCHMARK --------------------------------------
