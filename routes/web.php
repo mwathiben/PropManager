@@ -185,6 +185,14 @@ Route::get('/files/local-stream', [\App\Http\Controllers\FileLocalStreamControll
     ->middleware(['signed', 'throttle:60,1'])
     ->name('files.local-stream');
 
+// Phase-73 REPORT-SHARE: public, signed, no-auth read-only report view. The
+// signature (bound to the share id + expiry) IS the authz; the controller
+// re-checks the row is active and runs the report with its OWN landlord_id.
+Route::get('/reports/share/{share}', [\App\Http\Controllers\Reports\ReportShareController::class, 'view'])
+    ->whereNumber('share')
+    ->middleware(['signed', 'throttle:60,1'])
+    ->name('reports.share.view');
+
 // Phase-54 VENDOR-ONBOARDING-2: signed-URL profile completion for a
 // vendor. No auth — the signed URL IS the auth. Outside the
 // auth-middleware group so unauthenticated vendors can complete the
@@ -835,6 +843,14 @@ Route::middleware('auth')->group(function () {
         Route::post('/', [\App\Http\Controllers\SlaDefinitionController::class, 'store'])->name('store');
         Route::patch('/{sla}', [\App\Http\Controllers\SlaDefinitionController::class, 'update'])->name('update');
         Route::delete('/{sla}', [\App\Http\Controllers\SlaDefinitionController::class, 'destroy'])->name('destroy');
+    });
+
+    // Phase-73 REPORT-SHARE: landlord mints/lists/revokes signed report links.
+    Route::middleware('role:landlord')->prefix('reports/shares')->name('reports.shares.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Reports\ReportShareController::class, 'index'])->name('index');
+        Route::post('/', [\App\Http\Controllers\Reports\ReportShareController::class, 'store'])->name('store');
+        Route::post('/{share}/revoke', [\App\Http\Controllers\Reports\ReportShareController::class, 'revoke'])
+            ->whereNumber('share')->name('revoke');
     });
 
     // Phase-27 BI-DELIVERY-2/3: scheduled report delivery self-serve.
