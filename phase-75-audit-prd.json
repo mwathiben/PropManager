@@ -19,7 +19,8 @@
       "category": "VENDOR-PERF",
       "title": "Landlord vendor-performance service (compare all vendors: SLA%, resolution, cost/ticket)",
       "evidence": "VendorSlaService computes only the calling vendor's own metrics (v/portal/sla). A landlord has no way to compare their vendors to pick the best or control cost.",
-      "remediation": "VendorPerformanceService::forLandlord(int $landlordId, int $windowDays=90): list of {vendor_id, name, resolved_count, within_sla_pct, avg_resolution_hours, open_overdue, cost_total_cents, cost_per_ticket_cents}. Reuse the VendorSlaService math (extract a shared resolution-window query) + TicketCostService category sums (vendor+parts+labor) per vendor. Strictly landlord-scoped (tickets.landlord_id = $landlordId, vendor.landlord_id match). Phase75 test: two landlords' vendors don't bleed; within_sla% + cost_per_ticket math correct."
+      "remediation": "VendorPerformanceService::forLandlord(int $landlordId, int $windowDays=90): list of {vendor_id, name, resolved_count, within_sla_pct, avg_resolution_hours, open_overdue, cost_total_cents, cost_per_ticket_cents}. Reuse the VendorSlaService math (extract a shared resolution-window query) + TicketCostService category sums (vendor+parts+labor) per vendor. Strictly landlord-scoped (tickets.landlord_id = $landlordId, vendor.landlord_id match). Phase75 test: two landlords' vendors don't bleed; within_sla% + cost_per_ticket math correct.",
+      "passes": true
     },
     {
       "id": "VENDOR-PERF-2",
@@ -27,7 +28,8 @@
       "category": "VENDOR-PERF",
       "title": "Landlord vendor-performance dashboard page",
       "evidence": "No UI surfaces vendor comparison.",
-      "remediation": "MaintenanceVendorPerformanceController@index → Pages/Maintenance/VendorPerformance.vue: a sortable table (by within-SLA%, cost/ticket, open overdue) + a window selector (30/90/365). Route maintenance.vendor-performance (role:landlord). Link from the Maintenance hub + the assign-vendor UI. data-testid='vendor-performance'. Phase75 feature test: page renders for the landlord with their vendors only."
+      "remediation": "MaintenanceVendorPerformanceController@index → Pages/Maintenance/VendorPerformance.vue: a sortable table (by within-SLA%, cost/ticket, open overdue) + a window selector (30/90/365). Route maintenance.vendor-performance (role:landlord). Link from the Maintenance hub + the assign-vendor UI. data-testid='vendor-performance'. Phase75 feature test: page renders for the landlord with their vendors only.",
+      "passes": true
     },
     {
       "id": "VENDOR-PERF-3",
@@ -35,7 +37,8 @@
       "category": "VENDOR-PERF",
       "title": "Per-vendor SLA-breach observability + lang + runbook",
       "evidence": "tickets:audit-sla emits breach gauges but not dimensioned by vendor; no operator doc for the new dashboard.",
-      "remediation": "Add a vendor_sla_breach_count{vendor_id} gauge (emitted by a maintenance:vendor-perf-rollup cron OR the existing audit-sla, vendor-dimensioned). lang vendors.performance.*. maintenance.md gains a Phase-70/75 vendor-performance section. Phase75 surface asserts the gauge name + lang keys."
+      "remediation": "Add a vendor_sla_breach_count{vendor_id} gauge (emitted by a maintenance:vendor-perf-rollup cron OR the existing audit-sla, vendor-dimensioned). lang vendors.performance.*. maintenance.md gains a Phase-70/75 vendor-performance section. Phase75 surface asserts the gauge name + lang keys.",
+      "passes": true
     },
     {
       "id": "VENDOR-ROUTING-1",
@@ -43,7 +46,8 @@
       "category": "VENDOR-ROUTING",
       "title": "Vendor specialties (category competencies)",
       "evidence": "Vendor has no specialty/trade columns — a landlord can't record which vendor does plumbing vs electrical, so assignment is blind.",
-      "remediation": "vendor_specialties table (vendor_id FK cascade, category) unique(vendor_id, category); category validated against Ticket::issueSubcategories() allow-list. Vendor::specialties() relation + sync helper. UI on the vendor edit/create form (checkbox grid of categories). TenantScope via vendor ownership. Phase75 test: specialties persist + are allow-list-gated; cross-tenant vendor rejected."
+      "remediation": "vendor_specialties table (vendor_id FK cascade, category) unique(vendor_id, category); category validated against Ticket::issueSubcategories() allow-list. Vendor::specialties() relation + sync helper. UI on the vendor edit/create form (checkbox grid of categories). TenantScope via vendor ownership. Phase75 test: specialties persist + are allow-list-gated; cross-tenant vendor rejected.",
+      "passes": true
     },
     {
       "id": "VENDOR-ROUTING-2",
@@ -51,7 +55,8 @@
       "category": "VENDOR-ROUTING",
       "title": "Vendor pool suggestion for a ticket",
       "evidence": "The assign-vendor UI shows a flat list; the landlord must know each vendor's trade.",
-      "remediation": "VendorAssignmentService::suggestPool(Ticket): vendors WHERE landlord match AND is_active AND specialty matches the ticket's subcategory (fallback: all active when none match), ranked by within_sla_pct desc then open-load asc (reuse VendorPerformanceService). Surface 'suggested' vendors at the top of the assign UI with a reason. Phase75 test: pool filters by specialty + ranks by performance."
+      "remediation": "VendorAssignmentService::suggestPool(Ticket): vendors WHERE landlord match AND is_active AND specialty matches the ticket's subcategory (fallback: all active when none match), ranked by within_sla_pct desc then open-load asc (reuse VendorPerformanceService). Surface 'suggested' vendors at the top of the assign UI with a reason. Phase75 test: pool filters by specialty + ranks by performance.",
+      "passes": true
     },
     {
       "id": "VENDOR-ROUTING-3",
@@ -59,7 +64,8 @@
       "category": "VENDOR-ROUTING",
       "title": "Opt-in auto-route on ticket assignment",
       "evidence": "Even with a pool, assignment is a manual click.",
-      "remediation": "Config/per-landlord opt-in (landlord_hold_settings-style or a maintenance setting) auto_route_vendors. When on, a TicketCreated/assignment listener auto-assigns the top suggestPool vendor (idempotent — only if vendor_id null), via VendorAssignmentService (same guard + TicketAssignedToVendor event with assignment_reason='auto'). Off by default; never overrides a manual assignment. Phase75 test: auto-route assigns the best pool vendor only when enabled; no-op when a vendor is already set or pool empty."
+      "remediation": "Config/per-landlord opt-in (landlord_hold_settings-style or a maintenance setting) auto_route_vendors. When on, a TicketCreated/assignment listener auto-assigns the top suggestPool vendor (idempotent — only if vendor_id null), via VendorAssignmentService (same guard + TicketAssignedToVendor event with assignment_reason='auto'). Off by default; never overrides a manual assignment. Phase75 test: auto-route assigns the best pool vendor only when enabled; no-op when a vendor is already set or pool empty.",
+      "passes": true
     },
     {
       "id": "PARTS-PRICING-1",
@@ -67,7 +73,8 @@
       "category": "PARTS-PRICING",
       "title": "Part price history",
       "evidence": "Part.cost_per_unit_cents is a single current value; no record of how a part's price changed, so cost trend + audit are impossible.",
-      "remediation": "part_price_history table (part_id FK cascade, cost_per_unit_cents, source enum {manual,purchase_order,import}, effective_at, recorded_by?). A Part saving observer appends a history row when cost_per_unit_cents changes (+ an initial row on create). PartPriceHistory model (TenantScope via part.landlord_id or landlord_id column). Phase75 test: changing a part's cost appends one history row; unchanged saves don't."
+      "remediation": "part_price_history table (part_id FK cascade, cost_per_unit_cents, source enum {manual,purchase_order,import}, effective_at, recorded_by?). A Part saving observer appends a history row when cost_per_unit_cents changes (+ an initial row on create). PartPriceHistory model (TenantScope via part.landlord_id or landlord_id column). Phase75 test: changing a part's cost appends one history row; unchanged saves don't.",
+      "passes": true
     },
     {
       "id": "PARTS-PRICING-2",
@@ -75,7 +82,8 @@
       "category": "PARTS-PRICING",
       "title": "Supplier-per-part mapping + comparison",
       "evidence": "parts:reorder-suggest infers a vendor from ticket history; there is no real supplier→part catalogue with per-supplier unit cost + lead time.",
-      "remediation": "part_suppliers table (part_id FK, vendor_id FK, unit_cost_cents, lead_time_days, min_order_qty) unique(part_id, vendor_id); both FKs landlord-scoped. Part::suppliers() relation + cheapestSupplier()/fastestSupplier() helpers. UI to manage suppliers per part. Phase75 test: cheapest/fastest supplier resolution; cross-tenant supplier rejected."
+      "remediation": "part_suppliers table (part_id FK, vendor_id FK, unit_cost_cents, lead_time_days, min_order_qty) unique(part_id, vendor_id); both FKs landlord-scoped. Part::suppliers() relation + cheapestSupplier()/fastestSupplier() helpers. UI to manage suppliers per part. Phase75 test: cheapest/fastest supplier resolution; cross-tenant supplier rejected.",
+      "passes": true
     },
     {
       "id": "PARTS-PRICING-3",
@@ -83,7 +91,8 @@
       "category": "PARTS-PRICING",
       "title": "Price-history + supplier comparison UI + lang",
       "evidence": "The new pricing data needs a surface.",
-      "remediation": "Parts page gains a per-part price-history sparkline/list + a supplier comparison table (unit cost, lead time, min order). lang parts.pricing.*. Phase75 surface asserts the route/Vue tokens + lang keys."
+      "remediation": "Parts page gains a per-part price-history sparkline/list + a supplier comparison table (unit cost, lead time, min order). lang parts.pricing.*. Phase75 surface asserts the route/Vue tokens + lang keys.",
+      "passes": true
     },
     {
       "id": "PARTS-PREDICT-1",
@@ -91,7 +100,8 @@
       "category": "PARTS-PREDICT",
       "title": "Part usage-rate derivation",
       "evidence": "Reorder qty is a static threshold*2 - available; consumption velocity is ignored.",
-      "remediation": "PartUsageService::dailyRate(Part, int $windowDays=90): sum(ticket_parts.qty_used in window) / windowDays, landlord-scoped. parts_usage_rate_per_day{part_id} gauge from the audit-stock cron. Phase75 test: rate math over a seeded ticket_parts window."
+      "remediation": "PartUsageService::dailyRate(Part, int $windowDays=90): sum(ticket_parts.qty_used in window) / windowDays, landlord-scoped. parts_usage_rate_per_day{part_id} gauge from the audit-stock cron. Phase75 test: rate math over a seeded ticket_parts window.",
+      "passes": true
     },
     {
       "id": "PARTS-PREDICT-2",
@@ -99,7 +109,8 @@
       "category": "PARTS-PREDICT",
       "title": "Lead-time-aware reorder",
       "evidence": "parts:reorder-suggest fires only when qty <= threshold — parts can deplete before a reorder arrives (no lead-time buffer).",
-      "remediation": "Extend the reorder trigger: order when qty_available <= reorder_threshold + ceil(lead_time_days * dailyRate) (lead_time from the cheapest/known supplier, default config days). Suggested qty grows by the projected lead-time consumption. Reuse Part::belowThreshold by adding a belowEffectiveThreshold scope/helper; parts:reorder-suggest uses it. Preserve idempotent DraftPurchaseOrder upsert + cron ordering. Phase75 test: a part above the static threshold but within the lead-time buffer is suggested; idempotent re-run."
+      "remediation": "Extend the reorder trigger: order when qty_available <= reorder_threshold + ceil(lead_time_days * dailyRate) (lead_time from the cheapest/known supplier, default config days). Suggested qty grows by the projected lead-time consumption. Reuse Part::belowThreshold by adding a belowEffectiveThreshold scope/helper; parts:reorder-suggest uses it. Preserve idempotent DraftPurchaseOrder upsert + cron ordering. Phase75 test: a part above the static threshold but within the lead-time buffer is suggested; idempotent re-run.",
+      "passes": true
     },
     {
       "id": "PARTS-PREDICT-3",
@@ -107,7 +118,8 @@
       "category": "PARTS-PREDICT",
       "title": "Predictive reorder surface + observability + runbook",
       "evidence": "The lead-time logic needs visibility + docs.",
-      "remediation": "Purchase-orders UI shows the trigger reason (static threshold vs lead-time buffer) + projected stockout date. parts_predicted_stockout_count gauge. maintenance.md parts-forecast section. Phase75 surface asserts the gauge + doc."
+      "remediation": "Purchase-orders UI shows the trigger reason (static threshold vs lead-time buffer) + projected stockout date. parts_predicted_stockout_count gauge. maintenance.md parts-forecast section. Phase75 surface asserts the gauge + doc.",
+      "passes": true
     },
     {
       "id": "PHOTO-ROLLUP-1",
@@ -115,7 +127,8 @@
       "category": "PHOTO-ROLLUP",
       "title": "Cross-ticket photo gallery (per building / unit / category)",
       "evidence": "Ticket photos + annotations are viewable only inside a single ticket; there is no maintenance photo gallery across tickets.",
-      "remediation": "MaintenancePhotoGalleryController@index: landlord-scoped query over ticket attachment Documents joined to tickets, filterable by building_id / unit_id / category / date range; groups originals with their annotation siblings (annotates_document_id). Route maintenance.photos (role:landlord, NO N+1). Phase75 test: gallery returns only the landlord's ticket photos, filtered by building + category; signed/streamed image URLs reuse the Phase-59 pattern."
+      "remediation": "MaintenancePhotoGalleryController@index: landlord-scoped query over ticket attachment Documents joined to tickets, filterable by building_id / unit_id / category / date range; groups originals with their annotation siblings (annotates_document_id). Route maintenance.photos (role:landlord, NO N+1). Phase75 test: gallery returns only the landlord's ticket photos, filtered by building + category; signed/streamed image URLs reuse the Phase-59 pattern.",
+      "passes": true
     },
     {
       "id": "PHOTO-ROLLUP-2",
@@ -123,7 +136,8 @@
       "category": "PHOTO-ROLLUP",
       "title": "Photo gallery Vue page + filters",
       "evidence": "The gallery needs a UI.",
-      "remediation": "Pages/Maintenance/PhotoGallery.vue: a responsive grid with building/category/date filters, original + annotated overlay, lightbox. data-testid='photo-gallery'. Linked from the Maintenance hub. lang maintenance.photos.*. Phase75 surface asserts the route/Vue token + lang."
+      "remediation": "Pages/Maintenance/PhotoGallery.vue: a responsive grid with building/category/date filters, original + annotated overlay, lightbox. data-testid='photo-gallery'. Linked from the Maintenance hub. lang maintenance.photos.*. Phase75 surface asserts the route/Vue token + lang.",
+      "passes": true
     },
     {
       "id": "PHOTO-ROLLUP-3",
@@ -131,7 +145,8 @@
       "category": "PHOTO-ROLLUP",
       "title": "Photo rollup PDF export (contractor handoff / records)",
       "evidence": "No way to export a set of ticket photos + annotations for a building/unit/date range.",
-      "remediation": "MaintenancePhotoGalleryController@exportPdf (dompdf, reuse the Phase-74 export pattern): a PDF of the filtered photo set (original + annotation captions + ticket ref + date), owner-only, throttle:pdf-render. Route maintenance.photos.export-pdf. Phase75 test: owner gets application/pdf; cross-tenant filter yields none / 403."
+      "remediation": "MaintenancePhotoGalleryController@exportPdf (dompdf, reuse the Phase-74 export pattern): a PDF of the filtered photo set (original + annotation captions + ticket ref + date), owner-only, throttle:pdf-render. Route maintenance.photos.export-pdf. Phase75 test: owner gets application/pdf; cross-tenant filter yields none / 403.",
+      "passes": true
     },
     {
       "id": "CI-1",
@@ -139,7 +154,8 @@
       "category": "CI",
       "title": "Phase75 cross-category surface + isolation suite",
       "evidence": "The new vendor-performance, specialties, auto-route, price-history, supplier, lead-time reorder, and photo gallery are all multi-tenant + money-bearing and must be guarded against drift + cross-tenant regressions.",
-      "remediation": "Phase75MaintenanceDepth3SurfaceTest: tables (vendor_specialties, part_price_history, part_suppliers) + columns + classes (VendorPerformanceService, PartUsageService, the controllers) + routes (maintenance.vendor-performance, maintenance.photos[.export-pdf], assign-vendor pool) + Vue tokens + lang parity + cron registrations (parts:reorder-suggest lead-time, audit-stock gauges). Behaviour: vendor-perf isolation + cost math, specialty allow-list + cross-tenant, suggestPool ranking, auto-route opt-in, price-history append, supplier cheapest/fastest, lead-time reorder trigger, photo-gallery isolation. All RefreshDatabase + actingAs."
+      "remediation": "Phase75MaintenanceDepth3SurfaceTest: tables (vendor_specialties, part_price_history, part_suppliers) + columns + classes (VendorPerformanceService, PartUsageService, the controllers) + routes (maintenance.vendor-performance, maintenance.photos[.export-pdf], assign-vendor pool) + Vue tokens + lang parity + cron registrations (parts:reorder-suggest lead-time, audit-stock gauges). Behaviour: vendor-perf isolation + cost math, specialty allow-list + cross-tenant, suggestPool ranking, auto-route opt-in, price-history append, supplier cheapest/fastest, lead-time reorder trigger, photo-gallery isolation. All RefreshDatabase + actingAs.",
+      "passes": true
     },
     {
       "id": "CI-2",
@@ -147,7 +163,8 @@
       "category": "CI",
       "title": "Reuse-not-rebuild verification + cron ordering",
       "evidence": "Phase 75 extends VendorSlaService/TicketCostService/parts:reorder-suggest/Document rather than rebuilding; the seams + cron ordering must be asserted.",
-      "remediation": "Assert VendorPerformanceService reuses the VendorSlaService window query (no duplicate SLA math); assert parts:reorder-suggest still runs after parts:audit-stock and before tickets:audit-sla; assert TicketCostService::summarize remains the single cost source. Confirm no N+1 in the photo gallery (NPlusOneBaseline clean)."
+      "remediation": "Assert VendorPerformanceService reuses the VendorSlaService window query (no duplicate SLA math); assert parts:reorder-suggest still runs after parts:audit-stock and before tickets:audit-sla; assert TicketCostService::summarize remains the single cost source. Confirm no N+1 in the photo gallery (NPlusOneBaseline clean).",
+      "passes": true
     },
     {
       "id": "CI-3",
@@ -155,7 +172,24 @@
       "category": "CI",
       "title": "Runbook + nav + lang closeout",
       "evidence": "New surfaces need operator docs + navigation + localisation.",
-      "remediation": "maintenance.md gains vendor-performance + auto-routing + parts-pricing/forecast + photo-gallery sections (incl. the Phase-70 vendor-portal gap noted by the scout). Maintenance hub links to vendor-performance + photo gallery. lang parity finalised (en full; sw/ar [TODO]). Phase75 surface asserts the runbook sections + lang keys."
+      "remediation": "maintenance.md gains vendor-performance + auto-routing + parts-pricing/forecast + photo-gallery sections (incl. the Phase-70 vendor-portal gap noted by the scout). Maintenance hub links to vendor-performance + photo gallery. lang parity finalised (en full; sw/ar [TODO]). Phase75 surface asserts the runbook sections + lang keys.",
+      "passes": true
     }
-  ]
+  ],
+  "closeout": {
+    "closed_at": "2026-05-21",
+    "result": "18/18 findings pass — zero PRD-finding deferrals",
+    "commits": {
+      "VENDOR-PERF": "d2a9a8e",
+      "VENDOR-ROUTING": "b4e00ec",
+      "PARTS-PRICING": "f3669f1",
+      "PARTS-PREDICT": "bd3b862",
+      "PHOTO-ROLLUP": "5fa4556",
+      "CI": "this commit"
+    },
+    "summary": "Phase 49/54 maintenance-workflow sequel. VENDOR-PERF: VendorPerformanceService::forLandlord (within-SLA %, avg resolution, open overdue, cost/ticket, soft-delete-aware cost join) + sortable /maintenance/vendor-performance. VENDOR-ROUTING: vendor_specialties (allow-list gated to Ticket::issueSubcategories) + suggestPool (specialty filter → performance rank) + opt-in autoAssign (config maintenance.auto_route_vendors, never overrides, TicketObserver afterCommit). PARTS-PRICING: append-only part_price_history (PartObserver on create + cost change only) + part_suppliers (unique part+vendor, landlord-scoped FKs) + cheapest/fastest helpers + /parts/pricing UI (sparkline + supplier comparison). PARTS-PREDICT: PartUsageService dailyRate/dailyRatesFor + effective threshold reorder_threshold+ceil(lead_time*rate); trigger_reason (static|lead_time_buffer) + projected_stockout_at on draft lines; parts_usage_rate_per_day + parts_predicted_stockout_count gauges; coarse DB pre-filter bounds cron memory. PHOTO-ROLLUP: landlord-scoped MaintenancePhotoGalleryController (whereHasMorph ticket filters, originals-only with grouped annotation siblings, no N+1) + grid/lightbox PhotoGallery.vue + dompdf export (capped 60, owner-disk base64, throttle:pdf-render).",
+    "tests": "Phase75VendorPerformanceTest + Phase75VendorRoutingTest + Phase75PartsPricingTest (4) + Phase75PartsPredictTest (5) + Phase75PhotoRollupTest (6) + Phase75MaintenanceDepth3SurfaceTest (11). Existing Phase49/Phase54 maintenance suites stay green (no reorder-cron regression).",
+    "constraints_preserved": "Every Part/PartSupplier/PartPriceHistory/Vendor/Document/Ticket query landlord-scoped (TenantScope + explicit where); PartSupplierController rejects cross-tenant vendors AND foreign parts; photo gallery + PDF expose only the acting landlord (whereHasMorph runs against the landlord-scoped Ticket subquery); PDF reads only the owner tenant disk; documents.view re-checks ownership; no DB::raw (selectRaw is static SQL only, mirrors VendorPerformanceService); reorder-cron idempotent upsert preserved.",
+    "coderabbit": "Clean per sub-phase. Caught/fixed: VENDOR-PERF cost join bypassed SoftDeletes; VENDOR-ROUTING FinanceFilterService::getVendors silently wiped specialties on edit (HIGH); PARTS-PRICING signed-int overflow on cents columns (widened to unsignedBigInteger + validation max) + untranslated flash; PARTS-PREDICT applied LOW-1 coarse pre-filter to bound cron memory; PHOTO-ROLLUP applied LOW-1 (category filter spans issue + complaint subcategories). Cross-tenant/IDOR, Blade XSS, owner-only PDF reads all verified test-backed."
+  }
 }
