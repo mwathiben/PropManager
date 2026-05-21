@@ -109,6 +109,30 @@ class Lease extends Model
     }
 
     /**
+     * Phase-83 RENT-ESCALATION-1: scheduled rent increases on this lease.
+     */
+    public function rentEscalations(): HasMany
+    {
+        return $this->hasMany(RentEscalation::class)->orderBy('effective_date');
+    }
+
+    /**
+     * Phase-83 CO-TENANT-1: additional tenants on a joint tenancy (active only).
+     */
+    public function coTenants(): HasMany
+    {
+        return $this->hasMany(LeaseCoTenant::class)->whereNull('removed_at');
+    }
+
+    /**
+     * Phase-83 GUARANTOR-1: parties guaranteeing this lease.
+     */
+    public function guarantors(): HasMany
+    {
+        return $this->hasMany(LeaseGuarantor::class);
+    }
+
+    /**
      * Get all documents associated with this lease
      */
     public function documents()

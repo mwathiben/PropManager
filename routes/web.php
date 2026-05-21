@@ -35,6 +35,7 @@ use App\Http\Controllers\PaymentsHubController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReceiptTemplateController;
 use App\Http\Controllers\RefundController;
+use App\Http\Controllers\RentEscalationController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\TenantController;
 use App\Http\Controllers\TenantEmergencyContactController;
@@ -450,6 +451,13 @@ Route::middleware('auth')->group(function () {
     // Phase-61 RENEWAL-AUTO-3: per-lease auto-renew toggle.
     Route::patch('/leases/{lease}/auto-renew', [LeaseController::class, 'toggleAutoRenew'])
         ->name('leases.auto-renew');
+    // Phase-83 RENT-ESCALATION-3: schedule / cancel future rent increases.
+    Route::post('/leases/{lease}/escalations', [RentEscalationController::class, 'store'])
+        ->middleware('role:landlord,caretaker')
+        ->whereNumber('lease')->name('rent-escalations.store');
+    Route::delete('/escalations/{escalation}', [RentEscalationController::class, 'destroy'])
+        ->middleware('role:landlord,caretaker')
+        ->whereNumber('escalation')->name('rent-escalations.destroy');
 
     // 3. The Architect (Building Configuration)
     Route::get('/buildings/{building}/configure', [BuildingController::class, 'edit'])->name('buildings.edit');

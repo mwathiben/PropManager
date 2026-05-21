@@ -337,6 +337,14 @@ Schedule::command('documents:expiry-rollup')
     ->onOneServer()
     ->name('phase82-documents-expiry-rollup');
 
+// Phase-83 RENT-ESCALATION-3: weekly per-landlord scheduled-escalation gauge.
+// Visibility-only (no alert). Sunday rollup cluster after documents expiry.
+Schedule::command('rent:escalation-rollup')
+    ->weeklyOn(0, '05:20')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase83-rent-escalation-rollup');
+
 // Phase-29 WF-RENT-REMIND-1: tiered rent reminder dispatcher. Runs
 // after invoices:automate (06:00) and before tickets:audit-sla (07:00)
 // so newly-generated invoices land in the same overnight cycle.
@@ -362,6 +370,15 @@ Schedule::command('documents:scan-expiring')
     ->timezone('Africa/Nairobi')
     ->onOneServer()
     ->name('phase82-documents-scan-expiring');
+
+// Phase-83 RENT-ESCALATION-2: apply scheduled rent escalations whose effective
+// date has arrived (rent_amount + rent_histories + tenant notice). Sits just
+// after the document-expiry scan; idempotent so a re-run is safe.
+Schedule::command('rent:apply-escalations')
+    ->dailyAt('07:40')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase83-rent-apply-escalations');
 
 // Phase-45 LEASE-COUNTER-3: expire counter-offers older than 14 days.
 // Runs at 06:00 — before tickets:audit-sla (07:00) so any expiry

@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\DB;
  */
 class LeaseRenewalAutoService
 {
+    public function __construct(private readonly RentEscalationService $escalations) {}
+
     /**
      * @return array<int, Lease> the newly created leases
      */
@@ -55,7 +57,7 @@ class LeaseRenewalAutoService
         $termDays = $lease->start_date->diffInDays($lease->end_date);
         $end = $start->copy()->addDays($termDays);
 
-        return Lease::create([
+        $renewed = Lease::create([
             'unit_id' => $lease->unit_id,
             'tenant_id' => $lease->tenant_id,
             'landlord_id' => $lease->landlord_id,
@@ -69,5 +71,11 @@ class LeaseRenewalAutoService
             'renewed_from_lease_id' => $lease->id,
             'reminder_tier' => $lease->reminder_tier,
         ]);
+
+        // Phase-83 RENT-ESCALATION-3: fold any escalation due by the new term's
+        // start into the renewed rent instead of inheriting it flat.
+        $this->escalations->applyAtRenewal($lease, $renewed);
+
+        return $renewed;
     }
 }
