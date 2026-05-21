@@ -191,6 +191,14 @@ Route::get('/reports/share/{share}', [\App\Http\Controllers\Reports\ReportShareC
     ->middleware(['signed', 'throttle:60,1'])
     ->name('reports.share.view');
 
+// Phase-74 DASH-SHARE: public, signed, no-auth read-only dashboard view.
+// Same contract as reports.share.view — signature is the authz; the controller
+// re-checks the row is active and builds the dashboard with its OWN landlord_id.
+Route::get('/dashboards/share/{share}', [\App\Http\Controllers\Reports\DashboardShareController::class, 'view'])
+    ->whereNumber('share')
+    ->middleware(['signed', 'throttle:60,1'])
+    ->name('dashboards.share.view');
+
 // Phase-54 VENDOR-ONBOARDING-2: signed-URL profile completion for a
 // vendor. No auth — the signed URL IS the auth. Outside the
 // auth-middleware group so unauthenticated vendors can complete the
@@ -813,6 +821,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/create', [\App\Http\Controllers\Reports\DashboardController::class, 'create'])->name('create');
         Route::post('/', [\App\Http\Controllers\Reports\DashboardController::class, 'store'])->name('store');
         Route::post('/preview', [\App\Http\Controllers\Reports\DashboardController::class, 'preview'])->name('preview');
+        // Phase-74 DASH-SHARE: signed dashboard links. Registered before the
+        // {slug} show route so /dashboards/shares isn't bound as a slug.
+        Route::get('/shares', [\App\Http\Controllers\Reports\DashboardShareController::class, 'index'])->name('shares.index');
+        Route::post('/shares', [\App\Http\Controllers\Reports\DashboardShareController::class, 'store'])->name('shares.store');
+        Route::post('/shares/{share}/revoke', [\App\Http\Controllers\Reports\DashboardShareController::class, 'revoke'])
+            ->whereNumber('share')->name('shares.revoke');
         Route::get('/{dashboard}/edit', [\App\Http\Controllers\Reports\DashboardController::class, 'edit'])->whereNumber('dashboard')->name('edit');
         Route::put('/{dashboard}', [\App\Http\Controllers\Reports\DashboardController::class, 'update'])->whereNumber('dashboard')->name('update');
         Route::delete('/{dashboard}', [\App\Http\Controllers\Reports\DashboardController::class, 'destroy'])->whereNumber('dashboard')->name('destroy');

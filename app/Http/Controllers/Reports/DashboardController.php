@@ -211,7 +211,7 @@ class DashboardController extends Controller
         // of 'create'/'preview' would shadow the show page — force a suffix.
         // withTrashed() so we don't collide with a soft-deleted row's slug
         // (the unique index counts trashed rows).
-        $reserved = ['create', 'preview', 'preferences'];
+        $reserved = ['create', 'preview', 'preferences', 'shares', 'share'];
 
         while (in_array($slug, $reserved, true)
             || LandlordDashboard::query()
