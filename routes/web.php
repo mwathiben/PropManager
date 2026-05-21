@@ -468,8 +468,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/buildings', [BuildingController::class, 'storeStandalone'])->name('buildings.storeStandalone');
 
     // Properties (Legacy redirect + store for backward compatibility)
-    Route::get('/properties', fn () => redirect()->route('buildings.index'))->name('properties.index');
+    Route::get('/properties', [\App\Http\Controllers\PropertyController::class, 'index'])->name('properties.index');
     Route::post('/properties', [\App\Http\Controllers\PropertyController::class, 'store'])->name('properties.store');
+    // Phase-78 PROPERTY-VIEW-1: single-property dashboard.
+    Route::get('/properties/{property}', [\App\Http\Controllers\PropertyController::class, 'show'])
+        ->whereNumber('property')->name('properties.show');
 
     // Building Details & Dashboard
     Route::get('/buildings/{building}', [BuildingController::class, 'show'])->name('buildings.show');

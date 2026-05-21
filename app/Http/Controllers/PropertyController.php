@@ -2,45 +2,65 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\WithLandlordScope;
 use App\Models\Building;
 use App\Models\Property;
 use App\Models\Unit;
+use App\Services\Property\PropertyMetricsService;
+use App\Services\Reports\NoiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class PropertyController extends Controller
 {
+    use WithLandlordScope;
+
+    public function __construct(
+        protected PropertyMetricsService $metrics,
+    ) {}
+
     /**
-     * Display all properties for the landlord (Home page).
+     * Phase-78 PROPERTY-VIEW-3: the property tier — every property with its
+     * portfolio metrics (occupancy / rent roll / arrears).
      */
-    public function index()
+    public function index(): Response
     {
-        $user = auth()->user();
+        return Inertia::render('Properties/Index', [
+            'properties' => $this->metrics->forLandlord($this->getLandlordId()),
+        ]);
+    }
 
-        $properties = $user->properties()
-            ->with(['buildings' => function ($query) {
-                $query->withCount('units')
-                    ->withCount(['units as occupied_units_count' => function ($q) {
-                        $q->where('status', 'occupied');
-                    }]);
-            }])
-            ->get()
-            ->map(function ($property) {
-                $property->buildings->transform(function ($building) {
-                    $building->occupancy_rate = $building->units_count > 0
-                        ? round(($building->occupied_units_count / $building->units_count) * 100)
-                        : 0;
+    /**
+     * Phase-78 PROPERTY-VIEW-1: single-property dashboard (owner-gated).
+     */
+    public function show(Property $property, NoiService $noi): Response
+    {
+        abort_unless((int) $property->landlord_id === $this->getLandlordId(), 404);
 
-                    return $building;
-                });
+        $buildings = $property->buildings()
+            ->withCount('units')
+            ->withCount(['units as occupied_units_count' => fn ($q) => $q->where('status', 'occupied')])
+            ->orderBy('name')
+            ->get(['id', 'name', 'building_type'])
+            ->map(fn ($b) => [
+                'id' => $b->id,
+                'name' => $b->name,
+                'building_type' => $b->building_type,
+                'unit_count' => $b->units_count,
+                'occupied_count' => $b->occupied_units_count,
+                'occupancy_pct' => $b->units_count > 0 ? round($b->occupied_units_count / $b->units_count * 100, 1) : 0.0,
+            ]);
 
-                return $property;
-            });
+        $noiRow = collect($noi->byProperty($this->getLandlordId())['properties'])
+            ->firstWhere('property_id', $property->id);
 
-        return Inertia::render('Landlord/Home', [
-            'properties' => $properties,
-            'buildingTypes' => Building::BUILDING_TYPES,
+        return Inertia::render('Properties/Show', [
+            'property' => ['id' => $property->id, 'name' => $property->name, 'type' => $property->type, 'address' => $property->address, 'estimated_value' => $property->estimated_value],
+            'metrics' => $this->metrics->forProperty($property),
+            'buildings' => $buildings,
+            'noi' => $noiRow,
         ]);
     }
 
