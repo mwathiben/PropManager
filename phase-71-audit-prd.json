@@ -1,161 +1,202 @@
 {
-    "phase": 71,
-    "title": "INBOX-NATIVE-UX",
-    "opened_at": "2026-05-21",
-    "tier": "Tier 7 cycle 35",
-    "scope": "User-directed (2026-05-21): bring the messaging UI to iOS Messages / WhatsApp grade. Scout confirmed the engine is already there (Phase 63 threads + scopeForUser participant isolation; Phase 67 MessageRead/MessagePosted broadcasts, read cursors on message_thread_participants.last_read_at, presence/typing via usePresenceChannel, attachment scan; Phase 64 VirtualMessageList) — but MessageThreads/Show.vue + Tenant/Inbox/Show.vue render a vertical <ol> of white cards and DON'T live-append new messages (only read cursors update). The two pages are near-identical, so the rewrite extracts a shared Components/Inbox/ChatThread.vue (+ MessageBubble, ChatComposer) both pages render. MessagePosted broadcasts as '.message.posted' on inbox.thread.{id} with {message_id,thread_id,sender,body,message_type,created_at}; MessageRead as '.message.read'. Message has thread_id/sender_id/body/message_type/documents — NO reply_to or reactions yet. Phase 71: BUBBLES (aligned bubbles + grouping + day separators) + COMPOSER (auto-grow, Enter-to-send, typing bubble) + LIVE-DELIVERY (live append + per-bubble ticks + jump-to-latest) + REPLY-QUOTE (reply_to_id + quoted bubble) + REACTIONS (message_reactions + live pills) + MEDIA-CI (in-bubble images/lightbox + tests/runbook). Isolation: reactions + replies reuse MessageThread::scopeForUser participant gating. Six categories x 3 = 18 (5H/9M/4L).",
-    "categories": {
-        "BUBBLES": "Shared ChatThread/MessageBubble: left/right alignment, consecutive-sender grouping, day separators, avatars, system chips, unread divider, RTL.",
-        "COMPOSER": "Shared ChatComposer: sticky auto-grow textarea, Enter-to-send/Shift+Enter, attachment tray + scan error, animated typing-indicator bubble.",
-        "LIVE-DELIVERY": "Live message append on .message.posted (optimistic + reconcile), per-bubble sent/seen ticks from read cursors, jump-to-latest pill + scroll management.",
-        "REPLY-QUOTE": "messages.reply_to_id + same-thread validation; quoted snippet in the bubble + reply affordance + quoted preview in the composer.",
-        "REACTIONS": "message_reactions table + toggle endpoint + Reverb broadcast; emoji reaction pills + picker on a bubble.",
-        "MEDIA-CI": "In-bubble image thumbnails + file chips + lightbox; cross-category surface + per-category behaviour tests; runbook + closeout."
+  "phase": 71,
+  "title": "INBOX-NATIVE-UX",
+  "opened_at": "2026-05-21",
+  "tier": "Tier 7 cycle 35",
+  "scope": "User-directed (2026-05-21): bring the messaging UI to iOS Messages / WhatsApp grade. Scout confirmed the engine is already there (Phase 63 threads + scopeForUser participant isolation; Phase 67 MessageRead/MessagePosted broadcasts, read cursors on message_thread_participants.last_read_at, presence/typing via usePresenceChannel, attachment scan; Phase 64 VirtualMessageList) — but MessageThreads/Show.vue + Tenant/Inbox/Show.vue render a vertical <ol> of white cards and DON'T live-append new messages (only read cursors update). The two pages are near-identical, so the rewrite extracts a shared Components/Inbox/ChatThread.vue (+ MessageBubble, ChatComposer) both pages render. MessagePosted broadcasts as '.message.posted' on inbox.thread.{id} with {message_id,thread_id,sender,body,message_type,created_at}; MessageRead as '.message.read'. Message has thread_id/sender_id/body/message_type/documents — NO reply_to or reactions yet. Phase 71: BUBBLES (aligned bubbles + grouping + day separators) + COMPOSER (auto-grow, Enter-to-send, typing bubble) + LIVE-DELIVERY (live append + per-bubble ticks + jump-to-latest) + REPLY-QUOTE (reply_to_id + quoted bubble) + REACTIONS (message_reactions + live pills) + MEDIA-CI (in-bubble images/lightbox + tests/runbook). Isolation: reactions + replies reuse MessageThread::scopeForUser participant gating. Six categories x 3 = 18 (5H/9M/4L).",
+  "categories": {
+    "BUBBLES": "Shared ChatThread/MessageBubble: left/right alignment, consecutive-sender grouping, day separators, avatars, system chips, unread divider, RTL.",
+    "COMPOSER": "Shared ChatComposer: sticky auto-grow textarea, Enter-to-send/Shift+Enter, attachment tray + scan error, animated typing-indicator bubble.",
+    "LIVE-DELIVERY": "Live message append on .message.posted (optimistic + reconcile), per-bubble sent/seen ticks from read cursors, jump-to-latest pill + scroll management.",
+    "REPLY-QUOTE": "messages.reply_to_id + same-thread validation; quoted snippet in the bubble + reply affordance + quoted preview in the composer.",
+    "REACTIONS": "message_reactions table + toggle endpoint + Reverb broadcast; emoji reaction pills + picker on a bubble.",
+    "MEDIA-CI": "In-bubble image thumbnails + file chips + lightbox; cross-category surface + per-category behaviour tests; runbook + closeout."
+  },
+  "findings": [
+    {
+      "id": "BUBBLES-1",
+      "severity": "HIGH",
+      "title": "Shared ChatThread + MessageBubble (aligned chat layout)",
+      "evidence": "Both Show pages render an <ol> of identical white cards — it reads like an email list, and the two pages duplicate ~270 lines each. Not a conversation UI.",
+      "remediation": "resources/js/Components/Inbox/ChatThread.vue (props: thread, messages, readReceipts, currentUserId, postRoute, readAllRoute, status) renders a scrollable chat region with MessageBubble.vue children: bubbles aligned right for the current user, left for others (sender color + tail), system messages as a centered chip. MessageThreads/Show.vue + Tenant/Inbox/Show.vue both reduce to mounting <ChatThread> with their own routes — eliminating the duplication. Keeps the existing data-testid='message-list'/'tenant-message-list' wrapper for back-compat. Phase71InboxNativeSurfaceTest asserts ChatThread + MessageBubble exist + both pages import ChatThread.",
+      "category": "BUBBLES",
+      "passes": true
     },
-    "findings": [
-        {
-            "id": "BUBBLES-1",
-            "severity": "HIGH",
-            "title": "Shared ChatThread + MessageBubble (aligned chat layout)",
-            "evidence": "Both Show pages render an <ol> of identical white cards — it reads like an email list, and the two pages duplicate ~270 lines each. Not a conversation UI.",
-            "remediation": "resources/js/Components/Inbox/ChatThread.vue (props: thread, messages, readReceipts, currentUserId, postRoute, readAllRoute, status) renders a scrollable chat region with MessageBubble.vue children: bubbles aligned right for the current user, left for others (sender color + tail), system messages as a centered chip. MessageThreads/Show.vue + Tenant/Inbox/Show.vue both reduce to mounting <ChatThread> with their own routes — eliminating the duplication. Keeps the existing data-testid='message-list'/'tenant-message-list' wrapper for back-compat. Phase71InboxNativeSurfaceTest asserts ChatThread + MessageBubble exist + both pages import ChatThread.",
-            "category": "BUBBLES"
-        },
-        {
-            "id": "BUBBLES-2",
-            "severity": "MEDIUM",
-            "title": "Consecutive grouping + day separators + avatars",
-            "evidence": "Every message repeats the sender name + timestamp; there are no date boundaries.",
-            "remediation": "Group consecutive messages from the same sender within 5 minutes — show avatar (initials) + name once per group, timestamp at the group boundary (and on hover per bubble). Insert day-separator chips (Today / Yesterday / localised date via useFormatters) when the calendar day changes. Tighter bubble radii within a group (tail only on the last). data-testid='chat-day-separator'. Phase71 surface asserts the grouping/separator tokens.",
-            "category": "BUBBLES"
-        },
-        {
-            "id": "BUBBLES-3",
-            "severity": "MEDIUM",
-            "title": "Unread divider + RTL + reduced-motion",
-            "evidence": "Nothing marks where you left off; the layout is LTR-hardcoded.",
-            "remediation": "Render an 'Unread messages' divider before the first message newer than the viewer's own last_read cursor (data-testid='chat-unread-divider'). Bubbles use logical properties (ms-/me-/start-/end-) so they mirror in Arabic (Phase-44); alignment flips with dir. Enter animations + the typing dots respect prefers-reduced-motion. lang inbox.chat.* keys. Phase71 surface asserts the divider token + no LTR-only classes added (eslint propmanager/no-ltr-class clean on new files).",
-            "category": "BUBBLES"
-        },
-        {
-            "id": "COMPOSER-1",
-            "severity": "HIGH",
-            "title": "ChatComposer — sticky auto-grow, Enter-to-send, attach tray",
-            "evidence": "The composer is a fixed 3-row textarea + a separate file input + a Send button; no Enter-to-send, no growth, detached from the chat.",
-            "remediation": "resources/js/Components/Inbox/ChatComposer.vue: sticky bottom bar, textarea auto-grows to a max height then scrolls, Enter sends / Shift+Enter inserts a newline (IME-composition aware), send button enabled only with content; integrates AttachmentPreviewList (Phase-64) + the Phase-67 scan-blocked error (data-testid='attachment-blocked'). Emits 'send' with {body, attachments, reply_to_id}. ChatThread hosts it; both pages pass postRoute. data-testid='message-compose'/'tenant-message-compose' preserved. Phase71 surface asserts the composer tokens + Enter-send handler.",
-            "category": "COMPOSER"
-        },
-        {
-            "id": "COMPOSER-2",
-            "severity": "MEDIUM",
-            "title": "Animated typing-indicator bubble",
-            "evidence": "Typing currently shows as a text line in the header; not a chat affordance.",
-            "remediation": "Render an animated three-dot typing bubble (left-aligned, ContactName is typing) inside the chat region, driven by usePresenceChannel's typing set (Phase-67 whisper). Auto-clears on timeout. prefers-reduced-motion swaps the bounce for a static glyph. data-testid='chat-typing-bubble'. Reuses the existing notifyTyping on composer input. Phase71 surface asserts the token.",
-            "category": "COMPOSER"
-        },
-        {
-            "id": "COMPOSER-3",
-            "severity": "LOW",
-            "title": "Composer polish + lang",
-            "evidence": "Hardcoded English ('Type a message…', 'Send'), no thread-locked state in the shared component.",
-            "remediation": "Move composer strings to lang/{en,sw,ar}/inbox.php chat.* ({curly} where parameterised, en full / sw / ar [TODO-ar]); disabled/locked state when thread.status !== 'open' with a clear message; optional char counter near the 4000 cap. Phase71 surface asserts the lang keys load + the locked-state token.",
-            "category": "COMPOSER"
-        },
-        {
-            "id": "LIVE-DELIVERY-1",
-            "severity": "HIGH",
-            "title": "Live message append (optimistic send + reconcile)",
-            "evidence": "Incoming messages do NOT appear without a page reload — Show.vue only listens to .message.read, not .message.posted. A chat must stream.",
-            "remediation": "ChatThread subscribes to Echo.private('inbox.thread.'+id).listen('.message.posted', …) and appends the incoming message to a reactive list (deduped by id), excluding the sender's own echo. Outgoing send is OPTIMISTIC: a pending bubble appears immediately (client temp id, 'sending' state) and is reconciled/replaced when the broadcast (or the form success) returns; failure marks it 'failed' with retry. Reuses the Phase-62 offline queue for offline sends. Phase71 surface asserts the .message.posted listener; a behaviour note covers dedupe.",
-            "category": "LIVE-DELIVERY"
-        },
-        {
-            "id": "LIVE-DELIVERY-2",
-            "severity": "MEDIUM",
-            "title": "Per-bubble sent/seen ticks",
-            "evidence": "Phase-67 shows a single 'Seen' label on the last own message only; WhatsApp shows per-message state.",
-            "remediation": "Each own bubble shows ✓ (sent) or ✓✓ in blue (seen) computed from the live readCursors map (seen = some other participant's last_read_at >= the bubble's created_at). Renders in the bubble meta row. Aria-label 'Sent'/'Seen'. Keeps the Phase-67 isSeenByOthers logic, generalised to every own bubble. data-testid='message-seen' retained. Phase71 surface asserts the per-bubble tick token.",
-            "category": "LIVE-DELIVERY"
-        },
-        {
-            "id": "LIVE-DELIVERY-3",
-            "severity": "MEDIUM",
-            "title": "Jump-to-latest pill + scroll management",
-            "evidence": "No auto-scroll to newest; no affordance when scrolled up in history.",
-            "remediation": "Auto-scroll to bottom on mount + on an incoming message WHEN already near the bottom; when scrolled up, a floating 'jump to latest' pill shows with an unread-below count and scrolls to bottom on click. Scroll position preserved across reactive updates. Integrates VirtualMessageList (Phase-64) for long threads. data-testid='chat-jump-latest'. Phase71 surface asserts the pill token.",
-            "category": "LIVE-DELIVERY"
-        },
-        {
-            "id": "REPLY-QUOTE-1",
-            "severity": "HIGH",
-            "title": "messages.reply_to_id + same-thread-validated reply",
-            "evidence": "There is no way to reply to a specific message; threads with many topics are hard to follow.",
-            "remediation": "Migration adds messages.reply_to_id (nullable, self FK, nullOnDelete). Message::replyTo() belongsTo + fillable. StoreMessageRequest accepts reply_to_id and validates it exists AND belongs to the SAME thread (Rule::exists scoped to thread_id) — a reply can never point at another thread's/tenant's message. MessagePosted broadcastWith includes reply preview (id, sender name, snippet). Phase71ReplyTest asserts a same-thread reply persists, a cross-thread reply_to_id is rejected, and the broadcast carries the preview.",
-            "category": "REPLY-QUOTE"
-        },
-        {
-            "id": "REPLY-QUOTE-2",
-            "severity": "MEDIUM",
-            "title": "Quoted bubble + reply affordance + composer preview",
-            "evidence": "The reply needs UI to set and display the quote.",
-            "remediation": "MessageBubble shows a quoted snippet (sender + truncated body, tap to scroll to the original) when reply_to is set. A per-bubble 'Reply' action sets a reply target in ChatComposer (a dismissible quoted preview above the input); send includes reply_to_id. data-testid='message-reply' / 'composer-reply-preview' / 'bubble-quote'. lang chat.reply.*. Phase71 surface asserts the tokens.",
-            "category": "REPLY-QUOTE"
-        },
-        {
-            "id": "REPLY-QUOTE-3",
-            "severity": "LOW",
-            "title": "Reply payload threading on the show endpoint",
-            "evidence": "The thread payload must hydrate each message's reply preview so quotes render on initial load.",
-            "remediation": "MessageThreadController::show + Tenant\\InboxController::show eager-load messages.replyTo:id,sender_id,body (+ sender name) and map a compact reply preview onto each message. No N+1 (replyTo eager-loaded). Phase71ReplyTest asserts the show payload includes the reply preview for a replied message.",
-            "category": "REPLY-QUOTE"
-        },
-        {
-            "id": "REACTIONS-1",
-            "severity": "HIGH",
-            "title": "message_reactions table + toggle endpoint (participant-gated)",
-            "evidence": "No way to react to a message — a core texting affordance.",
-            "remediation": "Migration creates message_reactions (message_id FK cascade, user_id FK cascade, emoji string, unique(message_id,user_id,emoji), timestamps). MessageReaction model. POST /message-threads/{thread}/messages/{message}/reactions toggles (add/remove) the caller's emoji — authorised via MessageThreadPolicy::view (participant pivot) AND the message must belong to the thread (404 otherwise), so a non-participant or cross-thread message id is rejected. An allow-list of emojis (config) blocks arbitrary input. Phase71ReactionsTest asserts toggle add/remove, participant-only, cross-thread message rejected, emoji allow-list.",
-            "category": "REACTIONS"
-        },
-        {
-            "id": "REACTIONS-2",
-            "severity": "MEDIUM",
-            "title": "Reaction broadcast + pills + picker",
-            "evidence": "Reactions must render + update live.",
-            "remediation": "A MessageReacted event broadcasts on inbox.thread.{id} ('.message.reacted', {message_id, emoji, user_id, count}) ->toOthers(); ChatThread listens and updates the reaction map. MessageBubble renders reaction pills (emoji + count, highlighted if the viewer reacted) and a hover/long-press picker from the allow-list. The show payload hydrates each message's reaction summary (grouped emoji + counts + did-I-react) without N+1. data-testid='bubble-reactions' / 'reaction-pill' / 'reaction-picker'. Phase71 surface asserts tokens.",
-            "category": "REACTIONS"
-        },
-        {
-            "id": "REACTIONS-3",
-            "severity": "LOW",
-            "title": "Reaction a11y + lang",
-            "evidence": "Reaction pills/picker need labels + localisation.",
-            "remediation": "Picker buttons + pills carry aria-labels ('React with 👍' / '👍 2 reactions'); the allow-list emojis + labels in lang/{en,sw,ar}/inbox.php chat.reactions.*; keyboard-operable picker. Phase71 surface asserts the lang keys.",
-            "category": "REACTIONS"
-        },
-        {
-            "id": "MEDIA-CI-1",
-            "severity": "MEDIUM",
-            "title": "In-bubble image thumbnails + file chips + lightbox",
-            "evidence": "Attachments render as a plain text list of titles — not inline media.",
-            "remediation": "MessageBubble renders image documents (is_image) as inline thumbnails (signed temporary URL via the Phase-59 resolver) opening a lightbox on click; non-image documents as file chips (icon + name + size) linking to the signed download. Held/blocked attachments (Phase-67 scan_status) show a neutral state. Lightbox is keyboard-dismissible + focus-trapped. data-testid='bubble-attachment' / 'attachment-lightbox'. Phase71 surface asserts tokens.",
-            "category": "MEDIA-CI"
-        },
-        {
-            "id": "MEDIA-CI-2",
-            "severity": "MEDIUM",
-            "title": "Phase71 surface + per-category behaviour tests",
-            "evidence": "The rewritten surface (shared components, reply/reaction backends, broadcasts) must be guarded.",
-            "remediation": "tests/Feature/Inbox/Phase71InboxNativeSurfaceTest asserts: ChatThread/MessageBubble/ChatComposer exist + both Show pages import ChatThread; messages.reply_to_id column + message_reactions table present; reaction + reply routes registered; MessageReaction/MessageReacted classes exist; chat lang loads; the bubble/composer/divider/typing/jump/reply/reaction data-testid tokens present. Behaviour: Phase71ReplyTest + Phase71ReactionsTest (participant + cross-thread isolation + broadcast). All RefreshDatabase + Event::fake where needed.",
-            "category": "MEDIA-CI"
-        },
-        {
-            "id": "MEDIA-CI-3",
-            "severity": "LOW",
-            "title": "Runbook + memory closeout",
-            "evidence": "The new chat surface + reply/reaction model needs documenting.",
-            "remediation": "docs/runbooks/inbox.md gains a Chat UI section (shared components, live append, reply/reaction model + isolation, attachment rendering). Memory: project_propmanager_phase71_plan + pending-path + forward-path + MEMORY.md updated; audit_closeout merged into phase-71-audit-prd.json; CodeRabbit run recorded per logic-bearing sub-phase diff.",
-            "category": "MEDIA-CI"
-        }
-    ]
+    {
+      "id": "BUBBLES-2",
+      "severity": "MEDIUM",
+      "title": "Consecutive grouping + day separators + avatars",
+      "evidence": "Every message repeats the sender name + timestamp; there are no date boundaries.",
+      "remediation": "Group consecutive messages from the same sender within 5 minutes — show avatar (initials) + name once per group, timestamp at the group boundary (and on hover per bubble). Insert day-separator chips (Today / Yesterday / localised date via useFormatters) when the calendar day changes. Tighter bubble radii within a group (tail only on the last). data-testid='chat-day-separator'. Phase71 surface asserts the grouping/separator tokens.",
+      "category": "BUBBLES",
+      "passes": true
+    },
+    {
+      "id": "BUBBLES-3",
+      "severity": "MEDIUM",
+      "title": "Unread divider + RTL + reduced-motion",
+      "evidence": "Nothing marks where you left off; the layout is LTR-hardcoded.",
+      "remediation": "Render an 'Unread messages' divider before the first message newer than the viewer's own last_read cursor (data-testid='chat-unread-divider'). Bubbles use logical properties (ms-/me-/start-/end-) so they mirror in Arabic (Phase-44); alignment flips with dir. Enter animations + the typing dots respect prefers-reduced-motion. lang inbox.chat.* keys. Phase71 surface asserts the divider token + no LTR-only classes added (eslint propmanager/no-ltr-class clean on new files).",
+      "category": "BUBBLES",
+      "passes": true
+    },
+    {
+      "id": "COMPOSER-1",
+      "severity": "HIGH",
+      "title": "ChatComposer — sticky auto-grow, Enter-to-send, attach tray",
+      "evidence": "The composer is a fixed 3-row textarea + a separate file input + a Send button; no Enter-to-send, no growth, detached from the chat.",
+      "remediation": "resources/js/Components/Inbox/ChatComposer.vue: sticky bottom bar, textarea auto-grows to a max height then scrolls, Enter sends / Shift+Enter inserts a newline (IME-composition aware), send button enabled only with content; integrates AttachmentPreviewList (Phase-64) + the Phase-67 scan-blocked error (data-testid='attachment-blocked'). Emits 'send' with {body, attachments, reply_to_id}. ChatThread hosts it; both pages pass postRoute. data-testid='message-compose'/'tenant-message-compose' preserved. Phase71 surface asserts the composer tokens + Enter-send handler.",
+      "category": "COMPOSER",
+      "passes": true
+    },
+    {
+      "id": "COMPOSER-2",
+      "severity": "MEDIUM",
+      "title": "Animated typing-indicator bubble",
+      "evidence": "Typing currently shows as a text line in the header; not a chat affordance.",
+      "remediation": "Render an animated three-dot typing bubble (left-aligned, ContactName is typing) inside the chat region, driven by usePresenceChannel's typing set (Phase-67 whisper). Auto-clears on timeout. prefers-reduced-motion swaps the bounce for a static glyph. data-testid='chat-typing-bubble'. Reuses the existing notifyTyping on composer input. Phase71 surface asserts the token.",
+      "category": "COMPOSER",
+      "passes": true
+    },
+    {
+      "id": "COMPOSER-3",
+      "severity": "LOW",
+      "title": "Composer polish + lang",
+      "evidence": "Hardcoded English ('Type a message…', 'Send'), no thread-locked state in the shared component.",
+      "remediation": "Move composer strings to lang/{en,sw,ar}/inbox.php chat.* ({curly} where parameterised, en full / sw / ar [TODO-ar]); disabled/locked state when thread.status !== 'open' with a clear message; optional char counter near the 4000 cap. Phase71 surface asserts the lang keys load + the locked-state token.",
+      "category": "COMPOSER",
+      "passes": true
+    },
+    {
+      "id": "LIVE-DELIVERY-1",
+      "severity": "HIGH",
+      "title": "Live message append (optimistic send + reconcile)",
+      "evidence": "Incoming messages do NOT appear without a page reload — Show.vue only listens to .message.read, not .message.posted. A chat must stream.",
+      "remediation": "ChatThread subscribes to Echo.private('inbox.thread.'+id).listen('.message.posted', …) and appends the incoming message to a reactive list (deduped by id), excluding the sender's own echo. Outgoing send is OPTIMISTIC: a pending bubble appears immediately (client temp id, 'sending' state) and is reconciled/replaced when the broadcast (or the form success) returns; failure marks it 'failed' with retry. Reuses the Phase-62 offline queue for offline sends. Phase71 surface asserts the .message.posted listener; a behaviour note covers dedupe.",
+      "category": "LIVE-DELIVERY",
+      "passes": true
+    },
+    {
+      "id": "LIVE-DELIVERY-2",
+      "severity": "MEDIUM",
+      "title": "Per-bubble sent/seen ticks",
+      "evidence": "Phase-67 shows a single 'Seen' label on the last own message only; WhatsApp shows per-message state.",
+      "remediation": "Each own bubble shows ✓ (sent) or ✓✓ in blue (seen) computed from the live readCursors map (seen = some other participant's last_read_at >= the bubble's created_at). Renders in the bubble meta row. Aria-label 'Sent'/'Seen'. Keeps the Phase-67 isSeenByOthers logic, generalised to every own bubble. data-testid='message-seen' retained. Phase71 surface asserts the per-bubble tick token.",
+      "category": "LIVE-DELIVERY",
+      "passes": true
+    },
+    {
+      "id": "LIVE-DELIVERY-3",
+      "severity": "MEDIUM",
+      "title": "Jump-to-latest pill + scroll management",
+      "evidence": "No auto-scroll to newest; no affordance when scrolled up in history.",
+      "remediation": "Auto-scroll to bottom on mount + on an incoming message WHEN already near the bottom; when scrolled up, a floating 'jump to latest' pill shows with an unread-below count and scrolls to bottom on click. Scroll position preserved across reactive updates. Integrates VirtualMessageList (Phase-64) for long threads. data-testid='chat-jump-latest'. Phase71 surface asserts the pill token.",
+      "category": "LIVE-DELIVERY",
+      "passes": true
+    },
+    {
+      "id": "REPLY-QUOTE-1",
+      "severity": "HIGH",
+      "title": "messages.reply_to_id + same-thread-validated reply",
+      "evidence": "There is no way to reply to a specific message; threads with many topics are hard to follow.",
+      "remediation": "Migration adds messages.reply_to_id (nullable, self FK, nullOnDelete). Message::replyTo() belongsTo + fillable. StoreMessageRequest accepts reply_to_id and validates it exists AND belongs to the SAME thread (Rule::exists scoped to thread_id) — a reply can never point at another thread's/tenant's message. MessagePosted broadcastWith includes reply preview (id, sender name, snippet). Phase71ReplyTest asserts a same-thread reply persists, a cross-thread reply_to_id is rejected, and the broadcast carries the preview.",
+      "category": "REPLY-QUOTE",
+      "passes": true
+    },
+    {
+      "id": "REPLY-QUOTE-2",
+      "severity": "MEDIUM",
+      "title": "Quoted bubble + reply affordance + composer preview",
+      "evidence": "The reply needs UI to set and display the quote.",
+      "remediation": "MessageBubble shows a quoted snippet (sender + truncated body, tap to scroll to the original) when reply_to is set. A per-bubble 'Reply' action sets a reply target in ChatComposer (a dismissible quoted preview above the input); send includes reply_to_id. data-testid='message-reply' / 'composer-reply-preview' / 'bubble-quote'. lang chat.reply.*. Phase71 surface asserts the tokens.",
+      "category": "REPLY-QUOTE",
+      "passes": true
+    },
+    {
+      "id": "REPLY-QUOTE-3",
+      "severity": "LOW",
+      "title": "Reply payload threading on the show endpoint",
+      "evidence": "The thread payload must hydrate each message's reply preview so quotes render on initial load.",
+      "remediation": "MessageThreadController::show + Tenant\\InboxController::show eager-load messages.replyTo:id,sender_id,body (+ sender name) and map a compact reply preview onto each message. No N+1 (replyTo eager-loaded). Phase71ReplyTest asserts the show payload includes the reply preview for a replied message.",
+      "category": "REPLY-QUOTE",
+      "passes": true
+    },
+    {
+      "id": "REACTIONS-1",
+      "severity": "HIGH",
+      "title": "message_reactions table + toggle endpoint (participant-gated)",
+      "evidence": "No way to react to a message — a core texting affordance.",
+      "remediation": "Migration creates message_reactions (message_id FK cascade, user_id FK cascade, emoji string, unique(message_id,user_id,emoji), timestamps). MessageReaction model. POST /message-threads/{thread}/messages/{message}/reactions toggles (add/remove) the caller's emoji — authorised via MessageThreadPolicy::view (participant pivot) AND the message must belong to the thread (404 otherwise), so a non-participant or cross-thread message id is rejected. An allow-list of emojis (config) blocks arbitrary input. Phase71ReactionsTest asserts toggle add/remove, participant-only, cross-thread message rejected, emoji allow-list.",
+      "category": "REACTIONS",
+      "passes": true
+    },
+    {
+      "id": "REACTIONS-2",
+      "severity": "MEDIUM",
+      "title": "Reaction broadcast + pills + picker",
+      "evidence": "Reactions must render + update live.",
+      "remediation": "A MessageReacted event broadcasts on inbox.thread.{id} ('.message.reacted', {message_id, emoji, user_id, count}) ->toOthers(); ChatThread listens and updates the reaction map. MessageBubble renders reaction pills (emoji + count, highlighted if the viewer reacted) and a hover/long-press picker from the allow-list. The show payload hydrates each message's reaction summary (grouped emoji + counts + did-I-react) without N+1. data-testid='bubble-reactions' / 'reaction-pill' / 'reaction-picker'. Phase71 surface asserts tokens.",
+      "category": "REACTIONS",
+      "passes": true
+    },
+    {
+      "id": "REACTIONS-3",
+      "severity": "LOW",
+      "title": "Reaction a11y + lang",
+      "evidence": "Reaction pills/picker need labels + localisation.",
+      "remediation": "Picker buttons + pills carry aria-labels ('React with 👍' / '👍 2 reactions'); the allow-list emojis + labels in lang/{en,sw,ar}/inbox.php chat.reactions.*; keyboard-operable picker. Phase71 surface asserts the lang keys.",
+      "category": "REACTIONS",
+      "passes": true
+    },
+    {
+      "id": "MEDIA-CI-1",
+      "severity": "MEDIUM",
+      "title": "In-bubble image thumbnails + file chips + lightbox",
+      "evidence": "Attachments render as a plain text list of titles — not inline media.",
+      "remediation": "MessageBubble renders image documents (is_image) as inline thumbnails (signed temporary URL via the Phase-59 resolver) opening a lightbox on click; non-image documents as file chips (icon + name + size) linking to the signed download. Held/blocked attachments (Phase-67 scan_status) show a neutral state. Lightbox is keyboard-dismissible + focus-trapped. data-testid='bubble-attachment' / 'attachment-lightbox'. Phase71 surface asserts tokens.",
+      "category": "MEDIA-CI",
+      "passes": true
+    },
+    {
+      "id": "MEDIA-CI-2",
+      "severity": "MEDIUM",
+      "title": "Phase71 surface + per-category behaviour tests",
+      "evidence": "The rewritten surface (shared components, reply/reaction backends, broadcasts) must be guarded.",
+      "remediation": "tests/Feature/Inbox/Phase71InboxNativeSurfaceTest asserts: ChatThread/MessageBubble/ChatComposer exist + both Show pages import ChatThread; messages.reply_to_id column + message_reactions table present; reaction + reply routes registered; MessageReaction/MessageReacted classes exist; chat lang loads; the bubble/composer/divider/typing/jump/reply/reaction data-testid tokens present. Behaviour: Phase71ReplyTest + Phase71ReactionsTest (participant + cross-thread isolation + broadcast). All RefreshDatabase + Event::fake where needed.",
+      "category": "MEDIA-CI",
+      "passes": true
+    },
+    {
+      "id": "MEDIA-CI-3",
+      "severity": "LOW",
+      "title": "Runbook + memory closeout",
+      "evidence": "The new chat surface + reply/reaction model needs documenting.",
+      "remediation": "docs/runbooks/inbox.md gains a Chat UI section (shared components, live append, reply/reaction model + isolation, attachment rendering). Memory: project_propmanager_phase71_plan + pending-path + forward-path + MEMORY.md updated; audit_closeout merged into phase-71-audit-prd.json; CodeRabbit run recorded per logic-bearing sub-phase diff.",
+      "category": "MEDIA-CI",
+      "passes": true
+    }
+  ],
+  "audit_closeout": {
+    "closed_at": "2026-05-21",
+    "status": "COMPLETE",
+    "findings_total": 18,
+    "deferrals": 0,
+    "commits": {
+      "PRD": "11aa6f0",
+      "BUBBLES": "7a9387d",
+      "COMPOSER": "5ff9c1f",
+      "LIVE-DELIVERY": "7dc8dfa",
+      "REPLY-QUOTE": "d299107",
+      "REACTIONS": "c3a833b",
+      "MEDIA-CI": "d31c2fa"
+    },
+    "tests": "tests/Feature/Inbox 144 passing (707 assertions); Phase71 suite: InboxNativeSurface 11 + Reply 6 + Reactions 6 + Attachment 5",
+    "coderabbit": "Run on every logic-bearing sub-phase diff. Real defects caught + fixed: LIVE-DELIVERY shared-channel double-listen (H1) -> page owns channel + composable ingest(); COMPOSER aria-label/plural (M1/H1/M2) + file append/dedupe (M3); REACTIONS shared-throttle 429 (H1) -> dedicated throttle:reactions + createOrFirst race (M1); MEDIA-CI referrerpolicy hardening (M1).",
+    "deferred_followups": [
+      "Live-appended attachment messages render documents only after reload (broadcast payload carries no documents); text streams immediately.",
+      "VirtualMessageList (Phase-64) not integrated into ChatThread — virtualising the grouped/day-separated list is a separate perf concern.",
+      "Offline (Phase-62) sends leave the optimistic bubble sending until reconnect + reload."
+    ],
+    "notes": "18/18 findings across 6 categories (BUBBLES, COMPOSER, LIVE-DELIVERY, REPLY-QUOTE, REACTIONS, MEDIA-CI). Two NET-NEW backend models (reply_to_id self-FK, message_reactions) + participant-gated attachment endpoint. Shared ChatThread/MessageBubble/ChatComposer/AttachmentLightbox + useThreadStream eliminate landlord/tenant duplication."
+  }
 }
