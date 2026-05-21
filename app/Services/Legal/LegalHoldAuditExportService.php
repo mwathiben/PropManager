@@ -6,6 +6,7 @@ namespace App\Services\Legal;
 
 use App\Models\AuditLog;
 use App\Models\LegalHold;
+use App\Models\LegalMatter;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
@@ -100,6 +101,43 @@ class LegalHoldAuditExportService
                 (string) ($row->heldBy?->name ?? ''),
                 $row->released_at?->toIso8601String() ?? '',
                 (string) ($row->released_by ?? ''),
+                (string) ($row->releasedBy?->name ?? ''),
+                $row->isActive() ? 'active' : 'released',
+                $row->getLawfulBasis(),
+            ]);
+        }
+
+        Storage::tenant((int) $actor->id)->put($relativePath, $buffer);
+
+        return $relativePath;
+    }
+
+    /**
+     * Phase-72 MATTER-GROUPING: matter-scoped chain-of-custody CSV — every hold
+     * linked to one matter. Same UTF-8 BOM + injection guard + retention path
+     * as the per-subject export. Authorization is the caller's responsibility.
+     */
+    public function exportMatterToCsv(User $actor, LegalMatter $matter): string
+    {
+        $rows = LegalHold::query()
+            ->where('legal_matter_id', $matter->id)
+            ->with(['heldBy:id,name', 'releasedBy:id,name'])
+            ->orderBy('held_at')
+            ->get();
+
+        $relativePath = 'exports/'.$actor->id.'/legal-hold-matter/'.Str::random(16).'.csv';
+
+        $buffer = "\xEF\xBB\xBF";
+        $buffer .= "subject_type,subject_id,held_at,reason,held_by_name,released_at,released_by_name,status,lawful_basis\n";
+
+        foreach ($rows as $row) {
+            $buffer .= $this->csvLine([
+                $this->shortType((string) $row->holdable_type),
+                (string) $row->holdable_id,
+                $row->held_at?->toIso8601String() ?? '',
+                (string) $row->reason,
+                (string) ($row->heldBy?->name ?? ''),
+                $row->released_at?->toIso8601String() ?? '',
                 (string) ($row->releasedBy?->name ?? ''),
                 $row->isActive() ? 'active' : 'released',
                 $row->getLawfulBasis(),

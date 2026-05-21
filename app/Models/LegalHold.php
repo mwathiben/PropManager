@@ -21,6 +21,7 @@ class LegalHold extends Model
     use Auditable;
 
     protected $fillable = [
+        'legal_matter_id',
         'holdable_type',
         'holdable_id',
         'reason',
@@ -40,6 +41,15 @@ class LegalHold extends Model
     public function holdable(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    /**
+     * Phase-72 MATTER-GROUPING: the case this hold belongs to (nullable —
+     * ad-hoc single-subject holds have no matter).
+     */
+    public function matter(): BelongsTo
+    {
+        return $this->belongsTo(LegalMatter::class, 'legal_matter_id');
     }
 
     public function heldBy(): BelongsTo

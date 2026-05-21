@@ -1524,6 +1524,27 @@ Route::middleware(['auth', 'role:landlord'])->group(function () {
         ->name('legal-holds.history');
     Route::get('/legal-holds/history/export', [\App\Http\Controllers\LegalHoldHistoryController::class, 'export'])
         ->name('legal-holds.history.export');
+
+    // Phase-72 MATTER-GROUPING: case-level grouping of holds.
+    Route::get('/legal-matters', [\App\Http\Controllers\LegalMatterController::class, 'index'])
+        ->name('legal-matters.index');
+    Route::get('/legal-matters/{matter}', [\App\Http\Controllers\LegalMatterController::class, 'show'])
+        ->whereNumber('matter')
+        ->name('legal-matters.show');
+    Route::get('/legal-matters/{matter}/audit-export', [\App\Http\Controllers\LegalMatterController::class, 'auditExport'])
+        ->whereNumber('matter')
+        ->name('legal-matters.audit-export');
+    Route::middleware('throttle:legal-hold')->group(function () {
+        Route::post('/legal-matters/{matter}/release', [\App\Http\Controllers\LegalMatterController::class, 'release'])
+            ->whereNumber('matter')
+            ->name('legal-matters.release');
+        Route::post('/legal-matters/{matter}/close', [\App\Http\Controllers\LegalMatterController::class, 'close'])
+            ->whereNumber('matter')
+            ->name('legal-matters.close');
+        Route::post('/legal-matters/{matter}/reopen', [\App\Http\Controllers\LegalMatterController::class, 'reopen'])
+            ->whereNumber('matter')
+            ->name('legal-matters.reopen');
+    });
 });
 
 // Phase-66 NPS-SURVEY-1/2: in-app NPS for every authenticated customer

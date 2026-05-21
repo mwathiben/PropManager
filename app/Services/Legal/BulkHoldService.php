@@ -24,7 +24,7 @@ class BulkHoldService
      * @param  array<int, int>  $subjectIds
      * @return array<int, LegalHold>
      */
-    public function holdAll(string $subjectClass, array $subjectIds, User $by, string $reason): array
+    public function holdAll(string $subjectClass, array $subjectIds, User $by, string $reason, ?int $matterId = null): array
     {
         $this->validateSubjectClass($subjectClass);
         $this->validateBulkSize($subjectIds);
@@ -47,11 +47,12 @@ class BulkHoldService
             return [];
         }
 
-        $holds = DB::transaction(function () use ($subjectClass, $toHold, $by, $reason) {
+        $holds = DB::transaction(function () use ($subjectClass, $toHold, $by, $reason, $matterId) {
             $now = now();
 
             return array_map(
                 fn (int $id) => LegalHold::create([
+                    'legal_matter_id' => $matterId,
                     'holdable_type' => $subjectClass,
                     'holdable_id' => $id,
                     'reason' => $reason,
