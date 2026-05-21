@@ -56,4 +56,18 @@ return [
         'timeout' => (int) env('INBOX_SCAN_TIMEOUT', 10),
         'fail_closed' => (bool) env('INBOX_SCAN_FAIL_CLOSED', true),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Phase-71 REACTIONS: emoji reaction allow-list
+    |--------------------------------------------------------------------------
+    |
+    | The only emoji a message reaction may carry. Server-validated so the
+    | toggle endpoint can never persist arbitrary user input.
+    */
+    'reactions' => ['👍', '❤️', '😂', '😮', '😢', '🙏'],
+
+    'reactions_rate_limit' => [
+        'per_minute' => env('INBOX_REACTIONS_RATE_LIMIT_PER_MINUTE', 120),
+    ],
 ];

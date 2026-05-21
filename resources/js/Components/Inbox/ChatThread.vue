@@ -15,12 +15,18 @@ const props = withDefaults(
         unreadCount: number;
         /** Names of participants currently typing (Phase-67 presence whisper). */
         typingNames?: string[];
+        /** Phase-71 REACTIONS: allow-list emojis offered by the picker. */
+        reactionEmojis?: string[];
         listTestid?: string;
     }>(),
-    { typingNames: () => [] },
+    { typingNames: () => [], reactionEmojis: () => [] },
 );
 
-defineEmits<{ retry: [BubbleMessage]; reply: [BubbleMessage] }>();
+defineEmits<{
+    retry: [BubbleMessage];
+    reply: [BubbleMessage];
+    react: [{ message: BubbleMessage; emoji: string }];
+}>();
 
 const { t } = useI18n();
 const { formatDate } = useFormatters();
@@ -151,9 +157,11 @@ watch(
                         :group-start="isGroupStart(i)"
                         :group-end="isGroupEnd(i)"
                         :seen="seenFor(message)"
+                        :reaction-emojis="reactionEmojis"
                         @retry="$emit('retry', $event)"
                         @reply="$emit('reply', $event)"
                         @jump-to="jumpToMessage"
+                        @react="$emit('react', $event)"
                     />
                 </template>
 

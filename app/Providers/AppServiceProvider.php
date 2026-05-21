@@ -365,6 +365,24 @@ class AppServiceProvider extends ServiceProvider
                 });
         });
 
+        // Phase-71 REACTIONS: a far more generous limiter than 'messages'.
+        // A reaction toggle is cheap and the UI invites rapid taps, so it
+        // gets its own budget instead of sharing the 20/min compose limit.
+        RateLimiter::for('reactions', function (Request $request) {
+            $perMinute = (int) config('inbox.reactions_rate_limit.per_minute', 120);
+
+            return Limit::perMinute($perMinute)
+                ->by((string) ($request->user()?->id ?? $request->ip()))
+                ->response(function (Request $request, array $headers) {
+                    app(\App\Services\MetricsService::class)->gauge('inbox_rate_limit_hits_count', 1);
+
+                    return response()->json([
+                        'message' => 'Too many reactions. Please slow down.',
+                        'retry_after' => $headers['Retry-After'] ?? 60,
+                    ], 429, $headers);
+                });
+        });
+
         // File upload rate limiter
         RateLimiter::for('file-upload', function (Request $request) {
             $config = config('security.rate_limits.file_upload', '10,1');

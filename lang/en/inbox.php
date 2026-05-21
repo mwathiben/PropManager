@@ -59,5 +59,10 @@ return [
         'reply' => 'Reply',
         'replying_to' => 'Replying to {name}',
         'cancel_reply' => 'Cancel reply',
+        'reactions' => [
+            'add' => 'Add reaction',
+            'react_with' => 'React with {emoji}',
+            'pill_label' => '{emoji}, {count} reactions',
+        ],
     ],
 ];

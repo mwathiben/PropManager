@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -94,6 +95,34 @@ class Message extends Model
     public function documents(): MorphMany
     {
         return $this->morphMany(Document::class, 'documentable');
+    }
+
+    /**
+     * Phase-71 REACTIONS: emoji reactions on this message.
+     */
+    public function reactions(): HasMany
+    {
+        return $this->hasMany(MessageReaction::class);
+    }
+
+    /**
+     * Phase-71 REACTIONS: grouped reaction summary for serialization. Built
+     * from the loaded `reactions` relation (eager-loaded by the controllers,
+     * so no N+1). `reacted` flags whether $userId is among each emoji's actors.
+     *
+     * @return list<array{emoji:string, count:int, reacted:bool}>
+     */
+    public function reactionSummary(?int $userId): array
+    {
+        return $this->reactions
+            ->groupBy('emoji')
+            ->map(fn ($rows, $emoji) => [
+                'emoji' => (string) $emoji,
+                'count' => $rows->count(),
+                'reacted' => $userId !== null && $rows->contains('user_id', $userId),
+            ])
+            ->values()
+            ->all();
     }
 
     protected static function booted(): void

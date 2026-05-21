@@ -59,5 +59,10 @@ return [
         'reply' => '[TODO-ar] Reply',
         'replying_to' => '[TODO-ar] Replying to {name}',
         'cancel_reply' => '[TODO-ar] Cancel reply',
+        'reactions' => [
+            'add' => '[TODO-ar] Add reaction',
+            'react_with' => '[TODO-ar] React with {emoji}',
+            'pill_label' => '[TODO-ar] {emoji}, {count} reactions',
+        ],
     ],
 ];

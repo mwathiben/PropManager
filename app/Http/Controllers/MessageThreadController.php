@@ -59,10 +59,17 @@ class MessageThreadController extends Controller
             'participants:id,name,role',
             'subject',
             'messages' => fn ($q) => $q->orderBy('created_at')
-                ->with(['sender:id,name,role', 'documents', 'replyTo:id,sender_id,body', 'replyTo.sender:id,name']),
+                ->with([
+                    'sender:id,name,role',
+                    'documents',
+                    'replyTo:id,sender_id,body',
+                    'replyTo.sender:id,name',
+                    'reactions:id,message_id,user_id,emoji',
+                ]),
         ]);
 
         $this->attachReplyPreviews($thread);
+        $this->attachReactionSummaries($thread, $request->user()?->id);
 
         return Inertia::render('MessageThreads/Show', [
             'thread' => $thread,
@@ -70,6 +77,8 @@ class MessageThreadController extends Controller
             // Phase-67 READ-RECEIPTS-2: other participants' read cursors so
             // the client can render (and live-update) seen status.
             'read_receipts' => $thread->readReceiptsFor($request->user()),
+            // Phase-71 REACTIONS: emoji allow-list for the picker.
+            'reactionEmojis' => config('inbox.reactions'),
         ]);
     }
 

@@ -7,7 +7,7 @@ import ChatComposer from '@/Components/Inbox/ChatComposer.vue';
 import { useI18n } from '@/composables/useI18n';
 import { useEcho } from '@/composables/useEcho';
 import { usePresenceChannel } from '@/composables/usePresenceChannel';
-import { useThreadStream, type IncomingPosted } from '@/composables/useThreadStream';
+import { useThreadStream, type IncomingPosted, type IncomingReaction } from '@/composables/useThreadStream';
 import type { BubbleMessage, ReplyPreview } from '@/Components/Inbox/MessageBubble.vue';
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 
@@ -52,6 +52,7 @@ interface Props {
     thread: Thread;
     unreadCount: number;
     read_receipts: ReadReceipt[];
+    reactionEmojis: string[];
 }
 
 const props = defineProps<Props>();
@@ -101,7 +102,19 @@ const {
     resolveOptimistic,
     failOptimistic,
     dropFailed,
+    toggleReaction,
+    applyRemoteReaction,
 } = useThreadStream(currentUserId.value, () => props.thread.messages);
+
+// Phase-71 REACTIONS: optimistic toggle, reconciled by the back() reload.
+function onReact({ message, emoji }: { message: BubbleMessage; emoji: string }): void {
+    toggleReaction(message.id, emoji);
+    router.post(route('tenant.inbox.messages.react', [props.thread.id, message.id]), { emoji }, {
+        preserveScroll: true,
+        preserveState: true,
+        onError: () => toggleReaction(message.id, emoji),
+    });
+}
 
 function markAllRead(): void {
     router.post(route('tenant.inbox.read-all', props.thread.id), {}, {
@@ -171,6 +184,7 @@ onMounted(() => {
         readCursors[event.user_id] = event.read_at;
     });
     subscribePrivate<IncomingPosted>(channelName, '.message.posted', (event) => ingest(event));
+    subscribePrivate<IncomingReaction>(channelName, '.message.reacted', (event) => applyRemoteReaction(event));
 });
 
 onUnmounted(() => {
@@ -238,9 +252,11 @@ function onType(): void {
                 :others-read-at="othersReadAt"
                 :unread-count="unreadCount"
                 :typing-names="typingNames"
+                :reaction-emojis="reactionEmojis"
                 list-testid="tenant-message-list"
                 @retry="onRetry"
                 @reply="onReply"
+                @react="onReact"
             >
                 <template #composer>
                     <ChatComposer

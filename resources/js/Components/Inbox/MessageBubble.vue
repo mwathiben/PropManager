@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from '@/composables/useI18n';
 import { useFormatters } from '@/composables/useFormatters';
-import { ArrowUturnLeftIcon, CheckIcon, ClockIcon, ExclamationCircleIcon } from '@heroicons/vue/24/outline';
+import { ArrowUturnLeftIcon, CheckIcon, ClockIcon, ExclamationCircleIcon, FaceSmileIcon } from '@heroicons/vue/24/outline';
 
 export interface BubbleSender {
     id: number | null;
@@ -19,6 +19,11 @@ export interface ReplyPreview {
     sender_name: string | null;
     body: string;
 }
+export interface ReactionSummary {
+    emoji: string;
+    count: number;
+    reacted: boolean;
+}
 export interface BubbleMessage {
     id: number;
     sender_id: number | null;
@@ -31,25 +36,43 @@ export interface BubbleMessage {
     pending?: 'sending' | 'failed';
     /** Phase-71 REPLY-QUOTE: compact quote of the message this one replies to. */
     reply_to?: ReplyPreview | null;
+    /** Phase-71 REACTIONS: grouped emoji reaction summary. */
+    reactions?: ReactionSummary[];
 }
 
-const props = defineProps<{
-    message: BubbleMessage;
-    isOwn: boolean;
-    /** First message of a same-sender group (show avatar + name). */
-    groupStart: boolean;
-    /** Last of a group (show tail + timestamp + seen tick). */
-    groupEnd: boolean;
-    /** true = seen by another participant, false = sent only, null = not applicable. */
-    seen: boolean | null;
-}>();
+const props = withDefaults(
+    defineProps<{
+        message: BubbleMessage;
+        isOwn: boolean;
+        /** First message of a same-sender group (show avatar + name). */
+        groupStart: boolean;
+        /** Last of a group (show tail + timestamp + seen tick). */
+        groupEnd: boolean;
+        /** true = seen by another participant, false = sent only, null = not applicable. */
+        seen: boolean | null;
+        /** Phase-71 REACTIONS: allow-list emojis offered by the picker. */
+        reactionEmojis?: string[];
+    }>(),
+    { reactionEmojis: () => [] },
+);
 
-defineEmits<{ retry: [BubbleMessage]; reply: [BubbleMessage]; jumpTo: [number] }>();
+const emit = defineEmits<{
+    retry: [BubbleMessage];
+    reply: [BubbleMessage];
+    jumpTo: [number];
+    react: [{ message: BubbleMessage; emoji: string }];
+}>();
 
 const { t } = useI18n();
 const { formatRelativeTime } = useFormatters();
 
 const isSystem = computed(() => props.message.message_type === 'system');
+const pickerOpen = ref(false);
+
+function react(emoji: string): void {
+    pickerOpen.value = false;
+    emit('react', { message: props.message, emoji });
+}
 const initials = computed(() => {
     const n = props.message.sender?.name ?? '';
     return n.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('') || '?';
@@ -159,17 +182,70 @@ const initials = computed(() => {
                     <CheckIcon v-if="seen" class="-ms-1.5 h-3 w-3" />
                 </span>
             </div>
+
+            <div
+                v-if="message.reactions && message.reactions.length"
+                class="mt-1 flex flex-wrap gap-1"
+                :class="isOwn ? 'justify-end' : 'justify-start'"
+                data-testid="bubble-reactions"
+            >
+                <button
+                    v-for="r in message.reactions"
+                    :key="r.emoji"
+                    type="button"
+                    class="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs ring-1"
+                    :class="r.reacted ? 'bg-indigo-50 text-indigo-700 ring-indigo-300' : 'bg-white text-gray-600 ring-gray-200'"
+                    :aria-label="t('inbox.chat.reactions.pill_label', { emoji: r.emoji, count: r.count })"
+                    :aria-pressed="r.reacted"
+                    data-testid="reaction-pill"
+                    @click="react(r.emoji)"
+                >
+                    <span aria-hidden="true">{{ r.emoji }}</span>
+                    <span>{{ r.count }}</span>
+                </button>
+            </div>
         </div>
 
-        <button
-            v-if="!message.pending"
-            type="button"
-            class="flex h-7 w-7 flex-shrink-0 items-center justify-center self-center rounded-full text-gray-400 opacity-0 transition hover:bg-gray-100 hover:text-gray-600 focus:opacity-100 group-hover:opacity-100"
-            :aria-label="t('inbox.chat.reply')"
-            data-testid="message-reply"
-            @click="$emit('reply', message)"
-        >
-            <ArrowUturnLeftIcon class="h-4 w-4" />
-        </button>
+        <div v-if="!message.pending" class="relative flex flex-col items-center gap-1 self-center">
+            <button
+                type="button"
+                class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-gray-400 opacity-0 transition hover:bg-gray-100 hover:text-gray-600 focus:opacity-100 group-hover:opacity-100"
+                :aria-label="t('inbox.chat.reply')"
+                data-testid="message-reply"
+                @click="$emit('reply', message)"
+            >
+                <ArrowUturnLeftIcon class="h-4 w-4" />
+            </button>
+
+            <button
+                v-if="reactionEmojis.length"
+                type="button"
+                class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-gray-400 opacity-0 transition hover:bg-gray-100 hover:text-gray-600 focus:opacity-100 group-hover:opacity-100"
+                :class="{ 'opacity-100': pickerOpen }"
+                :aria-label="t('inbox.chat.reactions.add')"
+                :aria-expanded="pickerOpen"
+                data-testid="reaction-picker-toggle"
+                @click="pickerOpen = !pickerOpen"
+            >
+                <FaceSmileIcon class="h-4 w-4" />
+            </button>
+
+            <div
+                v-if="pickerOpen"
+                class="absolute bottom-full z-20 mb-1 flex gap-1 rounded-full bg-white p-1 shadow-lg ring-1 ring-gray-200"
+                data-testid="reaction-picker"
+            >
+                <button
+                    v-for="emoji in reactionEmojis"
+                    :key="emoji"
+                    type="button"
+                    class="flex h-7 w-7 items-center justify-center rounded-full text-base hover:bg-gray-100"
+                    :aria-label="t('inbox.chat.reactions.react_with', { emoji })"
+                    @click="react(emoji)"
+                >
+                    {{ emoji }}
+                </button>
+            </div>
+        </div>
     </li>
 </template>

@@ -151,6 +151,37 @@ class Phase71InboxNativeSurfaceTest extends TestCase
         }
     }
 
+    public function test_reactions_surface(): void
+    {
+        // Bubble renders pills + a picker; emits react.
+        $bubble = $this->js('Components/Inbox/MessageBubble.vue');
+        $this->assertStringContainsString('data-testid="bubble-reactions"', $bubble);
+        $this->assertStringContainsString('data-testid="reaction-pill"', $bubble);
+        $this->assertStringContainsString('data-testid="reaction-picker"', $bubble);
+
+        // Stream applies optimistic + remote reaction deltas.
+        $stream = $this->js('composables/useThreadStream.ts');
+        $this->assertStringContainsString('toggleReaction', $stream);
+        $this->assertStringContainsString('applyRemoteReaction', $stream);
+
+        // Both pages subscribe .message.reacted and post to the react route.
+        foreach (['Pages/MessageThreads/Show.vue', 'Pages/Tenant/Inbox/Show.vue'] as $page) {
+            $src = $this->js($page);
+            $this->assertStringContainsString('.message.reacted', $src);
+            $this->assertStringContainsString('messages.react', $src);
+            $this->assertStringContainsString('@react="onReact"', $src);
+        }
+
+        // Backend surface: model, event, controller, route, allow-list config.
+        $this->assertTrue(class_exists(\App\Models\MessageReaction::class));
+        $this->assertTrue(class_exists(\App\Events\MessageReacted::class));
+        $this->assertTrue(class_exists(\App\Http\Controllers\MessageReactionController::class));
+        $this->assertTrue(\Illuminate\Support\Facades\Route::has('message-threads.messages.react'));
+        $this->assertTrue(\Illuminate\Support\Facades\Route::has('tenant.inbox.messages.react'));
+        $this->assertIsArray(config('inbox.reactions'));
+        $this->assertNotEmpty(config('inbox.reactions'));
+    }
+
     public function test_chat_lang_keys_exist_across_locales(): void
     {
         $required = [
@@ -164,6 +195,11 @@ class Phase71InboxNativeSurfaceTest extends TestCase
             $this->assertIsArray($chat);
             foreach ($required as $key) {
                 $this->assertArrayHasKey($key, $chat, "inbox.chat.{$key} missing for {$locale}");
+            }
+
+            $this->assertIsArray($chat['reactions'] ?? null, "inbox.chat.reactions missing for {$locale}");
+            foreach (['add', 'react_with', 'pill_label'] as $key) {
+                $this->assertArrayHasKey($key, $chat['reactions'], "inbox.chat.reactions.{$key} missing for {$locale}");
             }
         }
     }

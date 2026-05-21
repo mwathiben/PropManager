@@ -21,4 +21,17 @@ trait AttachesReplyPreviews
             $message->unsetRelation('replyTo');
         });
     }
+
+    /**
+     * Phase-71 REACTIONS: collapse each message's loaded reactions relation
+     * into a grouped {emoji,count,reacted} summary attribute (reacted is
+     * relative to $userId), dropping the relation. Requires `reactions` loaded.
+     */
+    protected function attachReactionSummaries(MessageThread $thread, ?int $userId): void
+    {
+        $thread->messages->each(function ($message) use ($userId): void {
+            $message->setAttribute('reactions', $message->reactionSummary($userId));
+            $message->unsetRelation('reactions');
+        });
+    }
 }

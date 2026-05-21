@@ -57,16 +57,25 @@ class InboxController extends Controller
         $thread->load([
             'participants:id,name,role',
             'messages' => fn ($q) => $q->orderBy('created_at')
-                ->with(['sender:id,name,role', 'documents', 'replyTo:id,sender_id,body', 'replyTo.sender:id,name']),
+                ->with([
+                    'sender:id,name,role',
+                    'documents',
+                    'replyTo:id,sender_id,body',
+                    'replyTo.sender:id,name',
+                    'reactions:id,message_id,user_id,emoji',
+                ]),
         ]);
 
         $this->attachReplyPreviews($thread);
+        $this->attachReactionSummaries($thread, $request->user()?->id);
 
         return Inertia::render('Tenant/Inbox/Show', [
             'thread' => $thread,
             'unreadCount' => $thread->unreadCountFor($request->user()),
             // Phase-67 READ-RECEIPTS-2: other participants' read cursors.
             'read_receipts' => $thread->readReceiptsFor($request->user()),
+            // Phase-71 REACTIONS: emoji allow-list for the picker.
+            'reactionEmojis' => config('inbox.reactions'),
         ]);
     }
 

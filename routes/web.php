@@ -1411,6 +1411,13 @@ Route::middleware(['auth', 'role:tenant', 'payment.verified', 'kyc.complete'])->
     Route::get('/inbox/search', [\App\Http\Controllers\Tenant\InboxSearchController::class, 'index'])
         ->middleware('throttle:messages')
         ->name('tenant.inbox.search');
+
+    // Phase-71 REACTIONS: toggle an emoji reaction (participant-gated).
+    Route::post('/inbox/{thread}/messages/{message}/reactions', [\App\Http\Controllers\MessageReactionController::class, 'toggle'])
+        ->whereNumber('thread')
+        ->whereNumber('message')
+        ->middleware('throttle:reactions')
+        ->name('tenant.inbox.messages.react');
 });
 
 // Phase-45 LEASE-COUNTER-2: landlord-side review of a tenant counter-offer.
@@ -1437,6 +1444,13 @@ Route::middleware(['auth', 'verified', 'role:landlord,caretaker'])->group(functi
     Route::post('/message-threads/{thread}/messages', [\App\Http\Controllers\MessageThreadController::class, 'storeMessage'])
         ->middleware('throttle:messages')
         ->name('message-threads.messages.store');
+
+    // Phase-71 REACTIONS: toggle an emoji reaction (participant-gated).
+    Route::post('/message-threads/{thread}/messages/{message}/reactions', [\App\Http\Controllers\MessageReactionController::class, 'toggle'])
+        ->whereNumber('thread')
+        ->whereNumber('message')
+        ->middleware('throttle:reactions')
+        ->name('message-threads.messages.react');
 
     // Phase-63 INBOX-MOD-1: landlord moderation transitions.
     Route::post('/message-threads/{thread}/archive', [\App\Http\Controllers\MessageThreadModerationController::class, 'archive'])

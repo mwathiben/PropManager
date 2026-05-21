@@ -13,7 +13,7 @@
  * the streaming logic lives in one place; ChatThread stays presentational.
  */
 import { ref, watch } from 'vue';
-import type { BubbleMessage, BubbleSender, ReplyPreview } from '@/Components/Inbox/MessageBubble.vue';
+import type { BubbleMessage, BubbleSender, ReactionSummary, ReplyPreview } from '@/Components/Inbox/MessageBubble.vue';
 
 export interface StreamMessage extends BubbleMessage {
     /** undefined = confirmed by the server; otherwise an optimistic bubble. */
@@ -32,6 +32,13 @@ export interface IncomingPosted {
     created_at: string;
 }
 
+export interface IncomingReaction {
+    message_id: number;
+    emoji: string;
+    user_id: number;
+    count: number;
+}
+
 export function useThreadStream(
     currentUserId: number | null,
     serverMessages: () => BubbleMessage[],
@@ -42,9 +49,54 @@ export function useThreadStream(
 
     function mergeServer(list: BubbleMessage[]): void {
         for (const m of list) {
-            if (knownIds.has(m.id)) continue;
+            if (knownIds.has(m.id)) {
+                // Reactions are the only field that mutates after creation —
+                // keep known messages authoritative across reloads.
+                const existing = messages.value.find((x) => x.id === m.id);
+                if (existing) existing.reactions = m.reactions ?? [];
+                continue;
+            }
             knownIds.add(m.id);
             messages.value.push({ ...m });
+        }
+    }
+
+    function reactionsOf(message: StreamMessage): ReactionSummary[] {
+        if (!message.reactions) message.reactions = [];
+        return message.reactions;
+    }
+
+    // Actor-side optimistic toggle: flip the viewer's own reaction + adjust count.
+    function toggleReaction(messageId: number, emoji: string): void {
+        const m = messages.value.find((x) => x.id === messageId);
+        if (!m) return;
+        const reactions = reactionsOf(m);
+        const pill = reactions.find((r) => r.emoji === emoji);
+        if (pill && pill.reacted) {
+            pill.count -= 1;
+            pill.reacted = false;
+            if (pill.count <= 0) m.reactions = reactions.filter((r) => r.emoji !== emoji);
+        } else if (pill) {
+            pill.count += 1;
+            pill.reacted = true;
+        } else {
+            reactions.push({ emoji, count: 1, reacted: true });
+        }
+    }
+
+    // Remote toggle from another participant: set the authoritative count for
+    // the emoji; never touch the viewer's own `reacted` flag.
+    function applyRemoteReaction(event: IncomingReaction): void {
+        const m = messages.value.find((x) => x.id === event.message_id);
+        if (!m) return;
+        const reactions = reactionsOf(m);
+        const pill = reactions.find((r) => r.emoji === event.emoji);
+        if (event.count <= 0) {
+            m.reactions = reactions.filter((r) => r.emoji !== event.emoji);
+        } else if (pill) {
+            pill.count = event.count;
+        } else {
+            reactions.push({ emoji: event.emoji, count: event.count, reacted: false });
         }
     }
 
@@ -104,5 +156,14 @@ export function useThreadStream(
         if (i !== -1) messages.value.splice(i, 1);
     }
 
-    return { messages, ingest, addOptimistic, resolveOptimistic, failOptimistic, dropFailed };
+    return {
+        messages,
+        ingest,
+        addOptimistic,
+        resolveOptimistic,
+        failOptimistic,
+        dropFailed,
+        toggleReaction,
+        applyRemoteReaction,
+    };
 }
