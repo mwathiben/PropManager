@@ -30,4 +30,18 @@ return [
         'vendor_flap_heading' => 'Vendor flap detected',
         'click_through_rate_label' => 'Push click-through rate (24h)',
     ],
+
+    'performance' => [
+        'title' => 'Vendor performance',
+        'subtitle' => 'Compare your vendors on SLA, resolution time, and cost',
+        'window' => 'Window',
+        'days' => 'Last {count} days',
+        'empty' => 'No active vendors yet.',
+        'col_vendor' => 'Vendor',
+        'col_within_sla' => 'Within SLA',
+        'col_avg_resolution' => 'Avg resolution',
+        'col_resolved' => 'Resolved',
+        'col_overdue' => 'Open overdue',
+        'col_cost_per_ticket' => 'Cost / ticket',
+    ],
 ];

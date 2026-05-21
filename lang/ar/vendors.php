@@ -30,4 +30,18 @@ return [
         'vendor_flap_heading' => '[TODO-ar] Vendor flap detected',
         'click_through_rate_label' => '[TODO-ar] Push click-through rate (24h)',
     ],
+
+    'performance' => [
+        'title' => '[TODO-ar] Vendor performance',
+        'subtitle' => '[TODO-ar] Compare your vendors on SLA, resolution time, and cost',
+        'window' => '[TODO-ar] Window',
+        'days' => '[TODO-ar] Last {count} days',
+        'empty' => '[TODO-ar] No active vendors yet.',
+        'col_vendor' => '[TODO-ar] Vendor',
+        'col_within_sla' => '[TODO-ar] Within SLA',
+        'col_avg_resolution' => '[TODO-ar] Avg resolution',
+        'col_resolved' => '[TODO-ar] Resolved',
+        'col_overdue' => '[TODO-ar] Open overdue',
+        'col_cost_per_ticket' => '[TODO-ar] Cost / ticket',
+    ],
 ];

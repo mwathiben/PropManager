@@ -79,13 +79,18 @@ const prefetchTab = (tab: HubTab): void => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex items-center gap-3">
-                <div class="p-2 rounded-lg" :class="accent.iconBox">
-                    <component :is="icon" class="w-6 h-6" :class="accent.iconText" />
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 rounded-lg" :class="accent.iconBox">
+                        <component :is="icon" class="w-6 h-6" :class="accent.iconText" />
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-semibold text-gray-900">{{ title }}</h1>
+                        <p v-if="subtitle" class="text-sm text-gray-500">{{ subtitle }}</p>
+                    </div>
                 </div>
-                <div>
-                    <h1 class="text-lg font-semibold text-gray-900">{{ title }}</h1>
-                    <p v-if="subtitle" class="text-sm text-gray-500">{{ subtitle }}</p>
+                <div v-if="$slots.actions" class="flex flex-wrap items-center gap-2">
+                    <slot name="actions" />
                 </div>
             </div>
         </template>

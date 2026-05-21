@@ -491,6 +491,11 @@ Route::middleware('auth')->group(function () {
     // Maintenance Hub - Consolidates: Tickets (Issues), Complaints
     Route::get('/maintenance', [MaintenanceHubController::class, 'index'])->name('maintenance.hub');
 
+    // Phase-75 VENDOR-PERF-2: landlord-side vendor performance comparison.
+    Route::middleware('role:landlord')
+        ->get('/maintenance/vendor-performance', [\App\Http\Controllers\MaintenanceVendorPerformanceController::class, 'index'])
+        ->name('maintenance.vendor-performance');
+
     // Water Hub - Consolidates: Readings, History, Settings
     Route::get('/water', [WaterHubController::class, 'index'])->name('water.hub');
 

@@ -30,4 +30,18 @@ return [
         'vendor_flap_heading' => 'Mteremko wa mtoa huduma umegunduliwa',
         'click_through_rate_label' => 'Kiwango cha mibofyo ya arifa (saa 24)',
     ],
+
+    'performance' => [
+        'title' => '[TODO-sw] Vendor performance',
+        'subtitle' => '[TODO-sw] Compare your vendors on SLA, resolution time, and cost',
+        'window' => '[TODO-sw] Window',
+        'days' => '[TODO-sw] Last {count} days',
+        'empty' => '[TODO-sw] No active vendors yet.',
+        'col_vendor' => '[TODO-sw] Vendor',
+        'col_within_sla' => '[TODO-sw] Within SLA',
+        'col_avg_resolution' => '[TODO-sw] Avg resolution',
+        'col_resolved' => '[TODO-sw] Resolved',
+        'col_overdue' => '[TODO-sw] Open overdue',
+        'col_cost_per_ticket' => '[TODO-sw] Cost / ticket',
+    ],
 ];
