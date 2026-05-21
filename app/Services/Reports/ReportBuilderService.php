@@ -62,6 +62,21 @@ class ReportBuilderService
         'lease.rent_amount' => ['table' => 'leases', 'column' => 'rent_amount', 'type' => 'numeric', 'label' => 'Lease rent amount'],
         'lease.start_date' => ['table' => 'leases', 'column' => 'start_date', 'type' => 'date', 'label' => 'Lease start date'],
         'lease.is_active' => ['table' => 'leases', 'column' => 'is_active', 'type' => 'boolean', 'label' => 'Lease active'],
+
+        // Phase-73 METRICS-DEPTH-1: additional safe, parameterised
+        // dimensions. Each maps to a real column on an ALLOWED_TABLES
+        // table; group-by + filters stay validated against this list and
+        // values stay parameterised (no DB::raw). Numeric entries become
+        // available to MetricFormulaService automatically (it reads this
+        // same allow-list).
+        'payment.reconciliation_status' => ['table' => 'payments', 'column' => 'reconciliation_status', 'type' => 'string', 'label' => 'Payment reconciliation status'],
+        'invoice.rent_due' => ['table' => 'invoices', 'column' => 'rent_due', 'type' => 'numeric', 'label' => 'Invoice rent due'],
+        'invoice.arrears' => ['table' => 'invoices', 'column' => 'arrears', 'type' => 'numeric', 'label' => 'Invoice arrears'],
+        'invoice.late_fees_total' => ['table' => 'invoices', 'column' => 'late_fees_total', 'type' => 'numeric', 'label' => 'Invoice late fees'],
+        'invoice.billing_period_start' => ['table' => 'invoices', 'column' => 'billing_period_start', 'type' => 'date', 'label' => 'Invoice billing period start'],
+        'lease.end_date' => ['table' => 'leases', 'column' => 'end_date', 'type' => 'date', 'label' => 'Lease end date'],
+        'lease.deposit_amount' => ['table' => 'leases', 'column' => 'deposit_amount', 'type' => 'numeric', 'label' => 'Lease deposit amount'],
+        'lease.service_charge' => ['table' => 'leases', 'column' => 'service_charge', 'type' => 'numeric', 'label' => 'Lease service charge'],
     ];
 
     public const NUMERIC_OPERATORS = ['=', '!=', '<', '<=', '>', '>='];

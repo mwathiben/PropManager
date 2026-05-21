@@ -41,6 +41,27 @@ return [
         'back' => '[TODO-sw] Back to dashboards',
     ],
 
+    'metrics' => [
+        'title' => '[TODO-sw] Custom metrics',
+        'intro' => '[TODO-sw] Define a named formula over your numeric report fields. Metrics become derived columns in the report builder and dashboard cards.',
+        'name_label' => '[TODO-sw] Metric name',
+        'expression_label' => '[TODO-sw] Formula',
+        'expression_hint' => '[TODO-sw] Use {table.field} references and + - * / % operators, e.g. {invoice.amount_paid} / {invoice.total_due} * 100',
+        'unit_label' => '[TODO-sw] Unit (optional)',
+        'unit_placeholder' => '[TODO-sw] e.g. %, KES',
+        'available_fields' => '[TODO-sw] Available fields',
+        'insert_field' => '[TODO-sw] Insert',
+        'create' => '[TODO-sw] Create metric',
+        'validating' => '[TODO-sw] Checking…',
+        'valid' => '[TODO-sw] Formula is valid.',
+        'col_name' => '[TODO-sw] Name',
+        'col_expression' => '[TODO-sw] Formula',
+        'col_unit' => '[TODO-sw] Unit',
+        'delete' => '[TODO-sw] Delete',
+        'delete_confirm' => '[TODO-sw] Delete this metric?',
+        'empty' => '[TODO-sw] No metrics yet. Create one above.',
+    ],
+
     'scheduled' => [
         'title' => '[TODO-sw] Scheduled reports',
         'active_heading' => '[TODO-sw] Active schedules',

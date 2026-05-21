@@ -7,11 +7,16 @@ namespace App\Http\Controllers\Reports;
 use App\Http\Controllers\Controller;
 use App\Models\ReportMetric;
 use App\Services\Reports\MetricFormulaService;
+use App\Services\Reports\ReportBuilderService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
+use Inertia\Response;
 
 /**
  * Phase-50 CUSTOM-METRICS-3: thin REST surface for landlord-owned
@@ -33,7 +38,7 @@ class ReportMetricController extends Controller
         private MetricFormulaService $formulas,
     ) {}
 
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         $landlordId = $this->landlordIdFor($request);
 
@@ -45,6 +50,51 @@ class ReportMetricController extends Controller
             ->get(['id', 'slug', 'name', 'expression', 'unit']);
 
         return response()->json(['metrics' => $rows]);
+    }
+
+    /**
+     * Phase-73 METRICS-DEPTH-2: the metrics author/manage page. Lists the
+     * landlord's metrics + the numeric field catalogue a formula may
+     * reference (the same allow-list MetricFormulaService validates
+     * against), so the editor can offer fields without hard-coding them.
+     */
+    public function manage(Request $request): Response
+    {
+        $landlordId = $this->landlordIdFor($request);
+
+        $metrics = ReportMetric::query()
+            ->withoutGlobalScope('landlord')
+            ->where('landlord_id', $landlordId)
+            ->active()
+            ->orderBy('name')
+            ->get(['id', 'slug', 'name', 'expression', 'unit']);
+
+        return Inertia::render('Reports/Metrics', [
+            'metrics' => $metrics,
+            'fields' => $this->numericFieldCatalogue(),
+        ]);
+    }
+
+    /**
+     * Phase-73 METRICS-DEPTH-2: live, no-persist formula validation. The
+     * editor posts the expression as the landlord types so a bad formula
+     * (off-allow-list field, malformed, injection payload) surfaces its
+     * exact message before save. Nothing touches the database.
+     */
+    public function validate(Request $request): JsonResponse
+    {
+        $expression = (string) $request->input('expression', '');
+
+        try {
+            $this->formulas->parse($expression);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'valid' => false,
+                'error' => $e->errors()['expression'][0] ?? 'Invalid expression.',
+            ]);
+        }
+
+        return response()->json(['valid' => true]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -80,7 +130,7 @@ class ReportMetricController extends Controller
         ]);
 
         return redirect()
-            ->route('reports.builder.index')
+            ->route('reports.metrics.manage')
             ->with('success', "Created metric: {$metric->name}");
     }
 
@@ -93,7 +143,7 @@ class ReportMetricController extends Controller
         $metric->delete();
 
         return redirect()
-            ->route('reports.builder.index')
+            ->route('reports.metrics.manage')
             ->with('success', "Deleted metric: {$metric->name}");
     }
 
@@ -102,5 +152,23 @@ class ReportMetricController extends Controller
         $user = $request->user();
 
         return $user->role === 'landlord' ? (int) $user->id : (int) $user->landlord_id;
+    }
+
+    /**
+     * The numeric subset of the builder allow-list — the only fields a
+     * metric formula may reference. Returned as {key,label} for the editor.
+     *
+     * @return list<array{key: string, label: string}>
+     */
+    private function numericFieldCatalogue(): array
+    {
+        $fields = [];
+        foreach (ReportBuilderService::ALLOWED_FIELDS as $key => $meta) {
+            if ($meta['type'] === 'numeric') {
+                $fields[] = ['key' => $key, 'label' => $meta['label']];
+            }
+        }
+
+        return $fields;
     }
 }

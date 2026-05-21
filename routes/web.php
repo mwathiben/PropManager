@@ -789,8 +789,14 @@ Route::middleware('auth')->group(function () {
     // MetricFormulaService and surfaced as derived columns in the builder.
     Route::middleware('role:landlord')->prefix('reports/metrics')->name('reports.metrics.')->group(function () {
         Route::get('/', [\App\Http\Controllers\Reports\ReportMetricController::class, 'index'])->name('index');
+        // Phase-73 METRICS-DEPTH-2: the author/manage page + live no-persist
+        // formula validation. Both registered before the {metric} delete so
+        // /manage + /validate never bind as a numeric metric id.
+        Route::get('/manage', [\App\Http\Controllers\Reports\ReportMetricController::class, 'manage'])->name('manage');
+        Route::post('/validate', [\App\Http\Controllers\Reports\ReportMetricController::class, 'validate'])->name('validate');
         Route::post('/', [\App\Http\Controllers\Reports\ReportMetricController::class, 'store'])->name('store');
-        Route::delete('/{metric}', [\App\Http\Controllers\Reports\ReportMetricController::class, 'destroy'])->name('destroy');
+        Route::delete('/{metric}', [\App\Http\Controllers\Reports\ReportMetricController::class, 'destroy'])
+            ->whereNumber('metric')->name('destroy');
     });
 
     // Phase-73 DASHBOARD-EDITOR: landlord-defined dashboards CRUD + card editor

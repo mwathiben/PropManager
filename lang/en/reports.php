@@ -41,6 +41,27 @@ return [
         'back' => 'Back to dashboards',
     ],
 
+    'metrics' => [
+        'title' => 'Custom metrics',
+        'intro' => 'Define a named formula over your numeric report fields. Metrics become derived columns in the report builder and dashboard cards.',
+        'name_label' => 'Metric name',
+        'expression_label' => 'Formula',
+        'expression_hint' => 'Use {table.field} references and + - * / % operators, e.g. {invoice.amount_paid} / {invoice.total_due} * 100',
+        'unit_label' => 'Unit (optional)',
+        'unit_placeholder' => 'e.g. %, KES',
+        'available_fields' => 'Available fields',
+        'insert_field' => 'Insert',
+        'create' => 'Create metric',
+        'validating' => 'Checking…',
+        'valid' => 'Formula is valid.',
+        'col_name' => 'Name',
+        'col_expression' => 'Formula',
+        'col_unit' => 'Unit',
+        'delete' => 'Delete',
+        'delete_confirm' => 'Delete this metric?',
+        'empty' => 'No metrics yet. Create one above.',
+    ],
+
     'scheduled' => [
         'title' => 'Scheduled reports',
         'active_heading' => 'Active schedules',

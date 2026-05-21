@@ -41,6 +41,27 @@ return [
         'back' => '[TODO-ar] Back to dashboards',
     ],
 
+    'metrics' => [
+        'title' => '[TODO-ar] Custom metrics',
+        'intro' => '[TODO-ar] Define a named formula over your numeric report fields. Metrics become derived columns in the report builder and dashboard cards.',
+        'name_label' => '[TODO-ar] Metric name',
+        'expression_label' => '[TODO-ar] Formula',
+        'expression_hint' => '[TODO-ar] Use {table.field} references and + - * / % operators, e.g. {invoice.amount_paid} / {invoice.total_due} * 100',
+        'unit_label' => '[TODO-ar] Unit (optional)',
+        'unit_placeholder' => '[TODO-ar] e.g. %, KES',
+        'available_fields' => '[TODO-ar] Available fields',
+        'insert_field' => '[TODO-ar] Insert',
+        'create' => '[TODO-ar] Create metric',
+        'validating' => '[TODO-ar] Checking…',
+        'valid' => '[TODO-ar] Formula is valid.',
+        'col_name' => '[TODO-ar] Name',
+        'col_expression' => '[TODO-ar] Formula',
+        'col_unit' => '[TODO-ar] Unit',
+        'delete' => '[TODO-ar] Delete',
+        'delete_confirm' => '[TODO-ar] Delete this metric?',
+        'empty' => '[TODO-ar] No metrics yet. Create one above.',
+    ],
+
     'scheduled' => [
         'title' => '[TODO-ar] Scheduled reports',
         'active_heading' => '[TODO-ar] Active schedules',
