@@ -288,7 +288,18 @@ function completeOnboarding() {
 
     <!-- Phase-47 WIZARD-VUE-1: tenant + caretaker scaffold dispatch. -->
     <TenantSteps v-if="role === 'tenant'" :current-step="currentStep" :completed-steps="completedSteps" />
-    <CaretakerSteps v-else-if="role === 'caretaker'" :current-step="currentStep" :completed-steps="completedSteps" />
+    <!-- Phase-77 CARETAKER-FLOW-2: forward the server-injected caretaker step
+         props (stats / orientation summary / first-task) the child renders. -->
+    <CaretakerSteps
+        v-else-if="role === 'caretaker'"
+        :current-step="currentStep"
+        :completed-steps="completedSteps"
+        :total-steps="($page.props as any).totalSteps"
+        :pending-assignments="($page.props as any).pendingAssignments"
+        :building-summary="($page.props as any).buildingSummary"
+        :first-task-url="($page.props as any).firstTaskUrl"
+        :profile="($page.props as any).profile"
+    />
 
     <div v-else class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
         <!-- Progress Header -->

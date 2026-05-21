@@ -18,10 +18,12 @@ class Invitation extends Model
         'token',
         'property_id',
         'accepted_at',
+        'viewed_at',
     ];
 
     protected $casts = [
         'accepted_at' => 'datetime',
+        'viewed_at' => 'datetime',
     ];
 
     /**

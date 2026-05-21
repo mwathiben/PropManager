@@ -31,11 +31,12 @@ const props = defineProps<{
     pendingAssignments?: PendingAssignment[];
     buildingSummary?: BuildingSummary[];
     firstTaskUrl?: string;
+    profile?: { name: string | null; mobile_number: string | null };
 }>();
 
 const form = useForm<Record<string, unknown>>({
-    name: '',
-    mobile_number: '',
+    name: props.profile?.name ?? '',
+    mobile_number: props.profile?.mobile_number ?? '',
     acknowledged: false,
     decline: [] as number[],
     decline_reason: {} as Record<number, string>,

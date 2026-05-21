@@ -136,6 +136,12 @@ class InvitationController extends Controller
             return $this->renderInvitationError('This invitation has expired. Please contact the property owner for a new invitation.');
         }
 
+        // Phase-77 INVITE-DEEPLINK-3: stamp the first view (sent -> opened
+        // funnel signal) once; re-views never overwrite it.
+        if ($invitation->viewed_at === null) {
+            $invitation->forceFill(['viewed_at' => now()])->saveQuietly();
+        }
+
         if ($invitation->isForExistingUser()) {
             return $this->handleExistingUserFlow($invitation, $token);
         }
@@ -194,7 +200,11 @@ class InvitationController extends Controller
             // CRYPTO-5: rotate the session id across the privilege transition.
             request()->session()->regenerate();
 
-            return redirect()->route('dashboard')->with('success', 'Welcome! Your caretaker account has been created successfully.');
+            // Phase-77 INVITE-DEEPLINK-1: drop the new caretaker into onboarding
+            // (the InvitationAccepted event already created their pending
+            // building assignments) rather than a generic dashboard.
+            return redirect()->route('onboarding.step', ['step' => 1])
+                ->with('success', 'Welcome! Your caretaker account has been created successfully.');
         } catch (\Exception $e) {
             Log::error('Failed to accept caretaker invitation', [
                 'token' => $token,
@@ -278,7 +288,9 @@ class InvitationController extends Controller
 
             event(new InvitationAccepted($invitation, $user));
 
-            return redirect()->route('dashboard')
+            // Phase-77 INVITE-DEEPLINK-1: route the freshly-elevated caretaker
+            // into onboarding rather than a generic dashboard.
+            return redirect()->route('onboarding.step', ['step' => 1])
                 ->with('success', 'Welcome! You are now a caretaker for '.$invitation->property->name.'.');
         } catch (\Exception $e) {
             Log::error('Failed to accept authenticated caretaker invitation', [
