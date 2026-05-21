@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Mail\TenantStatementMail;
+use App\Models\Lease;
 use App\Models\TenantStatementPreference;
+use App\Models\User;
 use App\Services\Reports\XlsxExportService;
 use App\Services\Tenant\StatementService;
+use App\Services\Wallet\WalletService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -43,9 +46,10 @@ class TenantStatementController extends Controller
         'custom',
     ];
 
-    public function __construct(private readonly StatementService $statements)
-    {
-    }
+    public function __construct(
+        private readonly StatementService $statements,
+        private readonly WalletService $wallet,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -62,7 +66,31 @@ class TenantStatementController extends Controller
             'to' => $to->toDateString(),
             'filters' => $filters,
             'rows' => $rows,
+            'walletBalances' => $this->walletBalances($request->user()),
         ]);
+    }
+
+    /**
+     * Phase-76 STATEMENT-WALLET-3: current wallet credit per currency, summed
+     * across the tenant's leases, for the statement balance header.
+     *
+     * @return array<int, array{currency: string, balance: float}>
+     */
+    private function walletBalances(User $tenant): array
+    {
+        $totals = [];
+
+        Lease::where('tenant_id', $tenant->id)->get()->each(function (Lease $lease) use (&$totals) {
+            foreach ($this->wallet->balancesFor($lease) as $currency => $balance) {
+                $totals[$currency] = ($totals[$currency] ?? 0.0) + $balance;
+            }
+        });
+
+        return collect($totals)
+            ->filter(fn (float $balance) => abs($balance) > 0.001)
+            ->map(fn (float $balance, string $currency) => ['currency' => $currency, 'balance' => round($balance, 2)])
+            ->values()
+            ->all();
     }
 
     public function pdf(Request $request): HttpResponse

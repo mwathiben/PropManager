@@ -36,7 +36,12 @@
             @foreach ($rows as $row)
                 <tr class="{{ $row['kind'] }}">
                     <td>{{ $row['date'] }}</td>
-                    <td>{{ $row['description'] }}</td>
+                    <td>
+                        {{ $row['description'] }}
+                        @if (in_array($row['kind'], ['wallet_credit', 'wallet_debit'], true) && !empty($row['amount']))
+                            ({{ $row['currency'] }} {{ number_format((float) $row['amount'], 2) }})
+                        @endif
+                    </td>
                     <td>{{ $row['reference'] ?? '' }}</td>
                     <td class="num">{{ $row['charge'] > 0 ? number_format($row['charge'], 2) : '' }}</td>
                     <td class="num">{{ $row['payment'] > 0 ? number_format($row['payment'], 2) : '' }}</td>

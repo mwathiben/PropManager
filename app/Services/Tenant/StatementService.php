@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Tenant;
 
-use App\Enums\InvoiceStatus;
+use App\Enums\Currency;
+use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\User;
+use App\Models\WalletTransaction;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
@@ -56,8 +58,16 @@ class StatementService
             ]);
         }
 
+        // Phase-76 STATEMENT-WALLET-1: credit notes reduce the obligation but
+        // are NOT Payment rows, so they must be subtracted explicitly (both in
+        // the opening balance and in-window). Wallet movements are shown as
+        // informational rows only — they never alter charges−payments−credits
+        // because a wallet credit is either an already-counted payment overpay
+        // or an already-counted credit note (counting the wallet leg too would
+        // double-count). See docs/runbooks/wallet.md.
         $openingBalance = $this->chargeTotalBefore($leaseIds, $from)
-            - $this->paymentTotalBefore($leaseIds, $from);
+            - $this->paymentTotalBefore($leaseIds, $from)
+            - $this->creditNoteTotalBefore($leaseIds, $from);
 
         $invoices = Invoice::whereIn('lease_id', $leaseIds)
             ->whereNull('voided_at')
@@ -92,6 +102,8 @@ class StatementService
                 'payment' => (float) $p->amount,
                 'kind' => 'payment',
             ]))
+            ->concat($this->creditNoteEvents($leaseIds, $from, $to))
+            ->concat($this->walletEvents($leaseIds, $from, $to))
             ->sortBy('sort')
             ->values();
 
@@ -116,7 +128,11 @@ class StatementService
             if ($allowedKinds !== null && ! in_array($event['kind'], $allowedKinds, true)) {
                 continue;
             }
-            $amount = $event['charge'] !== 0.0 ? $event['charge'] : $event['payment'];
+            $amount = match (true) {
+                $event['charge'] !== 0.0 => $event['charge'],
+                $event['payment'] !== 0.0 => $event['payment'],
+                default => (float) ($event['amount'] ?? 0.0),
+            };
             if ($minAmount !== null && $amount < $minAmount) {
                 continue;
             }
@@ -132,6 +148,8 @@ class StatementService
                 'payment' => $event['payment'],
                 'running_balance' => round($balance, 2),
                 'kind' => $event['kind'],
+                'amount' => isset($event['amount']) ? round((float) $event['amount'], 2) : null,
+                'currency' => $event['currency'] ?? null,
             ]);
         }
 
@@ -214,6 +232,69 @@ class StatementService
             ->where('is_voided', false)
             ->where('payment_date', '<', $from->toDateString())
             ->sum('amount');
+    }
+
+    private function creditNoteTotalBefore(Collection $leaseIds, CarbonImmutable $from): float
+    {
+        return (float) CreditNote::whereIn('lease_id', $leaseIds)
+            ->whereNotNull('applied_at')
+            ->where('applied_at', '<', $from->toDateString())
+            ->sum('applied_amount');
+    }
+
+    /**
+     * Credit-note applications in the window — these reduce the obligation
+     * (payment-like) and are not otherwise represented in the stream.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function creditNoteEvents(Collection $leaseIds, CarbonImmutable $from, CarbonImmutable $to): Collection
+    {
+        return CreditNote::whereIn('lease_id', $leaseIds)
+            ->whereNotNull('applied_at')
+            ->where('applied_amount', '>', 0)
+            ->whereBetween('applied_at', [$from->toDateString(), $to->toDateString()])
+            ->with('invoice:id,currency')
+            ->orderBy('applied_at')
+            ->orderBy('id')
+            ->get(['id', 'credit_number', 'applied_amount', 'applied_at', 'invoice_id'])
+            ->map(fn (CreditNote $note) => [
+                'sort' => $note->applied_at->toDateString().sprintf('-3-%010d', $note->id),
+                'date' => $note->applied_at->toDateString(),
+                'description' => __('tenant.statement.credit_note_description', ['number' => $note->credit_number]),
+                'reference' => $note->credit_number,
+                'charge' => 0.0,
+                'payment' => (float) $note->applied_amount,
+                'amount' => (float) $note->applied_amount,
+                'currency' => ($note->invoice?->currency ?? Currency::default())->value,
+                'kind' => 'credit_note',
+            ]);
+    }
+
+    /**
+     * Wallet movements in the window — INFORMATIONAL only (charge/payment 0),
+     * see the double-count note in forTenant().
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function walletEvents(Collection $leaseIds, CarbonImmutable $from, CarbonImmutable $to): Collection
+    {
+        return WalletTransaction::whereIn('lease_id', $leaseIds)
+            ->whereBetween('created_at', [$from->startOfDay(), $to->endOfDay()])
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get(['id', 'type', 'amount', 'currency', 'reason', 'created_at'])
+            ->map(fn (WalletTransaction $txn) => [
+                'sort' => $txn->created_at->toDateString().sprintf('-4-%010d', $txn->id),
+                'date' => $txn->created_at->toDateString(),
+                'description' => $txn->reason ?? __('tenant.statement.wallet_'.$txn->type),
+                'reference' => null,
+                'charge' => 0.0,
+                'payment' => 0.0,
+                'amount' => (float) $txn->amount,
+                'currency' => $txn->currency->value,
+                'kind' => $txn->type === 'credit' ? 'wallet_credit' : 'wallet_debit',
+            ]);
     }
 
     /**

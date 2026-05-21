@@ -16,7 +16,9 @@ interface StatementRow {
     charge: number;
     payment: number;
     running_balance: number;
-    kind: 'opening' | 'invoice' | 'payment' | 'closing';
+    kind: 'opening' | 'invoice' | 'payment' | 'closing' | 'credit_note' | 'wallet_credit' | 'wallet_debit';
+    amount?: number | null;
+    currency?: string | null;
 }
 
 const props = defineProps<{
@@ -25,6 +27,7 @@ const props = defineProps<{
     from: string;
     to: string;
     rows: StatementRow[];
+    walletBalances?: { currency: string; balance: number }[];
 }>();
 
 const changePeriod = (period: string) => {
@@ -117,7 +120,7 @@ const closingBalance = computed(() => {
                 </div>
 
                 <!-- Summary -->
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
                     <div class="bg-white rounded-xl border border-gray-200 p-4">
                         <p class="text-xs uppercase text-gray-500">Total charges</p>
                         <p class="mt-1 text-xl font-semibold text-gray-900">KES {{ formatBalance(totalCharges) }}</p>
@@ -132,6 +135,15 @@ const closingBalance = computed(() => {
                             class="mt-1 text-xl font-semibold"
                             :class="closingBalance > 0 ? 'text-red-600' : 'text-emerald-600'"
                         >KES {{ formatBalance(closingBalance) }}</p>
+                    </div>
+                    <div class="bg-white rounded-xl border border-gray-200 p-4" data-testid="statement-wallet-balance">
+                        <p class="text-xs uppercase text-gray-500">Wallet credit</p>
+                        <p v-if="!walletBalances || walletBalances.length === 0" class="mt-1 text-xl font-semibold text-gray-400">—</p>
+                        <p
+                            v-for="b in walletBalances"
+                            :key="b.currency"
+                            class="mt-1 text-xl font-semibold text-emerald-600"
+                        >{{ b.currency }} {{ formatBalance(b.balance) }}</p>
                     </div>
                 </div>
 
@@ -156,7 +168,17 @@ const closingBalance = computed(() => {
                                 :class="['opening', 'closing'].includes(row.kind) ? 'bg-gray-50 font-medium' : ''"
                             >
                                 <td class="px-4 py-2 text-sm text-gray-700">{{ row.date }}</td>
-                                <td class="px-4 py-2 text-sm text-gray-700">{{ row.description }}</td>
+                                <td class="px-4 py-2 text-sm text-gray-700">
+                                    {{ row.description }}
+                                    <span
+                                        v-if="row.kind === 'credit_note'"
+                                        class="ms-1 rounded bg-indigo-100 px-1.5 py-0.5 text-xs font-medium text-indigo-700"
+                                    >Credit note</span>
+                                    <span
+                                        v-else-if="row.kind === 'wallet_credit' || row.kind === 'wallet_debit'"
+                                        class="ms-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700"
+                                    >{{ row.currency }} {{ formatBalance(row.amount ?? 0) }}</span>
+                                </td>
                                 <td class="px-4 py-2 text-sm text-gray-500">{{ row.reference ?? '' }}</td>
                                 <td class="px-4 py-2 text-sm text-end tabular-nums text-gray-700">{{ formatMoney(row.charge) }}</td>
                                 <td class="px-4 py-2 text-sm text-end tabular-nums text-emerald-700">{{ formatMoney(row.payment) }}</td>

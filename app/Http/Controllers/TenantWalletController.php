@@ -95,7 +95,6 @@ class TenantWalletController extends Controller
     {
         return Lease::where('tenant_id', $request->user()->id)
             ->where('is_active', true)
-            ->with(['unit.building.property'])
             ->first();
     }
 }
