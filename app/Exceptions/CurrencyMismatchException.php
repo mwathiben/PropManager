@@ -25,10 +25,15 @@ class CurrencyMismatchException extends RuntimeException
 
     public function render(): \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
     {
-        $message = __('wallet.errors.currency_mismatch', [
+        $key = 'wallet.errors.currency_mismatch';
+        $message = __($key, [
             'wallet' => $this->walletCurrency,
             'target' => $this->targetCurrency,
         ]);
+
+        if ($message === $key) {
+            $message = $this->getMessage();
+        }
 
         if (request()->expectsJson()) {
             return response()->json(['message' => $message], 422);

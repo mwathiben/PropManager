@@ -21,6 +21,7 @@ return new class extends Migration
         });
 
         DB::table('payment_configurations')
+            ->whereNotNull('default_currency')
             ->where('default_currency', '!=', 'KES')
             ->select('landlord_id', 'default_currency')
             ->get()

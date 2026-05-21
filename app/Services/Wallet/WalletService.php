@@ -27,16 +27,23 @@ use Illuminate\Support\Facades\DB;
  */
 class WalletService
 {
+    /**
+     * Read-only default-currency lookup — never writes a PaymentConfiguration
+     * row (so balance/ledger reads stay side-effect-free).
+     */
     public function defaultCurrency(Lease $lease): Currency
     {
-        return PaymentConfiguration::getOrCreateForLandlord($lease->landlord_id)->default_currency ?? Currency::default();
+        $currency = PaymentConfiguration::where('landlord_id', $lease->landlord_id)->value('default_currency');
+
+        return $currency instanceof Currency ? $currency : Currency::default();
     }
 
     public function credit(Lease $lease, float $amount, ?string $reason = null, ?int $paymentId = null, ?Currency $currency = null): void
     {
-        $currency ??= $this->defaultCurrency($lease);
+        $default = $this->defaultCurrency($lease);
+        $currency ??= $default;
 
-        if ($currency === $this->defaultCurrency($lease)) {
+        if ($currency === $default) {
             $lease->creditToWallet($amount, $reason, $paymentId, $currency);
 
             return;
@@ -52,9 +59,10 @@ class WalletService
      */
     public function apply(Lease $lease, float $amount, ?string $reason = null, ?int $invoiceId = null, ?Currency $currency = null): float
     {
-        $currency ??= $this->defaultCurrency($lease);
+        $default = $this->defaultCurrency($lease);
+        $currency ??= $default;
 
-        if ($currency === $this->defaultCurrency($lease)) {
+        if ($currency === $default) {
             return $lease->deductFromWallet($amount, $reason, $invoiceId, $currency);
         }
 
@@ -130,10 +138,18 @@ class WalletService
     {
         throw_unless(DB::transactionLevel() > 0, \LogicException::class, 'WalletService non-default mutation must be called within a transaction');
 
-        $row = LeaseWalletBalance::lockForUpdate()->firstOrCreate(
+        // Create-then-lock: firstOrCreate's race-recovery re-read is NOT locked,
+        // so re-fetch FOR UPDATE before the arithmetic to close the lost-update
+        // window on the first concurrent creation of a (lease, currency) row.
+        LeaseWalletBalance::firstOrCreate(
             ['lease_id' => $lease->id, 'currency' => $currency->value],
             ['landlord_id' => $lease->landlord_id, 'balance' => 0],
         );
+
+        $row = LeaseWalletBalance::where('lease_id', $lease->id)
+            ->where('currency', $currency->value)
+            ->lockForUpdate()
+            ->firstOrFail();
 
         if ($type === 'debit') {
             $deducted = min($amount, (float) $row->balance);

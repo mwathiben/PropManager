@@ -22,7 +22,9 @@ return new class extends Migration
             $table->foreignId('lease_id')->constrained('leases')->cascadeOnDelete();
             $table->foreignId('landlord_id')->constrained('users')->cascadeOnDelete();
             $table->string('currency', 3);
-            $table->decimal('balance', 12, 2)->default(0);
+            // Matches leases.wallet_balance + wallet_transactions.balance_after
+            // (decimal 10,2) so the cache row and its ledger snapshot agree.
+            $table->decimal('balance', 10, 2)->default(0);
             $table->timestamps();
 
             $table->unique(['lease_id', 'currency']);
