@@ -473,11 +473,15 @@ Route::middleware('auth')->group(function () {
     // (CodeRabbit H1 — explicit role gate, not just getLandlordId()'s 403).
     Route::middleware('role:landlord,caretaker')->group(function () {
         Route::get('/properties', [\App\Http\Controllers\PropertyController::class, 'index'])->name('properties.index');
+        // PROPERTY-BENCHMARK: cross-property ranking (no id — before the {property} route).
+        Route::get('/properties/benchmark', [\App\Http\Controllers\PropertyController::class, 'benchmark'])->name('properties.benchmark');
         // PROPERTY-SWITCH-3: the resolved active property (no id).
         Route::get('/properties/current', [\App\Http\Controllers\PropertyController::class, 'current'])->name('properties.current');
-        // PROPERTY-SWITCH-1: persist the active property.
+        // PROPERTY-SWITCH-1: persist the active property. Landlord-only —
+        // active-property is a per-landlord concept and the switcher UI is
+        // landlord-only (CodeRabbit M1: caretakers must not write it).
         Route::post('/properties/{property}/switch', [\App\Http\Controllers\PropertyController::class, 'switchTo'])
-            ->whereNumber('property')->name('properties.switch');
+            ->middleware('role:landlord')->whereNumber('property')->name('properties.switch');
         // PROPERTY-VIEW-1: single-property dashboard.
         Route::get('/properties/{property}', [\App\Http\Controllers\PropertyController::class, 'show'])
             ->whereNumber('property')->name('properties.show');

@@ -7,6 +7,7 @@ use App\Models\Building;
 use App\Models\Property;
 use App\Models\Unit;
 use App\Services\Property\ActivePropertyResolver;
+use App\Services\Property\PropertyBenchmarkService;
 use App\Services\Property\PropertyMetricsService;
 use App\Services\Reports\NoiService;
 use Illuminate\Http\RedirectResponse;
@@ -67,6 +68,16 @@ class PropertyController extends Controller
     }
 
     /**
+     * Phase-78 PROPERTY-BENCHMARK: rank every property against the portfolio.
+     */
+    public function benchmark(PropertyBenchmarkService $benchmark): Response
+    {
+        return Inertia::render('Properties/Benchmark',
+            $benchmark->forLandlord($this->getLandlordId()),
+        );
+    }
+
+    /**
      * Phase-78 PROPERTY-SWITCH-3: render the resolved active property (no id).
      */
     public function current(ActivePropertyResolver $resolver, NoiService $noi): RedirectResponse|Response
@@ -77,6 +88,8 @@ class PropertyController extends Controller
             return redirect()->route('properties.index');
         }
 
+        // show() re-runs abort_unless on a property the resolver already
+        // proved is owned — intentional defense-in-depth, not dead code.
         return $this->show($property, $noi);
     }
 

@@ -312,6 +312,15 @@ Schedule::command('maintenance:cost-rollup')
     ->onOneServer()
     ->name('phase49-maintenance-costs3-rollup');
 
+// Phase-78 PROPERTY-BENCHMARK: weekly per-landlord portfolio occupancy gauge.
+// Visibility-only (no alert). Sits in the Sunday cost/rollup cluster, just
+// after maintenance:cost-rollup at 05:00.
+Schedule::command('property:benchmark-rollup')
+    ->weeklyOn(0, '05:05')
+    ->timezone('Africa/Nairobi')
+    ->onOneServer()
+    ->name('phase78-property-benchmark-rollup');
+
 // Phase-29 WF-RENT-REMIND-1: tiered rent reminder dispatcher. Runs
 // after invoices:automate (06:00) and before tickets:audit-sla (07:00)
 // so newly-generated invoices land in the same overnight cycle.

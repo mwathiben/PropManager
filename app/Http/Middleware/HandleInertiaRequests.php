@@ -8,6 +8,7 @@ use App\Models\Invoice;
 use App\Models\MoveOut;
 use App\Models\Notification;
 use App\Models\PaymentConfiguration;
+use App\Models\Property;
 use App\Models\TenantInvitation;
 use App\Models\TenantMessage;
 use App\Models\TenantPaymentVerification;
@@ -297,20 +298,26 @@ class HandleInertiaRequests extends Middleware
             return null;
         }
 
-        $options = \App\Models\Property::query()
+        $properties = Property::query()
             ->where('landlord_id', $user->id)
             ->orderBy('name')
-            ->get(['id', 'name'])
-            ->map(fn ($p) => ['id' => $p->id, 'name' => $p->name])
-            ->all();
+            ->get(['id', 'name']);
 
-        if ($options === []) {
+        if ($properties->isEmpty()) {
             return null;
         }
 
+        // Derive the active id from the rows already loaded for the option
+        // list (CodeRabbit M2/M3 — no second resolver query on this hot path
+        // that runs on every Inertia response): the stored choice when it is
+        // still owned, else the first property by id (the resolver's rule).
+        $ids = $properties->pluck('id');
+        $stored = (int) ($user->active_property_id ?? 0);
+        $activeId = $ids->contains($stored) ? $stored : (int) $ids->min();
+
         return [
-            'active_id' => app(\App\Services\Property\ActivePropertyResolver::class)->resolve($user)?->id,
-            'options' => $options,
+            'active_id' => $activeId,
+            'options' => $properties->map(fn ($p) => ['id' => $p->id, 'name' => $p->name])->all(),
         ];
     }
 

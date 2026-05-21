@@ -99,4 +99,28 @@ class Phase78PropertySwitchTest extends TestCase
 
         $this->actingAs($tenant)->get(route('properties.index'))->assertForbidden();
     }
+
+    public function test_caretaker_cannot_switch_the_active_property(): void
+    {
+        $caretaker = Model::withoutEvents(fn () => User::factory()->create([
+            'role' => 'caretaker',
+            'landlord_id' => $this->landlord->id,
+            'email_verified_at' => now(),
+        ]));
+
+        $this->actingAs($caretaker)
+            ->post(route('properties.switch', $this->property->id))
+            ->assertForbidden();
+
+        $this->assertNull($caretaker->fresh()->active_property_id);
+    }
+
+    public function test_current_redirects_when_landlord_has_no_properties(): void
+    {
+        $lonely = Model::withoutEvents(fn () => User::factory()->create(['role' => 'landlord']));
+
+        $this->actingAs($lonely)
+            ->get(route('properties.current'))
+            ->assertRedirect(route('properties.index'));
+    }
 }
