@@ -1,0 +1,161 @@
+{
+  "phase": 74,
+  "title": "DASHBOARD-DEPTH-2",
+  "opened_at": "2026-05-21",
+  "tier": 7,
+  "scope": "Phase 55 DASHBOARD-DEPTH + Phase 50/73 landlord-composable-dashboard sequel. The scout confirmed the depth-2 surface is genuinely unbuilt: custom dashboards (landlord_dashboards + DashboardService::buildPayload + Dashboards/{Index,Editor,Show}) support only two HARD-CODED card types (saved_report, metric), have NO share permalink, NO PDF/XLSX export, and the main role dashboard's cross-building rollup is a query-time toggle with no persistence. Reusable seams are READY: the Phase-73 report-share signed-URL pattern (ReportShareController + report_shares + share.blade.php), barryvdh/laravel-dompdf (InvoicePdfService pattern), and XlsxExportService::writeMultiSheet. This cycle deepens the COMPOSABLE dashboards: a card-renderer registry (so new card types are safe + ownership-validated), three new card types (kpi/chart/text), dashboard share permalinks, dashboard PDF+XLSX export, and a persisted cross-building scope. 6 categories x 3 = 18 (5H/9M/4L). Hard constraints preserved: DashboardService re-validates EVERY card's landlord ownership at render (fail-closed); shares run with the share row's landlord_id never a request param; no DB::raw; MetricFormulaService no-eval untouched.",
+  "categories": [
+    "CARD-REGISTRY",
+    "CARD-TYPES",
+    "DASH-SHARE",
+    "DASH-EXPORT",
+    "CROSS-BUILDING",
+    "CI"
+  ],
+  "findings": [
+    {
+      "id": "CARD-REGISTRY-1",
+      "severity": "HIGH",
+      "category": "CARD-REGISTRY",
+      "title": "Extract a card-renderer registry from DashboardService's hard-coded type switch",
+      "evidence": "DashboardService::renderCard() hard-codes the only two card types (saved_report, metric) with an inline if/else; adding a type means editing the security-sensitive render path. There is no factory/registry, so each new type risks the per-card ownership-validation invariant.",
+      "remediation": "Introduce a DashboardCardRenderer interface (type(): string; validate(array $card, int $landlordId): array; render(array $card, int $landlordId): array) + a DashboardCardRegistry keyed by type. Extract the existing saved_report + metric logic VERBATIM into SavedReportCardRenderer + MetricCardRenderer (preserving requireSavedReport/requireMetric ownership checks, fail-closed). DashboardService::renderCard + validateLayout delegate to the registry (unknown type still throws ValidationException). Behaviour-preserving — Phase73DashboardEditorTest + Phase50 dashboard tests must still pass unchanged. Phase74 test: registry resolves both renderers; unknown type rejected."
+    },
+    {
+      "id": "CARD-REGISTRY-2",
+      "severity": "MEDIUM",
+      "category": "CARD-REGISTRY",
+      "title": "Register renderers via the container + allowed-types contract surfaced to the editor",
+      "evidence": "The editor (Dashboards/Editor.vue create()) hard-codes the two card-type buttons; there is no single source of truth for which types exist.",
+      "remediation": "Bind DashboardCardRegistry as a singleton in a service provider, registering the renderers. DashboardController::create/edit emit the registry's allowed card-type descriptors (key, label, needs_saved_report, needs_metric) so the editor renders the add-card buttons dynamically. Phase74 test asserts the create payload lists the registered types."
+    },
+    {
+      "id": "CARD-REGISTRY-3",
+      "severity": "LOW",
+      "category": "CARD-REGISTRY",
+      "title": "Registry docs + card-type metrics gauge",
+      "evidence": "No operator doc for adding a card type; no visibility into render failures per type.",
+      "remediation": "docs/runbooks/reports.md gains a 'Dashboard card types' section (the renderer contract + how to add one). report_render_failure_count increment already exists in buildPayload; add a {card_type} label so failures attribute per type. Phase74 surface asserts the doc section + the registry class list."
+    },
+    {
+      "id": "CARD-TYPES-1",
+      "severity": "HIGH",
+      "category": "CARD-TYPES",
+      "title": "KPI tile card (single big-number metric, no table)",
+      "evidence": "The metric card always shows count + average; there is no compact single-value KPI tile (the most-wanted dashboard primitive).",
+      "remediation": "KpiCardRenderer (type='kpi'): bound to a metric_slug + saved_report_id like metric, but renders ONE aggregate (configurable agg: sum|avg|min|max|count over the metric values), returns {value, unit, label, agg}. Reuses MetricFormulaService::evaluate per row then aggregates. Ownership-validated via the registry. KpiCard.vue tile. Phase74 test: kpi card computes the chosen aggregate; cross-tenant metric_slug rejected."
+    },
+    {
+      "id": "CARD-TYPES-2",
+      "severity": "MEDIUM",
+      "category": "CARD-TYPES",
+      "title": "Chart card (bar chart from a saved report's label+value columns)",
+      "evidence": "Cards can only show tables or a metric number; landlords want a visual chart. No chart dependency is needed (the app already hand-rolls SVG/div bar charts in ReportsTab).",
+      "remediation": "ChartCardRenderer (type='chart'): bound to saved_report_id + a label_field + value_field (both validated against the report's returned columns); returns up to N (cap 50) {label, value} points. ChartCard.vue renders a div/SVG bar chart (no new dependency, matches ReportsTab style). Fail-closed if the fields aren't in the report output. Phase74 test: chart card returns capped points; unknown field rejected."
+    },
+    {
+      "id": "CARD-TYPES-3",
+      "severity": "LOW",
+      "category": "CARD-TYPES",
+      "title": "Text/note card (static markdown-ish copy)",
+      "evidence": "No way to add a heading/explanatory note between data cards.",
+      "remediation": "TextCardRenderer (type='text'): no data source, just a sanitized title + body (length-capped, HTML-escaped at render). TextCard.vue. Validation requires non-empty body. Phase74 test: text card persists + renders escaped; oversize body rejected."
+    },
+    {
+      "id": "DASH-SHARE-1",
+      "severity": "HIGH",
+      "category": "DASH-SHARE",
+      "title": "DashboardShare model + signed public view (reuse the report-share pattern)",
+      "evidence": "Phase 73 shipped report-share signed URLs but dashboards have no shareable link; a landlord cannot send a read-only dashboard to an accountant/owner.",
+      "remediation": "Mirror ReportShare EXACTLY: dashboard_shares table (landlord_id, landlord_dashboard_id, expires_at, revoked_at?, last_viewed_at?, view_count) + DashboardShare model (TenantScope, isActive()). DashboardShareController index/store/revoke/view. Public view route is signed-gated (no auth), loads the dashboard withoutGlobalScope by share.landlord_dashboard_id+share.landlord_id (NEVER a request param), runs DashboardService::buildPayload with the share's landlord_id, renders a standalone Blade. Config drift / build failure degrades to 'unavailable' (no 500 to the public). Phase74 test: valid signature renders; tampered/expired/revoked 403; id cannot be swapped; cross-tenant store rejected."
+    },
+    {
+      "id": "DASH-SHARE-2",
+      "severity": "MEDIUM",
+      "category": "DASH-SHARE",
+      "title": "Share management UI + access trail",
+      "evidence": "Minted shares need listing, copy, revoke, and a view count.",
+      "remediation": "Dashboards/Shares.vue (mirror Reports/Shares.vue): pick a dashboard + expiry (1/7/30 days), list active/revoked with copy + revoke + view_count. view() bumps view_count + last_viewed_at + a report_share_views_count{surface=dashboard} gauge BEFORE render. Idempotent revoke. routes dashboards.shares.index/store/revoke + dashboards.share.view (public signed). Phase74 test: revoke is idempotent; foreign share 404."
+    },
+    {
+      "id": "DASH-SHARE-3",
+      "severity": "LOW",
+      "category": "DASH-SHARE",
+      "title": "Share Blade view + lang",
+      "evidence": "The public dashboard view needs a standalone, escaped, no-auth template + localised UI copy.",
+      "remediation": "resources/views/dashboards/share.blade.php (standalone escaped HTML, renders cards by type, handles a $failed unavailable state). lang reports.dashboard_share.* (en full; sw/ar [TODO]). Phase74 surface asserts the Blade file + lang keys."
+    },
+    {
+      "id": "DASH-EXPORT-1",
+      "severity": "HIGH",
+      "category": "DASH-EXPORT",
+      "title": "Dashboard PDF export (dompdf, reuse the InvoicePdfService pattern)",
+      "evidence": "barryvdh/laravel-dompdf is installed and InvoicePdfService demonstrates the pattern, but a landlord cannot export a dashboard to PDF for an owner/board pack.",
+      "remediation": "DashboardPdfService::render(LandlordDashboard): build the payload via DashboardService::buildPayload, Pdf::loadView('dashboards.pdf', ...)->setPaper('a4','landscape'). dashboards.pdf Blade renders cards (saved_report tables, metric/kpi tiles, chart as a static table fallback). DashboardController::exportPdf streams the download (landlord-owned only). throttle:pdf-render. Phase74 test: owner gets a application/pdf stream; cross-tenant 404."
+    },
+    {
+      "id": "DASH-EXPORT-2",
+      "severity": "MEDIUM",
+      "category": "DASH-EXPORT",
+      "title": "Dashboard XLSX export (one sheet per data card)",
+      "evidence": "No spreadsheet export of a dashboard's underlying data.",
+      "remediation": "DashboardController::exportXlsx → flatten each saved_report/chart card into a sheet (title=card title, columns from row keys), call XlsxExportService::writeMultiSheet, stream. Metric/kpi cards become a single-row summary sheet. Owner-only. Phase74 test: returns the xlsx mime + a sheet per data card."
+    },
+    {
+      "id": "DASH-EXPORT-3",
+      "severity": "LOW",
+      "category": "DASH-EXPORT",
+      "title": "Export buttons + lang on the dashboard show page",
+      "evidence": "The export endpoints need UI affordances.",
+      "remediation": "Dashboards/Show.vue gains PDF + XLSX export buttons (window.location to the routes) + an export dropdown. lang reports.dashboards.export_pdf/export_xlsx. Phase74 surface asserts the routes + lang keys + Show.vue tokens."
+    },
+    {
+      "id": "CROSS-BUILDING-1",
+      "severity": "HIGH",
+      "category": "CROSS-BUILDING",
+      "title": "Persist the main dashboard's all-buildings scope (currently query-time only)",
+      "evidence": "DashboardService::getCrossBuildingMetricsContext exists but the all-buildings view is only reachable via a ?building_id=all query param — the preference is not persisted, so the landlord re-toggles every visit.",
+      "remediation": "Persist a dashboard_scope preference ('active_building' | 'all_buildings') on the landlord's main_dashboard LandlordDashboard row (reuse DashboardPreferenceController/the existing main_dashboard slug row; store under a scope key, NOT a new table). DashboardController::landlord reads it (query param still overrides for one-off). DashboardPreferenceController::updateScope. Phase74 test: setting all_buildings persists + the next dashboard load aggregates across buildings; query param overrides."
+    },
+    {
+      "id": "CROSS-BUILDING-2",
+      "severity": "MEDIUM",
+      "category": "CROSS-BUILDING",
+      "title": "Scope toggle UI on the main dashboard",
+      "evidence": "No persistent UI control to switch active-building vs all-buildings.",
+      "remediation": "Dashboard.vue gains a scope toggle (Active building / All buildings) that POSTs the preference then reloads; reflects the persisted value on mount. Hidden for single-building landlords. lang dashboard.scope.*. Phase74 surface asserts the route + lang keys + Dashboard.vue token."
+    },
+    {
+      "id": "CROSS-BUILDING-3",
+      "severity": "LOW",
+      "category": "CROSS-BUILDING",
+      "title": "All-buildings indicator + observability",
+      "evidence": "When aggregated, the user should see the scope; ops should see adoption.",
+      "remediation": "A small 'All buildings' badge in the dashboard header when aggregated. dashboard:scope-rollup not needed — instead a dashboard_all_buildings_landlords gauge emitted by an existing daily rollup (or a tiny counter on toggle). Phase74 surface asserts the gauge name in alert/metrics docs (visibility-only)."
+    },
+    {
+      "id": "CI-1",
+      "severity": "HIGH",
+      "category": "CI",
+      "title": "Phase74 cross-category surface + isolation/share behaviour suite",
+      "evidence": "The card registry, new card types, dashboard shares, exports, and cross-building scope are all security-sensitive (cross-tenant + public-share + ownership validation) and must be guarded against drift.",
+      "remediation": "Phase74DashboardDepth2SurfaceTest: tables (dashboard_shares) + columns + classes (DashboardCardRegistry + 5 renderers + DashboardShare + DashboardShareController + DashboardPdfService) + routes (dashboards.shares.*, dashboards.share.view, dashboards.export-pdf, dashboards.export-xlsx, dashboard.scope.update) + Vue tokens (KpiCard/ChartCard/TextCard/Shares/export buttons) + lang parity. Behaviour: card-registry resolves/rejects, each new card type renders + cross-tenant-rejects, dashboard-share signature valid/tampered/expired/revoked + id-swap, export owner-only, scope persists. All RefreshDatabase + actingAs."
+    },
+    {
+      "id": "CI-2",
+      "severity": "MEDIUM",
+      "category": "CI",
+      "title": "Reuse-not-rebuild verification + InertiaPageReachability stays green",
+      "evidence": "Phase 74 deliberately reuses the report-share signed-URL + dompdf + XlsxExportService seams and adds new Inertia pages (Dashboards/Shares); the reachability guard must stay green.",
+      "remediation": "Assert DashboardService::buildPayload remains the single render path for show + share + pdf + xlsx (no duplicate card logic); assert InertiaPageReachabilityTest still passes (new Dashboards/Shares.vue exists). Confirm DashboardShareController mirrors ReportShareController's signed-gate (share.landlord_id, never a param)."
+    },
+    {
+      "id": "CI-3",
+      "severity": "LOW",
+      "category": "CI",
+      "title": "Runbook + nav + lang closeout",
+      "evidence": "New surfaces need operator docs + navigation + localisation.",
+      "remediation": "docs/runbooks/reports.md gains Dashboard-share + Dashboard-export + Card-types + Cross-building-scope sections. The report-tool launcher (ReportsTab) / Dashboards index gains a Share entry. lang parity finalised (en full; sw/ar [TODO]). Phase74 surface asserts the runbook sections + lang keys."
+    }
+  ]
+}
