@@ -1,0 +1,172 @@
+{
+  "phase": 80,
+  "title": "CARETAKER-WORKFLOW-DEEP",
+  "opened_at": "2026-05-22",
+  "tier": 7,
+  "scope": "Deepen the caretaker workflow now that Phase 79 made the caretaker the water inputter and the hubs reachable. Scout findings: caretaker = User role=caretaker + landlord_id, assigned to buildings via buildings.caretaker_id (+ CaretakerAssignment audit pending/accepted/declined); tickets auto-assign to building.caretaker_id on creation (TicketObserver). The caretaker dashboard (DashboardService::getCaretakerDashboardData) returns actionItems + todaysTasks (top 10 open, priority-sorted) + ticketStats + unitStats + hasWaterEnabled + landlord contact, rendered in Caretaker/Dashboard.vue (responsive but not a mobile-first actionable board; tasks only LINK to tickets.show — no inline actions). Tickets have full status lifecycle (open/acknowledged/in_progress/resolved/closed/cancelled) + SLA columns (sla_due_at/first_response_at/resolution_due_at/resolved_at); caretaker can update/resolve/comment. THREE GAPS: (1) the daily-task UX is link-only, not a mobile-first board with inline status actions; (2) ESCALATION DOES NOT EXIST — no escalate action, no escalated_* columns, no event/listener, no landlord view of stuck tickets (the vendor decline→notify-landlord flow is the closest pattern); (3) NO caretaker performance analytics — VendorPerformanceService (Phase 75: within-SLA%/avg-resolution/open-overdue/cost-per-ticket, batched grouped queries keyed by vendor_id, landlord-scoped) is the EXACT template for a CaretakerPerformanceService keyed by tickets.assigned_to + water_readings.recorded_by. Goals: mobile-first daily task board with inline actions + caretaker→landlord escalation routing + landlord-side caretaker performance dashboard. Reuse: VendorPerformanceService/MaintenanceVendorPerformanceController/VendorPerformance.vue pattern; the vendor accept/decline event+listener+activity-log pattern; TicketActivity first_response_at stamping; WithLandlordScope; HubShell/nav. All landlord-scoped. selectRaw static aggregates are the accepted pattern (no user-input interpolation).",
+  "categories": ["TASK-BOARD", "ESCALATION", "ESCALATION-VIEW", "CARETAKER-PERF", "CI"],
+  "findings": [
+    {
+      "id": "TASK-BOARD-1",
+      "severity": "HIGH",
+      "category": "TASK-BOARD",
+      "title": "Mobile-first caretaker daily task board",
+      "evidence": "The caretaker's actionable surface is the dashboard todaysTasks list (DashboardService:379) which only links to tickets.show — no inline actions, not optimized as a mobile-first 'what do I do today' board. Caretakers work on phones in the field.",
+      "remediation": "NEW CaretakerTaskController::index (role:caretaker) + route tasks.index (/my-tasks) rendering Caretaker/TaskBoard.vue — a mobile-first board of the caretaker's OPEN assigned tickets grouped by urgency (overdue → urgent → today), each card showing building/unit, priority, age, and overdue (resolution_due_at < now) badge. Large tap targets, single-column on mobile. Link it from the caretaker dashboard + nav. Phase80 test: caretaker sees only their assigned open tickets; another caretaker's tickets excluded.",
+      "passes": false
+    },
+    {
+      "id": "TASK-BOARD-2",
+      "severity": "HIGH",
+      "category": "TASK-BOARD",
+      "title": "Inline status actions from the board (acknowledge / start / resolve)",
+      "evidence": "A caretaker must open each ticket to change status. On mobile in the field, inline one-tap transitions are the whole point of a task board.",
+      "remediation": "CaretakerTaskController::transition (POST /my-tasks/{ticket}/transition) — guarded assigned_to === caretaker (NOT just landlord-scoped) + valid forward transition (open→acknowledged→in_progress→resolved); reuse Ticket status + TicketActivity logging (so first_response_at stamps). Resolve accepts optional notes. Board cards carry Acknowledge/Start/Resolve buttons that POST + optimistically update. Phase80 test: forward transition works for the assignee; a non-assignee caretaker is 403; backward/invalid transition rejected.",
+      "passes": false
+    },
+    {
+      "id": "TASK-BOARD-3",
+      "severity": "MEDIUM",
+      "category": "TASK-BOARD",
+      "title": "Board surfaces water-due + escalation state",
+      "evidence": "The board should be the caretaker's single daily view: it must also surface whether water readings are due (when the water module is on) and which tickets they've already escalated (so they don't re-escalate).",
+      "remediation": "TaskBoard includes a water-record CTA when WaterModuleAccess::enabledForLandlord (links water.hub record tab) and marks tickets the caretaker has an OPEN escalation on (escalated_at set, not yet acknowledged) with an 'Escalated' chip. Phase80 test: water CTA hidden when module disabled; escalated ticket shows the chip.",
+      "passes": false
+    },
+    {
+      "id": "TASK-BOARD-4",
+      "severity": "LOW",
+      "category": "TASK-BOARD",
+      "title": "All-caught-up empty state + quick links",
+      "evidence": "An empty board should reassure, not look broken.",
+      "remediation": "Empty state ('All caught up') + quick links (record water if enabled, report issue, view all tickets). i18n keys en/sw/ar. Phase80 surface assertion.",
+      "passes": false
+    },
+    {
+      "id": "ESCALATION-1",
+      "severity": "HIGH",
+      "category": "ESCALATION",
+      "title": "Escalation schema + Ticket scope + activity types",
+      "evidence": "No escalation exists. A caretaker who is stuck has only an internal comment the landlord must happen to notice. tickets has no escalated_* columns; TicketActivity has no escalated action.",
+      "remediation": "Migration: tickets.escalated_at (nullable ts), escalated_by (nullable FK users nullOnDelete), escalation_reason (nullable text), escalation_acknowledged_at (nullable ts), escalation_acknowledged_by (nullable FK users). Ticket::scopeEscalated (escalated_at NOT NULL AND escalation_acknowledged_at NULL) + isEscalated() + casts. TicketActivity ACTION_ESCALATED + ACTION_ESCALATION_ACKNOWLEDGED constants. Phase80 test: scopeEscalated filters open escalations only.",
+      "passes": false
+    },
+    {
+      "id": "ESCALATION-2",
+      "severity": "HIGH",
+      "category": "ESCALATION",
+      "title": "TicketEscalationService + caretaker escalate action + event/listener",
+      "evidence": "No service/endpoint to escalate; no landlord notification (the vendor-decline flow is the model: clear state + log + event + notify landlord).",
+      "remediation": "App\\Services\\Maintenance\\TicketEscalationService::escalate(Ticket, User caretaker, string reason) in a transaction: guard assigned_to===caretaker + not resolved/closed/cancelled + no existing OPEN escalation (idempotent); set escalated_at/by/reason; log TicketActivity(ACTION_ESCALATED); dispatch TicketEscalated. NotifyLandlordOnTicketEscalation listener → NotificationService in-app to the landlord (+ mailable, queued). EscalateTicketRequest authorize (assigned_to===caretaker). POST /my-tasks/{ticket}/escalate (role:caretaker). Phase80 test: escalate sets columns + logs + notifies landlord; non-assignee 403; double-escalate is a no-op/blocked.",
+      "passes": false
+    },
+    {
+      "id": "ESCALATION-3",
+      "severity": "MEDIUM",
+      "category": "ESCALATION",
+      "title": "Escalation reason presets + free text + length guard",
+      "evidence": "Escalation needs a structured reason so the landlord can triage (parts needed, access denied, beyond scope, vendor needed, other).",
+      "remediation": "config maintenance.escalation_reasons presets; EscalateTicketRequest validates reason required|string|max:1000 (+ optional preset key). Board escalate modal offers presets + free text. Phase80 test: missing reason 422; over-long reason rejected.",
+      "passes": false
+    },
+    {
+      "id": "ESCALATION-4",
+      "severity": "MEDIUM",
+      "category": "ESCALATION",
+      "title": "SLA-breach auto-escalation hook (opt-in)",
+      "evidence": "Today TicketSlaBreached only notifies; a resolution-SLA breach on a caretaker-assigned ticket is exactly 'stuck' and should optionally auto-escalate so the landlord has a single escalation queue.",
+      "remediation": "Opt-in listener on TicketSlaBreached(type=resolution) → if assigned to a caretaker and not already escalated, TicketEscalationService::escalate(system, reason='sla_breach') gated by config maintenance.auto_escalate_on_sla_breach (default false). Idempotent (no duplicate). Phase80 test: with flag on, a resolution breach escalates once; flag off, no escalation.",
+      "passes": false
+    },
+    {
+      "id": "ESCALATION-5",
+      "severity": "LOW",
+      "category": "ESCALATION",
+      "title": "Escalation i18n + activity-feed rendering",
+      "evidence": "Escalation strings + the new activity types need en/sw/ar + to render in the ticket activity feed.",
+      "remediation": "lang maintenance.escalation.* (en/sw/ar curated) + the ticket activity feed renders ACTION_ESCALATED / ACTION_ESCALATION_ACKNOWLEDGED with reason + actor. Phase80 surface assertion + lang parity.",
+      "passes": false
+    },
+    {
+      "id": "ESCALATION-VIEW-1",
+      "severity": "HIGH",
+      "category": "ESCALATION-VIEW",
+      "title": "Landlord escalation queue + acknowledge/take-over",
+      "evidence": "The landlord has no way to see escalated tickets or act on them — escalation is useless without a landlord queue.",
+      "remediation": "Tickets index (landlord) gains an 'Escalated' filter/scope (Ticket::scopeEscalated) + an escalated badge/count. TicketEscalationService::acknowledge(Ticket, User landlord) sets escalation_acknowledged_at/by + logs ACTION_ESCALATION_ACKNOWLEDGED (resolving the open escalation); reassigning to another caretaker (existing tickets.assign) also clears the open escalation. POST /tickets/{ticket}/escalation/acknowledge (role:landlord). Phase80 test: landlord lists escalated; acknowledge clears it; reassign clears it.",
+      "passes": false
+    },
+    {
+      "id": "ESCALATION-VIEW-2",
+      "severity": "MEDIUM",
+      "category": "ESCALATION-VIEW",
+      "title": "Escalation badge on landlord dashboard + nav",
+      "evidence": "The landlord should notice escalations without hunting the tickets list.",
+      "remediation": "Landlord dashboard actionItem 'Escalated tickets' (count of open escalations, links to the escalated filter) + a nav badge (navBadges) on Maintenance. Count is landlord-scoped + batched. Phase80 test: count reflects open escalations only (acknowledged excluded).",
+      "passes": false
+    },
+    {
+      "id": "ESCALATION-VIEW-3",
+      "severity": "LOW",
+      "category": "ESCALATION-VIEW",
+      "title": "Escalation visible on the ticket detail",
+      "evidence": "The ticket Show page should show the open-escalation banner (reason + who + when) with an acknowledge action for the landlord.",
+      "remediation": "Tickets/Show renders an escalation banner when isEscalated() with reason/actor/age + landlord acknowledge button. Phase80 surface assertion.",
+      "passes": false
+    },
+    {
+      "id": "CARETAKER-PERF-1",
+      "severity": "HIGH",
+      "category": "CARETAKER-PERF",
+      "title": "CaretakerPerformanceService (mirror VendorPerformanceService)",
+      "evidence": "No caretaker analytics exist; the landlord can't see who is responsive/effective. All signals exist (tickets.assigned_to + first_response_at + resolved_at + resolution_due_at; water_readings.recorded_by).",
+      "remediation": "App\\Services\\Maintenance\\CaretakerPerformanceService::forLandlord(int landlordId, int windowDays=90): batched grouped queries keyed by assigned_to over the landlord's caretakers → resolved_count, within_sla / within_sla_pct (resolved_at <= resolution_due_at), avg_resolution_hours, avg_first_response_hours (first_response_at - created_at), open_count, open_overdue (breachedResolutionSla), water_readings_recorded (recorded_by, approved, in window), escalations_raised (count). Landlord-scoped; no N+1; selectRaw static aggregates. Phase80 test: metrics correct for a caretaker with mixed resolved/overdue tickets.",
+      "passes": false
+    },
+    {
+      "id": "CARETAKER-PERF-2",
+      "severity": "MEDIUM",
+      "category": "CARETAKER-PERF",
+      "title": "Landlord caretaker-performance page + route + nav",
+      "evidence": "The service needs a surface; mirror MaintenanceVendorPerformanceController + VendorPerformance.vue.",
+      "remediation": "MaintenanceCaretakerPerformanceController::index (role:landlord, WithLandlordScope, window 30/90/365) → Maintenance/CaretakerPerformance.vue (sortable table, within_sla_pct default desc, nulls as —, low-SLA highlighted) + route maintenance.caretaker-performance + a link from the Maintenance hub (and reachable per the Phase-79 nav-audit). Phase80 test: route renders with caretaker rows; nav-audit stays clean.",
+      "passes": false
+    },
+    {
+      "id": "CARETAKER-PERF-3",
+      "severity": "MEDIUM",
+      "category": "CARETAKER-PERF",
+      "title": "Weekly caretaker performance rollup gauge",
+      "evidence": "Ops needs visibility on caretaker within-SLA over time (mirrors maintenance:cost-rollup + property:benchmark-rollup).",
+      "remediation": "caretaker:performance-rollup command (weekly Sun 05:10 Africa/Nairobi, in the Sunday rollup cluster, onOneServer) emitting landlord_caretaker_within_sla_pct{landlord_id,caretaker_id} gauge — visibility-only, no alert. Phase80 test: command exits 0.",
+      "passes": false
+    },
+    {
+      "id": "CARETAKER-PERF-4",
+      "severity": "LOW",
+      "category": "CARETAKER-PERF",
+      "title": "Performance page i18n + empty state",
+      "evidence": "Strings + a no-caretakers empty state need en/sw/ar.",
+      "remediation": "lang caretaker_perf.* (en/sw/ar curated) + empty state when the landlord has no caretakers. Phase80 surface assertion + lang parity.",
+      "passes": false
+    },
+    {
+      "id": "CI-1",
+      "severity": "MEDIUM",
+      "category": "CI",
+      "title": "Phase80CaretakerWorkflowSurfaceTest consolidated watchdog",
+      "evidence": "Five categories need a single presence/behaviour map.",
+      "remediation": "Phase80CaretakerWorkflowSurfaceTest: schema (escalated_* columns), services bound (TicketEscalationService, CaretakerPerformanceService), routes registered (tasks.index, tasks.transition, tasks.escalate, tickets.escalation.acknowledge, maintenance.caretaker-performance), rollup command exits 0, nav-audit clean (new pages linked), lang parity (maintenance.escalation.*, caretaker_perf.*). ",
+      "passes": false
+    },
+    {
+      "id": "CI-2",
+      "severity": "MEDIUM",
+      "category": "CI",
+      "title": "docs/runbooks/caretaker.md + closeout + memory",
+      "evidence": "No caretaker runbook; the escalation flow + performance metrics + task board need an operator reference.",
+      "remediation": "docs/runbooks/caretaker.md (NEW): task board, escalation lifecycle (escalate → notify → acknowledge/reassign → auto-escalate flag), performance metric definitions + rollup. scripts/phase80-closeout.mjs + memory updates (phase80 plan, forward-path, pending-path, MEMORY.md).",
+      "passes": false
+    }
+  ]
+}
