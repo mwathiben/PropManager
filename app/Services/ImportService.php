@@ -14,11 +14,14 @@ use App\Models\Building;
 use App\Models\Import;
 use App\Models\Invoice;
 use App\Models\Lease;
+use App\Models\Meter;
 use App\Models\Payment;
 use App\Models\Tenant;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\WaterReading;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -56,6 +59,54 @@ class ImportService
     }
 
     /**
+     * Phase-89: dispatch parsing by file type — Excel via PhpSpreadsheet, else CSV.
+     */
+    public function parseRows(Import $import): array
+    {
+        $ext = strtolower(pathinfo($import->file_name ?? $import->file_path, PATHINFO_EXTENSION));
+
+        return in_array($ext, ['xlsx', 'xls'], true)
+            ? $this->parseSpreadsheet($import->file_path)
+            : $this->parseCSV($import->file_path);
+    }
+
+    /**
+     * Parse an .xlsx/.xls upload into the same associative-row shape as CSV
+     * (headers normalised to lowercase snake_case). Mirrors BankStatementImport.
+     */
+    public function parseSpreadsheet(string $storagePath): array
+    {
+        if (! Storage::tenant()->exists($storagePath)) {
+            throw new ImportFileException($storagePath);
+        }
+
+        $rows = \PhpOffice\PhpSpreadsheet\IOFactory::load(Storage::tenant()->path($storagePath))
+            ->getActiveSheet()
+            ->toArray();
+
+        if (empty($rows) || empty($rows[0])) {
+            throw new InvalidCsvFormatException('no headers found');
+        }
+
+        $headers = array_map(
+            fn ($h) => strtolower(trim(str_replace([' ', '-'], '_', (string) ($h ?? '')))),
+            $rows[0],
+        );
+        $columns = count($headers);
+
+        $out = [];
+        for ($i = 1, $n = count($rows); $i < $n; $i++) {
+            $row = array_pad(array_slice($rows[$i], 0, $columns), $columns, null);
+            if (count(array_filter($row, fn ($v) => $v !== null && $v !== '')) === 0) {
+                continue; // skip blank rows
+            }
+            $out[] = array_combine($headers, array_map(fn ($v) => $v === null ? '' : (string) $v, $row));
+        }
+
+        return $out;
+    }
+
+    /**
      * Process import based on type
      */
     public function processImport(Import $import): void
@@ -66,7 +117,7 @@ class ImportService
         ]);
 
         try {
-            $data = $this->parseCSV($import->file_path);
+            $data = $this->parseRows($import);
 
             $result = match ($import->type) {
                 'tenants' => $this->importTenants($data, $import->landlord_id),
@@ -258,7 +309,9 @@ class ImportService
     {
         $successful = 0;
         $failed = 0;
+        $skipped = 0;
         $errors = [];
+        $rateService = app(WaterRateService::class);
 
         foreach ($rows as $index => $row) {
             $rowNumber = $index + 2;
@@ -268,7 +321,9 @@ class ImportService
                 'reading_date' => 'required|date',
                 'previous_reading' => 'required|numeric|min:0',
                 'current_reading' => 'required|numeric|min:0',
-                'status' => 'nullable|in:pending,approved,rejected',
+                // Phase-89: optional historical values preserved as-is.
+                'consumption' => 'nullable|numeric|min:0',
+                'cost' => 'nullable|numeric|min:0',
             ]);
 
             if ($validator->fails()) {
@@ -291,16 +346,45 @@ class ImportService
                     throw new EntityNotFoundException('Unit', $row['unit_number'], 'unit_number');
                 }
 
-                // Create water reading (Observer will auto-calculate consumption and cost)
-                WaterReading::create([
+                $meter = Meter::resolveActiveForUnit($unit);
+                $readingDate = Carbon::parse($row['reading_date'])->toDateString();
+
+                // Phase-89 DEDUP: re-import is idempotent (one reading per meter+date).
+                $exists = WaterReading::where('meter_id', $meter->id)
+                    ->whereDate('reading_date', $readingDate)
+                    ->exists();
+                if ($exists) {
+                    $skipped++;
+
+                    continue;
+                }
+
+                $previous = (float) $row['previous_reading'];
+                $current = (float) $row['current_reading'];
+                $consumption = isset($row['consumption']) && $row['consumption'] !== ''
+                    ? (float) $row['consumption']
+                    : max(0, $current - $previous);
+                $cost = isset($row['cost']) && $row['cost'] !== ''
+                    ? (float) $row['cost']
+                    : round($consumption * $rateService->getEffectiveRate($unit), 2);
+
+                // withoutEvents: preserve the spreadsheet's historical consumption/cost
+                // (the observer would recompute cost with TODAY's tariff). is_invoiced=true
+                // marks it billed history so InvoiceService never re-bills it.
+                Model::withoutEvents(fn () => WaterReading::create([
                     'unit_id' => $unit->id,
+                    'meter_id' => $meter->id,
                     'landlord_id' => $landlordId,
-                    'reading_date' => $row['reading_date'],
-                    'previous_reading' => $row['previous_reading'],
-                    'current_reading' => $row['current_reading'],
-                    'status' => $row['status'] ?? 'approved', // Default to approved for historical data
+                    'reading_date' => $readingDate,
+                    'previous_reading' => $previous,
+                    'current_reading' => $current,
+                    'consumption' => $consumption,
+                    'cost' => $cost,
+                    'status' => 'approved',
+                    'is_invoiced' => true,
                     'recorded_by' => Auth::id(),
-                ]);
+                    'review_notes' => 'Imported historical reading',
+                ]));
 
                 $successful++;
             } catch (\Exception $e) {
@@ -320,6 +404,7 @@ class ImportService
             'errors' => $errors,
             'summary' => [
                 'readings_imported' => $successful,
+                'skipped_duplicates' => $skipped,
             ],
         ];
     }
@@ -594,8 +679,12 @@ class ImportService
                 'sample' => ['A101', 'john@example.com', '15000', '30000', '2024-01-01', '2024-12-31'],
             ],
             'water_readings' => [
-                'headers' => ['Unit Number', 'Reading Date', 'Previous Reading', 'Current Reading', 'Status'],
-                'sample' => ['A101', '2024-01-15', '100', '125', 'approved'],
+                // Phase-89: optional Consumption + Cost preserve historical values
+                // (omit them and they're derived: consumption=current-previous,
+                // cost=consumption*current rate). Imported readings are recorded as
+                // already-billed history and are never re-invoiced.
+                'headers' => ['Unit Number', 'Reading Date', 'Previous Reading', 'Current Reading', 'Consumption', 'Cost'],
+                'sample' => ['A101', '2024-01-15', '100', '125', '25', '3750'],
             ],
             'invoices' => [
                 'headers' => ['Unit Number', 'Invoice Number', 'Invoice Date', 'Due Date', 'Rent Charge', 'Water Charge', 'Previous Arrears', 'Status', 'Paid Amount'],

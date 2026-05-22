@@ -102,7 +102,7 @@ class ImportsController extends Controller
         $landlordId = $user->role === 'landlord' ? $user->id : $user->landlord_id;
 
         $validated = $request->validate([
-            'file' => 'required|file|mimes:csv,txt|max:10240', // 10MB max
+            'file' => 'required|file|mimes:csv,txt,xlsx,xls|max:10240', // 10MB max (Phase-89: Excel)
             'type' => 'required|string|in:tenants,leases,water_readings,invoices,payments,units',
             // PRIV-10: building/wing must belong to the caller's landlord.
             // Pre-fix, exists:buildings,id let landlord A reference any

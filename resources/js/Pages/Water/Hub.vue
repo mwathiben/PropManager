@@ -4,7 +4,7 @@ import HubShell from '@/Components/Hub/HubShell.vue';
 import HubOverview from '@/Components/Hub/HubOverview.vue';
 import { TabLoadingPlaceholder } from '@/Components/Finances';
 import { useI18n } from '@/composables/useI18n';
-import { BeakerIcon, ClipboardDocumentListIcon, ClockIcon, Cog6ToothIcon, CheckBadgeIcon, Squares2X2Icon } from '@heroicons/vue/24/outline';
+import { BeakerIcon, ClipboardDocumentListIcon, ClockIcon, Cog6ToothIcon, CheckBadgeIcon, Squares2X2Icon, ArrowUpTrayIcon } from '@heroicons/vue/24/outline';
 
 interface Props {
     activeTab?: string;
@@ -69,6 +69,8 @@ const quickLinks = computed(() => {
     // Phase-86: landlord-only meter fleet management lives on its own page.
     if (props.canSettings) {
         links.push({ label: t('meter.title'), href: route('meters.index'), icon: BeakerIcon });
+        // Phase-89: import historical readings from a spreadsheet.
+        links.push({ label: t('water.import_history'), href: route('imports.index'), icon: ArrowUpTrayIcon });
     }
     return links;
 });

@@ -9,6 +9,7 @@ declare(strict_types=1);
 return [
     'module_disabled' => 'Bili ya maji haijawashwa. Weka gharama za maji katika mipangilio ya maji ya jengo ili kutumia kitovu cha maji.',
     'reading_failed' => 'Usomaji huu haukuweza kuhifadhiwa. Tafadhali jaribu tena.',
+    'import_history' => 'Ingiza historia',
     'review' => [
         'spike' => 'Ongezeko la kushtua',
         'spike_hint' => 'Matumizi ni juu zaidi ya wastani wa hivi karibuni wa mita hii — thibitisha kabla ya kuidhinisha.',
