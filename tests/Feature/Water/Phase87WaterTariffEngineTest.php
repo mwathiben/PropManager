@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Water;
 
 use App\Models\Invoice;
+use App\Models\PaymentConfiguration;
 use App\Models\User;
 use App\Models\WaterReading;
 use App\Services\InvoiceService;
@@ -175,5 +176,30 @@ class Phase87WaterTariffEngineTest extends TestCase
 
         // No extras configured => water_due equals the raw reading sum.
         $this->assertEquals(1500, (float) Invoice::find($invoice->id)->water_due);
+    }
+
+    // --- CONFIG -----------------------------------------------------------
+
+    public function test_landlord_persists_tiered_bands_levies_and_source(): void
+    {
+        $this->actingAs($this->landlord->fresh())
+            ->put(route('water.settings.update'), [
+                'water_billing_type' => 'consumption',
+                'water_unit_rate' => 150,
+                'tiered_tariffs' => [
+                    ['from' => 0, 'to' => 10, 'rate' => 50],
+                    ['from' => 10, 'to' => null, 'rate' => 70],
+                ],
+                'water_standing_charge' => 100,
+                'water_sewerage_percent' => 10,
+                'water_source' => 'borehole',
+            ])
+            ->assertRedirect();
+
+        $config = PaymentConfiguration::where('landlord_id', $this->landlord->id)->firstOrFail();
+        $this->assertEquals(100, (float) $config->water_standing_charge);
+        $this->assertEquals(10, (float) $config->water_sewerage_percent);
+        $this->assertSame('borehole', $config->water_source);
+        $this->assertCount(2, $config->tiered_tariffs);
     }
 }

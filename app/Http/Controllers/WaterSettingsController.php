@@ -53,6 +53,13 @@ class WaterSettingsController extends Controller
                 'water_billing_type' => $validated['water_billing_type'],
                 'water_unit_rate' => $validated['water_unit_rate'] ?? $defaultRate,
                 'flat_water_rate' => $validated['flat_water_rate'] ?? 0,
+                // Phase-87 tariff depth (global defaults).
+                'tiered_tariffs' => ! empty($validated['tiered_tariffs']) ? $validated['tiered_tariffs'] : null,
+                'water_standing_charge' => $validated['water_standing_charge'] ?? null,
+                'water_minimum_charge' => $validated['water_minimum_charge'] ?? null,
+                'water_sewerage_percent' => $validated['water_sewerage_percent'] ?? null,
+                'water_vat_percent' => $validated['water_vat_percent'] ?? null,
+                'water_source' => $validated['water_source'] ?? null,
             ]
         );
 
@@ -70,12 +77,23 @@ class WaterSettingsController extends Controller
                             'water_billing_type' => null,
                             'water_unit_rate' => null,
                             'water_flat_rate' => null,
+                            'water_standing_charge' => null,
+                            'water_minimum_charge' => null,
+                            'water_sewerage_percent' => null,
+                            'water_vat_percent' => null,
+                            'water_source' => null,
                         ]);
                     } else {
                         $building->update([
                             'water_billing_type' => $billingType,
                             'water_unit_rate' => $override['water_unit_rate'] ?? null,
                             'water_flat_rate' => $override['water_flat_rate'] ?? null,
+                            // Phase-87 per-building tariff-depth overrides (null = inherit global).
+                            'water_standing_charge' => $override['water_standing_charge'] ?? null,
+                            'water_minimum_charge' => $override['water_minimum_charge'] ?? null,
+                            'water_sewerage_percent' => $override['water_sewerage_percent'] ?? null,
+                            'water_vat_percent' => $override['water_vat_percent'] ?? null,
+                            'water_source' => $override['water_source'] ?? null,
                         ]);
                     }
                 }

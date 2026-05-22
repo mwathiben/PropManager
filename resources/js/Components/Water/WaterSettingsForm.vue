@@ -2,15 +2,17 @@
 /**
  * Canonical water-settings editor — the single source of truth for water billing
  * config (global PaymentConfiguration defaults + per-building overrides, which
- * WaterRateService actually bills from). Rendered identically by both the
- * standalone /water/settings page AND the Water hub's Settings tab so the two
+ * WaterRateService / WaterTariffService bill from). Rendered identically by both
+ * the standalone /water/settings page AND the Water hub's Settings tab so the two
  * surfaces can never drift. Posts to water.settings.update.
  */
 import { onMounted, nextTick } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { useCurrency } from '@/composables';
-import { Cog6ToothIcon, BeakerIcon, HomeModernIcon, CheckIcon } from '@heroicons/vue/24/outline';
+import { Cog6ToothIcon, BeakerIcon, HomeModernIcon, CheckIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline';
 import EmptyState from '@/Components/EmptyState.vue';
+
+interface Band { from: number | string; to: number | string | null; rate: number | string }
 
 interface BuildingRow {
     id: number;
@@ -19,11 +21,28 @@ interface BuildingRow {
     water_billing_type?: string | null;
     water_unit_rate?: number | string | null;
     water_flat_rate?: number | string | null;
+    water_standing_charge?: number | string | null;
+    water_minimum_charge?: number | string | null;
+    water_sewerage_percent?: number | string | null;
+    water_vat_percent?: number | string | null;
+    water_source?: string | null;
+}
+
+interface GlobalSettings {
+    water_billing_type?: string;
+    water_unit_rate?: number | string;
+    flat_water_rate?: number | string;
+    tiered_tariffs?: Band[];
+    water_standing_charge?: number | string | null;
+    water_minimum_charge?: number | string | null;
+    water_sewerage_percent?: number | string | null;
+    water_vat_percent?: number | string | null;
+    water_source?: string | null;
 }
 
 const props = withDefaults(defineProps<{
     buildings: BuildingRow[];
-    globalSettings: { water_billing_type?: string; water_unit_rate?: number | string; flat_water_rate?: number | string };
+    globalSettings: GlobalSettings;
     highlightBuildingId?: number | null;
 }>(), {
     highlightBuildingId: null,
@@ -35,11 +54,22 @@ const form = useForm({
     water_billing_type: props.globalSettings.water_billing_type || 'consumption',
     water_unit_rate: props.globalSettings.water_unit_rate || '',
     flat_water_rate: props.globalSettings.flat_water_rate || 0,
+    tiered_tariffs: (props.globalSettings.tiered_tariffs || []).map((b) => ({ from: b.from, to: b.to ?? '', rate: b.rate })),
+    water_standing_charge: props.globalSettings.water_standing_charge ?? '',
+    water_minimum_charge: props.globalSettings.water_minimum_charge ?? '',
+    water_sewerage_percent: props.globalSettings.water_sewerage_percent ?? '',
+    water_vat_percent: props.globalSettings.water_vat_percent ?? '',
+    water_source: props.globalSettings.water_source ?? '',
     building_overrides: props.buildings.map((b) => ({
         id: b.id,
         water_billing_type: b.water_billing_type || 'inherit',
         water_unit_rate: b.water_unit_rate || '',
         water_flat_rate: b.water_flat_rate || '',
+        water_standing_charge: b.water_standing_charge ?? '',
+        water_minimum_charge: b.water_minimum_charge ?? '',
+        water_sewerage_percent: b.water_sewerage_percent ?? '',
+        water_vat_percent: b.water_vat_percent ?? '',
+        water_source: b.water_source ?? '',
     })),
 });
 
@@ -50,7 +80,11 @@ const submit = () => {
 const getBuildingOverrideIndex = (buildingId: number) =>
     form.building_overrides.findIndex((b) => b.id === buildingId);
 
-// Deep-link from a building page scrolls to + highlights that building's row.
+const addBand = () => form.tiered_tariffs.push({ from: 0, to: '', rate: 0 });
+const removeBand = (i: number) => form.tiered_tariffs.splice(i, 1);
+
+const sourceOptions = ['borehole', 'county', 'mixed'];
+
 onMounted(async () => {
     if (props.highlightBuildingId) {
         await nextTick();
@@ -114,6 +148,59 @@ onMounted(async () => {
                     <p v-if="form.errors.flat_water_rate" class="mt-1 text-sm text-red-600">{{ form.errors.flat_water_rate }}</p>
                 </div>
             </div>
+
+            <!-- Phase-87: tiered bands (consumption only) -->
+            <div v-if="form.water_billing_type === 'consumption'" class="mt-6 border-t border-gray-100 pt-6">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm font-medium text-gray-700">{{ $t('water.settings.tiers_title') }}</label>
+                    <button type="button" class="inline-flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800" @click="addBand">
+                        <PlusIcon class="w-4 h-4" /> {{ $t('water.settings.tiers_add') }}
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500 mb-3">{{ $t('water.settings.tiers_hint') }}</p>
+                <div v-for="(band, i) in form.tiered_tariffs" :key="i" class="flex flex-wrap items-end gap-3 mb-2">
+                    <label class="block text-xs">
+                        <span class="text-gray-600">{{ $t('water.settings.tier_from') }}</span>
+                        <input v-model="band.from" type="number" min="0" step="0.01" class="mt-1 w-28 border-gray-300 rounded-md text-sm" />
+                    </label>
+                    <label class="block text-xs">
+                        <span class="text-gray-600">{{ $t('water.settings.tier_to') }}</span>
+                        <input v-model="band.to" type="number" min="0" step="0.01" class="mt-1 w-28 border-gray-300 rounded-md text-sm" :placeholder="$t('water.settings.tier_open')" />
+                    </label>
+                    <label class="block text-xs">
+                        <span class="text-gray-600">{{ $t('water.settings.tier_rate') }} ({{ currencyCode }})</span>
+                        <input v-model="band.rate" type="number" min="0" step="0.01" class="mt-1 w-28 border-gray-300 rounded-md text-sm" />
+                    </label>
+                    <button type="button" class="p-2 text-red-500 hover:text-red-700" @click="removeBand(i)"><TrashIcon class="w-4 h-4" /></button>
+                </div>
+            </div>
+
+            <!-- Phase-87: levies + source (all billing types except none) -->
+            <div v-if="form.water_billing_type !== 'none'" class="mt-6 border-t border-gray-100 pt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <label class="block text-sm">
+                    <span class="text-gray-700">{{ $t('water.settings.standing_charge') }} ({{ currencyCode }})</span>
+                    <input v-model="form.water_standing_charge" type="number" min="0" step="0.01" class="mt-1 w-full border-gray-300 rounded-md" />
+                </label>
+                <label class="block text-sm">
+                    <span class="text-gray-700">{{ $t('water.settings.minimum_charge') }} ({{ currencyCode }})</span>
+                    <input v-model="form.water_minimum_charge" type="number" min="0" step="0.01" class="mt-1 w-full border-gray-300 rounded-md" />
+                </label>
+                <label class="block text-sm">
+                    <span class="text-gray-700">{{ $t('water.settings.sewerage_percent') }} (%)</span>
+                    <input v-model="form.water_sewerage_percent" type="number" min="0" max="100" step="0.01" class="mt-1 w-full border-gray-300 rounded-md" />
+                </label>
+                <label class="block text-sm">
+                    <span class="text-gray-700">{{ $t('water.settings.vat_percent') }} (%)</span>
+                    <input v-model="form.water_vat_percent" type="number" min="0" max="100" step="0.01" class="mt-1 w-full border-gray-300 rounded-md" />
+                </label>
+                <label class="block text-sm">
+                    <span class="text-gray-700">{{ $t('water.settings.water_source') }}</span>
+                    <select v-model="form.water_source" class="mt-1 w-full border-gray-300 rounded-md">
+                        <option value="">{{ $t('water.settings.source_unset') }}</option>
+                        <option v-for="s in sourceOptions" :key="s" :value="s">{{ $t(`water.settings.source_${s}`) }}</option>
+                    </select>
+                </label>
+            </div>
         </div>
 
         <!-- Per-Building Overrides -->
@@ -170,6 +257,28 @@ onMounted(async () => {
                             type="number" min="0" step="0.01"
                             class="w-48 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                             :placeholder="String(form.flat_water_rate || '500')" />
+                    </div>
+
+                    <!-- Phase-87: per-building levy + source overrides (blank = inherit global) -->
+                    <div
+                        v-if="['consumption', 'flat_rate'].includes(form.building_overrides[getBuildingOverrideIndex(building.id)].water_billing_type)"
+                        class="mt-3 ps-4 border-s-2 border-indigo-200 grid grid-cols-2 md:grid-cols-3 gap-3"
+                    >
+                        <label class="block text-xs">
+                            <span class="text-gray-600">{{ $t('water.settings.standing_charge') }}</span>
+                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_standing_charge" type="number" min="0" step="0.01" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water.settings.inherit_placeholder')" />
+                        </label>
+                        <label class="block text-xs">
+                            <span class="text-gray-600">{{ $t('water.settings.sewerage_percent') }} (%)</span>
+                            <input v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_sewerage_percent" type="number" min="0" max="100" step="0.01" class="mt-1 w-full border-gray-300 rounded-md text-sm" :placeholder="$t('water.settings.inherit_placeholder')" />
+                        </label>
+                        <label class="block text-xs">
+                            <span class="text-gray-600">{{ $t('water.settings.water_source') }}</span>
+                            <select v-model="form.building_overrides[getBuildingOverrideIndex(building.id)].water_source" class="mt-1 w-full border-gray-300 rounded-md text-sm">
+                                <option value="">{{ $t('water.settings.source_inherit') }}</option>
+                                <option v-for="s in sourceOptions" :key="s" :value="s">{{ $t(`water.settings.source_${s}`) }}</option>
+                            </select>
+                        </label>
                     </div>
                 </div>
             </div>
